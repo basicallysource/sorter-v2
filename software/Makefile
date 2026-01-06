@@ -1,6 +1,22 @@
+PYTHON := /opt/homebrew/opt/python@3.11/bin/python3.11
+
+install:
+	$(PYTHON) -m pip install -r client/requirements.txt
+	cd ui && npm install
+
 run:
-	python client/main.py & cd ui && npm run dev
+	$(PYTHON) client/main.py & cd ui && npm run dev
 upload:
 	mpremote cp firmware/feeder/main.py :main.py
 format:
 	ruff format client
+check:
+	pyright client
+generate:
+	@echo "Starting FastAPI server..."
+	@$(PYTHON) client/main.py & echo $$! > .api.pid
+	@sleep 2
+	@echo "Generating TypeScript types..."
+	@cd ui && npx openapi-typescript http://localhost:8000/openapi.json -o src/lib/api.ts
+	@kill $$(cat .api.pid) && rm .api.pid
+	@echo "Types generated in ui/src/lib/api.ts"

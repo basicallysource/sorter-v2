@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+#lib/
 lib64/
 parts/
 sdist/
@@ -72,3 +72,9 @@ venv.bak/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated files
+#.api.pid
+#merge on purpose
+#ui/src/lib/api/rest.ts
+#ui/src/lib/api/events.ts

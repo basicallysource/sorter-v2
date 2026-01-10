@@ -3,6 +3,7 @@ from server.api import app, broadcastEvent
 from sorter_controller import SorterController
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from irl.config import mkIRLConfig, mkIRLInterface
 import uvicorn
 import threading
 import queue
@@ -34,7 +35,9 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     gc = mkGlobalConfig()
-    controller = SorterController()
+    irl_config = mkIRLConfig()
+    irl = mkIRLInterface(irl_config, gc)
+    controller = SorterController(irl)
     gc.logger.info("client starting...")
 
     server_thread = threading.Thread(target=runServer, daemon=True)
@@ -62,6 +65,8 @@ def main() -> None:
             )
             main_to_server_queue.put(heartbeat)
             last_heartbeat = current_time
+
+        controller.step()
 
         time.sleep(gc.timeouts.main_loop_sleep)
 

@@ -39,6 +39,10 @@ void processCommand(String cmd) {
       int pin = args.substring(0, secondComma).toInt();
       int mode = args.substring(secondComma + 1).toInt();
       pinMode(pin, mode == 1 ? OUTPUT : INPUT);
+      Serial.print("Pin ");
+      Serial.print(pin);
+      Serial.print(" mode set to ");
+      Serial.println(mode == 1 ? "OUTPUT" : "INPUT");
       break;
     }
 
@@ -47,6 +51,10 @@ void processCommand(String cmd) {
       int pin = args.substring(0, secondComma).toInt();
       int value = args.substring(secondComma + 1).toInt();
       digitalWrite(pin, value == 1 ? HIGH : LOW);
+      Serial.print("Digital pin ");
+      Serial.print(pin);
+      Serial.print(" set to ");
+      Serial.println(value == 1 ? "HIGH" : "LOW");
       break;
     }
 
@@ -55,6 +63,10 @@ void processCommand(String cmd) {
       int pin = args.substring(0, secondComma).toInt();
       int value = args.substring(secondComma + 1).toInt();
       analogWrite(pin, value);
+      Serial.print("PWM pin ");
+      Serial.print(pin);
+      Serial.print(" set to ");
+      Serial.println(value);
       break;
     }
   }

@@ -3,9 +3,9 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 import time
 
-SECOND_MOTOR_PULSE_MS = 500
-PAUSE_BETWEEN_PULSES_MS = 500
-THIRD_MOTOR_PULSE_MS = 500
+SECOND_MOTOR_PULSE_MS = 1000
+PAUSE_BETWEEN_PULSES_MS = 1000
+THIRD_MOTOR_PULSE_MS = 1000
 
 
 class SorterController:
@@ -40,3 +40,5 @@ class SorterController:
         time.sleep(THIRD_MOTOR_PULSE_MS / 1000.0)
         self.irl.third_v_channel_dc_motor.setSpeed(0)
         logger.info("Third motor pulse complete")
+
+        time.sleep(PAUSE_BETWEEN_PULSES_MS / 1000.0)

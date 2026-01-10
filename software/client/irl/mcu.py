@@ -70,6 +70,8 @@ class MCU:
                         parts = line.split(",")
                         if len(parts) > 0 and parts[0] in self.callbacks:
                             self.callbacks[parts[0]](parts[1:])
+                        else:
+                            self.gc.logger.info(f"Arduino: {line}")
             except Exception as e:
                 if self.running:
                     self.gc.logger.error(f"Error reading from MCU: {e}")

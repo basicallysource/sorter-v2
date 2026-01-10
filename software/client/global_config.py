@@ -17,9 +17,9 @@ class DefaultMotorSpeeds:
     third_v_channel: int
 
     def __init__(self):
-        self.first_v_channel = 250
-        self.second_v_channel = 250
-        self.third_v_channel = 250
+        self.first_v_channel = 50
+        self.second_v_channel = -140
+        self.third_v_channel = -140
 
 
 class GlobalConfig:

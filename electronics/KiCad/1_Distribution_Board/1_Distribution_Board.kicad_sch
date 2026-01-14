@@ -4729,26 +4729,6 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 135.89) (xy 57.15 135.89)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5e217594-f2f8-41cc-a532-15f80905b3cf")
-	)
-	(wire
-		(pts
-			(xy 41.91 133.35) (xy 57.15 133.35)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5eeb0883-1d3a-4bd4-b37f-548b20e1d0da")
-	)
-	(wire
-		(pts
 			(xy 260.35 121.92) (xy 250.19 121.92)
 		)
 		(stroke
@@ -5554,16 +5534,6 @@
 		)
 		(uuid "a78503fb-82be-4c6e-93db-c56a681bc0bf")
 	)
-	(label "UART1_RX"
-		(at 46.99 135.89 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a899b580-95c2-4245-80b8-e75769e6ca95")
-	)
 	(label "SPI1_TX"
 		(at 71.12 113.03 0)
 		(effects
@@ -5657,16 +5627,6 @@
 			(justify left bottom)
 		)
 		(uuid "bf6c98fc-2cae-4f3f-b6bd-3a0fba7f4753")
-	)
-	(label "UART1_TX"
-		(at 46.99 133.35 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "c9214034-f165-40a9-9bfb-9cd31108d9fe")
 	)
 	(label "I2C0_SCL"
 		(at 91.44 77.47 0)
@@ -6275,7 +6235,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "51c2bb92-4dd7-4f3a-a4eb-8e6c38be88cb")
 		(property "Reference" "Q5"
@@ -8060,7 +8020,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "7")
+					(page "4")
 				)
 			)
 		)
@@ -8173,115 +8133,13 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "4")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 20.32 125.73)
-		(size 21.59 20.32)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "7a81bf56-9828-47ce-b6fd-5fd75f3eacd5")
-		(property "Sheetname" "Stepper Module1"
-			(at 20.32 125.0184 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "0_Adapter_Board_02.kicad_sch"
-			(at 20.32 146.3796 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(pin "DIR" input
-			(at 41.91 142.24 0)
-			(uuid "531a7dd2-c696-4a1e-b5d8-adc47055d217")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "SPREAD" input
-			(at 41.91 144.78 0)
-			(uuid "277a554b-c828-452f-a5f4-7f2a6046abcd")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "STEP" input
-			(at 41.91 139.7 0)
-			(uuid "be4a576f-70c7-413d-9695-aac098bd2ccd")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_RX" input
-			(at 41.91 133.35 0)
-			(uuid "b75ab34e-bad4-43c8-a954-d37ba00522c5")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_TX" output
-			(at 41.91 135.89 0)
-			(uuid "9479bfa8-9406-4f92-afb9-60a0fad7ad32")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "~{EN}" input
-			(at 41.91 128.27 0)
-			(uuid "335198a2-ed0c-4108-b09f-a11413c580fe")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
 					(page "3")
 				)
 			)
 		)
 	)
 	(sheet
-		(at 20.221 152.4)
+		(at 20.221 125.73)
 		(size 21.5 24.938)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8297,7 +8155,7 @@
 		)
 		(uuid "aa124a9b-4ca6-4e8b-864b-f6c7e5891937")
 		(property "Sheetname" "Hall_Switch_LED"
-			(at 20.221 151.6884 0)
+			(at 20.221 125.0184 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8306,7 +8164,7 @@
 			)
 		)
 		(property "Sheetfile" "Level_Shifters.kicad_sch"
-			(at 20.221 177.9226 0)
+			(at 20.221 151.2526 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8315,7 +8173,7 @@
 			)
 		)
 		(pin "HALL_SW_0" output
-			(at 41.721 165.608 0)
+			(at 41.721 138.938 0)
 			(uuid "7b553bce-0798-4463-8a1c-eddf200f9d57")
 			(effects
 				(font
@@ -8325,7 +8183,7 @@
 			)
 		)
 		(pin "HALL_SW_1" output
-			(at 41.721 168.148 0)
+			(at 41.721 141.478 0)
 			(uuid "cffc9a1c-2ee2-47c6-9a61-d708dce8c359")
 			(effects
 				(font
@@ -8335,7 +8193,7 @@
 			)
 		)
 		(pin "HALL_SW_2" output
-			(at 41.721 170.688 0)
+			(at 41.721 144.018 0)
 			(uuid "5ae121a1-be88-4e13-8e9a-b97542839817")
 			(effects
 				(font
@@ -8345,7 +8203,7 @@
 			)
 		)
 		(pin "HALL_SW_3" output
-			(at 41.721 173.228 0)
+			(at 41.721 146.558 0)
 			(uuid "39c30448-b5a3-4ed5-9b85-2bcac21b77e5")
 			(effects
 				(font
@@ -8355,7 +8213,7 @@
 			)
 		)
 		(pin "LED1" input
-			(at 41.721 156.21 0)
+			(at 41.721 129.54 0)
 			(uuid "f8b64da7-05f5-42d1-962f-7f2f27d3dfa6")
 			(effects
 				(font
@@ -8365,7 +8223,7 @@
 			)
 		)
 		(pin "LED2" input
-			(at 41.721 158.75 0)
+			(at 41.721 132.08 0)
 			(uuid "bb03dcf0-3cb7-49ab-9675-8703e21bfe6d")
 			(effects
 				(font

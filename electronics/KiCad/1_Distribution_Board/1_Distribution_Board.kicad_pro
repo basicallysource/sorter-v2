@@ -619,12 +619,12 @@
       "Stepper Module"
     ],
     [
-      "7a81bf56-9828-47ce-b6fd-5fd75f3eacd5",
-      "Stepper Module1"
-    ],
-    [
       "6afb3c5f-c712-4230-bfac-30dcc87f4845",
       "DC Motor Control_0"
+    ],
+    [
+      "406ed9e9-c014-4ad1-b5c7-3c59cc994d52",
+      "DC Motor Control_1"
     ],
     [
       "2a814bde-fdd3-4544-8ef3-93abf8dc02be",
@@ -633,10 +633,6 @@
     [
       "aa124a9b-4ca6-4e8b-864b-f6c7e5891937",
       "Hall_Switch_LED"
-    ],
-    [
-      "406ed9e9-c014-4ad1-b5c7-3c59cc994d52",
-      "DC Motor Control_1"
     ]
   ],
   "text_variables": {}

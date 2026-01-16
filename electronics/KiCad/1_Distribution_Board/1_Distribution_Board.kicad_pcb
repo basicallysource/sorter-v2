@@ -190,7 +190,7 @@
 	(footprint "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
 		(layer "F.Cu")
 		(uuid "0b6fadbc-6b15-44c2-8ff3-ceabd62ba10f")
-		(at 56.154698 145.78)
+		(at 164.79 69.41)
 		(descr "CP, Radial series, Radial, pin pitch=2.50mm, diameter=8mm, height=10mm, Electrolytic Capacitor")
 		(tags "CP Radial series Radial pin pitch 2.50mm diameter 8mm height 10mm Electrolytic Capacitor")
 		(property "Reference" "C19"
@@ -2551,7 +2551,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "2680fc95-7f09-4bc3-b1c5-318d7ed20ac8")
-		(at 91.08 113.95)
+		(at 168.16 44)
 		(descr "Through hole straight pin header, 1x01, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x01 2.54mm single row")
 		(property "Reference" "DIAG_1"
@@ -2764,7 +2764,7 @@
 	(footprint "Connector_BarrelJack:BarrelJack_CUI_PJ-063AH_Horizontal_CircularHoles"
 		(layer "F.Cu")
 		(uuid "2826614e-06c5-45fd-ae50-79f4ee7b142d")
-		(at 55.22 125.98)
+		(at 36.605 33.27)
 		(descr "Barrel Jack, 2.0mm ID, 5.5mm OD, 24V, 8A, no switch, https://www.cui.com/product/resource/pj-063ah.pdf")
 		(tags "barrel jack cui dc power")
 		(property "Reference" "J3"
@@ -3080,7 +3080,7 @@
 	(footprint "Connector_JST:JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical"
 		(layer "F.Cu")
 		(uuid "2a511626-b44a-434f-b637-d2dfca7657f0")
-		(at 142.33 129.56)
+		(at 157.42 144.647)
 		(descr "JST XA series connector, B10B-XASK-1-A (https://www.jst.com/wp-content/uploads/2021/01/eXA1.pdf), generated with kicad-footprint-generator")
 		(tags "connector JST XA vertical boss")
 		(property "Reference" "J6"
@@ -3659,7 +3659,7 @@
 	(footprint "Module:Pololu_Breakout-16_15.2x20.3mm"
 		(layer "F.Cu")
 		(uuid "2f27c583-4a16-4391-9fbd-15701a20e8b8")
-		(at 37.7 143.05)
+		(at 186.67 69.05)
 		(descr "Pololu Breakout 16-pin 15.2x20.3mm 0.6x0.8")
 		(tags "Pololu Breakout")
 		(property "Reference" "A5"
@@ -4186,7 +4186,7 @@
 	(footprint "815:MODULE_815"
 		(layer "F.Cu")
 		(uuid "357d9f2d-f69e-4d58-870f-edb9ce0b04c5")
-		(at 165.07 106.23)
+		(at 180.16 121.317)
 		(property "Reference" "A2"
 			(at -28.19 -14.585 0)
 			(layer "F.SilkS")
@@ -5388,7 +5388,7 @@
 	(footprint "Package_TO_SOT_THT:TO-92_Inline"
 		(layer "F.Cu")
 		(uuid "3ae36bfe-2eef-433c-b44d-0ad2c7a848fb")
-		(at 81.03 136.47)
+		(at 246.25 102.83)
 		(descr "TO-92 leads in-line, narrow, oval pads, drill 0.75mm (see NXP sot054_po.pdf)")
 		(tags "to-92 sc-43 sc-43a sot54 PA33 transistor")
 		(property "Reference" "Q4"
@@ -5608,7 +5608,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "3cbc427c-4a88-46b4-acc4-29c308ac8168")
-		(at 91.08 123.13)
+		(at 168.16 53.18)
 		(descr "Through hole straight pin header, 1x01, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x01 2.54mm single row")
 		(property "Reference" "PDN_1"
@@ -6057,7 +6057,7 @@
 	(footprint "Connector_BarrelJack:BarrelJack_CUI_PJ-063AH_Horizontal_CircularHoles"
 		(layer "F.Cu")
 		(uuid "47189f6b-2490-4a6b-82c5-2d85dd81bde5")
-		(at 69.77 125.98)
+		(at 267.98 52.49)
 		(descr "Barrel Jack, 2.0mm ID, 5.5mm OD, 24V, 8A, no switch, https://www.cui.com/product/resource/pj-063ah.pdf")
 		(tags "barrel jack cui dc power")
 		(property "Reference" "J12"
@@ -6373,7 +6373,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "6076c881-b9f7-4e12-a5b1-41ec2209298e")
-		(at 91.08 118.54)
+		(at 168.16 48.59)
 		(descr "Through hole straight pin header, 1x01, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x01 2.54mm single row")
 		(property "Reference" "INDX_1"
@@ -6586,7 +6586,7 @@
 	(footprint "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
 		(layer "F.Cu")
 		(uuid "64a04816-d8d3-4b4f-80d9-dd5f4e752a8b")
-		(at 82.02 107.83)
+		(at 219.66 82.72)
 		(descr "JST PH series connector, B4B-PH-K (http://www.jst-mfg.com/product/pdf/eng/ePH.pdf), generated with kicad-footprint-generator")
 		(tags "connector JST PH vertical")
 		(property "Reference" "J7"
@@ -7055,7 +7055,7 @@
 	(footprint "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
 		(layer "F.Cu")
 		(uuid "8179d25a-1a09-45ca-bc1c-502e79c19043")
-		(at 257.78 117.39)
+		(at 116.46 37.94)
 		(descr "JST PH series connector, B4B-PH-K (http://www.jst-mfg.com/product/pdf/eng/ePH.pdf), generated with kicad-footprint-generator")
 		(tags "connector JST PH vertical")
 		(property "Reference" "J2"
@@ -7610,7 +7610,7 @@
 	(footprint "Module:Pololu_Breakout-16_15.2x20.3mm"
 		(layer "F.Cu")
 		(uuid "8adc5658-a5cb-4d4d-b3a5-d49ef1652381")
-		(at 66.23 143.05)
+		(at 185.43 45.03)
 		(descr "Pololu Breakout 16-pin 15.2x20.3mm 0.6x0.8")
 		(tags "Pololu Breakout")
 		(property "Reference" "A6"
@@ -8137,7 +8137,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "8bc951c6-b237-4d3a-9dbd-33d4e019d28e")
-		(at 173.8 26.03)
+		(at 226.27 29.075)
 		(descr "Through hole straight pin header, 1x02, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x02 2.54mm single row")
 		(property "Reference" "J1"
@@ -13098,7 +13098,7 @@
 	(footprint "Package_TO_SOT_THT:TO-92_Inline"
 		(layer "F.Cu")
 		(uuid "9f4b2fed-19e9-4ab4-99dc-dae2010da9d9")
-		(at 81.03 130.68)
+		(at 246.25 97.04)
 		(descr "TO-92 leads in-line, narrow, oval pads, drill 0.75mm (see NXP sot054_po.pdf)")
 		(tags "to-92 sc-43 sc-43a sot54 PA33 transistor")
 		(property "Reference" "Q1"
@@ -13318,7 +13318,7 @@
 	(footprint "TMC2209_SILENTSTEPSTICK:MODULE_TMC2209_SILENTSTEPSTICK"
 		(layer "F.Cu")
 		(uuid "aa2edea1-c512-48ed-bcd1-c38aca144e0b")
-		(at 232.63 93.37)
+		(at 143.93 37.94)
 		(property "Reference" "A2"
 			(at -5.075 -11.155 0)
 			(layer "F.SilkS")
@@ -13887,7 +13887,7 @@
 	(footprint "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
 		(layer "F.Cu")
 		(uuid "aa90ea6f-8fa2-4f81-808a-aadefcfb19b7")
-		(at 84.684698 145.78)
+		(at 165.19 86.64)
 		(descr "CP, Radial series, Radial, pin pitch=2.50mm, diameter=8mm, height=10mm, Electrolytic Capacitor")
 		(tags "CP Radial series Radial pin pitch 2.50mm diameter 8mm height 10mm Electrolytic Capacitor")
 		(property "Reference" "C20"
@@ -15612,7 +15612,7 @@
 	(footprint "Package_TO_SOT_SMD:SOT-23"
 		(layer "F.Cu")
 		(uuid "bca40e45-2fa0-4a8d-84ac-70e5633d1ec7")
-		(at 99.75 143.23)
+		(at 68.0775 59.39)
 		(descr "SOT, 3 Pin (JEDEC TO-236 Var AB https://www.jedec.org/document_search?search_api_views_fulltext=TO-236), generated with kicad-footprint-generator ipc_gullwing_generator.py")
 		(tags "SOT TO_SOT_SMD")
 		(property "Reference" "Q5"
@@ -15977,7 +15977,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "bd0a6a89-adf8-4d14-b9de-c1425d12c170")
-		(at 95 143.3)
+		(at 226.77 128.22)
 		(descr "Through hole straight pin header, 1x06, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x06 2.54mm single row")
 		(property "Reference" "J19"
@@ -16245,7 +16245,7 @@
 	(footprint "Connector_JST:JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical"
 		(layer "F.Cu")
 		(uuid "d7189820-254c-42ce-8317-233db6e7f2e8")
-		(at 114.82 120.33)
+		(at 194.78 142.337)
 		(descr "JST XA series connector, B04B-XASK-1-A (https://www.jst.com/wp-content/uploads/2021/01/eXA1.pdf), generated with kicad-footprint-generator")
 		(tags "connector JST XA vertical boss")
 		(property "Reference" "J5"
@@ -16260,7 +16260,7 @@
 			)
 		)
 		(property "Value" "Conn_01x04"
-			(at 3.75 4.4 0)
+			(at 3.75 3.7 0)
 			(layer "F.Fab")
 			(uuid "096ffb34-1491-4254-beb1-e9cc6c604156")
 			(effects
@@ -16677,7 +16677,7 @@
 	(footprint "Connector_JST:JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical"
 		(layer "F.Cu")
 		(uuid "d7667abb-9d95-48ab-a806-1a6ecee92efd")
-		(at 63.02 109.33)
+		(at 254.05 33.48)
 		(descr "JST XA series connector, B04B-XASK-1-A (https://www.jst.com/wp-content/uploads/2021/01/eXA1.pdf), generated with kicad-footprint-generator")
 		(tags "connector JST XA vertical boss")
 		(property "Reference" "J5"
@@ -16692,7 +16692,7 @@
 			)
 		)
 		(property "Value" "Conn_01x04"
-			(at 3.75 4.4 0)
+			(at 3.75 3.7 0)
 			(layer "F.Fab")
 			(uuid "85f703c9-9eee-46ed-a1b8-206011cae0ac")
 			(effects
@@ -17052,7 +17052,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "dd703f2b-5b30-42f6-bf99-547f824a78f4")
-		(at 178.39 26.03)
+		(at 218.74 26.03)
 		(descr "Through hole straight pin header, 1x02, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x02 2.54mm single row")
 		(property "Reference" "J7"
@@ -17304,7 +17304,7 @@
 	(footprint "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
 		(layer "F.Cu")
 		(uuid "e043ef40-d6b2-418c-8a7e-70ee1f9a7692")
-		(at 95.67 113.95)
+		(at 217.6 63.52)
 		(descr "Through hole straight pin header, 1x04, 2.54mm pitch, single row")
 		(tags "Through hole pin header THT 1x04 2.54mm single row")
 		(property "Reference" "J8"
@@ -17319,7 +17319,7 @@
 			)
 		)
 		(property "Value" "Generic 2.54mm"
-			(at 0 10 0)
+			(at 1.77 0.88 0)
 			(layer "F.Fab")
 			(uuid "4d3fb5ec-9505-47b6-bdd7-aa97092947f4")
 			(effects
@@ -17550,7 +17550,7 @@
 	(footprint "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
 		(layer "F.Cu")
 		(uuid "ee0a6d0c-6a23-4760-95d2-11151f0d7df0")
-		(at 82.764698 116.43)
+		(at 140.24 62.29)
 		(descr "CP, Radial series, Radial, pin pitch=2.50mm, diameter=8mm, height=10mm, Electrolytic Capacitor")
 		(tags "CP Radial series Radial pin pitch 2.50mm diameter 8mm height 10mm Electrolytic Capacitor")
 		(property "Reference" "C13"

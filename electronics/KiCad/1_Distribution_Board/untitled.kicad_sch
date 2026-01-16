@@ -1348,7 +1348,7 @@
 		(uuid "32e5d17c-8124-4452-9bb6-48ce03b34789")
 	)
 	(junction
-		(at 160.02 78.74)
+		(at 170.18 78.74)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e6cdd9af-e5e1-4c05-b55f-bc3d4ab46cae")
@@ -1365,7 +1365,7 @@
 	)
 	(wire
 		(pts
-			(xy 160.02 78.74) (xy 160.02 83.82)
+			(xy 170.18 78.74) (xy 170.18 83.82)
 		)
 		(stroke
 			(width 0)
@@ -1375,7 +1375,7 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 83.82) (xy 120.65 83.82)
+			(xy 129.54 83.82) (xy 118.11 83.82)
 		)
 		(stroke
 			(width 0)
@@ -1392,16 +1392,6 @@
 			(type default)
 		)
 		(uuid "1fc5db34-36b9-4ed4-8fe4-7cde1836786e")
-	)
-	(wire
-		(pts
-			(xy 158.75 83.82) (xy 160.02 83.82)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "20787aa5-935e-4cd3-a9f6-0e7ef59cc389")
 	)
 	(wire
 		(pts
@@ -1455,7 +1445,7 @@
 	)
 	(wire
 		(pts
-			(xy 160.02 78.74) (xy 167.64 78.74)
+			(xy 170.18 78.74) (xy 177.8 78.74)
 		)
 		(stroke
 			(width 0)
@@ -1475,7 +1465,17 @@
 	)
 	(wire
 		(pts
-			(xy 160.02 77.47) (xy 160.02 78.74)
+			(xy 162.56 83.82) (xy 170.18 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "74517f70-3b7c-4b77-83be-76d17defbf53")
+	)
+	(wire
+		(pts
+			(xy 170.18 77.47) (xy 170.18 78.74)
 		)
 		(stroke
 			(width 0)
@@ -1485,7 +1485,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 77.47) (xy 120.65 83.82)
+			(xy 118.11 77.47) (xy 118.11 83.82)
 		)
 		(stroke
 			(width 0)
@@ -1555,7 +1555,7 @@
 	)
 	(wire
 		(pts
-			(xy 147.32 83.82) (xy 151.13 83.82)
+			(xy 147.32 83.82) (xy 154.94 83.82)
 		)
 		(stroke
 			(width 0)
@@ -4517,7 +4517,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 165.1 95.25 0)
 			(effects
 				(font
@@ -4571,10 +4571,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "25102a0f-e777-4741-8ae4-909bb9d12bca")
 		(property "Reference" "A6"
-			(at 137.16 76.2 0)
+			(at 137.414 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4582,7 +4581,7 @@
 			)
 		)
 		(property "Value" "Pololu_Breakout_TB6612FNG"
-			(at 137.16 78.74 0)
+			(at 136.144 79.502 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4804,7 +4803,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 120.65 77.47 0)
+		(at 118.11 77.47 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4813,7 +4812,7 @@
 		(fields_autoplaced yes)
 		(uuid "4c113884-1dd2-44b5-9dfc-b1e3cf78bd38")
 		(property "Reference" "#PWR068"
-			(at 120.65 81.28 0)
+			(at 118.11 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4822,7 +4821,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 120.65 72.39 0)
+			(at 118.11 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4830,7 +4829,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 120.65 77.47 0)
+			(at 118.11 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4839,7 +4838,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 120.65 77.47 0)
+			(at 118.11 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4848,7 +4847,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 120.65 77.47 0)
+			(at 118.11 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4874,7 +4873,7 @@
 	)
 	(symbol
 		(lib_id "power:+12V")
-		(at 160.02 77.47 0)
+		(at 170.18 77.47 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4883,7 +4882,7 @@
 		(fields_autoplaced yes)
 		(uuid "50fdd644-4b0f-4ee2-8dca-c7a25cbe993a")
 		(property "Reference" "#PWR071"
-			(at 160.02 81.28 0)
+			(at 170.18 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4892,7 +4891,7 @@
 			)
 		)
 		(property "Value" "+12V"
-			(at 160.02 72.39 0)
+			(at 170.18 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4900,7 +4899,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 160.02 77.47 0)
+			(at 170.18 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4909,7 +4908,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 160.02 77.47 0)
+			(at 170.18 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4918,7 +4917,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+12V\""
-			(at 160.02 77.47 0)
+			(at 170.18 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4944,7 +4943,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Polarized_US")
-		(at 167.64 82.55 0)
+		(at 177.8 82.55 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4953,7 +4952,7 @@
 		(fields_autoplaced yes)
 		(uuid "57cbda5a-7f9b-4818-8297-5f14de8ca4a8")
 		(property "Reference" "C20"
-			(at 171.45 80.6449 0)
+			(at 181.61 80.6449 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4962,7 +4961,7 @@
 			)
 		)
 		(property "Value" "100uF"
-			(at 171.45 83.1849 0)
+			(at 181.61 83.1849 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4971,7 +4970,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 167.64 82.55 0)
+			(at 177.8 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4980,7 +4979,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 167.64 82.55 0)
+			(at 177.8 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4989,7 +4988,7 @@
 			)
 		)
 		(property "Description" "Polarized capacitor, US symbol"
-			(at 167.64 82.55 0)
+			(at 177.8 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5044,7 +5043,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 165.1 104.14 0)
 			(effects
 				(font
@@ -5092,32 +5091,31 @@
 	)
 	(symbol
 		(lib_id "Device:Polyfuse")
-		(at 154.94 83.82 90)
+		(at 158.75 83.82 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "b157cb72-bad0-467b-ae4a-f538296d041e")
 		(property "Reference" "F4"
-			(at 154.94 77.47 90)
+			(at 158.75 77.47 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "TBD"
-			(at 154.94 80.01 90)
+		(property "Value" "1812L150/24MR"
+			(at 158.75 80.264 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" ""
-			(at 160.02 82.55 0)
+		(property "Footprint" "Fuse:Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder"
+			(at 163.83 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5126,8 +5124,8 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
-			(at 154.94 83.82 0)
+		(property "Datasheet" "https://jlcpcb.com/api/file/downloadByFileSystemAccessId/8588941741143019520"
+			(at 158.75 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5136,7 +5134,16 @@
 			)
 		)
 		(property "Description" "Resettable fuse, polymeric positive temperature coefficient"
-			(at 154.94 83.82 0)
+			(at 158.75 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCPCB Part #" "C142805"
+			(at 158.75 83.82 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5165,7 +5172,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 167.64 86.36 0)
+		(at 177.8 86.36 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5174,7 +5181,7 @@
 		(fields_autoplaced yes)
 		(uuid "fa263607-3120-4d05-bc53-5ea8eae9418e")
 		(property "Reference" "#PWR097"
-			(at 167.64 92.71 0)
+			(at 177.8 92.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5183,7 +5190,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 167.64 91.44 0)
+			(at 177.8 91.44 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5192,7 +5199,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 167.64 86.36 0)
+			(at 177.8 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5201,7 +5208,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 167.64 86.36 0)
+			(at 177.8 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5210,7 +5217,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 167.64 86.36 0)
+			(at 177.8 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)

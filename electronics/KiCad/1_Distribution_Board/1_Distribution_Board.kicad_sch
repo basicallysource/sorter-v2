@@ -6526,7 +6526,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
 			(at 211.836 75.184 90)
 			(effects
 				(font
@@ -6848,7 +6848,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
 			(at 224.536 75.184 90)
 			(effects
 				(font
@@ -7299,7 +7299,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "PCM_SparkFun-Semiconductor-Standard:SOD-123"
 			(at 127 43.18 0)
 			(effects
 				(font
@@ -7726,7 +7726,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
 			(at 219.456 30.734 90)
 			(effects
 				(font

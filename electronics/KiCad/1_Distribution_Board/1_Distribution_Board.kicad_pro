@@ -633,6 +633,14 @@
     [
       "aa124a9b-4ca6-4e8b-864b-f6c7e5891937",
       "Hall_Switch_LED"
+    ],
+    [
+      "7a480abb-9b9a-47ac-a44b-24d5185d46e0",
+      "Stepper Module1"
+    ],
+    [
+      "ec0756a4-872d-4fc6-b758-9ad2624703a8",
+      "Stepper Module2"
     ]
   ],
   "text_variables": {}

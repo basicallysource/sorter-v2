@@ -1,7 +1,10 @@
-from typing import Optional
+from typing import Optional, List
+import base64
+import cv2
 
 from global_config import GlobalConfig
 from irl.config import IRLConfig
+from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from .camera import CaptureThread
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult
@@ -108,3 +111,45 @@ class VisionManager:
         elif camera_name == "classification_top":
             return self.classification_top_result
         return None
+
+    def _encodeFrame(self, frame) -> str:
+        _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        return base64.b64encode(buffer).decode("utf-8")
+
+    def getFrameEvent(self, camera_name: CameraName) -> Optional[FrameEvent]:
+        frame = self.getFrame(camera_name.value)
+        if frame is None:
+            return None
+
+        result_data = None
+        if frame.result:
+            result_data = FrameResultData(
+                class_id=frame.result.class_id,
+                class_name=frame.result.class_name,
+                confidence=frame.result.confidence,
+                bbox=frame.result.bbox,
+            )
+
+        raw_b64 = self._encodeFrame(frame.raw)
+        annotated_b64 = (
+            self._encodeFrame(frame.annotated) if frame.annotated is not None else None
+        )
+
+        return FrameEvent(
+            tag="frame",
+            data=FrameData(
+                camera=camera_name,
+                timestamp=frame.timestamp,
+                raw=raw_b64,
+                annotated=annotated_b64,
+                result=result_data,
+            ),
+        )
+
+    def getAllFrameEvents(self) -> List[FrameEvent]:
+        events = []
+        for camera in CameraName:
+            event = self.getFrameEvent(camera)
+            if event:
+                events.append(event)
+        return events

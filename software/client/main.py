@@ -13,6 +13,7 @@ import asyncio
 import sys
 
 SHUTDOWN_MOTOR_STOP_DELAY_MS = 100
+FRAME_BROADCAST_INTERVAL_MS = 100
 
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
@@ -29,7 +30,8 @@ def runBroadcaster(gc: GlobalConfig) -> None:
     while True:
         try:
             command = main_to_server_queue.get(block=False)
-            gc.logger.info(f"broadcasting {command.tag} event")
+            if command.tag != "frame":
+                gc.logger.info(f"broadcasting {command.tag} event")
             loop.run_until_complete(broadcastEvent(command.model_dump()))
         except queue.Empty:
             pass
@@ -56,6 +58,7 @@ def main() -> None:
     broadcaster_thread.start()
 
     last_heartbeat = time.time()
+    last_frame_broadcast = time.time()
 
     try:
         while True:
@@ -65,8 +68,9 @@ def main() -> None:
             except queue.Empty:
                 pass
 
-            # send periodic heartbeat
             current_time = time.time()
+
+            # send periodic heartbeat
             if (
                 current_time - last_heartbeat
                 >= gc.timeouts.heartbeat_interval_ms / 1000.0
@@ -76,6 +80,15 @@ def main() -> None:
                 )
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
+
+            # broadcast camera frames
+            if (
+                current_time - last_frame_broadcast
+                >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
+            ):
+                for frame_event in vision.getAllFrameEvents():
+                    main_to_server_queue.put(frame_event)
+                last_frame_broadcast = current_time
 
             controller.step()
 

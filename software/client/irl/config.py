@@ -86,8 +86,8 @@ def mkDCMotorConfig(
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
     irl_config.mc_path = "/dev/cu.usbserial-1420"
-    irl_config.feeder_camera = mkCameraConfig(device_index=0)
-    irl_config.classification_camera_bottom = mkCameraConfig(device_index=1)
+    irl_config.feeder_camera = mkCameraConfig(device_index=1)
+    irl_config.classification_camera_bottom = mkCameraConfig(device_index=3)
     irl_config.classification_camera_top = mkCameraConfig(device_index=2)
     irl_config.first_v_channel_dc_motor = mkDCMotorConfig(
         enable_pin=9, input_1_pin=12, input_2_pin=13

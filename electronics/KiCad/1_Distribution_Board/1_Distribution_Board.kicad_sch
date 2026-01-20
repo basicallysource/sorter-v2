@@ -8415,7 +8415,7 @@
 			)
 		)
 		(pin "HALL_SW_0" output
-			(at 41.82 97.663 0)
+			(at 41.91 97.663 0)
 			(uuid "7b553bce-0798-4463-8a1c-eddf200f9d57")
 			(effects
 				(font
@@ -8425,7 +8425,7 @@
 			)
 		)
 		(pin "HALL_SW_1" output
-			(at 41.82 100.203 0)
+			(at 41.91 100.203 0)
 			(uuid "cffc9a1c-2ee2-47c6-9a61-d708dce8c359")
 			(effects
 				(font
@@ -8435,7 +8435,7 @@
 			)
 		)
 		(pin "HALL_SW_2" output
-			(at 41.82 102.743 0)
+			(at 41.91 102.743 0)
 			(uuid "5ae121a1-be88-4e13-8e9a-b97542839817")
 			(effects
 				(font
@@ -8445,7 +8445,7 @@
 			)
 		)
 		(pin "HALL_SW_3" output
-			(at 41.82 105.283 0)
+			(at 41.91 105.283 0)
 			(uuid "39c30448-b5a3-4ed5-9b85-2bcac21b77e5")
 			(effects
 				(font
@@ -8455,7 +8455,7 @@
 			)
 		)
 		(pin "LED1" input
-			(at 41.82 88.265 0)
+			(at 41.91 88.265 0)
 			(uuid "f8b64da7-05f5-42d1-962f-7f2f27d3dfa6")
 			(effects
 				(font
@@ -8465,7 +8465,7 @@
 			)
 		)
 		(pin "LED2" input
-			(at 41.82 90.805 0)
+			(at 41.91 90.805 0)
 			(uuid "bb03dcf0-3cb7-49ab-9675-8703e21bfe6d")
 			(effects
 				(font

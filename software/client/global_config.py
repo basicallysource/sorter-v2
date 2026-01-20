@@ -27,6 +27,8 @@ class GlobalConfig:
     debug_level: int
     timeouts: Timeouts
     default_motor_speeds: DefaultMotorSpeeds
+    classification_chamber_vision_model_path: str
+    feeder_vision_model_path: str
 
     def __init__(self):
         self.debug_level = 0
@@ -48,4 +50,6 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.logger = Logger(gc.debug_level)
     gc.timeouts = mkTimeouts()
     gc.default_motor_speeds = mkDefaultMotorSpeeds()
+    gc.classification_chamber_vision_model_path = "/Users/spencer/code/yolo-trainer/checkpoints/run_1768603978_416_small_100epochs_20batch_data/weights/last.pt"
+    gc.feeder_vision_model_path = ""
     return gc

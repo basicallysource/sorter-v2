@@ -2,14 +2,16 @@ from defs.sorter_controller import SorterLifecycle
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from coordinator import Coordinator
+from vision import VisionManager
 
 
 class SorterController:
-    def __init__(self, irl: IRLInterface, gc: GlobalConfig):
+    def __init__(self, irl: IRLInterface, gc: GlobalConfig, vision: VisionManager):
         self.state = SorterLifecycle.INITIALIZING
         self.irl = irl
         self.gc = gc
-        self.coordinator = Coordinator(irl, gc)
+        self.vision = vision
+        self.coordinator = Coordinator(irl, gc, vision)
 
     def start(self) -> None:
         self.state = SorterLifecycle.RUNNING

@@ -4,6 +4,7 @@ from sorter_controller import SorterController
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from irl.config import mkIRLConfig, mkIRLInterface
+from vision import VisionManager
 import uvicorn
 import threading
 import queue
@@ -40,8 +41,11 @@ def main() -> None:
     gc = mkGlobalConfig()
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
-    controller = SorterController(irl, gc)
+    vision = VisionManager(irl_config, gc)
+    controller = SorterController(irl, gc, vision)
     gc.logger.info("client starting...")
+
+    vision.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()
@@ -78,6 +82,8 @@ def main() -> None:
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
         gc.logger.info("Shutting down...")
+
+        vision.stop()
 
         # Clear any pending motor commands
         while not irl.mcu.command_queue.empty():

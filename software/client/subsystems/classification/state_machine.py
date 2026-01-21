@@ -9,7 +9,6 @@ from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision import VisionManager
-from classification import BrickognizeClient
 
 
 class ClassificationStateMachine(BaseSubsystem):
@@ -27,7 +26,6 @@ class ClassificationStateMachine(BaseSubsystem):
         self.shared = shared
         self.vision = vision
         self.carousel = Carousel(gc.logger)
-        self.brickognize = BrickognizeClient(gc)
         self.current_state = ClassificationState.IDLE
 
         self.states_map = {
@@ -39,7 +37,7 @@ class ClassificationStateMachine(BaseSubsystem):
                 irl, gc, shared, self.carousel, irl.carousel_stepper
             ),
             ClassificationState.SNAPPING: Snapping(
-                irl, gc, shared, self.carousel, vision, self.brickognize
+                irl, gc, shared, self.carousel, vision
             ),
         }
 

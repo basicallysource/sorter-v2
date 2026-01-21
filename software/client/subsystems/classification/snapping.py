@@ -8,13 +8,13 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
+import classification
 
 if TYPE_CHECKING:
     from vision import VisionManager
-    from classification import BrickognizeClient
 
 SNAP_DIR = "/tmp/sorter_snaps"
-SNAP_DELAY_MS = 200
+SNAP_DELAY_MS = 2000
 
 
 class Snapping(BaseState):
@@ -25,13 +25,11 @@ class Snapping(BaseState):
         shared: SharedVariables,
         carousel: Carousel,
         vision: "VisionManager",
-        brickognize: "BrickognizeClient",
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.carousel = carousel
         self.vision = vision
-        self.brickognize = brickognize
         self.start_time: Optional[float] = None
         self.snapped = False
 
@@ -59,15 +57,25 @@ class Snapping(BaseState):
             return
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
-        if top_frame is None or bottom_frame is None:
-            self.logger.warn("Snapping: camera frames not available")
+        top_crop, bottom_crop = self.vision.getClassificationCrops()
+        if top_crop is None or bottom_crop is None:
+            self.logger.warn("Snapping: no object detected in classification frames")
             return
 
         os.makedirs(SNAP_DIR, exist_ok=True)
-        top_path = os.path.join(SNAP_DIR, f"{piece.uuid}_top.jpg")
-        bottom_path = os.path.join(SNAP_DIR, f"{piece.uuid}_bottom.jpg")
-        cv2.imwrite(top_path, top_frame.raw)
-        cv2.imwrite(bottom_path, bottom_frame.raw)
+        if top_frame:
+            cv2.imwrite(
+                os.path.join(SNAP_DIR, f"{piece.uuid}_top_full.jpg"), top_frame.raw
+            )
+        if bottom_frame:
+            cv2.imwrite(
+                os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_full.jpg"),
+                bottom_frame.raw,
+            )
+        cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)
+        cv2.imwrite(
+            os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_crop.jpg"), bottom_crop
+        )
         self.logger.info(f"Snapping: saved {piece.uuid[:8]} to {SNAP_DIR}")
 
         self.carousel.markPendingClassification(piece)
@@ -76,7 +84,7 @@ class Snapping(BaseState):
             self.carousel.resolveClassification(piece.uuid, part_id or "unknown")
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id}")
 
-        self.brickognize.classify(top_frame.raw, bottom_frame.raw, onResult)
+        classification.classify(self.gc, top_crop, bottom_crop, onResult)
 
     def cleanup(self) -> None:
         super().cleanup()

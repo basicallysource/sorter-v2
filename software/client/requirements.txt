@@ -3,3 +3,7 @@ uvicorn
 websockets
 pyright
 pydantic-to-typescript
+requests
+pillow
+numpy
+opencv-python

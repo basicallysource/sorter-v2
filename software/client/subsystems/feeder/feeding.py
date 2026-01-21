@@ -28,6 +28,7 @@ class Feeding(BaseState):
         self.irl.third_v_channel_dc_motor.setSpeed(0)
 
     def _executionLoop(self) -> None:
+        return
         self.logger.info("Feeder: starting second motor pulse")
         self.irl.second_v_channel_dc_motor.setSpeed(
             self.gc.default_motor_speeds.second_v_channel

@@ -1,3 +1,3 @@
-from .brickognize import BrickognizeClient
+from .brickognize import classify
 
-__all__ = ["BrickognizeClient"]
+__all__ = ["classify"]

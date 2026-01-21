@@ -135,8 +135,8 @@ class VisionManager:
     ) -> Tuple[Optional[CameraFrame], Optional[CameraFrame]]:
         start_time = time.time()
         while time.time() - start_time < timeout_s:
-            top = self._classification_top_capture.latest_frame
-            bottom = self._classification_bottom_capture.latest_frame
+            top = self._classification_top_binding.latest_annotated_frame
+            bottom = self._classification_bottom_binding.latest_annotated_frame
             if (
                 top
                 and bottom
@@ -146,9 +146,49 @@ class VisionManager:
                 return (top, bottom)
             time.sleep(0.05)
         return (
-            self._classification_top_capture.latest_frame,
-            self._classification_bottom_capture.latest_frame,
+            self._classification_top_binding.latest_annotated_frame,
+            self._classification_bottom_binding.latest_annotated_frame,
         )
+
+    def getClassificationCrops(
+        self, timeout_s: float = 1.0
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
+        top_crop = self._extractLargestObjectCrop(
+            top_frame, self._classification_top_binding.latest_raw_results
+        )
+        bottom_crop = self._extractLargestObjectCrop(
+            bottom_frame, self._classification_bottom_binding.latest_raw_results
+        )
+        return (top_crop, bottom_crop)
+
+    def _extractLargestObjectCrop(
+        self, frame: Optional[CameraFrame], raw_results
+    ) -> Optional[np.ndarray]:
+        if frame is None or raw_results is None or len(raw_results) == 0:
+            return None
+
+        boxes = raw_results[0].boxes
+        if boxes is None or len(boxes) == 0:
+            return None
+
+        best_box = None
+        best_area = 0
+        for box in boxes:
+            class_id = int(box.cls[0])
+            if class_id != 0:
+                continue
+            xyxy = box.xyxy[0].tolist()
+            area = (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1])
+            if area > best_area:
+                best_area = area
+                best_box = xyxy
+
+        if best_box is None:
+            return None
+
+        x1, y1, x2, y2 = map(int, best_box)
+        return frame.raw[y1:y2, x1:x2]
 
     def _encodeFrame(self, frame) -> str:
         _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])

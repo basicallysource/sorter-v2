@@ -58,9 +58,6 @@ class Snapping(BaseState):
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
         top_crop, bottom_crop = self.vision.getClassificationCrops()
-        if top_crop is None or bottom_crop is None:
-            self.logger.warn("Snapping: no object detected in classification frames")
-            return
 
         os.makedirs(SNAP_DIR, exist_ok=True)
         if top_frame:
@@ -72,6 +69,11 @@ class Snapping(BaseState):
                 os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_full.jpg"),
                 bottom_frame.raw,
             )
+
+        if top_crop is None or bottom_crop is None:
+            self.logger.warn("Snapping: no object detected in classification frames")
+            return
+
         cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)
         cv2.imwrite(
             os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_crop.jpg"), bottom_crop

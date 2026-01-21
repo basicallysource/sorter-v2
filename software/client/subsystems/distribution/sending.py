@@ -5,14 +5,22 @@ from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
 from irl.config import IRLInterface
 from global_config import GlobalConfig
+from sorting_profile import SortingProfile
 
 SEND_DURATION_MS = 500
 
 
 class Sending(BaseState):
-    def __init__(self, irl: IRLInterface, gc: GlobalConfig, shared: SharedVariables):
+    def __init__(
+        self,
+        irl: IRLInterface,
+        gc: GlobalConfig,
+        shared: SharedVariables,
+        sorting_profile: SortingProfile,
+    ):
         super().__init__(irl, gc)
         self.shared = shared
+        self.sorting_profile = sorting_profile
         self.sequence_complete = False
 
     def step(self) -> Optional[DistributionState]:

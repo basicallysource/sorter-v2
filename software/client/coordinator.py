@@ -7,6 +7,7 @@ from subsystems import (
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision import VisionManager
+from sorting_profile import SortingProfile
 
 
 class Coordinator:
@@ -16,8 +17,11 @@ class Coordinator:
         self.logger = gc.logger
         self.vision = vision
         self.shared = SharedVariables()
+        self.sorting_profile = SortingProfile()
 
-        self.distribution = DistributionStateMachine(irl, gc, self.shared)
+        self.distribution = DistributionStateMachine(
+            irl, gc, self.shared, self.sorting_profile
+        )
         self.classification = ClassificationStateMachine(irl, gc, self.shared, vision)
         self.feeder = FeederStateMachine(irl, gc, self.shared)
 

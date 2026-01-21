@@ -5,19 +5,27 @@ from .idle import Idle
 from .sending import Sending
 from irl.config import IRLInterface
 from global_config import GlobalConfig
+from sorting_profile import SortingProfile
 
 
 class DistributionStateMachine(BaseSubsystem):
-    def __init__(self, irl: IRLInterface, gc: GlobalConfig, shared: SharedVariables):
+    def __init__(
+        self,
+        irl: IRLInterface,
+        gc: GlobalConfig,
+        shared: SharedVariables,
+        sorting_profile: SortingProfile,
+    ):
         super().__init__()
         self.irl = irl
         self.gc = gc
         self.logger = gc.logger
         self.shared = shared
+        self.sorting_profile = sorting_profile
         self.current_state = DistributionState.IDLE
         self.states_map = {
             DistributionState.IDLE: Idle(irl, gc, shared),
-            DistributionState.SENDING: Sending(irl, gc, shared),
+            DistributionState.SENDING: Sending(irl, gc, shared, sorting_profile),
         }
 
     def step(self) -> None:

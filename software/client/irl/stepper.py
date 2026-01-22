@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 STEPS_PER_REV = 200
 DEFAULT_MICROSTEPPING = 8  # 1600 steps/rev total
-BASE_DELAY_US = 1000
+BASE_DELAY_US = 100
 
 
 class Stepper:

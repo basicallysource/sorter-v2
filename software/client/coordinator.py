@@ -10,7 +10,7 @@ from subsystems import (
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision import VisionManager
-from sorting_profile import SortingProfile
+from sorting_profile import BrickLinkCategories
 from blob_manager import getBinCategories
 
 
@@ -21,7 +21,7 @@ class Coordinator:
         self.logger = gc.logger
         self.vision = vision
         self.shared = SharedVariables()
-        self.sorting_profile = SortingProfile()
+        self.sorting_profile = BrickLinkCategories()
         self.distribution_layout = mkDefaultLayout()
 
         saved_categories = getBinCategories()

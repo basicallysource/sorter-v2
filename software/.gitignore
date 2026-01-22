@@ -81,3 +81,5 @@ Thumbs.db
 
 # Persistent data
 client/data.json
+
+client/every_part_bl_api_res.json

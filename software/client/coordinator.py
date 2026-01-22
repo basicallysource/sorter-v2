@@ -4,11 +4,14 @@ from subsystems import (
     ClassificationStateMachine,
     DistributionStateMachine,
     mkDefaultLayout,
+    layoutMatchesCategories,
+    applyCategories,
 )
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision import VisionManager
 from sorting_profile import SortingProfile
+from blob_manager import getBinCategories
 
 
 class Coordinator:
@@ -20,6 +23,14 @@ class Coordinator:
         self.shared = SharedVariables()
         self.sorting_profile = SortingProfile()
         self.distribution_layout = mkDefaultLayout()
+
+        saved_categories = getBinCategories()
+        if saved_categories is not None:
+            if layoutMatchesCategories(self.distribution_layout, saved_categories):
+                applyCategories(self.distribution_layout, saved_categories)
+                self.logger.info("Loaded bin categories from storage")
+            else:
+                self.logger.warn("Saved bin categories don't match layout, ignoring")
 
         self.distribution = DistributionStateMachine(
             irl, gc, self.shared, self.sorting_profile, self.distribution_layout

@@ -37,3 +37,27 @@ def getMachineId() -> str:
     data["machine_id"] = machine_id
     saveData(data)
     return machine_id
+
+
+def getStepperPosition(name: str) -> int:
+    data = loadData()
+    return data.get("stepper_positions", {}).get(name, 0)
+
+
+def setStepperPosition(name: str, position_steps: int) -> None:
+    data = loadData()
+    if "stepper_positions" not in data:
+        data["stepper_positions"] = {}
+    data["stepper_positions"][name] = position_steps
+    saveData(data)
+
+
+def getBinCategories() -> list[list[list[str | None]]] | None:
+    data = loadData()
+    return data.get("bin_categories")
+
+
+def setBinCategories(categories: list[list[list[str | None]]]) -> None:
+    data = loadData()
+    data["bin_categories"] = categories
+    saveData(data)

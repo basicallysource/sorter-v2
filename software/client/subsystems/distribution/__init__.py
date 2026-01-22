@@ -7,5 +7,8 @@ from .bin_layout import (
     Layer,
     DistributionLayout,
     mkDefaultLayout,
+    extractCategories,
+    applyCategories,
+    layoutMatchesCategories,
 )
 from .chute import Chute, BinAddress

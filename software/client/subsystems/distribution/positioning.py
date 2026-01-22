@@ -4,10 +4,11 @@ from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
 from .chute import Chute, BinAddress
-from .bin_layout import DistributionLayout, Bin
+from .bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from sorting_profile import SortingProfile
+from blob_manager import setBinCategories
 
 POSITION_DURATION_MS = 3000
 
@@ -81,6 +82,7 @@ class Positioning(BaseState):
         if first_unassigned is not None:
             address, b = first_unassigned
             b.category_id = category_id
+            setBinCategories(extractCategories(self.layout))
             self.logger.info(
                 f"Positioning: assigned category {category_id} to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )

@@ -169,6 +169,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.carousel_stepper.step_pin,
         config.carousel_stepper.dir_pin,
         config.carousel_stepper.enable_pin,
+        name="carousel",
     )
 
     irl_interface.chute_stepper = Stepper(
@@ -177,6 +178,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.chute_stepper.step_pin,
         config.chute_stepper.dir_pin,
         config.chute_stepper.enable_pin,
+        name="chute",
     )
 
     return irl_interface

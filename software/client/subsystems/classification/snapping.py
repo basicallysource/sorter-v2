@@ -5,7 +5,7 @@ import cv2
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import ClassificationState
-from .carousel import Carousel
+from .carousel import Carousel, CLASSIFICATION_POSITION
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 import classification
@@ -71,7 +71,10 @@ class Snapping(BaseState):
             )
 
         if top_crop is None or bottom_crop is None:
-            self.logger.warn("Snapping: no object detected in classification frames")
+            self.logger.warn(
+                "Snapping: no object detected in classification frames, clearing carousel position"
+            )
+            self.carousel.platforms[CLASSIFICATION_POSITION] = None
             return
 
         cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)

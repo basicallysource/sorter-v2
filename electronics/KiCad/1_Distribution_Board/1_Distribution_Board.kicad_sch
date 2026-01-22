@@ -4945,6 +4945,16 @@
 		)
 		(uuid "5a265945-4c10-43f8-ba54-02004498358b")
 	)
+	(text "Pg. 20 TMC2209 Datasheet REV1.09"
+		(exclude_from_sim no)
+		(at 77.47 135.636 0)
+		(effects
+			(font
+				(size 1.016 1.016)
+			)
+		)
+		(uuid "70555304-aae5-494c-b74c-ea4d85e13ab2")
+	)
 	(text "Maybe reduce to only on stepper driver."
 		(exclude_from_sim no)
 		(at 87.122 161.036 0)
@@ -4954,6 +4964,16 @@
 			)
 		)
 		(uuid "75782feb-7c49-41bc-a6b9-5b95eb0c7cea")
+	)
+	(text "Necessary for single wire UART"
+		(exclude_from_sim no)
+		(at 78.74 137.414 0)
+		(effects
+			(font
+				(size 1.016 1.016)
+			)
+		)
+		(uuid "83570162-99f4-4248-8c8a-c0226685638e")
 	)
 	(text "will get moved next to Pico once cleaned up"
 		(exclude_from_sim no)
@@ -5087,13 +5107,13 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 152.4) (xy 57.15 152.4)
+			(xy 69.85 123.19) (xy 85.09 123.19)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "17cca648-844d-4b12-bf4e-3159e8939463")
+		(uuid "18e86b3c-206b-4941-8fcc-bde5391c66cd")
 	)
 	(wire
 		(pts
@@ -5107,6 +5127,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 34.29) (xy 55.88 34.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1fafeffd-50a7-47a6-bc3c-853a8f43d437")
+	)
+	(wire
+		(pts
 			(xy 252.73 147.32) (xy 250.19 147.32)
 		)
 		(stroke
@@ -5114,6 +5144,16 @@
 			(type default)
 		)
 		(uuid "1fe0cf57-cf50-4c27-92ab-41ac88239fc8")
+	)
+	(wire
+		(pts
+			(xy 41.91 44.45) (xy 55.88 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "22316a08-2c21-4c68-ad28-e27de340d41a")
 	)
 	(wire
 		(pts
@@ -5357,6 +5397,16 @@
 	)
 	(wire
 		(pts
+			(xy 69.85 124.46) (xy 69.85 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56c16d44-5b31-46af-8c9a-26d5792d24e7")
+	)
+	(wire
+		(pts
 			(xy 223.52 83.82) (xy 236.22 83.82)
 		)
 		(stroke
@@ -5397,13 +5447,13 @@
 	)
 	(wire
 		(pts
-			(xy 86.36 179.07) (xy 101.6 179.07)
+			(xy 41.91 29.21) (xy 55.88 29.21)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "62ec2252-9cbc-4f94-bf05-876461d874d6")
+		(uuid "628d1c10-0920-4aef-b97d-e1feadb4654a")
 	)
 	(wire
 		(pts
@@ -5424,6 +5474,16 @@
 			(type default)
 		)
 		(uuid "6aba1bbf-c4e1-48dd-83fe-bff66be54876")
+	)
+	(wire
+		(pts
+			(xy 41.91 39.37) (xy 55.88 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "75e3a3b9-4b65-4fe8-91af-b1a0ddba6909")
 	)
 	(wire
 		(pts
@@ -5587,16 +5647,6 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 125.73) (xy 57.15 125.73)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a389719a-e3a7-4eea-b430-a2eb36edf9be")
-	)
-	(wire
-		(pts
 			(xy 41.91 149.86) (xy 57.15 149.86)
 		)
 		(stroke
@@ -5624,6 +5674,16 @@
 			(type default)
 		)
 		(uuid "a6feea13-ab51-463d-ac4b-ebafcebd0894")
+	)
+	(wire
+		(pts
+			(xy 41.91 31.75) (xy 55.88 31.75)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a856be1c-7078-42bc-8472-64ee4ea16766")
 	)
 	(wire
 		(pts
@@ -5664,16 +5724,6 @@
 			(type default)
 		)
 		(uuid "aebc2274-0bd5-4262-b3db-3e880712f0a8")
-	)
-	(wire
-		(pts
-			(xy 41.91 179.07) (xy 57.15 179.07)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "af2bbfb7-c784-4d4c-9ef9-9f089b7242bc")
 	)
 	(wire
 		(pts
@@ -5867,6 +5917,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 41.91) (xy 55.88 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d621cf82-5118-432e-82fe-dbb5502c7fd9")
+	)
+	(wire
+		(pts
 			(xy 223.52 78.74) (xy 223.52 83.82)
 		)
 		(stroke
@@ -5947,6 +6007,16 @@
 	)
 	(wire
 		(pts
+			(xy 69.85 132.08) (xy 69.85 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f2fcf6f0-7639-49ab-a811-d328d1a92655")
+	)
+	(wire
+		(pts
 			(xy 41.91 134.62) (xy 57.15 134.62)
 		)
 		(stroke
@@ -5964,6 +6034,16 @@
 			(type default)
 		)
 		(uuid "f6051544-86c2-422b-a96a-e85b1cff9af4")
+	)
+	(wire
+		(pts
+			(xy 69.85 133.35) (xy 85.09 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fa422e72-3af1-4ce5-ac6c-b3c2bbf511ca")
 	)
 	(wire
 		(pts
@@ -6141,18 +6221,8 @@
 		)
 		(uuid "21c0af5b-cd72-426d-b9ae-ae158895eecb")
 	)
-	(label "UART0_TX"
-		(at 46.99 152.4 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "24171a1c-6e5e-4b8b-9000-a07995d802e6")
-	)
 	(label "UART0_RX"
-		(at 46.99 123.19 0)
+		(at 76.2 123.19 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6201,16 +6271,6 @@
 			(justify left bottom)
 		)
 		(uuid "30727aee-a139-43bc-aea3-59d9d690e5c5")
-	)
-	(label "UART0_TX"
-		(at 46.99 179.07 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "31ebdf7a-93d8-4273-85fe-71ebebd9d41e")
 	)
 	(label "PWM_1"
 		(at 245.11 73.66 0)
@@ -6951,6 +7011,16 @@
 		)
 		(uuid "d1dc9e93-2d15-4cbe-8691-3d2b1263f7aa")
 	)
+	(label "UART0_RX"
+		(at 45.72 123.19 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d30d29f9-531f-4c6f-89c4-4009eca1227f")
+	)
 	(label "PWM2 A"
 		(at 60.96 85.09 0)
 		(effects
@@ -7094,7 +7164,7 @@
 		(uuid "ea4bf42e-def8-4247-8ff2-44bb992b4a55")
 	)
 	(label "UART0_TX"
-		(at 46.99 125.73 0)
+		(at 76.2 133.35 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7174,16 +7244,6 @@
 			(justify left bottom)
 		)
 		(uuid "f6b951d0-ff93-4825-ac21-46524b4d554c")
-	)
-	(label "UART0_TX"
-		(at 91.44 179.07 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f6c0a5f2-5563-4cdf-9a92-930abc664de4")
 	)
 	(label "PWM5 A"
 		(at 166.37 102.87 0)
@@ -7815,6 +7875,76 @@
 			(project ""
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
 					(reference "Q1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_US")
+		(at 69.85 128.27 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "52aa95b9-042a-461c-9762-ca7d839bac52")
+		(property "Reference" "R6"
+			(at 72.39 126.9999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 72.39 129.5399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+			(at 70.866 128.524 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 69.85 128.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, US symbol"
+			(at 69.85 128.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "bcf0da66-0084-44a2-8ead-41d7853dfe9b")
+		)
+		(pin "1"
+			(uuid "e181e82c-dc70-4397-9950-99484e85fdbe")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
+					(reference "R6")
 					(unit 1)
 				)
 			)
@@ -9350,29 +9480,19 @@
 				(justify right)
 			)
 		)
-		(pin "UART_RX" input
-			(at 41.91 123.19 0)
-			(uuid "20fc645e-dbac-437e-bd75-eebd0d77d358")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_TX" output
-			(at 41.91 125.73 0)
-			(uuid "cbfabc01-fa83-4399-8c4a-9e71a6d3bb78")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "~{EN}" input
 			(at 41.91 118.11 0)
 			(uuid "fb9e36b4-1b41-43f8-a0a1-a8e63bd393e7")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "UART" bidirectional
+			(at 41.91 123.19 0)
+			(uuid "34ccd30d-6e0a-4fba-8154-a221e1cef8fa")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9544,7 +9664,7 @@
 		)
 	)
 	(sheet
-		(at 20.32 25.4)
+		(at 20.32 26.035)
 		(size 21.59 25.4)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -9560,7 +9680,7 @@
 		)
 		(uuid "6afb3c5f-c712-4230-bfac-30dcc87f4845")
 		(property "Sheetname" "DC Motor Control_0"
-			(at 20.32 24.6884 0)
+			(at 20.32 25.3234 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9569,7 +9689,7 @@
 			)
 		)
 		(property "Sheetfile" "untitled.kicad_sch"
-			(at 20.32 51.3846 0)
+			(at 20.32 52.0196 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9579,7 +9699,7 @@
 			)
 		)
 		(pin "A_IN2" input
-			(at 41.91 31.115 0)
+			(at 41.91 31.75 0)
 			(uuid "164ffcbd-3cc4-49ca-8320-cf721238a389")
 			(effects
 				(font
@@ -9589,7 +9709,7 @@
 			)
 		)
 		(pin "B_PWM" input
-			(at 41.91 43.815 0)
+			(at 41.91 44.45 0)
 			(uuid "c3eac37e-b9e7-424f-a216-53023fdf3119")
 			(effects
 				(font
@@ -9599,7 +9719,7 @@
 			)
 		)
 		(pin "B_IN1" input
-			(at 41.91 38.735 0)
+			(at 41.91 39.37 0)
 			(uuid "4a80e7b4-c4ba-47c3-ba8e-0917e132215d")
 			(effects
 				(font
@@ -9609,7 +9729,7 @@
 			)
 		)
 		(pin "A_PWM" input
-			(at 41.91 33.655 0)
+			(at 41.91 34.29 0)
 			(uuid "2df30443-d919-43fd-8988-911041be8f41")
 			(effects
 				(font
@@ -9619,7 +9739,7 @@
 			)
 		)
 		(pin "A_IN1" input
-			(at 41.91 28.575 0)
+			(at 41.91 29.21 0)
 			(uuid "9d5b17ca-0a43-4edb-9e97-7b852ac9d8d3")
 			(effects
 				(font
@@ -9629,7 +9749,7 @@
 			)
 		)
 		(pin "~{STBY}" input
-			(at 41.91 48.895 0)
+			(at 41.91 49.53 0)
 			(uuid "7f259377-1dbb-4466-af79-dcb2314ed64a")
 			(effects
 				(font
@@ -9639,7 +9759,7 @@
 			)
 		)
 		(pin "B_IN2" input
-			(at 41.91 41.275 0)
+			(at 41.91 41.91 0)
 			(uuid "a4368513-5791-43a0-a278-02e8c3bc10f7")
 			(effects
 				(font
@@ -9720,29 +9840,19 @@
 				(justify right)
 			)
 		)
-		(pin "UART_RX" input
-			(at 41.91 149.86 0)
-			(uuid "3544b5ea-b3a3-4f57-bee6-e06c15d47ce4")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_TX" output
-			(at 41.91 152.4 0)
-			(uuid "1314bd02-b2b0-4913-9c3b-c5fb574669b7")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "~{EN}" input
 			(at 41.91 144.78 0)
 			(uuid "4efc2fd8-f041-4ec2-bdcc-f6ff8c4f51fc")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "UART" bidirectional
+			(at 41.91 149.86 0)
+			(uuid "c2575e69-6a69-4e98-8eec-5cf92643e67d")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9924,29 +10034,19 @@
 				(justify right)
 			)
 		)
-		(pin "UART_RX" input
-			(at 86.36 176.53 0)
-			(uuid "d5e1d093-3d7b-4dc2-8aee-54983515c401")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_TX" output
-			(at 86.36 179.07 0)
-			(uuid "9fcf31c9-7b87-4284-aa36-0c93ead5d9b3")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "~{EN}" input
 			(at 86.36 171.45 0)
 			(uuid "f4375e38-8c0f-4827-812e-ca97557bffc2")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "UART" bidirectional
+			(at 86.36 176.53 0)
+			(uuid "5c69362c-b2b2-4c78-ba8b-90974f859105")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10026,29 +10126,19 @@
 				(justify right)
 			)
 		)
-		(pin "UART_RX" input
-			(at 41.91 176.53 0)
-			(uuid "51e31fe3-8e6b-4272-8574-d8d3eb152aa9")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "UART_TX" output
-			(at 41.91 179.07 0)
-			(uuid "e6be625f-5411-492e-9519-49fefc63d2ae")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "~{EN}" input
 			(at 41.91 171.45 0)
 			(uuid "4ce4f156-2fc3-461a-af7b-fe1fb2b0f4d9")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "UART" bidirectional
+			(at 41.91 176.53 0)
+			(uuid "a634bc03-40a7-4507-a98d-7869b2c32fb1")
 			(effects
 				(font
 					(size 1.27 1.27)

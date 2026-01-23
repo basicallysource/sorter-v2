@@ -34,13 +34,13 @@ class FeederConfig:
 
     def __init__(self):
         self.pause_ms = 200
-        self.v1_pulse_length_ms = 600
-        self.v1_pulse_speed = 10
-        self.v2_pulse_length_ms = 600
-        self.v2_pulse_speed = 10
+        self.v1_pulse_length_ms = 100
+        self.v1_pulse_speed = 32
+        self.v2_pulse_length_ms = 300
+        self.v2_pulse_speed = 30
         self.v3_pulse_length_ms = 300
-        self.v3_pulse_speed = 10
-        self.proximity_threshold_px = 50
+        self.v3_pulse_speed = 30
+        self.proximity_threshold_px = 40
 
 
 class GlobalConfig:

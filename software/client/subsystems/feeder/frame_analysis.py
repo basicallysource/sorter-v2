@@ -10,6 +10,8 @@ from .states import (
 from vision.utils import maskEdgeProximity, masksWithinDistance
 from global_config import GlobalConfig
 
+TREAT_1_AND_2_AS_ONE = True
+
 
 def getNextFeederState(
     masks_by_class: Dict[int, List[np.ndarray]],
@@ -55,33 +57,81 @@ def getNextFeederState(
 
         print("objects", len(objects_on_v3), len(objects_on_v2), len(objects_on_v1))
 
-    # check if v2 dropzone is clear (no v2 objects within distance of v1)
-    v2_dropzone_clear = True
-    for obj_mask in objects_on_v2:
-        if v1_mask is not None and masksWithinDistance(
-            obj_mask, v1_mask, dropzone_distance_px
-        ):
-            v2_dropzone_clear = False
-            break
+    if TREAT_1_AND_2_AS_ONE:
+        # treat v1, v2, and v3 as feeding into v2 together
+        # check if v3 dropzone is clear (no v3 objects within distance of v2)
+        v3_dropzone_clear = True
+        for obj_mask in objects_on_v3:
+            if v2_mask is not None and masksWithinDistance(
+                obj_mask, v2_mask, dropzone_distance_px
+            ):
+                v3_dropzone_clear = False
+                break
 
-    # check if v3 dropzone is clear (no v3 objects within distance of v2)
-    v3_dropzone_clear = True
-    for obj_mask in objects_on_v3:
-        if v2_mask is not None and masksWithinDistance(
-            obj_mask, v2_mask, dropzone_distance_px
-        ):
-            v3_dropzone_clear = False
-            break
+        # if any objects on v1, v2, or v3
+        if objects_on_v1 or objects_on_v2 or objects_on_v3:
+            if v3_dropzone_clear:
+                # run v2 (which runs both v1 and v2)
+                return (
+                    None
+                    if current_state == FeederState.V2_LOADING
+                    else FeederState.V2_LOADING
+                )
+            else:
+                # v3 dropzone blocked, need to clear v3 first
+                return (
+                    None
+                    if current_state == FeederState.V3_DISPENSING
+                    else FeederState.V3_DISPENSING
+                )
 
-    # if object on v1, try to run v1 if dropzone clear
-    if objects_on_v1:
-        if v2_dropzone_clear:
-            return (
-                None
-                if current_state == FeederState.V1_LOADING
-                else FeederState.V1_LOADING
-            )
-        # dropzone blocked, need to clear v2 first
+        return FeederState.IDLE
+
+    else:
+        # separate v1 and v2, check both dropzones
+        # check if v2 dropzone is clear (no v2 objects within distance of v1)
+        v2_dropzone_clear = True
+        for obj_mask in objects_on_v2:
+            if v1_mask is not None and masksWithinDistance(
+                obj_mask, v1_mask, dropzone_distance_px
+            ):
+                v2_dropzone_clear = False
+                break
+
+        # check if v3 dropzone is clear (no v3 objects within distance of v2)
+        v3_dropzone_clear = True
+        for obj_mask in objects_on_v3:
+            if v2_mask is not None and masksWithinDistance(
+                obj_mask, v2_mask, dropzone_distance_px
+            ):
+                v3_dropzone_clear = False
+                break
+
+        # if object on v1, try to run v1 if dropzone clear
+        if objects_on_v1:
+            if v2_dropzone_clear:
+                return (
+                    None
+                    if current_state == FeederState.V1_LOADING
+                    else FeederState.V1_LOADING
+                )
+            # dropzone blocked, need to clear v2 first
+            if objects_on_v2:
+                if v3_dropzone_clear:
+                    return (
+                        None
+                        if current_state == FeederState.V2_LOADING
+                        else FeederState.V2_LOADING
+                    )
+                # v3 dropzone blocked, run v3
+                if objects_on_v3:
+                    return (
+                        None
+                        if current_state == FeederState.V3_DISPENSING
+                        else FeederState.V3_DISPENSING
+                    )
+
+        # no object on v1, check v2
         if objects_on_v2:
             if v3_dropzone_clear:
                 return (
@@ -97,15 +147,7 @@ def getNextFeederState(
                     else FeederState.V3_DISPENSING
                 )
 
-    # no object on v1, check v2
-    if objects_on_v2:
-        if v3_dropzone_clear:
-            return (
-                None
-                if current_state == FeederState.V2_LOADING
-                else FeederState.V2_LOADING
-            )
-        # v3 dropzone blocked, run v3
+        # no object on v1 or v2, check v3
         if objects_on_v3:
             return (
                 None
@@ -113,12 +155,4 @@ def getNextFeederState(
                 else FeederState.V3_DISPENSING
             )
 
-    # no object on v1 or v2, check v3
-    if objects_on_v3:
-        return (
-            None
-            if current_state == FeederState.V3_DISPENSING
-            else FeederState.V3_DISPENSING
-        )
-
-    return FeederState.IDLE
+        return FeederState.IDLE

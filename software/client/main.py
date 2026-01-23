@@ -1,6 +1,12 @@
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
-from server.api import app, broadcastEvent, setRuntimeVariables
+from server.api import (
+    app,
+    broadcastEvent,
+    setRuntimeVariables,
+    setCommandQueue,
+    setController,
+)
 from sorter_controller import SorterController
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
@@ -50,6 +56,7 @@ def main() -> None:
     gc = mkGlobalConfig()
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
+    setCommandQueue(server_to_main_queue)
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
 
@@ -60,6 +67,7 @@ def main() -> None:
 
     vision = VisionManager(irl_config, gc)
     controller = SorterController(irl, gc, vision, main_to_server_queue, rv)
+    setController(controller)
     gc.logger.info("client starting...")
 
     vision.start()
@@ -80,7 +88,7 @@ def main() -> None:
         while True:
             try:
                 event = server_to_main_queue.get(block=False)
-                handleServerToMainEvent(gc, controller, event)
+                handleServerToMainEvent(gc, controller, irl, event)
             except queue.Empty:
                 pass
 

@@ -95,10 +95,28 @@ class DistributionLayoutEvent(BaseModel):
     data: DistributionLayoutData
 
 
+class PauseCommandData(BaseModel):
+    pass
+
+
+class PauseCommandEvent(BaseModel):
+    tag: Literal["pause"]
+    data: PauseCommandData
+
+
+class ResumeCommandData(BaseModel):
+    pass
+
+
+class ResumeCommandEvent(BaseModel):
+    tag: Literal["resume"]
+    data: ResumeCommandData
+
+
 SocketEvent = Union[
     HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent, DistributionLayoutEvent
 ]
 MainThreadToServerCommand = Union[
     HeartbeatEvent, FrameEvent, KnownObjectEvent, DistributionLayoutEvent
 ]
-ServerToMainThreadEvent = Union[HeartbeatEvent]
+ServerToMainThreadEvent = Union[HeartbeatEvent, PauseCommandEvent, ResumeCommandEvent]

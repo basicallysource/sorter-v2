@@ -40,7 +40,7 @@ class FeederConfig:
         self.v2_pulse_speed = 20
         self.v3_pulse_length_ms = 300
         self.v3_pulse_speed = 20
-        self.proximity_threshold_px = 20
+        self.proximity_threshold_px = 10
 
 
 class GlobalConfig:

@@ -3,8 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
+import queue
 
-from defs.events import IdentityEvent, MachineIdentityData
+from defs.sorter_controller import SorterLifecycle
+
+from defs.events import (
+    IdentityEvent,
+    MachineIdentityData,
+    PauseCommandEvent,
+    PauseCommandData,
+    ResumeCommandEvent,
+    ResumeCommandData,
+)
 from blob_manager import getMachineId
 from bricklink.api import getPartInfo
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
@@ -20,11 +30,23 @@ app.add_middleware(
 active_connections: List[WebSocket] = []
 server_loop: Optional[asyncio.AbstractEventLoop] = None
 runtime_vars: Optional[RuntimeVariables] = None
+command_queue: Optional[queue.Queue] = None
+controller_ref: Optional[Any] = None
 
 
 def setRuntimeVariables(rv: RuntimeVariables) -> None:
     global runtime_vars
     runtime_vars = rv
+
+
+def setCommandQueue(q: queue.Queue) -> None:
+    global command_queue
+    command_queue = q
+
+
+def setController(c: Any) -> None:
+    global controller_ref
+    controller_ref = c
 
 
 @app.on_event("startup")
@@ -131,3 +153,36 @@ def updateRuntimeVariables(
     runtime_vars.setAll(req.values)
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
     return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
+
+
+class StateResponse(BaseModel):
+    state: str
+
+
+@app.get("/state", response_model=StateResponse)
+def getState() -> StateResponse:
+    if controller_ref is None:
+        return StateResponse(state=SorterLifecycle.INITIALIZING.value)
+    return StateResponse(state=controller_ref.state.value)
+
+
+class CommandResponse(BaseModel):
+    success: bool
+
+
+@app.post("/pause", response_model=CommandResponse)
+def pause() -> CommandResponse:
+    if command_queue is None:
+        raise HTTPException(status_code=500, detail="Command queue not initialized")
+    event = PauseCommandEvent(tag="pause", data=PauseCommandData())
+    command_queue.put(event)
+    return CommandResponse(success=True)
+
+
+@app.post("/resume", response_model=CommandResponse)
+def resume() -> CommandResponse:
+    if command_queue is None:
+        raise HTTPException(status_code=500, detail="Command queue not initialized")
+    event = ResumeCommandEvent(tag="resume", data=ResumeCommandData())
+    command_queue.put(event)
+    return CommandResponse(success=True)

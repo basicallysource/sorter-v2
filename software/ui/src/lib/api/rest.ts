@@ -56,6 +56,57 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/state': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Getstate */
+		get: operations['getState_state_get'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/pause': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Pause */
+		post: operations['pause_pause_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/resume': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Resume */
+		post: operations['resume_resume_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -86,6 +137,11 @@ export interface components {
 			year_released?: number | null;
 			/** Is Obsolete */
 			is_obsolete?: boolean | null;
+		};
+		/** CommandResponse */
+		CommandResponse: {
+			/** Success */
+			success: boolean;
 		};
 		/** HTTPValidationError */
 		HTTPValidationError: {
@@ -125,6 +181,11 @@ export interface components {
 			values: {
 				[key: string]: unknown;
 			};
+		};
+		/** StateResponse */
+		StateResponse: {
+			/** State */
+			state: string;
 		};
 		/** ValidationError */
 		ValidationError: {
@@ -244,6 +305,66 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	getState_state_get: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['StateResponse'];
+				};
+			};
+		};
+	};
+	pause_pause_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['CommandResponse'];
+				};
+			};
+		};
+	};
+	resume_resume_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['CommandResponse'];
 				};
 			};
 		};

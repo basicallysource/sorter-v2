@@ -7,16 +7,45 @@
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { Settings, Wrench } from 'lucide-svelte';
+	import { Settings, Wrench, Pause, Play } from 'lucide-svelte';
+	import type { components } from '$lib/api/rest';
+
+	type StateResponse = components['schemas']['StateResponse'];
 
 	const manager = getMachinesContext();
 	const machine = getMachineContext();
 
 	let settings_open = $state(false);
 	let runtime_vars_open = $state(false);
+	let machine_state = $state<string>('initializing');
+
+	async function fetchState() {
+		try {
+			const res = await fetch('http://localhost:8000/state');
+			if (res.ok) {
+				const data: StateResponse = await res.json();
+				machine_state = data.state;
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	async function togglePauseResume() {
+		const endpoint = machine_state === 'paused' ? '/resume' : '/pause';
+		try {
+			await fetch(`http://localhost:8000${endpoint}`, { method: 'POST' });
+			await fetchState();
+		} catch {
+			// ignore
+		}
+	}
 
 	onMount(() => {
 		manager.connect('ws://localhost:8000/ws');
+		fetchState();
+		const interval = setInterval(fetchState, 1000);
+		return () => clearInterval(interval);
 	});
 </script>
 
@@ -25,6 +54,17 @@
 		<h1 class="dark:text-text-dark text-2xl font-bold text-text">Sorter</h1>
 		<div class="flex items-center gap-2">
 			<MachineDropdown />
+			<button
+				onclick={togglePauseResume}
+				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
+				title={machine_state === 'paused' ? 'Resume' : 'Pause'}
+			>
+				{#if machine_state === 'paused'}
+					<Play size={24} />
+				{:else}
+					<Pause size={24} />
+				{/if}
+			</button>
 			<button
 				onclick={() => (runtime_vars_open = true)}
 				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"

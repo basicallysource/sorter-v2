@@ -78,6 +78,16 @@ export interface KnownObjectEvent {
 	tag: 'known_object';
 	data: KnownObjectData;
 }
+export interface PauseCommandData {}
+export interface PauseCommandEvent {
+	tag: 'pause';
+	data: PauseCommandData;
+}
+export interface ResumeCommandData {}
+export interface ResumeCommandEvent {
+	tag: 'resume';
+	data: ResumeCommandData;
+}
 
 export type SocketEvent =
 	| HeartbeatEvent

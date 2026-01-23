@@ -22,7 +22,7 @@
 			values = data.values;
 		} catch (e) {
 			console.error('Failed to load runtime variables:', e);
-			error = `Failed to load variables: ${e}`;
+			error = `Failed to load: ${e}`;
 		} finally {
 			loading = false;
 		}
@@ -37,11 +37,12 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ values })
 			});
-			if (!res.ok) throw new Error('Failed to save');
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			values = data.values;
 		} catch (e) {
-			error = 'Failed to save variables';
+			console.error('Failed to save runtime variables:', e);
+			error = `Failed to save: ${e}`;
 		} finally {
 			loading = false;
 		}
@@ -64,33 +65,20 @@
 	{:else if error}
 		<div class="py-8 text-center text-red-500">{error}</div>
 	{:else}
-		<div class="flex flex-col gap-4">
+		<div class="flex flex-col gap-3">
 			{#each Object.entries(definitions) as [key, def]}
-				<div class="flex flex-col gap-1">
-					<label class="dark:text-text-dark text-sm font-medium text-text capitalize">
+				<div class="flex items-center justify-between gap-4">
+					<label class="dark:text-text-dark text-sm text-text capitalize">
 						{formatLabel(key)}
 						{#if def.unit}
 							<span class="dark:text-text-muted-dark text-text-muted">({def.unit})</span>
 						{/if}
 					</label>
-					<div class="flex items-center gap-3">
-						<input
-							type="range"
-							min={def.min}
-							max={def.max}
-							step={def.type === 'int' ? 1 : 0.1}
-							bind:value={values[key]}
-							class="flex-1"
-						/>
-						<input
-							type="number"
-							min={def.min}
-							max={def.max}
-							step={def.type === 'int' ? 1 : 0.1}
-							bind:value={values[key]}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text"
-						/>
-					</div>
+					<input
+						type="text"
+						bind:value={values[key]}
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark w-24 border border-border bg-bg px-2 py-1 text-right text-sm text-text"
+					/>
 				</div>
 			{/each}
 		</div>

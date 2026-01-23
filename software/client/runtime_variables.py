@@ -6,11 +6,11 @@ VariableType = Literal["int", "float"]
 VARIABLE_DEFS: Dict[str, Dict[str, Any]] = {
     "pause_ms": {"type": "float", "min": 0, "max": 2000, "unit": "ms"},
     "v1_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v1_pulse_speed": {"type": "int", "min": 0, "max": 255, "unit": ""},
+    "v1_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
     "v2_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v2_pulse_speed": {"type": "int", "min": 0, "max": 255, "unit": ""},
+    "v2_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
     "v3_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v3_pulse_speed": {"type": "int", "min": 0, "max": 255, "unit": ""},
+    "v3_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
 }
 
 

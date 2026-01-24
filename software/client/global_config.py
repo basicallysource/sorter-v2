@@ -30,7 +30,10 @@ class FeederConfig:
     v2_pulse_speed: int
     v3_pulse_length_ms: float
     v3_pulse_speed: int
+    slow_v3_pulse_length_ms: float
+    slow_v3_pulse_speed: int
     proximity_threshold_px: int
+    proximity_to_carousel_threshold_px: int
 
     def __init__(self):
         self.pause_ms = 200
@@ -40,7 +43,10 @@ class FeederConfig:
         self.v2_pulse_speed = 30
         self.v3_pulse_length_ms = 300
         self.v3_pulse_speed = 30
+        self.slow_v3_pulse_length_ms = 300
+        self.slow_v3_pulse_speed = 20
         self.proximity_threshold_px = 40
+        self.proximity_to_carousel_threshold_px = 20
 
 
 class GlobalConfig:
@@ -52,10 +58,12 @@ class GlobalConfig:
     classification_chamber_vision_model_path: str
     feeder_vision_model_path: str
     vision_mask_proximity_threshold: float
+    should_write_camera_feeds: bool
 
     def __init__(self):
         self.debug_level = 0
         self.vision_mask_proximity_threshold = 0.5
+        self.should_write_camera_feeds = True
 
 
 def mkTimeouts() -> Timeouts:

@@ -3,6 +3,7 @@ import numpy as np
 from .states import (
     FeederState,
     OBJECT_CLASS_ID,
+    CAROUSEL_CLASS_ID,
     THIRD_V_CHANNEL_CLASS_ID,
     SECOND_V_CHANNEL_CLASS_ID,
     FIRST_V_CHANNEL_CLASS_ID,
@@ -24,14 +25,17 @@ def getNextFeederState(
     third_v_masks = masks_by_class.get(THIRD_V_CHANNEL_CLASS_ID, [])
     second_v_masks = masks_by_class.get(SECOND_V_CHANNEL_CLASS_ID, [])
     first_v_masks = masks_by_class.get(FIRST_V_CHANNEL_CLASS_ID, [])
+    carousel_masks = masks_by_class.get(CAROUSEL_CLASS_ID, [])
 
     v3_mask = third_v_masks[0] if third_v_masks else None
     v2_mask = second_v_masks[0] if second_v_masks else None
     v1_mask = first_v_masks[0] if first_v_masks else None
+    carousel_mask = carousel_masks[0] if carousel_masks else None
 
     objects_on_v1 = []
     objects_on_v2 = []
     objects_on_v3 = []
+    v3_near_carousel = False
 
     for obj_mask in object_masks:
         on_v3 = (
@@ -57,6 +61,17 @@ def getNextFeederState(
 
         print("objects", len(objects_on_v3), len(objects_on_v2), len(objects_on_v1))
 
+    # check if any v3 objects are close to carousel
+    if carousel_mask is not None:
+        for obj_mask in objects_on_v3:
+            if masksWithinDistance(
+                obj_mask,
+                carousel_mask,
+                gc.feeder_config.proximity_to_carousel_threshold_px,
+            ):
+                v3_near_carousel = True
+                break
+
     if TREAT_1_AND_2_AS_ONE:
         # treat v1, v2, and v3 as feeding into v2 together
         # check if v3 dropzone is clear (no v3 objects within distance of v2)
@@ -79,11 +94,12 @@ def getNextFeederState(
                 )
             else:
                 # v3 dropzone blocked, need to clear v3 first
-                return (
-                    None
-                    if current_state == FeederState.V3_DISPENSING
+                target_state = (
+                    FeederState.V3_DISPENSING_SLOW
+                    if v3_near_carousel
                     else FeederState.V3_DISPENSING
                 )
+                return None if current_state == target_state else target_state
 
         return FeederState.IDLE
 
@@ -125,11 +141,12 @@ def getNextFeederState(
                     )
                 # v3 dropzone blocked, run v3
                 if objects_on_v3:
-                    return (
-                        None
-                        if current_state == FeederState.V3_DISPENSING
+                    target_state = (
+                        FeederState.V3_DISPENSING_SLOW
+                        if v3_near_carousel
                         else FeederState.V3_DISPENSING
                     )
+                    return None if current_state == target_state else target_state
 
         # no object on v1, check v2
         if objects_on_v2:
@@ -141,18 +158,20 @@ def getNextFeederState(
                 )
             # v3 dropzone blocked, run v3
             if objects_on_v3:
-                return (
-                    None
-                    if current_state == FeederState.V3_DISPENSING
+                target_state = (
+                    FeederState.V3_DISPENSING_SLOW
+                    if v3_near_carousel
                     else FeederState.V3_DISPENSING
                 )
+                return None if current_state == target_state else target_state
 
         # no object on v1 or v2, check v3
         if objects_on_v3:
-            return (
-                None
-                if current_state == FeederState.V3_DISPENSING
+            target_state = (
+                FeederState.V3_DISPENSING_SLOW
+                if v3_near_carousel
                 else FeederState.V3_DISPENSING
             )
+            return None if current_state == target_state else target_state
 
         return FeederState.IDLE

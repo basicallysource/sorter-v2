@@ -4,7 +4,7 @@
 	import type { components } from '$lib/api/rest';
 	import Spinner from './Spinner.svelte';
 	import Badge from './Badge.svelte';
-	import { CircleHelp } from 'lucide-svelte';
+	import { CircleHelp, TriangleAlert } from 'lucide-svelte';
 
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	type BadgeColor = 'gray' | 'yellow' | 'blue' | 'orange' | 'green' | 'red';
@@ -51,8 +51,9 @@
 			case 'classified':
 				return 'blue';
 			case 'unknown':
+				return 'gray';
 			case 'not_found':
-				return 'red';
+				return 'yellow';
 			case 'distributing':
 				return 'orange';
 			case 'distributed':
@@ -84,83 +85,105 @@
 			<div class="flex flex-col gap-1 p-1">
 				{#each objects as obj (obj.uuid)}
 					{@const is_expanded = expanded_id === obj.uuid}
+					{@const is_minimized = obj.status === 'unknown' || obj.status === 'not_found'}
 					{@const bl_data = obj.part_id ? bricklink_cache.get(obj.part_id) : null}
 					{@const bl_thumb = bl_data?.thumbnail_url ? `https:${bl_data.thumbnail_url}` : null}
-					<button
-						type="button"
-						onclick={() => toggleExpand(obj.uuid)}
-						class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
-					>
-						<div class="flex gap-2">
-							{#if bl_thumb}
-								<img
-									src={bl_thumb}
-									alt="piece"
-									class="h-12 w-12 flex-shrink-0 bg-white object-contain"
-								/>
-							{:else if obj.thumbnail}
-								<img
-									src={`data:image/jpeg;base64,${obj.thumbnail}`}
-									alt="piece"
-									class="h-12 w-12 flex-shrink-0 object-cover"
-								/>
-							{:else if obj.status === 'unknown' || obj.status === 'not_found'}
-								<div class="flex h-12 w-12 flex-shrink-0 items-center justify-center text-red-400">
-									<CircleHelp size={24} />
-								</div>
+					{#if is_minimized}
+						<button
+							type="button"
+							onclick={() => toggleExpand(obj.uuid)}
+							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
+						>
+							{#if obj.status === 'not_found'}
+								<TriangleAlert size={14} class="flex-shrink-0 text-yellow-500" />
 							{:else}
-								<div
-									class="dark:bg-surface-dark dark:text-text-muted-dark flex h-12 w-12 flex-shrink-0 items-center justify-center bg-surface"
-								>
-									<Spinner />
-								</div>
+								<CircleHelp
+									size={14}
+									class="dark:text-text-muted-dark flex-shrink-0 text-text-muted"
+								/>
 							{/if}
-							<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
-								<span class="dark:text-text-dark truncate font-mono text-text">
-									{obj.part_id ?? obj.uuid.slice(0, 8)}
-								</span>
-								{#if bl_data?.name}
-									<div class="dark:text-text-muted-dark truncate text-text-muted">
-										{bl_data.name}
+							<span class="dark:text-text-muted-dark truncate text-text-muted">
+								{obj.status === 'not_found' ? 'Not found' : 'Unknown'}
+							</span>
+							<span class="dark:text-text-dark truncate font-mono text-text">
+								{obj.uuid.slice(0, 8)}
+							</span>
+						</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => toggleExpand(obj.uuid)}
+							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
+						>
+							<div class="flex gap-2">
+								{#if bl_thumb}
+									<img
+										src={bl_thumb}
+										alt="piece"
+										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
+									/>
+								{:else if obj.thumbnail}
+									<img
+										src={`data:image/jpeg;base64,${obj.thumbnail}`}
+										alt="piece"
+										class="h-12 w-12 flex-shrink-0 object-cover"
+									/>
+								{:else}
+									<div
+										class="dark:bg-surface-dark dark:text-text-muted-dark flex h-12 w-12 flex-shrink-0 items-center justify-center bg-surface"
+									>
+										<Spinner />
 									</div>
 								{/if}
-								<div class="flex flex-wrap gap-1">
-									<Badge color={statusColor(obj.status)}>
-										{obj.status}{#if obj.confidence != null}
-											{(obj.confidence * 100).toFixed(0)}%{/if}
-									</Badge>
-									{#if obj.destination_bin}
-										<Badge>{formatBin(obj.destination_bin)}</Badge>
+								<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
+									<span class="dark:text-text-dark truncate font-mono text-text">
+										{obj.part_id ?? obj.uuid.slice(0, 8)}
+									</span>
+									{#if bl_data?.name}
+										<div class="dark:text-text-muted-dark truncate text-text-muted">
+											{bl_data.name}
+										</div>
+									{/if}
+									<div class="flex flex-wrap gap-1">
+										<Badge color={statusColor(obj.status)}>
+											{obj.status}{#if obj.confidence != null}
+												{(obj.confidence * 100).toFixed(0)}%{/if}
+										</Badge>
+										{#if obj.destination_bin}
+											<Badge>{formatBin(obj.destination_bin)}</Badge>
+										{/if}
+									</div>
+								</div>
+							</div>
+
+							{#if is_expanded && (obj.top_image || obj.bottom_image)}
+								<div class="dark:border-border-dark mt-2 flex gap-2 border-t border-border pt-2">
+									{#if obj.top_image}
+										<div class="flex-1">
+											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">Top</div>
+											<img
+												src={`data:image/jpeg;base64,${obj.top_image}`}
+												alt="top view"
+												class="w-full"
+											/>
+										</div>
+									{/if}
+									{#if obj.bottom_image}
+										<div class="flex-1">
+											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+												Bottom
+											</div>
+											<img
+												src={`data:image/jpeg;base64,${obj.bottom_image}`}
+												alt="bottom view"
+												class="w-full"
+											/>
+										</div>
 									{/if}
 								</div>
-							</div>
-						</div>
-
-						{#if is_expanded && (obj.top_image || obj.bottom_image)}
-							<div class="dark:border-border-dark mt-2 flex gap-2 border-t border-border pt-2">
-								{#if obj.top_image}
-									<div class="flex-1">
-										<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">Top</div>
-										<img
-											src={`data:image/jpeg;base64,${obj.top_image}`}
-											alt="top view"
-											class="w-full"
-										/>
-									</div>
-								{/if}
-								{#if obj.bottom_image}
-									<div class="flex-1">
-										<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">Bottom</div>
-										<img
-											src={`data:image/jpeg;base64,${obj.bottom_image}`}
-											alt="bottom view"
-											class="w-full"
-										/>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</button>
+							{/if}
+						</button>
+					{/if}
 				{/each}
 			</div>
 		{/if}

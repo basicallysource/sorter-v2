@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-01-13")
-		(rev "0.3")
+		(date "2026-01-25")
+		(rev "0.4")
 		(company "basically")
 	)
 	(lib_symbols
@@ -2143,9 +2143,9 @@
 		)
 		(uuid "738eb177-e47f-4926-a296-88fd8fdc8dec")
 	)
-	(text "Pulled high so MCU can enable by pulling low."
+	(text "Pulled high at MCU so it can enable by pulling low."
 		(exclude_from_sim no)
-		(at 69.088 33.782 0)
+		(at 114.3 86.868 0)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -2204,12 +2204,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "410b742f-bacb-4c41-a252-41171d5226bf")
-	)
-	(junction
-		(at 72.39 30.48)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "81a6b550-3402-4fae-9c4b-a18a3e64f910")
 	)
 	(junction
 		(at 175.26 71.12)
@@ -2437,16 +2431,6 @@
 		)
 		(uuid "6476148f-1cdf-4d7c-ac3d-97ed0e7f07d4")
 	)
-	(wire
-		(pts
-			(xy 72.39 30.48) (xy 81.28 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6b3745db-a7b8-47bd-9c1c-c84096f586a5")
-	)
 	(polyline
 		(pts
 			(xy 183 168) (xy 183 168)
@@ -2579,7 +2563,7 @@
 	)
 	(wire
 		(pts
-			(xy 65.0709 30.48) (xy 72.39 30.48)
+			(xy 65.0709 30.48) (xy 81.28 30.48)
 		)
 		(stroke
 			(width 0)
@@ -2589,7 +2573,7 @@
 	)
 	(wire
 		(pts
-			(xy 127 90.17) (xy 134.62 90.17)
+			(xy 118.11 90.17) (xy 134.62 90.17)
 		)
 		(stroke
 			(width 0)
@@ -2897,16 +2881,6 @@
 		)
 		(uuid "a470c4ef-da6a-4b02-bd1d-bfa9c8ecc4a0")
 	)
-	(label "~{EN}"
-		(at 127 90.17 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "cc194c7b-afa7-4cd4-92c1-4de87811dc17")
-	)
 	(label "M1A"
 		(at 238.76 71.12 0)
 		(effects
@@ -3013,14 +2987,14 @@
 	)
 	(hierarchical_label "~{EN}"
 		(shape input)
-		(at 65.0709 30.48 180)
+		(at 118.11 90.17 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "ceaa0c3b-413d-4f04-950e-48ac1d3c726f")
+		(uuid "d5a5b0df-b6b8-4255-9c8a-172f6d3858bd")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -3351,84 +3325,6 @@
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
 					(reference "R34")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 72.39 22.86 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "2f5e0df4-3897-453e-9598-b9d0fd076ab6")
-		(property "Reference" "#PWR018"
-			(at 72.39 26.67 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 72.39 17.78 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 72.39 22.86 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 72.39 22.86 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 72.39 22.86 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "73cce355-0a80-4473-8904-8a4df8223f5f")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/02dc68e7-469d-4169-b9e6-1742ced64b14"
-					(reference "#PWR018")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "#PWR078")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "#PWR0102")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "#PWR090")
 					(unit 1)
 				)
 			)
@@ -4394,88 +4290,6 @@
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
 					(reference "C15")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R_US")
-		(at 72.39 26.67 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "86b84941-298d-408a-9237-948ce05e39c1")
-		(property "Reference" "R10"
-			(at 74.93 25.3999 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10k"
-			(at 74.93 27.9399 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 73.406 26.924 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 72.39 26.67 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor, US symbol"
-			(at 72.39 26.67 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "8eb5a4f9-a7d0-4045-b642-c5678ac7eb11")
-		)
-		(pin "1"
-			(uuid "1057dbaf-f03e-47d6-98e6-3275586da31c")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/02dc68e7-469d-4169-b9e6-1742ced64b14"
-					(reference "R10")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "R31")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "R49")
-					(unit 1)
-				)
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "R40")
 					(unit 1)
 				)
 			)

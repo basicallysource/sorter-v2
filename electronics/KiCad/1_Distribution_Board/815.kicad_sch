@@ -6221,7 +6221,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c7ee0197-8fd1-42bd-bf59-3ec8d587fba3")
-		(property "Reference" "A10"
+		(property "Reference" "A8"
 			(at 97.79 54.61 0)
 			(effects
 				(font
@@ -6588,7 +6588,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "A10")
+					(reference "A8")
 					(unit 1)
 				)
 			)

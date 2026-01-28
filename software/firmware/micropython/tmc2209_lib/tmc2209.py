@@ -17,27 +17,27 @@ class TMC2209:
     Complete TMC2209 stepper motor driver with UART support
     """
     
-    # Register              address, size (bits)
-    GCONF =         register( 0x00, 10)
-    GSTAT =         register( 0x01, 3)
-    IFCNT =         register( 0x02, 8)
-    SLAVECONF =     register( 0x03, 4)
-    IOIN =          register( 0x06, 18)
-    IHOLD_IRUN =    register( 0x10, 14)
-    TPOWERDOWN =    register( 0x11, 8)
-    TSTEP =         register( 0x12, 20)
-    TPWMTHRS =      register( 0x13, 20)
-    TCOOLTHRS =     register( 0x14, 20)
-    SGTHRS =        register( 0x40, 8)
-    SG_RESULT =     register( 0x41, 10)
-    COOLCONF =      register( 0x42, 16)
-    MSCNT =         register( 0x6A, 10)
-    MSCURACT =      register( 0x6B, 18)
-    CHOPCONF =      register( 0x6C, 32)
-    DRV_STATUS =    register( 0x6F, 32)
-    PWMCONF =       register( 0x70, 22)
-    PWM_SCALE =     register( 0x71, 17)
-    PWM_AUTO =      register( 0x72, 16)
+    # Register      address
+    GCONF =         0x00
+    GSTAT =         0x01
+    IFCNT =         0x02
+    SLAVECONF =     0x03
+    IOIN =          0x06
+    IHOLD_IRUN =    0x10
+    TPOWERDOWN =    0x11
+    TSTEP =         0x12
+    TPWMTHRS =      0x13
+    TCOOLTHRS =     0x14
+    SGTHRS =        0x40
+    SG_RESULT =     0x41
+    COOLCONF =      0x42
+    MSCNT =         0x6A
+    MSCURACT =      0x6B
+    CHOPCONF =      0x6C
+    DRV_STATUS =    0x6F
+    PWMCONF =       0x70
+    PWM_SCALE =     0x71
+    PWM_AUTO =      0x72
     
     def __init__(self, step_pin, dir_pin, en_pin, 
                  uart_id=0, tx_pin=0, rx_pin=1, baudrate=230400,
@@ -70,20 +70,22 @@ class TMC2209:
         self.steps_per_rev = steps_per_rev
         self.current_position = 0
         self.microsteps = 16  # Default microstepping
+        # timeout_ms = max(int(12000 / baudrate), 1)
+        timeout_ms = 20 
         
-        # UART setup - match working test_uart.py exactly
         self.uart = machine.UART(uart_id, baudrate=baudrate, bits=8, parity=None, stop=1,
-                                tx=machine.Pin(tx_pin), rx=machine.Pin(rx_pin))
+                                 tx=machine.Pin(tx_pin), rx=machine.Pin(rx_pin),
+                                 rxbuf=1, timeout=timeout_ms)
         
         self.motor_id = motor_id
-        self.comm_pause = 500 / baudrate  # ms
+        # self.comm_pause = 500 / baudrate  # ms
         
         print("\n=== TMC2209 Initialized ===")
         print("  STEP: GPIO{}, DIR: GPIO{}, EN: GPIO{}".format(step_pin, dir_pin, en_pin))
         print("  UART{} at {} baud (TX: GPIO{}, RX: GPIO{})".format(
             uart_id, baudrate, tx_pin, rx_pin))
         print("  Motor ID: {}".format(motor_id))
-        print("  Comm Pause: {:.3f}ms".format(self.comm_pause))
+        # print("  Comm Pause: {:.3f}ms".format(self.comm_pause))
     
     # ============================================================================
     # UART Communication Functions
@@ -101,19 +103,14 @@ class TMC2209:
                 byte = byte >> 1
         return crc
     
-    def write_reg(self, reg, value):
+    def write_reg(self, reg_addr, value):
         """
         Write to TMC2209 register via UART
-        
-        Args:
-            reg_addr: Register address
-            value: 32-bit value to write
         """
-        reg_addr = reg.address
         
         # Build write datagram
         frame = bytearray([
-            0x55,  # Sync
+            0x05,  # Sync byte
             self.motor_id,
             reg_addr | 0x80,  # Write bit
             (value >> 24) & 0xFF,
@@ -124,34 +121,100 @@ class TMC2209:
         ])
         frame[7] = self._calc_crc(frame[:7])
         
+        print("WRITING: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
+        
         self.uart.write(frame)
-        time.sleep(self.comm_pause / 1000)
+        self.uart.flush()
+        time.sleep_ms(10)  # Give it time to process
     
-    def read_reg(self, reg):
+    def read_reg(self, reg_addr):
         """
         Read from TMC2209 register via UART
         
         Returns: 4-byte value or None if failed
         """
-        reg_addr = reg.address
+        
+        # CRITICAL: Clear buffer before sending new request
+        while self.uart.any():
+            self.uart.read(1)
         
         # Build read request
-        frame = bytearray([0x55, self.motor_id, reg_addr, 0])
+        frame = bytearray([0x05, self.motor_id, reg_addr, 0])
         frame[3] = self._calc_crc(frame[:3])
         
+        print("Sending: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
+        
         self.uart.write(frame)
-        time.sleep(self.comm_pause / 1000)
+        self.uart.flush()
+        
+        # Wait for response to arrive
+        timeout = 100  # 100ms max wait
+        start = time.ticks_ms()
+        while self.uart.any() < 12 and time.ticks_diff(time.ticks_ms(), start) < timeout:
+            time.sleep_ms(1)
         
         # Read response (12 bytes expected)
-        if self.uart.any():
-            response = self.uart.read()
-            time.sleep(self.comm_pause / 1000)
+        bytes_avail = self.uart.any()
+        print("Bytes available: {}".format(bytes_avail))
+        
+        response = self.uart.read(12)
+        if response and len(response) >= 12:
+            print("Full response: {}".format(' '.join(['{:02X}'.format(b) for b in response])))
+            print("Data bytes [7:11]: {}".format(' '.join(['{:02X}'.format(response[i]) for i in range(7, 11)])))
             
-            if len(response) >= 11:
-                # Extract data bytes [7:11]
-                return response[7:11]
+            # Extract data bytes [7:11]
+            return response[7:11]
         
         return None
+    
+
+    # def read_reg(self, reg_addr):
+    #     """
+    #     Read from TMC2209 register via UART
+        
+    #     Returns: 4-byte value or None if failed
+    #     """
+        
+    #     # Clear any old data in buffer
+    #     while self.uart.any():
+    #         self.uart.read(1)
+        
+    #     # Build read request
+    #     frame = bytearray([0x05, self.motor_id, reg_addr, 0])
+    #     frame[3] = self._calc_crc(frame[:3])
+        
+    #     self.uart.write(frame)
+    #     self.uart.flush()
+        
+    #     # Wait for response to arrive (check buffer, not blocking)
+    #     timeout = 100  # 100ms max wait
+    #     start = time.ticks_ms()
+    #     while self.uart.any() < 12 and time.ticks_diff(time.ticks_ms(), start) < timeout:
+    #         time.sleep_ms(1)
+        
+    #     # Read response (12 bytes expected)
+    #     if self.uart.any() >= 12:
+    #         response = self.uart.read(12)
+            
+    #         # Verify sync byte
+    #         if response[0] != 0x05:
+    #             return None
+            
+    #         # Verify master address
+    #         if response[1] != 0xFF:
+    #             return None
+            
+    #         # Verify CRC
+    #         crc_calc = self._calc_crc(response[:11])
+    #         if crc_calc != response[11]:
+    #             return None
+            
+    #         # Extract data bytes [7:11]
+    #         return response[7:11]
+        
+    #     return None
+    
+    
     
     def read_int(self, reg):
         """
@@ -162,9 +225,7 @@ class TMC2209:
         data = self.read_reg(reg)
         if data and len(data) >= 4:
             value = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]
-            # Mask the value to only include valid bits based on register size
-            mask = (1 << reg.size) - 1
-            return value & mask
+            return value
         return None
     
     def test_uart(self):
@@ -184,7 +245,6 @@ class TMC2209:
     def enable(self):
         """Enable the motor driver"""
         self.en.value(0)  # Active low
-        time.sleep_ms(10)
     
     def disable(self):
         """Disable the motor driver"""
@@ -197,9 +257,9 @@ class TMC2209:
     def step_once(self, delay_us=1000):
         """Execute a single step pulse"""
         self.step.value(1)
-        time.sleep_us(2)
+        time.sleep_us(int(delay_us/2))
         self.step.value(0)
-        time.sleep_us(delay_us)
+        time.sleep_us(int(delay_us/2))
     
     def move_steps(self, steps, speed=500):
         """
@@ -212,9 +272,11 @@ class TMC2209:
         if steps == 0:
             return
         
-        self.set_direction(steps > 0)
+        self.set_direction(clockwise=True if steps > 0 else False)
         steps = abs(steps)
         delay = int(1000000 / speed)
+        print("Moving {} steps at {} steps/sec".format(
+            steps if self.dir.value() else -steps, speed))
         
         for _ in range(steps):
             self.step_once(delay)

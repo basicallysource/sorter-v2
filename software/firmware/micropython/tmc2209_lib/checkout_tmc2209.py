@@ -43,20 +43,20 @@ def wait_for_proceed(prompt_text="Press ENTER to proceed"):
     input(f"→ {prompt_text}: ")
     print()
 
-def wait_for_verification(prompt_text="Did you observe the expected behavior?"):
-    """
-    Wait for user to confirm they saw what was expected.
-    Disables motor during the wait to prevent overheating.
+# def wait_for_verification(prompt_text="Did you observe the expected behavior?"):
+#     """
+#     Wait for user to confirm they saw what was expected.
+#     Disables motor during the wait to prevent overheating.
     
-    Args:
-        prompt_text: What to ask the user to verify
-        motor: Motor object to disable during wait (optional)
-    """
-    print("\n" + "-"*70)
-    response = input(f"→ {prompt_text} (yes/no): ").strip().lower()
-    print()
+#     Args:
+#         prompt_text: What to ask the user to verify
+#         motor: Motor object to disable during wait (optional)
+#     """
+#     print("\n" + "-"*70)
+#     response = input(f"→ {prompt_text} (yes/no): ").strip().lower()
+#     print()
     
-    return response in ['yes', 'y', '']
+#     return response in ['yes', 'y', '']
 
 def separator(title=""):
     """Print a visual separator with test title"""
@@ -112,19 +112,16 @@ def test_initialization():
     )
     
     print("\nTesting UART communication...")
-    time.sleep(1)
     if motor.test_uart():
         test_passed("UART communication OK")
     else:
         test_failed("UART communication failed - continuing with STEP/DIR only")
     
-    time.sleep(3)
-
-    # microstep_config = motor.get_microstep_config()
-    # print(f"  • microstep_config: {microstep_config}")
+    microstep_config = motor.get_microstep_config()
+    print(f"  • microstep_config: {microstep_config}")
     # # microstep_config = motor.get_microstep_config()
     # # print(f"  • microstep_config: {microstep_config}")
-    # time.sleep(3)
+    time.sleep(1)
     # # microstep_config = motor.get_microstep_config()
     # # print(f"  • microstep_config: {microstep_config}")
     # # microstep_config = motor.get_microstep_config()
@@ -133,10 +130,10 @@ def test_initialization():
 
     # motor.set_use_mstep_reg(enable=True)
 
-    # time.sleep(3)
+    # time.sleep(1)
 
     # microstep_config = motor.get_microstep_config()
-    # # print(f"  • microstep_config: {microstep_config}")
+    # print(f"  • microstep_config: {microstep_config}")
 
     # time.sleep(3)
 
@@ -146,9 +143,15 @@ def test_initialization():
     
     # microstep_config = motor.get_microstep_config()
     # print(f"  • microstep_config: {microstep_config}")
+    # motor.set_current()
+    # motor.set_microstepping()
+    # motor.disable_stallguard()
+    # motor.disable_coolstep()
+
+
 
     motor.disable()
-    wait_for_verification("Did you see initialization messages and motor is idle?")
+    # # wait_for_verification("Did you see initialization messages and motor is idle?")
     
     return motor
 
@@ -180,7 +183,7 @@ def test_enable_disable(motor):
     time.sleep(3)
     
     motor.disable()
-    wait_for_verification("Could you rotate the motor shaft freely with no resistance?")
+    # # wait_for_verification("Could you rotate the motor shaft freely with no resistance?")
     wait_for_proceed("Ready for ENABLE phase")
     
     print("Enabling motor (EN=LOW)...")
@@ -191,13 +194,12 @@ def test_enable_disable(motor):
     print("Try rotating the shaft by hand - it should resist firmly.\n")
     time.sleep(3)
     
-    motor.disable()
-    wait_for_verification("Could you feel strong resistance when trying to rotate?")
-    motor.enable()
+    # motor.disable()
+    # # wait_for_verification("Could you feel strong resistance when trying to rotate?")
+    # motor.enable()
 
     print("Disabling motor...")
     motor.disable()
-    time.sleep(0.5)
     
     test_passed("Enable/Disable test complete")
 
@@ -229,33 +231,34 @@ def test_direction_control(motor):
 
     print("Motor ENABLED")
     print("Setting direction CLOCKWISE...")
-    motor.set_direction(clockwise=True)
     print("Moving 200 steps (~1 revolution)...\n")
     time.sleep(1)
+
+    # motor.set_direction(clockwise=True)
     
+    motor.move_steps(200, speed=100)
+    motor.move_steps(200, speed=200)
+    motor.move_steps(200, speed=300)
     motor.move_steps(200, speed=400)
+    motor.move_steps(200, speed=500)
+    motor.move_steps(200, speed=600)
+    motor.move_steps(200, speed=700)
+    motor.move_steps(200, speed=800)
     time.sleep(1)
     print("Clockwise rotation complete. Remember this position.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did the motor rotate CLOCKWISE smoothly?")
+    # # wait_for_verification("Did the motor rotate CLOCKWISE smoothly?")
     wait_for_proceed("Ready for COUNTER-CLOCKWISE rotation")
     motor.enable()
 
     print("Setting direction COUNTER-CLOCKWISE...")
-    motor.set_direction(clockwise=False)
     print("Moving 200 steps (~1 revolution)...\n")
     time.sleep(1)
     
-    motor.move_steps(200, speed=400)
+    motor.move_steps(-200, speed=400)
     time.sleep(1)
     print("Counter-clockwise rotation complete.\n")
-    time.sleep(2)
-    
-    motor.disable()
-    wait_for_verification("Did the motor rotate COUNTER-CLOCKWISE and return to start?")
-    motor.enable()
 
     test_passed("Direction control working correctly")
 
@@ -281,9 +284,7 @@ def test_speed_control(motor):
     print("     - Faster stepping, more continuous sound")
     print("   Phase 3 (FAST - 1000 steps/sec):")
     print("     - Very fast, smooth whirring sound")
-    
-    motor.set_direction(clockwise=True)
-    
+        
     motor.disable()
     wait_for_proceed("Ready for SLOW speed test (100 steps/sec)")
     motor.enable()
@@ -294,10 +295,8 @@ def test_speed_control(motor):
     motor.move_steps(200, speed=100)
     time.sleep(1)
     print("Slow speed test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you hear slow, distinct stepping sounds?")
     wait_for_proceed("Ready for MEDIUM speed test (500 steps/sec)")
     motor.enable()
 
@@ -307,10 +306,8 @@ def test_speed_control(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("Medium speed test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you hear medium-paced stepping?")
     wait_for_proceed("Ready for FAST speed test (1000 steps/sec)")
     motor.enable()
 
@@ -320,11 +317,6 @@ def test_speed_control(motor):
     motor.move_steps(200, speed=1000)
     time.sleep(1)
     print("Fast speed test complete.\n")
-    time.sleep(2)
-    
-    motor.disable()
-    wait_for_verification("Did speed increase noticeably from slow to fast?")
-    motor.enable()
 
     test_passed("Speed control working - smooth acceleration through range")
 
@@ -349,9 +341,7 @@ def test_microstepping(motor):
     print("     ✓ Vibration decreases")
     print("     ✓ Sound becomes more of a hum vs. discrete clicks")
     print("     ✓ 1/256 should be ultra-smooth like a servo")
-    
-    motor.set_direction(clockwise=True)
-    
+        
     motor.disable()
     wait_for_proceed("Ready for 1/1 STEPPING (coarsest)")
     motor.enable()
@@ -365,10 +355,8 @@ def test_microstepping(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("1/1 stepping complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Was the motion CHOPPY and coarse?")
     wait_for_proceed("Ready for 1/4 STEPPING")
     motor.enable()
 
@@ -381,10 +369,9 @@ def test_microstepping(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("1/4 stepping complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Was motion SMOOTHER than 1/1 stepping?")
+    # # wait_for_verification("Was motion SMOOTHER than 1/1 stepping?")
     wait_for_proceed("Ready for 1/16 STEPPING (default)")
     motor.enable()
 
@@ -397,10 +384,9 @@ def test_microstepping(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("1/16 stepping complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Was motion VERY SMOOTH with fine resolution?")
+    # # wait_for_verification("Was motion VERY SMOOTH with fine resolution?")
     wait_for_proceed("Ready for 1/256 STEPPING (finest/smoothest)")
     motor.enable()
 
@@ -413,10 +399,9 @@ def test_microstepping(motor):
     motor.move_steps(256, speed=200)
     time.sleep(1)
     print("1/256 stepping complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Was motion ULTRA-SMOOTH (smoothest so far)?")
+    # # wait_for_verification("Was motion ULTRA-SMOOTH (smoothest so far)?")
     motor.enable()
 
     # Return to reasonable default
@@ -450,10 +435,8 @@ def test_current_and_torque(motor):
     print("   • Don't apply max current for more than a minute")
     print("   • Motor may smell warm - normal for high current")
     
-    motor.set_direction(clockwise=True)
     motor.move_steps(50, speed=200)
     motor.configure_basic()  # Safe current settings
-    time.sleep(0.5)
     motor.move_steps(50, speed=200)
     
     # Test 1: Very low current
@@ -476,7 +459,7 @@ def test_current_and_torque(motor):
     time.sleep(3)
     
     motor.disable()
-    wait_for_verification("Could you easily stall the motor with light plier pressure?")
+    # # wait_for_verification("Could you easily stall the motor with light plier pressure?")
     # Test 2: Medium-low current
     wait_for_proceed("Ready for MEDIUM-LOW CURRENT test")
     motor.enable()
@@ -496,7 +479,7 @@ def test_current_and_torque(motor):
     time.sleep(3)
     
     motor.disable()
-    wait_for_verification("Did stalling require MODERATE pressure?")
+    # # wait_for_verification("Did stalling require MODERATE pressure?")
     
     # Test 3: Higher current
     wait_for_proceed("Ready for MEDIUM-HIGH CURRENT test")
@@ -518,7 +501,7 @@ def test_current_and_torque(motor):
     time.sleep(3)
     
     motor.disable()
-    wait_for_verification("Did it require FIRM pressure to stall?")
+    # wait_for_verification("Did it require FIRM pressure to stall?")
     
     # Test 4: Maximum current
     wait_for_proceed("Ready for MAXIMUM CURRENT test")
@@ -541,7 +524,7 @@ def test_current_and_torque(motor):
     time.sleep(3)
     
     motor.disable()
-    wait_for_verification("Was it extremely difficult to stall? (Motor may be quite hot)")
+    # wait_for_verification("Was it extremely difficult to stall? (Motor may be quite hot)")
     motor.enable()
 
     # Return to safe default
@@ -574,7 +557,6 @@ def test_stealthchop(motor):
     print("     ✓ Distinctive chopping/clicking sound")
     print("     ✓ Different pitch than StealthChop")
     
-    motor.set_direction(clockwise=True)
     
     motor.disable()
     wait_for_proceed("Ready for STEALTHCHOP mode (quiet)")
@@ -583,7 +565,6 @@ def test_stealthchop(motor):
     print("Enabling StealthChop mode...")
     motor.set_stealthchop_enabled(True)
     motor.set_stealthchop_threshold(0)  # Always StealthChop
-    time.sleep(0.5)
     
     print("Moving 300 steps at medium speed...")
     print("Listen for QUIET PWM humming...\n")
@@ -591,16 +572,14 @@ def test_stealthchop(motor):
     motor.move_steps(300, speed=600)
     time.sleep(1)
     print("StealthChop test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you hear QUIET PWM humming (whisper-like)?")
+    # wait_for_verification("Did you hear QUIET PWM humming (whisper-like)?")
     wait_for_proceed("Ready for SPREADCYCLE mode (loud)")
     motor.enable()
 
     print("Enabling SpreadCycle mode (disabling StealthChop)...")
     motor.set_stealthchop_enabled(False)
-    time.sleep(0.5)
     
     print("Moving 300 steps at medium speed...")
     print("Listen for LOUD chopping/clicking sound...\n")
@@ -608,16 +587,14 @@ def test_stealthchop(motor):
     motor.move_steps(300, speed=600)
     time.sleep(1)
     print("SpreadCycle test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Was SpreadCycle NOTICEABLY LOUDER than StealthChop?")
+    # wait_for_verification("Was SpreadCycle NOTICEABLY LOUDER than StealthChop?")
     motor.enable()
 
     # Return to StealthChop
     print("Returning to StealthChop mode...")
     motor.set_stealthchop_enabled(True)
-    time.sleep(0.5)
     
     test_passed("StealthChop/SpreadCycle switching verified")
 
@@ -641,9 +618,7 @@ def test_pwm_config(motor):
     print("   • Balanced: Normal torque and noise balance")
     print("   • High gradient: Slightly louder or smoother")
     print("   • Low gradient: Quieter or less smooth")
-    
-    motor.set_direction(clockwise=True)
-    
+        
     motor.disable()
     wait_for_proceed("Ready for BALANCED PWM test")
     motor.enable()
@@ -658,10 +633,8 @@ def test_pwm_config(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("Balanced PWM test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you observe normal balanced operation?")
     wait_for_proceed("Ready for HIGH GRADIENT PWM test (more aggressive)")
     motor.enable()
 
@@ -675,10 +648,8 @@ def test_pwm_config(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("High gradient PWM test complete.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you notice a difference from balanced?")
     wait_for_proceed("Ready for LOW GRADIENT PWM test (more subtle)")
     motor.enable()
 
@@ -692,16 +663,10 @@ def test_pwm_config(motor):
     motor.move_steps(200, speed=500)
     time.sleep(1)
     print("Low gradient PWM test complete.\n")
-    time.sleep(2)
-    
-    motor.disable()
-    wait_for_verification("Did low gradient differ from high gradient?")
-    motor.enable()
 
     # Return to balanced
     print("Returning to balanced PWM...")
     motor.set_pwm_config(pwm_ofs=36, pwm_grad=14, pwm_freq=1, pwm_autoscale=True)
-    time.sleep(0.5)
     
     test_passed("PWM configuration tested - affects StealthChop operation")
 
@@ -725,9 +690,7 @@ def test_stallguard(motor):
     print("   Phase 2 (WITH LOAD - using pliers):")
     print("     • SG values: Should DROP (lower = more load)")
     print("     • If blocked hard enough: Stall bit may trigger")
-    
-    motor.set_direction(clockwise=True)
-    
+        
     motor.disable()
     wait_for_proceed("Ready for StallGuard NO LOAD test")
     motor.enable()
@@ -748,9 +711,8 @@ def test_stallguard(motor):
         print(f"  Reading {i+1}: SG={sg}, Stalled={is_stalled}")
         time.sleep(0.2)
     
-    time.sleep(2)
     motor.disable()
-    wait_for_verification("Were SG values relatively high (>200)? No stall detected?")
+    # wait_for_verification("Were SG values relatively high (>200)? No stall detected?")
     wait_for_proceed("Ready for StallGuard WITH LOAD test - have pliers ready")
     motor.enable()
 
@@ -760,7 +722,6 @@ def test_stallguard(motor):
     time.sleep(2)
     
     # Start moving
-    motor.set_direction(clockwise=True)
     for step in range(100):
         motor.step_once(delay_us=800)
         
@@ -769,11 +730,6 @@ def test_stallguard(motor):
             is_stalled = motor.is_stalled()
             print(f"  Step {step}: SG={sg}, Stalled={is_stalled}")
             time.sleep(0.1)
-    
-    time.sleep(2)
-    motor.disable()
-    wait_for_verification("Did SG values drop (lower = more load)?")
-    motor.enable()
 
     motor.disable_stallguard()
     print("StallGuard disabled")
@@ -811,13 +767,11 @@ def test_stallguard_homing(motor):
     motor.enable()
 
     print("Moving away from home position (100 steps)...")
-    motor.set_direction(clockwise=True)
     motor.move_steps(100, speed=400)
     time.sleep(0.5)
     
     print("Position offset. Now backing up to prepare for homing...\n")
-    motor.set_direction(clockwise=False)
-    motor.move_steps(50, speed=300)
+    motor.move_steps(-50, speed=300)
     time.sleep(0.5)
     
     print("⚙️  STARTING SENSORLESS HOME PROCEDURE")
@@ -837,11 +791,6 @@ def test_stallguard_homing(motor):
     else:
         print("⚠️  Homing timeout - motor didn't stall within 500 steps")
         print("   (Try manually blocking the shaft, or adjust threshold)")
-    
-    time.sleep(2)
-    motor.disable()
-    wait_for_verification("Did homing complete and reset position to 0?")
-    motor.enable()
 
 # ==============================================================================
 # COOLSTEP
@@ -866,9 +815,7 @@ def test_coolstep(motor):
     print("     • You hold shaft with pliers")
     print("     • CoolStep detects load (SG drops)")
     print("     • CoolStep boosts current to maintain torque")
-    
-    motor.set_direction(clockwise=True)
-    
+        
     motor.disable()
     wait_for_proceed("Ready for CoolStep unloaded test")
     motor.enable()
@@ -886,10 +833,8 @@ def test_coolstep(motor):
     
     print("Unloaded motion complete.")
     print("Motor should be quieter due to CoolStep current reduction.\n")
-    time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did motor seem quieter (lower power) when unloaded?")
     wait_for_proceed("Ready for CoolStep loaded test - have pliers ready")
     motor.enable()
 
@@ -905,11 +850,6 @@ def test_coolstep(motor):
     
     print("\nLoaded motion complete.")
     print("Under load, CoolStep should have boosted current back up.\n")
-    time.sleep(2)
-    
-    motor.disable()
-    wait_for_verification("Did CoolStep maintain torque when you applied plier load?")
-    motor.enable()
 
     motor.disable_coolstep()
     print("CoolStep disabled")
@@ -969,11 +909,6 @@ def test_driver_status(motor):
     
     mscnt = motor.get_microstep_counter()
     print(f"  • Microstep counter: {mscnt}")
-    
-    time.sleep(2)
-    motor.disable()
-    wait_for_verification("Were all status values readable? No fault flags?")
-    motor.enable()
 
     test_passed("Status diagnostics retrieved successfully")
 
@@ -1002,7 +937,6 @@ def test_position_tracking(motor):
     motor.enable()
 
     print("Resetting position to 0...")
-    motor.set_direction(clockwise=True)
     motor.set_position(0)
     
     print(f"Current position: {motor.get_position()}\n")
@@ -1035,7 +969,7 @@ def test_position_tracking(motor):
     
     time.sleep(2)
     motor.disable()
-    wait_for_verification("Were all position calculations correct?")
+    # wait_for_verification("Were all position calculations correct?")
     motor.enable()
 
     # Reset
@@ -1071,7 +1005,6 @@ def test_rotation_units(motor):
     motor.enable()
 
     print("Rotating 90 degrees (1/4 revolution)...")
-    motor.set_direction(clockwise=True)
     motor.set_position(0)
     motor.rotate_degrees(90, speed=400)
     time.sleep(1)
@@ -1088,7 +1021,6 @@ def test_rotation_units(motor):
     motor.enable()
 
     print("Rotating 90 degrees (1/4 revolution)...")
-    motor.set_direction(clockwise=True)
     motor.set_position(0)
     motor.rotate_degrees(90, speed=400)
     time.sleep(1)
@@ -1102,7 +1034,7 @@ def test_rotation_units(motor):
 
 
     motor.disable()
-    wait_for_verification("Did motor rotate exactly 1/4 turn?")
+    # wait_for_verification("Did motor rotate exactly 1/4 turn?")
     wait_for_proceed("Ready for 180° rotation test")
     motor.enable()
 
@@ -1113,7 +1045,7 @@ def test_rotation_units(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did motor rotate exactly 1/2 turn?")
+    # wait_for_verification("Did motor rotate exactly 1/2 turn?")
     wait_for_proceed("Ready for 0.5 revolutions test")
     motor.enable()
 
@@ -1124,7 +1056,7 @@ def test_rotation_units(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did motor complete a full 360° rotation (back to start)?")
+    # wait_for_verification("Did motor complete a full 360° rotation (back to start)?")
     wait_for_proceed("Ready for 1 full revolution test")
     motor.enable()
 
@@ -1135,7 +1067,7 @@ def test_rotation_units(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did motor complete another full 360° (back to start)?")
+    # wait_for_verification("Did motor complete another full 360° (back to start)?")
     motor.enable()
 
     test_passed("Degree/revolution rotation working correctly")
@@ -1166,7 +1098,6 @@ def test_spreadcycle_config(motor):
     
     # Make sure we're in SpreadCycle mode
     motor.set_stealthchop_enabled(False)
-    motor.set_direction(clockwise=True)
     time.sleep(0.5)
     
     motor.disable()
@@ -1186,7 +1117,7 @@ def test_spreadcycle_config(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did operation feel stable and safe?")
+    # wait_for_verification("Did operation feel stable and safe?")
     wait_for_proceed("Ready for AGGRESSIVE SpreadCycle settings")
     motor.enable()
 
@@ -1203,7 +1134,7 @@ def test_spreadcycle_config(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did you feel higher holding torque?")
+    # wait_for_verification("Did you feel higher holding torque?")
     wait_for_proceed("Ready for BALANCED SpreadCycle settings")
     motor.enable()
 
@@ -1220,7 +1151,7 @@ def test_spreadcycle_config(motor):
     time.sleep(2)
     
     motor.disable()
-    wait_for_verification("Did balanced settings feel like a good compromise?")
+    # wait_for_verification("Did balanced settings feel like a good compromise?")
     motor.enable()
 
     test_passed("SpreadCycle chopper configuration tested")
@@ -1255,7 +1186,6 @@ def test_performance(motor):
     
     print("Starting extended motion test to check stability...\n")
     
-    motor.set_direction(clockwise=True)
     motor.configure_performance()  # Use higher current
     time.sleep(0.5)
     
@@ -1298,10 +1228,10 @@ def test_performance(motor):
     
     if errors == 0:
         test_passed("Performance test completed with no errors")
-        wait_for_verification("Did motor run smoothly for 30 seconds with no hiccups?")
+        # wait_for_verification("Did motor run smoothly for 30 seconds with no hiccups?")
     else:
         print(f"⚠️  {errors} errors occurred during stress test")
-        wait_for_verification(f"Motor had {errors} errors. Continue anyway?")
+        # wait_for_verification(f"Motor had {errors} errors. Continue anyway?")
 
 # ==============================================================================
 # CLEANUP AND SUMMARY

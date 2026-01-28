@@ -70,7 +70,11 @@ class TMC2209:
         self.steps_per_rev = steps_per_rev
         self.current_position = 0
         self.microsteps = 16  # Default microstepping
+
+        # too short
         # timeout_ms = max(int(12000 / baudrate), 1)
+
+        # TMC2209 needs time to process UART frames and respond
         timeout_ms = 20 
         
         self.uart = machine.UART(uart_id, baudrate=baudrate, bits=8, parity=None, stop=1,
@@ -166,55 +170,6 @@ class TMC2209:
             return response[7:11]
         
         return None
-    
-
-    # def read_reg(self, reg_addr):
-    #     """
-    #     Read from TMC2209 register via UART
-        
-    #     Returns: 4-byte value or None if failed
-    #     """
-        
-    #     # Clear any old data in buffer
-    #     while self.uart.any():
-    #         self.uart.read(1)
-        
-    #     # Build read request
-    #     frame = bytearray([0x05, self.motor_id, reg_addr, 0])
-    #     frame[3] = self._calc_crc(frame[:3])
-        
-    #     self.uart.write(frame)
-    #     self.uart.flush()
-        
-    #     # Wait for response to arrive (check buffer, not blocking)
-    #     timeout = 100  # 100ms max wait
-    #     start = time.ticks_ms()
-    #     while self.uart.any() < 12 and time.ticks_diff(time.ticks_ms(), start) < timeout:
-    #         time.sleep_ms(1)
-        
-    #     # Read response (12 bytes expected)
-    #     if self.uart.any() >= 12:
-    #         response = self.uart.read(12)
-            
-    #         # Verify sync byte
-    #         if response[0] != 0x05:
-    #             return None
-            
-    #         # Verify master address
-    #         if response[1] != 0xFF:
-    #             return None
-            
-    #         # Verify CRC
-    #         crc_calc = self._calc_crc(response[:11])
-    #         if crc_calc != response[11]:
-    #             return None
-            
-    #         # Extract data bytes [7:11]
-    #         return response[7:11]
-        
-    #     return None
-    
-    
     
     def read_int(self, reg):
         """

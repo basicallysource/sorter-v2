@@ -6,12 +6,10 @@ from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision.utils import maskEdgeProximity
+from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CAROUSEL_CLASS_ID
 
 if TYPE_CHECKING:
     from vision import VisionManager
-
-OBJECT_CLASS_ID = 0
-CAROUSEL_CLASS_ID = 1
 
 
 class Detecting(BaseState):
@@ -30,8 +28,8 @@ class Detecting(BaseState):
 
     def step(self) -> Optional[ClassificationState]:
         masks_by_class = self.vision.getFeederMasksByClass()
-        object_masks = masks_by_class.get(OBJECT_CLASS_ID, [])
-        carousel_masks = masks_by_class.get(CAROUSEL_CLASS_ID, [])
+        object_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
+        carousel_masks = masks_by_class.get(FEEDER_CAROUSEL_CLASS_ID, [])
 
         if not object_masks or not carousel_masks:
             return None

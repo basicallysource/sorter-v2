@@ -3,17 +3,7 @@ from typing import Dict, Any, Literal
 
 VariableType = Literal["int", "float"]
 
-VARIABLE_DEFS: Dict[str, Dict[str, Any]] = {
-    "pause_ms": {"type": "float", "min": 0, "max": 2000, "unit": "ms"},
-    "v1_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v1_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
-    "v2_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v2_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
-    "v3_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "v3_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
-    "slow_v3_pulse_length_ms": {"type": "float", "min": 0, "max": 5000, "unit": "ms"},
-    "slow_v3_pulse_speed": {"type": "int", "min": -255, "max": 255, "unit": ""},
-}
+VARIABLE_DEFS: Dict[str, Dict[str, Any]] = {}
 
 
 class RuntimeVariables:
@@ -49,14 +39,4 @@ class RuntimeVariables:
 
 def mkRuntimeVariables(gc) -> RuntimeVariables:
     rv = RuntimeVariables()
-    fc = gc.feeder_config
-    rv.set("pause_ms", fc.pause_ms)
-    rv.set("v1_pulse_length_ms", fc.v1_pulse_length_ms)
-    rv.set("v1_pulse_speed", fc.v1_pulse_speed)
-    rv.set("v2_pulse_length_ms", fc.v2_pulse_length_ms)
-    rv.set("v2_pulse_speed", fc.v2_pulse_speed)
-    rv.set("v3_pulse_length_ms", fc.v3_pulse_length_ms)
-    rv.set("v3_pulse_speed", fc.v3_pulse_speed)
-    rv.set("slow_v3_pulse_length_ms", fc.slow_v3_pulse_length_ms)
-    rv.set("slow_v3_pulse_speed", fc.slow_v3_pulse_speed)
     return rv

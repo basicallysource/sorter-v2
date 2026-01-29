@@ -4406,7 +4406,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2f5e0df4-3897-453e-9598-b9d0fd076ab6")
-		(property "Reference" "#PWR010"
+		(property "Reference" "#PWR011"
 			(at 270.51 88.9 0)
 			(effects
 				(font
@@ -4456,7 +4456,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(reference "#PWR010")
+					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -4538,7 +4538,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "364b1df0-2b54-48b5-952c-ec50cff28816")
-		(property "Reference" "#PWR033"
+		(property "Reference" "#PWR010"
 			(at 269.24 124.46 0)
 			(effects
 				(font
@@ -4588,7 +4588,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(reference "#PWR033")
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -4604,7 +4604,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "38ddba9a-a490-4d1b-b632-bd889ff783fc")
-		(property "Reference" "R42"
+		(property "Reference" "R5"
 			(at 271.78 113.0299 0)
 			(effects
 				(font
@@ -4658,7 +4658,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(reference "R42")
+					(reference "R5")
 					(unit 1)
 				)
 			)
@@ -4948,7 +4948,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "86b84941-298d-408a-9237-948ce05e39c1")
-		(property "Reference" "R5"
+		(property "Reference" "R6"
 			(at 273.05 88.8999 0)
 			(effects
 				(font
@@ -5002,7 +5002,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(reference "R5")
+					(reference "R6")
 					(unit 1)
 				)
 			)

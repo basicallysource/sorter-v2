@@ -125,7 +125,7 @@ class TMC2209:
         ])
         frame[7] = self._calc_crc(frame[:7])
         
-        print("WRITING: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
+        # print("WRITING: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
         
         self.uart.write(frame)
         self.uart.flush()
@@ -146,7 +146,7 @@ class TMC2209:
         frame = bytearray([0x05, self.motor_id, reg_addr, 0])
         frame[3] = self._calc_crc(frame[:3])
         
-        print("Sending: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
+        # print("Sending: {}".format(' '.join(['{:02X}'.format(b) for b in frame])))
         
         self.uart.write(frame)
         self.uart.flush()
@@ -159,12 +159,12 @@ class TMC2209:
         
         # Read response (12 bytes expected)
         bytes_avail = self.uart.any()
-        print("Bytes available: {}".format(bytes_avail))
+        # print("Bytes available: {}".format(bytes_avail))
         
         response = self.uart.read(12)
         if response and len(response) >= 12:
-            print("Full response: {}".format(' '.join(['{:02X}'.format(b) for b in response])))
-            print("Data bytes [7:11]: {}".format(' '.join(['{:02X}'.format(response[i]) for i in range(7, 11)])))
+            # print("Full response: {}".format(' '.join(['{:02X}'.format(b) for b in response])))
+            # print("Data bytes [7:11]: {}".format(' '.join(['{:02X}'.format(response[i]) for i in range(7, 11)])))
             
             # Extract data bytes [7:11]
             return response[7:11]
@@ -552,63 +552,65 @@ class TMC2209:
 
 
     def set_use_mstep_reg(self, enable=True):
-        """Enable or disable StealthChop mode"""
+        """Enable or disable mstep_reg bit in GCONF (bit 7)"""
         gconf = self.read_int(self.GCONF)
         if gconf is None:
             gconf = 0x00000001  # Default
         
-        print(f"Current GCONF 0: {gconf:08X}")
+        # print("Current GCONF: 0x{:08X}".format(gconf))
+        
         if enable:
-            gconf |= (1 << 7)  # Set en_spreadcycle bit
-            print("use mstep_reg enabled")
+            gconf |= (1 << 7)  # Set bit 7
+            print("Enabling mstep_reg (bit 7)")
         else:
-            gconf &= ~(1 << 7)  # Clear en_spreadcycle bit
-            print("use mstep_reg disabled")
-
-        print(f"New GCONF: {gconf:08X}")
+            gconf &= ~(1 << 7)  # Clear bit 7
+            print("Disabling mstep_reg (bit 7)")
+        
+        # print("New GCONF: 0x{:08X}".format(gconf))
         
         self.write_reg(self.GCONF, gconf)
-    
-    def get_microstep_config(self, enable=True):
-        # """Get microstep configuration"""
-        # gconf = self.read_int(self.GCONF)
-        # if gconf is None:
-        #     return 11
-        
-        # print(f"Current GCONF 1: {gconf:08X}")
-        # # mstep = gconf & (1 << 7)
-        # # print(f"mstep: {gconf:08X}")
-        # # mstep_en = bool(gconf & (1 << 7))
-        # # mstep_en = bool((gconf >> 7) & 1)
-        
 
-        # chopconf = self.read_int(self.CHOPCONF)
-        # if chopconf is None:
-        #     return 12
+    def get_microstep_config(self):
+        """Get current microstep configuration from CHOPCONF"""
+        chopconf = self.read_int(self.CHOPCONF)
+        if chopconf is None:
+            print("Failed to read CHOPCONF")
+            return None
         
-        # mres = (chopconf >> 24) & 0x7
-        # print(mres)
-        # mres_map = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
-        # # if(not mstep_en):
-        # #     return 13  # Full step
-        # # else:
-        # return mres_map.get(mres, 14)
-        """Enable or disable StealthChop mode"""
+        # Extract MRES bits [27:24]
+        mres = (chopconf >> 24) & 0xF
+        
+        # Convert MRES to actual microsteps
+        mres_map = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
+        microsteps = mres_map.get(mres, None)
+        
+        if microsteps is None:
+            print("Invalid MRES value: {}".format(mres))
+            return None
+        
+        # Check if mstep_reg is enabled in GCONF
         gconf = self.read_int(self.GCONF)
         if gconf is None:
-            gconf = 0x00000001  # Default
+            print("Failed to read GCONF")
+            return microsteps  # Return microsteps even if we can't check GCONF
         
-        print(f"Current GCONF 0: {gconf:08X}")
-        if enable:
-            gconf |= (1 << 7)  # Set en_spreadcycle bit
-            print("use mstep_reg enabled")
-        else:
-            gconf &= ~(1 << 7)  # Clear en_spreadcycle bit
-            print("use mstep_reg disabled")
+        mstep_reg_enabled = bool((gconf >> 7) & 1)
 
-        print(f"New GCONF: {gconf:08X}")
+        if mstep_reg_enabled:
+            self.microsteps = microsteps
         
-        self.write_reg(self.GCONF, gconf)
+        # print("CHOPCONF: 0x{:08X}, MRES: {}, Microsteps: 1/{}".format(
+        #     chopconf, mres, microsteps))
+        # print("GCONF: 0x{:08X}, mstep_reg enabled: {}".format(
+        #     gconf, mstep_reg_enabled))
+        
+        return {
+            'microsteps': microsteps,
+            'mres': mres,
+            'mstep_reg_enabled': mstep_reg_enabled,
+            'chopconf': chopconf,
+            'gconf': gconf
+        }
 
 
 
@@ -641,18 +643,23 @@ class TMC2209:
         
         # Enable driver
         self.enable()
+        time.sleep_ms(100)
         
         # Set current (adjust for your motor)
         self.set_current(run_current=2, hold_current=1)
+        time.sleep_ms(100)
         
         # Set microstepping
         self.set_microstepping(16)
+        time.sleep_ms(100)
         
         # Enable StealthChop
         self.set_stealthchop_enabled(True)
+        time.sleep_ms(100)
         
         # Configure PWM for StealthChop
         self.set_pwm_config(pwm_autoscale=True)
+        time.sleep_ms(100)
         
         print("Basic configuration complete!")
     
@@ -661,20 +668,27 @@ class TMC2209:
         print("\n=== Configuring for Performance ===")
         
         self.enable()
+        time.sleep_ms(100)
         self.set_current(run_current=25, hold_current=10)
+        time.sleep_ms(100)
         self.set_microstepping(16)
+        time.sleep_ms(100)
         
         # Enable StealthChop for low speeds
         self.set_stealthchop_enabled(True)
+        time.sleep_ms(100)
         
         # Switch to SpreadCycle at higher speeds
         self.set_stealthchop_threshold(500)
+        time.sleep_ms(100)
         
         # Configure SpreadCycle
         self.set_spreadcycle_chopper(toff=5, hstart=4, hend=1, tbl=2)
+        time.sleep_ms(100)
         
         # Configure StealthChop PWM
         self.set_pwm_config(pwm_autoscale=True)
+        time.sleep_ms(100)
         
         print("Performance configuration complete!")
     
@@ -683,15 +697,21 @@ class TMC2209:
         print("\n=== Configuring for Quiet Operation ===")
         
         self.enable()
+        time.sleep_ms(100)
         self.set_current(run_current=15, hold_current=5)
+        time.sleep_ms(100)
         self.set_microstepping(256)  # Finest resolution
+        time.sleep_ms(100)
         
         # StealthChop only
         self.set_stealthchop_enabled(True)
+        time.sleep_ms(100)
         self.set_stealthchop_threshold(0)  # Never switch to SpreadCycle
+        time.sleep_ms(100)
         
         # Configure PWM
         self.set_pwm_config(pwm_autoscale=True)
+        time.sleep_ms(100)
         
         print("Quiet configuration complete!")
 

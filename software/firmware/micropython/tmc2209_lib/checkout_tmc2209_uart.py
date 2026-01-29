@@ -125,6 +125,8 @@ for reg_name, reg_addr, description in readonly_regs:
         print("  ✗ READ FAILED")
         results.append((reg_name, "READ_FAIL", None, None))
 
+
+
 # Summary
 print("\n" + "="*70)
 print("CHECKOUT SUMMARY")
@@ -176,3 +178,89 @@ if mismatch_count > 0:
 
 motor.disable()
 print("\nCheckout complete!")
+
+while True:
+    input(f"Press ENTER to run a movement test...")
+    motor.enable()
+    print("\n\n\n")
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config: {}".format(microstep_config))
+    time.sleep_ms(100)
+
+    motor.set_use_mstep_reg(True)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect enable): {}".format(microstep_config))
+    time.sleep_ms(100)
+
+    motor.set_use_mstep_reg(False)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect disabled): {}".format(microstep_config))
+
+    print("\n\n\n")
+
+    motor.set_current(run_current=31, hold_current=15)
+    time.sleep_ms(100)
+
+    motor.set_use_mstep_reg(True)
+    time.sleep_ms(100)
+
+    motor.set_microstepping(1)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect 1): {}".format(microstep_config))
+    # motor.move_steps(50, speed=200)
+    time.sleep(1)
+    # motor.move_steps(-50, speed=200)
+    time.sleep(1)
+    motor.rotate_degrees(180, speed=200)
+    time.sleep(1)
+    motor.rotate_degrees(-180, speed=200)
+    time.sleep(2)
+
+    motor.set_microstepping(2)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect 2): {}".format(microstep_config))
+    # motor.move_steps(50, speed=200)
+    time.sleep_ms(200)
+    # motor.move_steps(-50, speed=200)
+    time.sleep_ms(200)
+    motor.rotate_degrees(180, speed=200)
+    time.sleep(1)
+    motor.rotate_degrees(-180, speed=200)
+    time.sleep(2)
+
+    motor.set_microstepping(4)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect 4): {}".format(microstep_config))
+    # motor.move_steps(50, speed=200)
+    # motor.move_steps(-50, speed=200)
+    motor.rotate_degrees(180, speed=200)
+    time.sleep(1)
+    motor.rotate_degrees(-180, speed=200)
+    time.sleep(2)
+
+    motor.set_microstepping(8)
+    time.sleep_ms(100)
+
+    microstep_config = motor.get_microstep_config()
+    print("Microstep Config (expect 8): {}".format(microstep_config))
+    # motor.move_steps(50, speed=200)
+    # motor.move_steps(-50, speed=200)
+    motor.rotate_degrees(180, speed=200)
+    time.sleep(1)
+    motor.rotate_degrees(-180, speed=200)
+    time.sleep(2)
+    motor.disable()
+
+
+    print("\n\n\n")

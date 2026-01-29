@@ -117,11 +117,15 @@ def test_initialization():
     else:
         test_failed("UART communication failed - continuing with STEP/DIR only")
     
+    time.sleep_ms(100)
     microstep_config = motor.get_microstep_config()
     print(f"  • microstep_config: {microstep_config}")
     # # microstep_config = motor.get_microstep_config()
     # # print(f"  • microstep_config: {microstep_config}")
-    time.sleep(1)
+    time.sleep_ms(100)
+    motor.set_use_mstep_reg(True)
+    time.sleep_ms(100)
+
     # # microstep_config = motor.get_microstep_config()
     # # print(f"  • microstep_config: {microstep_config}")
     # # microstep_config = motor.get_microstep_config()
@@ -232,18 +236,21 @@ def test_direction_control(motor):
     print("Motor ENABLED")
     print("Setting direction CLOCKWISE...")
     print("Moving 200 steps (~1 revolution)...\n")
+    microstep_config = motor.get_microstep_config()
+    print(f"  • microstep_config: {microstep_config}")
+    time.sleep_ms(100)
     time.sleep(1)
 
     # motor.set_direction(clockwise=True)
     
-    motor.move_steps(200, speed=100)
-    motor.move_steps(200, speed=200)
-    motor.move_steps(200, speed=300)
-    motor.move_steps(200, speed=400)
-    motor.move_steps(200, speed=500)
-    motor.move_steps(200, speed=600)
-    motor.move_steps(200, speed=700)
-    motor.move_steps(200, speed=800)
+    motor.rotate_revolutions(1, speed=100)
+    motor.rotate_revolutions(1, speed=200)
+    motor.rotate_revolutions(1, speed=300)
+    motor.rotate_revolutions(1, speed=400)
+    motor.rotate_revolutions(1, speed=500)
+    motor.rotate_revolutions(1, speed=600)
+    motor.rotate_revolutions(1, speed=700)
+    motor.rotate_revolutions(1, speed=800)
     time.sleep(1)
     print("Clockwise rotation complete. Remember this position.\n")
     
@@ -254,9 +261,12 @@ def test_direction_control(motor):
 
     print("Setting direction COUNTER-CLOCKWISE...")
     print("Moving 200 steps (~1 revolution)...\n")
+    microstep_config = motor.get_microstep_config()
+    print(f"  • microstep_config: {microstep_config}")
+    time.sleep_ms(100)
     time.sleep(1)
     
-    motor.move_steps(-200, speed=400)
+    motor.rotate_revolutions(-1, speed=400)
     time.sleep(1)
     print("Counter-clockwise rotation complete.\n")
 

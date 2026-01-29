@@ -8,6 +8,7 @@ from global_config import GlobalConfig
 COMMAND_QUEUE_TIMEOUT_MS = 1000
 READER_SLEEP_MS = 10
 ARDUINO_RESET_DELAY_MS = 2000
+COMMAND_WRITE_DELAY_MS = 15
 
 
 class MCU:
@@ -51,7 +52,9 @@ class MCU:
                 if not self.running:
                     break
                 cmd_str = ",".join(map(str, cmd_args)) + "\n"
+
                 self.serial.write(cmd_str.encode())
+                time.sleep(COMMAND_WRITE_DELAY_MS / 1000.0)
                 self.command_queue.task_done()
             except queue.Empty:
                 continue
@@ -72,6 +75,7 @@ class MCU:
                             self.callbacks[parts[0]](parts[1:])
                         else:
                             self.gc.logger.info(f"Arduino: {line}")
+
             except Exception as e:
                 if self.running:
                     self.gc.logger.error(f"Error reading from MCU: {e}")
@@ -85,7 +89,7 @@ class MCU:
         self.gc.logger.info("Closing MCU connection...")
         self.running = False
 
-        # Clear the command queue immediately
+        # clear the command queue immediately
         while not self.command_queue.empty():
             try:
                 self.command_queue.get_nowait()

@@ -53,7 +53,7 @@ class Coordinator:
         self.classification = ClassificationStateMachine(
             irl, gc, self.shared, vision, event_queue
         )
-        self.feeder = FeederStateMachine(gc, self.shared)
+        self.feeder = FeederStateMachine(irl, gc, self.shared)
 
     def step(self) -> None:
         self.feeder.step()

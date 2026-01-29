@@ -12,8 +12,16 @@ class Timeouts:
 
 
 class FeederConfig:
+    normal_delay_us: int
+    precise_delay_us: int
+    steps_per_pulse: int
+    delay_between_pulse_ms: int
+
     def __init__(self):
-        pass
+        self.normal_delay_us = 500
+        self.precise_delay_us = 1000
+        self.steps_per_pulse = 1000
+        self.delay_between_pulse_ms = 500
 
 
 class GlobalConfig:
@@ -49,5 +57,5 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.timeouts = mkTimeouts()
     gc.feeder_config = mkFeederConfig()
     gc.classification_chamber_vision_model_path = "/Users/spencer/code/yolo-trainer/runs/segment/checkpoints/run_1769112999_640_small_100epochs_20batch_data/weights/best.pt"
-    gc.feeder_vision_model_path = "/Users/spencer/code/yolo-trainer/runs/segment/checkpoints/run_1769111277_640_small_100epochs_20batch_data/weights/best.pt"
+    gc.feeder_vision_model_path = "/Users/spencer/code/yolo-trainer/runs/segment/checkpoints/c_channel_feeder_02_1769720964_640_small_100epochs_20batch/weights/best.pt"
     return gc

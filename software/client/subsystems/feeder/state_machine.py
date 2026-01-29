@@ -2,18 +2,22 @@ from subsystems.base_subsystem import BaseSubsystem
 from subsystems.shared_variables import SharedVariables
 from .states import FeederState
 from .idle import Idle
+from .feeding import Feeding
+from irl.config import IRLInterface
 from global_config import GlobalConfig
 
 
 class FeederStateMachine(BaseSubsystem):
-    def __init__(self, gc: GlobalConfig, shared: SharedVariables):
+    def __init__(self, irl: IRLInterface, gc: GlobalConfig, shared: SharedVariables):
         super().__init__()
+        self.irl = irl
         self.gc = gc
         self.logger = gc.logger
         self.shared = shared
         self.current_state = FeederState.IDLE
         self.states_map = {
-            FeederState.IDLE: Idle(gc, shared),
+            FeederState.IDLE: Idle(irl, gc, shared),
+            FeederState.FEEDING: Feeding(irl, gc, shared),
         }
 
     def step(self) -> None:

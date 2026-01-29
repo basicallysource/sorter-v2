@@ -2,6 +2,7 @@ from typing import Optional, List, Dict, Tuple
 import base64
 import time
 import cv2
+import cv2.aruco as aruco
 import numpy as np
 
 from global_config import GlobalConfig
@@ -54,6 +55,9 @@ class VisionManager:
         )
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
+
+        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+        self._aruco_params = aruco.DetectorParameters()
 
     def start(self) -> None:
         self._feeder_capture.start()
@@ -127,6 +131,24 @@ class VisionManager:
         elif camera_name == "classification_top":
             return self.classification_top_result
         return None
+
+    def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return {}
+
+        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        detector = aruco.ArucoDetector(self._aruco_dict, self._aruco_params)
+        corners, ids, _ = detector.detectMarkers(gray)
+
+        result: Dict[int, Tuple[float, float]] = {}
+        if ids is not None:
+            for i, tag_id in enumerate(ids.flatten()):
+                tag_corners = corners[i][0]
+                center_x = float(np.mean(tag_corners[:, 0]))
+                center_y = float(np.mean(tag_corners[:, 1]))
+                result[int(tag_id)] = (center_x, center_y)
+        return result
 
     def getFeederMasksByClass(self) -> Dict[int, List[np.ndarray]]:
         results = self._feeder_binding.latest_raw_results

@@ -31,6 +31,12 @@ class IRLConfig:
     classification_camera_top: CameraConfig
     carousel_stepper: StepperConfig
     chute_stepper: StepperConfig
+    first_c_channel_rotor_stepper: StepperConfig
+    second_c_channel_rotor_stepper: StepperConfig
+    third_c_channel_rotor_stepper: StepperConfig
+    first_c_channel_aruco_tag_id: int
+    second_c_channel_aruco_tag_id: int
+    third_c_channel_aruco_tag_id: int
 
     def __init__(self):
         pass
@@ -41,12 +47,17 @@ class IRLInterface:
     second_mcu: MCU
     carousel_stepper: Stepper
     chute_stepper: Stepper
+    first_c_channel_rotor_stepper: Stepper
+    second_c_channel_rotor_stepper: Stepper
+    third_c_channel_rotor_stepper: Stepper
 
     def __init__(self):
         pass
 
     def shutdownMotors(self) -> None:
-        pass
+        self.first_c_channel_rotor_stepper.disable()
+        self.second_c_channel_rotor_stepper.disable()
+        self.third_c_channel_rotor_stepper.disable()
 
 
 def mkCameraConfig(
@@ -78,6 +89,19 @@ def mkIRLConfig() -> IRLConfig:
         step_pin=36, dir_pin=34, enable_pin=30
     )
     irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
+    # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
+    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
+        step_pin=46, dir_pin=48, enable_pin=62
+    )
+    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
+        step_pin=60, dir_pin=61, enable_pin=56
+    )
+    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
+        step_pin=54, dir_pin=55, enable_pin=38
+    )
+    irl_config.first_c_channel_aruco_tag_id = 1
+    irl_config.second_c_channel_aruco_tag_id = 2
+    irl_config.third_c_channel_aruco_tag_id = 3
     return irl_config
 
 
@@ -108,6 +132,36 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.chute_stepper.enable_pin,
         name="chute",
         default_delay_us=400,
+    )
+
+    irl_interface.first_c_channel_rotor_stepper = Stepper(
+        gc,
+        second_mcu,
+        config.first_c_channel_rotor_stepper.step_pin,
+        config.first_c_channel_rotor_stepper.dir_pin,
+        config.first_c_channel_rotor_stepper.enable_pin,
+        name="first_c_channel_rotor",
+        default_delay_us=800,
+    )
+
+    irl_interface.second_c_channel_rotor_stepper = Stepper(
+        gc,
+        second_mcu,
+        config.second_c_channel_rotor_stepper.step_pin,
+        config.second_c_channel_rotor_stepper.dir_pin,
+        config.second_c_channel_rotor_stepper.enable_pin,
+        name="second_c_channel_rotor",
+        default_delay_us=800,
+    )
+
+    irl_interface.third_c_channel_rotor_stepper = Stepper(
+        gc,
+        second_mcu,
+        config.third_c_channel_rotor_stepper.step_pin,
+        config.third_c_channel_rotor_stepper.dir_pin,
+        config.third_c_channel_rotor_stepper.enable_pin,
+        name="third_c_channel_rotor",
+        default_delay_us=800,
     )
 
     return irl_interface

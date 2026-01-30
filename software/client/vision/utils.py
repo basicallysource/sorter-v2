@@ -84,10 +84,13 @@ def maskMinDistance(object_mask: np.ndarray, target_mask: np.ndarray) -> int:
     if len(object_coords) == 0 or len(target_coords) == 0:
         return 999999
 
-    # calculate minimum distance from any object pixel to any target pixel
-    min_dist = 999999
-    for obj_point in object_coords:
-        dists = np.sqrt(np.sum((target_coords - obj_point) ** 2, axis=1))
-        min_dist = min(min_dist, np.min(dists))
+    # bounding box distance (much faster than pixel-by-pixel)
+    obj_min_y, obj_min_x = object_coords.min(axis=0)
+    obj_max_y, obj_max_x = object_coords.max(axis=0)
+    tgt_min_y, tgt_min_x = target_coords.min(axis=0)
+    tgt_max_y, tgt_max_x = target_coords.max(axis=0)
 
-    return int(min_dist)
+    dx = max(0, obj_min_x - tgt_max_x, tgt_min_x - obj_max_x)
+    dy = max(0, obj_min_y - tgt_max_y, tgt_min_y - obj_max_y)
+
+    return int(np.sqrt(dx * dx + dy * dy))

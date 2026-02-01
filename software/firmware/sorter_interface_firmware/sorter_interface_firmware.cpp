@@ -30,6 +30,20 @@
 #include "TMC_UART.h"
 #include "TMC2209.h"
 
+#define MAIN_TRACE_ENABLED
+
+#ifdef MAIN_TRACE_ENABLED
+#define TRACE_PIN 8
+#define TRACE_INIT() gpio_init(TRACE_PIN); gpio_set_dir(TRACE_PIN, GPIO_OUT);
+#define TRACE_HIGH() gpio_put(TRACE_PIN, 1)
+#define TRACE_LOW() gpio_put(TRACE_PIN, 0)
+#else
+#define TRACE_INIT()
+#define TRACE_HIGH()
+#define TRACE_LOW()
+#endif
+
+
 TMC_UART_Bus tmc_bus(uart0);
 TMC2209 tmc_drivers[4] = {
     TMC2209(&tmc_bus, 0),
@@ -54,6 +68,7 @@ const uint32_t STEP_TICK_PERIOD_US = 1000000 / STEP_TICK_RATE_HZ;
 const uint32_t MOTION_UPDATE_PERIOD_US = 1000000 / STEP_MOTION_UPDATE_RATE_HZ;
 
 void core1_stepgen_isr(uint alarm_num ) {
+    TRACE_HIGH();
     // Core 1 step generator interrupt service routine, called at STEP_TICK_RATE_HZ
     hardware_alarm_set_target(alarm_num, time_us_64() + STEP_TICK_PERIOD_US);
     
@@ -61,9 +76,11 @@ void core1_stepgen_isr(uint alarm_num ) {
     steppers[1].stepgen_tick();
     steppers[2].stepgen_tick();
     steppers[3].stepgen_tick();
+    TRACE_LOW();
 }
 
 void core1_motion_update_isr(uint alarm_num ) {
+    TRACE_HIGH();
     // Core 1 motion update interrupt service routine, called at STEP_MOTION_UPDATE_RATE_HZ
     hardware_alarm_set_target(alarm_num, time_us_64() + MOTION_UPDATE_PERIOD_US);
     
@@ -71,6 +88,7 @@ void core1_motion_update_isr(uint alarm_num ) {
     steppers[1].motion_update_tick();
     steppers[2].motion_update_tick();
     steppers[3].motion_update_tick();
+    TRACE_LOW();
 }
 
 void core1_entry() {
@@ -93,6 +111,7 @@ void core1_entry() {
 
 int main()
 {
+    TRACE_INIT();
     stdio_init_all();
     // Initialize TMC UART bus
     tmc_bus.setupComm(TMC_UART_BAUDRATE, TMC_UART_TX_PIN, TMC_UART_RX_PIN);

@@ -94,16 +94,17 @@ def main() -> None:
 
             current_time = time.time()
 
-            # # send periodic heartbeat
-            # if (
-            #     current_time - last_heartbeat
-            #     >= gc.timeouts.heartbeat_interval_ms / 1000.0
-            # ):
-            #     heartbeat = HeartbeatEvent(
-            #         tag="heartbeat", data=HeartbeatData(timestamp=current_time)
-            #     )
-            #     main_to_server_queue.put(heartbeat)
-            #     last_heartbeat = current_time
+            # send periodic heartbeat
+            # can probably remove this later, just helps debug web sockets from time to time
+            if (
+                current_time - last_heartbeat
+                >= gc.timeouts.heartbeat_interval_ms / 1000.0
+            ):
+                heartbeat = HeartbeatEvent(
+                    tag="heartbeat", data=HeartbeatData(timestamp=current_time)
+                )
+                main_to_server_queue.put(heartbeat)
+                last_heartbeat = current_time
 
             # broadcast camera frames and record to disk
             if (

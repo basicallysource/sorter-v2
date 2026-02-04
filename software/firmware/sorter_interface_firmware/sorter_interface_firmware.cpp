@@ -188,8 +188,11 @@ int main()
     // Initialize Core 1
     multicore_launch_core1(core1_entry);
 
-    alignas(4) char rx_buffer[255], tx_buffer[255];
-    alignas(4) char rx_message[254], tx_message[254];
+    // Communication buffers
+    char rx_buffer[255], tx_buffer[255];
+    // Buffers for received and transmitted messages, aligned to 32 bits for easy casting
+    alignas(uint32_t) char rx_message[254];
+    alignas(uint32_t) char tx_message[254];
     int rx_buffer_pos = 0, msg_len = 0;
 
     // Main loop, this deals with communications and high level command processing

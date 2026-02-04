@@ -50,9 +50,6 @@ class Detecting(BaseState):
                     > self.gc.vision_mask_proximity_threshold
                 ):
                     self.logger.info("Detecting: object mask overlaps carousel")
-                    print(
-                        f"confidence level for rotation: {obj_dm.confidence} + id: {obj_dm.instance_id}"
-                    )
                     self.shared.classification_ready = False
                     self.carousel.addPieceAtFeeder()
                     return ClassificationState.ROTATING

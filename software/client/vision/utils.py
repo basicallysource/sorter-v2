@@ -48,32 +48,6 @@ def maskEdgeProximity(
     if edge_pixels > 0:
         proximity_value = float(np.sum(edge_near_target) / edge_pixels)
 
-    # debug visualization
-    if debug_id is not None:
-        height, width = object_mask.shape
-        debug_img = np.zeros((height, width, 3), dtype=np.uint8)
-
-        # target mask in blue
-        debug_img[target_mask > 0] = [255, 0, 0]
-
-        # dilated target (proximity zone) in red
-        debug_img[dilated_target > 0] = [0, 0, 255]
-
-        # object mask in green
-        debug_img[object_mask > 0] = [0, 255, 0]
-
-        # object edge in yellow
-        debug_img[edge > 0] = [0, 255, 255]
-
-        # edge near target in white (for visibility)
-        debug_img[edge_near_target > 0] = [255, 255, 255]
-
-        timestamp = int(time.time() * 1000)
-        # todo remove this stuff
-        filename = f"/tmp/mask_proximity_debug_id{debug_id}_prox{int(proximity_value * 100)}_px{proximity_px}_{timestamp}.png"
-        # cv2.imwrite(filename, debug_img)
-        # print(f"Debug image written: {filename}")
-
     return proximity_value
 
 

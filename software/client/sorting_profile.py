@@ -29,5 +29,4 @@ class BrickLinkCategories(SortingProfile):
 
     def getCategoryIdForPart(self, part_id: str) -> str:
         out = self.part_to_category.get(part_id, MISC_CATEGORY)
-        print("got category", out)
         return out

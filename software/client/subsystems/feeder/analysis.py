@@ -92,7 +92,6 @@ def determineObjectChannel(
             obj_detected_mask.mask,
             channels.second_channel_mask.mask,
             proximity_px=5,
-            debug_id=obj_detected_mask.instance_id,
         )
 
     if channels.third_channel_mask is not None:
@@ -100,10 +99,7 @@ def determineObjectChannel(
             obj_detected_mask.mask,
             channels.third_channel_mask.mask,
             proximity_px=5,
-            debug_id=obj_detected_mask.instance_id,
         )
-
-    # print(f"??? object id: {obj_detected_mask.instance_id}: proximity_2={proximity_2:.3f}, proximity_3={proximity_3:.3f}")
 
     if proximity_2 < proximity_threshold and proximity_3 < proximity_threshold:
         return None
@@ -118,17 +114,12 @@ def isObjectInDropzone(
     obj_detected_mask: DetectedMask,
     aruco_pos: Tuple[float, float],
     threshold_px: int,
-    should_do=False,
 ) -> bool:
     center = maskCenterOfMass(obj_detected_mask.mask)
     if center is None:
-        # print('no center', obj_detected_mask.instance_id)
         return False
 
     dist = np.sqrt((center[0] - aruco_pos[0]) ** 2 + (center[1] - aruco_pos[1]) ** 2)
-    if should_do:
-        pass
-        # print(f'$$$ dist for {obj_detected_mask.instance_id}', dist, center, aruco_pos, threshold_px)
     return dist <= threshold_px
 
 
@@ -139,7 +130,6 @@ def analyzeFeederState(
     fc: FeederConfig,
 ) -> FeederAnalysisState:
     if not object_detected_masks:
-        # print("No object masks, returning CLEAR")
         return FeederAnalysisState.CLEAR
 
     has_object_about_to_fall = False
@@ -150,7 +140,6 @@ def analyzeFeederState(
         channel_id = determineObjectChannel(
             obj_dm, channels, fc.object_channel_overlap_threshold
         )
-        # print(f'### object id: {obj_dm.instance_id}, channel id {channel_id}')
 
         if channel_id is None:
             continue
@@ -158,7 +147,6 @@ def analyzeFeederState(
         # check for "about to fall" (on 3rd, near carousel)
         if channel_id == 3 and carousel_detected_mask is not None:
             distance_px = maskMinDistance(obj_dm.mask, carousel_detected_mask.mask)
-            # print(f'mask distance id {obj_dm.instance_id} for precise', distance_px)
             if distance_px <= fc.carousel_proximity_threshold_px:
                 has_object_about_to_fall = True
 

@@ -48,7 +48,7 @@ class FeederConfig:
         self.third_channel_dropzone_threshold_px = 350
         self.second_channel_dropzone_threshold_px = 500
         self.object_channel_overlap_threshold = 0.15
-        self.carousel_proximity_threshold_px = 50
+        self.carousel_proximity_threshold_px = 110
 
 
 class GlobalConfig:
@@ -83,6 +83,8 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.logger = Logger(gc.debug_level)
     gc.timeouts = mkTimeouts()
     gc.feeder_config = mkFeederConfig()
-    gc.classification_chamber_vision_model_path = "/Users/spencer/code/yolo-trainer/runs/segment/checkpoints/run_1769112999_640_small_100epochs_20batch_data/weights/best.pt"
-    gc.feeder_vision_model_path = "/Users/spencer/code/yolo-trainer/runs/segment/checkpoints/c_channel_feeder_02_1769745064_640_small_100epochs_20batch/weights/last.pt"
+    gc.classification_chamber_vision_model_path = os.environ[
+        "CLASSIFICATION_CHAMBER_MODEL_PATH"
+    ]
+    gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
     return gc

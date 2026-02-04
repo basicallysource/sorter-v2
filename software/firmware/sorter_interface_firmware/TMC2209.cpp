@@ -32,7 +32,7 @@ void TMC2209::initialize() {
     // Use external reference for current scaling
     gconf |= TMC2209_GCONF_BITS::GCONF_I_SCALE_ANALOG;
     // Disable PDN function (required for UART operation)
-    gconf |= TMC2209_GCONF_BITS::GCONF_PD_DISABLE; // Disable PDN function
+    gconf |= TMC2209_GCONF_BITS::GCONF_PD_DISABLE;
     // Use internal mres instead of MS pins for microstep resolution
     gconf |= TMC2209_GCONF_BITS::GCONF_MSTEP_REG_SELECT;
     // Enable filtering
@@ -87,10 +87,10 @@ void TMC2209::enableStealthChop(bool enable) {
         //XXX: Probably should handle read errors here, retry?
         return;
     }
-    if (enable) {
-        gconf |= TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Enable StealthChop
+    if (!enable) {
+        gconf |= TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Enable SpreadCycle
     } else {
-        gconf &= ~TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Disable StealthChop
+        gconf &= ~TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Disable SpreadCycle (enable StealthChop)
     }
     _bus->writeRegister(_address, TMC2209_Register::GCONF, gconf);
 }

@@ -205,12 +205,13 @@ class VisionManager:
         return result
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
-        # HUGE COMMENT: THIS NEEDS REFACTORING FOR CLARITY
-        # This function caches ONLY object masks (moving pieces) across frames.
+        # Really needs refactoring
+        # This function only caches object masks across frames.
         # Channel and carousel masks are stationary so we always return current frame only.
         # For objects: accumulate detections across multiple frames for stability.
         # This helps with detection reliability when pieces are moving.
         # Should eventually be refactored for proper object tracking and lifecycle management.
+        # this means that if you count the number of objects, it's ~FEEDER_MASK_CACHE_FRAMES bigger than it should be
 
         results = self._feeder_binding.latest_raw_results
         if not results or len(results) == 0:

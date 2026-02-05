@@ -2171,8 +2171,8 @@
 		(uuid 2129009a-b1ae-4f09-8676-9507bc049835)
 	)
 	(rectangle
-		(start 65.405 16.15)
-		(end 107.315 46.15)
+		(start 84.455 16.15)
+		(end 126.365 46.15)
 		(stroke
 			(width 0)
 			(type default)
@@ -2264,7 +2264,7 @@
 	)
 	(text "p. 21 of RP Pico documentation"
 		(exclude_from_sim no)
-		(at 86.106 43.18 0)
+		(at 105.156 43.18 0)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -2334,7 +2334,7 @@
 	)
 	(text "Alternate protection to reduce diode drop if needed"
 		(exclude_from_sim no)
-		(at 86.36 40.894 0)
+		(at 105.41 40.894 0)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -2386,6 +2386,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 111.76) (xy 138.43 111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "003be868-fd7a-491f-83ae-28c8767fc45b")
+	)
+	(wire
+		(pts
 			(xy 137.16 49.53) (xy 137.16 52.07)
 		)
 		(stroke
@@ -2416,6 +2426,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 114.3) (xy 138.43 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "06e8054d-e015-4f1d-b37c-cf03391e7e6f")
+	)
+	(wire
+		(pts
 			(xy 41.91 123.19) (xy 74.93 123.19)
 		)
 		(stroke
@@ -2436,7 +2456,17 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 36.83) (xy 85.09 34.29)
+			(xy -11.43 58.42) (xy -11.43 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "11e19f24-5736-463c-a4cf-b4d47180bc5c")
+	)
+	(wire
+		(pts
+			(xy 104.14 36.83) (xy 104.14 34.29)
 		)
 		(stroke
 			(width 0)
@@ -2456,13 +2486,13 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 96.52) (xy 138.43 96.52)
+			(xy 41.91 105.41) (xy 57.15 105.41)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "1cefe146-024d-44db-8445-1857b04e9641")
+		(uuid "1c91f39f-afca-41a0-ac4b-2c2cf3a1c9fe")
 	)
 	(wire
 		(pts
@@ -2506,16 +2536,6 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 93.98) (xy 138.43 93.98)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "261daf57-a61a-409e-b98b-87bb214bc3d3")
-	)
-	(wire
-		(pts
 			(xy 99.06 182.88) (xy 132.08 182.88)
 		)
 		(stroke
@@ -2533,6 +2553,26 @@
 			(type default)
 		)
 		(uuid "26355b62-d92b-4734-ab3d-7d49e13b7d14")
+	)
+	(wire
+		(pts
+			(xy 124.46 99.06) (xy 138.43 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "266c5654-b672-4849-9f84-3b151c112c0e")
+	)
+	(wire
+		(pts
+			(xy 124.46 86.36) (xy 138.43 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "28da45ec-b387-4ae6-8d5b-de6b19f044bd")
 	)
 	(wire
 		(pts
@@ -2556,7 +2596,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 26.67) (xy 80.01 26.67)
+			(xy 92.71 26.67) (xy 99.06 26.67)
 		)
 		(stroke
 			(width 0)
@@ -2606,13 +2646,23 @@
 	)
 	(wire
 		(pts
-			(xy 255.27 142.24) (xy 270.51 142.24)
+			(xy 214.63 139.7) (xy 229.87 139.7)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "3f63dc05-f9af-4a5f-923f-f5a742b8165d")
+	)
+	(wire
+		(pts
+			(xy 124.46 109.22) (xy 138.43 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "442630e2-a629-4e6a-afc3-f950fae49713")
 	)
 	(wire
 		(pts
@@ -2623,16 +2673,6 @@
 			(type default)
 		)
 		(uuid "46867159-67c5-418d-bee3-9379b9ac009c")
-	)
-	(wire
-		(pts
-			(xy 269.24 157.48) (xy 269.24 158.75)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "477c0aa4-72e6-40c9-852b-8d893c78d480")
 	)
 	(wire
 		(pts
@@ -2656,7 +2696,17 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 104.14) (xy 138.43 104.14)
+			(xy 124.46 91.44) (xy 138.43 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "503557b4-5d52-4b7a-a936-bc00268a0efa")
+	)
+	(wire
+		(pts
+			(xy 124.46 104.14) (xy 138.43 104.14)
 		)
 		(stroke
 			(width 0)
@@ -2693,6 +2743,16 @@
 			(type default)
 		)
 		(uuid "58dc59a0-f30d-444e-b8ee-1c6bf468964f")
+	)
+	(wire
+		(pts
+			(xy 41.91 102.87) (xy 57.15 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5afe3410-214b-416f-aa9e-16650daac6f4")
 	)
 	(wire
 		(pts
@@ -2806,7 +2866,7 @@
 	)
 	(wire
 		(pts
-			(xy 214.63 40.64) (xy 224.79 40.64)
+			(xy 214.63 40.64) (xy 190.5 40.64)
 		)
 		(stroke
 			(width 0)
@@ -2856,6 +2916,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 88.9) (xy 138.43 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91629a15-0580-406b-9af5-29a280613f7a")
+	)
+	(wire
+		(pts
 			(xy 190.5 121.92) (xy 184.15 121.92)
 		)
 		(stroke
@@ -2866,6 +2936,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 93.98) (xy 138.43 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "952b1568-7fb7-4d89-a47b-3ac3a196695a")
+	)
+	(wire
+		(pts
 			(xy 265.43 34.29) (xy 267.97 34.29)
 		)
 		(stroke
@@ -2873,6 +2953,16 @@
 			(type default)
 		)
 		(uuid "98843c83-5b9e-4977-a863-5b3e24500150")
+	)
+	(wire
+		(pts
+			(xy 124.46 119.38) (xy 138.43 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "98c191eb-f0b9-470c-abef-355f919b0029")
 	)
 	(wire
 		(pts
@@ -2896,13 +2986,23 @@
 	)
 	(wire
 		(pts
-			(xy 76.2 36.83) (xy 85.09 36.83)
+			(xy 95.25 36.83) (xy 104.14 36.83)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "9f612562-1873-4b9c-baeb-a3484b29aa1a")
+	)
+	(wire
+		(pts
+			(xy 124.46 116.84) (xy 138.43 116.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a18eb875-992a-48b0-add4-21bef442748d")
 	)
 	(wire
 		(pts
@@ -2926,6 +3026,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 121.92) (xy 138.43 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a59c0fc7-36d5-4695-97b0-83759b428f79")
+	)
+	(wire
+		(pts
 			(xy 219.71 88.9) (xy 222.25 88.9)
 		)
 		(stroke
@@ -2943,6 +3053,16 @@
 			(type default)
 		)
 		(uuid "a856be1c-7078-42bc-8472-64ee4ea16766")
+	)
+	(wire
+		(pts
+			(xy 124.46 83.82) (xy 138.43 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a937ea9e-7b17-4903-8a84-540dc84a6b89")
 	)
 	(wire
 		(pts
@@ -2976,7 +3096,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 26.67) (xy 99.06 26.67)
+			(xy 109.22 26.67) (xy 118.11 26.67)
 		)
 		(stroke
 			(width 0)
@@ -3066,7 +3186,7 @@
 	)
 	(wire
 		(pts
-			(xy 270.51 133.35) (xy 270.51 134.62)
+			(xy 229.87 130.81) (xy 229.87 132.08)
 		)
 		(stroke
 			(width 0)
@@ -3093,6 +3213,16 @@
 			(type default)
 		)
 		(uuid "d226bd7e-bd86-4238-84af-b1882e963335")
+	)
+	(wire
+		(pts
+			(xy 124.46 101.6) (xy 138.43 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d236c1ad-4efc-4ca4-be63-8aa563b8b207")
 	)
 	(wire
 		(pts
@@ -3134,6 +3264,16 @@
 		)
 		(uuid "dcf6810f-93e1-4ea6-9adc-12df4ab80129")
 	)
+	(wire
+		(pts
+			(xy -11.43 68.58) (xy -11.43 66.04)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e24737d0-3045-43b7-b4e3-414738149259")
+	)
 	(polyline
 		(pts
 			(xy 182 168) (xy 182 168)
@@ -3166,7 +3306,7 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 106.68) (xy 138.43 106.68)
+			(xy 124.46 106.68) (xy 138.43 106.68)
 		)
 		(stroke
 			(width 0)
@@ -3176,7 +3316,37 @@
 	)
 	(wire
 		(pts
-			(xy 254 157.48) (xy 269.24 157.48)
+			(xy 41.91 88.9) (xy 57.15 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef9629a1-c73d-4e5a-9983-b86758d81a3a")
+	)
+	(wire
+		(pts
+			(xy 124.46 96.52) (xy 138.43 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f226ac8e-70fe-4589-b250-d9198726241a")
+	)
+	(wire
+		(pts
+			(xy 41.91 91.44) (xy 57.15 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f71c0914-0f84-49eb-bae2-104a9bb46922")
+	)
+	(wire
+		(pts
+			(xy -24.13 55.88) (xy -11.43 55.88)
 		)
 		(stroke
 			(width 0)
@@ -3204,6 +3374,16 @@
 		)
 		(uuid "fa5d6e3b-37a6-491a-b8db-0e1749d15b21")
 	)
+	(label "GPIO12"
+		(at 81.28 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0007d299-9605-4fa4-ab1e-68b4d8d0995b")
+	)
 	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
 		(at 43.18 185.42 0)
 		(effects
@@ -3219,11 +3399,21 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "07efa00f-6a49-409c-b6ad-7445455d1efb")
+	)
+	(label "GPIO4-GPIO_OUT-MOTOR1_B_IN1"
+		(at 124.46 93.98 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "07f873d3-ee1d-4eba-9f31-d8a64e8f8786")
 	)
 	(label "GPIO21-PWM2_B-Stepper2_STEP"
 		(at 184.15 99.06 0)
@@ -3236,7 +3426,7 @@
 		(uuid "0d81a314-b42f-43a0-a79b-05083e077a0c")
 	)
 	(label "VBUS"
-		(at 76.2 36.83 0)
+		(at 95.25 36.83 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3287,6 +3477,16 @@
 		)
 		(uuid "10c443a3-493b-4757-b3e5-44252ea13afc")
 	)
+	(label "GPIO_IN_HALL_SW_3"
+		(at 49.53 105.41 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "128e1a5b-d10b-4c63-9896-b5fbca6f4356")
+	)
 	(label "SPI1_CSn"
 		(at 92.71 116.84 0)
 		(effects
@@ -3297,6 +3497,16 @@
 		)
 		(uuid "13c32ead-5c80-47e5-aba4-ba14c236adac")
 	)
+	(label "PWM7 B"
+		(at 92.71 71.12 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "152e1a3d-5542-4800-9504-c8f9daf5c2e4")
+	)
 	(label "UART0_TX"
 		(at 243.84 86.36 0)
 		(effects
@@ -3306,6 +3516,16 @@
 			(justify left bottom)
 		)
 		(uuid "17ea84cc-c767-4238-aa7f-45ae6de209b8")
+	)
+	(label "GPIO6-PWM3_A-MOTOR1_B_PWM"
+		(at 124.46 99.06 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "18a20669-42d9-4217-bf49-d15c31afcab0")
 	)
 	(label "SPI0_CSn"
 		(at 92.71 86.36 0)
@@ -3340,6 +3560,26 @@
 		)
 		(uuid "1cc5439b-fe3e-4b96-9f4f-c648925938cc")
 	)
+	(label "GPIO_OUT_LED_1"
+		(at 49.53 91.44 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "1ce47e94-c2df-41ab-add0-11088ccc59a3")
+	)
+	(label "GPIO22-GPIO_OUT-Stepper1_DIR"
+		(at 44.45 41.91 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "21acd02f-a75b-4396-b69e-fb1365c7d1b3")
+	)
 	(label "PWM3 B"
 		(at 82.55 101.6 0)
 		(effects
@@ -3349,16 +3589,6 @@
 			(justify left bottom)
 		)
 		(uuid "21c0af5b-cd72-426d-b9ae-ae158895eecb")
-	)
-	(label "I2C0_SCL"
-		(at 158.75 173.99 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "241d7c07-5752-4170-8015-7970f5480b7f")
 	)
 	(label "GPIO18-GPIO_OUT-Stepper3_DIR"
 		(at 184.15 91.44 0)
@@ -3375,13 +3605,34 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "27a036a0-a775-4820-942a-767ecdc8c2ef")
 	)
+	(label "GPIO13"
+		(at 81.28 66.04 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "27e32d34-4e97-4f14-b324-52a0235fb29e")
+	)
+	(label "I2C1_SDA-PCA9685_SDA"
+		(at 158.75 179.07 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "28f15b3e-3c37-48a4-a604-19d5527776c4")
+	)
 	(label "Motor_~{STBY}"
-		(at 254 157.48 0)
+		(at -24.13 55.88 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3390,11 +3641,22 @@
 		)
 		(uuid "2b263277-6d76-4636-a3d7-0ebbb2e1406e")
 	)
+	(label "GPIO10"
+		(at 81.28 58.42 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2b8c0616-ab12-485d-aec3-fdb870defd30")
+	)
 	(label "I2C1_SCL"
 		(at 113.03 91.44 0)
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3431,8 +3693,68 @@
 		)
 		(uuid "30d16e9e-bdfc-47ed-8dbf-c7eb2c071316")
 	)
+	(label "GPIO4-GPIO_OUT-MOTOR1_B_IN1"
+		(at 44.45 67.31 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "31808028-13c3-44df-9964-7b8ecb707e00")
+	)
+	(label "PWM3 A"
+		(at 92.71 58.42 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "398d6155-70cb-448e-a11b-14e784647833")
+	)
+	(label "GPIO28-PWM6_A-Stepper_STEP"
+		(at 45.72 34.29 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "3acf81a9-b205-4848-9dcf-232726ed729e")
+	)
+	(label "GPIO26-PWM5_A-Stepper1_STEP"
+		(at 44.45 44.45 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "3e5039f5-0a38-4fb8-89c8-681dbecf0be5")
+	)
+	(label "I2C1_SCL-PCA9685_SCL"
+		(at 158.75 173.99 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "413126ce-981c-487d-8ff3-0d654c05b9c5")
+	)
+	(label "GPIO_IN_HALL_SW_2"
+		(at 44.45 39.37 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "4245e769-972f-48ff-ac8b-0f1677f6be0e")
+	)
 	(label "VSYS"
-		(at 93.98 26.67 0)
+		(at 113.03 26.67 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3452,15 +3774,36 @@
 		)
 		(uuid "43a204e2-bd26-4ba0-a46a-c3dd8b7cf914")
 	)
-	(label "I2C1_SDA"
-		(at 113.03 119.38 0)
+	(label "GPIO2-GPIO_OUT-MOTOR1_A_IN2"
+		(at 44.45 59.69 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
+		(uuid "43f3cdcd-84f3-495e-b8db-c127f3d3ead1")
+	)
+	(label "I2C1_SDA"
+		(at 113.03 119.38 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
 		(uuid "442760c5-36e9-464f-9612-6a2cf127103d")
+	)
+	(label "GPIO_OUT_LED_0"
+		(at 124.46 119.38 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "444fd0dd-addc-4465-aff2-a9318682c84e")
 	)
 	(label "~{EN}_Stepper"
 		(at 45.72 144.78 0)
@@ -3497,6 +3840,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3542,6 +3886,16 @@
 		)
 		(uuid "526c2b25-8d49-478e-89b0-87e95b404bcb")
 	)
+	(label "PWM5 A"
+		(at 198.12 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "52b6132e-186a-4166-82fb-18112c849b10")
+	)
 	(label "PWM0 A"
 		(at 275.59 86.36 0)
 		(effects
@@ -3557,6 +3911,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3571,6 +3926,26 @@
 			(justify left bottom)
 		)
 		(uuid "5828d6b7-faff-4f7c-b8ba-faab90a6414a")
+	)
+	(label "PWM6 A"
+		(at 198.12 66.04 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5ace083e-cf7b-47e7-ad8a-d13cd090d74e")
+	)
+	(label "GPIO6-PWM3_A-MOTOR1_B_PWM"
+		(at 46.99 72.39 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5b7b9d90-1eb9-4b8f-9e4d-500c75f25da1")
 	)
 	(label "UART1_TX"
 		(at 102.87 93.98 0)
@@ -3594,7 +3969,7 @@
 		(uuid "5cc0bbc2-3053-4864-8344-7f5b5626fef2")
 	)
 	(label "I2C0_SCL"
-		(at 128.27 96.52 0)
+		(at 113.03 96.52 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3602,6 +3977,16 @@
 			(justify left bottom)
 		)
 		(uuid "5e572dba-c44f-46f9-aaee-88af886d0035")
+	)
+	(label "PWM2 B"
+		(at 198.12 60.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "63ab6e4d-8d22-40d0-9e27-7da725d40e00")
 	)
 	(label "Motor_~{STBY}"
 		(at 44.45 49.53 0)
@@ -3628,7 +4013,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3670,6 +4055,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3680,6 +4066,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3695,6 +4082,26 @@
 		)
 		(uuid "6ee4746f-aa0f-4773-ab33-92944fa4cf68")
 	)
+	(label "PWM4 B"
+		(at 92.71 66.04 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6fe6e60c-f834-44f6-a10c-28413bba6b02")
+	)
+	(label "GPIO_IN_HALL_SW_2"
+		(at 49.53 102.87 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "700647c1-3813-4e94-bbd9-a95aee4a531b")
+	)
 	(label "SPI0_RX"
 		(at 92.71 93.98 0)
 		(effects
@@ -3707,7 +4114,7 @@
 		(uuid "702a0d03-5e9b-4e7e-8c7e-9b2332241c74")
 	)
 	(label "UART1_RX"
-		(at 128.27 106.68 0)
+		(at 102.87 106.68 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3715,6 +4122,26 @@
 			(justify left bottom)
 		)
 		(uuid "720524a4-14b8-4c3a-a2e2-8c91f4eb0eef")
+	)
+	(label "GPIO5-GPIO_OUT-MOTOR1_B_IN2"
+		(at 124.46 96.52 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "737defb1-b42b-4abd-a924-2b4af20ccb25")
+	)
+	(label "I2C1_SDA-PCA9685_SDA"
+		(at 227.33 40.64 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "74870ee6-3a7e-4244-9821-a2600a486415")
 	)
 	(label "GPIO27-GPIO_OUT-Stepper_DIR"
 		(at 43.18 132.08 0)
@@ -3731,14 +4158,24 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "824c07eb-542a-4c8f-8d19-6dd16b201f1b")
 	)
+	(label "GPIO2-GPIO_OUT-MOTOR1_A_IN2"
+		(at 124.46 88.9 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8292e920-f8c9-4d6c-84ad-0522200190cd")
+	)
 	(label "~{EN}_Stepper"
-		(at 255.27 142.24 0)
+		(at 214.63 139.7 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3746,6 +4183,16 @@
 			(justify left bottom)
 		)
 		(uuid "83a4c8d6-ec82-423b-92ad-29dc72327fdb")
+	)
+	(label "GPIO_IN_HALL_SW_3"
+		(at 45.72 29.21 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "83c501e7-ff77-4c27-8c2e-d06d57135285")
 	)
 	(label "PWM2 A"
 		(at 243.84 96.52 0)
@@ -3767,6 +4214,16 @@
 		)
 		(uuid "8a5e99fe-cc65-4940-9244-511013b98b49")
 	)
+	(label "PWM4 A"
+		(at 92.71 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8aa8bde6-6de7-4b06-a51b-93463cae742b")
+	)
 	(label "GPIO17-UART0_RX-StepperUART"
 		(at 43.18 123.19 0)
 		(effects
@@ -3776,6 +4233,26 @@
 			(justify left bottom)
 		)
 		(uuid "8b6a266d-36e9-492c-9c84-107126786403")
+	)
+	(label "GPIO3-GPIO_OUT-MOTOR1_A_IN1"
+		(at 124.46 91.44 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8bfd8e34-252c-4f34-bf94-b16872691ba2")
+	)
+	(label "GPIO_IN_HALL_SW_3"
+		(at 124.46 114.3 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8e0f466c-74c5-4aec-8fc9-b0272c1a717b")
 	)
 	(label "~{EN}_Stepper"
 		(at 46.99 171.45 0)
@@ -3802,21 +4279,62 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "922de8e0-ff27-497d-badc-53e381a36612")
 	)
-	(label "I2C1_SDA"
-		(at 113.03 99.06 0)
+	(label "GPIO5-GPIO_OUT-MOTOR1_B_IN2"
+		(at 45.72 69.85 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
+		(uuid "926af910-e5d4-476e-87f9-e4ae206402cf")
+	)
+	(label "I2C1_SDA"
+		(at 113.03 99.06 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
 		(uuid "937a7da0-5102-47d4-a298-f9ff982954dd")
+	)
+	(label "GPIO11"
+		(at 81.28 60.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "94ac9efd-3626-45cc-bc7a-2bf706a0a85d")
+	)
+	(label "GPIO3-GPIO_OUT-MOTOR1_A_IN1"
+		(at 44.45 57.15 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "95c1d85e-6017-4e22-8649-38c6751be2be")
+	)
+	(label "PWM0 B"
+		(at 92.71 55.88 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "95ef7fb7-fc5d-4625-aa11-b99da04aa2af")
 	)
 	(label "SPI0_TX"
 		(at 264.16 93.98 0)
@@ -3839,12 +4357,22 @@
 		)
 		(uuid "98431e0a-0f8b-45e7-81cb-cba8d2db79bc")
 	)
+	(label "GPIO_IN_HALL_SW_1"
+		(at 124.46 104.14 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9b63e601-f027-4f2c-b070-74dac73df6c3")
+	)
 	(label "I2C0_SCL"
 		(at 254 88.9 0)
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3860,11 +4388,22 @@
 		)
 		(uuid "9ea5c94c-d2a7-485c-88db-6d5187b5b0ca")
 	)
+	(label "GPIO_IN_HALL_SW_2"
+		(at 124.46 116.84 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9eba7c49-d8ea-4c6e-bbd3-805e08845d30")
+	)
 	(label "I2C1_SCL"
 		(at 254 114.3 0)
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3880,15 +4419,15 @@
 		)
 		(uuid "a3cc8a4e-0880-4aa8-9535-9086b66e800a")
 	)
-	(label "I2C0_SDA"
-		(at 229.87 40.64 0)
+	(label "I2C1_SCL-PCA9685_SCL"
+		(at 190.5 40.64 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
-		(uuid "a6ac2b98-bda7-46b3-8479-97f3118eeb4c")
+		(uuid "a67c13f0-9f1c-4d41-916d-47efdeeec5f0")
 	)
 	(label "GPIO28-PWM6_A-Stepper_STEP"
 		(at 43.18 129.54 0)
@@ -3920,6 +4459,26 @@
 			(justify left bottom)
 		)
 		(uuid "a85cc500-af2d-43d2-a4f8-36135f475c79")
+	)
+	(label "GPIO_IN_HALL_SW_1"
+		(at 49.53 100.33 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a9606537-2066-4f70-8948-8d075bf275a9")
+	)
+	(label "GPIO_IN_HALL_SW_0"
+		(at 49.53 97.79 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "aba4a89d-4e49-4de2-9e6e-006e2a14e727")
 	)
 	(label "SPI1_TX"
 		(at 92.71 121.92 0)
@@ -3978,7 +4537,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -3999,6 +4558,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4009,7 +4569,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4025,6 +4585,16 @@
 		)
 		(uuid "b5020f75-daa9-4a92-80f1-0910065dd46e")
 	)
+	(label "GPIO_OUT_LED_1"
+		(at 124.46 121.92 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b629a517-642e-42af-af68-f792e444b111")
+	)
 	(label "PWM2 B"
 		(at 243.84 99.06 0)
 		(effects
@@ -4035,6 +4605,16 @@
 		)
 		(uuid "b7d0b946-7540-4b76-8121-b028128273cd")
 	)
+	(label "Motor_~{STBY}"
+		(at 125.73 101.6 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b9174a9b-e5c3-4899-ba05-d63409cdaabf")
+	)
 	(label "SPI1_SCK"
 		(at 92.71 109.22 0)
 		(effects
@@ -4044,6 +4624,16 @@
 			(justify left bottom)
 		)
 		(uuid "b94ac9ef-a48f-44d7-9981-122b60e497db")
+	)
+	(label "GPIO9"
+		(at 81.28 55.88 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "ba75b1e9-7ee4-4b71-93e5-e277cd73e474")
 	)
 	(label "GPIO17-UART0_RX-StepperUART"
 		(at 100.33 176.53 0)
@@ -4065,8 +4655,18 @@
 		)
 		(uuid "bbba4ddb-e349-43fa-b443-796a497e8551")
 	)
+	(label "GPIO_OUT_LED_0"
+		(at 49.53 88.9 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "bea3fcac-f861-4ed1-815d-63c8fa0aa369")
+	)
 	(label "UART1_TX"
-		(at 128.27 104.14 0)
+		(at 102.87 104.14 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4085,15 +4685,15 @@
 		)
 		(uuid "bf6c98fc-2cae-4f3f-b6bd-3a0fba7f4753")
 	)
-	(label "I2C0_SDA"
-		(at 158.75 179.07 0)
+	(label "GPIO_IN_HALL_SW_0"
+		(at 124.46 106.68 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
-		(uuid "c22500f1-6eca-40bb-b637-a38138bab76c")
+		(uuid "bf746425-14c2-4a58-8cbb-1a2bb08c92f1")
 	)
 	(label "PWM6 B"
 		(at 82.55 116.84 0)
@@ -4115,6 +4715,16 @@
 		)
 		(uuid "c2a3384f-1359-489f-890f-a373fa643308")
 	)
+	(label "GPIO1-PWM0_B-MOTOR1_A_PWM"
+		(at 44.45 62.23 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "c424bc84-1f25-4cdc-8b57-194ebb3e7a06")
+	)
 	(label "UART0_RX"
 		(at 243.84 88.9 0)
 		(effects
@@ -4130,7 +4740,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4152,7 +4762,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4184,6 +4794,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4194,11 +4805,21 @@
 		(effects
 			(font
 				(size 1.27 1.27)
-				(color 255 0 0 1)
+				(color 0 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "d1dc9e93-2d15-4cbe-8691-3d2b1263f7aa")
+	)
+	(label "PWM1 B"
+		(at 198.12 58.42 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d2515491-f371-4c81-8ec7-4adf994c1ca1")
 	)
 	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
 		(at 184.15 96.52 0)
@@ -4209,6 +4830,16 @@
 			(justify left bottom)
 		)
 		(uuid "d332f23b-b9e4-4aed-97aa-67429227604f")
+	)
+	(label "I2C1_SDA-PCA9685_SDA"
+		(at 124.46 109.22 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d344824b-b46f-4338-b503-53b472720931")
 	)
 	(label "PWM2 A"
 		(at 82.55 93.98 0)
@@ -4235,6 +4866,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4270,6 +4902,16 @@
 		)
 		(uuid "db30d3fc-7111-425c-8872-3518186dadfa")
 	)
+	(label "PWM7 A"
+		(at 92.71 68.58 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "debf1087-51ad-47a4-a3b1-236d9f3abc45")
+	)
 	(label "SPI0_RX"
 		(at 264.16 86.36 0)
 		(effects
@@ -4302,25 +4944,26 @@
 		)
 		(uuid "e4458fcf-8f0b-4159-bcb5-875a5f83f5c6")
 	)
-	(label "I2C0_SCL"
-		(at 215.9 40.64 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e8399545-9c26-4da3-9a13-2d781a1c1d54")
-	)
 	(label "I2C1_SCL"
 		(at 113.03 121.92 0)
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
 		(uuid "e9687e02-ac7a-4830-b5ea-75b98d6c15b4")
+	)
+	(label "GPIO27-GPIO_OUT-Stepper_DIR"
+		(at 45.72 31.75 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e9ffd692-8500-49a4-ad49-b2c432fc0c17")
 	)
 	(label "PWM1 A"
 		(at 82.55 88.9 0)
@@ -4344,7 +4987,7 @@
 		(uuid "ec2bb45e-f3d2-4cb7-9042-2d8b77da18ee")
 	)
 	(label "I2C0_SDA"
-		(at 128.27 93.98 0)
+		(at 113.03 93.98 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4384,6 +5027,26 @@
 		)
 		(uuid "f035d4d4-be93-49e1-99fc-fa26e581e6d9")
 	)
+	(label "I2C1_SCL-PCA9685_SCL"
+		(at 124.46 111.76 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f131ab46-ab8a-4a4b-98a7-c506bbcaff68")
+	)
+	(label "~{EN}_Stepper"
+		(at 124.46 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f58f1c14-8e17-4b97-ab10-70a6bdecba58")
+	)
 	(label "PWM0 B"
 		(at 82.55 86.36 0)
 		(effects
@@ -4404,6 +5067,16 @@
 		)
 		(uuid "f9912018-3008-4bee-9d0f-1f9b6e1f68cf")
 	)
+	(label "GPIO1-PWM0_B-MOTOR1_A_PWM"
+		(at 124.46 86.36 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "fd17ca93-d994-499e-8d8c-2a5bc474f548")
+	)
 	(label "~{EN}_Stepper"
 		(at 104.14 171.45 0)
 		(effects
@@ -4419,6 +5092,7 @@
 		(effects
 			(font
 				(size 1.27 1.27)
+				(color 255 0 0 1)
 			)
 			(justify left bottom)
 		)
@@ -4436,7 +5110,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 73.66 26.67 0)
+		(at 92.71 26.67 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4445,7 +5119,7 @@
 		(fields_autoplaced yes)
 		(uuid "024c1470-f577-49ad-8388-9e4b9da959dd")
 		(property "Reference" "#PWR01"
-			(at 73.66 30.48 0)
+			(at 92.71 30.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4454,7 +5128,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 73.66 21.59 0)
+			(at 92.71 21.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4462,7 +5136,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 73.66 26.67 0)
+			(at 92.71 26.67 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4471,7 +5145,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 73.66 26.67 0)
+			(at 92.71 26.67 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4480,7 +5154,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 73.66 26.67 0)
+			(at 92.71 26.67 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4634,7 +5308,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 270.51 133.35 0)
+		(at 229.87 130.81 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4643,7 +5317,7 @@
 		(fields_autoplaced yes)
 		(uuid "2f5e0df4-3897-453e-9598-b9d0fd076ab6")
 		(property "Reference" "#PWR011"
-			(at 270.51 137.16 0)
+			(at 229.87 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4652,7 +5326,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 270.51 128.27 0)
+			(at 229.87 125.73 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4660,7 +5334,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 270.51 133.35 0)
+			(at 229.87 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4669,7 +5343,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 270.51 133.35 0)
+			(at 229.87 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4678,7 +5352,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 270.51 133.35 0)
+			(at 229.87 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4765,74 +5439,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 269.24 166.37 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "364b1df0-2b54-48b5-952c-ec50cff28816")
-		(property "Reference" "#PWR010"
-			(at 269.24 172.72 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 269.24 171.45 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 269.24 166.37 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 269.24 166.37 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 269.24 166.37 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3cc51843-daf1-4324-963b-ee02694fe15f")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(reference "#PWR010")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R_US")
-		(at 269.24 162.56 0)
+		(at -11.43 62.23 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4841,7 +5449,7 @@
 		(fields_autoplaced yes)
 		(uuid "38ddba9a-a490-4d1b-b632-bd889ff783fc")
 		(property "Reference" "R5"
-			(at 271.78 161.2899 0)
+			(at -7.62 60.9599 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4850,7 +5458,7 @@
 			)
 		)
 		(property "Value" "10k"
-			(at 271.78 163.8299 0)
+			(at -7.62 63.4999 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4859,7 +5467,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 270.256 162.814 90)
+			(at -10.414 62.484 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4868,7 +5476,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 269.24 162.56 0)
+			(at -11.43 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4877,7 +5485,7 @@
 			)
 		)
 		(property "Description" "Resistor, US symbol"
-			(at 269.24 162.56 0)
+			(at -11.43 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4967,7 +5575,7 @@
 	)
 	(symbol
 		(lib_id "Transistor_FET:DMG2301L")
-		(at 85.09 29.21 90)
+		(at 104.14 29.21 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4976,7 +5584,7 @@
 		(fields_autoplaced yes)
 		(uuid "51c2bb92-4dd7-4f3a-a4eb-8e6c38be88cb")
 		(property "Reference" "Q1"
-			(at 85.09 20.32 90)
+			(at 104.14 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4984,7 +5592,7 @@
 			)
 		)
 		(property "Value" "DMG2305UX"
-			(at 85.09 22.86 90)
+			(at 104.14 22.86 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4992,7 +5600,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 86.995 24.13 0)
+			(at 106.045 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5003,7 +5611,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/DMG2301L.pdf"
-			(at 88.9 24.13 0)
+			(at 107.95 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5013,7 +5621,7 @@
 			)
 		)
 		(property "Description" "-3A Id, -20V Vds, P-Channel MOSFET, SOT-23"
-			(at 85.09 29.21 0)
+			(at 104.14 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5174,7 +5782,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_US")
-		(at 270.51 138.43 0)
+		(at 229.87 135.89 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5183,7 +5791,7 @@
 		(fields_autoplaced yes)
 		(uuid "86b84941-298d-408a-9237-948ce05e39c1")
 		(property "Reference" "R6"
-			(at 273.05 137.1599 0)
+			(at 232.41 134.6199 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5192,7 +5800,7 @@
 			)
 		)
 		(property "Value" "10k"
-			(at 273.05 139.6999 0)
+			(at 232.41 137.1599 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5201,7 +5809,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 271.526 138.684 90)
+			(at 230.886 136.144 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5210,7 +5818,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 270.51 138.43 0)
+			(at 229.87 135.89 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5219,7 +5827,7 @@
 			)
 		)
 		(property "Description" "Resistor, US symbol"
-			(at 270.51 138.43 0)
+			(at 229.87 135.89 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5237,6 +5845,73 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
 					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at -11.43 68.58 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "893041e4-bf92-4de9-a6f2-4979fa1c017b")
+		(property "Reference" "#PWR010"
+			(at -11.43 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at -11.43 73.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at -11.43 68.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at -11.43 68.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -11.43 68.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "6135711e-cf79-464c-a38b-e5f80427063f")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -6497,7 +7172,7 @@
 			)
 		)
 		(pin "HALL_SW_0" output
-			(at 41.91 97.663 0)
+			(at 41.91 97.79 0)
 			(uuid "7b553bce-0798-4463-8a1c-eddf200f9d57")
 			(effects
 				(font
@@ -6507,7 +7182,7 @@
 			)
 		)
 		(pin "HALL_SW_1" output
-			(at 41.91 100.203 0)
+			(at 41.91 100.33 0)
 			(uuid "cffc9a1c-2ee2-47c6-9a61-d708dce8c359")
 			(effects
 				(font
@@ -6517,7 +7192,7 @@
 			)
 		)
 		(pin "HALL_SW_2" output
-			(at 41.91 102.743 0)
+			(at 41.91 102.87 0)
 			(uuid "5ae121a1-be88-4e13-8e9a-b97542839817")
 			(effects
 				(font
@@ -6527,7 +7202,7 @@
 			)
 		)
 		(pin "HALL_SW_3" output
-			(at 41.91 105.283 0)
+			(at 41.91 105.41 0)
 			(uuid "39c30448-b5a3-4ed5-9b85-2bcac21b77e5")
 			(effects
 				(font
@@ -6536,9 +7211,9 @@
 				(justify right)
 			)
 		)
-		(pin "LED1" input
-			(at 41.91 88.265 0)
-			(uuid "f8b64da7-05f5-42d1-962f-7f2f27d3dfa6")
+		(pin "LED_1" input
+			(at 41.91 91.44 0)
+			(uuid "a787bbd1-f860-4bb7-8c9b-42e24f39b481")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6546,9 +7221,9 @@
 				(justify right)
 			)
 		)
-		(pin "LED2" input
-			(at 41.91 90.805 0)
-			(uuid "bb03dcf0-3cb7-49ab-9675-8703e21bfe6d")
+		(pin "LED_0" input
+			(at 41.91 88.9 0)
+			(uuid "eb2bf412-5c52-43c8-b1e4-6fa336fe8e02")
 			(effects
 				(font
 					(size 1.27 1.27)

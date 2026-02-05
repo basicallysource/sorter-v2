@@ -2556,7 +2556,7 @@
 		)
 		(uuid "fe4567db-74ab-4c5e-804f-21fd7e8fcd02")
 	)
-	(hierarchical_label "LED2"
+	(hierarchical_label "LED_1"
 		(shape input)
 		(at 127 110.49 180)
 		(effects
@@ -2567,7 +2567,7 @@
 		)
 		(uuid "0cb8b442-d726-4a04-a86e-4a87107f0af6")
 	)
-	(hierarchical_label "LED1"
+	(hierarchical_label "LED_0"
 		(shape input)
 		(at 127 64.77 180)
 		(effects

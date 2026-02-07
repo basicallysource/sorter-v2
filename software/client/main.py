@@ -29,7 +29,7 @@ main_to_server_queue = queue.Queue()
 
 
 def runServer() -> None:
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="error")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="error", ws="wsproto")
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:

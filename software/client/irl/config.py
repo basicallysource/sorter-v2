@@ -1,8 +1,10 @@
+import time
+import os
+
 from global_config import GlobalConfig
 from .mcu import MCU
 from .stepper import Stepper
 from .device_discovery import discoverMCUs
-import time
 
 
 class CameraConfig:
@@ -83,9 +85,19 @@ def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConf
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
     irl_config.mcu_path, irl_config.second_mcu_path = discoverMCUs()
-    irl_config.feeder_camera = mkCameraConfig(device_index=0)
-    irl_config.classification_camera_bottom = mkCameraConfig(device_index=2)
-    irl_config.classification_camera_top = mkCameraConfig(device_index=1)
+    feeder_camera_index = int(os.environ["FEEDER_CAMERA_INDEX"])
+    classification_camera_bottom_index = int(
+        os.environ["CLASSIFICATION_CAMERA_BOTTOM_INDEX"]
+    )
+    classification_camera_top_index = int(os.environ["CLASSIFICATION_CAMERA_TOP_INDEX"])
+
+    irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
+    irl_config.classification_camera_bottom = mkCameraConfig(
+        device_index=classification_camera_bottom_index
+    )
+    irl_config.classification_camera_top = mkCameraConfig(
+        device_index=classification_camera_top_index
+    )
     irl_config.carousel_stepper = mkStepperConfig(
         step_pin=36, dir_pin=34, enable_pin=30
     )

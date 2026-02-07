@@ -9,6 +9,7 @@
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { Settings, Wrench, Pause, Play } from 'lucide-svelte';
 	import type { components } from '$lib/api/rest';
+	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 
 	type StateResponse = components['schemas']['StateResponse'];
 
@@ -21,7 +22,7 @@
 
 	async function fetchState() {
 		try {
-			const res = await fetch('http://localhost:8000/state');
+			const res = await fetch(`${backendHttpBaseUrl}/state`);
 			if (res.ok) {
 				const data: StateResponse = await res.json();
 				machine_state = data.state;
@@ -34,7 +35,7 @@
 	async function togglePauseResume() {
 		const endpoint = machine_state === 'paused' ? '/resume' : '/pause';
 		try {
-			await fetch(`http://localhost:8000${endpoint}`, { method: 'POST' });
+			await fetch(`${backendHttpBaseUrl}${endpoint}`, { method: 'POST' });
 			await fetchState();
 		} catch {
 			// ignore
@@ -42,7 +43,7 @@
 	}
 
 	onMount(() => {
-		manager.connect('ws://localhost:8000/ws');
+		manager.connect(`${backendWsBaseUrl}/ws`);
 		fetchState();
 		const interval = setInterval(fetchState, 1000);
 		return () => clearInterval(interval);

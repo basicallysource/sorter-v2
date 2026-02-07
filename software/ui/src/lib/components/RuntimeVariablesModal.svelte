@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
 	import type { components } from '$lib/api/rest';
+	import { backendHttpBaseUrl } from '$lib/backend';
 
 	type RuntimeVariableDef = components['schemas']['RuntimeVariableDef'];
 
@@ -15,7 +16,7 @@
 		loading = true;
 		error = null;
 		try {
-			const res = await fetch('http://localhost:8000/runtime-variables');
+			const res = await fetch(`${backendHttpBaseUrl}/runtime-variables`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			definitions = data.definitions;
@@ -32,7 +33,7 @@
 		loading = true;
 		error = null;
 		try {
-			const res = await fetch('http://localhost:8000/runtime-variables', {
+			const res = await fetch(`${backendHttpBaseUrl}/runtime-variables`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ values })

@@ -2,12 +2,13 @@
 	import Modal from './Modal.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { getMachinesContext } from '$lib/machines/context';
+	import { backendWsBaseUrl } from '$lib/backend';
 
 	let { open = $bindable(false) } = $props();
 
 	const manager = getMachinesContext();
 
-	let url = $state('ws://localhost:8000/ws');
+	let url = $state(`${backendWsBaseUrl}/ws`);
 
 	function handleConnect() {
 		manager.connect(url);

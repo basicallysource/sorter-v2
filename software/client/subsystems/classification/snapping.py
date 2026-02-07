@@ -16,7 +16,8 @@ import classification
 if TYPE_CHECKING:
     from vision import VisionManager
 
-SNAP_DIR = "/tmp/sorter_snaps"
+# spencer todo: add back when there is constant run id per run, save in that blob dir
+# SNAP_DIR = "/tmp/sorter_snaps"
 SNAP_DELAY_MS = 2000
 
 
@@ -83,16 +84,17 @@ class Snapping(BaseState):
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
         top_crop, bottom_crop = self.vision.getClassificationCrops()
 
-        os.makedirs(SNAP_DIR, exist_ok=True)
-        if top_frame:
-            cv2.imwrite(
-                os.path.join(SNAP_DIR, f"{piece.uuid}_top_full.jpg"), top_frame.raw
-            )
-        if bottom_frame:
-            cv2.imwrite(
-                os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_full.jpg"),
-                bottom_frame.raw,
-            )
+        # spencer todo: add back when there is constant run id per run, save in that blob dir
+        # os.makedirs(SNAP_DIR, exist_ok=True)
+        # if top_frame:
+        #     cv2.imwrite(
+        #         os.path.join(SNAP_DIR, f"{piece.uuid}_top_full.jpg"), top_frame.raw
+        #     )
+        # if bottom_frame:
+        #     cv2.imwrite(
+        #         os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_full.jpg"),
+        #         bottom_frame.raw,
+        #     )
 
         if top_crop is None or bottom_crop is None:
             self.logger.warn(
@@ -103,11 +105,12 @@ class Snapping(BaseState):
             self._emitObjectEvent(piece)
             return
 
-        cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)
-        cv2.imwrite(
-            os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_crop.jpg"), bottom_crop
-        )
-        self.logger.info(f"Snapping: saved {piece.uuid[:8]} to {SNAP_DIR}")
+        # spencer todo: add back when there is constant run id per run, save in that blob dir
+        # cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)
+        # cv2.imwrite(
+        #     os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_crop.jpg"), bottom_crop
+        # )
+        # self.logger.info(f"Snapping: saved {piece.uuid[:8]} to {SNAP_DIR}")
 
         _, thumbnail_buffer = cv2.imencode(
             ".jpg", top_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]

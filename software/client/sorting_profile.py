@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import json
-import os
+
+from global_config import GlobalConfig
 
 MISC_CATEGORY = "misc"
 
@@ -12,13 +13,13 @@ class SortingProfile(ABC):
 
 
 class BrickLinkCategories(SortingProfile):
-    def __init__(self):
+    def __init__(self, gc: GlobalConfig):
+        self._parts_with_categories_file_path = gc.parts_with_categories_file_path
         self.part_to_category: dict[str, str] = {}
         self._loadData()
 
     def _loadData(self) -> None:
-        path = os.path.join(os.path.dirname(__file__), "parts_with_categories.json")
-        with open(path, "r") as f:
+        with open(self._parts_with_categories_file_path, "r") as f:
             data = json.load(f)
         for part in data["pieces"]:
             part_id = part["id"]

@@ -58,6 +58,7 @@ class GlobalConfig:
     feeder_config: FeederConfig
     classification_chamber_vision_model_path: str
     feeder_vision_model_path: str
+    parts_with_categories_file_path: str
     vision_mask_proximity_threshold: float
     should_write_camera_feeds: bool
 
@@ -87,4 +88,5 @@ def mkGlobalConfig() -> GlobalConfig:
         "CLASSIFICATION_CHAMBER_MODEL_PATH"
     ]
     gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
+    gc.parts_with_categories_file_path = os.environ["PARTS_WITH_CATEGORIES_FILE_PATH"]
     return gc

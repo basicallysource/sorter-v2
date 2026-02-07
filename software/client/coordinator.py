@@ -33,7 +33,7 @@ class Coordinator:
         self.vision = vision
         self.event_queue = event_queue
         self.shared = SharedVariables()
-        self.sorting_profile = BrickLinkCategories()
+        self.sorting_profile = BrickLinkCategories(gc)
         self.distribution_layout = mkDefaultLayout()
 
         saved_categories = getBinCategories()

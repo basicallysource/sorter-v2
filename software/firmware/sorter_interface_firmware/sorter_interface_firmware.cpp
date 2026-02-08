@@ -84,7 +84,7 @@ enum CommandCodes {
 
 // End break
 
-#define MAIN_TRACE_ENABLED
+//#define MAIN_TRACE_ENABLED
 
 #ifdef MAIN_TRACE_ENABLED
 #define TRACE_PIN 8
@@ -97,27 +97,72 @@ enum CommandCodes {
 #define TRACE_LOW()
 #endif
 
-#define NUM_STEPPERS 4
+// Board configuration
+// This needs to be unique for each board and should be loaded from a config file or something in the future, but hardcoded for now.
+
+char DEVICE_NAME[16] = "FEEDER MB";
+uint8_t DEVICE_ADDRESS = 0x00;
+
+const uint8_t STEPPER_COUNT = 4;
 
 TMC_UART_Bus tmc_bus(uart0);
-TMC2209 tmc_drivers[NUM_STEPPERS] = {
+TMC2209 tmc_drivers[] = {
     TMC2209(&tmc_bus, 0),
     TMC2209(&tmc_bus, 1),
     TMC2209(&tmc_bus, 2),
     TMC2209(&tmc_bus, 3)
 };
-Stepper steppers[NUM_STEPPERS] = {
-    Stepper(2, 3), // 28, 27 in final board
-    Stepper(4, 5), // 26, 25 in final board
+Stepper steppers[] = {
+    Stepper(28, 27),
+    Stepper(26, 25),
     Stepper(21, 20),
     Stepper(19, 18)
 };
 
-const int TMC_UART_TX_PIN = 0; // 16 on final board
-const int TMC_UART_RX_PIN = 1; // 17 on final board
+const int TMC_UART_TX_PIN = 16;
+const int TMC_UART_RX_PIN = 17;
 const int TMC_UART_BAUDRATE = 400000;
 
-const int STEPPER_nEN_PIN = 6; // TBD on final board
+const int STEPPER_nEN_PIN = 0;
+
+const uint8_t DIGITAL_INPUT_COUNT = 4;
+const int digital_input_pins[] = {9, 8, 13, 12};
+
+const uint8_t DIGITAL_OUTPUT_COUNT = 2;
+const int digital_output_pins[] = {14, 15};
+
+const int I2C_SDA_PIN = 10;
+const int I2C_SCL_PIN = 11;
+
+const uint8_t SERVO_COUNT = 0;
+
+// End board configuration
+
+/**
+ * \brief Dump the board configuration as a JSON string for use by the driver software.
+ * This is used for auto-detecting the board and its capabilities.
+ * 
+ * \param buf Buffer to write the json string to
+ * \param buf_size Size of the buffer in bytes
+ * \return Number of bytes written to the buffer, excluding the null terminator
+ */
+int dump_configuration(char * buf, size_t buf_size) {
+    int n_bytes;
+    n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"firmware_version\":\"1.0\",\"device_name\":\"%s\",\"device_address\":%d,"
+        "\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,"
+        "\"servo_count\":%d}",
+        DEVICE_NAME,
+        DEVICE_ADDRESS,
+        STEPPER_COUNT,
+        DIGITAL_INPUT_COUNT,
+        DIGITAL_OUTPUT_COUNT,
+        SERVO_COUNT);
+    return n_bytes;
+}
+
 
 const uint32_t STEP_TICK_PERIOD_US = 1000000 / STEP_TICK_RATE_HZ;
 const uint32_t MOTION_UPDATE_PERIOD_US = 1000000 / STEP_MOTION_UPDATE_RATE_HZ;
@@ -127,10 +172,9 @@ void core1_stepgen_isr(uint alarm_num ) {
     // Core 1 step generator interrupt service routine, called at STEP_TICK_RATE_HZ
     hardware_alarm_set_target(alarm_num, time_us_64() + STEP_TICK_PERIOD_US);
     
-    steppers[0].stepgen_tick();
-    steppers[1].stepgen_tick();
-    steppers[2].stepgen_tick();
-    steppers[3].stepgen_tick();
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        steppers[i].stepgen_tick();
+    }
     TRACE_LOW();
 }
 
@@ -139,15 +183,15 @@ void core1_motion_update_isr(uint alarm_num ) {
     // Core 1 motion update interrupt service routine, called at STEP_MOTION_UPDATE_RATE_HZ
     hardware_alarm_set_target(alarm_num, time_us_64() + MOTION_UPDATE_PERIOD_US);
     
-    steppers[0].motion_update_tick();
-    steppers[1].motion_update_tick();
-    steppers[2].motion_update_tick();
-    steppers[3].motion_update_tick();
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        steppers[i].motion_update_tick();
+    }
     TRACE_LOW();
 }
 
 void core1_entry() {
     // Core 1 main loop, this deals with high speed real-time tasks like stepper control.
+    TRACE_INIT();
     // Setup step generator timer interrupt
     hardware_alarm_claim(0);
     hardware_alarm_set_target(0, time_us_64() + STEP_TICK_PERIOD_US);
@@ -164,14 +208,11 @@ void core1_entry() {
 }
 
 
-int main()
-{
-    TRACE_INIT();
-    stdio_init_all();
+void initialize_hardware() {
     // Initialize TMC UART bus
     tmc_bus.setupComm(TMC_UART_BAUDRATE, TMC_UART_TX_PIN, TMC_UART_RX_PIN);
     // Initialize TMC2209 drivers and steppers
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < STEPPER_COUNT; i++) {
         //tmc_drivers[i].enableDriver(true);
         steppers[i].initialize();
         steppers[i].setAcceleration(20000);
@@ -182,9 +223,29 @@ int main()
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true); 
     }
+    // Global enable for stepper drivers
     gpio_init(STEPPER_nEN_PIN);
     gpio_set_dir(STEPPER_nEN_PIN, GPIO_OUT);
     gpio_put(STEPPER_nEN_PIN, 0); // Enable stepper drivers
+    // Initialize digital inputs
+    for (int i = 0; i < DIGITAL_INPUT_COUNT; i++) {
+        gpio_init(digital_input_pins[i]);
+        gpio_set_dir(digital_input_pins[i], GPIO_IN);
+        gpio_pull_up(digital_input_pins[i]);
+    }
+    // Initialize digital outputs
+    for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
+        gpio_init(digital_output_pins[i]);
+        gpio_set_dir(digital_output_pins[i], GPIO_OUT);
+        gpio_put(digital_output_pins[i], 0);
+    }
+}
+
+
+int main()
+{
+    stdio_init_all();
+    initialize_hardware();
     // Initialize Core 1
     multicore_launch_core1(core1_entry);
 
@@ -216,6 +277,11 @@ int main()
                 int res = COBS_decode((uint8_t*)rx_buffer, rx_buffer_pos, (uint8_t*)rx_message, sizeof(rx_message));
                 if (res < 0) { 
                     msg_len = -1; // Framing error
+                    rx_buffer_pos = 0;
+                    break;
+                }
+                if (rx_message[0] != DEVICE_ADDRESS) {
+                    msg_len = -1; // Not for us, ignore
                     rx_buffer_pos = 0;
                     break;
                 }
@@ -254,10 +320,14 @@ int main()
                 case CMD_INIT:
                     resp->command = CMD_INIT;
                     // Stop all steppers
-                    for (int i = 0; i < 4; i++) {
+                    for (int i = 0; i < STEPPER_COUNT; i++) {
                         steppers[i].moveAtSpeed(0);
                     }
-                    resp->payload_length = 0;
+                    // Turn off all digital outputs
+                    for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
+                        gpio_put(digital_output_pins[i], 0);
+                    }
+                    resp->payload_length = dump_configuration((char*)resp->payload, 246);
                     break;
                 case CMD_PING:
                     resp->command = CMD_PING;
@@ -266,7 +336,7 @@ int main()
                     memcpy(resp->payload, msg->payload, msg->payload_length);
                     break;
                 case CMD_STEPPER_MOVE_STEPS:
-                    if (msg->payload_length == 4 && msg->channel < NUM_STEPPERS) {
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
                         uint8_t stepper_id = msg->channel;
                         int32_t distance = *((int32_t*)msg->payload);
                         resp->command = msg->command;
@@ -279,7 +349,7 @@ int main()
                     }
                     break;
                 case CMD_STEPPER_MOVE_AT_SPEED:
-                    if (msg->payload_length == 4 && msg->channel < NUM_STEPPERS) {
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
                         uint8_t stepper_id = msg->channel;
                         int32_t speed = *((int32_t*)msg->payload);
                         resp->command = msg->command;
@@ -292,7 +362,7 @@ int main()
                     }
                     break;
                 case CMD_STEPPER_SET_SPEED_LIMITS:
-                    if (msg->payload_length == 8 && msg->channel < NUM_STEPPERS) {
+                    if (msg->payload_length == 8 && msg->channel < STEPPER_COUNT) {
                         uint8_t stepper_id = msg->channel;
                         uint32_t min_speed = *((uint32_t*)msg->payload);
                         uint32_t max_speed = *((uint32_t*)(msg->payload + 4));
@@ -305,7 +375,7 @@ int main()
                     }
                     break;
                 case CMD_STEPPER_SET_ACCELERATION:
-                    if (msg->payload_length == 4 && msg->channel < NUM_STEPPERS) {
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
                         uint8_t stepper_id = msg->channel;
                         uint32_t acceleration = *((uint32_t*)msg->payload);
                         steppers[stepper_id].setAcceleration(acceleration);
@@ -317,7 +387,7 @@ int main()
                     }
                     break;
                 case CMD_STEPPER_IS_STOPPED:
-                    if (msg->payload_length == 0 && msg->channel < NUM_STEPPERS) {
+                    if (msg->payload_length == 0 && msg->channel < STEPPER_COUNT) {
                         uint8_t stepper_id = msg->channel;
                         resp->command = msg->command;
                         resp->payload_length = 4;

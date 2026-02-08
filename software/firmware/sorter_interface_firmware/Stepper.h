@@ -49,6 +49,9 @@ public:
     bool moveSteps(int32_t distance);
     bool moveAtSpeed(int32_t speed);
     bool isStopped() { return _state == STEPPER_STOPPED; }
+    int32_t getPosition() { return _absolute_position; }
+    void setPosition(int32_t position) { _absolute_position = position; }
+    void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
 
 private:
     // Pins for the step generator
@@ -62,12 +65,15 @@ private:
     int32_t _mc_distance; // Always positive, direction in _move_dir
     int32_t _mc_speed; // Always positive, direction in _move_dir
     int32_t _mc_dir; // 1 = forward, -1 = reverse
+    int32_t _mc_home_pin; // Home switch pin, -1 if not homing
+    bool _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
 
     // Internal state
     int32_t _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
     int32_t _brake_distance; // Distance required to brake to a stop from current speed, decision point for braking
     int32_t _current_speed, _current_speed_frac; // Always positive, direction in _current_dir
     int32_t _current_dir; // 1 = forward, -1 = reverse
+    int32_t _absolute_position;
 };
 
 #endif // STEPPER_H

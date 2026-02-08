@@ -29,6 +29,7 @@ Stepper::Stepper(int step_pin, int dir_pin)
     : _step_pin(step_pin), _dir_pin(dir_pin),
       _accel(10000), _max_speed(2000), _min_speed(16),
       _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
+      _mc_dir(1), _mc_home_pin(-1),
       _steps_moved(0), _steps_frac(0), _brake_distance(0),
       _current_speed(0), _current_speed_frac(0), _current_dir(1) {
 }
@@ -61,6 +62,7 @@ bool Stepper::moveSteps(int32_t distance) {
     _mc_distance = (distance > 0) ? distance : -distance;
     _mc_dir = (distance > 0) ? 1 : -1;
     _mc_speed = -1; // Not a speed move
+    _mc_home_pin = -1; // Not homing
     // Initialize motion state
     _current_speed = _min_speed; // Start from minimum speed
     _current_speed_frac = 0;
@@ -81,6 +83,7 @@ bool Stepper::moveAtSpeed(int32_t speed) {
         _mc_speed = STEPPER_MAX_SPEED;
     }
     _mc_distance = -1; // Not a distance move
+    _mc_home_pin = -1; // Abort homing if we were homing
     // Determine if the stepper needs to reverse direction, go faster or slower
     if (_state == STEPPER_STOPPED) {
         _current_dir = _mc_dir;
@@ -104,6 +107,12 @@ bool Stepper::moveAtSpeed(int32_t speed) {
     _steps_moved = 0;
     _steps_frac = 0;
     return true;
+}
+
+void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
+    moveAtSpeed(home_speed);
+    _mc_home_pin = home_pin;
+    _mc_home_pin_polarity = home_pin_polarity;
 }
 
 /*! \brief Step generator tick
@@ -133,6 +142,8 @@ void Stepper::stepgen_tick() {
         }
         // And the move counter
         _steps_moved += _current_dir*_mc_dir;
+        // Update absolute position
+        _absolute_position += _current_dir;
         if (_mc_distance > 0) {
             // Distance move, check if done
             if (_steps_moved >= _mc_distance) {
@@ -183,6 +194,16 @@ void Stepper::motion_update_tick() {
                 _state = STEPPER_BRAKING;
             }
             break;
+            if (_mc_home_pin >= 0) {
+                // Check home switch if homing
+                if (gpio_get(_mc_home_pin) == _mc_home_pin_polarity) {
+                    // Home switch triggered, stop now and set position to zero
+                    _state = STEPPER_STOPPED;
+                    _current_speed = 0;
+                    _absolute_position = 0;
+                    _mc_home_pin = -1; // Homing done
+                }
+            }
         case STEPPER_BRAKING: {
             // Decrease speed
             _current_speed_frac += _accel;

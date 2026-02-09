@@ -117,6 +117,8 @@ public:
     bool isStalled();
     void enableCoolStep(uint8_t semin, uint8_t semax, uint8_t seup, uint8_t sedn);
     void disableCoolStep();
+    void writeRegister(uint8_t reg, uint32_t value) { _bus->writeRegister(_address, reg, value); };
+    int readRegister(uint8_t reg, uint32_t* value) { return _bus->readRegister(_address, reg, value); };
 private:
     TMC_UART_Bus* _bus;
     uint8_t _address;

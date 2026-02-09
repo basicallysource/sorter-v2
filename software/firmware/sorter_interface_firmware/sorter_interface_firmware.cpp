@@ -78,9 +78,27 @@ enum CommandCodes {
     CMD_STEPPER_SET_SPEED_LIMITS = 0x12,
     CMD_STEPPER_SET_ACCELERATION = 0x13,
     CMD_STEPPER_IS_STOPPED = 0x14,
+    CMD_STEPPER_GET_POSITION = 0x15,
+    CMD_STEPPER_SET_POSITION = 0x16,
+    CMD_STEPPER_HOME = 0x17,
+    // Stepper driver commands
+    CMD_STEPPER_DRV_SET_ENABLED = 0x20,
+    CMD_STEPPER_DRV_SET_MICROSTEPS = 0x21,
+    CMD_STEPPER_DRV_SET_CURRENT = 0x22,
+    CMD_STEPPER_DRV_READ_REGISTER = 0x2e,
+    CMD_STEPPER_DRV_WRITE_REGISTER = 0x2f,
+    // Digital I/O Commands
+    CMD_DIGITAL_READ = 0x30,
+    CMD_DIGITAL_WRITE = 0x31,
+    // Servo Commands
+    CMD_SERVO_SET_ENABLED = 0x40,
+    CMD_SERVO_MOVE_TO = 0x41,
+    CMD_SERVO_SET_SPEED_LIMITS = 0x42,
+    CMD_SERVO_SET_ACCELERATION = 0x43,
 
     CMD_BAD_COMMAND = 0xFF
 };
+
 
 // End break
 
@@ -393,6 +411,158 @@ int main()
                         resp->payload_length = 4;
                         bool res = steppers[stepper_id].isStopped();
                         *((uint32_t*)resp->payload) = res ? 1 : 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_GET_POSITION:
+                    if (msg->payload_length == 0 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        resp->command = msg->command;
+                        resp->payload_length = 4;
+                        int32_t position = steppers[stepper_id].getPosition();
+                        *((int32_t*)resp->payload) = position;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_SET_POSITION:
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        int32_t position = *((int32_t*)msg->payload);
+                        steppers[stepper_id].setPosition(position);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_HOME:
+                    if (msg->payload_length == 12 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        int32_t home_speed = *((int32_t*)msg->payload);
+                        int home_pin = *((int32_t*)(msg->payload + 4));
+                        bool home_pin_polarity = msg->payload[8] != 0;
+                        // Convert homing pin from channel number to actual GPIO pin
+                        if (home_pin >= DIGITAL_INPUT_COUNT) {
+                            resp->command = msg->command | 0x80; // Exception, bad arguments
+                            resp->payload_length = 0;
+                            break;
+                        }
+                        home_pin = digital_input_pins[home_pin];
+                        steppers[stepper_id].home(home_speed, home_pin, home_pin_polarity);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_DRV_SET_ENABLED:
+                   if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        bool enabled = *((uint32_t*)msg->payload) != 0;
+                        tmc_drivers[stepper_id].enableDriver(enabled);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_DRV_SET_MICROSTEPS:
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        uint32_t microsteps = *((uint32_t*)msg->payload);
+                        switch (microsteps) {
+                            case 1: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_FULL); break;
+                            case 2: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_2); break;
+                            case 4: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_4); break;
+                            case 8: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_8); break;
+                            case 16: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_16); break;
+                            case 32: tmc_drivers[stepper_id].setMicrosteps(MICROSTEP_32); break;
+                            default:
+                                resp->command = msg->command | 0x80; // Exception, bad arguments
+                                resp->payload_length = 0;
+                                continue;
+                        }
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_DRV_SET_CURRENT:
+                    if (msg->payload_length == 12 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        uint32_t run_current = *((uint32_t*)msg->payload);
+                        uint32_t hold_current = *((uint32_t*)(msg->payload + 4));
+                        uint32_t hold_delay = *((uint32_t*)(msg->payload + 8));
+                        tmc_drivers[stepper_id].setCurrent(run_current, hold_current, hold_delay);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_DRV_READ_REGISTER:
+                    if (msg->payload_length == 4 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        uint32_t reg_addr = *((uint32_t*)msg->payload);
+                        uint32_t reg_value;
+                        int res = tmc_drivers[stepper_id].readRegister(reg_addr, &reg_value);
+                        resp->command = msg->command;
+                        if (res < 0) {
+                            resp->command |= 0x80; // Exception, read error
+                            resp->payload_length = 0;
+                        } else {
+                            resp->payload_length = 4;
+                            *((uint32_t*)resp->payload) = reg_value;
+                        }
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_STEPPER_DRV_WRITE_REGISTER:
+                    if (msg->payload_length == 8 && msg->channel < STEPPER_COUNT) {
+                        uint8_t stepper_id = msg->channel;
+                        uint32_t reg_addr = *((uint32_t*)msg->payload);
+                        uint32_t reg_value = *((uint32_t*)(msg->payload + 4));
+                        tmc_drivers[stepper_id].writeRegister(reg_addr, reg_value);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_DIGITAL_READ:
+                    if (msg->payload_length == 0 && msg->channel < DIGITAL_INPUT_COUNT) {
+                        uint8_t input_id = msg->channel;
+                        int pin = digital_input_pins[input_id];
+                        bool value = gpio_get(pin) != 0;
+                        resp->command = msg->command;
+                        resp->payload_length = 4;
+                        *((uint32_t*)resp->payload) = value ? 1 : 0;
+                    } else {
+                        resp->command = msg->command | 0x80; // Exception, bad arguments
+                        resp->payload_length = 0;
+                    }
+                    break;
+                case CMD_DIGITAL_WRITE:
+                    if (msg->payload_length == 4 && msg->channel < DIGITAL_OUTPUT_COUNT) {
+                        uint8_t output_id = msg->channel;
+                        bool value = *((uint32_t*)msg->payload) != 0;
+                        int pin = digital_output_pins[output_id];
+                        gpio_put(pin, value ? 1 : 0);
+                        resp->command = msg->command;
+                        resp->payload_length = 0;
                     } else {
                         resp->command = msg->command | 0x80; // Exception, bad arguments
                         resp->payload_length = 0;

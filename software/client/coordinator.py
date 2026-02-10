@@ -13,6 +13,7 @@ from runtime_variables import RuntimeVariables
 from vision import VisionManager
 from sorting_profile import BrickLinkCategories
 from blob_manager import getBinCategories
+from telemetry import Telemetry
 import queue
 
 
@@ -25,6 +26,7 @@ class Coordinator:
         vision: VisionManager,
         event_queue: queue.Queue,
         rv: RuntimeVariables,
+        telemetry: Telemetry,
     ):
         self.irl = irl
         self.irl_config = irl_config
@@ -53,7 +55,7 @@ class Coordinator:
             event_queue,
         )
         self.classification = ClassificationStateMachine(
-            irl, gc, self.shared, vision, event_queue
+            irl, gc, self.shared, vision, event_queue, telemetry
         )
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
 

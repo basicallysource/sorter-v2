@@ -4,6 +4,7 @@ from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
 from coordinator import Coordinator
 from vision import VisionManager
+from telemetry import Telemetry
 import queue
 
 
@@ -16,13 +17,14 @@ class SorterController:
         vision: VisionManager,
         event_queue: queue.Queue,
         rv: RuntimeVariables,
+        telemetry: Telemetry,
     ):
         self.state = SorterLifecycle.INITIALIZING
         self.irl = irl
         self.gc = gc
         self.vision = vision
         self.event_queue = event_queue
-        self.coordinator = Coordinator(irl, irl_config, gc, vision, event_queue, rv)
+        self.coordinator = Coordinator(irl, irl_config, gc, vision, event_queue, rv, telemetry)
 
     def start(self) -> None:
         self.state = SorterLifecycle.PAUSED

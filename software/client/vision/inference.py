@@ -1,7 +1,9 @@
 import threading
 import time
 from typing import Optional, List, Tuple
+import numpy as np
 from ultralytics import YOLO
+import cv2
 
 from .camera import CaptureThread
 from .types import VisionResult, CameraFrame
@@ -71,39 +73,51 @@ class InferenceThread:
 
                 results = binding.model.track(frame.raw, verbose=False, persist=False)
 
-                result = None
+                vision_results: List[VisionResult] = []
                 annotated = frame.raw.copy()
+                segmentation_map = None
 
                 if len(results) > 0 and len(results[0].boxes) > 0:
-                    box = results[0].boxes[0]
-                    class_id = int(box.cls[0])
-                    confidence = float(box.conf[0])
-                    xyxy = list(map(int, box.xyxy[0].tolist()))
-                    bbox: Tuple[int, int, int, int] = (
-                        xyxy[0],
-                        xyxy[1],
-                        xyxy[2],
-                        xyxy[3],
-                    )
-                    class_name = binding.model.names.get(class_id, str(class_id))
-
-                    result = VisionResult(
-                        class_id=class_id,
-                        class_name=class_name,
-                        confidence=confidence,
-                        bbox=bbox,
-                        timestamp=frame.timestamp,
-                    )
+                    for box in results[0].boxes:
+                        class_id = int(box.cls[0])
+                        confidence = float(box.conf[0])
+                        xyxy = list(map(int, box.xyxy[0].tolist()))
+                        bbox: Tuple[int, int, int, int] = (
+                            xyxy[0], xyxy[1], xyxy[2], xyxy[3],
+                        )
+                        class_name = binding.model.names.get(class_id, str(class_id))
+                        vision_results.append(VisionResult(
+                            class_id=class_id,
+                            class_name=class_name,
+                            confidence=confidence,
+                            bbox=bbox,
+                            timestamp=frame.timestamp,
+                        ))
 
                     annotated = results[0].plot()
 
-                binding.latest_result = result
+                    if results[0].masks is not None:
+                        h, w = frame.raw.shape[:2]
+                        segmentation_map = np.zeros((h, w), dtype=np.int32)
+                        for i, mask in enumerate(results[0].masks):
+                            cls = int(results[0].boxes[i].cls[0])
+                            mask_data = mask.data[0].cpu().numpy()
+                            mh, mw = mask_data.shape
+                            if mh != h or mw != w:
+                                mask_data = cv2.resize(
+                                    mask_data.astype(np.uint8), (w, h),
+                                    interpolation=cv2.INTER_NEAREST,
+                                )
+                            segmentation_map[mask_data > 0] = cls
+
+                binding.latest_result = vision_results[0] if vision_results else None
                 binding.latest_raw_results = results
                 binding.latest_annotated_frame = CameraFrame(
                     raw=frame.raw,
                     annotated=annotated,
-                    result=result,
+                    results=vision_results,
                     timestamp=frame.timestamp,
+                    segmentation_map=segmentation_map,
                 )
 
             if not processed_any:

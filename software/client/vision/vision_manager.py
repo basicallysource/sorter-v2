@@ -115,7 +115,10 @@ class VisionManager:
             frame = self.getFrame(internal_name)
             if frame and frame.annotated is not None:
                 self._telemetry.saveCapture(
-                    telemetry_name, frame.raw, frame.annotated, "interval",
+                    telemetry_name,
+                    frame.raw,
+                    frame.annotated,
+                    "interval",
                     segmentation_map=frame.segmentation_map,
                 )
 

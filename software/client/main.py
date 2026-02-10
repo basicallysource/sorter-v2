@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
 from server.api import (
@@ -71,7 +76,9 @@ def main() -> None:
     telemetry = Telemetry(gc)
     vision = VisionManager(irl_config, gc)
     vision.setTelemetry(telemetry)
-    controller = SorterController(irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry)
+    controller = SorterController(
+        irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
+    )
     setController(controller)
     gc.logger.info("client starting...")
 

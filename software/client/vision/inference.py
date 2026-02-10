@@ -83,16 +83,21 @@ class InferenceThread:
                         confidence = float(box.conf[0])
                         xyxy = list(map(int, box.xyxy[0].tolist()))
                         bbox: Tuple[int, int, int, int] = (
-                            xyxy[0], xyxy[1], xyxy[2], xyxy[3],
+                            xyxy[0],
+                            xyxy[1],
+                            xyxy[2],
+                            xyxy[3],
                         )
                         class_name = binding.model.names.get(class_id, str(class_id))
-                        vision_results.append(VisionResult(
-                            class_id=class_id,
-                            class_name=class_name,
-                            confidence=confidence,
-                            bbox=bbox,
-                            timestamp=frame.timestamp,
-                        ))
+                        vision_results.append(
+                            VisionResult(
+                                class_id=class_id,
+                                class_name=class_name,
+                                confidence=confidence,
+                                bbox=bbox,
+                                timestamp=frame.timestamp,
+                            )
+                        )
 
                     annotated = results[0].plot()
 
@@ -105,7 +110,8 @@ class InferenceThread:
                             mh, mw = mask_data.shape
                             if mh != h or mw != w:
                                 mask_data = cv2.resize(
-                                    mask_data.astype(np.uint8), (w, h),
+                                    mask_data.astype(np.uint8),
+                                    (w, h),
                                     interpolation=cv2.INTER_NEAREST,
                                 )
                             segmentation_map[mask_data > 0] = cls

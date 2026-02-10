@@ -89,12 +89,18 @@ class Snapping(BaseState):
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(
-                "classification_chamber_top", top_frame.raw, top_frame.annotated, "capture",
+                "classification_chamber_top",
+                top_frame.raw,
+                top_frame.annotated,
+                "capture",
                 segmentation_map=top_frame.segmentation_map,
             )
         if bottom_frame and bottom_frame.annotated is not None:
             self.telemetry.saveCapture(
-                "classification_chamber_bottom", bottom_frame.raw, bottom_frame.annotated, "capture",
+                "classification_chamber_bottom",
+                bottom_frame.raw,
+                bottom_frame.annotated,
+                "capture",
                 segmentation_map=bottom_frame.segmentation_map,
             )
 

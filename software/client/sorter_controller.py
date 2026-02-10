@@ -24,7 +24,9 @@ class SorterController:
         self.gc = gc
         self.vision = vision
         self.event_queue = event_queue
-        self.coordinator = Coordinator(irl, irl_config, gc, vision, event_queue, rv, telemetry)
+        self.coordinator = Coordinator(
+            irl, irl_config, gc, vision, event_queue, rv, telemetry
+        )
 
     def start(self) -> None:
         self.state = SorterLifecycle.PAUSED

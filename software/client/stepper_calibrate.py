@@ -15,6 +15,9 @@ def main():
     steppers = {
         "carousel": irl.carousel_stepper,
         "chute": irl.chute_stepper,
+        "c_channel_1": irl.first_c_channel_rotor_stepper,
+        "c_channel_2": irl.second_c_channel_rotor_stepper,
+        "c_channel_3": irl.third_c_channel_rotor_stepper,
     }
     stepper_names = list(steppers.keys())
     selected_idx = 0
@@ -24,6 +27,7 @@ def main():
         name = stepper_names[selected_idx]
         stepper = steppers[name]
         step_count = STEP_COUNTS[step_count_idx]
+        quarter_steps = stepper.total_steps_per_rev // 4
         print("\033[2J\033[H", end="")
         print("Stepper Calibration Tool")
         print("========================")
@@ -32,6 +36,7 @@ def main():
         print("Controls:")
         print(f"  ←/→     Move stepper (current: {step_count} steps)")
         print(f"  ↑/↓     Change step count ({', '.join(map(str, STEP_COUNTS))})")
+        print(f"  A/D     Quarter turn ({quarter_steps} steps)")
         print("  Tab     Switch stepper")
         print("  Enter   Set current position as zero")
         print("  Q       Quit")
@@ -51,6 +56,14 @@ def main():
         elif key == readchar.key.RIGHT:
             stepper.moveSteps(step_count)
             printStatus()
+        elif key.lower() == "a":
+            quarter = stepper.total_steps_per_rev // 4
+            stepper.moveSteps(-quarter)
+            printStatus()
+        elif key.lower() == "d":
+            quarter = stepper.total_steps_per_rev // 4
+            stepper.moveSteps(quarter)
+            printStatus()
         elif key == readchar.key.UP:
             step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
             printStatus()
@@ -67,8 +80,8 @@ def main():
             print(f"Zeroed {name} position")
         elif key.lower() == "q":
             print("Exiting...")
-            irl.carousel_stepper.disable()
-            irl.chute_stepper.disable()
+            for s in steppers.values():
+                s.disable()
             sys.exit(0)
 
 

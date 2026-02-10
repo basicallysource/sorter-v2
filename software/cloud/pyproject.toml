@@ -1,0 +1,10 @@
+[project]
+name = "cloud"
+version = "0.1.0"
+description = "Sorter telemetry server"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.128.3",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.40.0",
+]

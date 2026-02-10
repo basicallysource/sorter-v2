@@ -40,7 +40,7 @@ class FrameData(BaseModel):
     timestamp: float
     raw: str
     annotated: Optional[str]
-    result: Optional[FrameResultData]
+    results: List[FrameResultData]
 
 
 class FrameEvent(BaseModel):

@@ -18,6 +18,7 @@ from .types import CameraFrame, VisionResult, DetectedMask
 ANNOTATE_ARUCO_TAGS = True
 ARUCO_TAG_CACHE_MS = 5000
 FEEDER_MASK_CACHE_FRAMES = 3
+TELEMETRY_INTERVAL_S = 30
 
 
 class VisionManager:
@@ -64,10 +65,16 @@ class VisionManager:
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
 
+        self._telemetry = None
+        self._last_telemetry_save = 0.0
+
         self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
         self._aruco_params = aruco.DetectorParameters()
         self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
+
+    def setTelemetry(self, telemetry) -> None:
+        self._telemetry = telemetry
 
     def start(self) -> None:
         self._feeder_capture.start()
@@ -84,12 +91,33 @@ class VisionManager:
             self._video_recorder.close()
 
     def recordFrames(self) -> None:
-        if not self._video_recorder:
+        if self._video_recorder:
+            for camera in ["feeder", "classification_bottom", "classification_top"]:
+                frame = self.getFrame(camera)
+                if frame:
+                    self._video_recorder.writeFrame(camera, frame.raw, frame.annotated)
+        self._saveTelemetryFrames()
+
+    def _saveTelemetryFrames(self) -> None:
+        if self._telemetry is None:
             return
-        for camera in ["feeder", "classification_bottom", "classification_top"]:
-            frame = self.getFrame(camera)
-            if frame:
-                self._video_recorder.writeFrame(camera, frame.raw, frame.annotated)
+        now = time.time()
+        if now - self._last_telemetry_save < TELEMETRY_INTERVAL_S:
+            return
+        self._last_telemetry_save = now
+
+        CAMERA_NAME_MAP = {
+            "feeder": "c_channel",
+            "classification_bottom": "classification_chamber_bottom",
+            "classification_top": "classification_chamber_top",
+        }
+        for internal_name, telemetry_name in CAMERA_NAME_MAP.items():
+            frame = self.getFrame(internal_name)
+            if frame and frame.annotated is not None:
+                self._telemetry.saveCapture(
+                    telemetry_name, frame.raw, frame.annotated, "interval",
+                    segmentation_map=frame.segmentation_map,
+                )
 
     @property
     def feeder_frame(self) -> Optional[CameraFrame]:
@@ -116,8 +144,9 @@ class VisionManager:
         return CameraFrame(
             raw=frame.raw,
             annotated=annotated,
-            result=frame.result,
+            results=frame.results,
             timestamp=frame.timestamp,
+            segmentation_map=frame.segmentation_map,
         )
 
     @property
@@ -375,14 +404,15 @@ class VisionManager:
         if frame is None:
             return None
 
-        result_data = None
-        if frame.result:
-            result_data = FrameResultData(
-                class_id=frame.result.class_id,
-                class_name=frame.result.class_name,
-                confidence=frame.result.confidence,
-                bbox=frame.result.bbox,
+        results_data = [
+            FrameResultData(
+                class_id=r.class_id,
+                class_name=r.class_name,
+                confidence=r.confidence,
+                bbox=r.bbox,
             )
+            for r in frame.results
+        ]
 
         raw_b64 = self._encodeFrame(frame.raw)
         annotated_b64 = (
@@ -396,7 +426,7 @@ class VisionManager:
                 timestamp=frame.timestamp,
                 raw=raw_b64,
                 annotated=annotated_b64,
-                result=result_data,
+                results=results_data,
             ),
         )
 

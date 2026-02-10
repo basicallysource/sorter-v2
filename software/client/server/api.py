@@ -15,8 +15,8 @@ from defs.events import (
     ResumeCommandEvent,
     ResumeCommandData,
 )
-from blob_manager import getMachineId
 from bricklink.api import getPartInfo
+from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
 
 app = FastAPI(title="Sorter API", version="0.0.1")
@@ -32,6 +32,12 @@ server_loop: Optional[asyncio.AbstractEventLoop] = None
 runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
 controller_ref: Optional[Any] = None
+gc_ref: Optional[GlobalConfig] = None
+
+
+def setGlobalConfig(gc: GlobalConfig) -> None:
+    global gc_ref
+    gc_ref = gc
 
 
 def setRuntimeVariables(rv: RuntimeVariables) -> None:
@@ -55,9 +61,6 @@ async def onStartup() -> None:
     server_loop = asyncio.get_running_loop()
 
 
-MACHINE_ID = getMachineId()
-
-
 class HealthResponse(BaseModel):
     status: str
 
@@ -73,7 +76,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     active_connections.append(websocket)
 
     identity_event = IdentityEvent(
-        tag="identity", data=MachineIdentityData(machine_id=MACHINE_ID, nickname=None)
+        tag="identity",
+        data=MachineIdentityData(machine_id=gc_ref.machine_id, nickname=None),
     )
     await websocket.send_json(identity_event.model_dump())
 

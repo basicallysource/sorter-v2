@@ -3,11 +3,13 @@ from runtime_variables import mkRuntimeVariables
 from server.api import (
     app,
     broadcastEvent,
+    setGlobalConfig,
     setRuntimeVariables,
     setCommandQueue,
     setController,
 )
 from sorter_controller import SorterController
+from telemetry import Telemetry
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from irl.config import mkIRLConfig, mkIRLInterface
@@ -54,6 +56,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     gc = mkGlobalConfig()
+    setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
@@ -65,8 +68,10 @@ def main() -> None:
     gc.logger.info("Homing chute to zero...")
     chute.home()
 
+    telemetry = Telemetry(gc)
     vision = VisionManager(irl_config, gc)
-    controller = SorterController(irl, irl_config, gc, vision, main_to_server_queue, rv)
+    vision.setTelemetry(telemetry)
+    controller = SorterController(irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry)
     setController(controller)
     gc.logger.info("client starting...")
 

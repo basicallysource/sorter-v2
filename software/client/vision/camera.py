@@ -43,7 +43,7 @@ class CaptureThread:
             ret, frame = self._cap.read()
             if ret:
                 self.latest_frame = CameraFrame(
-                    raw=frame, annotated=None, result=None, timestamp=time.time()
+                    raw=frame, annotated=None, results=[], timestamp=time.time()
                 )
             else:
                 time.sleep(0.01)

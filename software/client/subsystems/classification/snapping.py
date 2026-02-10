@@ -11,6 +11,7 @@ from .carousel import Carousel, CLASSIFICATION_POSITION
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from telemetry import Telemetry
 import classification
 
 if TYPE_CHECKING:
@@ -30,12 +31,14 @@ class Snapping(BaseState):
         carousel: Carousel,
         vision: "VisionManager",
         event_queue: queue.Queue,
+        telemetry: Telemetry,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.carousel = carousel
         self.vision = vision
         self.event_queue = event_queue
+        self.telemetry = telemetry
         self.start_time: Optional[float] = None
         self.snapped = False
 
@@ -84,17 +87,16 @@ class Snapping(BaseState):
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
         top_crop, bottom_crop = self.vision.getClassificationCrops()
 
-        # spencer todo: add back when there is constant run id per run, save in that blob dir
-        # os.makedirs(SNAP_DIR, exist_ok=True)
-        # if top_frame:
-        #     cv2.imwrite(
-        #         os.path.join(SNAP_DIR, f"{piece.uuid}_top_full.jpg"), top_frame.raw
-        #     )
-        # if bottom_frame:
-        #     cv2.imwrite(
-        #         os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_full.jpg"),
-        #         bottom_frame.raw,
-        #     )
+        if top_frame and top_frame.annotated is not None:
+            self.telemetry.saveCapture(
+                "classification_chamber_top", top_frame.raw, top_frame.annotated, "capture",
+                segmentation_map=top_frame.segmentation_map,
+            )
+        if bottom_frame and bottom_frame.annotated is not None:
+            self.telemetry.saveCapture(
+                "classification_chamber_bottom", bottom_frame.raw, bottom_frame.annotated, "capture",
+                segmentation_map=bottom_frame.segmentation_map,
+            )
 
         if top_crop is None or bottom_crop is None:
             self.logger.warn(

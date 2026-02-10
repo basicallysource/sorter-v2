@@ -1,5 +1,7 @@
 import os
+import uuid
 from logger import Logger
+from blob_manager import getMachineId
 
 
 class Timeouts:
@@ -97,6 +99,10 @@ class GlobalConfig:
     parts_with_categories_file_path: str
     vision_mask_proximity_threshold: float
     should_write_camera_feeds: bool
+    machine_id: str
+    run_id: str
+    telemetry_enabled: bool
+    telemetry_url: str
 
     def __init__(self):
         self.debug_level = 0
@@ -125,4 +131,8 @@ def mkGlobalConfig() -> GlobalConfig:
     ]
     gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
     gc.parts_with_categories_file_path = os.environ["PARTS_WITH_CATEGORIES_FILE_PATH"]
+    gc.machine_id = getMachineId()
+    gc.run_id = str(uuid.uuid4())
+    gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"
+    gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
     return gc

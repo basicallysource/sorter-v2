@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List
 import numpy as np
 
 
@@ -24,5 +24,6 @@ class DetectedMask:
 class CameraFrame:
     raw: np.ndarray
     annotated: Optional[np.ndarray]
-    result: Optional[VisionResult]
+    results: List[VisionResult]
     timestamp: float
+    segmentation_map: Optional[np.ndarray] = field(default=None)

@@ -106,7 +106,7 @@ class Feeding(BaseState):
         self.irl_config = irl_config
         self.shared = shared
         self.vision = vision
-        self._profiler = LoopProfiler(history_size=10)
+        self._profiler = LoopProfiler(history_size=10) if gc.should_profile_feeder else None
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -121,37 +121,45 @@ class Feeding(BaseState):
         prof = self._profiler
 
         while not self._stop_event.is_set():
-            prof.startLoop()
+            if prof:
+                prof.startLoop()
+                prof.startSection()
 
-            prof.startSection()
             masks_by_class = self.vision.getFeederMasksByClass()
             object_detected_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
             carousel_detected_masks = masks_by_class.get(FEEDER_CAROUSEL_CLASS_ID, [])
             carousel_detected_mask = (
                 carousel_detected_masks[0] if carousel_detected_masks else None
             )
-            prof.endSection("get_masks_ms")
-            prof.setField("num_object_masks", len(object_detected_masks))
-            prof.setField("num_carousel_masks", len(carousel_detected_masks))
 
-            prof.startSection()
+            if prof:
+                prof.endSection("get_masks_ms")
+                prof.setField("num_object_masks", len(object_detected_masks))
+                prof.setField("num_carousel_masks", len(carousel_detected_masks))
+                prof.startSection()
+
             channels = self.vision.getIdentifiedChannels(
                 irl_cfg.first_c_channel_aruco_tag_id,
                 irl_cfg.second_c_channel_aruco_tag_id,
                 irl_cfg.third_c_channel_aruco_tag_id,
             )
-            prof.endSection("get_channels_ms")
 
-            prof.startSection()
+            if prof:
+                prof.endSection("get_channels_ms")
+                prof.startSection()
+
             state = analyzeFeederState(
                 object_detected_masks, channels, carousel_detected_mask, fc
             )
-            prof.endSection("analyze_state_ms")
-            prof.setField("state_result", state.value)
+
+            if prof:
+                prof.endSection("analyze_state_ms")
+                prof.setField("state_result", state.value)
 
             ACTUALLY_RUN = True
 
-            prof.startSection()
+            if prof:
+                prof.startSection()
             if state == FeederAnalysisState.OBJECT_ABOUT_TO_FALL:
                 self.gc.logger.info(
                     "Feeder: object about to fall, pulsing 3rd (precise)"
@@ -206,10 +214,10 @@ class Feeding(BaseState):
                     )
                 if cfg.delay_between_pulse_ms > 0:
                     time.sleep(cfg.delay_between_pulse_ms / 1000.0)
-            prof.endSection("motor_action_ms")
-
-            prof.endLoop()
-            prof.printReport()
+            if prof:
+                prof.endSection("motor_action_ms")
+                prof.endLoop()
+                prof.printReport()
 
     def cleanup(self) -> None:
         super().cleanup()

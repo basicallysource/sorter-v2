@@ -101,13 +101,15 @@ class GlobalConfig:
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
+    should_profile_feeder: bool
     telemetry_enabled: bool
     telemetry_url: str
 
     def __init__(self):
         self.debug_level = 0
         self.vision_mask_proximity_threshold = 0.5
-        self.should_write_camera_feeds = True
+        self.should_write_camera_feeds = False
+        self.should_profile_feeder = False
 
 
 def mkTimeouts() -> Timeouts:

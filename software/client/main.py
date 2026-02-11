@@ -143,21 +143,12 @@ def main() -> None:
                 irl.mcu.command_queue.task_done()
             except:
                 break
-        while not irl.second_mcu.command_queue.empty():
-            try:
-                irl.second_mcu.command_queue.get_nowait()
-                irl.second_mcu.command_queue.task_done()
-            except:
-                break
 
         # Send motor shutdown commands and wait for them to complete
         gc.logger.info("Stopping all motors...")
         irl.shutdownMotors()
         irl.mcu.flush()
-        irl.second_mcu.flush()
-
         irl.mcu.close()
-        irl.second_mcu.close()
         gc.logger.info("Cleanup complete")
         sys.exit(0)
 

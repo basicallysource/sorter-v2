@@ -4,7 +4,7 @@ import os
 from global_config import GlobalConfig
 from .mcu import MCU
 from .stepper import Stepper
-from .device_discovery import discoverMCUs
+from .device_discovery import discoverMCU
 
 
 class CameraConfig:
@@ -28,7 +28,6 @@ class StepperConfig:
 
 class IRLConfig:
     mcu_path: str
-    second_mcu_path: str
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -47,7 +46,6 @@ class IRLConfig:
 
 class IRLInterface:
     mcu: MCU
-    second_mcu: MCU
     carousel_stepper: Stepper
     chute_stepper: Stepper
     first_c_channel_rotor_stepper: Stepper
@@ -84,7 +82,7 @@ def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConf
 
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
-    irl_config.mcu_path, irl_config.second_mcu_path = discoverMCUs()
+    irl_config.mcu_path = discoverMCU()
     feeder_camera_index = int(os.environ["FEEDER_CAMERA_INDEX"])
     classification_camera_bottom_index = int(
         os.environ["CLASSIFICATION_CAMERA_BOTTOM_INDEX"]
@@ -124,12 +122,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     mcu = MCU(gc, config.mcu_path)
     irl_interface.mcu = mcu
 
-    second_mcu = MCU(gc, config.second_mcu_path)
-    irl_interface.second_mcu = second_mcu
-
     irl_interface.carousel_stepper = Stepper(
         gc,
-        second_mcu,
+        mcu,
         config.carousel_stepper.step_pin,
         config.carousel_stepper.dir_pin,
         config.carousel_stepper.enable_pin,
@@ -140,7 +135,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.chute_stepper = Stepper(
         gc,
-        second_mcu,
+        mcu,
         config.chute_stepper.step_pin,
         config.chute_stepper.dir_pin,
         config.chute_stepper.enable_pin,
@@ -154,7 +149,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.first_c_channel_rotor_stepper = Stepper(
         gc,
-        second_mcu,
+        mcu,
         config.first_c_channel_rotor_stepper.step_pin,
         config.first_c_channel_rotor_stepper.dir_pin,
         config.first_c_channel_rotor_stepper.enable_pin,
@@ -165,7 +160,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.second_c_channel_rotor_stepper = Stepper(
         gc,
-        second_mcu,
+        mcu,
         config.second_c_channel_rotor_stepper.step_pin,
         config.second_c_channel_rotor_stepper.dir_pin,
         config.second_c_channel_rotor_stepper.enable_pin,
@@ -176,7 +171,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.third_c_channel_rotor_stepper = Stepper(
         gc,
-        second_mcu,
+        mcu,
         config.third_c_channel_rotor_stepper.step_pin,
         config.third_c_channel_rotor_stepper.dir_pin,
         config.third_c_channel_rotor_stepper.enable_pin,

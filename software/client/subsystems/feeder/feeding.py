@@ -106,7 +106,9 @@ class Feeding(BaseState):
         self.irl_config = irl_config
         self.shared = shared
         self.vision = vision
-        self._profiler = LoopProfiler(history_size=10) if gc.should_profile_feeder else None
+        self._profiler = (
+            LoopProfiler(history_size=10) if gc.should_profile_feeder else None
+        )
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()

@@ -47,13 +47,11 @@ def promptForDevice(device_name: str, env_var_name: str) -> str:
         return available_devices[choice_index]
 
 
-def discoverMCUs() -> tuple[str, str]:
-    main_mcu_path = promptForDevice("Main MCU", "MAIN_MCU_PATH")
-    second_mcu_path = promptForDevice("Second MCU", "SECOND_MCU_PATH")
+def discoverMCU() -> str:
+    mcu_path = promptForDevice("MCU", "MCU_PATH")
 
     print(f"\nSelected:")
-    print(f"  Main MCU: {main_mcu_path}")
-    print(f"  Second MCU: {second_mcu_path}")
+    print(f"  MCU: {mcu_path}")
     print()
 
-    return main_mcu_path, second_mcu_path
+    return mcu_path

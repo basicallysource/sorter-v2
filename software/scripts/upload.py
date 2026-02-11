@@ -102,7 +102,7 @@ def uploadHex(hex_path: Path, port: str) -> None:
 
 
 def main() -> int:
-    port = promptForDevice("Main MCU", "MAIN_MCU_PATH")
+    port = promptForDevice("MCU", "MCU_PATH")
     sketch_path = pickFirmware()
 
     with TemporaryDirectory() as tmp_dir:

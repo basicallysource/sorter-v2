@@ -61,4 +61,4 @@ uv run python main.py
 
 `uv` will install Python 3.13 and all dependencies on first run. The `.env` file is loaded automatically.
 
-On startup, the client will prompt you to select two MCUs — the first is the feeder, the second is the distribution system. If you only have one connected, select the same one for both.
+On startup, the client will prompt you to select the MCU (Arduino Mega with RAMPS shield) connected over USB.

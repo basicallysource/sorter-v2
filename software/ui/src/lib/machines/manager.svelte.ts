@@ -189,8 +189,14 @@ export class MachineManager {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
-		const updated_frames = new Map(machine.frames);
+		const updated_frames = new Map();
 		updated_frames.set(frame.camera, frame);
+		
+		for (const [camera, existingFrame] of machine.frames) {
+			if (camera !== frame.camera) {
+				updated_frames.set(camera, existingFrame);
+			}
+		}
 
 		const updated = new Map(this.machines);
 		updated.set(machineId, { ...machine, frames: updated_frames });

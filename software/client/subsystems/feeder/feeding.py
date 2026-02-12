@@ -109,6 +109,7 @@ class Feeding(BaseState):
         self._profiler = (
             LoopProfiler(history_size=10) if gc.should_profile_feeder else None
         )
+        self.last_analysis_state = None
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -153,6 +154,12 @@ class Feeding(BaseState):
             state = analyzeFeederState(
                 object_detected_masks, channels, carousel_detected_mask, fc
             )
+
+            if state != self.last_analysis_state:
+                self.gc.logger.info(
+                    f"state change: feeder_analysis {self.last_analysis_state} -> {state}"
+                )
+                self.last_analysis_state = state
 
             if prof:
                 prof.endSection("analyze_state_ms")

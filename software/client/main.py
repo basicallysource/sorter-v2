@@ -48,7 +48,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
     while True:
         try:
             command = main_to_server_queue.get(block=False)
-            if command.tag != "frame":
+            if command.tag != "frame" and command.tag != "heartbeat":
                 gc.logger.info(f"broadcasting {command.tag} event")
             asyncio.run_coroutine_threadsafe(
                 broadcastEvent(command.model_dump()), api.server_loop

@@ -77,7 +77,7 @@ class SorterInterfaceBus:
     def __init__(self, port: str):
         self.ser = serial.Serial(port, baudrate=115200, timeout=1)
     
-    def send_command(self, address: int, command: int, channel: int, payload: bytes) -> bytes:
+    def send_command(self, address: int, command: int, channel: int, payload: bytes) -> Message:
         payload_length = len(payload)
         message = struct.pack('<BBBB', address, command, channel, payload_length) + payload
         # Append CRC
@@ -90,7 +90,9 @@ class SorterInterfaceBus:
 
         # Read response
         resp_buf = bytearray(self.ser.read_until(b'\x00', 254))
-        if not resp_buf or resp_buf[-1] != 0:
+        if not resp_buf:
+            raise DecodeError("No response received")
+        if resp_buf[-1] != 0:
             raise DecodeError("No terminator received")
         
         logging.debug(f"Received: {resp_buf.hex(b' ', 1)}")

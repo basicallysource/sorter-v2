@@ -63,8 +63,8 @@ class Message:
 
 
 class BaseCommandCode:
-    INIT = 0x01
-    PING = 0x02
+    INIT = 0x00
+    PING = 0x01
 
 
 class MCUBusError(Exception):
@@ -76,7 +76,7 @@ class MCUBusError(Exception):
 class MCUBus:
     """Class for communicating with the MCU over a serial bus using a custom protocol."""
 
-    def __init__(self, port: str, baudrate: int = 576000, timeout: float = 0.01):
+    def __init__(self, port: str, baudrate: int = 576000, timeout: float = 0.1):
         """Initialize the MCUBus with the given serial port parameters.
 
         Args:
@@ -167,7 +167,7 @@ class MCUBus:
 
         if message.command & 0x80:
             raise MCUBusError(
-                f"Error response received, command: {message.command:#04x}, payload: {message.payload.hex()}"
+                f"Error response received, command: {message.command:#04x}, payload: {message.payload}"
             )
 
         return message

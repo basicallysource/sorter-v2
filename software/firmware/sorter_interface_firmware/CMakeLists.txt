@@ -35,7 +35,17 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(sorter_interface_firmware sorter_interface_firmware.cpp TMC2209.cpp TMC_UART.cpp Stepper.cpp cobs.c crc.c message.cpp)
+add_executable(sorter_interface_firmware 
+    sorter_interface_firmware.cpp 
+    TMC2209.cpp 
+    TMC_UART.cpp
+    Stepper.cpp 
+    cobs.c 
+    crc.c 
+    message.cpp 
+    PCA9685.cpp
+    Servo.cpp
+)
 
 pico_set_program_name(sorter_interface_firmware "sorter_interface_firmware")
 pico_set_program_version(sorter_interface_firmware "0.1")

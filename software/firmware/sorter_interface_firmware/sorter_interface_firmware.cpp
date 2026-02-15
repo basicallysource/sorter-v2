@@ -58,7 +58,7 @@ bool VAL_digital_in_channel(uint8_t channel);
 const struct CommandTable baseCmdTable = { //
     .prefix = NULL,
     .commands = {{
-        {"INIT", "", "", 0, NULL, CMDH_init},
+        {"INIT", "", "s", 0, NULL, CMDH_init},
         {"PING", "", "", 255, NULL, CMDH_ping},
     }}};
 
@@ -72,13 +72,13 @@ const struct CommandTable stepperCmdTable = {
         {"IS_STOPPED", "", "B", 0, VAL_stepper_channel, CMDH_stepper_is_stopped},
         {"GET_POSITION", "", "i", 0, VAL_stepper_channel, CMDH_stepper_get_position},
         {"SET_POSITION", "i", "", 4, VAL_stepper_channel, CMDH_stepper_set_position},
-        {"HOME", "iBB", "", 6, VAL_stepper_channel, CMDH_stepper_home},
+        {"HOME", "iB?", "", 6, VAL_stepper_channel, CMDH_stepper_home},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
     .prefix = "STEPPER_DRV",
     .commands = {{
-        {"SET_ENABLED", "B", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_enabled},
+        {"SET_ENABLED", "?", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_enabled},
         {"SET_MICROSTEPS", "H", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_microsteps},
         {"SET_CURRENT", "BBB", "", 3, VAL_stepper_channel, CMDH_stepper_drv_set_current},
         {NULL, NULL, NULL, 0, NULL, NULL},

@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import uuid
 from logger import Logger
 from blob_manager import getMachineId
@@ -52,9 +54,9 @@ class FeederConfig:
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
-            steps=200,
-            delay_us=200,
-            delay_between_ms=2000,
+            steps=100,
+            delay_us=500,
+            delay_between_ms=5000,
             accel_start_delay_us=900,
             accel_steps=48,
             decel_steps=48,
@@ -105,6 +107,7 @@ class GlobalConfig:
     telemetry_enabled: bool
     telemetry_url: str
     log_buffer_size: int
+    disable_chute: bool
 
     def __init__(self):
         self.debug_level = 0
@@ -112,6 +115,7 @@ class GlobalConfig:
         self.should_write_camera_feeds = False
         self.should_profile_feeder = False
         self.log_buffer_size = 100
+        self.disable_chute = False
 
 
 def mkTimeouts() -> Timeouts:
@@ -125,6 +129,15 @@ def mkFeederConfig() -> FeederConfig:
 
 
 def mkGlobalConfig() -> GlobalConfig:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--disable",
+        action="append",
+        default=[],
+        help="disable subsystems (e.g., --disable chute)",
+    )
+    args = parser.parse_args()
+
     gc = GlobalConfig()
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
@@ -139,6 +152,8 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.run_id = str(uuid.uuid4())
     gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
+
+    gc.disable_chute = "chute" in args.disable
 
     from telemetry import Telemetry
 

@@ -43,6 +43,18 @@ class StepperConfig:
         pass
 
 
+class ArucoTagConfig:
+    second_c_channel_center_id: int
+    second_c_channel_radius1_id: int
+    second_c_channel_radius2_id: int
+    third_c_channel_center_id: int
+    third_c_channel_radius1_id: int
+    third_c_channel_radius2_id: int
+
+    def __init__(self):
+        pass
+
+
 class IRLConfig:
     mcu_path: str
     feeder_camera: CameraConfig
@@ -53,9 +65,7 @@ class IRLConfig:
     first_c_channel_rotor_stepper: StepperConfig
     second_c_channel_rotor_stepper: StepperConfig
     third_c_channel_rotor_stepper: StepperConfig
-    first_c_channel_aruco_tag_id: int
-    second_c_channel_aruco_tag_id: int
-    third_c_channel_aruco_tag_id: int
+    aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
 
     def __init__(self):
@@ -101,6 +111,19 @@ def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConf
     return stepper_config
 
 
+def mkArucoTagConfig() -> ArucoTagConfig:
+    config = ArucoTagConfig()
+    # Channel 2 (second) - 3 tags: center, radius1, radius2
+    config.second_c_channel_center_id = 298
+    config.second_c_channel_radius1_id = 815
+    config.second_c_channel_radius2_id = 451
+    # Channel 3 (third) - 3 tags: center, radius1, radius2
+    config.third_c_channel_center_id = 73
+    config.third_c_channel_radius1_id = 957
+    config.third_c_channel_radius2_id = 517
+    return config
+
+
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
     irl_config.mcu_path = discoverMCU()
@@ -131,9 +154,7 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
         step_pin=54, dir_pin=55, enable_pin=38
     )
-    irl_config.first_c_channel_aruco_tag_id = 86
-    irl_config.second_c_channel_aruco_tag_id = 815
-    irl_config.third_c_channel_aruco_tag_id = 957
+    irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
 

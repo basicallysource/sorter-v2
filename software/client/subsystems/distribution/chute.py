@@ -53,6 +53,12 @@ class Chute:
         )
         delta_steps = target_steps - self.stepper.current_position_steps
 
+        if self.gc.disable_chute:
+            self.logger.info(
+                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (target={target_steps} steps, delta={delta_steps})"
+            )
+            return
+
         self.logger.info(
             f"Chute: moving from {current:.1f}° to {target:.1f}° (target={target_steps} steps, delta={delta_steps})"
         )

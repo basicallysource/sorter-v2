@@ -76,7 +76,7 @@ class LoopProfiler:
         print("-" * 60)
         fields = [
             ("get_masks_ms", "getFeederMasksByClass"),
-            ("get_channels_ms", "getIdentifiedChannels"),
+            ("get_channels_ms", "getChannelGeometry"),
             ("analyze_state_ms", "analyzeFeederState"),
             ("motor_action_ms", "motor action"),
             ("total_ms", "TOTAL"),
@@ -141,18 +141,14 @@ class Feeding(BaseState):
                 prof.setField("num_carousel_masks", len(carousel_detected_masks))
                 prof.startSection()
 
-            channels = self.vision.getIdentifiedChannels(
-                irl_cfg.first_c_channel_aruco_tag_id,
-                irl_cfg.second_c_channel_aruco_tag_id,
-                irl_cfg.third_c_channel_aruco_tag_id,
-            )
+            geometry = self.vision.getChannelGeometry(irl_cfg.aruco_tags)
 
             if prof:
                 prof.endSection("get_channels_ms")
                 prof.startSection()
 
             state = analyzeFeederState(
-                object_detected_masks, channels, carousel_detected_mask, fc
+                object_detected_masks, geometry, carousel_detected_mask, fc
             )
 
             if state != self.last_analysis_state:
@@ -184,8 +180,8 @@ class Feeding(BaseState):
                     )
                 if cfg.delay_between_pulse_ms > 0:
                     time.sleep(cfg.delay_between_pulse_ms / 1000.0)
-            elif state == FeederAnalysisState.OBJECT_IN_3_2_DROPZONE:
-                self.gc.logger.info("Feeder: object in 3-2 dropzone, pulsing 3rd")
+            elif state == FeederAnalysisState.OBJECT_IN_3_DROPZONE:
+                self.gc.logger.info("Feeder: object in channel 3 dropzone, pulsing 3rd")
                 cfg = fc.third_rotor_normal
                 if ACTUALLY_RUN:
                     self.irl.third_c_channel_rotor_stepper.moveSteps(
@@ -197,8 +193,8 @@ class Feeding(BaseState):
                     )
                 if cfg.delay_between_pulse_ms > 0:
                     time.sleep(cfg.delay_between_pulse_ms / 1000.0)
-            elif state == FeederAnalysisState.OBJECT_IN_2_1_DROPZONE:
-                self.gc.logger.info("Feeder: object in 2-1 dropzone, pulsing 2nd")
+            elif state == FeederAnalysisState.OBJECT_IN_2_DROPZONE:
+                self.gc.logger.info("Feeder: object in channel 2 dropzone, pulsing 2nd")
                 cfg = fc.second_rotor
                 if ACTUALLY_RUN:
                     self.irl.second_c_channel_rotor_stepper.moveSteps(

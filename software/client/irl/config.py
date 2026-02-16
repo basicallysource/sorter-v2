@@ -36,6 +36,9 @@ class IRLConfig:
     first_c_channel_rotor_stepper: StepperConfig
     second_c_channel_rotor_stepper: StepperConfig
     third_c_channel_rotor_stepper: StepperConfig
+    servo_pins: list[int]
+    servo_open_angle: int
+    servo_closed_angle: int
     first_c_channel_aruco_tag_id: int
     second_c_channel_aruco_tag_id: int
     third_c_channel_aruco_tag_id: int
@@ -51,6 +54,7 @@ class IRLInterface:
     first_c_channel_rotor_stepper: Stepper
     second_c_channel_rotor_stepper: Stepper
     third_c_channel_rotor_stepper: Stepper
+    servo_angles: list[int]
 
     def __init__(self):
         pass
@@ -110,6 +114,9 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
         step_pin=54, dir_pin=55, enable_pin=38
     )
+    irl_config.servo_pins = [4, 5, 6, 11]
+    irl_config.servo_open_angle = 0
+    irl_config.servo_closed_angle = 72
     irl_config.first_c_channel_aruco_tag_id = 86
     irl_config.second_c_channel_aruco_tag_id = 815
     irl_config.third_c_channel_aruco_tag_id = 957
@@ -140,7 +147,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.chute_stepper.dir_pin,
         config.chute_stepper.enable_pin,
         name="chute",
-        default_delay_us=700,
+        default_delay_us=300,
         default_accel_start_delay_us=2400,
         default_accel_steps=140,
         default_decel_steps=140,
@@ -179,5 +186,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         default_delay_us=800,
     )
     time.sleep(1)
+
+    irl_interface.servo_angles = [config.servo_open_angle] * 4
 
     return irl_interface

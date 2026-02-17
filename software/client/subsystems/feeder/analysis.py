@@ -2,9 +2,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Tuple, TYPE_CHECKING
 import numpy as np
-from vision.utils import maskCenterOfMass, maskMinDistance
+from vision.utils import maskCenterOfMass
 from vision.types import DetectedMask
-from global_config import FeederConfig
 
 if TYPE_CHECKING:
     from irl.config import ArucoTagConfig
@@ -13,8 +12,9 @@ OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
 
 
 class FeederAnalysisState(Enum):
-    OBJECT_ABOUT_TO_FALL = "object_about_to_fall"
+    OBJECT_IN_3_DROPZONE_PRECISE = "object_in_3_dropzone_precise"
     OBJECT_IN_3_DROPZONE = "object_in_3_dropzone"
+    OBJECT_IN_2_DROPZONE_PRECISE = "object_in_2_dropzone_precise"
     OBJECT_IN_2_DROPZONE = "object_in_2_dropzone"
     CLEAR = "clear"
 
@@ -157,8 +157,6 @@ def determineObjectChannelAndQuadrant(
 def analyzeFeederState(
     object_detected_masks: List[DetectedMask],
     geometry: ChannelGeometry,
-    carousel_detected_mask: Optional[DetectedMask],
-    fc: FeederConfig,
 ) -> FeederAnalysisState:
     if not object_detected_masks:
         return FeederAnalysisState.CLEAR
@@ -173,8 +171,9 @@ def analyzeFeederState(
     if not high_confidence_objects:
         return FeederAnalysisState.CLEAR
 
-    has_object_about_to_fall = False
+    has_object_in_3_dropzone_precise = False
     has_object_in_3_dropzone = False
+    has_object_in_2_dropzone_precise = False
     has_object_in_2_dropzone = False
 
     for obj_dm in high_confidence_objects:
@@ -188,25 +187,26 @@ def analyzeFeederState(
 
         channel_id, quadrant = result
 
-        # check for "about to fall" (on channel 3, near carousel)
-        if channel_id == 3 and carousel_detected_mask is not None:
-            distance_px = maskMinDistance(obj_dm.mask, carousel_detected_mask.mask)
-            if distance_px <= fc.carousel_proximity_threshold_px:
-                has_object_about_to_fall = True
+        # check for precise mode (quadrant 3) and normal dropzone (quadrants 0, 1)
+        if channel_id == 3:
+            if quadrant == 3:
+                has_object_in_3_dropzone_precise = True
+            elif quadrant in [0, 1]:
+                has_object_in_3_dropzone = True
 
-        # check for object in dropzone
-        # both channels: quadrants 0 and 1 (180 degree range)
-        if channel_id == 3 and quadrant in [0, 1]:
-            has_object_in_3_dropzone = True
-
-        if channel_id == 2 and quadrant in [0, 1]:
-            has_object_in_2_dropzone = True
+        if channel_id == 2:
+            if quadrant == 3:
+                has_object_in_2_dropzone_precise = True
+            elif quadrant in [0, 1]:
+                has_object_in_2_dropzone = True
 
     # return in priority order
-    if has_object_about_to_fall:
-        return FeederAnalysisState.OBJECT_ABOUT_TO_FALL
+    if has_object_in_3_dropzone_precise:
+        return FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE
     if has_object_in_3_dropzone:
         return FeederAnalysisState.OBJECT_IN_3_DROPZONE
+    if has_object_in_2_dropzone_precise:
+        return FeederAnalysisState.OBJECT_IN_2_DROPZONE_PRECISE
     if has_object_in_2_dropzone:
         return FeederAnalysisState.OBJECT_IN_2_DROPZONE
 

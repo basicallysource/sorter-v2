@@ -250,10 +250,6 @@ class VisionManager:
                 if age_ms <= ARUCO_TAG_CACHE_MS:
                     result[tag_id] = position
 
-        if result:
-            tag_ids = ", ".join([f"#{tag_id}" for tag_id in sorted(result.keys())])
-            self.gc.logger.info(f"ArUco tags: {tag_ids}")
-
         return result
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:

@@ -44,13 +44,13 @@ class RotorPulseConfig:
 
 class FeederConfig:
     first_rotor: RotorPulseConfig
-    second_rotor: RotorPulseConfig
+    second_rotor_normal: RotorPulseConfig
+    second_rotor_precision: RotorPulseConfig
     third_rotor_normal: RotorPulseConfig
     third_rotor_precision: RotorPulseConfig
     third_channel_dropzone_threshold_px: int
     second_channel_dropzone_threshold_px: int
     object_channel_overlap_threshold: float
-    carousel_proximity_threshold_px: int
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
@@ -61,13 +61,21 @@ class FeederConfig:
             accel_steps=48,
             decel_steps=48,
         )
-        self.second_rotor = RotorPulseConfig(
+        self.second_rotor_normal = RotorPulseConfig(
             steps=500,
             delay_us=200,
             delay_between_ms=250,
             accel_start_delay_us=1200,
             accel_steps=130,
             decel_steps=130,
+        )
+        self.second_rotor_precision = RotorPulseConfig(
+            steps=100,
+            delay_us=800,
+            delay_between_ms=350,
+            accel_start_delay_us=1400,
+            accel_steps=26,
+            decel_steps=26,
         )
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
@@ -88,7 +96,6 @@ class FeederConfig:
         self.third_channel_dropzone_threshold_px = 350
         self.second_channel_dropzone_threshold_px = 500
         self.object_channel_overlap_threshold = 0.15
-        self.carousel_proximity_threshold_px = 110
 
 
 class GlobalConfig:

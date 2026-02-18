@@ -33,6 +33,10 @@ project(sorter_interface_firmware C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+option(HW_SKR_PICO "Compile for SKR Pico hardware" OFF)
+set(INIT_DEVICE_NAME "FEEDER MB" CACHE STRING "Device Name for the firmware to use on startup")
+set(INIT_DEVICE_ADDRESS "0x00" CACHE STRING "Device Address in the bus")
+
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(sorter_interface_firmware 
@@ -62,6 +66,12 @@ target_link_libraries(sorter_interface_firmware
 target_include_directories(sorter_interface_firmware PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
+
+# Pass INIT_DEVICE_NAME and INIT_DEVICE_ADDRESS as preprocessor definitions
+target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="${INIT_DEVICE_NAME}" INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS})
+if (HW_SKR_PICO)
+    target_compile_definitions(sorter_interface_firmware PRIVATE HW_SKR_PICO)
+endif()
 
 # Add any user requested libraries
 target_link_libraries(sorter_interface_firmware

@@ -27,6 +27,7 @@
 #include <array>
 #include <stdio.h>
 #include <string.h>
+#include <utility>
 
 #include "PCA9685.h"
 #include "Servo.h"
@@ -146,52 +147,49 @@ const MasterCommandTable command_tables = {
 // This needs to be unique for each board and should be loaded from a config file or something in the future, but
 // hardcoded for now.
 // clang-format off
-char DEVICE_NAME[16] = "FEEDER MB";
-uint8_t DEVICE_ADDRESS = 0x00;
 
-const uint8_t STEPPER_COUNT = 4;
+#ifndef INIT_DEVICE_NAME
+#define INIT_DEVICE_NAME "FEEDER MB"
+#endif
 
-TMC_UART_Bus tmc_bus(uart0);
-TMC2209 tmc_drivers[] = {
-    TMC2209(&tmc_bus, 0), 
-    TMC2209(&tmc_bus, 1),
-    TMC2209(&tmc_bus, 2), 
-    TMC2209(&tmc_bus, 3)
-};
+#ifndef INIT_DEVICE_ADDRESS
+#define INIT_DEVICE_ADDRESS 0x00
+#endif
 
-Stepper steppers[] = {
-    Stepper(28, 27), 
-    Stepper(26, 22), 
-    Stepper(21, 20), 
-    Stepper(19, 18)
-};
+char DEVICE_NAME[16] = INIT_DEVICE_NAME;
+uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 
-const int TMC_UART_TX_PIN = 16;
-const int TMC_UART_RX_PIN = 17;
-const int TMC_UART_BAUDRATE = 400000;
+#ifdef HARDWARE_SKR_PICO
+#include "hwcfg_skr_pico.h"
+#else
+#include "hwcfg_basically.h"
+#endif
 
-const int STEPPER_nEN_PIN = 0;
+// End board configuration
 
-const uint8_t DIGITAL_INPUT_COUNT = 4;
-const int digital_input_pins[] = {9, 8, 13, 12};
+TMC_UART_Bus tmc_bus(TMC_UART);
 
-const uint8_t DIGITAL_OUTPUT_COUNT = 2;
-const int digital_output_pins[] = {14, 15};
+// Create the objects at compile time from the configuration constants.
 
-const int I2C_SDA_PIN = 10;
-const int I2C_SCL_PIN = 11;
+template <size_t... I>
+static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I...>) {
+    return {TMC2209(&tmc_bus, I)...};
+}
 
-const uint8_t SERVO_I2C_ADDRESS = 0x40; // Address of the PCA9685 controlling the servos
+static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
+
+template <size_t... I>
+static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence<I...>) {
+    return {Stepper(STEPPER_STEP_PINS[I], STEPPER_DIR_PINS[I])...};
+}
+
+static auto steppers = make_stepper_array(std::make_index_sequence<STEPPER_COUNT>{});
+
 uint8_t SERVO_COUNT = 0; // Number of servos controlled by the PCA9685, should be <= 16
-
-PCA9685 servo_controller(SERVO_I2C_ADDRESS, i2c0);
-std::array<Servo, 16> servos = {
-    Servo(), Servo(), Servo(), Servo(), Servo(), Servo(), Servo(), Servo(),
-    Servo(), Servo(), Servo(), Servo(), Servo(), Servo(), Servo(), Servo()
-};
+PCA9685 servo_controller(SERVO_I2C_ADDRESS, I2C_PORT);
+std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first SERVO_COUNT will be used
 
 // clang-format on
-// End board configuration
 
 /**
  * \brief Dump the board configuration as a JSON string for use by the driver software.

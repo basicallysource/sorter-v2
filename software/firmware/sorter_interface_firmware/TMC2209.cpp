@@ -51,7 +51,7 @@ void TMC2209::initialize() {
  *  \param holdDelay The hold delay setting (0-15).
 */
 void TMC2209::setCurrent(uint8_t runCurrent, uint8_t holdCurrent, uint8_t holdDelay) {
-    uint32_t ihold_irun = ((holdDelay & 0x0F) << 16) | ((holdCurrent & 0x1F) << 8) | (runCurrent & 0x1F);
+    uint32_t ihold_irun = ((holdDelay & 0x0F) << 16) | ((runCurrent & 0x1F) << 8) | (holdCurrent & 0x1F);
     _bus->writeRegister(_address, TMC2209_Register::IHOLD_IRUN, ihold_irun);
 }
 

@@ -78,7 +78,7 @@ const struct CommandTable stepperDrvCmdTable = {
     .prefix = "STEPPER_DRV",
     .commands = {{
         {"SET_ENABLED", "?", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_enabled},
-        {"SET_MICROSTEPS", "H", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_microsteps},
+        {"SET_MICROSTEPS", "H", "", 2, VAL_stepper_channel, CMDH_stepper_drv_set_microsteps},
         {"SET_CURRENT", "BBB", "", 3, VAL_stepper_channel, CMDH_stepper_drv_set_current},
         {NULL, NULL, NULL, 0, NULL, NULL},
         {NULL, NULL, NULL, 0, NULL, NULL},

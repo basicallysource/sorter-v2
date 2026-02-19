@@ -56,6 +56,19 @@ def setStepperPosition(name: str, position_steps: int) -> None:
     saveData(data)
 
 
+def getServoPosition(name: str) -> int:
+    data = loadData()
+    return data.get("servo_positions", {}).get(name, 0)
+
+
+def setServoPosition(name: str, angle: int) -> None:
+    data = loadData()
+    if "servo_positions" not in data:
+        data["servo_positions"] = {}
+    data["servo_positions"][name] = angle
+    saveData(data)
+
+
 def getBinCategories() -> list[list[list[str | None]]] | None:
     data = loadData()
     return data.get("bin_categories")

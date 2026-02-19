@@ -34,7 +34,7 @@ class Chute:
         stepper_angle = (
             self.stepper.current_position_steps / self.stepper.total_steps_per_rev
         ) * 360.0
-        return (stepper_angle / GEAR_RATIO) % 360
+        return stepper_angle / GEAR_RATIO
 
     def getAngleForBin(self, address: BinAddress) -> float:
         layer = self.layout.layers[address.layer_index]
@@ -43,7 +43,12 @@ class Chute:
 
         section_start = address.section_index * DEG_PER_SECTION + PILLAR_WIDTH_DEG / 2
         bin_offset = (address.bin_index + 0.5) * (USABLE_DEG_PER_SECTION / num_bins)
-        return section_start + bin_offset
+        angle = section_start + bin_offset
+
+        # convert to -180 to +180 range
+        if angle > 180:
+            angle -= 360
+        return angle
 
     def moveToAngle(self, target: float) -> None:
         current = self.current_angle

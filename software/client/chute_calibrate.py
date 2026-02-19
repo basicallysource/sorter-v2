@@ -86,8 +86,8 @@ def main():
             print(f"Selected: Section {section_idx}, Bin {bin_idx}")
             print()
             print("Controls:")
-            print("  ←/→     Change section")
-            print("  ↑/↓     Change bin within section")
+            print("  ←/→     Change bin within section")
+            print("  ↑/↓     Change section")
             print("  Enter   Move chute to selected bin")
             print("  H       Move to zero position")
             print("  Z       Set current position as zero")
@@ -133,18 +133,18 @@ def main():
                 sys.exit(0)
         else:
             if key == readchar.key.LEFT:
+                bin_idx = (bin_idx - 1) % getNumBins()
+                printStatus()
+            elif key == readchar.key.RIGHT:
+                bin_idx = (bin_idx + 1) % getNumBins()
+                printStatus()
+            elif key == readchar.key.UP:
                 section_idx = (section_idx - 1) % num_sections
                 bin_idx = min(bin_idx, getNumBins() - 1)
                 printStatus()
-            elif key == readchar.key.RIGHT:
+            elif key == readchar.key.DOWN:
                 section_idx = (section_idx + 1) % num_sections
                 bin_idx = min(bin_idx, getNumBins() - 1)
-                printStatus()
-            elif key == readchar.key.UP:
-                bin_idx = (bin_idx - 1) % getNumBins()
-                printStatus()
-            elif key == readchar.key.DOWN:
-                bin_idx = (bin_idx + 1) % getNumBins()
                 printStatus()
             elif key == readchar.key.ENTER:
                 address = BinAddress(layer_idx, section_idx, bin_idx)

@@ -14,10 +14,6 @@ from defs.events import (
     KnownObjectEvent,
     KnownObjectData,
     KnownObjectStatus,
-    DistributionLayoutEvent,
-    DistributionLayoutData,
-    LayerData,
-    BinData,
 )
 
 POSITION_DURATION_MS = 3000
@@ -62,22 +58,6 @@ class Positioning(BaseState):
         )
         self.event_queue.put(event)
 
-    def _emitLayoutEvent(self) -> None:
-        layers = []
-        for layer in self.layout.layers:
-            sections = []
-            for section in layer.sections:
-                bins = [
-                    BinData(size=b.size.value, category_id=b.category_id)
-                    for b in section.bins
-                ]
-                sections.append(bins)
-            layers.append(LayerData(sections=sections))
-        event = DistributionLayoutEvent(
-            tag="distribution_layout", data=DistributionLayoutData(layers=layers)
-        )
-        self.event_queue.put(event)
-
     def step(self) -> Optional[DistributionState]:
         if self.start_time is None:
             self.start_time = time.time()
@@ -90,8 +70,7 @@ class Positioning(BaseState):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id)
             else:
                 category_id = MISC_CATEGORY
-            result = self._findOrAssignBinForCategory(category_id)
-            address, is_new_assignment = result
+            address, _ = self._findOrAssignBinForCategory(category_id)
             if address is None:
                 self.logger.warn(
                     f"Positioning: no available bins for category {category_id}"
@@ -106,9 +85,6 @@ class Positioning(BaseState):
             )
             piece.updated_at = time.time()
             self._emitObjectEvent(piece)
-
-            if is_new_assignment:
-                self._emitLayoutEvent()
 
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"

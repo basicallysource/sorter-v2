@@ -32,13 +32,6 @@ class Servo:
 
     def setAngle(self, angle: int) -> None:
         self.gc.logger.info(f"Servo '{self.name}' moving to {angle}°")
-        # Log to motor_calibrate debug_log if available
-        try:
-            import motor_calibrate
-
-            motor_calibrate.add_debug_log(f"Sending: S,{self.pin},{angle}")
-        except:
-            pass
         self.mcu.command("S", self.pin, angle)
         self.current_angle = angle
         setServoPosition(self.name, angle)

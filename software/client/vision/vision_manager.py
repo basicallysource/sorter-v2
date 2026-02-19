@@ -72,8 +72,20 @@ class VisionManager:
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
-        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
+        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self._aruco_params = aruco.DetectorParameters()
+        # tuned for small tags on a wide-angle lens
+        self._aruco_params.minMarkerPerimeterRate = (
+            0.01  # default 0.03, allows smaller tags
+        )
+        self._aruco_params.perspectiveRemovePixelPerCell = (
+            8  # default 4, more robust to distortion
+        )
+        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.3  # default 0.13
+        self._aruco_params.adaptiveThreshWinSizeMin = 3
+        self._aruco_params.adaptiveThreshWinSizeMax = 53  # default 23
+        self._aruco_params.adaptiveThreshWinSizeStep = 4  # default 10
+        self._aruco_params.errorCorrectionRate = 1.0  # default 0.6
         self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
 

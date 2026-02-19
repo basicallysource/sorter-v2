@@ -177,8 +177,9 @@ class VisionManager:
                     3,
                 )
 
-        # annotate with channel geometry
+        # annotate with channel and carousel geometry
         annotated = self._annotateChannelGeometry(annotated)
+        annotated = self._annotateCarouselPlatforms(annotated)
 
         return CameraFrame(
             raw=frame.raw,
@@ -354,6 +355,83 @@ class VisionManager:
         aruco_tags = self.getFeederArucoTags()
         return computeChannelGeometry(aruco_tags, aruco_tag_config)
 
+    def getCarouselPlatforms(self):
+        from irl.config import CarouselArucoTagConfig
+
+        aruco_tags = self.getFeederArucoTags()
+        platforms = []
+
+        # check each of the 4 carousel platforms
+        for i, platform_config in enumerate(
+            [
+                self._irl_config.aruco_tags.carousel_platform1,
+                self._irl_config.aruco_tags.carousel_platform2,
+                self._irl_config.aruco_tags.carousel_platform3,
+                self._irl_config.aruco_tags.carousel_platform4,
+            ]
+        ):
+            # get positions of all 4 corners, track which ones we found
+            corner_ids = [
+                platform_config.corner1_id,
+                platform_config.corner2_id,
+                platform_config.corner3_id,
+                platform_config.corner4_id,
+            ]
+            detected_corners = {}
+            for idx, corner_id in enumerate(corner_ids):
+                if corner_id in aruco_tags:
+                    detected_corners[idx] = aruco_tags[corner_id]
+
+            # need at least 3 corners to define a platform
+            if len(detected_corners) >= 3:
+                # build corners list in proper order (0, 1, 2, 3)
+                corners_ordered = [None, None, None, None]
+                for idx, pos in detected_corners.items():
+                    corners_ordered[idx] = pos
+
+                # if we have exactly 3 corners, infer the 4th
+                # for a parallelogram (rectangle under perspective):
+                # opposite corners sum to the same point: p0 + p2 = p1 + p3
+                if len(detected_corners) == 3:
+                    missing_idx = corners_ordered.index(None)
+
+                    if missing_idx == 0:
+                        # p0 = p1 + p3 - p2
+                        p1 = np.array(corners_ordered[1])
+                        p2 = np.array(corners_ordered[2])
+                        p3 = np.array(corners_ordered[3])
+                        corners_ordered[0] = tuple(p1 + p3 - p2)
+                    elif missing_idx == 1:
+                        # p1 = p0 + p2 - p3
+                        p0 = np.array(corners_ordered[0])
+                        p2 = np.array(corners_ordered[2])
+                        p3 = np.array(corners_ordered[3])
+                        corners_ordered[1] = tuple(p0 + p2 - p3)
+                    elif missing_idx == 2:
+                        # p2 = p1 + p3 - p0
+                        p0 = np.array(corners_ordered[0])
+                        p1 = np.array(corners_ordered[1])
+                        p3 = np.array(corners_ordered[3])
+                        corners_ordered[2] = tuple(p1 + p3 - p0)
+                    elif missing_idx == 3:
+                        # p3 = p0 + p2 - p1
+                        p0 = np.array(corners_ordered[0])
+                        p1 = np.array(corners_ordered[1])
+                        p2 = np.array(corners_ordered[2])
+                        corners_ordered[3] = tuple(p0 + p2 - p1)
+
+                # filter out None (in case we have exactly 4 detected)
+                corners = [c for c in corners_ordered if c is not None]
+
+                platforms.append(
+                    {
+                        "platform_id": i,
+                        "corners": corners,
+                    }
+                )
+
+        return platforms
+
     def _annotateChannelGeometry(self, annotated: np.ndarray) -> np.ndarray:
         from subsystems.feeder.analysis import computeChannelGeometry
 
@@ -491,6 +569,73 @@ class VisionManager:
             )
 
         return annotated
+
+    def _annotateCarouselPlatforms(self, annotated: np.ndarray) -> np.ndarray:
+        platforms = self.getCarouselPlatforms()
+        if not platforms:
+            return annotated
+
+        annotated = annotated.copy()
+
+        # colors for each platform (bright cyan, bright yellow, bright green, bright orange)
+        platform_colors = [
+            (255, 255, 0),  # cyan
+            (0, 255, 255),  # yellow
+            (0, 255, 0),  # green
+            (0, 165, 255),  # orange
+        ]
+
+        for platform in platforms:
+            platform_id = platform["platform_id"]
+            corners = platform["corners"]
+            color = platform_colors[platform_id % len(platform_colors)]
+
+            # draw square connecting all corners (will be 4 corners, some may be inferred)
+            points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+            cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
+
+            # draw platform label
+            center_x = int(np.mean([x for x, y in corners]))
+            center_y = int(np.mean([y for x, y in corners]))
+            cv2.putText(
+                annotated,
+                f"P{platform_id}",
+                (center_x - 15, center_y + 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                color,
+                2,
+            )
+
+        return annotated
+
+    def isObjectOnCarouselPlatform(self, object_mask: np.ndarray) -> bool:
+        platforms = self.getCarouselPlatforms()
+        if not platforms:
+            return False
+
+        # get object center of mass
+        coords = np.argwhere(object_mask)
+        if len(coords) == 0:
+            return False
+
+        center_y = int(np.mean(coords[:, 0]))
+        center_x = int(np.mean(coords[:, 1]))
+        point = (center_x, center_y)
+
+        # check if object center is inside any platform polygon
+        for platform in platforms:
+            corners = platform["corners"]
+            if len(corners) >= 3:
+                points = np.array(
+                    [[int(x), int(y)] for x, y in corners], dtype=np.int32
+                )
+                # use cv2.pointPolygonTest to check if point is inside polygon
+                result = cv2.pointPolygonTest(points, point, False)
+                if result >= 0:  # inside or on the edge
+                    return True
+
+        return False
 
     def captureFreshClassificationFrames(
         self, timeout_s: float = 1.0

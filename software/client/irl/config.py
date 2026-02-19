@@ -42,6 +42,16 @@ class StepperConfig:
         pass
 
 
+class CarouselArucoTagConfig:
+    corner1_id: int
+    corner2_id: int
+    corner3_id: int
+    corner4_id: int
+
+    def __init__(self):
+        pass
+
+
 class ArucoTagConfig:
     second_c_channel_center_id: int
     second_c_channel_radius1_id: int
@@ -49,6 +59,10 @@ class ArucoTagConfig:
     third_c_channel_center_id: int
     third_c_channel_radius1_id: int
     third_c_channel_radius2_id: int
+    carousel_platform1: CarouselArucoTagConfig
+    carousel_platform2: CarouselArucoTagConfig
+    carousel_platform3: CarouselArucoTagConfig
+    carousel_platform4: CarouselArucoTagConfig
 
     def __init__(self):
         pass
@@ -110,6 +124,17 @@ def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConf
     return stepper_config
 
 
+def mkCarouselArucoTagConfig(
+    c1: int, c2: int, c3: int, c4: int
+) -> CarouselArucoTagConfig:
+    config = CarouselArucoTagConfig()
+    config.corner1_id = c1
+    config.corner2_id = c2
+    config.corner3_id = c3
+    config.corner4_id = c4
+    return config
+
+
 def mkArucoTagConfig() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
@@ -120,6 +145,11 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     config.third_c_channel_center_id = 73
     config.third_c_channel_radius1_id = 957
     config.third_c_channel_radius2_id = 517
+    # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
+    config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
+    config.carousel_platform2 = mkCarouselArucoTagConfig(5, 6, 7, 8)
+    config.carousel_platform3 = mkCarouselArucoTagConfig(9, 10, 11, 12)
+    config.carousel_platform4 = mkCarouselArucoTagConfig(13, 14, 15, 16)
     return config
 
 

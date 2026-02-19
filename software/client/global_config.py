@@ -106,7 +106,6 @@ class GlobalConfig:
     classification_chamber_vision_model_path: str
     feeder_vision_model_path: str
     parts_with_categories_file_path: str
-    vision_mask_proximity_threshold: float
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -118,7 +117,6 @@ class GlobalConfig:
 
     def __init__(self):
         self.debug_level = 0
-        self.vision_mask_proximity_threshold = 0.5
         self.should_write_camera_feeds = False
         self.should_profile_feeder = False
         self.log_buffer_size = 100

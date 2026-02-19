@@ -138,18 +138,18 @@ def mkCarouselArucoTagConfig(
 def mkArucoTagConfig() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
-    config.second_c_channel_center_id = 298
-    config.second_c_channel_radius1_id = 815
-    config.second_c_channel_radius2_id = 451
+    config.second_c_channel_center_id = 20
+    config.second_c_channel_radius1_id = 31
+    config.second_c_channel_radius2_id = 7
     # Channel 3 (third) - 3 tags: center, radius1, radius2
-    config.third_c_channel_center_id = 73
-    config.third_c_channel_radius1_id = 957
-    config.third_c_channel_radius2_id = 517
+    config.third_c_channel_center_id = 33
+    config.third_c_channel_radius1_id = 14
+    config.third_c_channel_radius2_id = 30
     # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
     config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
-    config.carousel_platform2 = mkCarouselArucoTagConfig(5, 6, 7, 8)
-    config.carousel_platform3 = mkCarouselArucoTagConfig(9, 10, 11, 12)
-    config.carousel_platform4 = mkCarouselArucoTagConfig(13, 14, 15, 16)
+    config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
+    config.carousel_platform3 = mkCarouselArucoTagConfig(6, 16, 11, 0)
+    config.carousel_platform4 = mkCarouselArucoTagConfig(12, 22, 28, 5)
     return config
 
 

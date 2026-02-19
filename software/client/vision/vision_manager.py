@@ -9,14 +9,18 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CHANNEL_CLASS_ID
+from defs.consts import (
+    FEEDER_OBJECT_CLASS_ID,
+    FEEDER_CHANNEL_CLASS_ID,
+    FEEDER_CAROUSEL_CLASS_ID,
+)
 from blob_manager import VideoRecorder
 from .camera import CaptureThread
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
 
 ANNOTATE_ARUCO_TAGS = True
-ARUCO_TAG_CACHE_MS = 5000
+ARUCO_TAG_CACHE_MS = 0
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 
@@ -58,7 +62,10 @@ class VisionManager:
         self._feeder_binding = self._inference.addBinding(
             self._feeder_capture,
             feeder_model,
-            exclude_classes_from_plot=[FEEDER_CHANNEL_CLASS_ID],
+            exclude_classes_from_plot=[
+                FEEDER_CHANNEL_CLASS_ID,
+                FEEDER_CAROUSEL_CLASS_ID,
+            ],
         )
         self._classification_bottom_binding = self._inference.addBinding(
             self._classification_bottom_capture, classification_model
@@ -384,44 +391,63 @@ class VisionManager:
 
             # need at least 3 corners to define a platform
             if len(detected_corners) >= 3:
-                # build corners list in proper order (0, 1, 2, 3)
-                corners_ordered = [None, None, None, None]
-                for idx, pos in detected_corners.items():
-                    corners_ordered[idx] = pos
+                corners = list(detected_corners.values())
 
                 # if we have exactly 3 corners, infer the 4th
-                # for a parallelogram (rectangle under perspective):
-                # opposite corners sum to the same point: p0 + p2 = p1 + p3
+                # try all 3 possible 4th corners and pick the one that forms the best rectangle
                 if len(detected_corners) == 3:
-                    missing_idx = corners_ordered.index(None)
+                    p0, p1, p2 = [np.array(c) for c in corners]
 
-                    if missing_idx == 0:
-                        # p0 = p1 + p3 - p2
-                        p1 = np.array(corners_ordered[1])
-                        p2 = np.array(corners_ordered[2])
-                        p3 = np.array(corners_ordered[3])
-                        corners_ordered[0] = tuple(p1 + p3 - p2)
-                    elif missing_idx == 1:
-                        # p1 = p0 + p2 - p3
-                        p0 = np.array(corners_ordered[0])
-                        p2 = np.array(corners_ordered[2])
-                        p3 = np.array(corners_ordered[3])
-                        corners_ordered[1] = tuple(p0 + p2 - p3)
-                    elif missing_idx == 2:
-                        # p2 = p1 + p3 - p0
-                        p0 = np.array(corners_ordered[0])
-                        p1 = np.array(corners_ordered[1])
-                        p3 = np.array(corners_ordered[3])
-                        corners_ordered[2] = tuple(p1 + p3 - p0)
-                    elif missing_idx == 3:
-                        # p3 = p0 + p2 - p1
-                        p0 = np.array(corners_ordered[0])
-                        p1 = np.array(corners_ordered[1])
-                        p2 = np.array(corners_ordered[2])
-                        corners_ordered[3] = tuple(p0 + p2 - p1)
+                    # three possible 4th corners for a parallelogram
+                    candidates = [
+                        p0 + p1 - p2,  # forms parallelogram with p2 opposite to p0+p1
+                        p0 + p2 - p1,  # forms parallelogram with p1 opposite to p0+p2
+                        p1 + p2 - p0,  # forms parallelogram with p0 opposite to p1+p2
+                    ]
 
-                # filter out None (in case we have exactly 4 detected)
-                corners = [c for c in corners_ordered if c is not None]
+                    # pick the candidate that forms the most rectangular shape
+                    # by checking which has the most similar opposite side lengths
+                    best_candidate = None
+                    best_score = float("inf")
+
+                    for candidate in candidates:
+                        # form quadrilateral with the 3 detected + candidate
+                        quad = [p0, p1, p2, candidate]
+
+                        # compute all 6 pairwise distances
+                        distances = []
+                        for j in range(4):
+                            for k in range(j + 1, 4):
+                                dist = np.linalg.norm(quad[j] - quad[k])
+                                distances.append(dist)
+
+                        # for a rectangle, we expect 4 sides + 2 diagonals
+                        # the 4 sides should form 2 pairs of equal length
+                        # score by standard deviation of distances (lower is better)
+                        score = np.std(distances)
+
+                        if score < best_score:
+                            best_score = score
+                            best_candidate = candidate
+
+                    corners.append(tuple(best_candidate))
+
+                # order corners by angle from centroid (so they go around perimeter)
+                if len(corners) >= 3:
+                    corners_array = np.array(corners)
+                    centroid = np.mean(corners_array, axis=0)
+
+                    # compute angle of each corner from centroid
+                    angles = []
+                    for corner in corners:
+                        dx = corner[0] - centroid[0]
+                        dy = corner[1] - centroid[1]
+                        angle = np.arctan2(dy, dx)
+                        angles.append(angle)
+
+                    # sort corners by angle
+                    sorted_indices = np.argsort(angles)
+                    corners = [corners[i] for i in sorted_indices]
 
                 platforms.append(
                     {
@@ -609,9 +635,43 @@ class VisionManager:
 
         return annotated
 
-    def isObjectOnCarouselPlatform(self, object_mask: np.ndarray) -> bool:
+    def getFeederPlatform(self):
         platforms = self.getCarouselPlatforms()
         if not platforms:
+            return None
+
+        aruco_tags = self.getFeederArucoTags()
+        reference_tag_id = self._irl_config.aruco_tags.third_c_channel_radius1_id
+
+        if reference_tag_id not in aruco_tags:
+            return None
+
+        reference_pos = np.array(aruco_tags[reference_tag_id])
+
+        # find platform closest to reference tag
+        closest_platform = None
+        min_distance = float("inf")
+
+        for platform in platforms:
+            corners = platform["corners"]
+            if len(corners) >= 3:
+                # compute platform center
+                center_x = np.mean([x for x, y in corners])
+                center_y = np.mean([y for x, y in corners])
+                platform_center = np.array([center_x, center_y])
+
+                # compute distance to reference tag
+                distance = np.linalg.norm(platform_center - reference_pos)
+
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_platform = platform
+
+        return closest_platform
+
+    def isObjectOnCarouselPlatform(self, object_mask: np.ndarray) -> bool:
+        feeder_platform = self.getFeederPlatform()
+        if not feeder_platform:
             return False
 
         # get object center of mass
@@ -623,17 +683,14 @@ class VisionManager:
         center_x = int(np.mean(coords[:, 1]))
         point = (center_x, center_y)
 
-        # check if object center is inside any platform polygon
-        for platform in platforms:
-            corners = platform["corners"]
-            if len(corners) >= 3:
-                points = np.array(
-                    [[int(x), int(y)] for x, y in corners], dtype=np.int32
-                )
-                # use cv2.pointPolygonTest to check if point is inside polygon
-                result = cv2.pointPolygonTest(points, point, False)
-                if result >= 0:  # inside or on the edge
-                    return True
+        # check if object center is inside the feeder platform polygon
+        corners = feeder_platform["corners"]
+        if len(corners) >= 3:
+            points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+            # use cv2.pointPolygonTest to check if point is inside polygon
+            result = cv2.pointPolygonTest(points, point, False)
+            if result >= 0:  # inside or on the edge
+                return True
 
         return False
 

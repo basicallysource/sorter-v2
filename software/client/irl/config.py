@@ -135,7 +135,9 @@ def mkIRLConfig() -> IRLConfig:
 
     def resolveCamera(role: str) -> int:
         if role not in camera_setup:
-            raise RuntimeError(f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first.")
+            raise RuntimeError(
+                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
+            )
         return camera_setup[role]
 
     feeder_camera_index = resolveCamera("feeder")

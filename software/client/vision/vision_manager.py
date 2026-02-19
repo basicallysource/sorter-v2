@@ -158,11 +158,11 @@ class VisionManager:
                 cv2.putText(
                     annotated,
                     str(tag_id),
-                    (center_x - 20, center_y + 10),
+                    (center_x - 10, center_y + 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1.6,
-                    (0, 255, 0),  # bright green
-                    3,
+                    0.6,
+                    (255, 255, 0),  # aqua/cyan
+                    2,
                 )
 
         # annotate with channel geometry

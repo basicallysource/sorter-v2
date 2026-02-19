@@ -80,17 +80,6 @@ def setBinCategories(categories: list[list[list[str | None]]]) -> None:
     saveData(data)
 
 
-def getCameraSetup() -> dict | None:
-    data = loadData()
-    return data.get("camera_setup")
-
-
-def setCameraSetup(setup: dict) -> None:
-    data = loadData()
-    data["camera_setup"] = setup
-    saveData(data)
-
-
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
 
 

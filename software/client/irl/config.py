@@ -1,4 +1,5 @@
 import time
+import os
 
 from global_config import GlobalConfig
 from .mcu import MCU
@@ -20,8 +21,7 @@ from .bin_layout import (
     layoutMatchesCategories,
     applyCategories,
 )
-from blob_manager import getBinCategories, getCameraSetup
-from irl.camera.camera_id import findIndexByName
+from blob_manager import getBinCategories
 
 
 class CameraConfig:
@@ -127,31 +127,11 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
     irl_config.mcu_path = discoverMCU()
-    camera_setup = getCameraSetup()
-
-    if camera_setup is None:
-        raise RuntimeError(
-            "No camera setup found. Run client/scripts/camera_setup.py first."
-        )
-
-    used: set[int] = set()
-
-    def resolveCamera(role: str) -> int:
-        if role not in camera_setup:
-            raise RuntimeError(
-                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
-            )
-        index = findIndexByName(camera_setup[role]["name"], exclude=used)
-        if index is None:
-            raise RuntimeError(
-                f"Camera '{role}' not found. Re-run client/scripts/camera_setup.py."
-            )
-        used.add(index)
-        return index
-
-    feeder_camera_index = resolveCamera("feeder")
-    classification_camera_bottom_index = resolveCamera("classification_bottom")
-    classification_camera_top_index = resolveCamera("classification_top")
+    feeder_camera_index = int(os.environ["FEEDER_CAMERA_INDEX"])
+    classification_camera_bottom_index = int(
+        os.environ["CLASSIFICATION_CAMERA_BOTTOM_INDEX"]
+    )
+    classification_camera_top_index = int(os.environ["CLASSIFICATION_CAMERA_TOP_INDEX"])
 
     irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
     irl_config.classification_camera_bottom = mkCameraConfig(

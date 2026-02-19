@@ -4,7 +4,7 @@ from typing import Optional
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
-from .chute import Chute, BinAddress
+from irl.chute import Chute, BinAddress
 from irl.bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig

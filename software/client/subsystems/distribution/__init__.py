@@ -11,4 +11,4 @@ from irl.bin_layout import (
     applyCategories,
     layoutMatchesCategories,
 )
-from .chute import Chute, BinAddress
+from irl.chute import Chute, BinAddress

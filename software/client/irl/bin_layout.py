@@ -1,9 +1,12 @@
 import os
 import json
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
+
+if TYPE_CHECKING:
+    from .servo import Servo
 
 
 @dataclass
@@ -38,6 +41,7 @@ class BinSection:
 class Layer:
     servo_pin: int
     sections: List[BinSection] = field(default_factory=list)
+    servo: "Servo | None" = None
 
 
 @dataclass

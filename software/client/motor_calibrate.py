@@ -47,7 +47,8 @@ def main():
         print()
         print("Servo Controls (per layer):")
         for i, layer in enumerate(irl.distribution_layout.layers):
-            angle = irl.servo_angles[i]
+            assert layer.servo is not None
+            angle = layer.servo.current_angle
             state = "open" if angle == SERVO_OPEN_ANGLE else "closed"
             print(
                 f"  {i + 1}       Toggle layer {i} servo (pin {layer.servo_pin}, currently {state} at {angle}°)"
@@ -96,14 +97,10 @@ def main():
             layer_idx = int(key) - 1
             if layer_idx < len(irl.distribution_layout.layers):
                 layer = irl.distribution_layout.layers[layer_idx]
-                current_angle = irl.servo_angles[layer_idx]
-                if current_angle == SERVO_OPEN_ANGLE:
-                    new_angle = SERVO_CLOSED_ANGLE
-                else:
-                    new_angle = SERVO_OPEN_ANGLE
-                irl.mcu.command("S", layer.servo_pin, new_angle)
-                irl.servo_angles[layer_idx] = new_angle
+                assert layer.servo is not None
+                layer.servo.toggle()
                 printStatus()
+                print(f"Toggled servo to {layer.servo.current_angle}°")
         elif key.lower() == "q":
             print("Exiting...")
             for s in steppers.values():

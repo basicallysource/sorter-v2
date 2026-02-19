@@ -4,6 +4,7 @@ import os
 from global_config import GlobalConfig
 from .mcu import MCU
 from .stepper import Stepper
+from .servo import Servo
 from .device_discovery import discoverMCU
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,7 @@ SERVO_OPEN_ANGLE = 0
 SERVO_CLOSED_ANGLE = 72
 
 if TYPE_CHECKING:
-    from subsystems.distribution.chute import Chute
+    from .chute import Chute
 
 from .bin_layout import (
     getBinLayout,
@@ -79,7 +80,6 @@ class IRLInterface:
     first_c_channel_rotor_stepper: Stepper
     second_c_channel_rotor_stepper: Stepper
     third_c_channel_rotor_stepper: Stepper
-    servo_angles: list[int]
     chute: "Chute"
     distribution_layout: DistributionLayout
 
@@ -225,8 +225,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
-    num_layers = len(irl_interface.distribution_layout.layers)
-    irl_interface.servo_angles = [SERVO_OPEN_ANGLE] * num_layers
+    # initialize servos for each layer
+    for layer_idx, layer in enumerate(irl_interface.distribution_layout.layers):
+        servo_name = f"layer_{layer_idx}_servo"
+        layer.servo = Servo(gc, mcu, layer.servo_pin, servo_name)
+        time.sleep(0.1)
 
     saved_categories = getBinCategories()
     if saved_categories is not None:
@@ -236,7 +239,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         else:
             gc.logger.warn("Saved bin categories don't match layout, ignoring")
 
-    from subsystems.distribution.chute import Chute
+    from .chute import Chute
 
     irl_interface.chute = Chute(
         gc, irl_interface.chute_stepper, irl_interface.distribution_layout

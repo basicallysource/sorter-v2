@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
-from irl.bin_layout import DistributionLayout
+from .bin_layout import DistributionLayout
 
 if TYPE_CHECKING:
-    from irl.stepper import Stepper
+    from .stepper import Stepper
 
 GEAR_RATIO = 4
 SECTIONS_PER_LAYER = 6

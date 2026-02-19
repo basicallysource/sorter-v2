@@ -1,0 +1,48 @@
+{
+  "layers": [
+    {
+      "servo_pin": 4,
+      "sections": [
+        ["small", "small", "small"],
+        ["medium", "medium"],
+        ["large"],
+        ["small", "small", "small"],
+        ["medium", "medium"],
+        ["large"]
+      ]
+    },
+    {
+      "servo_pin": 5,
+      "sections": [
+        ["medium", "medium"],
+        ["medium", "medium"],
+        ["medium", "medium"],
+        ["medium", "medium"],
+        ["medium", "medium"],
+        ["medium", "medium"]
+      ]
+    },
+    {
+      "servo_pin": 6,
+      "sections": [
+        ["small", "small", "small"],
+        ["small", "small", "small"],
+        ["small", "small", "small"],
+        ["small", "small", "small"],
+        ["small", "small", "small"],
+        ["small", "small", "small"]
+      ]
+    },
+    {
+      "servo_pin": 11,
+      "sections": [
+        ["large"],
+        ["large"],
+        ["large"],
+        ["large"],
+        ["large"],
+        ["large"]
+      ]
+    }
+  ]
+}

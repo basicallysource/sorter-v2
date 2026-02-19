@@ -7,7 +7,7 @@ import sys
 import readchar
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
-from subsystems.distribution.chute import BinAddress
+from irl.chute import BinAddress
 from blob_manager import setStepperPosition
 
 STEP_COUNTS = [

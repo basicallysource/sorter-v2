@@ -75,9 +75,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     active_connections.append(websocket)
 
+    machine_id = gc_ref.machine_id if gc_ref is not None else "unknown"
     identity_event = IdentityEvent(
         tag="identity",
-        data=MachineIdentityData(machine_id=gc_ref.machine_id, nickname=None),
+        data=MachineIdentityData(machine_id=machine_id, nickname=None),
     )
     await websocket.send_json(identity_event.model_dump())
 

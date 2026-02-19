@@ -1,18 +1,6 @@
-import type {
-	SocketEvent,
-	CameraName,
-	FrameData,
-	KnownObjectData,
-	DistributionLayoutData
-} from '$lib/api/events';
+import type { SocketEvent, CameraName, FrameData, KnownObjectData } from '$lib/api/events';
 import type { MachineState, MachineIdentity } from './types';
-import {
-	isIdentityEvent,
-	isFrameEvent,
-	isHeartbeatEvent,
-	isKnownObjectEvent,
-	isDistributionLayoutEvent
-} from './types';
+import { isIdentityEvent, isFrameEvent, isHeartbeatEvent, isKnownObjectEvent } from './types';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
@@ -147,8 +135,6 @@ export class MachineManager {
 				this.handleHeartbeat(machineId, event.data.timestamp);
 			} else if (isKnownObjectEvent(event)) {
 				this.handleKnownObject(machineId, event.data);
-			} else if (isDistributionLayoutEvent(event)) {
-				this.handleLayout(machineId, event.data);
 			}
 		}
 	}
@@ -169,8 +155,7 @@ export class MachineManager {
 			status: 'connected',
 			frames: existing?.frames ?? new Map(),
 			lastHeartbeat: null,
-			recentObjects: existing?.recentObjects ?? [],
-			layout: existing?.layout ?? null
+			recentObjects: existing?.recentObjects ?? []
 		});
 		this.machines = updated;
 
@@ -191,7 +176,7 @@ export class MachineManager {
 
 		const updated_frames = new Map();
 		updated_frames.set(frame.camera, frame);
-		
+
 		for (const [camera, existingFrame] of machine.frames) {
 			if (camera !== frame.camera) {
 				updated_frames.set(camera, existingFrame);
@@ -228,15 +213,6 @@ export class MachineManager {
 
 		const updated = new Map(this.machines);
 		updated.set(machineId, { ...machine, recentObjects: updated_objects });
-		this.machines = updated;
-	}
-
-	private handleLayout(machineId: string, layout: DistributionLayoutData): void {
-		const machine = this.machines.get(machineId);
-		if (!machine) return;
-
-		const updated = new Map(this.machines);
-		updated.set(machineId, { ...machine, layout });
 		this.machines = updated;
 	}
 

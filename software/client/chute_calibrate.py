@@ -7,8 +7,7 @@ import sys
 import readchar
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
-from subsystems.distribution.bin_layout import mkDefaultLayout
-from subsystems.distribution.chute import Chute, BinAddress
+from subsystems.distribution.chute import BinAddress
 from blob_manager import setStepperPosition
 
 STEP_COUNTS = [
@@ -36,8 +35,8 @@ def main():
     gc = mkGlobalConfig()
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
-    layout = mkDefaultLayout()
-    chute = Chute(gc, irl.chute_stepper, layout)
+    layout = irl.distribution_layout
+    chute = irl.chute
     stepper = irl.chute_stepper
 
     layer_idx = 0
@@ -68,6 +67,7 @@ def main():
             print("Controls:")
             print(f"  ←/→     Move stepper ({step_count} steps)")
             print(f"  ↑/↓     Change step count ({', '.join(map(str, STEP_COUNTS))})")
+            print("  H       Move to zero position")
             print("  Z       Set current position as zero")
             print("  Tab     Switch to bin navigation mode")
             print("  Q       Quit")
@@ -86,9 +86,10 @@ def main():
             print(f"Selected: Section {section_idx}, Bin {bin_idx}")
             print()
             print("Controls:")
-            print("  ←/→     Change section")
-            print("  ↑/↓     Change bin within section")
+            print("  ←/→     Change bin within section")
+            print("  ↑/↓     Change section")
             print("  Enter   Move chute to selected bin")
+            print("  H       Move to zero position")
             print("  Z       Set current position as zero")
             print("  Tab     Switch to manual control mode")
             print("  Q       Quit")
@@ -113,6 +114,11 @@ def main():
             elif key == readchar.key.DOWN:
                 step_count_idx = max(step_count_idx - 1, 0)
                 printStatus()
+            elif key.lower() == "h":
+                print("Moving to zero position...")
+                chute.home()
+                printStatus()
+                print(f"Moved to zero (current angle: {chute.current_angle:.1f}°)")
             elif key.lower() == "z":
                 stepper.current_position_steps = 0
                 setStepperPosition(stepper.name, 0)
@@ -127,18 +133,18 @@ def main():
                 sys.exit(0)
         else:
             if key == readchar.key.LEFT:
+                bin_idx = (bin_idx - 1) % getNumBins()
+                printStatus()
+            elif key == readchar.key.RIGHT:
+                bin_idx = (bin_idx + 1) % getNumBins()
+                printStatus()
+            elif key == readchar.key.UP:
                 section_idx = (section_idx - 1) % num_sections
                 bin_idx = min(bin_idx, getNumBins() - 1)
                 printStatus()
-            elif key == readchar.key.RIGHT:
+            elif key == readchar.key.DOWN:
                 section_idx = (section_idx + 1) % num_sections
                 bin_idx = min(bin_idx, getNumBins() - 1)
-                printStatus()
-            elif key == readchar.key.UP:
-                bin_idx = (bin_idx - 1) % getNumBins()
-                printStatus()
-            elif key == readchar.key.DOWN:
-                bin_idx = (bin_idx + 1) % getNumBins()
                 printStatus()
             elif key == readchar.key.ENTER:
                 address = BinAddress(layer_idx, section_idx, bin_idx)
@@ -149,6 +155,11 @@ def main():
                 chute.moveToBin(address)
                 printStatus()
                 print(f"Moved to angle {chute.current_angle:.1f}°")
+            elif key.lower() == "h":
+                print("Moving to zero position...")
+                chute.home()
+                printStatus()
+                print(f"Moved to zero (current angle: {chute.current_angle:.1f}°)")
             elif key.lower() == "z":
                 stepper.current_position_steps = 0
                 setStepperPosition(stepper.name, 0)

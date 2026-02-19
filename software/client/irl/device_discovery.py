@@ -1,5 +1,7 @@
 import os
 import sys
+import serial
+import time
 from serial.tools import list_ports
 from utils.pick_menu import pickMenu
 
@@ -47,11 +49,46 @@ def promptForDevice(device_name: str, env_var_name: str) -> str:
         return available_devices[choice_index]
 
 
+def autoDiscoverFeeder() -> str | None:
+    available_devices = listAvailableDevices()
+
+    for device_path in available_devices:
+        try:
+            ser = serial.Serial(device_path, 115200, timeout=0.5)
+            time.sleep(2.0)
+
+            ser.reset_input_buffer()
+            ser.write(b"N\n")
+            time.sleep(0.2)
+
+            if ser.in_waiting > 0:
+                response = ser.readline().decode().strip()
+                ser.close()
+
+                if response == "feeder":
+                    return device_path
+            else:
+                ser.close()
+
+        except (serial.SerialException, OSError):
+            continue
+
+    return None
+
+
 def discoverMCU() -> str:
+    env_value = os.environ.get("MCU_PATH")
+
+    if env_value:
+        return env_value
+
+    print("Auto-discovering feeder MCU...")
+    mcu_path = autoDiscoverFeeder()
+
+    if mcu_path:
+        print(f"Found feeder at {mcu_path}")
+        return mcu_path
+
+    print("Auto-discovery failed. Please select device manually:")
     mcu_path = promptForDevice("MCU", "MCU_PATH")
-
-    print(f"\nSelected:")
-    print(f"  MCU: {mcu_path}")
-    print()
-
     return mcu_path

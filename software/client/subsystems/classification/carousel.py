@@ -1,9 +1,9 @@
 from typing import Optional, Dict, List
 import time
-import logging
 import queue
 from .known_object import KnownObject
 from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from logger import Logger
 
 NUM_PLATFORMS = 4
 FEEDER_POSITION = 0
@@ -15,8 +15,8 @@ EXIT_POSITION = 3
 class Carousel:
     def __init__(
         self,
-        logger: Optional[logging.Logger] = None,
-        event_queue: Optional[queue.Queue] = None,
+        logger: Logger,
+        event_queue: queue.Queue,
     ):
         self.platforms: List[Optional[KnownObject]] = [None] * NUM_PLATFORMS
         self.pending_classifications: Dict[str, KnownObject] = {}
@@ -24,8 +24,7 @@ class Carousel:
         self.event_queue = event_queue
 
     def _log(self, msg: str) -> None:
-        if self.logger:
-            self.logger.info(f"Carousel: {msg}")
+        self.logger.info(f"Carousel: {msg}")
 
     def _platformSummary(self) -> str:
         return (
@@ -33,8 +32,6 @@ class Carousel:
         )
 
     def _emitObjectEvent(self, obj: KnownObject) -> None:
-        if self.event_queue is None:
-            return
         event = KnownObjectEvent(
             tag="known_object",
             data=KnownObjectData(

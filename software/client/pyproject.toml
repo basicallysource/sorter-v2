@@ -22,3 +22,7 @@ dependencies = [
     "websockets>=16.0",
     "wsproto>=1.3.2",
 ]
+
+[tool.pyright]
+reportMissingImports = "none"
+reportMissingModuleSource = "none"

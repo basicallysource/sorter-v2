@@ -34,13 +34,14 @@ class CaptureThread:
             self._thread.join(timeout=2.0)
 
     def _captureLoop(self) -> None:
-        self._cap = cv2.VideoCapture(self._config.device_index)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
-        self._cap.set(cv2.CAP_PROP_FPS, self._config.fps)
+        cap = cv2.VideoCapture(self._config.device_index)
+        self._cap = cap
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
+        cap.set(cv2.CAP_PROP_FPS, self._config.fps)
 
         while not self._stop_event.is_set():
-            ret, frame = self._cap.read()
+            ret, frame = cap.read()
             if ret:
                 self.latest_frame = CameraFrame(
                     raw=frame, annotated=None, results=[], timestamp=time.time()
@@ -48,5 +49,5 @@ class CaptureThread:
             else:
                 time.sleep(0.01)
 
-        self._cap.release()
+        cap.release()
         self._cap = None

@@ -5,8 +5,7 @@ from .idle import Idle
 from .positioning import Positioning
 from .ready import Ready
 from .sending import Sending
-from .chute import Chute
-from .bin_layout import DistributionLayout
+from irl.bin_layout import DistributionLayout
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from sorting_profile import SortingProfile
@@ -31,7 +30,7 @@ class DistributionStateMachine(BaseSubsystem):
         self.sorting_profile = sorting_profile
         self.layout = layout
         self.event_queue = event_queue
-        self.chute = Chute(gc, irl.chute_stepper, layout)
+        self.chute = irl.chute
         self.current_state = DistributionState.IDLE
         self.states_map = {
             DistributionState.IDLE: Idle(irl, gc, shared),

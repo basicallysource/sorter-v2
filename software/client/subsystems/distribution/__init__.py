@@ -1,6 +1,6 @@
 from .state_machine import DistributionStateMachine
 from .states import DistributionState
-from .bin_layout import (
+from irl.bin_layout import (
     Bin,
     BinSize,
     BinSection,

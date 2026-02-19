@@ -4,9 +4,7 @@ import type {
 	MachineIdentityData,
 	SocketEvent,
 	KnownObjectData,
-	KnownObjectEvent,
-	DistributionLayoutData,
-	DistributionLayoutEvent
+	KnownObjectEvent
 } from '$lib/api/events';
 
 export type MachineIdentity = MachineIdentityData;
@@ -20,7 +18,6 @@ export interface MachineState {
 	frames: Map<CameraName, FrameData>;
 	lastHeartbeat: number | null;
 	recentObjects: KnownObjectData[];
-	layout: DistributionLayoutData | null;
 }
 
 export interface MachinesContext {
@@ -56,8 +53,4 @@ export function isHeartbeatEvent(
 
 export function isKnownObjectEvent(event: SocketEvent): event is KnownObjectEvent {
 	return event.tag === 'known_object';
-}
-
-export function isDistributionLayoutEvent(event: SocketEvent): event is DistributionLayoutEvent {
-	return event.tag === 'distribution_layout';
 }

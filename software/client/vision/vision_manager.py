@@ -9,7 +9,7 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from defs.consts import FEEDER_CHANNEL_CLASS_ID, FEEDER_OBJECT_CLASS_ID
+from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CHANNEL_CLASS_ID
 from blob_manager import VideoRecorder
 from .camera import CaptureThread
 from .inference import InferenceThread, CameraModelBinding
@@ -22,6 +22,7 @@ TELEMETRY_INTERVAL_S = 30
 
 
 class VisionManager:
+    _irl_config: IRLConfig
     _feeder_capture: CaptureThread
     _classification_bottom_capture: CaptureThread
     _classification_top_capture: CaptureThread
@@ -33,6 +34,7 @@ class VisionManager:
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig):
         self.gc = gc
+        self._irl_config = irl_config
         self._feeder_camera_config = irl_config.feeder_camera
         self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
         self._classification_bottom_capture = CaptureThread(
@@ -54,7 +56,9 @@ class VisionManager:
         )
 
         self._feeder_binding = self._inference.addBinding(
-            self._feeder_capture, feeder_model
+            self._feeder_capture,
+            feeder_model,
+            exclude_classes_from_plot=[FEEDER_CHANNEL_CLASS_ID],
         )
         self._classification_bottom_binding = self._inference.addBinding(
             self._classification_bottom_capture, classification_model
@@ -142,7 +146,27 @@ class VisionManager:
 
         if ids is not None:
             annotated = annotated.copy()
-            aruco.drawDetectedMarkers(annotated, corners, ids)
+            aruco.drawDetectedMarkers(
+                annotated, corners, ids, borderColor=(0, 255, 255)
+            )
+
+            # draw tag IDs in aqua/teal
+            for i, tag_id in enumerate(ids.flatten()):
+                tag_corners = corners[i][0]
+                center_x = int(np.mean(tag_corners[:, 0]))
+                center_y = int(np.mean(tag_corners[:, 1]))
+                cv2.putText(
+                    annotated,
+                    str(tag_id),
+                    (center_x - 10, center_y + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),  # aqua/cyan
+                    2,
+                )
+
+        # annotate with channel geometry
+        annotated = self._annotateChannelGeometry(annotated)
 
         return CameraFrame(
             raw=frame.raw,
@@ -228,12 +252,6 @@ class VisionManager:
                 if age_ms <= ARUCO_TAG_CACHE_MS:
                     result[tag_id] = position
 
-        if result:
-            tag_ids = ", ".join([f"#{tag_id}" for tag_id in result.keys()])
-            self.gc.logger.info(f"Detected ArUco tags: {tag_ids}")
-        else:
-            self.gc.logger.info(f"found no tags")
-
         return result
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
@@ -318,25 +336,149 @@ class VisionManager:
 
         return result_masks
 
-    def getIdentifiedChannels(
-        self,
-        first_tag_id: int,
-        second_tag_id: int,
-        third_tag_id: int,
-    ):
-        from subsystems.feeder.analysis import IdentifiedChannels, identifyChannels
+    def getChannelGeometry(self, aruco_tag_config):
+        from subsystems.feeder.analysis import computeChannelGeometry
 
         aruco_tags = self.getFeederArucoTags()
-        masks_by_class = self.getFeederMasksByClass()
-        channel_detected_masks = masks_by_class.get(FEEDER_CHANNEL_CLASS_ID, [])
+        return computeChannelGeometry(aruco_tags, aruco_tag_config)
 
-        return identifyChannels(
-            channel_detected_masks,
+    def _annotateChannelGeometry(self, annotated: np.ndarray) -> np.ndarray:
+        from subsystems.feeder.analysis import computeChannelGeometry
+
+        aruco_tags = self.getFeederArucoTags()
+        geometry = computeChannelGeometry(
             aruco_tags,
-            first_tag_id,
-            second_tag_id,
-            third_tag_id,
+            self._irl_config.aruco_tags,
         )
+
+        annotated = annotated.copy()
+
+        # get tag positions for both channels (only radius tags needed)
+        third_r1_pos = aruco_tags.get(
+            self._irl_config.aruco_tags.third_c_channel_radius1_id
+        )
+        third_r2_pos = aruco_tags.get(
+            self._irl_config.aruco_tags.third_c_channel_radius2_id
+        )
+
+        second_r1_pos = aruco_tags.get(
+            self._irl_config.aruco_tags.second_c_channel_radius1_id
+        )
+        second_r2_pos = aruco_tags.get(
+            self._irl_config.aruco_tags.second_c_channel_radius2_id
+        )
+
+        # draw channel 3 (inner) - circle from two radius tags
+        if geometry.third_channel:
+            ch = geometry.third_channel
+            center = (int(ch.center[0]), int(ch.center[1]))
+            radius = int(ch.radius)
+
+            # draw circle
+            cv2.circle(annotated, center, radius, (255, 0, 255), 2)
+
+            # draw diameter line through the two radius tags
+            if third_r1_pos and third_r2_pos:
+                cv2.line(
+                    annotated,
+                    (int(third_r1_pos[0]), int(third_r1_pos[1])),
+                    (int(third_r2_pos[0]), int(third_r2_pos[1])),
+                    (255, 0, 255),
+                    2,
+                )
+
+            # draw quadrant divider lines
+            for q in range(4):
+                angle_deg = ch.radius1_angle_image + q * 90.0
+                angle_rad = np.radians(angle_deg)
+                end_x = int(center[0] + radius * np.cos(angle_rad))
+                end_y = int(center[1] + radius * np.sin(angle_rad))
+                cv2.line(annotated, center, (end_x, end_y), (180, 0, 180), 1)
+
+            # draw quadrant 0-3 labels
+            for q in range(4):
+                angle_deg = ch.radius1_angle_image + q * 90.0 + 45.0
+                angle_rad = np.radians(angle_deg)
+                label_radius = radius * 0.7
+                label_x = int(center[0] + label_radius * np.cos(angle_rad))
+                label_y = int(center[1] + label_radius * np.sin(angle_rad))
+                cv2.putText(
+                    annotated,
+                    str(q),
+                    (label_x - 10, label_y + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 0, 255),
+                    2,
+                )
+
+            # channel label
+            cv2.putText(
+                annotated,
+                "Ch3",
+                (center[0] - 20, center[1] - radius - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 0, 255),
+                2,
+            )
+
+        # draw channel 2 (outer) - circle from two radius tags
+        if geometry.second_channel:
+            ch = geometry.second_channel
+            center = (int(ch.center[0]), int(ch.center[1]))
+            radius = int(ch.radius)
+
+            # draw circle
+            cv2.circle(annotated, center, radius, (0, 255, 255), 2)
+
+            # draw diameter line through the two radius tags
+            if second_r1_pos and second_r2_pos:
+                cv2.line(
+                    annotated,
+                    (int(second_r1_pos[0]), int(second_r1_pos[1])),
+                    (int(second_r2_pos[0]), int(second_r2_pos[1])),
+                    (0, 255, 255),
+                    2,
+                )
+
+            # draw quadrant divider lines
+            for q in range(4):
+                angle_deg = ch.radius1_angle_image + q * 90.0
+                angle_rad = np.radians(angle_deg)
+                end_x = int(center[0] + radius * np.cos(angle_rad))
+                end_y = int(center[1] + radius * np.sin(angle_rad))
+                cv2.line(annotated, center, (end_x, end_y), (0, 180, 180), 1)
+
+            # draw quadrant 0-3 labels
+            for q in range(4):
+                angle_deg = ch.radius1_angle_image + q * 90.0 + 45.0
+                angle_rad = np.radians(angle_deg)
+                label_radius = radius * 0.7
+                label_x = int(center[0] + label_radius * np.cos(angle_rad))
+                label_y = int(center[1] + label_radius * np.sin(angle_rad))
+                cv2.putText(
+                    annotated,
+                    str(q),
+                    (label_x - 10, label_y + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 255, 255),
+                    2,
+                )
+
+            # channel label
+            cv2.putText(
+                annotated,
+                "Ch2",
+                (center[0] - 20, center[1] - radius - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 255),
+                2,
+            )
+
+        return annotated
 
     def captureFreshClassificationFrames(
         self, timeout_s: float = 1.0

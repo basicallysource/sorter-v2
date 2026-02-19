@@ -3,16 +3,12 @@ from subsystems import (
     FeederStateMachine,
     ClassificationStateMachine,
     DistributionStateMachine,
-    mkDefaultLayout,
-    layoutMatchesCategories,
-    applyCategories,
 )
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
 from vision import VisionManager
 from sorting_profile import BrickLinkCategories
-from blob_manager import getBinCategories
 from telemetry import Telemetry
 import queue
 
@@ -36,15 +32,7 @@ class Coordinator:
         self.event_queue = event_queue
         self.shared = SharedVariables()
         self.sorting_profile = BrickLinkCategories(gc)
-        self.distribution_layout = mkDefaultLayout()
-
-        saved_categories = getBinCategories()
-        if saved_categories is not None:
-            if layoutMatchesCategories(self.distribution_layout, saved_categories):
-                applyCategories(self.distribution_layout, saved_categories)
-                self.logger.info("Loaded bin categories from storage")
-            else:
-                self.logger.warn("Saved bin categories don't match layout, ignoring")
+        self.distribution_layout = irl.distribution_layout
 
         self.distribution = DistributionStateMachine(
             irl,

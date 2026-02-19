@@ -6,10 +6,10 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import sys
 import readchar
 from global_config import mkGlobalConfig
-from irl.config import mkIRLConfig, mkIRLInterface
+from irl.config import mkIRLConfig, mkIRLInterface, SERVO_OPEN_ANGLE, SERVO_CLOSED_ANGLE
 from blob_manager import setStepperPosition
 
-STEP_COUNTS = [1, 10, 50, 100, 200]
+STEP_COUNTS = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
 
 
 def main():
@@ -34,16 +34,25 @@ def main():
         step_count = STEP_COUNTS[step_count_idx]
         quarter_steps = stepper.total_steps_per_rev // 4
         print("\033[2J\033[H", end="")
-        print("Stepper Calibration Tool")
-        print("========================")
+        print("Motor Calibration Tool")
+        print("======================")
         print(f"Selected: {name} (position: {stepper.current_position_steps} steps)")
         print()
-        print("Controls:")
+        print("Stepper Controls:")
         print(f"  ←/→     Move stepper (current: {step_count} steps)")
         print(f"  ↑/↓     Change step count ({', '.join(map(str, STEP_COUNTS))})")
         print(f"  A/D     Quarter turn ({quarter_steps} steps)")
         print("  Tab     Switch stepper")
         print("  Enter   Set current position as zero")
+        print()
+        print("Servo Controls (per layer):")
+        for i, layer in enumerate(irl.distribution_layout.layers):
+            angle = irl.servo_angles[i]
+            state = "open" if angle == SERVO_OPEN_ANGLE else "closed"
+            print(
+                f"  {i + 1}       Toggle layer {i} servo (pin {layer.servo_pin}, currently {state} at {angle}°)"
+            )
+        print()
         print("  Q       Quit")
         print()
 
@@ -83,6 +92,18 @@ def main():
             setStepperPosition(name, 0)
             printStatus()
             print(f"Zeroed {name} position")
+        elif key in "1234":
+            layer_idx = int(key) - 1
+            if layer_idx < len(irl.distribution_layout.layers):
+                layer = irl.distribution_layout.layers[layer_idx]
+                current_angle = irl.servo_angles[layer_idx]
+                if current_angle == SERVO_OPEN_ANGLE:
+                    new_angle = SERVO_CLOSED_ANGLE
+                else:
+                    new_angle = SERVO_OPEN_ANGLE
+                irl.mcu.command("S", layer.servo_pin, new_angle)
+                irl.servo_angles[layer_idx] = new_angle
+                printStatus()
         elif key.lower() == "q":
             print("Exiting...")
             for s in steppers.values():

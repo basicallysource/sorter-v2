@@ -72,11 +72,10 @@ class Rotating(BaseState):
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
 
         piece_at_exit = self.carousel.getPieceAtExit()
-        should_distribute = piece_at_exit and (
+        if piece_at_exit is not None and (
             piece_at_exit.part_id is not None
             or piece_at_exit.status in ("unknown", "not_found")
-        )
-        if should_distribute:
+        ):
             label = piece_at_exit.part_id or piece_at_exit.status
             self.logger.info(
                 f"Rotating: piece {piece_at_exit.uuid[:8]} ({label}) now at exit, queueing for distribution"

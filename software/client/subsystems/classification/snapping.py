@@ -12,7 +12,7 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
 from telemetry import Telemetry
-import classification
+from classification import classify
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -158,7 +158,7 @@ class Snapping(BaseState):
             self.carousel.resolveClassification(piece.uuid, part_id, confidence)
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id}")
 
-        classification.classify(self.gc, top_crop, bottom_crop, onResult)
+        classify(self.gc, top_crop, bottom_crop, onResult)
 
     def cleanup(self) -> None:
         super().cleanup()

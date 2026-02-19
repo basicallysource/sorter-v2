@@ -11,7 +11,7 @@ from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CAROUSEL_CLASS_ID
 if TYPE_CHECKING:
     from vision import VisionManager
 
-OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.3
+OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.5
 
 
 class Detecting(BaseState):

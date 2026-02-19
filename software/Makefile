@@ -16,7 +16,7 @@ upload:
 format:
 	ruff format client
 check:
-	pyright client
+	pyright --project client/pyproject.toml client
 generate:
 	@echo "Starting FastAPI server..."
 	@$(PYTHON) client/api_only.py & echo $$! > .api.pid

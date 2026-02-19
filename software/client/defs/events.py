@@ -77,24 +77,6 @@ class KnownObjectEvent(BaseModel):
     data: KnownObjectData
 
 
-class BinData(BaseModel):
-    size: str
-    category_id: Optional[str] = None
-
-
-class LayerData(BaseModel):
-    sections: List[List[BinData]]
-
-
-class DistributionLayoutData(BaseModel):
-    layers: List[LayerData]
-
-
-class DistributionLayoutEvent(BaseModel):
-    tag: Literal["distribution_layout"]
-    data: DistributionLayoutData
-
-
 class PauseCommandData(BaseModel):
     pass
 
@@ -113,10 +95,6 @@ class ResumeCommandEvent(BaseModel):
     data: ResumeCommandData
 
 
-SocketEvent = Union[
-    HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent, DistributionLayoutEvent
-]
-MainThreadToServerCommand = Union[
-    HeartbeatEvent, FrameEvent, KnownObjectEvent, DistributionLayoutEvent
-]
+SocketEvent = Union[HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent]
+MainThreadToServerCommand = Union[HeartbeatEvent, FrameEvent, KnownObjectEvent]
 ServerToMainThreadEvent = Union[HeartbeatEvent, PauseCommandEvent, ResumeCommandEvent]

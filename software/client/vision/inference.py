@@ -16,14 +16,21 @@ class CameraModelBinding:
     latest_annotated_frame: Optional[CameraFrame]
     latest_raw_results: Optional[List]
     last_processed_timestamp: float
+    exclude_classes_from_plot: List[int]
 
-    def __init__(self, camera: CaptureThread, model_path: Optional[str]):
+    def __init__(
+        self,
+        camera: CaptureThread,
+        model_path: Optional[str],
+        exclude_classes_from_plot: Optional[List[int]] = None,
+    ):
         self.camera = camera
         self.model = YOLO(model_path) if model_path else None
         self.latest_result = None
         self.latest_annotated_frame = None
         self.latest_raw_results = None
         self.last_processed_timestamp = 0.0
+        self.exclude_classes_from_plot = exclude_classes_from_plot or []
 
 
 class InferenceThread:
@@ -37,9 +44,12 @@ class InferenceThread:
         self._bindings = []
 
     def addBinding(
-        self, camera: CaptureThread, model_path: Optional[str]
+        self,
+        camera: CaptureThread,
+        model_path: Optional[str],
+        exclude_classes_from_plot: Optional[List[int]] = None,
     ) -> CameraModelBinding:
-        binding = CameraModelBinding(camera, model_path)
+        binding = CameraModelBinding(camera, model_path, exclude_classes_from_plot)
         self._bindings.append(binding)
         return binding
 
@@ -99,7 +109,64 @@ class InferenceThread:
                             )
                         )
 
-                    annotated = results[0].plot()
+                    if binding.exclude_classes_from_plot:
+                        annotated = results[0].plot(
+                            labels=False, boxes=False, masks=False, probs=False
+                        )
+                        # manually draw only non-excluded classes
+                        for i, box in enumerate(results[0].boxes):
+                            class_id = int(box.cls[0])
+                            if class_id in binding.exclude_classes_from_plot:
+                                continue
+                            confidence = float(box.conf[0])
+                            xyxy = list(map(int, box.xyxy[0].tolist()))
+                            class_name = binding.model.names.get(
+                                class_id, str(class_id)
+                            )
+
+                            # choose color based on class: carousel (2) = red, object (0) = green
+                            color = (0, 0, 255) if class_id == 2 else (0, 255, 0)
+
+                            # draw bounding box
+                            cv2.rectangle(
+                                annotated,
+                                (xyxy[0], xyxy[1]),
+                                (xyxy[2], xyxy[3]),
+                                color,
+                                2,
+                            )
+                            # draw label
+                            label = f"{class_name} {confidence:.2f}"
+                            cv2.putText(
+                                annotated,
+                                label,
+                                (xyxy[0], xyxy[1] - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5,
+                                color,
+                                2,
+                            )
+                            # draw mask if available
+                            if results[0].masks is not None and i < len(
+                                results[0].masks
+                            ):
+                                mask_data = results[0].masks[i].data[0].cpu().numpy()
+                                mh, mw = mask_data.shape
+                                h, w = frame.raw.shape[:2]
+                                if mh != h or mw != w:
+                                    mask_data = cv2.resize(
+                                        mask_data,
+                                        (w, h),
+                                        interpolation=cv2.INTER_NEAREST,
+                                    )
+                                mask_data = (mask_data > 0).astype(np.uint8)
+                                color_mask = np.zeros_like(annotated)
+                                color_mask[mask_data == 1] = color
+                                annotated = cv2.addWeighted(
+                                    annotated, 1.0, color_mask, 0.4, 0
+                                )
+                    else:
+                        annotated = results[0].plot()
 
                     if results[0].masks is not None:
                         h, w = frame.raw.shape[:2]

@@ -1,12 +1,16 @@
 // Simple Arduino serial protocol for motor control
 // Commands are comma-separated: command,arg1,arg2,...
+// N - return device name (for auto-discovery)
 // P,pin,mode - set pin mode (0=INPUT, 1=OUTPUT)
 // D,pin,value - digital write (0=LOW, 1=HIGH)
 // A,pin,value - analog/PWM write (0-255)
+// S,pin,angle - servo write (0-180 degrees)
 //
 // Responses (sensors can send data back):
-// S,sensor_id,value - sensor reading
-// Future: register callback in Python for message types starting with 'S'
+// R,sensor_id,value - sensor reading
+// Future: register callback in Python for message types starting with 'R'
+
+#include <Servo.h>
 
 void setup() {
   Serial.begin(115200);
@@ -27,14 +31,18 @@ void loop() {
 }
 
 void processCommand(String cmd) {
-  int firstComma = cmd.indexOf(',');
-  if (firstComma == -1) return;
-
   char cmdType = cmd.charAt(0);
-  String args = cmd.substring(firstComma + 1);
 
   switch (cmdType) {
+    case 'N': {
+      Serial.println("feeder");
+      break;
+    }
+
     case 'P': {
+      int firstComma = cmd.indexOf(',');
+      if (firstComma == -1) return;
+      String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       int pin = args.substring(0, secondComma).toInt();
       int mode = args.substring(secondComma + 1).toInt();
@@ -47,6 +55,9 @@ void processCommand(String cmd) {
     }
 
     case 'D': {
+      int firstComma = cmd.indexOf(',');
+      if (firstComma == -1) return;
+      String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       int pin = args.substring(0, secondComma).toInt();
       int value = args.substring(secondComma + 1).toInt();
@@ -59,6 +70,9 @@ void processCommand(String cmd) {
     }
 
     case 'A': {
+      int firstComma = cmd.indexOf(',');
+      if (firstComma == -1) return;
+      String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       int pin = args.substring(0, secondComma).toInt();
       int value = args.substring(secondComma + 1).toInt();
@@ -71,6 +85,9 @@ void processCommand(String cmd) {
     }
 
     case 'T': {
+      int firstComma = cmd.indexOf(',');
+      if (firstComma == -1) return;
+      String args = cmd.substring(firstComma + 1);
       int c1 = args.indexOf(',');
       int c2 = args.indexOf(',', c1 + 1);
       int c3 = args.indexOf(',', c2 + 1);
@@ -117,6 +134,28 @@ void processCommand(String cmd) {
       Serial.print("Stepper ");
       Serial.print(steps);
       Serial.println(" steps done");
+      break;
+    }
+
+    case 'S': {
+      int firstComma = cmd.indexOf(',');
+      if (firstComma == -1) return;
+      String args = cmd.substring(firstComma + 1);
+      int secondComma = args.indexOf(',');
+      int pin = args.substring(0, secondComma).toInt();
+      int angle = args.substring(secondComma + 1).toInt();
+      
+      Servo servo;
+      servo.attach(pin);
+      servo.write(angle);
+      delay(500);
+      servo.detach();
+      
+      Serial.print("Servo pin ");
+      Serial.print(pin);
+      Serial.print(" set to ");
+      Serial.print(angle);
+      Serial.println(" degrees");
       break;
     }
   }

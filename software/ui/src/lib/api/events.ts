@@ -15,26 +15,12 @@ export type KnownObjectStatus =
 	| 'distributing'
 	| 'distributed';
 
-export interface BinData {
-	size: string;
-	category_id?: string | null;
-}
-export interface DistributionLayoutData {
-	layers: LayerData[];
-}
-export interface LayerData {
-	sections: BinData[][];
-}
-export interface DistributionLayoutEvent {
-	tag: 'distribution_layout';
-	data: DistributionLayoutData;
-}
 export interface FrameData {
 	camera: CameraName;
 	timestamp: number;
 	raw: string;
 	annotated: string | null;
-	result: FrameResultData | null;
+	results: FrameResultData[];
 }
 export interface FrameResultData {
 	class_id: number | null;
@@ -89,9 +75,4 @@ export interface ResumeCommandEvent {
 	data: ResumeCommandData;
 }
 
-export type SocketEvent =
-	| HeartbeatEvent
-	| FrameEvent
-	| IdentityEvent
-	| KnownObjectEvent
-	| DistributionLayoutEvent;
+export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent;

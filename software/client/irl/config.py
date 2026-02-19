@@ -21,7 +21,6 @@ from .bin_layout import (
     applyCategories,
 )
 from blob_manager import getBinCategories, getCameraSetup
-from irl.camera.camera_id import findIndexByName
 
 
 class CameraConfig:
@@ -134,20 +133,10 @@ def mkIRLConfig() -> IRLConfig:
             "No camera setup found. Run client/scripts/camera_setup.py first."
         )
 
-    used: set[int] = set()
-
     def resolveCamera(role: str) -> int:
         if role not in camera_setup:
-            raise RuntimeError(
-                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
-            )
-        index = findIndexByName(camera_setup[role]["name"], exclude=used)
-        if index is None:
-            raise RuntimeError(
-                f"Camera '{role}' not found. Re-run client/scripts/camera_setup.py."
-            )
-        used.add(index)
-        return index
+            raise RuntimeError(f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first.")
+        return camera_setup[role]
 
     feeder_camera_index = resolveCamera("feeder")
     classification_camera_bottom_index = resolveCamera("classification_bottom")

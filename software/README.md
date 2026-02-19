@@ -27,14 +27,13 @@ Open `firmware/feeder/feeder.ino` in the Arduino IDE. Select **Arduino Mega 2560
 cp .env.example .env
 ```
 
-To find the addresses for your webcams, run the following from `client/`. You will use them in your environment file in the next step.
+Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
 ```
-uv run python ../scripts/webcam_discovery.py
+uv run python scripts/camera_setup.py
 ```
 
 Edit `.env` and update:
 - `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
-- `FEEDER_CAMERA_INDEX`, `CLASSIFICATION_CAMERA_BOTTOM_INDEX`, `CLASSIFICATION_CAMERA_TOP_INDEX` — webcam device indices. 
 - Arduino serial port is auto-detected. On Mac/Linux it shows up as `/dev/ttyUSB*` or `/dev/ttyACM*`. On Windows it will be a `COM` port (e.g. `COM3`).
 
 ## UI Dependencies

@@ -5,9 +5,8 @@ import cv2
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from blob_manager import getCameraSetup, setCameraSetup
-from irl.camera.camera_id import getAllDeviceNames
 
-MAX_CAMERAS_TO_PROBE = 100
+MAX_INDEX = 10
 
 ROLES = {
     ord("f"): "feeder",
@@ -18,81 +17,46 @@ ROLES = {
     ord("T"): "classification_top",
 }
 
-MENU_LINES = [
-    "F - Feeder",
-    "B - Classification Bottom",
-    "T - Classification Top",
-    "N - Skip",
-    "Q - Quit and save",
-]
+MENU_LINES = ["F - feeder", "B - classification bottom", "T - classification top", "N - skip", "Q - quit"]
 
 
-def enumerateCameras() -> list[tuple[int, cv2.VideoCapture]]:
-    found = []
-    consecutive_failures = 0
-    for i in range(MAX_CAMERAS_TO_PROBE):
+def main():
+    caps = []
+    for i in range(MAX_INDEX):
         cap = cv2.VideoCapture(i)
         if cap.isOpened():
             ret, _ = cap.read()
             if ret:
-                found.append((i, cap))
-                consecutive_failures = 0
+                caps.append((i, cap))
                 continue
         cap.release()
-        consecutive_failures += 1
-        if i > 0 and consecutive_failures >= 3:
-            break
-    return found
 
-
-def overlayMenu(frame, index: int, assigned: dict[int, str], device_name: str):
-    out = frame.copy()
-    x, y_start, line_h = 20, 40, 36
-
-    role = assigned.get(index, "")
-    header = f"Camera {index}: {device_name}" + (f"  [{role}]" if role else "")
-    cv2.putText(out, header, (x, y_start), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4)
-    cv2.putText(
-        out, header, (x, y_start), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2
-    )
-
-    for i, line in enumerate(MENU_LINES):
-        y = y_start + line_h * (i + 1) + 10
-        cv2.putText(out, line, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3)
-        cv2.putText(
-            out, line, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1
-        )
-
-    return out
-
-
-def main() -> None:
-    print("Camera Setup — scanning for cameras...")
-
-    cameras = enumerateCameras()
-    if not cameras:
-        print("No cameras found.")
+    if not caps:
+        print("no cameras found")
         sys.exit(1)
 
-    print(
-        f"Found {len(cameras)} camera(s). Press keys in the camera window to assign roles."
-    )
+    print(f"found {len(caps)} camera(s): {[i for i, _ in caps]}")
 
-    device_names = getAllDeviceNames()
     setup = getCameraSetup() or {}
-    assigned: dict[int, str] = {}  # index -> role for this session
+    assigned = {v: k for k, v in setup.items() if isinstance(v, int)}  # index -> role
 
-    window_name = "Camera Setup"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 800, 600)
+    window = "Camera Setup"
+    cv2.namedWindow(window, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window, 800, 600)
 
-    for index, cap in cameras:
-        name = device_names.get(index, str(index))
-
+    for index, cap in caps:
         while True:
             ret, frame = cap.read()
             if ret:
-                cv2.imshow(window_name, overlayMenu(frame, index, assigned, name))
+                role = assigned.get(index, "")
+                header = f"Camera {index}" + (f"  [{role}]" if role else "")
+                cv2.putText(frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4)
+                cv2.putText(frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+                for i, line in enumerate(MENU_LINES):
+                    y = 85 + i * 34
+                    cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3)
+                    cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+                cv2.imshow(window, frame)
 
             key = cv2.waitKey(1) & 0xFF
 
@@ -100,18 +64,14 @@ def main() -> None:
                 role = ROLES[key]
                 assigned = {i: r for i, r in assigned.items() if r != role}
                 assigned[index] = role
-                setup = {k: v for k, v in setup.items() if k != role}
-                setup[role] = {"name": name}
-                print(f"Camera {index} ({name}) -> {role}")
+                setup = {r: i for i, r in assigned.items()}
+                print(f"camera {index} -> {role}")
                 break
-
-            elif key == ord("n") or key == ord("N"):
-                print(f"Camera {index} ({name}) -> skipped")
+            elif key in (ord("n"), ord("N")):
+                print(f"camera {index} -> skipped")
                 break
-
-            elif key == ord("q") or key == ord("Q"):
-                cap.release()
-                for _, c in cameras:
+            elif key in (ord("q"), ord("Q")):
+                for _, c in caps:
                     c.release()
                 cv2.destroyAllWindows()
                 setCameraSetup(setup)
@@ -125,17 +85,13 @@ def main() -> None:
     printSummary(setup)
 
 
-def printSummary(setup: dict) -> None:
-    print("\nSaved:")
-    for role, info in setup.items():
-        print(f"  {role}: {info['name']}")
-    missing = [
-        r
-        for r in ["feeder", "classification_bottom", "classification_top"]
-        if r not in setup
-    ]
+def printSummary(setup):
+    print("\nsaved:")
+    for role, index in setup.items():
+        print(f"  {role}: {index}")
+    missing = [r for r in ["feeder", "classification_bottom", "classification_top"] if r not in setup]
     if missing:
-        print(f"Not assigned: {', '.join(missing)}")
+        print(f"not assigned: {', '.join(missing)}")
 
 
 if __name__ == "__main__":

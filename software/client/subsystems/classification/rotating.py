@@ -72,19 +72,26 @@ class Rotating(BaseState):
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
 
         piece_at_exit = self.carousel.getPieceAtExit()
-        if piece_at_exit is not None and (
-            piece_at_exit.part_id is not None
-            or piece_at_exit.status in ("unknown", "not_found")
-        ):
-            label = piece_at_exit.part_id or piece_at_exit.status
+        if piece_at_exit is not None:
             self.logger.info(
-                f"Rotating: piece {piece_at_exit.uuid[:8]} ({label}) now at exit, queueing for distribution"
+                f"Rotating: piece {piece_at_exit.uuid[:8]} dropped at exit"
             )
-            piece_at_exit.status = "distributing"
-            piece_at_exit.updated_at = time.time()
-            self._emitObjectEvent(piece_at_exit)
             self.shared.distribution_ready = False
-            self.shared.pending_piece = piece_at_exit
+
+        piece_at_intermediate = self.carousel.getPieceAtIntermediate()
+        if piece_at_intermediate is not None and (
+            piece_at_intermediate.part_id is not None
+            or piece_at_intermediate.status in ("unknown", "not_found")
+        ):
+            label = piece_at_intermediate.part_id or piece_at_intermediate.status
+            self.logger.info(
+                f"Rotating: piece {piece_at_intermediate.uuid[:8]} ({label}) at intermediate, queueing for distribution"
+            )
+            piece_at_intermediate.status = "distributing"
+            piece_at_intermediate.updated_at = time.time()
+            self._emitObjectEvent(piece_at_intermediate)
+            self.shared.distribution_ready = False
+            self.shared.pending_piece = piece_at_intermediate
         else:
             self.shared.pending_piece = None
 

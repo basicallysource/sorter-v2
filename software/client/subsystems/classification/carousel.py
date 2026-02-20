@@ -96,7 +96,3 @@ class Carousel:
 
     def hasPieceAtFeeder(self) -> bool:
         return self.platforms[FEEDER_POSITION] is not None
-
-    def exitPieceReady(self) -> bool:
-        piece = self.platforms[EXIT_POSITION]
-        return piece is not None and piece.part_id is not None

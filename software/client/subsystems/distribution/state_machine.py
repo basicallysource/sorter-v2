@@ -38,9 +38,7 @@ class DistributionStateMachine(BaseSubsystem):
                 irl, gc, shared, self.chute, layout, sorting_profile, event_queue
             ),
             DistributionState.READY: Ready(irl, gc, shared),
-            DistributionState.SENDING: Sending(
-                irl, gc, shared, sorting_profile, event_queue
-            ),
+            DistributionState.SENDING: Sending(irl, gc, shared, event_queue),
         }
 
     def step(self) -> None:

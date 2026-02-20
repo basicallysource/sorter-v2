@@ -24,8 +24,9 @@ ARUCO_TAG_CACHE_MS = 100
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
-CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 10000
-CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
+CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
+CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 10
+CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 50000
 
 ARUCO_TAG_DETECTION_PARAMS = {
     "minMarkerPerimeterRate": 0.003,
@@ -737,8 +738,28 @@ class VisionManager:
                     expanded_corners = self._expandRectanglePerimeter(
                         corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX
                     )
+
+                    # calculate area using shoelace formula
+                    corners_array = np.array(expanded_corners)
+                    x = corners_array[:, 0]
+                    y = corners_array[:, 1]
+                    area = 0.5 * np.abs(
+                        np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))
+                    )
+
+                    # validate area is within acceptable range
+                    if area > CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX:
+                        self.gc.logger.info(
+                            f"Platform {platform['platform_id']} area too large: {area:.1f}px² "
+                            f"(max={CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX}px²), skipping"
+                        )
+                        continue
+
                     self._cached_feeding_platform_corners = expanded_corners
                     self._cached_feeding_platform_timestamp = time.time()
+                    self.gc.logger.info(
+                        f"Cached feeding platform: area={area:.1f}px², corners={len(expanded_corners)}"
+                    )
                     return
 
     @property

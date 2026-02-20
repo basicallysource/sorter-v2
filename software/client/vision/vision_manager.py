@@ -14,7 +14,7 @@ from defs.consts import (
     FEEDER_CHANNEL_CLASS_ID,
     FEEDER_CAROUSEL_CLASS_ID,
 )
-from blob_manager import VideoRecorder
+from blob_manager import VideoRecorder, getClassificationRegions
 from .camera import CaptureThread
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
@@ -27,6 +27,9 @@ CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 10
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 50000
+CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
+OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
+CLASSIFICATION_REGION_MIN_OVERLAP = 0.5
 
 ARUCO_TAG_DETECTION_PARAMS = {
     "minMarkerPerimeterRate": 0.003,
@@ -92,6 +95,10 @@ class VisionManager:
         self._classification_top_binding = self._inference.addBinding(
             self._classification_top_capture, classification_model
         )
+
+        regions = getClassificationRegions() or {}
+        self._top_region: Optional[List] = regions.get("top")
+        self._bottom_region: Optional[List] = regions.get("bottom")
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
 
@@ -373,6 +380,19 @@ class VisionManager:
                         ).astype(bool)
                     else:
                         scaled_mask = mask_data.astype(bool)
+
+                    # filter out objects that are too large
+                    if class_id == FEEDER_OBJECT_CLASS_ID:
+                        mask_area = np.sum(scaled_mask)
+                        self.gc.logger.info(
+                            f"Object detected: area={mask_area:.0f}px², confidence={confidence:.2f}"
+                        )
+                        if mask_area > OBJECT_DETECTION_MAX_AREA_SQ_PX:
+                            self.gc.logger.info(
+                                f"Object area too large: {mask_area:.0f}px² "
+                                f"(max={OBJECT_DETECTION_MAX_AREA_SQ_PX}px²), filtering out"
+                            )
+                            continue  # skip this object, it's too large
 
                     detected_mask = DetectedMask(
                         mask=scaled_mask,
@@ -674,6 +694,35 @@ class VisionManager:
 
         return annotated
 
+    def _validateCornerAngles(
+        self, corners: List[Tuple[float, float]], min_angle_deg: float
+    ) -> tuple[bool, List[float]]:
+        # check that all corner angles are >= min_angle_deg
+        corners_array = np.array(corners)
+        n = len(corners_array)
+        angles = []
+
+        for i in range(n):
+            # get three consecutive points: previous, current, next
+            prev = corners_array[(i - 1) % n]
+            curr = corners_array[i]
+            next_pt = corners_array[(i + 1) % n]
+
+            # vectors from current corner to adjacent corners
+            v1 = prev - curr
+            v2 = next_pt - curr
+
+            # calculate internal angle using dot product
+            cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            # clamp to [-1, 1] to avoid numerical errors
+            cos_angle = np.clip(cos_angle, -1.0, 1.0)
+            angle_rad = np.arccos(cos_angle)
+            angle_deg = np.degrees(angle_rad)
+            angles.append(angle_deg)
+
+        valid = all(a >= min_angle_deg for a in angles)
+        return valid, angles
+
     def _expandRectanglePerimeter(
         self, corners: List[Tuple[float, float]], expansion_px: float
     ) -> List[Tuple[float, float]]:
@@ -733,7 +782,7 @@ class VisionManager:
                     f"(threshold={CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX}px)"
                 )
 
-                # if within threshold, expand and update cache
+                # if within threshold, validate and update cache
                 if distance <= CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX:
                     expanded_corners = self._expandRectanglePerimeter(
                         corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX
@@ -752,6 +801,22 @@ class VisionManager:
                         self.gc.logger.info(
                             f"Platform {platform['platform_id']} area too large: {area:.1f}px² "
                             f"(max={CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX}px²), skipping"
+                        )
+                        continue
+
+                    # calculate and log corner angles on EXPANDED corners
+                    angles_valid, corner_angles = self._validateCornerAngles(
+                        expanded_corners, CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG
+                    )
+                    angles_str = ", ".join([f"{a:.1f}°" for a in corner_angles])
+                    self.gc.logger.info(
+                        f"Platform {platform['platform_id']} internal angles: [{angles_str}]"
+                    )
+
+                    if not angles_valid:
+                        self.gc.logger.info(
+                            f"Platform {platform['platform_id']} has invalid corner angles "
+                            f"(min={CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG}°), skipping"
                         )
                         continue
 
@@ -823,15 +888,19 @@ class VisionManager:
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
         top_crop = self._extractLargestObjectCrop(
-            top_frame, self._classification_top_binding.latest_raw_results
+            top_frame,
+            self._classification_top_binding.latest_raw_results,
+            self._top_region,
         )
         bottom_crop = self._extractLargestObjectCrop(
-            bottom_frame, self._classification_bottom_binding.latest_raw_results
+            bottom_frame,
+            self._classification_bottom_binding.latest_raw_results,
+            self._bottom_region,
         )
         return (top_crop, bottom_crop)
 
     def _extractLargestObjectCrop(
-        self, frame: Optional[CameraFrame], raw_results
+        self, frame: Optional[CameraFrame], raw_results, region: Optional[List] = None
     ) -> Optional[np.ndarray]:
         if frame is None or raw_results is None or len(raw_results) == 0:
             return None
@@ -840,17 +909,41 @@ class VisionManager:
         if boxes is None or len(boxes) == 0:
             return None
 
+        h, w = frame.raw.shape[:2]
+        poly_mask = None
+        if region is not None:
+            pts = np.array(region, dtype=np.int32)
+            poly_mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(poly_mask, [pts], 1)
+
         best_box = None
         best_area = 0
-        for box in boxes:
+        masks = raw_results[0].masks
+        for i, box in enumerate(boxes):
             class_id = int(box.cls[0])
             if class_id != 0:
                 continue
             xyxy = box.xyxy[0].tolist()
             area = (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1])
-            if area > best_area:
-                best_area = area
-                best_box = xyxy
+            if area <= best_area:
+                continue
+            if poly_mask is not None and masks is not None and i < len(masks):
+                mask_data = masks[i].data[0].cpu().numpy()
+                mh, mw = mask_data.shape
+                if mh != h or mw != w:
+                    mask_data = cv2.resize(
+                        mask_data.astype(np.uint8),
+                        (w, h),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
+                mask_bin = (mask_data > 0).astype(np.uint8)
+                total = int(np.sum(mask_bin))
+                if total > 0:
+                    inside = int(np.sum(mask_bin & poly_mask))
+                    if inside / total < CLASSIFICATION_REGION_MIN_OVERLAP:
+                        continue
+            best_area = area
+            best_box = xyxy
 
         if best_box is None:
             return None

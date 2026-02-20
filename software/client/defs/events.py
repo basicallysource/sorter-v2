@@ -9,14 +9,18 @@ class CameraName(str, Enum):
     classification_top = "classification_top"
 
 
-class KnownObjectStatus(str, Enum):
+class PieceStage(str, Enum):
     created = "created"
+    distributing = "distributing"
+    distributed = "distributed"
+
+
+class ClassificationStatus(str, Enum):
+    pending = "pending"
     classifying = "classifying"
     classified = "classified"
     unknown = "unknown"
     not_found = "not_found"
-    distributing = "distributing"
-    distributed = "distributed"
 
 
 class HeartbeatData(BaseModel):
@@ -62,7 +66,8 @@ class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
     updated_at: float
-    status: KnownObjectStatus
+    stage: PieceStage
+    classification_status: ClassificationStatus
     part_id: Optional[str] = None
     category_id: Optional[str] = None
     confidence: Optional[float] = None

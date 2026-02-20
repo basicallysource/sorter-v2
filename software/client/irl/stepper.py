@@ -76,8 +76,10 @@ class Stepper:
         if decel_steps is None:
             decel_steps = self.default_decel_steps
         steps = int((deg / 360.0) * self.total_steps_per_rev)
+        queue_size = self.mcu.command_queue.qsize()
+        worker_alive = self.mcu.worker_thread.is_alive()
         self.gc.logger.info(
-            f"Stepper '{self.name}' rotating {deg}° ({steps} steps, delay={delay_us}us, accel_start={accel_start_delay_us}us, accel_steps={accel_steps}, decel_steps={decel_steps})"
+            f"Stepper '{self.name}' rotating {deg}° ({steps} steps, delay={delay_us}us, accel_start={accel_start_delay_us}us, accel_steps={accel_steps}, decel_steps={decel_steps}, pre_queue={queue_size}, worker_alive={worker_alive})"
         )
         self.mcu.command(
             "T",

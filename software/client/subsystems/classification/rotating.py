@@ -7,7 +7,6 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from utils.event import knownObjectToEvent
 
 if TYPE_CHECKING:
     from irl.stepper import Stepper
@@ -32,14 +31,44 @@ class Rotating(BaseState):
         self.event_queue = event_queue
         self.start_time: Optional[float] = None
         self.command_sent = False
+        self.wait_started_at: Optional[float] = None
+        self.last_wait_log_ms = 0.0
 
     def step(self) -> Optional[ClassificationState]:
         if not self.shared.distribution_ready:
+            if self.wait_started_at is None:
+                self.wait_started_at = time.time()
+                self.last_wait_log_ms = 0.0
+                self.logger.info(
+                    "Rotating: waiting for distribution_ready before sending carousel rotate"
+                )
+
+            waited_ms = (time.time() - self.wait_started_at) * 1000
+            if waited_ms - self.last_wait_log_ms >= 1000:
+                self.last_wait_log_ms = waited_ms
+                queue_size = self.stepper.mcu.command_queue.qsize()
+                worker_alive = self.stepper.mcu.worker_thread.is_alive()
+                self.logger.info(
+                    f"Rotating: still waiting for distribution_ready ({waited_ms:.0f}ms, mcu_queue={queue_size}, mcu_worker_alive={worker_alive})"
+                )
             return None
+
+        if self.wait_started_at is not None:
+            waited_ms = (time.time() - self.wait_started_at) * 1000
+            self.logger.info(
+                f"Rotating: distribution_ready after waiting {waited_ms:.0f}ms"
+            )
+            self.wait_started_at = None
+            self.last_wait_log_ms = 0.0
 
         if self.start_time is None:
             self.start_time = time.time()
+            queue_size = self.stepper.mcu.command_queue.qsize()
+            worker_alive = self.stepper.mcu.worker_thread.is_alive()
             self.logger.info("Rotating: starting rotation")
+            self.logger.info(
+                f"Rotating: enqueueing carousel rotate (mcu_queue={queue_size}, mcu_worker_alive={worker_alive})"
+            )
             self.stepper.rotate(-90.0)
             self.command_sent = True
 
@@ -55,26 +84,9 @@ class Rotating(BaseState):
         piece_at_exit = self.carousel.getPieceAtExit()
         if piece_at_exit is not None:
             self.logger.info(
-                f"Rotating: piece {piece_at_exit.uuid[:8]} dropped at exit"
+                f"Rotating: piece {piece_at_exit.uuid[:8]} ready at exit for distribution"
             )
             self.shared.distribution_ready = False
-
-        piece_at_intermediate = self.carousel.getPieceAtIntermediate()
-        if piece_at_intermediate is not None and (
-            piece_at_intermediate.part_id is not None
-            or piece_at_intermediate.status in ("unknown", "not_found")
-        ):
-            label = piece_at_intermediate.part_id or piece_at_intermediate.status
-            self.logger.info(
-                f"Rotating: piece {piece_at_intermediate.uuid[:8]} ({label}) at intermediate, queueing for distribution"
-            )
-            piece_at_intermediate.status = "distributing"
-            piece_at_intermediate.updated_at = time.time()
-            self.event_queue.put(knownObjectToEvent(piece_at_intermediate))
-            self.shared.distribution_ready = False
-            self.shared.pending_piece = piece_at_intermediate
-        else:
-            self.shared.pending_piece = None
 
         piece_at_class = self.carousel.getPieceAtClassification()
         if piece_at_class is not None:
@@ -91,3 +103,5 @@ class Rotating(BaseState):
         super().cleanup()
         self.start_time = None
         self.command_sent = False
+        self.wait_started_at = None
+        self.last_wait_log_ms = 0.0

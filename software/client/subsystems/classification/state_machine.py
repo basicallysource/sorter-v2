@@ -22,6 +22,7 @@ class ClassificationStateMachine(BaseSubsystem):
         vision: VisionManager,
         event_queue: queue.Queue,
         telemetry: Telemetry,
+        carousel: Carousel,
     ):
         super().__init__()
         self.irl = irl
@@ -30,7 +31,7 @@ class ClassificationStateMachine(BaseSubsystem):
         self.shared = shared
         self.vision = vision
         self.event_queue = event_queue
-        self.carousel = Carousel(gc.logger, event_queue)
+        self.carousel = carousel
         self.current_state = ClassificationState.IDLE
 
         self.states_map = {

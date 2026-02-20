@@ -7,6 +7,7 @@ from .states import DistributionState
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from utils.event import knownObjectToEvent
+from defs.known_object import PieceStage
 
 CHUTE_SETTLE_MS = 500
 
@@ -27,7 +28,8 @@ class Sending(BaseState):
 
     def step(self) -> Optional[DistributionState]:
         if self.piece is None:
-            self.piece = self.shared.pending_piece
+            carousel = self.shared.carousel
+            self.piece = carousel.getPieceAtExit() if carousel else None
             self.start_time = time.time()
 
         elapsed_ms = (time.time() - self.start_time) * 1000
@@ -38,10 +40,9 @@ class Sending(BaseState):
             if self.piece.destination_bin is not None:
                 layer_index = self.piece.destination_bin[0]
                 self.irl.servos[layer_index].open()
-            self.piece.status = "distributed"
+            self.piece.stage = PieceStage.distributed
             self.piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(self.piece))
-        self.shared.pending_piece = None
         self.shared.distribution_ready = True
         return DistributionState.IDLE
 

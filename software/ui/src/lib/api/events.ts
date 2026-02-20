@@ -6,14 +6,13 @@
 */
 
 export type CameraName = 'feeder' | 'classification_bottom' | 'classification_top';
-export type KnownObjectStatus =
-	| 'created'
+export type PieceStage = 'created' | 'distributing' | 'distributed';
+export type ClassificationStatus =
+	| 'pending'
 	| 'classifying'
 	| 'classified'
 	| 'unknown'
-	| 'not_found'
-	| 'distributing'
-	| 'distributed';
+	| 'not_found';
 
 export interface FrameData {
 	camera: CameraName;
@@ -51,7 +50,8 @@ export interface KnownObjectData {
 	uuid: string;
 	created_at: number;
 	updated_at: number;
-	status: KnownObjectStatus;
+	stage: PieceStage;
+	classification_status: ClassificationStatus;
 	part_id?: string | null;
 	category_id?: string | null;
 	confidence?: number | null;

@@ -22,6 +22,7 @@ class MCU:
         self.command_queue: queue.Queue = queue.Queue()
         self.running = True
         self.callbacks: dict[str, Callable] = {}
+        self.worker_dead_logged = False
 
         self.worker_thread = threading.Thread(target=self._processCommands, daemon=True)
         self.worker_thread.start()
@@ -33,11 +34,22 @@ class MCU:
 
     def command(self, *args) -> None:
         if self.running:
+            if not self.worker_thread.is_alive() and not self.worker_dead_logged:
+                self.gc.logger.error(
+                    "MCU command worker is not alive; queued commands will not be sent"
+                )
+                self.worker_dead_logged = True
+
             self.command_queue.put(args)
             queue_size = self.command_queue.qsize()
             if queue_size > 10:
                 self.gc.logger.warn(
                     f"MCU command queue size is large: {queue_size} commands pending"
+                )
+
+            if queue_size > 3 and len(args) > 0 and args[0] == "T":
+                self.gc.logger.warn(
+                    f"MCU stepper command queued with backlog: {queue_size} commands pending"
                 )
 
     def registerCallback(self, message_type: str, callback: Callable) -> None:
@@ -59,7 +71,9 @@ class MCU:
             except queue.Empty:
                 continue
             except Exception as e:
-                self.gc.logger.error(f"Error in command thread: {e}")
+                self.gc.logger.error(
+                    f"Error in command thread: {e} (queue_size={self.command_queue.qsize()})"
+                )
                 break
 
     def _readResponses(self) -> None:

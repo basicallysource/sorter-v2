@@ -1,5 +1,10 @@
 from defs.known_object import KnownObject
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from defs.events import (
+    KnownObjectEvent,
+    KnownObjectData,
+    PieceStage,
+    ClassificationStatus,
+)
 
 
 def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
@@ -9,7 +14,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             uuid=obj.uuid,
             created_at=obj.created_at,
             updated_at=obj.updated_at,
-            status=KnownObjectStatus(obj.status),
+            stage=PieceStage(obj.stage),
+            classification_status=ClassificationStatus(obj.classification_status),
             part_id=obj.part_id,
             category_id=obj.category_id,
             confidence=obj.confidence,

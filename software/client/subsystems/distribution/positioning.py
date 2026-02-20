@@ -10,6 +10,7 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 from sorting_profile import SortingProfile, MISC_CATEGORY
 from blob_manager import setBinCategories
+from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
 POSITION_DURATION_MS = 3000
@@ -38,9 +39,10 @@ class Positioning(BaseState):
     def step(self) -> Optional[DistributionState]:
         if self.start_time is None:
             self.start_time = time.time()
-            piece = self.shared.pending_piece
+            carousel = self.shared.carousel
+            piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
-                self.logger.warn("Positioning: no pending piece")
+                self.logger.warn("Positioning: no piece at intermediate")
                 return DistributionState.IDLE
 
             if piece.part_id is not None:
@@ -54,6 +56,7 @@ class Positioning(BaseState):
                 )
                 return DistributionState.IDLE
 
+            piece.stage = PieceStage.distributing
             piece.category_id = category_id
             piece.destination_bin = (
                 address.layer_index,

@@ -7,7 +7,7 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from utils.event import knownObjectToEvent
 
 if TYPE_CHECKING:
     from irl.stepper import Stepper
@@ -32,25 +32,6 @@ class Rotating(BaseState):
         self.event_queue = event_queue
         self.start_time: Optional[float] = None
         self.command_sent = False
-
-    def _emitObjectEvent(self, obj) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
 
     def step(self) -> Optional[ClassificationState]:
         if not self.shared.distribution_ready:
@@ -89,7 +70,7 @@ class Rotating(BaseState):
             )
             piece_at_intermediate.status = "distributing"
             piece_at_intermediate.updated_at = time.time()
-            self._emitObjectEvent(piece_at_intermediate)
+            self.event_queue.put(knownObjectToEvent(piece_at_intermediate))
             self.shared.distribution_ready = False
             self.shared.pending_piece = piece_at_intermediate
         else:

@@ -6,7 +6,7 @@ from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from utils.event import knownObjectToEvent
 
 CHUTE_SETTLE_MS = 500
 
@@ -25,25 +25,6 @@ class Sending(BaseState):
         self.piece = None
         self.start_time: float = 0.0
 
-    def _emitObjectEvent(self, obj) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
-
     def step(self) -> Optional[DistributionState]:
         if self.piece is None:
             self.piece = self.shared.pending_piece
@@ -56,7 +37,7 @@ class Sending(BaseState):
         if self.piece:
             self.piece.status = "distributed"
             self.piece.updated_at = time.time()
-            self._emitObjectEvent(self.piece)
+            self.event_queue.put(knownObjectToEvent(self.piece))
         self.shared.pending_piece = None
         self.shared.distribution_ready = True
         return DistributionState.IDLE

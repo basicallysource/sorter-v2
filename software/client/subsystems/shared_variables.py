@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from subsystems.classification.known_object import KnownObject
+    from defs.known_object import KnownObject
 
 
 class SharedVariables:

@@ -1,5 +1,4 @@
 from typing import Optional, TYPE_CHECKING
-import os
 import time
 import base64
 import queue
@@ -7,10 +6,10 @@ import cv2
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import ClassificationState
-from .carousel import Carousel, CLASSIFICATION_POSITION
+from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from utils.event import knownObjectToEvent
 from telemetry import Telemetry
 from classification import classify
 
@@ -59,25 +58,6 @@ class Snapping(BaseState):
         self.shared.classification_ready = True
         return ClassificationState.IDLE
 
-    def _emitObjectEvent(self, obj) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
-
     def _captureAndClassify(self) -> None:
         piece = self.carousel.getPieceAtClassification()
         if piece is None:
@@ -110,7 +90,7 @@ class Snapping(BaseState):
             )
             piece.status = "not_found"
             piece.updated_at = time.time()
-            self._emitObjectEvent(piece)
+            self.event_queue.put(knownObjectToEvent(piece))
             return
 
         # spencer todo: add back when there is constant run id per run, save in that blob dir
@@ -148,7 +128,7 @@ class Snapping(BaseState):
 
         piece.status = "classifying"
         piece.updated_at = time.time()
-        self._emitObjectEvent(piece)
+        self.event_queue.put(knownObjectToEvent(piece))
 
         self.carousel.markPendingClassification(piece)
 

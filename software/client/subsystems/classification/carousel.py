@@ -1,8 +1,8 @@
 from typing import Optional, Dict, List
 import time
 import queue
-from .known_object import KnownObject
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from defs.known_object import KnownObject
+from utils.event import knownObjectToEvent
 from logger import Logger
 
 NUM_PLATFORMS = 4
@@ -31,30 +31,11 @@ class Carousel:
             "[" + ", ".join(p.uuid[:8] if p else "empty" for p in self.platforms) + "]"
         )
 
-    def _emitObjectEvent(self, obj: KnownObject) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
-
     def addPieceAtFeeder(self) -> KnownObject:
         obj = KnownObject()
         self.platforms[FEEDER_POSITION] = obj
         self._log(f"added piece {obj.uuid[:8]} at feeder -> {self._platformSummary()}")
-        self._emitObjectEvent(obj)
+        self.event_queue.put(knownObjectToEvent(obj))
         return obj
 
     def rotate(self) -> Optional[KnownObject]:
@@ -92,7 +73,7 @@ class Carousel:
             self._log(
                 f"resolved {uuid[:8]} -> {part_id or 'unknown'}, {len(self.pending_classifications)} in flight"
             )
-            self._emitObjectEvent(obj)
+            self.event_queue.put(knownObjectToEvent(obj))
 
     def hasPieceAtFeeder(self) -> bool:
         return self.platforms[FEEDER_POSITION] is not None

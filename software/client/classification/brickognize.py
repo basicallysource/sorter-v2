@@ -6,6 +6,7 @@ import tempfile
 import time
 import requests
 import numpy as np
+import cv2
 from PIL import Image
 from global_config import GlobalConfig
 from .brickognize_types import BrickognizeResponse, BrickognizeItem
@@ -58,7 +59,8 @@ def _doClassify(
 
 
 def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
-    img = Image.fromarray(image)
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(rgb_image)
     img_bytes = io.BytesIO()
     img.save(img_bytes, format="JPEG")
     payload_bytes = img_bytes.getvalue()

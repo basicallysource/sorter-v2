@@ -52,9 +52,17 @@ class Coordinator:
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
 
     def step(self) -> None:
-        self.feeder.step()
-        self.classification.step()
-        self.distribution.step()
+        prof = self.gc.profiler
+        prof.hit("coordinator.step.calls")
+        prof.mark("coordinator.step.interval_ms")
+
+        with prof.timer("coordinator.step.total_ms"):
+            with prof.timer("coordinator.step.feeder_ms"):
+                self.feeder.step()
+            with prof.timer("coordinator.step.classification_ms"):
+                self.classification.step()
+            with prof.timer("coordinator.step.distribution_ms"):
+                self.distribution.step()
 
     def cleanup(self) -> None:
         self.feeder.cleanup()

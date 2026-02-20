@@ -3,6 +3,7 @@ import sys
 import argparse
 import uuid
 from logger import Logger
+from profiler import Profiler
 from blob_manager import getMachineId
 
 
@@ -109,17 +110,16 @@ class GlobalConfig:
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
-    should_profile_feeder: bool
     telemetry_enabled: bool
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
     use_segmentation_model_for_classification_chamber: bool
+    profiler: Profiler
 
     def __init__(self):
         self.debug_level = 0
         self.should_write_camera_feeds = False
-        self.should_profile_feeder = False
         self.log_buffer_size = 100
         self.disable_chute = False
         self.use_segmentation_model_for_classification_chamber = False
@@ -166,5 +166,9 @@ def mkGlobalConfig() -> GlobalConfig:
 
     telemetry = Telemetry(gc)
     gc.logger = Logger(gc.debug_level, gc.log_buffer_size, telemetry.uploadLogs)
+    gc.profiler = Profiler(
+        enabled=os.getenv("PROFILER_ENABLED", "0") == "1",
+        report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
+    )
 
     return gc

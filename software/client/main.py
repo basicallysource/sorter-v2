@@ -98,6 +98,8 @@ def main() -> None:
 
     try:
         while True:
+            gc.profiler.hit("main.loop.calls")
+            gc.profiler.mark("main.loop.interval_ms")
             try:
                 event = server_to_main_queue.get(block=False)
                 handleServerToMainEvent(gc, controller, irl, event)
@@ -123,12 +125,20 @@ def main() -> None:
                 current_time - last_frame_broadcast
                 >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
             ):
-                for frame_event in vision.getAllFrameEvents():
-                    main_to_server_queue.put(frame_event)
-                vision.recordFrames()
+                with gc.profiler.timer("main.loop.frame_broadcast_block_ms"):
+                    with gc.profiler.timer("main.loop.get_all_frame_events_ms"):
+                        frame_events = vision.getAllFrameEvents()
+                    gc.profiler.observeValue(
+                        "main.loop.frame_events_count", float(len(frame_events))
+                    )
+                    for frame_event in frame_events:
+                        main_to_server_queue.put(frame_event)
+                    with gc.profiler.timer("main.loop.record_frames_ms"):
+                        vision.recordFrames()
                 last_frame_broadcast = current_time
 
-            controller.step()
+            with gc.profiler.timer("main.loop.controller_step_ms"):
+                controller.step()
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:

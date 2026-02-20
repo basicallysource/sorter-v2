@@ -169,15 +169,27 @@ class VisionManager:
             self._video_recorder.close()
 
     def recordFrames(self) -> None:
-        # update feeding platform cache on every frame
-        self.updateFeedingPlatformCache()
+        prof = self.gc.profiler
+        prof.hit("vision.record_frames.calls")
+        with prof.timer("vision.record_frames.total_ms"):
+            # update feeding platform cache on every frame
+            with prof.timer("vision.record_frames.update_feeding_platform_cache_ms"):
+                self.updateFeedingPlatformCache()
 
-        if self._video_recorder:
-            for camera in ["feeder", "classification_bottom", "classification_top"]:
-                frame = self.getFrame(camera)
-                if frame:
-                    self._video_recorder.writeFrame(camera, frame.raw, frame.annotated)
-        self._saveTelemetryFrames()
+            if self._video_recorder:
+                with prof.timer("vision.record_frames.video_recorder_write_ms"):
+                    for camera in [
+                        "feeder",
+                        "classification_bottom",
+                        "classification_top",
+                    ]:
+                        frame = self.getFrame(camera)
+                        if frame:
+                            self._video_recorder.writeFrame(
+                                camera, frame.raw, frame.annotated
+                            )
+            with prof.timer("vision.record_frames.save_telemetry_frames_ms"):
+                self._saveTelemetryFrames()
 
     def _saveTelemetryFrames(self) -> None:
         if self._telemetry is None:
@@ -299,14 +311,21 @@ class VisionManager:
         return None
 
     def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
+        prof = self.gc.profiler
+        prof.hit("vision.get_feeder_aruco_tags.calls")
+        prof.mark("vision.get_feeder_aruco_tags.interval_ms")
+        prof.startTimer("vision.get_feeder_aruco_tags.total_ms")
         frame = self._feeder_capture.latest_frame
         if frame is None:
+            prof.endTimer("vision.get_feeder_aruco_tags.total_ms")
             return {}
 
         current_time = time.time()
-        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        with prof.timer("vision.get_feeder_aruco_tags.cvt_color_ms"):
+            gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
         detector = aruco.ArucoDetector(self._aruco_dict, self._aruco_params)
-        corners, ids, _ = detector.detectMarkers(gray)
+        with prof.timer("vision.get_feeder_aruco_tags.detect_markers_ms"):
+            corners, ids, _ = detector.detectMarkers(gray)
 
         result: Dict[int, Tuple[float, float]] = {}
         detected_ids = set()
@@ -330,9 +349,17 @@ class VisionManager:
                 if age_ms <= ARUCO_TAG_CACHE_MS:
                     result[tag_id] = position
 
+        prof.observeValue(
+            "vision.get_feeder_aruco_tags.detected_count", float(len(result))
+        )
+        prof.endTimer("vision.get_feeder_aruco_tags.total_ms")
         return result
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
+        prof = self.gc.profiler
+        prof.hit("vision.get_feeder_masks_by_class.calls")
+        prof.mark("vision.get_feeder_masks_by_class.interval_ms")
+        prof.startTimer("vision.get_feeder_masks_by_class.total_ms")
         # Really needs refactoring
         # This function only caches object masks across frames.
         # Channel and carousel masks are stationary so we always return current frame only.
@@ -349,18 +376,27 @@ class VisionManager:
                 if FEEDER_OBJECT_CLASS_ID not in aggregated:
                     aggregated[FEEDER_OBJECT_CLASS_ID] = []
                 aggregated[FEEDER_OBJECT_CLASS_ID].extend(object_masks)
+            prof.observeValue(
+                "vision.get_feeder_masks_by_class.cached_object_count",
+                float(len(aggregated.get(FEEDER_OBJECT_CLASS_ID, []))),
+            )
+            prof.endTimer("vision.get_feeder_masks_by_class.total_ms")
             return aggregated
 
         # process current frame
         current_frame_all_masks: Dict[int, List[DetectedMask]] = {}
         current_frame_object_masks: List[DetectedMask] = []
 
+        prof.startTimer("vision.get_feeder_masks_by_class.process_results_ms")
         for result in results:
             if result.masks is not None:
                 for i, mask in enumerate(result.masks):
                     class_id = int(result.boxes[i].cls.item())
                     confidence = float(result.boxes[i].conf.item())
-                    mask_data = mask.data[0].cpu().numpy()
+                    with prof.timer(
+                        "vision.get_feeder_masks_by_class.mask_cpu_numpy_ms"
+                    ):
+                        mask_data = mask.data[0].cpu().numpy()
 
                     # get track ID if available, otherwise use index
                     instance_id = i
@@ -373,17 +409,23 @@ class VisionManager:
                     camera_width = self._feeder_camera_config.width
 
                     if model_height != camera_height or model_width != camera_width:
-                        scaled_mask = cv2.resize(
-                            mask_data.astype(np.uint8),
-                            (camera_width, camera_height),
-                            interpolation=cv2.INTER_NEAREST,
-                        ).astype(bool)
+                        with prof.timer(
+                            "vision.get_feeder_masks_by_class.mask_resize_ms"
+                        ):
+                            scaled_mask = cv2.resize(
+                                mask_data.astype(np.uint8),
+                                (camera_width, camera_height),
+                                interpolation=cv2.INTER_NEAREST,
+                            ).astype(bool)
                     else:
                         scaled_mask = mask_data.astype(bool)
 
                     # filter out objects that are too large
                     if class_id == FEEDER_OBJECT_CLASS_ID:
-                        mask_area = np.sum(scaled_mask)
+                        with prof.timer(
+                            "vision.get_feeder_masks_by_class.mask_area_ms"
+                        ):
+                            mask_area = np.sum(scaled_mask)
                         if mask_area > OBJECT_DETECTION_MAX_AREA_SQ_PX:
                             continue  # skip this object, it's too large
 
@@ -401,6 +443,7 @@ class VisionManager:
                     # cache only object masks
                     if class_id == FEEDER_OBJECT_CLASS_ID:
                         current_frame_object_masks.append(detected_mask)
+        prof.endTimer("vision.get_feeder_masks_by_class.process_results_ms")
 
         # add only object masks to cache
         self._feeder_mask_cache.append(current_frame_object_masks)
@@ -418,13 +461,21 @@ class VisionManager:
         for object_masks in self._feeder_mask_cache:
             result_masks[FEEDER_OBJECT_CLASS_ID].extend(object_masks)
 
+        prof.observeValue(
+            "vision.get_feeder_masks_by_class.object_count",
+            float(len(result_masks.get(FEEDER_OBJECT_CLASS_ID, []))),
+        )
+        prof.endTimer("vision.get_feeder_masks_by_class.total_ms")
         return result_masks
 
     def getChannelGeometry(self, aruco_tag_config):
         from subsystems.feeder.analysis import computeChannelGeometry
 
-        aruco_tags = self.getFeederArucoTags()
-        return computeChannelGeometry(aruco_tags, aruco_tag_config)
+        prof = self.gc.profiler
+        prof.hit("vision.get_channel_geometry.calls")
+        with prof.timer("vision.get_channel_geometry.total_ms"):
+            aruco_tags = self.getFeederArucoTags()
+            return computeChannelGeometry(aruco_tags, aruco_tag_config)
 
     def getCarouselPlatforms(self):
         from irl.config import CarouselArucoTagConfig
@@ -742,6 +793,12 @@ class VisionManager:
         return expanded_corners
 
     def updateFeedingPlatformCache(self):
+        prof = self.gc.profiler
+        prof.hit("vision.update_feeding_platform_cache.calls")
+        with prof.timer("vision.update_feeding_platform_cache.total_ms"):
+            self._updateFeedingPlatformCacheInner()
+
+    def _updateFeedingPlatformCacheInner(self):
         platforms = self.getCarouselPlatforms()
         if not platforms:
             return
@@ -985,12 +1042,17 @@ class VisionManager:
         return frame.raw[y1:y2, x1:x2]
 
     def _encodeFrame(self, frame) -> str:
-        _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        return base64.b64encode(buffer).decode("utf-8")
+        with self.gc.profiler.timer("vision.encode_frame.imencode_ms"):
+            _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        with self.gc.profiler.timer("vision.encode_frame.base64_ms"):
+            return base64.b64encode(buffer).decode("utf-8")
 
     def getFrameEvent(self, camera_name: CameraName) -> Optional[FrameEvent]:
+        self.gc.profiler.hit(f"vision.get_frame_event.calls.{camera_name.value}")
+        self.gc.profiler.startTimer("vision.get_frame_event.total_ms")
         frame = self.getFrame(camera_name.value)
         if frame is None:
+            self.gc.profiler.endTimer("vision.get_frame_event.total_ms")
             return None
 
         results_data = [
@@ -1008,7 +1070,7 @@ class VisionManager:
             self._encodeFrame(frame.annotated) if frame.annotated is not None else None
         )
 
-        return FrameEvent(
+        event = FrameEvent(
             tag="frame",
             data=FrameData(
                 camera=camera_name,
@@ -1018,11 +1080,19 @@ class VisionManager:
                 results=results_data,
             ),
         )
+        self.gc.profiler.endTimer("vision.get_frame_event.total_ms")
+        return event
 
     def getAllFrameEvents(self) -> List[FrameEvent]:
+        self.gc.profiler.hit("vision.get_all_frame_events.calls")
+        self.gc.profiler.startTimer("vision.get_all_frame_events.total_ms")
         events = []
         for camera in CameraName:
             event = self.getFrameEvent(camera)
             if event:
                 events.append(event)
+        self.gc.profiler.observeValue(
+            "vision.get_all_frame_events.count", float(len(events))
+        )
+        self.gc.profiler.endTimer("vision.get_all_frame_events.total_ms")
         return events

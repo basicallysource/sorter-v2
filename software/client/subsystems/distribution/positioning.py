@@ -67,6 +67,7 @@ class Positioning(BaseState):
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self.chute.moveToBin(address)
+            self.irl.servos[address.layer_index].close()
             self.command_sent = True
 
         elapsed_ms = (time.time() - self.start_time) * 1000

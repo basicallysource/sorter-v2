@@ -7,11 +7,12 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
+from defs.known_object import ClassificationStatus
 
 if TYPE_CHECKING:
     from irl.stepper import Stepper
 
-ROTATE_DURATION_MS = 1000
+ROTATE_DURATION_MS = 3000
 
 
 class Rotating(BaseState):
@@ -35,7 +36,14 @@ class Rotating(BaseState):
         self.last_wait_log_ms = 0.0
 
     def step(self) -> Optional[ClassificationState]:
-        if not self.shared.distribution_ready:
+        piece_at_intermediate = self.carousel.getPieceAtIntermediate()
+        requires_distribution_ready = piece_at_intermediate is not None and (
+            piece_at_intermediate.part_id is not None
+            or piece_at_intermediate.classification_status
+            in (ClassificationStatus.unknown, ClassificationStatus.not_found)
+        )
+
+        if requires_distribution_ready and not self.shared.distribution_ready:
             if self.wait_started_at is None:
                 self.wait_started_at = time.time()
                 self.last_wait_log_ms = 0.0
@@ -53,11 +61,14 @@ class Rotating(BaseState):
                 )
             return None
 
-        if self.wait_started_at is not None:
+        if requires_distribution_ready and self.wait_started_at is not None:
             waited_ms = (time.time() - self.wait_started_at) * 1000
             self.logger.info(
                 f"Rotating: distribution_ready after waiting {waited_ms:.0f}ms"
             )
+            self.wait_started_at = None
+            self.last_wait_log_ms = 0.0
+        elif not requires_distribution_ready:
             self.wait_started_at = None
             self.last_wait_log_ms = 0.0
 

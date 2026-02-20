@@ -24,6 +24,21 @@ ARUCO_TAG_CACHE_MS = 100
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 
+ARUCO_TAG_DETECTION_PARAMS = {
+    "minMarkerPerimeterRate": 0.003,
+    "perspectiveRemovePixelPerCell": 4,
+    "perspectiveRemoveIgnoredMarginPerCell": 0.3,
+    "adaptiveThreshWinSizeMin": 3,
+    "adaptiveThreshWinSizeMax": 53,
+    "adaptiveThreshWinSizeStep": 4,
+    "errorCorrectionRate": 1.0,
+    "polygonalApproxAccuracyRate": 0.05,
+    "minDistanceToBorder": 3,
+    "maxErroneousBitsInBorderRate": 0.35,
+    "cornerRefinementMethod": 0,  # 0=none, 1=subpix, 2=contour, 3=apriltag
+    "cornerRefinementWinSize": 5,
+}
+
 
 class VisionManager:
     _irl_config: IRLConfig
@@ -82,17 +97,42 @@ class VisionManager:
         self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self._aruco_params = aruco.DetectorParameters()
         # tuned for small tags on a wide-angle lens
-        self._aruco_params.minMarkerPerimeterRate = (
-            0.01  # default 0.03, allows smaller tags
+        self._aruco_params.minMarkerPerimeterRate = ARUCO_TAG_DETECTION_PARAMS[
+            "minMarkerPerimeterRate"
+        ]
+        self._aruco_params.perspectiveRemovePixelPerCell = ARUCO_TAG_DETECTION_PARAMS[
+            "perspectiveRemovePixelPerCell"
+        ]
+        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = (
+            ARUCO_TAG_DETECTION_PARAMS["perspectiveRemoveIgnoredMarginPerCell"]
         )
-        self._aruco_params.perspectiveRemovePixelPerCell = (
-            8  # default 4, more robust to distortion
-        )
-        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.3  # default 0.13
-        self._aruco_params.adaptiveThreshWinSizeMin = 3
-        self._aruco_params.adaptiveThreshWinSizeMax = 53  # default 23
-        self._aruco_params.adaptiveThreshWinSizeStep = 4  # default 10
-        self._aruco_params.errorCorrectionRate = 1.0  # default 0.6
+        self._aruco_params.adaptiveThreshWinSizeMin = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeMin"
+        ]
+        self._aruco_params.adaptiveThreshWinSizeMax = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeMax"
+        ]
+        self._aruco_params.adaptiveThreshWinSizeStep = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeStep"
+        ]
+        self._aruco_params.errorCorrectionRate = ARUCO_TAG_DETECTION_PARAMS[
+            "errorCorrectionRate"
+        ]
+        self._aruco_params.polygonalApproxAccuracyRate = ARUCO_TAG_DETECTION_PARAMS[
+            "polygonalApproxAccuracyRate"
+        ]
+        self._aruco_params.minDistanceToBorder = ARUCO_TAG_DETECTION_PARAMS[
+            "minDistanceToBorder"
+        ]
+        self._aruco_params.maxErroneousBitsInBorderRate = ARUCO_TAG_DETECTION_PARAMS[
+            "maxErroneousBitsInBorderRate"
+        ]
+        self._aruco_params.cornerRefinementMethod = ARUCO_TAG_DETECTION_PARAMS[
+            "cornerRefinementMethod"
+        ]
+        self._aruco_params.cornerRefinementWinSize = ARUCO_TAG_DETECTION_PARAMS[
+            "cornerRefinementWinSize"
+        ]
         self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
 

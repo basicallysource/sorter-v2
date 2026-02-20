@@ -16,8 +16,6 @@ from classification import classify
 if TYPE_CHECKING:
     from vision import VisionManager
 
-# spencer todo: add back when there is constant run id per run, save in that blob dir
-# SNAP_DIR = "/tmp/sorter_snaps"
 SNAP_DELAY_MS = 2000
 
 
@@ -92,13 +90,6 @@ class Snapping(BaseState):
             piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(piece))
             return
-
-        # spencer todo: add back when there is constant run id per run, save in that blob dir
-        # cv2.imwrite(os.path.join(SNAP_DIR, f"{piece.uuid}_top_crop.jpg"), top_crop)
-        # cv2.imwrite(
-        #     os.path.join(SNAP_DIR, f"{piece.uuid}_bottom_crop.jpg"), bottom_crop
-        # )
-        # self.logger.info(f"Snapping: saved {piece.uuid[:8]} to {SNAP_DIR}")
 
         _, thumbnail_buffer = cv2.imencode(
             ".jpg", top_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]

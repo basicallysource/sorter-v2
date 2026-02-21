@@ -225,7 +225,11 @@ class MCUDevice:
         return self._bus.send_command(self._address, command, channel, payload)
 
     def ping(self, payload: bytes = b"") -> bytes:
-        """Send a ping command to the device to check if it's responsive."""
+        """Send a ping command and return the device's echoed payload bytes.
+
+        A successful response implies the device is responsive; the returned value
+        is the raw bytes payload echoed by the device.
+        """
         return self.send_command(BaseCommandCode.PING, 0, payload).payload
     
     def detect(self) -> dict:

@@ -216,16 +216,19 @@ class ServoMotor:
     def __init__(self, device: MCUDevice, channel: int):
         self._dev = device
         self._channel = channel
+        # Track enabled state locally; the firmware does not provide a GET for enabled.
+        self._enabled = False
     
     @property
     def enabled(self) -> bool:
-        res = self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, b'')
-        return bool(res.payload[0])
+        return self._enabled
     
     @enabled.setter
     def enabled(self, value: bool):
-        payload = struct.pack("<?", bool(value)) # 1 byte, boolean
+        bool_value = bool(value)
+        payload = struct.pack("<?", bool_value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
+        self._enabled = bool_value
     
     def move_to(self, position: int) -> bool:
         """Move the servo to a given position in tenths of degrees (0-1800 for 0-180 degrees)."""
@@ -236,7 +239,7 @@ class ServoMotor:
     @property
     def position(self) -> int:
         """Get the current position of the servo in tenths of degrees."""
-        res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO, self._channel, b'')
+        res = self._dev.send_command(InterfaceCommandCode.SERVO_GET_POSITION, self._channel, b'')
         return struct.unpack("<H", res.payload)[0] # 2 bytes, little-endian unsigned integer
     
     def stop(self):
@@ -275,9 +278,10 @@ class ServoMotor:
             raise ValueError("min_duty_us must be less than max_duty_us")
         if max_duty_us > 20000:
             raise ValueError("max_duty_us must be less than or equal to 20000 (20ms period)")
-        # Calculate the duty cycle as a value from 0 to 65535 based on a pulse frequency of 50Hz (20ms period).
-        min_duty = int((min_duty_us / 20000) * 65535)
-        max_duty = int((max_duty_us / 20000) * 65535)
+        # Convert pulse widths (in microseconds) to PCA9685 12-bit counts (0-4095)
+        # assuming a 20ms period (50Hz): counts = (pulse_us / 20000us) * 4095.
+        min_duty = int((min_duty_us / 20000.0) * 4095)
+        max_duty = int((max_duty_us / 20000.0) * 4095)
         payload = struct.pack("<HH", min_duty, max_duty)  # 4 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_DUTY_LIMITS, self._channel, payload)
     

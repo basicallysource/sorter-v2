@@ -730,10 +730,6 @@ class VisionManager:
             return
 
         reference_pos = np.array(aruco_tags[reference_tag_id])
-        self.gc.logger.info(
-            f"Comparing platforms to reference tag {reference_tag_id} "
-            f"at position ({reference_pos[0]:.1f}, {reference_pos[1]:.1f})"
-        )
 
         # find a valid platform within threshold distance of reference tag
         for platform in platforms:
@@ -746,11 +742,6 @@ class VisionManager:
 
                 # compute distance to reference tag
                 distance = np.linalg.norm(platform_center - reference_pos)
-
-                self.gc.logger.info(
-                    f"Platform {platform['platform_id']}: distance={distance:.1f}px "
-                    f"(threshold={CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX}px)"
-                )
 
                 # if within threshold, validate and update cache
                 if distance <= CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX:
@@ -768,33 +759,18 @@ class VisionManager:
 
                     # validate area is within acceptable range
                     if area > CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX:
-                        self.gc.logger.info(
-                            f"Platform {platform['platform_id']} area too large: {area:.1f}px² "
-                            f"(max={CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX}px²), skipping"
-                        )
                         continue
 
-                    # calculate and log corner angles on EXPANDED corners
+                    # calculate corner angles on expanded corners
                     angles_valid, corner_angles = self._validateCornerAngles(
                         expanded_corners, CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG
                     )
-                    angles_str = ", ".join([f"{a:.1f}°" for a in corner_angles])
-                    self.gc.logger.info(
-                        f"Platform {platform['platform_id']} internal angles: [{angles_str}]"
-                    )
 
                     if not angles_valid:
-                        self.gc.logger.info(
-                            f"Platform {platform['platform_id']} has invalid corner angles "
-                            f"(min={CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG}°), skipping"
-                        )
                         continue
 
                     self._cached_feeding_platform_corners = expanded_corners
                     self._cached_feeding_platform_timestamp = time.time()
-                    self.gc.logger.info(
-                        f"Cached feeding platform: area={area:.1f}px², corners={len(expanded_corners)}"
-                    )
                     return
 
     @property

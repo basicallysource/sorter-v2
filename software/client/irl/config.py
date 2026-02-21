@@ -100,10 +100,18 @@ class IRLInterface:
     def __init__(self):
         pass
 
-    def shutdownMotors(self) -> None:
+    def enableSteppers(self) -> None:
+        self.first_c_channel_rotor_stepper.enable()
+        self.second_c_channel_rotor_stepper.enable()
+        self.third_c_channel_rotor_stepper.enable()
+
+    def disableSteppers(self) -> None:
         self.first_c_channel_rotor_stepper.disable()
         self.second_c_channel_rotor_stepper.disable()
         self.third_c_channel_rotor_stepper.disable()
+
+    def shutdownMotors(self) -> None:
+        self.disableSteppers()
 
 
 def mkCameraConfig(

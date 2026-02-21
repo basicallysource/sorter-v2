@@ -125,3 +125,6 @@ class Stepper:
 
     def disable(self) -> None:
         self.mcu.command("D", self.enable_pin, 1)
+
+    def enable(self) -> None:
+        self.mcu.command("D", self.enable_pin, 0)

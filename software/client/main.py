@@ -173,7 +173,7 @@ def main() -> None:
 
         # Send motor shutdown commands and wait for them to complete
         gc.logger.info("Stopping all motors...")
-        irl.shutdownMotors()
+        irl.disableSteppers()
         irl.mcu.flush()
         irl.mcu.close()
         gc.logger.info("Cleanup complete")

@@ -173,7 +173,7 @@ TMC_UART_Bus tmc_bus(TMC_UART);
 
 template <size_t... I>
 static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I...>) {
-    return {TMC2209(&tmc_bus, I)...};
+    return {TMC2209(&tmc_bus, TMC_UART_ADDRESSES[I])...};
 }
 
 static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
@@ -210,6 +210,50 @@ int dump_configuration(char *buf, size_t buf_size) {
     return n_bytes;
 }
 
+// Expected GCONF value after TMC initialization.
+// Used to detect when TMC2209 chips power-cycle (24V toggled) and need re-init.
+static const uint32_t TMC_EXPECTED_GCONF = 0x1C0; // PD_DISABLE | MSTEP_REG_SELECT | MULTISTEP_FILT (no I_SCALE_ANALOG)
+static bool tmc_drivers_initialized = false;
+
+/** \brief Initialize (or re-initialize) all TMC2209 stepper drivers via UART.
+ *
+ * Sends GCONF, CHOPCONF, current, microstep, and StealthChop configuration.
+ * Safe to call multiple times (e.g., after 24V power comes on).
+ */
+void initialize_tmc_drivers() {
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        tmc_drivers[i].initialize();       // Writes GCONF + CHOPCONF directly (no read needed)
+        tmc_drivers[i].setCurrent(16, 0, 10);
+        tmc_drivers[i].setMicrosteps(MICROSTEP_8);
+        tmc_drivers[i].enableStealthChop(true);
+    }
+    tmc_drivers_initialized = true;
+}
+
+/** \brief Check if TMC2209 drivers need (re-)initialization.
+ *
+ * Reads GCONF from the first TMC2209. If the chip responds but has wrong config
+ * (e.g., just powered on with 24V), re-initializes all drivers.
+ * Called periodically from the main loop.
+ */
+void check_tmc_drivers() {
+    uint32_t gconf;
+    int result = tmc_drivers[0].readRegister(GCONF, &gconf);
+    if (result != 0) {
+        // TMC2209 not responding (no 24V power?) — nothing to do
+        tmc_drivers_initialized = false;
+        return;
+    }
+    if (gconf != TMC_EXPECTED_GCONF) {
+        // TMC2209 has default config — just powered on or was power-cycled
+        sleep_ms(10); // Wait for all chips to finish POR
+        initialize_tmc_drivers();
+    } else if (!tmc_drivers_initialized) {
+        // First successful read — TMC was already configured (shouldn't happen, but be safe)
+        tmc_drivers_initialized = true;
+    }
+}
+
 /** \brief Initialize all hardware components, including GPIOs, UART, stepper drivers, etc.
  *
  * This function is called once at startup to set up the hardware for operation. It configures the TMC2209 drivers,
@@ -220,18 +264,15 @@ int dump_configuration(char *buf, size_t buf_size) {
 void initialize_hardware() {
     // Initialize TMC UART bus
     tmc_bus.setupComm(TMC_UART_BAUDRATE, TMC_UART_TX_PIN, TMC_UART_RX_PIN);
-    // Initialize TMC2209 drivers and steppers
+    // Initialize stepper step/dir pins and motion parameters
     for (int i = 0; i < STEPPER_COUNT; i++) {
-        // tmc_drivers[i].enableDriver(true);
         steppers[i].initialize();
         steppers[i].setAcceleration(20000);
         steppers[i].setSpeedLimits(16, 4000);
-        tmc_drivers[i].initialize();
-        tmc_drivers[i].enableDriver(true);
-        tmc_drivers[i].setCurrent(31, 16, 10);
-        tmc_drivers[i].setMicrosteps(MICROSTEP_8);
-        tmc_drivers[i].enableStealthChop(true);
     }
+    // Try to initialize TMC2209 drivers (may fail if 24V not on yet — auto-retry in main loop)
+    sleep_ms(10);
+    initialize_tmc_drivers();
     // Global enable for stepper drivers
     for (int i = 0; i < STEPPER_COUNT; i++) {
         gpio_init(STEPPER_nEN_PINS[i]);
@@ -555,6 +596,7 @@ int main() {
     BusMessageProcessor msg_processor(DEVICE_ADDRESS, command_tables, [](const char *data, int length) {
         stdio_put_string(data, length, false, false);
     });
+    uint32_t last_tmc_check = 0;
     // Main loop, this deals with communications and high level command processing
     while (true) {
         // Read characters from USB if available and feed to the message processor
@@ -564,6 +606,13 @@ int main() {
                 break; // No more characters to read
             msg_processor.processIncomingData((char)c);
             msg_processor.processQueuedMessage();
+        }
+        // Periodically check if TMC2209 drivers need (re-)initialization.
+        // Handles: 24V turned on after boot, 24V power-cycled, etc.
+        uint32_t now = time_us_32();
+        if (now - last_tmc_check >= 1000000) { // Every ~1 second
+            last_tmc_check = now;
+            check_tmc_drivers();
         }
     }
 }

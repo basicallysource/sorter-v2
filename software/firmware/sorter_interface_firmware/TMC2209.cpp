@@ -24,21 +24,27 @@
 #include "TMC2209.h"
 
 TMC2209::TMC2209(class TMC_UART_Bus* bus, uint8_t address, uint32_t rsense_mohm)
-    : _bus(bus), _address(address), _rsense_mohm(rsense_mohm) {
+    : _bus(bus), _address(address), _rsense_mohm(rsense_mohm), _gconf(0) {
+    _chopconf.value = 0;
 }
 
 void TMC2209::initialize() {
-    uint32_t gconf = 0;
-    // Use external reference for current scaling
-    gconf |= TMC2209_GCONF_BITS::GCONF_I_SCALE_ANALOG;
-    // Disable PDN function (required for UART operation)
-    gconf |= TMC2209_GCONF_BITS::GCONF_PD_DISABLE;
-    // Use internal mres instead of MS pins for microstep resolution
-    gconf |= TMC2209_GCONF_BITS::GCONF_MSTEP_REG_SELECT;
-    // Enable filtering
-    gconf |= TMC2209_GCONF_BITS::GCONF_MULTISTEP_FILT;
-    _bus->writeRegister(_address, TMC2209_Register::GCONF, gconf);
-    setMicrosteps(MICROSTEP_16); // Default to 1/16 microstepping
+    _gconf = 0;
+    // Use internal current scaler (no I_SCALE_ANALOG — boards without VREF pots need this)
+    _gconf |= TMC2209_GCONF_BITS::GCONF_PD_DISABLE;        // Required for UART
+    _gconf |= TMC2209_GCONF_BITS::GCONF_MSTEP_REG_SELECT;  // Use MRES register for microsteps
+    _gconf |= TMC2209_GCONF_BITS::GCONF_MULTISTEP_FILT;     // Enable pulse filtering
+    _bus->writeRegister(_address, TMC2209_Register::GCONF, _gconf);
+
+    // CHOPCONF — direct write with sensible defaults
+    _chopconf.value = 0;
+    _chopconf.toff = 3;              // Enable driver (chopper on)
+    _chopconf.hstrt = 4;             // Hysteresis start (good default)
+    _chopconf.hend = 1;              // Hysteresis end
+    _chopconf.tbl = 2;               // Blank time = 24 clocks
+    _chopconf.mres = MICROSTEP_16;   // Default 1/16 microstepping
+    _chopconf.intpol = 1;            // Interpolate to 256 microsteps
+    _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, _chopconf.value);
 }
 
 
@@ -63,14 +69,8 @@ void TMC2209::setCurrent(uint8_t runCurrent, uint8_t holdCurrent, uint8_t holdDe
  *  \param microsteps The desired microstepping resolution (enum TMC2209_MICROSTEPS).
 */
 void TMC2209::setMicrosteps(enum TMC2209_Microstep microsteps) {
-    TMC2209ChopperConfig chopconf;
-    int res = _bus->readRegister(_address, TMC2209_Register::CHOPCONF, &chopconf.value);
-    if (res < 0) {
-        //XXX: Probably should handle read errors here, retry?
-        return;
-    }
-    chopconf.mres = microsteps;
-    _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, chopconf.value);
+    _chopconf.mres = microsteps;
+    _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, _chopconf.value);
 }
 
 
@@ -81,31 +81,15 @@ void TMC2209::setMicrosteps(enum TMC2209_Microstep microsteps) {
  *  \param enable True to enable StealthChop, false to disable.
 */
 void TMC2209::enableStealthChop(bool enable) {
-    uint32_t gconf;
-    int res = _bus->readRegister(_address, TMC2209_Register::GCONF, &gconf);
-    if (res < 0) {
-        //XXX: Probably should handle read errors here, retry?
-        return;
-    }
     if (!enable) {
-        gconf |= TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Enable SpreadCycle
+        _gconf |= TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE;
     } else {
-        gconf &= ~TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE; // Disable SpreadCycle (enable StealthChop)
+        _gconf &= ~TMC2209_GCONF_BITS::GCONF_EN_SPREADCYCLE;
     }
-    _bus->writeRegister(_address, TMC2209_Register::GCONF, gconf);
+    _bus->writeRegister(_address, TMC2209_Register::GCONF, _gconf);
 }
 
 void TMC2209::enableDriver(bool enable) {
-    TMC2209ChopperConfig chopconf;
-    int res = _bus->readRegister(_address, TMC2209_Register::CHOPCONF, &chopconf.value);
-    if (res < 0) {
-        //XXX: Probably should handle read errors here, retry?
-        return;
-    }
-    if (enable) {
-        chopconf.toff = 3; // Enable driver with toff=3
-    } else {
-        chopconf.toff = 0; // Disable driver with toff=0
-    }
-    _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, chopconf.value);
+    _chopconf.toff = enable ? 3 : 0;
+    _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, _chopconf.value);
 }

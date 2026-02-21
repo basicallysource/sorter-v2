@@ -123,6 +123,9 @@ private:
     TMC_UART_Bus* _bus;
     uint8_t _address;
     uint32_t _rsense_mohm;
+    // Shadow registers — tracks last written value so we can avoid fragile read-modify-write
+    uint32_t _gconf;
+    TMC2209ChopperConfig _chopconf;
 };
 
 #endif // TMC2209_H

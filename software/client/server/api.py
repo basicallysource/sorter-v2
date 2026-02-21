@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
+import logging
 import queue
 
 from defs.sorter_controller import SorterLifecycle
@@ -18,6 +19,8 @@ from defs.events import (
 from bricklink.api import getPartInfo
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
+from hardware.bus import MCUBus, MCUBusError
+from hardware.sorter_interface import SorterInterface
 
 app = FastAPI(title="Sorter API", version="0.0.1")
 app.add_middleware(
@@ -33,6 +36,12 @@ runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
 controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
+
+# Hardware debug state
+hardware_bus: Optional[MCUBus] = None
+hardware_interfaces: Dict[str, SorterInterface] = {}
+
+logger = logging.getLogger("hardware_api")
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -191,3 +200,361 @@ def resume() -> CommandResponse:
     event = ResumeCommandEvent(tag="resume", data=ResumeCommandData())
     command_queue.put(event)
     return CommandResponse(success=True)
+
+
+# --- Hardware Debug API ---
+
+
+def setHardwareInterfaces(bus: Optional[MCUBus], ifaces: Dict[str, SorterInterface]) -> None:
+    global hardware_bus, hardware_interfaces
+    hardware_bus = bus
+    hardware_interfaces = ifaces
+
+
+def _initHardware() -> Dict[str, SorterInterface]:
+    """Discover and initialize hardware interfaces."""
+    global hardware_bus, hardware_interfaces
+    hardware_interfaces = {}
+    ports = MCUBus.enumerate_buses()
+    if not ports:
+        logger.warning("No MCU buses found")
+        hardware_bus = None
+        return hardware_interfaces
+    hardware_bus = MCUBus(port=ports[0])
+    logger.info(f"Connected to bus on {ports[0]}")
+    devices = hardware_bus.scan_devices()
+    for addr in devices:
+        try:
+            iface = SorterInterface(hardware_bus, addr)
+            hardware_interfaces[iface.name] = iface
+            logger.info(f"Found interface: {iface.name} at address {addr}")
+        except Exception as e:
+            logger.error(f"Failed to init device at address {addr}: {e}")
+    return hardware_interfaces
+
+
+def _getInterface(name: str) -> SorterInterface:
+    if name not in hardware_interfaces:
+        raise HTTPException(status_code=404, detail=f"Device '{name}' not found")
+    return hardware_interfaces[name]
+
+
+# Models
+
+class HwDeviceInfo(BaseModel):
+    name: str
+    board_info: Dict[str, Any]
+    stepper_count: int
+    digital_input_count: int
+    digital_output_count: int
+
+
+class HwDevicesResponse(BaseModel):
+    devices: List[HwDeviceInfo]
+    bus_port: Optional[str]
+
+
+class HwStepperInfo(BaseModel):
+    channel: int
+    position: int
+    stopped: bool
+
+
+class HwDigitalInputInfo(BaseModel):
+    channel: int
+    value: bool
+
+
+class HwDigitalOutputInfo(BaseModel):
+    channel: int
+    value: bool
+
+
+class HwDeviceStatusResponse(BaseModel):
+    name: str
+    steppers: List[HwStepperInfo]
+    digital_inputs: List[HwDigitalInputInfo]
+    digital_outputs: List[HwDigitalOutputInfo]
+
+
+class HwCommandResult(BaseModel):
+    success: bool
+    error: Optional[str] = None
+
+
+class HwMoveRequest(BaseModel):
+    steps: int
+
+
+class HwSpeedRequest(BaseModel):
+    speed: int
+
+
+class HwSpeedLimitsRequest(BaseModel):
+    min_speed: int
+    max_speed: int
+
+
+class HwAccelerationRequest(BaseModel):
+    acceleration: int
+
+
+class HwPositionRequest(BaseModel):
+    position: int
+
+
+class HwMicrostepsRequest(BaseModel):
+    microsteps: int
+
+
+class HwCurrentRequest(BaseModel):
+    irun: int
+    ihold: int
+    ihold_delay: int
+
+
+class HwHomeRequest(BaseModel):
+    speed: int
+    pin: int
+    active_high: bool = True
+
+
+class HwDigitalWriteRequest(BaseModel):
+    value: bool
+
+
+# Endpoints
+
+@app.get("/hardware/devices", response_model=HwDevicesResponse)
+def hw_list_devices():
+    devices = []
+    for name, iface in hardware_interfaces.items():
+        devices.append(HwDeviceInfo(
+            name=name,
+            board_info=iface._board_info,
+            stepper_count=len(iface.steppers),
+            digital_input_count=len(iface.digital_inputs),
+            digital_output_count=len(iface.digital_outputs),
+        ))
+    return HwDevicesResponse(
+        devices=devices,
+        bus_port=hardware_bus._serial.port if hardware_bus else None,
+    )
+
+
+@app.post("/hardware/devices/rescan", response_model=HwDevicesResponse)
+def hw_rescan_devices():
+    _initHardware()
+    return hw_list_devices()
+
+
+@app.post("/hardware/devices/{name}/reboot-bootloader", response_model=HwCommandResult)
+def hw_reboot_bootloader(name: str):
+    iface = _getInterface(name)
+    try:
+        iface.reboot_to_bootloader()
+        return HwCommandResult(success=True)
+    except Exception as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.get("/hardware/devices/{name}/status", response_model=HwDeviceStatusResponse)
+def hw_device_status(name: str):
+    iface = _getInterface(name)
+    steppers = []
+    for s in iface.steppers:
+        try:
+            steppers.append(HwStepperInfo(channel=s.channel, position=s.position, stopped=s.stopped))
+        except MCUBusError:
+            steppers.append(HwStepperInfo(channel=s.channel, position=0, stopped=True))
+    digital_inputs = []
+    for d in iface.digital_inputs:
+        try:
+            digital_inputs.append(HwDigitalInputInfo(channel=d.channel, value=d.value))
+        except MCUBusError:
+            digital_inputs.append(HwDigitalInputInfo(channel=d.channel, value=False))
+    digital_outputs = []
+    for d in iface.digital_outputs:
+        digital_outputs.append(HwDigitalOutputInfo(channel=d.channel, value=d.value))
+    return HwDeviceStatusResponse(
+        name=name, steppers=steppers, digital_inputs=digital_inputs, digital_outputs=digital_outputs
+    )
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/move", response_model=HwCommandResult)
+def hw_stepper_move(name: str, channel: int, req: HwMoveRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].move_steps(req.steps)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/move-at-speed", response_model=HwCommandResult)
+def hw_stepper_move_at_speed(name: str, channel: int, req: HwSpeedRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].move_at_speed(req.speed)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/stop", response_model=HwCommandResult)
+def hw_stepper_stop(name: str, channel: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].move_steps(0)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/set-speed", response_model=HwCommandResult)
+def hw_stepper_set_speed(name: str, channel: int, req: HwSpeedLimitsRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].set_speed_limits(req.min_speed, req.max_speed)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/set-acceleration", response_model=HwCommandResult)
+def hw_stepper_set_acceleration(name: str, channel: int, req: HwAccelerationRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].set_acceleration(req.acceleration)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/set-position", response_model=HwCommandResult)
+def hw_stepper_set_position(name: str, channel: int, req: HwPositionRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].position = req.position
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/enable", response_model=HwCommandResult)
+def hw_stepper_enable(name: str, channel: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].enabled = True
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/disable", response_model=HwCommandResult)
+def hw_stepper_disable(name: str, channel: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].enabled = False
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/set-microsteps", response_model=HwCommandResult)
+def hw_stepper_set_microsteps(name: str, channel: int, req: HwMicrostepsRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].set_microsteps(req.microsteps)
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/set-current", response_model=HwCommandResult)
+def hw_stepper_set_current(name: str, channel: int, req: HwCurrentRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].set_current(req.irun, req.ihold, req.ihold_delay)
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/home", response_model=HwCommandResult)
+def hw_stepper_home(name: str, channel: int, req: HwHomeRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        result = iface.steppers[channel].home(req.speed, req.pin, req.active_high)
+        return HwCommandResult(success=result)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.get("/hardware/devices/{name}/digital-inputs/{channel}")
+def hw_read_digital_input(name: str, channel: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.digital_inputs):
+        raise HTTPException(status_code=404, detail=f"Digital input channel {channel} not found")
+    try:
+        return {"value": iface.digital_inputs[channel].value}
+    except MCUBusError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hardware/devices/{name}/digital-outputs/{channel}", response_model=HwCommandResult)
+def hw_write_digital_output(name: str, channel: int, req: HwDigitalWriteRequest):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.digital_outputs):
+        raise HTTPException(status_code=404, detail=f"Digital output channel {channel} not found")
+    try:
+        iface.digital_outputs[channel].value = req.value
+        return HwCommandResult(success=True)
+    except MCUBusError as e:
+        return HwCommandResult(success=False, error=str(e))
+
+
+@app.get("/hardware/devices/{name}/steppers/{channel}/read-register/{address}")
+def hw_stepper_read_register(name: str, channel: int, address: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        value = iface.steppers[channel].read_driver_register(address)
+        return {"value": value, "hex": f"0x{value:08X}"}
+    except MCUBusError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/hardware/devices/{name}/steppers/{channel}/write-register/{address}")
+def hw_stepper_write_register(name: str, channel: int, address: int, value: int):
+    iface = _getInterface(name)
+    if channel < 0 or channel >= len(iface.steppers):
+        raise HTTPException(status_code=404, detail=f"Stepper channel {channel} not found")
+    try:
+        iface.steppers[channel].write_driver_register(address, value)
+        return {"success": True}
+    except MCUBusError as e:
+        raise HTTPException(status_code=500, detail=str(e))

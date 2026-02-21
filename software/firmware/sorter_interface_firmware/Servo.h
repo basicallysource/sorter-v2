@@ -1,3 +1,4 @@
+#include <atomic>
 /*
  * Sorter Interface Firmware - Servo Motion Controller
  * Copyright (C) 2026 Jose I Romero
@@ -49,11 +50,11 @@ public:
     uint16_t getCurrentPosition() const { return _current_pos; }
     uint16_t getCurrentDuty() const { return _current_duty; }
 private:
-    ServoState _state;
-    int16_t _move_start_pos; // Position at the start of the current move, used for acceleration calculations
-    int16_t _current_pos, _current_pos_frac; // Current position, fractional part for acceleration calculations
-    int16_t _target_pos, _brake_pos; // Target position and point at which to start braking
-    int16_t _current_speed, _current_speed_frac; // Speed in units of position per second, fractional part for acceleration calculations
+    std::atomic<ServoState> _state;
+    std::atomic<int16_t> _move_start_pos; // Position at the start of the current move, used for acceleration calculations
+    std::atomic<int16_t> _current_pos, _current_pos_frac; // Current position, fractional part for acceleration calculations
+    std::atomic<int16_t> _target_pos, _brake_pos; // Target position and point at which to start braking
+    std::atomic<int16_t> _current_speed, _current_speed_frac; // Speed in units of position per second, fractional part for acceleration calculations
     int16_t _current_dir; // 1 = forward, -1 = reverse
     int16_t _max_speed, _min_speed;
     uint16_t _acceleration;

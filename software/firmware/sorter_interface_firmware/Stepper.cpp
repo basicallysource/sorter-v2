@@ -28,10 +28,10 @@
 Stepper::Stepper(int step_pin, int dir_pin)
     : _step_pin(step_pin), _dir_pin(dir_pin),
       _accel(10000), _max_speed(2000), _min_speed(16),
-      _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
+    _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
       _mc_dir(1), _mc_home_pin(-1),
-      _steps_moved(0), _steps_frac(0), _brake_distance(0),
-      _current_speed(0), _current_speed_frac(0), _current_dir(1) {
+    _steps_moved(0), _steps_frac(0), _brake_distance(0),
+    _current_speed(0), _current_speed_frac(0), _current_dir(1) {
 }
 
 void Stepper::initialize() {
@@ -66,7 +66,7 @@ bool Stepper::moveSteps(int32_t distance) {
     // Initialize motion state
     _current_speed = _min_speed; // Start from minimum speed
     _current_speed_frac = 0;
-    _current_dir = _mc_dir;
+    _current_dir.store(_mc_dir);
     _steps_moved = 0;
     _steps_frac = 0;
     _brake_distance = _mc_distance / 2; // Initially set braking point to half way (true if we never reach max speed)
@@ -86,7 +86,7 @@ bool Stepper::moveAtSpeed(int32_t speed) {
     _mc_home_pin = -1; // Abort homing if we were homing
     // Determine if the stepper needs to reverse direction, go faster or slower
     if (_state == STEPPER_STOPPED) {
-        _current_dir = _mc_dir;
+        _current_dir.store(_mc_dir);
         _current_speed = _min_speed; // Start from minimum speed
         _current_speed_frac = 0;
         _state = STEPPER_ACCELERATING;
@@ -177,7 +177,7 @@ void Stepper::motion_update_tick() {
             
             if ((_mc_speed > 0) && (_current_speed >= _mc_speed)) {
                 // Is speed move and reached target speed
-                _current_speed = _mc_speed;
+                _current_speed.store(_mc_speed.load());
                 _current_speed_frac = 0;
                 _state = STEPPER_CRUISING;
             } else if ((_mc_speed < 0) && (_current_speed >= _max_speed)) { 
@@ -219,7 +219,7 @@ void Stepper::motion_update_tick() {
                 // Check if we are reversing a speed move, in that case, flip the direction and accelerate!
                 if ((_mc_speed > 0) && (_current_dir != _mc_dir)) {
                     // Reached zero speed, now reverse direction
-                    _current_dir = _mc_dir;
+                    _current_dir.store(_mc_dir);
                     _steps_frac = -_steps_frac; // Invert fractional step counter to match new direction
                     _state = STEPPER_ACCELERATING;
                 } else if (_mc_speed == 0) {
@@ -232,7 +232,7 @@ void Stepper::motion_update_tick() {
             }
             // Reached target speed on a speed move? Cruise
             if ((_mc_speed > 0) && (_mc_dir == _current_dir) && (_current_speed >= _mc_speed)) {
-                _current_speed = _mc_speed;
+                _current_speed.store(_mc_speed.load());
                 _current_speed_frac = 0;
                 _state = STEPPER_CRUISING;
             }

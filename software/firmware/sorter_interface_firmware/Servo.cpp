@@ -24,9 +24,9 @@
 #include "Servo.h"
 
 Servo::Servo()
-    : _state(SERVO_DISABLED), _current_pos(0), _target_pos(0), _brake_pos(0),
-      _current_speed(0), _current_speed_frac(0), _max_speed(3750), _min_speed(50), _acceleration(100), _min_duty(102),
-      _max_duty(512), _current_duty(0) {
+        : _state(SERVO_DISABLED), _move_start_pos(0), _current_pos(0), _current_pos_frac(0), _target_pos(0), _brake_pos(0),
+            _current_speed(0), _current_speed_frac(0), _max_speed(3750), _min_speed(50), _acceleration(100), _min_duty(102),
+            _max_duty(512), _current_duty(0) {
 }
 
 /** \brief Move the servo to a specified position
@@ -60,7 +60,7 @@ bool Servo::moveTo(uint16_t position) {
     _current_speed = _min_speed;
     _current_speed_frac = 0;
     _current_dir = direction;
-    _move_start_pos = _current_pos;
+    _move_start_pos.store(_current_pos.load());
     // Start braking at the half way point between current and target position
     _brake_pos = _current_pos + distance / 2;
     _state = SERVO_ACCELERATING;
@@ -81,10 +81,10 @@ void Servo::update() {
     }
     // Check if we've reached or passed the target position and need to stop
     if (_current_dir > 0 && _current_pos >= _target_pos) {
-        _current_pos = _target_pos;
+        _current_pos.store(_target_pos.load());
         _state = SERVO_IDLE;
     } else if (_current_dir < 0 && _current_pos <= _target_pos) {
-        _current_pos = _target_pos;
+        _current_pos.store(_target_pos.load());
         _state = SERVO_IDLE;
     }
     // Update the PWM signal based on the current state and position

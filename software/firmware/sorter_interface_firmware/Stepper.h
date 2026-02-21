@@ -1,3 +1,4 @@
+#include <atomic>
 /*
  * Sorter Interface Firmware - Stepper Motion Controller Header
  * Copyright (C) 2017-2026 Jose I Romero
@@ -61,19 +62,20 @@ private:
     uint32_t _max_speed, _min_speed;
     
     // Last commanded state
-    StepperState _state;
-    int32_t _mc_distance; // Always positive, direction in _move_dir
-    int32_t _mc_speed; // Always positive, direction in _move_dir
+    std::atomic<StepperState> _state;
+    std::atomic<int32_t> _mc_distance; // Always positive, direction in _move_dir
+    std::atomic<int32_t> _mc_speed; // Always positive, direction in _move_dir
     int32_t _mc_dir; // 1 = forward, -1 = reverse
     int32_t _mc_home_pin; // Home switch pin, -1 if not homing
     bool _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
 
     // Internal state
-    int32_t _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
-    int32_t _brake_distance; // Distance required to brake to a stop from current speed, decision point for braking
-    int32_t _current_speed, _current_speed_frac; // Always positive, direction in _current_dir
-    int32_t _current_dir; // 1 = forward, -1 = reverse
-    int32_t _absolute_position;
+    std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
+    std::atomic<int32_t> _brake_distance; // Distance required to brake to a stop from current speed, decision point for braking
+    std::atomic<int32_t> _current_speed;
+    std::atomic<int32_t> _current_speed_frac;
+    std::atomic<int32_t> _current_dir; // 1 = forward, -1 = reverse
+    std::atomic<int32_t> _absolute_position;
 };
 
 #endif // STEPPER_H

@@ -185,7 +185,7 @@ static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence
 
 static auto steppers = make_stepper_array(std::make_index_sequence<STEPPER_COUNT>{});
 
-uint8_t SERVO_COUNT = 0; // Number of servos controlled by the PCA9685, should be <= 16
+std::atomic<uint8_t> SERVO_COUNT = 0; // Number of servos controlled by the PCA9685, should be <= 16
 PCA9685 servo_controller(SERVO_I2C_ADDRESS, I2C_PORT);
 std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first SERVO_COUNT will be used
 
@@ -206,7 +206,7 @@ int dump_configuration(char *buf, size_t buf_size) {
                  "{\"firmware_version\":\"1.0\",\"device_name\":\"%s\",\"device_address\":%d,"
                  "\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,"
                  "\"servo_count\":%d}",
-                 DEVICE_NAME, DEVICE_ADDRESS, STEPPER_COUNT, DIGITAL_INPUT_COUNT, DIGITAL_OUTPUT_COUNT, SERVO_COUNT);
+                 DEVICE_NAME, DEVICE_ADDRESS, STEPPER_COUNT, DIGITAL_INPUT_COUNT, DIGITAL_OUTPUT_COUNT, SERVO_COUNT.load());
     return n_bytes;
 }
 
@@ -228,7 +228,7 @@ void initialize_hardware() {
         steppers[i].setSpeedLimits(16, 4000);
         tmc_drivers[i].initialize();
         tmc_drivers[i].enableDriver(true);
-        tmc_drivers[i].setCurrent(31, 16, 10);
+        tmc_drivers[i].setCurrent(16, 4, 10);
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true);
     }

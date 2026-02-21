@@ -124,11 +124,10 @@ class StepperMotor:
         return struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
     
     @position.setter
-    def position(self, position: int) -> bool:
+    def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
         payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
-        res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
-        return bool(res.payload[0])
+        self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
     
     @property
     def position_degrees(self) -> float:

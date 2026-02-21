@@ -37,7 +37,7 @@ class SorterHardware:
         # Check all required boards are present
         required_boards = set()
         for mapping in (self._stepper_map, self._digital_input_map, self._digital_output_map):
-            required_boards.update(board for board, _ in mapping.values())
+            required_boards.update(board_name for board_name, _ in mapping.values())
         missing = required_boards - set(found_boards)
         if missing:
             raise RuntimeError(f"Missing required boards: {missing}")

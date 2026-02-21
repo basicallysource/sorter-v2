@@ -230,7 +230,7 @@ class MCUDevice:
     
     def detect(self) -> dict:
         """Send an init command to the device to check if it's responsive and properly initialized."""
-        res = self.send_command(BaseCommandCode.INIT, 0, b"") # Retursn a JSON string with device info if successful
+        res = self.send_command(BaseCommandCode.INIT, 0, b"") # Returns a JSON string with device info if successful
         info_str = res.payload.decode("utf-8")
         return json.loads(info_str)
 

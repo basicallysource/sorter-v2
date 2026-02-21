@@ -1,5 +1,5 @@
 /*
- * Sorter Interface Firmware - Stepper Motion Controller Header
+ * Sorter Interface Firmware - Stepper Motion Controller Implementation
  * Copyright (C) 2017-2026 Jose I Romero
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy

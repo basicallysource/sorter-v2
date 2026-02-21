@@ -421,7 +421,7 @@ void CMDH_stepper_drv_read_register(const BusMessage *msg, BusMessage *resp) {
     int result = tmc_drivers[msg->channel].readRegister(reg, &value);
     if (result != 0) {
         resp->command = msg->command | 0x80; // Set error bit
-        resp->payload_length = snprintf((char *)resp->payload, 246, "Failed to read register %d", reg);
+        resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "Failed to read register %d", reg);
         return;
     }
     memcpy(resp->payload, &value, sizeof(value));

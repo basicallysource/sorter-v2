@@ -43,7 +43,7 @@ enum TMC2209_Register {
     TSTEP       = 0x12,
     TPWMTHRS    = 0x13,
     VACTUAL     = 0x22,
-    // Stallguard Contrtol
+    // Stallguard Control
     TCOOLTHRS   = 0x14,
     SGTHRS      = 0x40,
     SG_RESULT   = 0x41,

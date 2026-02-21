@@ -4,6 +4,7 @@ import serial
 import time
 from serial.tools import list_ports
 from utils.pick_menu import pickMenu
+from blob_manager import getMcuPath, setMcuPath
 
 
 def listAvailableDevices() -> list[str]:
@@ -76,19 +77,45 @@ def autoDiscoverFeeder() -> str | None:
     return None
 
 
+def verifyDevice(device_path: str) -> bool:
+    try:
+        ser = serial.Serial(device_path, 115200, timeout=0.5)
+        time.sleep(2.0)
+        ser.reset_input_buffer()
+        ser.write(b"N\n")
+        time.sleep(0.2)
+        if ser.in_waiting > 0:
+            response = ser.readline().decode().strip()
+            ser.close()
+            return response == "feeder"
+        ser.close()
+    except (serial.SerialException, OSError):
+        pass
+    return False
+
+
 def discoverMCU() -> str:
     env_value = os.environ.get("MCU_PATH")
-
     if env_value:
         return env_value
+
+    cached_path = getMcuPath()
+    if cached_path:
+        print(f"Trying cached MCU path {cached_path}...")
+        if verifyDevice(cached_path):
+            print(f"Verified feeder at {cached_path}")
+            return cached_path
+        print("Cached path didn't respond, falling back to auto-discovery...")
 
     print("Auto-discovering feeder MCU...")
     mcu_path = autoDiscoverFeeder()
 
     if mcu_path:
         print(f"Found feeder at {mcu_path}")
+        setMcuPath(mcu_path)
         return mcu_path
 
     print("Auto-discovery failed. Please select device manually:")
     mcu_path = promptForDevice("MCU", "MCU_PATH")
+    setMcuPath(mcu_path)
     return mcu_path

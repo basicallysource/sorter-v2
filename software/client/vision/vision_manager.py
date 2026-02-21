@@ -23,6 +23,24 @@ ANNOTATE_ARUCO_TAGS = True
 ARUCO_TAG_CACHE_MS = 100
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
+CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
+CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 10000
+CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
+
+ARUCO_TAG_DETECTION_PARAMS = {
+    "minMarkerPerimeterRate": 0.003,
+    "perspectiveRemovePixelPerCell": 4,
+    "perspectiveRemoveIgnoredMarginPerCell": 0.3,
+    "adaptiveThreshWinSizeMin": 3,
+    "adaptiveThreshWinSizeMax": 53,
+    "adaptiveThreshWinSizeStep": 4,
+    "errorCorrectionRate": 1.0,
+    "polygonalApproxAccuracyRate": 0.05,
+    "minDistanceToBorder": 3,
+    "maxErroneousBitsInBorderRate": 0.35,
+    "cornerRefinementMethod": 0,  # 0=none, 1=subpix, 2=contour, 3=apriltag
+    "cornerRefinementWinSize": 5,
+}
 
 
 class VisionManager:
@@ -82,19 +100,48 @@ class VisionManager:
         self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self._aruco_params = aruco.DetectorParameters()
         # tuned for small tags on a wide-angle lens
-        self._aruco_params.minMarkerPerimeterRate = (
-            0.01  # default 0.03, allows smaller tags
+        self._aruco_params.minMarkerPerimeterRate = ARUCO_TAG_DETECTION_PARAMS[
+            "minMarkerPerimeterRate"
+        ]
+        self._aruco_params.perspectiveRemovePixelPerCell = ARUCO_TAG_DETECTION_PARAMS[
+            "perspectiveRemovePixelPerCell"
+        ]
+        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = (
+            ARUCO_TAG_DETECTION_PARAMS["perspectiveRemoveIgnoredMarginPerCell"]
         )
-        self._aruco_params.perspectiveRemovePixelPerCell = (
-            8  # default 4, more robust to distortion
-        )
-        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.3  # default 0.13
-        self._aruco_params.adaptiveThreshWinSizeMin = 3
-        self._aruco_params.adaptiveThreshWinSizeMax = 53  # default 23
-        self._aruco_params.adaptiveThreshWinSizeStep = 4  # default 10
-        self._aruco_params.errorCorrectionRate = 1.0  # default 0.6
+        self._aruco_params.adaptiveThreshWinSizeMin = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeMin"
+        ]
+        self._aruco_params.adaptiveThreshWinSizeMax = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeMax"
+        ]
+        self._aruco_params.adaptiveThreshWinSizeStep = ARUCO_TAG_DETECTION_PARAMS[
+            "adaptiveThreshWinSizeStep"
+        ]
+        self._aruco_params.errorCorrectionRate = ARUCO_TAG_DETECTION_PARAMS[
+            "errorCorrectionRate"
+        ]
+        self._aruco_params.polygonalApproxAccuracyRate = ARUCO_TAG_DETECTION_PARAMS[
+            "polygonalApproxAccuracyRate"
+        ]
+        self._aruco_params.minDistanceToBorder = ARUCO_TAG_DETECTION_PARAMS[
+            "minDistanceToBorder"
+        ]
+        self._aruco_params.maxErroneousBitsInBorderRate = ARUCO_TAG_DETECTION_PARAMS[
+            "maxErroneousBitsInBorderRate"
+        ]
+        self._aruco_params.cornerRefinementMethod = ARUCO_TAG_DETECTION_PARAMS[
+            "cornerRefinementMethod"
+        ]
+        self._aruco_params.cornerRefinementWinSize = ARUCO_TAG_DETECTION_PARAMS[
+            "cornerRefinementWinSize"
+        ]
         self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
+        self._cached_feeding_platform_corners: Optional[List[Tuple[float, float]]] = (
+            None
+        )
+        self._cached_feeding_platform_timestamp: float = 0.0
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -114,6 +161,9 @@ class VisionManager:
             self._video_recorder.close()
 
     def recordFrames(self) -> None:
+        # update feeding platform cache on every frame
+        self.updateFeedingPlatformCache()
+
         if self._video_recorder:
             for camera in ["feeder", "classification_bottom", "classification_top"]:
                 frame = self.getFrame(camera)
@@ -407,7 +457,7 @@ class VisionManager:
 
                     # pick the candidate that forms the most rectangular shape
                     # by checking which has the most similar opposite side lengths
-                    best_candidate = None
+                    best_candidate = candidates[0]
                     best_score = float("inf")
 
                     for candidate in candidates:
@@ -597,61 +647,75 @@ class VisionManager:
         return annotated
 
     def _annotateCarouselPlatforms(self, annotated: np.ndarray) -> np.ndarray:
-        platforms = self.getCarouselPlatforms()
-        if not platforms:
+        corners = self.feeding_platform_corners
+        if corners is None:
             return annotated
 
         annotated = annotated.copy()
 
-        # colors for each platform (bright cyan, bright yellow, bright green, bright orange)
-        platform_colors = [
-            (255, 255, 0),  # cyan
-            (0, 255, 255),  # yellow
-            (0, 255, 0),  # green
-            (0, 165, 255),  # orange
-        ]
+        # draw feeding platform in bright cyan
+        color = (255, 255, 0)
+        points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+        cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
 
-        for platform in platforms:
-            platform_id = platform["platform_id"]
-            corners = platform["corners"]
-            color = platform_colors[platform_id % len(platform_colors)]
-
-            # draw square connecting all corners (will be 4 corners, some may be inferred)
-            points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
-            cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
-
-            # draw platform label
-            center_x = int(np.mean([x for x, y in corners]))
-            center_y = int(np.mean([y for x, y in corners]))
-            cv2.putText(
-                annotated,
-                f"P{platform_id}",
-                (center_x - 15, center_y + 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                color,
-                2,
-            )
+        # draw platform label
+        center_x = int(np.mean([x for x, y in corners]))
+        center_y = int(np.mean([y for x, y in corners]))
+        cv2.putText(
+            annotated,
+            "FEED",
+            (center_x - 20, center_y + 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            color,
+            2,
+        )
 
         return annotated
 
-    def getFeederPlatform(self):
+    def _expandRectanglePerimeter(
+        self, corners: List[Tuple[float, float]], expansion_px: float
+    ) -> List[Tuple[float, float]]:
+        # convert corners to numpy array
+        corners_array = np.array(corners)
+
+        # find rectangle center
+        center = np.mean(corners_array, axis=0)
+
+        # expand each corner outward from center
+        expanded_corners = []
+        for corner in corners_array:
+            # direction from center to corner
+            direction = corner - center
+            distance = np.linalg.norm(direction)
+            if distance > 0:
+                direction = direction / distance  # normalize
+                # move corner outward by expansion amount
+                expanded_corner = corner + direction * expansion_px
+                expanded_corners.append(tuple(expanded_corner))
+            else:
+                expanded_corners.append(tuple(corner))
+
+        return expanded_corners
+
+    def updateFeedingPlatformCache(self):
         platforms = self.getCarouselPlatforms()
         if not platforms:
-            return None
+            return
 
         aruco_tags = self.getFeederArucoTags()
         reference_tag_id = self._irl_config.aruco_tags.third_c_channel_radius1_id
 
         if reference_tag_id not in aruco_tags:
-            return None
+            return
 
         reference_pos = np.array(aruco_tags[reference_tag_id])
+        self.gc.logger.info(
+            f"Comparing platforms to reference tag {reference_tag_id} "
+            f"at position ({reference_pos[0]:.1f}, {reference_pos[1]:.1f})"
+        )
 
-        # find platform closest to reference tag
-        closest_platform = None
-        min_distance = float("inf")
-
+        # find a valid platform within threshold distance of reference tag
         for platform in platforms:
             corners = platform["corners"]
             if len(corners) >= 3:
@@ -663,15 +727,35 @@ class VisionManager:
                 # compute distance to reference tag
                 distance = np.linalg.norm(platform_center - reference_pos)
 
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_platform = platform
+                self.gc.logger.info(
+                    f"Platform {platform['platform_id']}: distance={distance:.1f}px "
+                    f"(threshold={CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX}px)"
+                )
 
-        return closest_platform
+                # if within threshold, expand and update cache
+                if distance <= CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX:
+                    expanded_corners = self._expandRectanglePerimeter(
+                        corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX
+                    )
+                    self._cached_feeding_platform_corners = expanded_corners
+                    self._cached_feeding_platform_timestamp = time.time()
+                    return
+
+    @property
+    def feeding_platform_corners(self) -> Optional[List[Tuple[float, float]]]:
+        if self._cached_feeding_platform_corners is None:
+            return None
+
+        # check if cache is too old
+        age_ms = (time.time() - self._cached_feeding_platform_timestamp) * 1000
+        if age_ms > CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS:
+            return None
+
+        return self._cached_feeding_platform_corners
 
     def isObjectOnCarouselPlatform(self, object_mask: np.ndarray) -> bool:
-        feeder_platform = self.getFeederPlatform()
-        if not feeder_platform:
+        corners = self.feeding_platform_corners
+        if corners is None:
             return False
 
         # get object center of mass
@@ -683,8 +767,7 @@ class VisionManager:
         center_x = int(np.mean(coords[:, 1]))
         point = (center_x, center_y)
 
-        # check if object center is inside the feeder platform polygon
-        corners = feeder_platform["corners"]
+        # check if object center is inside the cached feeding platform polygon
         if len(corners) >= 3:
             points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
             # use cv2.pointPolygonTest to check if point is inside polygon

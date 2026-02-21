@@ -80,6 +80,17 @@ def setBinCategories(categories: list[list[list[str | None]]]) -> None:
     saveData(data)
 
 
+def getMcuPath() -> str | None:
+    data = loadData()
+    return data.get("mcu_path")
+
+
+def setMcuPath(path: str) -> None:
+    data = loadData()
+    data["mcu_path"] = path
+    saveData(data)
+
+
 def getCameraSetup() -> dict | None:
     data = loadData()
     return data.get("camera_setup")

@@ -6,6 +6,8 @@ uart_inst_t* const TMC_UART = uart0;
 const int TMC_UART_TX_PIN = 16;
 const int TMC_UART_RX_PIN = 17;
 const int TMC_UART_BAUDRATE = 400000;
+// TMC2209 UART slave addresses per channel (sequential on Basically board)
+const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3};
 
 const int STEPPER_nEN_PINS[] = {0, 0, 0, 0};
 

@@ -10,11 +10,7 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 from sorting_profile import SortingProfile, MISC_CATEGORY
 from blob_manager import setBinCategories
-from defs.events import (
-    KnownObjectEvent,
-    KnownObjectData,
-    KnownObjectStatus,
-)
+from utils.event import knownObjectToEvent
 
 POSITION_DURATION_MS = 3000
 
@@ -38,25 +34,6 @@ class Positioning(BaseState):
         self.event_queue = event_queue
         self.start_time: Optional[float] = None
         self.command_sent = False
-
-    def _emitObjectEvent(self, obj) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
 
     def step(self) -> Optional[DistributionState]:
         if self.start_time is None:
@@ -84,7 +61,7 @@ class Positioning(BaseState):
                 address.bin_index,
             )
             piece.updated_at = time.time()
-            self._emitObjectEvent(piece)
+            self.event_queue.put(knownObjectToEvent(piece))
 
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"

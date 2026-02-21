@@ -7,7 +7,7 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from defs.events import KnownObjectEvent, KnownObjectData, KnownObjectStatus
+from utils.event import knownObjectToEvent
 
 if TYPE_CHECKING:
     from irl.stepper import Stepper
@@ -33,25 +33,6 @@ class Rotating(BaseState):
         self.start_time: Optional[float] = None
         self.command_sent = False
 
-    def _emitObjectEvent(self, obj) -> None:
-        event = KnownObjectEvent(
-            tag="known_object",
-            data=KnownObjectData(
-                uuid=obj.uuid,
-                created_at=obj.created_at,
-                updated_at=obj.updated_at,
-                status=KnownObjectStatus(obj.status),
-                part_id=obj.part_id,
-                category_id=obj.category_id,
-                confidence=obj.confidence,
-                destination_bin=obj.destination_bin,
-                thumbnail=obj.thumbnail,
-                top_image=obj.top_image,
-                bottom_image=obj.bottom_image,
-            ),
-        )
-        self.event_queue.put(event)
-
     def step(self) -> Optional[ClassificationState]:
         if not self.shared.distribution_ready:
             return None
@@ -72,19 +53,26 @@ class Rotating(BaseState):
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
 
         piece_at_exit = self.carousel.getPieceAtExit()
-        if piece_at_exit is not None and (
-            piece_at_exit.part_id is not None
-            or piece_at_exit.status in ("unknown", "not_found")
-        ):
-            label = piece_at_exit.part_id or piece_at_exit.status
+        if piece_at_exit is not None:
             self.logger.info(
-                f"Rotating: piece {piece_at_exit.uuid[:8]} ({label}) now at exit, queueing for distribution"
+                f"Rotating: piece {piece_at_exit.uuid[:8]} dropped at exit"
             )
-            piece_at_exit.status = "distributing"
-            piece_at_exit.updated_at = time.time()
-            self._emitObjectEvent(piece_at_exit)
             self.shared.distribution_ready = False
-            self.shared.pending_piece = piece_at_exit
+
+        piece_at_intermediate = self.carousel.getPieceAtIntermediate()
+        if piece_at_intermediate is not None and (
+            piece_at_intermediate.part_id is not None
+            or piece_at_intermediate.status in ("unknown", "not_found")
+        ):
+            label = piece_at_intermediate.part_id or piece_at_intermediate.status
+            self.logger.info(
+                f"Rotating: piece {piece_at_intermediate.uuid[:8]} ({label}) at intermediate, queueing for distribution"
+            )
+            piece_at_intermediate.status = "distributing"
+            piece_at_intermediate.updated_at = time.time()
+            self.event_queue.put(knownObjectToEvent(piece_at_intermediate))
+            self.shared.distribution_ready = False
+            self.shared.pending_piece = piece_at_intermediate
         else:
             self.shared.pending_piece = None
 

@@ -44,15 +44,32 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         time.sleep(0.01)
 
     while True:
-        try:
-            command = main_to_server_queue.get(block=False)
+        latest_frame_commands = {}
+        pending_commands = []
+
+        while True:
+            try:
+                command = main_to_server_queue.get(block=False)
+            except queue.Empty:
+                break
+
+            if command.tag == "frame":
+                latest_frame_commands[command.data.camera] = command
+            else:
+                pending_commands.append(command)
+
+        pending_commands.extend(latest_frame_commands.values())
+
+        for command in pending_commands:
             if command.tag != "frame" and command.tag != "heartbeat":
                 gc.logger.info(f"broadcasting {command.tag} event")
-            asyncio.run_coroutine_threadsafe(
+            future = asyncio.run_coroutine_threadsafe(
                 broadcastEvent(command.model_dump()), api.server_loop
             )
-        except queue.Empty:
-            pass
+            try:
+                future.result(timeout=1.0)
+            except Exception:
+                pass
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 

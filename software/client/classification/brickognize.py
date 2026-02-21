@@ -1,9 +1,6 @@
 from typing import Callable, Optional, cast
 import threading
 import io
-import os
-import tempfile
-import time
 import requests
 import numpy as np
 import cv2
@@ -13,9 +10,6 @@ from .brickognize_types import BrickognizeResponse, BrickognizeItem
 
 API_URL = "https://api.brickognize.com/predict/"
 FILTER_CATEGORIES = ["primo", "duplo"]
-# TEMP DEBUG SAVE START
-BRICKOGNIZE_TEMP_DIR_NAME = "brickognize_crops"
-# TEMP DEBUG SAVE END
 
 
 def classify(
@@ -64,9 +58,6 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
     img_bytes = io.BytesIO()
     img.save(img_bytes, format="JPEG")
     payload_bytes = img_bytes.getvalue()
-    # TEMP DEBUG SAVE START
-    _saveTempCrop(payload_bytes)
-    # TEMP DEBUG SAVE END
 
     files = {"query_image": ("image.jpg", io.BytesIO(payload_bytes), "image/jpeg")}
     headers = {"accept": "application/json"}
@@ -81,20 +72,6 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
         if not any(f in item["category"].lower() for f in FILTER_CATEGORIES)
     ]
     return result
-
-
-# TEMP DEBUG SAVE START
-def _saveTempCrop(payload_bytes: bytes) -> None:
-    temp_dir = os.path.join(tempfile.gettempdir(), BRICKOGNIZE_TEMP_DIR_NAME)
-    os.makedirs(temp_dir, exist_ok=True)
-    file_name = f"crop_{time.time_ns()}.jpg"
-    file_path = os.path.join(temp_dir, file_name)
-    with open(file_path, "wb") as f:
-        f.write(payload_bytes)
-    print(f"saved temp crop {file_name} to {file_path}")
-
-
-# TEMP DEBUG SAVE END
 
 
 def _pickBestItem(

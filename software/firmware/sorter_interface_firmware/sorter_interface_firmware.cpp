@@ -115,14 +115,14 @@ bool VAL_servo_channel(uint8_t channel);
 const struct CommandTable servoCmdTable = {
     .prefix = "SERVO",
     .commands = {{
-        {"MOVE_TO", "I", "?", 4, VAL_servo_channel, CMDH_servo_move_to},
-        {"SET_SPEED_LIMITS", "II", "", 8, VAL_servo_channel, CMDH_servo_set_speed_limits},
-        {"SET_ACCELERATION", "I", "", 4, VAL_servo_channel, CMDH_servo_set_acceleration},
-        {"GET_POSITION", "", "I", 0, VAL_servo_channel, CMDH_servo_get_position},
+        {"MOVE_TO", "H", "?", 2, VAL_servo_channel, CMDH_servo_move_to},
+        {"SET_SPEED_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_speed_limits},
+        {"SET_ACCELERATION", "H", "", 2, VAL_servo_channel, CMDH_servo_set_acceleration},
+        {"GET_POSITION", "", "H", 0, VAL_servo_channel, CMDH_servo_get_position},
         {"IS_STOPPED", "", "?", 0, VAL_servo_channel, CMDH_servo_is_stopped},
         {"STOP", "", "", 0, VAL_servo_channel, CMDH_servo_stop},
         {"SET_ENABLED", "?", "", 1, VAL_servo_channel, CMDH_servo_set_enabled},
-        {"SET_DUTY_LIMITS", "II", "", 8, VAL_servo_channel, CMDH_servo_set_duty_limits},
+        {"SET_DUTY_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_duty_limits},
     }}};
 
 const MasterCommandTable command_tables = {
@@ -453,7 +453,7 @@ void CMDH_servo_set_speed_limits(const BusMessage *msg, BusMessage *resp) {
 }
 
 void CMDH_servo_set_acceleration(const BusMessage *msg, BusMessage *resp) {
-    uint32_t acceleration;
+    uint16_t acceleration;
     memcpy(&acceleration, msg->payload, sizeof(acceleration));
     servos[msg->channel].setAcceleration(acceleration);
     resp->payload_length = 0;

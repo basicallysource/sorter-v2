@@ -76,45 +76,86 @@ class StepperMotor:
     def __init__(self, device: MCUDevice, channel: int):
         self._dev = device
         self._channel = channel
+        self._steps_per_revolution = 200
+        self._microsteps = 16
+
+    def move_degrees(self, degrees: float) -> bool:
+        """
+        Move the stepper by a given number of degrees (positive or negative).
+        Uses steps_per_revolution to calculate the number of steps.
+        """
+        steps = int(round((degrees / 360.0) * self._steps_per_revolution * self._microsteps))
+        return self.move_steps(steps)
     
     def move_steps(self, steps: int) -> bool:
+        """Move the stepper by a given number of microsteps (positive or negative)."""
         payload = struct.pack("<i", steps) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         return bool(res.payload[0])
     
     def move_at_speed(self, speed: int) -> bool:
+        """Move the stepper at a given speed in microsteps per second."""
         payload = struct.pack("<i", speed) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         return bool(res.payload[0])
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> bool:
+        """Set the minimum and maximum speed for the stepper in microsteps per second."""
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
         return bool(res.payload[0])
     
     def set_acceleration(self, acceleration: int) -> bool:
+        """Set the acceleration for the stepper in microsteps per second squared."""
         payload = struct.pack("<I", acceleration) # 4 bytes, little-endian unsigned integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
         return bool(res.payload[0])
     
     @property
     def stopped(self) -> bool:
+        """Check if the stepper is stopped."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_IS_STOPPED, self._channel, b'')
         return bool(res.payload[0])
     
     @property
     def position(self) -> int:
+        """Get the current position of the stepper in microsteps."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_GET_POSITION, self._channel, b'')
         return struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
     
     @position.setter
     def position(self, position: int) -> bool:
+        """Set the current position of the stepper in microsteps."""
         payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
         return bool(res.payload[0])
     
+    @property
+    def position_degrees(self) -> float:
+        """Get the current position of the stepper in degrees."""
+        microsteps = self.position
+        steps = microsteps / self._microsteps
+        degrees = (steps / self._steps_per_revolution) * 360.0
+        return degrees
+    
+    @position_degrees.setter
+    def position_degrees(self, degrees: float):
+        """Set the current position of the stepper in degrees."""
+        steps = (degrees / 360.0) * self._steps_per_revolution
+        microsteps = int(round(steps * self._microsteps))
+        self.position = microsteps
+
     def home(self, home_speed: int, home_pin : DigitalInputPin|int, home_pin_active_high=True):
+        """Home the stepper using the specified home pin and speed.
+        
+        home_speed: Speed at which to home the stepper in microsteps per second. Positive values move in one direction, negative values move in the opposite direction.
+        home_pin: DigitalInputPin object or integer representing the home pin channel.
+        home_pin_active_high: Whether the home pin is active high (True) or active low (False).
+        """
         if isinstance(home_pin, DigitalInputPin):
+            # If a DigitalInputPin object is provided, use its channel. ONLY IF IT BELONGS TO THE SAME INTERFACE.
+            if home_pin._dev != self._dev:
+                raise ValueError("home_pin must belong to the same interface as the stepper")
             pin_channel = home_pin._channel
         else:
             pin_channel = home_pin
@@ -129,13 +170,18 @@ class StepperMotor:
     
     @enabled.setter
     def enabled(self, value: bool):
+        """Enable or disable the stepper."""
         self._enabled = bool(value)
         payload = struct.pack("<?", self._enabled) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
     
     def set_microsteps(self, microsteps: int):
+        """Set the microsteps for the stepper."""
+        if microsteps not in (1, 2, 4, 8, 16, 32, 64, 128, 256):
+            raise ValueError(f"Invalid microsteps value: {microsteps}.")        
         payload = struct.pack("<H", microsteps) # 2 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_MICROSTEPS, self._channel, payload)
+        self._microsteps = microsteps
     
     def set_current(self, irun: int, ihold: int, ihold_delay: int):
         payload = struct.pack("<BBB", irun, ihold, ihold_delay) # 3 bytes, three little-endian unsigned integers
@@ -150,6 +196,16 @@ class StepperMotor:
         payload = struct.pack("<BI", address, value) # 1 byte for address, 4 bytes for value
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_WRITE_REGISTER, self._channel, payload)
 
+    @property
+    def steps_per_revolution(self):
+        return self._steps_per_revolution
+    
+    @steps_per_revolution.setter
+    def steps_per_revolution(self, value: int):
+        if value <= 0:
+            raise ValueError("steps_per_revolution must be a positive integer")
+        self._steps_per_revolution = value
+    
     @property
     def channel(self):
         return self._channel
@@ -184,6 +240,13 @@ class SorterInterface(MCUDevice):
         self.steppers = tuple(StepperMotor(self, ch) for ch in stepper_channels)
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
+
+    def shutdown(self):
+        # Disable all steppers and set all digital outputs to low
+        for stepper in self.steppers:
+            stepper.enabled = False
+        for dout in self.digital_outputs:
+            dout.value = False
 
     @property
     def name(self):

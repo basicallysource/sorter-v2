@@ -42,6 +42,16 @@ class StepperConfig:
         pass
 
 
+class CarouselArucoTagConfig:
+    corner1_id: int
+    corner2_id: int
+    corner3_id: int
+    corner4_id: int
+
+    def __init__(self):
+        pass
+
+
 class ArucoTagConfig:
     second_c_channel_center_id: int
     second_c_channel_radius1_id: int
@@ -49,6 +59,10 @@ class ArucoTagConfig:
     third_c_channel_center_id: int
     third_c_channel_radius1_id: int
     third_c_channel_radius2_id: int
+    carousel_platform1: CarouselArucoTagConfig
+    carousel_platform2: CarouselArucoTagConfig
+    carousel_platform3: CarouselArucoTagConfig
+    carousel_platform4: CarouselArucoTagConfig
 
     def __init__(self):
         pass
@@ -110,16 +124,32 @@ def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConf
     return stepper_config
 
 
+def mkCarouselArucoTagConfig(
+    c1: int, c2: int, c3: int, c4: int
+) -> CarouselArucoTagConfig:
+    config = CarouselArucoTagConfig()
+    config.corner1_id = c1
+    config.corner2_id = c2
+    config.corner3_id = c3
+    config.corner4_id = c4
+    return config
+
+
 def mkArucoTagConfig() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
-    config.second_c_channel_center_id = 298
-    config.second_c_channel_radius1_id = 815
-    config.second_c_channel_radius2_id = 451
+    config.second_c_channel_center_id = 20
+    config.second_c_channel_radius1_id = 31
+    config.second_c_channel_radius2_id = 7
     # Channel 3 (third) - 3 tags: center, radius1, radius2
-    config.third_c_channel_center_id = 73
-    config.third_c_channel_radius1_id = 957
-    config.third_c_channel_radius2_id = 517
+    config.third_c_channel_center_id = 33
+    config.third_c_channel_radius1_id = 14
+    config.third_c_channel_radius2_id = 30
+    # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
+    config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
+    config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
+    config.carousel_platform3 = mkCarouselArucoTagConfig(6, 16, 11, 0)
+    config.carousel_platform4 = mkCarouselArucoTagConfig(12, 22, 28, 5)
     return config
 
 
@@ -135,7 +165,9 @@ def mkIRLConfig() -> IRLConfig:
 
     def resolveCamera(role: str) -> int:
         if role not in camera_setup:
-            raise RuntimeError(f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first.")
+            raise RuntimeError(
+                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
+            )
         return camera_setup[role]
 
     feeder_camera_index = resolveCamera("feeder")

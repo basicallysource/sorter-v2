@@ -5,8 +5,7 @@ from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from vision.utils import maskEdgeProximity
-from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CAROUSEL_CLASS_ID
+from defs.consts import FEEDER_OBJECT_CLASS_ID
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -31,7 +30,6 @@ class Detecting(BaseState):
     def step(self) -> Optional[ClassificationState]:
         masks_by_class = self.vision.getFeederMasksByClass()
         object_detected_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
-        carousel_detected_masks = masks_by_class.get(FEEDER_CAROUSEL_CLASS_ID, [])
 
         # filter objects by confidence threshold
         high_confidence_objects = [
@@ -40,19 +38,18 @@ class Detecting(BaseState):
             if dm.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
         ]
 
-        if not high_confidence_objects or not carousel_detected_masks:
+        if not high_confidence_objects:
             return None
 
+        # check if any high-confidence object is on a carousel platform
         for obj_dm in high_confidence_objects:
-            for carousel_dm in carousel_detected_masks:
-                if (
-                    maskEdgeProximity(obj_dm.mask, carousel_dm.mask)
-                    > self.gc.vision_mask_proximity_threshold
-                ):
-                    self.logger.info("Detecting: object mask overlaps carousel")
-                    self.shared.classification_ready = False
-                    self.carousel.addPieceAtFeeder()
-                    return ClassificationState.ROTATING
+            if self.vision.isObjectOnCarouselPlatform(obj_dm.mask):
+                self.logger.info(
+                    f"Detecting: object on carousel platform (confidence={obj_dm.confidence:.2f})"
+                )
+                self.shared.classification_ready = False
+                self.carousel.addPieceAtFeeder()
+                return ClassificationState.ROTATING
 
         return None
 

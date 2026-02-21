@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import time
 from typing import Optional, Tuple
 
 
@@ -24,31 +23,6 @@ def masksWithinDistance(
     kernel = np.ones((threshold_px * 2 + 1, threshold_px * 2 + 1), np.uint8)
     dilated = cv2.dilate(mask2.astype(np.uint8), kernel, iterations=1)
     return masksOverlap(mask1, dilated.astype(bool))
-
-
-def maskEdgeProximity(
-    object_mask: np.ndarray,
-    target_mask: np.ndarray,
-    proximity_px: int = 3,
-    debug_id: Optional[int] = None,
-) -> float:
-    mask_uint8 = object_mask.astype(np.uint8)
-    eroded = cv2.erode(mask_uint8, np.ones((3, 3), np.uint8), iterations=1)
-    edge = mask_uint8 - eroded
-
-    # dilate target to create "near target" zone
-    kernel = np.ones((proximity_px * 2 + 1, proximity_px * 2 + 1), np.uint8)
-    dilated_target = cv2.dilate(target_mask.astype(np.uint8), kernel, iterations=1)
-
-    # what percentage of object edge is near the target
-    edge_near_target = np.logical_and(edge, dilated_target)
-    edge_pixels = np.sum(edge)
-
-    proximity_value = 0.0
-    if edge_pixels > 0:
-        proximity_value = float(np.sum(edge_near_target) / edge_pixels)
-
-    return proximity_value
 
 
 def maskMinDistance(object_mask: np.ndarray, target_mask: np.ndarray) -> int:

@@ -17,7 +17,13 @@ ROLES = {
     ord("T"): "classification_top",
 }
 
-MENU_LINES = ["F - feeder", "B - classification bottom", "T - classification top", "N - skip", "Q - quit"]
+MENU_LINES = [
+    "F - feeder",
+    "B - classification bottom",
+    "T - classification top",
+    "N - skip",
+    "Q - quit",
+]
 
 
 def main():
@@ -50,12 +56,38 @@ def main():
             if ret:
                 role = assigned.get(index, "")
                 header = f"Camera {index}" + (f"  [{role}]" if role else "")
-                cv2.putText(frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4)
-                cv2.putText(frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+                cv2.putText(
+                    frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4
+                )
+                cv2.putText(
+                    frame,
+                    header,
+                    (20, 45),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.0,
+                    (0, 255, 0),
+                    2,
+                )
                 for i, line in enumerate(MENU_LINES):
                     y = 85 + i * 34
-                    cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3)
-                    cv2.putText(frame, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+                    cv2.putText(
+                        frame,
+                        line,
+                        (20, y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 0, 0),
+                        3,
+                    )
+                    cv2.putText(
+                        frame,
+                        line,
+                        (20, y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (255, 255, 255),
+                        1,
+                    )
                 cv2.imshow(window, frame)
 
             key = cv2.waitKey(1) & 0xFF
@@ -89,7 +121,11 @@ def printSummary(setup):
     print("\nsaved:")
     for role, index in setup.items():
         print(f"  {role}: {index}")
-    missing = [r for r in ["feeder", "classification_bottom", "classification_top"] if r not in setup]
+    missing = [
+        r
+        for r in ["feeder", "classification_bottom", "classification_top"]
+        if r not in setup
+    ]
     if missing:
         print(f"not assigned: {', '.join(missing)}")
 

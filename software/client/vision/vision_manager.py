@@ -9,14 +9,18 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from defs.consts import FEEDER_OBJECT_CLASS_ID, FEEDER_CHANNEL_CLASS_ID
+from defs.consts import (
+    FEEDER_OBJECT_CLASS_ID,
+    FEEDER_CHANNEL_CLASS_ID,
+    FEEDER_CAROUSEL_CLASS_ID,
+)
 from blob_manager import VideoRecorder
 from .camera import CaptureThread
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
 
 ANNOTATE_ARUCO_TAGS = True
-ARUCO_TAG_CACHE_MS = 5000
+ARUCO_TAG_CACHE_MS = 100
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 
@@ -58,7 +62,10 @@ class VisionManager:
         self._feeder_binding = self._inference.addBinding(
             self._feeder_capture,
             feeder_model,
-            exclude_classes_from_plot=[FEEDER_CHANNEL_CLASS_ID],
+            exclude_classes_from_plot=[
+                FEEDER_CHANNEL_CLASS_ID,
+                FEEDER_CAROUSEL_CLASS_ID,
+            ],
         )
         self._classification_bottom_binding = self._inference.addBinding(
             self._classification_bottom_capture, classification_model
@@ -72,8 +79,20 @@ class VisionManager:
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
-        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
+        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self._aruco_params = aruco.DetectorParameters()
+        # tuned for small tags on a wide-angle lens
+        self._aruco_params.minMarkerPerimeterRate = (
+            0.01  # default 0.03, allows smaller tags
+        )
+        self._aruco_params.perspectiveRemovePixelPerCell = (
+            8  # default 4, more robust to distortion
+        )
+        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.3  # default 0.13
+        self._aruco_params.adaptiveThreshWinSizeMin = 3
+        self._aruco_params.adaptiveThreshWinSizeMax = 53  # default 23
+        self._aruco_params.adaptiveThreshWinSizeStep = 4  # default 10
+        self._aruco_params.errorCorrectionRate = 1.0  # default 0.6
         self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
 
@@ -165,8 +184,9 @@ class VisionManager:
                     3,
                 )
 
-        # annotate with channel geometry
+        # annotate with channel and carousel geometry
         annotated = self._annotateChannelGeometry(annotated)
+        annotated = self._annotateCarouselPlatforms(annotated)
 
         return CameraFrame(
             raw=frame.raw,
@@ -342,6 +362,102 @@ class VisionManager:
         aruco_tags = self.getFeederArucoTags()
         return computeChannelGeometry(aruco_tags, aruco_tag_config)
 
+    def getCarouselPlatforms(self):
+        from irl.config import CarouselArucoTagConfig
+
+        aruco_tags = self.getFeederArucoTags()
+        platforms = []
+
+        # check each of the 4 carousel platforms
+        for i, platform_config in enumerate(
+            [
+                self._irl_config.aruco_tags.carousel_platform1,
+                self._irl_config.aruco_tags.carousel_platform2,
+                self._irl_config.aruco_tags.carousel_platform3,
+                self._irl_config.aruco_tags.carousel_platform4,
+            ]
+        ):
+            # get positions of all 4 corners, track which ones we found
+            corner_ids = [
+                platform_config.corner1_id,
+                platform_config.corner2_id,
+                platform_config.corner3_id,
+                platform_config.corner4_id,
+            ]
+            detected_corners = {}
+            for idx, corner_id in enumerate(corner_ids):
+                if corner_id in aruco_tags:
+                    detected_corners[idx] = aruco_tags[corner_id]
+
+            # need at least 3 corners to define a platform
+            if len(detected_corners) >= 3:
+                corners = list(detected_corners.values())
+
+                # if we have exactly 3 corners, infer the 4th
+                # try all 3 possible 4th corners and pick the one that forms the best rectangle
+                if len(detected_corners) == 3:
+                    p0, p1, p2 = [np.array(c) for c in corners]
+
+                    # three possible 4th corners for a parallelogram
+                    candidates = [
+                        p0 + p1 - p2,  # forms parallelogram with p2 opposite to p0+p1
+                        p0 + p2 - p1,  # forms parallelogram with p1 opposite to p0+p2
+                        p1 + p2 - p0,  # forms parallelogram with p0 opposite to p1+p2
+                    ]
+
+                    # pick the candidate that forms the most rectangular shape
+                    # by checking which has the most similar opposite side lengths
+                    best_candidate = None
+                    best_score = float("inf")
+
+                    for candidate in candidates:
+                        # form quadrilateral with the 3 detected + candidate
+                        quad = [p0, p1, p2, candidate]
+
+                        # compute all 6 pairwise distances
+                        distances = []
+                        for j in range(4):
+                            for k in range(j + 1, 4):
+                                dist = np.linalg.norm(quad[j] - quad[k])
+                                distances.append(dist)
+
+                        # for a rectangle, we expect 4 sides + 2 diagonals
+                        # the 4 sides should form 2 pairs of equal length
+                        # score by standard deviation of distances (lower is better)
+                        score = np.std(distances)
+
+                        if score < best_score:
+                            best_score = score
+                            best_candidate = candidate
+
+                    corners.append(tuple(best_candidate))
+
+                # order corners by angle from centroid (so they go around perimeter)
+                if len(corners) >= 3:
+                    corners_array = np.array(corners)
+                    centroid = np.mean(corners_array, axis=0)
+
+                    # compute angle of each corner from centroid
+                    angles = []
+                    for corner in corners:
+                        dx = corner[0] - centroid[0]
+                        dy = corner[1] - centroid[1]
+                        angle = np.arctan2(dy, dx)
+                        angles.append(angle)
+
+                    # sort corners by angle
+                    sorted_indices = np.argsort(angles)
+                    corners = [corners[i] for i in sorted_indices]
+
+                platforms.append(
+                    {
+                        "platform_id": i,
+                        "corners": corners,
+                    }
+                )
+
+        return platforms
+
     def _annotateChannelGeometry(self, annotated: np.ndarray) -> np.ndarray:
         from subsystems.feeder.analysis import computeChannelGeometry
 
@@ -479,6 +595,104 @@ class VisionManager:
             )
 
         return annotated
+
+    def _annotateCarouselPlatforms(self, annotated: np.ndarray) -> np.ndarray:
+        platforms = self.getCarouselPlatforms()
+        if not platforms:
+            return annotated
+
+        annotated = annotated.copy()
+
+        # colors for each platform (bright cyan, bright yellow, bright green, bright orange)
+        platform_colors = [
+            (255, 255, 0),  # cyan
+            (0, 255, 255),  # yellow
+            (0, 255, 0),  # green
+            (0, 165, 255),  # orange
+        ]
+
+        for platform in platforms:
+            platform_id = platform["platform_id"]
+            corners = platform["corners"]
+            color = platform_colors[platform_id % len(platform_colors)]
+
+            # draw square connecting all corners (will be 4 corners, some may be inferred)
+            points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+            cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
+
+            # draw platform label
+            center_x = int(np.mean([x for x, y in corners]))
+            center_y = int(np.mean([y for x, y in corners]))
+            cv2.putText(
+                annotated,
+                f"P{platform_id}",
+                (center_x - 15, center_y + 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                color,
+                2,
+            )
+
+        return annotated
+
+    def getFeederPlatform(self):
+        platforms = self.getCarouselPlatforms()
+        if not platforms:
+            return None
+
+        aruco_tags = self.getFeederArucoTags()
+        reference_tag_id = self._irl_config.aruco_tags.third_c_channel_radius1_id
+
+        if reference_tag_id not in aruco_tags:
+            return None
+
+        reference_pos = np.array(aruco_tags[reference_tag_id])
+
+        # find platform closest to reference tag
+        closest_platform = None
+        min_distance = float("inf")
+
+        for platform in platforms:
+            corners = platform["corners"]
+            if len(corners) >= 3:
+                # compute platform center
+                center_x = np.mean([x for x, y in corners])
+                center_y = np.mean([y for x, y in corners])
+                platform_center = np.array([center_x, center_y])
+
+                # compute distance to reference tag
+                distance = np.linalg.norm(platform_center - reference_pos)
+
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_platform = platform
+
+        return closest_platform
+
+    def isObjectOnCarouselPlatform(self, object_mask: np.ndarray) -> bool:
+        feeder_platform = self.getFeederPlatform()
+        if not feeder_platform:
+            return False
+
+        # get object center of mass
+        coords = np.argwhere(object_mask)
+        if len(coords) == 0:
+            return False
+
+        center_y = int(np.mean(coords[:, 0]))
+        center_x = int(np.mean(coords[:, 1]))
+        point = (center_x, center_y)
+
+        # check if object center is inside the feeder platform polygon
+        corners = feeder_platform["corners"]
+        if len(corners) >= 3:
+            points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+            # use cv2.pointPolygonTest to check if point is inside polygon
+            result = cv2.pointPolygonTest(points, point, False)
+            if result >= 0:  # inside or on the edge
+                return True
+
+        return False
 
     def captureFreshClassificationFrames(
         self, timeout_s: float = 1.0

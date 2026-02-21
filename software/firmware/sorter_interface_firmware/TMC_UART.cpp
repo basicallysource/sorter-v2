@@ -119,15 +119,16 @@ TMC_UART_Bus::TMC_UART_Bus(uart_inst_t* uart)
 }
 
 bool TMC_UART_Bus::setupComm(long baudrate, uint tx_pin, uint rx_pin) {
-    _timeout_us = 120000000 / baudrate; // Timeout for 120 bits
-    // Set data format: 8 data bits, 1 stop bit, no parity
-    uart_set_format(_uart, 8, 1, UART_PARITY_NONE);
-    // Disable hardware flow control
-    uart_set_hw_flow(_uart, false, false);
+    _timeout_us = 250000000 / baudrate; // Timeout for 250 bit periods
     // Set TX and RX pins
     gpio_set_function(tx_pin, GPIO_FUNC_UART);
     gpio_set_function(rx_pin, GPIO_FUNC_UART);
+    // Initialize UART first, then configure format
     uart_init(_uart, baudrate);
+    uart_set_format(_uart, 8, 1, UART_PARITY_NONE);
+    uart_set_hw_flow(_uart, false, false);
+    // Clear any garbage in the RX FIFO from initialization
+    uart_clear_rx_fifo(_uart);
 
     TRACE_INIT();
 
@@ -176,7 +177,7 @@ int TMC_UART_Bus::readRegister(uint8_t address, uint8_t reg, uint32_t* value) {
     uart_write_blocking(_uart, (const uint8_t*)&cmd, sizeof(cmd));
     uart_tx_wait_blocking(_uart); // Ensure all data is sent
     TRACE_HIGH();
-    uart_clear_rx_fifo(_uart); // Clear any stale data (like what we just transmitted)
+    uart_clear_rx_fifo(_uart); // Clear echo of our transmitted command
     TRACE_LOW();
     // Read response with timeout
     struct TMC_READ_RESPONSE resp;

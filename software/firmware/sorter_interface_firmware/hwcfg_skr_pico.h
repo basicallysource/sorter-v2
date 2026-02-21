@@ -6,14 +6,15 @@ uart_inst_t* const TMC_UART = uart1;
 const int TMC_UART_TX_PIN = 8;
 const int TMC_UART_RX_PIN = 9;
 const int TMC_UART_BAUDRATE = 400000;
+const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3};
 
 const int STEPPER_nEN_PINS[] = {12, 7, 2, 15};
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {4, 3, 25, 16};
 
-const uint8_t DIGITAL_OUTPUT_COUNT = 2;
-const int digital_output_pins[] = {21, 23};
+const uint8_t DIGITAL_OUTPUT_COUNT = 5;
+const int digital_output_pins[] = {21, 23, 17, 18, 20}; // [0]=neopixel, [1]=HE0, [2]=FAN0, [3]=FAN1, [4]=FAN2
 
 i2c_inst_t* const I2C_PORT = i2c0;
 const int I2C_SDA_PIN = 0;

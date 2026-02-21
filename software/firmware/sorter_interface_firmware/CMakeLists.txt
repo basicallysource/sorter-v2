@@ -70,7 +70,7 @@ target_include_directories(sorter_interface_firmware PRIVATE
 # Pass INIT_DEVICE_NAME and INIT_DEVICE_ADDRESS as preprocessor definitions
 target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="${INIT_DEVICE_NAME}" INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS})
 if (HW_SKR_PICO)
-    target_compile_definitions(sorter_interface_firmware PRIVATE HW_SKR_PICO)
+    target_compile_definitions(sorter_interface_firmware PRIVATE HARDWARE_SKR_PICO)
 endif()
 
 # Add any user requested libraries

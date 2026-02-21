@@ -25,8 +25,8 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
     STEPPER_DRV_SET_CURRENT = 0x22
-    STEPPER_DRV_READ_REGISTER = 0x26
-    STEPPER_DRV_WRITE_REGISTER = 0x27
+    STEPPER_DRV_READ_REGISTER = 0x28
+    STEPPER_DRV_WRITE_REGISTER = 0x29
     # Digital I/O commands
     DIGITAL_READ = 0x30
     DIGITAL_WRITE = 0x31
@@ -90,12 +90,12 @@ class StepperMotor:
     def set_speed_limits(self, min_speed: int, max_speed: int) -> bool:
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
-        return bool(res.payload[0])
-    
+        return bool(res.payload[0]) if res.payload else True
+
     def set_acceleration(self, acceleration: int) -> bool:
         payload = struct.pack("<I", acceleration) # 4 bytes, little-endian unsigned integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
-        return bool(res.payload[0])
+        return bool(res.payload[0]) if res.payload else True
     
     @property
     def stopped(self) -> bool:
@@ -111,7 +111,7 @@ class StepperMotor:
     def position(self, position: int) -> bool:
         payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
-        return bool(res.payload[0])
+        return bool(res.payload[0]) if res.payload else True
     
     def home(self, home_speed: int, home_pin : DigitalInputPin|int, home_pin_active_high=True):
         if isinstance(home_pin, DigitalInputPin):

@@ -384,14 +384,7 @@ class VisionManager:
                     # filter out objects that are too large
                     if class_id == FEEDER_OBJECT_CLASS_ID:
                         mask_area = np.sum(scaled_mask)
-                        self.gc.logger.info(
-                            f"Object detected: area={mask_area:.0f}px², confidence={confidence:.2f}"
-                        )
                         if mask_area > OBJECT_DETECTION_MAX_AREA_SQ_PX:
-                            self.gc.logger.info(
-                                f"Object area too large: {mask_area:.0f}px² "
-                                f"(max={OBJECT_DETECTION_MAX_AREA_SQ_PX}px²), filtering out"
-                            )
                             continue  # skip this object, it's too large
 
                     detected_mask = DetectedMask(
@@ -884,23 +877,29 @@ class VisionManager:
         )
 
     def getClassificationCrops(
-        self, timeout_s: float = 1.0
+        self, timeout_s: float = 1.0, confidence_threshold: float = 0.0
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
         top_crop = self._extractLargestObjectCrop(
             top_frame,
             self._classification_top_binding.latest_raw_results,
             self._top_region,
+            confidence_threshold,
         )
         bottom_crop = self._extractLargestObjectCrop(
             bottom_frame,
             self._classification_bottom_binding.latest_raw_results,
             self._bottom_region,
+            confidence_threshold,
         )
         return (top_crop, bottom_crop)
 
     def _extractLargestObjectCrop(
-        self, frame: Optional[CameraFrame], raw_results, region: Optional[List] = None
+        self,
+        frame: Optional[CameraFrame],
+        raw_results,
+        region: Optional[List] = None,
+        confidence_threshold: float = 0.0,
     ) -> Optional[np.ndarray]:
         if frame is None or raw_results is None or len(raw_results) == 0:
             return None
@@ -923,6 +922,12 @@ class VisionManager:
             class_id = int(box.cls[0])
             if class_id != 0:
                 continue
+
+            # check confidence threshold
+            confidence = float(box.conf[0])
+            if confidence < confidence_threshold:
+                continue
+
             xyxy = box.xyxy[0].tolist()
             area = (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1])
             if area <= best_area:

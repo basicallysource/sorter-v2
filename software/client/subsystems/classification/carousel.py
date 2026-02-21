@@ -1,7 +1,7 @@
 from typing import Optional, Dict, List
 import time
 import queue
-from defs.known_object import KnownObject
+from defs.known_object import KnownObject, ClassificationStatus
 from utils.event import knownObjectToEvent
 from logger import Logger
 
@@ -67,7 +67,11 @@ class Carousel:
             obj = self.pending_classifications[uuid]
             obj.part_id = part_id
             obj.confidence = confidence
-            obj.status = "classified" if part_id else "unknown"
+            obj.classification_status = (
+                ClassificationStatus.classified
+                if part_id
+                else ClassificationStatus.unknown
+            )
             obj.updated_at = time.time()
             del self.pending_classifications[uuid]
             self._log(

@@ -11,12 +11,14 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 from utils.event import knownObjectToEvent
 from telemetry import Telemetry
+from defs.known_object import ClassificationStatus
 from classification import classify
 
 if TYPE_CHECKING:
     from vision import VisionManager
 
 SNAP_DELAY_MS = 2000
+CLASSIFICATION_OBJECT_CONFIDENCE_THRESHOLD = 0.2
 
 
 class Snapping(BaseState):
@@ -63,7 +65,9 @@ class Snapping(BaseState):
             return
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
-        top_crop, bottom_crop = self.vision.getClassificationCrops()
+        top_crop, bottom_crop = self.vision.getClassificationCrops(
+            confidence_threshold=CLASSIFICATION_OBJECT_CONFIDENCE_THRESHOLD
+        )
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(
@@ -86,7 +90,7 @@ class Snapping(BaseState):
             self.logger.warn(
                 "Snapping: no object detected in classification frames, marking not_found"
             )
-            piece.status = "not_found"
+            piece.classification_status = ClassificationStatus.not_found
             piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(piece))
             return
@@ -117,7 +121,7 @@ class Snapping(BaseState):
             )
             piece.bottom_image = base64.b64encode(bottom_buffer).decode("utf-8")
 
-        piece.status = "classifying"
+        piece.classification_status = ClassificationStatus.classifying
         piece.updated_at = time.time()
         self.event_queue.put(knownObjectToEvent(piece))
 

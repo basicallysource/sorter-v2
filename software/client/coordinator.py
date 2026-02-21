@@ -4,6 +4,7 @@ from subsystems import (
     ClassificationStateMachine,
     DistributionStateMachine,
 )
+from subsystems.classification.carousel import Carousel
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
@@ -34,6 +35,9 @@ class Coordinator:
         self.sorting_profile = BrickLinkCategories(gc)
         self.distribution_layout = irl.distribution_layout
 
+        self.carousel = Carousel(gc.logger, event_queue)
+        self.shared.carousel = self.carousel
+
         self.distribution = DistributionStateMachine(
             irl,
             gc,
@@ -43,7 +47,7 @@ class Coordinator:
             event_queue,
         )
         self.classification = ClassificationStateMachine(
-            irl, gc, self.shared, vision, event_queue, telemetry
+            irl, gc, self.shared, vision, event_queue, telemetry, self.carousel
         )
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
 

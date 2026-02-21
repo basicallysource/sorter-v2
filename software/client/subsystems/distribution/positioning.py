@@ -14,6 +14,7 @@ from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
 POSITION_DURATION_MS = 3000
+SLEEP_AFTER_CLOSE_DOOR_MS = 200
 
 
 class Positioning(BaseState):
@@ -69,8 +70,9 @@ class Positioning(BaseState):
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
-            self.chute.moveToBin(address)
             self.irl.servos[address.layer_index].close()
+            time.sleep(SLEEP_AFTER_CLOSE_DOOR_MS / 1000)
+            self.chute.moveToBin(address)
             self.command_sent = True
 
         elapsed_ms = (time.time() - self.start_time) * 1000

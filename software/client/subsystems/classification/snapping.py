@@ -17,7 +17,6 @@ from classification import classify
 if TYPE_CHECKING:
     from vision import VisionManager
 
-SNAP_DELAY_MS = 2000
 CLASSIFICATION_OBJECT_CONFIDENCE_THRESHOLD = 0.2
 
 
@@ -38,19 +37,9 @@ class Snapping(BaseState):
         self.vision = vision
         self.event_queue = event_queue
         self.telemetry = telemetry
-        self.start_time: Optional[float] = None
         self.snapped = False
 
     def step(self) -> Optional[ClassificationState]:
-        if self.start_time is None:
-            self.start_time = time.time()
-            self.logger.info("Snapping: waiting for camera settle")
-            return None
-
-        elapsed_ms = (time.time() - self.start_time) * 1000
-        if elapsed_ms < SNAP_DELAY_MS:
-            return None
-
         if not self.snapped:
             self._captureAndClassify()
             self.snapped = True
@@ -137,5 +126,4 @@ class Snapping(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
-        self.start_time = None
         self.snapped = False

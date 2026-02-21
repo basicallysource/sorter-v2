@@ -6,7 +6,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import sys
 import readchar
 from global_config import mkGlobalConfig
-from irl.config import mkIRLConfig, mkIRLInterface, SERVO_OPEN_ANGLE, SERVO_CLOSED_ANGLE
+from irl.config import mkIRLConfig, mkIRLInterface
 from blob_manager import setStepperPosition
 
 STEP_COUNTS = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
@@ -46,11 +46,12 @@ def main():
         print("  Enter   Set current position as zero")
         print()
         print("Servo Controls (per layer):")
-        for i, layer in enumerate(irl.distribution_layout.layers):
-            angle = irl.servo_angles[i]
-            state = "open" if angle == SERVO_OPEN_ANGLE else "closed"
+        for i, (layer, servo) in enumerate(
+            zip(irl.distribution_layout.layers, irl.servos)
+        ):
+            state = "open" if servo.isOpen() else "closed"
             print(
-                f"  {i + 1}       Toggle layer {i} servo (pin {layer.servo_pin}, currently {state} at {angle}°)"
+                f"  {i + 1}       Toggle layer {i} servo (pin {layer.servo_pin}, currently {state} at {servo.current_angle}°)"
             )
         print()
         print("  Q       Quit")
@@ -94,15 +95,8 @@ def main():
             print(f"Zeroed {name} position")
         elif key in "1234":
             layer_idx = int(key) - 1
-            if layer_idx < len(irl.distribution_layout.layers):
-                layer = irl.distribution_layout.layers[layer_idx]
-                current_angle = irl.servo_angles[layer_idx]
-                if current_angle == SERVO_OPEN_ANGLE:
-                    new_angle = SERVO_CLOSED_ANGLE
-                else:
-                    new_angle = SERVO_OPEN_ANGLE
-                irl.mcu.command("S", layer.servo_pin, new_angle)
-                irl.servo_angles[layer_idx] = new_angle
+            if layer_idx < len(irl.servos):
+                irl.servos[layer_idx].toggle()
                 printStatus()
         elif key.lower() == "q":
             print("Exiting...")

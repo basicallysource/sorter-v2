@@ -3,6 +3,7 @@ import time
 from global_config import GlobalConfig
 from .mcu import MCU
 from .stepper import Stepper
+from .servo import Servo
 from .device_discovery import discoverMCU
 from typing import TYPE_CHECKING
 
@@ -92,7 +93,7 @@ class IRLInterface:
     first_c_channel_rotor_stepper: Stepper
     second_c_channel_rotor_stepper: Stepper
     third_c_channel_rotor_stepper: Stepper
-    servo_angles: list[int]
+    servos: list[Servo]
     chute: "Chute"
     distribution_layout: DistributionLayout
 
@@ -266,8 +267,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
-    num_layers = len(irl_interface.distribution_layout.layers)
-    irl_interface.servo_angles = [SERVO_OPEN_ANGLE] * num_layers
+    irl_interface.servos = [
+        Servo(gc, mcu, layer.servo_pin, f"layer_{i}_servo")
+        for i, layer in enumerate(irl_interface.distribution_layout.layers)
+    ]
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

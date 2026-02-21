@@ -235,7 +235,6 @@ class MCUDevice:
         return json.loads(info_str)
 
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     print("Enumerating buses...")

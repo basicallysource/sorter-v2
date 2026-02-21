@@ -139,6 +139,8 @@ void Stepper::stepgen_tick() {
         // Update fractional step counter and total steps moved
         if (_steps_frac >= STEP_TICK_RATE_HZ) {
             _steps_frac -= STEP_TICK_RATE_HZ;
+        } else if (_steps_frac <= -STEP_TICK_RATE_HZ) {
+            _steps_frac += STEP_TICK_RATE_HZ;
         }
         // And the move counter
         _steps_moved += _current_dir*_mc_dir;
@@ -188,22 +190,23 @@ void Stepper::motion_update_tick() {
             }
             // Fall through to cruising to check for braking point
         case STEPPER_CRUISING:
-            // Check if we need to brake
-            if ((_steps_moved >= _brake_distance) && (_mc_distance > 0)) {
-                // Need to brake to stop at target
-                _state = STEPPER_BRAKING;
-            }
-            break;
+            // Check home switch if homing
             if (_mc_home_pin >= 0) {
-                // Check home switch if homing
                 if (gpio_get(_mc_home_pin) == _mc_home_pin_polarity) {
                     // Home switch triggered, stop now and set position to zero
                     _state = STEPPER_STOPPED;
                     _current_speed = 0;
                     _absolute_position = 0;
                     _mc_home_pin = -1; // Homing done
+                    break;
                 }
             }
+            // Check if we need to brake
+            if ((_steps_moved >= _brake_distance) && (_mc_distance > 0)) {
+                // Need to brake to stop at target
+                _state = STEPPER_BRAKING;
+            }
+            break;
         case STEPPER_BRAKING: {
             // Decrease speed
             _current_speed_frac += _accel;

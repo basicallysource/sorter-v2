@@ -880,6 +880,13 @@ class VisionManager:
         self, timeout_s: float = 1.0, confidence_threshold: float = 0.0
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
+        if not self.gc.use_segmentation_model_for_classification_chamber:
+            top_crop = self._extractRegionBoundingBoxCrop(top_frame, self._top_region)
+            bottom_crop = self._extractRegionBoundingBoxCrop(
+                bottom_frame, self._bottom_region
+            )
+            return (top_crop, bottom_crop)
+
         top_crop = self._extractLargestObjectCrop(
             top_frame,
             self._classification_top_binding.latest_raw_results,
@@ -893,6 +900,27 @@ class VisionManager:
             confidence_threshold,
         )
         return (top_crop, bottom_crop)
+
+    def _extractRegionBoundingBoxCrop(
+        self, frame: Optional[CameraFrame], region: Optional[List]
+    ) -> Optional[np.ndarray]:
+        if frame is None:
+            return None
+
+        h, w = frame.raw.shape[:2]
+        if region is None or len(region) == 0:
+            return frame.raw
+
+        xs = [int(point[0]) for point in region]
+        ys = [int(point[1]) for point in region]
+        x1 = max(0, min(xs))
+        y1 = max(0, min(ys))
+        x2 = min(w, max(xs))
+        y2 = min(h, max(ys))
+
+        if x2 <= x1 or y2 <= y1:
+            return None
+        return frame.raw[y1:y2, x1:x2]
 
     def _extractLargestObjectCrop(
         self,

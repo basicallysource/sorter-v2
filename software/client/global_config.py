@@ -114,6 +114,7 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
+    use_segmentation_model_for_classification_chamber: bool
 
     def __init__(self):
         self.debug_level = 0
@@ -121,6 +122,7 @@ class GlobalConfig:
         self.should_profile_feeder = False
         self.log_buffer_size = 100
         self.disable_chute = False
+        self.use_segmentation_model_for_classification_chamber = False
 
 
 def mkTimeouts() -> Timeouts:

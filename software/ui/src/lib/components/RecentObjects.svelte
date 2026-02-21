@@ -87,12 +87,8 @@
 		return `L${bin[0]}:S${bin[1]}:B${bin[2]}`;
 	}
 
-	// minimized = not_found/unknown pieces that haven't been distributed yet
 	function isMinimized(obj: KnownObjectData): boolean {
-		return (
-			(obj.classification_status === 'unknown' || obj.classification_status === 'not_found') &&
-			obj.stage !== 'distributed'
-		);
+		return obj.classification_status === 'unknown' || obj.classification_status === 'not_found';
 	}
 </script>
 

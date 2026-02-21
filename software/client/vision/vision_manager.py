@@ -3,7 +3,6 @@ from collections import deque
 import base64
 import time
 import cv2
-import cv2.aruco as aruco
 import numpy as np
 
 from global_config import GlobalConfig
@@ -16,11 +15,11 @@ from defs.consts import (
 )
 from blob_manager import VideoRecorder, getClassificationRegions
 from .camera import CaptureThread
+from .aruco_tracker import ArucoTracker
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
 
 ANNOTATE_ARUCO_TAGS = True
-ARUCO_TAG_CACHE_MS = 100
 FEEDER_MASK_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
@@ -30,21 +29,6 @@ CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 50000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
 CLASSIFICATION_REGION_MIN_OVERLAP = 0.5
-
-ARUCO_TAG_DETECTION_PARAMS = {
-    "minMarkerPerimeterRate": 0.003,
-    "perspectiveRemovePixelPerCell": 4,
-    "perspectiveRemoveIgnoredMarginPerCell": 0.3,
-    "adaptiveThreshWinSizeMin": 3,
-    "adaptiveThreshWinSizeMax": 53,
-    "adaptiveThreshWinSizeStep": 4,
-    "errorCorrectionRate": 1.0,
-    "polygonalApproxAccuracyRate": 0.05,
-    "minDistanceToBorder": 3,
-    "maxErroneousBitsInBorderRate": 0.35,
-    "cornerRefinementMethod": 0,  # 0=none, 1=subpix, 2=contour, 3=apriltag
-    "cornerRefinementWinSize": 5,
-}
 
 
 class VisionManager:
@@ -105,46 +89,7 @@ class VisionManager:
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
-        self._aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-        self._aruco_params = aruco.DetectorParameters()
-        # tuned for small tags on a wide-angle lens
-        self._aruco_params.minMarkerPerimeterRate = ARUCO_TAG_DETECTION_PARAMS[
-            "minMarkerPerimeterRate"
-        ]
-        self._aruco_params.perspectiveRemovePixelPerCell = ARUCO_TAG_DETECTION_PARAMS[
-            "perspectiveRemovePixelPerCell"
-        ]
-        self._aruco_params.perspectiveRemoveIgnoredMarginPerCell = (
-            ARUCO_TAG_DETECTION_PARAMS["perspectiveRemoveIgnoredMarginPerCell"]
-        )
-        self._aruco_params.adaptiveThreshWinSizeMin = ARUCO_TAG_DETECTION_PARAMS[
-            "adaptiveThreshWinSizeMin"
-        ]
-        self._aruco_params.adaptiveThreshWinSizeMax = ARUCO_TAG_DETECTION_PARAMS[
-            "adaptiveThreshWinSizeMax"
-        ]
-        self._aruco_params.adaptiveThreshWinSizeStep = ARUCO_TAG_DETECTION_PARAMS[
-            "adaptiveThreshWinSizeStep"
-        ]
-        self._aruco_params.errorCorrectionRate = ARUCO_TAG_DETECTION_PARAMS[
-            "errorCorrectionRate"
-        ]
-        self._aruco_params.polygonalApproxAccuracyRate = ARUCO_TAG_DETECTION_PARAMS[
-            "polygonalApproxAccuracyRate"
-        ]
-        self._aruco_params.minDistanceToBorder = ARUCO_TAG_DETECTION_PARAMS[
-            "minDistanceToBorder"
-        ]
-        self._aruco_params.maxErroneousBitsInBorderRate = ARUCO_TAG_DETECTION_PARAMS[
-            "maxErroneousBitsInBorderRate"
-        ]
-        self._aruco_params.cornerRefinementMethod = ARUCO_TAG_DETECTION_PARAMS[
-            "cornerRefinementMethod"
-        ]
-        self._aruco_params.cornerRefinementWinSize = ARUCO_TAG_DETECTION_PARAMS[
-            "cornerRefinementWinSize"
-        ]
-        self._aruco_tag_cache: Dict[int, Tuple[Tuple[float, float], float]] = {}
+        self._aruco_tracker = ArucoTracker(gc, self._feeder_capture)
         self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
         self._cached_feeding_platform_corners: Optional[List[Tuple[float, float]]] = (
             None
@@ -158,10 +103,12 @@ class VisionManager:
         self._feeder_capture.start()
         self._classification_bottom_capture.start()
         self._classification_top_capture.start()
+        self._aruco_tracker.start()
         self._inference.start()
 
     def stop(self) -> None:
         self._inference.stop()
+        self._aruco_tracker.stop()
         self._feeder_capture.stop()
         self._classification_bottom_capture.stop()
         self._classification_top_capture.stop()
@@ -229,21 +176,13 @@ class VisionManager:
 
         # annotate with ArUco tags
         annotated = frame.annotated if frame.annotated is not None else frame.raw
-        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
-        detector = aruco.ArucoDetector(self._aruco_dict, self._aruco_params)
-        corners, ids, _ = detector.detectMarkers(gray)
-
-        if ids is not None:
+        aruco_tags = self.getFeederArucoTags()
+        if aruco_tags:
             annotated = annotated.copy()
-            aruco.drawDetectedMarkers(
-                annotated, corners, ids, borderColor=(0, 255, 255)
-            )
-
-            # draw tag IDs in aqua/teal
-            for i, tag_id in enumerate(ids.flatten()):
-                tag_corners = corners[i][0]
-                center_x = int(np.mean(tag_corners[:, 0]))
-                center_y = int(np.mean(tag_corners[:, 1]))
+            for tag_id, (center_x_f, center_y_f) in aruco_tags.items():
+                center_x = int(center_x_f)
+                center_y = int(center_y_f)
+                cv2.circle(annotated, (center_x, center_y), 8, (0, 255, 255), 2)
                 cv2.putText(
                     annotated,
                     str(tag_id),
@@ -311,49 +250,14 @@ class VisionManager:
         return None
 
     def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
-        prof = self.gc.profiler
-        prof.hit("vision.get_feeder_aruco_tags.calls")
-        prof.mark("vision.get_feeder_aruco_tags.interval_ms")
-        prof.startTimer("vision.get_feeder_aruco_tags.total_ms")
-        frame = self._feeder_capture.latest_frame
-        if frame is None:
-            prof.endTimer("vision.get_feeder_aruco_tags.total_ms")
-            return {}
-
-        current_time = time.time()
-        with prof.timer("vision.get_feeder_aruco_tags.cvt_color_ms"):
-            gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
-        detector = aruco.ArucoDetector(self._aruco_dict, self._aruco_params)
-        with prof.timer("vision.get_feeder_aruco_tags.detect_markers_ms"):
-            corners, ids, _ = detector.detectMarkers(gray)
-
-        result: Dict[int, Tuple[float, float]] = {}
-        detected_ids = set()
-
-        # add newly detected tags
-        if ids is not None:
-            for i, tag_id in enumerate(ids.flatten()):
-                tag_corners = corners[i][0]
-                center_x = float(np.mean(tag_corners[:, 0]))
-                center_y = float(np.mean(tag_corners[:, 1]))
-                tag_id_int = int(tag_id)
-                result[tag_id_int] = (center_x, center_y)
-                detected_ids.add(tag_id_int)
-                # update cache
-                self._aruco_tag_cache[tag_id_int] = ((center_x, center_y), current_time)
-
-        # check cache for recently seen tags that weren't detected this frame
-        for tag_id, (position, timestamp) in list(self._aruco_tag_cache.items()):
-            if tag_id not in detected_ids:
-                age_ms = (current_time - timestamp) * 1000
-                if age_ms <= ARUCO_TAG_CACHE_MS:
-                    result[tag_id] = position
-
-        prof.observeValue(
-            "vision.get_feeder_aruco_tags.detected_count", float(len(result))
-        )
-        prof.endTimer("vision.get_feeder_aruco_tags.total_ms")
-        return result
+        self.gc.profiler.hit("vision.get_feeder_aruco_tags.calls")
+        self.gc.profiler.mark("vision.get_feeder_aruco_tags.interval_ms")
+        with self.gc.profiler.timer("vision.get_feeder_aruco_tags.total_ms"):
+            tags = self._aruco_tracker.getTags()
+            self.gc.profiler.observeValue(
+                "vision.get_feeder_aruco_tags.detected_count", float(len(tags))
+            )
+            return tags
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
         prof = self.gc.profiler

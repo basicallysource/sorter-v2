@@ -99,17 +99,15 @@ class StepperMotor:
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         return bool(res.payload[0])
     
-    def set_speed_limits(self, min_speed: int, max_speed: int) -> bool:
+    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
-        res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
-        return bool(res.payload[0])
+        self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
     
-    def set_acceleration(self, acceleration: int) -> bool:
+    def set_acceleration(self, acceleration: int) -> None:
         """Set the acceleration for the stepper in microsteps per second squared."""
-        payload = struct.pack("<I", acceleration) # 4 bytes, little-endian unsigned integer
-        res = self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
-        return bool(res.payload[0])
+        payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
+        self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
     
     @property
     def stopped(self) -> bool:
@@ -159,9 +157,8 @@ class StepperMotor:
         else:
             pin_channel = home_pin
         
-        payload = struct.pack("<IB?", home_speed, pin_channel, bool(home_pin_active_high)) # 4 bytes for speed, 1 byte for pin channel, 1 byte for active high/low
-        res = self._dev.send_command(InterfaceCommandCode.STEPPER_HOME, self._channel, payload)
-        return bool(res.payload[0])
+        payload = struct.pack("<iB?", home_speed, pin_channel, bool(home_pin_active_high)) # 4 bytes for speed (signed), 1 byte for pin channel, 1 byte for active high/low
+        self._dev.send_command(InterfaceCommandCode.STEPPER_HOME, self._channel, payload)
     
     @property
     def enabled(self) -> bool:

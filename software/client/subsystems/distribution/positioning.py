@@ -14,7 +14,7 @@ from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
 POSITION_DURATION_MS = 3000
-SLEEP_AFTER_CLOSE_DOOR_MS = 200
+SLEEP_AFTER_CLOSE_DOOR_MS = 1500
 
 
 class Positioning(BaseState):
@@ -70,8 +70,7 @@ class Positioning(BaseState):
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
-            self.irl.servos[address.layer_index].close()
-            time.sleep(SLEEP_AFTER_CLOSE_DOOR_MS / 1000)
+            self._selectDoor(address.layer_index)
             self.chute.moveToBin(address)
             self.command_sent = True
 
@@ -86,6 +85,18 @@ class Positioning(BaseState):
         super().cleanup()
         self.start_time = None
         self.command_sent = False
+
+    def _selectDoor(self, target_layer_index: int) -> None:
+        target_servo = self.irl.servos[target_layer_index]
+        if target_servo.isClosed():
+            return
+
+        for i, servo in enumerate(self.irl.servos):
+            if i != target_layer_index and servo.isClosed():
+                servo.open()
+
+        target_servo.close()
+        time.sleep(SLEEP_AFTER_CLOSE_DOOR_MS / 1000.0)
 
     def _findOrAssignBinForCategory(
         self, category_id: str

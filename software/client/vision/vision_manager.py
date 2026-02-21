@@ -99,6 +99,19 @@ class VisionManager:
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
 
+    def _pickNewestFrame(
+        self,
+        inferred_frame: Optional[CameraFrame],
+        captured_frame: Optional[CameraFrame],
+    ) -> Optional[CameraFrame]:
+        if inferred_frame is None:
+            return captured_frame
+        if captured_frame is None:
+            return inferred_frame
+        if inferred_frame.timestamp >= captured_frame.timestamp:
+            return inferred_frame
+        return captured_frame
+
     def start(self) -> None:
         self._feeder_capture.start()
         self._classification_bottom_capture.start()
@@ -164,9 +177,9 @@ class VisionManager:
 
     @property
     def feeder_frame(self) -> Optional[CameraFrame]:
-        frame = (
-            self._feeder_binding.latest_annotated_frame
-            or self._feeder_capture.latest_frame
+        frame = self._pickNewestFrame(
+            self._feeder_binding.latest_annotated_frame,
+            self._feeder_capture.latest_frame,
         )
         if frame is None:
             return None
@@ -207,16 +220,16 @@ class VisionManager:
 
     @property
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
-        return (
-            self._classification_bottom_binding.latest_annotated_frame
-            or self._classification_bottom_capture.latest_frame
+        return self._pickNewestFrame(
+            self._classification_bottom_binding.latest_annotated_frame,
+            self._classification_bottom_capture.latest_frame,
         )
 
     @property
     def classification_top_frame(self) -> Optional[CameraFrame]:
-        return (
-            self._classification_top_binding.latest_annotated_frame
-            or self._classification_top_capture.latest_frame
+        return self._pickNewestFrame(
+            self._classification_top_binding.latest_annotated_frame,
+            self._classification_top_capture.latest_frame,
         )
 
     @property

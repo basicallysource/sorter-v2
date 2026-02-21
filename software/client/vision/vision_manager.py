@@ -8,11 +8,7 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from defs.consts import (
-    FEEDER_OBJECT_CLASS_ID,
-    FEEDER_CHANNEL_CLASS_ID,
-    FEEDER_CAROUSEL_CLASS_ID,
-)
+from defs.consts import FEEDER_OBJECT_CLASS_ID
 from blob_manager import VideoRecorder, getClassificationRegions
 from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
@@ -20,8 +16,9 @@ from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
 
 ANNOTATE_ARUCO_TAGS = True
-FEEDER_MASK_CACHE_FRAMES = 3
+FEEDER_DETECTION_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
+INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 10
@@ -68,10 +65,7 @@ class VisionManager:
         self._feeder_binding = self._inference.addBinding(
             self._feeder_capture,
             feeder_model,
-            exclude_classes_from_plot=[
-                FEEDER_CHANNEL_CLASS_ID,
-                FEEDER_CAROUSEL_CLASS_ID,
-            ],
+            use_compact_bbox_annotation=True,
         )
         self._classification_bottom_binding = self._inference.addBinding(
             self._classification_bottom_capture, classification_model
@@ -90,7 +84,9 @@ class VisionManager:
         self._last_telemetry_save = 0.0
 
         self._aruco_tracker = ArucoTracker(gc, self._feeder_capture)
-        self._feeder_mask_cache: deque = deque(maxlen=FEEDER_MASK_CACHE_FRAMES)
+        self._feeder_detection_cache: deque = deque(
+            maxlen=FEEDER_DETECTION_CACHE_FRAMES
+        )
         self._cached_feeding_platform_corners: Optional[List[Tuple[float, float]]] = (
             None
         )
@@ -108,7 +104,8 @@ class VisionManager:
             return captured_frame
         if captured_frame is None:
             return inferred_frame
-        if inferred_frame.timestamp >= captured_frame.timestamp:
+        frame_age_ms = (captured_frame.timestamp - inferred_frame.timestamp) * 1000.0
+        if frame_age_ms <= INFERRED_FRAME_MAX_AGE_MS:
             return inferred_frame
         return captured_frame
 
@@ -272,118 +269,124 @@ class VisionManager:
             )
             return tags
 
-    def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
+    def getFeederDetectionsByClass(self) -> Dict[int, List[VisionResult]]:
         prof = self.gc.profiler
-        prof.hit("vision.get_feeder_masks_by_class.calls")
-        prof.mark("vision.get_feeder_masks_by_class.interval_ms")
-        prof.startTimer("vision.get_feeder_masks_by_class.total_ms")
-        # Really needs refactoring
-        # This function only caches object masks across frames.
-        # Channel and carousel masks are stationary so we always return current frame only.
-        # For objects: accumulate detections across multiple frames for stability.
-        # This helps with detection reliability when pieces are moving.
-        # Should eventually be refactored for proper object tracking and lifecycle management.
-        # this means that if you count the number of objects, it's ~FEEDER_MASK_CACHE_FRAMES bigger than it should be
+        prof.hit("vision.get_feeder_detections_by_class.calls")
+        prof.mark("vision.get_feeder_detections_by_class.interval_ms")
+        prof.startTimer("vision.get_feeder_detections_by_class.total_ms")
 
         results = self._feeder_binding.latest_raw_results
         if not results or len(results) == 0:
-            # no new results, return cached objects only
-            aggregated: Dict[int, List[DetectedMask]] = {}
-            for object_masks in self._feeder_mask_cache:
+            aggregated: Dict[int, List[VisionResult]] = {}
+            for object_detections in self._feeder_detection_cache:
                 if FEEDER_OBJECT_CLASS_ID not in aggregated:
                     aggregated[FEEDER_OBJECT_CLASS_ID] = []
-                aggregated[FEEDER_OBJECT_CLASS_ID].extend(object_masks)
+                aggregated[FEEDER_OBJECT_CLASS_ID].extend(object_detections)
             prof.observeValue(
-                "vision.get_feeder_masks_by_class.cached_object_count",
+                "vision.get_feeder_detections_by_class.cached_object_count",
                 float(len(aggregated.get(FEEDER_OBJECT_CLASS_ID, []))),
             )
-            prof.endTimer("vision.get_feeder_masks_by_class.total_ms")
+            prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
             return aggregated
 
-        # process current frame
-        current_frame_all_masks: Dict[int, List[DetectedMask]] = {}
-        current_frame_object_masks: List[DetectedMask] = []
+        current_frame_all_detections: Dict[int, List[VisionResult]] = {}
+        current_frame_object_detections: List[VisionResult] = []
 
-        prof.startTimer("vision.get_feeder_masks_by_class.process_results_ms")
+        prof.startTimer("vision.get_feeder_detections_by_class.process_results_ms")
+        fallback_timestamp = time.time()
+        if self._feeder_binding.latest_annotated_frame is not None:
+            fallback_timestamp = self._feeder_binding.latest_annotated_frame.timestamp
+        model_names = (
+            self._feeder_binding.model.names
+            if self._feeder_binding.model is not None
+            else {}
+        )
+
         for result in results:
-            if result.masks is not None:
-                for i, mask in enumerate(result.masks):
-                    class_id = int(result.boxes[i].cls.item())
-                    confidence = float(result.boxes[i].conf.item())
-                    with prof.timer(
-                        "vision.get_feeder_masks_by_class.mask_cpu_numpy_ms"
-                    ):
-                        mask_data = mask.data[0].cpu().numpy()
+            boxes = result.boxes
+            if boxes is None:
+                continue
+            for box in boxes:
+                class_id = int(box.cls.item())
+                confidence = float(box.conf.item())
+                xyxy = list(map(int, box.xyxy[0].tolist()))
+                bbox: Tuple[int, int, int, int] = (
+                    xyxy[0],
+                    xyxy[1],
+                    xyxy[2],
+                    xyxy[3],
+                )
+                bbox_area = max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1])
+                if (
+                    class_id == FEEDER_OBJECT_CLASS_ID
+                    and bbox_area > OBJECT_DETECTION_MAX_AREA_SQ_PX
+                ):
+                    continue
 
-                    # get track ID if available, otherwise use index
-                    instance_id = i
-                    if result.boxes[i].id is not None:
-                        instance_id = int(result.boxes[i].id.item())
+                detection = VisionResult(
+                    class_id=class_id,
+                    class_name=model_names.get(class_id, str(class_id)),
+                    confidence=confidence,
+                    bbox=bbox,
+                    timestamp=fallback_timestamp,
+                )
+                if class_id not in current_frame_all_detections:
+                    current_frame_all_detections[class_id] = []
+                current_frame_all_detections[class_id].append(detection)
 
-                    # scale mask from model space to camera resolution
-                    model_height, model_width = mask_data.shape
-                    camera_height = self._feeder_camera_config.height
-                    camera_width = self._feeder_camera_config.width
+                if class_id == FEEDER_OBJECT_CLASS_ID:
+                    current_frame_object_detections.append(detection)
+        prof.endTimer("vision.get_feeder_detections_by_class.process_results_ms")
 
-                    if model_height != camera_height or model_width != camera_width:
-                        with prof.timer(
-                            "vision.get_feeder_masks_by_class.mask_resize_ms"
-                        ):
-                            scaled_mask = cv2.resize(
-                                mask_data.astype(np.uint8),
-                                (camera_width, camera_height),
-                                interpolation=cv2.INTER_NEAREST,
-                            ).astype(bool)
-                    else:
-                        scaled_mask = mask_data.astype(bool)
+        self._feeder_detection_cache.append(current_frame_object_detections)
 
-                    # filter out objects that are too large
-                    if class_id == FEEDER_OBJECT_CLASS_ID:
-                        with prof.timer(
-                            "vision.get_feeder_masks_by_class.mask_area_ms"
-                        ):
-                            mask_area = np.sum(scaled_mask)
-                        if mask_area > OBJECT_DETECTION_MAX_AREA_SQ_PX:
-                            continue  # skip this object, it's too large
+        result_detections: Dict[int, List[VisionResult]] = {}
+        for class_id, detections in current_frame_all_detections.items():
+            if class_id != FEEDER_OBJECT_CLASS_ID:
+                result_detections[class_id] = detections
 
-                    detected_mask = DetectedMask(
-                        mask=scaled_mask,
-                        confidence=confidence,
+        result_detections[FEEDER_OBJECT_CLASS_ID] = []
+        for object_detections in self._feeder_detection_cache:
+            result_detections[FEEDER_OBJECT_CLASS_ID].extend(object_detections)
+
+        prof.observeValue(
+            "vision.get_feeder_detections_by_class.object_count",
+            float(len(result_detections.get(FEEDER_OBJECT_CLASS_ID, []))),
+        )
+        prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
+        return result_detections
+
+    def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
+        detections_by_class = self.getFeederDetectionsByClass()
+        camera_height = self._feeder_camera_config.height
+        camera_width = self._feeder_camera_config.width
+        masks_by_class: Dict[int, List[DetectedMask]] = {}
+
+        for class_id, detections in detections_by_class.items():
+            masks: List[DetectedMask] = []
+            for instance_id, detection in enumerate(detections):
+                if detection.bbox is None:
+                    continue
+                x1, y1, x2, y2 = detection.bbox
+                x1 = max(0, min(camera_width, x1))
+                y1 = max(0, min(camera_height, y1))
+                x2 = max(0, min(camera_width, x2))
+                y2 = max(0, min(camera_height, y2))
+                if x2 <= x1 or y2 <= y1:
+                    continue
+                mask = np.zeros((camera_height, camera_width), dtype=bool)
+                mask[y1:y2, x1:x2] = True
+                masks.append(
+                    DetectedMask(
+                        mask=mask,
+                        confidence=detection.confidence,
                         class_id=class_id,
                         instance_id=instance_id,
                     )
+                )
+            masks_by_class[class_id] = masks
 
-                    if class_id not in current_frame_all_masks:
-                        current_frame_all_masks[class_id] = []
-                    current_frame_all_masks[class_id].append(detected_mask)
-
-                    # cache only object masks
-                    if class_id == FEEDER_OBJECT_CLASS_ID:
-                        current_frame_object_masks.append(detected_mask)
-        prof.endTimer("vision.get_feeder_masks_by_class.process_results_ms")
-
-        # add only object masks to cache
-        self._feeder_mask_cache.append(current_frame_object_masks)
-
-        # build result: current frame for channels/carousel, aggregated cache for objects
-        result_masks: Dict[int, List[DetectedMask]] = {}
-
-        # add all non-object masks from current frame only
-        for class_id, masks in current_frame_all_masks.items():
-            if class_id != FEEDER_OBJECT_CLASS_ID:
-                result_masks[class_id] = masks
-
-        # aggregate object masks from cache
-        result_masks[FEEDER_OBJECT_CLASS_ID] = []
-        for object_masks in self._feeder_mask_cache:
-            result_masks[FEEDER_OBJECT_CLASS_ID].extend(object_masks)
-
-        prof.observeValue(
-            "vision.get_feeder_masks_by_class.object_count",
-            float(len(result_masks.get(FEEDER_OBJECT_CLASS_ID, []))),
-        )
-        prof.endTimer("vision.get_feeder_masks_by_class.total_ms")
-        return result_masks
+        return masks_by_class
 
     def getChannelGeometry(self, aruco_tag_config):
         from subsystems.feeder.analysis import computeChannelGeometry

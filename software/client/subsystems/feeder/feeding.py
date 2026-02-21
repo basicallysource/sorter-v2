@@ -42,18 +42,18 @@ class Feeding(BaseState):
             prof.mark("feeder.execution_loop.interval_ms")
 
             with prof.timer("feeder.execution_loop.total_ms"):
-                with prof.timer("feeder.get_feeder_masks_ms"):
-                    masks_by_class = self.vision.getFeederMasksByClass()
-                object_detected_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
+                with prof.timer("feeder.get_feeder_detections_ms"):
+                    detections_by_class = self.vision.getFeederDetectionsByClass()
+                object_detections = detections_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
                 prof.observeValue(
-                    "feeder.object_mask_count", float(len(object_detected_masks))
+                    "feeder.object_detection_count", float(len(object_detections))
                 )
 
                 with prof.timer("feeder.get_channel_geometry_ms"):
                     geometry = self.vision.getChannelGeometry(irl_cfg.aruco_tags)
 
                 with prof.timer("feeder.analyze_state_ms"):
-                    state = analyzeFeederState(object_detected_masks, geometry)
+                    state = analyzeFeederState(object_detections, geometry)
 
                 if state != self.last_analysis_state:
                     self.gc.logger.info(

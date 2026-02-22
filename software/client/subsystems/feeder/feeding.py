@@ -42,18 +42,18 @@ class Feeding(BaseState):
             prof.mark("feeder.execution_loop.interval_ms")
 
             with prof.timer("feeder.execution_loop.total_ms"):
-                with prof.timer("feeder.get_feeder_masks_ms"):
-                    masks_by_class = self.vision.getFeederMasksByClass()
-                object_detected_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
+                with prof.timer("feeder.get_feeder_detections_ms"):
+                    detections_by_class = self.vision.getFeederDetectionsByClass()
+                object_detections = detections_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
                 prof.observeValue(
-                    "feeder.object_mask_count", float(len(object_detected_masks))
+                    "feeder.object_detection_count", float(len(object_detections))
                 )
 
                 with prof.timer("feeder.get_channel_geometry_ms"):
                     geometry = self.vision.getChannelGeometry(irl_cfg.aruco_tags)
 
                 with prof.timer("feeder.analyze_state_ms"):
-                    state = analyzeFeederState(object_detected_masks, geometry)
+                    state = analyzeFeederState(object_detections, geometry)
 
                 if state != self.last_analysis_state:
                     self.gc.logger.info(
@@ -62,7 +62,9 @@ class Feeding(BaseState):
                     self.last_analysis_state = state
                     prof.hit(f"feeder.analysis_state_change.{state.value}")
 
-                ACTUALLY_RUN = True
+                ACTUALLY_RUN = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
+                    not self.shared.chute_move_in_progress
+                )
 
                 if state == FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE:
                     prof.hit("feeder.path.object_in_3_dropzone_precise")
@@ -71,6 +73,10 @@ class Feeding(BaseState):
                     )
                     cfg = fc.third_rotor_precision
                     with prof.timer("feeder.motor_action_ms"):
+                        if not ACTUALLY_RUN:
+                            self.gc.logger.info(
+                                "Feeder: skipping rotor pulse while chute move in progress"
+                            )
                         if ACTUALLY_RUN:
                             self.irl.third_c_channel_rotor_stepper.moveSteps(
                                 -cfg.steps_per_pulse,
@@ -88,6 +94,10 @@ class Feeding(BaseState):
                     )
                     cfg = fc.third_rotor_normal
                     with prof.timer("feeder.motor_action_ms"):
+                        if not ACTUALLY_RUN:
+                            self.gc.logger.info(
+                                "Feeder: skipping rotor pulse while chute move in progress"
+                            )
                         if ACTUALLY_RUN:
                             self.irl.third_c_channel_rotor_stepper.moveSteps(
                                 -cfg.steps_per_pulse,
@@ -105,6 +115,10 @@ class Feeding(BaseState):
                     )
                     cfg = fc.second_rotor_precision
                     with prof.timer("feeder.motor_action_ms"):
+                        if not ACTUALLY_RUN:
+                            self.gc.logger.info(
+                                "Feeder: skipping rotor pulse while chute move in progress"
+                            )
                         if ACTUALLY_RUN:
                             self.irl.second_c_channel_rotor_stepper.moveSteps(
                                 -cfg.steps_per_pulse,
@@ -122,6 +136,10 @@ class Feeding(BaseState):
                     )
                     cfg = fc.second_rotor_normal
                     with prof.timer("feeder.motor_action_ms"):
+                        if not ACTUALLY_RUN:
+                            self.gc.logger.info(
+                                "Feeder: skipping rotor pulse while chute move in progress"
+                            )
                         if ACTUALLY_RUN:
                             self.irl.second_c_channel_rotor_stepper.moveSteps(
                                 -cfg.steps_per_pulse,
@@ -137,6 +155,10 @@ class Feeding(BaseState):
                     self.gc.logger.info("Feeder: clear, pulsing 1st")
                     cfg = fc.first_rotor
                     with prof.timer("feeder.motor_action_ms"):
+                        if not ACTUALLY_RUN:
+                            self.gc.logger.info(
+                                "Feeder: skipping rotor pulse while chute move in progress"
+                            )
                         if ACTUALLY_RUN:
                             self.irl.first_c_channel_rotor_stepper.moveSteps(
                                 -cfg.steps_per_pulse,

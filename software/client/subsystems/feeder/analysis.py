@@ -2,13 +2,13 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Tuple, TYPE_CHECKING
 import numpy as np
-from vision.utils import maskCenterOfMass
-from vision.types import DetectedMask
+from vision.types import VisionResult
 
 if TYPE_CHECKING:
     from irl.config import ArucoTagConfig
 
 OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
+EXPAND_RADIUS_CHANNELS_PX = 20
 
 
 class FeederAnalysisState(Enum):
@@ -50,7 +50,10 @@ def computeChannelGeometry(
         center = (center_x, center_y)
 
         # radius is half the distance between the two tags
-        radius = float(np.linalg.norm(np.array(second_r1) - np.array(second_r2)) / 2.0)
+        radius = (
+            float(np.linalg.norm(np.array(second_r1) - np.array(second_r2)) / 2.0)
+            + EXPAND_RADIUS_CHANNELS_PX
+        )
 
         # angle to radius1 in image space
         v1 = np.array(second_r1) - np.array(center)
@@ -74,7 +77,10 @@ def computeChannelGeometry(
         center = (center_x, center_y)
 
         # radius is half the distance between the two tags
-        radius = float(np.linalg.norm(np.array(third_r1) - np.array(third_r2)) / 2.0)
+        radius = (
+            float(np.linalg.norm(np.array(third_r1) - np.array(third_r2)) / 2.0)
+            + EXPAND_RADIUS_CHANNELS_PX
+        )
 
         # angle to radius1 in image space
         v1 = np.array(third_r1) - np.array(center)
@@ -151,17 +157,17 @@ def determineObjectChannelAndQuadrant(
 
 
 def analyzeFeederState(
-    object_detected_masks: List[DetectedMask],
+    object_detections: List[VisionResult],
     geometry: ChannelGeometry,
 ) -> FeederAnalysisState:
-    if not object_detected_masks:
+    if not object_detections:
         return FeederAnalysisState.CLEAR
 
     # filter objects by confidence threshold
     high_confidence_objects = [
-        dm
-        for dm in object_detected_masks
-        if dm.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
+        detection
+        for detection in object_detections
+        if detection.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
     ]
 
     if not high_confidence_objects:
@@ -172,10 +178,11 @@ def analyzeFeederState(
     has_object_in_2_dropzone_precise = False
     has_object_in_2_dropzone = False
 
-    for obj_dm in high_confidence_objects:
-        center = maskCenterOfMass(obj_dm.mask)
-        if center is None:
+    for detection in high_confidence_objects:
+        if detection.bbox is None:
             continue
+        x1, y1, x2, y2 = detection.bbox
+        center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
         result = determineObjectChannelAndQuadrant(center, geometry)
         if result is None:

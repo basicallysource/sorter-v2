@@ -37,9 +37,6 @@ class Sending(BaseState):
             return None
 
         if self.piece:
-            if self.piece.destination_bin is not None:
-                layer_index = self.piece.destination_bin[0]
-                self.irl.servos[layer_index].open()
             self.piece.stage = PieceStage.distributed
             self.piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(self.piece))

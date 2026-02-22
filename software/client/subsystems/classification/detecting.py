@@ -36,6 +36,9 @@ class Detecting(BaseState):
         high_confidence_objects = [
             dm
             for dm in object_detected_masks
+            # Ignore cached feeder detections here so platform triggers only come
+            # from the newest vision results and don't immediately retrigger.
+            if not dm.from_cache
             if dm.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
         ]
 
@@ -45,8 +48,10 @@ class Detecting(BaseState):
         # check if any high-confidence object is on a carousel platform
         for obj_dm in high_confidence_objects:
             if self.vision.isObjectOnCarouselPlatform(obj_dm.mask):
+                object_area_px = int(np.count_nonzero(obj_dm.mask))
                 self.logger.info(
-                    f"Detecting: object on carousel platform (confidence={obj_dm.confidence:.2f})"
+                    "Detecting: object on carousel platform "
+                    f"(confidence={obj_dm.confidence:.2f}, area_px={object_area_px})"
                 )
                 self.shared.classification_ready = False
                 self.carousel.addPieceAtFeeder()

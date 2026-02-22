@@ -50,29 +50,57 @@ class Chute:
             angle -= 360
         return angle
 
-    def moveToAngle(self, target: float) -> None:
+    def moveToAngle(self, target: float) -> int:
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         target_steps = round(
             (target_stepper_angle / 360.0) * self.stepper.total_steps_per_rev
         )
         delta_steps = target_steps - self.stepper.current_position_steps
+        estimated_ms = self.stepper.estimateMoveStepsMs(delta_steps)
 
         if self.gc.disable_chute:
             self.logger.info(
-                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (target={target_steps} steps, delta={delta_steps})"
+                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms})"
             )
-            return
+            return estimated_ms
 
         self.logger.info(
-            f"Chute: moving from {current:.1f}° to {target:.1f}° (target={target_steps} steps, delta={delta_steps})"
+            f"Chute: moving from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms})"
         )
         self.stepper.moveSteps(delta_steps)
+        return estimated_ms
 
-    def moveToBin(self, address: BinAddress) -> None:
+    def moveToBin(self, address: BinAddress) -> int:
         target = self.getAngleForBin(address)
-        self.moveToAngle(target)
+        return self.moveToAngle(target)
 
-    def home(self) -> None:
+    def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
+        current = self.current_angle
+        target_stepper_angle = target * GEAR_RATIO
+        target_steps = round(
+            (target_stepper_angle / 360.0) * self.stepper.total_steps_per_rev
+        )
+        delta_steps = target_steps - self.stepper.current_position_steps
+        estimated_ms = self.stepper.estimateMoveStepsMs(delta_steps)
+        timeout_ms = max(1, estimated_ms + timeout_buffer_ms)
+
+        if self.gc.disable_chute:
+            self.logger.info(
+                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
+            )
+            return estimated_ms
+
+        self.logger.info(
+            f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
+        )
+        self.stepper.moveStepsBlocking(delta_steps, timeout_ms=timeout_ms)
+        return estimated_ms
+
+    def moveToBinBlocking(self, address: BinAddress, timeout_buffer_ms: int = 0) -> int:
+        target = self.getAngleForBin(address)
+        return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
+
+    def home(self) -> int:
         self.logger.info("Chute: homing to zero")
-        self.moveToAngle(0.0)
+        return self.moveToAngle(0.0)

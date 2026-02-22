@@ -1,4 +1,1 @@
-# feeder vision model classes
 FEEDER_OBJECT_CLASS_ID = 0
-FEEDER_CHANNEL_CLASS_ID = 1
-FEEDER_CAROUSEL_CLASS_ID = 2

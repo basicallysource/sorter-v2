@@ -9,3 +9,4 @@ class SharedVariables:
         self.classification_ready: bool = True
         self.distribution_ready: bool = True
         self.carousel: Optional["Carousel"] = None
+        self.chute_move_in_progress: bool = False

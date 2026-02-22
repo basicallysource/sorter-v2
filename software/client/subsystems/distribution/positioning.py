@@ -13,8 +13,9 @@ from blob_manager import setBinCategories
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
-POSITION_DURATION_MS = 3000
+POSITION_BUFFER_MS = 2000
 SLEEP_AFTER_CLOSE_DOOR_MS = 1500
+SLEEP_BEFORE_CHUTE_MOVE_MS = 5000
 
 
 class Positioning(BaseState):
@@ -35,11 +36,11 @@ class Positioning(BaseState):
         self.sorting_profile = sorting_profile
         self.event_queue = event_queue
         self.start_time: Optional[float] = None
+        self.position_duration_ms = 0
         self.command_sent = False
 
     def step(self) -> Optional[DistributionState]:
         if self.start_time is None:
-            self.start_time = time.time()
             carousel = self.shared.carousel
             piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
@@ -71,11 +72,21 @@ class Positioning(BaseState):
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self._selectDoor(address.layer_index)
-            self.chute.moveToBin(address)
+            if SLEEP_BEFORE_CHUTE_MOVE_MS > 0:
+                self.logger.info(
+                    f"Positioning: extra wait before chute move {SLEEP_BEFORE_CHUTE_MOVE_MS}ms"
+                )
+                time.sleep(SLEEP_BEFORE_CHUTE_MOVE_MS / 1000.0)
+            chute_move_ms = self.chute.moveToBin(address)
+            self.position_duration_ms = chute_move_ms + POSITION_BUFFER_MS
+            self.logger.info(
+                f"Positioning: chute move wait={self.position_duration_ms}ms (chute_move_ms={chute_move_ms}, buffer_ms={POSITION_BUFFER_MS})"
+            )
+            self.start_time = time.time()
             self.command_sent = True
 
         elapsed_ms = (time.time() - self.start_time) * 1000
-        if elapsed_ms < POSITION_DURATION_MS:
+        if elapsed_ms < self.position_duration_ms:
             return None
 
         self.logger.info("Positioning: complete, ready for drop")
@@ -84,6 +95,7 @@ class Positioning(BaseState):
     def cleanup(self) -> None:
         super().cleanup()
         self.start_time = None
+        self.position_duration_ms = 0
         self.command_sent = False
 
     def _selectDoor(self, target_layer_index: int) -> None:

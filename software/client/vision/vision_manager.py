@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Tuple
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 import base64
 import time
 import cv2
@@ -10,6 +11,7 @@ from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.consts import FEEDER_OBJECT_CLASS_ID
 from blob_manager import VideoRecorder
+from classification.moondream import getDetection
 from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
 from .inference import InferenceThread, CameraModelBinding
@@ -22,7 +24,7 @@ INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
-CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 50000
+CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 70000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
 
@@ -717,23 +719,47 @@ class VisionManager:
     def _expandRectanglePerimeter(
         self, corners: List[Tuple[float, float]], expansion_px: float
     ) -> List[Tuple[float, float]]:
-        # convert corners to numpy array
         corners_array = np.array(corners)
-
-        # find rectangle center
         center = np.mean(corners_array, axis=0)
+        if len(corners_array) != 4:
+            expanded_corners = []
+            for corner in corners_array:
+                direction = corner - center
+                distance = np.linalg.norm(direction)
+                if distance > 0:
+                    direction = direction / distance
+                    expanded_corners.append(tuple(corner + direction * expansion_px))
+                else:
+                    expanded_corners.append(tuple(corner))
+            return expanded_corners
 
-        # expand each corner outward from center
+        edge_0 = corners_array[1] - corners_array[0]
+        edge_1 = corners_array[2] - corners_array[1]
+        edge_2 = corners_array[3] - corners_array[2]
+        edge_3 = corners_array[0] - corners_array[3]
+
+        dim_0_len = (np.linalg.norm(edge_0) + np.linalg.norm(edge_2)) / 2.0
+        dim_1_len = (np.linalg.norm(edge_1) + np.linalg.norm(edge_3)) / 2.0
+
+        if dim_0_len <= dim_1_len:
+            short_axis = edge_0
+        else:
+            short_axis = edge_1
+
+        axis_norm = np.linalg.norm(short_axis)
+        if axis_norm == 0:
+            return [tuple(corner) for corner in corners_array]
+
+        short_axis = short_axis / axis_norm
+
         expanded_corners = []
         for corner in corners_array:
-            # direction from center to corner
-            direction = corner - center
-            distance = np.linalg.norm(direction)
-            if distance > 0:
-                direction = direction / distance  # normalize
-                # move corner outward by expansion amount
-                expanded_corner = corner + direction * expansion_px
-                expanded_corners.append(tuple(expanded_corner))
+            offset = corner - center
+            axis_proj = float(np.dot(offset, short_axis))
+            if axis_proj > 0:
+                expanded_corners.append(tuple(corner + short_axis * expansion_px))
+            elif axis_proj < 0:
+                expanded_corners.append(tuple(corner - short_axis * expansion_px))
             else:
                 expanded_corners.append(tuple(corner))
 
@@ -861,9 +887,39 @@ class VisionManager:
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         _ = confidence_threshold
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
-        top_crop = top_frame.raw if top_frame is not None else None
-        bottom_crop = bottom_frame.raw if bottom_frame is not None else None
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            top_future = executor.submit(
+                self._getMoondreamClassificationCrop, top_frame, "top"
+            )
+            bottom_future = executor.submit(
+                self._getMoondreamClassificationCrop, bottom_frame, "bottom"
+            )
+            top_crop = top_future.result()
+            bottom_crop = bottom_future.result()
         return (top_crop, bottom_crop)
+
+    def _getMoondreamClassificationCrop(
+        self, frame: Optional[CameraFrame], camera_label: str
+    ) -> Optional[np.ndarray]:
+        if frame is None:
+            return None
+
+        try:
+            box = getDetection(frame.raw)
+        except Exception as e:
+            self.gc.logger.warn(
+                f"Moondream detect failed for {camera_label} classification frame: {e}"
+            )
+            return frame.raw
+
+        if box is None:
+            self.gc.logger.warn(
+                f"Moondream found no lego piece in {camera_label} classification frame"
+            )
+            return frame.raw
+
+        x_min, y_min, x_max, y_max = box
+        return frame.raw[y_min:y_max, x_min:x_max]
 
     def _encodeFrame(self, frame) -> str:
         with self.gc.profiler.timer("vision.encode_frame.imencode_ms"):

@@ -233,8 +233,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.chute_stepper.dir_pin,
         config.chute_stepper.enable_pin,
         name="chute",
-        default_delay_us=1000,
-        default_accel_start_delay_us=5000,
+        default_delay_us=500,
+        default_accel_start_delay_us=2500,
         default_accel_steps=250,
         default_decel_steps=250,
     )

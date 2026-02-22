@@ -110,6 +110,13 @@ class Stepper:
             accel_steps = self.default_accel_steps
         if decel_steps is None:
             decel_steps = self.default_decel_steps
+        if self.name == "chute":
+            queue_size = self.mcu.command_queue.qsize()
+            worker_alive = self.mcu.worker_thread.is_alive()
+            next_position_steps = self.current_position_steps + steps
+            self.gc.logger.info(
+                f"Stepper '{self.name}' moveSteps steps={steps} delay={delay_us}us accel_start={accel_start_delay_us}us accel_steps={accel_steps} decel_steps={decel_steps} pos={self.current_position_steps}->{next_position_steps} pre_queue={queue_size} worker_alive={worker_alive}"
+            )
         self.mcu.command(
             "T",
             self.step_pin,
@@ -122,6 +129,56 @@ class Stepper:
         )
         self.current_position_steps += steps
         setStepperPosition(self.name, self.current_position_steps)
+
+    def estimateMoveStepsMs(
+        self,
+        steps: int,
+        delay_us: int | None = None,
+        accel_start_delay_us: int | None = None,
+        accel_steps: int | None = None,
+        decel_steps: int | None = None,
+    ) -> int:
+        if delay_us is None:
+            delay_us = self.default_delay_us
+        if accel_start_delay_us is None:
+            accel_start_delay_us = self.default_accel_start_delay_us
+        if accel_steps is None:
+            accel_steps = self.default_accel_steps
+        if decel_steps is None:
+            decel_steps = self.default_decel_steps
+
+        if delay_us < 1:
+            delay_us = 1
+        if accel_start_delay_us < delay_us:
+            accel_start_delay_us = delay_us
+        if accel_steps < 0:
+            accel_steps = 0
+        if decel_steps < 0:
+            decel_steps = 0
+
+        abs_steps = abs(steps)
+        accel_zone = accel_steps
+        decel_zone = decel_steps
+        if accel_zone + decel_zone > abs_steps:
+            accel_zone = abs_steps // 2
+            decel_zone = abs_steps - accel_zone
+
+        delay_delta = accel_start_delay_us - delay_us
+        total_us = 0
+        for i in range(abs_steps):
+            step_delay_us = delay_us
+            if delay_delta > 0 and accel_zone > 0 and i < accel_zone:
+                step_delay_us = accel_start_delay_us - (
+                    (delay_delta * (i + 1)) // accel_zone
+                )
+            if delay_delta > 0 and decel_zone > 0 and i >= abs_steps - decel_zone:
+                decel_index = i - (abs_steps - decel_zone)
+                step_delay_us = delay_us + (
+                    (delay_delta * (decel_index + 1)) // decel_zone
+                )
+            total_us += step_delay_us * 2
+
+        return (total_us + 999) // 1000
 
     def disable(self) -> None:
         self.mcu.command("D", self.enable_pin, 1)

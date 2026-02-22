@@ -9,6 +9,8 @@ COMMAND_QUEUE_TIMEOUT_MS = 1000
 READER_SLEEP_MS = 10
 ARDUINO_RESET_DELAY_MS = 2000
 COMMAND_WRITE_DELAY_MS = 15
+COMMAND_ID_START = 1
+COMMAND_ID_MAX = 2_000_000_000
 
 
 class MCU:
@@ -23,6 +25,7 @@ class MCU:
         self.running = True
         self.callbacks: dict[str, Callable] = {}
         self.worker_dead_logged = False
+        self.next_command_id = COMMAND_ID_START
 
         self.worker_thread = threading.Thread(target=self._processCommands, daemon=True)
         self.worker_thread.start()
@@ -63,7 +66,12 @@ class MCU:
                 )
                 if not self.running:
                     break
-                cmd_str = ",".join(map(str, cmd_args)) + "\n"
+                cmd_id = self.next_command_id
+                self.next_command_id += 1
+                if self.next_command_id > COMMAND_ID_MAX:
+                    self.next_command_id = COMMAND_ID_START
+                cmd_payload = ",".join(map(str, cmd_args))
+                cmd_str = f"{cmd_id}|{cmd_payload}\n"
 
                 self.serial.write(cmd_str.encode())
                 time.sleep(COMMAND_WRITE_DELAY_MS / 1000.0)

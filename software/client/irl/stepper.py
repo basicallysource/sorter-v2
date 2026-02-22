@@ -130,6 +130,45 @@ class Stepper:
         self.current_position_steps += steps
         setStepperPosition(self.name, self.current_position_steps)
 
+    def moveStepsBlocking(
+        self,
+        steps: int,
+        timeout_ms: int,
+        delay_us: int | None = None,
+        accel_start_delay_us: int | None = None,
+        accel_steps: int | None = None,
+        decel_steps: int | None = None,
+    ) -> str:
+        if delay_us is None:
+            delay_us = self.default_delay_us
+        if accel_start_delay_us is None:
+            accel_start_delay_us = self.default_accel_start_delay_us
+        if accel_steps is None:
+            accel_steps = self.default_accel_steps
+        if decel_steps is None:
+            decel_steps = self.default_decel_steps
+        if self.name == "chute":
+            queue_size = self.mcu.command_queue.qsize()
+            worker_alive = self.mcu.worker_thread.is_alive()
+            next_position_steps = self.current_position_steps + steps
+            self.gc.logger.info(
+                f"Stepper '{self.name}' moveStepsBlocking steps={steps} timeout_ms={timeout_ms} delay={delay_us}us accel_start={accel_start_delay_us}us accel_steps={accel_steps} decel_steps={decel_steps} pos={self.current_position_steps}->{next_position_steps} pre_queue={queue_size} worker_alive={worker_alive}"
+            )
+        line = self.mcu.commandBlocking(
+            "T",
+            self.step_pin,
+            self.dir_pin,
+            steps,
+            delay_us,
+            accel_start_delay_us,
+            accel_steps,
+            decel_steps,
+            timeout_ms=timeout_ms,
+        )
+        self.current_position_steps += steps
+        setStepperPosition(self.name, self.current_position_steps)
+        return line
+
     def estimateMoveStepsMs(
         self,
         steps: int,

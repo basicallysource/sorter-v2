@@ -353,7 +353,10 @@ void processCommand(String cmd) {
       int step_pin = (int)step_pin_long;
       int dir_pin = (int)dir_pin_long;
       if (!isAllowedStepperPair(step_pin, dir_pin)) {
-        Serial.print("ERR,T,bad_pins,");
+        Serial.print("ERR,T,");
+        if (has_cmd_id) Serial.print(cmd_id);
+        else Serial.print("no_id");
+        Serial.print(",bad_pins,");
         Serial.print(step_pin);
         Serial.print(",");
         Serial.println(dir_pin);
@@ -443,12 +446,18 @@ void processCommand(String cmd) {
         return;
       }
       if (!isAllowedServoPin((int)pin_long)) {
-        Serial.print("ERR,S,bad_pin,");
+        Serial.print("ERR,S,");
+        if (has_cmd_id) Serial.print(cmd_id);
+        else Serial.print("no_id");
+        Serial.print(",bad_pin,");
         Serial.println((int)pin_long);
         return;
       }
       if (angle_long < 0 || angle_long > 180) {
-        Serial.print("ERR,S,bad_angle,");
+        Serial.print("ERR,S,");
+        if (has_cmd_id) Serial.print(cmd_id);
+        else Serial.print("no_id");
+        Serial.print(",bad_angle,");
         Serial.println((int)angle_long);
         return;
       }
@@ -472,6 +481,9 @@ void processCommand(String cmd) {
 
     default: {
       Serial.print("ERR,UNKNOWN,");
+      if (has_cmd_id) Serial.print(cmd_id);
+      else Serial.print("no_id");
+      Serial.print(",");
       Serial.println(cmdType);
       break;
     }

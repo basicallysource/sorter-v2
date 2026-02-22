@@ -77,10 +77,12 @@ class Positioning(BaseState):
                     f"Positioning: extra wait before chute move {SLEEP_BEFORE_CHUTE_MOVE_MS}ms"
                 )
                 time.sleep(SLEEP_BEFORE_CHUTE_MOVE_MS / 1000.0)
-            chute_move_ms = self.chute.moveToBin(address)
-            self.position_duration_ms = chute_move_ms + POSITION_BUFFER_MS
+            chute_move_ms = self.chute.moveToBinBlocking(
+                address, timeout_buffer_ms=POSITION_BUFFER_MS
+            )
+            self.position_duration_ms = 0
             self.logger.info(
-                f"Positioning: chute move wait={self.position_duration_ms}ms (chute_move_ms={chute_move_ms}, buffer_ms={POSITION_BUFFER_MS})"
+                f"Positioning: chute move confirmed (chute_move_ms={chute_move_ms}, timeout_buffer_ms={POSITION_BUFFER_MS})"
             )
             self.start_time = time.time()
             self.command_sent = True

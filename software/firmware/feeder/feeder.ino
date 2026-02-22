@@ -12,6 +12,45 @@
 
 #include <Servo.h>
 
+bool parseIntStrict(String s, long &out) {
+  if (s.length() == 0) return false;
+  int i = 0;
+  bool negative = false;
+  if (s.charAt(0) == '-') {
+    negative = true;
+    i = 1;
+    if (s.length() == 1) return false;
+  }
+
+  long value = 0;
+  for (; i < s.length(); i++) {
+    char c = s.charAt(i);
+    if (c < '0' || c > '9') return false;
+    value = value * 10 + (c - '0');
+  }
+
+  out = negative ? -value : value;
+  return true;
+}
+
+bool parseIntRange(String s, int start, int end, long &out) {
+  if (start < 0 || end < start || end > s.length()) return false;
+  return parseIntStrict(s.substring(start, end), out);
+}
+
+bool isAllowedServoPin(int pin) {
+  return pin == 4 || pin == 5 || pin == 6 || pin == 11;
+}
+
+bool isAllowedStepperPair(int step_pin, int dir_pin) {
+  return
+    (step_pin == 36 && dir_pin == 34) ||
+    (step_pin == 26 && dir_pin == 28) ||
+    (step_pin == 46 && dir_pin == 48) ||
+    (step_pin == 60 && dir_pin == 61) ||
+    (step_pin == 54 && dir_pin == 55);
+}
+
 void setup() {
   Serial.begin(115200);
   while (!Serial) {
@@ -44,8 +83,17 @@ void processCommand(String cmd) {
       if (firstComma == -1) return;
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
-      int pin = args.substring(0, secondComma).toInt();
-      int mode = args.substring(secondComma + 1).toInt();
+      if (secondComma == -1) return;
+      if (args.indexOf(',', secondComma + 1) != -1) return;
+
+      long pin_long = 0;
+      long mode_long = 0;
+      if (!parseIntRange(args, 0, secondComma, pin_long)) return;
+      if (!parseIntRange(args, secondComma + 1, args.length(), mode_long)) return;
+      if (mode_long != 0 && mode_long != 1) return;
+
+      int pin = (int)pin_long;
+      int mode = (int)mode_long;
       pinMode(pin, mode == 1 ? OUTPUT : INPUT);
       Serial.print("Pin ");
       Serial.print(pin);
@@ -59,8 +107,17 @@ void processCommand(String cmd) {
       if (firstComma == -1) return;
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
-      int pin = args.substring(0, secondComma).toInt();
-      int value = args.substring(secondComma + 1).toInt();
+      if (secondComma == -1) return;
+      if (args.indexOf(',', secondComma + 1) != -1) return;
+
+      long pin_long = 0;
+      long value_long = 0;
+      if (!parseIntRange(args, 0, secondComma, pin_long)) return;
+      if (!parseIntRange(args, secondComma + 1, args.length(), value_long)) return;
+      if (value_long != 0 && value_long != 1) return;
+
+      int pin = (int)pin_long;
+      int value = (int)value_long;
       digitalWrite(pin, value == 1 ? HIGH : LOW);
       Serial.print("Digital pin ");
       Serial.print(pin);
@@ -74,8 +131,17 @@ void processCommand(String cmd) {
       if (firstComma == -1) return;
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
-      int pin = args.substring(0, secondComma).toInt();
-      int value = args.substring(secondComma + 1).toInt();
+      if (secondComma == -1) return;
+      if (args.indexOf(',', secondComma + 1) != -1) return;
+
+      long pin_long = 0;
+      long value_long = 0;
+      if (!parseIntRange(args, 0, secondComma, pin_long)) return;
+      if (!parseIntRange(args, secondComma + 1, args.length(), value_long)) return;
+      if (value_long < 0 || value_long > 255) return;
+
+      int pin = (int)pin_long;
+      int value = (int)value_long;
       analogWrite(pin, value);
       Serial.print("PWM pin ");
       Serial.print(pin);
@@ -94,13 +160,53 @@ void processCommand(String cmd) {
       int c4 = args.indexOf(',', c3 + 1);
       int c5 = c4 == -1 ? -1 : args.indexOf(',', c4 + 1);
       int c6 = c5 == -1 ? -1 : args.indexOf(',', c5 + 1);
-      int step_pin = args.substring(0, c1).toInt();
-      int dir_pin = args.substring(c1 + 1, c2).toInt();
-      int steps = args.substring(c2 + 1, c3).toInt();
-      int min_delay_us = c4 == -1 ? args.substring(c3 + 1).toInt() : args.substring(c3 + 1, c4).toInt();
-      int start_delay_us = c4 == -1 ? min_delay_us : args.substring(c4 + 1, c5 == -1 ? args.length() : c5).toInt();
-      int accel_steps = c5 == -1 ? 0 : args.substring(c5 + 1, c6 == -1 ? args.length() : c6).toInt();
-      int decel_steps = c6 == -1 ? accel_steps : args.substring(c6 + 1).toInt();
+      if (c1 == -1 || c2 == -1 || c3 == -1) return;
+      if (c6 != -1 && args.indexOf(',', c6 + 1) != -1) return;
+
+      long step_pin_long = 0;
+      long dir_pin_long = 0;
+      long steps_long = 0;
+      long min_delay_us_long = 0;
+      long start_delay_us_long = 0;
+      long accel_steps_long = 0;
+      long decel_steps_long = 0;
+
+      if (!parseIntRange(args, 0, c1, step_pin_long)) return;
+      if (!parseIntRange(args, c1 + 1, c2, dir_pin_long)) return;
+      if (!parseIntRange(args, c2 + 1, c3, steps_long)) return;
+
+      if (c4 == -1) {
+        if (!parseIntRange(args, c3 + 1, args.length(), min_delay_us_long)) return;
+        start_delay_us_long = min_delay_us_long;
+        accel_steps_long = 0;
+        decel_steps_long = 0;
+      } else {
+        if (!parseIntRange(args, c3 + 1, c4, min_delay_us_long)) return;
+        int start_end = c5 == -1 ? args.length() : c5;
+        if (!parseIntRange(args, c4 + 1, start_end, start_delay_us_long)) return;
+        if (c5 == -1) {
+          accel_steps_long = 0;
+          decel_steps_long = 0;
+        } else {
+          int accel_end = c6 == -1 ? args.length() : c6;
+          if (!parseIntRange(args, c5 + 1, accel_end, accel_steps_long)) return;
+          if (c6 == -1) {
+            decel_steps_long = accel_steps_long;
+          } else {
+            if (!parseIntRange(args, c6 + 1, args.length(), decel_steps_long)) return;
+          }
+        }
+      }
+
+      int step_pin = (int)step_pin_long;
+      int dir_pin = (int)dir_pin_long;
+      if (!isAllowedStepperPair(step_pin, dir_pin)) return;
+
+      int steps = (int)steps_long;
+      int min_delay_us = (int)min_delay_us_long;
+      int start_delay_us = (int)start_delay_us_long;
+      int accel_steps = (int)accel_steps_long;
+      int decel_steps = (int)decel_steps_long;
 
       if (min_delay_us < 1) min_delay_us = 1;
       if (start_delay_us < min_delay_us) start_delay_us = min_delay_us;
@@ -142,8 +248,18 @@ void processCommand(String cmd) {
       if (firstComma == -1) return;
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
-      int pin = args.substring(0, secondComma).toInt();
-      int angle = args.substring(secondComma + 1).toInt();
+      if (secondComma == -1) return;
+      if (args.indexOf(',', secondComma + 1) != -1) return;
+
+      long pin_long = 0;
+      long angle_long = 0;
+      if (!parseIntRange(args, 0, secondComma, pin_long)) return;
+      if (!parseIntRange(args, secondComma + 1, args.length(), angle_long)) return;
+      if (!isAllowedServoPin((int)pin_long)) return;
+      if (angle_long < 0 || angle_long > 180) return;
+
+      int pin = (int)pin_long;
+      int angle = (int)angle_long;
       
       Servo servo;
       servo.attach(pin);
@@ -156,6 +272,10 @@ void processCommand(String cmd) {
       Serial.print(" set to ");
       Serial.print(angle);
       Serial.println(" degrees");
+      break;
+    }
+
+    default: {
       break;
     }
   }

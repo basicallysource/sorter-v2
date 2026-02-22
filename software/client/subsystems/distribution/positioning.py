@@ -13,7 +13,7 @@ from blob_manager import setBinCategories
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
-POSITION_BUFFER_MS = 2000
+POSITION_BUFFER_MS = 5000
 SLEEP_AFTER_CLOSE_DOOR_MS = 1500
 SLEEP_BEFORE_CHUTE_MOVE_MS = 5000
 
@@ -77,9 +77,11 @@ class Positioning(BaseState):
                     f"Positioning: extra wait before chute move {SLEEP_BEFORE_CHUTE_MOVE_MS}ms"
                 )
                 time.sleep(SLEEP_BEFORE_CHUTE_MOVE_MS / 1000.0)
+            self.shared.chute_move_in_progress = True
             chute_move_ms = self.chute.moveToBinBlocking(
                 address, timeout_buffer_ms=POSITION_BUFFER_MS
             )
+            self.shared.chute_move_in_progress = False
             self.position_duration_ms = 0
             self.logger.info(
                 f"Positioning: chute move confirmed (chute_move_ms={chute_move_ms}, timeout_buffer_ms={POSITION_BUFFER_MS})"
@@ -99,6 +101,7 @@ class Positioning(BaseState):
         self.start_time = None
         self.position_duration_ms = 0
         self.command_sent = False
+        self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
         target_servo = self.irl.servos[target_layer_index]

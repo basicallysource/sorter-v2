@@ -116,6 +116,7 @@ class GlobalConfig:
     disable_chute: bool
     use_segmentation_model_for_classification_chamber: bool
     profiler: Profiler
+    rotary_channel_steppers_can_operate_in_parallel: bool
 
     def __init__(self):
         self.debug_level = 0
@@ -123,6 +124,7 @@ class GlobalConfig:
         self.log_buffer_size = 100
         self.disable_chute = False
         self.use_segmentation_model_for_classification_chamber = False
+        self.rotary_channel_steppers_can_operate_in_parallel = False
 
 
 def mkTimeouts() -> Timeouts:

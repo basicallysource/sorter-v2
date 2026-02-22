@@ -83,16 +83,25 @@ class MCU:
         with self.pending_command_lock:
             self.pending_command_results[cmd_id] = pending
 
+        cmd_type = str(args[0]) if len(args) > 0 else "UNKNOWN"
+        cmd_payload = ",".join(map(str, args))
+        self.gc.logger.info(
+            f"MCU blocking command queued id={cmd_id} timeout_ms={timeout_ms} cmd={cmd_payload}"
+        )
+
         self.command_queue.put((cmd_id, args))
         if pending["event"].wait(timeout_ms / 1000.0):
             with self.pending_command_lock:
                 self.pending_command_results.pop(cmd_id, None)
             if pending["ok"]:
+                self.gc.logger.info(f"MCU blocking command ok id={cmd_id} type={cmd_type}")
                 return str(pending["line"])
+            self.gc.logger.error(f"MCU blocking command failed id={cmd_id} type={cmd_type}")
             raise RuntimeError(f"MCU command {cmd_id} failed: {pending['line']}")
 
         with self.pending_command_lock:
             self.pending_command_results.pop(cmd_id, None)
+        self.gc.logger.error(f"MCU blocking command timed out id={cmd_id} type={cmd_type}")
         raise RuntimeError(f"MCU command {cmd_id} timed out after {timeout_ms}ms: {args}")
 
     def registerCallback(self, message_type: str, callback: Callable) -> None:

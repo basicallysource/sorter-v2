@@ -1,3 +1,4 @@
+import time
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
 from blob_manager import getStepperPosition, setStepperPosition
@@ -10,6 +11,9 @@ DEFAULT_MICROSTEPPING = 8  # 1600 steps/rev total
 BASE_DELAY_US = 400
 DEFAULT_ACCEL_START_DELAY_MULTIPLIER = 2
 DEFAULT_ACCEL_STEPS = 24
+BLOCKING_MOVE_RETRY_COUNT = 10
+# if this works, just do this to the arudu firmware generally
+RETRY_DELAY_MS = 250
 
 
 class Stepper:
@@ -147,6 +151,12 @@ class Stepper:
             accel_steps = self.default_accel_steps
         if decel_steps is None:
             decel_steps = self.default_decel_steps
+        if steps == 0:
+            if self.name == "chute":
+                self.gc.logger.info(
+                    f"Stepper '{self.name}' moveStepsBlocking steps=0 fast-path (no MCU command)"
+                )
+            return "SKIP,T,steps=0"
         if self.name == "chute":
             queue_size = self.mcu.command_queue.qsize()
             worker_alive = self.mcu.worker_thread.is_alive()
@@ -154,17 +164,36 @@ class Stepper:
             self.gc.logger.info(
                 f"Stepper '{self.name}' moveStepsBlocking steps={steps} timeout_ms={timeout_ms} delay={delay_us}us accel_start={accel_start_delay_us}us accel_steps={accel_steps} decel_steps={decel_steps} pos={self.current_position_steps}->{next_position_steps} pre_queue={queue_size} worker_alive={worker_alive}"
             )
-        line = self.mcu.commandBlocking(
-            "T",
-            self.step_pin,
-            self.dir_pin,
-            steps,
-            delay_us,
-            accel_start_delay_us,
-            accel_steps,
-            decel_steps,
-            timeout_ms=timeout_ms,
-        )
+        line = ""
+        last_error: RuntimeError | None = None
+        total_attempts = BLOCKING_MOVE_RETRY_COUNT + 1
+        for attempt_index in range(total_attempts):
+            try:
+                line = self.mcu.commandBlocking(
+                    "T",
+                    self.step_pin,
+                    self.dir_pin,
+                    steps,
+                    delay_us,
+                    accel_start_delay_us,
+                    accel_steps,
+                    decel_steps,
+                    timeout_ms=timeout_ms,
+                )
+                last_error = None
+                break
+            except RuntimeError as error:
+                last_error = error
+                if attempt_index >= total_attempts - 1:
+                    break
+                self.gc.logger.error(
+                    f"Stepper '{self.name}' moveStepsBlocking retry {attempt_index + 1}/{BLOCKING_MOVE_RETRY_COUNT} after error: {error}"
+                )
+                time.sleep(RETRY_DELAY_MS / 1000.0)
+
+        if last_error is not None:
+            raise last_error
+
         self.current_position_steps += steps
         setStepperPosition(self.name, self.current_position_steps)
         return line

@@ -80,17 +80,6 @@ def setBinCategories(categories: list[list[list[str | None]]]) -> None:
     saveData(data)
 
 
-def getClassificationRegions() -> dict | None:
-    data = loadData()
-    return data.get("classification_regions")
-
-
-def setClassificationRegions(regions: dict) -> None:
-    data = loadData()
-    data["classification_regions"] = regions
-    saveData(data)
-
-
 def getMcuPath() -> str | None:
     data = loadData()
     return data.get("mcu_path")

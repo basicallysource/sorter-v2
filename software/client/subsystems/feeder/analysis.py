@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from irl.config import ArucoTagConfig
 
 OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
+EXPAND_RADIUS_CHANNELS_PX = 20
 
 
 class FeederAnalysisState(Enum):
@@ -49,7 +50,10 @@ def computeChannelGeometry(
         center = (center_x, center_y)
 
         # radius is half the distance between the two tags
-        radius = float(np.linalg.norm(np.array(second_r1) - np.array(second_r2)) / 2.0)
+        radius = (
+            float(np.linalg.norm(np.array(second_r1) - np.array(second_r2)) / 2.0)
+            + EXPAND_RADIUS_CHANNELS_PX
+        )
 
         # angle to radius1 in image space
         v1 = np.array(second_r1) - np.array(center)
@@ -73,7 +77,10 @@ def computeChannelGeometry(
         center = (center_x, center_y)
 
         # radius is half the distance between the two tags
-        radius = float(np.linalg.norm(np.array(third_r1) - np.array(third_r2)) / 2.0)
+        radius = (
+            float(np.linalg.norm(np.array(third_r1) - np.array(third_r2)) / 2.0)
+            + EXPAND_RADIUS_CHANNELS_PX
+        )
 
         # angle to radius1 in image space
         v1 = np.array(third_r1) - np.array(center)

@@ -9,7 +9,7 @@ from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.consts import FEEDER_OBJECT_CLASS_ID
-from blob_manager import VideoRecorder, getClassificationRegions
+from blob_manager import VideoRecorder
 from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
 from .inference import InferenceThread, CameraModelBinding
@@ -21,11 +21,10 @@ TELEMETRY_INTERVAL_S = 30
 INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
-CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 10
+CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 50000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
-CLASSIFICATION_REGION_MIN_OVERLAP = 0.5
 
 
 class VisionManager:
@@ -73,10 +72,6 @@ class VisionManager:
         self._classification_top_binding = self._inference.addBinding(
             self._classification_top_capture, classification_model
         )
-
-        regions = getClassificationRegions() or {}
-        self._top_region: Optional[List] = regions.get("top")
-        self._bottom_region: Optional[List] = regions.get("bottom")
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
 
@@ -864,110 +859,11 @@ class VisionManager:
     def getClassificationCrops(
         self, timeout_s: float = 1.0, confidence_threshold: float = 0.0
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        _ = confidence_threshold
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
-        if not self.gc.use_segmentation_model_for_classification_chamber:
-            top_crop = self._extractRegionBoundingBoxCrop(top_frame, self._top_region)
-            bottom_crop = self._extractRegionBoundingBoxCrop(
-                bottom_frame, self._bottom_region
-            )
-            return (top_crop, bottom_crop)
-
-        top_crop = self._extractLargestObjectCrop(
-            top_frame,
-            self._classification_top_binding.latest_raw_results,
-            self._top_region,
-            confidence_threshold,
-        )
-        bottom_crop = self._extractLargestObjectCrop(
-            bottom_frame,
-            self._classification_bottom_binding.latest_raw_results,
-            self._bottom_region,
-            confidence_threshold,
-        )
+        top_crop = top_frame.raw if top_frame is not None else None
+        bottom_crop = bottom_frame.raw if bottom_frame is not None else None
         return (top_crop, bottom_crop)
-
-    def _extractRegionBoundingBoxCrop(
-        self, frame: Optional[CameraFrame], region: Optional[List]
-    ) -> Optional[np.ndarray]:
-        if frame is None:
-            return None
-
-        h, w = frame.raw.shape[:2]
-        if region is None or len(region) == 0:
-            return frame.raw
-
-        xs = [int(point[0]) for point in region]
-        ys = [int(point[1]) for point in region]
-        x1 = max(0, min(xs))
-        y1 = max(0, min(ys))
-        x2 = min(w, max(xs))
-        y2 = min(h, max(ys))
-
-        if x2 <= x1 or y2 <= y1:
-            return None
-        return frame.raw[y1:y2, x1:x2]
-
-    def _extractLargestObjectCrop(
-        self,
-        frame: Optional[CameraFrame],
-        raw_results,
-        region: Optional[List] = None,
-        confidence_threshold: float = 0.0,
-    ) -> Optional[np.ndarray]:
-        if frame is None or raw_results is None or len(raw_results) == 0:
-            return None
-
-        boxes = raw_results[0].boxes
-        if boxes is None or len(boxes) == 0:
-            return None
-
-        h, w = frame.raw.shape[:2]
-        poly_mask = None
-        if region is not None:
-            pts = np.array(region, dtype=np.int32)
-            poly_mask = np.zeros((h, w), dtype=np.uint8)
-            cv2.fillPoly(poly_mask, [pts], 1)
-
-        best_box = None
-        best_area = 0
-        masks = raw_results[0].masks
-        for i, box in enumerate(boxes):
-            class_id = int(box.cls[0])
-            if class_id != 0:
-                continue
-
-            # check confidence threshold
-            confidence = float(box.conf[0])
-            if confidence < confidence_threshold:
-                continue
-
-            xyxy = box.xyxy[0].tolist()
-            area = (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1])
-            if area <= best_area:
-                continue
-            if poly_mask is not None and masks is not None and i < len(masks):
-                mask_data = masks[i].data[0].cpu().numpy()
-                mh, mw = mask_data.shape
-                if mh != h or mw != w:
-                    mask_data = cv2.resize(
-                        mask_data.astype(np.uint8),
-                        (w, h),
-                        interpolation=cv2.INTER_NEAREST,
-                    )
-                mask_bin = (mask_data > 0).astype(np.uint8)
-                total = int(np.sum(mask_bin))
-                if total > 0:
-                    inside = int(np.sum(mask_bin & poly_mask))
-                    if inside / total < CLASSIFICATION_REGION_MIN_OVERLAP:
-                        continue
-            best_area = area
-            best_box = xyxy
-
-        if best_box is None:
-            return None
-
-        x1, y1, x2, y2 = map(int, best_box)
-        return frame.raw[y1:y2, x1:x2]
 
     def _encodeFrame(self, frame) -> str:
         with self.gc.profiler.timer("vision.encode_frame.imencode_ms"):

@@ -88,12 +88,10 @@ class Positioning(BaseState):
 
     def _selectDoor(self, target_layer_index: int) -> None:
         target_servo = self.irl.servos[target_layer_index]
-        if target_servo.isClosed():
-            return
-
-        for i, servo in enumerate(self.irl.servos):
-            if i != target_layer_index and servo.isClosed():
-                servo.open()
+        if not target_servo.isClosed():
+            for i, servo in enumerate(self.irl.servos):
+                if i != target_layer_index and servo.isClosed():
+                    servo.open()
 
         target_servo.close()
         time.sleep(SLEEP_AFTER_CLOSE_DOOR_MS / 1000.0)

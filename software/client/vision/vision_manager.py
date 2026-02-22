@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Tuple
+from collections import deque
 import base64
 import time
 import cv2
@@ -15,6 +16,7 @@ from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
 
 ANNOTATE_ARUCO_TAGS = True
+FEEDER_DETECTION_CACHE_FRAMES = 3
 TELEMETRY_INTERVAL_S = 30
 INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
@@ -82,6 +84,10 @@ class VisionManager:
         self._last_telemetry_save = 0.0
 
         self._aruco_tracker = ArucoTracker(gc, self._feeder_capture)
+        self._feeder_detection_cache: deque = deque(
+            maxlen=FEEDER_DETECTION_CACHE_FRAMES
+        )
+        self._feeder_detection_cache_last_append_timestamp: float = 0.0
         self._cached_feeding_platform_corners: Optional[List[Tuple[float, float]]] = (
             None
         )
@@ -272,10 +278,33 @@ class VisionManager:
 
         results = self._feeder_binding.latest_raw_results
         if not results or len(results) == 0:
+            aggregated: Dict[int, List[VisionResult]] = {}
+            for object_detections in self._feeder_detection_cache:
+                if FEEDER_OBJECT_CLASS_ID not in aggregated:
+                    aggregated[FEEDER_OBJECT_CLASS_ID] = []
+                aggregated[FEEDER_OBJECT_CLASS_ID].extend(
+                    [
+                        VisionResult(
+                            class_id=d.class_id,
+                            class_name=d.class_name,
+                            confidence=d.confidence,
+                            bbox=d.bbox,
+                            timestamp=d.timestamp,
+                            from_cache=True,
+                            created_at=d.created_at,
+                        )
+                        for d in object_detections
+                    ]
+                )
+            prof.observeValue(
+                "vision.get_feeder_detections_by_class.cached_object_count",
+                float(len(aggregated.get(FEEDER_OBJECT_CLASS_ID, []))),
+            )
             prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
-            return {}
+            return aggregated
 
         current_frame_all_detections: Dict[int, List[VisionResult]] = {}
+        current_frame_object_detections: List[VisionResult] = []
 
         prof.startTimer("vision.get_feeder_detections_by_class.process_results_ms")
         fallback_timestamp = time.time()
@@ -318,14 +347,44 @@ class VisionManager:
                 if class_id not in current_frame_all_detections:
                     current_frame_all_detections[class_id] = []
                 current_frame_all_detections[class_id].append(detection)
+                if class_id == FEEDER_OBJECT_CLASS_ID:
+                    current_frame_object_detections.append(detection)
         prof.endTimer("vision.get_feeder_detections_by_class.process_results_ms")
+
+        if fallback_timestamp > self._feeder_detection_cache_last_append_timestamp:
+            self._feeder_detection_cache.append(current_frame_object_detections)
+            self._feeder_detection_cache_last_append_timestamp = fallback_timestamp
+
+        result_detections: Dict[int, List[VisionResult]] = {}
+        for class_id, detections in current_frame_all_detections.items():
+            if class_id != FEEDER_OBJECT_CLASS_ID:
+                result_detections[class_id] = detections
+
+        result_detections[FEEDER_OBJECT_CLASS_ID] = []
+        cache_len = len(self._feeder_detection_cache)
+        for idx, object_detections in enumerate(self._feeder_detection_cache):
+            from_cache = idx < cache_len - 1
+            result_detections[FEEDER_OBJECT_CLASS_ID].extend(
+                [
+                    VisionResult(
+                        class_id=d.class_id,
+                        class_name=d.class_name,
+                        confidence=d.confidence,
+                        bbox=d.bbox,
+                        timestamp=d.timestamp,
+                        from_cache=from_cache,
+                        created_at=d.created_at,
+                    )
+                    for d in object_detections
+                ]
+            )
 
         prof.observeValue(
             "vision.get_feeder_detections_by_class.object_count",
-            float(len(current_frame_all_detections.get(FEEDER_OBJECT_CLASS_ID, []))),
+            float(len(result_detections.get(FEEDER_OBJECT_CLASS_ID, []))),
         )
         prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
-        return current_frame_all_detections
+        return result_detections
 
     def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
         detections_by_class = self.getFeederDetectionsByClass()
@@ -353,6 +412,8 @@ class VisionManager:
                         confidence=detection.confidence,
                         class_id=class_id,
                         instance_id=instance_id,
+                        from_cache=detection.from_cache,
+                        created_at=detection.created_at,
                     )
                 )
             masks_by_class[class_id] = masks

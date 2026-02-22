@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, Tuple, List
+import time
 import numpy as np
 
 
@@ -10,6 +11,8 @@ class VisionResult:
     confidence: float
     bbox: Optional[Tuple[int, int, int, int]]
     timestamp: float
+    from_cache: bool = False
+    created_at: float = field(default_factory=time.time)
 
 
 @dataclass
@@ -18,6 +21,8 @@ class DetectedMask:
     confidence: float
     class_id: int
     instance_id: int
+    from_cache: bool = False
+    created_at: float = field(default_factory=time.time)
 
 
 @dataclass

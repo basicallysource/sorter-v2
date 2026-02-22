@@ -36,6 +36,9 @@ class Detecting(BaseState):
         high_confidence_objects = [
             dm
             for dm in object_detected_masks
+            # Ignore cached feeder detections here so platform triggers only come
+            # from the newest vision results and don't immediately retrigger.
+            if not dm.from_cache
             if dm.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
         ]
 

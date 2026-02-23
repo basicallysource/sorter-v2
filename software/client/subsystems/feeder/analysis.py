@@ -9,6 +9,8 @@ if TYPE_CHECKING:
 
 OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
 EXPAND_RADIUS_CHANNELS_PX = 20
+CHANNEL_REGION_COUNT = 16
+CHANNEL_REGION_DEG = 360.0 / CHANNEL_REGION_COUNT
 
 
 class FeederAnalysisState(Enum):
@@ -128,8 +130,8 @@ def determineObjectChannelAndQuadrant(
             while relative_angle >= 360:
                 relative_angle -= 360
 
-            quadrant = int(relative_angle / 90.0)
-            return (3, quadrant)
+            region_index = int(relative_angle / CHANNEL_REGION_DEG)
+            return (3, region_index)
 
     # check channel 2
     if geometry.second_channel:
@@ -150,8 +152,8 @@ def determineObjectChannelAndQuadrant(
             while relative_angle >= 360:
                 relative_angle -= 360
 
-            quadrant = int(relative_angle / 90.0)
-            return (2, quadrant)
+            region_index = int(relative_angle / CHANNEL_REGION_DEG)
+            return (2, region_index)
 
     return None
 
@@ -190,17 +192,21 @@ def analyzeFeederState(
 
         channel_id, quadrant = result
 
-        # check for precise mode (quadrant 3) and normal dropzone (quadrants 0, 1)
+        # 16 regions:
+        # ch3 precise: regions 11,12,13,14,15 (wider than strict 8->16 mapping)
+        # ch3 dropzone: regions 0,1,2,3 (same physical span as old 8-region 0,1)
+        # ch2 precise: regions 12,13,14,15 (same physical span as old 8-region 6,7)
+        # ch2 dropzone: regions 2,3,4,5,6,7 (same physical span as old 8-region 1,2,3)
         if channel_id == 3:
-            if quadrant == 3:
+            if quadrant in [11, 12, 13, 14, 15]:
                 has_object_in_3_dropzone_precise = True
-            elif quadrant in [0, 1]:
+            elif quadrant in [0, 1, 2, 3]:
                 has_object_in_3_dropzone = True
 
         if channel_id == 2:
-            if quadrant == 3:
+            if quadrant in [12, 13, 14, 15]:
                 has_object_in_2_dropzone_precise = True
-            elif quadrant in [0, 1]:
+            elif quadrant in [2, 3, 4, 5, 6, 7]:
                 has_object_in_2_dropzone = True
 
     # return in priority order

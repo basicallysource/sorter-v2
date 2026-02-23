@@ -27,6 +27,12 @@ CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 70000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
+CHANNEL_REGION_COUNT = 16
+CHANNEL_REGION_DEG = 360.0 / CHANNEL_REGION_COUNT
+CHANNEL_GEOMETRY_CACHE_MAX_AGE_MS = 120000
+CHANNEL_GEOMETRY_MIN_AREA_SQ_PX = 300_000
+CHANNEL_GEOMETRY_MAX_AREA_SQ_PX = 400_000
+CHANNEL_GEOMETRY_LOG_INTERVAL_MS = 5000
 
 
 class VisionManager:
@@ -89,6 +95,9 @@ class VisionManager:
             None
         )
         self._cached_feeding_platform_timestamp: float = 0.0
+        self._cached_channel_geometry = None
+        self._cached_channel_geometry_timestamp: float = 0.0
+        self._last_channel_geometry_log_timestamp: float = 0.0
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -424,7 +433,100 @@ class VisionManager:
         prof.hit("vision.get_channel_geometry.calls")
         with prof.timer("vision.get_channel_geometry.total_ms"):
             aruco_tags = self.getFeederArucoTags()
-            return computeChannelGeometry(aruco_tags, aruco_tag_config)
+            new_geometry = computeChannelGeometry(aruco_tags, aruco_tag_config)
+            self._updateChannelGeometryCache(new_geometry)
+            cached_geometry = self._getCachedChannelGeometry()
+            if cached_geometry is not None:
+                self._logChannelGeometryAreas(cached_geometry)
+                return cached_geometry
+            self._logChannelGeometryAreas(new_geometry)
+            return new_geometry
+
+    def _getCachedChannelGeometry(self):
+        if self._cached_channel_geometry is None:
+            return None
+        age_ms = (time.time() - self._cached_channel_geometry_timestamp) * 1000
+        if age_ms > CHANNEL_GEOMETRY_CACHE_MAX_AGE_MS:
+            return None
+        return self._cached_channel_geometry
+
+    def _updateChannelGeometryCache(self, new_geometry) -> None:
+        from subsystems.feeder.analysis import ChannelGeometry
+
+        cached_geometry = self._getCachedChannelGeometry()
+        if cached_geometry is None:
+            if new_geometry.second_channel is None and new_geometry.third_channel is None:
+                return
+            self._cached_channel_geometry = new_geometry
+            self._cached_channel_geometry_timestamp = time.time()
+            return
+
+        next_second_channel = cached_geometry.second_channel
+        next_third_channel = cached_geometry.third_channel
+        updated = False
+
+        if new_geometry.second_channel is not None:
+            if self._isChannelCircleValid(
+                new_geometry.second_channel,
+                cached_geometry.second_channel,
+                "ch2",
+            ):
+                next_second_channel = new_geometry.second_channel
+                updated = True
+
+        if new_geometry.third_channel is not None:
+            if self._isChannelCircleValid(
+                new_geometry.third_channel,
+                cached_geometry.third_channel,
+                "ch3",
+            ):
+                next_third_channel = new_geometry.third_channel
+                updated = True
+
+        if not updated:
+            return
+
+        self._cached_channel_geometry = ChannelGeometry(
+            second_channel=next_second_channel,
+            third_channel=next_third_channel,
+        )
+        self._cached_channel_geometry_timestamp = time.time()
+
+    def _isChannelCircleValid(self, new_channel, cached_channel, channel_label: str) -> bool:
+        _ = cached_channel
+        area_sq_px = float(np.pi * new_channel.radius * new_channel.radius)
+        if area_sq_px < CHANNEL_GEOMETRY_MIN_AREA_SQ_PX:
+            self.gc.logger.warn(
+                f"Channel geometry reject {channel_label}: area={area_sq_px:.1f}px^2 < {CHANNEL_GEOMETRY_MIN_AREA_SQ_PX}"
+            )
+            return False
+        if area_sq_px > CHANNEL_GEOMETRY_MAX_AREA_SQ_PX:
+            self.gc.logger.warn(
+                f"Channel geometry reject {channel_label}: area={area_sq_px:.1f}px^2 > {CHANNEL_GEOMETRY_MAX_AREA_SQ_PX}"
+            )
+            return False
+        return True
+
+    def _logChannelGeometryAreas(self, geometry) -> None:
+        now = time.time()
+        if (now - self._last_channel_geometry_log_timestamp) * 1000 < CHANNEL_GEOMETRY_LOG_INTERVAL_MS:
+            return
+
+        lines = []
+        if geometry.second_channel is not None:
+            ch = geometry.second_channel
+            area_sq_px = float(np.pi * ch.radius * ch.radius)
+            lines.append(f"ch2 radius={ch.radius:.1f}px area={area_sq_px:.1f}px^2")
+        if geometry.third_channel is not None:
+            ch = geometry.third_channel
+            area_sq_px = float(np.pi * ch.radius * ch.radius)
+            lines.append(f"ch3 radius={ch.radius:.1f}px area={area_sq_px:.1f}px^2")
+
+        if not lines:
+            return
+
+        self._last_channel_geometry_log_timestamp = now
+        self.gc.logger.info("Channel geometry areas: " + ", ".join(lines))
 
     def getCarouselPlatforms(self):
         from irl.config import CarouselArucoTagConfig
@@ -567,17 +669,19 @@ class VisionManager:
                     2,
                 )
 
-            # draw quadrant divider lines
-            for q in range(4):
-                angle_deg = ch.radius1_angle_image + q * 90.0
+            # draw region divider lines
+            for q in range(CHANNEL_REGION_COUNT):
+                angle_deg = ch.radius1_angle_image + q * CHANNEL_REGION_DEG
                 angle_rad = np.radians(angle_deg)
                 end_x = int(center[0] + radius * np.cos(angle_rad))
                 end_y = int(center[1] + radius * np.sin(angle_rad))
                 cv2.line(annotated, center, (end_x, end_y), (180, 0, 180), 1)
 
-            # draw quadrant 0-3 labels
-            for q in range(4):
-                angle_deg = ch.radius1_angle_image + q * 90.0 + 45.0
+            # draw region 0-7 labels
+            for q in range(CHANNEL_REGION_COUNT):
+                angle_deg = (
+                    ch.radius1_angle_image + q * CHANNEL_REGION_DEG + CHANNEL_REGION_DEG / 2.0
+                )
                 angle_rad = np.radians(angle_deg)
                 label_radius = radius * 0.7
                 label_x = int(center[0] + label_radius * np.cos(angle_rad))
@@ -622,17 +726,19 @@ class VisionManager:
                     2,
                 )
 
-            # draw quadrant divider lines
-            for q in range(4):
-                angle_deg = ch.radius1_angle_image + q * 90.0
+            # draw region divider lines
+            for q in range(CHANNEL_REGION_COUNT):
+                angle_deg = ch.radius1_angle_image + q * CHANNEL_REGION_DEG
                 angle_rad = np.radians(angle_deg)
                 end_x = int(center[0] + radius * np.cos(angle_rad))
                 end_y = int(center[1] + radius * np.sin(angle_rad))
                 cv2.line(annotated, center, (end_x, end_y), (0, 180, 180), 1)
 
-            # draw quadrant 0-3 labels
-            for q in range(4):
-                angle_deg = ch.radius1_angle_image + q * 90.0 + 45.0
+            # draw region 0-7 labels
+            for q in range(CHANNEL_REGION_COUNT):
+                angle_deg = (
+                    ch.radius1_angle_image + q * CHANNEL_REGION_DEG + CHANNEL_REGION_DEG / 2.0
+                )
                 angle_rad = np.radians(angle_deg)
                 label_radius = radius * 0.7
                 label_x = int(center[0] + label_radius * np.cos(angle_rad))

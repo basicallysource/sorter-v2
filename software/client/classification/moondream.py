@@ -9,6 +9,7 @@ MOONDREAM_DETECT_URL = "https://api.moondream.ai/v1/detect"
 MOONDREAM_OBJECT_NAME = "lego piece"
 MOONDREAM_REQUEST_TIMEOUT_S = 5
 JPEG_QUALITY = 85
+BOUNDING_BOX_EXPANSION_RADIUS_PX = 30
 
 
 def getDetection(image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
@@ -101,6 +102,14 @@ def _normalizedBoxToPixels(
     y1 = max(0, min(image_h, int(np.floor(min(y_min, y_max) * image_h))))
     x2 = max(0, min(image_w, int(np.ceil(max(x_min, x_max) * image_w))))
     y2 = max(0, min(image_h, int(np.ceil(max(y_min, y_max) * image_h))))
+
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    x1 = max(0, x1 - BOUNDING_BOX_EXPANSION_RADIUS_PX)
+    y1 = max(0, y1 - BOUNDING_BOX_EXPANSION_RADIUS_PX)
+    x2 = min(image_w, x2 + BOUNDING_BOX_EXPANSION_RADIUS_PX)
+    y2 = min(image_h, y2 + BOUNDING_BOX_EXPANSION_RADIUS_PX)
 
     if x2 <= x1 or y2 <= y1:
         return None

@@ -124,7 +124,7 @@ class GlobalConfig:
         self.log_buffer_size = 100
         self.disable_chute = False
         self.use_segmentation_model_for_classification_chamber = False
-        self.rotary_channel_steppers_can_operate_in_parallel = False
+        self.rotary_channel_steppers_can_operate_in_parallel = True
 
 
 def mkTimeouts() -> Timeouts:

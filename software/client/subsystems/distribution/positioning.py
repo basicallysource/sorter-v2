@@ -13,9 +13,9 @@ from blob_manager import setBinCategories
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
-POSITION_BUFFER_MS = 5000
-SLEEP_AFTER_CLOSE_DOOR_MS = 1500
-SLEEP_BEFORE_CHUTE_MOVE_MS = 5000
+POSITION_BUFFER_MS = 2000
+SLEEP_AFTER_CLOSE_DOOR_MS = 1000
+SLEEP_BEFORE_CHUTE_MOVE_MS = 500
 
 
 class Positioning(BaseState):

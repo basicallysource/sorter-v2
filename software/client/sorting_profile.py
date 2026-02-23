@@ -12,22 +12,30 @@ class SortingProfile(ABC):
         pass
 
 
-class BrickLinkCategories(SortingProfile):
+class JsonSortingProfile(SortingProfile):
     def __init__(self, gc: GlobalConfig):
-        self._parts_with_categories_file_path = gc.parts_with_categories_file_path
+        self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
+        self.default_category_id = MISC_CATEGORY
         self._loadData()
 
     def _loadData(self) -> None:
-        with open(self._parts_with_categories_file_path, "r") as f:
+        with open(self._sorting_profile_path, "r") as f:
             data = json.load(f)
-        for part in data["pieces"]:
-            part_id = part["id"]
-            category_id = part.get("category_id")
-            if category_id is None:
-                continue
-            self.part_to_category[part_id] = str(category_id)
+        if "part_to_category" not in data:
+            raise ValueError("sorting profile json missing part_to_category")
+        self._loadRuntimeSortingProfile(data)
+
+    def _loadRuntimeSortingProfile(self, data: dict) -> None:
+        self.default_category_id = str(data.get("default_category_id", MISC_CATEGORY))
+        part_to_category = data.get("part_to_category", {})
+        for part_id, category_id in part_to_category.items():
+            self.part_to_category[str(part_id)] = str(category_id)
 
     def getCategoryIdForPart(self, part_id: str) -> str:
-        out = self.part_to_category.get(part_id, MISC_CATEGORY)
+        out = self.part_to_category.get(part_id, self.default_category_id)
         return out
+
+
+def mkSortingProfile(gc: GlobalConfig) -> SortingProfile:
+    return JsonSortingProfile(gc)

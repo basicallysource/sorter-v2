@@ -106,7 +106,7 @@ class GlobalConfig:
     feeder_config: FeederConfig
     classification_chamber_vision_model_path: str
     feeder_vision_model_path: str
-    parts_with_categories_file_path: str
+    sorting_profile_path: str
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -156,7 +156,7 @@ def mkGlobalConfig() -> GlobalConfig:
         "CLASSIFICATION_CHAMBER_MODEL_PATH"
     ]
     gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
-    gc.parts_with_categories_file_path = os.environ["PARTS_WITH_CATEGORIES_FILE_PATH"]
+    gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"

@@ -4,10 +4,12 @@ type Theme = 'light' | 'dark';
 
 interface Settings {
 	theme: Theme;
+	debug: number;
 }
 
 const DEFAULT_SETTINGS: Settings = {
-	theme: 'light'
+	theme: 'light',
+	debug: 0
 };
 
 function createSettings() {
@@ -16,7 +18,8 @@ function createSettings() {
 	return {
 		subscribe,
 		set,
-		setTheme: (theme: Theme) => update((s) => ({ ...s, theme }))
+		setTheme: (theme: Theme) => update((s) => ({ ...s, theme })),
+		setDebug: (debug: number) => update((s) => ({ ...s, debug }))
 	};
 }
 

@@ -5,6 +5,7 @@
 	import Spinner from './Spinner.svelte';
 	import Badge from './Badge.svelte';
 	import { CircleHelp, TriangleAlert } from 'lucide-svelte';
+	import { settings } from '$lib/stores/settings';
 
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	type BadgeColor = 'gray' | 'yellow' | 'blue' | 'orange' | 'green' | 'red';
@@ -132,6 +133,11 @@
 							<span class="dark:text-text-dark truncate font-mono text-text">
 								{obj.uuid.slice(0, 8)}
 							</span>
+							{#if $settings.debug >= 2}
+								<span class="dark:text-text-muted-dark truncate font-mono text-[10px] text-text-muted">
+									id:{obj.uuid}
+								</span>
+							{/if}
 							{#if obj.stage === 'distributing' || obj.stage === 'distributed'}
 								<Badge color={stageColor(obj.stage)}>{obj.stage}</Badge>
 							{/if}
@@ -169,6 +175,11 @@
 									{#if bl_data?.name}
 										<div class="dark:text-text-muted-dark truncate text-text-muted">
 											{bl_data.name}
+										</div>
+									{/if}
+									{#if $settings.debug >= 2}
+										<div class="dark:text-text-muted-dark truncate font-mono text-[10px] text-text-muted">
+											id: {obj.uuid}
 										</div>
 									{/if}
 									<div class="flex flex-wrap gap-1">

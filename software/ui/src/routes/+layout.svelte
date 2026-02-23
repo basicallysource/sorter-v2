@@ -34,6 +34,14 @@
 				const parsed = JSON.parse(stored);
 				settings.set(parsed);
 			}
+			const params = new URLSearchParams(window.location.search);
+			const debug_param = params.get('debug');
+			if (debug_param != null) {
+				const debug = Number.parseInt(debug_param, 10);
+				if (!Number.isNaN(debug)) {
+					settings.setDebug(debug);
+				}
+			}
 			save_store = true;
 		} catch (e) {
 			console.error(e);

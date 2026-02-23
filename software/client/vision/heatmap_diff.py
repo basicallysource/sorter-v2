@@ -1,0 +1,150 @@
+import time
+from collections import deque
+from typing import Optional, List, Tuple
+
+import cv2
+import numpy as np
+
+PIXEL_THRESH = 8
+BLUR_KERNEL = 5
+HEAT_GAIN = 12.0
+MIN_HOT_PIXELS = 50
+TRIGGER_SCORE = 17.0
+BASELINE_FRAMES = 5
+CURRENT_FRAMES = 5
+CAPTURE_INTERVAL_MS = 50
+
+
+def _makePlatformMask(corners: List[Tuple[float, float]], shape) -> np.ndarray:
+    mask = np.zeros(shape[:2], dtype=np.uint8)
+    pts = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
+    cv2.fillPoly(mask, [pts], 255)
+    return mask
+
+
+def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
+    acc = frames[0].astype(np.float32)
+    for f in frames[1:]:
+        acc += f.astype(np.float32)
+    return (acc / len(frames)).astype(np.uint8)
+
+
+class HeatmapDiff:
+    def __init__(self):
+        self._baseline_gray: Optional[np.ndarray] = None
+        self._baseline_mask: Optional[np.ndarray] = None
+        self._baseline_corners: Optional[List[Tuple[float, float]]] = None
+        self._baseline_timestamp: float = 0.0
+        self._gray_ring: deque = deque(maxlen=30)
+        self._last_ring_time: float = 0.0
+
+    @property
+    def has_baseline(self) -> bool:
+        return self._baseline_gray is not None
+
+    @property
+    def baseline_corners(self) -> Optional[List[Tuple[float, float]]]:
+        return self._baseline_corners
+
+    def pushFrame(self, gray: np.ndarray) -> None:
+        now = time.time()
+        if (now - self._last_ring_time) * 1000 >= CAPTURE_INTERVAL_MS:
+            self._gray_ring.append(gray)
+            self._last_ring_time = now
+
+    def _getAveraged(self, count: int) -> Optional[np.ndarray]:
+        n = min(count, len(self._gray_ring))
+        if n == 0:
+            return None
+        frames = list(self._gray_ring)[-n:]
+        return _averageGrays(frames)
+
+    def captureBaseline(self, corners: List[Tuple[float, float]], shape) -> bool:
+        avg = self._getAveraged(BASELINE_FRAMES)
+        if avg is None:
+            return False
+        mask = _makePlatformMask(corners, shape)
+        self._baseline_gray = cv2.bitwise_and(avg, avg, mask=mask)
+        self._baseline_mask = mask
+        self._baseline_corners = list(corners)
+        self._baseline_timestamp = time.time()
+        return True
+
+    def clearBaseline(self) -> None:
+        self._baseline_gray = None
+        self._baseline_mask = None
+        self._baseline_corners = None
+        self._baseline_timestamp = 0.0
+        self._gray_ring.clear()
+
+    def computeDiff(self) -> Tuple[float, int]:
+        if self._baseline_gray is None or self._baseline_mask is None:
+            return 0.0, 0
+
+        avg = self._getAveraged(CURRENT_FRAMES)
+        if avg is None:
+            return 0.0, 0
+
+        current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
+        diff = cv2.absdiff(current_masked, self._baseline_gray)
+        blur_k = BLUR_KERNEL | 1
+        diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
+
+        mask_bool = self._baseline_mask > 0
+        hot = (diff > PIXEL_THRESH) & mask_bool
+        hot_count = int(np.count_nonzero(hot))
+
+        if hot_count >= MIN_HOT_PIXELS:
+            score = float(np.mean(diff[hot]))
+        else:
+            score = 0.0
+
+        return score, hot_count
+
+    def isTriggered(self) -> bool:
+        score, _ = self.computeDiff()
+        return score >= TRIGGER_SCORE
+
+    def annotateFrame(self, annotated: np.ndarray) -> np.ndarray:
+        if self._baseline_gray is None or self._baseline_mask is None:
+            return annotated
+
+        avg = self._getAveraged(CURRENT_FRAMES)
+        if avg is None:
+            return annotated
+
+        current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
+        diff = cv2.absdiff(current_masked, self._baseline_gray)
+        blur_k = BLUR_KERNEL | 1
+        diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
+
+        mask_bool = self._baseline_mask > 0
+        hot = (diff > PIXEL_THRESH) & mask_bool
+        hot_count = int(np.count_nonzero(hot))
+
+        if hot_count >= MIN_HOT_PIXELS:
+            score = float(np.mean(diff[hot]))
+        else:
+            score = 0.0
+
+        display = np.zeros_like(diff)
+        display[hot] = np.clip(
+            diff[hot].astype(np.float32) * HEAT_GAIN, 0, 255
+        ).astype(np.uint8)
+
+        heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
+
+        out = annotated.copy()
+        out[mask_bool] = (annotated[mask_bool] * 0.5).astype(np.uint8)
+        show_heat = hot & (display > 0)
+        out[show_heat] = (
+            annotated[show_heat].astype(np.float32) * 0.2
+            + heatmap[show_heat].astype(np.float32) * 0.8
+        ).clip(0, 255).astype(np.uint8)
+
+        triggered = score >= TRIGGER_SCORE
+        color = (0, 0, 255) if triggered else (0, 255, 0)
+        cv2.putText(out, f"diff: {score:.1f} px:{hot_count}", (30, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+        return out

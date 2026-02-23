@@ -16,14 +16,16 @@ from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
 from .inference import InferenceThread, CameraModelBinding
 from .types import CameraFrame, VisionResult, DetectedMask
+from .heatmap_diff import HeatmapDiff
 
 ANNOTATE_ARUCO_TAGS = True
-FEEDER_DETECTION_CACHE_FRAMES = 3
+FEEDER_DETECTION_CACHE_FRAMES = 5
 TELEMETRY_INTERVAL_S = 30
 INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
-CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 30
+CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 45
+CAROUSEL_FEEDING_PLATFORM_PERIMETER_CONTRACTION_PX = 25
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 70000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
@@ -98,6 +100,8 @@ class VisionManager:
         self._cached_channel_geometry = None
         self._cached_channel_geometry_timestamp: float = 0.0
         self._last_channel_geometry_log_timestamp: float = 0.0
+
+        self.heatmap_diff = HeatmapDiff()
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -214,6 +218,10 @@ class VisionManager:
         annotated = self._annotateChannelGeometry(annotated)
         annotated = self._annotateCarouselPlatforms(annotated)
 
+        # annotate heatmap diff overlay
+        if self.heatmap_diff.has_baseline:
+            annotated = self.heatmap_diff.annotateFrame(annotated)
+
         return CameraFrame(
             raw=frame.raw,
             annotated=annotated,
@@ -221,6 +229,12 @@ class VisionManager:
             timestamp=frame.timestamp,
             segmentation_map=frame.segmentation_map,
         )
+
+    def getLatestFeederGray(self) -> Optional[np.ndarray]:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
     @property
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
@@ -823,7 +837,8 @@ class VisionManager:
         return valid, angles
 
     def _expandRectanglePerimeter(
-        self, corners: List[Tuple[float, float]], expansion_px: float
+        self, corners: List[Tuple[float, float]], expansion_px: float,
+        contraction_px: float = 0.0,
     ) -> List[Tuple[float, float]]:
         corners_array = np.array(corners)
         center = np.mean(corners_array, axis=0)
@@ -849,27 +864,39 @@ class VisionManager:
 
         if dim_0_len <= dim_1_len:
             short_axis = edge_0
+            long_axis = edge_1
         else:
             short_axis = edge_1
+            long_axis = edge_0
 
-        axis_norm = np.linalg.norm(short_axis)
-        if axis_norm == 0:
+        short_norm = np.linalg.norm(short_axis)
+        long_norm = np.linalg.norm(long_axis)
+        if short_norm == 0:
             return [tuple(corner) for corner in corners_array]
 
-        short_axis = short_axis / axis_norm
+        short_axis = short_axis / short_norm
+        long_axis = long_axis / long_norm if long_norm > 0 else long_axis
 
-        expanded_corners = []
+        result = []
         for corner in corners_array:
             offset = corner - center
-            axis_proj = float(np.dot(offset, short_axis))
-            if axis_proj > 0:
-                expanded_corners.append(tuple(corner + short_axis * expansion_px))
-            elif axis_proj < 0:
-                expanded_corners.append(tuple(corner - short_axis * expansion_px))
-            else:
-                expanded_corners.append(tuple(corner))
+            short_proj = float(np.dot(offset, short_axis))
+            long_proj = float(np.dot(offset, long_axis))
+            new_corner = corner.copy()
+            # expand along short axis
+            if short_proj > 0:
+                new_corner = new_corner + short_axis * expansion_px
+            elif short_proj < 0:
+                new_corner = new_corner - short_axis * expansion_px
+            # contract along long axis
+            if contraction_px > 0:
+                if long_proj > 0:
+                    new_corner = new_corner - long_axis * contraction_px
+                elif long_proj < 0:
+                    new_corner = new_corner + long_axis * contraction_px
+            result.append(tuple(new_corner))
 
-        return expanded_corners
+        return result
 
     def updateFeedingPlatformCache(self):
         prof = self.gc.profiler
@@ -905,7 +932,8 @@ class VisionManager:
                 # if within threshold, validate and update cache
                 if distance <= CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX:
                     expanded_corners = self._expandRectanglePerimeter(
-                        corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX
+                        corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX,
+                        CAROUSEL_FEEDING_PLATFORM_PERIMETER_CONTRACTION_PX,
                     )
 
                     # calculate area using shoelace formula

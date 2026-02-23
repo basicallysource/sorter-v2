@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from irl.config import ArucoTagConfig
 
 OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
-EXPAND_RADIUS_CHANNELS_PX = 20
+EXPAND_RADIUS_CHANNELS_PX = 10
 CHANNEL_REGION_COUNT = 16
 CHANNEL_REGION_DEG = 360.0 / CHANNEL_REGION_COUNT
 
@@ -198,7 +198,7 @@ def analyzeFeederState(
         # ch2 precise: regions 12,13,14,15 (same physical span as old 8-region 6,7)
         # ch2 dropzone: regions 2,3,4,5,6,7 (same physical span as old 8-region 1,2,3)
         if channel_id == 3:
-            if quadrant in [11, 12, 13, 14, 15]:
+            if quadrant in [11,12, 13, 14, 15]:
                 has_object_in_3_dropzone_precise = True
             elif quadrant in [0, 1, 2, 3]:
                 has_object_in_3_dropzone = True

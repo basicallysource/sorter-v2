@@ -1,17 +1,18 @@
 from typing import Optional, TYPE_CHECKING
-import numpy as np
+import time
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import ClassificationState
 from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from defs.consts import FEEDER_OBJECT_CLASS_ID
+from vision.heatmap_diff import HeatmapDiff, TRIGGER_SCORE
 
 if TYPE_CHECKING:
     from vision import VisionManager
 
-OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.3
+WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS = 500
+DETECTION_HOLD_MS = 1000
 
 
 class Detecting(BaseState):
@@ -22,42 +23,74 @@ class Detecting(BaseState):
         shared: SharedVariables,
         carousel: Carousel,
         vision: "VisionManager",
+        heatmap: HeatmapDiff,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.carousel = carousel
         self.vision = vision
+        self.heatmap = heatmap
+        self._baseline_pending = True
+        self._entered_at: Optional[float] = None
+        self._detected_at: Optional[float] = None
 
     def step(self) -> Optional[ClassificationState]:
-        masks_by_class = self.vision.getFeederMasksByClass()
-        object_detected_masks = masks_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
+        now = time.time()
+        if self._entered_at is None:
+            self._entered_at = now
 
-        # filter objects by confidence threshold
-        high_confidence_objects = [
-            dm
-            for dm in object_detected_masks
-            # Ignore cached feeder detections here so platform triggers only come
-            # from the newest vision results and don't immediately retrigger.
-            if not dm.from_cache
-            if dm.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
-        ]
+        # always push frames into the ring buffer for temporal averaging
+        gray = self.vision.getLatestFeederGray()
+        if gray is None:
+            return None
+        self.heatmap.pushFrame(gray)
 
-        if not high_confidence_objects:
+        corners = self.vision.feeding_platform_corners
+        if corners is None:
             return None
 
-        # check if any high-confidence object is on a carousel platform
-        for obj_dm in high_confidence_objects:
-            if self.vision.isObjectOnCarouselPlatform(obj_dm.mask):
-                object_area_px = int(np.count_nonzero(obj_dm.mask))
+        # take a baseline after settling
+        if self._baseline_pending:
+            elapsed_ms = (now - self._entered_at) * 1000
+            if elapsed_ms < WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS:
+                return None
+            ok = self.heatmap.captureBaseline(corners, gray.shape)
+            if not ok:
+                return None
+            self._baseline_pending = False
+            self.logger.info("Detecting: captured heatmap baseline")
+            return None
+
+        score, hot_px = self.heatmap.computeDiff()
+        if score >= TRIGGER_SCORE:
+            if self._detected_at is None:
+                self._detected_at = now
                 self.logger.info(
-                    "Detecting: object on carousel platform "
-                    f"(confidence={obj_dm.confidence:.2f}, area_px={object_area_px})"
+                    f"Detecting: piece detected via heatmap diff "
+                    f"(score={score:.1f}, hot_px={hot_px}), holding {DETECTION_HOLD_MS}ms"
+                )
+            elif (now - self._detected_at) * 1000 >= DETECTION_HOLD_MS:
+                self.logger.info(
+                    f"Detecting: confirming detection "
+                    f"(score={score:.1f}, hot_px={hot_px})"
                 )
                 self.shared.classification_ready = False
                 self.carousel.addPieceAtFeeder()
                 return ClassificationState.ROTATING
+        else:
+            if self._detected_at is not None:
+                elapsed = (now - self._detected_at) * 1000
+                self.logger.info(
+                    f"Detecting: detection lost after {elapsed:.0f}ms "
+                    f"(score={score:.1f}, hot_px={hot_px})"
+                )
+            self._detected_at = None
 
         return None
 
     def cleanup(self) -> None:
         super().cleanup()
+        self.heatmap.clearBaseline()
+        self._baseline_pending = True
+        self._entered_at = None
+        self._detected_at = None

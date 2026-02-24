@@ -7,7 +7,6 @@ from .analysis import FeederAnalysisState, analyzeFeederState
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
-from defs.consts import FEEDER_OBJECT_CLASS_ID
 
 
 class Feeding(BaseState):
@@ -43,8 +42,7 @@ class Feeding(BaseState):
 
             with prof.timer("feeder.execution_loop.total_ms"):
                 with prof.timer("feeder.get_feeder_detections_ms"):
-                    detections_by_class = self.vision.getFeederDetectionsByClass()
-                object_detections = detections_by_class.get(FEEDER_OBJECT_CLASS_ID, [])
+                    object_detections = self.vision.getFeederHeatmapDetections()
                 prof.observeValue(
                     "feeder.object_detection_count", float(len(object_detections))
                 )

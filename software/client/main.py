@@ -100,6 +100,7 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
+    vision.loadFeederBaseline()
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)

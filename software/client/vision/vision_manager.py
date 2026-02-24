@@ -1,5 +1,4 @@
 from typing import Optional, List, Dict, Tuple
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import base64
 import time
@@ -9,26 +8,21 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from defs.consts import FEEDER_OBJECT_CLASS_ID
 from blob_manager import VideoRecorder
 from classification.moondream import getDetection
 from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
-from .inference import InferenceThread, CameraModelBinding
-from .types import CameraFrame, VisionResult, DetectedMask
+from .types import CameraFrame, VisionResult
 from .heatmap_diff import HeatmapDiff
 
 ANNOTATE_ARUCO_TAGS = True
-FEEDER_DETECTION_CACHE_FRAMES = 5
 TELEMETRY_INTERVAL_S = 30
-INFERRED_FRAME_MAX_AGE_MS = 500
 CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX = 200
 CAROUSEL_FEEDING_PLATFORM_CACHE_MAX_AGE_MS = 60000
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 45
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_CONTRACTION_PX = 25
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 70000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
-OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
 CHANNEL_REGION_COUNT = 16
 CHANNEL_REGION_DEG = 360.0 / CHANNEL_REGION_COUNT
 CHANNEL_GEOMETRY_CACHE_MAX_AGE_MS = 120000
@@ -42,16 +36,11 @@ class VisionManager:
     _feeder_capture: CaptureThread
     _classification_bottom_capture: CaptureThread
     _classification_top_capture: CaptureThread
-    _inference: InferenceThread
-    _feeder_binding: CameraModelBinding
-    _classification_bottom_binding: CameraModelBinding
-    _classification_top_binding: CameraModelBinding
     _video_recorder: Optional[VideoRecorder]
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig):
         self.gc = gc
         self._irl_config = irl_config
-        self._feeder_camera_config = irl_config.feeder_camera
         self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
         self._classification_bottom_capture = CaptureThread(
             "classification_bottom", irl_config.classification_camera_bottom
@@ -60,39 +49,12 @@ class VisionManager:
             "classification_top", irl_config.classification_camera_top
         )
 
-        self._inference = InferenceThread()
-
-        feeder_model = (
-            gc.feeder_vision_model_path if gc.feeder_vision_model_path else None
-        )
-        classification_model = (
-            gc.classification_chamber_vision_model_path
-            if gc.classification_chamber_vision_model_path
-            else None
-        )
-
-        self._feeder_binding = self._inference.addBinding(
-            self._feeder_capture,
-            feeder_model,
-            use_compact_bbox_annotation=True,
-        )
-        self._classification_bottom_binding = self._inference.addBinding(
-            self._classification_bottom_capture, classification_model
-        )
-        self._classification_top_binding = self._inference.addBinding(
-            self._classification_top_capture, classification_model
-        )
-
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
 
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
         self._aruco_tracker = ArucoTracker(gc, self._feeder_capture)
-        self._feeder_detection_cache: deque = deque(
-            maxlen=FEEDER_DETECTION_CACHE_FRAMES
-        )
-        self._feeder_detection_cache_last_append_timestamp: float = 0.0
         self._cached_feeding_platform_corners: Optional[List[Tuple[float, float]]] = (
             None
         )
@@ -102,39 +64,48 @@ class VisionManager:
         self._last_channel_geometry_log_timestamp: float = 0.0
 
         self.heatmap_diff = HeatmapDiff()
+        self.feeder_heatmap = HeatmapDiff()
+        self.feeder_baseline_captured = False
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
-
-    def _pickNewestFrame(
-        self,
-        inferred_frame: Optional[CameraFrame],
-        captured_frame: Optional[CameraFrame],
-    ) -> Optional[CameraFrame]:
-        if inferred_frame is None:
-            return captured_frame
-        if captured_frame is None:
-            return inferred_frame
-        frame_age_ms = (captured_frame.timestamp - inferred_frame.timestamp) * 1000.0
-        if frame_age_ms <= INFERRED_FRAME_MAX_AGE_MS:
-            return inferred_frame
-        return captured_frame
 
     def start(self) -> None:
         self._feeder_capture.start()
         self._classification_bottom_capture.start()
         self._classification_top_capture.start()
         self._aruco_tracker.start()
-        self._inference.start()
 
     def stop(self) -> None:
-        self._inference.stop()
         self._aruco_tracker.stop()
         self._feeder_capture.stop()
         self._classification_bottom_capture.stop()
         self._classification_top_capture.stop()
         if self._video_recorder:
             self._video_recorder.close()
+
+    def loadFeederBaseline(self) -> bool:
+        from blob_manager import BLOB_DIR
+
+        baseline_dir = BLOB_DIR / "feeder_baseline"
+        mask_path = baseline_dir / "mask.png"
+        min_path = baseline_dir / "baseline_min.png"
+        max_path = baseline_dir / "baseline_max.png"
+
+        if not all(p.exists() for p in [mask_path, min_path, max_path]):
+            self.gc.logger.warn(
+                "Feeder baseline not found. Run: scripts/calibrate_feeder_baseline.py"
+            )
+            return False
+
+        mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+        baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
+        baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
+
+        self.feeder_heatmap.loadEnvelope(baseline_min, baseline_max, mask)
+        self.feeder_baseline_captured = True
+        self.gc.logger.info("Feeder baseline loaded from disk")
+        return True
 
     def recordFrames(self) -> None:
         prof = self.gc.profiler
@@ -143,6 +114,11 @@ class VisionManager:
             # update feeding platform cache on every frame
             with prof.timer("vision.record_frames.update_feeding_platform_cache_ms"):
                 self.updateFeedingPlatformCache()
+
+            # push feeder gray into heatmap ring buffer
+            gray = self.getLatestFeederGray()
+            if gray is not None:
+                self.feeder_heatmap.pushFrame(gray)
 
             if self._video_recorder:
                 with prof.timer("vision.record_frames.video_recorder_write_ms"):
@@ -185,10 +161,7 @@ class VisionManager:
 
     @property
     def feeder_frame(self) -> Optional[CameraFrame]:
-        frame = self._pickNewestFrame(
-            self._feeder_binding.latest_annotated_frame,
-            self._feeder_capture.latest_frame,
-        )
+        frame = self._feeder_capture.latest_frame
         if frame is None:
             return None
 
@@ -196,7 +169,7 @@ class VisionManager:
             return frame
 
         # annotate with ArUco tags
-        annotated = frame.annotated if frame.annotated is not None else frame.raw
+        annotated = frame.raw.copy()
         aruco_tags = self.getFeederArucoTags()
         if aruco_tags:
             annotated = annotated.copy()
@@ -218,9 +191,13 @@ class VisionManager:
         annotated = self._annotateChannelGeometry(annotated)
         annotated = self._annotateCarouselPlatforms(annotated)
 
-        # annotate heatmap diff overlay
+        # annotate carousel platform heatmap diff overlay
         if self.heatmap_diff.has_baseline:
             annotated = self.heatmap_diff.annotateFrame(annotated)
+
+        # annotate feeder channel heatmap diff overlay
+        if self.feeder_heatmap.has_baseline:
+            annotated = self.feeder_heatmap.annotateFrame(annotated)
 
         return CameraFrame(
             raw=frame.raw,
@@ -238,29 +215,11 @@ class VisionManager:
 
     @property
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
-        return self._pickNewestFrame(
-            self._classification_bottom_binding.latest_annotated_frame,
-            self._classification_bottom_capture.latest_frame,
-        )
+        return self._classification_bottom_capture.latest_frame
 
     @property
     def classification_top_frame(self) -> Optional[CameraFrame]:
-        return self._pickNewestFrame(
-            self._classification_top_binding.latest_annotated_frame,
-            self._classification_top_capture.latest_frame,
-        )
-
-    @property
-    def feeder_result(self) -> Optional[VisionResult]:
-        return self._feeder_binding.latest_result
-
-    @property
-    def classification_bottom_result(self) -> Optional[VisionResult]:
-        return self._classification_bottom_binding.latest_result
-
-    @property
-    def classification_top_result(self) -> Optional[VisionResult]:
-        return self._classification_top_binding.latest_result
+        return self._classification_top_capture.latest_frame
 
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         if camera_name == "feeder":
@@ -271,14 +230,6 @@ class VisionManager:
             return self.classification_top_frame
         return None
 
-    def getResult(self, camera_name: str) -> Optional[VisionResult]:
-        if camera_name == "feeder":
-            return self.feeder_result
-        elif camera_name == "classification_bottom":
-            return self.classification_bottom_result
-        elif camera_name == "classification_top":
-            return self.classification_top_result
-        return None
 
     def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
         self.gc.profiler.hit("vision.get_feeder_aruco_tags.calls")
@@ -290,155 +241,46 @@ class VisionManager:
             )
             return tags
 
-    def getFeederDetectionsByClass(self) -> Dict[int, List[VisionResult]]:
-        prof = self.gc.profiler
-        prof.hit("vision.get_feeder_detections_by_class.calls")
-        prof.mark("vision.get_feeder_detections_by_class.interval_ms")
-        prof.startTimer("vision.get_feeder_detections_by_class.total_ms")
+    def buildFeederChannelMask(self, geometry, shape) -> Optional[np.ndarray]:
+        mask = np.zeros(shape[:2], dtype=np.uint8)
+        if geometry.second_channel is not None:
+            ch = geometry.second_channel
+            cv2.circle(mask, (int(ch.center[0]), int(ch.center[1])), int(ch.radius), 255, -1)
+        if geometry.third_channel is not None:
+            ch = geometry.third_channel
+            cv2.circle(mask, (int(ch.center[0]), int(ch.center[1])), int(ch.radius), 255, -1)
+        if np.count_nonzero(mask) == 0:
+            return None
+        return mask
 
-        results = self._feeder_binding.latest_raw_results
-        if not results or len(results) == 0:
-            aggregated: Dict[int, List[VisionResult]] = {}
-            for object_detections in self._feeder_detection_cache:
-                if FEEDER_OBJECT_CLASS_ID not in aggregated:
-                    aggregated[FEEDER_OBJECT_CLASS_ID] = []
-                aggregated[FEEDER_OBJECT_CLASS_ID].extend(
-                    [
-                        VisionResult(
-                            class_id=d.class_id,
-                            class_name=d.class_name,
-                            confidence=d.confidence,
-                            bbox=d.bbox,
-                            timestamp=d.timestamp,
-                            from_cache=True,
-                            created_at=d.created_at,
-                        )
-                        for d in object_detections
-                    ]
-                )
-            prof.observeValue(
-                "vision.get_feeder_detections_by_class.cached_object_count",
-                float(len(aggregated.get(FEEDER_OBJECT_CLASS_ID, []))),
+    def captureFeederBaseline(self, geometry, frames: List[np.ndarray]) -> bool:
+        if not frames:
+            return False
+        mask = self.buildFeederChannelMask(geometry, frames[0].shape)
+        if mask is None:
+            return False
+        ok = self.feeder_heatmap.setBaselineEnvelope(frames, mask)
+        if ok:
+            self.feeder_baseline_captured = True
+        return ok
+
+    def getFeederHeatmapDetections(self) -> List[VisionResult]:
+        gray = self.getLatestFeederGray()
+        if gray is not None:
+            self.feeder_heatmap.pushFrame(gray)
+
+        bboxes = self.feeder_heatmap.computeBboxes()
+        now = time.time()
+        return [
+            VisionResult(
+                class_id=0,
+                class_name="object",
+                confidence=1.0,
+                bbox=bbox,
+                timestamp=now,
             )
-            prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
-            return aggregated
-
-        current_frame_all_detections: Dict[int, List[VisionResult]] = {}
-        current_frame_object_detections: List[VisionResult] = []
-
-        prof.startTimer("vision.get_feeder_detections_by_class.process_results_ms")
-        fallback_timestamp = time.time()
-        if self._feeder_binding.latest_annotated_frame is not None:
-            fallback_timestamp = self._feeder_binding.latest_annotated_frame.timestamp
-        model_names = (
-            self._feeder_binding.model.names
-            if self._feeder_binding.model is not None
-            else {}
-        )
-
-        for result in results:
-            boxes = result.boxes
-            if boxes is None:
-                continue
-            for box in boxes:
-                class_id = int(box.cls.item())
-                confidence = float(box.conf.item())
-                xyxy = list(map(int, box.xyxy[0].tolist()))
-                bbox: Tuple[int, int, int, int] = (
-                    xyxy[0],
-                    xyxy[1],
-                    xyxy[2],
-                    xyxy[3],
-                )
-                bbox_area = max(0, bbox[2] - bbox[0]) * max(0, bbox[3] - bbox[1])
-                if (
-                    class_id == FEEDER_OBJECT_CLASS_ID
-                    and bbox_area > OBJECT_DETECTION_MAX_AREA_SQ_PX
-                ):
-                    continue
-
-                detection = VisionResult(
-                    class_id=class_id,
-                    class_name=model_names.get(class_id, str(class_id)),
-                    confidence=confidence,
-                    bbox=bbox,
-                    timestamp=fallback_timestamp,
-                )
-                if class_id not in current_frame_all_detections:
-                    current_frame_all_detections[class_id] = []
-                current_frame_all_detections[class_id].append(detection)
-                if class_id == FEEDER_OBJECT_CLASS_ID:
-                    current_frame_object_detections.append(detection)
-        prof.endTimer("vision.get_feeder_detections_by_class.process_results_ms")
-
-        if fallback_timestamp > self._feeder_detection_cache_last_append_timestamp:
-            self._feeder_detection_cache.append(current_frame_object_detections)
-            self._feeder_detection_cache_last_append_timestamp = fallback_timestamp
-
-        result_detections: Dict[int, List[VisionResult]] = {}
-        for class_id, detections in current_frame_all_detections.items():
-            if class_id != FEEDER_OBJECT_CLASS_ID:
-                result_detections[class_id] = detections
-
-        result_detections[FEEDER_OBJECT_CLASS_ID] = []
-        cache_len = len(self._feeder_detection_cache)
-        for idx, object_detections in enumerate(self._feeder_detection_cache):
-            from_cache = idx < cache_len - 1
-            result_detections[FEEDER_OBJECT_CLASS_ID].extend(
-                [
-                    VisionResult(
-                        class_id=d.class_id,
-                        class_name=d.class_name,
-                        confidence=d.confidence,
-                        bbox=d.bbox,
-                        timestamp=d.timestamp,
-                        from_cache=from_cache,
-                        created_at=d.created_at,
-                    )
-                    for d in object_detections
-                ]
-            )
-
-        prof.observeValue(
-            "vision.get_feeder_detections_by_class.object_count",
-            float(len(result_detections.get(FEEDER_OBJECT_CLASS_ID, []))),
-        )
-        prof.endTimer("vision.get_feeder_detections_by_class.total_ms")
-        return result_detections
-
-    def getFeederMasksByClass(self) -> Dict[int, List[DetectedMask]]:
-        detections_by_class = self.getFeederDetectionsByClass()
-        camera_height = self._feeder_camera_config.height
-        camera_width = self._feeder_camera_config.width
-        masks_by_class: Dict[int, List[DetectedMask]] = {}
-
-        for class_id, detections in detections_by_class.items():
-            masks: List[DetectedMask] = []
-            for instance_id, detection in enumerate(detections):
-                if detection.bbox is None:
-                    continue
-                x1, y1, x2, y2 = detection.bbox
-                x1 = max(0, min(camera_width, x1))
-                y1 = max(0, min(camera_height, y1))
-                x2 = max(0, min(camera_width, x2))
-                y2 = max(0, min(camera_height, y2))
-                if x2 <= x1 or y2 <= y1:
-                    continue
-                mask = np.zeros((camera_height, camera_width), dtype=bool)
-                mask[y1:y2, x1:x2] = True
-                masks.append(
-                    DetectedMask(
-                        mask=mask,
-                        confidence=detection.confidence,
-                        class_id=class_id,
-                        instance_id=instance_id,
-                        from_cache=detection.from_cache,
-                        created_at=detection.created_at,
-                    )
-                )
-            masks_by_class[class_id] = masks
-
-        return masks_by_class
+            for bbox in bboxes
+        ]
 
     def getChannelGeometry(self, aruco_tag_config):
         from subsystems.feeder.analysis import computeChannelGeometry
@@ -1001,8 +843,8 @@ class VisionManager:
     ) -> Tuple[Optional[CameraFrame], Optional[CameraFrame]]:
         start_time = time.time()
         while time.time() - start_time < timeout_s:
-            top = self._classification_top_binding.latest_annotated_frame
-            bottom = self._classification_bottom_binding.latest_annotated_frame
+            top = self._classification_top_capture.latest_frame
+            bottom = self._classification_bottom_capture.latest_frame
             if (
                 top
                 and bottom
@@ -1012,8 +854,8 @@ class VisionManager:
                 return (top, bottom)
             time.sleep(0.05)
         return (
-            self._classification_top_binding.latest_annotated_frame,
-            self._classification_bottom_binding.latest_annotated_frame,
+            self._classification_top_capture.latest_frame,
+            self._classification_bottom_capture.latest_frame,
         )
 
     def getClassificationCrops(

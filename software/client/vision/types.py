@@ -16,16 +16,6 @@ class VisionResult:
 
 
 @dataclass
-class DetectedMask:
-    mask: np.ndarray
-    confidence: float
-    class_id: int
-    instance_id: int
-    from_cache: bool = False
-    created_at: float = field(default_factory=time.time)
-
-
-@dataclass
 class CameraFrame:
     raw: np.ndarray
     annotated: Optional[np.ndarray]

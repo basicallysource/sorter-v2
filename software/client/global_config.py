@@ -104,8 +104,6 @@ class GlobalConfig:
     debug_level: int
     timeouts: Timeouts
     feeder_config: FeederConfig
-    classification_chamber_vision_model_path: str
-    feeder_vision_model_path: str
     sorting_profile_path: str
     should_write_camera_feeds: bool
     machine_id: str
@@ -114,7 +112,6 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
-    use_segmentation_model_for_classification_chamber: bool
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
 
@@ -123,7 +120,6 @@ class GlobalConfig:
         self.should_write_camera_feeds = False
         self.log_buffer_size = 100
         self.disable_chute = False
-        self.use_segmentation_model_for_classification_chamber = False
         self.rotary_channel_steppers_can_operate_in_parallel = True
 
 
@@ -152,10 +148,6 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
     gc.timeouts = mkTimeouts()
     gc.feeder_config = mkFeederConfig()
-    gc.classification_chamber_vision_model_path = os.environ[
-        "CLASSIFICATION_CHAMBER_MODEL_PATH"
-    ]
-    gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
     gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())

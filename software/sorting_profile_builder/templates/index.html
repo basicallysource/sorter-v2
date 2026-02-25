@@ -21,6 +21,7 @@
                 <button id="btn-sync-cats" onclick="syncCategories()">Sync Categories</button>
                 <button id="btn-sync-colors" onclick="syncColors()">Sync Colors</button>
                 <button id="btn-sync-parts" onclick="syncParts()">Sync Parts</button>
+                <button id="btn-sync-bricklink" onclick="syncBricklink()">Sync BrickLink</button>
                 <button id="btn-stop-sync" onclick="stopSync()" style="display:none;" class="secondary">Stop</button>
             </div>
             <div class="progress-info" style="margin-top:0.5rem;">
@@ -88,7 +89,7 @@ function updateSyncUI(data) {
     let status = document.getElementById('sync-status');
     let progress = document.getElementById('sync-progress');
     let stop_btn = document.getElementById('btn-stop-sync');
-    let sync_btns = document.querySelectorAll('#btn-sync-cats, #btn-sync-colors, #btn-sync-parts');
+    let sync_btns = document.querySelectorAll('#btn-sync-cats, #btn-sync-colors, #btn-sync-parts, #btn-sync-bricklink');
 
     status.textContent = data.last_message;
 
@@ -96,14 +97,20 @@ function updateSyncUI(data) {
         sync_btns.forEach(b => { b.disabled = true; });
         stop_btn.style.display = '';
         stop_btn.disabled = false;
-        if (data.api_total && data.cached_parts > 0) {
-            let pct = Math.round((data.cached_parts / data.api_total) * 100);
+        let pct = null;
+        if (typeof data.progress_total === 'number' && data.progress_total > 0 && typeof data.progress_current === 'number') {
+            pct = Math.round((data.progress_current / data.progress_total) * 100);
+        } else if (data.api_total && data.cached_parts > 0) {
+            pct = Math.round((data.cached_parts / data.api_total) * 100);
+        }
+        if (pct !== null) {
             progress.value = pct;
             progress.style.display = '';
         }
     } else {
         sync_btns.forEach(b => { b.disabled = false; b.removeAttribute('aria-busy'); });
         stop_btn.style.display = 'none';
+        progress.style.display = 'none';
         if (poll_interval) {
             clearInterval(poll_interval);
             poll_interval = null;
@@ -138,6 +145,7 @@ async function startSync(endpoint) {
 function syncCategories() { startSync('/api/sync-categories'); }
 function syncColors() { startSync('/api/sync-colors'); }
 function syncParts() { startSync('/api/sync-parts'); }
+function syncBricklink() { startSync('/api/sync-bricklink'); }
 
 async function stopSync() {
     document.getElementById('btn-stop-sync').disabled = true;

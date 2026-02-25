@@ -2,16 +2,61 @@ import os
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from global_config import GlobalConfig
 from parts_cache import PartsCache, SyncManager, searchParts
 from sorting_profile import (
     SortingProfile, mkSortingProfile, loadSortingProfile, saveSortingProfile,
-    listSortingProfiles, deleteSortingProfile, addCategory, removeCategory,
-    assignPart, unassignPart, assignBulkByRebrickableCategory,
+    listSortingProfiles, deleteSortingProfile,
+    addRule, removeRule, updateRule, getRule, getAncestorChecks,
+    reorderRules, reorderChildren, _migrateRules,
 )
+from rule_engine import mkCondition, generateProfile, previewRule, partsForCategory
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+
+
+class RuleBody(BaseModel):
+    name: str = "New Rule"
+    match_mode: str = "all"
+    conditions: list | None = None
+    parent_id: str | None = None
+
+
+class RuleUpdateBody(BaseModel):
+    name: str | None = None
+    match_mode: str | None = None
+    disabled: bool | None = None
+
+
+class ConditionBody(BaseModel):
+    field: str = "name"
+    op: str = "contains"
+    value: str | int | list | None = ""
+
+
+class ReorderBody(BaseModel):
+    rule_ids: list[str]
+
+
+class SaveRulesBody(BaseModel):
+    rules: list
+
+
+class FallbackModeBody(BaseModel):
+    rebrickable_categories: bool = False
+    by_color: bool = False
+
+
+class PreviewBody(BaseModel):
+    rules: list | None = None
+
+
+class ConditionUpdateBody(BaseModel):
+    field: str | None = None
+    op: str | None = None
+    value: str | int | list | None = None
 
 
 def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
@@ -44,8 +89,11 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         return templates.TemplateResponse("profile.html", {
             "request": request,
             "profile": sp,
+            "profile_path": os.path.abspath(fpath),
             "rebrickable_categories": cache.categories,
+            "bricklink_categories": cache.bricklink_categories,
             "rebrickable_colors": cache.colors,
+            "fallback_mode": sp.fallback_mode,
         })
 
     # --- api: sync ---
@@ -75,17 +123,26 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
             raise HTTPException(409, "A sync is already running")
         return {"started": True}
 
+    @app.post("/api/sync-bricklink")
+    def apiSyncBricklink():
+        started = sync.startBricklinkSync(gc, cache)
+        if not started:
+            raise HTTPException(409, "A sync is already running")
+        return {"started": True}
+
     @app.post("/api/sync-stop")
     def apiSyncStop():
         sync.requestStop()
         return {"stopped": True}
 
     @app.get("/api/search-parts")
-    def apiSearchParts(q: str = "", cat_id: int | None = None, limit: int = 50):
+    def apiSearchParts(q: str = "", cat_id: int | None = None, limit: int = 100, offset: int = 0):
         if not q and cat_id is None:
-            return {"results": []}
-        results = searchParts(cache, q, category_filter=cat_id, limit=limit)
-        return {"results": results}
+            return {"results": [], "total": 0, "offset": 0, "limit": limit}
+        all_results = searchParts(cache, q, category_filter=cat_id, limit=0)
+        total = len(all_results)
+        page = all_results[offset:offset + limit] if limit > 0 else all_results
+        return {"results": page, "total": total, "offset": offset, "limit": limit}
 
     @app.get("/api/parts-by-category/{cat_id}")
     def apiPartsByCategory(cat_id: int, limit: int = 200):
@@ -101,6 +158,13 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         fpath = saveSortingProfile(gc.profiles_dir, sp)
         return {"id": sp.id, "path": fpath}
 
+    @app.put("/api/profiles/{profile_id}/name")
+    def apiRenameProfile(profile_id: str, name: str = Form(...)):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        sp.name = name
+        saveSortingProfile(gc.profiles_dir, sp)
+        return {"name": sp.name}
+
     @app.delete("/api/profiles/{profile_id}")
     def apiDeleteProfile(profile_id: str):
         ok = deleteSortingProfile(gc.profiles_dir, profile_id)
@@ -108,56 +172,208 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
             raise HTTPException(404, "Profile not found")
         return {"deleted": True}
 
-    # --- api: profile editing ---
+    # --- api: rules ---
 
-    @app.post("/api/profile/{profile_id}/categories")
-    def apiAddCategory(profile_id: str, name: str = Form(...)):
+    @app.post("/api/profile/{profile_id}/rules")
+    def apiAddRule(profile_id: str, body: RuleBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        cat_id = addCategory(sp, name)
+        conditions = body.conditions or []
+        rule_id = addRule(sp, body.name, conditions, match_mode=body.match_mode, parent_id=body.parent_id)
+        if rule_id is None:
+            raise HTTPException(404, "Parent rule not found")
         saveSortingProfile(gc.profiles_dir, sp)
-        return {"id": cat_id, "name": name}
+        return {"id": rule_id, "rule": getRule(sp, rule_id)}
 
-    @app.delete("/api/profile/{profile_id}/categories/{cat_id}")
-    def apiRemoveCategory(profile_id: str, cat_id: str):
+    @app.put("/api/profile/{profile_id}/rules/{rule_id}")
+    def apiUpdateRule(profile_id: str, rule_id: str, body: RuleUpdateBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        removeCategory(sp, cat_id)
+        fields = {k: v for k, v in body.model_dump().items() if v is not None}
+        if not updateRule(sp, rule_id, **fields):
+            raise HTTPException(404, "Rule not found")
+        saveSortingProfile(gc.profiles_dir, sp)
+        return {"rule": getRule(sp, rule_id)}
+
+    @app.delete("/api/profile/{profile_id}/rules/{rule_id}")
+    def apiDeleteRule(profile_id: str, rule_id: str):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        if not removeRule(sp, rule_id):
+            raise HTTPException(404, "Rule not found")
         saveSortingProfile(gc.profiles_dir, sp)
         return {"removed": True}
 
-    @app.post("/api/profile/{profile_id}/assign")
-    def apiAssignPart(profile_id: str, part_key: str = Form(...), cat_id: str = Form(...)):
+    @app.put("/api/profile/{profile_id}/rules/reorder")
+    def apiReorderRules(profile_id: str, body: ReorderBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        assignPart(sp, part_key, cat_id)
+        reorderRules(sp, body.rule_ids)
         saveSortingProfile(gc.profiles_dir, sp)
-        return {"assigned": True}
+        return {"rules": sp.rules}
 
-    @app.post("/api/profile/{profile_id}/unassign")
-    def apiUnassignPart(profile_id: str, part_key: str = Form(...)):
+    @app.put("/api/profile/{profile_id}/rules/{rule_id}/children/reorder")
+    def apiReorderChildren(profile_id: str, rule_id: str, body: ReorderBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        unassignPart(sp, part_key)
+        if not reorderChildren(sp, rule_id, body.rule_ids):
+            raise HTTPException(404, "Parent rule not found")
         saveSortingProfile(gc.profiles_dir, sp)
-        return {"unassigned": True}
+        return {"rule": getRule(sp, rule_id)}
 
-    @app.post("/api/profile/{profile_id}/assign-bulk")
-    def apiAssignBulk(
-        profile_id: str,
-        rebrickable_cat_id: int = Form(...),
-        internal_cat_id: str = Form(...),
-    ):
+    @app.put("/api/profile/{profile_id}/rules")
+    def apiSaveAllRules(profile_id: str, body: SaveRulesBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        count = assignBulkByRebrickableCategory(sp, cache.parts, rebrickable_cat_id, internal_cat_id)
+        sp.rules = body.rules
+        _migrateRules(sp.rules)
         saveSortingProfile(gc.profiles_dir, sp)
-        return {"assigned_count": count}
+        return {"rules": sp.rules}
+
+    # --- api: conditions (flat list per rule) ---
+
+    @app.post("/api/profile/{profile_id}/rules/{rule_id}/conditions")
+    def apiAddCondition(profile_id: str, rule_id: str, body: ConditionBody):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        rule = getRule(sp, rule_id)
+        if not rule:
+            raise HTTPException(404, "Rule not found")
+        cond = mkCondition(body.field, body.op, body.value)
+        rule["conditions"].append(cond)
+        saveSortingProfile(gc.profiles_dir, sp)
+        return {"condition": cond, "rule": rule}
+
+    @app.put("/api/profile/{profile_id}/rules/{rule_id}/conditions/{cond_id}")
+    def apiUpdateCondition(profile_id: str, rule_id: str, cond_id: str, body: ConditionUpdateBody):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        rule = getRule(sp, rule_id)
+        if not rule:
+            raise HTTPException(404, "Rule not found")
+        for cond in rule["conditions"]:
+            if cond["id"] == cond_id:
+                updates = {k: v for k, v in body.model_dump().items() if v is not None}
+                cond.update(updates)
+                saveSortingProfile(gc.profiles_dir, sp)
+                return {"rule": rule}
+        raise HTTPException(404, "Condition not found")
+
+    @app.delete("/api/profile/{profile_id}/rules/{rule_id}/conditions/{cond_id}")
+    def apiDeleteCondition(profile_id: str, rule_id: str, cond_id: str):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        rule = getRule(sp, rule_id)
+        if not rule:
+            raise HTTPException(404, "Rule not found")
+        for i, cond in enumerate(rule["conditions"]):
+            if cond["id"] == cond_id:
+                rule["conditions"].pop(i)
+                saveSortingProfile(gc.profiles_dir, sp)
+                return {"rule": rule}
+        raise HTTPException(404, "Condition not found")
+
+    # --- api: fallback mode ---
+
+    @app.put("/api/profile/{profile_id}/fallback-mode")
+    def apiSetFallbackMode(profile_id: str, body: FallbackModeBody):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        sp.fallback_mode = {"rebrickable_categories": body.rebrickable_categories, "by_color": body.by_color}
+        saveSortingProfile(gc.profiles_dir, sp)
+        return {"fallback_mode": sp.fallback_mode}
+
+    # --- api: generate & preview ---
+
+    @app.post("/api/profile/{profile_id}/generate")
+    def apiGenerate(profile_id: str):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        result = generateProfile(
+            sp,
+            cache.parts,
+            cache.categories,
+            cache.bricklink_categories,
+            fallback_mode=sp.fallback_mode,
+        )
+        sp.part_to_category = result["part_to_category"]
+        sp.categories = {}
+        for rule in sp.rules:
+            sp.categories[rule["id"]] = {"name": rule["name"]}
+        # add rb_* categories from results
+        for cat_id in result["stats"]["per_category"]:
+            if cat_id.startswith("rb_"):
+                rb_id = int(cat_id[3:])
+                rb_cat = cache.categories.get(rb_id)
+                sp.categories[cat_id] = {"name": rb_cat["name"] if rb_cat else cat_id}
+        saveSortingProfile(gc.profiles_dir, sp)
+        return result["stats"]
+
+    @app.post("/api/profile/{profile_id}/preview")
+    def apiPreviewProfile(profile_id: str, body: PreviewBody | None = None):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        original_rules = sp.rules
+        if body and body.rules is not None:
+            sp.rules = body.rules
+            _migrateRules(sp.rules)
+        result = generateProfile(
+            sp,
+            cache.parts,
+            cache.categories,
+            cache.bricklink_categories,
+            fallback_mode=sp.fallback_mode,
+        )
+        sp.rules = original_rules
+        return result["stats"]
+
+    @app.post("/api/profile/{profile_id}/rules/{rule_id}/preview")
+    def apiPreviewRule(profile_id: str, rule_id: str, body: PreviewBody | None = None, q: str = "", offset: int = 0, limit: int = 50):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        original_rules = sp.rules
+        if body and body.rules is not None:
+            sp.rules = body.rules
+            _migrateRules(sp.rules)
+        rule = getRule(sp, rule_id)
+        if not rule:
+            sp.rules = original_rules
+            raise HTTPException(404, "Rule not found")
+        ancestor_checks = getAncestorChecks(sp, rule_id)
+        result = previewRule(
+            rule,
+            cache.parts,
+            categories=cache.categories,
+            bricklink_categories=cache.bricklink_categories,
+            limit=limit,
+            offset=offset,
+            q=q,
+            ancestor_checks=ancestor_checks,
+        )
+        sp.rules = original_rules
+        return result
+
+    @app.post("/api/profile/{profile_id}/category-parts/{cat_id:path}")
+    def apiCategoryParts(profile_id: str, cat_id: str, body: PreviewBody | None = None, q: str = "", offset: int = 0, limit: int = 50):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        original_rules = sp.rules
+        if body and body.rules is not None:
+            sp.rules = body.rules
+            _migrateRules(sp.rules)
+        result = generateProfile(
+            sp,
+            cache.parts,
+            cache.categories,
+            cache.bricklink_categories,
+            fallback_mode=sp.fallback_mode,
+        )
+        sp.rules = original_rules
+        return partsForCategory(result["part_to_category"], cat_id, cache.parts, q=q, offset=offset, limit=limit)
 
     @app.get("/api/profile/{profile_id}/stats")
     def apiProfileStats(profile_id: str):
         sp = _getOpenProfile(open_profile, gc, profile_id)
         return {
             "part_count": len(sp.part_to_category),
-            "category_count": len(sp.categories),
+            "category_count": len(sp.rules),
+            "rule_count": _countRules(sp.rules),
         }
 
     return app
+
+
+def _countRules(rules):
+    count = len(rules)
+    for rule in rules:
+        count += _countRules(rule.get("children", []))
+    return count
 
 
 def _getOpenProfile(container: dict, gc: GlobalConfig, profile_id: str) -> SortingProfile:

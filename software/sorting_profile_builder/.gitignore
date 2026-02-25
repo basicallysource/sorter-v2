@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+
+.DS_Store
+
+.env
+.venv/
+venv/
+
+.pytest_cache/
+
+parts.json
+bricklink_request_record.json
+profiles/*.json
+
+*.log

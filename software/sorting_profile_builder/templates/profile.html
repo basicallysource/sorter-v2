@@ -3,127 +3,1774 @@
 
 {% block content %}
 <hgroup>
-    <h3>{{ profile.name }}</h3>
-    <p>{{ profile.description }} &mdash; <span class="stats" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.categories | length }} categories</span></p>
+    <h3><input type="text" id="profile-name" value="{{ profile.name }}" style="margin:0;padding:2px 6px;font-size:inherit;font-weight:inherit;border:1px solid transparent;background:transparent;width:auto;" onfocus="this.style.borderColor='var(--pico-primary)';this.style.background='var(--pico-card-background-color)'" onblur="this.style.borderColor='transparent';this.style.background='transparent';renameProfile(this.value)"></h3>
+    <p>{{ profile.description }} &mdash; <span class="stats" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.rules | length }} categories</span></p>
+    <p class="stats" style="user-select:all;word-break:break-all;">{{ profile_path }}</p>
 </hgroup>
 
-<div class="grid-2">
-    <!-- left: categories -->
-    <div>
-        <h4>Internal Categories</h4>
-        <div id="categories-list">
-            {% for cat_id, cat in profile.categories.items() %}
-            <div class="category-item" data-cat-id="{{ cat_id }}" onclick="selectCategory('{{ cat_id }}', '{{ cat.name }}')">
-                <span>{{ cat.name }}</span>
-                <button class="outline secondary" style="padding:2px 6px;font-size:11px;margin:0;" onclick="event.stopPropagation(); removeCategory('{{ cat_id }}')">x</button>
-            </div>
-            {% endfor %}
+<div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;">
+    <button onclick="addNewRule()" id="btn-add-rule" style="margin:0;">+ Add Rule</button>
+    <button onclick="saveAllRules()" id="btn-save-all" style="margin:0;display:none;">Save All</button>
+    <button onclick="doGenerate()" id="btn-generate" style="margin:0;">Generate</button>
+    <div style="flex:1;"></div>
+    <button class="outline secondary" onclick="togglePartsBrowser()" id="btn-parts-browser" style="margin:0;">Parts Browser</button>
+</div>
+<div id="fallback-options" style="display:flex;gap:1rem;align-items:center;margin-bottom:0.75rem;"></div>
+
+<div class="workspace-shell">
+    <div class="profile-layout">
+        <!-- left pane: rule list -->
+        <div class="left-pane">
+            <div id="rules-list" class="rules-list"></div>
         </div>
-        <form onsubmit="addCategoryForm(event)" style="margin-top:0.5rem;">
-            <div style="display:flex;gap:0.5rem;">
-                <input type="text" id="new-cat-name" placeholder="Category name" required style="margin:0;">
-                <button type="submit" style="margin:0;white-space:nowrap;">Add</button>
+
+        <!-- right pane: editor -->
+        <div class="right-pane">
+            <div id="editor-panel">
+                <div id="editor-empty" class="editor-empty">
+                    <p>Select a rule to edit, or create a new one.</p>
+                </div>
+                <div id="editor-content" style="display:none;"></div>
             </div>
-        </form>
-
-        <hr>
-
-        <h5>Bulk Assign by Rebrickable Category</h5>
-        <p class="stats">Assign all parts from a Rebrickable category to the selected internal category.</p>
-        <select id="bulk-rebrickable-cat">
-            <option value="">-- Rebrickable Category --</option>
-            {% for cat_id, cat in rebrickable_categories.items() %}
-            <option value="{{ cat_id }}">{{ cat.name }} ({{ cat.part_count }} parts)</option>
-            {% endfor %}
-        </select>
-        <button onclick="bulkAssign()" id="btn-bulk" style="margin-top:0.5rem;">Assign All to Selected Category</button>
-        <div id="bulk-status" class="stats"></div>
-
-        <hr>
-        <h5>Selected: <span id="selected-cat-name">None</span></h5>
-        <input type="hidden" id="selected-cat-id" value="">
+        </div>
     </div>
 
-    <!-- right: parts search -->
-    <div>
-        <h4>Parts Browser</h4>
-        <div style="display:flex;gap:0.5rem;">
-            <input type="search" id="parts-search" placeholder="Search parts by name, number, BrickLink ID..." style="margin:0;" oninput="debouncedSearch()">
-            <select id="filter-rebrickable-cat" style="max-width:200px;margin:0;" onchange="debouncedSearch()">
-                <option value="">All categories</option>
+    <!-- parts browser sidebar -->
+    <div id="parts-browser-sidebar" class="parts-sidebar hidden">
+        <div class="parts-sidebar-resize-handle" onmousedown="startPartsSidebarResize(event)" title="Drag to resize"></div>
+        <div class="parts-sidebar-header">
+            <h5 style="margin:0;">Parts Browser</h5>
+            <button class="outline secondary btn-sm" onclick="togglePartsBrowser()" style="margin:0;">&times;</button>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+            <input type="search" id="parts-search" placeholder="Search parts..." style="margin:0;flex:1;" oninput="debouncedSearch()">
+            <select id="filter-rebrickable-cat" style="max-width:180px;margin:0;" onchange="debouncedSearch()">
+                <option value="">All RB categories</option>
                 {% for cat_id, cat in rebrickable_categories.items() %}
                 <option value="{{ cat_id }}">{{ cat.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <div id="search-status" class="stats" style="margin:0.25rem 0;"></div>
-        <div style="max-height:600px;overflow-y:auto;">
+        <div class="parts-sidebar-scroll">
             <table id="parts-table">
                 <thead>
-                    <tr>
-                        <th></th>
-                        <th>Part #</th>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>BrickLink ID</th>
-                        <th>Years</th>
-                        <th></th>
-                    </tr>
+                    <tr><th></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>Years</th></tr>
                 </thead>
                 <tbody id="parts-tbody"></tbody>
             </table>
         </div>
+        <div id="pagination" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;"></div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-const PROFILE_ID = "{{ profile.id }}";
-let search_timer = null;
+<style>
+main.container {
+    max-width: min(2400px, 99vw);
+}
 
-function selectCategory(id, name) {
-    document.getElementById('selected-cat-id').value = id;
-    document.getElementById('selected-cat-name').textContent = name;
-    document.querySelectorAll('.category-item').forEach(el => {
-        el.classList.toggle('selected', el.dataset.catId === id);
+.workspace-shell {
+    display: flex;
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.profile-layout {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+.left-pane { min-width: 0; }
+.right-pane {
+    position: sticky;
+    top: 1rem;
+    min-width: 0;
+}
+
+.rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* compact rule card in list */
+.rule-summary {
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+.rule-summary:hover { border-color: var(--pico-primary); }
+.rule-summary.selected {
+    border-color: var(--pico-primary);
+    background: var(--pico-primary-focus);
+}
+.rule-summary.drag-over {
+    border-top: 3px solid var(--pico-primary);
+}
+
+.rule-summary-top {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.drag-handle {
+    cursor: grab;
+    color: var(--pico-muted-color);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.drag-handle:active { cursor: grabbing; }
+.rule-name {
+    font-weight: bold;
+    font-size: 13px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rule-meta {
+    font-size: 11px;
+    color: var(--pico-muted-color);
+    margin-top: 2px;
+    padding-left: 24px;
+}
+.rule-count {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--pico-primary);
+    white-space: nowrap;
+}
+.rule-count.dim { color: var(--pico-muted-color); font-weight: normal; }
+
+.everything-else {
+    border-style: dashed;
+    opacity: 0.8;
+    cursor: default;
+    margin-top: 4px;
+}
+.everything-else:hover { border-color: var(--pico-muted-border-color); }
+.everything-else .rule-name { font-style: italic; }
+
+.rule-summary.disabled { opacity: 0.45; }
+.rule-summary.disabled .rule-name { text-decoration: line-through; }
+.sub-rule-item.disabled { opacity: 0.45; text-decoration: line-through; }
+
+.btn-toggle-disabled {
+    padding: 1px 6px !important; font-size: 11px !important; margin: 0 !important;
+    cursor: pointer; border-radius: 4px;
+}
+.btn-toggle-disabled.is-disabled {
+    background: var(--pico-del-color); color: #fff; border-color: var(--pico-del-color);
+}
+.rule-summary-actions {
+    display: flex;
+    gap: 0.3rem;
+    margin-left: auto;
+}
+
+.sub-rules-in-list {
+    margin: 4px 0 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.sub-rule-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+.sub-rule-item:hover { background: var(--pico-primary-focus); }
+.sub-rule-item.selected { background: var(--pico-primary-focus); font-weight: bold; }
+.sub-rule-item.drag-over { border-top: 2px solid var(--pico-primary); }
+.sub-rule-connector {
+    color: var(--pico-muted-color);
+    font-size: 11px;
+    width: 12px;
+}
+
+/* editor panel */
+.editor-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--pico-muted-color);
+}
+
+.editor-section {
+    margin-bottom: 1rem;
+}
+.editor-section h6 {
+    margin-bottom: 0.4rem;
+    font-size: 13px;
+    color: var(--pico-muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.conditions-area {
+    padding: 0.5rem;
+    border: 1px dashed var(--pico-muted-border-color);
+    border-radius: 6px;
+    font-size: 13px;
+}
+.match-mode-toggle {
+    display: inline-flex; gap: 0; margin-bottom: 0.5rem; border-radius: 4px; overflow: hidden;
+    border: 1px solid var(--pico-muted-border-color);
+}
+.match-mode-toggle button {
+    margin: 0; padding: 2px 12px; font-size: 11px; font-weight: bold;
+    border: none; border-radius: 0; cursor: pointer;
+    background: var(--pico-card-background-color); color: var(--pico-muted-color);
+}
+.match-mode-toggle button.active {
+    background: var(--pico-primary); color: var(--pico-primary-inverse);
+}
+.cond-row {
+    display: flex; align-items: center; gap: 0.4rem; margin: 4px 0; flex-wrap: wrap;
+}
+.cond-row select, .cond-row input[type="text"], .cond-row input[type="number"] {
+    margin:0; padding:3px 6px; font-size:12px; height:auto;
+}
+.cond-row .field-sel { width:160px; }
+.cond-row .op-sel { width:100px; }
+.cond-row .val-input { flex:1; min-width:120px; }
+.cond-row .val-sel { flex:1; min-width:120px; }
+.cond-join-label {
+    font-size: 11px; font-weight: bold; color: var(--pico-primary);
+    text-transform: uppercase; padding: 2px 0;
+}
+
+.editor-subrule-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+    font-size: 13px;
+}
+.editor-subrule-row .sub-name { flex: 1; }
+
+.preview-list { max-height:420px; overflow-y:auto; font-size:12px; margin-top:0.5rem; }
+.preview-list table { font-size:12px; }
+.part-img-sm { width: 34px; height: 34px; object-fit: contain; }
+.part-img-md { width: 60px; height: 60px; object-fit: contain; }
+.part-img-lg { width: 140px; height: 140px; object-fit: contain; }
+.preview-part-cell { width: 40px; padding-right: 4px; }
+.matched-row { cursor: pointer; }
+.matched-row:hover { background: var(--pico-primary-focus); }
+.matched-detail-row.hidden { display: none; }
+.matched-detail-cell { padding: 0.6rem 0.75rem !important; background: rgba(255,255,255,0.02); }
+.matched-detail {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.75rem;
+    align-items: start;
+}
+.matched-detail-meta { font-size: 12px; }
+.matched-detail-meta div { margin-bottom: 0.2rem; }
+
+.btn-sm { padding:2px 8px !important; font-size:11px !important; margin:0 !important; }
+.btn-x { padding:1px 5px !important; font-size:11px !important; margin:0 !important; cursor:pointer; color:var(--pico-muted-color); background:none; border:none; }
+.btn-x:hover { color:#e53e3e; }
+.btn-danger:hover { border-color:#e53e3e !important; color:#e53e3e !important; }
+
+.saved-indicator {
+    font-size: 11px; color: #48bb78; opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.saved-indicator.show { opacity: 1; }
+
+.rule-state-badge {
+    font-size: 10px; font-weight: bold; padding: 1px 5px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+}
+.rule-state-badge.pending { background: #3182ce; color: #fff; }
+.rule-state-badge.unsaved { background: #d69e2e; color: #fff; }
+
+.editor-save-bar {
+    display: flex; gap: 0.5rem; align-items: center;
+    padding: 0.5rem 0.75rem; margin-bottom: 1rem;
+    border-radius: 6px; font-size: 13px;
+}
+.editor-save-bar.pending { background: rgba(49,130,206,0.12); border: 1px solid #3182ce; }
+.editor-save-bar.unsaved { background: rgba(214,158,46,0.12); border: 1px solid #d69e2e; }
+.editor-save-bar .save-label { flex: 1; }
+
+.ac-wrap { position: relative; flex: 1; min-width: 120px; }
+.ac-wrap input { width: 100%; }
+.ac-results {
+    position: absolute; top: 100%; left: 0; right: 0;
+    max-height: 180px; overflow-y: auto;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 0 0 4px 4px;
+    z-index: 100; font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.ac-results:empty { display: none; }
+.ac-results div { padding: 3px 8px; cursor: default; }
+.ac-results div:hover { background: var(--pico-primary-focus); }
+.ac-results .ac-count { float: right; color: var(--pico-muted-color); font-size: 11px; }
+.ac-results .ac-summary { color: var(--pico-muted-color); font-style: italic; border-top: 1px solid var(--pico-muted-border-color); }
+.ac-results .ac-part-row { display:flex; align-items:center; gap:0.4rem; }
+.ac-results .ac-part-row .ac-count { float:none; margin-left:auto; }
+.ac-results .ac-part-name { min-width:0; }
+
+.editor-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+/* parts browser sidebar */
+.parts-sidebar {
+    position: sticky;
+    top: 0;
+    width: 520px;
+    min-width: 340px;
+    max-width: 70vw;
+    height: 100vh;
+    max-height: 100vh;
+    background: var(--pico-card-background-color);
+    border-left: 1px solid var(--pico-muted-border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    padding-left: 1.25rem;
+    transition: width 0.08s ease;
+    z-index: 2;
+    overflow: visible;
+}
+.parts-sidebar.hidden {
+    display: none;
+}
+.parts-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+.parts-sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+.parts-sidebar #parts-table th:first-child,
+.parts-sidebar #parts-table td:first-child {
+    width: 116px;
+    min-width: 116px;
+}
+.parts-sidebar #parts-table img.part-img {
+    width: 100px;
+    height: 100px;
+    max-width: none;
+    object-fit: contain;
+}
+.parts-sidebar-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    cursor: col-resize;
+    transform: translateX(-50%);
+    z-index: 5;
+}
+.parts-sidebar-resize-handle:hover {
+    background: rgba(255,255,255,0.06);
+}
+body.parts-sidebar-resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+@media (max-width: 1200px) {
+    .workspace-shell {
+        flex-direction: column;
+    }
+    .parts-sidebar {
+        position: static;
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0;
+        max-height: none;
+        padding-left: 1rem;
+    }
+    .parts-sidebar-resize-handle {
+        display: none;
+    }
+}
+</style>
+
+<script>
+function mkUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        let r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+function uuid() { return (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : mkUUID(); }
+
+const PROFILE_ID = "{{ profile.id }}";
+const RB_CATEGORIES = {{ rebrickable_categories | tojson }};
+const BL_CATEGORIES = {{ bricklink_categories | tojson }};
+const RB_COLORS = {{ rebrickable_colors | tojson }};
+let RULES = {{ profile.rules | tojson }};
+let FALLBACK_MODE = {{ fallback_mode | tojson }};
+let saved_snapshot = JSON.parse(JSON.stringify(RULES));
+let dirty_rules = new Set();
+let pending_rules = new Set();
+let selected_rule_id = null;
+let selected_rb_cat = null;
+let standalone_mode = false;
+let pl_query = '';
+let pl_offset = 0;
+const PL_PAGE = 50;
+let pl_search_timer = null;
+let preview_stats = null;
+let preview_pending = false;
+let search_timer = null;
+let current_offset = 0;
+let current_total = 0;
+const PAGE_SIZE = 100;
+let parts_sidebar_width = 520;
+let parts_sidebar_resize = null;
+
+const RB_CAT_LIST = Object.entries(RB_CATEGORIES)
+    .map(([id, c]) => ({id: parseInt(id), name: c.name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+const RB_COLOR_LIST = Object.entries(RB_COLORS)
+    .map(([id, c]) => ({id: parseInt(id), name: c.name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+const BL_CAT_LIST = Object.entries(BL_CATEGORIES)
+    .map(([id, c]) => ({id: parseInt(id), name: c.category_name || `Category ${id}`}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+const FIELD_CONFIG = {
+    category_id:   {label: "RB Category", ops: {eq: "is", "in": "is one of"}, valueType: "rb_category"},
+    category_name: {label: "RB Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    color_id:      {label: "Color", ops: {eq: "is", "in": "is one of"}, valueType: "color"},
+    name:          {label: "RB Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    part_num:      {label: "RB Part Number", ops: {eq: "is", "in": "is one of"}, valueType: "text"},
+    year_from:     {label: "Year From", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    year_to:       {label: "Year To", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_id:  {label: "BL Part ID", ops: {eq: "is", "in": "is one of"}, valueType: "text"},
+    bricklink_item_count:     {label: "BL Item Count", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_primary_item_no:{label: "BL Primary Item #", ops: {eq: "is", contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_price_min:             {label: "BL Min Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_max:             {label: "BL Max Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_avg:             {label: "BL Avg Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_qty_avg:         {label: "BL Qty Avg Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_unit_quantity:   {label: "BL Unit Qty", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_total_quantity:  {label: "BL Total Qty", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_currency:        {label: "BL Price Currency", ops: {eq: "is", contains: "contains"}, valueType: "text"},
+    bl_price_new_or_used:     {label: "BL Price New/Used", ops: {eq: "is"}, valueType: "text"},
+    bl_price_guide_type:      {label: "BL Guide Type", ops: {eq: "is"}, valueType: "text"},
+    bl_price_country_code:    {label: "BL Country Code", ops: {eq: "is"}, valueType: "text"},
+    bl_catalog_name:          {label: "BL Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_category_id:           {label: "BL Category", ops: {eq: "is", "in": "is one of"}, valueType: "bl_category"},
+    bl_category_name:         {label: "BL Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_catalog_category_id:   {label: "BL Catalog Category ID", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_year_released: {label: "BL Catalog Year", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_weight:        {label: "BL Catalog Weight", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_x:         {label: "BL Catalog Dim X", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_y:         {label: "BL Catalog Dim Y", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_z:         {label: "BL Catalog Dim Z", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_is_obsolete:   {label: "BL Catalog Is Obsolete (1/0)", ops: {eq: "is"}, valueType: "number"},
+};
+const FIELD_LIST = Object.entries(FIELD_CONFIG).map(([k, v]) => ({value: k, label: v.label}));
+
+// --- helpers ---
+
+function findRuleById(rules, id) {
+    for (let r of rules) {
+        if (r.id === id) return r;
+        let found = findRuleById(r.children || [], id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function removeRuleById(rules, id) {
+    for (let i = 0; i < rules.length; i++) {
+        if (rules[i].id === id) { rules.splice(i, 1); return true; }
+        if (removeRuleById(rules[i].children || [], id)) return true;
+    }
+    return false;
+}
+
+function cloneRuleTreeWithNewIds(rule, is_root=true) {
+    let copy = JSON.parse(JSON.stringify(rule));
+    copy.id = uuid();
+    if (is_root) copy.name = `${copy.name || 'Rule'} Copy`;
+    copy.conditions = (copy.conditions || []).map(c => ({...c, id: uuid()}));
+    copy.children = (copy.children || []).map(child => cloneRuleTreeWithNewIds(child, false));
+    return copy;
+}
+
+function findParentRule(rules, child_id) {
+    for (let r of rules) {
+        for (let c of (r.children || [])) {
+            if (c.id === child_id) return r;
+        }
+        let found = findParentRule(r.children || [], child_id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function isTopLevel(rule_id) {
+    return RULES.some(r => r.id === rule_id);
+}
+
+function findTopLevelId(rule_id) {
+    if (isTopLevel(rule_id)) return rule_id;
+    for (let r of RULES) {
+        if (findRuleById(r.children || [], rule_id)) return r.id;
+    }
+    return rule_id;
+}
+
+function escHtml(s) {
+    let d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+}
+
+function renderPartImg(url, size_class, loading_mode='lazy') {
+    if (!url) return '';
+    return `<img src="${url}" class="part-img ${size_class}" loading="${loading_mode}" decoding="async" alt="">`;
+}
+
+function fmtYears(year_from, year_to) {
+    if (!year_from) return '';
+    if (!year_to || year_from === year_to) return String(year_from);
+    return `${year_from}-${year_to}`;
+}
+
+function fmtPriceVal(v) {
+    if (v === null || v === undefined || v === '') return '';
+    let n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return n.toFixed(4);
+}
+
+function toggleMatchedPartRow(row_el) {
+    let detail_row = row_el && row_el.nextElementSibling;
+    if (!detail_row || !detail_row.classList.contains('matched-detail-row')) return;
+    detail_row.classList.toggle('hidden');
+}
+
+function renderMatchedPartDetail(p, has_color) {
+    let color_line = '';
+    if (has_color && p.color_id !== undefined) {
+        let color_name = RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id;
+        color_line = `<div><strong>Color:</strong> ${escHtml(color_name)}</div>`;
+    }
+    let years = fmtYears(p.year_from, p.year_to);
+    let years_line = years ? `<div><strong>Years:</strong> ${escHtml(years)}</div>` : '';
+    let cat_line = p.part_cat_id != null ? `<div><strong>RB Category ID:</strong> ${escHtml(p.part_cat_id)}</div>` : '';
+    let bl_ids = Array.isArray(p.bricklink_ids) && p.bricklink_ids.length ? p.bricklink_ids.join(', ') : '';
+    let bl_line = bl_ids ? `<div><strong>BrickLink IDs:</strong> ${escHtml(bl_ids)}</div>` : '';
+    let bl_price_line = '';
+    if (p.bl_price_avg !== null && p.bl_price_avg !== undefined) {
+        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
+        let mode = [];
+        if (p.bl_price_new_or_used) mode.push(escHtml(p.bl_price_new_or_used));
+        if (p.bl_price_guide_type) mode.push(escHtml(p.bl_price_guide_type));
+        if (p.bl_price_country_code) mode.push(escHtml(p.bl_price_country_code));
+        let mode_suffix = mode.length ? ` <span class="stats">(${mode.join(' / ')})</span>` : '';
+        bl_price_line = `<div><strong>BL Price Avg:</strong> ${fmtPriceVal(p.bl_price_avg)}${currency}${mode_suffix}</div>`;
+    }
+    let bl_price_range_line = '';
+    if (p.bl_price_min !== null && p.bl_price_min !== undefined && p.bl_price_max !== null && p.bl_price_max !== undefined) {
+        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
+        bl_price_range_line = `<div><strong>BL Price Range:</strong> ${fmtPriceVal(p.bl_price_min)} - ${fmtPriceVal(p.bl_price_max)}${currency}</div>`;
+    }
+    let bl_qty_line = '';
+    if (p.bl_price_unit_quantity !== null || p.bl_price_total_quantity !== null || p.bl_price_qty_avg !== null) {
+        let qty_parts = [];
+        if (p.bl_price_qty_avg !== null && p.bl_price_qty_avg !== undefined) qty_parts.push(`qty avg ${fmtPriceVal(p.bl_price_qty_avg)}`);
+        if (p.bl_price_unit_quantity !== null && p.bl_price_unit_quantity !== undefined) qty_parts.push(`lots ${escHtml(p.bl_price_unit_quantity)}`);
+        if (p.bl_price_total_quantity !== null && p.bl_price_total_quantity !== undefined) qty_parts.push(`units ${escHtml(p.bl_price_total_quantity)}`);
+        if (qty_parts.length) bl_qty_line = `<div><strong>BL Market:</strong> ${qty_parts.join(', ')}</div>`;
+    }
+    let link_line = p.part_url ? `<div><a href="${p.part_url}" target="_blank" rel="noopener noreferrer">Rebrickable page</a></div>` : '';
+    let img = renderPartImg(p.part_img_url, 'part-img-lg', 'eager') || '<div class="stats">No image</div>';
+    return `
+        <div class="matched-detail">
+            <div>${img}</div>
+            <div class="matched-detail-meta">
+                <div><strong>RB Part #:</strong> ${escHtml(p.part_num)}</div>
+                <div><strong>Name:</strong> ${escHtml(p.name || '(unknown)')}</div>
+                ${color_line}
+                ${years_line}
+                ${cat_line}
+                ${bl_line}
+                ${bl_price_line}
+                ${bl_price_range_line}
+                ${bl_qty_line}
+                ${link_line}
+            </div>
+        </div>
+    `;
+}
+
+async function apiJson(method, url, body) {
+    let opts = {method, headers: {'Content-Type': 'application/json'}};
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    let res = await fetch(url, opts);
+    if (!res.ok) { console.error(`API ${res.status}:`, await res.text()); return null; }
+    return res.json();
+}
+
+// ========== DIRTY STATE ==========
+
+function markDirty(rule_id) {
+    dirty_rules.add(findTopLevelId(rule_id));
+    renderRuleList();
+}
+
+function ruleState(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    if (pending_rules.has(top_id)) return 'pending';
+    if (dirty_rules.has(top_id)) return 'unsaved';
+    return 'saved';
+}
+
+function hasAnyDirty() {
+    return dirty_rules.size > 0 || pending_rules.size > 0;
+}
+
+async function saveRule(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    let data = await apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES});
+    if (data) {
+        RULES = data.rules;
+        saved_snapshot = JSON.parse(JSON.stringify(RULES));
+        dirty_rules.delete(top_id);
+        pending_rules.delete(top_id);
+        renderRuleList();
+        renderEditor();
+        refreshStats();
+    }
+}
+
+async function saveAllRules() {
+    let data = await apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES});
+    if (data) {
+        RULES = data.rules;
+        saved_snapshot = JSON.parse(JSON.stringify(RULES));
+        dirty_rules.clear();
+        pending_rules.clear();
+        renderRuleList();
+        renderEditor();
+        refreshStats();
+    }
+}
+
+function discardRule(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    if (pending_rules.has(top_id)) {
+        removeRuleById(RULES, top_id);
+        pending_rules.delete(top_id);
+        dirty_rules.delete(top_id);
+        if (selected_rule_id === rule_id || findTopLevelId(selected_rule_id) === top_id) deselectRule();
+    } else {
+        let saved = findRuleById(saved_snapshot, top_id);
+        if (saved) {
+            let idx = RULES.findIndex(r => r.id === top_id);
+            if (idx >= 0) RULES[idx] = JSON.parse(JSON.stringify(saved));
+        }
+        dirty_rules.delete(top_id);
+    }
+    renderRuleList();
+    if (selected_rule_id) renderEditor();
+    refreshPreview();
+}
+
+// ========== AUTO PREVIEW ==========
+
+async function refreshPreview() {
+    if (preview_pending) return;
+    if (RULES.length === 0) { preview_stats = null; renderRuleList(); return; }
+    preview_pending = true;
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/preview`, {rules: RULES});
+    preview_pending = false;
+    if (data) {
+        preview_stats = data;
+        // only update counts, don't re-render editor (fixes dropdown bug)
+        renderRuleList();
+        updateEditorMatchCount();
+    }
+}
+
+function updateEditorMatchCount() {
+    if (selected_rule_id) fetchPartList();
+    else if (selected_rb_cat) fetchRbCatParts();
+}
+
+function ruleMatchCount(rule_id) {
+    if (!preview_stats || !preview_stats.per_category) return null;
+    return preview_stats.per_category[rule_id] ?? 0;
+}
+
+// ========== LEFT PANE: RULE LIST ==========
+
+function renderRuleList() {
+    let container = document.getElementById('rules-list');
+    container.innerHTML = '';
+    if (RULES.length === 0 && !preview_stats) {
+        container.innerHTML = '<p class="stats" style="text-align:center;padding:1rem 0;">No rules yet. Click "+ Add Rule" to create one.</p>';
+        return;
+    }
+    for (let rule of RULES) {
+        container.appendChild(mkRuleSummary(rule));
+    }
+    // rb fallback category cards
+    for (let entry of getRbFallbackEntries()) {
+        container.appendChild(mkRbCategoryCard(entry.key, entry.name, entry.count));
+    }
+    container.appendChild(mkEverythingElseCard());
+    // update save-all button visibility
+    let save_all_btn = document.getElementById('btn-save-all');
+    if (save_all_btn) save_all_btn.style.display = hasAnyDirty() ? '' : 'none';
+}
+
+function mkRuleSummary(rule) {
+    let div = document.createElement('div');
+    let cls = 'rule-summary';
+    if (selected_rule_id === rule.id) cls += ' selected';
+    if (rule.disabled) cls += ' disabled';
+    div.className = cls;
+    div.id = `summary-${rule.id}`;
+    div.setAttribute('draggable', 'true');
+    div.dataset.ruleId = rule.id;
+    div.dataset.level = 'top';
+
+    let cond_count = (rule.conditions || []).length;
+    let child_count = (rule.children || []).length;
+    let meta_parts = [];
+    if (cond_count) meta_parts.push(`${cond_count} condition${cond_count > 1 ? 's' : ''}`);
+    if (child_count) meta_parts.push(`${child_count} sub-rule${child_count > 1 ? 's' : ''}`);
+    if (rule.disabled) meta_parts.push('disabled');
+    let meta_text = meta_parts.join(', ') || 'no conditions';
+
+    let count = ruleMatchCount(rule.id);
+    let count_html = rule.disabled
+        ? `<span class="rule-count dim">off</span>`
+        : count !== null
+            ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+            : `<span class="rule-count dim">--</span>`;
+
+    let toggle_cls = 'outline secondary btn-toggle-disabled' + (rule.disabled ? ' is-disabled' : '');
+    let toggle_label = rule.disabled ? 'Off' : 'On';
+
+    let state = ruleState(rule.id);
+    let state_badge = '';
+    if (state === 'pending') state_badge = `<span class="rule-state-badge pending">new</span>`;
+    else if (state === 'unsaved') state_badge = `<span class="rule-state-badge unsaved">unsaved</span>`;
+
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle" title="Drag to reorder">&#x2807;</span>
+            <span class="rule-name">${escHtml(rule.name)}</span>
+            ${state_badge}
+            ${count_html}
+            <div class="rule-summary-actions">
+                <button class="${toggle_cls}" onclick="event.stopPropagation(); toggleDisabled('${rule.id}', ${!rule.disabled})" title="${rule.disabled ? 'Enable rule' : 'Disable rule'}">${toggle_label}</button>
+                <button class="outline secondary btn-sm" onclick="event.stopPropagation(); selectRule('${rule.id}')">Edit</button>
+                <button class="outline secondary btn-sm" onclick="event.stopPropagation(); duplicateRule('${rule.id}')">Duplicate</button>
+                <button class="outline secondary btn-sm btn-danger" onclick="event.stopPropagation(); deleteRule('${rule.id}')">Delete</button>
+            </div>
+        </div>
+        <div class="rule-meta">${meta_text}</div>
+    `;
+
+    // sub-rules inline
+    let children = rule.children || [];
+    if (children.length > 0) {
+        let subs = document.createElement('div');
+        subs.className = 'sub-rules-in-list';
+        subs.dataset.parentId = rule.id;
+        for (let i = 0; i < children.length; i++) {
+            let child = children[i];
+            let item = document.createElement('div');
+            let sub_cls = 'sub-rule-item';
+            if (selected_rule_id === child.id) sub_cls += ' selected';
+            if (child.disabled) sub_cls += ' disabled';
+            item.className = sub_cls;
+            item.setAttribute('draggable', 'true');
+            item.dataset.ruleId = child.id;
+            item.dataset.parentId = rule.id;
+            item.dataset.level = 'child';
+            let connector = i < children.length - 1 ? '&#x251C;' : '&#x2514;';
+            item.innerHTML = `
+                <span class="drag-handle" title="Drag to reorder" style="font-size:13px;">&#x2807;</span>
+                <span class="sub-rule-connector">${connector}</span>
+                <span>${escHtml(child.name)}</span>
+            `;
+            item.addEventListener('click', (e) => { e.stopPropagation(); selectRule(child.id); });
+            setupChildDrag(item);
+            subs.appendChild(item);
+        }
+        div.appendChild(subs);
+    }
+
+    div.addEventListener('click', () => selectRule(rule.id));
+    setupTopLevelDrag(div);
+    return div;
+}
+
+function renderFallbackOptions() {
+    let el = document.getElementById('fallback-options');
+    let rb_checked = FALLBACK_MODE.rebrickable_categories ? 'checked' : '';
+    let color_checked = FALLBACK_MODE.by_color ? 'checked' : '';
+    let color_disabled = FALLBACK_MODE.rebrickable_categories ? '' : 'disabled';
+    el.innerHTML = `
+        <label style="margin:0;display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;">
+            <input type="checkbox" ${rb_checked} onchange="setFallbackRbCats(this.checked)" style="margin:0;">
+            Fallback: Rebrickable categories
+        </label>
+        <label style="margin:0;display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;">
+            <input type="checkbox" ${color_checked} ${color_disabled} onchange="setFallbackByColor(this.checked)" style="margin:0;">
+            + by color
+        </label>
+    `;
+}
+
+function mkEverythingElseCard() {
+    let div = document.createElement('div');
+    div.className = 'rule-summary everything-else';
+    let misc_count = preview_stats && preview_stats.per_category ? (preview_stats.per_category['misc'] || 0) : null;
+    let total = preview_stats ? preview_stats.total_parts : null;
+    let count = FALLBACK_MODE.rebrickable_categories
+        ? (preview_stats ? (preview_stats.unmatched || 0) : null)
+        : (misc_count !== null ? misc_count : null);
+    let count_html = count !== null
+        ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+        : `<span class="rule-count dim">--</span>`;
+    let desc = total !== null
+        ? `Everything not matched by rules${FALLBACK_MODE.rebrickable_categories ? ' or fallback categories' : ''} (of ${total.toLocaleString()} total)`
+        : `Everything not matched`;
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle" style="visibility:hidden;">&#x2807;</span>
+            <span class="rule-name">Everything Else (misc)</span>
+            ${count_html}
+        </div>
+        <div class="rule-meta">${desc}</div>
+    `;
+    return div;
+}
+
+function mkRbCategoryCard(cat_key, cat_name, count) {
+    let div = document.createElement('div');
+    let cls = 'rule-summary everything-else';
+    if (selected_rb_cat && selected_rb_cat.key === cat_key) cls += ' selected';
+    div.className = cls;
+    div.style.cursor = 'pointer';
+    let count_html = count !== null
+        ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+        : `<span class="rule-count dim">--</span>`;
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle" style="visibility:hidden;">&#x2807;</span>
+            <span class="rule-name">${escHtml(cat_name)}</span>
+            ${count_html}
+        </div>
+        <div class="rule-meta">Fallback: ${escHtml(cat_key)}</div>
+    `;
+    div.addEventListener('click', () => selectRbCat(cat_key, cat_name));
+    return div;
+}
+
+function getRbFallbackEntries() {
+    if (!FALLBACK_MODE.rebrickable_categories || !preview_stats || !preview_stats.per_category) return [];
+    return Object.entries(preview_stats.per_category)
+        .filter(([k]) => k.startsWith('rb_'))
+        .map(([k, v]) => {
+            let rb_id = parseInt(k.substring(3));
+            let name = RB_CATEGORIES[rb_id] ? RB_CATEGORIES[rb_id].name : k;
+            return {key: k, name, count: v};
+        })
+        .sort((a, b) => b.count - a.count);
+}
+
+async function setFallbackRbCats(checked) {
+    FALLBACK_MODE.rebrickable_categories = checked;
+    if (!checked) FALLBACK_MODE.by_color = false;
+    await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
+    renderFallbackOptions();
+    renderRuleList();
+    refreshPreview();
+}
+
+async function setFallbackByColor(checked) {
+    FALLBACK_MODE.by_color = checked;
+    await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
+    renderFallbackOptions();
+    renderRuleList();
+    refreshPreview();
+}
+
+// ========== DRAG AND DROP: TOP LEVEL ==========
+
+let drag_id = null;
+let drag_level = null;
+
+function setupTopLevelDrag(el) {
+    el.addEventListener('dragstart', (e) => {
+        if (e.target !== el) return;
+        drag_id = el.dataset.ruleId;
+        drag_level = 'top';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', drag_id);
+        el.style.opacity = '0.5';
+    });
+    el.addEventListener('dragend', () => {
+        el.style.opacity = '';
+        drag_id = null;
+        drag_level = null;
+        document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+    });
+    el.addEventListener('dragover', (e) => {
+        if (drag_level !== 'top') return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.rule-summary.drag-over').forEach(x => x.classList.remove('drag-over'));
+        el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => { el.classList.remove('drag-over'); });
+    el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        if (drag_level !== 'top') return;
+        let from_id = drag_id;
+        let to_id = el.dataset.ruleId;
+        if (from_id === to_id) return;
+        let from_idx = RULES.findIndex(r => r.id === from_id);
+        let to_idx = RULES.findIndex(r => r.id === to_id);
+        if (from_idx < 0 || to_idx < 0) return;
+        let [moved] = RULES.splice(from_idx, 1);
+        RULES.splice(to_idx, 0, moved);
+        // reorder is a local edit, mark both as dirty
+        markDirty(from_id);
+        markDirty(to_id);
+        renderRuleList();
+        if (selected_rule_id) renderEditor();
+        refreshPreview();
     });
 }
 
-async function addCategoryForm(e) {
-    e.preventDefault();
-    let name = document.getElementById('new-cat-name').value.trim();
-    if (!name) return;
-    let fd = new FormData();
-    fd.append('name', name);
-    let res = await fetch(`/api/profile/${PROFILE_ID}/categories`, {method: 'POST', body: fd});
-    let data = await res.json();
-    let list = document.getElementById('categories-list');
-    let div = document.createElement('div');
-    div.className = 'category-item';
-    div.dataset.catId = data.id;
-    div.onclick = () => selectCategory(data.id, data.name);
-    div.innerHTML = `<span>${data.name}</span><button class="outline secondary" style="padding:2px 6px;font-size:11px;margin:0;" onclick="event.stopPropagation(); removeCategory('${data.id}')">x</button>`;
-    list.appendChild(div);
-    document.getElementById('new-cat-name').value = '';
-    selectCategory(data.id, data.name);
-    refreshStats();
+// ========== DRAG AND DROP: CHILDREN ==========
+
+function setupChildDrag(el) {
+    el.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        drag_id = el.dataset.ruleId;
+        drag_level = 'child';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', drag_id);
+        el.style.opacity = '0.5';
+    });
+    el.addEventListener('dragend', () => {
+        el.style.opacity = '';
+        drag_id = null;
+        drag_level = null;
+        document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+    });
+    el.addEventListener('dragover', (e) => {
+        if (drag_level !== 'child') return;
+        if (el.dataset.parentId !== document.querySelector(`[data-rule-id="${drag_id}"]`)?.dataset.parentId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.sub-rule-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+        el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => { el.classList.remove('drag-over'); });
+    el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.remove('drag-over');
+        if (drag_level !== 'child') return;
+        let from_id = drag_id;
+        let to_id = el.dataset.ruleId;
+        let parent_id = el.dataset.parentId;
+        if (from_id === to_id) return;
+        let parent = findRuleById(RULES, parent_id);
+        if (!parent) return;
+        let children = parent.children || [];
+        let from_idx = children.findIndex(c => c.id === from_id);
+        let to_idx = children.findIndex(c => c.id === to_id);
+        if (from_idx < 0 || to_idx < 0) return;
+        let [moved] = children.splice(from_idx, 1);
+        children.splice(to_idx, 0, moved);
+        markDirty(parent_id);
+        renderRuleList();
+        if (selected_rule_id) renderEditor();
+        refreshPreview();
+    });
 }
 
-async function removeCategory(cat_id) {
-    if (!confirm('Remove this category and all its mappings?')) return;
-    await fetch(`/api/profile/${PROFILE_ID}/categories/${cat_id}`, {method: 'DELETE'});
-    let el = document.querySelector(`.category-item[data-cat-id="${cat_id}"]`);
-    if (el) el.remove();
-    if (document.getElementById('selected-cat-id').value === cat_id) {
-        document.getElementById('selected-cat-id').value = '';
-        document.getElementById('selected-cat-name').textContent = 'None';
+// ========== RIGHT PANE: EDITOR ==========
+
+function selectRule(rule_id) {
+    selected_rule_id = rule_id;
+    selected_rb_cat = null;
+    pl_query = ''; pl_offset = 0;
+    renderRuleList();
+    renderEditor();
+    fetchPartList();
+}
+
+function selectRbCat(cat_key, cat_name) {
+    selected_rule_id = null;
+    selected_rb_cat = {key: cat_key, name: cat_name};
+    pl_query = ''; pl_offset = 0;
+    renderRuleList();
+    renderRbCatViewer();
+    fetchRbCatParts();
+}
+
+function deselectRule() {
+    selected_rule_id = null;
+    selected_rb_cat = null;
+    renderRuleList();
+    document.getElementById('editor-empty').style.display = '';
+    document.getElementById('editor-content').style.display = 'none';
+}
+
+function renderEditor() {
+    if (!selected_rule_id) { deselectRule(); return; }
+    let rule = findRuleById(RULES, selected_rule_id);
+    if (!rule) { deselectRule(); return; }
+
+    document.getElementById('editor-empty').style.display = 'none';
+    let content = document.getElementById('editor-content');
+    content.style.display = '';
+
+    let is_child = !isTopLevel(rule.id);
+    let parent = is_child ? findParentRule(RULES, rule.id) : null;
+    let title = is_child ? `Editing sub-rule: "${escHtml(rule.name)}"` : `Editing: "${escHtml(rule.name)}"`;
+
+    let state = ruleState(rule.id);
+    let html = '';
+
+    html += `<h5>${title}</h5>`;
+    if (is_child && parent) {
+        html += `<p class="stats">Under parent: ${escHtml(parent.name)}</p>`;
+    }
+
+    // name + disabled toggle
+    let disabled_checked = rule.disabled ? 'checked' : '';
+    html += `
+        <div class="editor-section">
+            <h6>Name</h6>
+            <input type="text" value="${escHtml(rule.name)}" id="editor-name" style="margin:0;"
+                onchange="updateRuleField('${rule.id}', 'name', this.value)">
+        </div>
+        <div class="editor-section">
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:13px;">
+                <input type="checkbox" ${disabled_checked} role="switch"
+                    onchange="toggleDisabled('${rule.id}', this.checked)"
+                    style="margin:0;">
+                Disabled
+            </label>
+            ${rule.disabled ? '<p class="stats" style="margin-top:0.25rem;">This rule is skipped during matching. Parts fall through to later rules or Everything Else.</p>' : ''}
+        </div>
+    `;
+
+    // conditions
+    html += `
+        <div class="editor-section">
+            <h6>Conditions</h6>
+            <div class="conditions-area" id="editor-conds"></div>
+        </div>
+    `;
+
+    // sub-rules (only for top-level)
+    if (!is_child) {
+        let children = rule.children || [];
+        html += `<div class="editor-section"><h6>Sub-rules</h6>`;
+        if (children.length > 0) {
+            for (let child of children) {
+                html += `
+                    <div class="editor-subrule-row">
+                        <span class="sub-name">${escHtml(child.name)}</span>
+                        <button class="outline secondary btn-sm" onclick="selectRule('${child.id}')">Edit</button>
+                        <button class="outline secondary btn-sm" onclick="duplicateRule('${child.id}')">Duplicate</button>
+                        <button class="outline secondary btn-sm btn-danger" onclick="deleteRule('${child.id}')">Delete</button>
+                    </div>
+                `;
+            }
+        } else {
+            html += `<p class="stats">No sub-rules.</p>`;
+        }
+        html += `<button class="outline secondary btn-sm" onclick="addSubRule('${rule.id}')" style="margin-top:0.3rem;">+ Add Sub-rule</button></div>`;
+    }
+
+    // footer with mode toggle
+    let mode_label = standalone_mode ? 'standalone' : 'in context';
+    let toggle_label = standalone_mode ? 'Show In Context' : 'Show Standalone';
+    html += `
+        <div class="editor-footer">
+            <span class="stats" id="editor-match">loading...</span>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button class="outline secondary btn-sm" onclick="toggleStandaloneMode()">${toggle_label}</button>
+                <button class="outline secondary btn-sm" onclick="duplicateRule('${rule.id}')">Duplicate Rule</button>
+                <button class="outline secondary btn-sm btn-danger" onclick="deleteRule('${rule.id}')">Delete Rule</button>
+            </div>
+        </div>
+        <div id="editor-preview-list"></div>
+    `;
+
+    // save bar at the bottom
+    if (state === 'pending') {
+        html += `<div class="editor-save-bar pending" style="margin-top:1rem;">
+            <span class="save-label">New rule — not yet saved</span>
+            <button class="btn-sm" onclick="saveRule('${rule.id}')">Save</button>
+            <button class="outline secondary btn-sm" onclick="discardRule('${rule.id}')">Discard</button>
+        </div>`;
+    } else if (state === 'unsaved') {
+        html += `<div class="editor-save-bar unsaved" style="margin-top:1rem;">
+            <span class="save-label">Unsaved changes</span>
+            <button class="btn-sm" onclick="saveRule('${rule.id}')">Save</button>
+            <button class="outline secondary btn-sm" onclick="discardRule('${rule.id}')">Discard</button>
+        </div>`;
+    }
+
+    content.innerHTML = html;
+
+    // render conditions into the area
+    let conds_el = document.getElementById('editor-conds');
+    renderConditions(conds_el, rule);
+}
+
+// --- condition rendering ---
+
+function renderConditions(container, rule) {
+    let conditions = rule.conditions || [];
+    let match_mode = rule.match_mode || 'all';
+
+    let toggle = document.createElement('div');
+    toggle.className = 'match-mode-toggle';
+    toggle.innerHTML = `
+        <button class="${match_mode === 'all' ? 'active' : ''}" onclick="setMatchMode('${rule.id}', 'all')">ALL</button>
+        <button class="${match_mode === 'any' ? 'active' : ''}" onclick="setMatchMode('${rule.id}', 'any')">ANY</button>
+    `;
+    container.appendChild(toggle);
+    let mode_label = document.createElement('span');
+    mode_label.className = 'stats';
+    mode_label.style.marginLeft = '0.5rem';
+    mode_label.textContent = match_mode === 'all' ? 'All conditions must match' : 'Any condition can match';
+    container.appendChild(mode_label);
+
+    for (let i = 0; i < conditions.length; i++) {
+        if (i > 0) {
+            let join = document.createElement('div');
+            join.className = 'cond-join-label';
+            join.textContent = match_mode === 'all' ? 'AND' : 'OR';
+            container.appendChild(join);
+        }
+        container.appendChild(renderConditionRow(conditions[i], rule.id));
+    }
+
+    if (conditions.length > 0) {
+        let join = document.createElement('div');
+        join.className = 'cond-join-label';
+        join.textContent = match_mode === 'all' ? 'AND' : 'OR';
+        container.appendChild(join);
+    }
+    container.appendChild(mkAddConditionBtn(rule.id));
+}
+
+function mkAddConditionBtn(rule_id) {
+    let wrap = document.createElement('div');
+    wrap.className = 'cond-row';
+    let sel = document.createElement('select');
+    sel.style.cssText = 'width:auto;font-size:12px;padding:3px 8px;margin:0;';
+    sel.innerHTML = `
+        <option value="">+ add condition...</option>
+        <option value="category_id">RB Category is...</option>
+        <option value="category_name">RB Category Name contains...</option>
+        <option value="color_id">Color is...</option>
+        <option value="name">RB Part Name contains...</option>
+        <option value="part_num">RB Part Number is...</option>
+        <option value="year_from">Year From...</option>
+        <option value="year_to">Year To...</option>
+        <option value="bricklink_id">BL Part ID is...</option>
+        <option value="bricklink_item_count">BL Item Count...</option>
+        <option value="bricklink_primary_item_no">BL Primary Item #...</option>
+        <option value="bl_price_min">BL Min Price...</option>
+        <option value="bl_price_max">BL Max Price...</option>
+        <option value="bl_price_avg">BL Avg Price...</option>
+        <option value="bl_price_qty_avg">BL Qty Avg Price...</option>
+        <option value="bl_price_unit_quantity">BL Unit Qty...</option>
+        <option value="bl_price_total_quantity">BL Total Qty...</option>
+        <option value="bl_price_currency">BL Price Currency...</option>
+        <option value="bl_price_new_or_used">BL Price New/Used...</option>
+        <option value="bl_price_guide_type">BL Guide Type...</option>
+        <option value="bl_price_country_code">BL Country...</option>
+        <option value="bl_catalog_name">BL Part Name...</option>
+        <option value="bl_category_id">BL Category...</option>
+        <option value="bl_category_name">BL Category Name...</option>
+        <option value="bl_catalog_category_id">BL Catalog Category ID...</option>
+        <option value="bl_catalog_year_released">BL Catalog Year...</option>
+        <option value="bl_catalog_weight">BL Catalog Weight...</option>
+        <option value="bl_catalog_dim_x">BL Catalog Dim X...</option>
+        <option value="bl_catalog_dim_y">BL Catalog Dim Y...</option>
+        <option value="bl_catalog_dim_z">BL Catalog Dim Z...</option>
+        <option value="bl_catalog_is_obsolete">BL Catalog Is Obsolete (1/0)...</option>
+    `;
+    sel.addEventListener('change', () => {
+        let field = sel.value;
+        if (!field) return;
+        sel.value = '';
+        addConditionLocal(rule_id, field);
+    });
+    wrap.appendChild(sel);
+    return wrap;
+}
+
+function renderConditionRow(cond, rule_id) {
+    let row = document.createElement('div');
+    row.className = 'cond-row';
+    let fc = FIELD_CONFIG[cond.field] || {label: cond.field, ops: {eq: "is"}, valueType: "text"};
+    let field_opts = FIELD_LIST.map(f =>
+        `<option value="${f.value}" ${cond.field === f.value ? 'selected' : ''}>${f.label}</option>`
+    ).join('');
+    let op_opts = Object.entries(fc.ops).map(([val, label]) =>
+        `<option value="${val}" ${cond.op === val ? 'selected' : ''}>${label}</option>`
+    ).join('');
+    let value_html = renderValueInput(cond, rule_id, fc);
+    row.innerHTML = `
+        <select class="field-sel" onchange="changeCondField('${rule_id}', '${cond.id}', this.value)">
+            ${field_opts}
+        </select>
+        <select class="op-sel" onchange="changeCondOp('${rule_id}', '${cond.id}', this.value)">
+            ${op_opts}
+        </select>
+        ${value_html}
+        <button class="btn-x" onclick="removeCondition('${rule_id}', '${cond.id}')" title="Remove">&times;</button>
+    `;
+    return row;
+}
+
+function renderValueInput(cond, rule_id, fc) {
+    let vt = fc.valueType;
+    if (vt === 'rb_category' && cond.op === 'eq') {
+        let opts = RB_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'rb_category' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = RB_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'bl_category' && cond.op === 'eq') {
+        let opts = BL_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'bl_category' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = BL_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'color' && cond.op === 'eq') {
+        let opts = RB_COLOR_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'color' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = RB_COLOR_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'number') {
+        return `<input type="number" class="val-input" value="${cond.value || ''}"
+            onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">`;
+    }
+    // text fields with autocomplete for category_name and name
+    let placeholder = cond.op === 'in' ? 'comma-separated values' : '';
+    let display_val = Array.isArray(cond.value) ? cond.value.join(', ') : (cond.value || '');
+    let use_ac = (cond.field === 'category_name' || cond.field === 'bl_category_name' || cond.field === 'name') && cond.op === 'contains';
+    if (use_ac) {
+        let ac_id = `ac-${cond.id}`;
+        return `<div class="ac-wrap">
+            <input type="text" class="val-input" value="${escHtml(display_val)}" placeholder="${placeholder}"
+                id="${ac_id}"
+                oninput="acInput('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this)"
+                onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)"
+                onfocus="acInput('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this)"
+                onblur="setTimeout(() => { let r = document.getElementById('${ac_id}-results'); if(r) r.innerHTML=''; }, 200)"
+                autocomplete="off">
+            <div class="ac-results" id="${ac_id}-results"></div>
+        </div>`;
+    }
+    return `<input type="text" class="val-input" value="${escHtml(display_val)}" placeholder="${placeholder}"
+        onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">`;
+}
+
+// --- autocomplete for text fields ---
+
+let ac_timer = null;
+
+function acInput(rule_id, cond_id, field, op, input) {
+    clearTimeout(ac_timer);
+    let q = input.value.trim().toLowerCase();
+    let results_el = document.getElementById(`ac-${cond_id}-results`);
+    if (!results_el) return;
+    if (!q) { results_el.innerHTML = ''; return; }
+
+    if (field === 'category_name') {
+        // local search through category names
+        let matches = RB_CAT_LIST.filter(c => c.name.toLowerCase().includes(q));
+        let html = matches.slice(0, 20).map(c =>
+            `<div onclick="acSelect('${rule_id}', '${cond_id}', '${field}', '${op}', '${escHtml(c.name)}', this)">${escHtml(c.name)}</div>`
+        ).join('');
+        if (matches.length > 20) html += `<div class="ac-summary">${matches.length} categories match</div>`;
+        else if (matches.length > 0) html += `<div class="ac-summary">${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+        results_el.innerHTML = html;
+    } else if (field === 'bl_category_name') {
+        let matches = BL_CAT_LIST.filter(c => c.name.toLowerCase().includes(q));
+        let html = matches.slice(0, 20).map(c =>
+            `<div onclick="acSelect('${rule_id}', '${cond_id}', '${field}', '${op}', '${escHtml(c.name)}', this)">${escHtml(c.name)} <span class="ac-count">(${c.id})</span></div>`
+        ).join('');
+        if (matches.length > 20) html += `<div class="ac-summary">${matches.length} BL categories match</div>`;
+        else if (matches.length > 0) html += `<div class="ac-summary">${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+        results_el.innerHTML = html;
+    } else if (field === 'name') {
+        // debounced API search for part names
+        ac_timer = setTimeout(async () => {
+            let data = await apiJson('GET', `/api/search-parts?q=${encodeURIComponent(q)}&limit=15`);
+            if (!data) return;
+            let html = data.results.map(p =>
+                `<div class="ac-part-row">${renderPartImg(p.part_img_url, 'part-img-sm')}<span class="ac-part-name">${escHtml(p.name)}</span><span class="ac-count">${p.part_num}</span></div>`
+            ).join('');
+            if (data.total > 15) html += `<div class="ac-summary">${data.total.toLocaleString()} parts match "${escHtml(q)}"</div>`;
+            else if (data.total > 0) html += `<div class="ac-summary">${data.total} match${data.total > 1 ? 'es' : ''}</div>`;
+            results_el.innerHTML = html;
+        }, 250);
+    }
+}
+
+function acSelect(rule_id, cond_id, field, op, value, el) {
+    // fill the input with the selected value
+    let input = document.getElementById(`ac-${cond_id}`);
+    if (input) { input.value = value; input.dispatchEvent(new Event('change')); }
+    let results_el = document.getElementById(`ac-${cond_id}-results`);
+    if (results_el) results_el.innerHTML = '';
+}
+
+// --- local condition mutations (no API calls) ---
+
+function addConditionLocal(rule_id, field) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    let fc = FIELD_CONFIG[field];
+    let first_op = Object.keys(fc.ops)[0];
+    let default_val = (fc.valueType === 'number') ? 0 : '';
+    let cond = {id: uuid(), field, op: first_op, value: default_val};
+    if (!rule.conditions) rule.conditions = [];
+    rule.conditions.push(cond);
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function changeCondField(rule_id, cond_id, new_field) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    let fc = FIELD_CONFIG[new_field];
+    let first_op = Object.keys(fc.ops)[0];
+    let default_val = (fc.valueType === 'number') ? 0 : '';
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.field = new_field; c.op = first_op; c.value = default_val; break; }
+    }
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function changeCondOp(rule_id, cond_id, new_op) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.op = new_op; break; }
+    }
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function parseValue(field, op, raw) {
+    let fc = FIELD_CONFIG[field];
+    if (!fc) return raw;
+    if (op === 'in' && fc.valueType === 'text') {
+        return raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (fc.valueType === 'number') {
+        let num = parseFloat(raw);
+        return Number.isFinite(num) ? num : 0;
+    }
+    if (fc.valueType === 'rb_category' || fc.valueType === 'bl_category' || fc.valueType === 'color') {
+        return parseInt(raw) || 0;
+    }
+    return raw;
+}
+
+function changeCondValue(rule_id, cond_id, field, op, raw) {
+    let value = parseValue(field, op, raw);
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.value = value; break; }
+    }
+    markDirty(rule_id);
+    // don't re-render editor to avoid killing focus/autocomplete
+    refreshPreview();
+}
+
+function changeCondValueMulti(select, rule_id, cond_id, field, op) {
+    let values = Array.from(select.selectedOptions).map(o => parseInt(o.value));
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.value = values; break; }
+    }
+    markDirty(rule_id);
+    refreshPreview();
+}
+
+function removeCondition(rule_id, cond_id) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.conditions = (rule.conditions || []).filter(c => c.id !== cond_id);
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function setMatchMode(rule_id, mode) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.match_mode = mode;
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+// --- rule CRUD (local) ---
+
+function addNewRule() {
+    let rule = {
+        id: uuid(),
+        name: "New Rule",
+        match_mode: "all",
+        conditions: [],
+        children: [],
+        disabled: false,
+    };
+    RULES.push(rule);
+    pending_rules.add(rule.id);
+    selected_rule_id = rule.id;
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function addSubRule(parent_id) {
+    let parent = findRuleById(RULES, parent_id);
+    if (!parent) return;
+    let child = {
+        id: uuid(),
+        name: "New Sub-rule",
+        match_mode: "all",
+        conditions: [],
+        children: [],
+        disabled: false,
+    };
+    if (!parent.children) parent.children = [];
+    parent.children.push(child);
+    markDirty(parent_id);
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function duplicateRule(rule_id) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+
+    let clone = cloneRuleTreeWithNewIds(rule, true);
+
+    if (isTopLevel(rule_id)) {
+        let idx = RULES.findIndex(r => r.id === rule_id);
+        if (idx < 0) return;
+        RULES.splice(idx + 1, 0, clone);
+        pending_rules.add(clone.id);
+    } else {
+        let parent = findParentRule(RULES, rule_id);
+        if (!parent) return;
+        if (!parent.children) parent.children = [];
+        let idx = parent.children.findIndex(c => c.id === rule_id);
+        if (idx < 0) return;
+        parent.children.splice(idx + 1, 0, clone);
+        markDirty(rule_id);
+    }
+
+    selected_rule_id = clone.id;
+    selected_rb_cat = null;
+    pl_query = '';
+    pl_offset = 0;
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function toggleDisabled(rule_id, disabled) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.disabled = disabled;
+    markDirty(rule_id);
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function updateRuleField(rule_id, field, value) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule[field] = value;
+    markDirty(rule_id);
+    renderRuleList();
+    // don't full re-render editor to keep focus
+    refreshPreview();
+}
+
+function deleteRule(rule_id) {
+    if (!confirm('Delete this rule?')) return;
+    let was_top = isTopLevel(rule_id);
+    let top_id = findTopLevelId(rule_id);
+    removeRuleById(RULES, rule_id);
+    if (was_top) {
+        pending_rules.delete(rule_id);
+        dirty_rules.delete(rule_id);
+        // persist deletion of saved rules immediately
+        if (!pending_rules.has(rule_id)) {
+            apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES}).then(data => {
+                if (data) {
+                    RULES = data.rules;
+                    saved_snapshot = JSON.parse(JSON.stringify(RULES));
+                    refreshStats();
+                }
+            });
+        }
+    } else {
+        markDirty(top_id);
+    }
+    if (selected_rule_id === rule_id) deselectRule();
+    else { renderRuleList(); renderEditor(); }
+    refreshPreview();
+}
+
+// --- generate ---
+
+async function doGenerate() {
+    // save first if dirty
+    if (hasAnyDirty()) {
+        await saveAllRules();
+    }
+    let btn = document.getElementById('btn-generate');
+    btn.setAttribute('aria-busy', 'true');
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/generate`);
+    btn.removeAttribute('aria-busy');
+    if (data) {
+        preview_stats = data;
+        renderRuleList();
+        updateEditorMatchCount();
     }
     refreshStats();
 }
 
+function _plParams() {
+    let p = new URLSearchParams();
+    if (pl_query) p.set('q', pl_query);
+    p.set('offset', pl_offset);
+    p.set('limit', PL_PAGE);
+    return p.toString();
+}
+
+async function fetchPartList() {
+    if (!selected_rule_id) return;
+    let list_el = document.getElementById('editor-preview-list');
+    let match_el = document.getElementById('editor-match');
+    if (!list_el || !match_el) return;
+    match_el.textContent = 'loading...';
+
+    let top_id = findTopLevelId(selected_rule_id);
+    let is_child = top_id !== selected_rule_id;
+
+    let data;
+    if (standalone_mode) {
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}`, {rules: RULES});
+        if (!data) { match_el.textContent = 'error'; return; }
+        let label = 'standalone';
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+    } else {
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${top_id}?${_plParams()}`, {rules: RULES});
+        if (!data) { match_el.textContent = 'error'; return; }
+        let label = is_child ? 'in context — showing parent bucket' : 'in context';
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+    }
+    renderPartListResults(list_el, data);
+}
+
+async function fetchRbCatParts() {
+    if (!selected_rb_cat) return;
+    let list_el = document.getElementById('editor-preview-list');
+    let match_el = document.getElementById('editor-match');
+    if (!list_el || !match_el) return;
+    match_el.textContent = 'loading...';
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${selected_rb_cat.key}?${_plParams()}`, {rules: RULES});
+    if (!data) { match_el.textContent = 'error'; return; }
+    match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts`;
+    renderPartListResults(list_el, data);
+}
+
+function renderPartListResults(container, data) {
+    container.innerHTML = '';
+    // search bar
+    let search_val = pl_query ? escHtml(pl_query) : '';
+    let search_html = `<input type="search" placeholder="Search matched parts..." value="${search_val}" style="margin:0 0 0.5rem 0;font-size:12px;padding:3px 6px 3px 48px;" oninput="plSearch(this.value)">`;
+    container.insertAdjacentHTML('beforeend', search_html);
+
+    // table
+    let sample = data.sample || [];
+    if (sample.length > 0) {
+        let div = document.createElement('div');
+        div.className = 'preview-list';
+        let has_color = sample[0].color_id !== undefined;
+        let rows = sample.map(p => {
+            let color_cell = has_color ? `<td>${escHtml(RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id)}</td>` : '';
+            let img_cell = `<td class="preview-part-cell">${renderPartImg(p.part_img_url, 'part-img-sm')}</td>`;
+            let detail_html = renderMatchedPartDetail(p, has_color);
+            return `
+                <tr class="matched-row" onclick="toggleMatchedPartRow(this)">${img_cell}<td>${escHtml(p.part_num)}</td><td>${escHtml(p.name)}</td>${color_cell}</tr>
+                <tr class="matched-detail-row hidden">
+                    <td colspan="${has_color ? 4 : 3}" class="matched-detail-cell">${detail_html}</td>
+                </tr>
+            `;
+        }).join('');
+        let color_hdr = has_color ? '<th>Color</th>' : '';
+        div.innerHTML = `<table><thead><tr><th></th><th>Part</th><th>Name</th>${color_hdr}</tr></thead><tbody>${rows}</tbody></table>`;
+        container.appendChild(div);
+    } else {
+        container.insertAdjacentHTML('beforeend', '<p class="stats">No parts found.</p>');
+    }
+
+    // pagination
+    let total = data.total || 0;
+    if (total > PL_PAGE) {
+        let from = pl_offset + 1;
+        let to = Math.min(pl_offset + PL_PAGE, total);
+        let has_prev = pl_offset > 0;
+        let has_next = pl_offset + PL_PAGE < total;
+        container.insertAdjacentHTML('beforeend', `
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
+                <button class="outline secondary btn-sm" onclick="plPrev()" ${has_prev ? '' : 'disabled'}>Prev</button>
+                <span class="stats">${from}&ndash;${to} of ${total}</span>
+                <button class="outline secondary btn-sm" onclick="plNext()" ${has_next ? '' : 'disabled'}>Next</button>
+            </div>
+        `);
+    }
+}
+
+function plSearch(val) {
+    clearTimeout(pl_search_timer);
+    pl_search_timer = setTimeout(() => {
+        pl_query = val;
+        pl_offset = 0;
+        _plRefetch();
+    }, 300);
+}
+
+function plPrev() {
+    pl_offset = Math.max(0, pl_offset - PL_PAGE);
+    _plRefetch();
+}
+
+function plNext() {
+    pl_offset += PL_PAGE;
+    _plRefetch();
+}
+
+function _plRefetch() {
+    if (selected_rule_id) fetchPartList();
+    else if (selected_rb_cat) fetchRbCatParts();
+}
+
+function toggleStandaloneMode() {
+    standalone_mode = !standalone_mode;
+    pl_offset = 0;
+    renderEditor();
+    fetchPartList();
+}
+
+function renderRbCatViewer() {
+    if (!selected_rb_cat) return;
+    document.getElementById('editor-empty').style.display = 'none';
+    let content = document.getElementById('editor-content');
+    content.style.display = '';
+    content.innerHTML = `
+        <h5>${escHtml(selected_rb_cat.name)}</h5>
+        <p class="stats">Fallback category: ${escHtml(selected_rb_cat.key)}</p>
+        <div class="editor-footer">
+            <span class="stats" id="editor-match">loading...</span>
+        </div>
+        <div id="editor-preview-list"></div>
+    `;
+}
+
+// --- parts browser ---
+
 function debouncedSearch() {
     clearTimeout(search_timer);
+    current_offset = 0;
     search_timer = setTimeout(doSearch, 300);
 }
 
@@ -133,11 +1780,15 @@ async function doSearch() {
     let params = new URLSearchParams();
     if (q) params.set('q', q);
     if (cat_id) params.set('cat_id', cat_id);
-    params.set('limit', '100');
+    params.set('limit', PAGE_SIZE);
+    params.set('offset', current_offset);
     let res = await fetch(`/api/search-parts?${params}`);
     let data = await res.json();
+    current_total = data.total;
     renderParts(data.results);
-    document.getElementById('search-status').textContent = `${data.results.length} results`;
+    renderPagination();
+    let status = document.getElementById('search-status');
+    if (status) status.textContent = `${data.total.toLocaleString()} total results`;
 }
 
 function renderParts(parts) {
@@ -146,54 +1797,109 @@ function renderParts(parts) {
     for (let p of parts) {
         let tr = document.createElement('tr');
         let bl_ids = (p.external_ids && p.external_ids.BrickLink) ? p.external_ids.BrickLink.join(', ') : '';
-        let img = p.part_img_url ? `<img src="${p.part_img_url}" class="part-img" loading="lazy">` : '';
+        let img = renderPartImg(p.part_img_url, 'part-img-lg', 'eager');
         let years = '';
         if (p.year_from) years = p.year_from === p.year_to ? `${p.year_from}` : `${p.year_from}-${p.year_to || '?'}`;
-        let part_key = bl_ids ? `any_color-${p.external_ids.BrickLink[0]}` : `any_color-${p.part_num}`;
-        tr.innerHTML = `
-            <td>${img}</td>
-            <td>${p.part_num}</td>
-            <td>${p.name}</td>
-            <td><span class="badge">${p._category_name || ''}</span></td>
-            <td>${bl_ids}</td>
-            <td>${years}</td>
-            <td><button class="outline" style="padding:2px 8px;font-size:11px;margin:0;" onclick="assignPart('${part_key}')">Assign</button></td>
-        `;
+        tr.innerHTML = `<td>${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${years}</td>`;
         tbody.appendChild(tr);
     }
 }
 
-async function assignPart(part_key) {
-    let cat_id = document.getElementById('selected-cat-id').value;
-    if (!cat_id) { alert('Select a category first'); return; }
-    let fd = new FormData();
-    fd.append('part_key', part_key);
-    fd.append('cat_id', cat_id);
-    await fetch(`/api/profile/${PROFILE_ID}/assign`, {method: 'POST', body: fd});
-    refreshStats();
+function renderPagination() {
+    let el = document.getElementById('pagination');
+    if (current_total === 0) {
+        el.innerHTML = '<span class="stats">No results</span>';
+        return;
+    }
+    let from = current_offset + 1;
+    let to = Math.min(current_offset + PAGE_SIZE, current_total);
+    let has_prev = current_offset > 0;
+    let has_next = current_offset + PAGE_SIZE < current_total;
+    el.innerHTML = `
+        <button class="outline secondary btn-sm" onclick="prevPage()" ${has_prev ? '' : 'disabled'}>Prev</button>
+        <span class="stats">${from}&ndash;${to} of ${current_total}</span>
+        <button class="outline secondary btn-sm" onclick="nextPage()" ${has_next ? '' : 'disabled'}>Next</button>
+    `;
 }
 
-async function bulkAssign() {
-    let rb_cat_id = document.getElementById('bulk-rebrickable-cat').value;
-    let int_cat_id = document.getElementById('selected-cat-id').value;
-    if (!rb_cat_id) { alert('Select a Rebrickable category'); return; }
-    if (!int_cat_id) { alert('Select an internal category first'); return; }
-    let btn = document.getElementById('btn-bulk');
-    btn.setAttribute('aria-busy', 'true');
-    let fd = new FormData();
-    fd.append('rebrickable_cat_id', rb_cat_id);
-    fd.append('internal_cat_id', int_cat_id);
-    let res = await fetch(`/api/profile/${PROFILE_ID}/assign-bulk`, {method: 'POST', body: fd});
-    let data = await res.json();
-    document.getElementById('bulk-status').textContent = `Assigned ${data.assigned_count} parts`;
-    btn.removeAttribute('aria-busy');
-    refreshStats();
+function prevPage() {
+    current_offset = Math.max(0, current_offset - PAGE_SIZE);
+    doSearch();
+}
+
+function nextPage() {
+    current_offset += PAGE_SIZE;
+    doSearch();
+}
+
+async function renameProfile(name) {
+    if (!name.trim()) return;
+    let form = new FormData();
+    form.append('name', name.trim());
+    let res = await fetch(`/api/profiles/${PROFILE_ID}/name`, {method: 'PUT', body: form});
+    if (res.ok) document.title = `${name.trim()} - Sorting Profile Builder`;
 }
 
 async function refreshStats() {
     let res = await fetch(`/api/profile/${PROFILE_ID}/stats`);
     let data = await res.json();
-    document.getElementById('profile-stats').textContent = `${data.part_count} mappings, ${data.category_count} categories`;
+    document.getElementById('profile-stats').textContent = `${data.part_count} mappings, ${data.category_count} categories, ${data.rule_count} rules`;
 }
+
+function togglePartsBrowser() {
+    let el = document.getElementById('parts-browser-sidebar');
+    el.classList.toggle('hidden');
+    if (!el.classList.contains('hidden')) {
+        applyPartsSidebarWidth();
+        if (!document.getElementById('parts-tbody').children.length) {
+            doSearch();
+        }
+    }
+}
+
+function applyPartsSidebarWidth() {
+    let el = document.getElementById('parts-browser-sidebar');
+    if (!el) return;
+    if (window.innerWidth <= 1200) {
+        el.style.width = '';
+        return;
+    }
+    let min_w = 340;
+    let max_w = Math.max(min_w, Math.floor(window.innerWidth * 0.7));
+    parts_sidebar_width = Math.max(min_w, Math.min(max_w, parts_sidebar_width));
+    el.style.width = `${parts_sidebar_width}px`;
+}
+
+function startPartsSidebarResize(e) {
+    if (window.innerWidth <= 1200) return;
+    e.preventDefault();
+    let el = document.getElementById('parts-browser-sidebar');
+    if (!el) return;
+    parts_sidebar_resize = {start_x: e.clientX, start_w: el.getBoundingClientRect().width};
+    document.body.classList.add('parts-sidebar-resizing');
+    window.addEventListener('mousemove', onPartsSidebarResizeMove);
+    window.addEventListener('mouseup', stopPartsSidebarResize);
+}
+
+function onPartsSidebarResizeMove(e) {
+    if (!parts_sidebar_resize) return;
+    let dx = parts_sidebar_resize.start_x - e.clientX;
+    parts_sidebar_width = Math.round(parts_sidebar_resize.start_w + dx);
+    applyPartsSidebarWidth();
+}
+
+function stopPartsSidebarResize() {
+    parts_sidebar_resize = null;
+    document.body.classList.remove('parts-sidebar-resizing');
+    window.removeEventListener('mousemove', onPartsSidebarResizeMove);
+    window.removeEventListener('mouseup', stopPartsSidebarResize);
+}
+
+// --- init ---
+renderFallbackOptions();
+renderRuleList();
+refreshPreview();
+applyPartsSidebarWidth();
+window.addEventListener('resize', applyPartsSidebarWidth);
 </script>
 {% endblock %}

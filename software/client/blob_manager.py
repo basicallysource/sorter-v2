@@ -80,6 +80,17 @@ def setBinCategories(categories: list[list[list[str | None]]]) -> None:
     saveData(data)
 
 
+def getChannelPolygons() -> dict | None:
+    data = loadData()
+    return data.get("channel_polygons")
+
+
+def setChannelPolygons(polygons: dict) -> None:
+    data = loadData()
+    data["channel_polygons"] = polygons
+    saveData(data)
+
+
 def getMcuPath() -> str | None:
     data = loadData()
     return data.get("mcu_path")

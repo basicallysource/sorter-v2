@@ -28,6 +28,10 @@ class MCU:
         self.next_command_id = COMMAND_ID_START
         self.pending_command_results: dict[int, dict] = {}
         self.pending_command_lock = threading.Lock()
+        self.outstanding_t_count = 0
+        self.outstanding_t_lock = threading.Lock()
+        self.outstanding_t_drained = threading.Event()
+        self.outstanding_t_drained.set()
 
         self.worker_thread = threading.Thread(target=self._processCommands, daemon=True)
         self.worker_thread.start()
@@ -75,8 +79,10 @@ class MCU:
             raise RuntimeError("timeout_ms must be > 0")
 
         cmd_id = self._allocateCommandId()
+        sent_event = threading.Event()
         pending = {
             "event": threading.Event(),
+            "sent_event": sent_event,
             "ok": None,
             "line": None,
         }
@@ -90,6 +96,10 @@ class MCU:
         )
 
         self.command_queue.put((cmd_id, args))
+
+        # wait for worker to actually send the command before starting timeout
+        sent_event.wait()
+
         if pending["event"].wait(timeout_ms / 1000.0):
             with self.pending_command_lock:
                 self.pending_command_results.pop(cmd_id, None)
@@ -119,8 +129,26 @@ class MCU:
                 cmd_payload = ",".join(map(str, cmd_args))
                 cmd_str = f"{cmd_id}|{cmd_payload}\n"
 
+                with self.pending_command_lock:
+                    pending = self.pending_command_results.get(cmd_id)
+                is_blocking = pending is not None and "sent_event" in pending
+
+                # blocking commands wait for Arduino to finish all prior T commands
+                if is_blocking:
+                    self.outstanding_t_drained.wait()
+
                 self.serial.write(cmd_str.encode())
                 self.serial.flush()
+
+                is_t_cmd = len(cmd_args) > 0 and cmd_args[0] == "T"
+                if is_t_cmd:
+                    with self.outstanding_t_lock:
+                        self.outstanding_t_count += 1
+                        self.outstanding_t_drained.clear()
+
+                if is_blocking and pending is not None:
+                    pending["sent_event"].set()
+
                 time.sleep(COMMAND_WRITE_DELAY_MS / 1000.0)
                 self.command_queue.task_done()
             except queue.Empty:
@@ -163,10 +191,20 @@ class MCU:
         pending["line"] = line
         pending["event"].set()
 
+    def _decrementOutstandingT(self) -> None:
+        with self.outstanding_t_lock:
+            if self.outstanding_t_count > 0:
+                self.outstanding_t_count -= 1
+            if self.outstanding_t_count == 0:
+                self.outstanding_t_drained.set()
+
     def _handleMcuLineResult(self, line: str) -> None:
         if line.startswith("ERR,"):
             parts = line.split(",", 3)
             if len(parts) >= 4:
+                err_type = parts[1]
+                if err_type == "T":
+                    self._decrementOutstandingT()
                 try:
                     cmd_id = int(parts[2])
                     self._resolvePendingCommand(cmd_id, False, line)
@@ -176,6 +214,8 @@ class MCU:
 
         if not line.startswith("T done "):
             return
+
+        self._decrementOutstandingT()
 
         for token in line.split():
             if token.startswith("id="):

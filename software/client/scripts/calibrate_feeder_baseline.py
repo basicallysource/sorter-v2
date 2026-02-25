@@ -47,7 +47,8 @@ def saveEnvelope(frames: list[np.ndarray]) -> None:
 
 def main() -> int:
     wipe = "--wipe" in sys.argv
-    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a != "--wipe"]
+    no_carousel = "--no-carousel" in sys.argv
+    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--no-carousel")]
 
     saved = getChannelPolygons()
     if saved is None:
@@ -109,7 +110,9 @@ def main() -> int:
         irl.third_c_channel_rotor_stepper.moveStepsBlocking(
             -STEPS_PER_FRAME, MOVE_TIMEOUT_MS, STEP_DELAY_US,
         )
-        irl.carousel_stepper.moveSteps(-CAROUSEL_STEPS_PER_FRAME, STEP_DELAY_US)
+        if not no_carousel:
+            irl.carousel_stepper.moveSteps(-CAROUSEL_STEPS_PER_FRAME, 800)
+            time.sleep(2)
         time.sleep(SETTLE_S)
         gray = vision.getLatestFeederGray()
         if gray is None:

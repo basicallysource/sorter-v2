@@ -14,7 +14,7 @@ BASELINE_FRAMES = 5
 CURRENT_FRAMES = 2
 CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 100
-MIN_HOT_THICKNESS_PIXELS = 15
+MIN_HOT_THICKNESS_PIXELS = 25
 
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape) -> np.ndarray:

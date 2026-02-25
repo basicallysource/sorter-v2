@@ -65,7 +65,7 @@ class FeederConfig:
         self.second_rotor_normal = RotorPulseConfig(
             steps=500,
             delay_us=200,
-            delay_between_ms=0,
+            delay_between_ms=200,
             accel_start_delay_us=1200,
             accel_steps=130,
             decel_steps=130,
@@ -80,8 +80,8 @@ class FeederConfig:
         )
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
-            delay_us=1000,
-            delay_between_ms=0,
+            delay_us=900,
+            delay_between_ms=200,
             accel_start_delay_us=1200,
             accel_steps=130,
             decel_steps=130,

@@ -104,6 +104,8 @@ class Positioning(BaseState):
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
+        if self.gc.disable_servos:
+            return
         target_servo = self.irl.servos[target_layer_index]
         if not target_servo.isClosed():
             for i, servo in enumerate(self.irl.servos):

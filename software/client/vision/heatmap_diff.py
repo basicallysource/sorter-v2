@@ -9,12 +9,12 @@ PIXEL_THRESH = 8
 BLUR_KERNEL = 5
 HEAT_GAIN = 12.0
 MIN_HOT_PIXELS = 50
-TRIGGER_SCORE = 17.0
+TRIGGER_SCORE = 17
 BASELINE_FRAMES = 5
-CURRENT_FRAMES = 2
+CURRENT_FRAMES = 3
 CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 100
-MIN_HOT_THICKNESS_PIXELS = 25
+MIN_HOT_THICKNESS_PIXELS = 12
 
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape) -> np.ndarray:
@@ -192,7 +192,7 @@ class HeatmapDiff:
         score, _ = self.computeDiff()
         return score >= TRIGGER_SCORE
 
-    def annotateFrame(self, annotated: np.ndarray) -> np.ndarray:
+    def annotateFrame(self, annotated: np.ndarray, label: str = "diff", text_y: int = 50) -> np.ndarray:
         result = self._computeDiffMap()
         if result is None:
             return annotated
@@ -218,7 +218,7 @@ class HeatmapDiff:
 
         triggered = score >= TRIGGER_SCORE
         color = (0, 0, 255) if triggered else (0, 255, 0)
-        cv2.putText(out, f"diff: {score:.1f} px:{hot_count}", (30, 50),
+        cv2.putText(out, f"{label}: {score:.1f} px:{hot_count}", (30, text_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
         for x1, y1, x2, y2 in self.computeBboxes():

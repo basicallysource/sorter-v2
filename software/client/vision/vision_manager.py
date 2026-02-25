@@ -31,7 +31,7 @@ CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
 CAROUSEL_FEEDING_PLATFORM_MAX_ASPECT_RATIO = 2.0
 CHANNEL_REGION_COUNT = CHANNEL_SECTION_COUNT
 CHANNEL_REGION_DEG = CHANNEL_SECTION_DEG
-CHANNEL_MASK_CONTRACT_PX = 20
+CHANNEL_MASK_CONTRACT_PX = 50
 
 class VisionManager:
     _irl_config: IRLConfig
@@ -235,7 +235,7 @@ class VisionManager:
 
         # annotate c-channel heatmap diff overlay
         if self.heatmap_diff.has_baseline:
-            annotated = self.heatmap_diff.annotateFrame(annotated)
+            annotated = self.heatmap_diff.annotateFrame(annotated, label="feeder", text_y=50)
             from subsystems.feeder.analysis import getBboxSections
             for det in self.getFeederHeatmapDetections():
                 x1, y1, x2, y2 = det.bbox
@@ -247,7 +247,7 @@ class VisionManager:
 
         # annotate carousel platform heatmap diff overlay
         if self._carousel_heatmap.has_baseline:
-            annotated = self._carousel_heatmap.annotateFrame(annotated)
+            annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
 
         return CameraFrame(
             raw=frame.raw,

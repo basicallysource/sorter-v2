@@ -57,9 +57,13 @@ class ArucoTagConfig:
     second_c_channel_center_id: int
     second_c_channel_radius1_id: int
     second_c_channel_radius2_id: int
+    second_c_channel_radius3_id: int
+    second_c_channel_radius4_id: int
     third_c_channel_center_id: int
     third_c_channel_radius1_id: int
     third_c_channel_radius2_id: int
+    third_c_channel_radius3_id: int
+    third_c_channel_radius4_id: int
     carousel_platform1: CarouselArucoTagConfig
     carousel_platform2: CarouselArucoTagConfig
     carousel_platform3: CarouselArucoTagConfig
@@ -150,10 +154,14 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     config.second_c_channel_center_id = 20
     config.second_c_channel_radius1_id = 31
     config.second_c_channel_radius2_id = 7
+    config.second_c_channel_radius3_id = 15
+    config.second_c_channel_radius4_id = 19
     # Channel 3 (third) - 3 tags: center, radius1, radius2
     config.third_c_channel_center_id = 33
     config.third_c_channel_radius1_id = 14
     config.third_c_channel_radius2_id = 30
+    config.third_c_channel_radius3_id = 25
+    config.third_c_channel_radius4_id = 26
     # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
     config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
     config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
@@ -222,7 +230,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         config.carousel_stepper.dir_pin,
         config.carousel_stepper.enable_pin,
         name="carousel",
-        default_delay_us=1000,
+        default_delay_us=750,
+        default_accel_start_delay_us=500,
+        default_accel_steps=100,
+        default_decel_steps=100,
     )
     time.sleep(1)
 

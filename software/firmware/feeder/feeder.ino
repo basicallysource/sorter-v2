@@ -12,6 +12,29 @@
 
 #include <Servo.h>
 
+const int NUM_SERVO_PINS = 4;
+const int SERVO_PINS[NUM_SERVO_PINS] = {4, 5, 6, 11};
+Servo servos[NUM_SERVO_PINS];
+
+const int RX_BUF_SIZE = 512;
+char rxBuf[RX_BUF_SIZE];
+int rxLen = 0;
+
+void drainSerial() {
+  while (Serial.available() && rxLen < RX_BUF_SIZE - 1) {
+    rxBuf[rxLen++] = (char)Serial.read();
+  }
+  rxBuf[rxLen] = '\0';
+}
+
+void delayWithDrain(unsigned long ms) {
+  unsigned long start = millis();
+  while (millis() - start < ms) {
+    drainSerial();
+    delay(1);
+  }
+}
+
 bool parseIntStrict(String s, long &out) {
   if (s.length() == 0) return false;
   int i = 0;
@@ -76,6 +99,13 @@ void logParseError(char cmd_type, long cmd_id, const char *reason, String raw) {
   Serial.println(truncateRaw(raw, 80));
 }
 
+int servoIndexForPin(int pin) {
+  for (int i = 0; i < NUM_SERVO_PINS; i++) {
+    if (SERVO_PINS[i] == pin) return i;
+  }
+  return -1;
+}
+
 void setup() {
   Serial.begin(115200);
   while (!Serial) {
@@ -84,8 +114,18 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n');
+  drainSerial();
+
+  char *nl = (char *)memchr(rxBuf, '\n', rxLen);
+  if (nl != NULL) {
+    *nl = '\0';
+    String command = String(rxBuf);
+    int consumed = (nl - rxBuf) + 1;
+    rxLen -= consumed;
+    if (rxLen > 0) {
+      memmove(rxBuf, nl + 1, rxLen);
+    }
+    rxBuf[rxLen] = '\0';
     command.trim();
 
     if (command.length() > 0) {
@@ -411,6 +451,7 @@ void processCommand(String cmd) {
         delayMicroseconds(step_delay_us);
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_delay_us);
+        drainSerial();
       }
       Serial.print("T done ");
       if (has_cmd_id) {
@@ -459,7 +500,8 @@ void processCommand(String cmd) {
         else logParseError('S', "bad_angle", raw);
         return;
       }
-      if (!isAllowedServoPin((int)pin_long)) {
+      int servo_idx = servoIndexForPin((int)pin_long);
+      if (servo_idx == -1) {
         Serial.print("ERR,S,");
         if (has_cmd_id) Serial.print(cmd_id);
         else Serial.print("no_id");
@@ -482,12 +524,11 @@ void processCommand(String cmd) {
 
       int pin = (int)pin_long;
       int angle = (int)angle_long;
-      
-      Servo servo;
-      servo.attach(pin);
-      servo.write(angle);
-      delay(500);
-      servo.detach();
+
+      servos[servo_idx].attach(SERVO_PINS[servo_idx]);
+      servos[servo_idx].write(angle);
+      delayWithDrain(500);
+      servos[servo_idx].detach();
       
       Serial.print("Servo pin ");
       Serial.print(pin);

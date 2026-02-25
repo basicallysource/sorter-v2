@@ -14,6 +14,11 @@ from .camera import CaptureThread
 from .aruco_tracker import ArucoTracker
 from .types import CameraFrame, VisionResult
 from .heatmap_diff import HeatmapDiff
+from defs.consts import (
+    CHANNEL_SECTION_COUNT, CHANNEL_SECTION_DEG,
+    CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
+    CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
+)
 
 ANNOTATE_ARUCO_TAGS = True
 TELEMETRY_INTERVAL_S = 30
@@ -23,13 +28,10 @@ CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX = 45
 CAROUSEL_FEEDING_PLATFORM_PERIMETER_CONTRACTION_PX = 25
 CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX = 70000
 CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG = 70
-CHANNEL_REGION_COUNT = 16
-CHANNEL_REGION_DEG = 360.0 / CHANNEL_REGION_COUNT
-CHANNEL_GEOMETRY_CACHE_MAX_AGE_MS = 120000
-CHANNEL_GEOMETRY_MIN_AREA_SQ_PX = 300_000
-CHANNEL_GEOMETRY_MAX_AREA_SQ_PX = 400_000
-CHANNEL_GEOMETRY_LOG_INTERVAL_MS = 5000
-
+CAROUSEL_FEEDING_PLATFORM_MAX_ASPECT_RATIO = 2.0
+CHANNEL_REGION_COUNT = CHANNEL_SECTION_COUNT
+CHANNEL_REGION_DEG = CHANNEL_SECTION_DEG
+CHANNEL_MASK_CONTRACT_PX = 20
 
 class VisionManager:
     _irl_config: IRLConfig
@@ -59,13 +61,12 @@ class VisionManager:
             None
         )
         self._cached_feeding_platform_timestamp: float = 0.0
-        self._cached_channel_geometry = None
-        self._cached_channel_geometry_timestamp: float = 0.0
-        self._last_channel_geometry_log_timestamp: float = 0.0
+        self._channel_polygons: Optional[Dict[str, np.ndarray]] = None
+        self._channel_mask: Optional[np.ndarray] = None
+        self._channel_masks: Dict[str, np.ndarray] = {}
 
         self.heatmap_diff = HeatmapDiff()
-        self.feeder_heatmap = HeatmapDiff()
-        self.feeder_baseline_captured = False
+        self._carousel_heatmap = HeatmapDiff()
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -85,26 +86,66 @@ class VisionManager:
             self._video_recorder.close()
 
     def loadFeederBaseline(self) -> bool:
-        from blob_manager import BLOB_DIR
+        from blob_manager import getChannelPolygons, BLOB_DIR
 
-        baseline_dir = BLOB_DIR / "feeder_baseline"
-        mask_path = baseline_dir / "mask.png"
-        min_path = baseline_dir / "baseline_min.png"
-        max_path = baseline_dir / "baseline_max.png"
-
-        if not all(p.exists() for p in [mask_path, min_path, max_path]):
-            self.gc.logger.warn(
-                "Feeder baseline not found. Run: scripts/calibrate_feeder_baseline.py"
-            )
+        saved = getChannelPolygons()
+        if saved is None:
+            self.gc.logger.warn("Channel polygons not found. Run: scripts/channel_polygon_editor.py")
             return False
 
-        mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+        polygon_data = saved.get("polygons", {})
+        polys = {}
+        for key in ("second_channel", "third_channel"):
+            pts = polygon_data.get(key)
+            if pts:
+                polys[key] = np.array(pts, dtype=np.int32)
+
+        if not polys:
+            self.gc.logger.warn("Channel polygons empty. Run: scripts/channel_polygon_editor.py")
+            return False
+
+        self._channel_polygons = polys
+
+        baseline_dir = BLOB_DIR / "feeder_baseline"
+        min_path = baseline_dir / "baseline_min.png"
+        max_path = baseline_dir / "baseline_max.png"
+        if not (min_path.exists() and max_path.exists()):
+            self.gc.logger.warn("Feeder baseline not found. Run: scripts/calibrate_feeder_baseline.py")
+            return False
+
         baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
         baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
+        if baseline_min is None or baseline_max is None:
+            self.gc.logger.warn("Failed to read feeder baseline images.")
+            return False
 
-        self.feeder_heatmap.loadEnvelope(baseline_min, baseline_max, mask)
-        self.feeder_baseline_captured = True
-        self.gc.logger.info("Feeder baseline loaded from disk")
+        # build contracted mask per channel and combined
+        contract_kernel = None
+        if CHANNEL_MASK_CONTRACT_PX != 0:
+            k = abs(CHANNEL_MASK_CONTRACT_PX) * 2 + 1
+            contract_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+
+        def _applyContract(m: np.ndarray) -> np.ndarray:
+            if contract_kernel is None:
+                return m
+            if CHANNEL_MASK_CONTRACT_PX < 0:
+                return cv2.erode(m, contract_kernel)
+            return cv2.dilate(m, contract_kernel)
+
+        channel_masks: Dict[str, np.ndarray] = {}
+        for key, pts in polys.items():
+            ch_mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+            cv2.fillPoly(ch_mask, [pts], 255)
+            channel_masks[key] = _applyContract(ch_mask)
+        self._channel_masks = channel_masks
+
+        mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+        for ch_mask in channel_masks.values():
+            mask = cv2.bitwise_or(mask, ch_mask)
+
+        self._channel_mask = mask
+        self.heatmap_diff.loadEnvelope(baseline_min, baseline_max, mask)
+        self.gc.logger.info("Feeder baseline loaded")
         return True
 
     def recordFrames(self) -> None:
@@ -115,10 +156,11 @@ class VisionManager:
             with prof.timer("vision.record_frames.update_feeding_platform_cache_ms"):
                 self.updateFeedingPlatformCache()
 
-            # push feeder gray into heatmap ring buffer
+            # push feeder frame to both heatmap ring buffers
             gray = self.getLatestFeederGray()
             if gray is not None:
-                self.feeder_heatmap.pushFrame(gray)
+                self.heatmap_diff.pushFrame(gray)
+                self._carousel_heatmap.pushFrame(gray)
 
             if self._video_recorder:
                 with prof.timer("vision.record_frames.video_recorder_write_ms"):
@@ -191,13 +233,21 @@ class VisionManager:
         annotated = self._annotateChannelGeometry(annotated)
         annotated = self._annotateCarouselPlatforms(annotated)
 
-        # annotate carousel platform heatmap diff overlay
+        # annotate c-channel heatmap diff overlay
         if self.heatmap_diff.has_baseline:
             annotated = self.heatmap_diff.annotateFrame(annotated)
+            from subsystems.feeder.analysis import getBboxSections
+            for det in self.getFeederHeatmapDetections():
+                x1, y1, x2, y2 = det.bbox
+                secs = getBboxSections(det.bbox, det.channel)
+                precise = bool(secs & set(CH3_PRECISE_SECTIONS if det.channel_id == 3 else CH2_PRECISE_SECTIONS))
+                drop = bool(secs & set(CH3_DROPZONE_SECTIONS if det.channel_id == 3 else CH2_DROPZONE_SECTIONS))
+                label = f"ch{det.channel_id} {sorted(secs)} p={precise} d={drop}"
+                cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
 
-        # annotate feeder channel heatmap diff overlay
-        if self.feeder_heatmap.has_baseline:
-            annotated = self.feeder_heatmap.annotateFrame(annotated)
+        # annotate carousel platform heatmap diff overlay
+        if self._carousel_heatmap.has_baseline:
+            annotated = self._carousel_heatmap.annotateFrame(annotated)
 
         return CameraFrame(
             raw=frame.raw,
@@ -241,148 +291,62 @@ class VisionManager:
             )
             return tags
 
-    def buildFeederChannelMask(self, geometry, shape) -> Optional[np.ndarray]:
-        mask = np.zeros(shape[:2], dtype=np.uint8)
-        if geometry.second_channel is not None:
-            ch = geometry.second_channel
-            cv2.circle(mask, (int(ch.center[0]), int(ch.center[1])), int(ch.radius), 255, -1)
-        if geometry.third_channel is not None:
-            ch = geometry.third_channel
-            cv2.circle(mask, (int(ch.center[0]), int(ch.center[1])), int(ch.radius), 255, -1)
-        if np.count_nonzero(mask) == 0:
-            return None
-        return mask
-
-    def captureFeederBaseline(self, geometry, frames: List[np.ndarray]) -> bool:
-        if not frames:
+    def captureCarouselBaseline(self) -> bool:
+        corners = self.feeding_platform_corners
+        if corners is None:
             return False
-        mask = self.buildFeederChannelMask(geometry, frames[0].shape)
-        if mask is None:
-            return False
-        ok = self.feeder_heatmap.setBaselineEnvelope(frames, mask)
-        if ok:
-            self.feeder_baseline_captured = True
-        return ok
-
-    def getFeederHeatmapDetections(self) -> List[VisionResult]:
         gray = self.getLatestFeederGray()
-        if gray is not None:
-            self.feeder_heatmap.pushFrame(gray)
+        if gray is None:
+            return False
+        return self._carousel_heatmap.captureBaseline(corners, gray.shape)
 
-        bboxes = self.feeder_heatmap.computeBboxes()
-        now = time.time()
-        return [
-            VisionResult(
-                class_id=0,
-                class_name="object",
-                confidence=1.0,
-                bbox=bbox,
-                timestamp=now,
-            )
-            for bbox in bboxes
-        ]
+    def clearCarouselBaseline(self) -> None:
+        self._carousel_heatmap.clearBaseline()
+
+    def isCarouselTriggered(self) -> Tuple[bool, float, int]:
+        score, hot_px = self._carousel_heatmap.computeDiff()
+        from vision.heatmap_diff import TRIGGER_SCORE
+        return score >= TRIGGER_SCORE, score, hot_px
+
+    def getFeederHeatmapDetections(self):
+        from defs.channel import ChannelDetection
+        from subsystems.feeder.analysis import computeChannelGeometry, determineObjectChannel
+
+        if not self.heatmap_diff.has_baseline or self._channel_polygons is None:
+            return []
+
+        bboxes = self.heatmap_diff.computeBboxes()
+        if not bboxes:
+            return []
+
+        aruco_tags = self.getFeederArucoTags()
+        geometry = computeChannelGeometry(
+            self._channel_polygons, aruco_tags,
+            self._irl_config.aruco_tags, self._channel_masks,
+        )
+
+        detections = []
+        for bbox in bboxes:
+            x1, y1, x2, y2 = bbox
+            ch = determineObjectChannel(((x1 + x2) / 2.0, (y1 + y2) / 2.0), geometry)
+            if ch is not None:
+                detections.append(ChannelDetection(bbox=bbox, channel_id=ch.channel_id, channel=ch))
+        return detections
 
     def getChannelGeometry(self, aruco_tag_config):
+        from defs.channel import ChannelGeometry
         from subsystems.feeder.analysis import computeChannelGeometry
+
+        if self._channel_polygons is None:
+            return ChannelGeometry(second_channel=None, third_channel=None)
 
         prof = self.gc.profiler
         prof.hit("vision.get_channel_geometry.calls")
         with prof.timer("vision.get_channel_geometry.total_ms"):
             aruco_tags = self.getFeederArucoTags()
-            new_geometry = computeChannelGeometry(aruco_tags, aruco_tag_config)
-            self._updateChannelGeometryCache(new_geometry)
-            cached_geometry = self._getCachedChannelGeometry()
-            if cached_geometry is not None:
-                self._logChannelGeometryAreas(cached_geometry)
-                return cached_geometry
-            self._logChannelGeometryAreas(new_geometry)
-            return new_geometry
-
-    def _getCachedChannelGeometry(self):
-        if self._cached_channel_geometry is None:
-            return None
-        age_ms = (time.time() - self._cached_channel_geometry_timestamp) * 1000
-        if age_ms > CHANNEL_GEOMETRY_CACHE_MAX_AGE_MS:
-            return None
-        return self._cached_channel_geometry
-
-    def _updateChannelGeometryCache(self, new_geometry) -> None:
-        from subsystems.feeder.analysis import ChannelGeometry
-
-        cached_geometry = self._getCachedChannelGeometry()
-        if cached_geometry is None:
-            if new_geometry.second_channel is None and new_geometry.third_channel is None:
-                return
-            self._cached_channel_geometry = new_geometry
-            self._cached_channel_geometry_timestamp = time.time()
-            return
-
-        next_second_channel = cached_geometry.second_channel
-        next_third_channel = cached_geometry.third_channel
-        updated = False
-
-        if new_geometry.second_channel is not None:
-            if self._isChannelCircleValid(
-                new_geometry.second_channel,
-                cached_geometry.second_channel,
-                "ch2",
-            ):
-                next_second_channel = new_geometry.second_channel
-                updated = True
-
-        if new_geometry.third_channel is not None:
-            if self._isChannelCircleValid(
-                new_geometry.third_channel,
-                cached_geometry.third_channel,
-                "ch3",
-            ):
-                next_third_channel = new_geometry.third_channel
-                updated = True
-
-        if not updated:
-            return
-
-        self._cached_channel_geometry = ChannelGeometry(
-            second_channel=next_second_channel,
-            third_channel=next_third_channel,
-        )
-        self._cached_channel_geometry_timestamp = time.time()
-
-    def _isChannelCircleValid(self, new_channel, cached_channel, channel_label: str) -> bool:
-        _ = cached_channel
-        area_sq_px = float(np.pi * new_channel.radius * new_channel.radius)
-        if area_sq_px < CHANNEL_GEOMETRY_MIN_AREA_SQ_PX:
-            self.gc.logger.warn(
-                f"Channel geometry reject {channel_label}: area={area_sq_px:.1f}px^2 < {CHANNEL_GEOMETRY_MIN_AREA_SQ_PX}"
+            return computeChannelGeometry(
+                self._channel_polygons, aruco_tags, aruco_tag_config, self._channel_masks
             )
-            return False
-        if area_sq_px > CHANNEL_GEOMETRY_MAX_AREA_SQ_PX:
-            self.gc.logger.warn(
-                f"Channel geometry reject {channel_label}: area={area_sq_px:.1f}px^2 > {CHANNEL_GEOMETRY_MAX_AREA_SQ_PX}"
-            )
-            return False
-        return True
-
-    def _logChannelGeometryAreas(self, geometry) -> None:
-        now = time.time()
-        if (now - self._last_channel_geometry_log_timestamp) * 1000 < CHANNEL_GEOMETRY_LOG_INTERVAL_MS:
-            return
-
-        lines = []
-        if geometry.second_channel is not None:
-            ch = geometry.second_channel
-            area_sq_px = float(np.pi * ch.radius * ch.radius)
-            lines.append(f"ch2 radius={ch.radius:.1f}px area={area_sq_px:.1f}px^2")
-        if geometry.third_channel is not None:
-            ch = geometry.third_channel
-            area_sq_px = float(np.pi * ch.radius * ch.radius)
-            lines.append(f"ch3 radius={ch.radius:.1f}px area={area_sq_px:.1f}px^2")
-
-        if not lines:
-            return
-
-        self._last_channel_geometry_log_timestamp = now
-        self.gc.logger.info("Channel geometry areas: " + ", ".join(lines))
 
     def getCarouselPlatforms(self):
         from irl.config import CarouselArucoTagConfig
@@ -481,144 +445,92 @@ class VisionManager:
         return platforms
 
     def _annotateChannelGeometry(self, annotated: np.ndarray) -> np.ndarray:
-        from subsystems.feeder.analysis import computeChannelGeometry
-
-        aruco_tags = self.getFeederArucoTags()
-        geometry = computeChannelGeometry(
-            aruco_tags,
-            self._irl_config.aruco_tags,
-        )
+        if self._channel_polygons is None:
+            return annotated
 
         annotated = annotated.copy()
+        aruco_tags = self.getFeederArucoTags()
 
-        # get tag positions for both channels (only radius tags needed)
-        third_r1_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.third_c_channel_radius1_id
-        )
-        third_r2_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.third_c_channel_radius2_id
-        )
+        channel_styles = {
+            "third_channel":  {"color": (255, 0, 255),   "label": "Ch3"},
+            "second_channel": {"color": (0, 255, 255),   "label": "Ch2"},
+        }
 
-        second_r1_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.second_c_channel_radius1_id
-        )
-        second_r2_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.second_c_channel_radius2_id
-        )
+        for key, style in channel_styles.items():
+            pts = self._channel_polygons.get(key)
+            if pts is None:
+                continue
+            color = style["color"]
 
-        # draw channel 3 (inner) - circle from two radius tags
-        if geometry.third_channel:
-            ch = geometry.third_channel
-            center = (int(ch.center[0]), int(ch.center[1]))
-            radius = int(ch.radius)
+            # draw contracted mask boundary if available, else raw polygon
+            ch_mask = self._channel_masks.get(key)
+            if ch_mask is not None:
+                contours, _ = cv2.findContours(ch_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(annotated, contours, -1, color, 2)
+            else:
+                cv2.polylines(annotated, [pts], True, color, 2)
 
-            # draw circle
-            cv2.circle(annotated, center, radius, (255, 0, 255), 2)
+            center = np.mean(pts, axis=0)
+            cx, cy = int(center[0]), int(center[1])
+            disp_r = int(np.max(np.linalg.norm(pts - center, axis=1)))
 
-            # draw diameter line through the two radius tags
-            if third_r1_pos and third_r2_pos:
-                cv2.line(
-                    annotated,
-                    (int(third_r1_pos[0]), int(third_r1_pos[1])),
-                    (int(third_r2_pos[0]), int(third_r2_pos[1])),
-                    (255, 0, 255),
-                    2,
-                )
-
-            # draw region divider lines
-            for q in range(CHANNEL_REGION_COUNT):
-                angle_deg = ch.radius1_angle_image + q * CHANNEL_REGION_DEG
-                angle_rad = np.radians(angle_deg)
-                end_x = int(center[0] + radius * np.cos(angle_rad))
-                end_y = int(center[1] + radius * np.sin(angle_rad))
-                cv2.line(annotated, center, (end_x, end_y), (180, 0, 180), 1)
-
-            # draw region 0-7 labels
-            for q in range(CHANNEL_REGION_COUNT):
-                angle_deg = (
-                    ch.radius1_angle_image + q * CHANNEL_REGION_DEG + CHANNEL_REGION_DEG / 2.0
-                )
-                angle_rad = np.radians(angle_deg)
-                label_radius = radius * 0.7
-                label_x = int(center[0] + label_radius * np.cos(angle_rad))
-                label_y = int(center[1] + label_radius * np.sin(angle_rad))
-                cv2.putText(
-                    annotated,
-                    str(q),
-                    (label_x - 10, label_y + 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 0, 255),
-                    2,
-                )
-
-            # channel label
-            cv2.putText(
-                annotated,
-                "Ch3",
-                (center[0] - 20, center[1] - radius - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 0, 255),
-                2,
+            r1_angle = 0.0
+            r1_id = (
+                self._irl_config.aruco_tags.third_c_channel_radius1_id
+                if key == "third_channel"
+                else self._irl_config.aruco_tags.second_c_channel_radius1_id
             )
+            r1_pos = aruco_tags.get(r1_id)
+            if r1_pos:
+                v = np.array(r1_pos) - center
+                r1_angle = float(np.degrees(np.arctan2(v[1], v[0])))
 
-        # draw channel 2 (outer) - circle from two radius tags
-        if geometry.second_channel:
-            ch = geometry.second_channel
-            center = (int(ch.center[0]), int(ch.center[1]))
-            radius = int(ch.radius)
+            precise_sections = CH3_PRECISE_SECTIONS if key == "third_channel" else CH2_PRECISE_SECTIONS
+            dropzone_sections = CH3_DROPZONE_SECTIONS if key == "third_channel" else CH2_DROPZONE_SECTIONS
+            ch_mask = self._channel_masks.get(key)
 
-            # draw circle
-            cv2.circle(annotated, center, radius, (0, 255, 255), 2)
-
-            # draw diameter line through the two radius tags
-            if second_r1_pos and second_r2_pos:
-                cv2.line(
-                    annotated,
-                    (int(second_r1_pos[0]), int(second_r1_pos[1])),
-                    (int(second_r2_pos[0]), int(second_r2_pos[1])),
-                    (0, 255, 255),
-                    2,
-                )
-
-            # draw region divider lines
+            overlay = annotated.copy()
             for q in range(CHANNEL_REGION_COUNT):
-                angle_deg = ch.radius1_angle_image + q * CHANNEL_REGION_DEG
-                angle_rad = np.radians(angle_deg)
-                end_x = int(center[0] + radius * np.cos(angle_rad))
-                end_y = int(center[1] + radius * np.sin(angle_rad))
-                cv2.line(annotated, center, (end_x, end_y), (0, 180, 180), 1)
+                if q in precise_sections:
+                    fill = (0, 80, 255)
+                elif q in dropzone_sections:
+                    fill = (0, 200, 80)
+                else:
+                    fill = None
+                if fill is not None:
+                    arc_pts = [(cx, cy)]
+                    for a in np.linspace(
+                        r1_angle + q * CHANNEL_REGION_DEG,
+                        r1_angle + (q + 1) * CHANNEL_REGION_DEG,
+                        8,
+                    ):
+                        arc_pts.append((
+                            int(cx + disp_r * np.cos(np.radians(a))),
+                            int(cy + disp_r * np.sin(np.radians(a))),
+                        ))
+                    cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
+            if ch_mask is not None:
+                overlay[ch_mask == 0] = annotated[ch_mask == 0]
+            annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
 
-            # draw region 0-7 labels
+            dim_color = tuple(int(c * 0.7) for c in color)
             for q in range(CHANNEL_REGION_COUNT):
-                angle_deg = (
-                    ch.radius1_angle_image + q * CHANNEL_REGION_DEG + CHANNEL_REGION_DEG / 2.0
-                )
-                angle_rad = np.radians(angle_deg)
-                label_radius = radius * 0.7
-                label_x = int(center[0] + label_radius * np.cos(angle_rad))
-                label_y = int(center[1] + label_radius * np.sin(angle_rad))
-                cv2.putText(
-                    annotated,
-                    str(q),
-                    (label_x - 10, label_y + 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (0, 255, 255),
-                    2,
-                )
+                angle_rad = np.radians(r1_angle + q * CHANNEL_REGION_DEG)
+                ex = int(cx + disp_r * np.cos(angle_rad))
+                ey = int(cy + disp_r * np.sin(angle_rad))
+                cv2.line(annotated, (cx, cy), (ex, ey), dim_color, 1)
 
-            # channel label
-            cv2.putText(
-                annotated,
-                "Ch2",
-                (center[0] - 20, center[1] - radius - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 255),
-                2,
-            )
+            for q in range(CHANNEL_REGION_COUNT):
+                angle_rad = np.radians(r1_angle + q * CHANNEL_REGION_DEG + CHANNEL_REGION_DEG / 2.0)
+                lx = int(cx + disp_r * 0.7 * np.cos(angle_rad))
+                ly = int(cy + disp_r * 0.7 * np.sin(angle_rad))
+                cv2.putText(annotated, str(q), (lx - 6, ly + 6),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 0), 2)
+                cv2.putText(annotated, str(q), (lx - 6, ly + 6),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
+
+            cv2.putText(annotated, style["label"], (cx - 20, cy - disp_r - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         return annotated
 
@@ -796,6 +708,13 @@ class VisionManager:
                     )
 
                     if not angles_valid:
+                        continue
+
+                    # compute aspect ratio from averaged opposite side lengths
+                    ca = np.array(expanded_corners)
+                    d0 = (np.linalg.norm(ca[1] - ca[0]) + np.linalg.norm(ca[3] - ca[2])) / 2.0
+                    d1 = (np.linalg.norm(ca[2] - ca[1]) + np.linalg.norm(ca[0] - ca[3])) / 2.0
+                    if min(d0, d1) > 0 and max(d0, d1) / min(d0, d1) > CAROUSEL_FEEDING_PLATFORM_MAX_ASPECT_RATIO:
                         continue
 
                     self._cached_feeding_platform_corners = expanded_corners

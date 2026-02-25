@@ -11,9 +11,10 @@ HEAT_GAIN = 12.0
 MIN_HOT_PIXELS = 50
 TRIGGER_SCORE = 17.0
 BASELINE_FRAMES = 5
-CURRENT_FRAMES = 5
+CURRENT_FRAMES = 2
 CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 100
+MIN_HOT_THICKNESS_PIXELS = 15
 
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape) -> np.ndarray:
@@ -114,7 +115,7 @@ class HeatmapDiff:
         self._baseline_timestamp = 0.0
         self._gray_ring.clear()
 
-    def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         if self._baseline_mask is None:
             return None
         avg = self._getAveraged(CURRENT_FRAMES)
@@ -124,7 +125,6 @@ class HeatmapDiff:
         mask_bool = self._baseline_mask > 0
 
         if self._baseline_min is not None and self._baseline_max is not None:
-            # min-max envelope mode
             current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
             below = np.clip(
                 self._baseline_min.astype(np.int16) - current_masked.astype(np.int16),
@@ -136,7 +136,6 @@ class HeatmapDiff:
             ).astype(np.uint8)
             diff = np.maximum(below, above)
         elif self._baseline_gray is not None:
-            # single-baseline mode
             current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
             diff = cv2.absdiff(current_masked, self._baseline_gray)
         else:
@@ -144,40 +143,50 @@ class HeatmapDiff:
 
         blur_k = BLUR_KERNEL | 1
         diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
-        return diff, mask_bool
+
+        # build hot mask, filtering out thin slivers (including curved arcs)
+        # erosion removes anything thinner than MIN_HOT_THICKNESS_PIXELS regardless of shape
+        raw_hot = ((diff > PIXEL_THRESH) & mask_bool).astype(np.uint8) * 255
+        ek = max(1, MIN_HOT_THICKNESS_PIXELS // 2)
+        erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ek * 2 + 1, ek * 2 + 1))
+        eroded = cv2.erode(raw_hot, erode_kernel)
+        contours, _ = cv2.findContours(raw_hot, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        hot = np.zeros_like(raw_hot)
+        for contour in contours:
+            if cv2.contourArea(contour) < MIN_CONTOUR_AREA:
+                continue
+            contour_mask = np.zeros_like(raw_hot)
+            cv2.drawContours(contour_mask, [contour], -1, 255, -1)
+            if not np.any(eroded & contour_mask):
+                continue
+            cv2.drawContours(hot, [contour], -1, 255, -1)
+
+        return diff, hot > 0, mask_bool
 
     def computeDiff(self) -> Tuple[float, int]:
         result = self._computeDiffMap()
         if result is None:
             return 0.0, 0
-        diff, mask_bool = result
+        diff, hot, mask_bool = result
 
-        hot = (diff > PIXEL_THRESH) & mask_bool
         hot_count = int(np.count_nonzero(hot))
-
-        if hot_count >= MIN_HOT_PIXELS:
-            score = float(np.mean(diff[hot]))
-        else:
-            score = 0.0
-
+        score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
         return score, hot_count
 
     def computeBboxes(self) -> List[Tuple[int, int, int, int]]:
         result = self._computeDiffMap()
         if result is None:
             return []
-        diff, mask_bool = result
+        _, hot, _ = result
 
-        hot = ((diff > PIXEL_THRESH) & mask_bool).astype(np.uint8) * 255
-        contours, _ = cv2.findContours(hot, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        bboxes = []
-        for contour in contours:
-            if cv2.contourArea(contour) < MIN_CONTOUR_AREA:
-                continue
-            x, y, w, h = cv2.boundingRect(contour)
-            bboxes.append((x, y, x + w, y + h))
-        return bboxes
+        contours, _ = cv2.findContours(
+            hot.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        return [
+            (x, y, x + w, y + h)
+            for contour in contours
+            for x, y, w, h in [cv2.boundingRect(contour)]
+        ]
 
     def isTriggered(self) -> bool:
         score, _ = self.computeDiff()
@@ -187,15 +196,10 @@ class HeatmapDiff:
         result = self._computeDiffMap()
         if result is None:
             return annotated
-        diff, mask_bool = result
+        diff, hot, mask_bool = result
 
-        hot = (diff > PIXEL_THRESH) & mask_bool
         hot_count = int(np.count_nonzero(hot))
-
-        if hot_count >= MIN_HOT_PIXELS:
-            score = float(np.mean(diff[hot]))
-        else:
-            score = 0.0
+        score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
 
         display = np.zeros_like(diff)
         display[hot] = np.clip(

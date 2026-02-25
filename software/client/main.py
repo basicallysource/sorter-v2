@@ -83,9 +83,10 @@ def main() -> None:
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
 
-    gc.logger.info("Opening all layer servos...")
-    for servo in irl.servos:
-        servo.open()
+    if not gc.disable_servos:
+        gc.logger.info("Opening all layer servos...")
+        for servo in irl.servos:
+            servo.open()
 
     gc.logger.info("Homing chute to zero...")
     irl.chute.home()
@@ -100,7 +101,9 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
-    vision.loadFeederBaseline()
+    if not vision.loadFeederBaseline():
+        gc.logger.error("Feeder baseline setup incomplete. See warnings above for details.")
+        sys.exit(1)
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)

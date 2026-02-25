@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} - Sorting Profile Builder{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h3>{{ profile.name }}</h3>
+    <p>{{ profile.description }} &mdash; <span class="stats" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.categories | length }} categories</span></p>
+</hgroup>
+
+<div class="grid-2">
+    <!-- left: categories -->
+    <div>
+        <h4>Internal Categories</h4>
+        <div id="categories-list">
+            {% for cat_id, cat in profile.categories.items() %}
+            <div class="category-item" data-cat-id="{{ cat_id }}" onclick="selectCategory('{{ cat_id }}', '{{ cat.name }}')">
+                <span>{{ cat.name }}</span>
+                <button class="outline secondary" style="padding:2px 6px;font-size:11px;margin:0;" onclick="event.stopPropagation(); removeCategory('{{ cat_id }}')">x</button>
+            </div>
+            {% endfor %}
+        </div>
+        <form onsubmit="addCategoryForm(event)" style="margin-top:0.5rem;">
+            <div style="display:flex;gap:0.5rem;">
+                <input type="text" id="new-cat-name" placeholder="Category name" required style="margin:0;">
+                <button type="submit" style="margin:0;white-space:nowrap;">Add</button>
+            </div>
+        </form>
+
+        <hr>
+
+        <h5>Bulk Assign by Rebrickable Category</h5>
+        <p class="stats">Assign all parts from a Rebrickable category to the selected internal category.</p>
+        <select id="bulk-rebrickable-cat">
+            <option value="">-- Rebrickable Category --</option>
+            {% for cat_id, cat in rebrickable_categories.items() %}
+            <option value="{{ cat_id }}">{{ cat.name }} ({{ cat.part_count }} parts)</option>
+            {% endfor %}
+        </select>
+        <button onclick="bulkAssign()" id="btn-bulk" style="margin-top:0.5rem;">Assign All to Selected Category</button>
+        <div id="bulk-status" class="stats"></div>
+
+        <hr>
+        <h5>Selected: <span id="selected-cat-name">None</span></h5>
+        <input type="hidden" id="selected-cat-id" value="">
+    </div>
+
+    <!-- right: parts search -->
+    <div>
+        <h4>Parts Browser</h4>
+        <div style="display:flex;gap:0.5rem;">
+            <input type="search" id="parts-search" placeholder="Search parts by name, number, BrickLink ID..." style="margin:0;" oninput="debouncedSearch()">
+            <select id="filter-rebrickable-cat" style="max-width:200px;margin:0;" onchange="debouncedSearch()">
+                <option value="">All categories</option>
+                {% for cat_id, cat in rebrickable_categories.items() %}
+                <option value="{{ cat_id }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div id="search-status" class="stats" style="margin:0.25rem 0;"></div>
+        <div style="max-height:600px;overflow-y:auto;">
+            <table id="parts-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Part #</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>BrickLink ID</th>
+                        <th>Years</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="parts-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROFILE_ID = "{{ profile.id }}";
+let search_timer = null;
+
+function selectCategory(id, name) {
+    document.getElementById('selected-cat-id').value = id;
+    document.getElementById('selected-cat-name').textContent = name;
+    document.querySelectorAll('.category-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.catId === id);
+    });
+}
+
+async function addCategoryForm(e) {
+    e.preventDefault();
+    let name = document.getElementById('new-cat-name').value.trim();
+    if (!name) return;
+    let fd = new FormData();
+    fd.append('name', name);
+    let res = await fetch(`/api/profile/${PROFILE_ID}/categories`, {method: 'POST', body: fd});
+    let data = await res.json();
+    let list = document.getElementById('categories-list');
+    let div = document.createElement('div');
+    div.className = 'category-item';
+    div.dataset.catId = data.id;
+    div.onclick = () => selectCategory(data.id, data.name);
+    div.innerHTML = `<span>${data.name}</span><button class="outline secondary" style="padding:2px 6px;font-size:11px;margin:0;" onclick="event.stopPropagation(); removeCategory('${data.id}')">x</button>`;
+    list.appendChild(div);
+    document.getElementById('new-cat-name').value = '';
+    selectCategory(data.id, data.name);
+    refreshStats();
+}
+
+async function removeCategory(cat_id) {
+    if (!confirm('Remove this category and all its mappings?')) return;
+    await fetch(`/api/profile/${PROFILE_ID}/categories/${cat_id}`, {method: 'DELETE'});
+    let el = document.querySelector(`.category-item[data-cat-id="${cat_id}"]`);
+    if (el) el.remove();
+    if (document.getElementById('selected-cat-id').value === cat_id) {
+        document.getElementById('selected-cat-id').value = '';
+        document.getElementById('selected-cat-name').textContent = 'None';
+    }
+    refreshStats();
+}
+
+function debouncedSearch() {
+    clearTimeout(search_timer);
+    search_timer = setTimeout(doSearch, 300);
+}
+
+async function doSearch() {
+    let q = document.getElementById('parts-search').value;
+    let cat_id = document.getElementById('filter-rebrickable-cat').value;
+    let params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (cat_id) params.set('cat_id', cat_id);
+    params.set('limit', '100');
+    let res = await fetch(`/api/search-parts?${params}`);
+    let data = await res.json();
+    renderParts(data.results);
+    document.getElementById('search-status').textContent = `${data.results.length} results`;
+}
+
+function renderParts(parts) {
+    let tbody = document.getElementById('parts-tbody');
+    tbody.innerHTML = '';
+    for (let p of parts) {
+        let tr = document.createElement('tr');
+        let bl_ids = (p.external_ids && p.external_ids.BrickLink) ? p.external_ids.BrickLink.join(', ') : '';
+        let img = p.part_img_url ? `<img src="${p.part_img_url}" class="part-img" loading="lazy">` : '';
+        let years = '';
+        if (p.year_from) years = p.year_from === p.year_to ? `${p.year_from}` : `${p.year_from}-${p.year_to || '?'}`;
+        let part_key = bl_ids ? `any_color-${p.external_ids.BrickLink[0]}` : `any_color-${p.part_num}`;
+        tr.innerHTML = `
+            <td>${img}</td>
+            <td>${p.part_num}</td>
+            <td>${p.name}</td>
+            <td><span class="badge">${p._category_name || ''}</span></td>
+            <td>${bl_ids}</td>
+            <td>${years}</td>
+            <td><button class="outline" style="padding:2px 8px;font-size:11px;margin:0;" onclick="assignPart('${part_key}')">Assign</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+async function assignPart(part_key) {
+    let cat_id = document.getElementById('selected-cat-id').value;
+    if (!cat_id) { alert('Select a category first'); return; }
+    let fd = new FormData();
+    fd.append('part_key', part_key);
+    fd.append('cat_id', cat_id);
+    await fetch(`/api/profile/${PROFILE_ID}/assign`, {method: 'POST', body: fd});
+    refreshStats();
+}
+
+async function bulkAssign() {
+    let rb_cat_id = document.getElementById('bulk-rebrickable-cat').value;
+    let int_cat_id = document.getElementById('selected-cat-id').value;
+    if (!rb_cat_id) { alert('Select a Rebrickable category'); return; }
+    if (!int_cat_id) { alert('Select an internal category first'); return; }
+    let btn = document.getElementById('btn-bulk');
+    btn.setAttribute('aria-busy', 'true');
+    let fd = new FormData();
+    fd.append('rebrickable_cat_id', rb_cat_id);
+    fd.append('internal_cat_id', int_cat_id);
+    let res = await fetch(`/api/profile/${PROFILE_ID}/assign-bulk`, {method: 'POST', body: fd});
+    let data = await res.json();
+    document.getElementById('bulk-status').textContent = `Assigned ${data.assigned_count} parts`;
+    btn.removeAttribute('aria-busy');
+    refreshStats();
+}
+
+async function refreshStats() {
+    let res = await fetch(`/api/profile/${PROFILE_ID}/stats`);
+    let data = await res.json();
+    document.getElementById('profile-stats').textContent = `${data.part_count} mappings, ${data.category_count} categories`;
+}
+</script>
+{% endblock %}

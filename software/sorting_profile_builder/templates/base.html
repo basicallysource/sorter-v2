@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Sorting Profile Builder{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        :root { --pico-font-size: 14px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
+        .part-img { width: 60px; height: 60px; object-fit: contain; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+        .category-item { padding: 0.5rem; border: 1px solid var(--pico-muted-border-color); border-radius: 4px; margin-bottom: 0.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .category-item.selected { border-color: var(--pico-primary); background: var(--pico-primary-focus); }
+        .category-item:hover { border-color: var(--pico-primary); }
+        .stats { font-size: 13px; color: var(--pico-muted-color); }
+        table { font-size: 13px; }
+        .progress-info { display: flex; align-items: center; gap: 1rem; }
+        #sync-log { font-size: 12px; color: var(--pico-muted-color); max-height: 60px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <nav class="container">
+        <ul><li><a href="/"><strong>Sorting Profile Builder</strong></a></li></ul>
+        <ul><li class="stats" id="global-cache-stats"></li></ul>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+        async function fetchCacheStats() {
+            let res = await fetch('/api/sync-status');
+            let data = await res.json();
+            let el = document.getElementById('global-cache-stats');
+            let total_str = data.api_total ? ` / ${data.api_total}` : '';
+            el.textContent = `Cache: ${data.cached_parts}${total_str} parts, ${data.cached_categories} categories, ${data.cached_colors} colors`;
+        }
+        fetchCacheStats();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

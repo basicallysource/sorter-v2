@@ -134,6 +134,25 @@ class Stepper:
         self.current_position_steps += steps
         setStepperPosition(self.name, self.current_position_steps)
 
+    def rotateBlocking(
+        self,
+        deg: float,
+        timeout_ms: int,
+        delay_us: int | None = None,
+        accel_start_delay_us: int | None = None,
+        accel_steps: int | None = None,
+        decel_steps: int | None = None,
+    ) -> str:
+        steps = int((deg / 360.0) * self.total_steps_per_rev)
+        return self.moveStepsBlocking(
+            steps,
+            timeout_ms,
+            delay_us=delay_us,
+            accel_start_delay_us=accel_start_delay_us,
+            accel_steps=accel_steps,
+            decel_steps=decel_steps,
+        )
+
     def moveStepsBlocking(
         self,
         steps: int,

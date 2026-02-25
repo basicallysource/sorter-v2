@@ -8,7 +8,7 @@ from global_config import GlobalConfig
 COMMAND_QUEUE_TIMEOUT_MS = 1000
 READER_SLEEP_MS = 10
 ARDUINO_RESET_DELAY_MS = 2000
-COMMAND_WRITE_DELAY_MS = 15
+COMMAND_WRITE_DELAY_MS = 50
 COMMAND_ID_START = 1
 COMMAND_ID_MAX = 2_000_000_000
 
@@ -120,6 +120,7 @@ class MCU:
                 cmd_str = f"{cmd_id}|{cmd_payload}\n"
 
                 self.serial.write(cmd_str.encode())
+                self.serial.flush()
                 time.sleep(COMMAND_WRITE_DELAY_MS / 1000.0)
                 self.command_queue.task_done()
             except queue.Empty:

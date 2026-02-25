@@ -37,7 +37,7 @@ class ClassificationStateMachine(BaseSubsystem):
         self.states_map = {
             ClassificationState.IDLE: Idle(irl, gc, shared, self.carousel),
             ClassificationState.DETECTING: Detecting(
-                irl, gc, shared, self.carousel, vision, vision.heatmap_diff
+                irl, gc, shared, self.carousel, vision
             ),
             ClassificationState.ROTATING: Rotating(
                 irl, gc, shared, self.carousel, irl.carousel_stepper, event_queue

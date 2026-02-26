@@ -29,6 +29,7 @@ cp .env.example .env
 
 Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
 ```
+cd client
 uv run python scripts/camera_setup.py
 ```
 

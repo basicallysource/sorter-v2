@@ -28,6 +28,7 @@ class KnownObject:
     classification_status: ClassificationStatus = ClassificationStatus.pending
     part_id: Optional[str] = None
     category_id: Optional[str] = None
+    category_name: Optional[str] = None
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     thumbnail: Optional[str] = None

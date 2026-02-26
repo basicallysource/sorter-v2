@@ -60,6 +60,7 @@ class Positioning(BaseState):
 
             piece.stage = PieceStage.distributing
             piece.category_id = category_id
+            piece.category_name = self.sorting_profile.getCategoryName(category_id)
             piece.destination_bin = (
                 address.layer_index,
                 address.section_index,

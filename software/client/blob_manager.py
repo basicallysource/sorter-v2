@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -21,8 +22,12 @@ def loadData() -> dict[str, Any]:
 
 
 def saveData(data: dict[str, Any]) -> None:
-    with open(DATA_FILE, "w") as f:
+    tmp = DATA_FILE.with_suffix(".json.tmp")
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    tmp.rename(DATA_FILE)
 
 
 def getMachineId() -> str:

@@ -12,6 +12,8 @@ from server.api import (
     setRuntimeVariables,
     setCommandQueue,
     setController,
+    setSortingProfile,
+    setDistributionLayout,
 )
 from sorter_controller import SorterController
 from telemetry import Telemetry
@@ -98,6 +100,8 @@ def main() -> None:
         irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
     )
     setController(controller)
+    setSortingProfile(controller.coordinator.sorting_profile)
+    setDistributionLayout(controller.coordinator.distribution_layout)
     gc.logger.info("client starting...")
 
     vision.start()

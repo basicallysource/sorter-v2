@@ -6,6 +6,8 @@ import asyncio
 import queue
 
 from defs.sorter_controller import SorterLifecycle
+from sorting_profile import SortingProfile
+from irl.bin_layout import DistributionLayout
 
 from defs.events import (
     IdentityEvent,
@@ -33,6 +35,8 @@ runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
 controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
+sorting_profile_ref: Optional[SortingProfile] = None
+distribution_layout_ref: Optional[DistributionLayout] = None
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -53,6 +57,16 @@ def setCommandQueue(q: queue.Queue) -> None:
 def setController(c: Any) -> None:
     global controller_ref
     controller_ref = c
+
+
+def setSortingProfile(sp: SortingProfile) -> None:
+    global sorting_profile_ref
+    sorting_profile_ref = sp
+
+
+def setDistributionLayout(dl: DistributionLayout) -> None:
+    global distribution_layout_ref
+    distribution_layout_ref = dl
 
 
 @app.on_event("startup")
@@ -191,3 +205,49 @@ def resume() -> CommandResponse:
     event = ResumeCommandEvent(tag="resume", data=ResumeCommandData())
     command_queue.put(event)
     return CommandResponse(success=True)
+
+
+class SortingProfileMetadataResponse(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+    default_category_id: str
+    categories: Dict[str, str]
+
+
+@app.get("/sorting-profile", response_model=SortingProfileMetadataResponse)
+def getSortingProfile() -> SortingProfileMetadataResponse:
+    if sorting_profile_ref is None:
+        raise HTTPException(status_code=500, detail="Sorting profile not initialized")
+    meta = sorting_profile_ref.getMetadata()
+    return SortingProfileMetadataResponse(**meta)
+
+
+class BinResponse(BaseModel):
+    size: str
+    category_id: Optional[str] = None
+
+
+class BinSectionResponse(BaseModel):
+    bins: List[BinResponse]
+
+
+class LayerResponse(BaseModel):
+    sections: List[BinSectionResponse]
+
+
+class BinLayoutResponse(BaseModel):
+    layers: List[LayerResponse]
+
+
+@app.get("/bin-layout", response_model=BinLayoutResponse)
+def getBinLayout() -> BinLayoutResponse:
+    if distribution_layout_ref is None:
+        raise HTTPException(status_code=500, detail="Distribution layout not initialized")
+    layers = []
+    for layer in distribution_layout_ref.layers:
+        sections = []
+        for section in layer.sections:
+            bins = [BinResponse(size=b.size.value, category_id=b.category_id) for b in section.bins]
+            sections.append(BinSectionResponse(bins=bins))
+        layers.append(LayerResponse(sections=sections))
+    return BinLayoutResponse(layers=layers)

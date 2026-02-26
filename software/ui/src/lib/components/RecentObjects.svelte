@@ -191,6 +191,11 @@
 										{#if obj.stage !== 'created'}
 											<Badge color={stageColor(obj.stage)}>{obj.stage}</Badge>
 										{/if}
+										{#if obj.category_name}
+											<Badge color="blue">{obj.category_name}</Badge>
+										{:else if obj.category_id}
+											<Badge>{obj.category_id}</Badge>
+										{/if}
 										{#if obj.destination_bin}
 											<Badge>{formatBin(obj.destination_bin)}</Badge>
 										{/if}

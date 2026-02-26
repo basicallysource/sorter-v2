@@ -3,6 +3,7 @@
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import BinLayout from '$lib/components/BinLayout.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
@@ -100,6 +101,10 @@
 			<div class="w-64 flex-shrink-0">
 				<RecentObjects />
 			</div>
+		</div>
+
+		<div class="mt-3">
+			<BinLayout />
 		</div>
 	{:else}
 		<div class="dark:text-text-muted-dark py-12 text-center text-text-muted">

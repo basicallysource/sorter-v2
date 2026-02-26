@@ -1,0 +1,13 @@
+{
+  "layers": [
+    {
+      "servo_pin": 9,
+      "sections": [
+        ["medium", "medium", "medium"],
+        ["medium", "medium", "medium"],
+        ["medium", "medium", "medium"],
+        ["medium", "medium", "medium"]
+      ]
+    }
+  ]
+}

@@ -7,25 +7,59 @@ from utils.pick_menu import pickMenu
 from blob_manager import getMcuPath, setMcuPath
 
 
-def listAvailableDevices() -> list[str]:
+def listAvailableDevices(device_type: str = "arduino") -> list[str]:
+    """
+    List available USB serial devices.
+    
+    Args:
+        device_type: "arduino" or "rpi_pico"
+    
+    Returns:
+        List of device ports sorted by path
+    """
     ports = list_ports.comports()
     usb_ports = []
+    
     for port in ports:
         port_name = port.device
         if "Bluetooth" in port_name or "debug-console" in port_name:
             continue
-        usb_ports.append(port_name)
+        
+        # Filter by device type if specified
+        if device_type == "rpi_pico":
+            # RPi Pico uses VID 0x2E8A (Raspberry Pi), PID 0x000A (Pico SDK CDC UART)
+            if port.vid == 0x2E8A and port.pid == 0x000A:
+                usb_ports.append(port_name)
+        elif device_type == "arduino":
+            # Arduino Mega typically uses VID 0x2341 (Arduino), PID varies
+            # But we'll accept most common Arduino/CH340 serial devices
+            if port.vid and port.vid != 0x2E8A:  # Exclude Pico
+                usb_ports.append(port_name)
+        else:
+            # Default: list all devices
+            usb_ports.append(port_name)
+    
     return sorted(usb_ports)
 
 
-def promptForDevice(device_name: str, env_var_name: str) -> str:
+def promptForDevice(device_name: str, env_var_name: str, device_type: str = "arduino") -> str:
+    """
+    Prompt user to select a device.
+    
+    Args:
+        device_name: Display name for the device (e.g., "MCU")
+        env_var_name: Environment variable name to check
+        device_type: "arduino" or "rpi_pico"
+    
+    Returns:
+        Selected device port path
+    """
     env_value = os.environ.get(env_var_name)
-    available_devices = listAvailableDevices()
+    available_devices = listAvailableDevices(device_type)
 
     if not available_devices:
-        print(f"Error: No USB serial devices found")
+        print(f"Error: No {device_type} devices found")
         sys.exit(1)
-
     options = []
 
     if env_value:
@@ -94,28 +128,54 @@ def verifyDevice(device_path: str) -> bool:
     return False
 
 
-def discoverMCU() -> str:
+def discoverMCU() -> tuple[str, str]:
+    """
+    Discover MCU device and return (port, mcu_type).
+    
+    MCU_TYPE environment variable:
+    - "arduino": Arduino Mega 2560 with RAMPS 1.4 shield
+    - "rpi_pico": Raspberry Pi Pico running sorter_interface_firmware
+    
+    Returns:
+        Tuple of (port, mcu_type)
+    """
     env_value = os.environ.get("MCU_PATH")
+    mcu_type = os.environ.get("MCU_TYPE", "arduino").lower()
+    
+    if not mcu_type in ["arduino", "rpi_pico"]:
+        print(f"Error: Invalid MCU_TYPE '{mcu_type}'. Must be 'arduino' or 'rpi_pico'")
+        sys.exit(1)
+
     if env_value:
-        return env_value
+        return env_value, mcu_type
 
     cached_path = getMcuPath()
-    if cached_path:
+    if cached_path and mcu_type == "arduino":
         print(f"Trying cached MCU path {cached_path}...")
         if verifyDevice(cached_path):
             print(f"Verified feeder at {cached_path}")
-            return cached_path
+            return cached_path, mcu_type
         print("Cached path didn't respond, falling back to auto-discovery...")
 
-    print("Auto-discovering feeder MCU...")
-    mcu_path = autoDiscoverFeeder()
+    print(f"Auto-discovering {mcu_type} MCU...")
+    
+    if mcu_type == "arduino":
+        mcu_path = autoDiscoverFeeder()
+        if mcu_path:
+            print(f"Found Arduino MCU at {mcu_path}")
+            setMcuPath(mcu_path)
+            return mcu_path, mcu_type
+    
+    elif mcu_type == "rpi_pico":
+        # For Pico, use MCUBus.enumerate_buses() which filters by VID/PID
+        from hardware.bus import MCUBus
+        available_picos = MCUBus.enumerate_buses()
+        if available_picos:
+            print(f"Found Pico MCU at {available_picos[0]}")
+            return available_picos[0], mcu_type
 
-    if mcu_path:
-        print(f"Found feeder at {mcu_path}")
-        setMcuPath(mcu_path)
-        return mcu_path
-
-    print("Auto-discovery failed. Please select device manually:")
-    mcu_path = promptForDevice("MCU", "MCU_PATH")
-    setMcuPath(mcu_path)
-    return mcu_path
+    print(f"Auto-discovery failed. Please select device manually:")
+    port = promptForDevice("MCU", "MCU_PATH", mcu_type)
+    if mcu_type == "arduino":
+        setMcuPath(port)
+    return port, mcu_type

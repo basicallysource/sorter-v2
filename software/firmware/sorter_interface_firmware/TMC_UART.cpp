@@ -169,6 +169,7 @@ void TMC_UART_Bus::writeRegister(uint8_t address, uint8_t reg, uint32_t value) {
  *  \return 0 on success, negative error code on failure.
  */
 int TMC_UART_Bus::readRegister(uint8_t address, uint8_t reg, uint32_t* value) {
+    uart_clear_rx_fifo(_uart); // Flush any stale bytes before starting
     struct TMC_READ_COMMAND cmd;
     cmd.sync = 0x55; // Sync byte for read
     cmd.address = address;

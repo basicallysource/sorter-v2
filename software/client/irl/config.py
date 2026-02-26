@@ -2,10 +2,11 @@ import time
 
 from global_config import GlobalConfig
 from .mcu import MCU
+from .mcu_pico import PicoMCU
 from .stepper import Stepper
 from .servo import Servo
 from .device_discovery import discoverMCU
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 SERVO_OPEN_ANGLE = 0
 SERVO_CLOSED_ANGLE = 72
@@ -71,6 +72,7 @@ class ArucoTagConfig:
 
 class IRLConfig:
     mcu_path: str
+    mcu_type: str
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -87,7 +89,7 @@ class IRLConfig:
 
 
 class IRLInterface:
-    mcu: MCU
+    mcu: Union[MCU, PicoMCU]
     carousel_stepper: Stepper
     chute_stepper: Stepper
     first_c_channel_rotor_stepper: Stepper
@@ -164,7 +166,9 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
-    irl_config.mcu_path = discoverMCU()
+    mcu_port, mcu_type = discoverMCU()
+    irl_config.mcu_path = mcu_port
+    irl_config.mcu_type = mcu_type
     camera_setup = getCameraSetup()
 
     if camera_setup is None:
@@ -190,20 +194,45 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.classification_camera_top = mkCameraConfig(
         device_index=classification_camera_top_index
     )
-    irl_config.carousel_stepper = mkStepperConfig(
-        step_pin=36, dir_pin=34, enable_pin=30
-    )
-    irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
-    # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
-    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=46, dir_pin=48, enable_pin=62
-    )
-    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=60, dir_pin=61, enable_pin=56
-    )
-    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=54, dir_pin=55, enable_pin=38
-    )
+    
+    # Use Pico-specific pin configuration if running on RPi Pico
+    if mcu_type == "rpi_pico":
+        # Basically board stepper configuration: only 4 steppers available
+        # Stepper 0: carousel
+        irl_config.carousel_stepper = mkStepperConfig(
+            step_pin=28, dir_pin=27, enable_pin=0
+        )
+        # Stepper 1: chute
+        irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=22, enable_pin=0)
+        # Stepper 2: first_c_channel_rotor
+        irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=21, dir_pin=20, enable_pin=0
+        )
+        # Stepper 3: second_c_channel_rotor
+        irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=19, dir_pin=18, enable_pin=0
+        )
+        # Note: Pico board doesn't have a 5th stepper, so we use the same as second
+        irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=19, dir_pin=18, enable_pin=0
+        )
+    else:
+        # Arduino/RAMPS 1.4 configuration
+        irl_config.carousel_stepper = mkStepperConfig(
+            step_pin=36, dir_pin=34, enable_pin=30
+        )
+        irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
+        # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
+        irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=46, dir_pin=48, enable_pin=62
+        )
+        irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=60, dir_pin=61, enable_pin=56
+        )
+        irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
+            step_pin=54, dir_pin=55, enable_pin=38
+        )
+    
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
@@ -212,7 +241,16 @@ def mkIRLConfig() -> IRLConfig:
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface = IRLInterface()
 
-    mcu = MCU(gc, config.mcu_path)
+    # Initialize the appropriate MCU type
+    mcu_type = config.mcu_type if hasattr(config, 'mcu_type') else "arduino"
+    
+    if mcu_type == "rpi_pico":
+        gc.logger.info(f"Initializing RPi Pico MCU on {config.mcu_path}")
+        mcu = PicoMCU(gc, config.mcu_path)
+    else:
+        gc.logger.info(f"Initializing Arduino MCU on {config.mcu_path}")
+        mcu = MCU(gc, config.mcu_path)
+    
     irl_interface.mcu = mcu
 
     irl_interface.carousel_stepper = Stepper(

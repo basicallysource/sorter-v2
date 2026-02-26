@@ -18,7 +18,15 @@
                 <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800" onclick="submitProfileNameEdit()">Save</button>
                 <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="cancelProfileNameEdit()">Cancel</button>
             </div>
-            <p class="mt-2 text-sm text-slate-600">{{ profile.description }}</p>
+            <div class="mt-2 flex flex-wrap items-start gap-1.5">
+                <p class="min-w-0 flex-1 text-sm text-slate-600" id="profile-description-display">{{ profile.description or 'No description' }}</p>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" id="btn-profile-description-edit" onclick="openProfileDescriptionEditor()" title="Edit description">✎</button>
+            </div>
+            <div id="profile-description-editor" class="mt-2 hidden flex flex-wrap items-center gap-1.5">
+                <input type="text" id="profile-description-input" value="{{ profile.description }}" class="m-0 min-w-[220px] flex-1" onkeydown="handleProfileDescriptionKey(event)">
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800" onclick="submitProfileDescriptionEdit()">Save</button>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="cancelProfileDescriptionEdit()">Cancel</button>
+            </div>
         </div>
         <div class="grid gap-2 self-start sm:grid-cols-[minmax(220px,1fr)_minmax(0,2fr)]">
             <div class="p-1">
@@ -135,6 +143,7 @@ const PAGE_SIZE = 100;
 let parts_sidebar_width = 520;
 let parts_sidebar_resize = null;
 let profile_name_editing = false;
+let profile_description_editing = false;
 
 const RB_CAT_LIST = Object.entries(RB_CATEGORIES)
     .map(([id, c]) => ({id: parseInt(id), name: c.name}))
@@ -147,36 +156,36 @@ const BL_CAT_LIST = Object.entries(BL_CATEGORIES)
     .sort((a, b) => a.name.localeCompare(b.name));
 
 const FIELD_CONFIG = {
-    category_id:   {label: "RB Category", ops: {eq: "is", "in": "is one of"}, valueType: "rb_category"},
+    category_id:   {label: "RB Category", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "rb_category"},
     category_name: {label: "RB Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
-    color_id:      {label: "Color", ops: {eq: "is", "in": "is one of"}, valueType: "color"},
+    color_id:      {label: "Color", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "color"},
     name:          {label: "RB Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
-    part_num:      {label: "RB Part Number", ops: {eq: "is", "in": "is one of"}, valueType: "text"},
-    year_from:     {label: "Year From", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    year_to:       {label: "Year To", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bricklink_id:  {label: "BL Part ID", ops: {eq: "is", "in": "is one of"}, valueType: "text"},
-    bricklink_item_count:     {label: "BL Item Count", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bricklink_primary_item_no:{label: "BL Primary Item #", ops: {eq: "is", contains: "contains", regex: "matches regex"}, valueType: "text"},
-    bl_price_min:             {label: "BL Min Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_max:             {label: "BL Max Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_avg:             {label: "BL Avg Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_qty_avg:         {label: "BL Qty Avg Price", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_unit_quantity:   {label: "BL Unit Qty", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_total_quantity:  {label: "BL Total Qty", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_currency:        {label: "BL Price Currency", ops: {eq: "is", contains: "contains"}, valueType: "text"},
-    bl_price_new_or_used:     {label: "BL Price New/Used", ops: {eq: "is"}, valueType: "text"},
-    bl_price_guide_type:      {label: "BL Guide Type", ops: {eq: "is"}, valueType: "text"},
-    bl_price_country_code:    {label: "BL Country Code", ops: {eq: "is"}, valueType: "text"},
+    part_num:      {label: "RB Part Number", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "text"},
+    year_from:     {label: "Year From", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    year_to:       {label: "Year To", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_id:  {label: "BL Part ID", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "text"},
+    bricklink_item_count:     {label: "BL Item Count", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_primary_item_no:{label: "BL Primary Item #", ops: {eq: "is", neq: "is not", contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_price_min:             {label: "BL Min Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_max:             {label: "BL Max Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_avg:             {label: "BL Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_qty_avg:         {label: "BL Qty Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_unit_quantity:   {label: "BL Unit Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_total_quantity:  {label: "BL Total Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_currency:        {label: "BL Price Currency", ops: {eq: "is", neq: "is not", contains: "contains"}, valueType: "text"},
+    bl_price_new_or_used:     {label: "BL Price New/Used", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_price_guide_type:      {label: "BL Guide Type", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_price_country_code:    {label: "BL Country Code", ops: {eq: "is", neq: "is not"}, valueType: "text"},
     bl_catalog_name:          {label: "BL Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
-    bl_category_id:           {label: "BL Category", ops: {eq: "is", "in": "is one of"}, valueType: "bl_category"},
+    bl_category_id:           {label: "BL Category", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "bl_category"},
     bl_category_name:         {label: "BL Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
-    bl_catalog_category_id:   {label: "BL Catalog Category ID", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_year_released: {label: "BL Catalog Year", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_weight:        {label: "BL Catalog Weight", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_dim_x:         {label: "BL Catalog Dim X", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_dim_y:         {label: "BL Catalog Dim Y", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_dim_z:         {label: "BL Catalog Dim Z", ops: {eq: "is", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_catalog_is_obsolete:   {label: "BL Catalog Is Obsolete (1/0)", ops: {eq: "is"}, valueType: "number"},
+    bl_catalog_category_id:   {label: "BL Catalog Category ID", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_year_released: {label: "BL Catalog Year", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_weight:        {label: "BL Catalog Weight", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_x:         {label: "BL Catalog Dim X", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_y:         {label: "BL Catalog Dim Y", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_z:         {label: "BL Catalog Dim Z", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_is_obsolete:   {label: "BL Catalog Is Obsolete (1/0)", ops: {eq: "is", neq: "is not"}, valueType: "number"},
 };
 const FIELD_LIST = Object.entries(FIELD_CONFIG).map(([k, v]) => ({value: k, label: v.label}));
 
@@ -1179,7 +1188,7 @@ function renderConditionRow(cond, rule_id) {
 
 function renderValueInput(cond, rule_id, fc) {
     let vt = fc.valueType;
-    if (vt === 'rb_category' && cond.op === 'eq') {
+    if (vt === 'rb_category' && (cond.op === 'eq' || cond.op === 'neq')) {
         let opts = RB_CAT_LIST.map(c =>
             `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
         ).join('');
@@ -1194,7 +1203,7 @@ function renderValueInput(cond, rule_id, fc) {
         return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
             ${opts}</select>`;
     }
-    if (vt === 'bl_category' && cond.op === 'eq') {
+    if (vt === 'bl_category' && (cond.op === 'eq' || cond.op === 'neq')) {
         let opts = BL_CAT_LIST.map(c =>
             `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
         ).join('');
@@ -1209,7 +1218,7 @@ function renderValueInput(cond, rule_id, fc) {
         return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
             ${opts}</select>`;
     }
-    if (vt === 'color' && cond.op === 'eq') {
+    if (vt === 'color' && (cond.op === 'eq' || cond.op === 'neq')) {
         let opts = RB_COLOR_LIST.map(c =>
             `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
         ).join('');
@@ -1759,6 +1768,21 @@ async function renameProfile(name) {
     return true;
 }
 
+function setProfileDescriptionText(text) {
+    let display_el = document.getElementById('profile-description-display');
+    if (!display_el) return;
+    let next_text = (text || '').trim();
+    if (next_text) {
+        display_el.textContent = next_text;
+        display_el.classList.remove('italic', 'text-slate-400');
+        display_el.classList.add('text-slate-600');
+    } else {
+        display_el.textContent = 'No description';
+        display_el.classList.add('italic', 'text-slate-400');
+        display_el.classList.remove('text-slate-600');
+    }
+}
+
 function setProfileNameEditing(is_editing) {
     profile_name_editing = is_editing;
     let display_el = document.getElementById('profile-name-display');
@@ -1802,6 +1826,60 @@ function handleProfileNameKey(event) {
     } else if (event.key === 'Escape') {
         event.preventDefault();
         cancelProfileNameEdit();
+    }
+}
+
+async function updateProfileDescription(description) {
+    let form = new FormData();
+    form.append('description', description);
+    let res = await fetch(`/api/profiles/${PROFILE_ID}/description`, {method: 'PUT', body: form});
+    if (!res.ok) return false;
+    let input_el = document.getElementById('profile-description-input');
+    if (input_el) input_el.value = description;
+    setProfileDescriptionText(description);
+    return true;
+}
+
+function setProfileDescriptionEditing(is_editing) {
+    profile_description_editing = is_editing;
+    let display_el = document.getElementById('profile-description-display');
+    let edit_btn = document.getElementById('btn-profile-description-edit');
+    let editor_el = document.getElementById('profile-description-editor');
+    let input_el = document.getElementById('profile-description-input');
+    if (display_el) display_el.classList.toggle('hidden', is_editing);
+    if (edit_btn) edit_btn.classList.toggle('hidden', is_editing);
+    if (editor_el) editor_el.classList.toggle('hidden', !is_editing);
+    if (is_editing && input_el) {
+        let current_text = display_el && display_el.textContent === 'No description' ? '' : (display_el?.textContent || '');
+        input_el.value = current_text;
+        input_el.focus();
+        input_el.select();
+    }
+}
+
+function openProfileDescriptionEditor() {
+    setProfileDescriptionEditing(true);
+}
+
+function cancelProfileDescriptionEdit() {
+    setProfileDescriptionEditing(false);
+}
+
+async function submitProfileDescriptionEdit() {
+    let input_el = document.getElementById('profile-description-input');
+    if (!input_el) return;
+    let next_description = input_el.value.trim();
+    let ok = await updateProfileDescription(next_description);
+    if (ok) setProfileDescriptionEditing(false);
+}
+
+function handleProfileDescriptionKey(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitProfileDescriptionEdit();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelProfileDescriptionEdit();
     }
 }
 
@@ -1881,6 +1959,7 @@ function stopPartsSidebarResize() {
 renderFallbackOptions();
 renderRuleList();
 refreshPreview();
+setProfileDescriptionText(document.getElementById('profile-description-input')?.value || '');
 applyPartsSidebarWidth();
 window.addEventListener('resize', applyPartsSidebarWidth);
 applyProfileTailwindUi(document);

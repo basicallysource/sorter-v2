@@ -18,20 +18,21 @@
                     {% endif %}
                 </p>
                 {% if api_total and cache_count >= api_total %}
-                    <p><mark>All parts synced</mark></p>
+                    <p><span class="badge">All parts synced</span></p>
                 {% endif %}
             </div>
 
             <div class="space-y-2">
                 <div class="flex flex-wrap gap-2">
-                    <button id="btn-sync-cats" onclick="syncCategories()">Sync Categories</button>
-                    <button id="btn-sync-colors" onclick="syncColors()">Sync Colors</button>
-                    <button id="btn-sync-parts" onclick="syncParts()">Sync Parts</button>
-                    <button id="btn-sync-bricklink" onclick="syncBricklink()">Sync BrickLink</button>
-                    <button id="btn-stop-sync" onclick="stopSync()" style="display:none;" class="secondary">Stop</button>
+                    <button data-ui-btn="1" type="button" id="btn-sync-cats" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" onclick="syncCategories()">Sync Categories</button>
+                    <button data-ui-btn="1" type="button" id="btn-sync-colors" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" onclick="syncColors()">Sync Colors</button>
+                    <button data-ui-btn="1" type="button" id="btn-sync-parts" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" onclick="syncParts()">Sync Parts</button>
+                    <button data-ui-btn="1" type="button" id="btn-import-brickstore" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" onclick="importBrickstore()">Import BrickStore DB</button>
+                    <button data-ui-btn="1" type="button" id="btn-sync-prices" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" onclick="syncPrices()">Sync Prices</button>
+                    <button data-ui-btn="1" type="button" id="btn-stop-sync" class="hidden inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50" onclick="stopSync()">Stop</button>
                 </div>
                 <div class="progress-info">
-                    <progress id="sync-progress" value="0" max="100" style="display:none;"></progress>
+                    <progress id="sync-progress" value="0" max="100" class="hidden"></progress>
                     <span id="sync-status" class="text-sm"></span>
                 </div>
                 <div id="sync-log"></div>
@@ -46,7 +47,7 @@
         </div>
 
         {% if profiles %}
-        <div class="overflow-x-auto border" style="border-color:var(--app-border);">
+        <div class="overflow-x-auto">
             <table>
                 <thead>
                     <tr>
@@ -68,7 +69,7 @@
                         <td>{{ p.category_count }}</td>
                         <td>{{ p.updated_at[:10] }}</td>
                         <td class="text-[11px] break-all">{{ p.file_path }}</td>
-                        <td><button class="outline secondary px-2 py-1 text-xs" onclick="deleteProfile('{{ p.id }}')">Delete</button></td>
+                        <td><button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700" onclick="deleteProfile('{{ p.id }}')">Delete</button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -80,7 +81,7 @@
 
         <div class="mt-4">
             <details>
-                <summary>New Profile</summary>
+                <summary class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-sky-300 bg-sky-50 px-2 text-xs font-medium leading-none text-sky-700 hover:bg-sky-100">+ New Profile</summary>
                 <form id="new-profile-form" onsubmit="createProfile(event)" class="space-y-3">
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <label class="space-y-1">
@@ -92,7 +93,7 @@
                             <input type="text" name="description">
                         </label>
                     </div>
-                    <button type="submit">Create</button>
+                    <button data-ui-btn="1" type="submit" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">Create</button>
                 </form>
             </details>
         </div>
@@ -108,13 +109,13 @@ function updateSyncUI(data) {
     let status = document.getElementById('sync-status');
     let progress = document.getElementById('sync-progress');
     let stop_btn = document.getElementById('btn-stop-sync');
-    let sync_btns = document.querySelectorAll('#btn-sync-cats, #btn-sync-colors, #btn-sync-parts, #btn-sync-bricklink');
+    let sync_btns = document.querySelectorAll('#btn-sync-cats, #btn-sync-colors, #btn-sync-parts, #btn-import-brickstore, #btn-sync-prices');
 
     status.textContent = data.last_message;
 
     if (data.running) {
         sync_btns.forEach(b => { b.disabled = true; });
-        stop_btn.style.display = '';
+        stop_btn.classList.remove('hidden');
         stop_btn.disabled = false;
         let pct = null;
         if (typeof data.progress_total === 'number' && data.progress_total > 0 && typeof data.progress_current === 'number') {
@@ -124,12 +125,12 @@ function updateSyncUI(data) {
         }
         if (pct !== null) {
             progress.value = pct;
-            progress.style.display = '';
+            progress.classList.remove('hidden');
         }
     } else {
         sync_btns.forEach(b => { b.disabled = false; b.removeAttribute('aria-busy'); });
-        stop_btn.style.display = 'none';
-        progress.style.display = 'none';
+        stop_btn.classList.add('hidden');
+        progress.classList.add('hidden');
         if (poll_interval) {
             clearInterval(poll_interval);
             poll_interval = null;
@@ -154,8 +155,12 @@ function startPolling() {
 async function startSync(endpoint) {
     let res = await fetch(endpoint, {method: 'POST'});
     if (res.status === 409) {
-        // already running, just start polling
         startPolling();
+        return;
+    }
+    if (!res.ok) {
+        let data = await res.json().catch(() => ({}));
+        document.getElementById('sync-status').textContent = 'Error: ' + (data.detail || res.statusText);
         return;
     }
     startPolling();
@@ -164,7 +169,8 @@ async function startSync(endpoint) {
 function syncCategories() { startSync('/api/sync-categories'); }
 function syncColors() { startSync('/api/sync-colors'); }
 function syncParts() { startSync('/api/sync-parts'); }
-function syncBricklink() { startSync('/api/sync-bricklink'); }
+function importBrickstore() { startSync('/api/import-brickstore'); }
+function syncPrices() { startSync('/api/sync-prices'); }
 
 async function stopSync() {
     document.getElementById('btn-stop-sync').disabled = true;

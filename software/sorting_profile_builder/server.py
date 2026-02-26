@@ -1,11 +1,13 @@
 import os
+import sqlite3
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from global_config import GlobalConfig
-from parts_cache import PartsCache, SyncManager, searchParts
+from db import PartsData, searchParts as dbSearchParts
+from parts_cache import SyncManager
 from sorting_profile import (
     SortingProfile, mkSortingProfile, loadSortingProfile, saveSortingProfile,
     listSortingProfiles, deleteSortingProfile,
@@ -59,7 +61,7 @@ class ConditionUpdateBody(BaseModel):
     value: str | int | list | None = None
 
 
-def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
+def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, sync: SyncManager) -> FastAPI:
     app = FastAPI(title="Sorting Profile Builder")
     templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
@@ -73,10 +75,10 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         return templates.TemplateResponse("index.html", {
             "request": request,
             "profiles": profiles,
-            "cache_count": len(cache.parts),
-            "cat_count": len(cache.categories),
-            "color_count": len(cache.colors),
-            "api_total": cache.api_total_parts,
+            "cache_count": len(parts_data.parts),
+            "cat_count": len(parts_data.categories),
+            "color_count": len(parts_data.colors),
+            "api_total": parts_data.api_total_parts,
         })
 
     @app.get("/profile/{profile_id}", response_class=HTMLResponse)
@@ -90,9 +92,9 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
             "request": request,
             "profile": sp,
             "profile_path": os.path.abspath(fpath),
-            "rebrickable_categories": cache.categories,
-            "bricklink_categories": cache.bricklink_categories,
-            "rebrickable_colors": cache.colors,
+            "rebrickable_categories": parts_data.categories,
+            "bricklink_categories": parts_data.bricklink_categories,
+            "rebrickable_colors": parts_data.colors,
             "fallback_mode": sp.fallback_mode,
         })
 
@@ -100,33 +102,42 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
 
     @app.get("/api/sync-status")
     def apiSyncStatus():
-        return sync.getStatus(cache)
+        return sync.getStatus(parts_data)
 
     @app.post("/api/sync-categories")
     def apiSyncCategories():
-        started = sync.startCategoriesSync(gc, cache)
+        started = sync.startCategoriesSync(gc, conn, parts_data)
         if not started:
             raise HTTPException(409, "A sync is already running")
         return {"started": True}
 
     @app.post("/api/sync-colors")
     def apiSyncColors():
-        started = sync.startColorsSync(gc, cache)
+        started = sync.startColorsSync(gc, conn, parts_data)
         if not started:
             raise HTTPException(409, "A sync is already running")
         return {"started": True}
 
     @app.post("/api/sync-parts")
     def apiSyncParts():
-        started = sync.startPartsSync(gc, cache)
+        started = sync.startPartsSync(gc, conn, parts_data)
         if not started:
             raise HTTPException(409, "A sync is already running")
         return {"started": True}
 
-    @app.post("/api/sync-bricklink")
-    def apiSyncBricklink():
-        started = sync.startBricklinkSync(gc, cache)
+    @app.post("/api/import-brickstore")
+    def apiImportBrickstore():
+        started = sync.startBrickstoreImport(gc, conn, parts_data)
         if not started:
+            raise HTTPException(409, "A sync is already running")
+        return {"started": True}
+
+    @app.post("/api/sync-prices")
+    def apiSyncPrices():
+        started = sync.startPriceSync(gc, conn, parts_data)
+        if not started:
+            if sync.error:
+                raise HTTPException(400, sync.error)
             raise HTTPException(409, "A sync is already running")
         return {"started": True}
 
@@ -139,15 +150,13 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
     def apiSearchParts(q: str = "", cat_id: int | None = None, limit: int = 100, offset: int = 0):
         if not q and cat_id is None:
             return {"results": [], "total": 0, "offset": 0, "limit": limit}
-        all_results = searchParts(cache, q, category_filter=cat_id, limit=0)
-        total = len(all_results)
-        page = all_results[offset:offset + limit] if limit > 0 else all_results
-        return {"results": page, "total": total, "offset": offset, "limit": limit}
+        results, total = dbSearchParts(conn, q, cat_filter=cat_id, limit=limit, offset=offset)
+        return {"results": results, "total": total, "offset": offset, "limit": limit}
 
     @app.get("/api/parts-by-category/{cat_id}")
     def apiPartsByCategory(cat_id: int, limit: int = 200):
-        results = searchParts(cache, "", category_filter=cat_id, limit=limit)
-        cat = cache.categories.get(cat_id)
+        results, total = dbSearchParts(conn, "", cat_filter=cat_id, limit=limit, offset=0)
+        cat = parts_data.categories.get(cat_id)
         return {"results": results, "category": cat}
 
     # --- api: profiles ---
@@ -164,6 +173,13 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         sp.name = name
         saveSortingProfile(gc.profiles_dir, sp)
         return {"name": sp.name}
+
+    @app.put("/api/profiles/{profile_id}/description")
+    def apiUpdateProfileDescription(profile_id: str, description: str = Form("")):
+        sp = _getOpenProfile(open_profile, gc, profile_id)
+        sp.description = description
+        saveSortingProfile(gc.profiles_dir, sp)
+        return {"description": sp.description}
 
     @app.delete("/api/profiles/{profile_id}")
     def apiDeleteProfile(profile_id: str):
@@ -280,20 +296,19 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         sp = _getOpenProfile(open_profile, gc, profile_id)
         result = generateProfile(
             sp,
-            cache.parts,
-            cache.categories,
-            cache.bricklink_categories,
+            parts_data.parts,
+            parts_data.categories,
+            parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
         )
         sp.part_to_category = result["part_to_category"]
         sp.categories = {}
         for rule in sp.rules:
             sp.categories[rule["id"]] = {"name": rule["name"]}
-        # add rb_* categories from results
         for cat_id in result["stats"]["per_category"]:
             if cat_id.startswith("rb_"):
                 rb_id = int(cat_id[3:])
-                rb_cat = cache.categories.get(rb_id)
+                rb_cat = parts_data.categories.get(rb_id)
                 sp.categories[cat_id] = {"name": rb_cat["name"] if rb_cat else cat_id}
         saveSortingProfile(gc.profiles_dir, sp)
         return result["stats"]
@@ -307,9 +322,9 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
             _migrateRules(sp.rules)
         result = generateProfile(
             sp,
-            cache.parts,
-            cache.categories,
-            cache.bricklink_categories,
+            parts_data.parts,
+            parts_data.categories,
+            parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
         )
         sp.rules = original_rules
@@ -329,9 +344,9 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
         ancestor_checks = getAncestorChecks(sp, rule_id)
         result = previewRule(
             rule,
-            cache.parts,
-            categories=cache.categories,
-            bricklink_categories=cache.bricklink_categories,
+            parts_data.parts,
+            categories=parts_data.categories,
+            bricklink_categories=parts_data.bricklink_categories,
             limit=limit,
             offset=offset,
             q=q,
@@ -349,13 +364,13 @@ def mkApp(gc: GlobalConfig, cache: PartsCache, sync: SyncManager) -> FastAPI:
             _migrateRules(sp.rules)
         result = generateProfile(
             sp,
-            cache.parts,
-            cache.categories,
-            cache.bricklink_categories,
+            parts_data.parts,
+            parts_data.categories,
+            parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
         )
         sp.rules = original_rules
-        return partsForCategory(result["part_to_category"], cat_id, cache.parts, q=q, offset=offset, limit=limit)
+        return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit)
 
     @app.get("/api/profile/{profile_id}/stats")
     def apiProfileStats(profile_id: str):

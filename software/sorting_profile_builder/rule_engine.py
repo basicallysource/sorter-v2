@@ -16,6 +16,8 @@ def _evalPredicate(cond, part, color_id, ctx=None):
 
     if op == "eq":
         return actual == value
+    if op == "neq":
+        return actual != value
     if op == "in":
         return actual in value
     if op == "contains":

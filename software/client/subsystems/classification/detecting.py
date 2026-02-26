@@ -60,6 +60,7 @@ class Detecting(BaseState):
                     f"(score={score:.1f}, hot_px={hot_px})"
                 )
                 self.shared.classification_ready = False
+                self.logger.info("Detecting: set classification_ready=False")
                 self.carousel.addPieceAtFeeder()
                 return ClassificationState.ROTATING
         else:

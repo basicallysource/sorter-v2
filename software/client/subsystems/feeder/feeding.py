@@ -8,6 +8,8 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig, RotorPulseConfig
 from vision import VisionManager
 
+DROPOFF_PAUSE_MS = 500
+
 
 class Feeding(BaseState):
     def __init__(
@@ -23,8 +25,22 @@ class Feeding(BaseState):
         self.shared = shared
         self.vision = vision
         self.last_analysis_state = None
+        self._was_in_3_precise = False
+        self._pause_until: float = 0
 
     def _pulseAndWait(self, stepper, cfg: RotorPulseConfig) -> None:
+        mcu = stepper.mcu
+        if mcu.outstanding_t_count > 0:
+            self.gc.logger.info(
+                f"feeder _pulseAndWait: skipping, {mcu.outstanding_t_count} commands still outstanding"
+            )
+            # wait for the outstanding commands to drain before trying again
+            mcu.outstanding_t_drained.wait()
+            return
+
+        self.gc.logger.info(
+            f"feeder _pulseAndWait: sending {cfg.steps_per_pulse} steps to {stepper.name}"
+        )
         stepper.moveSteps(
             -cfg.steps_per_pulse,
             cfg.delay_us,
@@ -41,12 +57,17 @@ class Feeding(BaseState):
             cfg.decel_steps,
         )
         wait_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+        self.gc.logger.info(
+            f"feeder _pulseAndWait: sleeping {wait_ms}ms (exec_ms={exec_ms}, delay_between={cfg.delay_between_pulse_ms})"
+        )
         time.sleep(wait_ms / 1000.0)
+        self.gc.logger.info("feeder _pulseAndWait: sleep done")
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
 
         if not self.shared.classification_ready:
+            self.gc.logger.info("Feeding.step: classification_ready=False, transitioning to IDLE")
             return FeederState.IDLE
         return None
 
@@ -57,6 +78,7 @@ class Feeding(BaseState):
 
         while not self._stop_event.is_set():
             prof.hit("feeder.execution_loop.calls")
+            self.gc.logger.info("feeder execution loop: top of loop, stop_event not set")
             prof.mark("feeder.execution_loop.interval_ms")
 
             with prof.timer("feeder.execution_loop.total_ms"):
@@ -79,6 +101,24 @@ class Feeding(BaseState):
                 ACTUALLY_RUN = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                     not self.shared.chute_move_in_progress
                 )
+
+                # track when a piece leaves the 3rd channel precise zone
+                if state == FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE:
+                    self._was_in_3_precise = True
+                elif self._was_in_3_precise:
+                    self._was_in_3_precise = False
+                    self._pause_until = time.time() + DROPOFF_PAUSE_MS / 1000.0
+                    self.gc.logger.info(
+                        f"Feeder: piece left 3rd precise zone, pausing {DROPOFF_PAUSE_MS}ms"
+                    )
+
+                remaining_ms = (self._pause_until - time.time()) * 1000
+                if remaining_ms > 0:
+                    self.gc.logger.info(
+                        f"Feeder: paused after dropoff ({remaining_ms:.0f}ms remaining)"
+                    )
+                    time.sleep(remaining_ms / 1000.0)
+                    continue
 
                 if state == FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE:
                     prof.hit("feeder.path.object_in_3_dropzone_precise")
@@ -121,6 +161,7 @@ class Feeding(BaseState):
                         )
                     else:
                         self._pulseAndWait(stepper, cfg)
+        self.gc.logger.info("feeder execution loop: exited, stop_event was set")
 
     def cleanup(self) -> None:
         super().cleanup()

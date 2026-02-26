@@ -33,8 +33,8 @@ class JsonSortingProfile(SortingProfile):
             self.part_to_category[str(part_id)] = str(category_id)
 
     def getCategoryIdForPart(self, part_id: str) -> str:
-        out = self.part_to_category.get(part_id, self.default_category_id)
-        return out
+        key = f"any_color-{part_id}"
+        return self.part_to_category.get(key, self.default_category_id)
 
 
 def mkSortingProfile(gc: GlobalConfig) -> SortingProfile:

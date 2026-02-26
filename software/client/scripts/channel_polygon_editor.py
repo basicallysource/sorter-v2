@@ -1,13 +1,14 @@
 """
-Channel polygon editor for c-channel mask definitions.
-ArUco rim tags are fixed anchor vertices; click to add intermediate vertices.
+Channel & carousel polygon editor.
+All regions are click-to-draw polygons stored in blob_manager.
+Shift-click on a channel tab to place the section-0 reference point.
 
 Run: /opt/homebrew/opt/python@3.11/bin/python3.11 client/scripts/channel_polygon_editor.py
-Then open http://localhost:8100. Left-click adds a vertex, right-click removes nearest user vertex.
+Then open http://localhost:8100. Left-click adds a vertex, shift-click sets section 0,
+right-click removes nearest vertex.
 """
 
 import sys
-import json
 from pathlib import Path
 
 import cv2
@@ -19,33 +20,13 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 from blob_manager import getCameraSetup, getChannelPolygons, setChannelPolygons
-from global_config import mkGlobalConfig
-from irl.config import mkCameraConfig, mkArucoTagConfig
+from irl.config import mkCameraConfig
 from vision.camera import CaptureThread
-from vision.aruco_tracker import ArucoTracker
 
 PORT = 8100
 
-aruco_tag_config = mkArucoTagConfig()
-
-CHANNEL_ANCHOR_IDS = {
-    "second": [
-        aruco_tag_config.second_c_channel_radius1_id,
-        aruco_tag_config.second_c_channel_radius2_id,
-        aruco_tag_config.second_c_channel_radius3_id,
-        aruco_tag_config.second_c_channel_radius4_id,
-    ],
-    "third": [
-        aruco_tag_config.third_c_channel_radius1_id,
-        aruco_tag_config.third_c_channel_radius2_id,
-        aruco_tag_config.third_c_channel_radius3_id,
-        aruco_tag_config.third_c_channel_radius4_id,
-    ],
-}
-
 app = Flask(__name__)
 capture: CaptureThread = None  # type: ignore[assignment]
-tracker: ArucoTracker = None   # type: ignore[assignment]
 
 HTML = """<!DOCTYPE html>
 <html>
@@ -61,11 +42,10 @@ HTML = """<!DOCTYPE html>
            border: 2px solid transparent; color: #eee; font-family: monospace; font-size: 13px; }
     .tab.second.active { border-color: #ffc800; }
     .tab.third.active  { border-color: #00c8ff; }
+    .tab.carousel.active { border-color: #00ff80; }
     button.action { padding: 5px 12px; cursor: pointer; border-radius: 4px;
                     background: #2a6; color: #fff; border: none; font-family: monospace; font-size: 13px; }
     button.danger { background: #833; }
-    button.toggle { background: #2a2a2a; border: 2px solid #555; }
-    button.toggle.on { border-color: #f80; color: #f80; }
     #status { color: #888; font-size: 12px; margin-left: auto; }
     .canvas-wrap { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; }
     canvas { max-width: 100%; max-height: 100%; cursor: crosshair; display: block; }
@@ -75,29 +55,23 @@ HTML = """<!DOCTYPE html>
   <div class="topbar">
     <button class="tab second active" onclick="setChannel('second')">Second Channel</button>
     <button class="tab third" onclick="setChannel('third')">Third Channel</button>
-    <button id="freeDrawBtn" class="action toggle" onclick="toggleFreeDraw()">Free Draw</button>
+    <button class="tab carousel" onclick="setChannel('carousel')">Carousel</button>
     <button class="action danger" onclick="clearCurrent()">Clear</button>
     <button class="action" onclick="savePolygons()">Save</button>
-    <span id="status">loading...</span>
+    <span id="status">loading... | shift-click to set section 0</span>
   </div>
   <div class="canvas-wrap">
     <canvas id="c" width="1920" height="1080"></canvas>
   </div>
   <script>
-    const ANCHOR_IDS = {{ anchor_ids | safe }};
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
 
     let currentChannel = 'second';
-    let anchors = { second: {}, third: {} };
-    let userPoints = { second: [], third: [] };
-    let freeDraw = false;
+    let userPoints = { second: [], third: [], carousel: [] };
+    // section-0 reference points (pixel coords) for each channel
+    let sectionZeroPoints = { second: null, third: null };
 
-    function toggleFreeDraw() {
-      freeDraw = !freeDraw;
-      const btn = document.getElementById('freeDrawBtn');
-      btn.classList.toggle('on', freeDraw);
-    }
     let frameImg = new Image();
 
     function setChannel(ch) {
@@ -108,6 +82,7 @@ HTML = """<!DOCTYPE html>
 
     function clearCurrent() {
       userPoints[currentChannel] = [];
+      if (currentChannel !== 'carousel') sectionZeroPoints[currentChannel] = null;
     }
 
     function canvasCoords(e) {
@@ -120,6 +95,11 @@ HTML = """<!DOCTYPE html>
 
     canvas.addEventListener('click', e => {
       const [x, y] = canvasCoords(e);
+      if (e.shiftKey && currentChannel !== 'carousel') {
+        // shift-click sets section-0 reference point
+        sectionZeroPoints[currentChannel] = [x, y];
+        return;
+      }
       userPoints[currentChannel].push([x, y]);
     });
 
@@ -136,13 +116,7 @@ HTML = """<!DOCTYPE html>
     });
 
     function computePolygon(ch) {
-      const pts = [];
-      if (!freeDraw) {
-        for (const [id, pos] of Object.entries(anchors[ch] || {}))
-          pts.push({ pos, anchor: true, id });
-      }
-      for (const pos of userPoints[ch])
-        pts.push({ pos, anchor: false });
+      const pts = userPoints[ch].map(pos => ({ pos }));
       if (pts.length < 2) return pts;
       const cx = pts.reduce((s, p) => s + p.pos[0], 0) / pts.length;
       const cy = pts.reduce((s, p) => s + p.pos[1], 0) / pts.length;
@@ -153,10 +127,31 @@ HTML = """<!DOCTYPE html>
       return pts;
     }
 
+    function getPolygonCenter(ch) {
+      const pts = computePolygon(ch);
+      if (pts.length < 2) return null;
+      const cx = pts.reduce((s, p) => s + p.pos[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p.pos[1], 0) / pts.length;
+      return [cx, cy];
+    }
+
+    function computeAngle(ch) {
+      const ref = sectionZeroPoints[ch];
+      if (!ref) return null;
+      const center = getPolygonCenter(ch);
+      if (!center) return null;
+      const dx = ref[0] - center[0];
+      const dy = ref[1] - center[1];
+      return Math.atan2(dy, dx) * (180 / Math.PI);
+    }
+
     function drawPolygon(ch, active) {
       const pts = computePolygon(ch);
       if (pts.length < 2) return;
-      const [r, g, b] = ch === 'second' ? [255, 200, 0] : [0, 200, 255];
+      let r, g, b;
+      if (ch === 'second')       { r = 255; g = 200; b = 0; }
+      else if (ch === 'third')   { r = 0; g = 200; b = 255; }
+      else                       { r = 0; g = 255; b = 128; }
       const a = active ? 1.0 : 0.35;
 
       ctx.beginPath();
@@ -171,17 +166,38 @@ HTML = """<!DOCTYPE html>
 
       for (const pt of pts) {
         const [x, y] = pt.pos;
-        if (pt.anchor) {
-          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-          ctx.fillRect(x - 7, y - 7, 14, 14);
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 18px monospace';
-          ctx.fillText(pt.id, x + 10, y + 6);
-        } else {
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+        ctx.fill();
+      }
+
+      // draw section-0 reference line
+      if (ch !== 'carousel' && sectionZeroPoints[ch] && pts.length >= 2) {
+        const center = getPolygonCenter(ch);
+        const ref = sectionZeroPoints[ch];
+        if (center) {
           ctx.beginPath();
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+          ctx.moveTo(center[0], center[1]);
+          ctx.lineTo(ref[0], ref[1]);
+          ctx.strokeStyle = `rgba(255,255,255,${active ? 0.9 : 0.3})`;
+          ctx.lineWidth = active ? 2 : 1;
+          ctx.setLineDash([6, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // draw marker at reference point
+          ctx.beginPath();
+          ctx.arc(ref[0], ref[1], 8, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${active ? 0.9 : 0.3})`;
           ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('0', ref[0], ref[1]);
+          ctx.textAlign = 'start';
+          ctx.textBaseline = 'alphabetic';
         }
       }
     }
@@ -189,15 +205,18 @@ HTML = """<!DOCTYPE html>
     function render() {
       if (!frameImg.naturalWidth) return;
       ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-      for (const ch of ['second', 'third'])
+      for (const ch of ['second', 'third', 'carousel'])
         if (ch !== currentChannel) drawPolygon(ch, false);
       drawPolygon(currentChannel, true);
 
-      const nAnchors = Object.keys(anchors[currentChannel] || {}).length;
-      const total = ANCHOR_IDS[currentChannel].length;
       const nUser = userPoints[currentChannel].length;
+      let extra = '';
+      if (currentChannel !== 'carousel') {
+        const angle = computeAngle(currentChannel);
+        extra = angle !== null ? `  |  sec0: ${angle.toFixed(1)}deg` : '  |  shift-click to set sec 0';
+      }
       document.getElementById('status').textContent =
-        `${currentChannel}: ${nAnchors}/${total} anchors  |  ${nUser} user pts  |  right-click to remove`;
+        `${currentChannel}: ${nUser} pts${extra}  |  right-click to remove`;
     }
 
     function pollFrame() {
@@ -206,24 +225,30 @@ HTML = """<!DOCTYPE html>
       img.src = '/frame?' + Date.now();
     }
 
-    async function pollTags() {
-      try {
-        const res = await fetch('/tags');
-        anchors = await res.json();
-      } catch(e) {}
-    }
-
     async function savePolygons() {
       const polygons = {};
       const user_pts = {};
-      for (const ch of ['second', 'third']) {
-        polygons[ch + '_channel'] = computePolygon(ch).map(p => [Math.round(p.pos[0]), Math.round(p.pos[1])]);
+      for (const ch of ['second', 'third', 'carousel']) {
+        const key = ch === 'carousel' ? 'carousel' : ch + '_channel';
+        polygons[key] = computePolygon(ch).map(p => [Math.round(p.pos[0]), Math.round(p.pos[1])]);
         user_pts[ch] = userPoints[ch].map(p => [Math.round(p[0]), Math.round(p[1])]);
+      }
+      // compute angles from section-0 reference points
+      const channel_angles = {};
+      for (const ch of ['second', 'third']) {
+        const angle = computeAngle(ch);
+        channel_angles[ch] = angle !== null ? angle : 0;
+      }
+      const section_zero_pts = {};
+      for (const ch of ['second', 'third']) {
+        if (sectionZeroPoints[ch]) {
+          section_zero_pts[ch] = [Math.round(sectionZeroPoints[ch][0]), Math.round(sectionZeroPoints[ch][1])];
+        }
       }
       const res = await fetch('/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ polygons, user_pts }),
+        body: JSON.stringify({ polygons, user_pts, channel_angles, section_zero_pts }),
       });
       const result = await res.json();
       document.getElementById('status').textContent = result.ok ? 'Saved.' : 'Save failed.';
@@ -234,16 +259,19 @@ HTML = """<!DOCTYPE html>
         const res = await fetch('/init');
         const data = await res.json();
         if (data.user_pts) {
-          if (data.user_pts.second) userPoints.second = data.user_pts.second;
-          if (data.user_pts.third)  userPoints.third  = data.user_pts.third;
+          if (data.user_pts.second)   userPoints.second   = data.user_pts.second;
+          if (data.user_pts.third)    userPoints.third    = data.user_pts.third;
+          if (data.user_pts.carousel) userPoints.carousel = data.user_pts.carousel;
+        }
+        if (data.section_zero_pts) {
+          if (data.section_zero_pts.second) sectionZeroPoints.second = data.section_zero_pts.second;
+          if (data.section_zero_pts.third)  sectionZeroPoints.third  = data.section_zero_pts.third;
         }
       } catch(e) {}
     }
 
     setInterval(pollFrame, 100);
-    setInterval(pollTags, 150);
     pollFrame();
-    pollTags();
     loadSaved();
   </script>
 </body>
@@ -252,7 +280,7 @@ HTML = """<!DOCTYPE html>
 
 @app.route("/")
 def index():
-    return render_template_string(HTML, anchor_ids=json.dumps(CHANNEL_ANCHOR_IDS))
+    return render_template_string(HTML)
 
 
 @app.route("/frame")
@@ -264,25 +292,15 @@ def frame():
     return Response(buf.tobytes(), mimetype="image/jpeg")
 
 
-@app.route("/tags")
-def tags():
-    all_tags = tracker.getTags()
-    result = {}
-    for channel, ids in CHANNEL_ANCHOR_IDS.items():
-        result[channel] = {}
-        for tid in ids:
-            if tid in all_tags:
-                cx, cy = all_tags[tid]
-                result[channel][str(tid)] = [cx, cy]
-    return jsonify(result)
-
-
 @app.route("/init")
 def init():
     saved = getChannelPolygons()
     if saved is None:
         return jsonify({})
-    return jsonify({"user_pts": saved.get("user_pts", {})})
+    return jsonify({
+        "user_pts": saved.get("user_pts", {}),
+        "section_zero_pts": saved.get("section_zero_pts", {}),
+    })
 
 
 @app.route("/save", methods=["POST"])
@@ -298,12 +316,8 @@ if __name__ == "__main__":
         print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
         sys.exit(1)
 
-    gc = mkGlobalConfig()
     capture = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
-    tracker = ArucoTracker(gc, capture)  # all stationary, default moving_ids=None
-
     capture.start()
-    tracker.start()
 
     print(f"Server starting on http://localhost:{PORT}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

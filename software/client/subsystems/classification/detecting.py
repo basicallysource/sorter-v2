@@ -36,9 +36,6 @@ class Detecting(BaseState):
         if self._entered_at is None:
             self._entered_at = now
 
-        if self.vision.feeding_platform_corners is None:
-            return None
-
         if self._baseline_pending:
             elapsed_ms = (now - self._entered_at) * 1000
             if elapsed_ms < WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS:

@@ -96,6 +96,13 @@ def setChannelPolygons(polygons: dict) -> None:
     saveData(data)
 
 
+def getCarouselPolygon() -> list | None:
+    saved = getChannelPolygons()
+    if saved is None:
+        return None
+    return saved.get("polygons", {}).get("carousel")
+
+
 def getMcuPath() -> str | None:
     data = loadData()
     return data.get("mcu_path")

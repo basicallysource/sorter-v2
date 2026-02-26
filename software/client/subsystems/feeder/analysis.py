@@ -3,7 +3,6 @@ from typing import List, Dict, Tuple, TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from irl.config import ArucoTagConfig
     from global_config import GlobalConfig
 
 from defs.consts import (
@@ -24,8 +23,7 @@ class FeederAnalysisState(Enum):
 
 def computeChannelGeometry(
     saved_polygons: Dict[str, np.ndarray],
-    aruco_tags: Dict[int, Tuple[float, float]],
-    aruco_config: "ArucoTagConfig",
+    channel_angles: Dict[str, float],
     channel_masks: Dict[str, np.ndarray],
 ) -> ChannelGeometry:
     geometry = ChannelGeometry(second_channel=None, third_channel=None)
@@ -33,8 +31,7 @@ def computeChannelGeometry(
     second_poly = saved_polygons.get("second_channel")
     if second_poly is not None and len(second_poly) >= 3:
         center = tuple(np.mean(second_poly, axis=0).tolist())
-        r1_pos = aruco_tags.get(aruco_config.second_c_channel_radius1_id)
-        r1_angle = float(np.degrees(np.arctan2(*(np.array(r1_pos) - np.array(center))[::-1]))) if r1_pos else 0.0
+        r1_angle = channel_angles.get("second", 0.0)
         geometry.second_channel = PolygonChannel(
             channel_id=2,
             polygon=second_poly,
@@ -46,8 +43,7 @@ def computeChannelGeometry(
     third_poly = saved_polygons.get("third_channel")
     if third_poly is not None and len(third_poly) >= 3:
         center = tuple(np.mean(third_poly, axis=0).tolist())
-        r1_pos = aruco_tags.get(aruco_config.third_c_channel_radius1_id)
-        r1_angle = float(np.degrees(np.arctan2(*(np.array(r1_pos) - np.array(center))[::-1]))) if r1_pos else 0.0
+        r1_angle = channel_angles.get("third", 0.0)
         geometry.third_channel = PolygonChannel(
             channel_id=3,
             polygon=third_poly,

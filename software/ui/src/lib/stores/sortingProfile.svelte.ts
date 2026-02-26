@@ -35,6 +35,7 @@ export function getSortingProfileMetadata() {
 }
 
 export function getCategoryName(category_id: string): string {
+	fetchMetadata();
 	if (metadata?.categories[category_id]) {
 		return metadata.categories[category_id];
 	}

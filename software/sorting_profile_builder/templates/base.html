@@ -1,40 +1,424 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Sorting Profile Builder{% endblock %}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script>
+        window.tailwind = window.tailwind || {};
+        var tailwind = window.tailwind;
+        tailwind.config = {
+            darkMode: 'class',
+            safelist: [
+                'absolute',
+                'accent-sky-500',
+                'align-top',
+                'bg-amber-50',
+                'bg-sky-50',
+                'bg-slate-50',
+                'bg-slate-900',
+                'bg-transparent',
+                'bg-white',
+                'block',
+                'border',
+                'border-amber-300',
+                'border-collapse',
+                'border-dashed',
+                'border-l',
+                'border-r',
+                'border-rose-300',
+                'border-sky-200',
+                'border-sky-300',
+                'border-sky-500',
+                'border-slate-200',
+                'border-slate-300',
+                'border-slate-900',
+                'border-t',
+                'border-t-2',
+                'border-t-sky-500',
+                'border-transparent',
+                'cursor-grab',
+                'cursor-pointer',
+                'dark:bg-amber-950/30',
+                'dark:bg-sky-950',
+                'dark:bg-sky-950/30',
+                'dark:bg-sky-950/40',
+                'dark:bg-slate-100',
+                'dark:bg-slate-900',
+                'dark:bg-slate-950',
+                'dark:border-amber-900',
+                'dark:border-rose-900',
+                'dark:border-sky-900',
+                'dark:border-slate-100',
+                'dark:border-slate-700',
+                'dark:border-slate-800',
+                'dark:focus:border-slate-500',
+                'dark:hover:bg-rose-950/30',
+                'dark:hover:bg-slate-200',
+                'dark:hover:bg-slate-900',
+                'dark:hover:border-rose-900',
+                'dark:hover:text-rose-300',
+                'dark:text-amber-300',
+                'dark:text-emerald-400',
+                'dark:text-rose-300',
+                'dark:text-sky-300',
+                'dark:text-sky-400',
+                'dark:text-slate-100',
+                'dark:text-slate-200',
+                'dark:text-slate-300',
+                'dark:text-slate-400',
+                'dark:text-slate-900',
+                'disabled:cursor-not-allowed',
+                'disabled:opacity-50',
+                'flex',
+                'flex-1',
+                'flex-col',
+                'flex-wrap',
+                'focus:border-slate-500',
+                'font-medium',
+                'font-semibold',
+                'gap-1',
+                'gap-2',
+                'gap-3',
+                'grid',
+                'h-14',
+                'h-2',
+                'h-32',
+                'h-5',
+                'h-6',
+                'h-8',
+                'hover:bg-rose-50',
+                'hover:bg-slate-50',
+                'hover:bg-slate-800',
+                'hover:border-rose-300',
+                'hover:text-rose-700',
+                'hover:underline',
+                'inline-block',
+                'inline-flex',
+                'italic',
+                'items-center',
+                'justify-between',
+                'justify-center',
+                'last:border-r-0',
+                'leading-none',
+                'left-0',
+                'line-through',
+                'm-0',
+                'max-h-20',
+                'max-h-44',
+                'max-h-[420px]',
+                'max-w-none',
+                'mb-1',
+                'mb-2',
+                'mb-3',
+                'min-h-24',
+                'min-w-0',
+                'min-w-[120px]',
+                'min-w-[160px]',
+                'min-w-[84px]',
+                'ml-4',
+                'ml-auto',
+                'mt-1',
+                'mt-2',
+                'mt-3',
+                'my-1',
+                'object-contain',
+                'opacity-50',
+                'opacity-80',
+                'outline-none',
+                'overflow-y-auto',
+                'p-1',
+                'p-2',
+                'p-3',
+                'pl-2',
+                'pl-5',
+                'place-items-center',
+                'pt-3',
+                'px-0',
+                'px-1',
+                'px-1.5',
+                'px-2',
+                'px-3',
+                'py-0.5',
+                'py-1',
+                'py-1.5',
+                'py-2',
+                'relative',
+                'right-0',
+                'select-none',
+                'shadow-sm',
+                'text-[10px]',
+                'text-[13px]',
+                'text-[11px]',
+                'text-amber-700',
+                'text-emerald-600',
+                'text-left',
+                'text-rose-700',
+                'text-sky-600',
+                'text-sky-700',
+                'text-slate-400',
+                'text-slate-500',
+                'text-slate-600',
+                'text-slate-700',
+                'text-slate-800',
+                'text-slate-900',
+                'text-sm',
+                'text-white',
+                'text-xs',
+                'top-full',
+                'tracking-wide',
+                'transition-colors',
+                'truncate',
+                'uppercase',
+                'w-10',
+                'w-14',
+                'w-28',
+                'w-3',
+                'w-32',
+                'w-4',
+                'w-40',
+                'w-5',
+                'w-8',
+                'w-[84px]',
+                'w-auto',
+                'w-full',
+                'whitespace-nowrap',
+                'xl:grid-cols-[160px_1fr]',
+                'z-50'
+            ],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['ui-sans-serif', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
-        :root { --pico-font-size: 14px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
-        .part-img { width: 60px; height: 60px; object-fit: contain; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
-        .category-item { padding: 0.5rem; border: 1px solid var(--pico-muted-border-color); border-radius: 4px; margin-bottom: 0.25rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .category-item.selected { border-color: var(--pico-primary); background: var(--pico-primary-focus); }
-        .category-item:hover { border-color: var(--pico-primary); }
-        .stats { font-size: 13px; color: var(--pico-muted-color); }
-        table { font-size: 13px; }
-        .progress-info { display: flex; align-items: center; gap: 1rem; }
-        #sync-log { font-size: 12px; color: var(--pico-muted-color); max-height: 60px; overflow-y: auto; }
+        :root {
+            --pico-primary: #0ea5e9;
+            --pico-primary-focus: rgba(14, 165, 233, 0.15);
+            --pico-primary-background: #0ea5e9;
+            --pico-primary-inverse: #ffffff;
+            --pico-muted-color: #64748b;
+            --pico-muted-border-color: #cbd5e1;
+            --pico-card-background-color: #ffffff;
+            --pico-del-color: #dc2626;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            border-radius: 0 !important;
+        }
+
+        html { color-scheme: light; }
     </style>
 </head>
-<body>
-    <nav class="container">
-        <ul><li><a href="/"><strong>Sorting Profile Builder</strong></a></li></ul>
-        <ul><li class="stats" id="global-cache-stats"></li></ul>
-    </nav>
-    <main class="container">
+<body class="m-0 min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
+        <nav class="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-5">
+            <div class="min-w-0">
+                <a href="/" class="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-slate-900 no-underline">
+                    <span class="inline-block h-2 w-2 bg-sky-500"></span>
+                    <span class="truncate">Sorting Profile Builder</span>
+                </a>
+            </div>
+            <div class="flex min-w-0 items-center gap-2">
+                <div class="stats hidden max-w-[42rem] truncate text-right sm:block" id="global-cache-stats"></div>
+                {% block top_nav_actions %}{% endblock %}
+            </div>
+        </nav>
+    </header>
+
+    <main class="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-4 lg:px-5">
         {% block content %}{% endblock %}
     </main>
     <script>
+        function addTw(el, classes) {
+            if (!el || !classes) return;
+            el.classList.add(...classes.split(/\s+/).filter(Boolean));
+        }
+
+        function removeTw(el, classes) {
+            if (!el || !classes) return;
+            el.classList.remove(...classes.split(/\s+/).filter(Boolean));
+        }
+
+        function isDarkTheme() {
+            return false;
+        }
+
+        function setThemeTw(el, light_classes, dark_classes) {
+            if (!el) return;
+            removeTw(el, light_classes);
+            removeTw(el, dark_classes);
+            addTw(el, light_classes);
+        }
+
+        function applyTailwindUi(root = document) {
+            let scope = root instanceof Element ? root : document;
+
+            scope.querySelectorAll('.surface-panel').forEach(el => {
+                addTw(el, 'border');
+                setThemeTw(el, 'border-slate-200 bg-white', 'border-slate-800 bg-slate-950');
+            });
+
+            scope.querySelectorAll('.stats').forEach(el => {
+                addTw(el, 'text-xs');
+                setThemeTw(el, 'text-slate-500', 'text-slate-400');
+            });
+
+            scope.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(el => addTw(el, 'm-0'));
+            scope.querySelectorAll('p').forEach(el => addTw(el, 'my-1'));
+            scope.querySelectorAll('label').forEach(el => addTw(el, 'block'));
+            scope.querySelectorAll('a').forEach(el => {
+                addTw(el, 'hover:underline');
+                setThemeTw(el, 'text-sky-600', 'text-sky-400');
+            });
+
+            scope.querySelectorAll('.progress-info').forEach(el => {
+                addTw(el, 'flex items-center gap-2');
+            });
+
+            scope.querySelectorAll('#sync-log').forEach(el => {
+                addTw(el, 'max-h-20 overflow-y-auto text-xs text-slate-500');
+            });
+
+            scope.querySelectorAll('button:not([data-ui-btn])').forEach(btn => {
+                let is_x = btn.classList.contains('btn-x');
+                let is_small = btn.classList.contains('btn-sm');
+                let is_secondary = btn.classList.contains('secondary') || btn.classList.contains('outline') || btn.classList.contains('btn-toggle-disabled') || btn.classList.contains('settings-option');
+                let is_primary = btn.id === 'btn-add-rule' || btn.id === 'btn-generate' || btn.id === 'btn-sync-cats' || btn.id === 'btn-sync-colors' || btn.id === 'btn-sync-parts' || btn.id === 'btn-sync-bricklink';
+
+                addTw(btn, 'inline-flex items-center justify-center gap-1 whitespace-nowrap border font-medium leading-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed');
+
+                if (is_x) addTw(btn, 'h-5 w-5 px-0 text-[10px]');
+                else if (is_small) addTw(btn, 'h-5 px-2 text-[10px]');
+                else addTw(btn, 'h-6 px-2 text-xs');
+
+                if (is_primary && !is_secondary) {
+                    setThemeTw(btn, 'border-slate-900 bg-slate-900 text-white', 'border-slate-100 bg-slate-100 text-slate-900');
+                    removeTw(btn, 'hover:bg-slate-50 hover:bg-slate-200');
+                    addTw(btn, 'hover:bg-slate-800');
+                } else if (is_secondary) {
+                    addTw(btn, 'hover:bg-slate-50');
+                    setThemeTw(btn, 'border-slate-300 bg-white text-slate-700', 'border-slate-700 bg-slate-950 text-slate-200');
+                    if (isDarkTheme()) {
+                        removeTw(btn, 'hover:bg-slate-50');
+                        addTw(btn, 'hover:bg-slate-900');
+                    } else {
+                        removeTw(btn, 'hover:bg-slate-900');
+                    }
+                } else {
+                    setThemeTw(btn, 'border-slate-900 bg-slate-900 text-white', 'border-slate-100 bg-slate-100 text-slate-900');
+                    if (isDarkTheme()) {
+                        removeTw(btn, 'hover:bg-slate-800');
+                        addTw(btn, 'hover:bg-slate-200');
+                    } else {
+                        removeTw(btn, 'hover:bg-slate-200');
+                        addTw(btn, 'hover:bg-slate-800');
+                    }
+                }
+            });
+
+            scope.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), select, textarea').forEach(el => {
+                addTw(el, 'w-full border px-2 py-1 text-xs outline-none focus:border-slate-500');
+                setThemeTw(el, 'border-slate-300 bg-white text-slate-900', 'border-slate-700 bg-slate-950 text-slate-100');
+                if (el.tagName !== 'TEXTAREA' && !el.hasAttribute('multiple')) addTw(el, 'h-6');
+                if (el.tagName === 'SELECT' && el.hasAttribute('multiple')) addTw(el, 'min-h-24');
+            });
+
+            scope.querySelectorAll('input[type="checkbox"]:not([data-native-check]), input[type="radio"]:not([data-native-check])').forEach(el => {
+                addTw(el, 'accent-sky-500');
+            });
+
+            scope.querySelectorAll('table').forEach(el => {
+                addTw(el, 'w-full border-collapse text-[11px]');
+            });
+
+            scope.querySelectorAll('thead').forEach(el => {
+                setThemeTw(el, 'bg-slate-50', 'bg-slate-900');
+            });
+
+            scope.querySelectorAll('th').forEach(el => {
+                addTw(el, 'border px-2 py-1 text-left font-medium');
+                setThemeTw(el, 'border-slate-200 text-slate-600', 'border-slate-800 text-slate-300');
+            });
+
+            scope.querySelectorAll('td').forEach(el => {
+                addTw(el, 'border px-2 py-1 align-top');
+                setThemeTw(el, 'border-slate-200', 'border-slate-800');
+            });
+
+            scope.querySelectorAll('details').forEach(el => {
+                addTw(el, 'border p-3');
+                setThemeTw(el, 'border-slate-200 bg-white', 'border-slate-800 bg-slate-950');
+            });
+
+            scope.querySelectorAll('summary').forEach(el => {
+                addTw(el, 'cursor-pointer text-xs font-medium');
+            });
+
+            scope.querySelectorAll('progress').forEach(el => {
+                addTw(el, 'h-2 w-full');
+            });
+
+            scope.querySelectorAll('.badge').forEach(el => {
+                addTw(el, 'inline-block border px-2 py-0.5 text-[10px]');
+                setThemeTw(el, 'border-sky-300 bg-sky-50 text-sky-700', 'border-sky-900 bg-sky-950 text-sky-300');
+            });
+
+            scope.querySelectorAll('.part-img').forEach(el => {
+                addTw(el, 'object-contain');
+            });
+
+            scope.querySelectorAll('.category-item').forEach(el => {
+                addTw(el, 'mb-1 flex cursor-pointer items-center justify-between border px-2 py-2 text-xs');
+                setThemeTw(el, 'border-slate-200 bg-white', 'border-slate-800 bg-slate-950');
+                if (el.classList.contains('selected')) {
+                    removeTw(el, 'bg-white bg-slate-950');
+                    if (isDarkTheme()) addTw(el, 'border-sky-500 bg-sky-950/40');
+                    else addTw(el, 'border-sky-500 bg-sky-50');
+                }
+            });
+
+            let body = document.body;
+            if (body) setThemeTw(body, 'bg-slate-100 text-slate-900', 'bg-slate-950 text-slate-100');
+            let header = document.querySelector('header');
+            if (header) setThemeTw(header, 'border-slate-200 bg-white/90', 'border-slate-800 bg-slate-950/90');
+
+            return scope;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applyTailwindUi(document);
+
+            let observer = new MutationObserver((mutations) => {
+                for (let m of mutations) {
+                    for (let n of m.addedNodes) {
+                        if (n instanceof Element) applyTailwindUi(n.parentElement || n);
+                    }
+                }
+            });
+            observer.observe(document.body, {childList: true, subtree: true});
+        });
+
         async function fetchCacheStats() {
-            let res = await fetch('/api/sync-status');
-            let data = await res.json();
             let el = document.getElementById('global-cache-stats');
-            let total_str = data.api_total ? ` / ${data.api_total}` : '';
-            el.textContent = `Cache: ${data.cached_parts}${total_str} parts, ${data.cached_categories} categories, ${data.cached_colors} colors`;
+            if (!el) return;
+            try {
+                let res = await fetch('/api/sync-status');
+                let data = await res.json();
+                let total_str = data.api_total ? ` / ${data.api_total}` : '';
+                el.textContent = `Cache: ${data.cached_parts}${total_str} parts, ${data.cached_categories} categories, ${data.cached_colors} colors`;
+            } catch (e) {
+                el.textContent = 'Cache stats unavailable';
+            }
         }
         fetchCacheStats();
     </script>

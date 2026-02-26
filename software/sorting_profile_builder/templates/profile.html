@@ -1,33 +1,67 @@
 {% extends "base.html" %}
 {% block title %}{{ profile.name }} - Sorting Profile Builder{% endblock %}
+{% block top_nav_actions %}
+<button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="togglePartsBrowser()" id="btn-parts-browser">Parts Browser</button>
+{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h3><input type="text" id="profile-name" value="{{ profile.name }}" style="margin:0;padding:2px 6px;font-size:inherit;font-weight:inherit;border:1px solid transparent;background:transparent;width:auto;" onfocus="this.style.borderColor='var(--pico-primary)';this.style.background='var(--pico-card-background-color)'" onblur="this.style.borderColor='transparent';this.style.background='transparent';renameProfile(this.value)"></h3>
-    <p>{{ profile.description }} &mdash; <span class="stats" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.rules | length }} categories</span></p>
-    <p class="stats" style="user-select:all;word-break:break-all;">{{ profile_path }}</p>
-</hgroup>
+<section class="surface-panel mb-4 p-4">
+    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(620px,1.25fr)]">
+        <div class="min-w-0">
+            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Profile</div>
+            <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-base font-semibold text-slate-900" id="profile-name-display">{{ profile.name }}</h3>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" id="btn-profile-name-edit" onclick="openProfileNameEditor()" title="Edit profile name">✎</button>
+            </div>
+            <div id="profile-name-editor" class="mt-2 hidden flex flex-wrap items-center gap-1.5">
+                <input type="text" id="profile-name-input" value="{{ profile.name }}" class="m-0 min-w-[220px] flex-1" onkeydown="handleProfileNameKey(event)">
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800" onclick="submitProfileNameEdit()">Save</button>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="cancelProfileNameEdit()">Cancel</button>
+            </div>
+            <p class="mt-2 text-sm text-slate-600">{{ profile.description }}</p>
+        </div>
+        <div class="grid gap-2 self-start sm:grid-cols-[minmax(220px,1fr)_minmax(0,2fr)]">
+            <div class="p-1">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stats</div>
+                <div class="text-xs text-slate-700" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.rules | length }} categories</div>
+            </div>
+            <div class="p-1">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Filepath</div>
+                <div class="flex items-center gap-1.5">
+                    <div id="profile-path-text" class="min-w-0 flex-1 overflow-hidden bg-slate-50 px-2 py-1 font-mono text-[11px] leading-4 text-slate-700 whitespace-nowrap text-ellipsis" title="{{ profile_path }}">{{ profile_path }}</div>
+                    <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-slate-600 hover:bg-slate-50" onclick="copyProfilePath()" title="Copy filepath" aria-label="Copy filepath">
+                        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="9" y="9" width="10" height="10"></rect>
+                            <path d="M5 15V5h10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
-<div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;">
-    <button onclick="addNewRule()" id="btn-add-rule" style="margin:0;">+ Add Rule</button>
-    <button onclick="saveAllRules()" id="btn-save-all" style="margin:0;display:none;">Save All</button>
-    <button onclick="doGenerate()" id="btn-generate" style="margin:0;">Generate</button>
-    <div style="flex:1;"></div>
-    <button class="outline secondary" onclick="togglePartsBrowser()" id="btn-parts-browser" style="margin:0;">Parts Browser</button>
-</div>
-<div id="fallback-options" style="display:flex;gap:1rem;align-items:center;margin-bottom:0.75rem;"></div>
+<div id="fallback-options" class="surface-panel mb-3 p-3"></div>
 
-<div class="workspace-shell">
-    <div class="profile-layout">
+<div class="workspace-shell flex flex-col gap-4 xl:flex-row">
+    <div class="profile-layout grid min-w-0 flex-1 items-start gap-4 xl:grid-cols-[minmax(320px,1fr)_minmax(0,1.6fr)]">
         <!-- left pane: rule list -->
-        <div class="left-pane">
+        <div class="left-pane min-w-0 border border-slate-200 bg-white p-3 xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-auto">
+            <div class="mb-2 border-b border-slate-200 pb-2">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Rules</div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button data-ui-btn="1" type="button" onclick="addNewRule()" id="btn-add-rule" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">+ Add Rule</button>
+                    <button data-ui-btn="1" type="button" onclick="saveAllRules()" id="btn-save-all" class="hidden inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">Save All</button>
+                    <button data-ui-btn="1" type="button" onclick="doGenerate()" id="btn-generate" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">Generate</button>
+                </div>
+            </div>
             <div id="rules-list" class="rules-list"></div>
         </div>
 
         <!-- right pane: editor -->
-        <div class="right-pane">
-            <div id="editor-panel">
-                <div id="editor-empty" class="editor-empty">
+        <div class="right-pane min-w-0 xl:sticky xl:top-3">
+            <div id="editor-panel" class="min-h-[70vh] border border-slate-200 bg-white p-3">
+                <div id="editor-empty" class="editor-empty border border-dashed border-slate-300 p-10 text-center text-xs text-slate-500">
                     <p>Select a rule to edit, or create a new one.</p>
                 </div>
                 <div id="editor-content" style="display:none;"></div>
@@ -36,386 +70,36 @@
     </div>
 
     <!-- parts browser sidebar -->
-    <div id="parts-browser-sidebar" class="parts-sidebar hidden">
-        <div class="parts-sidebar-resize-handle" onmousedown="startPartsSidebarResize(event)" title="Drag to resize"></div>
-        <div class="parts-sidebar-header">
-            <h5 style="margin:0;">Parts Browser</h5>
-            <button class="outline secondary btn-sm" onclick="togglePartsBrowser()" style="margin:0;">&times;</button>
+    <div id="parts-browser-sidebar" class="parts-sidebar relative hidden w-full min-w-0 flex-col border border-slate-200 bg-white p-3 xl:sticky xl:top-3 xl:h-[calc(100vh-1.5rem)] xl:min-w-[340px] xl:max-w-[70vw] xl:overflow-visible">
+        <div class="parts-sidebar-resize-handle absolute bottom-0 left-0 top-0 z-10 w-2.5 -translate-x-1/2 cursor-col-resize hover:bg-slate-300/20 xl:block hidden" onmousedown="startPartsSidebarResize(event)" title="Drag to resize"></div>
+        <div class="parts-sidebar-header mb-2 flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <h5 class="text-sm font-semibold text-slate-900">Parts Browser</h5>
+            <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="togglePartsBrowser()">&times;</button>
         </div>
-        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
-            <input type="search" id="parts-search" placeholder="Search parts..." style="margin:0;flex:1;" oninput="debouncedSearch()">
-            <select id="filter-rebrickable-cat" style="max-width:180px;margin:0;" onchange="debouncedSearch()">
+        <div class="mb-2 flex gap-2">
+            <input type="search" id="parts-search" placeholder="Search parts..." class="m-0 flex-1" oninput="debouncedSearch()">
+            <select id="filter-rebrickable-cat" class="m-0 max-w-[180px]" onchange="debouncedSearch()">
                 <option value="">All RB categories</option>
                 {% for cat_id, cat in rebrickable_categories.items() %}
                 <option value="{{ cat_id }}">{{ cat.name }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div id="search-status" class="stats" style="margin:0.25rem 0;"></div>
-        <div class="parts-sidebar-scroll">
+        <div id="search-status" class="stats my-1"></div>
+        <div class="parts-sidebar-scroll min-h-0 flex-1 overflow-y-auto border border-slate-200">
             <table id="parts-table">
                 <thead>
-                    <tr><th></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>Years</th></tr>
+                    <tr><th class="w-[84px] min-w-[84px]"></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>Years</th></tr>
                 </thead>
                 <tbody id="parts-tbody"></tbody>
             </table>
         </div>
-        <div id="pagination" style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;"></div>
+        <div id="pagination" class="mt-2 flex min-h-6 items-center gap-2"></div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<style>
-main.container {
-    max-width: min(2400px, 99vw);
-}
-
-.workspace-shell {
-    display: flex;
-    gap: 1rem;
-    align-items: stretch;
-}
-
-.profile-layout {
-    flex: 1;
-    min-width: 0;
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 1.5rem;
-    align-items: start;
-}
-.left-pane { min-width: 0; }
-.right-pane {
-    position: sticky;
-    top: 1rem;
-    min-width: 0;
-}
-
-.rules-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-/* compact rule card in list */
-.rule-summary {
-    border: 1px solid var(--pico-muted-border-color);
-    border-radius: 6px;
-    padding: 0.5rem 0.6rem;
-    cursor: pointer;
-    user-select: none;
-    transition: border-color 0.15s, background 0.15s;
-}
-.rule-summary:hover { border-color: var(--pico-primary); }
-.rule-summary.selected {
-    border-color: var(--pico-primary);
-    background: var(--pico-primary-focus);
-}
-.rule-summary.drag-over {
-    border-top: 3px solid var(--pico-primary);
-}
-
-.rule-summary-top {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-.drag-handle {
-    cursor: grab;
-    color: var(--pico-muted-color);
-    font-size: 16px;
-    line-height: 1;
-    padding: 0 2px;
-}
-.drag-handle:active { cursor: grabbing; }
-.rule-name {
-    font-weight: bold;
-    font-size: 13px;
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.rule-meta {
-    font-size: 11px;
-    color: var(--pico-muted-color);
-    margin-top: 2px;
-    padding-left: 24px;
-}
-.rule-count {
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--pico-primary);
-    white-space: nowrap;
-}
-.rule-count.dim { color: var(--pico-muted-color); font-weight: normal; }
-
-.everything-else {
-    border-style: dashed;
-    opacity: 0.8;
-    cursor: default;
-    margin-top: 4px;
-}
-.everything-else:hover { border-color: var(--pico-muted-border-color); }
-.everything-else .rule-name { font-style: italic; }
-
-.rule-summary.disabled { opacity: 0.45; }
-.rule-summary.disabled .rule-name { text-decoration: line-through; }
-.sub-rule-item.disabled { opacity: 0.45; text-decoration: line-through; }
-
-.btn-toggle-disabled {
-    padding: 1px 6px !important; font-size: 11px !important; margin: 0 !important;
-    cursor: pointer; border-radius: 4px;
-}
-.btn-toggle-disabled.is-disabled {
-    background: var(--pico-del-color); color: #fff; border-color: var(--pico-del-color);
-}
-.rule-summary-actions {
-    display: flex;
-    gap: 0.3rem;
-    margin-left: auto;
-}
-
-.sub-rules-in-list {
-    margin: 4px 0 0 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.sub-rule-item {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 12px;
-    padding: 2px 4px;
-    border-radius: 4px;
-    cursor: pointer;
-    user-select: none;
-}
-.sub-rule-item:hover { background: var(--pico-primary-focus); }
-.sub-rule-item.selected { background: var(--pico-primary-focus); font-weight: bold; }
-.sub-rule-item.drag-over { border-top: 2px solid var(--pico-primary); }
-.sub-rule-connector {
-    color: var(--pico-muted-color);
-    font-size: 11px;
-    width: 12px;
-}
-
-/* editor panel */
-.editor-empty {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--pico-muted-color);
-}
-
-.editor-section {
-    margin-bottom: 1rem;
-}
-.editor-section h6 {
-    margin-bottom: 0.4rem;
-    font-size: 13px;
-    color: var(--pico-muted-color);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.conditions-area {
-    padding: 0.5rem;
-    border: 1px dashed var(--pico-muted-border-color);
-    border-radius: 6px;
-    font-size: 13px;
-}
-.match-mode-toggle {
-    display: inline-flex; gap: 0; margin-bottom: 0.5rem; border-radius: 4px; overflow: hidden;
-    border: 1px solid var(--pico-muted-border-color);
-}
-.match-mode-toggle button {
-    margin: 0; padding: 2px 12px; font-size: 11px; font-weight: bold;
-    border: none; border-radius: 0; cursor: pointer;
-    background: var(--pico-card-background-color); color: var(--pico-muted-color);
-}
-.match-mode-toggle button.active {
-    background: var(--pico-primary); color: var(--pico-primary-inverse);
-}
-.cond-row {
-    display: flex; align-items: center; gap: 0.4rem; margin: 4px 0; flex-wrap: wrap;
-}
-.cond-row select, .cond-row input[type="text"], .cond-row input[type="number"] {
-    margin:0; padding:3px 6px; font-size:12px; height:auto;
-}
-.cond-row .field-sel { width:160px; }
-.cond-row .op-sel { width:100px; }
-.cond-row .val-input { flex:1; min-width:120px; }
-.cond-row .val-sel { flex:1; min-width:120px; }
-.cond-join-label {
-    font-size: 11px; font-weight: bold; color: var(--pico-primary);
-    text-transform: uppercase; padding: 2px 0;
-}
-
-.editor-subrule-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem 0;
-    font-size: 13px;
-}
-.editor-subrule-row .sub-name { flex: 1; }
-
-.preview-list { max-height:420px; overflow-y:auto; font-size:12px; margin-top:0.5rem; }
-.preview-list table { font-size:12px; }
-.part-img-sm { width: 34px; height: 34px; object-fit: contain; }
-.part-img-md { width: 60px; height: 60px; object-fit: contain; }
-.part-img-lg { width: 140px; height: 140px; object-fit: contain; }
-.preview-part-cell { width: 40px; padding-right: 4px; }
-.matched-row { cursor: pointer; }
-.matched-row:hover { background: var(--pico-primary-focus); }
-.matched-detail-row.hidden { display: none; }
-.matched-detail-cell { padding: 0.6rem 0.75rem !important; background: rgba(255,255,255,0.02); }
-.matched-detail {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 0.75rem;
-    align-items: start;
-}
-.matched-detail-meta { font-size: 12px; }
-.matched-detail-meta div { margin-bottom: 0.2rem; }
-
-.btn-sm { padding:2px 8px !important; font-size:11px !important; margin:0 !important; }
-.btn-x { padding:1px 5px !important; font-size:11px !important; margin:0 !important; cursor:pointer; color:var(--pico-muted-color); background:none; border:none; }
-.btn-x:hover { color:#e53e3e; }
-.btn-danger:hover { border-color:#e53e3e !important; color:#e53e3e !important; }
-
-.saved-indicator {
-    font-size: 11px; color: #48bb78; opacity: 0;
-    transition: opacity 0.3s ease;
-}
-.saved-indicator.show { opacity: 1; }
-
-.rule-state-badge {
-    font-size: 10px; font-weight: bold; padding: 1px 5px; border-radius: 3px;
-    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
-}
-.rule-state-badge.pending { background: #3182ce; color: #fff; }
-.rule-state-badge.unsaved { background: #d69e2e; color: #fff; }
-
-.editor-save-bar {
-    display: flex; gap: 0.5rem; align-items: center;
-    padding: 0.5rem 0.75rem; margin-bottom: 1rem;
-    border-radius: 6px; font-size: 13px;
-}
-.editor-save-bar.pending { background: rgba(49,130,206,0.12); border: 1px solid #3182ce; }
-.editor-save-bar.unsaved { background: rgba(214,158,46,0.12); border: 1px solid #d69e2e; }
-.editor-save-bar .save-label { flex: 1; }
-
-.ac-wrap { position: relative; flex: 1; min-width: 120px; }
-.ac-wrap input { width: 100%; }
-.ac-results {
-    position: absolute; top: 100%; left: 0; right: 0;
-    max-height: 180px; overflow-y: auto;
-    background: var(--pico-card-background-color);
-    border: 1px solid var(--pico-muted-border-color);
-    border-radius: 0 0 4px 4px;
-    z-index: 100; font-size: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-.ac-results:empty { display: none; }
-.ac-results div { padding: 3px 8px; cursor: default; }
-.ac-results div:hover { background: var(--pico-primary-focus); }
-.ac-results .ac-count { float: right; color: var(--pico-muted-color); font-size: 11px; }
-.ac-results .ac-summary { color: var(--pico-muted-color); font-style: italic; border-top: 1px solid var(--pico-muted-border-color); }
-.ac-results .ac-part-row { display:flex; align-items:center; gap:0.4rem; }
-.ac-results .ac-part-row .ac-count { float:none; margin-left:auto; }
-.ac-results .ac-part-name { min-width:0; }
-
-.editor-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--pico-muted-border-color);
-}
-
-/* parts browser sidebar */
-.parts-sidebar {
-    position: sticky;
-    top: 0;
-    width: 520px;
-    min-width: 340px;
-    max-width: 70vw;
-    height: 100vh;
-    max-height: 100vh;
-    background: var(--pico-card-background-color);
-    border-left: 1px solid var(--pico-muted-border-color);
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    padding-left: 1.25rem;
-    transition: width 0.08s ease;
-    z-index: 2;
-    overflow: visible;
-}
-.parts-sidebar.hidden {
-    display: none;
-}
-.parts-sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-.parts-sidebar-scroll {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-}
-.parts-sidebar #parts-table th:first-child,
-.parts-sidebar #parts-table td:first-child {
-    width: 116px;
-    min-width: 116px;
-}
-.parts-sidebar #parts-table img.part-img {
-    width: 100px;
-    height: 100px;
-    max-width: none;
-    object-fit: contain;
-}
-.parts-sidebar-resize-handle {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 10px;
-    cursor: col-resize;
-    transform: translateX(-50%);
-    z-index: 5;
-}
-.parts-sidebar-resize-handle:hover {
-    background: rgba(255,255,255,0.06);
-}
-body.parts-sidebar-resizing {
-    cursor: col-resize;
-    user-select: none;
-}
-
-@media (max-width: 1200px) {
-    .workspace-shell {
-        flex-direction: column;
-    }
-    .parts-sidebar {
-        position: static;
-        width: 100% !important;
-        max-width: 100%;
-        min-width: 0;
-        max-height: none;
-        padding-left: 1rem;
-    }
-    .parts-sidebar-resize-handle {
-        display: none;
-    }
-}
-</style>
 
 <script>
 function mkUUID() {
@@ -450,6 +134,7 @@ let current_total = 0;
 const PAGE_SIZE = 100;
 let parts_sidebar_width = 520;
 let parts_sidebar_resize = null;
+let profile_name_editing = false;
 
 const RB_CAT_LIST = Object.entries(RB_CATEGORIES)
     .map(([id, c]) => ({id: parseInt(id), name: c.name}))
@@ -494,6 +179,161 @@ const FIELD_CONFIG = {
     bl_catalog_is_obsolete:   {label: "BL Catalog Is Obsolete (1/0)", ops: {eq: "is"}, valueType: "number"},
 };
 const FIELD_LIST = Object.entries(FIELD_CONFIG).map(([k, v]) => ({value: k, label: v.label}));
+
+function twAdd(el, classes) {
+    if (!el || !classes) return;
+    el.classList.add(...classes.split(/\s+/).filter(Boolean));
+}
+
+function twRemove(el, classes) {
+    if (!el || !classes) return;
+    el.classList.remove(...classes.split(/\s+/).filter(Boolean));
+}
+
+const BTN_BASE = 'inline-flex h-6 items-center justify-center whitespace-nowrap border px-2 text-xs font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+const BTN_SECONDARY = `${BTN_BASE} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`;
+const BTN_PRIMARY = `${BTN_BASE} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`;
+const BTN_DANGER = `${BTN_BASE} border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700`;
+const BTN_ICON = 'inline-flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-xs font-medium leading-none text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+const BTN_ICON_DANGER = 'inline-flex h-6 w-6 items-center justify-center border border-transparent text-xs font-medium leading-none text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50';
+const SEGMENT_WRAP = 'match-mode-toggle inline-flex overflow-hidden border border-slate-300 divide-x divide-slate-300';
+const SEGMENT_BTN = 'inline-flex h-6 items-center justify-center px-2 text-xs font-semibold leading-none bg-white text-slate-600 hover:bg-slate-50';
+const SEGMENT_BTN_ACTIVE = 'inline-flex h-6 items-center justify-center px-2 text-xs font-semibold leading-none bg-slate-900 text-white';
+
+function btnClass(kind='secondary') {
+    if (kind === 'primary') return BTN_PRIMARY;
+    if (kind === 'danger') return BTN_DANGER;
+    if (kind === 'icon') return BTN_ICON;
+    if (kind === 'icon_danger') return BTN_ICON_DANGER;
+    return BTN_SECONDARY;
+}
+
+function mkBtn(label, on_click, kind='secondary', extra_classes='', extra_attrs='') {
+    let extra_class_str = extra_classes ? ` ${extra_classes}` : '';
+    let extra_attr_str = extra_attrs ? ` ${extra_attrs}` : '';
+    return `<button data-ui-btn="1" type="button" class="${btnClass(kind)}${extra_class_str}" onclick="${on_click}"${extra_attr_str}>${label}</button>`;
+}
+
+function setDropTargetStyle(el, on) {
+    if (!el) return;
+    if (on) {
+        twAdd(el, 'border-t-2 border-t-sky-500');
+    } else {
+        twRemove(el, 'border-t-2 border-t-sky-500');
+    }
+}
+
+function applyProfileTailwindUi(root = document) {
+    if (window.applyTailwindUi) window.applyTailwindUi(root);
+
+    let scope = root instanceof Element ? root : document;
+
+    document.querySelector('main')?.classList.add('max-w-none', 'w-[min(2400px,99vw)]');
+
+    scope.querySelectorAll('.rules-list').forEach(el => twAdd(el, 'flex flex-col gap-1'));
+
+    scope.querySelectorAll('.rule-summary').forEach(el => {
+        twAdd(el, 'border border-slate-200 bg-white p-2 text-xs cursor-pointer select-none hover:bg-slate-50');
+        if (el.classList.contains('everything-else')) twAdd(el, 'border-dashed opacity-80');
+        if (el.classList.contains('disabled')) twAdd(el, 'opacity-50');
+        if (el.classList.contains('selected')) twAdd(el, 'border-sky-500 bg-sky-50');
+    });
+
+    scope.querySelectorAll('.rule-summary-top').forEach(el => twAdd(el, 'flex flex-wrap items-center gap-2'));
+    scope.querySelectorAll('.drag-handle').forEach(el => twAdd(el, 'inline-flex w-4 justify-center text-slate-400 cursor-grab select-none'));
+    scope.querySelectorAll('.rule-name').forEach(el => twAdd(el, 'min-w-0 flex-1 truncate font-medium text-slate-800'));
+    scope.querySelectorAll('.rule-meta').forEach(el => twAdd(el, 'mt-1 pl-5 text-[10px] text-slate-500'));
+    scope.querySelectorAll('.rule-count').forEach(el => {
+        twAdd(el, 'border px-1.5 py-0.5 text-[10px] font-medium');
+        if (el.classList.contains('dim')) twAdd(el, 'border-slate-300 text-slate-500');
+        else twAdd(el, 'border-sky-200 text-sky-700');
+    });
+    scope.querySelectorAll('.rule-summary-actions').forEach(el => twAdd(el, 'ml-auto flex flex-wrap items-center gap-1.5'));
+
+    scope.querySelectorAll('.sub-rules-in-list').forEach(el => twAdd(el, 'ml-4 mt-1 flex flex-col gap-1 border-l border-dashed border-slate-300 pl-2'));
+    scope.querySelectorAll('.sub-rule-item').forEach(el => {
+        twAdd(el, 'flex cursor-pointer items-center gap-1 border border-slate-200 bg-white px-1.5 py-1 text-[11px] hover:bg-slate-50');
+        if (el.classList.contains('disabled')) twAdd(el, 'opacity-50 line-through');
+        if (el.classList.contains('selected')) twAdd(el, 'border-sky-500 bg-sky-50');
+    });
+    scope.querySelectorAll('.sub-rule-connector').forEach(el => twAdd(el, 'w-3 text-[10px] text-slate-400'));
+
+    scope.querySelectorAll('.editor-empty').forEach(el => twAdd(el, 'grid place-items-center'));
+    scope.querySelectorAll('#editor-content > h5').forEach(el => twAdd(el, 'mb-1 text-[13px] font-semibold text-slate-900'));
+    scope.querySelectorAll('#editor-content > p.stats').forEach(el => twAdd(el, 'mb-2'));
+    scope.querySelectorAll('.editor-section').forEach(el => {
+        twRemove(el, 'border border-slate-200 p-2 dark:border-slate-800');
+        twAdd(el, 'mb-3 space-y-1.5');
+    });
+    scope.querySelectorAll('.editor-section h6').forEach(el => twAdd(el, 'mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500'));
+    scope.querySelectorAll('.conditions-area').forEach(el => twAdd(el, 'border border-dashed border-slate-300 p-2'));
+    scope.querySelectorAll('.match-mode-row').forEach(el => twAdd(el, 'mb-2 flex flex-wrap items-center gap-2'));
+
+    scope.querySelectorAll('.cond-row').forEach(el => {
+        twRemove(el, 'border border-slate-200 p-1 dark:border-slate-800');
+        twAdd(el, 'my-1 flex flex-wrap items-center gap-1');
+    });
+    scope.querySelectorAll('.cond-row .field-sel').forEach(el => twAdd(el, 'w-40'));
+    scope.querySelectorAll('.cond-row .op-sel').forEach(el => twAdd(el, 'w-28'));
+    scope.querySelectorAll('.cond-row .val-input, .cond-row .val-sel').forEach(el => twAdd(el, 'min-w-[160px] flex-1'));
+    scope.querySelectorAll('.cond-join-label').forEach(el => twAdd(el, 'py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500'));
+
+    scope.querySelectorAll('.editor-subrule-row').forEach(el => twAdd(el, 'mb-1 flex flex-wrap items-center gap-1.5 border border-slate-200 p-2 text-xs'));
+    scope.querySelectorAll('.editor-subrule-row .sub-name').forEach(el => twAdd(el, 'flex-1'));
+
+    scope.querySelectorAll('.editor-footer').forEach(el => twAdd(el, 'mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-2'));
+    scope.querySelectorAll('.editor-footer > div').forEach(el => twAdd(el, 'flex flex-wrap items-center gap-1'));
+
+    scope.querySelectorAll('.editor-save-bar').forEach(el => {
+        twAdd(el, 'mb-3 flex flex-wrap items-center gap-2 border p-2 text-xs');
+        if (el.classList.contains('pending')) twAdd(el, 'border-sky-300 bg-sky-50');
+        if (el.classList.contains('unsaved')) twAdd(el, 'border-amber-300 bg-amber-50');
+    });
+    scope.querySelectorAll('.editor-save-bar .save-label').forEach(el => twAdd(el, 'flex-1'));
+
+    scope.querySelectorAll('.rule-state-badge').forEach(el => {
+        twAdd(el, 'border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide');
+        if (el.classList.contains('pending')) twAdd(el, 'border-sky-300 bg-sky-50 text-sky-700');
+        if (el.classList.contains('unsaved')) twAdd(el, 'border-amber-300 bg-amber-50 text-amber-700');
+    });
+
+    scope.querySelectorAll('.saved-indicator').forEach(el => twAdd(el, 'text-[10px] text-emerald-600'));
+
+    scope.querySelectorAll('.ac-wrap').forEach(el => twAdd(el, 'relative min-w-[120px] flex-1'));
+    scope.querySelectorAll('.ac-results').forEach(el => twAdd(el, 'absolute left-0 right-0 top-full z-50 max-h-44 overflow-y-auto border border-slate-200 bg-white text-xs shadow-sm'));
+    scope.querySelectorAll('.ac-results div').forEach(el => twAdd(el, 'px-2 py-1'));
+    scope.querySelectorAll('.ac-results .ac-count').forEach(el => twAdd(el, 'text-[10px] text-slate-500'));
+    scope.querySelectorAll('.ac-results .ac-summary').forEach(el => twAdd(el, 'border-t border-slate-200 italic text-slate-500'));
+    scope.querySelectorAll('.ac-results .ac-part-row').forEach(el => twAdd(el, 'flex items-center gap-1'));
+    scope.querySelectorAll('.ac-results .ac-part-name').forEach(el => twAdd(el, 'min-w-0'));
+
+    scope.querySelectorAll('.preview-list').forEach(el => twAdd(el, 'mt-2 max-h-[420px] overflow-y-auto'));
+    scope.querySelectorAll('.preview-part-cell').forEach(el => twAdd(el, 'w-10'));
+    scope.querySelectorAll('.matched-row').forEach(el => twAdd(el, 'cursor-pointer hover:bg-slate-50'));
+    scope.querySelectorAll('.matched-detail-cell').forEach(el => twAdd(el, 'bg-slate-50'));
+    scope.querySelectorAll('.matched-detail').forEach(el => twAdd(el, 'grid gap-3 xl:grid-cols-[160px_1fr]'));
+    scope.querySelectorAll('.matched-detail-meta').forEach(el => twAdd(el, 'text-xs'));
+
+    scope.querySelectorAll('.parts-sidebar').forEach(el => twAdd(el, 'flex'));
+    scope.querySelectorAll('.parts-sidebar-scroll').forEach(el => {
+        twRemove(el, 'border border-slate-200 dark:border-slate-800');
+        twAdd(el, 'bg-white');
+    });
+    scope.querySelectorAll('.parts-sidebar #parts-table img.part-img').forEach(el => twAdd(el, 'h-14 w-14 max-w-none'));
+
+    scope.querySelectorAll('.part-img-sm').forEach(el => twAdd(el, 'h-8 w-8'));
+    scope.querySelectorAll('.part-img-md').forEach(el => twAdd(el, 'h-14 w-14'));
+    scope.querySelectorAll('.part-img-lg').forEach(el => twAdd(el, 'h-32 w-32'));
+
+    scope.querySelectorAll('#fallback-options label').forEach(el => {
+        twRemove(el, 'block');
+        twAdd(el, 'inline-flex items-center gap-2');
+    });
+
+    scope.querySelectorAll('#editor-preview-list > input[type="search"]').forEach(el => twAdd(el, 'mb-2'));
+    scope.querySelectorAll('.ac-results div').forEach(el => twAdd(el, 'hover:bg-slate-50'));
+    scope.querySelectorAll('.match-mode-row .stats').forEach(el => twAdd(el, 'text-[10px]'));
+}
 
 // --- helpers ---
 
@@ -554,7 +394,13 @@ function escHtml(s) {
 
 function renderPartImg(url, size_class, loading_mode='lazy') {
     if (!url) return '';
-    return `<img src="${url}" class="part-img ${size_class}" loading="${loading_mode}" decoding="async" alt="">`;
+    let size_map = {
+        'part-img-sm': 'h-8 w-8',
+        'part-img-md': 'h-14 w-14',
+        'part-img-lg': 'h-32 w-32'
+    };
+    let size_tw = size_map[size_class] || 'h-14 w-14';
+    return `<img src="${url}" class="part-img ${size_class} ${size_tw}" loading="${loading_mode}" decoding="async" alt="">`;
 }
 
 function fmtYears(year_from, year_to) {
@@ -736,7 +582,8 @@ function renderRuleList() {
     let container = document.getElementById('rules-list');
     container.innerHTML = '';
     if (RULES.length === 0 && !preview_stats) {
-        container.innerHTML = '<p class="stats" style="text-align:center;padding:1rem 0;">No rules yet. Click "+ Add Rule" to create one.</p>';
+        container.innerHTML = '<p class="stats py-4 text-center">No rules yet. Click "+ Add Rule" to create one.</p>';
+        applyProfileTailwindUi(container);
         return;
     }
     for (let rule of RULES) {
@@ -749,7 +596,8 @@ function renderRuleList() {
     container.appendChild(mkEverythingElseCard());
     // update save-all button visibility
     let save_all_btn = document.getElementById('btn-save-all');
-    if (save_all_btn) save_all_btn.style.display = hasAnyDirty() ? '' : 'none';
+    if (save_all_btn) save_all_btn.classList.toggle('hidden', !hasAnyDirty());
+    applyProfileTailwindUi(container);
 }
 
 function mkRuleSummary(rule) {
@@ -778,8 +626,18 @@ function mkRuleSummary(rule) {
             ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
             : `<span class="rule-count dim">--</span>`;
 
-    let toggle_cls = 'outline secondary btn-toggle-disabled' + (rule.disabled ? ' is-disabled' : '');
     let toggle_label = rule.disabled ? 'Off' : 'On';
+    let toggle_kind = rule.disabled ? 'danger' : 'secondary';
+    let toggle_btn = mkBtn(
+        toggle_label,
+        `event.stopPropagation(); toggleDisabled('${rule.id}', ${!rule.disabled})`,
+        toggle_kind,
+        '',
+        `title="${rule.disabled ? 'Enable rule' : 'Disable rule'}"`
+    );
+    let edit_btn = mkBtn('Edit', `event.stopPropagation(); selectRule('${rule.id}')`);
+    let dup_btn = mkBtn('Duplicate', `event.stopPropagation(); duplicateRule('${rule.id}')`);
+    let del_btn = mkBtn('Delete', `event.stopPropagation(); deleteRule('${rule.id}')`, 'danger');
 
     let state = ruleState(rule.id);
     let state_badge = '';
@@ -793,10 +651,10 @@ function mkRuleSummary(rule) {
             ${state_badge}
             ${count_html}
             <div class="rule-summary-actions">
-                <button class="${toggle_cls}" onclick="event.stopPropagation(); toggleDisabled('${rule.id}', ${!rule.disabled})" title="${rule.disabled ? 'Enable rule' : 'Disable rule'}">${toggle_label}</button>
-                <button class="outline secondary btn-sm" onclick="event.stopPropagation(); selectRule('${rule.id}')">Edit</button>
-                <button class="outline secondary btn-sm" onclick="event.stopPropagation(); duplicateRule('${rule.id}')">Duplicate</button>
-                <button class="outline secondary btn-sm btn-danger" onclick="event.stopPropagation(); deleteRule('${rule.id}')">Delete</button>
+                ${toggle_btn}
+                ${edit_btn}
+                ${dup_btn}
+                ${del_btn}
             </div>
         </div>
         <div class="rule-meta">${meta_text}</div>
@@ -821,7 +679,7 @@ function mkRuleSummary(rule) {
             item.dataset.level = 'child';
             let connector = i < children.length - 1 ? '&#x251C;' : '&#x2514;';
             item.innerHTML = `
-                <span class="drag-handle" title="Drag to reorder" style="font-size:13px;">&#x2807;</span>
+                <span class="drag-handle text-[13px]" title="Drag to reorder">&#x2807;</span>
                 <span class="sub-rule-connector">${connector}</span>
                 <span>${escHtml(child.name)}</span>
             `;
@@ -842,16 +700,29 @@ function renderFallbackOptions() {
     let rb_checked = FALLBACK_MODE.rebrickable_categories ? 'checked' : '';
     let color_checked = FALLBACK_MODE.by_color ? 'checked' : '';
     let color_disabled = FALLBACK_MODE.rebrickable_categories ? '' : 'disabled';
+    let fallback_mode_label = 'Disabled';
+    if (FALLBACK_MODE.rebrickable_categories && FALLBACK_MODE.by_color) fallback_mode_label = 'Rebrickable categories + color';
+    else if (FALLBACK_MODE.rebrickable_categories) fallback_mode_label = 'Rebrickable categories';
     el.innerHTML = `
-        <label style="margin:0;display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;">
-            <input type="checkbox" ${rb_checked} onchange="setFallbackRbCats(this.checked)" style="margin:0;">
-            Fallback: Rebrickable categories
-        </label>
-        <label style="margin:0;display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;">
-            <input type="checkbox" ${color_checked} ${color_disabled} onchange="setFallbackByColor(this.checked)" style="margin:0;">
-            + by color
-        </label>
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fallback Routing</div>
+                <p class="stats mt-1">Controls where unmatched parts go after rule matching.</p>
+                <p class="mt-1 text-xs text-slate-700">Current mode: <span class="font-medium">${fallback_mode_label}</span></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+                    <input data-native-check="1" type="checkbox" class="m-0" ${rb_checked} onchange="setFallbackRbCats(this.checked)">
+                    <span>Use Rebrickable categories</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-xs text-slate-700 ${color_disabled ? 'opacity-50' : ''}">
+                    <input data-native-check="1" type="checkbox" class="m-0" ${color_checked} ${color_disabled} onchange="setFallbackByColor(this.checked)">
+                    <span>Split fallback by color</span>
+                </label>
+            </div>
+        </div>
     `;
+    applyProfileTailwindUi(el);
 }
 
 function mkEverythingElseCard() {
@@ -870,7 +741,7 @@ function mkEverythingElseCard() {
         : `Everything not matched`;
     div.innerHTML = `
         <div class="rule-summary-top">
-            <span class="drag-handle" style="visibility:hidden;">&#x2807;</span>
+            <span class="drag-handle invisible">&#x2807;</span>
             <span class="rule-name">Everything Else (misc)</span>
             ${count_html}
         </div>
@@ -883,14 +754,13 @@ function mkRbCategoryCard(cat_key, cat_name, count) {
     let div = document.createElement('div');
     let cls = 'rule-summary everything-else';
     if (selected_rb_cat && selected_rb_cat.key === cat_key) cls += ' selected';
-    div.className = cls;
-    div.style.cursor = 'pointer';
+    div.className = `${cls} cursor-pointer`;
     let count_html = count !== null
         ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
         : `<span class="rule-count dim">--</span>`;
     div.innerHTML = `
         <div class="rule-summary-top">
-            <span class="drag-handle" style="visibility:hidden;">&#x2807;</span>
+            <span class="drag-handle invisible">&#x2807;</span>
             <span class="rule-name">${escHtml(cat_name)}</span>
             ${count_html}
         </div>
@@ -947,19 +817,30 @@ function setupTopLevelDrag(el) {
         el.style.opacity = '';
         drag_id = null;
         drag_level = null;
-        document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
     });
     el.addEventListener('dragover', (e) => {
         if (drag_level !== 'top') return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        document.querySelectorAll('.rule-summary.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('.rule-summary.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
         el.classList.add('drag-over');
+        setDropTargetStyle(el, true);
     });
-    el.addEventListener('dragleave', () => { el.classList.remove('drag-over'); });
+    el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+    });
     el.addEventListener('drop', (e) => {
         e.preventDefault();
         el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
         if (drag_level !== 'top') return;
         let from_id = drag_id;
         let to_id = el.dataset.ruleId;
@@ -993,7 +874,10 @@ function setupChildDrag(el) {
         el.style.opacity = '';
         drag_id = null;
         drag_level = null;
-        document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
     });
     el.addEventListener('dragover', (e) => {
         if (drag_level !== 'child') return;
@@ -1001,14 +885,22 @@ function setupChildDrag(el) {
         e.preventDefault();
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'move';
-        document.querySelectorAll('.sub-rule-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('.sub-rule-item.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
         el.classList.add('drag-over');
+        setDropTargetStyle(el, true);
     });
-    el.addEventListener('dragleave', () => { el.classList.remove('drag-over'); });
+    el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+    });
     el.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
         el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
         if (drag_level !== 'child') return;
         let from_id = drag_id;
         let to_id = el.dataset.ruleId;
@@ -1068,12 +960,15 @@ function renderEditor() {
 
     let is_child = !isTopLevel(rule.id);
     let parent = is_child ? findParentRule(RULES, rule.id) : null;
-    let title = is_child ? `Editing sub-rule: "${escHtml(rule.name)}"` : `Editing: "${escHtml(rule.name)}"`;
+    let title = is_child ? `Editing Sub-rule: ${escHtml(rule.name)}` : `Editing: ${escHtml(rule.name)}`;
 
     let state = ruleState(rule.id);
+    let cancel_btn_html = state !== 'saved'
+        ? mkBtn('Cancel', `discardRule('${rule.id}')`)
+        : '';
     let html = '';
 
-    html += `<h5>${title}</h5>`;
+    html += `<h5 class="text-sm font-semibold text-slate-900">${title}</h5>`;
     if (is_child && parent) {
         html += `<p class="stats">Under parent: ${escHtml(parent.name)}</p>`;
     }
@@ -1082,18 +977,23 @@ function renderEditor() {
     let disabled_checked = rule.disabled ? 'checked' : '';
     html += `
         <div class="editor-section">
-            <h6>Name</h6>
-            <input type="text" value="${escHtml(rule.name)}" id="editor-name" style="margin:0;"
-                onchange="updateRuleField('${rule.id}', 'name', this.value)">
-        </div>
-        <div class="editor-section">
-            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:13px;">
-                <input type="checkbox" ${disabled_checked} role="switch"
-                    onchange="toggleDisabled('${rule.id}', this.checked)"
-                    style="margin:0;">
-                Disabled
-            </label>
-            ${rule.disabled ? '<p class="stats" style="margin-top:0.25rem;">This rule is skipped during matching. Parts fall through to later rules or Everything Else.</p>' : ''}
+            <div class="grid items-end gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div class="min-w-0">
+                    <h6>Name</h6>
+                    <input type="text" value="${escHtml(rule.name)}" id="editor-name"
+                        onchange="updateRuleField('${rule.id}', 'name', this.value)">
+                </div>
+                <div>
+                    <h6>Status</h6>
+                    <label class="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-700">
+                        <input type="checkbox" ${disabled_checked} role="switch"
+                            onchange="toggleDisabled('${rule.id}', this.checked)"
+                            class="m-0">
+                        Disabled
+                    </label>
+                </div>
+            </div>
+            ${rule.disabled ? '<p class="stats mt-1">This rule is skipped during matching. Parts fall through to later rules or Everything Else.</p>' : ''}
         </div>
     `;
 
@@ -1114,16 +1014,16 @@ function renderEditor() {
                 html += `
                     <div class="editor-subrule-row">
                         <span class="sub-name">${escHtml(child.name)}</span>
-                        <button class="outline secondary btn-sm" onclick="selectRule('${child.id}')">Edit</button>
-                        <button class="outline secondary btn-sm" onclick="duplicateRule('${child.id}')">Duplicate</button>
-                        <button class="outline secondary btn-sm btn-danger" onclick="deleteRule('${child.id}')">Delete</button>
+                        ${mkBtn('Edit', `selectRule('${child.id}')`)}
+                        ${mkBtn('Duplicate', `duplicateRule('${child.id}')`)}
+                        ${mkBtn('Delete', `deleteRule('${child.id}')`, 'danger')}
                     </div>
                 `;
             }
         } else {
             html += `<p class="stats">No sub-rules.</p>`;
         }
-        html += `<button class="outline secondary btn-sm" onclick="addSubRule('${rule.id}')" style="margin-top:0.3rem;">+ Add Sub-rule</button></div>`;
+        html += `${mkBtn('+ Add Sub-rule', `addSubRule('${rule.id}')`, 'secondary', 'mt-1')}</div>`;
     }
 
     // footer with mode toggle
@@ -1132,10 +1032,11 @@ function renderEditor() {
     html += `
         <div class="editor-footer">
             <span class="stats" id="editor-match">loading...</span>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
-                <button class="outline secondary btn-sm" onclick="toggleStandaloneMode()">${toggle_label}</button>
-                <button class="outline secondary btn-sm" onclick="duplicateRule('${rule.id}')">Duplicate Rule</button>
-                <button class="outline secondary btn-sm btn-danger" onclick="deleteRule('${rule.id}')">Delete Rule</button>
+            <div class="flex flex-wrap items-center gap-2">
+                ${cancel_btn_html}
+                ${mkBtn(toggle_label, 'toggleStandaloneMode()')}
+                ${mkBtn('Duplicate Rule', `duplicateRule('${rule.id}')`)}
+                ${mkBtn('Delete Rule', `deleteRule('${rule.id}')`, 'danger')}
             </div>
         </div>
         <div id="editor-preview-list"></div>
@@ -1143,16 +1044,16 @@ function renderEditor() {
 
     // save bar at the bottom
     if (state === 'pending') {
-        html += `<div class="editor-save-bar pending" style="margin-top:1rem;">
+        html += `<div class="editor-save-bar pending mt-3">
             <span class="save-label">New rule — not yet saved</span>
-            <button class="btn-sm" onclick="saveRule('${rule.id}')">Save</button>
-            <button class="outline secondary btn-sm" onclick="discardRule('${rule.id}')">Discard</button>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
         </div>`;
     } else if (state === 'unsaved') {
-        html += `<div class="editor-save-bar unsaved" style="margin-top:1rem;">
+        html += `<div class="editor-save-bar unsaved mt-3">
             <span class="save-label">Unsaved changes</span>
-            <button class="btn-sm" onclick="saveRule('${rule.id}')">Save</button>
-            <button class="outline secondary btn-sm" onclick="discardRule('${rule.id}')">Discard</button>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
         </div>`;
     }
 
@@ -1161,6 +1062,7 @@ function renderEditor() {
     // render conditions into the area
     let conds_el = document.getElementById('editor-conds');
     renderConditions(conds_el, rule);
+    applyProfileTailwindUi(content);
 }
 
 // --- condition rendering ---
@@ -1169,18 +1071,20 @@ function renderConditions(container, rule) {
     let conditions = rule.conditions || [];
     let match_mode = rule.match_mode || 'all';
 
+    let mode_row = document.createElement('div');
+    mode_row.className = 'match-mode-row';
     let toggle = document.createElement('div');
-    toggle.className = 'match-mode-toggle';
+    toggle.className = SEGMENT_WRAP;
     toggle.innerHTML = `
-        <button class="${match_mode === 'all' ? 'active' : ''}" onclick="setMatchMode('${rule.id}', 'all')">ALL</button>
-        <button class="${match_mode === 'any' ? 'active' : ''}" onclick="setMatchMode('${rule.id}', 'any')">ANY</button>
+        <button data-ui-btn="1" type="button" class="${match_mode === 'all' ? SEGMENT_BTN_ACTIVE : SEGMENT_BTN}" onclick="setMatchMode('${rule.id}', 'all')">ALL</button>
+        <button data-ui-btn="1" type="button" class="${match_mode === 'any' ? SEGMENT_BTN_ACTIVE : SEGMENT_BTN}" onclick="setMatchMode('${rule.id}', 'any')">ANY</button>
     `;
-    container.appendChild(toggle);
     let mode_label = document.createElement('span');
     mode_label.className = 'stats';
-    mode_label.style.marginLeft = '0.5rem';
     mode_label.textContent = match_mode === 'all' ? 'All conditions must match' : 'Any condition can match';
-    container.appendChild(mode_label);
+    mode_row.appendChild(toggle);
+    mode_row.appendChild(mode_label);
+    container.appendChild(mode_row);
 
     for (let i = 0; i < conditions.length; i++) {
         if (i > 0) {
@@ -1205,7 +1109,7 @@ function mkAddConditionBtn(rule_id) {
     let wrap = document.createElement('div');
     wrap.className = 'cond-row';
     let sel = document.createElement('select');
-    sel.style.cssText = 'width:auto;font-size:12px;padding:3px 8px;margin:0;';
+    sel.className = 'w-auto';
     sel.innerHTML = `
         <option value="">+ add condition...</option>
         <option value="category_id">RB Category is...</option>
@@ -1268,7 +1172,7 @@ function renderConditionRow(cond, rule_id) {
             ${op_opts}
         </select>
         ${value_html}
-        <button class="btn-x" onclick="removeCondition('${rule_id}', '${cond.id}')" title="Remove">&times;</button>
+        <button data-ui-btn="1" type="button" class="${btnClass('icon_danger')}" onclick="removeCondition('${rule_id}', '${cond.id}')" title="Remove">&times;</button>
     `;
     return row;
 }
@@ -1676,7 +1580,7 @@ function renderPartListResults(container, data) {
     container.innerHTML = '';
     // search bar
     let search_val = pl_query ? escHtml(pl_query) : '';
-    let search_html = `<input type="search" placeholder="Search matched parts..." value="${search_val}" style="margin:0 0 0.5rem 0;font-size:12px;padding:3px 6px 3px 48px;" oninput="plSearch(this.value)">`;
+    let search_html = `<input type="search" placeholder="Search matched parts..." value="${search_val}" class="mb-2" oninput="plSearch(this.value)">`;
     container.insertAdjacentHTML('beforeend', search_html);
 
     // table
@@ -1710,14 +1614,17 @@ function renderPartListResults(container, data) {
         let to = Math.min(pl_offset + PL_PAGE, total);
         let has_prev = pl_offset > 0;
         let has_next = pl_offset + PL_PAGE < total;
+        let prev_btn = mkBtn('Prev', 'plPrev()', 'secondary', '', has_prev ? '' : 'disabled');
+        let next_btn = mkBtn('Next', 'plNext()', 'secondary', '', has_next ? '' : 'disabled');
         container.insertAdjacentHTML('beforeend', `
-            <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.3rem;">
-                <button class="outline secondary btn-sm" onclick="plPrev()" ${has_prev ? '' : 'disabled'}>Prev</button>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                ${prev_btn}
                 <span class="stats">${from}&ndash;${to} of ${total}</span>
-                <button class="outline secondary btn-sm" onclick="plNext()" ${has_next ? '' : 'disabled'}>Next</button>
+                ${next_btn}
             </div>
         `);
     }
+    applyProfileTailwindUi(container);
 }
 
 function plSearch(val) {
@@ -1764,6 +1671,7 @@ function renderRbCatViewer() {
         </div>
         <div id="editor-preview-list"></div>
     `;
+    applyProfileTailwindUi(content);
 }
 
 // --- parts browser ---
@@ -1797,12 +1705,13 @@ function renderParts(parts) {
     for (let p of parts) {
         let tr = document.createElement('tr');
         let bl_ids = (p.external_ids && p.external_ids.BrickLink) ? p.external_ids.BrickLink.join(', ') : '';
-        let img = renderPartImg(p.part_img_url, 'part-img-lg', 'eager');
+        let img = renderPartImg(p.part_img_url, 'part-img-md', 'eager');
         let years = '';
         if (p.year_from) years = p.year_from === p.year_to ? `${p.year_from}` : `${p.year_from}-${p.year_to || '?'}`;
-        tr.innerHTML = `<td>${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${years}</td>`;
+        tr.innerHTML = `<td class="w-[84px] min-w-[84px]">${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${years}</td>`;
         tbody.appendChild(tr);
     }
+    applyProfileTailwindUi(tbody);
 }
 
 function renderPagination() {
@@ -1815,11 +1724,14 @@ function renderPagination() {
     let to = Math.min(current_offset + PAGE_SIZE, current_total);
     let has_prev = current_offset > 0;
     let has_next = current_offset + PAGE_SIZE < current_total;
+    let prev_btn = mkBtn('Prev', 'prevPage()', 'secondary', '', has_prev ? '' : 'disabled');
+    let next_btn = mkBtn('Next', 'nextPage()', 'secondary', '', has_next ? '' : 'disabled');
     el.innerHTML = `
-        <button class="outline secondary btn-sm" onclick="prevPage()" ${has_prev ? '' : 'disabled'}>Prev</button>
+        ${prev_btn}
         <span class="stats">${from}&ndash;${to} of ${current_total}</span>
-        <button class="outline secondary btn-sm" onclick="nextPage()" ${has_next ? '' : 'disabled'}>Next</button>
+        ${next_btn}
     `;
+    applyProfileTailwindUi(el);
 }
 
 function prevPage() {
@@ -1837,7 +1749,77 @@ async function renameProfile(name) {
     let form = new FormData();
     form.append('name', name.trim());
     let res = await fetch(`/api/profiles/${PROFILE_ID}/name`, {method: 'PUT', body: form});
-    if (res.ok) document.title = `${name.trim()} - Sorting Profile Builder`;
+    if (!res.ok) return false;
+    let next_name = name.trim();
+    document.title = `${next_name} - Sorting Profile Builder`;
+    let display_el = document.getElementById('profile-name-display');
+    if (display_el) display_el.textContent = next_name;
+    let input_el = document.getElementById('profile-name-input');
+    if (input_el) input_el.value = next_name;
+    return true;
+}
+
+function setProfileNameEditing(is_editing) {
+    profile_name_editing = is_editing;
+    let display_el = document.getElementById('profile-name-display');
+    let edit_btn = document.getElementById('btn-profile-name-edit');
+    let editor_el = document.getElementById('profile-name-editor');
+    let input_el = document.getElementById('profile-name-input');
+    if (display_el) display_el.classList.toggle('hidden', is_editing);
+    if (edit_btn) edit_btn.classList.toggle('hidden', is_editing);
+    if (editor_el) editor_el.classList.toggle('hidden', !is_editing);
+    if (is_editing && input_el) {
+        input_el.value = (display_el?.textContent || input_el.value || '').trim();
+        input_el.focus();
+        input_el.select();
+    }
+}
+
+function openProfileNameEditor() {
+    setProfileNameEditing(true);
+}
+
+function cancelProfileNameEdit() {
+    setProfileNameEditing(false);
+}
+
+async function submitProfileNameEdit() {
+    let input_el = document.getElementById('profile-name-input');
+    if (!input_el) return;
+    let next_name = input_el.value.trim();
+    if (!next_name) {
+        cancelProfileNameEdit();
+        return;
+    }
+    let ok = await renameProfile(next_name);
+    if (ok) setProfileNameEditing(false);
+}
+
+function handleProfileNameKey(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitProfileNameEdit();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelProfileNameEdit();
+    }
+}
+
+async function copyProfilePath() {
+    let path_el = document.getElementById('profile-path-text');
+    if (!path_el) return;
+    let path_text = (path_el.textContent || '').trim();
+    if (!path_text) return;
+    try {
+        await navigator.clipboard.writeText(path_text);
+    } catch (e) {
+        let ta = document.createElement('textarea');
+        ta.value = path_text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+    }
 }
 
 async function refreshStats() {
@@ -1876,7 +1858,7 @@ function startPartsSidebarResize(e) {
     let el = document.getElementById('parts-browser-sidebar');
     if (!el) return;
     parts_sidebar_resize = {start_x: e.clientX, start_w: el.getBoundingClientRect().width};
-    document.body.classList.add('parts-sidebar-resizing');
+    document.body.classList.add('cursor-col-resize', 'select-none');
     window.addEventListener('mousemove', onPartsSidebarResizeMove);
     window.addEventListener('mouseup', stopPartsSidebarResize);
 }
@@ -1890,7 +1872,7 @@ function onPartsSidebarResizeMove(e) {
 
 function stopPartsSidebarResize() {
     parts_sidebar_resize = null;
-    document.body.classList.remove('parts-sidebar-resizing');
+    document.body.classList.remove('cursor-col-resize', 'select-none');
     window.removeEventListener('mousemove', onPartsSidebarResizeMove);
     window.removeEventListener('mouseup', stopPartsSidebarResize);
 }
@@ -1901,5 +1883,15 @@ renderRuleList();
 refreshPreview();
 applyPartsSidebarWidth();
 window.addEventListener('resize', applyPartsSidebarWidth);
+applyProfileTailwindUi(document);
+
+let profile_ui_observer = new MutationObserver((mutations) => {
+    for (let m of mutations) {
+        for (let n of m.addedNodes) {
+            if (n instanceof Element) applyProfileTailwindUi(n.parentElement || n);
+        }
+    }
+});
+profile_ui_observer.observe(document.body, {childList: true, subtree: true});
 </script>
 {% endblock %}

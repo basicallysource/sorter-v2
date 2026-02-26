@@ -2,83 +2,102 @@
 {% block title %}Home - Sorting Profile Builder{% endblock %}
 
 {% block content %}
-<section>
-    <h3>Parts Cache</h3>
-    <div class="grid">
-        <div>
-            <p>
-                <strong>Cached:</strong> {{ cache_count }} parts, {{ cat_count }} categories, {{ color_count }} colors
-                {% if api_total %}
-                    / {{ api_total }} total parts on Rebrickable
+<div class="space-y-6">
+    <section class="surface-panel p-4 sm:p-5">
+        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h3 class="text-base font-semibold tracking-wide">Parts Cache</h3>
+            <div class="stats text-xs uppercase tracking-wider">Sync + cache management</div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div class="space-y-2">
+                <p class="text-sm">
+                    <strong>Cached:</strong> {{ cache_count }} parts, {{ cat_count }} categories, {{ color_count }} colors
+                    {% if api_total %}
+                        / {{ api_total }} total parts on Rebrickable
+                    {% endif %}
+                </p>
+                {% if api_total and cache_count >= api_total %}
+                    <p><mark>All parts synced</mark></p>
                 {% endif %}
-            </p>
-            {% if api_total and cache_count >= api_total %}
-                <p><mark>All parts synced</mark></p>
-            {% endif %}
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex flex-wrap gap-2">
+                    <button id="btn-sync-cats" onclick="syncCategories()">Sync Categories</button>
+                    <button id="btn-sync-colors" onclick="syncColors()">Sync Colors</button>
+                    <button id="btn-sync-parts" onclick="syncParts()">Sync Parts</button>
+                    <button id="btn-sync-bricklink" onclick="syncBricklink()">Sync BrickLink</button>
+                    <button id="btn-stop-sync" onclick="stopSync()" style="display:none;" class="secondary">Stop</button>
+                </div>
+                <div class="progress-info">
+                    <progress id="sync-progress" value="0" max="100" style="display:none;"></progress>
+                    <span id="sync-status" class="text-sm"></span>
+                </div>
+                <div id="sync-log"></div>
+            </div>
         </div>
-        <div>
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                <button id="btn-sync-cats" onclick="syncCategories()">Sync Categories</button>
-                <button id="btn-sync-colors" onclick="syncColors()">Sync Colors</button>
-                <button id="btn-sync-parts" onclick="syncParts()">Sync Parts</button>
-                <button id="btn-sync-bricklink" onclick="syncBricklink()">Sync BrickLink</button>
-                <button id="btn-stop-sync" onclick="stopSync()" style="display:none;" class="secondary">Stop</button>
-            </div>
-            <div class="progress-info" style="margin-top:0.5rem;">
-                <progress id="sync-progress" value="0" max="100" style="display:none;"></progress>
-                <span id="sync-status"></span>
-            </div>
-            <div id="sync-log"></div>
+    </section>
+
+    <section class="surface-panel p-4 sm:p-5">
+        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h3 class="text-base font-semibold tracking-wide">Sorting Profiles</h3>
+            <div class="stats text-xs uppercase tracking-wider">{{ profiles|length if profiles else 0 }} profiles</div>
         </div>
-    </div>
-</section>
 
-<hr>
+        {% if profiles %}
+        <div class="overflow-x-auto border" style="border-color:var(--app-border);">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Parts</th>
+                        <th>Categories</th>
+                        <th>Updated</th>
+                        <th>Path</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in profiles %}
+                    <tr id="profile-row-{{ p.id }}">
+                        <td><a href="/profile/{{ p.id }}">{{ p.name }}</a></td>
+                        <td>{{ p.description }}</td>
+                        <td>{{ p.part_count }}</td>
+                        <td>{{ p.category_count }}</td>
+                        <td>{{ p.updated_at[:10] }}</td>
+                        <td class="text-[11px] break-all">{{ p.file_path }}</td>
+                        <td><button class="outline secondary px-2 py-1 text-xs" onclick="deleteProfile('{{ p.id }}')">Delete</button></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="stats">No profiles yet.</p>
+        {% endif %}
 
-<section>
-    <h3>Sorting Profiles</h3>
-    {% if profiles %}
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Parts</th>
-                <th>Categories</th>
-                <th>Updated</th>
-                <th>Path</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in profiles %}
-            <tr id="profile-row-{{ p.id }}">
-                <td><a href="/profile/{{ p.id }}">{{ p.name }}</a></td>
-                <td>{{ p.description }}</td>
-                <td>{{ p.part_count }}</td>
-                <td>{{ p.category_count }}</td>
-                <td>{{ p.updated_at[:10] }}</td>
-                <td style="font-size:11px;">{{ p.file_path }}</td>
-                <td><button class="outline secondary" style="padding:4px 8px;font-size:12px;" onclick="deleteProfile('{{ p.id }}')">Delete</button></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No profiles yet.</p>
-    {% endif %}
-
-    <details>
-        <summary>New Profile</summary>
-        <form id="new-profile-form" onsubmit="createProfile(event)">
-            <div class="grid">
-                <label>Name <input type="text" name="name" required></label>
-                <label>Description <input type="text" name="description"></label>
-            </div>
-            <button type="submit">Create</button>
-        </form>
-    </details>
-</section>
+        <div class="mt-4">
+            <details>
+                <summary>New Profile</summary>
+                <form id="new-profile-form" onsubmit="createProfile(event)" class="space-y-3">
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <label class="space-y-1">
+                            <span class="text-xs font-semibold uppercase tracking-wider stats">Name</span>
+                            <input type="text" name="name" required>
+                        </label>
+                        <label class="space-y-1">
+                            <span class="text-xs font-semibold uppercase tracking-wider stats">Description</span>
+                            <input type="text" name="description">
+                        </label>
+                    </div>
+                    <button type="submit">Create</button>
+                </form>
+            </details>
+        </div>
+    </section>
+</div>
 {% endblock %}
 
 {% block scripts %}

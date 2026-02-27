@@ -13,12 +13,10 @@ from defs.consts import (
 from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
 
 
-class FeederAnalysisState(Enum):
-    OBJECT_IN_3_DROPZONE_PRECISE = "object_in_3_dropzone_precise"
-    OBJECT_IN_3_DROPZONE = "object_in_3_dropzone"
-    OBJECT_IN_2_DROPZONE_PRECISE = "object_in_2_dropzone_precise"
-    OBJECT_IN_2_DROPZONE = "object_in_2_dropzone"
-    CLEAR = "clear"
+class ChannelAction(Enum):
+    IDLE = "idle"
+    PULSE_NORMAL = "normal"
+    PULSE_PRECISE = "precise"
 
 
 def computeChannelGeometry(
@@ -91,35 +89,26 @@ def getBboxSections(bbox: Tuple, channel: PolygonChannel) -> set:
     return sections
 
 
-def analyzeFeederState(
+def analyzeFeederChannels(
     gc: "GlobalConfig",
     detections: List[ChannelDetection],
-) -> FeederAnalysisState:
-    if not detections:
-        return FeederAnalysisState.CLEAR
-
-    has_3_precise = has_3_drop = has_2_precise = has_2_drop = False
+) -> Tuple[ChannelAction, ChannelAction]:
+    """Returns (ch2_action, ch3_action)."""
+    ch2 = ChannelAction.IDLE
+    ch3 = ChannelAction.IDLE
 
     for det in detections:
         sections = getBboxSections(det.bbox, det.channel)
 
         if det.channel_id == 3:
             if sections & set(CH3_PRECISE_SECTIONS):
-                has_3_precise = True
-            elif sections & set(CH3_DROPZONE_SECTIONS):
-                has_3_drop = True
+                ch3 = ChannelAction.PULSE_PRECISE
+            elif sections & set(CH3_DROPZONE_SECTIONS) and ch3 == ChannelAction.IDLE:
+                ch3 = ChannelAction.PULSE_NORMAL
         elif det.channel_id == 2:
             if sections & set(CH2_PRECISE_SECTIONS):
-                has_2_precise = True
-            elif sections & set(CH2_DROPZONE_SECTIONS):
-                has_2_drop = True
+                ch2 = ChannelAction.PULSE_PRECISE
+            elif sections & set(CH2_DROPZONE_SECTIONS) and ch2 == ChannelAction.IDLE:
+                ch2 = ChannelAction.PULSE_NORMAL
 
-    if has_3_precise:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE
-    if has_3_drop:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE
-    if has_2_precise:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE_PRECISE
-    if has_2_drop:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE
-    return FeederAnalysisState.CLEAR
+    return ch2, ch3

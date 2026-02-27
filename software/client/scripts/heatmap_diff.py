@@ -287,7 +287,7 @@ HTML = """
             const data = await res.json();
             document.getElementById('status').textContent = data.ok
                 ? 'Baseline captured at ' + new Date().toLocaleTimeString()
-                : 'Failed - no carousel polygon found. Run channel_polygon_editor.py first.';
+                : 'Failed - no carousel polygon found. Run polygon_editor.py first.';
         }
 
         setInterval(() => {
@@ -353,7 +353,7 @@ if __name__ == "__main__":
             carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
     if carousel_polygon is None:
-        print("WARNING: No carousel polygon found. Run channel_polygon_editor.py first.")
+        print("WARNING: No carousel polygon found. Run polygon_editor.py first.")
         print("         Heatmap diff will not work until a polygon is drawn.")
 
     device_index = camera_setup["feeder"]

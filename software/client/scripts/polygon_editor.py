@@ -1,9 +1,9 @@
 """
-Channel & carousel polygon editor.
+Channel, carousel & classification polygon editor.
 All regions are click-to-draw polygons stored in blob_manager.
 Shift-click on a channel tab to place the section-0 reference point.
 
-Run: /opt/homebrew/opt/python@3.11/bin/python3.11 client/scripts/channel_polygon_editor.py
+Run: /opt/homebrew/opt/python@3.11/bin/python3.11 client/scripts/polygon_editor.py
 Then open http://localhost:8100. Left-click adds a vertex, shift-click sets section 0,
 right-click removes nearest vertex.
 """
@@ -19,30 +19,40 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
-from blob_manager import getCameraSetup, getChannelPolygons, setChannelPolygons
+from blob_manager import (
+    getCameraSetup, getChannelPolygons, setChannelPolygons,
+    getClassificationPolygons, setClassificationPolygons,
+)
 from irl.config import mkCameraConfig
 from vision.camera import CaptureThread
 
 PORT = 8100
 
+FEEDER_CHANNELS = ['second', 'third', 'carousel']
+CLASSIFICATION_CHANNELS = ['class_top', 'class_bottom']
+ALL_CHANNELS = FEEDER_CHANNELS + CLASSIFICATION_CHANNELS
+
 app = Flask(__name__)
-capture: CaptureThread = None  # type: ignore[assignment]
+captures: dict[str, CaptureThread] = {}
 
 HTML = """<!DOCTYPE html>
 <html>
 <head>
-  <title>Channel Polygon Editor</title>
+  <title>Polygon Editor</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #111; color: #eee; font-family: monospace;
            display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     .topbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px;
-              background: #1a1a1a; border-bottom: 1px solid #333; flex-shrink: 0; }
+              background: #1a1a1a; border-bottom: 1px solid #333; flex-shrink: 0; flex-wrap: wrap; }
+    .sep { width: 1px; height: 24px; background: #444; }
     .tab { padding: 5px 14px; cursor: pointer; border-radius: 4px; background: #2a2a2a;
            border: 2px solid transparent; color: #eee; font-family: monospace; font-size: 13px; }
     .tab.second.active { border-color: #ffc800; }
     .tab.third.active  { border-color: #00c8ff; }
     .tab.carousel.active { border-color: #00ff80; }
+    .tab.class_top.active { border-color: #ff6090; }
+    .tab.class_bottom.active { border-color: #b060ff; }
     button.action { padding: 5px 12px; cursor: pointer; border-radius: 4px;
                     background: #2a6; color: #fff; border: none; font-family: monospace; font-size: 13px; }
     button.danger { background: #833; }
@@ -56,6 +66,10 @@ HTML = """<!DOCTYPE html>
     <button class="tab second active" onclick="setChannel('second')">Second Channel</button>
     <button class="tab third" onclick="setChannel('third')">Third Channel</button>
     <button class="tab carousel" onclick="setChannel('carousel')">Carousel</button>
+    <div class="sep"></div>
+    <button class="tab class_top" onclick="setChannel('class_top')">Class. Top</button>
+    <button class="tab class_bottom" onclick="setChannel('class_bottom')">Class. Bottom</button>
+    <div class="sep"></div>
     <button class="action danger" onclick="clearCurrent()">Clear</button>
     <button class="action" onclick="savePolygons()">Save</button>
     <span id="status">loading... | shift-click to set section 0</span>
@@ -67,12 +81,22 @@ HTML = """<!DOCTYPE html>
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
 
+    const FEEDER_CHANNELS = ['second', 'third', 'carousel'];
+    const CLASSIFICATION_CHANNELS = ['class_top', 'class_bottom'];
+    const ALL_CHANNELS = FEEDER_CHANNELS.concat(CLASSIFICATION_CHANNELS);
+
     let currentChannel = 'second';
-    let userPoints = { second: [], third: [], carousel: [] };
-    // section-0 reference points (pixel coords) for each channel
+    let userPoints = { second: [], third: [], carousel: [], class_top: [], class_bottom: [] };
     let sectionZeroPoints = { second: null, third: null };
 
     let frameImg = new Image();
+
+    function cameraForChannel(ch) {
+      if (CLASSIFICATION_CHANNELS.includes(ch)) {
+        return ch === 'class_top' ? 'classification_top' : 'classification_bottom';
+      }
+      return 'feeder';
+    }
 
     function setChannel(ch) {
       currentChannel = ch;
@@ -82,7 +106,8 @@ HTML = """<!DOCTYPE html>
 
     function clearCurrent() {
       userPoints[currentChannel] = [];
-      if (currentChannel !== 'carousel') sectionZeroPoints[currentChannel] = null;
+      if (currentChannel === 'second' || currentChannel === 'third')
+        sectionZeroPoints[currentChannel] = null;
     }
 
     function canvasCoords(e) {
@@ -95,8 +120,7 @@ HTML = """<!DOCTYPE html>
 
     canvas.addEventListener('click', e => {
       const [x, y] = canvasCoords(e);
-      if (e.shiftKey && currentChannel !== 'carousel') {
-        // shift-click sets section-0 reference point
+      if (e.shiftKey && (currentChannel === 'second' || currentChannel === 'third')) {
         sectionZeroPoints[currentChannel] = [x, y];
         return;
       }
@@ -145,13 +169,18 @@ HTML = """<!DOCTYPE html>
       return Math.atan2(dy, dx) * (180 / Math.PI);
     }
 
+    const CHANNEL_COLORS = {
+      second:       [255, 200, 0],
+      third:        [0, 200, 255],
+      carousel:     [0, 255, 128],
+      class_top:    [255, 96, 144],
+      class_bottom: [176, 96, 255],
+    };
+
     function drawPolygon(ch, active) {
       const pts = computePolygon(ch);
       if (pts.length < 2) return;
-      let r, g, b;
-      if (ch === 'second')       { r = 255; g = 200; b = 0; }
-      else if (ch === 'third')   { r = 0; g = 200; b = 255; }
-      else                       { r = 0; g = 255; b = 128; }
+      const [r, g, b] = CHANNEL_COLORS[ch];
       const a = active ? 1.0 : 0.35;
 
       ctx.beginPath();
@@ -172,8 +201,8 @@ HTML = """<!DOCTYPE html>
         ctx.fill();
       }
 
-      // draw section-0 reference line
-      if (ch !== 'carousel' && sectionZeroPoints[ch] && pts.length >= 2) {
+      // section-0 reference line (feeder channels only)
+      if ((ch === 'second' || ch === 'third') && sectionZeroPoints[ch] && pts.length >= 2) {
         const center = getPolygonCenter(ch);
         const ref = sectionZeroPoints[ch];
         if (center) {
@@ -186,7 +215,6 @@ HTML = """<!DOCTYPE html>
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // draw marker at reference point
           ctx.beginPath();
           ctx.arc(ref[0], ref[1], 8, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(255,255,255,${active ? 0.9 : 0.3})`;
@@ -205,13 +233,18 @@ HTML = """<!DOCTYPE html>
     function render() {
       if (!frameImg.naturalWidth) return;
       ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-      for (const ch of ['second', 'third', 'carousel'])
-        if (ch !== currentChannel) drawPolygon(ch, false);
+
+      // only draw polygons that share the same camera
+      const curCam = cameraForChannel(currentChannel);
+      for (const ch of ALL_CHANNELS) {
+        if (ch === currentChannel) continue;
+        if (cameraForChannel(ch) === curCam) drawPolygon(ch, false);
+      }
       drawPolygon(currentChannel, true);
 
       const nUser = userPoints[currentChannel].length;
       let extra = '';
-      if (currentChannel !== 'carousel') {
+      if (currentChannel === 'second' || currentChannel === 'third') {
         const angle = computeAngle(currentChannel);
         extra = angle !== null ? `  |  sec0: ${angle.toFixed(1)}deg` : '  |  shift-click to set sec 0';
       }
@@ -220,20 +253,21 @@ HTML = """<!DOCTYPE html>
     }
 
     function pollFrame() {
+      const cam = cameraForChannel(currentChannel);
       const img = new Image();
       img.onload = () => { frameImg = img; render(); };
-      img.src = '/frame?' + Date.now();
+      img.src = '/frame?cam=' + cam + '&t=' + Date.now();
     }
 
     async function savePolygons() {
+      // save feeder/channel polygons
       const polygons = {};
       const user_pts = {};
-      for (const ch of ['second', 'third', 'carousel']) {
+      for (const ch of FEEDER_CHANNELS) {
         const key = ch === 'carousel' ? 'carousel' : ch + '_channel';
         polygons[key] = computePolygon(ch).map(p => [Math.round(p.pos[0]), Math.round(p.pos[1])]);
         user_pts[ch] = userPoints[ch].map(p => [Math.round(p[0]), Math.round(p[1])]);
       }
-      // compute angles from section-0 reference points
       const channel_angles = {};
       for (const ch of ['second', 'third']) {
         const angle = computeAngle(ch);
@@ -245,10 +279,23 @@ HTML = """<!DOCTYPE html>
           section_zero_pts[ch] = [Math.round(sectionZeroPoints[ch][0]), Math.round(sectionZeroPoints[ch][1])];
         }
       }
+
+      // save classification polygons
+      const class_polygons = {};
+      const class_user_pts = {};
+      for (const ch of CLASSIFICATION_CHANNELS) {
+        const key = ch === 'class_top' ? 'top' : 'bottom';
+        class_polygons[key] = computePolygon(ch).map(p => [Math.round(p.pos[0]), Math.round(p.pos[1])]);
+        class_user_pts[ch] = userPoints[ch].map(p => [Math.round(p[0]), Math.round(p[1])]);
+      }
+
       const res = await fetch('/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ polygons, user_pts, channel_angles, section_zero_pts }),
+        body: JSON.stringify({
+          polygons, user_pts, channel_angles, section_zero_pts,
+          class_polygons, class_user_pts,
+        }),
       });
       const result = await res.json();
       document.getElementById('status').textContent = result.ok ? 'Saved.' : 'Save failed.';
@@ -266,6 +313,10 @@ HTML = """<!DOCTYPE html>
         if (data.section_zero_pts) {
           if (data.section_zero_pts.second) sectionZeroPoints.second = data.section_zero_pts.second;
           if (data.section_zero_pts.third)  sectionZeroPoints.third  = data.section_zero_pts.third;
+        }
+        if (data.class_user_pts) {
+          if (data.class_user_pts.class_top)    userPoints.class_top    = data.class_user_pts.class_top;
+          if (data.class_user_pts.class_bottom) userPoints.class_bottom = data.class_user_pts.class_bottom;
         }
       } catch(e) {}
     }
@@ -285,7 +336,11 @@ def index():
 
 @app.route("/frame")
 def frame():
-    frame_obj = capture.latest_frame
+    cam = request.args.get("cam", "feeder")
+    cap = captures.get(cam)
+    if cap is None:
+        return Response(status=204)
+    frame_obj = cap.latest_frame
     if frame_obj is None:
         return Response(status=204)
     _, buf = cv2.imencode(".jpg", frame_obj.raw, [cv2.IMWRITE_JPEG_QUALITY, 80])
@@ -294,19 +349,32 @@ def frame():
 
 @app.route("/init")
 def init():
+    result = {}
     saved = getChannelPolygons()
-    if saved is None:
-        return jsonify({})
-    return jsonify({
-        "user_pts": saved.get("user_pts", {}),
-        "section_zero_pts": saved.get("section_zero_pts", {}),
-    })
+    if saved:
+        result["user_pts"] = saved.get("user_pts", {})
+        result["section_zero_pts"] = saved.get("section_zero_pts", {})
+    class_saved = getClassificationPolygons()
+    if class_saved:
+        result["class_user_pts"] = class_saved.get("user_pts", {})
+    return jsonify(result)
 
 
 @app.route("/save", methods=["POST"])
 def save():
     body = request.get_json()
-    setChannelPolygons(body)
+    # save channel polygons (feeder camera)
+    setChannelPolygons({
+        "polygons": body["polygons"],
+        "user_pts": body["user_pts"],
+        "channel_angles": body["channel_angles"],
+        "section_zero_pts": body["section_zero_pts"],
+    })
+    # save classification polygons
+    setClassificationPolygons({
+        "polygons": body["class_polygons"],
+        "user_pts": body["class_user_pts"],
+    })
     return jsonify({"ok": True})
 
 
@@ -316,8 +384,21 @@ if __name__ == "__main__":
         print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
         sys.exit(1)
 
-    capture = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
-    capture.start()
+    captures["feeder"] = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
+    captures["feeder"].start()
+
+    if "classification_top" in camera_setup:
+        captures["classification_top"] = CaptureThread(
+            "classification_top", mkCameraConfig(camera_setup["classification_top"])
+        )
+        captures["classification_top"].start()
+
+    if "classification_bottom" in camera_setup:
+        captures["classification_bottom"] = CaptureThread(
+            "classification_bottom", mkCameraConfig(camera_setup["classification_bottom"])
+        )
+        captures["classification_bottom"].start()
 
     print(f"Server starting on http://localhost:{PORT}")
+    print(f"Cameras: {list(captures.keys())}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

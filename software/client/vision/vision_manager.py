@@ -8,7 +8,7 @@ import numpy as np
 from global_config import GlobalConfig
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
-from blob_manager import VideoRecorder
+from blob_manager import VideoRecorder, getClassificationPolygons
 from classification.moondream import getDetection
 from .camera import CaptureThread
 from .types import CameraFrame
@@ -53,8 +53,25 @@ class VisionManager:
         self._channel_mask: Optional[np.ndarray] = None
         self._channel_masks: Dict[str, np.ndarray] = {}
 
+        # classification camera polygon masks (top/bottom)
+        self._classification_masks: Dict[str, Optional[np.ndarray]] = {"top": None, "bottom": None}
+        self._loadClassificationPolygons()
+
         self.heatmap_diff = HeatmapDiff()
         self._carousel_heatmap = HeatmapDiff()
+
+    def _loadClassificationPolygons(self) -> None:
+        saved = getClassificationPolygons()
+        if saved is None:
+            return
+        polygons = saved.get("polygons", {})
+        for key in ("top", "bottom"):
+            pts = polygons.get(key)
+            if pts and len(pts) >= 3:
+                poly = np.array(pts, dtype=np.int32)
+                mask = np.zeros((1080, 1920), dtype=np.uint8)
+                cv2.fillPoly(mask, [poly], 255)
+                self._classification_masks[key] = mask
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -76,7 +93,7 @@ class VisionManager:
 
         saved = getChannelPolygons()
         if saved is None:
-            self.gc.logger.warn("Channel polygons not found. Run: scripts/channel_polygon_editor.py")
+            self.gc.logger.warn("Channel polygons not found. Run: scripts/polygon_editor.py")
             return False
 
         polygon_data = saved.get("polygons", {})
@@ -87,7 +104,7 @@ class VisionManager:
                 polys[key] = np.array(pts, dtype=np.int32)
 
         if not polys:
-            self.gc.logger.warn("Channel polygons empty. Run: scripts/channel_polygon_editor.py")
+            self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
             return False
 
         self._channel_polygons = polys
@@ -97,7 +114,7 @@ class VisionManager:
         if carousel_pts and len(carousel_pts) >= 3:
             self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
         else:
-            self.gc.logger.warn("Carousel polygon not found. Run: scripts/channel_polygon_editor.py")
+            self.gc.logger.warn("Carousel polygon not found. Run: scripts/polygon_editor.py")
             return False
 
         # load channel angles
@@ -479,28 +496,44 @@ class VisionManager:
             bottom_crop = bottom_future.result()
         return (top_crop, bottom_crop)
 
+    def _applyClassificationMask(self, img: np.ndarray, camera_label: str) -> np.ndarray:
+        mask = self._classification_masks.get(camera_label)
+        if mask is None:
+            return img
+        h, w = img.shape[:2]
+        mh, mw = mask.shape[:2]
+        if h != mh or w != mw:
+            resized_mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+        else:
+            resized_mask = mask
+        masked = img.copy()
+        masked[resized_mask == 0] = 0
+        return masked
+
     def _getMoondreamClassificationCrop(
         self, frame: Optional[CameraFrame], camera_label: str
     ) -> Optional[np.ndarray]:
         if frame is None:
             return None
 
+        masked_raw = self._applyClassificationMask(frame.raw, camera_label)
+
         try:
-            box = getDetection(frame.raw)
+            box = getDetection(masked_raw)
         except Exception as e:
             self.gc.logger.warn(
                 f"Moondream detect failed for {camera_label} classification frame: {e}"
             )
-            return frame.raw
+            return masked_raw
 
         if box is None:
             self.gc.logger.warn(
                 f"Moondream found no lego piece in {camera_label} classification frame"
             )
-            return frame.raw
+            return masked_raw
 
         x_min, y_min, x_max, y_max = box
-        return frame.raw[y_min:y_max, x_min:x_max]
+        return masked_raw[y_min:y_max, x_min:x_max]
 
     def _encodeFrame(self, frame) -> str:
         with self.gc.profiler.timer("vision.encode_frame.imencode_ms"):

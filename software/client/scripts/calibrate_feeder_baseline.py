@@ -52,7 +52,7 @@ def main() -> int:
 
     saved = getChannelPolygons()
     if saved is None:
-        print("ERROR: No channel polygons saved. Run: scripts/channel_polygon_editor.py first.")
+        print("ERROR: No channel polygons saved. Run: scripts/polygon_editor.py first.")
         return 1
 
     polygon_data = saved.get("polygons", {})
@@ -63,7 +63,7 @@ def main() -> int:
             polygons[key] = np.array(pts, dtype=np.int32)
 
     if not polygons:
-        print("ERROR: Channel polygons empty. Run: scripts/channel_polygon_editor.py first.")
+        print("ERROR: Channel polygons empty. Run: scripts/polygon_editor.py first.")
         return 1
 
     gc = mkGlobalConfig()

@@ -14,6 +14,23 @@ _DATA_LOCK = threading.Lock()
 BLOB_DIR = Path(__file__).parent / "blob"
 
 
+def _writeJsonAtomic(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def loadData() -> dict[str, Any]:
     if not DATA_FILE.exists():
         return {}
@@ -25,19 +42,7 @@ def loadData() -> dict[str, Any]:
 
 
 def saveData(data: dict[str, Any]) -> None:
-    fd, tmp_path = tempfile.mkstemp(dir=DATA_FILE.parent, suffix=".json.tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.rename(tmp_path, DATA_FILE)
-    except BaseException:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    _writeJsonAtomic(DATA_FILE, data)
 
 
 def getMachineId() -> str:
@@ -145,6 +150,111 @@ def setCameraSetup(setup: dict) -> None:
         data = loadData()
         data["camera_setup"] = setup
         saveData(data)
+
+
+RECORDS_FILE = BLOB_DIR / "records.json"
+_RECORDS_LOCK = threading.Lock()
+
+
+def loadRecords() -> dict[str, Any]:
+    if not RECORDS_FILE.exists():
+        return {"runs": {}}
+    try:
+        with open(RECORDS_FILE, "r") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {"runs": {}}
+        if "runs" not in data or not isinstance(data["runs"], dict):
+            data["runs"] = {}
+        return data
+    except Exception:
+        return {"runs": {}}
+
+
+def saveRecords(data: dict[str, Any]) -> None:
+    _writeJsonAtomic(RECORDS_FILE, data)
+
+
+def appendKnownObjectRecord(
+    machine_id: str, run_id: str, known_object: dict[str, Any]
+) -> None:
+    with _RECORDS_LOCK:
+        data = loadRecords()
+        data["machine_id"] = machine_id
+
+        runs = data.setdefault("runs", {})
+        run_record = runs.setdefault(
+            run_id,
+            {
+                "run_id": run_id,
+                "known_objects": {},
+            },
+        )
+
+        known_objects = run_record.setdefault("known_objects", {})
+        obj_id = known_object["uuid"]
+        obj_record = known_objects.setdefault(
+            obj_id,
+            {
+                "id": obj_id,
+                "created_at": known_object.get("created_at"),
+                "classification_successful": None,
+                "events": [],
+            },
+        )
+
+        obj_record["id"] = obj_id
+        obj_record["created_at"] = known_object.get(
+            "created_at", obj_record.get("created_at")
+        )
+        obj_record["updated_at"] = known_object.get("updated_at")
+        obj_record["stage"] = known_object.get("stage")
+        obj_record["classification_status"] = known_object.get("classification_status")
+        obj_record["category_id"] = known_object.get("category_id")
+        obj_record["destination_bin"] = known_object.get("destination_bin")
+
+        if (
+            known_object.get("category_id") is not None
+            and obj_record.get("category_assigned_at") is None
+        ):
+            obj_record["category_assigned_at"] = known_object.get("updated_at")
+
+        classification_status = known_object.get("classification_status")
+        if classification_status in ("classified", "unknown", "not_found"):
+            if obj_record.get("classification_completed_at") is None:
+                obj_record["classification_completed_at"] = known_object.get("updated_at")
+            success = classification_status == "classified"
+            obj_record["classification_successful"] = success
+            obj_record["classification"] = {
+                "status": classification_status,
+                "part_id": known_object.get("part_id"),
+                "confidence": known_object.get("confidence"),
+            }
+            if success:
+                obj_record["classified_at"] = known_object.get("updated_at")
+
+        if known_object.get("stage") == "distributed":
+            obj_record["distributed_at"] = known_object.get("updated_at")
+
+        obj_record["events"].append(
+            {
+                "timestamp": known_object.get("updated_at"),
+                "stage": known_object.get("stage"),
+                "classification_status": classification_status,
+                "part_id": known_object.get("part_id"),
+                "confidence": known_object.get("confidence"),
+                "category_id": known_object.get("category_id"),
+                "destination_bin": known_object.get("destination_bin"),
+            }
+        )
+
+        run_record["updated_at"] = known_object.get("updated_at")
+        if run_record.get("started_at") is None:
+            run_record["started_at"] = known_object.get("created_at") or known_object.get(
+                "updated_at"
+            )
+
+        saveRecords(data)
 
 
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]

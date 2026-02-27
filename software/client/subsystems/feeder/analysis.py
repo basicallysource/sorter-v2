@@ -89,26 +89,36 @@ def getBboxSections(bbox: Tuple, channel: PolygonChannel) -> set:
     return sections
 
 
+class FeederAnalysis:
+    def __init__(self):
+        self.ch2_action = ChannelAction.IDLE
+        self.ch3_action = ChannelAction.IDLE
+        self.ch3_dropzone_occupied = False
+        self.ch2_dropzone_occupied = False
+
+
 def analyzeFeederChannels(
     gc: "GlobalConfig",
     detections: List[ChannelDetection],
-) -> Tuple[ChannelAction, ChannelAction]:
-    """Returns (ch2_action, ch3_action)."""
-    ch2 = ChannelAction.IDLE
-    ch3 = ChannelAction.IDLE
+) -> FeederAnalysis:
+    result = FeederAnalysis()
 
     for det in detections:
         sections = getBboxSections(det.bbox, det.channel)
 
         if det.channel_id == 3:
+            if sections & set(CH3_DROPZONE_SECTIONS):
+                result.ch3_dropzone_occupied = True
             if sections & set(CH3_PRECISE_SECTIONS):
-                ch3 = ChannelAction.PULSE_PRECISE
-            elif sections & set(CH3_DROPZONE_SECTIONS) and ch3 == ChannelAction.IDLE:
-                ch3 = ChannelAction.PULSE_NORMAL
+                result.ch3_action = ChannelAction.PULSE_PRECISE
+            elif result.ch3_action == ChannelAction.IDLE:
+                result.ch3_action = ChannelAction.PULSE_NORMAL
         elif det.channel_id == 2:
+            if sections & set(CH2_DROPZONE_SECTIONS):
+                result.ch2_dropzone_occupied = True
             if sections & set(CH2_PRECISE_SECTIONS):
-                ch2 = ChannelAction.PULSE_PRECISE
-            elif sections & set(CH2_DROPZONE_SECTIONS) and ch2 == ChannelAction.IDLE:
-                ch2 = ChannelAction.PULSE_NORMAL
+                result.ch2_action = ChannelAction.PULSE_PRECISE
+            elif result.ch2_action == ChannelAction.IDLE:
+                result.ch2_action = ChannelAction.PULSE_NORMAL
 
-    return ch2, ch3
+    return result

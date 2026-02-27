@@ -553,11 +553,58 @@ def printRunList(runs: dict, n: int) -> None:
         print(f"{i:<4} {dur:<10} {total:<8} {distributed:<6} {ppm:<8} {srate:<9} {started:<20} {s['run_id']}")
 
 
+def interactiveMode(runs: dict) -> None:
+    run_items = [(k, v) for k, v in runs.items() if isinstance(v, dict)]
+    run_items.sort(key=lambda item: getRunSortKey(item[0], item[1]), reverse=True)
+    summaries = [summarizeRun(rid, rec) for rid, rec in run_items]
+
+    while True:
+        print(f"\n{'#':<4} {'id':<12} {'date':<18} {'duration':<10} {'pieces':<8} {'ppm':<8} {'success'}")
+        print("-" * 80)
+        for i, s in enumerate(summaries, 1):
+            rid = s["run_id"][:10] if len(s["run_id"]) > 10 else s["run_id"]
+            started = datetime.fromtimestamp(s["run_start_s"]).strftime("%b %d %H:%M") if s["run_start_s"] else "-"
+            dur = fmtDuration(s["active_duration_s"])
+            ppm = fmtRatePpm(s["distributed_count"], s["active_duration_s"])
+            total = s["objects_total"]
+            cd = s["classification_done_count"]
+            sc = s["classified_success_count"]
+            srate = successRate(sc, cd) if cd else "-"
+            print(f"{i:<4} {rid:<12} {started:<18} {dur:<10} {total:<8} {ppm:<8} {srate}")
+
+        print(f"\nEnter # to view detail (q to quit): ", end="", flush=True)
+        try:
+            line = input().strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if line.lower() in ("q", "quit", ""):
+            break
+        try:
+            idx = int(line) - 1
+        except ValueError:
+            print(f"invalid: {line}")
+            continue
+        if idx < 0 or idx >= len(summaries):
+            print(f"out of range (1-{len(summaries)})")
+            continue
+
+        print("")
+        printRunSummary(summaries[idx])
+        print(f"\nPress enter to go back...", end="", flush=True)
+        try:
+            input()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default=str(DEFAULT_RECORDS_PATH))
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--latest", action="store_true")
+    parser.add_argument("-i", "--interactive", action="store_true", help="interactive run selector")
     parser.add_argument("--list", type=int, default=None, nargs="?", const=0, metavar="N",
                         help="list the N most recent runs sorted by duration (all if N omitted)")
     parser.add_argument("--no-per-run", action="store_true")
@@ -569,6 +616,10 @@ def main() -> None:
 
     if not isinstance(runs, dict) or not runs:
         print(f"No runs found in {records_path}")
+        return
+
+    if args.interactive:
+        interactiveMode(runs)
         return
 
     if args.list is not None:

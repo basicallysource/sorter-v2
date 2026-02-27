@@ -3,12 +3,12 @@ from typing import Optional
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import FeederState
-from .analysis import ChannelAction, analyzeFeederChannels
+from .analysis import ChannelAction, FeederAnalysis, analyzeFeederChannels
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig, RotorPulseConfig
 from vision import VisionManager
 
-DROPOFF_PAUSE_MS = 500
+DROPOFF_PAUSE_MS = 1000
 TIMEOUT_BEFORE_BACKSPIN_MS = 30000
 BACKSPIN_STEPS = 500
 
@@ -29,18 +29,23 @@ class Feeding(BaseState):
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
         self._was_in_3_precise = False
-        self._pause_until: float = 0
-        # backspin tracking: per-channel (ch2, ch3) state entry time and whether we've already backspun
+        self._ch3_pause_until: float = 0
         self._ch2_state_since: float = 0
         self._ch3_state_since: float = 0
         self._ch2_backspun = False
         self._ch3_backspun = False
+        # per-stepper busy-until timestamps (time.time() when we expect the move to finish)
+        self._busy_until: dict[str, float] = {}
 
-    def _backspin(self, stepper, cfg: RotorPulseConfig) -> None:
-        mcu = stepper.mcu
-        if mcu.outstanding_t_count > 0:
-            mcu.outstanding_t_drained.wait()
-            return
+    def _isStepperBusy(self, stepper) -> bool:
+        return time.time() < self._busy_until.get(stepper.name, 0)
+
+    def _markStepperBusy(self, stepper, wait_ms: float) -> None:
+        self._busy_until[stepper.name] = time.time() + wait_ms / 1000.0
+
+    def _sendBackspin(self, stepper, cfg: RotorPulseConfig) -> bool:
+        if self._isStepperBusy(stepper):
+            return False
         self.gc.logger.info(f"feeder backspin: sending {BACKSPIN_STEPS} steps to {stepper.name}")
         stepper.moveSteps(
             BACKSPIN_STEPS,
@@ -56,20 +61,14 @@ class Feeding(BaseState):
             cfg.accel_steps,
             cfg.decel_steps,
         )
-        time.sleep(max(exec_ms, cfg.delay_between_pulse_ms) / 1000.0)
+        self._markStepperBusy(stepper, max(exec_ms, cfg.delay_between_pulse_ms))
+        return True
 
-    def _pulseAndWait(self, stepper, cfg: RotorPulseConfig) -> None:
-        mcu = stepper.mcu
-        if mcu.outstanding_t_count > 0:
-            self.gc.logger.info(
-                f"feeder _pulseAndWait: skipping, {mcu.outstanding_t_count} commands still outstanding"
-            )
-            # wait for the outstanding commands to drain before trying again
-            mcu.outstanding_t_drained.wait()
-            return
-
+    def _sendPulse(self, stepper, cfg: RotorPulseConfig) -> bool:
+        if self._isStepperBusy(stepper):
+            return False
         self.gc.logger.info(
-            f"feeder _pulseAndWait: sending {cfg.steps_per_pulse} steps to {stepper.name}"
+            f"feeder pulse: sending {cfg.steps_per_pulse} steps to {stepper.name}"
         )
         stepper.moveSteps(
             -cfg.steps_per_pulse,
@@ -78,7 +77,6 @@ class Feeding(BaseState):
             cfg.accel_steps,
             cfg.decel_steps,
         )
-        # wait at least the estimated execution time so we don't flood the MCU
         exec_ms = stepper.estimateMoveStepsMs(
             -cfg.steps_per_pulse,
             cfg.delay_us,
@@ -86,19 +84,11 @@ class Feeding(BaseState):
             cfg.accel_steps,
             cfg.decel_steps,
         )
-        wait_ms = max(exec_ms, cfg.delay_between_pulse_ms)
-        self.gc.logger.info(
-            f"feeder _pulseAndWait: sleeping {wait_ms}ms (exec_ms={exec_ms}, delay_between={cfg.delay_between_pulse_ms})"
-        )
-        time.sleep(wait_ms / 1000.0)
-        self.gc.logger.info("feeder _pulseAndWait: sleep done")
+        self._markStepperBusy(stepper, max(exec_ms, cfg.delay_between_pulse_ms))
+        return True
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
-
-        if not self.shared.classification_ready:
-            self.gc.logger.info("Feeding.step: classification_ready=False, transitioning to IDLE")
-            return FeederState.IDLE
         return None
 
     def _executionLoop(self) -> None:
@@ -117,7 +107,9 @@ class Feeding(BaseState):
                 )
 
                 with prof.timer("feeder.analyze_state_ms"):
-                    ch2_action, ch3_action = analyzeFeederChannels(self.gc, object_detections)
+                    analysis = analyzeFeederChannels(self.gc, object_detections)
+                ch2_action = analysis.ch2_action
+                ch3_action = analysis.ch3_action
 
                 now = time.time()
                 if ch2_action != self._last_ch2_action:
@@ -138,39 +130,38 @@ class Feeding(BaseState):
                     self.gc.logger.info("Feeder: skipping, chute move in progress")
                     continue
 
-                # ch3 dropoff pause tracking
+                # ch3 dropoff pause: freeze ch3 briefly after piece leaves precise zone
                 if ch3_action == ChannelAction.PULSE_PRECISE:
                     self._was_in_3_precise = True
                 elif self._was_in_3_precise:
                     self._was_in_3_precise = False
-                    self._pause_until = time.time() + DROPOFF_PAUSE_MS / 1000.0
+                    self._ch3_pause_until = time.time() + DROPOFF_PAUSE_MS / 1000.0
                     self.gc.logger.info(
                         f"Feeder: piece left ch3 precise zone, pausing ch3 {DROPOFF_PAUSE_MS}ms"
                     )
 
-                ch3_paused = (self._pause_until - time.time()) > 0
+                ch3_paused = time.time() < self._ch3_pause_until
 
-                # channel 3
+                # channel 3 — only pulse if classification platform is ready and not paused
                 ch3_stuck = (
                     ch3_action != ChannelAction.IDLE
                     and not self._ch3_backspun
                     and self._ch3_state_since > 0
                     and (now - self._ch3_state_since) * 1000 > TIMEOUT_BEFORE_BACKSPIN_MS
                 )
-                if ch3_stuck:
+                if not self.shared.classification_ready or ch3_paused:
+                    pass
+                elif ch3_stuck:
                     self.gc.logger.info(f"Feeder: ch3 stuck in {ch3_action.value}, backspinning")
                     self._ch3_backspun = True
                     cfg = fc.third_rotor_precision if ch3_action == ChannelAction.PULSE_PRECISE else fc.third_rotor_normal
-                    self._backspin(self.irl.third_c_channel_rotor_stepper, cfg)
-                elif ch3_paused:
-                    remaining_ms = (self._pause_until - time.time()) * 1000
-                    self.gc.logger.info(f"Feeder: ch3 paused ({remaining_ms:.0f}ms remaining)")
+                    self._sendBackspin(self.irl.third_c_channel_rotor_stepper, cfg)
                 elif ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
-                    self._pulseAndWait(self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision)
+                    self._sendPulse(self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision)
                 elif ch3_action == ChannelAction.PULSE_NORMAL:
                     prof.hit("feeder.path.ch3_normal")
-                    self._pulseAndWait(self.irl.third_c_channel_rotor_stepper, fc.third_rotor_normal)
+                    self._sendPulse(self.irl.third_c_channel_rotor_stepper, fc.third_rotor_normal)
 
                 # channel 2 — only pulse if ch3 dropzone is clear
                 ch2_stuck = (
@@ -183,19 +174,19 @@ class Feeding(BaseState):
                     self.gc.logger.info(f"Feeder: ch2 stuck in {ch2_action.value}, backspinning")
                     self._ch2_backspun = True
                     cfg = fc.second_rotor_precision if ch2_action == ChannelAction.PULSE_PRECISE else fc.second_rotor_normal
-                    self._backspin(self.irl.second_c_channel_rotor_stepper, cfg)
-                elif ch3_action == ChannelAction.IDLE:
+                    self._sendBackspin(self.irl.second_c_channel_rotor_stepper, cfg)
+                elif not analysis.ch3_dropzone_occupied:
                     if ch2_action == ChannelAction.PULSE_PRECISE:
                         prof.hit("feeder.path.ch2_precise")
-                        self._pulseAndWait(self.irl.second_c_channel_rotor_stepper, fc.second_rotor_precision)
+                        self._sendPulse(self.irl.second_c_channel_rotor_stepper, fc.second_rotor_precision)
                     elif ch2_action == ChannelAction.PULSE_NORMAL:
                         prof.hit("feeder.path.ch2_normal")
-                        self._pulseAndWait(self.irl.second_c_channel_rotor_stepper, fc.second_rotor_normal)
+                        self._sendPulse(self.irl.second_c_channel_rotor_stepper, fc.second_rotor_normal)
 
                 # channel 1 — only pulse if ch2 dropzone is clear
-                if ch2_action == ChannelAction.IDLE:
+                if not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
-                    self._pulseAndWait(self.irl.first_c_channel_rotor_stepper, fc.first_rotor)
+                    self._sendPulse(self.irl.first_c_channel_rotor_stepper, fc.first_rotor)
 
         self.gc.logger.info("feeder execution loop: exited, stop_event was set")
 

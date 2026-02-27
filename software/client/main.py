@@ -19,6 +19,7 @@ from sorter_controller import SorterController
 from telemetry import Telemetry
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from blob_manager import appendKnownObjectRecord
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision import VisionManager
 import uvicorn
@@ -63,6 +64,15 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
+            if command.tag == "known_object":
+                try:
+                    appendKnownObjectRecord(
+                        gc.machine_id,
+                        gc.run_id,
+                        command.data.model_dump(),
+                    )
+                except Exception as e:
+                    gc.logger.warn(f"failed to append known object record: {e}")
             if command.tag != "frame" and command.tag != "heartbeat":
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(

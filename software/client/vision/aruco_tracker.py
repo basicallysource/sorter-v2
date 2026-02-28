@@ -194,9 +194,16 @@ class ArucoTracker:
                     while history and history[0][0] < cutoff:
                         history.popleft()
 
-                    avg_x = float(np.mean([point[0] for _, point in history]))
-                    avg_y = float(np.mean([point[1] for _, point in history]))
-                    smoothed_center = (avg_x, avg_y)
+                    required_persistence_s = 0.5 * smoothing_time_s
+                    history_duration_s = (
+                        history[-1][0] - history[0][0] if len(history) >= 2 else 0.0
+                    )
+                    if history_duration_s > required_persistence_s:
+                        avg_x = float(np.mean([point[0] for _, point in history]))
+                        avg_y = float(np.mean([point[1] for _, point in history]))
+                        smoothed_center = (avg_x, avg_y)
+                    else:
+                        smoothed_center = raw_center
                 else:
                     self._aruco_tag_history.pop(tag_id_int, None)
                     smoothed_center = (center_x, center_y)

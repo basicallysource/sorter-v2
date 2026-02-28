@@ -161,13 +161,11 @@ def _compute_channel(
             fitted_center = (float(cx), float(cy))
             semi_axes = (float(major_len) / 2.0, float(minor_len) / 2.0)
             if output_guide is not None:
-                ref_angle = _ellipse_normalized_angle(
-                    output_guide, fitted_center, semi_axes, float(angle_deg)
-                )
+                ref_point = output_guide
             else:
-                ref_angle = _ellipse_normalized_angle(
-                    radius_points[0], fitted_center, semi_axes, float(angle_deg)
-                )
+                ref_point = radius_points[0]
+            ref_vec = np.array(ref_point) - np.array(fitted_center)
+            ref_angle = float(np.degrees(np.arctan2(ref_vec[1], ref_vec[0])))
             scaled_axes = (
                 semi_axes[0] * radius_multiplier,
                 semi_axes[1] * radius_multiplier,
@@ -279,12 +277,9 @@ def determineObjectChannelAndQuadrant(
                 geometry.third_channel.ellipse_axes,
                 geometry.third_channel.ellipse_angle_deg,
             )
-            obj_angle = _ellipse_normalized_angle(
-                obj_center_image,
-                geometry.third_channel.center,
-                geometry.third_channel.ellipse_axes,
-                geometry.third_channel.ellipse_angle_deg,
-            )
+            dx = obj_center_image[0] - geometry.third_channel.center[0]
+            dy = obj_center_image[1] - geometry.third_channel.center[1]
+            obj_angle = np.degrees(np.arctan2(dy, dx))
         else:
             in_channel = isPointInCircle(
                 obj_center_image,
@@ -319,12 +314,9 @@ def determineObjectChannelAndQuadrant(
                 geometry.second_channel.ellipse_axes,
                 geometry.second_channel.ellipse_angle_deg,
             )
-            obj_angle = _ellipse_normalized_angle(
-                obj_center_image,
-                geometry.second_channel.center,
-                geometry.second_channel.ellipse_axes,
-                geometry.second_channel.ellipse_angle_deg,
-            )
+            dx = obj_center_image[0] - geometry.second_channel.center[0]
+            dy = obj_center_image[1] - geometry.second_channel.center[1]
+            obj_angle = np.degrees(np.arctan2(dy, dx))
         else:
             in_channel = isPointInCircle(
                 obj_center_image,

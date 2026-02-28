@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feeder Calibration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 100vh;
+        }
+        
+        .camera-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .camera-section h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #222;
+        }
+        
+        #camera-feed {
+            flex: 1;
+            background: #000;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+            min-height: 400px;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 15px;
+        }
+        
+        .panel h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #222;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tag.unassigned {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .tag.selected {
+            border-color: #fff;
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+        }
+        
+        .category-item {
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .category-item.empty {
+            opacity: 0.6;
+        }
+        
+        .category-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+        
+        .role-assignments {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .role-slot {
+            background: white;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+        }
+        
+        .role-slot:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .role-slot.filled {
+            background: #e8eef7;
+            border-color: #667eea;
+        }
+        
+        .role-slot .tag-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .role-slot .role-name {
+            font-size: 10px;
+            color: #999;
+            display: block;
+        }
+        
+        .info-box {
+            background: #e8eef7;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #333;
+            line-height: 1.5;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .multiplier-row {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .multiplier-row input {
+            width: 90px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+
+        .multiplier-row button {
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            background: #667eea;
+            color: white;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .multiplier-row button:hover {
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="camera-section">
+            <h2>Feeder Calibration Camera Feed</h2>
+            <div id="camera-feed">
+                <img id="camera-stream" src="/video_feed/feeder" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: none;">
+                <span id="camera-status">Loading camera feed...</span>
+            </div>
+            <div id="status-message"></div>
+        </div>
+        
+        <div class="sidebar">
+            <!-- Unassigned Tags -->
+            <div class="panel">
+                <h3>Unassigned Tags</h3>
+                <div class="tag-list" id="unassigned-tags">
+                    <span style="color: #999; font-size: 12px;">Waiting for tags...</span>
+                </div>
+            </div>
+            
+            <!-- Categories -->
+            <div class="panel">
+                <h3>Feeder Calibration Assignments</h3>
+                <div id="categories-container">
+                    <span style="color: #999; font-size: 12px;">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Instructions -->
+            <div class="panel">
+                <div class="info-box">
+                    <strong>Feeder Calibration:</strong><br>
+                    1. Click a tag in "Unassigned" section<br>
+                    2. Click a role slot to assign it<br>
+                    3. Set c-channel radius multiplier as needed<br>
+                    4. Changes save automatically<br>
+                    5. Click assigned tags to unassign
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let selectedTag = null;
+        
+        // Initialize camera feed
+        function initCameraFeed() {
+            const img = document.getElementById('camera-stream');
+            img.src = '/video_feed/feeder?t=' + Date.now();
+            img.onerror = () => {
+                document.getElementById('camera-status').textContent = 'Camera not available';
+            };
+            img.onload = () => {
+                document.getElementById('camera-status').style.display = 'none';
+                img.style.display = 'block';
+            };
+            
+            // Refresh feed every 500ms
+            setInterval(() => {
+                img.src = '/video_feed/feeder?t=' + Date.now();
+            }, 500);
+        }
+        
+        // Load configuration
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/aruco/categories');
+                const categories = await response.json();
+                
+                const unassignedResponse = await fetch('/api/aruco/tags/unassigned');
+                const unassignedTags = await unassignedResponse.json();
+                
+                displayUnassignedTags(unassignedTags);
+                displayCategories(categories);
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                showStatus('Failed to load configuration', 'error');
+            }
+        }
+        
+        // Display unassigned tags
+        function displayUnassignedTags(tags) {
+            const container = document.getElementById('unassigned-tags');
+            container.innerHTML = '';
+            
+            if (tags.length === 0) {
+                container.innerHTML = '<span style="color: #999; font-size: 12px;">All tags assigned!</span>';
+                return;
+            }
+            
+            tags.forEach(tagId => {
+                const tagEl = document.createElement('div');
+                tagEl.className = 'tag unassigned';
+                tagEl.textContent = `Tag ${tagId}`;
+                tagEl.onclick = () => selectTag(tagId, tagEl);
+                container.appendChild(tagEl);
+            });
+        }
+        
+        // Display categories with role slots
+        function displayCategories(categories) {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+            
+            Object.entries(categories).forEach(([catName, catData]) => {
+                if (catName === 'unassigned') return;
+                
+                const catEl = document.createElement('div');
+                catEl.className = 'category-item';
+                
+                const roleSlots = catData.tags;
+                const isFilled = Object.values(roleSlots).some(v => v !== null);
+                if (!isFilled) catEl.classList.add('empty');
+                
+                catEl.innerHTML = `<div class="category-name">${formatCategoryName(catName)}</div>`;
+                
+                const rolesDiv = document.createElement('div');
+                rolesDiv.className = 'role-assignments';
+                
+                Object.entries(roleSlots).forEach(([role, tagId]) => {
+                    const slotEl = document.createElement('div');
+                    slotEl.className = 'role-slot';
+                    if (tagId !== null) {
+                        slotEl.classList.add('filled');
+                        slotEl.innerHTML = `
+                            <span>
+                                <span class="role-name">${role}</span>
+                                <span class="tag-id">Tag ${tagId}</span>
+                            </span>
+                        `;
+                        slotEl.onclick = () => unassignTag(tagId);
+                    } else {
+                        slotEl.innerHTML = `<span class="role-name">${role}</span>`;
+                        slotEl.onclick = () => assignTag(catName, role);
+                    }
+                    rolesDiv.appendChild(slotEl);
+                });
+                
+                catEl.appendChild(rolesDiv);
+
+                if (catName === 'second_c_channel' || catName === 'third_c_channel') {
+                    const multiplier = catData.radius_multiplier ?? 1.0;
+                    const multiplierRow = document.createElement('div');
+                    multiplierRow.className = 'multiplier-row';
+                    multiplierRow.innerHTML = `
+                        <span style="font-size:12px;color:#666;">Radius scale</span>
+                        <input id="mult-${catName}" type="number" min="0.1" max="3" step="0.05" value="${multiplier}">
+                        <button id="save-${catName}">Save</button>
+                    `;
+                    catEl.appendChild(multiplierRow);
+
+                    setTimeout(() => {
+                        const btn = document.getElementById(`save-${catName}`);
+                        const input = document.getElementById(`mult-${catName}`);
+                        if (btn && input) {
+                            btn.onclick = async () => {
+                                const value = parseFloat(input.value);
+                                await setRadiusMultiplier(catName, value);
+                            };
+                        }
+                    }, 0);
+                }
+
+                container.appendChild(catEl);
+            });
+        }
+
+        async function setRadiusMultiplier(category, value) {
+            if (!Number.isFinite(value) || value <= 0) {
+                showStatus('Radius scale must be > 0', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(
+                    `/api/aruco/radius-multiplier?category=${category}&value=${value}`,
+                    { method: 'POST' }
+                );
+                if (response.ok) {
+                    showStatus(`✓ ${formatCategoryName(category)} radius scale set to ${value}`, 'success');
+                    loadConfig();
+                } else {
+                    const text = await response.text();
+                    showStatus(`Failed to set radius scale: ${text}`, 'error');
+                }
+            } catch (error) {
+                console.error('Set multiplier failed:', error);
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Format category name
+        function formatCategoryName(name) {
+            return name
+                .replace(/_/g, ' ')
+                .replace(/(?:^|\s)\w/g, char => char.toUpperCase());
+        }
+        
+        // Select unassigned tag
+        function selectTag(tagId, element) {
+            document.querySelectorAll('.tag').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedTag = tagId;
+            showStatus(`Selected Tag ${tagId}. Click a role slot to assign it.`, 'info');
+        }
+        
+        // Assign selected tag to category/role
+        async function assignTag(category, role) {
+            if (!selectedTag) {
+                showStatus('Please select a tag first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(
+                    `/api/aruco/assign?tag_id=${selectedTag}&category=${category}&role=${role}`,
+                    { method: 'POST' }
+                );
+                
+                if (response.ok) {
+                    showStatus(`✓ Tag ${selectedTag} assigned to ${formatCategoryName(category)}/${role}`, 'success');
+                    selectedTag = null;
+                    loadConfig();
+                } else {
+                    showStatus('Failed to assign tag', 'error');
+                }
+            } catch (error) {
+                console.error('Assignment failed:', error);
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Unassign tag
+        async function unassignTag(tagId) {
+            try {
+                const response = await fetch(
+                    `/api/aruco/unassign?tag_id=${tagId}`,
+                    { method: 'POST' }
+                );
+                
+                if (response.ok) {
+                    showStatus(`✓ Tag ${tagId} moved to unassigned`, 'success');
+                    loadConfig();
+                } else {
+                    showStatus('Failed to unassign tag', 'error');
+                }
+            } catch (error) {
+                console.error('Unassignment failed:', error);
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status-message');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.className = 'status';
+                }, 3000);
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initCameraFeed();
+            loadConfig();
+            
+            // Reload config every 5 seconds to catch external changes
+            setInterval(loadConfig, 5000);
+        });
+    </script>
+</body>
+</html>

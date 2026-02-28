@@ -66,18 +66,18 @@ def main():
         step_count = STEP_COUNTS[step_count_idx]
 
         if key == readchar.key.LEFT:
-            stepper.moveSteps(-step_count)
+            stepper.move_steps(-step_count)
             printStatus()
         elif key == readchar.key.RIGHT:
-            stepper.moveSteps(step_count)
+            stepper.move_steps(step_count)
             printStatus()
         elif key.lower() == "a":
             quarter = stepper.total_steps_per_rev // 4
-            stepper.moveSteps(-quarter)
+            stepper.move_steps(-quarter)
             printStatus()
         elif key.lower() == "d":
             quarter = stepper.total_steps_per_rev // 4
-            stepper.moveSteps(quarter)
+            stepper.move_steps(quarter)
             printStatus()
         elif key == readchar.key.UP:
             step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -101,7 +101,7 @@ def main():
         elif key.lower() == "q":
             print("Exiting...")
             for s in steppers.values():
-                s.disable()
+                s.enabled = False
             sys.exit(0)
 
 

@@ -4,7 +4,7 @@ from global_config import GlobalConfig
 from irl.bin_layout import DistributionLayout
 
 if TYPE_CHECKING:
-    from irl.stepper import Stepper
+    from hardware.sorter_interface import StepperMotor
 
 GEAR_RATIO = 4
 SECTIONS_PER_LAYER = 6
@@ -68,7 +68,7 @@ class Chute:
         self.logger.info(
             f"Chute: moving from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms})"
         )
-        self.stepper.moveSteps(delta_steps)
+        self.stepper.move_steps(delta_steps)
         return estimated_ms
 
     def moveToBin(self, address: BinAddress) -> int:
@@ -94,7 +94,7 @@ class Chute:
         self.logger.info(
             f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
         )
-        self.stepper.moveStepsBlocking(delta_steps, timeout_ms=timeout_ms)
+        self.stepper.move_steps_blocking(delta_steps, timeout_ms=timeout_ms)
         return estimated_ms
 
     def moveToBinBlocking(self, address: BinAddress, timeout_buffer_ms: int = 0) -> int:

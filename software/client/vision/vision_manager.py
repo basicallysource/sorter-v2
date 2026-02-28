@@ -533,39 +533,30 @@ class VisionManager:
 
         annotated = annotated.copy()
 
-        # get tag positions for both channels (only radius tags needed)
-        third_r1_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.third_c_channel_radius1_id
-        )
-        third_r2_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.third_c_channel_radius2_id
-        )
-
-        second_r1_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.second_c_channel_radius1_id
-        )
-        second_r2_pos = aruco_tags.get(
-            self._irl_config.aruco_tags.second_c_channel_radius2_id
-        )
-
-        # draw channel 3 (inner) - circle from two radius tags
+        # draw channel 3 (inner)
         if geometry.third_channel:
             ch = geometry.third_channel
             center = (int(ch.center[0]), int(ch.center[1]))
             radius = int(ch.radius)
 
-            # draw circle
-            cv2.circle(annotated, center, radius, (255, 0, 255), 2)
-
-            # draw diameter line through the two radius tags
-            if third_r1_pos and third_r2_pos:
-                cv2.line(
+            if ch.shape == "ellipse" and ch.ellipse_axes is not None:
+                axes = (int(ch.ellipse_axes[0]), int(ch.ellipse_axes[1]))
+                cv2.ellipse(
                     annotated,
-                    (int(third_r1_pos[0]), int(third_r1_pos[1])),
-                    (int(third_r2_pos[0]), int(third_r2_pos[1])),
+                    center,
+                    axes,
+                    ch.ellipse_angle_deg,
+                    0,
+                    360,
                     (255, 0, 255),
                     2,
                 )
+            else:
+                cv2.circle(annotated, center, radius, (255, 0, 255), 2)
+
+            if ch.radius_points:
+                for rp in ch.radius_points:
+                    cv2.circle(annotated, (int(rp[0]), int(rp[1])), 4, (255, 0, 255), -1)
 
             # draw quadrant divider lines
             for q in range(4):
@@ -595,32 +586,38 @@ class VisionManager:
             # channel label
             cv2.putText(
                 annotated,
-                "Ch3",
+                f"Ch3 {ch.mode}",
                 (center[0] - 20, center[1] - radius - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.55,
                 (255, 0, 255),
                 2,
             )
 
-        # draw channel 2 (outer) - circle from two radius tags
+        # draw channel 2 (outer)
         if geometry.second_channel:
             ch = geometry.second_channel
             center = (int(ch.center[0]), int(ch.center[1]))
             radius = int(ch.radius)
 
-            # draw circle
-            cv2.circle(annotated, center, radius, (0, 255, 255), 2)
-
-            # draw diameter line through the two radius tags
-            if second_r1_pos and second_r2_pos:
-                cv2.line(
+            if ch.shape == "ellipse" and ch.ellipse_axes is not None:
+                axes = (int(ch.ellipse_axes[0]), int(ch.ellipse_axes[1]))
+                cv2.ellipse(
                     annotated,
-                    (int(second_r1_pos[0]), int(second_r1_pos[1])),
-                    (int(second_r2_pos[0]), int(second_r2_pos[1])),
+                    center,
+                    axes,
+                    ch.ellipse_angle_deg,
+                    0,
+                    360,
                     (0, 255, 255),
                     2,
                 )
+            else:
+                cv2.circle(annotated, center, radius, (0, 255, 255), 2)
+
+            if ch.radius_points:
+                for rp in ch.radius_points:
+                    cv2.circle(annotated, (int(rp[0]), int(rp[1])), 4, (0, 255, 255), -1)
 
             # draw quadrant divider lines
             for q in range(4):
@@ -650,10 +647,10 @@ class VisionManager:
             # channel label
             cv2.putText(
                 annotated,
-                "Ch2",
+                f"Ch2 {ch.mode}",
                 (center[0] - 20, center[1] - radius - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.55,
                 (0, 255, 255),
                 2,
             )

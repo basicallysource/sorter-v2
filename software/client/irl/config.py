@@ -1,18 +1,16 @@
 import time
 
 from global_config import GlobalConfig
-from .mcu import MCU
-from .mcu_pico import PicoMCU
-from .stepper import Stepper
-from .servo import Servo
 from .device_discovery import discoverMCU
+from hardware.bus import MCUBus
+from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING, Union
 
 SERVO_OPEN_ANGLE = 0
 SERVO_CLOSED_ANGLE = 72
 
 if TYPE_CHECKING:
-    from subsystems.distribution.chute import Chute
+    from hardware.sorter_interface import StepperMotor, ServoMotor
 
 from .bin_layout import (
     getBinLayout,
@@ -56,11 +54,23 @@ class CarouselArucoTagConfig:
 
 class ArucoTagConfig:
     second_c_channel_center_id: int
+    second_c_channel_output_guide_id: int
     second_c_channel_radius1_id: int
     second_c_channel_radius2_id: int
+    second_c_channel_radius3_id: int
+    second_c_channel_radius4_id: int
+    second_c_channel_radius5_id: int
+    second_c_channel_radius_ids: list[int]
+    second_c_channel_radius_multiplier: float
     third_c_channel_center_id: int
+    third_c_channel_output_guide_id: int
     third_c_channel_radius1_id: int
     third_c_channel_radius2_id: int
+    third_c_channel_radius3_id: int
+    third_c_channel_radius4_id: int
+    third_c_channel_radius5_id: int
+    third_c_channel_radius_ids: list[int]
+    third_c_channel_radius_multiplier: float
     carousel_platform1: CarouselArucoTagConfig
     carousel_platform2: CarouselArucoTagConfig
     carousel_platform3: CarouselArucoTagConfig
@@ -103,14 +113,14 @@ class IRLInterface:
         pass
 
     def enableSteppers(self) -> None:
-        self.first_c_channel_rotor_stepper.enable()
-        self.second_c_channel_rotor_stepper.enable()
-        self.third_c_channel_rotor_stepper.enable()
+        self.first_c_channel_rotor_stepper.enabled = True
+        self.second_c_channel_rotor_stepper.enabled = True
+        self.third_c_channel_rotor_stepper.enabled = True
 
     def disableSteppers(self) -> None:
-        self.first_c_channel_rotor_stepper.disable()
-        self.second_c_channel_rotor_stepper.disable()
-        self.third_c_channel_rotor_stepper.disable()
+        self.first_c_channel_rotor_stepper.enabled = False
+        self.second_c_channel_rotor_stepper.enabled = False
+        self.third_c_channel_rotor_stepper.enabled = False
 
     def shutdownMotors(self) -> None:
         self.disableSteppers()
@@ -150,12 +160,24 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
     config.second_c_channel_center_id = 20
+    config.second_c_channel_output_guide_id = None
     config.second_c_channel_radius1_id = 31
     config.second_c_channel_radius2_id = 7
+    config.second_c_channel_radius3_id = None
+    config.second_c_channel_radius4_id = None
+    config.second_c_channel_radius5_id = None
+    config.second_c_channel_radius_ids = [31, 7]
+    config.second_c_channel_radius_multiplier = 1.0
     # Channel 3 (third) - 3 tags: center, radius1, radius2
     config.third_c_channel_center_id = 33
+    config.third_c_channel_output_guide_id = None
     config.third_c_channel_radius1_id = 14
     config.third_c_channel_radius2_id = 30
+    config.third_c_channel_radius3_id = None
+    config.third_c_channel_radius4_id = None
+    config.third_c_channel_radius5_id = None
+    config.third_c_channel_radius_ids = [14, 30]
+    config.third_c_channel_radius_multiplier = 1.0
     # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
     config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
     config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
@@ -165,6 +187,12 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 
 def mkIRLConfig() -> IRLConfig:
+    """
+    Create the IRL (In Real Life) interface configuration.
+    
+    Note: Pin configuration is no longer used. The Pico firmware reports stepper names
+    at initialization time, making the client pin-agnostic.
+    """
     irl_config = IRLConfig()
     mcu_port, mcu_type = discoverMCU()
     irl_config.mcu_path = mcu_port
@@ -195,128 +223,116 @@ def mkIRLConfig() -> IRLConfig:
         device_index=classification_camera_top_index
     )
     
-    # Use Pico-specific pin configuration if running on RPi Pico
-    if mcu_type == "rpi_pico":
-        # Basically board stepper configuration: only 4 steppers available
-        # Stepper 0: carousel
-        irl_config.carousel_stepper = mkStepperConfig(
-            step_pin=28, dir_pin=27, enable_pin=0
-        )
-        # Stepper 1: chute
-        irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=22, enable_pin=0)
-        # Stepper 2: first_c_channel_rotor
-        irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=21, dir_pin=20, enable_pin=0
-        )
-        # Stepper 3: second_c_channel_rotor
-        irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=19, dir_pin=18, enable_pin=0
-        )
-        # Note: Pico board doesn't have a 5th stepper, so we use the same as second
-        irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=19, dir_pin=18, enable_pin=0
-        )
-    else:
-        # Arduino/RAMPS 1.4 configuration
-        irl_config.carousel_stepper = mkStepperConfig(
-            step_pin=36, dir_pin=34, enable_pin=30
-        )
-        irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
-        # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
-        irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=46, dir_pin=48, enable_pin=62
-        )
-        irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=60, dir_pin=61, enable_pin=56
-        )
-        irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
-            step_pin=54, dir_pin=55, enable_pin=38
-        )
-    
+    # Camera configuration complete - stepper config happens at firmware discovery time
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
 
 
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
+    """
+    Initialize the hardware interface using SorterInterface directly.
+    
+    No longer supports Arduino - Pico/SorterInterface only.
+    The firmware reports which steppers are available via stepper_names.
+    """
     irl_interface = IRLInterface()
 
-    # Initialize the appropriate MCU type
-    mcu_type = config.mcu_type if hasattr(config, 'mcu_type') else "arduino"
+    # Initialize the SorterInterface via MCUBus
+    gc.logger.info(f"Initializing SorterInterface on {config.mcu_path}")
     
-    if mcu_type == "rpi_pico":
-        gc.logger.info(f"Initializing RPi Pico MCU on {config.mcu_path}")
-        mcu = PicoMCU(gc, config.mcu_path)
+    bus = MCUBus(port=config.mcu_path)
+    devices = bus.scan_devices()
+    
+    if not devices:
+        raise RuntimeError(f"No Pico devices found on {config.mcu_path}")
+    
+    sorter_interface = SorterInterface(bus, devices[0])
+    gc.logger.info(f"SorterInterface initialized: {sorter_interface.name}")
+    
+    # Store reference to sorter_interface for shutdown
+    irl_interface.sorter_interface = sorter_interface
+    
+    # Get stepper names from firmware configuration
+    board_info = sorter_interface._board_info
+    stepper_names = board_info.get("stepper_names", [])
+    device_name = board_info.get("device_name", "")
+    
+    # Fallback to default names if firmware doesn't report them (for old firmware)
+    if not stepper_names:
+        gc.logger.warning("Firmware did not report stepper names, using defaults")
+        # Verified FEEDER MB channel order:
+        # ch0=first_c_channel, ch1=second_c_channel, ch2=third_c_channel, ch3=carousel
+        stepper_names = [
+            "first_c_channel_rotor",
+            "second_c_channel_rotor",
+            "third_c_channel_rotor",
+            "carousel",
+        ]
+    elif (
+        device_name == "FEEDER MB"
+        and stepper_names
+        == [
+            "carousel",
+            "third_c_channel_rotor",
+            "second_c_channel_rotor",
+            "first_c_channel_rotor",
+        ]
+    ):
+        gc.logger.warning(
+            "FEEDER MB firmware reported legacy stepper_names order; applying client-side override"
+        )
+        stepper_names = [
+            "first_c_channel_rotor",
+            "second_c_channel_rotor",
+            "third_c_channel_rotor",
+            "carousel",
+        ]
+    
+    gc.logger.info(f"Found {len(stepper_names)} steppers: {stepper_names}")
+    
+    # Dynamically assign steppers by their names from firmware
+    for channel, stepper_name in enumerate(stepper_names):
+        if channel >= len(sorter_interface.steppers):
+            gc.logger.warning(f"Channel {channel} exceeds available steppers")
+            break
+        
+        stepper = sorter_interface.steppers[channel]
+        stepper.set_name(stepper_name)
+        
+        # Assign to IRLInterface dynamically
+        setattr(irl_interface, f"{stepper_name}_stepper", stepper)
+        gc.logger.info(f"Initialized Stepper '{stepper_name}' on channel {channel}, position={stepper._current_position_steps} steps")
+        time.sleep(0.3)
+    
+    # Verify required steppers are present
+    required_steppers = ["carousel", "first_c_channel_rotor", "second_c_channel_rotor", "third_c_channel_rotor"]
+    for stepper_name in required_steppers:
+        if not hasattr(irl_interface, f"{stepper_name}_stepper"):
+            gc.logger.warning(f"Required stepper '{stepper_name}' not found from firmware")
+    
+    # Provide compatibility alias for "chute" mapped to third_c_channel_rotor
+    if hasattr(irl_interface, "chute_stepper"):
+        pass  # Already set by firmware
+    elif hasattr(irl_interface, "third_c_channel_rotor_stepper"):
+        irl_interface.chute_stepper = irl_interface.third_c_channel_rotor_stepper
+        gc.logger.info("Using third_c_channel_rotor as chute_stepper (compatibility alias)")
     else:
-        gc.logger.info(f"Initializing Arduino MCU on {config.mcu_path}")
-        mcu = MCU(gc, config.mcu_path)
-    
-    irl_interface.mcu = mcu
-
-    irl_interface.carousel_stepper = Stepper(
-        gc,
-        mcu,
-        config.carousel_stepper.step_pin,
-        config.carousel_stepper.dir_pin,
-        config.carousel_stepper.enable_pin,
-        name="carousel",
-        default_delay_us=1000,
-    )
-    time.sleep(1)
-
-    irl_interface.chute_stepper = Stepper(
-        gc,
-        mcu,
-        config.chute_stepper.step_pin,
-        config.chute_stepper.dir_pin,
-        config.chute_stepper.enable_pin,
-        name="chute",
-        default_delay_us=500,
-        default_accel_start_delay_us=2500,
-        default_accel_steps=250,
-        default_decel_steps=250,
-    )
-    time.sleep(1)
-
-    irl_interface.first_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.first_c_channel_rotor_stepper.step_pin,
-        config.first_c_channel_rotor_stepper.dir_pin,
-        config.first_c_channel_rotor_stepper.enable_pin,
-        name="first_c_channel_rotor",
-        default_delay_us=800,
-    )
-    time.sleep(1)
-
-    irl_interface.second_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.second_c_channel_rotor_stepper.step_pin,
-        config.second_c_channel_rotor_stepper.dir_pin,
-        config.second_c_channel_rotor_stepper.enable_pin,
-        name="second_c_channel_rotor",
-        default_delay_us=800,
-    )
-    time.sleep(1)
-
-    irl_interface.third_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.third_c_channel_rotor_stepper.step_pin,
-        config.third_c_channel_rotor_stepper.dir_pin,
-        config.third_c_channel_rotor_stepper.enable_pin,
-        name="third_c_channel_rotor",
-        default_delay_us=800,
-    )
-    time.sleep(1)
+        gc.logger.warning("Neither chute_stepper nor third_c_channel_rotor_stepper found")
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
-    irl_interface.servos = [
-        Servo(gc, mcu, layer.servo_pin, f"layer_{i}_servo")
-        for i, layer in enumerate(irl_interface.distribution_layout.layers)
-    ]
+    # Initialize servos directly from sorter_interface
+    irl_interface.servos = []
+    for i, layer in enumerate(irl_interface.distribution_layout.layers):
+        if i >= len(sorter_interface.servos):
+            gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(sorter_interface.servos)} servos available")
+            raise IndexError(f"Layer {i} servo not available. Only {len(sorter_interface.servos)} servos configured.")
+        servo = sorter_interface.servos[i]
+        servo.set_name(f"layer_{i}_servo")
+        servo.set_preset_angles(SERVO_OPEN_ANGLE, SERVO_CLOSED_ANGLE)
+        irl_interface.servos.append(servo)
+        gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

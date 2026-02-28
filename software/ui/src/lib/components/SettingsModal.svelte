@@ -3,6 +3,7 @@
 	import { settings } from '$lib/stores/settings';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { backendWsBaseUrl } from '$lib/backend';
+    import { backendHttpBaseUrl } from '$lib/backend';
 
 	let { open = $bindable(false) } = $props();
 
@@ -12,6 +13,61 @@
 
 	function handleConnect() {
 		manager.connect(url);
+	}
+
+	const manualSteppers = [
+		{ key: 'c_channel_1', label: 'C Channel 1' },
+		{ key: 'c_channel_2', label: 'C Channel 2' },
+		{ key: 'c_channel_3', label: 'C Channel 3' },
+		{ key: 'carousel', label: 'Carousel' },
+		{ key: 'chute', label: 'Chute' }
+	] as const;
+
+	let pulseDuration = $state(0.25);
+	let pulseSpeed = $state(800);
+	let pulsing = $state<Record<string, boolean>>({});
+	let stopping = $state<Record<string, boolean>>({});
+
+	async function pulse(stepper: string, direction: 'cw' | 'ccw') {
+		const key = `${stepper}:${direction}`;
+		pulsing = { ...pulsing, [key]: true };
+		try {
+			const params = new URLSearchParams({
+				stepper,
+				direction,
+				duration_s: String(pulseDuration),
+				speed: String(pulseSpeed)
+			});
+			const res = await fetch(`${backendHttpBaseUrl}/stepper/pulse?${params.toString()}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				const errText = await res.text();
+				console.error(`Pulse failed for ${stepper} ${direction}:`, errText);
+			}
+		} catch (e) {
+			console.error(`Pulse request failed for ${stepper} ${direction}:`, e);
+		} finally {
+			pulsing = { ...pulsing, [key]: false };
+		}
+	}
+
+	async function stop(stepper: string) {
+		stopping = { ...stopping, [stepper]: true };
+		try {
+			const params = new URLSearchParams({ stepper });
+			const res = await fetch(`${backendHttpBaseUrl}/stepper/stop?${params.toString()}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				const errText = await res.text();
+				console.error(`Stop failed for ${stepper}:`, errText);
+			}
+		} catch (e) {
+			console.error(`Stop request failed for ${stepper}:`, e);
+		} finally {
+			stopping = { ...stopping, [stepper]: false };
+		}
 	}
 </script>
 
@@ -86,6 +142,62 @@
 				>
 					Dark
 				</button>
+			</div>
+		</div>
+
+		<div>
+			<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Manual Stepper Pulse</h3>
+			<div class="mb-3 grid grid-cols-2 gap-2">
+				<label class="dark:text-text-dark text-xs text-text">
+					Duration (s)
+					<input
+						type="number"
+						min="0.05"
+						max="5"
+						step="0.05"
+						bind:value={pulseDuration}
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<label class="dark:text-text-dark text-xs text-text">
+					Speed
+					<input
+						type="number"
+						min="1"
+						step="50"
+						bind:value={pulseSpeed}
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				{#each manualSteppers as s}
+					<div class="dark:border-border-dark dark:bg-bg-dark grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border border-border bg-bg px-2 py-2">
+						<span class="dark:text-text-dark text-sm text-text">{s.label}</span>
+						<button
+							onclick={() => pulse(s.key, 'cw')}
+							disabled={Boolean(pulsing[`${s.key}:cw`])}
+							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							Pulse CW
+						</button>
+						<button
+							onclick={() => pulse(s.key, 'ccw')}
+							disabled={Boolean(pulsing[`${s.key}:ccw`])}
+							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							Pulse CCW
+						</button>
+						<button
+							onclick={() => stop(s.key)}
+							disabled={Boolean(stopping[s.key])}
+							class="cursor-pointer border border-red-500 bg-red-500/20 px-3 py-1.5 text-xs text-red-600 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
+						>
+							Stop
+						</button>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>

@@ -103,10 +103,10 @@ def main():
         if manual_mode:
             step_count = STEP_COUNTS[step_count_idx]
             if key == readchar.key.LEFT:
-                stepper.moveSteps(-step_count)
+                stepper.move_steps(-step_count)
                 printStatus()
             elif key == readchar.key.RIGHT:
-                stepper.moveSteps(step_count)
+                stepper.move_steps(step_count)
                 printStatus()
             elif key == readchar.key.UP:
                 step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -129,7 +129,7 @@ def main():
                 printStatus()
             elif key.lower() == "q":
                 print("Exiting...")
-                stepper.disable()
+                stepper.enabled = False
                 sys.exit(0)
         else:
             if key == readchar.key.LEFT:
@@ -170,7 +170,7 @@ def main():
                 printStatus()
             elif key.lower() == "q":
                 print("Exiting...")
-                stepper.disable()
+                stepper.enabled = False
                 sys.exit(0)
 
 

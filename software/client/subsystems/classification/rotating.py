@@ -10,7 +10,7 @@ from global_config import GlobalConfig
 from defs.known_object import ClassificationStatus
 
 if TYPE_CHECKING:
-    from irl.stepper import Stepper
+    from hardware.sorter_interface import StepperMotor
 
 ROTATE_DURATION_MS = 3000
 
@@ -74,13 +74,8 @@ class Rotating(BaseState):
 
         if self.start_time is None:
             self.start_time = time.time()
-            queue_size = self.stepper.mcu.command_queue.qsize()
-            worker_alive = self.stepper.mcu.worker_thread.is_alive()
             self.logger.info("Rotating: starting rotation")
-            self.logger.info(
-                f"Rotating: enqueueing carousel rotate (mcu_queue={queue_size}, mcu_worker_alive={worker_alive})"
-            )
-            self.stepper.rotate(-90.0)
+            self.stepper.move_degrees(90.0)
             self.command_sent = True
 
         elapsed_ms = (time.time() - self.start_time) * 1000

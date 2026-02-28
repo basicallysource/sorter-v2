@@ -10,22 +10,18 @@
         0,
         1,
         2,
-        3,
         4,
         5,
         6,
         7,
         8,
         9,
-        10,
         11,
         12,
         14,
         15,
         16,
-        18,
         20,
-        22,
         23,
         24,
         26,
@@ -252,15 +248,15 @@
     },
     "second_c_channel": {
       "description": "Second C-channel rotor circular region",
-      "radius_multiplier": 0.9,
+      "radius_multiplier": 0.85,
       "tags": {
         "center": 25,
         "output_guide": 21,
         "radius1": 32,
-        "radius2": null,
-        "radius3": null,
-        "radius4": null,
-        "radius5": null
+        "radius2": 3,
+        "radius3": 10,
+        "radius4": 18,
+        "radius5": 22
       }
     },
     "third_c_channel": {

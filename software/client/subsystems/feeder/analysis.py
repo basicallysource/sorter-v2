@@ -264,44 +264,7 @@ def determineObjectChannelAndQuadrant(
     obj_center_image: Tuple[float, float],
     geometry: ChannelGeometry,
 ) -> Optional[Tuple[int, int]]:
-    # check channel 3 first (innermost)
-    if geometry.third_channel:
-        in_channel = False
-        if (
-            geometry.third_channel.shape == "ellipse"
-            and geometry.third_channel.ellipse_axes is not None
-        ):
-            in_channel = _point_in_ellipse(
-                obj_center_image,
-                geometry.third_channel.center,
-                geometry.third_channel.ellipse_axes,
-                geometry.third_channel.ellipse_angle_deg,
-            )
-            dx = obj_center_image[0] - geometry.third_channel.center[0]
-            dy = obj_center_image[1] - geometry.third_channel.center[1]
-            obj_angle = np.degrees(np.arctan2(dy, dx))
-        else:
-            in_channel = isPointInCircle(
-                obj_center_image,
-                geometry.third_channel.center,
-                geometry.third_channel.radius,
-            )
-            dx = obj_center_image[0] - geometry.third_channel.center[0]
-            dy = obj_center_image[1] - geometry.third_channel.center[1]
-            obj_angle = np.degrees(np.arctan2(dy, dx))
-
-        if in_channel:
-            # relative angle from radius1
-            relative_angle = obj_angle - geometry.third_channel.radius1_angle_image
-            while relative_angle < 0:
-                relative_angle += 360
-            while relative_angle >= 360:
-                relative_angle -= 360
-
-            quadrant = int(relative_angle / 90.0)
-            return (3, quadrant)
-
-    # check channel 2
+    # check channel 2 first so overlap resolves to channel 2
     if geometry.second_channel:
         in_channel = False
         if (
@@ -337,6 +300,43 @@ def determineObjectChannelAndQuadrant(
 
             quadrant = int(relative_angle / 90.0)
             return (2, quadrant)
+
+    # check channel 3 (innermost)
+    if geometry.third_channel:
+        in_channel = False
+        if (
+            geometry.third_channel.shape == "ellipse"
+            and geometry.third_channel.ellipse_axes is not None
+        ):
+            in_channel = _point_in_ellipse(
+                obj_center_image,
+                geometry.third_channel.center,
+                geometry.third_channel.ellipse_axes,
+                geometry.third_channel.ellipse_angle_deg,
+            )
+            dx = obj_center_image[0] - geometry.third_channel.center[0]
+            dy = obj_center_image[1] - geometry.third_channel.center[1]
+            obj_angle = np.degrees(np.arctan2(dy, dx))
+        else:
+            in_channel = isPointInCircle(
+                obj_center_image,
+                geometry.third_channel.center,
+                geometry.third_channel.radius,
+            )
+            dx = obj_center_image[0] - geometry.third_channel.center[0]
+            dy = obj_center_image[1] - geometry.third_channel.center[1]
+            obj_angle = np.degrees(np.arctan2(dy, dx))
+
+        if in_channel:
+            # relative angle from radius1
+            relative_angle = obj_angle - geometry.third_channel.radius1_angle_image
+            while relative_angle < 0:
+                relative_angle += 360
+            while relative_angle >= 360:
+                relative_angle -= 360
+
+            quadrant = int(relative_angle / 90.0)
+            return (3, quadrant)
 
     return None
 

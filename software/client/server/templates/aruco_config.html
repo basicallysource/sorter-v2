@@ -235,6 +235,44 @@
         .multiplier-row button:hover {
             opacity: 0.9;
         }
+
+        .setting-row {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .setting-row input {
+            width: 120px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+
+        .setting-row button {
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            background: #667eea;
+            color: white;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .setting-row button:hover {
+            opacity: 0.9;
+        }
+
+        .checkbox-row {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #444;
+        }
         
         @media (max-width: 1200px) {
             .container {
@@ -252,6 +290,10 @@
     <div class="container">
         <div class="camera-section">
             <h2>Feeder Calibration Camera Feed</h2>
+            <label class="checkbox-row">
+                <input id="show-live-aruco" type="checkbox">
+                Show live non-smoothed ArUco values
+            </label>
             <div id="camera-feed">
                 <img id="camera-stream" src="/video_feed/feeder" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: none;">
                 <span id="camera-status">Loading camera feed...</span>
@@ -275,6 +317,15 @@
                     <span style="color: #999; font-size: 12px;">Loading...</span>
                 </div>
             </div>
+
+            <div class="panel">
+                <h3>ArUco Tracker</h3>
+                <div class="setting-row">
+                    <span style="font-size:12px;color:#666;">ArUco smoothing time (s)</span>
+                    <input id="aruco-smoothing-time" type="number" min="0" max="5" step="0.05" value="0.35">
+                    <button id="save-aruco-smoothing">Save</button>
+                </div>
+            </div>
             
             <!-- Instructions -->
             <div class="panel">
@@ -292,11 +343,17 @@
     
     <script>
         let selectedTag = null;
+        let showLiveArucoValues = false;
+
+        function feederVideoUrl() {
+            const show = showLiveArucoValues ? '&show_live_aruco_values=true' : '';
+            return '/video_feed/feeder?t=' + Date.now() + show;
+        }
         
         // Initialize camera feed
         function initCameraFeed() {
             const img = document.getElementById('camera-stream');
-            img.src = '/video_feed/feeder?t=' + Date.now();
+            img.src = feederVideoUrl();
             img.onerror = () => {
                 document.getElementById('camera-status').textContent = 'Camera not available';
             };
@@ -307,7 +364,7 @@
             
             // Refresh feed every 500ms
             setInterval(() => {
-                img.src = '/video_feed/feeder?t=' + Date.now();
+                img.src = feederVideoUrl();
             }, 500);
         }
         
@@ -319,12 +376,42 @@
                 
                 const unassignedResponse = await fetch('/api/aruco/tags/unassigned');
                 const unassignedTags = await unassignedResponse.json();
+
+                const smoothingResponse = await fetch('/api/aruco/smoothing-time');
+                const smoothing = await smoothingResponse.json();
                 
                 displayUnassignedTags(unassignedTags);
                 displayCategories(categories);
+                const smoothingInput = document.getElementById('aruco-smoothing-time');
+                if (smoothingInput && Number.isFinite(smoothing.aruco_smoothing_time_s)) {
+                    smoothingInput.value = String(smoothing.aruco_smoothing_time_s);
+                }
             } catch (error) {
                 console.error('Failed to load config:', error);
                 showStatus('Failed to load configuration', 'error');
+            }
+        }
+
+        async function setArucoSmoothingTime(value) {
+            if (!Number.isFinite(value) || value < 0) {
+                showStatus('ArUco smoothing time must be >= 0', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(
+                    `/api/aruco/smoothing-time?value=${value}`,
+                    { method: 'POST' }
+                );
+                if (response.ok) {
+                    showStatus(`✓ ArUco smoothing time set to ${value}s`, 'success');
+                    loadConfig();
+                } else {
+                    const text = await response.text();
+                    showStatus(`Failed to set smoothing time: ${text}`, 'error');
+                }
+            } catch (error) {
+                console.error('Set smoothing time failed:', error);
+                showStatus('Error: ' + error.message, 'error');
             }
         }
         
@@ -515,8 +602,23 @@
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
+            const liveCheckbox = document.getElementById('show-live-aruco');
+            if (liveCheckbox) {
+                liveCheckbox.onchange = () => {
+                    showLiveArucoValues = !!liveCheckbox.checked;
+                };
+            }
+
             initCameraFeed();
             loadConfig();
+
+            const saveSmoothingBtn = document.getElementById('save-aruco-smoothing');
+            const smoothingInput = document.getElementById('aruco-smoothing-time');
+            if (saveSmoothingBtn && smoothingInput) {
+                saveSmoothingBtn.onclick = async () => {
+                    await setArucoSmoothingTime(parseFloat(smoothingInput.value));
+                };
+            }
             
             // Reload config every 5 seconds to catch external changes
             setInterval(loadConfig, 5000);

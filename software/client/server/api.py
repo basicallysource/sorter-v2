@@ -157,9 +157,13 @@ def _sync_aruco_config_to_vision() -> Dict[str, Any]:
     config_dict = aruco_manager.get_config_dict()
     runtime_config = _build_runtime_aruco_config(config_dict)
     vision_manager._irl_config.aruco_tags = runtime_config
+    smoothing_time_s = aruco_manager.get_aruco_smoothing_time_s()
+    if hasattr(vision_manager, "setArucoSmoothingTimeSeconds"):
+        vision_manager.setArucoSmoothingTimeSeconds(smoothing_time_s)
 
     return {
         "synced": True,
+        "aruco_smoothing_time_s": smoothing_time_s,
         "second_c_channel": {
             "center": runtime_config.second_c_channel_center_id,
             "output_guide": runtime_config.second_c_channel_output_guide_id,
@@ -453,7 +457,7 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
 
 # Video Streaming Routes
 @app.get("/video_feed/{camera_name}")
-def video_feed(camera_name: str) -> StreamingResponse:
+def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> StreamingResponse:
     """Stream MJPEG video from the specified camera"""
     if vision_manager is None:
         raise HTTPException(status_code=500, detail="Vision manager not initialized")
@@ -475,6 +479,23 @@ def video_feed(camera_name: str) -> StreamingResponse:
             else:
                 # Use annotated frame if available, otherwise use raw frame
                 frame_to_encode = frame_obj.annotated if frame_obj.annotated is not None else frame_obj.raw
+
+                if camera_name == "feeder" and show_live_aruco_values:
+                    frame_to_encode = frame_to_encode.copy()
+                    raw_tags = vision_manager.getFeederArucoTagsRaw()
+                    for tag_id, (center_x_f, center_y_f) in raw_tags.items():
+                        center = (int(center_x_f), int(center_y_f))
+                        cv2.circle(frame_to_encode, center, 5, (0, 0, 255), -1)
+                        cv2.putText(
+                            frame_to_encode,
+                            f"raw {tag_id}",
+                            (center[0] + 8, center[1] - 8),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.45,
+                            (0, 0, 255),
+                            1,
+                        )
+
                 _, buffer = cv2.imencode('.jpg', frame_to_encode, [cv2.IMWRITE_JPEG_QUALITY, quality])
             
             # Yield frame in MJPEG format
@@ -584,6 +605,30 @@ def set_radius_multiplier(category: str, value: float) -> Dict[str, Any]:
     return {
         "status": "success",
         "message": f"Radius multiplier for {category} set to {value}",
+        "calibration": calibration,
+    }
+
+
+@app.get("/api/aruco/smoothing-time")
+def get_aruco_smoothing_time() -> Dict[str, Any]:
+    """Get ArUco smoothing time in seconds."""
+    if aruco_manager is None:
+        raise HTTPException(status_code=500, detail="ArUco manager not initialized")
+    return {"aruco_smoothing_time_s": aruco_manager.get_aruco_smoothing_time_s()}
+
+
+@app.post("/api/aruco/smoothing-time")
+def set_aruco_smoothing_time(value: float) -> Dict[str, Any]:
+    """Set ArUco smoothing time in seconds (0 disables smoothing)."""
+    if aruco_manager is None:
+        raise HTTPException(status_code=500, detail="ArUco manager not initialized")
+    updated = aruco_manager.set_aruco_smoothing_time_s(value)
+    if not updated:
+        raise HTTPException(status_code=400, detail="Invalid smoothing time")
+    calibration = auto_calibrate()
+    return {
+        "status": "success",
+        "message": f"ArUco smoothing time set to {value} seconds",
         "calibration": calibration,
     }
 

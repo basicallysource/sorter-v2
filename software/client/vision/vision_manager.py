@@ -93,6 +93,9 @@ class VisionManager:
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
 
+    def setArucoSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
+        self._aruco_tracker.setSmoothingTimeSeconds(smoothing_time_s)
+
     def _pickNewestFrame(
         self,
         inferred_frame: Optional[CameraFrame],
@@ -266,6 +269,9 @@ class VisionManager:
                 "vision.get_feeder_aruco_tags.detected_count", float(len(tags))
             )
             return tags
+
+    def getFeederArucoTagsRaw(self) -> Dict[int, Tuple[float, float]]:
+        return self._aruco_tracker.getRawTags()
 
     def getFeederDetectionsByClass(self) -> Dict[int, List[VisionResult]]:
         prof = self.gc.profiler

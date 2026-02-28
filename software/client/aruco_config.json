@@ -1,5 +1,8 @@
 {
   "version": "1.0",
+  "settings": {
+    "aruco_smoothing_time_s": 20.0
+  },
   "categories": {
     "unassigned": {
       "description": "Tags that haven't been assigned yet",

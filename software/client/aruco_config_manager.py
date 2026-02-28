@@ -26,6 +26,9 @@ class ArucoConfigManager:
         self._sync_to_storage()
 
     def _ensure_schema(self) -> None:
+        settings = self.config.setdefault("settings", {})
+        settings.setdefault("aruco_smoothing_time_s", 0.35)
+
         categories = self.config.setdefault("categories", {})
 
         for channel in ["second_c_channel", "third_c_channel"]:
@@ -50,6 +53,9 @@ class ArucoConfigManager:
         # Create default config
         default_config = {
             "version": "1.0",
+            "settings": {
+                "aruco_smoothing_time_s": 0.35,
+            },
             "categories": {
                 "unassigned": {
                     "description": "Tags that haven't been assigned yet",
@@ -189,6 +195,18 @@ class ArucoConfigManager:
     def get_config_dict(self) -> Dict[str, Any]:
         """Get full configuration as dictionary."""
         return self.config
+
+    def get_aruco_smoothing_time_s(self) -> float:
+        settings = self.config.get("settings", {})
+        return float(settings.get("aruco_smoothing_time_s", 0.35))
+
+    def set_aruco_smoothing_time_s(self, value: float) -> bool:
+        if value < 0:
+            return False
+        settings = self.config.setdefault("settings", {})
+        settings["aruco_smoothing_time_s"] = float(value)
+        self._sync_to_storage()
+        return True
 
     def set_radius_multiplier(self, category: str, value: float) -> bool:
         """Set radius multiplier for a c-channel category."""

@@ -1,4 +1,3 @@
 from .config import IRLConfig, IRLInterface, mkIRLConfig, mkIRLInterface
-from .mcu import MCU
-from .stepper import Stepper
+from hardware.sorter_interface import StepperMotor, ServoMotor
 from .device_discovery import discoverMCU, listAvailableDevices

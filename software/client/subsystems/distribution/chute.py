@@ -4,7 +4,7 @@ from global_config import GlobalConfig
 from irl.bin_layout import DistributionLayout
 
 if TYPE_CHECKING:
-    from irl.stepper import Stepper
+    from hardware.sorter_interface import StepperMotor
 
 GEAR_RATIO = 4
 SECTIONS_PER_LAYER = 6
@@ -31,9 +31,7 @@ class Chute:
 
     @property
     def current_angle(self) -> float:
-        stepper_angle = (
-            self.stepper.current_position_steps / self.stepper.total_steps_per_rev
-        ) * 360.0
+        stepper_angle = self.stepper.position_degrees
         return stepper_angle / GEAR_RATIO
 
     def getAngleForBin(self, address: BinAddress) -> float:
@@ -53,22 +51,20 @@ class Chute:
     def moveToAngle(self, target: float) -> int:
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
-        target_steps = round(
-            (target_stepper_angle / 360.0) * self.stepper.total_steps_per_rev
-        )
-        delta_steps = target_steps - self.stepper.current_position_steps
-        estimated_ms = self.stepper.estimateMoveStepsMs(delta_steps)
+        current_stepper_angle = current * GEAR_RATIO
+        delta_stepper_angle = target_stepper_angle - current_stepper_angle
+        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle)
 
         if self.gc.disable_chute:
             self.logger.info(
-                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms})"
+                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
             )
             return estimated_ms
 
         self.logger.info(
-            f"Chute: moving from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms})"
+            f"Chute: moving from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
         )
-        self.stepper.moveSteps(delta_steps)
+        self.stepper.move_degrees(delta_stepper_angle)
         return estimated_ms
 
     def moveToBin(self, address: BinAddress) -> int:
@@ -78,23 +74,21 @@ class Chute:
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
-        target_steps = round(
-            (target_stepper_angle / 360.0) * self.stepper.total_steps_per_rev
-        )
-        delta_steps = target_steps - self.stepper.current_position_steps
-        estimated_ms = self.stepper.estimateMoveStepsMs(delta_steps)
+        current_stepper_angle = current * GEAR_RATIO
+        delta_stepper_angle = target_stepper_angle - current_stepper_angle
+        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle)
         timeout_ms = max(1, estimated_ms + timeout_buffer_ms)
 
         if self.gc.disable_chute:
             self.logger.info(
-                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
+                f"Chute: [DISABLED] would move from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
             )
             return estimated_ms
 
         self.logger.info(
-            f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (current_steps={self.stepper.current_position_steps}, target_steps={target_steps}, delta_steps={delta_steps}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
+            f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
         )
-        self.stepper.moveStepsBlocking(delta_steps, timeout_ms=timeout_ms)
+        self.stepper.move_degrees_blocking(delta_stepper_angle, timeout_ms=timeout_ms)
         return estimated_ms
 
     def moveToBinBlocking(self, address: BinAddress, timeout_buffer_ms: int = 0) -> int:

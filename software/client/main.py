@@ -12,7 +12,10 @@ from server.api import (
     setRuntimeVariables,
     setCommandQueue,
     setController,
+    setArucoManager,
+    setVisionManager,
 )
+from aruco_config_manager import ArucoConfigManager
 from sorter_controller import SorterController
 from telemetry import Telemetry
 from message_queue.handler import handleServerToMainEvent
@@ -81,11 +84,20 @@ def main() -> None:
     setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
     irl_config = mkIRLConfig()
+    
+    # Initialize ArUco tag configuration manager
+    aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
+    aruco_mgr = ArucoConfigManager(str(aruco_config_path))
+    setArucoManager(aruco_mgr)
+    
     irl = mkIRLInterface(irl_config, gc)
 
     gc.logger.info("Opening all layer servos...")
     for servo in irl.servos:
-        servo.open()
+        try:
+            servo.open()
+        except Exception as e:
+            gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
     gc.logger.info("Homing chute to zero...")
     irl.chute.home()
@@ -93,6 +105,7 @@ def main() -> None:
     telemetry = Telemetry(gc)
     vision = VisionManager(irl_config, gc)
     vision.setTelemetry(telemetry)
+    setVisionManager(vision)
     controller = SorterController(
         irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
     )
@@ -119,7 +132,7 @@ def main() -> None:
             gc.profiler.mark("main.loop.interval_ms")
             try:
                 event = server_to_main_queue.get(block=False)
-                handleServerToMainEvent(gc, controller, irl, event)
+                handleServerToMainEvent(gc, controller, event)
             except queue.Empty:
                 pass
 
@@ -163,19 +176,14 @@ def main() -> None:
 
         vision.stop()
 
-        # Clear any pending motor commands
-        while not irl.mcu.command_queue.empty():
-            try:
-                irl.mcu.command_queue.get_nowait()
-                irl.mcu.command_queue.task_done()
-            except:
-                break
-
-        # Send motor shutdown commands and wait for them to complete
+        # Disable all motors and servos
         gc.logger.info("Stopping all motors...")
         irl.disableSteppers()
-        irl.mcu.flush()
-        irl.mcu.close()
+        
+        # Shutdown the sorter interface
+        if hasattr(irl, 'sorter_interface'):
+            irl.sorter_interface.shutdown()
+        
         gc.logger.info("Cleanup complete")
         gc.logger.flushLogs()
         sys.exit(0)

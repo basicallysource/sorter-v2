@@ -54,22 +54,31 @@ class Logger:
         )
         thread.start()
 
-    def error(self, msg: str) -> None:
+    def error(self, msg: str, **kwargs) -> None:
         entry = LogEntry("ERROR", msg)
         self._addToBuffer(entry)
         print(f"[{self._timestamp()}] [ERROR] {msg}")
 
-    def warn(self, msg: str) -> None:
+    def warn(self, msg: str, **kwargs) -> None:
         if self.debug_level > 0:
             entry = LogEntry("WARN", msg)
             self._addToBuffer(entry)
             print(f"[{self._timestamp()}] [WARN] {msg}")
+
+    def warning(self, msg: str) -> None:
+        self.warn(msg)
 
     def info(self, msg: str) -> None:
         if self.debug_level > 1:
             entry = LogEntry("INFO", msg)
             self._addToBuffer(entry)
             print(f"[{self._timestamp()}] [INFO] {msg}")
+
+    def debug(self, msg: str) -> None:
+        if self.debug_level > 2:
+            entry = LogEntry("DEBUG", msg)
+            self._addToBuffer(entry)
+            print(f"[{self._timestamp()}] [DEBUG] {msg}")
 
     def flushLogs(self) -> None:
         with self._buffer_lock:

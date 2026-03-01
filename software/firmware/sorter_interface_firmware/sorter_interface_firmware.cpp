@@ -200,14 +200,75 @@ std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first S
  * \return Number of bytes written to the buffer, excluding the null terminator
  */
 int dump_configuration(char *buf, size_t buf_size) {
-    int n_bytes;
-    n_bytes =
-        snprintf(buf, buf_size,
-                 "{\"firmware_version\":\"1.0\",\"device_name\":\"%s\",\"device_address\":%d,"
-                 "\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,"
-                 "\"servo_count\":%d}",
-                 DEVICE_NAME, DEVICE_ADDRESS, STEPPER_COUNT, DIGITAL_INPUT_COUNT, DIGITAL_OUTPUT_COUNT, SERVO_COUNT.load());
-    return n_bytes;
+    if (buf_size == 0) {
+        return 0;
+    }
+
+    // Keep detect response compact to stay within bus frame limits.
+    // Try richest payload first (with names), then progressively smaller valid JSON fallbacks.
+
+    int n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"device_name\":\"%s\",\"stepper_count\":%d,"
+        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
+        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        DEVICE_NAME,
+        STEPPER_COUNT,
+        STEPPER_NAMES[0],
+        STEPPER_NAMES[1],
+        STEPPER_NAMES[2],
+        STEPPER_NAMES[3],
+        DIGITAL_INPUT_COUNT,
+        DIGITAL_OUTPUT_COUNT,
+        SERVO_COUNT.load());
+
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"stepper_count\":%d,"
+        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
+        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        STEPPER_COUNT,
+        STEPPER_NAMES[0],
+        STEPPER_NAMES[1],
+        STEPPER_NAMES[2],
+        STEPPER_NAMES[3],
+        DIGITAL_INPUT_COUNT,
+        DIGITAL_OUTPUT_COUNT,
+        SERVO_COUNT.load());
+
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        STEPPER_COUNT,
+        DIGITAL_INPUT_COUNT,
+        DIGITAL_OUTPUT_COUNT,
+        SERVO_COUNT.load());
+
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    // Absolute last resort: always return valid JSON instead of truncated content.
+    if (buf_size >= 3) {
+        buf[0] = '{';
+        buf[1] = '}';
+        buf[2] = '\0';
+        return 2;
+    }
+
+    buf[0] = '\0';
+    return 0;
 }
 
 /** \brief Initialize all hardware components, including GPIOs, UART, stepper drivers, etc.

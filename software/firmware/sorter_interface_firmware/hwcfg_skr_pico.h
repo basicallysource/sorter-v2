@@ -2,6 +2,18 @@ const uint8_t STEPPER_COUNT = 4;
 const uint8_t STEPPER_STEP_PINS[] = {11, 6, 19, 14};
 const uint8_t STEPPER_DIR_PINS[] = {10, 5, 28, 13};
 
+// Stepper channel name mapping for this board (SKR Pico)
+// Channel 0: carousel
+// Channel 1: first_c_channel_rotor
+// Channel 2: second_c_channel_rotor
+// Channel 3: third_c_channel_rotor
+const char* const STEPPER_NAMES[] = {
+    "carousel",
+    "first_c_channel_rotor",
+    "second_c_channel_rotor",
+    "third_c_channel_rotor"
+};
+
 uart_inst_t* const TMC_UART = uart1;
 const int TMC_UART_TX_PIN = 8;
 const int TMC_UART_RX_PIN = 9;

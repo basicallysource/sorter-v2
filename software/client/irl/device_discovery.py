@@ -1,31 +1,36 @@
 import os
 import sys
-import serial
-import time
-from serial.tools import list_ports
 from utils.pick_menu import pickMenu
-from blob_manager import getMcuPath, setMcuPath
+from hardware.bus import MCUBus
 
 
 def listAvailableDevices() -> list[str]:
-    ports = list_ports.comports()
-    usb_ports = []
-    for port in ports:
-        port_name = port.device
-        if "Bluetooth" in port_name or "debug-console" in port_name:
-            continue
-        usb_ports.append(port_name)
-    return sorted(usb_ports)
+    """
+    List available MCU bus devices compatible with SorterInterface firmware.
+
+    Returns:
+        List of device ports sorted by path
+    """
+    return MCUBus.enumerate_buses()
 
 
 def promptForDevice(device_name: str, env_var_name: str) -> str:
+    """
+    Prompt user to select a device.
+    
+    Args:
+        device_name: Display name for the device (e.g., "MCU")
+        env_var_name: Environment variable name to check
+
+    Returns:
+        Selected device port path
+    """
     env_value = os.environ.get(env_var_name)
     available_devices = listAvailableDevices()
 
     if not available_devices:
-        print(f"Error: No USB serial devices found")
+        print("Error: No compatible MCU devices found")
         sys.exit(1)
-
     options = []
 
     if env_value:
@@ -50,72 +55,21 @@ def promptForDevice(device_name: str, env_var_name: str) -> str:
         return available_devices[choice_index]
 
 
-def autoDiscoverFeeder() -> str | None:
-    available_devices = listAvailableDevices()
-
-    for device_path in available_devices:
-        try:
-            ser = serial.Serial(device_path, 115200, timeout=0.5)
-            time.sleep(2.0)
-
-            ser.reset_input_buffer()
-            ser.write(b"N\n")
-            time.sleep(0.2)
-
-            if ser.in_waiting > 0:
-                response = ser.readline().decode().strip()
-                ser.close()
-
-                if response == "feeder":
-                    return device_path
-            else:
-                ser.close()
-
-        except (serial.SerialException, OSError):
-            continue
-
-    return None
-
-
-def verifyDevice(device_path: str) -> bool:
-    try:
-        ser = serial.Serial(device_path, 115200, timeout=0.5)
-        time.sleep(2.0)
-        ser.reset_input_buffer()
-        ser.write(b"N\n")
-        time.sleep(0.2)
-        if ser.in_waiting > 0:
-            response = ser.readline().decode().strip()
-            ser.close()
-            return response == "feeder"
-        ser.close()
-    except (serial.SerialException, OSError):
-        pass
-    return False
-
-
 def discoverMCU() -> str:
+    """
+    Discover MCU device port for SorterInterface firmware.
+
+    Returns:
+        Port path
+    """
     env_value = os.environ.get("MCU_PATH")
     if env_value:
         return env_value
 
-    cached_path = getMcuPath()
-    if cached_path:
-        print(f"Trying cached MCU path {cached_path}...")
-        if verifyDevice(cached_path):
-            print(f"Verified feeder at {cached_path}")
-            return cached_path
-        print("Cached path didn't respond, falling back to auto-discovery...")
-
-    print("Auto-discovering feeder MCU...")
-    mcu_path = autoDiscoverFeeder()
-
-    if mcu_path:
-        print(f"Found feeder at {mcu_path}")
-        setMcuPath(mcu_path)
-        return mcu_path
+    available_devices = listAvailableDevices()
+    if available_devices:
+        print(f"Found MCU at {available_devices[0]}")
+        return available_devices[0]
 
     print("Auto-discovery failed. Please select device manually:")
-    mcu_path = promptForDevice("MCU", "MCU_PATH")
-    setMcuPath(mcu_path)
-    return mcu_path
+    return promptForDevice("MCU", "MCU_PATH")

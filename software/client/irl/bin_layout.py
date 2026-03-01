@@ -100,6 +100,12 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 def getBinLayout(path: Optional[str] = None) -> BinLayoutConfig:
     if path is None:
         path = os.environ.get("BIN_LAYOUT_PATH")
+    
+    if path is None:
+        # Try to load from bin_layout.json in the client directory
+        default_path = Path(__file__).parent.parent / "bin_layout.json"
+        if default_path.exists():
+            path = str(default_path)
 
     if path is None:
         return DEFAULT_BIN_LAYOUT

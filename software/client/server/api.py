@@ -1,13 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
 import queue
-import os
-import io
 import time
 import threading
 import cv2
@@ -465,7 +462,6 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
     def generate_frames():
         """Generator function that yields JPEG frames"""
         import time
-        buffer_size = 65536
         quality = 80  # JPEG quality (0-100)
         
         while True:

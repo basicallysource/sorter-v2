@@ -100,7 +100,10 @@ def main() -> None:
             gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
     gc.logger.info("Homing chute to zero...")
-    irl.chute.home()
+    if irl.chute is not None:
+        irl.chute.home()
+    else:
+        gc.logger.warning("Chute not available; skipping chute home")
 
     telemetry = Telemetry(gc)
     vision = VisionManager(irl_config, gc)

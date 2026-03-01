@@ -4,7 +4,7 @@ from global_config import GlobalConfig
 from .device_discovery import discoverMCU
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 SERVO_OPEN_ANGLE = 0
 SERVO_CLOSED_ANGLE = 72
@@ -99,12 +99,12 @@ class IRLConfig:
 
 class IRLInterface:
     carousel_stepper: Stepper
-    chute_stepper: Stepper
+    chute_stepper: Optional[Stepper]
     first_c_channel_rotor_stepper: Stepper
     second_c_channel_rotor_stepper: Stepper
     third_c_channel_rotor_stepper: Stepper
     servos: list[Servo]
-    chute: "Chute"
+    chute: Optional["Chute"]
     distribution_layout: DistributionLayout
 
     def __init__(self):
@@ -308,14 +308,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         if not hasattr(irl_interface, f"{stepper_name}_stepper"):
             gc.logger.warning(f"Required stepper '{stepper_name}' not found from firmware")
     
-    # Provide compatibility alias for "chute" mapped to third_c_channel_rotor
-    if hasattr(irl_interface, "chute_stepper"):
-        pass  # Already set by firmware
-    elif hasattr(irl_interface, "third_c_channel_rotor_stepper"):
-        irl_interface.chute_stepper = irl_interface.third_c_channel_rotor_stepper
-        gc.logger.info("Using third_c_channel_rotor as chute_stepper (compatibility alias)")
-    else:
-        gc.logger.warning("Neither chute_stepper nor third_c_channel_rotor_stepper found")
+    # Warn if chute_stepper was not provided by firmware; do not alias to another motor
+    if not hasattr(irl_interface, "chute_stepper"):
+        irl_interface.chute_stepper = None
+        gc.logger.warning("chute_stepper not found from firmware; chute controls will be unavailable")
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
@@ -341,8 +337,12 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     from subsystems.distribution.chute import Chute
 
-    irl_interface.chute = Chute(
-        gc, irl_interface.chute_stepper, irl_interface.distribution_layout
-    )
+    if irl_interface.chute_stepper is not None:
+        irl_interface.chute = Chute(
+            gc, irl_interface.chute_stepper, irl_interface.distribution_layout
+        )
+    else:
+        irl_interface.chute = None
+        gc.logger.warning("Chute subsystem disabled: no chute_stepper available")
 
     return irl_interface

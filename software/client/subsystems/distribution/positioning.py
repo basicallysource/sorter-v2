@@ -24,7 +24,7 @@ class Positioning(BaseState):
         irl: IRLInterface,
         gc: GlobalConfig,
         shared: SharedVariables,
-        chute: Chute,
+        chute: Optional[Chute],
         layout: DistributionLayout,
         sorting_profile: SortingProfile,
         event_queue: queue.Queue,
@@ -78,6 +78,12 @@ class Positioning(BaseState):
                 )
                 time.sleep(SLEEP_BEFORE_CHUTE_MOVE_MS / 1000.0)
             self.shared.chute_move_in_progress = True
+            if self.chute is None:
+                self.logger.warning("Positioning: chute unavailable, skipping chute move")
+                self.shared.chute_move_in_progress = False
+                self.start_time = time.time()
+                self.command_sent = True
+                return None
             chute_move_ms = self.chute.moveToBinBlocking(
                 address, timeout_buffer_ms=POSITION_BUFFER_MS
             )

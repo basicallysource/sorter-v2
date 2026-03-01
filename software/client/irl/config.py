@@ -198,10 +198,10 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.classification_camera_top = mkCameraConfig(
         device_index=classification_camera_top_index
     )
-    irl_config.carousel_stepper = mkStepperConfig(
+    irl_config.chute_stepper = mkStepperConfig(
         step_pin=36, dir_pin=34, enable_pin=30
     )
-    irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
+    irl_config.carousel_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
     # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
     irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
         step_pin=46, dir_pin=48, enable_pin=62

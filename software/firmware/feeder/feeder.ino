@@ -16,6 +16,28 @@ const int NUM_SERVO_PINS = 4;
 const int SERVO_PINS[NUM_SERVO_PINS] = {4, 5, 6, 11};
 Servo servos[NUM_SERVO_PINS];
 
+const int MAX_STEPPERS = 5;
+
+struct ActiveStepper {
+  bool active;
+  int step_pin;
+  int dir_pin;
+  int abs_steps;
+  int current_step;
+  int min_delay_us;
+  int start_delay_us;
+  int accel_zone;
+  int decel_zone;
+  long delay_delta;
+  long cmd_id;
+  bool has_cmd_id;
+  int original_steps; // signed, for reporting
+  unsigned long next_step_time;
+  bool pin_high;
+};
+
+ActiveStepper steppers[MAX_STEPPERS];
+
 const int RX_BUF_SIZE = 512;
 char rxBuf[RX_BUF_SIZE];
 int rxLen = 0;
@@ -106,14 +128,85 @@ int servoIndexForPin(int pin) {
   return -1;
 }
 
+int findStepperSlot(int step_pin, int dir_pin) {
+  for (int i = 0; i < MAX_STEPPERS; i++) {
+    if (steppers[i].active && steppers[i].step_pin == step_pin && steppers[i].dir_pin == dir_pin) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+int findFreeSlot() {
+  for (int i = 0; i < MAX_STEPPERS; i++) {
+    if (!steppers[i].active) return i;
+  }
+  return -1;
+}
+
+int computeStepDelay(ActiveStepper &s) {
+  int i = s.current_step;
+  int step_delay_us = s.min_delay_us;
+  if (s.delay_delta > 0 && s.accel_zone > 0 && i < s.accel_zone) {
+    step_delay_us = s.start_delay_us - (int)((s.delay_delta * (long)(i + 1)) / (long)s.accel_zone);
+  }
+  if (s.delay_delta > 0 && s.decel_zone > 0 && i >= s.abs_steps - s.decel_zone) {
+    int decel_index = i - (s.abs_steps - s.decel_zone);
+    step_delay_us = s.min_delay_us + (int)((s.delay_delta * (long)(decel_index + 1)) / (long)s.decel_zone);
+  }
+  return step_delay_us;
+}
+
+void tickSteppers() {
+  unsigned long now = micros();
+  for (int i = 0; i < MAX_STEPPERS; i++) {
+    if (!steppers[i].active) continue;
+    ActiveStepper &s = steppers[i];
+    if (now >= s.next_step_time) {
+      if (!s.pin_high) {
+        digitalWrite(s.step_pin, HIGH);
+        s.pin_high = true;
+        int step_delay_us = computeStepDelay(s);
+        s.next_step_time = now + step_delay_us;
+      } else {
+        digitalWrite(s.step_pin, LOW);
+        s.pin_high = false;
+        s.current_step++;
+        if (s.current_step >= s.abs_steps) {
+          s.active = false;
+          Serial.print("T done ");
+          if (s.has_cmd_id) {
+            Serial.print("id=");
+            Serial.print(s.cmd_id);
+            Serial.print(" ");
+          }
+          Serial.print("step_pin=");
+          Serial.print(s.step_pin);
+          Serial.print(" dir_pin=");
+          Serial.print(s.dir_pin);
+          Serial.print(" steps=");
+          Serial.println(s.original_steps);
+        } else {
+          int step_delay_us = computeStepDelay(s);
+          s.next_step_time = now + step_delay_us;
+        }
+      }
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect
   }
+  for (int i = 0; i < MAX_STEPPERS; i++) {
+    steppers[i].active = false;
+  }
 }
 
 void loop() {
+  tickSteppers();
   drainSerial();
 
   char *nl = (char *)memchr(rxBuf, '\n', rxLen);
@@ -417,6 +510,30 @@ void processCommand(String cmd) {
         return;
       }
 
+      // reject if this stepper pair is already active
+      if (findStepperSlot(step_pin, dir_pin) != -1) {
+        Serial.print("ERR,T,");
+        if (has_cmd_id) Serial.print(cmd_id);
+        else Serial.print("no_id");
+        Serial.print(",stepper_busy,");
+        Serial.print(step_pin);
+        Serial.print(",");
+        Serial.print(dir_pin);
+        Serial.print(",raw=");
+        Serial.println(truncateRaw(raw, 80));
+        return;
+      }
+
+      int slot = findFreeSlot();
+      if (slot == -1) {
+        Serial.print("ERR,T,");
+        if (has_cmd_id) Serial.print(cmd_id);
+        else Serial.print("no_id");
+        Serial.print(",no_free_slot,raw=");
+        Serial.println(truncateRaw(raw, 80));
+        return;
+      }
+
       int steps = (int)steps_long;
       int min_delay_us = (int)min_delay_us_long;
       int start_delay_us = (int)start_delay_us_long;
@@ -436,35 +553,23 @@ void processCommand(String cmd) {
         accel_zone = abs_steps / 2;
         decel_zone = abs_steps - accel_zone;
       }
-      long delay_delta = (long)start_delay_us - (long)min_delay_us;
 
-      for (int i = 0; i < abs_steps; i++) {
-        int step_delay_us = min_delay_us;
-        if (delay_delta > 0 && accel_zone > 0 && i < accel_zone) {
-          step_delay_us = start_delay_us - (int)((delay_delta * (long)(i + 1)) / (long)accel_zone);
-        }
-        if (delay_delta > 0 && decel_zone > 0 && i >= abs_steps - decel_zone) {
-          int decel_index = i - (abs_steps - decel_zone);
-          step_delay_us = min_delay_us + (int)((delay_delta * (long)(decel_index + 1)) / (long)decel_zone);
-        }
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_delay_us);
-        digitalWrite(step_pin, LOW);
-        delayMicroseconds(step_delay_us);
-        drainSerial();
-      }
-      Serial.print("T done ");
-      if (has_cmd_id) {
-        Serial.print("id=");
-        Serial.print(cmd_id);
-        Serial.print(" ");
-      }
-      Serial.print("step_pin=");
-      Serial.print(step_pin);
-      Serial.print(" dir_pin=");
-      Serial.print(dir_pin);
-      Serial.print(" steps=");
-      Serial.println(steps);
+      ActiveStepper &s = steppers[slot];
+      s.active = true;
+      s.step_pin = step_pin;
+      s.dir_pin = dir_pin;
+      s.abs_steps = abs_steps;
+      s.current_step = 0;
+      s.min_delay_us = min_delay_us;
+      s.start_delay_us = start_delay_us;
+      s.accel_zone = accel_zone;
+      s.decel_zone = decel_zone;
+      s.delay_delta = (long)start_delay_us - (long)min_delay_us;
+      s.cmd_id = cmd_id;
+      s.has_cmd_id = has_cmd_id;
+      s.original_steps = steps;
+      s.next_step_time = micros();
+      s.pin_high = false;
       break;
     }
 

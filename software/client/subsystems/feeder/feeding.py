@@ -8,7 +8,7 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig, RotorPulseConfig
 from vision import VisionManager
 
-DROPOFF_PAUSE_MS = 1000
+DROPOFF_PAUSE_MS = 2000
 TIMEOUT_BEFORE_BACKSPIN_MS = 30000
 BACKSPIN_STEPS = 500
 

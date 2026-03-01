@@ -29,17 +29,21 @@ class SorterController:
         )
 
     def start(self) -> None:
+        self.irl.disableSteppers()
         self.state = SorterLifecycle.PAUSED
 
     def resume(self) -> None:
+        self.irl.enableSteppers()
         self.state = SorterLifecycle.RUNNING
 
     def pause(self) -> None:
         self.coordinator.cleanup()
+        self.irl.disableSteppers()
         self.state = SorterLifecycle.PAUSED
 
     def stop(self) -> None:
         self.coordinator.cleanup()
+        self.irl.disableSteppers()
         self.state = SorterLifecycle.READY
 
     def step(self) -> None:

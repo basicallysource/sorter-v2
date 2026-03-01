@@ -132,7 +132,7 @@ def main() -> None:
             gc.profiler.mark("main.loop.interval_ms")
             try:
                 event = server_to_main_queue.get(block=False)
-                handleServerToMainEvent(gc, controller, irl, event)
+                handleServerToMainEvent(gc, controller, event)
             except queue.Empty:
                 pass
 

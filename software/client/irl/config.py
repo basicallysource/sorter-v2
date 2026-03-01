@@ -82,7 +82,6 @@ class ArucoTagConfig:
 
 class IRLConfig:
     mcu_path: str
-    mcu_type: str
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -99,7 +98,6 @@ class IRLConfig:
 
 
 class IRLInterface:
-    mcu: Union[MCU, PicoMCU]
     carousel_stepper: Stepper
     chute_stepper: Stepper
     first_c_channel_rotor_stepper: Stepper
@@ -194,9 +192,8 @@ def mkIRLConfig() -> IRLConfig:
     at initialization time, making the client pin-agnostic.
     """
     irl_config = IRLConfig()
-    mcu_port, mcu_type = discoverMCU()
+    mcu_port = discoverMCU()
     irl_config.mcu_path = mcu_port
-    irl_config.mcu_type = mcu_type
     camera_setup = getCameraSetup()
 
     if camera_setup is None:
@@ -232,8 +229,8 @@ def mkIRLConfig() -> IRLConfig:
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
-    
-    No longer supports Arduino - Pico/SorterInterface only.
+
+    Uses SorterInterface firmware and dynamic stepper name discovery.
     The firmware reports which steppers are available via stepper_names.
     """
     irl_interface = IRLInterface()

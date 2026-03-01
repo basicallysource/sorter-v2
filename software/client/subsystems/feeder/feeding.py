@@ -78,8 +78,11 @@ class Feeding(BaseState):
                                 "Feeder: skipping rotor pulse while chute move in progress"
                             )
                         if ACTUALLY_RUN:
-                            self.irl.third_c_channel_rotor_stepper.move_steps(
-                                cfg.steps_per_pulse,
+                            pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
+                                cfg.steps_per_pulse
+                            )
+                            self.irl.third_c_channel_rotor_stepper.move_degrees_with_profile(
+                                pulse_degrees,
                                 cfg.delay_us,
                                 cfg.accel_start_delay_us,
                                 cfg.accel_steps,
@@ -99,8 +102,11 @@ class Feeding(BaseState):
                                 "Feeder: skipping rotor pulse while chute move in progress"
                             )
                         if ACTUALLY_RUN:
-                            self.irl.third_c_channel_rotor_stepper.move_steps(
-                                cfg.steps_per_pulse,
+                            pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
+                                cfg.steps_per_pulse
+                            )
+                            self.irl.third_c_channel_rotor_stepper.move_degrees_with_profile(
+                                pulse_degrees,
                                 cfg.delay_us,
                                 cfg.accel_start_delay_us,
                                 cfg.accel_steps,
@@ -120,8 +126,11 @@ class Feeding(BaseState):
                                 "Feeder: skipping rotor pulse while chute move in progress"
                             )
                         if ACTUALLY_RUN:
-                            self.irl.second_c_channel_rotor_stepper.move_steps(
-                                cfg.steps_per_pulse,
+                            pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
+                                cfg.steps_per_pulse
+                            )
+                            self.irl.second_c_channel_rotor_stepper.move_degrees_with_profile(
+                                pulse_degrees,
                                 cfg.delay_us,
                                 cfg.accel_start_delay_us,
                                 cfg.accel_steps,
@@ -141,8 +150,11 @@ class Feeding(BaseState):
                                 "Feeder: skipping rotor pulse while chute move in progress"
                             )
                         if ACTUALLY_RUN:
-                            self.irl.second_c_channel_rotor_stepper.move_steps(
-                                cfg.steps_per_pulse,
+                            pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
+                                cfg.steps_per_pulse
+                            )
+                            self.irl.second_c_channel_rotor_stepper.move_degrees_with_profile(
+                                pulse_degrees,
                                 cfg.delay_us,
                                 cfg.accel_start_delay_us,
                                 cfg.accel_steps,
@@ -160,8 +172,11 @@ class Feeding(BaseState):
                                 "Feeder: skipping rotor pulse while chute move in progress"
                             )
                         if ACTUALLY_RUN:
-                            self.irl.first_c_channel_rotor_stepper.move_steps(
-                                cfg.steps_per_pulse,
+                            pulse_degrees = self.irl.first_c_channel_rotor_stepper.degrees_for_microsteps(
+                                cfg.steps_per_pulse
+                            )
+                            self.irl.first_c_channel_rotor_stepper.move_degrees_with_profile(
+                                pulse_degrees,
                                 cfg.delay_us,
                                 cfg.accel_start_delay_us,
                                 cfg.accel_steps,

@@ -51,7 +51,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    mcu_port, _ = discoverMCU()
+    mcu_port = discoverMCU()
     bus = MCUBus(port=mcu_port)
     devices = bus.scan_devices()
     if not devices:

@@ -8,7 +8,6 @@ import readchar
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.distribution.chute import BinAddress
-from blob_manager import setStepperPosition
 
 STEP_COUNTS = [
     1,
@@ -56,17 +55,21 @@ def main():
         print("Chute Calibration Tool")
         print("======================")
         print(f"Mode: {'MANUAL CONTROL' if manual_mode else 'BIN NAVIGATION'}")
-        print(f"Stepper position: {stepper.current_position_steps} steps")
+        print(f"Stepper position: {stepper.position_degrees:.2f}°")
         print(f"Chute angle: {chute.current_angle:.1f}°")
         print()
 
         if manual_mode:
             step_count = STEP_COUNTS[step_count_idx]
-            print(f"Step size: {step_count}")
+            print(
+                f"Step size: {stepper.degrees_for_microsteps(step_count):.3f}°"
+            )
             print()
             print("Controls:")
-            print(f"  ←/→     Move stepper ({step_count} steps)")
-            print(f"  ↑/↓     Change step count ({', '.join(map(str, STEP_COUNTS))})")
+            print(
+                f"  ←/→     Move stepper ({stepper.degrees_for_microsteps(step_count):.3f}°)"
+            )
+            print(f"  ↑/↓     Change microstep pulse ({', '.join(map(str, STEP_COUNTS))})")
             print("  H       Move to zero position")
             print("  Z       Set current position as zero")
             print("  Tab     Switch to bin navigation mode")
@@ -103,10 +106,10 @@ def main():
         if manual_mode:
             step_count = STEP_COUNTS[step_count_idx]
             if key == readchar.key.LEFT:
-                stepper.move_steps(-step_count)
+                stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
                 printStatus()
             elif key == readchar.key.RIGHT:
-                stepper.move_steps(step_count)
+                stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
                 printStatus()
             elif key == readchar.key.UP:
                 step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -120,8 +123,7 @@ def main():
                 printStatus()
                 print(f"Moved to zero (current angle: {chute.current_angle:.1f}°)")
             elif key.lower() == "z":
-                stepper.current_position_steps = 0
-                setStepperPosition(stepper.name, 0)
+                stepper.position_degrees = 0.0
                 printStatus()
                 print("Zeroed stepper and chute angle")
             elif key == "\t":
@@ -161,8 +163,7 @@ def main():
                 printStatus()
                 print(f"Moved to zero (current angle: {chute.current_angle:.1f}°)")
             elif key.lower() == "z":
-                stepper.current_position_steps = 0
-                setStepperPosition(stepper.name, 0)
+                stepper.position_degrees = 0.0
                 printStatus()
                 print("Zeroed stepper and chute angle")
             elif key == "\t":

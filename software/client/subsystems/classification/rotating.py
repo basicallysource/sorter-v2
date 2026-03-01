@@ -54,10 +54,8 @@ class Rotating(BaseState):
             waited_ms = (time.time() - self.wait_started_at) * 1000
             if waited_ms - self.last_wait_log_ms >= 1000:
                 self.last_wait_log_ms = waited_ms
-                queue_size = self.stepper.mcu.command_queue.qsize()
-                worker_alive = self.stepper.mcu.worker_thread.is_alive()
                 self.logger.info(
-                    f"Rotating: still waiting for distribution_ready ({waited_ms:.0f}ms, mcu_queue={queue_size}, mcu_worker_alive={worker_alive})"
+                    f"Rotating: still waiting for distribution_ready ({waited_ms:.0f}ms)"
                 )
             return None
 

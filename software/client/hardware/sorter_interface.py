@@ -88,8 +88,26 @@ class StepperMotor:
         Move the stepper by a given number of degrees (positive or negative).
         Uses steps_per_revolution to calculate the number of steps.
         """
-        steps = int(round((degrees / 360.0) * self._steps_per_revolution * self._microsteps))
+        steps = self.microsteps_for_degrees(degrees)
         return self.move_steps(steps)
+
+    def move_degrees_with_profile(
+        self,
+        degrees: float,
+        delay_us: int = 0,
+        accel_start_delay_us: int = 0,
+        accel_steps: int = 0,
+        decel_steps: int = 0,
+    ) -> bool:
+        """Move by degrees with optional timing/acceleration profile."""
+        steps = self.microsteps_for_degrees(degrees)
+        return self.move_steps(
+            steps,
+            delay_us,
+            accel_start_delay_us,
+            accel_steps,
+            decel_steps,
+        )
     
     def move_steps(self, steps: int, delay_us: int = 0, accel_start_delay_us: int = 0, 
                    accel_steps: int = 0, decel_steps: int = 0) -> bool:
@@ -145,6 +163,11 @@ class StepperMotor:
             time.sleep(0.01)  # Poll every 10ms
         
         return False  # Timeout
+
+    def move_degrees_blocking(self, degrees: float, timeout_ms: int = 5000) -> bool:
+        """Move by degrees and wait for completion."""
+        steps = self.microsteps_for_degrees(degrees)
+        return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
@@ -166,13 +189,18 @@ class StepperMotor:
     def position(self) -> int:
         """Get the current position of the stepper in microsteps."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_GET_POSITION, self._channel, b'')
-        return struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
+        position = struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
+        self._current_position_steps = position
+        setStepperPosition(self._name, self._current_position_steps)
+        return position
     
     @position.setter
     def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
         payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
+        self._current_position_steps = position
+        setStepperPosition(self._name, self._current_position_steps)
     
     @property
     def position_degrees(self) -> float:
@@ -288,6 +316,21 @@ class StepperMotor:
         # This doesn't account for acceleration/deceleration ramps
         estimated_seconds = steps / max_speed
         return max(1, int(estimated_seconds * 1000))
+
+    def estimateMoveDegreesMs(self, degrees: float, max_speed: int = 5000) -> int:
+        """Estimate movement time for a move specified in degrees."""
+        steps = self.microsteps_for_degrees(degrees)
+        return self.estimateMoveStepsMs(steps, max_speed=max_speed)
+
+    def microsteps_for_degrees(self, degrees: float) -> int:
+        """Convert degrees to microsteps using current motor configuration."""
+        return int(
+            round((degrees / 360.0) * self._steps_per_revolution * self._microsteps)
+        )
+
+    def degrees_for_microsteps(self, steps: int) -> float:
+        """Convert microsteps to degrees using current motor configuration."""
+        return (float(steps) / (self._steps_per_revolution * self._microsteps)) * 360.0
 
 
 class ServoMotor:

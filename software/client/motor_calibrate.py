@@ -7,7 +7,6 @@ import sys
 import readchar
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
-from blob_manager import setStepperPosition
 
 STEP_COUNTS = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
 
@@ -32,16 +31,18 @@ def main():
         name = stepper_names[selected_idx]
         stepper = steppers[name]
         step_count = STEP_COUNTS[step_count_idx]
-        quarter_steps = stepper.total_steps_per_rev // 4
+        quarter_degrees = 90
         print("\033[2J\033[H", end="")
         print("Motor Calibration Tool")
         print("======================")
-        print(f"Selected: {name} (position: {stepper.current_position_steps} steps)")
+        print(f"Selected: {name} (position: {stepper.position_degrees:.2f}°)")
         print()
         print("Stepper Controls:")
-        print(f"  ←/→     Move stepper (current: {step_count} steps)")
-        print(f"  ↑/↓     Change step count ({', '.join(map(str, STEP_COUNTS))})")
-        print(f"  A/D     Quarter turn ({quarter_steps} steps)")
+        print(
+            f"  ←/→     Move stepper (current: {stepper.degrees_for_microsteps(step_count):.3f}°)"
+        )
+        print(f"  ↑/↓     Change microstep pulse ({', '.join(map(str, STEP_COUNTS))})")
+        print(f"  A/D     Quarter turn ({quarter_degrees}°)")
         print("  Tab     Switch stepper")
         print("  Enter   Set current position as zero")
         print()
@@ -66,18 +67,16 @@ def main():
         step_count = STEP_COUNTS[step_count_idx]
 
         if key == readchar.key.LEFT:
-            stepper.move_steps(-step_count)
+            stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
             printStatus()
         elif key == readchar.key.RIGHT:
-            stepper.move_steps(step_count)
+            stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
             printStatus()
         elif key.lower() == "a":
-            quarter = stepper.total_steps_per_rev // 4
-            stepper.move_steps(-quarter)
+            stepper.move_degrees(-90)
             printStatus()
         elif key.lower() == "d":
-            quarter = stepper.total_steps_per_rev // 4
-            stepper.move_steps(quarter)
+            stepper.move_degrees(90)
             printStatus()
         elif key == readchar.key.UP:
             step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -89,8 +88,7 @@ def main():
             selected_idx = (selected_idx + 1) % len(stepper_names)
             printStatus()
         elif key == readchar.key.ENTER:
-            stepper.current_position_steps = 0
-            setStepperPosition(name, 0)
+            stepper.position_degrees = 0.0
             printStatus()
             print(f"Zeroed {name} position")
         elif key in "1234":

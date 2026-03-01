@@ -18,11 +18,12 @@ def main():
 
     steppers = {
         "carousel": irl.carousel_stepper,
-        "chute": irl.chute_stepper,
         "c_channel_1": irl.first_c_channel_rotor_stepper,
         "c_channel_2": irl.second_c_channel_rotor_stepper,
         "c_channel_3": irl.third_c_channel_rotor_stepper,
     }
+    if irl.chute_stepper is not None:
+        steppers["chute"] = irl.chute_stepper
     stepper_names = list(steppers.keys())
     selected_idx = 0
     step_count_idx = 1

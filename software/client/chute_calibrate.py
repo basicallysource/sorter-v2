@@ -38,6 +38,10 @@ def main():
     chute = irl.chute
     stepper = irl.chute_stepper
 
+    if chute is None or stepper is None:
+        print("Error: chute hardware not available from firmware. Cannot run chute calibration.")
+        sys.exit(1)
+
     layer_idx = 0
     section_idx = 0
     bin_idx = 0

@@ -11,7 +11,7 @@ class DecodeError(Exception):
     pass
 
 
-def encode(message: bytearray) -> bytearray:
+def encode(message: bytes|bytearray) -> bytearray:
     """Encode a message using COBS."""
     outbuf = bytearray(b"\x01")
     counter_idx = 0
@@ -23,9 +23,10 @@ def encode(message: bytearray) -> bytearray:
     return outbuf
 
 
-def decode(buff: bytearray) -> bytearray:
+def decode(buff: bytearray|bytes) -> bytearray:
     """Decode a COBS-encoded message."""
     msgbuf = bytearray()
+    buff = bytearray(buff)
     s = buff.pop(0)
     while buff:
         c = buff.pop(0)

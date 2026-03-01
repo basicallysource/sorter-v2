@@ -57,7 +57,7 @@ class FeederConfig:
         self.first_rotor = RotorPulseConfig(
             steps=100,
             delay_us=500,
-            delay_between_ms=5000,
+            delay_between_ms=1500,
             accel_start_delay_us=900,
             accel_steps=48,
             decel_steps=48,
@@ -65,14 +65,14 @@ class FeederConfig:
         self.second_rotor_normal = RotorPulseConfig(
             steps=500,
             delay_us=200,
-            delay_between_ms=250,
+            delay_between_ms=200,
             accel_start_delay_us=1200,
             accel_steps=130,
             decel_steps=130,
         )
         self.second_rotor_precision = RotorPulseConfig(
-            steps=100,
-            delay_us=800,
+            steps=300,
+            delay_us=150,
             delay_between_ms=350,
             accel_start_delay_us=1400,
             accel_steps=26,
@@ -80,16 +80,16 @@ class FeederConfig:
         )
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
-            delay_us=200,
-            delay_between_ms=250,
-            accel_start_delay_us=1400,
-            accel_steps=220,
-            decel_steps=220,
+            delay_us=900,
+            delay_between_ms=200,
+            accel_start_delay_us=1200,
+            accel_steps=130,
+            decel_steps=130,
         )
         self.third_rotor_precision = RotorPulseConfig(
-            steps=100,
-            delay_us=800,
-            delay_between_ms=350,
+            steps=150,
+            delay_us=150,
+            delay_between_ms=600,
             accel_start_delay_us=1400,
             accel_steps=26,
             decel_steps=26,
@@ -104,9 +104,7 @@ class GlobalConfig:
     debug_level: int
     timeouts: Timeouts
     feeder_config: FeederConfig
-    classification_chamber_vision_model_path: str
-    feeder_vision_model_path: str
-    parts_with_categories_file_path: str
+    sorting_profile_path: str
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -114,7 +112,7 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
-    use_segmentation_model_for_classification_chamber: bool
+    disable_servos: bool
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
 
@@ -123,8 +121,8 @@ class GlobalConfig:
         self.should_write_camera_feeds = False
         self.log_buffer_size = 100
         self.disable_chute = False
-        self.use_segmentation_model_for_classification_chamber = False
-        self.rotary_channel_steppers_can_operate_in_parallel = False
+        self.disable_servos = False
+        self.rotary_channel_steppers_can_operate_in_parallel = True
 
 
 def mkTimeouts() -> Timeouts:
@@ -141,9 +139,10 @@ def mkGlobalConfig() -> GlobalConfig:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--disable",
-        action="append",
+        nargs="+",
+        action="extend",
         default=[],
-        help="disable subsystems (e.g., --disable chute)",
+        help="disable subsystems (e.g., --disable chute servos)",
     )
     args = parser.parse_args()
 
@@ -152,17 +151,14 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
     gc.timeouts = mkTimeouts()
     gc.feeder_config = mkFeederConfig()
-    gc.classification_chamber_vision_model_path = os.environ[
-        "CLASSIFICATION_CHAMBER_MODEL_PATH"
-    ]
-    gc.feeder_vision_model_path = os.environ["FEEDER_MODEL_PATH"]
-    gc.parts_with_categories_file_path = os.environ["PARTS_WITH_CATEGORIES_FILE_PATH"]
+    gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
 
     gc.disable_chute = "chute" in args.disable
+    gc.disable_servos = "servos" in args.disable
 
     from telemetry import Telemetry
 

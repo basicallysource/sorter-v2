@@ -34,8 +34,14 @@ uv run python scripts/camera_setup.py
 ```
 
 Edit `.env` and update:
-- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
+- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `SORTING_PROFILE_PATH` — set these to the absolute paths where the repo was cloned
 - Arduino serial port is auto-detected. On Mac/Linux it shows up as `/dev/ttyUSB*` or `/dev/ttyACM*`. On Windows it will be a `COM` port (e.g. `COM3`).
+
+Build the sorting profile JSON from the BrickLink-enriched parts file:
+```bash
+cd client
+uv run python scripts/build_generic_bricklink_categories_sorting_profile.py
+```
 
 ## UI Dependencies
 

@@ -11,7 +11,8 @@ DEFAULT_MICROSTEPPING = 8  # 1600 steps/rev total
 BASE_DELAY_US = 400
 DEFAULT_ACCEL_START_DELAY_MULTIPLIER = 2
 DEFAULT_ACCEL_STEPS = 24
-BLOCKING_MOVE_RETRY_COUNT = 10
+STEP_OVERHEAD_US = 300  # per-step firmware overhead (digitalWrite x2 + drainSerial)
+BLOCKING_MOVE_RETRY_COUNT = 0
 # if this works, just do this to the arudu firmware generally
 RETRY_DELAY_MS = 250
 
@@ -134,6 +135,25 @@ class Stepper:
         self.current_position_steps += steps
         setStepperPosition(self.name, self.current_position_steps)
 
+    def rotateBlocking(
+        self,
+        deg: float,
+        timeout_ms: int,
+        delay_us: int | None = None,
+        accel_start_delay_us: int | None = None,
+        accel_steps: int | None = None,
+        decel_steps: int | None = None,
+    ) -> str:
+        steps = int((deg / 360.0) * self.total_steps_per_rev)
+        return self.moveStepsBlocking(
+            steps,
+            timeout_ms,
+            delay_us=delay_us,
+            accel_start_delay_us=accel_start_delay_us,
+            accel_steps=accel_steps,
+            decel_steps=decel_steps,
+        )
+
     def moveStepsBlocking(
         self,
         steps: int,
@@ -244,7 +264,7 @@ class Stepper:
                 step_delay_us = delay_us + (
                     (delay_delta * (decel_index + 1)) // decel_zone
                 )
-            total_us += step_delay_us * 2
+            total_us += step_delay_us * 2 + STEP_OVERHEAD_US
 
         return (total_us + 999) // 1000
 

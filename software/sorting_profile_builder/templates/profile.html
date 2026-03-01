@@ -1,0 +1,1976 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} - Sorting Profile Builder{% endblock %}
+{% block top_nav_actions %}
+<button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="togglePartsBrowser()" id="btn-parts-browser">Parts Browser</button>
+{% endblock %}
+
+{% block content %}
+<section class="surface-panel mb-4 p-4">
+    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(620px,1.25fr)]">
+        <div class="min-w-0">
+            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Profile</div>
+            <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-base font-semibold text-slate-900" id="profile-name-display">{{ profile.name }}</h3>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" id="btn-profile-name-edit" onclick="openProfileNameEditor()" title="Edit profile name">✎</button>
+            </div>
+            <div id="profile-name-editor" class="mt-2 hidden flex flex-wrap items-center gap-1.5">
+                <input type="text" id="profile-name-input" value="{{ profile.name }}" class="m-0 min-w-[220px] flex-1" onkeydown="handleProfileNameKey(event)">
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800" onclick="submitProfileNameEdit()">Save</button>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="cancelProfileNameEdit()">Cancel</button>
+            </div>
+            <div class="mt-2 flex flex-wrap items-start gap-1.5">
+                <p class="min-w-0 flex-1 text-sm text-slate-600" id="profile-description-display">{{ profile.description or 'No description' }}</p>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" id="btn-profile-description-edit" onclick="openProfileDescriptionEditor()" title="Edit description">✎</button>
+            </div>
+            <div id="profile-description-editor" class="mt-2 hidden flex flex-wrap items-center gap-1.5">
+                <input type="text" id="profile-description-input" value="{{ profile.description }}" class="m-0 min-w-[220px] flex-1" onkeydown="handleProfileDescriptionKey(event)">
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800" onclick="submitProfileDescriptionEdit()">Save</button>
+                <button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="cancelProfileDescriptionEdit()">Cancel</button>
+            </div>
+        </div>
+        <div class="grid gap-2 self-start sm:grid-cols-[minmax(220px,1fr)_minmax(0,2fr)]">
+            <div class="p-1">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stats</div>
+                <div class="text-xs text-slate-700" id="profile-stats">{{ profile.part_to_category | length }} mappings, {{ profile.rules | length }} categories</div>
+            </div>
+            <div class="p-1">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Filepath</div>
+                <div class="flex items-center gap-1.5">
+                    <div id="profile-path-text" class="min-w-0 flex-1 overflow-hidden bg-slate-50 px-2 py-1 font-mono text-[11px] leading-4 text-slate-700 whitespace-nowrap text-ellipsis" title="{{ profile_path }}">{{ profile_path }}</div>
+                    <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-transparent bg-transparent text-slate-600 hover:bg-slate-50" onclick="copyProfilePath()" title="Copy filepath" aria-label="Copy filepath">
+                        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="9" y="9" width="10" height="10"></rect>
+                            <path d="M5 15V5h10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div id="fallback-options" class="surface-panel mb-3 p-3"></div>
+
+<div class="workspace-shell flex flex-col gap-4 xl:flex-row">
+    <div class="profile-layout grid min-w-0 flex-1 items-start gap-4 xl:grid-cols-[minmax(320px,1fr)_minmax(0,1.6fr)]">
+        <!-- left pane: rule list -->
+        <div class="left-pane min-w-0 border border-slate-200 bg-white p-3 xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-auto">
+            <div class="mb-2 border-b border-slate-200 pb-2">
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Rules</div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button data-ui-btn="1" type="button" onclick="addNewRule()" id="btn-add-rule" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">+ Add Rule</button>
+                    <button data-ui-btn="1" type="button" onclick="saveAllRules()" id="btn-save-all" class="hidden inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">Save All</button>
+                    <button data-ui-btn="1" type="button" onclick="doGenerate()" id="btn-generate" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-2 text-xs font-medium leading-none text-white hover:bg-slate-800">Generate</button>
+                </div>
+            </div>
+            <div id="rules-list" class="rules-list"></div>
+        </div>
+
+        <!-- right pane: editor -->
+        <div class="right-pane min-w-0 xl:sticky xl:top-3">
+            <div id="editor-panel" class="min-h-[70vh] border border-slate-200 bg-white p-3">
+                <div id="editor-empty" class="editor-empty border border-dashed border-slate-300 p-10 text-center text-xs text-slate-500">
+                    <p>Select a rule to edit, or create a new one.</p>
+                </div>
+                <div id="editor-content" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- parts browser sidebar -->
+    <div id="parts-browser-sidebar" class="parts-sidebar relative hidden w-full min-w-0 flex-col border border-slate-200 bg-white p-3 xl:sticky xl:top-3 xl:h-[calc(100vh-1.5rem)] xl:min-w-[340px] xl:max-w-[70vw] xl:overflow-visible">
+        <div class="parts-sidebar-resize-handle absolute bottom-0 left-0 top-0 z-10 w-2.5 -translate-x-1/2 cursor-col-resize hover:bg-slate-300/20 xl:block hidden" onmousedown="startPartsSidebarResize(event)" title="Drag to resize"></div>
+        <div class="parts-sidebar-header mb-2 flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <h5 class="text-sm font-semibold text-slate-900">Parts Browser</h5>
+            <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="togglePartsBrowser()">&times;</button>
+        </div>
+        <div class="mb-2 flex gap-2">
+            <input type="search" id="parts-search" placeholder="Search parts..." class="m-0 flex-1" oninput="debouncedSearch()">
+            <select id="filter-rebrickable-cat" class="m-0 max-w-[180px]" onchange="debouncedSearch()">
+                <option value="">All RB categories</option>
+                {% for cat_id, cat in rebrickable_categories.items() %}
+                <option value="{{ cat_id }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div id="search-status" class="stats my-1"></div>
+        <div class="parts-sidebar-scroll min-h-0 flex-1 overflow-y-auto border border-slate-200">
+            <table id="parts-table">
+                <thead>
+                    <tr><th class="w-[84px] min-w-[84px]"></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>Years</th></tr>
+                </thead>
+                <tbody id="parts-tbody"></tbody>
+            </table>
+        </div>
+        <div id="pagination" class="mt-2 flex min-h-6 items-center gap-2"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+function mkUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        let r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+function uuid() { return (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : mkUUID(); }
+
+const PROFILE_ID = "{{ profile.id }}";
+const RB_CATEGORIES = {{ rebrickable_categories | tojson }};
+const BL_CATEGORIES = {{ bricklink_categories | tojson }};
+const RB_COLORS = {{ rebrickable_colors | tojson }};
+let RULES = {{ profile.rules | tojson }};
+let FALLBACK_MODE = {{ fallback_mode | tojson }};
+let saved_snapshot = JSON.parse(JSON.stringify(RULES));
+let dirty_rules = new Set();
+let pending_rules = new Set();
+let selected_rule_id = null;
+let selected_rb_cat = null;
+let standalone_mode = false;
+let pl_query = '';
+let pl_offset = 0;
+const PL_PAGE = 50;
+let pl_search_timer = null;
+let preview_stats = null;
+let preview_pending = false;
+let search_timer = null;
+let current_offset = 0;
+let current_total = 0;
+const PAGE_SIZE = 100;
+let parts_sidebar_width = 520;
+let parts_sidebar_resize = null;
+let profile_name_editing = false;
+let profile_description_editing = false;
+
+const RB_CAT_LIST = Object.entries(RB_CATEGORIES)
+    .map(([id, c]) => ({id: parseInt(id), name: c.name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+const RB_COLOR_LIST = Object.entries(RB_COLORS)
+    .map(([id, c]) => ({id: parseInt(id), name: c.name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+const BL_CAT_LIST = Object.entries(BL_CATEGORIES)
+    .map(([id, c]) => ({id: parseInt(id), name: c.category_name || `Category ${id}`}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+const FIELD_CONFIG = {
+    category_id:   {label: "RB Category", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "rb_category"},
+    category_name: {label: "RB Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    color_id:      {label: "Color", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "color"},
+    name:          {label: "RB Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    part_num:      {label: "RB Part Number", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "text"},
+    year_from:     {label: "Year From", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    year_to:       {label: "Year To", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_id:  {label: "BL Part ID", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "text"},
+    bricklink_item_count:     {label: "BL Item Count", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bricklink_primary_item_no:{label: "BL Primary Item #", ops: {eq: "is", neq: "is not", contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_price_min:             {label: "BL Min Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_max:             {label: "BL Max Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_avg:             {label: "BL Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_qty_avg:         {label: "BL Qty Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_unit_quantity:   {label: "BL Unit Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_total_quantity:  {label: "BL Total Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_currency:        {label: "BL Price Currency", ops: {eq: "is", neq: "is not", contains: "contains"}, valueType: "text"},
+    bl_price_new_or_used:     {label: "BL Price New/Used", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_price_guide_type:      {label: "BL Guide Type", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_price_country_code:    {label: "BL Country Code", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_catalog_name:          {label: "BL Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_category_id:           {label: "BL Category", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "bl_category"},
+    bl_category_name:         {label: "BL Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
+    bl_catalog_category_id:   {label: "BL Catalog Category ID", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_year_released: {label: "BL Catalog Year", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_weight:        {label: "BL Catalog Weight", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_x:         {label: "BL Catalog Dim X", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_y:         {label: "BL Catalog Dim Y", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_dim_z:         {label: "BL Catalog Dim Z", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_catalog_is_obsolete:   {label: "BL Catalog Is Obsolete (1/0)", ops: {eq: "is", neq: "is not"}, valueType: "number"},
+};
+const FIELD_LIST = Object.entries(FIELD_CONFIG).map(([k, v]) => ({value: k, label: v.label}));
+
+function twAdd(el, classes) {
+    if (!el || !classes) return;
+    el.classList.add(...classes.split(/\s+/).filter(Boolean));
+}
+
+function twRemove(el, classes) {
+    if (!el || !classes) return;
+    el.classList.remove(...classes.split(/\s+/).filter(Boolean));
+}
+
+const BTN_BASE = 'inline-flex h-6 items-center justify-center whitespace-nowrap border px-2 text-xs font-medium leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+const BTN_SECONDARY = `${BTN_BASE} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`;
+const BTN_PRIMARY = `${BTN_BASE} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`;
+const BTN_DANGER = `${BTN_BASE} border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700`;
+const BTN_ICON = 'inline-flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-xs font-medium leading-none text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+const BTN_ICON_DANGER = 'inline-flex h-6 w-6 items-center justify-center border border-transparent text-xs font-medium leading-none text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50';
+const SEGMENT_WRAP = 'match-mode-toggle inline-flex overflow-hidden border border-slate-300 divide-x divide-slate-300';
+const SEGMENT_BTN = 'inline-flex h-6 items-center justify-center px-2 text-xs font-semibold leading-none bg-white text-slate-600 hover:bg-slate-50';
+const SEGMENT_BTN_ACTIVE = 'inline-flex h-6 items-center justify-center px-2 text-xs font-semibold leading-none bg-slate-900 text-white';
+
+function btnClass(kind='secondary') {
+    if (kind === 'primary') return BTN_PRIMARY;
+    if (kind === 'danger') return BTN_DANGER;
+    if (kind === 'icon') return BTN_ICON;
+    if (kind === 'icon_danger') return BTN_ICON_DANGER;
+    return BTN_SECONDARY;
+}
+
+function mkBtn(label, on_click, kind='secondary', extra_classes='', extra_attrs='') {
+    let extra_class_str = extra_classes ? ` ${extra_classes}` : '';
+    let extra_attr_str = extra_attrs ? ` ${extra_attrs}` : '';
+    return `<button data-ui-btn="1" type="button" class="${btnClass(kind)}${extra_class_str}" onclick="${on_click}"${extra_attr_str}>${label}</button>`;
+}
+
+function setDropTargetStyle(el, on) {
+    if (!el) return;
+    if (on) {
+        twAdd(el, 'border-t-2 border-t-sky-500');
+    } else {
+        twRemove(el, 'border-t-2 border-t-sky-500');
+    }
+}
+
+function applyProfileTailwindUi(root = document) {
+    if (window.applyTailwindUi) window.applyTailwindUi(root);
+
+    let scope = root instanceof Element ? root : document;
+
+    document.querySelector('main')?.classList.add('max-w-none', 'w-[min(2400px,99vw)]');
+
+    scope.querySelectorAll('.rules-list').forEach(el => twAdd(el, 'flex flex-col gap-1'));
+
+    scope.querySelectorAll('.rule-summary').forEach(el => {
+        twAdd(el, 'border border-slate-200 bg-white p-2 text-xs cursor-pointer select-none hover:bg-slate-50');
+        if (el.classList.contains('everything-else')) twAdd(el, 'border-dashed opacity-80');
+        if (el.classList.contains('disabled')) twAdd(el, 'opacity-50');
+        if (el.classList.contains('selected')) twAdd(el, 'border-sky-500 bg-sky-50');
+    });
+
+    scope.querySelectorAll('.rule-summary-top').forEach(el => twAdd(el, 'flex flex-wrap items-center gap-2'));
+    scope.querySelectorAll('.drag-handle').forEach(el => twAdd(el, 'inline-flex w-4 justify-center text-slate-400 cursor-grab select-none'));
+    scope.querySelectorAll('.rule-name').forEach(el => twAdd(el, 'min-w-0 flex-1 truncate font-medium text-slate-800'));
+    scope.querySelectorAll('.rule-meta').forEach(el => twAdd(el, 'mt-1 pl-5 text-[10px] text-slate-500'));
+    scope.querySelectorAll('.rule-count').forEach(el => {
+        twAdd(el, 'border px-1.5 py-0.5 text-[10px] font-medium');
+        if (el.classList.contains('dim')) twAdd(el, 'border-slate-300 text-slate-500');
+        else twAdd(el, 'border-sky-200 text-sky-700');
+    });
+    scope.querySelectorAll('.rule-summary-actions').forEach(el => twAdd(el, 'ml-auto flex flex-wrap items-center gap-1.5'));
+
+    scope.querySelectorAll('.sub-rules-in-list').forEach(el => twAdd(el, 'ml-4 mt-1 flex flex-col gap-1 border-l border-dashed border-slate-300 pl-2'));
+    scope.querySelectorAll('.sub-rule-item').forEach(el => {
+        twAdd(el, 'flex cursor-pointer items-center gap-1 border border-slate-200 bg-white px-1.5 py-1 text-[11px] hover:bg-slate-50');
+        if (el.classList.contains('disabled')) twAdd(el, 'opacity-50 line-through');
+        if (el.classList.contains('selected')) twAdd(el, 'border-sky-500 bg-sky-50');
+    });
+    scope.querySelectorAll('.sub-rule-connector').forEach(el => twAdd(el, 'w-3 text-[10px] text-slate-400'));
+
+    scope.querySelectorAll('.editor-empty').forEach(el => twAdd(el, 'grid place-items-center'));
+    scope.querySelectorAll('#editor-content > h5').forEach(el => twAdd(el, 'mb-1 text-[13px] font-semibold text-slate-900'));
+    scope.querySelectorAll('#editor-content > p.stats').forEach(el => twAdd(el, 'mb-2'));
+    scope.querySelectorAll('.editor-section').forEach(el => {
+        twRemove(el, 'border border-slate-200 p-2 dark:border-slate-800');
+        twAdd(el, 'mb-3 space-y-1.5');
+    });
+    scope.querySelectorAll('.editor-section h6').forEach(el => twAdd(el, 'mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500'));
+    scope.querySelectorAll('.conditions-area').forEach(el => twAdd(el, 'border border-dashed border-slate-300 p-2'));
+    scope.querySelectorAll('.match-mode-row').forEach(el => twAdd(el, 'mb-2 flex flex-wrap items-center gap-2'));
+
+    scope.querySelectorAll('.cond-row').forEach(el => {
+        twRemove(el, 'border border-slate-200 p-1 dark:border-slate-800');
+        twAdd(el, 'my-1 flex flex-wrap items-center gap-1');
+    });
+    scope.querySelectorAll('.cond-row .field-sel').forEach(el => twAdd(el, 'w-40'));
+    scope.querySelectorAll('.cond-row .op-sel').forEach(el => twAdd(el, 'w-28'));
+    scope.querySelectorAll('.cond-row .val-input, .cond-row .val-sel').forEach(el => twAdd(el, 'min-w-[160px] flex-1'));
+    scope.querySelectorAll('.cond-join-label').forEach(el => twAdd(el, 'py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500'));
+
+    scope.querySelectorAll('.editor-subrule-row').forEach(el => twAdd(el, 'mb-1 flex flex-wrap items-center gap-1.5 border border-slate-200 p-2 text-xs'));
+    scope.querySelectorAll('.editor-subrule-row .sub-name').forEach(el => twAdd(el, 'flex-1'));
+
+    scope.querySelectorAll('.editor-footer').forEach(el => twAdd(el, 'mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-2'));
+    scope.querySelectorAll('.editor-footer > div').forEach(el => twAdd(el, 'flex flex-wrap items-center gap-1'));
+
+    scope.querySelectorAll('.editor-save-bar').forEach(el => {
+        twAdd(el, 'mb-3 flex flex-wrap items-center gap-2 border p-2 text-xs');
+        if (el.classList.contains('pending')) twAdd(el, 'border-sky-300 bg-sky-50');
+        if (el.classList.contains('unsaved')) twAdd(el, 'border-amber-300 bg-amber-50');
+    });
+    scope.querySelectorAll('.editor-save-bar .save-label').forEach(el => twAdd(el, 'flex-1'));
+
+    scope.querySelectorAll('.rule-state-badge').forEach(el => {
+        twAdd(el, 'border px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide');
+        if (el.classList.contains('pending')) twAdd(el, 'border-sky-300 bg-sky-50 text-sky-700');
+        if (el.classList.contains('unsaved')) twAdd(el, 'border-amber-300 bg-amber-50 text-amber-700');
+    });
+
+    scope.querySelectorAll('.saved-indicator').forEach(el => twAdd(el, 'text-[10px] text-emerald-600'));
+
+    scope.querySelectorAll('.ac-wrap').forEach(el => twAdd(el, 'relative min-w-[120px] flex-1'));
+    scope.querySelectorAll('.ac-results').forEach(el => twAdd(el, 'absolute left-0 right-0 top-full z-50 max-h-44 overflow-y-auto border border-slate-200 bg-white text-xs shadow-sm'));
+    scope.querySelectorAll('.ac-results div').forEach(el => twAdd(el, 'px-2 py-1'));
+    scope.querySelectorAll('.ac-results .ac-count').forEach(el => twAdd(el, 'text-[10px] text-slate-500'));
+    scope.querySelectorAll('.ac-results .ac-summary').forEach(el => twAdd(el, 'border-t border-slate-200 italic text-slate-500'));
+    scope.querySelectorAll('.ac-results .ac-part-row').forEach(el => twAdd(el, 'flex items-center gap-1'));
+    scope.querySelectorAll('.ac-results .ac-part-name').forEach(el => twAdd(el, 'min-w-0'));
+
+    scope.querySelectorAll('.preview-list').forEach(el => twAdd(el, 'mt-2 max-h-[420px] overflow-y-auto'));
+    scope.querySelectorAll('.preview-part-cell').forEach(el => twAdd(el, 'w-10'));
+    scope.querySelectorAll('.matched-row').forEach(el => twAdd(el, 'cursor-pointer hover:bg-slate-50'));
+    scope.querySelectorAll('.matched-detail-cell').forEach(el => twAdd(el, 'bg-slate-50'));
+    scope.querySelectorAll('.matched-detail').forEach(el => twAdd(el, 'grid gap-3 xl:grid-cols-[160px_1fr]'));
+    scope.querySelectorAll('.matched-detail-meta').forEach(el => twAdd(el, 'text-xs'));
+
+    scope.querySelectorAll('.parts-sidebar').forEach(el => twAdd(el, 'flex'));
+    scope.querySelectorAll('.parts-sidebar-scroll').forEach(el => {
+        twRemove(el, 'border border-slate-200 dark:border-slate-800');
+        twAdd(el, 'bg-white');
+    });
+    scope.querySelectorAll('.parts-sidebar #parts-table img.part-img').forEach(el => twAdd(el, 'h-14 w-14 max-w-none'));
+
+    scope.querySelectorAll('.part-img-sm').forEach(el => twAdd(el, 'h-8 w-8'));
+    scope.querySelectorAll('.part-img-md').forEach(el => twAdd(el, 'h-14 w-14'));
+    scope.querySelectorAll('.part-img-lg').forEach(el => twAdd(el, 'h-32 w-32'));
+
+    scope.querySelectorAll('#fallback-options label').forEach(el => {
+        twRemove(el, 'block');
+        twAdd(el, 'inline-flex items-center gap-2');
+    });
+
+    scope.querySelectorAll('#editor-preview-list > input[type="search"]').forEach(el => twAdd(el, 'mb-2'));
+    scope.querySelectorAll('.ac-results div').forEach(el => twAdd(el, 'hover:bg-slate-50'));
+    scope.querySelectorAll('.match-mode-row .stats').forEach(el => twAdd(el, 'text-[10px]'));
+}
+
+// --- helpers ---
+
+function findRuleById(rules, id) {
+    for (let r of rules) {
+        if (r.id === id) return r;
+        let found = findRuleById(r.children || [], id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function removeRuleById(rules, id) {
+    for (let i = 0; i < rules.length; i++) {
+        if (rules[i].id === id) { rules.splice(i, 1); return true; }
+        if (removeRuleById(rules[i].children || [], id)) return true;
+    }
+    return false;
+}
+
+function cloneRuleTreeWithNewIds(rule, is_root=true) {
+    let copy = JSON.parse(JSON.stringify(rule));
+    copy.id = uuid();
+    if (is_root) copy.name = `${copy.name || 'Rule'} Copy`;
+    copy.conditions = (copy.conditions || []).map(c => ({...c, id: uuid()}));
+    copy.children = (copy.children || []).map(child => cloneRuleTreeWithNewIds(child, false));
+    return copy;
+}
+
+function findParentRule(rules, child_id) {
+    for (let r of rules) {
+        for (let c of (r.children || [])) {
+            if (c.id === child_id) return r;
+        }
+        let found = findParentRule(r.children || [], child_id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function isTopLevel(rule_id) {
+    return RULES.some(r => r.id === rule_id);
+}
+
+function findTopLevelId(rule_id) {
+    if (isTopLevel(rule_id)) return rule_id;
+    for (let r of RULES) {
+        if (findRuleById(r.children || [], rule_id)) return r.id;
+    }
+    return rule_id;
+}
+
+function escHtml(s) {
+    let d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+}
+
+function renderPartImg(url, size_class, loading_mode='lazy') {
+    if (!url) return '';
+    let size_map = {
+        'part-img-sm': 'h-8 w-8',
+        'part-img-md': 'h-14 w-14',
+        'part-img-lg': 'h-32 w-32'
+    };
+    let size_tw = size_map[size_class] || 'h-14 w-14';
+    return `<img src="${url}" class="part-img ${size_class} ${size_tw}" loading="${loading_mode}" decoding="async" alt="">`;
+}
+
+function fmtYears(year_from, year_to) {
+    if (!year_from) return '';
+    if (!year_to || year_from === year_to) return String(year_from);
+    return `${year_from}-${year_to}`;
+}
+
+function fmtPriceVal(v) {
+    if (v === null || v === undefined || v === '') return '';
+    let n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return n.toFixed(4);
+}
+
+function toggleMatchedPartRow(row_el) {
+    let detail_row = row_el && row_el.nextElementSibling;
+    if (!detail_row || !detail_row.classList.contains('matched-detail-row')) return;
+    detail_row.classList.toggle('hidden');
+}
+
+function renderMatchedPartDetail(p, has_color) {
+    let color_line = '';
+    if (has_color && p.color_id !== undefined) {
+        let color_name = RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id;
+        color_line = `<div><strong>Color:</strong> ${escHtml(color_name)}</div>`;
+    }
+    let years = fmtYears(p.year_from, p.year_to);
+    let years_line = years ? `<div><strong>Years:</strong> ${escHtml(years)}</div>` : '';
+    let cat_line = p.part_cat_id != null ? `<div><strong>RB Category ID:</strong> ${escHtml(p.part_cat_id)}</div>` : '';
+    let bl_ids = Array.isArray(p.bricklink_ids) && p.bricklink_ids.length ? p.bricklink_ids.join(', ') : '';
+    let bl_line = bl_ids ? `<div><strong>BrickLink IDs:</strong> ${escHtml(bl_ids)}</div>` : '';
+    let bl_price_line = '';
+    if (p.bl_price_avg !== null && p.bl_price_avg !== undefined) {
+        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
+        let mode = [];
+        if (p.bl_price_new_or_used) mode.push(escHtml(p.bl_price_new_or_used));
+        if (p.bl_price_guide_type) mode.push(escHtml(p.bl_price_guide_type));
+        if (p.bl_price_country_code) mode.push(escHtml(p.bl_price_country_code));
+        let mode_suffix = mode.length ? ` <span class="stats">(${mode.join(' / ')})</span>` : '';
+        bl_price_line = `<div><strong>BL Price Avg:</strong> ${fmtPriceVal(p.bl_price_avg)}${currency}${mode_suffix}</div>`;
+    }
+    let bl_price_range_line = '';
+    if (p.bl_price_min !== null && p.bl_price_min !== undefined && p.bl_price_max !== null && p.bl_price_max !== undefined) {
+        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
+        bl_price_range_line = `<div><strong>BL Price Range:</strong> ${fmtPriceVal(p.bl_price_min)} - ${fmtPriceVal(p.bl_price_max)}${currency}</div>`;
+    }
+    let bl_qty_line = '';
+    if (p.bl_price_unit_quantity !== null || p.bl_price_total_quantity !== null || p.bl_price_qty_avg !== null) {
+        let qty_parts = [];
+        if (p.bl_price_qty_avg !== null && p.bl_price_qty_avg !== undefined) qty_parts.push(`qty avg ${fmtPriceVal(p.bl_price_qty_avg)}`);
+        if (p.bl_price_unit_quantity !== null && p.bl_price_unit_quantity !== undefined) qty_parts.push(`lots ${escHtml(p.bl_price_unit_quantity)}`);
+        if (p.bl_price_total_quantity !== null && p.bl_price_total_quantity !== undefined) qty_parts.push(`units ${escHtml(p.bl_price_total_quantity)}`);
+        if (qty_parts.length) bl_qty_line = `<div><strong>BL Market:</strong> ${qty_parts.join(', ')}</div>`;
+    }
+    let link_line = p.part_url ? `<div><a href="${p.part_url}" target="_blank" rel="noopener noreferrer">Rebrickable page</a></div>` : '';
+    let img = renderPartImg(p.part_img_url, 'part-img-lg', 'eager') || '<div class="stats">No image</div>';
+    return `
+        <div class="matched-detail">
+            <div>${img}</div>
+            <div class="matched-detail-meta">
+                <div><strong>RB Part #:</strong> ${escHtml(p.part_num)}</div>
+                <div><strong>Name:</strong> ${escHtml(p.name || '(unknown)')}</div>
+                ${color_line}
+                ${years_line}
+                ${cat_line}
+                ${bl_line}
+                ${bl_price_line}
+                ${bl_price_range_line}
+                ${bl_qty_line}
+                ${link_line}
+            </div>
+        </div>
+    `;
+}
+
+async function apiJson(method, url, body) {
+    let opts = {method, headers: {'Content-Type': 'application/json'}};
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    let res = await fetch(url, opts);
+    if (!res.ok) { console.error(`API ${res.status}:`, await res.text()); return null; }
+    return res.json();
+}
+
+// ========== DIRTY STATE ==========
+
+function markDirty(rule_id) {
+    dirty_rules.add(findTopLevelId(rule_id));
+    renderRuleList();
+}
+
+function ruleState(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    if (pending_rules.has(top_id)) return 'pending';
+    if (dirty_rules.has(top_id)) return 'unsaved';
+    return 'saved';
+}
+
+function hasAnyDirty() {
+    return dirty_rules.size > 0 || pending_rules.size > 0;
+}
+
+async function saveRule(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    let data = await apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES});
+    if (data) {
+        RULES = data.rules;
+        saved_snapshot = JSON.parse(JSON.stringify(RULES));
+        dirty_rules.delete(top_id);
+        pending_rules.delete(top_id);
+        renderRuleList();
+        renderEditor();
+        refreshStats();
+    }
+}
+
+async function saveAllRules() {
+    let data = await apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES});
+    if (data) {
+        RULES = data.rules;
+        saved_snapshot = JSON.parse(JSON.stringify(RULES));
+        dirty_rules.clear();
+        pending_rules.clear();
+        renderRuleList();
+        renderEditor();
+        refreshStats();
+    }
+}
+
+function discardRule(rule_id) {
+    let top_id = findTopLevelId(rule_id);
+    if (pending_rules.has(top_id)) {
+        removeRuleById(RULES, top_id);
+        pending_rules.delete(top_id);
+        dirty_rules.delete(top_id);
+        if (selected_rule_id === rule_id || findTopLevelId(selected_rule_id) === top_id) deselectRule();
+    } else {
+        let saved = findRuleById(saved_snapshot, top_id);
+        if (saved) {
+            let idx = RULES.findIndex(r => r.id === top_id);
+            if (idx >= 0) RULES[idx] = JSON.parse(JSON.stringify(saved));
+        }
+        dirty_rules.delete(top_id);
+    }
+    renderRuleList();
+    if (selected_rule_id) renderEditor();
+    refreshPreview();
+}
+
+// ========== AUTO PREVIEW ==========
+
+async function refreshPreview() {
+    if (preview_pending) return;
+    if (RULES.length === 0) { preview_stats = null; renderRuleList(); return; }
+    preview_pending = true;
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/preview`, {rules: RULES});
+    preview_pending = false;
+    if (data) {
+        preview_stats = data;
+        // only update counts, don't re-render editor (fixes dropdown bug)
+        renderRuleList();
+        updateEditorMatchCount();
+    }
+}
+
+function updateEditorMatchCount() {
+    if (selected_rule_id) fetchPartList();
+    else if (selected_rb_cat) fetchRbCatParts();
+}
+
+function ruleMatchCount(rule_id) {
+    if (!preview_stats || !preview_stats.per_category) return null;
+    return preview_stats.per_category[rule_id] ?? 0;
+}
+
+// ========== LEFT PANE: RULE LIST ==========
+
+function renderRuleList() {
+    let container = document.getElementById('rules-list');
+    container.innerHTML = '';
+    if (RULES.length === 0 && !preview_stats) {
+        container.innerHTML = '<p class="stats py-4 text-center">No rules yet. Click "+ Add Rule" to create one.</p>';
+        applyProfileTailwindUi(container);
+        return;
+    }
+    for (let rule of RULES) {
+        container.appendChild(mkRuleSummary(rule));
+    }
+    // rb fallback category cards
+    for (let entry of getRbFallbackEntries()) {
+        container.appendChild(mkRbCategoryCard(entry.key, entry.name, entry.count));
+    }
+    container.appendChild(mkEverythingElseCard());
+    // update save-all button visibility
+    let save_all_btn = document.getElementById('btn-save-all');
+    if (save_all_btn) save_all_btn.classList.toggle('hidden', !hasAnyDirty());
+    applyProfileTailwindUi(container);
+}
+
+function mkRuleSummary(rule) {
+    let div = document.createElement('div');
+    let cls = 'rule-summary';
+    if (selected_rule_id === rule.id) cls += ' selected';
+    if (rule.disabled) cls += ' disabled';
+    div.className = cls;
+    div.id = `summary-${rule.id}`;
+    div.setAttribute('draggable', 'true');
+    div.dataset.ruleId = rule.id;
+    div.dataset.level = 'top';
+
+    let cond_count = (rule.conditions || []).length;
+    let child_count = (rule.children || []).length;
+    let meta_parts = [];
+    if (cond_count) meta_parts.push(`${cond_count} condition${cond_count > 1 ? 's' : ''}`);
+    if (child_count) meta_parts.push(`${child_count} sub-rule${child_count > 1 ? 's' : ''}`);
+    if (rule.disabled) meta_parts.push('disabled');
+    let meta_text = meta_parts.join(', ') || 'no conditions';
+
+    let count = ruleMatchCount(rule.id);
+    let count_html = rule.disabled
+        ? `<span class="rule-count dim">off</span>`
+        : count !== null
+            ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+            : `<span class="rule-count dim">--</span>`;
+
+    let toggle_label = rule.disabled ? 'Off' : 'On';
+    let toggle_kind = rule.disabled ? 'danger' : 'secondary';
+    let toggle_btn = mkBtn(
+        toggle_label,
+        `event.stopPropagation(); toggleDisabled('${rule.id}', ${!rule.disabled})`,
+        toggle_kind,
+        '',
+        `title="${rule.disabled ? 'Enable rule' : 'Disable rule'}"`
+    );
+    let edit_btn = mkBtn('Edit', `event.stopPropagation(); selectRule('${rule.id}')`);
+    let dup_btn = mkBtn('Duplicate', `event.stopPropagation(); duplicateRule('${rule.id}')`);
+    let del_btn = mkBtn('Delete', `event.stopPropagation(); deleteRule('${rule.id}')`, 'danger');
+
+    let state = ruleState(rule.id);
+    let state_badge = '';
+    if (state === 'pending') state_badge = `<span class="rule-state-badge pending">new</span>`;
+    else if (state === 'unsaved') state_badge = `<span class="rule-state-badge unsaved">unsaved</span>`;
+
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle" title="Drag to reorder">&#x2807;</span>
+            <span class="rule-name">${escHtml(rule.name)}</span>
+            ${state_badge}
+            ${count_html}
+            <div class="rule-summary-actions">
+                ${toggle_btn}
+                ${edit_btn}
+                ${dup_btn}
+                ${del_btn}
+            </div>
+        </div>
+        <div class="rule-meta">${meta_text}</div>
+    `;
+
+    // sub-rules inline
+    let children = rule.children || [];
+    if (children.length > 0) {
+        let subs = document.createElement('div');
+        subs.className = 'sub-rules-in-list';
+        subs.dataset.parentId = rule.id;
+        for (let i = 0; i < children.length; i++) {
+            let child = children[i];
+            let item = document.createElement('div');
+            let sub_cls = 'sub-rule-item';
+            if (selected_rule_id === child.id) sub_cls += ' selected';
+            if (child.disabled) sub_cls += ' disabled';
+            item.className = sub_cls;
+            item.setAttribute('draggable', 'true');
+            item.dataset.ruleId = child.id;
+            item.dataset.parentId = rule.id;
+            item.dataset.level = 'child';
+            let connector = i < children.length - 1 ? '&#x251C;' : '&#x2514;';
+            item.innerHTML = `
+                <span class="drag-handle text-[13px]" title="Drag to reorder">&#x2807;</span>
+                <span class="sub-rule-connector">${connector}</span>
+                <span>${escHtml(child.name)}</span>
+            `;
+            item.addEventListener('click', (e) => { e.stopPropagation(); selectRule(child.id); });
+            setupChildDrag(item);
+            subs.appendChild(item);
+        }
+        div.appendChild(subs);
+    }
+
+    div.addEventListener('click', () => selectRule(rule.id));
+    setupTopLevelDrag(div);
+    return div;
+}
+
+function renderFallbackOptions() {
+    let el = document.getElementById('fallback-options');
+    let rb_checked = FALLBACK_MODE.rebrickable_categories ? 'checked' : '';
+    let color_checked = FALLBACK_MODE.by_color ? 'checked' : '';
+    let color_disabled = FALLBACK_MODE.rebrickable_categories ? '' : 'disabled';
+    let fallback_mode_label = 'Disabled';
+    if (FALLBACK_MODE.rebrickable_categories && FALLBACK_MODE.by_color) fallback_mode_label = 'Rebrickable categories + color';
+    else if (FALLBACK_MODE.rebrickable_categories) fallback_mode_label = 'Rebrickable categories';
+    el.innerHTML = `
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+                <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fallback Routing</div>
+                <p class="stats mt-1">Controls where unmatched parts go after rule matching.</p>
+                <p class="mt-1 text-xs text-slate-700">Current mode: <span class="font-medium">${fallback_mode_label}</span></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+                    <input data-native-check="1" type="checkbox" class="m-0" ${rb_checked} onchange="setFallbackRbCats(this.checked)">
+                    <span>Use Rebrickable categories</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-xs text-slate-700 ${color_disabled ? 'opacity-50' : ''}">
+                    <input data-native-check="1" type="checkbox" class="m-0" ${color_checked} ${color_disabled} onchange="setFallbackByColor(this.checked)">
+                    <span>Split fallback by color</span>
+                </label>
+            </div>
+        </div>
+    `;
+    applyProfileTailwindUi(el);
+}
+
+function mkEverythingElseCard() {
+    let div = document.createElement('div');
+    div.className = 'rule-summary everything-else';
+    let misc_count = preview_stats && preview_stats.per_category ? (preview_stats.per_category['misc'] || 0) : null;
+    let total = preview_stats ? preview_stats.total_parts : null;
+    let count = FALLBACK_MODE.rebrickable_categories
+        ? (preview_stats ? (preview_stats.unmatched || 0) : null)
+        : (misc_count !== null ? misc_count : null);
+    let count_html = count !== null
+        ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+        : `<span class="rule-count dim">--</span>`;
+    let desc = total !== null
+        ? `Everything not matched by rules${FALLBACK_MODE.rebrickable_categories ? ' or fallback categories' : ''} (of ${total.toLocaleString()} total)`
+        : `Everything not matched`;
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle invisible">&#x2807;</span>
+            <span class="rule-name">Everything Else (misc)</span>
+            ${count_html}
+        </div>
+        <div class="rule-meta">${desc}</div>
+    `;
+    return div;
+}
+
+function mkRbCategoryCard(cat_key, cat_name, count) {
+    let div = document.createElement('div');
+    let cls = 'rule-summary everything-else';
+    if (selected_rb_cat && selected_rb_cat.key === cat_key) cls += ' selected';
+    div.className = `${cls} cursor-pointer`;
+    let count_html = count !== null
+        ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
+        : `<span class="rule-count dim">--</span>`;
+    div.innerHTML = `
+        <div class="rule-summary-top">
+            <span class="drag-handle invisible">&#x2807;</span>
+            <span class="rule-name">${escHtml(cat_name)}</span>
+            ${count_html}
+        </div>
+        <div class="rule-meta">Fallback: ${escHtml(cat_key)}</div>
+    `;
+    div.addEventListener('click', () => selectRbCat(cat_key, cat_name));
+    return div;
+}
+
+function getRbFallbackEntries() {
+    if (!FALLBACK_MODE.rebrickable_categories || !preview_stats || !preview_stats.per_category) return [];
+    return Object.entries(preview_stats.per_category)
+        .filter(([k]) => k.startsWith('rb_'))
+        .map(([k, v]) => {
+            let rb_id = parseInt(k.substring(3));
+            let name = RB_CATEGORIES[rb_id] ? RB_CATEGORIES[rb_id].name : k;
+            return {key: k, name, count: v};
+        })
+        .sort((a, b) => b.count - a.count);
+}
+
+async function setFallbackRbCats(checked) {
+    FALLBACK_MODE.rebrickable_categories = checked;
+    if (!checked) FALLBACK_MODE.by_color = false;
+    await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
+    renderFallbackOptions();
+    renderRuleList();
+    refreshPreview();
+}
+
+async function setFallbackByColor(checked) {
+    FALLBACK_MODE.by_color = checked;
+    await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
+    renderFallbackOptions();
+    renderRuleList();
+    refreshPreview();
+}
+
+// ========== DRAG AND DROP: TOP LEVEL ==========
+
+let drag_id = null;
+let drag_level = null;
+
+function setupTopLevelDrag(el) {
+    el.addEventListener('dragstart', (e) => {
+        if (e.target !== el) return;
+        drag_id = el.dataset.ruleId;
+        drag_level = 'top';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', drag_id);
+        el.style.opacity = '0.5';
+    });
+    el.addEventListener('dragend', () => {
+        el.style.opacity = '';
+        drag_id = null;
+        drag_level = null;
+        document.querySelectorAll('.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
+    });
+    el.addEventListener('dragover', (e) => {
+        if (drag_level !== 'top') return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.rule-summary.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
+        el.classList.add('drag-over');
+        setDropTargetStyle(el, true);
+    });
+    el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+    });
+    el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+        if (drag_level !== 'top') return;
+        let from_id = drag_id;
+        let to_id = el.dataset.ruleId;
+        if (from_id === to_id) return;
+        let from_idx = RULES.findIndex(r => r.id === from_id);
+        let to_idx = RULES.findIndex(r => r.id === to_id);
+        if (from_idx < 0 || to_idx < 0) return;
+        let [moved] = RULES.splice(from_idx, 1);
+        RULES.splice(to_idx, 0, moved);
+        // reorder is a local edit, mark both as dirty
+        markDirty(from_id);
+        markDirty(to_id);
+        renderRuleList();
+        if (selected_rule_id) renderEditor();
+        refreshPreview();
+    });
+}
+
+// ========== DRAG AND DROP: CHILDREN ==========
+
+function setupChildDrag(el) {
+    el.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        drag_id = el.dataset.ruleId;
+        drag_level = 'child';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', drag_id);
+        el.style.opacity = '0.5';
+    });
+    el.addEventListener('dragend', () => {
+        el.style.opacity = '';
+        drag_id = null;
+        drag_level = null;
+        document.querySelectorAll('.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
+    });
+    el.addEventListener('dragover', (e) => {
+        if (drag_level !== 'child') return;
+        if (el.dataset.parentId !== document.querySelector(`[data-rule-id="${drag_id}"]`)?.dataset.parentId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.sub-rule-item.drag-over').forEach(x => {
+            x.classList.remove('drag-over');
+            setDropTargetStyle(x, false);
+        });
+        el.classList.add('drag-over');
+        setDropTargetStyle(el, true);
+    });
+    el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+    });
+    el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.remove('drag-over');
+        setDropTargetStyle(el, false);
+        if (drag_level !== 'child') return;
+        let from_id = drag_id;
+        let to_id = el.dataset.ruleId;
+        let parent_id = el.dataset.parentId;
+        if (from_id === to_id) return;
+        let parent = findRuleById(RULES, parent_id);
+        if (!parent) return;
+        let children = parent.children || [];
+        let from_idx = children.findIndex(c => c.id === from_id);
+        let to_idx = children.findIndex(c => c.id === to_id);
+        if (from_idx < 0 || to_idx < 0) return;
+        let [moved] = children.splice(from_idx, 1);
+        children.splice(to_idx, 0, moved);
+        markDirty(parent_id);
+        renderRuleList();
+        if (selected_rule_id) renderEditor();
+        refreshPreview();
+    });
+}
+
+// ========== RIGHT PANE: EDITOR ==========
+
+function selectRule(rule_id) {
+    selected_rule_id = rule_id;
+    selected_rb_cat = null;
+    pl_query = ''; pl_offset = 0;
+    renderRuleList();
+    renderEditor();
+    fetchPartList();
+}
+
+function selectRbCat(cat_key, cat_name) {
+    selected_rule_id = null;
+    selected_rb_cat = {key: cat_key, name: cat_name};
+    pl_query = ''; pl_offset = 0;
+    renderRuleList();
+    renderRbCatViewer();
+    fetchRbCatParts();
+}
+
+function deselectRule() {
+    selected_rule_id = null;
+    selected_rb_cat = null;
+    renderRuleList();
+    document.getElementById('editor-empty').style.display = '';
+    document.getElementById('editor-content').style.display = 'none';
+}
+
+function renderEditor() {
+    if (!selected_rule_id) { deselectRule(); return; }
+    let rule = findRuleById(RULES, selected_rule_id);
+    if (!rule) { deselectRule(); return; }
+
+    document.getElementById('editor-empty').style.display = 'none';
+    let content = document.getElementById('editor-content');
+    content.style.display = '';
+
+    let is_child = !isTopLevel(rule.id);
+    let parent = is_child ? findParentRule(RULES, rule.id) : null;
+    let title = is_child ? `Editing Sub-rule: ${escHtml(rule.name)}` : `Editing: ${escHtml(rule.name)}`;
+
+    let state = ruleState(rule.id);
+    let cancel_btn_html = state !== 'saved'
+        ? mkBtn('Cancel', `discardRule('${rule.id}')`)
+        : '';
+    let html = '';
+
+    html += `<h5 class="text-sm font-semibold text-slate-900">${title}</h5>`;
+    if (is_child && parent) {
+        html += `<p class="stats">Under parent: ${escHtml(parent.name)}</p>`;
+    }
+
+    // name + disabled toggle
+    let disabled_checked = rule.disabled ? 'checked' : '';
+    html += `
+        <div class="editor-section">
+            <div class="grid items-end gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div class="min-w-0">
+                    <h6>Name</h6>
+                    <input type="text" value="${escHtml(rule.name)}" id="editor-name"
+                        onchange="updateRuleField('${rule.id}', 'name', this.value)">
+                </div>
+                <div>
+                    <h6>Status</h6>
+                    <label class="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-700">
+                        <input type="checkbox" ${disabled_checked} role="switch"
+                            onchange="toggleDisabled('${rule.id}', this.checked)"
+                            class="m-0">
+                        Disabled
+                    </label>
+                </div>
+            </div>
+            ${rule.disabled ? '<p class="stats mt-1">This rule is skipped during matching. Parts fall through to later rules or Everything Else.</p>' : ''}
+        </div>
+    `;
+
+    // conditions
+    html += `
+        <div class="editor-section">
+            <h6>Conditions</h6>
+            <div class="conditions-area" id="editor-conds"></div>
+        </div>
+    `;
+
+    // sub-rules (only for top-level)
+    if (!is_child) {
+        let children = rule.children || [];
+        html += `<div class="editor-section"><h6>Sub-rules</h6>`;
+        if (children.length > 0) {
+            for (let child of children) {
+                html += `
+                    <div class="editor-subrule-row">
+                        <span class="sub-name">${escHtml(child.name)}</span>
+                        ${mkBtn('Edit', `selectRule('${child.id}')`)}
+                        ${mkBtn('Duplicate', `duplicateRule('${child.id}')`)}
+                        ${mkBtn('Delete', `deleteRule('${child.id}')`, 'danger')}
+                    </div>
+                `;
+            }
+        } else {
+            html += `<p class="stats">No sub-rules.</p>`;
+        }
+        html += `${mkBtn('+ Add Sub-rule', `addSubRule('${rule.id}')`, 'secondary', 'mt-1')}</div>`;
+    }
+
+    // footer with mode toggle
+    let mode_label = standalone_mode ? 'standalone' : 'in context';
+    let toggle_label = standalone_mode ? 'Show In Context' : 'Show Standalone';
+    html += `
+        <div class="editor-footer">
+            <span class="stats" id="editor-match">loading...</span>
+            <div class="flex flex-wrap items-center gap-2">
+                ${cancel_btn_html}
+                ${mkBtn(toggle_label, 'toggleStandaloneMode()')}
+                ${mkBtn('Duplicate Rule', `duplicateRule('${rule.id}')`)}
+                ${mkBtn('Delete Rule', `deleteRule('${rule.id}')`, 'danger')}
+            </div>
+        </div>
+        <div id="editor-preview-list"></div>
+    `;
+
+    // save bar at the bottom
+    if (state === 'pending') {
+        html += `<div class="editor-save-bar pending mt-3">
+            <span class="save-label">New rule — not yet saved</span>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
+        </div>`;
+    } else if (state === 'unsaved') {
+        html += `<div class="editor-save-bar unsaved mt-3">
+            <span class="save-label">Unsaved changes</span>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
+        </div>`;
+    }
+
+    content.innerHTML = html;
+
+    // render conditions into the area
+    let conds_el = document.getElementById('editor-conds');
+    renderConditions(conds_el, rule);
+    applyProfileTailwindUi(content);
+}
+
+// --- condition rendering ---
+
+function renderConditions(container, rule) {
+    let conditions = rule.conditions || [];
+    let match_mode = rule.match_mode || 'all';
+
+    let mode_row = document.createElement('div');
+    mode_row.className = 'match-mode-row';
+    let toggle = document.createElement('div');
+    toggle.className = SEGMENT_WRAP;
+    toggle.innerHTML = `
+        <button data-ui-btn="1" type="button" class="${match_mode === 'all' ? SEGMENT_BTN_ACTIVE : SEGMENT_BTN}" onclick="setMatchMode('${rule.id}', 'all')">ALL</button>
+        <button data-ui-btn="1" type="button" class="${match_mode === 'any' ? SEGMENT_BTN_ACTIVE : SEGMENT_BTN}" onclick="setMatchMode('${rule.id}', 'any')">ANY</button>
+    `;
+    let mode_label = document.createElement('span');
+    mode_label.className = 'stats';
+    mode_label.textContent = match_mode === 'all' ? 'All conditions must match' : 'Any condition can match';
+    mode_row.appendChild(toggle);
+    mode_row.appendChild(mode_label);
+    container.appendChild(mode_row);
+
+    for (let i = 0; i < conditions.length; i++) {
+        if (i > 0) {
+            let join = document.createElement('div');
+            join.className = 'cond-join-label';
+            join.textContent = match_mode === 'all' ? 'AND' : 'OR';
+            container.appendChild(join);
+        }
+        container.appendChild(renderConditionRow(conditions[i], rule.id));
+    }
+
+    if (conditions.length > 0) {
+        let join = document.createElement('div');
+        join.className = 'cond-join-label';
+        join.textContent = match_mode === 'all' ? 'AND' : 'OR';
+        container.appendChild(join);
+    }
+    container.appendChild(mkAddConditionBtn(rule.id));
+}
+
+function mkAddConditionBtn(rule_id) {
+    let wrap = document.createElement('div');
+    wrap.className = 'cond-row';
+    let sel = document.createElement('select');
+    sel.className = 'w-auto';
+    sel.innerHTML = `
+        <option value="">+ add condition...</option>
+        <option value="category_id">RB Category is...</option>
+        <option value="category_name">RB Category Name contains...</option>
+        <option value="color_id">Color is...</option>
+        <option value="name">RB Part Name contains...</option>
+        <option value="part_num">RB Part Number is...</option>
+        <option value="year_from">Year From...</option>
+        <option value="year_to">Year To...</option>
+        <option value="bricklink_id">BL Part ID is...</option>
+        <option value="bricklink_item_count">BL Item Count...</option>
+        <option value="bricklink_primary_item_no">BL Primary Item #...</option>
+        <option value="bl_price_min">BL Min Price...</option>
+        <option value="bl_price_max">BL Max Price...</option>
+        <option value="bl_price_avg">BL Avg Price...</option>
+        <option value="bl_price_qty_avg">BL Qty Avg Price...</option>
+        <option value="bl_price_unit_quantity">BL Unit Qty...</option>
+        <option value="bl_price_total_quantity">BL Total Qty...</option>
+        <option value="bl_price_currency">BL Price Currency...</option>
+        <option value="bl_price_new_or_used">BL Price New/Used...</option>
+        <option value="bl_price_guide_type">BL Guide Type...</option>
+        <option value="bl_price_country_code">BL Country...</option>
+        <option value="bl_catalog_name">BL Part Name...</option>
+        <option value="bl_category_id">BL Category...</option>
+        <option value="bl_category_name">BL Category Name...</option>
+        <option value="bl_catalog_category_id">BL Catalog Category ID...</option>
+        <option value="bl_catalog_year_released">BL Catalog Year...</option>
+        <option value="bl_catalog_weight">BL Catalog Weight...</option>
+        <option value="bl_catalog_dim_x">BL Catalog Dim X...</option>
+        <option value="bl_catalog_dim_y">BL Catalog Dim Y...</option>
+        <option value="bl_catalog_dim_z">BL Catalog Dim Z...</option>
+        <option value="bl_catalog_is_obsolete">BL Catalog Is Obsolete (1/0)...</option>
+    `;
+    sel.addEventListener('change', () => {
+        let field = sel.value;
+        if (!field) return;
+        sel.value = '';
+        addConditionLocal(rule_id, field);
+    });
+    wrap.appendChild(sel);
+    return wrap;
+}
+
+function renderConditionRow(cond, rule_id) {
+    let row = document.createElement('div');
+    row.className = 'cond-row';
+    let fc = FIELD_CONFIG[cond.field] || {label: cond.field, ops: {eq: "is"}, valueType: "text"};
+    let field_opts = FIELD_LIST.map(f =>
+        `<option value="${f.value}" ${cond.field === f.value ? 'selected' : ''}>${f.label}</option>`
+    ).join('');
+    let op_opts = Object.entries(fc.ops).map(([val, label]) =>
+        `<option value="${val}" ${cond.op === val ? 'selected' : ''}>${label}</option>`
+    ).join('');
+    let value_html = renderValueInput(cond, rule_id, fc);
+    row.innerHTML = `
+        <select class="field-sel" onchange="changeCondField('${rule_id}', '${cond.id}', this.value)">
+            ${field_opts}
+        </select>
+        <select class="op-sel" onchange="changeCondOp('${rule_id}', '${cond.id}', this.value)">
+            ${op_opts}
+        </select>
+        ${value_html}
+        <button data-ui-btn="1" type="button" class="${btnClass('icon_danger')}" onclick="removeCondition('${rule_id}', '${cond.id}')" title="Remove">&times;</button>
+    `;
+    return row;
+}
+
+function renderValueInput(cond, rule_id, fc) {
+    let vt = fc.valueType;
+    if (vt === 'rb_category' && (cond.op === 'eq' || cond.op === 'neq')) {
+        let opts = RB_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'rb_category' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = RB_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'bl_category' && (cond.op === 'eq' || cond.op === 'neq')) {
+        let opts = BL_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'bl_category' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = BL_CAT_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'color' && (cond.op === 'eq' || cond.op === 'neq')) {
+        let opts = RB_COLOR_LIST.map(c =>
+            `<option value="${c.id}" ${cond.value === c.id ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">
+            <option value="">-- pick --</option>${opts}</select>`;
+    }
+    if (vt === 'color' && cond.op === 'in') {
+        let selected = Array.isArray(cond.value) ? cond.value : [];
+        let opts = RB_COLOR_LIST.map(c =>
+            `<option value="${c.id}" ${selected.includes(c.id) ? 'selected' : ''}>${escHtml(c.name)} (${c.id})</option>`
+        ).join('');
+        return `<select class="val-sel" multiple size="4" onchange="changeCondValueMulti(this, '${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}')">
+            ${opts}</select>`;
+    }
+    if (vt === 'number') {
+        return `<input type="number" class="val-input" value="${cond.value || ''}"
+            onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">`;
+    }
+    // text fields with autocomplete for category_name and name
+    let placeholder = cond.op === 'in' ? 'comma-separated values' : '';
+    let display_val = Array.isArray(cond.value) ? cond.value.join(', ') : (cond.value || '');
+    let use_ac = (cond.field === 'category_name' || cond.field === 'bl_category_name' || cond.field === 'name') && cond.op === 'contains';
+    if (use_ac) {
+        let ac_id = `ac-${cond.id}`;
+        return `<div class="ac-wrap">
+            <input type="text" class="val-input" value="${escHtml(display_val)}" placeholder="${placeholder}"
+                id="${ac_id}"
+                oninput="acInput('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this)"
+                onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)"
+                onfocus="acInput('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this)"
+                onblur="setTimeout(() => { let r = document.getElementById('${ac_id}-results'); if(r) r.innerHTML=''; }, 200)"
+                autocomplete="off">
+            <div class="ac-results" id="${ac_id}-results"></div>
+        </div>`;
+    }
+    return `<input type="text" class="val-input" value="${escHtml(display_val)}" placeholder="${placeholder}"
+        onchange="changeCondValue('${rule_id}', '${cond.id}', '${cond.field}', '${cond.op}', this.value)">`;
+}
+
+// --- autocomplete for text fields ---
+
+let ac_timer = null;
+
+function acInput(rule_id, cond_id, field, op, input) {
+    clearTimeout(ac_timer);
+    let q = input.value.trim().toLowerCase();
+    let results_el = document.getElementById(`ac-${cond_id}-results`);
+    if (!results_el) return;
+    if (!q) { results_el.innerHTML = ''; return; }
+
+    if (field === 'category_name') {
+        // local search through category names
+        let matches = RB_CAT_LIST.filter(c => c.name.toLowerCase().includes(q));
+        let html = matches.slice(0, 20).map(c =>
+            `<div onclick="acSelect('${rule_id}', '${cond_id}', '${field}', '${op}', '${escHtml(c.name)}', this)">${escHtml(c.name)}</div>`
+        ).join('');
+        if (matches.length > 20) html += `<div class="ac-summary">${matches.length} categories match</div>`;
+        else if (matches.length > 0) html += `<div class="ac-summary">${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+        results_el.innerHTML = html;
+    } else if (field === 'bl_category_name') {
+        let matches = BL_CAT_LIST.filter(c => c.name.toLowerCase().includes(q));
+        let html = matches.slice(0, 20).map(c =>
+            `<div onclick="acSelect('${rule_id}', '${cond_id}', '${field}', '${op}', '${escHtml(c.name)}', this)">${escHtml(c.name)} <span class="ac-count">(${c.id})</span></div>`
+        ).join('');
+        if (matches.length > 20) html += `<div class="ac-summary">${matches.length} BL categories match</div>`;
+        else if (matches.length > 0) html += `<div class="ac-summary">${matches.length} match${matches.length > 1 ? 'es' : ''}</div>`;
+        results_el.innerHTML = html;
+    } else if (field === 'name') {
+        // debounced API search for part names
+        ac_timer = setTimeout(async () => {
+            let data = await apiJson('GET', `/api/search-parts?q=${encodeURIComponent(q)}&limit=15`);
+            if (!data) return;
+            let html = data.results.map(p =>
+                `<div class="ac-part-row">${renderPartImg(p.part_img_url, 'part-img-sm')}<span class="ac-part-name">${escHtml(p.name)}</span><span class="ac-count">${p.part_num}</span></div>`
+            ).join('');
+            if (data.total > 15) html += `<div class="ac-summary">${data.total.toLocaleString()} parts match "${escHtml(q)}"</div>`;
+            else if (data.total > 0) html += `<div class="ac-summary">${data.total} match${data.total > 1 ? 'es' : ''}</div>`;
+            results_el.innerHTML = html;
+        }, 250);
+    }
+}
+
+function acSelect(rule_id, cond_id, field, op, value, el) {
+    // fill the input with the selected value
+    let input = document.getElementById(`ac-${cond_id}`);
+    if (input) { input.value = value; input.dispatchEvent(new Event('change')); }
+    let results_el = document.getElementById(`ac-${cond_id}-results`);
+    if (results_el) results_el.innerHTML = '';
+}
+
+// --- local condition mutations (no API calls) ---
+
+function addConditionLocal(rule_id, field) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    let fc = FIELD_CONFIG[field];
+    let first_op = Object.keys(fc.ops)[0];
+    let default_val = (fc.valueType === 'number') ? 0 : '';
+    let cond = {id: uuid(), field, op: first_op, value: default_val};
+    if (!rule.conditions) rule.conditions = [];
+    rule.conditions.push(cond);
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function changeCondField(rule_id, cond_id, new_field) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    let fc = FIELD_CONFIG[new_field];
+    let first_op = Object.keys(fc.ops)[0];
+    let default_val = (fc.valueType === 'number') ? 0 : '';
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.field = new_field; c.op = first_op; c.value = default_val; break; }
+    }
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function changeCondOp(rule_id, cond_id, new_op) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.op = new_op; break; }
+    }
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function parseValue(field, op, raw) {
+    let fc = FIELD_CONFIG[field];
+    if (!fc) return raw;
+    if (op === 'in' && fc.valueType === 'text') {
+        return raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (fc.valueType === 'number') {
+        let num = parseFloat(raw);
+        return Number.isFinite(num) ? num : 0;
+    }
+    if (fc.valueType === 'rb_category' || fc.valueType === 'bl_category' || fc.valueType === 'color') {
+        return parseInt(raw) || 0;
+    }
+    return raw;
+}
+
+function changeCondValue(rule_id, cond_id, field, op, raw) {
+    let value = parseValue(field, op, raw);
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.value = value; break; }
+    }
+    markDirty(rule_id);
+    // don't re-render editor to avoid killing focus/autocomplete
+    refreshPreview();
+}
+
+function changeCondValueMulti(select, rule_id, cond_id, field, op) {
+    let values = Array.from(select.selectedOptions).map(o => parseInt(o.value));
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    for (let c of rule.conditions) {
+        if (c.id === cond_id) { c.value = values; break; }
+    }
+    markDirty(rule_id);
+    refreshPreview();
+}
+
+function removeCondition(rule_id, cond_id) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.conditions = (rule.conditions || []).filter(c => c.id !== cond_id);
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+function setMatchMode(rule_id, mode) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.match_mode = mode;
+    markDirty(rule_id);
+    renderEditor();
+    refreshPreview();
+}
+
+// --- rule CRUD (local) ---
+
+function addNewRule() {
+    let rule = {
+        id: uuid(),
+        name: "New Rule",
+        match_mode: "all",
+        conditions: [],
+        children: [],
+        disabled: false,
+    };
+    RULES.push(rule);
+    pending_rules.add(rule.id);
+    selected_rule_id = rule.id;
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function addSubRule(parent_id) {
+    let parent = findRuleById(RULES, parent_id);
+    if (!parent) return;
+    let child = {
+        id: uuid(),
+        name: "New Sub-rule",
+        match_mode: "all",
+        conditions: [],
+        children: [],
+        disabled: false,
+    };
+    if (!parent.children) parent.children = [];
+    parent.children.push(child);
+    markDirty(parent_id);
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function duplicateRule(rule_id) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+
+    let clone = cloneRuleTreeWithNewIds(rule, true);
+
+    if (isTopLevel(rule_id)) {
+        let idx = RULES.findIndex(r => r.id === rule_id);
+        if (idx < 0) return;
+        RULES.splice(idx + 1, 0, clone);
+        pending_rules.add(clone.id);
+    } else {
+        let parent = findParentRule(RULES, rule_id);
+        if (!parent) return;
+        if (!parent.children) parent.children = [];
+        let idx = parent.children.findIndex(c => c.id === rule_id);
+        if (idx < 0) return;
+        parent.children.splice(idx + 1, 0, clone);
+        markDirty(rule_id);
+    }
+
+    selected_rule_id = clone.id;
+    selected_rb_cat = null;
+    pl_query = '';
+    pl_offset = 0;
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function toggleDisabled(rule_id, disabled) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule.disabled = disabled;
+    markDirty(rule_id);
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
+}
+
+function updateRuleField(rule_id, field, value) {
+    let rule = findRuleById(RULES, rule_id);
+    if (!rule) return;
+    rule[field] = value;
+    markDirty(rule_id);
+    renderRuleList();
+    // don't full re-render editor to keep focus
+    refreshPreview();
+}
+
+function deleteRule(rule_id) {
+    if (!confirm('Delete this rule?')) return;
+    let was_top = isTopLevel(rule_id);
+    let top_id = findTopLevelId(rule_id);
+    removeRuleById(RULES, rule_id);
+    if (was_top) {
+        pending_rules.delete(rule_id);
+        dirty_rules.delete(rule_id);
+        // persist deletion of saved rules immediately
+        if (!pending_rules.has(rule_id)) {
+            apiJson('PUT', `/api/profile/${PROFILE_ID}/rules`, {rules: RULES}).then(data => {
+                if (data) {
+                    RULES = data.rules;
+                    saved_snapshot = JSON.parse(JSON.stringify(RULES));
+                    refreshStats();
+                }
+            });
+        }
+    } else {
+        markDirty(top_id);
+    }
+    if (selected_rule_id === rule_id) deselectRule();
+    else { renderRuleList(); renderEditor(); }
+    refreshPreview();
+}
+
+// --- generate ---
+
+async function doGenerate() {
+    // save first if dirty
+    if (hasAnyDirty()) {
+        await saveAllRules();
+    }
+    let btn = document.getElementById('btn-generate');
+    btn.setAttribute('aria-busy', 'true');
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/generate`);
+    btn.removeAttribute('aria-busy');
+    if (data) {
+        preview_stats = data;
+        renderRuleList();
+        updateEditorMatchCount();
+    }
+    refreshStats();
+}
+
+function _plParams() {
+    let p = new URLSearchParams();
+    if (pl_query) p.set('q', pl_query);
+    p.set('offset', pl_offset);
+    p.set('limit', PL_PAGE);
+    return p.toString();
+}
+
+async function fetchPartList() {
+    if (!selected_rule_id) return;
+    let list_el = document.getElementById('editor-preview-list');
+    let match_el = document.getElementById('editor-match');
+    if (!list_el || !match_el) return;
+    match_el.textContent = 'loading...';
+
+    let top_id = findTopLevelId(selected_rule_id);
+    let is_child = top_id !== selected_rule_id;
+
+    let data;
+    if (standalone_mode) {
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}`, {rules: RULES});
+        if (!data) { match_el.textContent = 'error'; return; }
+        let label = 'standalone';
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+    } else {
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${top_id}?${_plParams()}`, {rules: RULES});
+        if (!data) { match_el.textContent = 'error'; return; }
+        let label = is_child ? 'in context — showing parent bucket' : 'in context';
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+    }
+    renderPartListResults(list_el, data);
+}
+
+async function fetchRbCatParts() {
+    if (!selected_rb_cat) return;
+    let list_el = document.getElementById('editor-preview-list');
+    let match_el = document.getElementById('editor-match');
+    if (!list_el || !match_el) return;
+    match_el.textContent = 'loading...';
+    let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${selected_rb_cat.key}?${_plParams()}`, {rules: RULES});
+    if (!data) { match_el.textContent = 'error'; return; }
+    match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts`;
+    renderPartListResults(list_el, data);
+}
+
+function renderPartListResults(container, data) {
+    container.innerHTML = '';
+    // search bar
+    let search_val = pl_query ? escHtml(pl_query) : '';
+    let search_html = `<input type="search" placeholder="Search matched parts..." value="${search_val}" class="mb-2" oninput="plSearch(this.value)">`;
+    container.insertAdjacentHTML('beforeend', search_html);
+
+    // table
+    let sample = data.sample || [];
+    if (sample.length > 0) {
+        let div = document.createElement('div');
+        div.className = 'preview-list';
+        let has_color = sample[0].color_id !== undefined;
+        let rows = sample.map(p => {
+            let color_cell = has_color ? `<td>${escHtml(RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id)}</td>` : '';
+            let img_cell = `<td class="preview-part-cell">${renderPartImg(p.part_img_url, 'part-img-sm')}</td>`;
+            let detail_html = renderMatchedPartDetail(p, has_color);
+            return `
+                <tr class="matched-row" onclick="toggleMatchedPartRow(this)">${img_cell}<td>${escHtml(p.part_num)}</td><td>${escHtml(p.name)}</td>${color_cell}</tr>
+                <tr class="matched-detail-row hidden">
+                    <td colspan="${has_color ? 4 : 3}" class="matched-detail-cell">${detail_html}</td>
+                </tr>
+            `;
+        }).join('');
+        let color_hdr = has_color ? '<th>Color</th>' : '';
+        div.innerHTML = `<table><thead><tr><th></th><th>Part</th><th>Name</th>${color_hdr}</tr></thead><tbody>${rows}</tbody></table>`;
+        container.appendChild(div);
+    } else {
+        container.insertAdjacentHTML('beforeend', '<p class="stats">No parts found.</p>');
+    }
+
+    // pagination
+    let total = data.total || 0;
+    if (total > PL_PAGE) {
+        let from = pl_offset + 1;
+        let to = Math.min(pl_offset + PL_PAGE, total);
+        let has_prev = pl_offset > 0;
+        let has_next = pl_offset + PL_PAGE < total;
+        let prev_btn = mkBtn('Prev', 'plPrev()', 'secondary', '', has_prev ? '' : 'disabled');
+        let next_btn = mkBtn('Next', 'plNext()', 'secondary', '', has_next ? '' : 'disabled');
+        container.insertAdjacentHTML('beforeend', `
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                ${prev_btn}
+                <span class="stats">${from}&ndash;${to} of ${total}</span>
+                ${next_btn}
+            </div>
+        `);
+    }
+    applyProfileTailwindUi(container);
+}
+
+function plSearch(val) {
+    clearTimeout(pl_search_timer);
+    pl_search_timer = setTimeout(() => {
+        pl_query = val;
+        pl_offset = 0;
+        _plRefetch();
+    }, 300);
+}
+
+function plPrev() {
+    pl_offset = Math.max(0, pl_offset - PL_PAGE);
+    _plRefetch();
+}
+
+function plNext() {
+    pl_offset += PL_PAGE;
+    _plRefetch();
+}
+
+function _plRefetch() {
+    if (selected_rule_id) fetchPartList();
+    else if (selected_rb_cat) fetchRbCatParts();
+}
+
+function toggleStandaloneMode() {
+    standalone_mode = !standalone_mode;
+    pl_offset = 0;
+    renderEditor();
+    fetchPartList();
+}
+
+function renderRbCatViewer() {
+    if (!selected_rb_cat) return;
+    document.getElementById('editor-empty').style.display = 'none';
+    let content = document.getElementById('editor-content');
+    content.style.display = '';
+    content.innerHTML = `
+        <h5>${escHtml(selected_rb_cat.name)}</h5>
+        <p class="stats">Fallback category: ${escHtml(selected_rb_cat.key)}</p>
+        <div class="editor-footer">
+            <span class="stats" id="editor-match">loading...</span>
+        </div>
+        <div id="editor-preview-list"></div>
+    `;
+    applyProfileTailwindUi(content);
+}
+
+// --- parts browser ---
+
+function debouncedSearch() {
+    clearTimeout(search_timer);
+    current_offset = 0;
+    search_timer = setTimeout(doSearch, 300);
+}
+
+async function doSearch() {
+    let q = document.getElementById('parts-search').value;
+    let cat_id = document.getElementById('filter-rebrickable-cat').value;
+    let params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (cat_id) params.set('cat_id', cat_id);
+    params.set('limit', PAGE_SIZE);
+    params.set('offset', current_offset);
+    let res = await fetch(`/api/search-parts?${params}`);
+    let data = await res.json();
+    current_total = data.total;
+    renderParts(data.results);
+    renderPagination();
+    let status = document.getElementById('search-status');
+    if (status) status.textContent = `${data.total.toLocaleString()} total results`;
+}
+
+function renderParts(parts) {
+    let tbody = document.getElementById('parts-tbody');
+    tbody.innerHTML = '';
+    for (let p of parts) {
+        let tr = document.createElement('tr');
+        let bl_ids = (p.external_ids && p.external_ids.BrickLink) ? p.external_ids.BrickLink.join(', ') : '';
+        let img = renderPartImg(p.part_img_url, 'part-img-md', 'eager');
+        let years = '';
+        if (p.year_from) years = p.year_from === p.year_to ? `${p.year_from}` : `${p.year_from}-${p.year_to || '?'}`;
+        tr.innerHTML = `<td class="w-[84px] min-w-[84px]">${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${years}</td>`;
+        tbody.appendChild(tr);
+    }
+    applyProfileTailwindUi(tbody);
+}
+
+function renderPagination() {
+    let el = document.getElementById('pagination');
+    if (current_total === 0) {
+        el.innerHTML = '<span class="stats">No results</span>';
+        return;
+    }
+    let from = current_offset + 1;
+    let to = Math.min(current_offset + PAGE_SIZE, current_total);
+    let has_prev = current_offset > 0;
+    let has_next = current_offset + PAGE_SIZE < current_total;
+    let prev_btn = mkBtn('Prev', 'prevPage()', 'secondary', '', has_prev ? '' : 'disabled');
+    let next_btn = mkBtn('Next', 'nextPage()', 'secondary', '', has_next ? '' : 'disabled');
+    el.innerHTML = `
+        ${prev_btn}
+        <span class="stats">${from}&ndash;${to} of ${current_total}</span>
+        ${next_btn}
+    `;
+    applyProfileTailwindUi(el);
+}
+
+function prevPage() {
+    current_offset = Math.max(0, current_offset - PAGE_SIZE);
+    doSearch();
+}
+
+function nextPage() {
+    current_offset += PAGE_SIZE;
+    doSearch();
+}
+
+async function renameProfile(name) {
+    if (!name.trim()) return;
+    let form = new FormData();
+    form.append('name', name.trim());
+    let res = await fetch(`/api/profiles/${PROFILE_ID}/name`, {method: 'PUT', body: form});
+    if (!res.ok) return false;
+    let next_name = name.trim();
+    document.title = `${next_name} - Sorting Profile Builder`;
+    let display_el = document.getElementById('profile-name-display');
+    if (display_el) display_el.textContent = next_name;
+    let input_el = document.getElementById('profile-name-input');
+    if (input_el) input_el.value = next_name;
+    return true;
+}
+
+function setProfileDescriptionText(text) {
+    let display_el = document.getElementById('profile-description-display');
+    if (!display_el) return;
+    let next_text = (text || '').trim();
+    if (next_text) {
+        display_el.textContent = next_text;
+        display_el.classList.remove('italic', 'text-slate-400');
+        display_el.classList.add('text-slate-600');
+    } else {
+        display_el.textContent = 'No description';
+        display_el.classList.add('italic', 'text-slate-400');
+        display_el.classList.remove('text-slate-600');
+    }
+}
+
+function setProfileNameEditing(is_editing) {
+    profile_name_editing = is_editing;
+    let display_el = document.getElementById('profile-name-display');
+    let edit_btn = document.getElementById('btn-profile-name-edit');
+    let editor_el = document.getElementById('profile-name-editor');
+    let input_el = document.getElementById('profile-name-input');
+    if (display_el) display_el.classList.toggle('hidden', is_editing);
+    if (edit_btn) edit_btn.classList.toggle('hidden', is_editing);
+    if (editor_el) editor_el.classList.toggle('hidden', !is_editing);
+    if (is_editing && input_el) {
+        input_el.value = (display_el?.textContent || input_el.value || '').trim();
+        input_el.focus();
+        input_el.select();
+    }
+}
+
+function openProfileNameEditor() {
+    setProfileNameEditing(true);
+}
+
+function cancelProfileNameEdit() {
+    setProfileNameEditing(false);
+}
+
+async function submitProfileNameEdit() {
+    let input_el = document.getElementById('profile-name-input');
+    if (!input_el) return;
+    let next_name = input_el.value.trim();
+    if (!next_name) {
+        cancelProfileNameEdit();
+        return;
+    }
+    let ok = await renameProfile(next_name);
+    if (ok) setProfileNameEditing(false);
+}
+
+function handleProfileNameKey(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitProfileNameEdit();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelProfileNameEdit();
+    }
+}
+
+async function updateProfileDescription(description) {
+    let form = new FormData();
+    form.append('description', description);
+    let res = await fetch(`/api/profiles/${PROFILE_ID}/description`, {method: 'PUT', body: form});
+    if (!res.ok) return false;
+    let input_el = document.getElementById('profile-description-input');
+    if (input_el) input_el.value = description;
+    setProfileDescriptionText(description);
+    return true;
+}
+
+function setProfileDescriptionEditing(is_editing) {
+    profile_description_editing = is_editing;
+    let display_el = document.getElementById('profile-description-display');
+    let edit_btn = document.getElementById('btn-profile-description-edit');
+    let editor_el = document.getElementById('profile-description-editor');
+    let input_el = document.getElementById('profile-description-input');
+    if (display_el) display_el.classList.toggle('hidden', is_editing);
+    if (edit_btn) edit_btn.classList.toggle('hidden', is_editing);
+    if (editor_el) editor_el.classList.toggle('hidden', !is_editing);
+    if (is_editing && input_el) {
+        let current_text = display_el && display_el.textContent === 'No description' ? '' : (display_el?.textContent || '');
+        input_el.value = current_text;
+        input_el.focus();
+        input_el.select();
+    }
+}
+
+function openProfileDescriptionEditor() {
+    setProfileDescriptionEditing(true);
+}
+
+function cancelProfileDescriptionEdit() {
+    setProfileDescriptionEditing(false);
+}
+
+async function submitProfileDescriptionEdit() {
+    let input_el = document.getElementById('profile-description-input');
+    if (!input_el) return;
+    let next_description = input_el.value.trim();
+    let ok = await updateProfileDescription(next_description);
+    if (ok) setProfileDescriptionEditing(false);
+}
+
+function handleProfileDescriptionKey(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitProfileDescriptionEdit();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelProfileDescriptionEdit();
+    }
+}
+
+async function copyProfilePath() {
+    let path_el = document.getElementById('profile-path-text');
+    if (!path_el) return;
+    let path_text = (path_el.textContent || '').trim();
+    if (!path_text) return;
+    try {
+        await navigator.clipboard.writeText(path_text);
+    } catch (e) {
+        let ta = document.createElement('textarea');
+        ta.value = path_text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+    }
+}
+
+async function refreshStats() {
+    let res = await fetch(`/api/profile/${PROFILE_ID}/stats`);
+    let data = await res.json();
+    document.getElementById('profile-stats').textContent = `${data.part_count} mappings, ${data.category_count} categories, ${data.rule_count} rules`;
+}
+
+function togglePartsBrowser() {
+    let el = document.getElementById('parts-browser-sidebar');
+    el.classList.toggle('hidden');
+    if (!el.classList.contains('hidden')) {
+        applyPartsSidebarWidth();
+        if (!document.getElementById('parts-tbody').children.length) {
+            doSearch();
+        }
+    }
+}
+
+function applyPartsSidebarWidth() {
+    let el = document.getElementById('parts-browser-sidebar');
+    if (!el) return;
+    if (window.innerWidth <= 1200) {
+        el.style.width = '';
+        return;
+    }
+    let min_w = 340;
+    let max_w = Math.max(min_w, Math.floor(window.innerWidth * 0.7));
+    parts_sidebar_width = Math.max(min_w, Math.min(max_w, parts_sidebar_width));
+    el.style.width = `${parts_sidebar_width}px`;
+}
+
+function startPartsSidebarResize(e) {
+    if (window.innerWidth <= 1200) return;
+    e.preventDefault();
+    let el = document.getElementById('parts-browser-sidebar');
+    if (!el) return;
+    parts_sidebar_resize = {start_x: e.clientX, start_w: el.getBoundingClientRect().width};
+    document.body.classList.add('cursor-col-resize', 'select-none');
+    window.addEventListener('mousemove', onPartsSidebarResizeMove);
+    window.addEventListener('mouseup', stopPartsSidebarResize);
+}
+
+function onPartsSidebarResizeMove(e) {
+    if (!parts_sidebar_resize) return;
+    let dx = parts_sidebar_resize.start_x - e.clientX;
+    parts_sidebar_width = Math.round(parts_sidebar_resize.start_w + dx);
+    applyPartsSidebarWidth();
+}
+
+function stopPartsSidebarResize() {
+    parts_sidebar_resize = null;
+    document.body.classList.remove('cursor-col-resize', 'select-none');
+    window.removeEventListener('mousemove', onPartsSidebarResizeMove);
+    window.removeEventListener('mouseup', stopPartsSidebarResize);
+}
+
+// --- init ---
+renderFallbackOptions();
+renderRuleList();
+refreshPreview();
+setProfileDescriptionText(document.getElementById('profile-description-input')?.value || '');
+applyPartsSidebarWidth();
+window.addEventListener('resize', applyPartsSidebarWidth);
+applyProfileTailwindUi(document);
+
+let profile_ui_observer = new MutationObserver((mutations) => {
+    for (let m of mutations) {
+        for (let n of m.addedNodes) {
+            if (n instanceof Element) applyProfileTailwindUi(n.parentElement || n);
+        }
+    }
+});
+profile_ui_observer.observe(document.body, {childList: true, subtree: true});
+</script>
+{% endblock %}

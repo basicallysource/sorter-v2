@@ -8,7 +8,7 @@ from global_config import GlobalConfig
 COMMAND_QUEUE_TIMEOUT_MS = 1000
 READER_SLEEP_MS = 10
 ARDUINO_RESET_DELAY_MS = 2000
-COMMAND_WRITE_DELAY_MS = 15
+COMMAND_WRITE_DELAY_MS = 50
 COMMAND_ID_START = 1
 COMMAND_ID_MAX = 2_000_000_000
 
@@ -28,7 +28,6 @@ class MCU:
         self.next_command_id = COMMAND_ID_START
         self.pending_command_results: dict[int, dict] = {}
         self.pending_command_lock = threading.Lock()
-
         self.worker_thread = threading.Thread(target=self._processCommands, daemon=True)
         self.worker_thread.start()
 
@@ -75,8 +74,10 @@ class MCU:
             raise RuntimeError("timeout_ms must be > 0")
 
         cmd_id = self._allocateCommandId()
+        sent_event = threading.Event()
         pending = {
             "event": threading.Event(),
+            "sent_event": sent_event,
             "ok": None,
             "line": None,
         }
@@ -90,6 +91,10 @@ class MCU:
         )
 
         self.command_queue.put((cmd_id, args))
+
+        # wait for worker to actually send the command before starting timeout
+        sent_event.wait()
+
         if pending["event"].wait(timeout_ms / 1000.0):
             with self.pending_command_lock:
                 self.pending_command_results.pop(cmd_id, None)
@@ -119,7 +124,16 @@ class MCU:
                 cmd_payload = ",".join(map(str, cmd_args))
                 cmd_str = f"{cmd_id}|{cmd_payload}\n"
 
+                with self.pending_command_lock:
+                    pending = self.pending_command_results.get(cmd_id)
+                is_blocking = pending is not None and "sent_event" in pending
+
                 self.serial.write(cmd_str.encode())
+                self.serial.flush()
+
+                if is_blocking and pending is not None:
+                    pending["sent_event"].set()
+
                 time.sleep(COMMAND_WRITE_DELAY_MS / 1000.0)
                 self.command_queue.task_done()
             except queue.Empty:

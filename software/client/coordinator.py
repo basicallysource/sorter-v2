@@ -9,7 +9,7 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
 from vision import VisionManager
-from sorting_profile import BrickLinkCategories
+from sorting_profile import mkSortingProfile
 from telemetry import Telemetry
 import queue
 
@@ -32,7 +32,7 @@ class Coordinator:
         self.vision = vision
         self.event_queue = event_queue
         self.shared = SharedVariables()
-        self.sorting_profile = BrickLinkCategories(gc)
+        self.sorting_profile = mkSortingProfile(gc)
         self.distribution_layout = irl.distribution_layout
 
         self.carousel = Carousel(gc.logger, event_queue)

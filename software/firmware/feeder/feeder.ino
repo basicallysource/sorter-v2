@@ -12,6 +12,29 @@
 
 #include <Servo.h>
 
+const int NUM_SERVO_PINS = 4;
+const int SERVO_PINS[NUM_SERVO_PINS] = {4, 5, 6, 11};
+Servo servos[NUM_SERVO_PINS];
+
+const int RX_BUF_SIZE = 512;
+char rxBuf[RX_BUF_SIZE];
+int rxLen = 0;
+
+void drainSerial() {
+  while (Serial.available() && rxLen < RX_BUF_SIZE - 1) {
+    rxBuf[rxLen++] = (char)Serial.read();
+  }
+  rxBuf[rxLen] = '\0';
+}
+
+void delayWithDrain(unsigned long ms) {
+  unsigned long start = millis();
+  while (millis() - start < ms) {
+    drainSerial();
+    delay(1);
+  }
+}
+
 bool parseIntStrict(String s, long &out) {
   if (s.length() == 0) return false;
   int i = 0;
@@ -51,20 +74,36 @@ bool isAllowedStepperPair(int step_pin, int dir_pin) {
     (step_pin == 54 && dir_pin == 55);
 }
 
-void logParseError(char cmd_type, const char *reason) {
+String truncateRaw(String raw, int max_len) {
+  if (raw.length() <= max_len) return raw;
+  return raw.substring(0, max_len) + "...";
+}
+
+void logParseError(char cmd_type, const char *reason, String raw) {
   Serial.print("ERR,");
   Serial.print(cmd_type);
   Serial.print(",no_id,");
-  Serial.println(reason);
+  Serial.print(reason);
+  Serial.print(",raw=");
+  Serial.println(truncateRaw(raw, 80));
 }
 
-void logParseError(char cmd_type, long cmd_id, const char *reason) {
+void logParseError(char cmd_type, long cmd_id, const char *reason, String raw) {
   Serial.print("ERR,");
   Serial.print(cmd_type);
   Serial.print(",");
   Serial.print(cmd_id);
   Serial.print(",");
-  Serial.println(reason);
+  Serial.print(reason);
+  Serial.print(",raw=");
+  Serial.println(truncateRaw(raw, 80));
+}
+
+int servoIndexForPin(int pin) {
+  for (int i = 0; i < NUM_SERVO_PINS; i++) {
+    if (SERVO_PINS[i] == pin) return i;
+  }
+  return -1;
 }
 
 void setup() {
@@ -75,8 +114,18 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n');
+  drainSerial();
+
+  char *nl = (char *)memchr(rxBuf, '\n', rxLen);
+  if (nl != NULL) {
+    *nl = '\0';
+    String command = String(rxBuf);
+    int consumed = (nl - rxBuf) + 1;
+    rxLen -= consumed;
+    if (rxLen > 0) {
+      memmove(rxBuf, nl + 1, rxLen);
+    }
+    rxBuf[rxLen] = '\0';
     command.trim();
 
     if (command.length() > 0) {
@@ -86,20 +135,23 @@ void loop() {
 }
 
 void processCommand(String cmd) {
+  String raw = cmd;
   long cmd_id = 0;
   bool has_cmd_id = false;
   int pipe_index = cmd.indexOf('|');
   if (pipe_index != -1) {
     long parsed_cmd_id = 0;
     if (!parseIntRange(cmd, 0, pipe_index, parsed_cmd_id)) {
-      Serial.println("ERR,PROTO,no_id,bad_id_prefix");
+      Serial.print("ERR,PROTO,no_id,bad_id_prefix,raw=");
+      Serial.println(truncateRaw(raw, 80));
       return;
     }
     cmd = cmd.substring(pipe_index + 1);
     if (cmd.length() == 0) {
       Serial.print("ERR,PROTO,");
       Serial.print(parsed_cmd_id);
-      Serial.println(",empty_command");
+      Serial.print(",empty_command,raw=");
+      Serial.println(truncateRaw(raw, 80));
       return;
     }
     cmd_id = parsed_cmd_id;
@@ -117,38 +169,38 @@ void processCommand(String cmd) {
     case 'P': {
       int firstComma = cmd.indexOf(',');
       if (firstComma == -1) {
-        if (has_cmd_id) logParseError('P', cmd_id, "missing_first_comma");
-        else logParseError('P', "missing_first_comma");
+        if (has_cmd_id) logParseError('P', cmd_id, "missing_first_comma", raw);
+        else logParseError('P', "missing_first_comma", raw);
         return;
       }
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       if (secondComma == -1) {
-        if (has_cmd_id) logParseError('P', cmd_id, "missing_second_comma");
-        else logParseError('P', "missing_second_comma");
+        if (has_cmd_id) logParseError('P', cmd_id, "missing_second_comma", raw);
+        else logParseError('P', "missing_second_comma", raw);
         return;
       }
       if (args.indexOf(',', secondComma + 1) != -1) {
-        if (has_cmd_id) logParseError('P', cmd_id, "extra_args");
-        else logParseError('P', "extra_args");
+        if (has_cmd_id) logParseError('P', cmd_id, "extra_args", raw);
+        else logParseError('P', "extra_args", raw);
         return;
       }
 
       long pin_long = 0;
       long mode_long = 0;
       if (!parseIntRange(args, 0, secondComma, pin_long)) {
-        if (has_cmd_id) logParseError('P', cmd_id, "bad_pin");
-        else logParseError('P', "bad_pin");
+        if (has_cmd_id) logParseError('P', cmd_id, "bad_pin", raw);
+        else logParseError('P', "bad_pin", raw);
         return;
       }
       if (!parseIntRange(args, secondComma + 1, args.length(), mode_long)) {
-        if (has_cmd_id) logParseError('P', cmd_id, "bad_mode");
-        else logParseError('P', "bad_mode");
+        if (has_cmd_id) logParseError('P', cmd_id, "bad_mode", raw);
+        else logParseError('P', "bad_mode", raw);
         return;
       }
       if (mode_long != 0 && mode_long != 1) {
-        if (has_cmd_id) logParseError('P', cmd_id, "mode_out_of_range");
-        else logParseError('P', "mode_out_of_range");
+        if (has_cmd_id) logParseError('P', cmd_id, "mode_out_of_range", raw);
+        else logParseError('P', "mode_out_of_range", raw);
         return;
       }
 
@@ -165,38 +217,38 @@ void processCommand(String cmd) {
     case 'D': {
       int firstComma = cmd.indexOf(',');
       if (firstComma == -1) {
-        if (has_cmd_id) logParseError('D', cmd_id, "missing_first_comma");
-        else logParseError('D', "missing_first_comma");
+        if (has_cmd_id) logParseError('D', cmd_id, "missing_first_comma", raw);
+        else logParseError('D', "missing_first_comma", raw);
         return;
       }
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       if (secondComma == -1) {
-        if (has_cmd_id) logParseError('D', cmd_id, "missing_second_comma");
-        else logParseError('D', "missing_second_comma");
+        if (has_cmd_id) logParseError('D', cmd_id, "missing_second_comma", raw);
+        else logParseError('D', "missing_second_comma", raw);
         return;
       }
       if (args.indexOf(',', secondComma + 1) != -1) {
-        if (has_cmd_id) logParseError('D', cmd_id, "extra_args");
-        else logParseError('D', "extra_args");
+        if (has_cmd_id) logParseError('D', cmd_id, "extra_args", raw);
+        else logParseError('D', "extra_args", raw);
         return;
       }
 
       long pin_long = 0;
       long value_long = 0;
       if (!parseIntRange(args, 0, secondComma, pin_long)) {
-        if (has_cmd_id) logParseError('D', cmd_id, "bad_pin");
-        else logParseError('D', "bad_pin");
+        if (has_cmd_id) logParseError('D', cmd_id, "bad_pin", raw);
+        else logParseError('D', "bad_pin", raw);
         return;
       }
       if (!parseIntRange(args, secondComma + 1, args.length(), value_long)) {
-        if (has_cmd_id) logParseError('D', cmd_id, "bad_value");
-        else logParseError('D', "bad_value");
+        if (has_cmd_id) logParseError('D', cmd_id, "bad_value", raw);
+        else logParseError('D', "bad_value", raw);
         return;
       }
       if (value_long != 0 && value_long != 1) {
-        if (has_cmd_id) logParseError('D', cmd_id, "value_out_of_range");
-        else logParseError('D', "value_out_of_range");
+        if (has_cmd_id) logParseError('D', cmd_id, "value_out_of_range", raw);
+        else logParseError('D', "value_out_of_range", raw);
         return;
       }
 
@@ -213,38 +265,38 @@ void processCommand(String cmd) {
     case 'A': {
       int firstComma = cmd.indexOf(',');
       if (firstComma == -1) {
-        if (has_cmd_id) logParseError('A', cmd_id, "missing_first_comma");
-        else logParseError('A', "missing_first_comma");
+        if (has_cmd_id) logParseError('A', cmd_id, "missing_first_comma", raw);
+        else logParseError('A', "missing_first_comma", raw);
         return;
       }
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       if (secondComma == -1) {
-        if (has_cmd_id) logParseError('A', cmd_id, "missing_second_comma");
-        else logParseError('A', "missing_second_comma");
+        if (has_cmd_id) logParseError('A', cmd_id, "missing_second_comma", raw);
+        else logParseError('A', "missing_second_comma", raw);
         return;
       }
       if (args.indexOf(',', secondComma + 1) != -1) {
-        if (has_cmd_id) logParseError('A', cmd_id, "extra_args");
-        else logParseError('A', "extra_args");
+        if (has_cmd_id) logParseError('A', cmd_id, "extra_args", raw);
+        else logParseError('A', "extra_args", raw);
         return;
       }
 
       long pin_long = 0;
       long value_long = 0;
       if (!parseIntRange(args, 0, secondComma, pin_long)) {
-        if (has_cmd_id) logParseError('A', cmd_id, "bad_pin");
-        else logParseError('A', "bad_pin");
+        if (has_cmd_id) logParseError('A', cmd_id, "bad_pin", raw);
+        else logParseError('A', "bad_pin", raw);
         return;
       }
       if (!parseIntRange(args, secondComma + 1, args.length(), value_long)) {
-        if (has_cmd_id) logParseError('A', cmd_id, "bad_value");
-        else logParseError('A', "bad_value");
+        if (has_cmd_id) logParseError('A', cmd_id, "bad_value", raw);
+        else logParseError('A', "bad_value", raw);
         return;
       }
       if (value_long < 0 || value_long > 255) {
-        if (has_cmd_id) logParseError('A', cmd_id, "value_out_of_range");
-        else logParseError('A', "value_out_of_range");
+        if (has_cmd_id) logParseError('A', cmd_id, "value_out_of_range", raw);
+        else logParseError('A', "value_out_of_range", raw);
         return;
       }
 
@@ -261,8 +313,8 @@ void processCommand(String cmd) {
     case 'T': {
       int firstComma = cmd.indexOf(',');
       if (firstComma == -1) {
-        if (has_cmd_id) logParseError('T', cmd_id, "missing_first_comma");
-        else logParseError('T', "missing_first_comma");
+        if (has_cmd_id) logParseError('T', cmd_id, "missing_first_comma", raw);
+        else logParseError('T', "missing_first_comma", raw);
         return;
       }
       String args = cmd.substring(firstComma + 1);
@@ -273,13 +325,13 @@ void processCommand(String cmd) {
       int c5 = c4 == -1 ? -1 : args.indexOf(',', c4 + 1);
       int c6 = c5 == -1 ? -1 : args.indexOf(',', c5 + 1);
       if (c1 == -1 || c2 == -1 || c3 == -1) {
-        if (has_cmd_id) logParseError('T', cmd_id, "missing_required_commas");
-        else logParseError('T', "missing_required_commas");
+        if (has_cmd_id) logParseError('T', cmd_id, "missing_required_commas", raw);
+        else logParseError('T', "missing_required_commas", raw);
         return;
       }
       if (c6 != -1 && args.indexOf(',', c6 + 1) != -1) {
-        if (has_cmd_id) logParseError('T', cmd_id, "too_many_args");
-        else logParseError('T', "too_many_args");
+        if (has_cmd_id) logParseError('T', cmd_id, "too_many_args", raw);
+        else logParseError('T', "too_many_args", raw);
         return;
       }
 
@@ -292,25 +344,25 @@ void processCommand(String cmd) {
       long decel_steps_long = 0;
 
       if (!parseIntRange(args, 0, c1, step_pin_long)) {
-        if (has_cmd_id) logParseError('T', cmd_id, "bad_step_pin");
-        else logParseError('T', "bad_step_pin");
+        if (has_cmd_id) logParseError('T', cmd_id, "bad_step_pin", raw);
+        else logParseError('T', "bad_step_pin", raw);
         return;
       }
       if (!parseIntRange(args, c1 + 1, c2, dir_pin_long)) {
-        if (has_cmd_id) logParseError('T', cmd_id, "bad_dir_pin");
-        else logParseError('T', "bad_dir_pin");
+        if (has_cmd_id) logParseError('T', cmd_id, "bad_dir_pin", raw);
+        else logParseError('T', "bad_dir_pin", raw);
         return;
       }
       if (!parseIntRange(args, c2 + 1, c3, steps_long)) {
-        if (has_cmd_id) logParseError('T', cmd_id, "bad_steps");
-        else logParseError('T', "bad_steps");
+        if (has_cmd_id) logParseError('T', cmd_id, "bad_steps", raw);
+        else logParseError('T', "bad_steps", raw);
         return;
       }
 
       if (c4 == -1) {
         if (!parseIntRange(args, c3 + 1, args.length(), min_delay_us_long)) {
-          if (has_cmd_id) logParseError('T', cmd_id, "bad_min_delay");
-          else logParseError('T', "bad_min_delay");
+          if (has_cmd_id) logParseError('T', cmd_id, "bad_min_delay", raw);
+          else logParseError('T', "bad_min_delay", raw);
           return;
         }
         start_delay_us_long = min_delay_us_long;
@@ -318,14 +370,14 @@ void processCommand(String cmd) {
         decel_steps_long = 0;
       } else {
         if (!parseIntRange(args, c3 + 1, c4, min_delay_us_long)) {
-          if (has_cmd_id) logParseError('T', cmd_id, "bad_min_delay");
-          else logParseError('T', "bad_min_delay");
+          if (has_cmd_id) logParseError('T', cmd_id, "bad_min_delay", raw);
+          else logParseError('T', "bad_min_delay", raw);
           return;
         }
         int start_end = c5 == -1 ? args.length() : c5;
         if (!parseIntRange(args, c4 + 1, start_end, start_delay_us_long)) {
-          if (has_cmd_id) logParseError('T', cmd_id, "bad_start_delay");
-          else logParseError('T', "bad_start_delay");
+          if (has_cmd_id) logParseError('T', cmd_id, "bad_start_delay", raw);
+          else logParseError('T', "bad_start_delay", raw);
           return;
         }
         if (c5 == -1) {
@@ -334,16 +386,16 @@ void processCommand(String cmd) {
         } else {
           int accel_end = c6 == -1 ? args.length() : c6;
           if (!parseIntRange(args, c5 + 1, accel_end, accel_steps_long)) {
-            if (has_cmd_id) logParseError('T', cmd_id, "bad_accel_steps");
-            else logParseError('T', "bad_accel_steps");
+            if (has_cmd_id) logParseError('T', cmd_id, "bad_accel_steps", raw);
+            else logParseError('T', "bad_accel_steps", raw);
             return;
           }
           if (c6 == -1) {
             decel_steps_long = accel_steps_long;
           } else {
             if (!parseIntRange(args, c6 + 1, args.length(), decel_steps_long)) {
-              if (has_cmd_id) logParseError('T', cmd_id, "bad_decel_steps");
-              else logParseError('T', "bad_decel_steps");
+              if (has_cmd_id) logParseError('T', cmd_id, "bad_decel_steps", raw);
+              else logParseError('T', "bad_decel_steps", raw);
               return;
             }
           }
@@ -359,7 +411,9 @@ void processCommand(String cmd) {
         Serial.print(",bad_pins,");
         Serial.print(step_pin);
         Serial.print(",");
-        Serial.println(dir_pin);
+        Serial.print(dir_pin);
+        Serial.print(",raw=");
+        Serial.println(truncateRaw(raw, 80));
         return;
       }
 
@@ -397,6 +451,7 @@ void processCommand(String cmd) {
         delayMicroseconds(step_delay_us);
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_delay_us);
+        drainSerial();
       }
       Serial.print("T done ");
       if (has_cmd_id) {
@@ -416,41 +471,44 @@ void processCommand(String cmd) {
     case 'S': {
       int firstComma = cmd.indexOf(',');
       if (firstComma == -1) {
-        if (has_cmd_id) logParseError('S', cmd_id, "missing_first_comma");
-        else logParseError('S', "missing_first_comma");
+        if (has_cmd_id) logParseError('S', cmd_id, "missing_first_comma", raw);
+        else logParseError('S', "missing_first_comma", raw);
         return;
       }
       String args = cmd.substring(firstComma + 1);
       int secondComma = args.indexOf(',');
       if (secondComma == -1) {
-        if (has_cmd_id) logParseError('S', cmd_id, "missing_second_comma");
-        else logParseError('S', "missing_second_comma");
+        if (has_cmd_id) logParseError('S', cmd_id, "missing_second_comma", raw);
+        else logParseError('S', "missing_second_comma", raw);
         return;
       }
       if (args.indexOf(',', secondComma + 1) != -1) {
-        if (has_cmd_id) logParseError('S', cmd_id, "extra_args");
-        else logParseError('S', "extra_args");
+        if (has_cmd_id) logParseError('S', cmd_id, "extra_args", raw);
+        else logParseError('S', "extra_args", raw);
         return;
       }
 
       long pin_long = 0;
       long angle_long = 0;
       if (!parseIntRange(args, 0, secondComma, pin_long)) {
-        if (has_cmd_id) logParseError('S', cmd_id, "bad_pin");
-        else logParseError('S', "bad_pin");
+        if (has_cmd_id) logParseError('S', cmd_id, "bad_pin", raw);
+        else logParseError('S', "bad_pin", raw);
         return;
       }
       if (!parseIntRange(args, secondComma + 1, args.length(), angle_long)) {
-        if (has_cmd_id) logParseError('S', cmd_id, "bad_angle");
-        else logParseError('S', "bad_angle");
+        if (has_cmd_id) logParseError('S', cmd_id, "bad_angle", raw);
+        else logParseError('S', "bad_angle", raw);
         return;
       }
-      if (!isAllowedServoPin((int)pin_long)) {
+      int servo_idx = servoIndexForPin((int)pin_long);
+      if (servo_idx == -1) {
         Serial.print("ERR,S,");
         if (has_cmd_id) Serial.print(cmd_id);
         else Serial.print("no_id");
         Serial.print(",bad_pin,");
-        Serial.println((int)pin_long);
+        Serial.print((int)pin_long);
+        Serial.print(",raw=");
+        Serial.println(truncateRaw(raw, 80));
         return;
       }
       if (angle_long < 0 || angle_long > 180) {
@@ -458,18 +516,19 @@ void processCommand(String cmd) {
         if (has_cmd_id) Serial.print(cmd_id);
         else Serial.print("no_id");
         Serial.print(",bad_angle,");
-        Serial.println((int)angle_long);
+        Serial.print((int)angle_long);
+        Serial.print(",raw=");
+        Serial.println(truncateRaw(raw, 80));
         return;
       }
 
       int pin = (int)pin_long;
       int angle = (int)angle_long;
-      
-      Servo servo;
-      servo.attach(pin);
-      servo.write(angle);
-      delay(500);
-      servo.detach();
+
+      servos[servo_idx].attach(SERVO_PINS[servo_idx]);
+      servos[servo_idx].write(angle);
+      delayWithDrain(500);
+      servos[servo_idx].detach();
       
       Serial.print("Servo pin ");
       Serial.print(pin);
@@ -484,7 +543,9 @@ void processCommand(String cmd) {
       if (has_cmd_id) Serial.print(cmd_id);
       else Serial.print("no_id");
       Serial.print(",");
-      Serial.println(cmdType);
+      Serial.print(cmdType);
+      Serial.print(",raw=");
+      Serial.println(truncateRaw(raw, 80));
       break;
     }
   }

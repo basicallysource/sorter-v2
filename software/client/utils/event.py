@@ -18,6 +18,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             classification_status=ClassificationStatus(obj.classification_status),
             part_id=obj.part_id,
             category_id=obj.category_id,
+            category_name=obj.category_name,
             confidence=obj.confidence,
             destination_bin=obj.destination_bin,
             thumbnail=obj.thumbnail,

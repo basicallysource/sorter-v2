@@ -12,7 +12,7 @@ from defs.known_object import ClassificationStatus
 if TYPE_CHECKING:
     from irl.stepper import Stepper
 
-ROTATE_DURATION_MS = 3000
+ROTATE_TIMEOUT_MS = 5000
 
 
 class Rotating(BaseState):
@@ -30,8 +30,7 @@ class Rotating(BaseState):
         self.carousel = carousel
         self.stepper = stepper
         self.event_queue = event_queue
-        self.start_time: Optional[float] = None
-        self.command_sent = False
+        self.rotation_done = False
         self.wait_started_at: Optional[float] = None
         self.last_wait_log_ms = 0.0
 
@@ -72,22 +71,16 @@ class Rotating(BaseState):
             self.wait_started_at = None
             self.last_wait_log_ms = 0.0
 
-        if self.start_time is None:
-            self.start_time = time.time()
-            queue_size = self.stepper.mcu.command_queue.qsize()
-            worker_alive = self.stepper.mcu.worker_thread.is_alive()
-            self.logger.info("Rotating: starting rotation")
-            self.logger.info(
-                f"Rotating: enqueueing carousel rotate (mcu_queue={queue_size}, mcu_worker_alive={worker_alive})"
-            )
-            self.stepper.rotate(-90.0)
-            self.command_sent = True
+        if not self.rotation_done:
+            self.logger.info("Rotating: starting blocking rotation")
+            try:
+                self.stepper.rotateBlocking(-90.0, timeout_ms=ROTATE_TIMEOUT_MS)
+            except RuntimeError as e:
+                self.logger.error(f"Rotating: rotation failed: {e}")
+                return ClassificationState.IDLE
+            self.rotation_done = True
+            self.logger.info("Rotating: rotation confirmed by MCU")
 
-        elapsed_ms = (time.time() - self.start_time) * 1000
-        if elapsed_ms < ROTATE_DURATION_MS:
-            return None
-
-        self.logger.info("Rotating: rotation complete")
         exiting = self.carousel.rotate()
         if exiting:
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
@@ -112,7 +105,6 @@ class Rotating(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
-        self.start_time = None
-        self.command_sent = False
+        self.rotation_done = False
         self.wait_started_at = None
         self.last_wait_log_ms = 0.0

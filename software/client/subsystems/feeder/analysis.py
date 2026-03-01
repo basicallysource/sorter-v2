@@ -1,216 +1,124 @@
 from enum import Enum
-from dataclasses import dataclass
-from typing import Optional, List, Dict, Tuple, TYPE_CHECKING
+from typing import List, Dict, Tuple, TYPE_CHECKING
 import numpy as np
-from vision.types import VisionResult
 
 if TYPE_CHECKING:
-    from irl.config import ArucoTagConfig
+    from global_config import GlobalConfig
 
-OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
-EXPAND_RADIUS_CHANNELS_PX = 20
-
-
-class FeederAnalysisState(Enum):
-    OBJECT_IN_3_DROPZONE_PRECISE = "object_in_3_dropzone_precise"
-    OBJECT_IN_3_DROPZONE = "object_in_3_dropzone"
-    OBJECT_IN_2_DROPZONE_PRECISE = "object_in_2_dropzone_precise"
-    OBJECT_IN_2_DROPZONE = "object_in_2_dropzone"
-    CLEAR = "clear"
+from defs.consts import (
+    CHANNEL_SECTION_DEG,
+    CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
+    CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
+)
+from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
 
 
-@dataclass
-class CircularChannel:
-    channel_id: int
-    center: Tuple[float, float]
-    radius: float
-    radius1_angle_image: float  # angle to radius1 tag in image space
-
-
-@dataclass
-class ChannelGeometry:
-    second_channel: Optional[CircularChannel]
-    third_channel: Optional[CircularChannel]
+class ChannelAction(Enum):
+    IDLE = "idle"
+    PULSE_NORMAL = "normal"
+    PULSE_PRECISE = "precise"
 
 
 def computeChannelGeometry(
-    aruco_tags: Dict[int, Tuple[float, float]],
-    aruco_config: "ArucoTagConfig",
+    saved_polygons: Dict[str, np.ndarray],
+    channel_angles: Dict[str, float],
+    channel_masks: Dict[str, np.ndarray],
 ) -> ChannelGeometry:
     geometry = ChannelGeometry(second_channel=None, third_channel=None)
 
-    # compute channel 2 - circle from two radius tags (diameter endpoints)
-    second_r1 = aruco_tags.get(aruco_config.second_c_channel_radius1_id)
-    second_r2 = aruco_tags.get(aruco_config.second_c_channel_radius2_id)
-
-    if second_r1 and second_r2:
-        # center is midpoint between the two radius tags
-        center_x = (second_r1[0] + second_r2[0]) / 2.0
-        center_y = (second_r1[1] + second_r2[1]) / 2.0
-        center = (center_x, center_y)
-
-        # radius is half the distance between the two tags
-        radius = (
-            float(np.linalg.norm(np.array(second_r1) - np.array(second_r2)) / 2.0)
-            + EXPAND_RADIUS_CHANNELS_PX
-        )
-
-        # angle to radius1 in image space
-        v1 = np.array(second_r1) - np.array(center)
-        r1_angle_img = float(np.degrees(np.arctan2(v1[1], v1[0])))
-
-        geometry.second_channel = CircularChannel(
+    second_poly = saved_polygons.get("second_channel")
+    if second_poly is not None and len(second_poly) >= 3:
+        center = tuple(np.mean(second_poly, axis=0).tolist())
+        r1_angle = channel_angles.get("second", 0.0)
+        geometry.second_channel = PolygonChannel(
             channel_id=2,
+            polygon=second_poly,
             center=center,
-            radius=radius,
-            radius1_angle_image=r1_angle_img,
+            radius1_angle_image=r1_angle,
+            mask=channel_masks["second_channel"],
         )
 
-    # compute channel 3 - circle from two radius tags (diameter endpoints)
-    third_r1 = aruco_tags.get(aruco_config.third_c_channel_radius1_id)
-    third_r2 = aruco_tags.get(aruco_config.third_c_channel_radius2_id)
-
-    if third_r1 and third_r2:
-        # center is midpoint between the two radius tags
-        center_x = (third_r1[0] + third_r2[0]) / 2.0
-        center_y = (third_r1[1] + third_r2[1]) / 2.0
-        center = (center_x, center_y)
-
-        # radius is half the distance between the two tags
-        radius = (
-            float(np.linalg.norm(np.array(third_r1) - np.array(third_r2)) / 2.0)
-            + EXPAND_RADIUS_CHANNELS_PX
-        )
-
-        # angle to radius1 in image space
-        v1 = np.array(third_r1) - np.array(center)
-        r1_angle_img = float(np.degrees(np.arctan2(v1[1], v1[0])))
-
-        geometry.third_channel = CircularChannel(
+    third_poly = saved_polygons.get("third_channel")
+    if third_poly is not None and len(third_poly) >= 3:
+        center = tuple(np.mean(third_poly, axis=0).tolist())
+        r1_angle = channel_angles.get("third", 0.0)
+        geometry.third_channel = PolygonChannel(
             channel_id=3,
+            polygon=third_poly,
             center=center,
-            radius=radius,
-            radius1_angle_image=r1_angle_img,
+            radius1_angle_image=r1_angle,
+            mask=channel_masks["third_channel"],
         )
 
     return geometry
 
 
-def isPointInCircle(
-    point: Tuple[float, float],
-    center: Tuple[float, float],
-    radius: float,
-) -> bool:
-    distance = np.linalg.norm(np.array(point) - np.array(center))
-    return distance <= radius
+def _isInChannel(point: Tuple[float, float], ch: PolygonChannel) -> bool:
+    x, y = int(point[0]), int(point[1])
+    if 0 <= y < ch.mask.shape[0] and 0 <= x < ch.mask.shape[1]:
+        return ch.mask[y, x] > 0
+    return False
 
 
-def determineObjectChannelAndQuadrant(
+def determineObjectChannel(
     obj_center_image: Tuple[float, float],
     geometry: ChannelGeometry,
-) -> Optional[Tuple[int, int]]:
-    # check channel 3 first (innermost)
-    if geometry.third_channel:
-        if isPointInCircle(
-            obj_center_image,
-            geometry.third_channel.center,
-            geometry.third_channel.radius,
-        ):
-            # calculate angle in image space relative to radius1
-            dx = obj_center_image[0] - geometry.third_channel.center[0]
-            dy = obj_center_image[1] - geometry.third_channel.center[1]
-            obj_angle = np.degrees(np.arctan2(dy, dx))
-
-            # relative angle from radius1
-            relative_angle = obj_angle - geometry.third_channel.radius1_angle_image
-            while relative_angle < 0:
-                relative_angle += 360
-            while relative_angle >= 360:
-                relative_angle -= 360
-
-            quadrant = int(relative_angle / 90.0)
-            return (3, quadrant)
-
-    # check channel 2
-    if geometry.second_channel:
-        if isPointInCircle(
-            obj_center_image,
-            geometry.second_channel.center,
-            geometry.second_channel.radius,
-        ):
-            # calculate angle in image space relative to radius1
-            dx = obj_center_image[0] - geometry.second_channel.center[0]
-            dy = obj_center_image[1] - geometry.second_channel.center[1]
-            obj_angle = np.degrees(np.arctan2(dy, dx))
-
-            # relative angle from radius1
-            relative_angle = obj_angle - geometry.second_channel.radius1_angle_image
-            while relative_angle < 0:
-                relative_angle += 360
-            while relative_angle >= 360:
-                relative_angle -= 360
-
-            quadrant = int(relative_angle / 90.0)
-            return (2, quadrant)
-
+) -> PolygonChannel | None:
+    if geometry.third_channel and _isInChannel(obj_center_image, geometry.third_channel):
+        return geometry.third_channel
+    if geometry.second_channel and _isInChannel(obj_center_image, geometry.second_channel):
+        return geometry.second_channel
     return None
 
 
-def analyzeFeederState(
-    object_detections: List[VisionResult],
-    geometry: ChannelGeometry,
-) -> FeederAnalysisState:
-    if not object_detections:
-        return FeederAnalysisState.CLEAR
-
-    # filter objects by confidence threshold
-    high_confidence_objects = [
-        detection
-        for detection in object_detections
-        if detection.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
+def getBboxSections(bbox: Tuple, channel: PolygonChannel) -> set:
+    x1, y1, x2, y2 = bbox
+    mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    points = [
+        (x1, y1), (x2, y1), (x1, y2), (x2, y2),
+        (mx, y1), (mx, y2), (x1, my), (x2, my),
+        (mx, my),
     ]
+    sections = set()
+    for px, py in points:
+        dx = px - channel.center[0]
+        dy = py - channel.center[1]
+        angle = np.degrees(np.arctan2(dy, dx))
+        relative = (angle - channel.radius1_angle_image) % 360
+        sections.add(int(relative / CHANNEL_SECTION_DEG))
+    return sections
 
-    if not high_confidence_objects:
-        return FeederAnalysisState.CLEAR
 
-    has_object_in_3_dropzone_precise = False
-    has_object_in_3_dropzone = False
-    has_object_in_2_dropzone_precise = False
-    has_object_in_2_dropzone = False
+class FeederAnalysis:
+    def __init__(self):
+        self.ch2_action = ChannelAction.IDLE
+        self.ch3_action = ChannelAction.IDLE
+        self.ch3_dropzone_occupied = False
+        self.ch2_dropzone_occupied = False
 
-    for detection in high_confidence_objects:
-        if detection.bbox is None:
-            continue
-        x1, y1, x2, y2 = detection.bbox
-        center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
-        result = determineObjectChannelAndQuadrant(center, geometry)
-        if result is None:
-            continue
+def analyzeFeederChannels(
+    gc: "GlobalConfig",
+    detections: List[ChannelDetection],
+) -> FeederAnalysis:
+    result = FeederAnalysis()
 
-        channel_id, quadrant = result
+    for det in detections:
+        sections = getBboxSections(det.bbox, det.channel)
 
-        # check for precise mode (quadrant 3) and normal dropzone (quadrants 0, 1)
-        if channel_id == 3:
-            if quadrant == 3:
-                has_object_in_3_dropzone_precise = True
-            elif quadrant in [0, 1]:
-                has_object_in_3_dropzone = True
+        if det.channel_id == 3:
+            if sections & set(CH3_DROPZONE_SECTIONS):
+                result.ch3_dropzone_occupied = True
+            if sections & set(CH3_PRECISE_SECTIONS):
+                result.ch3_action = ChannelAction.PULSE_PRECISE
+            elif result.ch3_action == ChannelAction.IDLE:
+                result.ch3_action = ChannelAction.PULSE_NORMAL
+        elif det.channel_id == 2:
+            if sections & set(CH2_DROPZONE_SECTIONS):
+                result.ch2_dropzone_occupied = True
+            if sections & set(CH2_PRECISE_SECTIONS):
+                result.ch2_action = ChannelAction.PULSE_PRECISE
+            elif result.ch2_action == ChannelAction.IDLE:
+                result.ch2_action = ChannelAction.PULSE_NORMAL
 
-        if channel_id == 2:
-            if quadrant == 3:
-                has_object_in_2_dropzone_precise = True
-            elif quadrant in [0, 1]:
-                has_object_in_2_dropzone = True
-
-    # return in priority order
-    if has_object_in_3_dropzone_precise:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE
-    if has_object_in_3_dropzone:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE
-    if has_object_in_2_dropzone_precise:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE_PRECISE
-    if has_object_in_2_dropzone:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE
-
-    return FeederAnalysisState.CLEAR
+    return result

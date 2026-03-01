@@ -13,9 +13,9 @@ from blob_manager import setBinCategories
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
-POSITION_BUFFER_MS = 5000
-SLEEP_AFTER_CLOSE_DOOR_MS = 1500
-SLEEP_BEFORE_CHUTE_MOVE_MS = 5000
+POSITION_BUFFER_MS = 2000
+SLEEP_AFTER_CLOSE_DOOR_MS = 1000
+SLEEP_BEFORE_CHUTE_MOVE_MS = 500
 
 
 class Positioning(BaseState):
@@ -60,6 +60,7 @@ class Positioning(BaseState):
 
             piece.stage = PieceStage.distributing
             piece.category_id = category_id
+            piece.category_name = self.sorting_profile.getCategoryName(category_id)
             piece.destination_bin = (
                 address.layer_index,
                 address.section_index,
@@ -104,6 +105,8 @@ class Positioning(BaseState):
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
+        if self.gc.disable_servos:
+            return
         target_servo = self.irl.servos[target_layer_index]
         if not target_servo.isClosed():
             for i, servo in enumerate(self.irl.servos):

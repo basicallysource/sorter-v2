@@ -12,11 +12,14 @@ from server.api import (
     setRuntimeVariables,
     setCommandQueue,
     setController,
+    setSortingProfile,
+    setDistributionLayout,
 )
 from sorter_controller import SorterController
 from telemetry import Telemetry
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from blob_manager import appendKnownObjectRecord
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision import VisionManager
 import uvicorn
@@ -61,6 +64,15 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
+            if command.tag == "known_object":
+                try:
+                    appendKnownObjectRecord(
+                        gc.machine_id,
+                        gc.run_id,
+                        command.data.model_dump(),
+                    )
+                except Exception as e:
+                    gc.logger.warn(f"failed to append known object record: {e}")
             if command.tag != "frame" and command.tag != "heartbeat":
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
@@ -83,9 +95,10 @@ def main() -> None:
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
 
-    gc.logger.info("Opening all layer servos...")
-    for servo in irl.servos:
-        servo.open()
+    if not gc.disable_servos:
+        gc.logger.info("Opening all layer servos...")
+        for servo in irl.servos:
+            servo.open()
 
     gc.logger.info("Homing chute to zero...")
     irl.chute.home()
@@ -97,9 +110,14 @@ def main() -> None:
         irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
     )
     setController(controller)
+    setSortingProfile(controller.coordinator.sorting_profile)
+    setDistributionLayout(controller.coordinator.distribution_layout)
     gc.logger.info("client starting...")
 
     vision.start()
+    if not vision.loadFeederBaseline():
+        gc.logger.error("Feeder baseline setup incomplete. See warnings above for details.")
+        sys.exit(1)
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)

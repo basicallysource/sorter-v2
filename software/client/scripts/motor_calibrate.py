@@ -1,9 +1,13 @@
-from dotenv import load_dotenv
+import sys
+import os
 from pathlib import Path
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import sys
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+
 import readchar
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface

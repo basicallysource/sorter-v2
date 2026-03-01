@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.128.3",
+    "flask>=3.1.3",
     "lap>=0.5.12",
     "numpy>=2.4.2",
     "opencv-python>=4.13.0.92",
@@ -17,7 +18,6 @@ dependencies = [
     "readchar>=4.2.1",
     "requests>=2.32.5",
     "requests-oauthlib>=2.0.0",
-    "ultralytics>=8.4.12",
     "uvicorn>=0.40.0",
     "websockets>=16.0",
     "wsproto>=1.3.2",

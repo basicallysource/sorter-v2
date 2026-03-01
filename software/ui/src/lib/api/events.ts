@@ -54,6 +54,7 @@ export interface KnownObjectData {
 	classification_status: ClassificationStatus;
 	part_id?: string | null;
 	category_id?: string | null;
+	category_name?: string | null;
 	confidence?: number | null;
 	destination_bin?: [unknown, unknown, unknown] | null;
 	thumbnail?: string | null;

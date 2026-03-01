@@ -97,7 +97,7 @@
         <div class="parts-sidebar-scroll min-h-0 flex-1 overflow-y-auto border border-slate-200">
             <table id="parts-table">
                 <thead>
-                    <tr><th class="w-[84px] min-w-[84px]"></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>Years</th></tr>
+                    <tr><th class="w-[84px] min-w-[84px]"></th><th>RB Part #</th><th>Name</th><th>RB Category</th><th>BL Part ID</th><th>BL Name</th><th>BL Category</th><th>Years</th></tr>
                 </thead>
                 <tbody id="parts-tbody"></tbody>
             </table>
@@ -169,13 +169,13 @@ const FIELD_CONFIG = {
     bl_price_min:             {label: "BL Min Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
     bl_price_max:             {label: "BL Max Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
     bl_price_avg:             {label: "BL Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_qty_avg:         {label: "BL Qty Avg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_unit_quantity:   {label: "BL Unit Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_total_quantity:  {label: "BL Total Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
-    bl_price_currency:        {label: "BL Price Currency", ops: {eq: "is", neq: "is not", contains: "contains"}, valueType: "text"},
-    bl_price_new_or_used:     {label: "BL Price New/Used", ops: {eq: "is", neq: "is not"}, valueType: "text"},
-    bl_price_guide_type:      {label: "BL Guide Type", ops: {eq: "is", neq: "is not"}, valueType: "text"},
-    bl_price_country_code:    {label: "BL Country Code", ops: {eq: "is", neq: "is not"}, valueType: "text"},
+    bl_price_qty_avg:         {label: "BL Qty WAvg Price", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_lots:            {label: "BL Lots (sellers)", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_qty:             {label: "BL Total Qty", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_inv_new_avg:     {label: "BL Inv New Avg", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_inv_used_avg:    {label: "BL Inv Used Avg", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_ord_new_avg:     {label: "BL Sold New Avg", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
+    bl_price_ord_used_avg:    {label: "BL Sold Used Avg", ops: {eq: "is", neq: "is not", gte: ">=", lte: "<="}, valueType: "number"},
     bl_catalog_name:          {label: "BL Part Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
     bl_category_id:           {label: "BL Category", ops: {eq: "is", neq: "is not", "in": "is one of"}, valueType: "bl_category"},
     bl_category_name:         {label: "BL Category Name", ops: {contains: "contains", regex: "matches regex"}, valueType: "text"},
@@ -442,27 +442,23 @@ function renderMatchedPartDetail(p, has_color) {
     let cat_line = p.part_cat_id != null ? `<div><strong>RB Category ID:</strong> ${escHtml(p.part_cat_id)}</div>` : '';
     let bl_ids = Array.isArray(p.bricklink_ids) && p.bricklink_ids.length ? p.bricklink_ids.join(', ') : '';
     let bl_line = bl_ids ? `<div><strong>BrickLink IDs:</strong> ${escHtml(bl_ids)}</div>` : '';
+    let bl_name_line = p.bl_catalog_name ? `<div><strong>BL Part Name:</strong> ${escHtml(p.bl_catalog_name)}</div>` : '';
+    let bl_cat_name_line = p.bl_category_name ? `<div><strong>BL Category:</strong> ${escHtml(p.bl_category_name)}</div>` : '';
+    let section_label = p.bl_price_section === 'ord_used' ? 'Sold Used' : p.bl_price_section === 'inv_used' ? 'For Sale Used' : (p.bl_price_section || '');
     let bl_price_line = '';
     if (p.bl_price_avg !== null && p.bl_price_avg !== undefined) {
-        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
-        let mode = [];
-        if (p.bl_price_new_or_used) mode.push(escHtml(p.bl_price_new_or_used));
-        if (p.bl_price_guide_type) mode.push(escHtml(p.bl_price_guide_type));
-        if (p.bl_price_country_code) mode.push(escHtml(p.bl_price_country_code));
-        let mode_suffix = mode.length ? ` <span class="stats">(${mode.join(' / ')})</span>` : '';
-        bl_price_line = `<div><strong>BL Price Avg:</strong> ${fmtPriceVal(p.bl_price_avg)}${currency}${mode_suffix}</div>`;
+        bl_price_line = `<div><strong>BL Avg (${escHtml(section_label)}):</strong> $${fmtPriceVal(p.bl_price_avg)}</div>`;
     }
     let bl_price_range_line = '';
     if (p.bl_price_min !== null && p.bl_price_min !== undefined && p.bl_price_max !== null && p.bl_price_max !== undefined) {
-        let currency = p.bl_price_currency ? ` ${escHtml(p.bl_price_currency)}` : '';
-        bl_price_range_line = `<div><strong>BL Price Range:</strong> ${fmtPriceVal(p.bl_price_min)} - ${fmtPriceVal(p.bl_price_max)}${currency}</div>`;
+        bl_price_range_line = `<div><strong>BL Range:</strong> $${fmtPriceVal(p.bl_price_min)} - $${fmtPriceVal(p.bl_price_max)}</div>`;
     }
     let bl_qty_line = '';
-    if (p.bl_price_unit_quantity !== null || p.bl_price_total_quantity !== null || p.bl_price_qty_avg !== null) {
+    if (p.bl_price_lots !== null || p.bl_price_qty !== null || p.bl_price_qty_avg !== null) {
         let qty_parts = [];
-        if (p.bl_price_qty_avg !== null && p.bl_price_qty_avg !== undefined) qty_parts.push(`qty avg ${fmtPriceVal(p.bl_price_qty_avg)}`);
-        if (p.bl_price_unit_quantity !== null && p.bl_price_unit_quantity !== undefined) qty_parts.push(`lots ${escHtml(p.bl_price_unit_quantity)}`);
-        if (p.bl_price_total_quantity !== null && p.bl_price_total_quantity !== undefined) qty_parts.push(`units ${escHtml(p.bl_price_total_quantity)}`);
+        if (p.bl_price_qty_avg !== null && p.bl_price_qty_avg !== undefined) qty_parts.push(`wavg $${fmtPriceVal(p.bl_price_qty_avg)}`);
+        if (p.bl_price_lots !== null && p.bl_price_lots !== undefined) qty_parts.push(`${escHtml(p.bl_price_lots)} lots`);
+        if (p.bl_price_qty !== null && p.bl_price_qty !== undefined) qty_parts.push(`${escHtml(p.bl_price_qty)} units`);
         if (qty_parts.length) bl_qty_line = `<div><strong>BL Market:</strong> ${qty_parts.join(', ')}</div>`;
     }
     let link_line = p.part_url ? `<div><a href="${p.part_url}" target="_blank" rel="noopener noreferrer">Rebrickable page</a></div>` : '';
@@ -477,6 +473,8 @@ function renderMatchedPartDetail(p, has_color) {
                 ${years_line}
                 ${cat_line}
                 ${bl_line}
+                ${bl_name_line}
+                ${bl_cat_name_line}
                 ${bl_price_line}
                 ${bl_price_range_line}
                 ${bl_qty_line}
@@ -499,6 +497,7 @@ async function apiJson(method, url, body) {
 function markDirty(rule_id) {
     dirty_rules.add(findTopLevelId(rule_id));
     renderRuleList();
+    updateSaveBar();
 }
 
 function ruleState(rule_id) {
@@ -971,10 +970,6 @@ function renderEditor() {
     let parent = is_child ? findParentRule(RULES, rule.id) : null;
     let title = is_child ? `Editing Sub-rule: ${escHtml(rule.name)}` : `Editing: ${escHtml(rule.name)}`;
 
-    let state = ruleState(rule.id);
-    let cancel_btn_html = state !== 'saved'
-        ? mkBtn('Cancel', `discardRule('${rule.id}')`)
-        : '';
     let html = '';
 
     html += `<h5 class="text-sm font-semibold text-slate-900">${title}</h5>`;
@@ -1042,7 +1037,6 @@ function renderEditor() {
         <div class="editor-footer">
             <span class="stats" id="editor-match">loading...</span>
             <div class="flex flex-wrap items-center gap-2">
-                ${cancel_btn_html}
                 ${mkBtn(toggle_label, 'toggleStandaloneMode()')}
                 ${mkBtn('Duplicate Rule', `duplicateRule('${rule.id}')`)}
                 ${mkBtn('Delete Rule', `deleteRule('${rule.id}')`, 'danger')}
@@ -1051,20 +1045,8 @@ function renderEditor() {
         <div id="editor-preview-list"></div>
     `;
 
-    // save bar at the bottom
-    if (state === 'pending') {
-        html += `<div class="editor-save-bar pending mt-3">
-            <span class="save-label">New rule — not yet saved</span>
-            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
-            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
-        </div>`;
-    } else if (state === 'unsaved') {
-        html += `<div class="editor-save-bar unsaved mt-3">
-            <span class="save-label">Unsaved changes</span>
-            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
-            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
-        </div>`;
-    }
+    // save bar placeholder — updated independently by updateSaveBar()
+    html += `<div id="editor-save-bar"></div>`;
 
     content.innerHTML = html;
 
@@ -1072,6 +1054,34 @@ function renderEditor() {
     let conds_el = document.getElementById('editor-conds');
     renderConditions(conds_el, rule);
     applyProfileTailwindUi(content);
+    updateSaveBar();
+}
+
+function updateSaveBar() {
+    let el = document.getElementById('editor-save-bar');
+    if (!el || !selected_rule_id) return;
+    let rule = findRuleById(RULES, selected_rule_id);
+    if (!rule) return;
+    let state = ruleState(rule.id);
+    if (state === 'pending') {
+        el.className = 'editor-save-bar pending mt-3';
+        el.innerHTML = `
+            <span class="save-label">New rule — not yet saved</span>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
+        `;
+    } else if (state === 'unsaved') {
+        el.className = 'editor-save-bar unsaved mt-3';
+        el.innerHTML = `
+            <span class="save-label">Unsaved changes</span>
+            ${mkBtn('Save', `saveRule('${rule.id}')`, 'primary')}
+            ${mkBtn('Cancel', `discardRule('${rule.id}')`)}
+        `;
+    } else {
+        el.className = '';
+        el.innerHTML = '';
+    }
+    applyProfileTailwindUi(el);
 }
 
 // --- condition rendering ---
@@ -1134,13 +1144,13 @@ function mkAddConditionBtn(rule_id) {
         <option value="bl_price_min">BL Min Price...</option>
         <option value="bl_price_max">BL Max Price...</option>
         <option value="bl_price_avg">BL Avg Price...</option>
-        <option value="bl_price_qty_avg">BL Qty Avg Price...</option>
-        <option value="bl_price_unit_quantity">BL Unit Qty...</option>
-        <option value="bl_price_total_quantity">BL Total Qty...</option>
-        <option value="bl_price_currency">BL Price Currency...</option>
-        <option value="bl_price_new_or_used">BL Price New/Used...</option>
-        <option value="bl_price_guide_type">BL Guide Type...</option>
-        <option value="bl_price_country_code">BL Country...</option>
+        <option value="bl_price_qty_avg">BL WAvg Price...</option>
+        <option value="bl_price_lots">BL Lots (sellers)...</option>
+        <option value="bl_price_qty">BL Total Qty...</option>
+        <option value="bl_price_inv_new_avg">BL Inv New Avg...</option>
+        <option value="bl_price_inv_used_avg">BL Inv Used Avg...</option>
+        <option value="bl_price_ord_new_avg">BL Sold New Avg...</option>
+        <option value="bl_price_ord_used_avg">BL Sold Used Avg...</option>
         <option value="bl_catalog_name">BL Part Name...</option>
         <option value="bl_category_id">BL Category...</option>
         <option value="bl_category_name">BL Category Name...</option>
@@ -1559,16 +1569,21 @@ async function fetchPartList() {
     let is_child = top_id !== selected_rule_id;
 
     let data;
-    if (standalone_mode) {
-        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}`, {rules: RULES});
+    if (is_child) {
+        // subrule: show what this subrule's own conditions match
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}&standalone=1`, {rules: RULES});
         if (!data) { match_el.textContent = 'error'; return; }
-        let label = 'standalone';
-        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts matched by sub-rule`;
+    } else if (standalone_mode) {
+        // top-level standalone: only this rule's own conditions, no children
+        data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}&standalone=1`, {rules: RULES});
+        if (!data) { match_el.textContent = 'error'; return; }
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (standalone)`;
     } else {
+        // top-level in context: what actually lands in this category
         data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${top_id}?${_plParams()}`, {rules: RULES});
         if (!data) { match_el.textContent = 'error'; return; }
-        let label = is_child ? 'in context — showing parent bucket' : 'in context';
-        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (${label})`;
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (in context)`;
     }
     renderPartListResults(list_el, data);
 }
@@ -1717,7 +1732,9 @@ function renderParts(parts) {
         let img = renderPartImg(p.part_img_url, 'part-img-md', 'eager');
         let years = '';
         if (p.year_from) years = p.year_from === p.year_to ? `${p.year_from}` : `${p.year_from}-${p.year_to || '?'}`;
-        tr.innerHTML = `<td class="w-[84px] min-w-[84px]">${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${years}</td>`;
+        let bl_name = p._bl_name ? escHtml(p._bl_name) : '';
+        let bl_cat = p._bl_category_name ? `<span class="badge">${escHtml(p._bl_category_name)}</span>` : '';
+        tr.innerHTML = `<td class="w-[84px] min-w-[84px]">${img}</td><td>${p.part_num}</td><td>${escHtml(p.name)}</td><td><span class="badge">${escHtml(p._category_name || '')}</span></td><td>${bl_ids}</td><td>${bl_name}</td><td>${bl_cat}</td><td>${years}</td>`;
         tbody.appendChild(tr);
     }
     applyProfileTailwindUi(tbody);

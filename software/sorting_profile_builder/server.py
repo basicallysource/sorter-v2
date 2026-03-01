@@ -331,7 +331,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
         return result["stats"]
 
     @app.post("/api/profile/{profile_id}/rules/{rule_id}/preview")
-    def apiPreviewRule(profile_id: str, rule_id: str, body: PreviewBody | None = None, q: str = "", offset: int = 0, limit: int = 50):
+    def apiPreviewRule(profile_id: str, rule_id: str, body: PreviewBody | None = None, q: str = "", offset: int = 0, limit: int = 50, standalone: int = 0):
         sp = _getOpenProfile(open_profile, gc, profile_id)
         original_rules = sp.rules
         if body and body.rules is not None:
@@ -341,7 +341,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
         if not rule:
             sp.rules = original_rules
             raise HTTPException(404, "Rule not found")
-        ancestor_checks = getAncestorChecks(sp, rule_id)
+        ancestor_checks = [] if standalone else getAncestorChecks(sp, rule_id)
         result = previewRule(
             rule,
             parts_data.parts,
@@ -370,7 +370,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             fallback_mode=sp.fallback_mode,
         )
         sp.rules = original_rules
-        return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit)
+        return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit, categories=parts_data.categories, bricklink_categories=parts_data.bricklink_categories)
 
     @app.get("/api/profile/{profile_id}/stats")
     def apiProfileStats(profile_id: str):

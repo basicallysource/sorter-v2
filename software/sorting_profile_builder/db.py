@@ -66,6 +66,77 @@ def runMigrations(conn):
         conn.commit()
         print(f"[db] migration {fname} complete")
 
+        # python-side data migration for 003: backfill price_guides from JSON blobs
+        if version == 3:
+            _migratePriceGuidesFromJson(conn)
+
+
+def _safeDiv(numerator, denominator):
+    try:
+        n = float(numerator)
+        d = float(denominator)
+    except (TypeError, ValueError):
+        return None
+    if d == 0:
+        return None
+    return n / d
+
+
+def _migratePriceGuidesFromJson(conn):
+    rows = conn.execute("SELECT item_no, price_guide FROM bricklink_items WHERE price_guide IS NOT NULL").fetchall()
+    if not rows:
+        return
+    migrated = 0
+    for item_no, pg_json in rows:
+        try:
+            pg = json.loads(pg_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        ad = pg.get("affiliate_data")
+        if not ad:
+            continue
+        vals = {"item_no": item_no, "updated_at": None}
+        for section_key, col_prefix in [
+            ("inventory_new", "inv_new"),
+            ("inventory_used", "inv_used"),
+            ("ordered_new", "ord_new"),
+            ("ordered_used", "ord_used"),
+        ]:
+            s = ad.get(section_key)
+            if not s:
+                continue
+            lots = s.get("unit_quantity", 0)
+            qty = s.get("total_quantity", 0)
+            vals[f"{col_prefix}_lots"] = lots
+            vals[f"{col_prefix}_qty"] = qty
+            vals[f"{col_prefix}_min"] = _safeDiv(s.get("min_price"), 1)
+            vals[f"{col_prefix}_max"] = _safeDiv(s.get("max_price"), 1)
+            vals[f"{col_prefix}_avg"] = _safeDiv(s.get("avg_price"), qty)
+            vals[f"{col_prefix}_wavg"] = _safeDiv(s.get("qty_avg_price"), lots)
+        conn.execute(
+            "INSERT OR REPLACE INTO price_guides ("
+            "item_no, updated_at, "
+            "inv_new_lots, inv_new_qty, inv_new_min, inv_new_max, inv_new_avg, inv_new_wavg, "
+            "inv_used_lots, inv_used_qty, inv_used_min, inv_used_max, inv_used_avg, inv_used_wavg, "
+            "ord_new_lots, ord_new_qty, ord_new_min, ord_new_max, ord_new_avg, ord_new_wavg, "
+            "ord_used_lots, ord_used_qty, ord_used_min, ord_used_max, ord_used_avg, ord_used_wavg"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                vals.get("item_no"), vals.get("updated_at"),
+                vals.get("inv_new_lots", 0), vals.get("inv_new_qty", 0),
+                vals.get("inv_new_min"), vals.get("inv_new_max"), vals.get("inv_new_avg"), vals.get("inv_new_wavg"),
+                vals.get("inv_used_lots", 0), vals.get("inv_used_qty", 0),
+                vals.get("inv_used_min"), vals.get("inv_used_max"), vals.get("inv_used_avg"), vals.get("inv_used_wavg"),
+                vals.get("ord_new_lots", 0), vals.get("ord_new_qty", 0),
+                vals.get("ord_new_min"), vals.get("ord_new_max"), vals.get("ord_new_avg"), vals.get("ord_new_wavg"),
+                vals.get("ord_used_lots", 0), vals.get("ord_used_qty", 0),
+                vals.get("ord_used_min"), vals.get("ord_used_max"), vals.get("ord_used_avg"), vals.get("ord_used_wavg"),
+            ),
+        )
+        migrated += 1
+    conn.commit()
+    print(f"[db] migrated {migrated} price guides from JSON to structured table")
+
 
 def reloadPartsData(conn, parts_data):
     parts_data.categories = _loadCategories(conn)
@@ -128,8 +199,8 @@ def loadPartsDict(conn):
 
     # load bricklink items
     bl_items = {}
-    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, price_guide FROM bricklink_items"):
-        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at, price_guide_json = row
+    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at FROM bricklink_items"):
+        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at = row
         bl_items[item_no] = {
             "item_no": item_no,
             "part_num": part_num,
@@ -140,7 +211,23 @@ def loadPartsDict(conn):
             "year_released": year_released,
             "is_obsolete": is_obsolete,
             "synced_at": synced_at,
-            "price_guide": json.loads(price_guide_json) if price_guide_json else None,
+        }
+
+    # load structured price guides
+    price_guides = {}
+    for row in conn.execute(
+        "SELECT item_no, "
+        "inv_new_lots, inv_new_qty, inv_new_min, inv_new_max, inv_new_avg, inv_new_wavg, "
+        "inv_used_lots, inv_used_qty, inv_used_min, inv_used_max, inv_used_avg, inv_used_wavg, "
+        "ord_new_lots, ord_new_qty, ord_new_min, ord_new_max, ord_new_avg, ord_new_wavg, "
+        "ord_used_lots, ord_used_qty, ord_used_min, ord_used_max, ord_used_avg, ord_used_wavg "
+        "FROM price_guides"
+    ):
+        price_guides[row[0]] = {
+            "inv_new":  {"lots": row[1], "qty": row[2], "min": row[3], "max": row[4], "avg": row[5], "wavg": row[6]},
+            "inv_used": {"lots": row[7], "qty": row[8], "min": row[9], "max": row[10], "avg": row[11], "wavg": row[12]},
+            "ord_new":  {"lots": row[13], "qty": row[14], "min": row[15], "max": row[16], "avg": row[17], "wavg": row[18]},
+            "ord_used": {"lots": row[19], "qty": row[20], "min": row[21], "max": row[22], "avg": row[23], "wavg": row[24]},
         }
 
     # reconstruct bricklink_data structure for rule_engine compatibility
@@ -174,8 +261,9 @@ def loadPartsDict(conn):
                     "part_num": part_num,
                     "bricklink_item_no": item_no,
                 }
-                if bl_item["price_guide"]:
-                    entry["price_guide"] = bl_item["price_guide"]
+                pg = price_guides.get(item_no)
+                if pg:
+                    entry["price_guide"] = pg
                 items_map[item_no] = entry
 
         if items_map:
@@ -214,15 +302,19 @@ def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
 
     sql = (
         f"SELECT p.part_num, p.name, p.part_cat_id, p.year_from, p.year_to, "
-        f"p.part_img_url, p.part_url, p.external_ids, c.name "
+        f"p.part_img_url, p.part_url, p.external_ids, c.name, "
+        f"bi.name, bc.name "
         f"FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id "
+        f"LEFT JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num AND pbi.is_primary = 1 "
+        f"LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+        f"LEFT JOIN bricklink_categories bc ON bc.id = bi.category_id "
         f"WHERE {where} ORDER BY p.part_num LIMIT ? OFFSET ?"
     )
     params.extend([limit, offset])
 
     results = []
     for row in conn.execute(sql, params):
-        part_num, name, part_cat_id, year_from, year_to, part_img_url, part_url, ext_ids_json, cat_name = row
+        part_num, name, part_cat_id, year_from, year_to, part_img_url, part_url, ext_ids_json, cat_name, bl_name, bl_cat_name = row
         external_ids = json.loads(ext_ids_json) if ext_ids_json else {}
         results.append({
             "part_num": part_num,
@@ -234,6 +326,8 @@ def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
             "part_url": part_url,
             "external_ids": external_ids,
             "_category_name": cat_name or "Unknown",
+            "_bl_name": bl_name,
+            "_bl_category_name": bl_cat_name,
         })
 
     return results, total
@@ -307,22 +401,40 @@ def upsertBricklinkCategory(conn, cat_id, name, parent_id=0):
 def upsertBricklinkItem(conn, item):
     price_guide = item.get("price_guide")
     price_guide_json = json.dumps(price_guide) if price_guide else None
-    conn.execute(
-        "INSERT OR REPLACE INTO bricklink_items (item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, price_guide) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            item["item_no"],
-            item["part_num"],
-            item.get("name"),
-            item.get("type", "PART"),
-            item.get("category_id"),
-            item.get("weight"),
-            item.get("year_released"),
-            1 if item.get("is_obsolete") else 0,
-            item.get("synced_at"),
-            price_guide_json,
-        ),
-    )
+    existing = conn.execute("SELECT 1 FROM bricklink_items WHERE item_no = ?", (item["item_no"],)).fetchone()
+    if existing:
+        # update catalog fields without clobbering price_guide or synced_at
+        sets = ["part_num=?", "name=COALESCE(?, name)", "type=COALESCE(?, type)",
+                "category_id=COALESCE(?, category_id)", "weight=COALESCE(?, weight)",
+                "year_released=COALESCE(?, year_released)", "is_obsolete=COALESCE(?, is_obsolete)"]
+        params = [item["part_num"], item.get("name"), item.get("type", "PART"),
+                  item.get("category_id"), item.get("weight"), item.get("year_released"),
+                  1 if item.get("is_obsolete") else 0]
+        if item.get("synced_at"):
+            sets.append("synced_at=?")
+            params.append(item["synced_at"])
+        if price_guide_json:
+            sets.append("price_guide=?")
+            params.append(price_guide_json)
+        params.append(item["item_no"])
+        conn.execute(f"UPDATE bricklink_items SET {', '.join(sets)} WHERE item_no=?", params)
+    else:
+        conn.execute(
+            "INSERT INTO bricklink_items (item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, price_guide) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                item["item_no"],
+                item["part_num"],
+                item.get("name"),
+                item.get("type", "PART"),
+                item.get("category_id"),
+                item.get("weight"),
+                item.get("year_released"),
+                1 if item.get("is_obsolete") else 0,
+                item.get("synced_at"),
+                price_guide_json,
+            ),
+        )
 
 
 def upsertPartBricklinkId(conn, part_num, item_no, is_primary=0):
@@ -453,21 +565,15 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
             price_entry = price_by_item.get(item_no)
             if not price_entry:
                 continue
-            price_guide = _affiliateResponseToPriceGuide(price_entry)
-            price_guide_json = json.dumps(price_guide)
-            # upsert into bricklink_items — create row if it doesn't exist
+            # ensure bricklink_items row exists
             existing = conn.execute("SELECT 1 FROM bricklink_items WHERE item_no = ?", (item_no,)).fetchone()
-            if existing:
+            if not existing:
                 conn.execute(
-                    "UPDATE bricklink_items SET price_guide = ? WHERE item_no = ?",
-                    (price_guide_json, item_no),
+                    "INSERT INTO bricklink_items (item_no, part_num, type, synced_at) "
+                    "VALUES (?, ?, 'PART', 'price_sync')",
+                    (item_no, part_num),
                 )
-            else:
-                conn.execute(
-                    "INSERT INTO bricklink_items (item_no, part_num, type, synced_at, price_guide) "
-                    "VALUES (?, ?, 'PART', 'price_sync', ?)",
-                    (item_no, part_num, price_guide_json),
-                )
+            _upsertPriceGuide(conn, item_no, price_entry)
             updated += 1
 
         conn.commit()
@@ -485,44 +591,44 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
     return {"total": total, "updated": updated, "batches": batches_sent, "stopped": False}
 
 
-def _affiliateResponseToPriceGuide(entry):
-    # the affiliate API returns inventory_new, inventory_used, ordered_new, ordered_used
-    # rule_engine expects the old Store API format: price_guide.data with min/max/avg/qty_avg etc.
-    # map ordered_used (past sales, used) as the default since that's most common for sorting
-    # but store all four sections so rules can access any
-    def _parseSection(section):
-        if not section:
-            return None
-        return {
-            "unit_quantity": section.get("unit_quantity", 0),
-            "total_quantity": section.get("total_quantity", 0),
-            "min_price": section.get("min_price", "0"),
-            "max_price": section.get("max_price", "0"),
-            "avg_price": section.get("total_price", "0"),
-            "qty_avg_price": section.get("total_qty_price", "0"),
-        }
-
-    # use inventory_used as the primary "data" since that matches typical BL price guide usage
-    # (current for-sale listings, used condition)
-    primary = entry.get("inventory_used") or entry.get("inventory_new") or {}
-
-    return {
-        "meta": {"code": 200, "message": "OK", "description": "OK"},
-        "data": {
-            "item": entry.get("item", {}),
-            "new_or_used": "U" if entry.get("inventory_used") else "N",
-            "currency_code": "USD",
-            "min_price": primary.get("min_price", "0"),
-            "max_price": primary.get("max_price", "0"),
-            "avg_price": primary.get("total_price", "0"),
-            "qty_avg_price": primary.get("total_qty_price", "0"),
-            "unit_quantity": primary.get("unit_quantity", 0),
-            "total_quantity": primary.get("total_quantity", 0),
-        },
-        "affiliate_data": {
-            "inventory_new": _parseSection(entry.get("inventory_new")),
-            "inventory_used": _parseSection(entry.get("inventory_used")),
-            "ordered_new": _parseSection(entry.get("ordered_new")),
-            "ordered_used": _parseSection(entry.get("ordered_used")),
-        },
-    }
+def _upsertPriceGuide(conn, item_no, entry):
+    # entry is the affiliate API response for one item
+    # compute avg = total_price / total_quantity, wavg = total_qty_price / unit_quantity
+    vals = {"item_no": item_no, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    for api_key, col_prefix in [
+        ("inventory_new", "inv_new"),
+        ("inventory_used", "inv_used"),
+        ("ordered_new", "ord_new"),
+        ("ordered_used", "ord_used"),
+    ]:
+        s = entry.get(api_key)
+        if not s:
+            continue
+        lots = s.get("unit_quantity", 0)
+        qty = s.get("total_quantity", 0)
+        vals[f"{col_prefix}_lots"] = lots
+        vals[f"{col_prefix}_qty"] = qty
+        vals[f"{col_prefix}_min"] = _safeDiv(s.get("min_price"), 1)
+        vals[f"{col_prefix}_max"] = _safeDiv(s.get("max_price"), 1)
+        vals[f"{col_prefix}_avg"] = _safeDiv(s.get("total_price"), qty)
+        vals[f"{col_prefix}_wavg"] = _safeDiv(s.get("total_qty_price"), lots)
+    conn.execute(
+        "INSERT OR REPLACE INTO price_guides ("
+        "item_no, updated_at, "
+        "inv_new_lots, inv_new_qty, inv_new_min, inv_new_max, inv_new_avg, inv_new_wavg, "
+        "inv_used_lots, inv_used_qty, inv_used_min, inv_used_max, inv_used_avg, inv_used_wavg, "
+        "ord_new_lots, ord_new_qty, ord_new_min, ord_new_max, ord_new_avg, ord_new_wavg, "
+        "ord_used_lots, ord_used_qty, ord_used_min, ord_used_max, ord_used_avg, ord_used_wavg"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            vals.get("item_no"), vals.get("updated_at"),
+            vals.get("inv_new_lots", 0), vals.get("inv_new_qty", 0),
+            vals.get("inv_new_min"), vals.get("inv_new_max"), vals.get("inv_new_avg"), vals.get("inv_new_wavg"),
+            vals.get("inv_used_lots", 0), vals.get("inv_used_qty", 0),
+            vals.get("inv_used_min"), vals.get("inv_used_max"), vals.get("inv_used_avg"), vals.get("inv_used_wavg"),
+            vals.get("ord_new_lots", 0), vals.get("ord_new_qty", 0),
+            vals.get("ord_new_min"), vals.get("ord_new_max"), vals.get("ord_new_avg"), vals.get("ord_new_wavg"),
+            vals.get("ord_used_lots", 0), vals.get("ord_used_qty", 0),
+            vals.get("ord_used_min"), vals.get("ord_used_max"), vals.get("ord_used_avg"), vals.get("ord_used_wavg"),
+        ),
+    )

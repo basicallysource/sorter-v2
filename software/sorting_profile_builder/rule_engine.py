@@ -64,29 +64,37 @@ def _getNested(obj, *path):
     return cur
 
 
-def _partPreviewMeta(part):
+def _getPriceSection(part, section="ord_used"):
+    bl_item = _getBricklinkPrimaryItem(part)
+    if not bl_item:
+        return None
+    pg = bl_item.get("price_guide")
+    if not isinstance(pg, dict):
+        return None
+    return pg.get(section)
+
+
+def _partPreviewMeta(part, ctx=None):
+    empty = {
+        "part_img_url": None, "part_cat_id": None, "year_from": None, "year_to": None,
+        "bricklink_ids": [], "part_url": None,
+        "bl_price_min": None, "bl_price_max": None, "bl_price_avg": None,
+        "bl_price_qty_avg": None, "bl_price_lots": None, "bl_price_qty": None,
+        "bl_price_section": None, "bl_catalog_name": None, "bl_category_name": None,
+    }
     if not part:
-        return {
-            "part_img_url": None,
-            "part_cat_id": None,
-            "year_from": None,
-            "year_to": None,
-            "bricklink_ids": [],
-            "part_url": None,
-            "bl_price_min": None,
-            "bl_price_max": None,
-            "bl_price_avg": None,
-            "bl_price_qty_avg": None,
-            "bl_price_unit_quantity": None,
-            "bl_price_total_quantity": None,
-            "bl_price_currency": None,
-            "bl_price_new_or_used": None,
-            "bl_price_guide_type": None,
-            "bl_price_country_code": None,
-            "bl_category_name": None,
-        }
-    bricklink_item = _getBricklinkPrimaryItem(part)
-    bricklink_data = part.get("bricklink_data") if isinstance(part.get("bricklink_data"), dict) else {}
+        return empty
+    # default to ord_used (past 6mo sales, used) — matches BrickStore behavior
+    section = _getPriceSection(part, "ord_used") or _getPriceSection(part, "inv_used")
+    section_name = "ord_used" if _getPriceSection(part, "ord_used") else "inv_used"
+    bl_item = _getBricklinkPrimaryItem(part)
+    bl_name = _getNested(bl_item, "catalog", "data", "name")
+    bl_cat_id = _getNested(bl_item, "catalog", "data", "category_id")
+    bl_cat_name = None
+    if bl_cat_id is not None and ctx and "bricklink_categories" in ctx:
+        bl_cat = ctx["bricklink_categories"].get(bl_cat_id)
+        if isinstance(bl_cat, dict):
+            bl_cat_name = bl_cat.get("category_name", "")
     return {
         "part_img_url": part.get("part_img_url"),
         "part_cat_id": part.get("part_cat_id"),
@@ -94,17 +102,15 @@ def _partPreviewMeta(part):
         "year_to": part.get("year_to"),
         "bricklink_ids": part.get("external_ids", {}).get("BrickLink", []),
         "part_url": part.get("part_url"),
-        "bl_price_min": _toFloat(_getNested(bricklink_item, "price_guide", "data", "min_price")),
-        "bl_price_max": _toFloat(_getNested(bricklink_item, "price_guide", "data", "max_price")),
-        "bl_price_avg": _toFloat(_getNested(bricklink_item, "price_guide", "data", "avg_price")),
-        "bl_price_qty_avg": _toFloat(_getNested(bricklink_item, "price_guide", "data", "qty_avg_price")),
-        "bl_price_unit_quantity": _getNested(bricklink_item, "price_guide", "data", "unit_quantity"),
-        "bl_price_total_quantity": _getNested(bricklink_item, "price_guide", "data", "total_quantity"),
-        "bl_price_currency": _getNested(bricklink_item, "price_guide", "data", "currency_code"),
-        "bl_price_new_or_used": _getNested(bricklink_item, "price_guide", "data", "new_or_used"),
-        "bl_price_guide_type": _getNested(bricklink_data, "price_guide_defaults", "guide_type"),
-        "bl_price_country_code": _getNested(bricklink_data, "price_guide_defaults", "country_code"),
-        "bl_category_name": None,
+        "bl_price_min": section.get("min") if section else None,
+        "bl_price_max": section.get("max") if section else None,
+        "bl_price_avg": section.get("avg") if section else None,
+        "bl_price_qty_avg": section.get("wavg") if section else None,
+        "bl_price_lots": section.get("lots") if section else None,
+        "bl_price_qty": section.get("qty") if section else None,
+        "bl_price_section": section_name if section else None,
+        "bl_catalog_name": bl_name,
+        "bl_category_name": bl_cat_name,
     }
 
 
@@ -138,30 +144,33 @@ def _getFieldValue(field, part, color_id, ctx=None):
         bricklink_data = part.get("bricklink_data")
         return bricklink_data.get("primary_item_no") if isinstance(bricklink_data, dict) else None
 
-    bricklink_item = _getBricklinkPrimaryItem(part)
+    # backward-compat price fields default to ord_used (past 6mo sales, used)
+    section = _getPriceSection(part, "ord_used") or _getPriceSection(part, "inv_used")
     if field == "bl_price_min":
-        return _toFloat(_getNested(bricklink_item, "price_guide", "data", "min_price"))
+        return section.get("min") if section else None
     if field == "bl_price_max":
-        return _toFloat(_getNested(bricklink_item, "price_guide", "data", "max_price"))
+        return section.get("max") if section else None
     if field == "bl_price_avg":
-        return _toFloat(_getNested(bricklink_item, "price_guide", "data", "avg_price"))
+        return section.get("avg") if section else None
     if field == "bl_price_qty_avg":
-        return _toFloat(_getNested(bricklink_item, "price_guide", "data", "qty_avg_price"))
-    if field == "bl_price_unit_quantity":
-        return _getNested(bricklink_item, "price_guide", "data", "unit_quantity")
-    if field == "bl_price_total_quantity":
-        return _getNested(bricklink_item, "price_guide", "data", "total_quantity")
-    if field == "bl_price_currency":
-        return _getNested(bricklink_item, "price_guide", "data", "currency_code")
-    if field == "bl_price_new_or_used":
-        return _getNested(bricklink_item, "price_guide", "data", "new_or_used")
+        return section.get("wavg") if section else None
+    if field == "bl_price_unit_quantity" or field == "bl_price_lots":
+        return section.get("lots") if section else None
+    if field == "bl_price_total_quantity" or field == "bl_price_qty":
+        return section.get("qty") if section else None
 
-    bricklink_data = part.get("bricklink_data")
-    if field == "bl_price_guide_type":
-        return _getNested(bricklink_data, "price_guide_defaults", "guide_type")
-    if field == "bl_price_country_code":
-        return _getNested(bricklink_data, "price_guide_defaults", "country_code")
+    # section-specific fields: bl_price_{section}_{metric}
+    SECTION_MAP = {"inv_new": "inv_new", "inv_used": "inv_used", "ord_new": "ord_new", "ord_used": "ord_used"}
+    for sec_key in SECTION_MAP:
+        prefix = f"bl_price_{sec_key}_"
+        if field.startswith(prefix):
+            metric = field[len(prefix):]
+            s = _getPriceSection(part, sec_key)
+            if not s:
+                return None
+            return s.get(metric)
 
+    bricklink_item = _getBricklinkPrimaryItem(part)
     if field == "bl_catalog_name":
         return _getNested(bricklink_item, "catalog", "data", "name")
     if field == "bl_catalog_category_id":
@@ -197,11 +206,32 @@ def _getFieldValue(field, part, color_id, ctx=None):
 
 # --- rule evaluation ---
 
-def _evaluateRuleConditions(conditions, match_mode, part, color_id, ctx=None):
-    if not conditions:
+def _evaluateRuleConditions(conditions, match_mode, part, color_id, ctx=None, children=None):
+    # each direct condition is a boolean, each child is a compound boolean
+    results = []
+    for c in (conditions or []):
+        results.append(_evalPredicate(c, part, color_id, ctx))
+    for child in (children or []):
+        if child.get("disabled"):
+            continue
+        child_children = [c for c in child.get("children", []) if not c.get("disabled")]
+        child_result = _evaluateRuleConditions(
+            child.get("conditions", []), child.get("match_mode", "all"),
+            part, color_id, ctx, child_children,
+        )
+        results.append(child_result)
+    if not results:
         return True
     fn = all if match_mode == "all" else any
-    return fn(_evalPredicate(c, part, color_id, ctx) for c in conditions)
+    return fn(results)
+
+
+def _collectAllConditions(rule):
+    conds = list(rule.get("conditions", []))
+    for child in rule.get("children", []):
+        if not child.get("disabled"):
+            conds.extend(_collectAllConditions(child))
+    return conds
 
 
 def _ruleHasColorConditions(conditions):
@@ -223,12 +253,18 @@ def _allConditions(checks):
     conds = []
     for check in checks:
         conds.extend(check["conditions"])
+        for child in check.get("children", []):
+            if not child.get("disabled"):
+                conds.extend(_collectAllConditions(child))
     return conds
 
 
 def _evaluateChecks(checks, part, color_id, ctx=None):
     for check in checks:
-        if not _evaluateRuleConditions(check["conditions"], check["match_mode"], part, color_id, ctx):
+        if not _evaluateRuleConditions(
+            check["conditions"], check["match_mode"],
+            part, color_id, ctx, check.get("children"),
+        ):
             return False
     return True
 
@@ -241,12 +277,15 @@ def _flattenRules(rules, ancestor_checks=None, top_level_id=None):
         if rule.get("disabled"):
             continue
         tid = top_level_id or rule["id"]
-        own_check = {"conditions": rule.get("conditions", []), "match_mode": rule.get("match_mode", "all")}
+        children = [c for c in rule.get("children", []) if not c.get("disabled")]
+        own_check = {
+            "conditions": rule.get("conditions", []),
+            "match_mode": rule.get("match_mode", "all"),
+            "children": children,
+        }
         checks = ancestor_checks + [own_check]
         flat.append({"rule": rule, "top_level_id": tid, "checks": checks})
-        children = rule.get("children", [])
-        if children:
-            flat.extend(_flattenRules(children, checks, tid))
+        # children are evaluated inline as compound conditions, not separate entries
     return flat
 
 
@@ -324,7 +363,14 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
     return {"part_to_category": part_to_category, "stats": stats}
 
 
-def partsForCategory(part_to_category, cat_id, parts, q="", offset=0, limit=50):
+def partsForCategory(part_to_category, cat_id, parts, q="", offset=0, limit=50, categories=None, bricklink_categories=None):
+    ctx = {}
+    if categories:
+        ctx["categories"] = categories
+    if bricklink_categories:
+        ctx["bricklink_categories"] = bricklink_categories
+    if not ctx:
+        ctx = None
     all_matches = []
     seen_keys = set()
     bl_to_rb = None
@@ -361,7 +407,7 @@ def partsForCategory(part_to_category, cat_id, parts, q="", offset=0, limit=50):
             continue
         seen_keys.add(dedupe_key)
         entry = {"part_num": display_part_num, "name": name}
-        entry.update(_partPreviewMeta(part))
+        entry.update(_partPreviewMeta(part, ctx))
         if color_id is not None:
             entry["color_id"] = color_id
         all_matches.append(entry)
@@ -396,14 +442,14 @@ def previewRule(rule, parts, categories=None, bricklink_categories=None, limit=5
             for cid in rule_colors:
                 if _evaluateChecks(checks, part, cid, ctx):
                     entry = {"part_num": pnum, "name": part.get("name", ""), "color_id": cid}
-                    entry.update(_partPreviewMeta(part))
+                    entry.update(_partPreviewMeta(part, ctx))
                     if not q_lower or q_lower in entry["name"].lower() or q_lower in pnum.lower():
                         matches.append(entry)
                     break
         else:
             if _evaluateChecks(checks, part, None, ctx):
                 entry = {"part_num": pnum, "name": part.get("name", "")}
-                entry.update(_partPreviewMeta(part))
+                entry.update(_partPreviewMeta(part, ctx))
                 if not q_lower or q_lower in entry["name"].lower() or q_lower in pnum.lower():
                     matches.append(entry)
 

@@ -217,7 +217,15 @@ class ArucoTracker:
                 age_ms = (current_time - timestamp) * 1000
                 if age_ms <= ARUCO_TAG_CACHE_MS:
                     result[tag_id] = position
-                    raw_result.setdefault(tag_id, position)
+                    # For "raw" output, prefer the last accepted raw position if available,
+                    # to avoid polluting raw_result with smoothed cache values.
+                    last_raw = self._aruco_last_accepted_raw.get(tag_id)
+                    if last_raw is not None:
+                        raw_position, _ = last_raw
+                        raw_result.setdefault(tag_id, raw_position)
+                    else:
+                        # Fallback to the cached position to preserve previous behavior
+                        raw_result.setdefault(tag_id, position)
 
         stale_cutoff = current_time - max(smoothing_time_s, ARUCO_TAG_CACHE_MS / 1000.0)
         for tag_id, history in list(self._aruco_tag_history.items()):

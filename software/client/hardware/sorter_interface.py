@@ -79,6 +79,7 @@ class StepperMotor:
         self._channel = channel
         self._steps_per_revolution = 200
         self._microsteps = 16
+        self._enabled = True
         self._name = f"stepper_{channel}"
         # Track position via blob_manager for persistence
         self._current_position_steps = getStepperPosition(self._name)

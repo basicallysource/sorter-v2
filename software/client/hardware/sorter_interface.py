@@ -126,10 +126,27 @@ class StepperMotor:
             return True
         payload = struct.pack("<i", steps) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
-        # Update persistent position
-        self._current_position_steps += steps
-        setStepperPosition(self._name, self._current_position_steps)
-        return bool(res.payload[0])
+        success = len(res.payload) > 0 and bool(res.payload[0])
+
+        if success:
+            self._current_position_steps += steps
+            setStepperPosition(self._name, self._current_position_steps)
+            return True
+
+        # Best-effort resync on command failure to avoid client-side drift.
+        try:
+            position_res = self._dev.send_command(
+                InterfaceCommandCode.STEPPER_GET_POSITION,
+                self._channel,
+                b"",
+            )
+            hw_position = struct.unpack("<i", position_res.payload)[0]
+            self._current_position_steps = hw_position
+            setStepperPosition(self._name, self._current_position_steps)
+        except Exception:
+            pass
+
+        return False
     
     def move_at_speed(self, speed: int) -> bool:
         """Move the stepper at a given speed in microsteps per second."""

@@ -442,13 +442,6 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Disable failed: {e}")
 
-    lock = pulse_locks.get(stepper)
-    if lock is not None and lock.locked():
-        try:
-            lock.release()
-        except RuntimeError:
-            pass
-
     return StepperStopResponse(success=True, stepper=stepper)
 
 

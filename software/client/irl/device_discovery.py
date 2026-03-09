@@ -73,3 +73,23 @@ def discoverMCU() -> str:
 
     print("Auto-discovery failed. Please select device manually:")
     return promptForDevice("MCU", "MCU_PATH")
+
+
+def discoverMCUs() -> list[str]:
+    """
+    Discover all MCU device ports for SorterInterface firmware.
+
+    Returns:
+        List of port paths.
+    """
+    env_value = os.environ.get("MCU_PATH")
+    if env_value:
+        return [env_value]
+
+    available_devices = listAvailableDevices()
+    if available_devices:
+        print(f"Found MCU ports: {available_devices}")
+        return available_devices
+
+    print("Auto-discovery failed. Please select MCU manually:")
+    return [promptForDevice("MCU", "MCU_PATH")]

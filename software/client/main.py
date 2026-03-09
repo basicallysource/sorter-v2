@@ -180,8 +180,11 @@ def main() -> None:
         gc.logger.info("Stopping all motors...")
         irl.disableSteppers()
         
-        # Shutdown the sorter interface
-        if hasattr(irl, 'sorter_interface'):
+        # Shutdown all discovered sorter interfaces
+        if hasattr(irl, 'sorter_interfaces'):
+            for sorter_interface in irl.sorter_interfaces:
+                sorter_interface.shutdown()
+        elif hasattr(irl, 'sorter_interface'):
             irl.sorter_interface.shutdown()
         
         gc.logger.info("Cleanup complete")

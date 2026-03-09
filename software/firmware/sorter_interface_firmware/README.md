@@ -33,16 +33,39 @@ It is recommended to open this project using Visual Studio Code with the RP2040 
 You can customize the firmware build using CMake options:
 
 - `HW_SKR_PICO`: Enable compilation for SKR Pico hardware (default: OFF)
-- `INIT_DEVICE_NAME`: Set the initial device name (default: "DefaultDevice")
+- `FIRMWARE_ROLE`: Select logical actuator naming profile (`feeder` or `distribution`, default: `feeder`)
+- `INIT_DEVICE_NAME`: Set the initial device name (defaults to `FEEDER MB` for `feeder` role and `DISTRIBUTION MB` for `distribution` role)
 - `INIT_DEVICE_ADDRESS`: Set the initial device address (default: 0x42)
 
 To use these options, pass them as `-D` arguments to CMake. For example:
 
 ```sh
-cmake -DHW_SKR_PICO=ON -DINIT_DEVICE_NAME="DISTRIBUTOR" -DINIT_DEVICE_ADDRESS=0x01 ..
+cmake -DHW_SKR_PICO=ON -DFIRMWARE_ROLE=distribution -DINIT_DEVICE_NAME="DISTRIBUTOR" -DINIT_DEVICE_ADDRESS=0x01 ..
 ```
 
-This will enable SKR Pico hardware support, set the device name to "DISTRIBUTOR", and the device address to 0x01.
+This will enable SKR Pico hardware support, use the `distribution` naming profile, set the device name to "DISTRIBUTOR", and the device address to 0x01.
+
+## Building Two Firmware Variants (Feeder + Distribution)
+
+Use separate build directories so each Pico can run the same firmware codebase with different logical actuator names.
+
+### Feeder firmware
+```sh
+mkdir -p build-feeder
+cd build-feeder
+cmake -DFIRMWARE_ROLE=feeder -DINIT_DEVICE_NAME="FEEDER MB" ..
+ninja
+```
+
+### Distribution firmware
+```sh
+mkdir -p build-distribution
+cd build-distribution
+cmake -DFIRMWARE_ROLE=distribution -DINIT_DEVICE_NAME="DISTRIBUTION MB" ..
+ninja
+```
+
+Both variants keep the same physical channel wiring but advertise different `stepper_names` in detect JSON, letting the client bind actuators by role-specific names.
 
 ## Code Style
 - Follows LLVM style (see `.clang-format`).

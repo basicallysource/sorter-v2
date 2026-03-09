@@ -424,15 +424,6 @@ class ServoMotor:
     def channel(self):
         return self._channel
 
-    @property
-    def angle(self) -> int:
-        """Get the current servo angle."""
-        return self._current_angle
-
-    @property
-    def channel(self):
-        return self._channel
-
 
 class SorterInterface(MCUDevice):
     steppers : tuple[StepperMotor, ...]

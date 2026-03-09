@@ -30,11 +30,12 @@ GET  /video_feed/classification_top         → Top classification camera
 
 | File | Purpose | Type |
 |------|---------|------|
-| `aruco_config.json` | Tag→Region assignments | Config (auto-created) |
+| `aruco_config.json` | Tag→Region assignments (git-ignored, local) | Config (auto-created) |
+| `aruco_config_default.json` | Baseline default config (committed) | Config template |
 | `aruco_config_manager.py` | Tag mgmt class | Python Module |
 | `server/templates/aruco_config.html` | Web interface | HTML/CSS/JS |
 | `server/api.py` | REST API + video streaming | FastAPI routes |
-| `main.py` | Initialization | Python script (modified) |
+| `main.py` | Initialization | Python script |
 
 ## 🔌 Integration Points
 
@@ -66,17 +67,25 @@ def setVisionManager(mgr: Any) -> None
 ```json
 {
   "version": "1.0",
+  "settings": {
+    "aruco_smoothing_time_s": 0.35
+  },
   "categories": {
     "unassigned": {
       "description": "...",
-      "tags": [20, 31, 7]  // List of tag IDs
+      "tags": [20, 31, 7]
     },
     "second_c_channel": {
       "description": "...",
+      "radius_multiplier": 1.0,
       "tags": {
-        "center": 20,      // Tag ID or null
+        "center": 20,
+        "output_guide": null,
         "radius1": 31,
-        "radius2": 7
+        "radius2": 7,
+        "radius3": null,
+        "radius4": null,
+        "radius5": null
       }
     },
     "carousel_platform_1": {
@@ -156,7 +165,7 @@ python3 -m json.tool aruco_config.json
 # Backup current config
 cp aruco_config.json aruco_config.json.backup
 
-# Delete config (will be auto-created with defaults)
+# Delete config (will be re-seeded from aruco_config_default.json on next startup)
 rm aruco_config.json
 
 # Restart application
@@ -218,7 +227,7 @@ time.sleep(0.04)  # 0.04 = 25 FPS, 0.02 = 50 FPS, 0.03 = 33 FPS
 | "Vision manager not initialized" | `setVisionManager()` not called | Check main.py initialization |
 | "Camera not available" | Camera endpoint not working | Verify `/video_feed/feeder` endpoint |
 | "Failed to load config" | Network error or API crash | Check server logs |
-| "File not found" | `aruco_config.json` missing | Will auto-create on startup |
+| "File not found" | `aruco_config.json` missing | Will be copied from `aruco_config_default.json` on startup |
 
 ## 📚 Related Documentation
 

@@ -5,7 +5,7 @@
 - [Git](https://git-scm.com/) with [Git LFS](https://git-lfs.github.com/)
 - [Node.js](https://nodejs.org/) (v20+) and npm
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [Arduino IDE](https://www.arduino.cc/en/software)
+- [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk) (for firmware builds)
 
 ## Clone
 
@@ -19,7 +19,16 @@ Git LFS files (models, `parts_with_categories.json`) should download automatical
 
 ## Firmware
 
-Open `firmware/feeder/feeder.ino` in the Arduino IDE. Select **Arduino Mega 2560** as the board (with RAMPS 1.4 shield). Upload.
+Build and flash the `sorter_interface_firmware` for each Raspberry Pi Pico. See `firmware/sorter_interface_firmware/README.md` for full build instructions, including role-based build variants (feeder vs distribution).
+
+Quick example (feeder role):
+```bash
+cd firmware/sorter_interface_firmware
+mkdir -p build && cd build
+cmake -DFIRMWARE_ROLE=feeder ..
+ninja
+picotool load -f sorter_interface_firmware.uf2
+```
 
 ## Environment
 
@@ -28,13 +37,14 @@ cp .env.example .env
 ```
 
 Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
-```
+```bash
+cd client
 uv run python scripts/camera_setup.py
 ```
 
 Edit `.env` and update:
 - `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
-- Arduino serial port is auto-detected. On Mac/Linux it shows up as `/dev/ttyUSB*` or `/dev/ttyACM*`. On Windows it will be a `COM` port (e.g. `COM3`).
+- Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
 
 ## UI Dependencies
 
@@ -65,6 +75,18 @@ uv run python main.py
 
 `uv` will install Python 3.13 and all dependencies on first run. The `.env` file is loaded automatically.
 
-On startup, the client will prompt you to select the MCU (Arduino Mega with RAMPS shield) connected over USB.
+On startup the client will:
+1. Discover all connected Pico devices over USB serial
+2. Scan each bus for SorterInterface firmware devices
+3. Aggregate stepper and servo actuators across all discovered boards
+4. Bind actuators to logical roles (carousel, chute, rotors) using firmware-reported names
 
 **Windows**: Run PowerShell as Administrator to access serial ports.
+
+---
+
+# Further Reading
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Multi-Pico hardware abstraction, firmware roles, client init flow
+- [client/ARUCO_GUI_USAGE.md](client/ARUCO_GUI_USAGE.md) — Web-based ArUco tag calibration GUI
+- [firmware/sorter_interface_firmware/README.md](firmware/sorter_interface_firmware/README.md) — Firmware build options and flashing

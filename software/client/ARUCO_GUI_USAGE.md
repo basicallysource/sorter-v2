@@ -36,7 +36,7 @@ The ArUco Tag Configuration GUI replaces hardcoded tag assignments with a dynami
 #### Initial Setup (First Time)
 
 1. **Place tags on your sorting regions**:
-   - Place center tag + 2 radius tags in each c-channel region
+   - Place center tag + up to 5 radius tags + optional output-guide tag in each c-channel region
    - Place 4 corner tags on each carousel platform
 
 2. **Capture tags with camera**:
@@ -68,58 +68,58 @@ The ArUco configuration is stored in `aruco_config.json` with this structure:
 
 ```json
 {
-  "unassigned": [20, 31, 7],
-  "second_c_channel": {
-    "tags": {
-      "center": 20,
-      "radius1": 31,
-      "radius2": 7
-    }
+  "version": "1.0",
+  "settings": {
+    "aruco_smoothing_time_s": 0.35
   },
-  "third_c_channel": {
-    "tags": {
-      "center": null,
-      "radius1": null,
-      "radius2": null
-    }
-  },
-  "carousel_platform_1": {
-    "tags": {
-      "corner1": null,
-      "corner2": null,
-      "corner3": null,
-      "corner4": null
-    }
-  },
-  "carousel_platform_2": {
-    "tags": {
-      "corner1": null,
-      "corner2": null,
-      "corner3": null,
-      "corner4": null
-    }
-  },
-  "carousel_platform_3": {
-    "tags": {
-      "corner1": null,
-      "corner2": null,
-      "corner3": null,
-      "corner4": null
-    }
-  },
-  "carousel_platform_4": {
-    "tags": {
-      "corner1": null,
-      "corner2": null,
-      "corner3": null,
-      "corner4": null
+  "categories": {
+    "unassigned": {
+      "description": "Tags that haven't been assigned yet",
+      "tags": [20, 31, 7]
+    },
+    "second_c_channel": {
+      "description": "Second C-channel rotor circular region",
+      "radius_multiplier": 1.0,
+      "tags": {
+        "center": 20,
+        "output_guide": null,
+        "radius1": 31,
+        "radius2": 7,
+        "radius3": null,
+        "radius4": null,
+        "radius5": null
+      }
+    },
+    "third_c_channel": {
+      "description": "Third C-channel rotor circular region",
+      "radius_multiplier": 1.0,
+      "tags": {
+        "center": null,
+        "output_guide": null,
+        "radius1": null,
+        "radius2": null,
+        "radius3": null,
+        "radius4": null,
+        "radius5": null
+      }
+    },
+    "carousel_platform_1": {
+      "description": "Carousel platform 1 corners",
+      "tags": {
+        "corner1": null,
+        "corner2": null,
+        "corner3": null,
+        "corner4": null
+      }
     }
   }
 }
 ```
 
-- `unassigned`: List of tag IDs that haven't been assigned
-- `[category]/tags/[role]`: The tag ID assigned to that role, or `null` if empty
+- `settings.aruco_smoothing_time_s`: Smoothing window duration for ArUco position averaging
+- `categories.unassigned.tags`: List of tag IDs that haven't been assigned
+- `categories.[name].radius_multiplier`: Scale factor for computed channel radius (c-channels only)
+- `categories.[name].tags.[role]`: The tag ID assigned to that role, or `null` if empty
 
 ## API Endpoints
 
@@ -140,13 +140,14 @@ The GUI uses these REST API endpoints (for reference):
 Once tags are assigned via the GUI:
 
 1. **Python Application**: 
-   - Loads `aruco_config.json` at startup
-   - Updates `irl/config.py` to use GUI-assigned tags instead of hardcoded values
-   - Vision system uses loaded configuration for calibration
+   - At startup, copies `aruco_config_default.json` to `aruco_config.json` if the latter is missing
+   - Loads `aruco_config.json` and syncs tag assignments into the vision system automatically
+   - Changes made via the GUI take effect immediately without restarting
 
 2. **Geometric Calibration**:
-   - C-channel regions: Uses center tag + 2 radius tags to define circle geometry
+   - C-channel regions: Uses center tag + up to 5 radius tags (+ optional output-guide) to define circle or ellipse geometry
    - Carousel platforms: Uses 4 corner tags to define platform boundaries
+   - Per-channel `radius_multiplier` scales the computed radius/ellipse
 
 3. **Object Routing**:
    - Detected objects routed to correct rotor based on their ArUco-defined region
@@ -170,10 +171,10 @@ Once tags are assigned via the GUI:
 
 ### Categories missing slots
 - Supported categories:
-  - `second_c_channel`: 3 roles (center, radius1, radius2)
-  - `third_c_channel`: 3 roles (center, radius1, radius2)
-  - `carousel_platform_1` through `4`: 4 roles each (corner1-4)
-- Adding new categories requires updating `aruco_config.json` manually
+  - `second_c_channel`: 7 roles (center, output_guide, radius1–radius5)
+  - `third_c_channel`: 7 roles (center, output_guide, radius1–radius5)
+  - `carousel_platform_1` through `4`: 4 roles each (corner1–corner4)
+- Adding new categories requires updating `aruco_config_default.json` and deleting your local `aruco_config.json` to regenerate
 
 ## Best Practices
 
@@ -182,8 +183,10 @@ Once tags are assigned via the GUI:
 3. **Test after assignment**: Run a sorting cycle to verify calibration is correct
 4. **Backup configuration**: Copy `aruco_config.json` when you have a working setup
 
-## Next Steps
+## Completed Enhancements
 
-- Auto-update vision system to load tags from JSON
-- Add visual overlay showing detected tags in real-time on camera feed
-- Add tag search functionality for large deployments
+- Vision system auto-loads tags from JSON at startup and on every GUI change
+- Live ArUco tag overlay on the feeder camera feed (with optional raw-position display)
+- Smoothing window and outlier rejection for stable tag positions
+- Per-channel radius multiplier support
+- Default config seeding from `aruco_config_default.json`

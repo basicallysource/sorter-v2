@@ -4,7 +4,7 @@
 
 ### 1. **Backend Infrastructure**
 - ✅ `aruco_config_manager.py` - Python class managing tag assignment lifecycle
-  - Auto-creates `aruco_config.json` if missing
+  - Copies `aruco_config_default.json` to `aruco_config.json` if missing
   - Persists all changes immediately
   - Provides methods: `assign_tag()`, `unassign_tag()`, `populate_detected_tags()`
   - Query methods: `get_unassigned_tags()`, `get_all_tags()`, `get_category()`
@@ -47,13 +47,15 @@
 - ✅ Created setter functions in API: `setArucoManager()`, `setVisionManager()`
 
 ### 6. **Configuration File**
-- ✅ `aruco_config.json` - Persistent storage
+- ✅ `aruco_config.json` - Persistent storage (git-ignored)
+- ✅ `aruco_config_default.json` - Committed baseline template
   - **Structure:**
+    - `settings`: Smoothing and detection tuning
     - `unassigned`: List of tag IDs not yet assigned
-    - `second_c_channel`: 3 roles (center, radius1, radius2)
-    - `third_c_channel`: 3 roles (center, radius1, radius2)
+    - `second_c_channel`: 7 roles (center, output_guide, radius1–radius5) + `radius_multiplier`
+    - `third_c_channel`: 7 roles (center, output_guide, radius1–radius5) + `radius_multiplier`
     - `carousel_platform_1` through `4`: 4 corner roles each
-  - Auto-created with default structure if missing
+  - Seeded from `aruco_config_default.json` on first run
   - JSON format for easy manual backup/restore
 
 ### 7. **Documentation**
@@ -69,10 +71,13 @@
 ## 📋 Files Created/Modified
 
 ### New Files
-1. `/Users/alec/git/sorter-v2/software/client/aruco_config.json`
-   - Persistent configuration storage
+1. `/Users/alec/git/sorter-v2/software/client/aruco_config_default.json`
+   - Committed baseline configuration template
 
-2. `/Users/alec/git/sorter-v2/software/client/aruco_config_manager.py`
+2. `/Users/alec/git/sorter-v2/software/client/aruco_config.json`
+   - Local persistent configuration storage (git-ignored, seeded from default)
+
+3. `/Users/alec/git/sorter-v2/software/client/aruco_config_manager.py`
    - 174 lines of Python code
    - Complete tag lifecycle management
 
@@ -217,11 +222,16 @@ The GUI system integrates with:
 4. **server/api.py** - REST API and HTML serving
 5. **Vision calibration system** - Will use assigned tags for geometric calibration
 
-## 📝 Next Steps (Optional Enhancements)
+## 📝 Completed Enhancements
 
-**Phase 2 Features:**
-- [ ] Update `irl/config.py` to load tags from JSON instead of hardcoded values
-- [ ] Add visual ArUco tag overlay on camera feed (draw detected tags)
+- [x] Update `irl/config.py` to load tags from JSON instead of hardcoded values
+- [x] Add visual ArUco tag overlay on camera feed (draw detected tags)
+- [x] Smoothing window and outlier rejection for stable tag positions
+- [x] Per-channel radius multiplier and output-guide support
+- [x] Default config seeding from `aruco_config_default.json`
+
+## 📝 Potential Future Enhancements
+
 - [ ] Add drag-and-drop for tag assignment
 - [ ] Add tag search/filter functionality for large deployments
 - [ ] Add configuration import/export

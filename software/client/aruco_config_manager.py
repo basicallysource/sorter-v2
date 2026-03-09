@@ -4,6 +4,7 @@ Handles loading, saving, and assigning ArUco tags to different regions.
 """
 
 import json
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ class ArucoConfigManager:
     
     def __init__(self, config_path: str = "aruco_config.json"):
         self.config_path = Path(config_path)
+        self.default_config_path = self.config_path.with_name("aruco_config_default.json")
         self.config: Dict[str, Any] = self._load_or_create_config()
         self._ensure_schema()
         self._sync_to_storage()
@@ -47,6 +49,12 @@ class ArucoConfigManager:
     def _load_or_create_config(self) -> Dict[str, Any]:
         """Load config from file or create default if it doesn't exist."""
         if self.config_path.exists():
+            with open(self.config_path, 'r') as f:
+                return json.load(f)
+
+        if self.default_config_path.exists():
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.default_config_path, self.config_path)
             with open(self.config_path, 'r') as f:
                 return json.load(f)
         

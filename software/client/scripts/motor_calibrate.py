@@ -16,11 +16,8 @@ from irl.config import mkIRLConfig, mkIRLInterface, IRLConfig, IRLInterface
 STEP_COUNTS: list[int] = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
 SERVO_ANGLE_STEPS: list[int] = [1, 5, 10, 15, 30, 45]
 
-LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
-
 
 def printStatus(
-    gc: GlobalConfig,
     steppers: dict[str, StepperMotor],
     stepper_names: list[str],
     selected_idx: int,
@@ -58,7 +55,6 @@ def printStatus(
 
 
 def printServoCalStatus(
-    gc: GlobalConfig,
     servos: list[ServoMotor],
     selected_idx: int,
     angle_step_idx: int,
@@ -83,11 +79,11 @@ def printServoCalStatus(
     print()
 
 
-def servo_calibrate_loop(gc: GlobalConfig, servos: list[ServoMotor]) -> None:
+def servo_calibrate_loop(servos: list[ServoMotor]) -> None:
     selected_idx: int = 0
     angle_step_idx: int = 2  # default 10°
 
-    printServoCalStatus(gc, servos, selected_idx, angle_step_idx)
+    printServoCalStatus(servos, selected_idx, angle_step_idx)
 
     while True:
         key: str = readchar.readkey()
@@ -95,12 +91,10 @@ def servo_calibrate_loop(gc: GlobalConfig, servos: list[ServoMotor]) -> None:
 
         if key == readchar.key.LEFT:
             new_angle: int = max(0, servo.angle - SERVO_ANGLE_STEPS[angle_step_idx])
-            gc.logger.debug(f"servo_cal: LEFT pressed, moving servo {selected_idx} to {new_angle}°")
-            servo.move_to_and_release(new_angle)
+            servo.move_to(new_angle)
         elif key == readchar.key.RIGHT:
             new_angle = min(180, servo.angle + SERVO_ANGLE_STEPS[angle_step_idx])
-            gc.logger.debug(f"servo_cal: RIGHT pressed, moving servo {selected_idx} to {new_angle}°")
-            servo.move_to_and_release(new_angle)
+            servo.move_to(new_angle)
         elif key == readchar.key.UP:
             angle_step_idx = min(angle_step_idx + 1, len(SERVO_ANGLE_STEPS) - 1)
         elif key == readchar.key.DOWN:
@@ -113,8 +107,7 @@ def servo_calibrate_loop(gc: GlobalConfig, servos: list[ServoMotor]) -> None:
             try:
                 target: int = int(angle_str)
                 if 0 <= target <= 180:
-                    gc.logger.debug(f"servo_cal: GO pressed, moving servo {selected_idx} to {target}°")
-                    servo.move_to_and_release(target)
+                    servo.move_to(target)
                 else:
                     print("Angle must be 0-180")
                     readchar.readkey()
@@ -126,19 +119,11 @@ def servo_calibrate_loop(gc: GlobalConfig, servos: list[ServoMotor]) -> None:
         else:
             continue
 
-        printServoCalStatus(gc, servos, selected_idx, angle_step_idx)
+        printServoCalStatus(servos, selected_idx, angle_step_idx)
 
 
 def main() -> None:
     gc: GlobalConfig = mkGlobalConfig()
-
-    # Set up file logging
-    log_path = os.path.join(LOG_DIR, "motor_calibrate.log")
-    gc.logger._log_file = None  # close any existing
-    os.makedirs(LOG_DIR, exist_ok=True)
-    gc.logger._log_file = open(log_path, "a")
-    gc.logger.info(f"=== motor_calibrate started, logging to {log_path} ===")
-
     irl_config: IRLConfig = mkIRLConfig()
     irl: IRLInterface = mkIRLInterface(irl_config, gc)
 
@@ -155,11 +140,7 @@ def main() -> None:
 
     servos: list[ServoMotor] = irl.servos
 
-    # Inject logger into servos
-    for servo in servos:
-        servo.set_logger(gc.logger)
-
-    printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+    printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
 
     while True:
         key: str = readchar.readkey()
@@ -169,38 +150,37 @@ def main() -> None:
 
         if key == readchar.key.LEFT:
             stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key == readchar.key.RIGHT:
             stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key.lower() == "a":
             stepper.move_degrees(-90)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key.lower() == "d":
             stepper.move_degrees(90)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key == readchar.key.UP:
             step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key == readchar.key.DOWN:
             step_count_idx = max(step_count_idx - 1, 0)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key == "\t":
             selected_idx = (selected_idx + 1) % len(stepper_names)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key == readchar.key.ENTER:
             stepper.position_degrees = 0.0
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
             print(f"Zeroed {name} position")
         elif key in "1234":
             layer_idx: int = int(key) - 1
             if layer_idx < len(servos):
-                gc.logger.debug(f"main: toggling servo {layer_idx}")
                 servos[layer_idx].toggle()
-                printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+                printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key.lower() == "s":
-            servo_calibrate_loop(gc, servos)
-            printStatus(gc, steppers, stepper_names, selected_idx, step_count_idx, servos)
+            servo_calibrate_loop(servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key.lower() == "q":
             print("Exiting...")
             for s in steppers.values():

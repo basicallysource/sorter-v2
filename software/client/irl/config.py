@@ -160,11 +160,10 @@ class IRLInterface:
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
-    sorter_interfaces: list[SorterInterface]
-    sorter_interface: SorterInterface
+    interfaces: dict[str, SorterInterface]
 
     def __init__(self):
-        pass
+        self.interfaces: dict[str, SorterInterface] = {}
 
     def enableSteppers(self) -> None:
         for stepper_name in [
@@ -190,8 +189,10 @@ class IRLInterface:
             if hasattr(self, attr):
                 getattr(self, attr).enabled = False
 
-    def shutdownMotors(self) -> None:
+    def shutdown(self) -> None:
         self.disableSteppers()
+        for iface in self.interfaces.values():
+            iface.shutdown()
 
 
 def mkCameraConfig(
@@ -255,12 +256,6 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 
 def mkIRLConfig() -> IRLConfig:
-    """
-    Create the IRL (In Real Life) interface configuration.
-    
-    Note: Pin configuration is no longer used. The Pico firmware reports stepper names
-    at initialization time, making the client pin-agnostic.
-    """
     irl_config = IRLConfig()
     mcu_ports = discoverMCUs()
     irl_config.mcu_paths = mcu_ports
@@ -334,9 +329,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             f"No SorterInterface devices found on discovered ports: {ports}"
         )
 
-    # Backward compatibility references
-    irl_interface.sorter_interfaces = [si for _, _, si in discovered_interfaces]
-    irl_interface.sorter_interface = irl_interface.sorter_interfaces[0]
+    irl_interface.interfaces = {si.name: si for _, _, si in discovered_interfaces}
 
     stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
     servo_source: SorterInterface | None = None
@@ -419,7 +412,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.servos = []
     if servo_source is None:
         gc.logger.warning("No servo-capable SorterInterface detected")
-        servo_source = irl_interface.sorter_interface
+        servo_source = next(iter(irl_interface.interfaces.values()))
 
     for i, layer in enumerate(irl_interface.distribution_layout.layers):
         if i >= len(servo_source.servos):

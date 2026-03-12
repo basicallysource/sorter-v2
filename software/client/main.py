@@ -175,16 +175,9 @@ def main() -> None:
 
         vision.stop()
 
-        # Disable all motors and servos
+        # Shutdown all motors and sorter interfaces
         gc.logger.info("Stopping all motors...")
-        irl.disableSteppers()
-        
-        # Shutdown all discovered sorter interfaces
-        if hasattr(irl, 'sorter_interfaces'):
-            for sorter_interface in irl.sorter_interfaces:
-                sorter_interface.shutdown()
-        elif hasattr(irl, 'sorter_interface'):
-            irl.sorter_interface.shutdown()
+        irl.shutdown()
         
         gc.logger.info("Cleanup complete")
         gc.logger.flushLogs()

@@ -106,14 +106,15 @@ def _build_runtime_aruco_config(config_dict: Dict[str, Any]) -> ArucoTagConfig:
     runtime_config.second_c_channel_radius4_id = second_tags.get("radius4")
     runtime_config.second_c_channel_radius5_id = second_tags.get("radius5")
     runtime_config.second_c_channel_radius_ids = [
-        second_tags.get("radius1"),
-        second_tags.get("radius2"),
-        second_tags.get("radius3"),
-        second_tags.get("radius4"),
-        second_tags.get("radius5"),
-    ]
-    runtime_config.second_c_channel_radius_ids = [
-        int(tag) for tag in runtime_config.second_c_channel_radius_ids if tag is not None
+        int(tag)
+        for tag in [
+            second_tags.get("radius1"),
+            second_tags.get("radius2"),
+            second_tags.get("radius3"),
+            second_tags.get("radius4"),
+            second_tags.get("radius5"),
+        ]
+        if tag is not None
     ]
     runtime_config.second_c_channel_radius_multiplier = float(
         categories.get("second_c_channel", {}).get("radius_multiplier", 1.0)
@@ -126,14 +127,15 @@ def _build_runtime_aruco_config(config_dict: Dict[str, Any]) -> ArucoTagConfig:
     runtime_config.third_c_channel_radius4_id = third_tags.get("radius4")
     runtime_config.third_c_channel_radius5_id = third_tags.get("radius5")
     runtime_config.third_c_channel_radius_ids = [
-        third_tags.get("radius1"),
-        third_tags.get("radius2"),
-        third_tags.get("radius3"),
-        third_tags.get("radius4"),
-        third_tags.get("radius5"),
-    ]
-    runtime_config.third_c_channel_radius_ids = [
-        int(tag) for tag in runtime_config.third_c_channel_radius_ids if tag is not None
+        int(tag)
+        for tag in [
+            third_tags.get("radius1"),
+            third_tags.get("radius2"),
+            third_tags.get("radius3"),
+            third_tags.get("radius4"),
+            third_tags.get("radius5"),
+        ]
+        if tag is not None
     ]
     runtime_config.third_c_channel_radius_multiplier = float(
         categories.get("third_c_channel", {}).get("radius_multiplier", 1.0)
@@ -186,6 +188,7 @@ def auto_calibrate() -> Dict[str, Any]:
             "sync": sync_result,
         }
 
+    assert vision_manager is not None
     try:
         vision_manager.updateFeedingPlatformCache()
         return {
@@ -451,14 +454,15 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
     """Stream MJPEG video from the specified camera"""
     if vision_manager is None:
         raise HTTPException(status_code=500, detail="Vision manager not initialized")
-    
+    vm = vision_manager
+
     def generate_frames():
         """Generator function that yields JPEG frames"""
         import time
         quality = 80  # JPEG quality (0-100)
         
         while True:
-            frame_obj = vision_manager.getFrame(camera_name)
+            frame_obj = vm.getFrame(camera_name)
             if frame_obj is None:
                 # Send a placeholder frame if no frame available
                 placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -471,7 +475,7 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
 
                 if camera_name == "feeder" and show_live_aruco_values:
                     frame_to_encode = frame_to_encode.copy()
-                    raw_tags = vision_manager.getFeederArucoTagsRaw()
+                    raw_tags = vm.getFeederArucoTagsRaw()
                     for tag_id, (center_x_f, center_y_f) in raw_tags.items():
                         center = (int(center_x_f), int(center_y_f))
                         cv2.circle(frame_to_encode, center, 5, (0, 0, 255), -1)

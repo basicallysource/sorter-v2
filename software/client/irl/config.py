@@ -1,7 +1,6 @@
 import time
 
 from global_config import GlobalConfig
-from .device_discovery import discoverMCU, discoverMCUs
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
@@ -44,32 +43,32 @@ class StepperConfig:
 
 
 class CarouselArucoTagConfig:
-    corner1_id: int
-    corner2_id: int
-    corner3_id: int
-    corner4_id: int
+    corner1_id: int | None
+    corner2_id: int | None
+    corner3_id: int | None
+    corner4_id: int | None
 
     def __init__(self):
         pass
 
 
 class ArucoTagConfig:
-    second_c_channel_center_id: int
-    second_c_channel_output_guide_id: int
-    second_c_channel_radius1_id: int
-    second_c_channel_radius2_id: int
-    second_c_channel_radius3_id: int
-    second_c_channel_radius4_id: int
-    second_c_channel_radius5_id: int
+    second_c_channel_center_id: int | None
+    second_c_channel_output_guide_id: int | None
+    second_c_channel_radius1_id: int | None
+    second_c_channel_radius2_id: int | None
+    second_c_channel_radius3_id: int | None
+    second_c_channel_radius4_id: int | None
+    second_c_channel_radius5_id: int | None
     second_c_channel_radius_ids: list[int]
     second_c_channel_radius_multiplier: float
-    third_c_channel_center_id: int
-    third_c_channel_output_guide_id: int
-    third_c_channel_radius1_id: int
-    third_c_channel_radius2_id: int
-    third_c_channel_radius3_id: int
-    third_c_channel_radius4_id: int
-    third_c_channel_radius5_id: int
+    third_c_channel_center_id: int | None
+    third_c_channel_output_guide_id: int | None
+    third_c_channel_radius1_id: int | None
+    third_c_channel_radius2_id: int | None
+    third_c_channel_radius3_id: int | None
+    third_c_channel_radius4_id: int | None
+    third_c_channel_radius5_id: int | None
     third_c_channel_radius_ids: list[int]
     third_c_channel_radius_multiplier: float
     carousel_platform1: CarouselArucoTagConfig
@@ -81,9 +80,58 @@ class ArucoTagConfig:
         pass
 
 
+class RotorPulseConfig:
+    steps_per_pulse: int
+    microsteps_per_second: int
+    delay_between_pulse_ms: int
+
+    def __init__(
+        self,
+        steps: int,
+        microsteps_per_second: int,
+        delay_between_ms: int,
+    ):
+        self.steps_per_pulse = steps
+        self.microsteps_per_second = microsteps_per_second
+        self.delay_between_pulse_ms = delay_between_ms
+
+
+class FeederConfig:
+    first_rotor: RotorPulseConfig
+    second_rotor_normal: RotorPulseConfig
+    second_rotor_precision: RotorPulseConfig
+    third_rotor_normal: RotorPulseConfig
+    third_rotor_precision: RotorPulseConfig
+
+    def __init__(self):
+        self.first_rotor = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=2000,
+            delay_between_ms=5000,
+        )
+        self.second_rotor_normal = RotorPulseConfig(
+            steps=500,
+            microsteps_per_second=5000,
+            delay_between_ms=250,
+        )
+        self.second_rotor_precision = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=1250,
+            delay_between_ms=350,
+        )
+        self.third_rotor_normal = RotorPulseConfig(
+            steps=1000,
+            microsteps_per_second=5000,
+            delay_between_ms=250,
+        )
+        self.third_rotor_precision = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=1250,
+            delay_between_ms=350,
+        )
+
+
 class IRLConfig:
-    mcu_path: str
-    mcu_paths: list[str]
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -94,9 +142,10 @@ class IRLConfig:
     third_c_channel_rotor_stepper: StepperConfig
     aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
+    feeder_config: FeederConfig
 
     def __init__(self):
-        pass
+        self.feeder_config = FeederConfig()
 
 
 class IRLInterface:
@@ -108,11 +157,10 @@ class IRLInterface:
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
-    sorter_interfaces: list[SorterInterface]
-    sorter_interface: SorterInterface
+    interfaces: dict[str, SorterInterface]
 
     def __init__(self):
-        pass
+        self.interfaces: dict[str, SorterInterface] = {}
 
     def enableSteppers(self) -> None:
         for stepper_name in [
@@ -138,8 +186,10 @@ class IRLInterface:
             if hasattr(self, attr):
                 getattr(self, attr).enabled = False
 
-    def shutdownMotors(self) -> None:
+    def shutdown(self) -> None:
         self.disableSteppers()
+        for iface in self.interfaces.values():
+            iface.shutdown()
 
 
 def mkCameraConfig(
@@ -203,16 +253,7 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 
 def mkIRLConfig() -> IRLConfig:
-    """
-    Create the IRL (In Real Life) interface configuration.
-    
-    Note: Pin configuration is no longer used. The Pico firmware reports stepper names
-    at initialization time, making the client pin-agnostic.
-    """
     irl_config = IRLConfig()
-    mcu_ports = discoverMCUs()
-    irl_config.mcu_paths = mcu_ports
-    irl_config.mcu_path = mcu_ports[0] if mcu_ports else discoverMCU()
     camera_setup = getCameraSetup()
 
     if camera_setup is None:
@@ -254,7 +295,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     irl_interface = IRLInterface()
 
-    ports = getattr(config, "mcu_paths", None) or [config.mcu_path]
+    ports = MCUBus.enumerate_buses()
+    if not ports:
+        raise RuntimeError("No MCU buses found.")
     discovered_interfaces: list[tuple[str, int, SorterInterface]] = []
 
     for port in ports:
@@ -279,12 +322,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     if not discovered_interfaces:
         raise RuntimeError(
-            f"No SorterInterface devices found on discovered ports: {ports}"
+            f"No SorterInterface devices found on buses: {ports}"
         )
 
-    # Backward compatibility references
-    irl_interface.sorter_interfaces = [si for _, _, si in discovered_interfaces]
-    irl_interface.sorter_interface = irl_interface.sorter_interfaces[0]
+    irl_interface.interfaces = {si.name: si for _, _, si in discovered_interfaces}
 
     stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
     servo_source: SorterInterface | None = None
@@ -367,7 +408,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.servos = []
     if servo_source is None:
         gc.logger.warning("No servo-capable SorterInterface detected")
-        servo_source = irl_interface.sorter_interface
+        servo_source = next(iter(irl_interface.interfaces.values()))
 
     for i, layer in enumerate(irl_interface.distribution_layout.layers):
         if i >= len(servo_source.servos):

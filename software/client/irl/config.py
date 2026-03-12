@@ -44,32 +44,32 @@ class StepperConfig:
 
 
 class CarouselArucoTagConfig:
-    corner1_id: int
-    corner2_id: int
-    corner3_id: int
-    corner4_id: int
+    corner1_id: int | None
+    corner2_id: int | None
+    corner3_id: int | None
+    corner4_id: int | None
 
     def __init__(self):
         pass
 
 
 class ArucoTagConfig:
-    second_c_channel_center_id: int
-    second_c_channel_output_guide_id: int
-    second_c_channel_radius1_id: int
-    second_c_channel_radius2_id: int
-    second_c_channel_radius3_id: int
-    second_c_channel_radius4_id: int
-    second_c_channel_radius5_id: int
+    second_c_channel_center_id: int | None
+    second_c_channel_output_guide_id: int | None
+    second_c_channel_radius1_id: int | None
+    second_c_channel_radius2_id: int | None
+    second_c_channel_radius3_id: int | None
+    second_c_channel_radius4_id: int | None
+    second_c_channel_radius5_id: int | None
     second_c_channel_radius_ids: list[int]
     second_c_channel_radius_multiplier: float
-    third_c_channel_center_id: int
-    third_c_channel_output_guide_id: int
-    third_c_channel_radius1_id: int
-    third_c_channel_radius2_id: int
-    third_c_channel_radius3_id: int
-    third_c_channel_radius4_id: int
-    third_c_channel_radius5_id: int
+    third_c_channel_center_id: int | None
+    third_c_channel_output_guide_id: int | None
+    third_c_channel_radius1_id: int | None
+    third_c_channel_radius2_id: int | None
+    third_c_channel_radius3_id: int | None
+    third_c_channel_radius4_id: int | None
+    third_c_channel_radius5_id: int | None
     third_c_channel_radius_ids: list[int]
     third_c_channel_radius_multiplier: float
     carousel_platform1: CarouselArucoTagConfig

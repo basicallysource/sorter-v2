@@ -11,8 +11,6 @@ install:
 
 run:
 	@bash -c 'trap "kill 0" SIGINT; $(PYTHON) client/main.py & cd ui && npm run dev'
-upload:
-	mpremote cp firmware/feeder/main.py :main.py
 format:
 	ruff format client
 check:

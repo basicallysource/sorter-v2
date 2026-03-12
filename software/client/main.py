@@ -29,7 +29,6 @@ import time
 import asyncio
 import sys
 
-SHUTDOWN_MOTOR_STOP_DELAY_MS = 100
 FRAME_BROADCAST_INTERVAL_MS = 100
 
 server_to_main_queue = queue.Queue()

@@ -25,6 +25,7 @@
 
 #define PCA9685_OSC_FREQ 25000000
 #define PCA9685_MAX_PWM 4095
+#define PCA9685_PWM_FULL 4096
 #define PCA9685_I2C_TIMEOUT_US 1000 // 1ms timeout for I2C operations
 
 PCA9685::PCA9685(uint8_t i2c_addr, i2c_inst_t *i2c_port) : _i2c_addr(i2c_addr), _i2c_port(i2c_port) {
@@ -41,8 +42,7 @@ PCA9685::PCA9685(uint8_t i2c_addr, i2c_inst_t *i2c_port) : _i2c_addr(i2c_addr), 
  * \return true if the device is detected and initialized successfully, false otherwise
  */
 bool PCA9685::initialize() {
-    uint8_t mode1 = PCA_MODE1_ALLCALL; // Respond to I2C ALL CALL
-    mode1 |= PCA_MODE1_AI;             // Enable auto-increment
+    uint8_t mode1 = PCA_MODE1_AI; // Auto-increment enabled for sequential writes, all other bits 0 for normal operation
     int res;
     res =
         i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, mode1}, 2, false, PCA9685_I2C_TIMEOUT_US);
@@ -54,7 +54,7 @@ bool PCA9685::initialize() {
     if (res < 0)
         return false;
     // initialize all channels to 0 duty cycle (off)
-    uint8_t all_led_off_data[5] = {PCA_REG_ALL_LED_OFF_L, 0, 0, 0, 0}; // off_l=0, off_h=0 means fully off
+    uint8_t all_led_off_data[5] = {PCA_REG_ALL_LED_ON_L, 0, 0, 0x10, 0}; // ON count = 0, OFF count = 4096 (full off)
     res = i2c_write_timeout_us(_i2c_port, _i2c_addr, all_led_off_data, 5, false, PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
@@ -100,6 +100,8 @@ void PCA9685::setPWMFreq(uint16_t freq) {
     if (res < 0)
         return;
 
+    sleep_us(500); // Wait for the oscillator to stabilize after sleeping (datasheet recommends at least 500us)
+
     // Set the prescaler
     res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_PRE_SCALE, prescale}, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
@@ -109,6 +111,9 @@ void PCA9685::setPWMFreq(uint16_t freq) {
     // Wake up the device
     res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, oldmode}, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
+
+    sleep_us(500); // Wait for the oscillator to stabilize after waking up
+
     if (res < 0)
         return;
 }
@@ -126,22 +131,39 @@ void PCA9685::setPWMFreq(uint16_t freq) {
 void PCA9685::setPWM(uint8_t channel, uint16_t duty) {
     if (channel > 15)
         return; // Invalid channel
-    if (duty > PCA9685_MAX_PWM)
-        duty = PCA9685_MAX_PWM; // Clamp duty cycle to max
-
+    
     // Check if the duty cycle has changed to minimize I2C writes
     if (_channel_duty[channel] == duty)
         return; // No change, skip I2C write
+    
+    // Compute the new on and off times
+    uint16_t on_time = 0;
+    uint16_t off_time = 0;
 
-    _channel_duty[channel] = duty;
+    if (duty == 0) {
+        // Special case for fully off: set the ON count to 0 and OFF count to 4096 (full off)
+        on_time = 0;
+        off_time = PCA9685_PWM_FULL; // This will set the full off bit
+    } else if (duty >= PCA9685_PWM_FULL) {
+        // Special case for fully on: set the ON count to 4096 and OFF count to 0
+        on_time = PCA9685_PWM_FULL; // This will set the full on bit
+        off_time = 0;
+    } else {
+        // Normal case: ON count is 0, OFF count is equal to the duty cycle
+        on_time = 0;
+        off_time = duty;
+    }
 
-    uint8_t on_l = 0; // Always start at count 0
-    uint8_t on_h = 0;
-    uint8_t off_l = duty & 0xFF;
-    uint8_t off_h = (duty >> 8) & 0x0F;
+    const uint8_t on_l = on_time & 0xFF;
+    const uint8_t on_h = (on_time >> 8) & 0x0F;
+    const uint8_t off_l = off_time & 0xFF;
+    const uint8_t off_h = (off_time >> 8) & 0x0F;
 
-    uint8_t reg_base = PCA_REG_LED0_ON_L + 4 * channel;
+    uint8_t reg_base = PCA_REG_LED0_ON_L + (4 * channel);
     int res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){reg_base, on_l, on_h, off_l, off_h}, 5, false,
                                    PCA9685_I2C_TIMEOUT_US);
-    (void)res; // Optionally handle error
+    // If the write succeeds, update the shadow copy of the duty cycle. If it fails, we leave the shadow copy unchanged so that we will attempt to write again on the next call.
+    if (res >= 0) {
+        _channel_duty[channel] = duty;
+    }
 }

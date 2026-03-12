@@ -115,14 +115,14 @@ bool VAL_servo_channel(uint8_t channel);
 const struct CommandTable servoCmdTable = {
     .prefix = "SERVO",
     .commands = {{
-        {"MOVE_TO", "I", "?", 4, VAL_servo_channel, CMDH_servo_move_to},
-        {"SET_SPEED_LIMITS", "II", "", 8, VAL_servo_channel, CMDH_servo_set_speed_limits},
-        {"SET_ACCELERATION", "I", "", 4, VAL_servo_channel, CMDH_servo_set_acceleration},
-        {"GET_POSITION", "", "I", 0, VAL_servo_channel, CMDH_servo_get_position},
+        {"MOVE_TO", "H", "?", 2, VAL_servo_channel, CMDH_servo_move_to},
+        {"SET_SPEED_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_speed_limits},
+        {"SET_ACCELERATION", "H", "", 2, VAL_servo_channel, CMDH_servo_set_acceleration},
+        {"GET_POSITION", "", "H", 0, VAL_servo_channel, CMDH_servo_get_position},
         {"IS_STOPPED", "", "?", 0, VAL_servo_channel, CMDH_servo_is_stopped},
         {"STOP", "", "", 0, VAL_servo_channel, CMDH_servo_stop},
         {"SET_ENABLED", "?", "", 1, VAL_servo_channel, CMDH_servo_set_enabled},
-        {"SET_DUTY_LIMITS", "II", "", 8, VAL_servo_channel, CMDH_servo_set_duty_limits},
+        {"SET_DUTY_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_duty_limits},
     }}};
 
 const MasterCommandTable command_tables = {
@@ -312,14 +312,21 @@ void initialize_hardware() {
         gpio_put(digital_output_pins[i], 0);
     }
     // Initialize i2c
-    i2c_init(i2c0, 400000);
+    i2c_init(I2C_PORT, 100000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
+    // Perform software reset on all servo controllers on the i2c bus
+    uint8_t reset_command[] = {0x06}; // Software reset command for PCA9685
+    int res, count = 5;
+    do {
+        res = i2c_write_timeout_us(I2C_PORT, 0x00, reset_command, 1, false, 1000); // Broadcast address 0x00 to reset all controllers
+    } while (res < 0 && --count > 0); // Retry a few times in case some controllers are still resetting and not responding to i2c commands
     // Initialize servo controller and servos
     bool sc_present = servo_controller.initialize();
     if (sc_present) {
+        servo_controller.setPWMFreq(50); // Set frequency to 50 Hz for standard hobby servos
         SERVO_COUNT = 16;
         for (int i = 0; i < SERVO_COUNT; i++) {
             servos[i].setEnabled(false);
@@ -514,7 +521,7 @@ void CMDH_servo_set_speed_limits(const BusMessage *msg, BusMessage *resp) {
 }
 
 void CMDH_servo_set_acceleration(const BusMessage *msg, BusMessage *resp) {
-    uint32_t acceleration;
+    uint16_t acceleration;
     memcpy(&acceleration, msg->payload, sizeof(acceleration));
     servos[msg->channel].setAcceleration(acceleration);
     resp->payload_length = 0;

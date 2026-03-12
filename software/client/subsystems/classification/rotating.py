@@ -22,7 +22,7 @@ class Rotating(BaseState):
         gc: GlobalConfig,
         shared: SharedVariables,
         carousel: Carousel,
-        stepper: "Stepper",
+        stepper: "StepperMotor",
         event_queue: queue.Queue,
     ):
         super().__init__(irl, gc)

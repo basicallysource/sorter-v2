@@ -335,12 +335,12 @@ class ServoMotor:
         res = self._dev.send_command(InterfaceCommandCode.SERVO_IS_STOPPED, self._channel, b'')
         return bool(res.payload[0])
 
-    def open(self, open_angle: int = None) -> None:
+    def open(self, open_angle: int | None = None) -> None:
         """Move servo to open position."""
         target = open_angle if open_angle is not None else self._open_angle
         self.move_to(target)
 
-    def close(self, closed_angle: int = None) -> None:
+    def close(self, closed_angle: int | None = None) -> None:
         """Move servo to closed position."""
         target = closed_angle if closed_angle is not None else self._closed_angle
         self.move_to(target)

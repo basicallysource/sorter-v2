@@ -6,11 +6,12 @@ from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
 
-SERVO_OPEN_ANGLE = 0
+SERVO_OPEN_ANGLE = 10
 SERVO_CLOSED_ANGLE = 72
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, ServoMotor
+    from subsystems.distribution.chute import Chute
 
 from .bin_layout import (
     getBinLayout,
@@ -107,6 +108,8 @@ class IRLInterface:
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
+    sorter_interfaces: list[SorterInterface]
+    sorter_interface: SorterInterface
 
     def __init__(self):
         pass
@@ -283,7 +286,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.sorter_interfaces = [si for _, _, si in discovered_interfaces]
     irl_interface.sorter_interface = irl_interface.sorter_interfaces[0]
 
-    stepper_entries: list[tuple[str, object, str, int, str]] = []
+    stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
     servo_source: SorterInterface | None = None
 
     for port, address, sorter_interface in discovered_interfaces:

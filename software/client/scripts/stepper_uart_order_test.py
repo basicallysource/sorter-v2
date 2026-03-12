@@ -11,7 +11,6 @@ load_dotenv(CLIENT_ROOT / ".env")
 import time
 import argparse
 
-from irl.device_discovery import discoverMCU
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
 
@@ -51,7 +50,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    mcu_port = discoverMCU()
+    ports = MCUBus.enumerate_buses()
+    if not ports:
+        raise RuntimeError("No MCU buses found.")
+    mcu_port = ports[0]
     bus = MCUBus(port=mcu_port)
     devices = bus.scan_devices()
     if not devices:

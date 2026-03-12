@@ -1,7 +1,6 @@
 import time
 
 from global_config import GlobalConfig
-from .device_discovery import discoverMCU, discoverMCUs
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
@@ -133,8 +132,6 @@ class FeederConfig:
 
 
 class IRLConfig:
-    mcu_path: str
-    mcu_paths: list[str]
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -257,9 +254,6 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
-    mcu_ports = discoverMCUs()
-    irl_config.mcu_paths = mcu_ports
-    irl_config.mcu_path = mcu_ports[0] if mcu_ports else discoverMCU()
     camera_setup = getCameraSetup()
 
     if camera_setup is None:
@@ -301,7 +295,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     irl_interface = IRLInterface()
 
-    ports = getattr(config, "mcu_paths", None) or [config.mcu_path]
+    ports = MCUBus.enumerate_buses()
+    if not ports:
+        raise RuntimeError("No MCU buses found.")
     discovered_interfaces: list[tuple[str, int, SorterInterface]] = []
 
     for port in ports:
@@ -326,7 +322,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     if not discovered_interfaces:
         raise RuntimeError(
-            f"No SorterInterface devices found on discovered ports: {ports}"
+            f"No SorterInterface devices found on buses: {ports}"
         )
 
     irl_interface.interfaces = {si.name: si for _, _, si in discovered_interfaces}

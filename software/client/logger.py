@@ -22,17 +22,28 @@ class Logger:
         debug_level: int,
         buffer_size: int = 100,
         upload_callback: Optional[Callable[[List[LogEntry]], None]] = None,
+        log_file: Optional[str] = None,
     ):
         self.debug_level = debug_level
         self.buffer_size = buffer_size
         self.upload_callback = upload_callback
         self._buffer: List[LogEntry] = []
         self._buffer_lock = threading.Lock()
+        self._log_file = None
+        if log_file:
+            self._log_file = open(log_file, "a")
 
         atexit.register(self._cleanup)
 
     def _timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _log(self, level: str, msg: str) -> None:
+        line = f"[{self._timestamp()}] [{level}] {msg}"
+        print(line)
+        if self._log_file:
+            self._log_file.write(line + "\n")
+            self._log_file.flush()
 
     def _addToBuffer(self, entry: LogEntry) -> None:
         with self._buffer_lock:
@@ -57,13 +68,13 @@ class Logger:
     def error(self, msg: str, **kwargs) -> None:
         entry = LogEntry("ERROR", msg)
         self._addToBuffer(entry)
-        print(f"[{self._timestamp()}] [ERROR] {msg}")
+        self._log("ERROR", msg)
 
     def warn(self, msg: str, **kwargs) -> None:
         if self.debug_level > 0:
             entry = LogEntry("WARN", msg)
             self._addToBuffer(entry)
-            print(f"[{self._timestamp()}] [WARN] {msg}")
+            self._log("WARN", msg)
 
     def warning(self, msg: str) -> None:
         self.warn(msg)
@@ -72,13 +83,13 @@ class Logger:
         if self.debug_level > 1:
             entry = LogEntry("INFO", msg)
             self._addToBuffer(entry)
-            print(f"[{self._timestamp()}] [INFO] {msg}")
+            self._log("INFO", msg)
 
     def debug(self, msg: str) -> None:
         if self.debug_level > 2:
             entry = LogEntry("DEBUG", msg)
             self._addToBuffer(entry)
-            print(f"[{self._timestamp()}] [DEBUG] {msg}")
+            self._log("DEBUG", msg)
 
     def flushLogs(self) -> None:
         with self._buffer_lock:
@@ -87,3 +98,5 @@ class Logger:
     def _cleanup(self) -> None:
         # bug: at exit not all remaining logs get flushed
         self.flushLogs()
+        if self._log_file:
+            self._log_file.close()

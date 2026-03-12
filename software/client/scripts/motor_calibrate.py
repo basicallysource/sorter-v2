@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -12,6 +13,8 @@ import readchar
 from global_config import mkGlobalConfig, GlobalConfig
 from hardware.sorter_interface import StepperMotor, ServoMotor
 from irl.config import mkIRLConfig, mkIRLInterface, IRLConfig, IRLInterface
+
+LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 
 STEP_COUNTS: list[int] = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
 SERVO_ANGLE_STEPS: list[int] = [1, 5, 10, 15, 30, 45]
@@ -41,6 +44,8 @@ def printStatus(
     print(f"  A/D     Quarter turn ({quarter_degrees}°)")
     print("  Tab     Switch stepper")
     print("  Enter   Set current position as zero")
+    if name == "chute":
+        print("  H       Home chute via sensor")
     print()
     print("Servo Controls (per layer):")
     for i, servo in enumerate(servos):
@@ -124,6 +129,10 @@ def servo_calibrate_loop(servos: list[ServoMotor]) -> None:
 
 def main() -> None:
     gc: GlobalConfig = mkGlobalConfig()
+    LOGS_DIR.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = LOGS_DIR / f"motor_calibrate_{timestamp}.log"
+    gc.logger._log_file = open(log_path, "a")
     irl_config: IRLConfig = mkIRLConfig()
     irl: IRLInterface = mkIRLInterface(irl_config, gc)
 
@@ -178,6 +187,10 @@ def main() -> None:
             if layer_idx < len(servos):
                 servos[layer_idx].toggle()
                 printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+        elif key.lower() == "h" and name == "chute":
+            print("Homing chute...")
+            irl.chute.home()
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
         elif key.lower() == "s":
             servo_calibrate_loop(servos)
             printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)

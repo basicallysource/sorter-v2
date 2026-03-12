@@ -1,16 +1,20 @@
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
 from irl.bin_layout import DistributionLayout
 
 if TYPE_CHECKING:
-    from hardware.sorter_interface import StepperMotor
+    from hardware.sorter_interface import StepperMotor, DigitalInputPin
 
 GEAR_RATIO = 4
 SECTIONS_PER_LAYER = 6
 DEG_PER_SECTION = 60
 PILLAR_WIDTH_DEG = 2.5
 USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
+
+HOME_SPEED_MICROSTEPS_PER_SEC = -2000
+HOME_TIMEOUT_MS = 15000
 
 
 @dataclass
@@ -22,11 +26,16 @@ class BinAddress:
 
 class Chute:
     def __init__(
-        self, gc: GlobalConfig, stepper: "StepperMotor", layout: DistributionLayout
+        self,
+        gc: GlobalConfig,
+        stepper: "StepperMotor",
+        home_pin: "DigitalInputPin",
+        layout: DistributionLayout,
     ):
         self.gc = gc
         self.logger = gc.logger
         self.stepper = stepper
+        self.home_pin = home_pin
         self.layout = layout
 
     @property
@@ -95,6 +104,13 @@ class Chute:
         target = self.getAngleForBin(address)
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
-    def home(self) -> int:
-        self.logger.info("Chute: homing to zero")
-        return self.moveToAngle(0.0)
+    def home(self) -> None:
+        self.logger.info("Chute: homing via sensor")
+        self.stepper.home(HOME_SPEED_MICROSTEPS_PER_SEC, self.home_pin, home_pin_active_high=True)
+        start = time.monotonic()
+        while not self.stepper.stopped:
+            if (time.monotonic() - start) * 1000 > HOME_TIMEOUT_MS:
+                self.logger.error("Chute: homing timed out")
+                return
+            time.sleep(0.01)
+        self.logger.info("Chute: homed successfully")

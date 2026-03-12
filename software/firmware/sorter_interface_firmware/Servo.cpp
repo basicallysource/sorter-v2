@@ -25,7 +25,7 @@
 
 Servo::Servo()
         : _state(SERVO_DISABLED), _move_start_pos(0), _current_pos(0), _current_pos_frac(0), _target_pos(0), _brake_pos(0),
-            _current_speed(0), _current_speed_frac(0), _max_speed(3750), _min_speed(50), _acceleration(100), _min_duty(102),
+            _current_speed(0), _current_speed_frac(0), _max_speed(15000), _min_speed(10), _acceleration(2000), _min_duty(102),
             _max_duty(512), _current_duty(0) {
 }
 

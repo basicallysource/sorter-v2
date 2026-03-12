@@ -8,7 +8,6 @@
 import logging
 import time
 from .bus import MCUDevice, BaseCommandCode
-from blob_manager import getStepperPosition, setStepperPosition, getServoPosition, setServoPosition
 import struct
 
 class InterfaceCommandCode(BaseCommandCode):
@@ -85,8 +84,7 @@ class StepperMotor:
         self._microsteps = 16
         self._enabled = True
         self._name = f"stepper_{channel}"
-        # Track position via blob_manager for persistence
-        self._current_position_steps = getStepperPosition(self._name)
+        self._current_position_steps = 0
 
     def move_degrees(self, degrees: float) -> bool:
         """
@@ -106,90 +104,24 @@ class StepperMotor:
     ) -> bool:
         """Move by degrees with optional timing/acceleration profile."""
         steps = self.microsteps_for_degrees(degrees)
-        return self.move_steps(
-            steps,
-            delay_us,
-            accel_start_delay_us,
-            accel_steps,
-            decel_steps,
-        )
-    
-    def move_steps(self, steps: int, delay_us: int = 0, accel_start_delay_us: int = 0, 
-                   accel_steps: int = 0, decel_steps: int = 0) -> bool:
-        """
-        Move the stepper by a given number of microsteps (positive or negative).
-        
-        Args:
-            steps: Number of microsteps to move
-            delay_us: Fixed delay between steps in microseconds (0 for default)
-            accel_start_delay_us: Starting delay for acceleration ramp (0 for default)
-            accel_steps: Number of steps to accelerate (0 for no acceleration)
-            decel_steps: Number of steps to decelerate (0 for no deceleration)
-        """
+        return self.move_steps(steps)
+
+    def move_steps(self, steps: int) -> bool:
+        """Move the stepper by a given number of microsteps (positive or negative)."""
         if steps == 0:
             return True
         payload = struct.pack("<i", steps) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         success = len(res.payload) > 0 and bool(res.payload[0])
-
         if success:
             self._current_position_steps += steps
-            setStepperPosition(self._name, self._current_position_steps)
-            return True
-
-        # Best-effort resync on command failure to avoid client-side drift.
-        try:
-            position_res = self._dev.send_command(
-                InterfaceCommandCode.STEPPER_GET_POSITION,
-                self._channel,
-                b"",
-            )
-            hw_position = struct.unpack("<i", position_res.payload)[0]
-            self._current_position_steps = hw_position
-            setStepperPosition(self._name, self._current_position_steps)
-        except Exception:
-            pass
-
-        return False
+        return success
     
     def move_at_speed(self, speed: int) -> bool:
         """Move the stepper at a given speed in microsteps per second."""
         payload = struct.pack("<i", speed) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         return bool(res.payload[0])
-
-    def move_steps_blocking(self, steps: int, timeout_ms: int = 5000) -> bool:
-        """
-        Move the stepper by a given number of microsteps and wait for completion.
-        
-        Args:
-            steps: Number of microsteps to move
-            timeout_ms: Maximum time to wait in milliseconds
-            
-        Returns:
-            True if move completed successfully, False if timeout
-        """
-        if steps == 0:
-            return True
-        
-        self.move_steps(steps)
-        
-        # Wait for stepper to stop, with timeout
-        import time
-        start_time = time.time()
-        timeout_sec = timeout_ms / 1000.0
-        
-        while time.time() - start_time < timeout_sec:
-            if self.stopped:
-                return True
-            time.sleep(0.01)  # Poll every 10ms
-        
-        return False  # Timeout
-
-    def move_degrees_blocking(self, degrees: float, timeout_ms: int = 5000) -> bool:
-        """Move by degrees and wait for completion."""
-        steps = self.microsteps_for_degrees(degrees)
-        return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
@@ -211,18 +143,13 @@ class StepperMotor:
     def position(self) -> int:
         """Get the current position of the stepper in microsteps."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_GET_POSITION, self._channel, b'')
-        position = struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
-        self._current_position_steps = position
-        setStepperPosition(self._name, self._current_position_steps)
-        return position
+        return struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
     
     @position.setter
     def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
         payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
-        self._current_position_steps = position
-        setStepperPosition(self._name, self._current_position_steps)
     
     @property
     def position_degrees(self) -> float:
@@ -302,40 +229,44 @@ class StepperMotor:
     @property
     def channel(self):
         return self._channel
-    
+
     @property
     def current_position_steps(self) -> int:
         """Get the current position in microsteps."""
         return self._current_position_steps
-    
+
     @property
     def total_steps_per_rev(self) -> int:
         """Get the total microsteps per revolution (considering microsteps)."""
         return self._steps_per_revolution * self._microsteps
 
     def set_name(self, name: str) -> None:
-        """Set a human-readable name for persistent position tracking."""
+        """Set a human-readable name for this stepper."""
         self._name = name
-        self._current_position_steps = getStepperPosition(name)
-    
+
+    def move_steps_blocking(self, steps: int, timeout_ms: int = 5000) -> bool:
+        """Move the stepper by a given number of microsteps and wait for completion."""
+        if steps == 0:
+            return True
+        self.move_steps(steps)
+        start_time = time.time()
+        timeout_sec = timeout_ms / 1000.0
+        while time.time() - start_time < timeout_sec:
+            if self.stopped:
+                return True
+            time.sleep(0.01)
+        return False
+
+    def move_degrees_blocking(self, degrees: float, timeout_ms: int = 5000) -> bool:
+        """Move by degrees and wait for completion."""
+        steps = self.microsteps_for_degrees(degrees)
+        return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
+
     def estimateMoveStepsMs(self, steps: int, max_speed: int = 5000) -> int:
-        """
-        Estimate the time (in milliseconds) it will take to move a given number of steps.
-        
-        This is a rough approximation assuming constant acceleration and deceleration.
-        
-        Args:
-            steps: Number of steps to move
-            max_speed: Maximum speed in microsteps per second (default 5000)
-        
-        Returns:
-            Estimated time in milliseconds
-        """
+        """Estimate the time (in milliseconds) it will take to move a given number of steps."""
         if steps == 0:
             return 0
         steps = abs(steps)
-        # Very rough estimate: assume we can do max_speed microsteps per second
-        # This doesn't account for acceleration/deceleration ramps
         estimated_seconds = steps / max_speed
         return max(1, int(estimated_seconds * 1000))
 
@@ -356,39 +287,52 @@ class StepperMotor:
 
 
 class ServoMotor:
-    """Servo motor controlled through I2C PCA9685 servo driver."""
-
     def __init__(self, device: MCUDevice, channel: int):
         self._dev = device
         self._channel = channel
-        self._current_angle = 0
         self._name = f"servo_{channel}"
+        self._current_angle = 0
         self._open_angle = 0
         self._closed_angle = 72
+        # Track enabled state locally; the firmware does not provide a GET for enabled.
         self._enabled = False
-        # Load persisted position
-        self._current_angle = getServoPosition(self._name)
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        bool_value = bool(value)
+        payload = struct.pack("<?", bool_value) # 1 byte, boolean
+        self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
+        self._enabled = bool_value
 
     def move_to(self, angle: int) -> bool:
-        """
-        Move the servo to a given angle.
-
-        Args:
-            angle: Target angle in degrees (typically 0-180)
-
-        Returns:
-            True if the move was accepted
-        """
+        """Move the servo to a given angle in degrees (0-180)."""
         if not 0 <= angle <= 180:
             raise ValueError(f"Servo angle must be 0-180, got {angle}")
-
         if not self._enabled:
-            self.set_enabled(True)
-
-        payload = struct.pack("<I", angle * 10)  # Convert degrees to 0.1° units
+            self.enabled = True
+        payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO, self._channel, payload)
         self._current_angle = angle
-        setServoPosition(self._name, angle)
+        return bool(res.payload[0])
+
+    @property
+    def position(self) -> int:
+        """Get the current position of the servo in tenths of degrees."""
+        res = self._dev.send_command(InterfaceCommandCode.SERVO_GET_POSITION, self._channel, b'')
+        return struct.unpack("<H", res.payload)[0] # 2 bytes, little-endian unsigned integer
+
+    def stop(self):
+        """Stop the servo immediately"""
+        self._dev.send_command(InterfaceCommandCode.SERVO_STOP, self._channel, b'')
+
+    @property
+    def stopped(self) -> bool:
+        """Check if the servo is stopped."""
+        res = self._dev.send_command(InterfaceCommandCode.SERVO_IS_STOPPED, self._channel, b'')
         return bool(res.payload[0])
 
     def open(self, open_angle: int = None) -> None:
@@ -416,31 +360,47 @@ class ServoMotor:
         """Check if servo is in closed position."""
         return self._current_angle == self._closed_angle
 
+    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
+        """Set the minimum and maximum speed for the servo in tenths of degrees per second."""
+        if min_speed < 0 or max_speed < 0:
+            raise ValueError("Speed limits must be non-negative")
+        if min_speed >= max_speed:
+            raise ValueError("min_speed must be less than max_speed")
+        payload = struct.pack("<HH", min_speed, max_speed) # 4 bytes, two little-endian unsigned integers
+        self._dev.send_command(InterfaceCommandCode.SERVO_SET_SPEED_LIMITS, self._channel, payload)
+
+    def set_acceleration(self, acceleration: int) -> None:
+        """Set the acceleration for the servo in tenths of degrees per second squared."""
+        payload = struct.pack("<H", acceleration)  # 2 bytes, little-endian unsigned integer
+        self._dev.send_command(InterfaceCommandCode.SERVO_SET_ACCELERATION, self._channel, payload)
+
+    def set_duty_limits(self, min_duty_us: int, max_duty_us: int) -> None:
+        """Set the minimum and maximum duty cycle for the servo in microseconds.
+
+         min_duty_us: Pulse width in microseconds (e.g. 1000 for 1ms) for the minimum position (0 degrees)
+         max_duty_us: Pulse width in microseconds (e.g. 2000 for 2ms) for the maximum position (180 degrees)
+        """
+        if min_duty_us < 0 or max_duty_us < 0:
+            raise ValueError("Duty limits must be non-negative")
+        if min_duty_us >= max_duty_us:
+            raise ValueError("min_duty_us must be less than max_duty_us")
+        if max_duty_us > 20000:
+            raise ValueError("max_duty_us must be less than or equal to 20000 (20ms period)")
+        # Convert pulse widths (in microseconds) to PCA9685 12-bit counts (0-4095)
+        # assuming a 20ms period (50Hz): counts = (pulse_us / 20000us) * 4095.
+        min_duty = int((min_duty_us / 20000.0) * 4095)
+        max_duty = int((max_duty_us / 20000.0) * 4095)
+        payload = struct.pack("<HH", min_duty, max_duty)  # 4 bytes, two little-endian unsigned integers
+        self._dev.send_command(InterfaceCommandCode.SERVO_SET_DUTY_LIMITS, self._channel, payload)
+
     def set_name(self, name: str) -> None:
-        """Set a human-readable name for persistent position tracking."""
+        """Set a human-readable name for this servo."""
         self._name = name
-        self._current_angle = getServoPosition(name)
 
     def set_preset_angles(self, open_angle: int, closed_angle: int) -> None:
         """Set the open and closed preset angles."""
         self._open_angle = open_angle
         self._closed_angle = closed_angle
-
-    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
-        """Set the minimum and maximum speed for the servo."""
-        payload = struct.pack("<II", min_speed, max_speed)
-        self._dev.send_command(InterfaceCommandCode.SERVO_SET_SPEED_LIMITS, self._channel, payload)
-
-    def set_acceleration(self, acceleration: int) -> None:
-        """Set the acceleration for the servo."""
-        payload = struct.pack("<I", acceleration)
-        self._dev.send_command(InterfaceCommandCode.SERVO_SET_ACCELERATION, self._channel, payload)
-
-    def set_enabled(self, enabled: bool) -> None:
-        """Enable or disable the servo."""
-        payload = struct.pack("<?", enabled)
-        self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
-        self._enabled = enabled
 
     @property
     def angle(self) -> int:
@@ -476,17 +436,11 @@ class SorterInterface(MCUDevice):
         digital_input_channels = range(self._board_info.get("digital_input_count", 0))
         digital_output_channels = range(self._board_info.get("digital_output_count", 0))
         stepper_channels = range(self._board_info.get("stepper_count", 0))
-        servo_count = self._board_info.get("servo_count", 0)
-        if servo_count == 0:
-            # If firmware reports 0 servos, default to 4 for basic compatibility with PCA9685
-            servo_count = 4
-        servo_channels = range(servo_count)
-        
+        servo_channels = range(self._board_info.get("servo_count", 0))
         self.digital_inputs = tuple(DigitalInputPin(self, ch) for ch in digital_input_channels)
         self.digital_outputs = tuple(DigitalOutputPin(self, ch) for ch in digital_output_channels)
         self.steppers = tuple(StepperMotor(self, ch) for ch in stepper_channels)
         self.servos = tuple(ServoMotor(self, ch) for ch in servo_channels)
-        
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
 
@@ -543,11 +497,20 @@ if __name__ == "__main__":
                         logging.info(f"  Digital Input {i}: value={din.value}")
                 start_time = now
             for name, interface in interfaces.items():
+                if interface.servos and all(servo.stopped for servo in interface.servos):
+                    for servo in interface.servos:
+                        servo.enabled = True
+                        servo.set_speed_limits(100, 20000) # Set speed limits to 10-2000 degrees per second
+                        servo.set_acceleration(2000)
+                        angle = random.choice([0, 90, 180]) # Move to either 0, 90, or 180 degrees
+                        logging.info(f"Moving servo {servo.channel} on interface {name} to {angle} degrees")
+                        servo.move_to(angle)
+
                 for stepper in interface.steppers:
                     if not stepper.stopped:
                         continue
                     # Randomly decide to move the stepper
                     steps = random.randint(-1000, 1000)
-                    logging.info(f"Moving stepper on interface {name} by {steps} steps")
+                    logging.info(f"Moving stepper {stepper.channel} on interface {name} by {steps} steps")
                     stepper.move_steps(steps)
             time.sleep(0.01)

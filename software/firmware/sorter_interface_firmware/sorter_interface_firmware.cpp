@@ -423,8 +423,14 @@ void CMDH_stepper_set_position(const BusMessage *msg, BusMessage *resp) {
 void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp) {
     int32_t home_speed;
     memcpy(&home_speed, msg->payload, sizeof(home_speed));
-    uint8_t home_pin = msg->payload[4];
+    uint8_t home_pin_channel = msg->payload[4];
     bool home_pin_polarity = msg->payload[5] != 0;
+    if (home_pin_channel >= DIGITAL_INPUT_COUNT) {
+        resp->command = msg->command | 0x80;
+        resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "Invalid home pin channel %u", home_pin_channel);
+        return;
+    }
+    int home_pin = digital_input_pins[home_pin_channel];
     steppers[msg->channel].home(home_speed, home_pin, home_pin_polarity);
     resp->payload_length = 0;
 }

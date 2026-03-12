@@ -34,7 +34,20 @@ project(sorter_interface_firmware C CXX ASM)
 pico_sdk_init()
 
 option(HW_SKR_PICO "Compile for SKR Pico hardware" OFF)
-set(INIT_DEVICE_NAME "FEEDER MB" CACHE STRING "Device Name for the firmware to use on startup")
+set(FIRMWARE_ROLE "feeder" CACHE STRING "Firmware role profile: feeder or distribution")
+set_property(CACHE FIRMWARE_ROLE PROPERTY STRINGS feeder distribution)
+
+string(TOLOWER "${FIRMWARE_ROLE}" FIRMWARE_ROLE_NORMALIZED)
+if (NOT FIRMWARE_ROLE_NORMALIZED STREQUAL "feeder" AND NOT FIRMWARE_ROLE_NORMALIZED STREQUAL "distribution")
+    message(FATAL_ERROR "Invalid FIRMWARE_ROLE='${FIRMWARE_ROLE}'. Expected 'feeder' or 'distribution'.")
+endif()
+
+set(DEFAULT_DEVICE_NAME "FEEDER MB")
+if (FIRMWARE_ROLE_NORMALIZED STREQUAL "distribution")
+    set(DEFAULT_DEVICE_NAME "DISTRIBUTION MB")
+endif()
+
+set(INIT_DEVICE_NAME "${DEFAULT_DEVICE_NAME}" CACHE STRING "Device Name for the firmware to use on startup")
 set(INIT_DEVICE_ADDRESS "0x00" CACHE STRING "Device Address in the bus")
 
 # Add executable. Default name is the project name, version 0.1
@@ -71,6 +84,11 @@ target_include_directories(sorter_interface_firmware PRIVATE
 target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="${INIT_DEVICE_NAME}" INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS})
 if (HW_SKR_PICO)
     target_compile_definitions(sorter_interface_firmware PRIVATE HARDWARE_SKR_PICO)
+endif()
+if (FIRMWARE_ROLE_NORMALIZED STREQUAL "distribution")
+    target_compile_definitions(sorter_interface_firmware PRIVATE FIRMWARE_ROLE_DISTRIBUTION)
+else()
+    target_compile_definitions(sorter_interface_firmware PRIVATE FIRMWARE_ROLE_FEEDER)
 endif()
 
 # Add any user requested libraries

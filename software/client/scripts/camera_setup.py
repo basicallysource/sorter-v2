@@ -21,8 +21,8 @@ MENU_LINES = [
     "F - feeder",
     "B - classification bottom",
     "T - classification top",
-    "N - skip",
-    "Q - quit",
+    "N - next camera",
+    "Q - quit & save",
 ]
 
 
@@ -44,18 +44,20 @@ def main():
     print(f"found {len(caps)} camera(s): {[i for i, _ in caps]}")
 
     setup = getCameraSetup() or {}
-    assigned = {v: k for k, v in setup.items() if isinstance(v, int)}  # index -> role
 
     window = "Camera Setup"
     cv2.namedWindow(window, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window, 800, 600)
 
     for index, cap in caps:
+        roles_this_camera: list[str] = [
+            role for role, idx in setup.items() if idx == index
+        ]
         while True:
             ret, frame = cap.read()
             if ret:
-                role = assigned.get(index, "")
-                header = f"Camera {index}" + (f"  [{role}]" if role else "")
+                roles_str = ", ".join(roles_this_camera) if roles_this_camera else ""
+                header = f"Camera {index}" + (f"  [{roles_str}]" if roles_str else "")
                 cv2.putText(
                     frame, header, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 4
                 )
@@ -94,13 +96,15 @@ def main():
 
             if key in ROLES:
                 role = ROLES[key]
-                assigned = {i: r for i, r in assigned.items() if r != role}
-                assigned[index] = role
-                setup = {r: i for i, r in assigned.items()}
+                setup[role] = index
+                if role not in roles_this_camera:
+                    roles_this_camera.append(role)
                 print(f"camera {index} -> {role}")
-                break
             elif key in (ord("n"), ord("N")):
-                print(f"camera {index} -> skipped")
+                if roles_this_camera:
+                    print(f"camera {index} -> {', '.join(roles_this_camera)}")
+                else:
+                    print(f"camera {index} -> skipped")
                 break
             elif key in (ord("q"), ord("Q")):
                 for _, c in caps:

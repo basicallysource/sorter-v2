@@ -1,6 +1,5 @@
 import os
 import json
-from pathlib import Path
 from typing import Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,7 +7,6 @@ from enum import Enum
 
 @dataclass
 class LayerConfig:
-    servo_pin: int
     sections: List[List[str]]
 
 
@@ -36,7 +34,6 @@ class BinSection:
 
 @dataclass
 class Layer:
-    servo_pin: int
     sections: List[BinSection] = field(default_factory=list)
 
 
@@ -50,7 +47,6 @@ VALID_BIN_SIZES = {"small", "medium", "big"}
 DEFAULT_BIN_LAYOUT = BinLayoutConfig(
     layers=[
         LayerConfig(
-            servo_pin=4,
             sections=[
                 ["medium", "medium"],
                 ["medium", "medium"],
@@ -61,7 +57,6 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
             ],
         ),
         LayerConfig(
-            servo_pin=5,
             sections=[
                 ["medium", "medium"],
                 ["medium", "medium"],
@@ -72,7 +67,6 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
             ],
         ),
         LayerConfig(
-            servo_pin=6,
             sections=[
                 ["medium", "medium"],
                 ["medium", "medium"],
@@ -83,7 +77,6 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
             ],
         ),
         LayerConfig(
-            servo_pin=11,
             sections=[
                 ["medium", "medium"],
                 ["medium", "medium"],
@@ -97,50 +90,26 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 )
 
 
-def getBinLayout(path: Optional[str] = None) -> BinLayoutConfig:
-    if path is None:
-        path = os.environ.get("BIN_LAYOUT_PATH")
-
+def getBinLayout() -> BinLayoutConfig:
+    path = os.environ.get("BIN_LAYOUT_PATH")
     if path is None:
         return DEFAULT_BIN_LAYOUT
 
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"Bin layout config not found: {path}")
-
-    with open(config_path, "r") as f:
+    with open(path, "r") as f:
         data = json.load(f)
-
-    if "layers" not in data:
-        raise ValueError("Bin layout config must have 'layers' key")
 
     layers = []
     for layer_idx, layer_data in enumerate(data["layers"]):
-        if "servo_pin" not in layer_data:
-            raise ValueError(f"Layer {layer_idx} must have 'servo_pin' key")
-        if "sections" not in layer_data:
-            raise ValueError(f"Layer {layer_idx} must have 'sections' key")
-
-        servo_pin = layer_data["servo_pin"]
-        if not isinstance(servo_pin, int):
-            raise ValueError(f"Layer {layer_idx} servo_pin must be an integer")
-
         sections = []
-        for section_idx, section_data in enumerate(layer_data["sections"]):
-            if not isinstance(section_data, list):
-                raise ValueError(
-                    f"Layer {layer_idx}, section {section_idx} must be a list of bin sizes"
-                )
-
-            for bin_idx, bin_size in enumerate(section_data):
+        for section_data in layer_data["sections"]:
+            for bin_size in section_data:
                 if bin_size not in VALID_BIN_SIZES:
                     raise ValueError(
-                        f"Invalid bin size '{bin_size}' at layer {layer_idx}, section {section_idx}, bin {bin_idx}. "
+                        f"Invalid bin size '{bin_size}' in layer {layer_idx}. "
                         f"Must be one of: {VALID_BIN_SIZES}"
                     )
-
             sections.append(section_data)
-        layers.append(LayerConfig(servo_pin=servo_pin, sections=sections))
+        layers.append(LayerConfig(sections=sections))
 
     return BinLayoutConfig(layers=layers)
 
@@ -159,7 +128,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
                 bin_size = BinSize(bin_size_str)
                 bins.append(Bin(size=bin_size))
             sections.append(BinSection(bins=bins))
-        layers.append(Layer(servo_pin=layer_config.servo_pin, sections=sections))
+        layers.append(Layer(sections=sections))
     return DistributionLayout(layers=layers)
 
 

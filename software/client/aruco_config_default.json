@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "settings": {
+    "aruco_smoothing_time_s": 5.0
+  },
+  "categories": {
+    "unassigned": {
+      "description": "Tags that haven't been assigned yet",
+      "tags": [
+        1, 2, 3, 4, 5, 6,
+        7, 8, 9, 10, 11, 12,
+        13, 14, 15, 16, 17, 18,
+        19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30,
+        31, 32, 33, 34, 35, 36
+      ]
+    },
+    "second_c_channel": {
+      "description": "Second C-channel rotor circular region",
+      "radius_multiplier": 0.85,
+      "tags": {
+        "center": null,
+        "output_guide": null,
+        "radius1": null,
+        "radius2": null,
+        "radius3": null,
+        "radius4": null,
+        "radius5": null
+      }
+    },
+    "third_c_channel": {
+      "description": "Third C-channel rotor circular region",
+      "radius_multiplier": 0.85,
+      "tags": {
+        "center": null,
+        "output_guide": null,
+        "radius1": null,
+        "radius2": null,
+        "radius3": null,
+        "radius4": null,
+        "radius5": null
+      }
+    },
+    "carousel_platform_1": {
+      "description": "Carousel platform 1 corners",
+      "tags": {
+        "corner1": null,
+        "corner2": null,
+        "corner3": null,
+        "corner4": null
+      }
+    },
+    "carousel_platform_2": {
+      "description": "Carousel platform 2 corners",
+      "tags": {
+        "corner1": null,
+        "corner2": null,
+        "corner3": null,
+        "corner4": null
+      }
+    },
+    "carousel_platform_3": {
+      "description": "Carousel platform 3 corners",
+      "tags": {
+        "corner1": null,
+        "corner2": null,
+        "corner3": null,
+        "corner4": null
+      }
+    },
+    "carousel_platform_4": {
+      "description": "Carousel platform 4 corners",
+      "tags": {
+        "corner1": null,
+        "corner2": null,
+        "corner3": null,
+        "corner4": null
+      }
+    }
+  }
+}

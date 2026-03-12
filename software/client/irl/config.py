@@ -1,16 +1,16 @@
 import time
 
 from global_config import GlobalConfig
-from .mcu import MCU
-from .stepper import Stepper
-from .servo import Servo
-from .device_discovery import discoverMCU
+from .device_discovery import discoverMCU, discoverMCUs
+from hardware.bus import MCUBus
+from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
 
-SERVO_OPEN_ANGLE = 0
+SERVO_OPEN_ANGLE = 10
 SERVO_CLOSED_ANGLE = 72
 
 if TYPE_CHECKING:
+    from hardware.sorter_interface import StepperMotor, ServoMotor
     from subsystems.distribution.chute import Chute
 
 from .bin_layout import (
@@ -55,11 +55,23 @@ class CarouselArucoTagConfig:
 
 class ArucoTagConfig:
     second_c_channel_center_id: int
+    second_c_channel_output_guide_id: int
     second_c_channel_radius1_id: int
     second_c_channel_radius2_id: int
+    second_c_channel_radius3_id: int
+    second_c_channel_radius4_id: int
+    second_c_channel_radius5_id: int
+    second_c_channel_radius_ids: list[int]
+    second_c_channel_radius_multiplier: float
     third_c_channel_center_id: int
+    third_c_channel_output_guide_id: int
     third_c_channel_radius1_id: int
     third_c_channel_radius2_id: int
+    third_c_channel_radius3_id: int
+    third_c_channel_radius4_id: int
+    third_c_channel_radius5_id: int
+    third_c_channel_radius_ids: list[int]
+    third_c_channel_radius_multiplier: float
     carousel_platform1: CarouselArucoTagConfig
     carousel_platform2: CarouselArucoTagConfig
     carousel_platform3: CarouselArucoTagConfig
@@ -71,6 +83,7 @@ class ArucoTagConfig:
 
 class IRLConfig:
     mcu_path: str
+    mcu_paths: list[str]
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
@@ -87,28 +100,43 @@ class IRLConfig:
 
 
 class IRLInterface:
-    mcu: MCU
-    carousel_stepper: Stepper
-    chute_stepper: Stepper
-    first_c_channel_rotor_stepper: Stepper
-    second_c_channel_rotor_stepper: Stepper
-    third_c_channel_rotor_stepper: Stepper
-    servos: list[Servo]
+    carousel_stepper: "StepperMotor"
+    chute_stepper: "StepperMotor"
+    first_c_channel_rotor_stepper: "StepperMotor"
+    second_c_channel_rotor_stepper: "StepperMotor"
+    third_c_channel_rotor_stepper: "StepperMotor"
+    servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
+    sorter_interfaces: list[SorterInterface]
+    sorter_interface: SorterInterface
 
     def __init__(self):
         pass
 
     def enableSteppers(self) -> None:
-        self.first_c_channel_rotor_stepper.enable()
-        self.second_c_channel_rotor_stepper.enable()
-        self.third_c_channel_rotor_stepper.enable()
+        for stepper_name in [
+            "first_c_channel_rotor",
+            "second_c_channel_rotor",
+            "third_c_channel_rotor",
+            "carousel",
+            "chute",
+        ]:
+            attr = f"{stepper_name}_stepper"
+            if hasattr(self, attr):
+                getattr(self, attr).enabled = True
 
     def disableSteppers(self) -> None:
-        self.first_c_channel_rotor_stepper.disable()
-        self.second_c_channel_rotor_stepper.disable()
-        self.third_c_channel_rotor_stepper.disable()
+        for stepper_name in [
+            "first_c_channel_rotor",
+            "second_c_channel_rotor",
+            "third_c_channel_rotor",
+            "carousel",
+            "chute",
+        ]:
+            attr = f"{stepper_name}_stepper"
+            if hasattr(self, attr):
+                getattr(self, attr).enabled = False
 
     def shutdownMotors(self) -> None:
         self.disableSteppers()
@@ -148,12 +176,24 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
     config.second_c_channel_center_id = 20
+    config.second_c_channel_output_guide_id = None
     config.second_c_channel_radius1_id = 31
     config.second_c_channel_radius2_id = 7
+    config.second_c_channel_radius3_id = None
+    config.second_c_channel_radius4_id = None
+    config.second_c_channel_radius5_id = None
+    config.second_c_channel_radius_ids = [31, 7]
+    config.second_c_channel_radius_multiplier = 1.0
     # Channel 3 (third) - 3 tags: center, radius1, radius2
     config.third_c_channel_center_id = 33
+    config.third_c_channel_output_guide_id = None
     config.third_c_channel_radius1_id = 14
     config.third_c_channel_radius2_id = 30
+    config.third_c_channel_radius3_id = None
+    config.third_c_channel_radius4_id = None
+    config.third_c_channel_radius5_id = None
+    config.third_c_channel_radius_ids = [14, 30]
+    config.third_c_channel_radius_multiplier = 1.0
     # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
     config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
     config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
@@ -163,8 +203,16 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 
 def mkIRLConfig() -> IRLConfig:
+    """
+    Create the IRL (In Real Life) interface configuration.
+    
+    Note: Pin configuration is no longer used. The Pico firmware reports stepper names
+    at initialization time, making the client pin-agnostic.
+    """
     irl_config = IRLConfig()
-    irl_config.mcu_path = discoverMCU()
+    mcu_ports = discoverMCUs()
+    irl_config.mcu_paths = mcu_ports
+    irl_config.mcu_path = mcu_ports[0] if mcu_ports else discoverMCU()
     camera_setup = getCameraSetup()
 
     if camera_setup is None:
@@ -190,95 +238,146 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.classification_camera_top = mkCameraConfig(
         device_index=classification_camera_top_index
     )
-    irl_config.carousel_stepper = mkStepperConfig(
-        step_pin=36, dir_pin=34, enable_pin=30
-    )
-    irl_config.chute_stepper = mkStepperConfig(step_pin=26, dir_pin=28, enable_pin=24)
-    # RAMPS 1.4: Z axis (first), Y axis (second), X axis (third)
-    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=46, dir_pin=48, enable_pin=62
-    )
-    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=60, dir_pin=61, enable_pin=56
-    )
-    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(
-        step_pin=54, dir_pin=55, enable_pin=38
-    )
+    
+    # Camera configuration complete - stepper config happens at firmware discovery time
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
 
 
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
+    """
+    Initialize the hardware interface using SorterInterface directly.
+
+    Uses SorterInterface firmware and dynamic stepper name discovery.
+    The firmware reports which steppers are available via stepper_names.
+    """
     irl_interface = IRLInterface()
 
-    mcu = MCU(gc, config.mcu_path)
-    irl_interface.mcu = mcu
+    ports = getattr(config, "mcu_paths", None) or [config.mcu_path]
+    discovered_interfaces: list[tuple[str, int, SorterInterface]] = []
 
-    irl_interface.carousel_stepper = Stepper(
-        gc,
-        mcu,
-        config.carousel_stepper.step_pin,
-        config.carousel_stepper.dir_pin,
-        config.carousel_stepper.enable_pin,
-        name="carousel",
-        default_delay_us=1000,
-    )
-    time.sleep(1)
+    for port in ports:
+        gc.logger.info(f"Scanning SorterInterface devices on {port}")
+        bus = MCUBus(port=port)
+        devices = bus.scan_devices()
+        if not devices:
+            gc.logger.warning(f"No SorterInterface devices found on {port}")
+            continue
 
-    irl_interface.chute_stepper = Stepper(
-        gc,
-        mcu,
-        config.chute_stepper.step_pin,
-        config.chute_stepper.dir_pin,
-        config.chute_stepper.enable_pin,
-        name="chute",
-        default_delay_us=500,
-        default_accel_start_delay_us=2500,
-        default_accel_steps=250,
-        default_decel_steps=250,
-    )
-    time.sleep(1)
+        for address in devices:
+            try:
+                sorter_interface = SorterInterface(bus, address)
+                discovered_interfaces.append((port, address, sorter_interface))
+                gc.logger.info(
+                    f"SorterInterface initialized: port={port} address={address} name={sorter_interface.name}"
+                )
+            except Exception as e:
+                gc.logger.warning(
+                    f"Failed to initialize SorterInterface on {port} addr {address}: {e}"
+                )
 
-    irl_interface.first_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.first_c_channel_rotor_stepper.step_pin,
-        config.first_c_channel_rotor_stepper.dir_pin,
-        config.first_c_channel_rotor_stepper.enable_pin,
-        name="first_c_channel_rotor",
-        default_delay_us=800,
-    )
-    time.sleep(1)
+    if not discovered_interfaces:
+        raise RuntimeError(
+            f"No SorterInterface devices found on discovered ports: {ports}"
+        )
 
-    irl_interface.second_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.second_c_channel_rotor_stepper.step_pin,
-        config.second_c_channel_rotor_stepper.dir_pin,
-        config.second_c_channel_rotor_stepper.enable_pin,
-        name="second_c_channel_rotor",
-        default_delay_us=800,
-    )
-    time.sleep(1)
+    # Backward compatibility references
+    irl_interface.sorter_interfaces = [si for _, _, si in discovered_interfaces]
+    irl_interface.sorter_interface = irl_interface.sorter_interfaces[0]
 
-    irl_interface.third_c_channel_rotor_stepper = Stepper(
-        gc,
-        mcu,
-        config.third_c_channel_rotor_stepper.step_pin,
-        config.third_c_channel_rotor_stepper.dir_pin,
-        config.third_c_channel_rotor_stepper.enable_pin,
-        name="third_c_channel_rotor",
-        default_delay_us=800,
+    stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
+    servo_source: SorterInterface | None = None
+
+    for port, address, sorter_interface in discovered_interfaces:
+        board_info = sorter_interface._board_info
+        device_name = board_info.get("device_name", sorter_interface.name)
+        stepper_names = board_info.get("stepper_names", [])
+        available_stepper_count = len(sorter_interface.steppers)
+
+        if not stepper_names:
+            gc.logger.warning(
+                f"{device_name} on {port}:{address} did not report stepper_names; using generic names"
+            )
+            stepper_names = [
+                f"{device_name.lower().replace(' ', '_')}_ch{i}"
+                for i in range(available_stepper_count)
+            ]
+
+        if len(stepper_names) > available_stepper_count:
+            gc.logger.warning(
+                f"{device_name} reported {len(stepper_names)} stepper_names but only {available_stepper_count} channels; truncating"
+            )
+            stepper_names = stepper_names[:available_stepper_count]
+
+        gc.logger.info(
+            f"Detected actuators on {device_name} ({port}:{address}): steppers={stepper_names}, servos={len(sorter_interface.servos)}"
+        )
+
+        for channel, stepper_name in enumerate(stepper_names):
+            stepper_entries.append(
+                (stepper_name, sorter_interface.steppers[channel], port, address, device_name)
+            )
+
+        if servo_source is None and len(sorter_interface.servos) > 0:
+            servo_source = sorter_interface
+        if (
+            len(sorter_interface.servos) > 0
+            and "chute_stepper" in stepper_names
+        ):
+            servo_source = sorter_interface
+
+    gc.logger.info(
+        f"Global actuator inventory: steppers={[name for name, _, _, _, _ in stepper_entries]}"
     )
-    time.sleep(1)
+
+    required_steppers = [
+        "carousel",
+        "third_c_channel_rotor",
+        "second_c_channel_rotor",
+        "first_c_channel_rotor",
+        "chute_stepper",
+    ]
+    available_stepper_names = {name for name, _, _, _, _ in stepper_entries}
+    for stepper_name in required_steppers:
+        if stepper_name not in available_stepper_names:
+            gc.logger.warning(
+                f"Required stepper interface '{stepper_name}' not found in detected firmware actuators"
+            )
+
+    # Bind steppers by firmware name (first match wins)
+    for stepper_name, stepper, port, address, device_name in stepper_entries:
+        attr = stepper_name if stepper_name.endswith("_stepper") else f"{stepper_name}_stepper"
+        if hasattr(irl_interface, attr):
+            gc.logger.warning(
+                f"Duplicate stepper name '{stepper_name}' detected at {device_name} ({port}:{address}); keeping first binding"
+            )
+            continue
+
+        stepper.set_name(stepper_name)
+        setattr(irl_interface, attr, stepper)
+        gc.logger.info(
+            f"Initialized Stepper '{stepper_name}' from {device_name} ({port}:{address}), position={stepper._current_position_steps} steps"
+        )
+        time.sleep(0.1)
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
-    irl_interface.servos = [
-        Servo(gc, mcu, layer.servo_pin, f"layer_{i}_servo")
-        for i, layer in enumerate(irl_interface.distribution_layout.layers)
-    ]
+    # Initialize servos directly from sorter_interface
+    irl_interface.servos = []
+    if servo_source is None:
+        gc.logger.warning("No servo-capable SorterInterface detected")
+        servo_source = irl_interface.sorter_interface
+
+    for i, layer in enumerate(irl_interface.distribution_layout.layers):
+        if i >= len(servo_source.servos):
+            gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
+            raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
+        servo = servo_source.servos[i]
+        servo.set_name(f"layer_{i}_servo")
+        servo.set_preset_angles(SERVO_OPEN_ANGLE, SERVO_CLOSED_ANGLE)
+        irl_interface.servos.append(servo)
+        gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

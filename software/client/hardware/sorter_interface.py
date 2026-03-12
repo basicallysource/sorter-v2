@@ -39,6 +39,7 @@ class InterfaceCommandCode(BaseCommandCode):
     SERVO_STOP = 0x45
     SERVO_SET_ENABLED = 0x46
     SERVO_SET_DUTY_LIMITS = 0x47
+    SERVO_MOVE_TO_AND_RELEASE = 0x48
 
 
 class DigitalInputPin:
@@ -307,6 +308,23 @@ class ServoMotor:
         self._current_angle = angle
         return bool(res.payload[0])
 
+    def move_to_and_release(self, angle: int) -> bool:
+        """Move the servo to a given angle and auto-disable upon arrival.
+
+        The servo will move to the target angle and then automatically stop
+        sending PWM once it reaches the position, preventing damage from
+        continuous holding torque.
+        """
+        if not 0 <= angle <= 180:
+            raise ValueError(f"Servo angle must be 0-180, got {angle}")
+        if not self._enabled:
+            self.enabled = True
+        payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
+        res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO_AND_RELEASE, self._channel, payload)
+        self._current_angle = angle
+        self._enabled = False  # Will be disabled once the move completes
+        return bool(res.payload[0])
+
     @property
     def position(self) -> int:
         """Get the current position of the servo in tenths of degrees."""
@@ -326,12 +344,12 @@ class ServoMotor:
     def open(self, open_angle: int | None = None) -> None:
         """Move servo to open position."""
         target = open_angle if open_angle is not None else self._open_angle
-        self.move_to(target)
+        self.move_to_and_release(target)
 
     def close(self, closed_angle: int | None = None) -> None:
         """Move servo to closed position."""
         target = closed_angle if closed_angle is not None else self._closed_angle
-        self.move_to(target)
+        self.move_to_and_release(target)
 
     def toggle(self) -> None:
         """Toggle between open and closed."""
@@ -492,7 +510,7 @@ if __name__ == "__main__":
                         servo.set_acceleration(2000)
                         angle = random.choice([0, 90, 180]) # Move to either 0, 90, or 180 degrees
                         logging.info(f"Moving servo {servo.channel} on interface {name} to {angle} degrees")
-                        servo.move_to(angle)
+                        servo.move_to_and_release(angle)
 
                 for stepper in interface.steppers:
                     if not stepper.stopped:

@@ -91,10 +91,10 @@ def servo_calibrate_loop(servos: list[ServoMotor]) -> None:
 
         if key == readchar.key.LEFT:
             new_angle: int = max(0, servo.angle - SERVO_ANGLE_STEPS[angle_step_idx])
-            servo.move_to(new_angle)
+            servo.move_to_and_release(new_angle)
         elif key == readchar.key.RIGHT:
             new_angle = min(180, servo.angle + SERVO_ANGLE_STEPS[angle_step_idx])
-            servo.move_to(new_angle)
+            servo.move_to_and_release(new_angle)
         elif key == readchar.key.UP:
             angle_step_idx = min(angle_step_idx + 1, len(SERVO_ANGLE_STEPS) - 1)
         elif key == readchar.key.DOWN:
@@ -107,7 +107,7 @@ def servo_calibrate_loop(servos: list[ServoMotor]) -> None:
             try:
                 target: int = int(angle_str)
                 if 0 <= target <= 180:
-                    servo.move_to(target)
+                    servo.move_to_and_release(target)
                 else:
                     print("Angle must be 0-180")
                     readchar.readkey()

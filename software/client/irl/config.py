@@ -99,12 +99,12 @@ class IRLConfig:
 
 
 class IRLInterface:
-    carousel_stepper: Stepper
-    chute_stepper: Stepper
-    first_c_channel_rotor_stepper: Stepper
-    second_c_channel_rotor_stepper: Stepper
-    third_c_channel_rotor_stepper: Stepper
-    servos: list[Servo]
+    carousel_stepper: "StepperMotor"
+    chute_stepper: "StepperMotor"
+    first_c_channel_rotor_stepper: "StepperMotor"
+    second_c_channel_rotor_stepper: "StepperMotor"
+    third_c_channel_rotor_stepper: "StepperMotor"
+    servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
 

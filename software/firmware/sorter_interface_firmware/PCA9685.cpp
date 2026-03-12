@@ -41,25 +41,35 @@ PCA9685::PCA9685(uint8_t i2c_addr, i2c_inst_t *i2c_port) : _i2c_addr(i2c_addr), 
  * \return true if the device is detected and initialized successfully, false otherwise
  */
 bool PCA9685::initialize() {
-    uint8_t mode1 = PCA_MODE1_ALLCALL; // Respond to I2C ALL CALL
-    mode1 |= PCA_MODE1_AI;             // Enable auto-increment
     int res;
-    res =
-        i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, mode1}, 2, false, PCA9685_I2C_TIMEOUT_US);
+    // Put device to sleep to set prescaler (matches working MicroPython init sequence)
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, PCA_MODE1_SLEEP}, 2, false,
+                               PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
-    uint8_t mode2 = PCA_MODE2_OUTDRV; // Totem pole structure
-    res =
-        i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE2, mode2}, 2, false, PCA9685_I2C_TIMEOUT_US);
+    // Set prescaler for 50Hz: 25MHz / (4096 * 50) - 1 = 121
+    uint8_t prescale = 121;
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_PRE_SCALE, prescale}, 2, false,
+                               PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
-    // initialize all channels to 0 duty cycle (off)
-    uint8_t all_led_off_data[5] = {PCA_REG_ALL_LED_OFF_L, 0, 0, 0, 0}; // off_l=0, off_h=0 means fully off
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, all_led_off_data, 5, false, PCA9685_I2C_TIMEOUT_US);
+    // Wake up
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, 0x00}, 2, false,
+                               PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
-    _channel_duty.fill(0); // Update internal state to match hardware
-    return true; // If we got a response, the device is present
+    // Enable auto-increment
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, PCA_MODE1_AI}, 2, false,
+                               PCA9685_I2C_TIMEOUT_US);
+    if (res < 0)
+        return false;
+    // Initialize all channels to 0 duty cycle (ON=0, OFF=0)
+    uint8_t all_led_data[5] = {PCA_REG_ALL_LED_ON_L, 0, 0, 0, 0};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, all_led_data, 5, false, PCA9685_I2C_TIMEOUT_US);
+    if (res < 0)
+        return false;
+    _channel_duty.fill(0);
+    return true;
 }
 
 /** \brief Set the PWM frequency for all channels

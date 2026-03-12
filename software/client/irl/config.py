@@ -329,6 +329,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
     servo_source: SorterInterface | None = None
+    distribution_board: SorterInterface | None = None
 
     for port, address, sorter_interface in discovered_interfaces:
         board_info = sorter_interface._board_info
@@ -362,10 +363,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
         if servo_source is None and len(sorter_interface.servos) > 0:
             servo_source = sorter_interface
-        if (
-            len(sorter_interface.servos) > 0
-            and "chute_stepper" in stepper_names
-        ):
+        if "chute_stepper" in stepper_names:
+            distribution_board = sorter_interface
             servo_source = sorter_interface
 
     gc.logger.info(
@@ -430,8 +429,13 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     from subsystems.distribution.chute import Chute
 
+    CHUTE_HOME_PIN_CHANNEL = 0
+    if distribution_board is None:
+        raise RuntimeError("Distribution board not found — cannot initialize chute homing")
+    chute_home_pin = distribution_board.digital_inputs[CHUTE_HOME_PIN_CHANNEL]
+
     irl_interface.chute = Chute(
-        gc, irl_interface.chute_stepper, irl_interface.distribution_layout
+        gc, irl_interface.chute_stepper, chute_home_pin, irl_interface.distribution_layout
     )
 
     return irl_interface

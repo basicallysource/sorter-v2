@@ -103,6 +103,7 @@ const struct CommandTable digitalIoCmdTable = { //
     }}};
 
 void CMDH_servo_move_to(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_move_to_and_release(const BusMessage *msg, BusMessage *resp);
 void CMDH_servo_set_speed_limits(const BusMessage *msg, BusMessage *resp);
 void CMDH_servo_set_acceleration(const BusMessage *msg, BusMessage *resp);
 void CMDH_servo_get_position(const BusMessage *msg, BusMessage *resp);
@@ -123,6 +124,7 @@ const struct CommandTable servoCmdTable = {
         {"STOP", "", "", 0, VAL_servo_channel, CMDH_servo_stop},
         {"SET_ENABLED", "?", "", 1, VAL_servo_channel, CMDH_servo_set_enabled},
         {"SET_DUTY_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_duty_limits},
+        {"MOVE_TO_AND_RELEASE", "H", "?", 2, VAL_servo_channel, CMDH_servo_move_to_and_release},
     }}};
 
 const MasterCommandTable command_tables = {
@@ -508,6 +510,14 @@ void CMDH_servo_move_to(const BusMessage *msg, BusMessage *resp) {
     uint16_t position;
     memcpy(&position, msg->payload, sizeof(position));
     bool result = servos[msg->channel].moveTo(position);
+    resp->payload[0] = result ? 1 : 0;
+    resp->payload_length = 1;
+}
+
+void CMDH_servo_move_to_and_release(const BusMessage *msg, BusMessage *resp) {
+    uint16_t position;
+    memcpy(&position, msg->payload, sizeof(position));
+    bool result = servos[msg->channel].moveToAndRelease(position);
     resp->payload[0] = result ? 1 : 0;
     resp->payload_length = 1;
 }

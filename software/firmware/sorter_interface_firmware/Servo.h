@@ -40,6 +40,7 @@ class Servo {
 public:
     Servo();
     bool moveTo(uint16_t position);
+    bool moveToAndRelease(uint16_t position);
     void setSpeedLimits(uint16_t min_speed, uint16_t max_speed) { _min_speed = min_speed; _max_speed = max_speed; }
     void setDutyCycleLimits(uint16_t min_duty, uint16_t max_duty) { _min_duty = min_duty; _max_duty = max_duty; }
     void setAcceleration(uint16_t acceleration) { _acceleration = acceleration; }
@@ -58,6 +59,7 @@ private:
     int16_t _current_dir; // 1 = forward, -1 = reverse
     int16_t _max_speed, _min_speed;
     uint16_t _acceleration;
+    bool _release_on_idle; // If true, auto-disable the servo when it reaches its target position
     uint16_t _min_duty, _max_duty; // Minimum and maximum duty cycle corresponding to 0 and 180 degree positions
     uint16_t _current_duty; // Current duty cycle being output to the servo
 };

@@ -25,8 +25,8 @@
 
 Servo::Servo()
         : _state(SERVO_DISABLED), _move_start_pos(0), _current_pos(0), _current_pos_frac(0), _target_pos(0), _brake_pos(0),
-            _current_speed(0), _current_speed_frac(0), _max_speed(15000), _min_speed(10), _acceleration(2000), _min_duty(102),
-            _max_duty(512), _current_duty(0) {
+            _current_speed(0), _current_speed_frac(0), _max_speed(15000), _min_speed(10), _acceleration(2000),
+            _release_on_idle(false), _min_duty(102), _max_duty(512), _current_duty(0) {
 }
 
 /** \brief Move the servo to a specified position
@@ -67,6 +67,22 @@ bool Servo::moveTo(uint16_t position) {
     return true;
 }
 
+/** \brief Move the servo to a specified position and disable it upon arrival
+ *
+ * Same as moveTo(), but the servo will automatically disable (stop sending PWM) once it reaches the target position.
+ * This is useful for preventing servo damage from continuous holding torque.
+ *
+ * \param position Target position in units of 0.1 degree (0-1800 for 0-180 degrees)
+ * \return true if the move was successfully started, false if the servo is currently moving
+ */
+bool Servo::moveToAndRelease(uint16_t position) {
+    bool result = moveTo(position);
+    if (result) {
+        _release_on_idle = true;
+    }
+    return result;
+}
+
 /** \brief Update the servo's position and state
  *
  * This function should be called at a fixed rate defined by SERVO_UPDATE_RATE_HZ. It updates the servo's position based
@@ -80,11 +96,17 @@ void Servo::update() {
         _current_pos_frac = _current_pos_frac % SERVO_UPDATE_RATE_HZ;
     }
     // Check if we've reached or passed the target position and need to stop
-    if (_current_dir > 0 && _current_pos >= _target_pos) {
+    if ((_current_dir > 0 && _current_pos >= _target_pos) || (_current_dir < 0 && _current_pos <= _target_pos)) {
         _current_pos.store(_target_pos.load());
-        _state = SERVO_IDLE;
-    } else if (_current_dir < 0 && _current_pos <= _target_pos) {
-        _current_pos.store(_target_pos.load());
+        if (_release_on_idle) {
+            _release_on_idle = false;
+            _state = SERVO_DISABLED;
+            _current_speed = 0;
+            _current_speed_frac = 0;
+            _current_dir = 0;
+            _current_duty = 0;
+            return;
+        }
         _state = SERVO_IDLE;
     }
     // Update the PWM signal based on the current state and position

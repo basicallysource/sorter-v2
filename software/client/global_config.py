@@ -16,94 +16,10 @@ class Timeouts:
         self.heartbeat_interval_ms = 5000
 
 
-class RotorPulseConfig:
-    steps_per_pulse: int
-    delay_us: int
-    accel_start_delay_us: int
-    accel_steps: int
-    decel_steps: int
-    delay_between_pulse_ms: int
-
-    def __init__(
-        self,
-        steps: int,
-        delay_us: int,
-        delay_between_ms: int,
-        accel_start_delay_us: int | None = None,
-        accel_steps: int = 0,
-        decel_steps: int | None = None,
-    ):
-        self.steps_per_pulse = steps
-        self.delay_us = delay_us
-        self.accel_start_delay_us = (
-            delay_us if accel_start_delay_us is None else accel_start_delay_us
-        )
-        self.accel_steps = accel_steps
-        self.decel_steps = accel_steps if decel_steps is None else decel_steps
-        self.delay_between_pulse_ms = delay_between_ms
-
-
-class FeederConfig:
-    first_rotor: RotorPulseConfig
-    second_rotor_normal: RotorPulseConfig
-    second_rotor_precision: RotorPulseConfig
-    third_rotor_normal: RotorPulseConfig
-    third_rotor_precision: RotorPulseConfig
-    third_channel_dropzone_threshold_px: int
-    second_channel_dropzone_threshold_px: int
-    object_channel_overlap_threshold: float
-
-    def __init__(self):
-        self.first_rotor = RotorPulseConfig(
-            steps=100,
-            delay_us=500,
-            delay_between_ms=5000,
-            accel_start_delay_us=900,
-            accel_steps=48,
-            decel_steps=48,
-        )
-        self.second_rotor_normal = RotorPulseConfig(
-            steps=500,
-            delay_us=200,
-            delay_between_ms=250,
-            accel_start_delay_us=1200,
-            accel_steps=130,
-            decel_steps=130,
-        )
-        self.second_rotor_precision = RotorPulseConfig(
-            steps=100,
-            delay_us=800,
-            delay_between_ms=350,
-            accel_start_delay_us=1400,
-            accel_steps=26,
-            decel_steps=26,
-        )
-        self.third_rotor_normal = RotorPulseConfig(
-            steps=1000,
-            delay_us=200,
-            delay_between_ms=250,
-            accel_start_delay_us=1400,
-            accel_steps=220,
-            decel_steps=220,
-        )
-        self.third_rotor_precision = RotorPulseConfig(
-            steps=100,
-            delay_us=800,
-            delay_between_ms=350,
-            accel_start_delay_us=1400,
-            accel_steps=26,
-            decel_steps=26,
-        )
-        self.third_channel_dropzone_threshold_px = 350
-        self.second_channel_dropzone_threshold_px = 500
-        self.object_channel_overlap_threshold = 0.15
-
-
 class GlobalConfig:
     logger: Logger
     debug_level: int
     timeouts: Timeouts
-    feeder_config: FeederConfig
     classification_chamber_vision_model_path: str
     feeder_vision_model_path: str
     parts_with_categories_file_path: str
@@ -132,11 +48,6 @@ def mkTimeouts() -> Timeouts:
     return timeouts
 
 
-def mkFeederConfig() -> FeederConfig:
-    feeder_config = FeederConfig()
-    return feeder_config
-
-
 def mkGlobalConfig() -> GlobalConfig:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -151,7 +62,6 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
     gc.timeouts = mkTimeouts()
-    gc.feeder_config = mkFeederConfig()
     gc.classification_chamber_vision_model_path = os.environ[
         "CLASSIFICATION_CHAMBER_MODEL_PATH"
     ]

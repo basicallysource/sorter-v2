@@ -94,18 +94,6 @@ class StepperMotor:
         steps = self.microsteps_for_degrees(degrees)
         return self.move_steps(steps)
 
-    def move_degrees_with_profile(
-        self,
-        degrees: float,
-        delay_us: int = 0,
-        accel_start_delay_us: int = 0,
-        accel_steps: int = 0,
-        decel_steps: int = 0,
-    ) -> bool:
-        """Move by degrees with optional timing/acceleration profile."""
-        steps = self.microsteps_for_degrees(degrees)
-        return self.move_steps(steps)
-
     def move_steps(self, steps: int) -> bool:
         """Move the stepper by a given number of microsteps (positive or negative)."""
         if steps == 0:

@@ -33,7 +33,7 @@ class Feeding(BaseState):
         return None
 
     def _executionLoop(self) -> None:
-        fc = self.gc.feeder_config
+        fc = self.irl_config.feeder_config
         irl_cfg = self.irl_config
         prof = self.gc.profiler
 
@@ -81,12 +81,8 @@ class Feeding(BaseState):
                             pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
                                 cfg.steps_per_pulse
                             )
-                            self.irl.third_c_channel_rotor_stepper.move_degrees_with_profile(
+                            self.irl.third_c_channel_rotor_stepper.move_degrees(
                                 pulse_degrees,
-                                cfg.delay_us,
-                                cfg.accel_start_delay_us,
-                                cfg.accel_steps,
-                                cfg.decel_steps,
                             )
                         if cfg.delay_between_pulse_ms > 0:
                             time.sleep(cfg.delay_between_pulse_ms / 1000.0)
@@ -105,12 +101,8 @@ class Feeding(BaseState):
                             pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
                                 cfg.steps_per_pulse
                             )
-                            self.irl.third_c_channel_rotor_stepper.move_degrees_with_profile(
+                            self.irl.third_c_channel_rotor_stepper.move_degrees(
                                 pulse_degrees,
-                                cfg.delay_us,
-                                cfg.accel_start_delay_us,
-                                cfg.accel_steps,
-                                cfg.decel_steps,
                             )
                         if cfg.delay_between_pulse_ms > 0:
                             time.sleep(cfg.delay_between_pulse_ms / 1000.0)
@@ -129,12 +121,8 @@ class Feeding(BaseState):
                             pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
                                 cfg.steps_per_pulse
                             )
-                            self.irl.second_c_channel_rotor_stepper.move_degrees_with_profile(
+                            self.irl.second_c_channel_rotor_stepper.move_degrees(
                                 pulse_degrees,
-                                cfg.delay_us,
-                                cfg.accel_start_delay_us,
-                                cfg.accel_steps,
-                                cfg.decel_steps,
                             )
                         if cfg.delay_between_pulse_ms > 0:
                             time.sleep(cfg.delay_between_pulse_ms / 1000.0)
@@ -153,12 +141,8 @@ class Feeding(BaseState):
                             pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
                                 cfg.steps_per_pulse
                             )
-                            self.irl.second_c_channel_rotor_stepper.move_degrees_with_profile(
+                            self.irl.second_c_channel_rotor_stepper.move_degrees(
                                 pulse_degrees,
-                                cfg.delay_us,
-                                cfg.accel_start_delay_us,
-                                cfg.accel_steps,
-                                cfg.decel_steps,
                             )
                         if cfg.delay_between_pulse_ms > 0:
                             time.sleep(cfg.delay_between_pulse_ms / 1000.0)
@@ -175,12 +159,8 @@ class Feeding(BaseState):
                             pulse_degrees = self.irl.first_c_channel_rotor_stepper.degrees_for_microsteps(
                                 cfg.steps_per_pulse
                             )
-                            self.irl.first_c_channel_rotor_stepper.move_degrees_with_profile(
+                            self.irl.first_c_channel_rotor_stepper.move_degrees(
                                 pulse_degrees,
-                                cfg.delay_us,
-                                cfg.accel_start_delay_us,
-                                cfg.accel_steps,
-                                cfg.decel_steps,
                             )
                         if cfg.delay_between_pulse_ms > 0:
                             time.sleep(cfg.delay_between_pulse_ms / 1000.0)

@@ -81,6 +81,57 @@ class ArucoTagConfig:
         pass
 
 
+class RotorPulseConfig:
+    steps_per_pulse: int
+    microsteps_per_second: int
+    delay_between_pulse_ms: int
+
+    def __init__(
+        self,
+        steps: int,
+        microsteps_per_second: int,
+        delay_between_ms: int,
+    ):
+        self.steps_per_pulse = steps
+        self.microsteps_per_second = microsteps_per_second
+        self.delay_between_pulse_ms = delay_between_ms
+
+
+class FeederConfig:
+    first_rotor: RotorPulseConfig
+    second_rotor_normal: RotorPulseConfig
+    second_rotor_precision: RotorPulseConfig
+    third_rotor_normal: RotorPulseConfig
+    third_rotor_precision: RotorPulseConfig
+
+    def __init__(self):
+        self.first_rotor = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=2000,
+            delay_between_ms=5000,
+        )
+        self.second_rotor_normal = RotorPulseConfig(
+            steps=500,
+            microsteps_per_second=5000,
+            delay_between_ms=250,
+        )
+        self.second_rotor_precision = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=1250,
+            delay_between_ms=350,
+        )
+        self.third_rotor_normal = RotorPulseConfig(
+            steps=1000,
+            microsteps_per_second=5000,
+            delay_between_ms=250,
+        )
+        self.third_rotor_precision = RotorPulseConfig(
+            steps=100,
+            microsteps_per_second=1250,
+            delay_between_ms=350,
+        )
+
+
 class IRLConfig:
     mcu_path: str
     mcu_paths: list[str]
@@ -94,9 +145,10 @@ class IRLConfig:
     third_c_channel_rotor_stepper: StepperConfig
     aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
+    feeder_config: FeederConfig
 
     def __init__(self):
-        pass
+        self.feeder_config = FeederConfig()
 
 
 class IRLInterface:

@@ -312,7 +312,7 @@ void initialize_hardware() {
         gpio_put(digital_output_pins[i], 0);
     }
     // Initialize i2c
-    i2c_init(I2C_PORT, 100000);
+    i2c_init(I2C_PORT, 400000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_PIN);

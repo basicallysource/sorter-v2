@@ -22,7 +22,7 @@ class BinAddress:
 
 class Chute:
     def __init__(
-        self, gc: GlobalConfig, stepper: "Stepper", layout: DistributionLayout
+        self, gc: GlobalConfig, stepper: "StepperMotor", layout: DistributionLayout
     ):
         self.gc = gc
         self.logger = gc.logger

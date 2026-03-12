@@ -32,10 +32,14 @@ class InterfaceCommandCode(BaseCommandCode):
     DIGITAL_READ = 0x30
     DIGITAL_WRITE = 0x31
     # Servo commands
-    SERVO_SET_ENABLED = 0x40
-    SERVO_MOVE_TO = 0x41
-    SERVO_SET_SPEED_LIMITS = 0x42
-    SERVO_SET_ACCELERATION = 0x43
+    SERVO_MOVE_TO = 0x40
+    SERVO_SET_SPEED_LIMITS = 0x41
+    SERVO_SET_ACCELERATION = 0x42
+    SERVO_GET_POSITION = 0x43
+    SERVO_IS_STOPPED = 0x44
+    SERVO_STOP = 0x45
+    SERVO_SET_ENABLED = 0x46
+    SERVO_SET_DUTY_LIMITS = 0x47
 
 
 class DigitalInputPin:
@@ -361,23 +365,27 @@ class ServoMotor:
         self._name = f"servo_{channel}"
         self._open_angle = 0
         self._closed_angle = 72
+        self._enabled = False
         # Load persisted position
         self._current_angle = getServoPosition(self._name)
 
     def move_to(self, angle: int) -> bool:
         """
         Move the servo to a given angle.
-        
+
         Args:
             angle: Target angle in degrees (typically 0-180)
-        
+
         Returns:
-            True if successful
+            True if the move was accepted
         """
         if not 0 <= angle <= 180:
             raise ValueError(f"Servo angle must be 0-180, got {angle}")
-        
-        payload = struct.pack("<B", angle)  # 1 byte, unsigned integer
+
+        if not self._enabled:
+            self.set_enabled(True)
+
+        payload = struct.pack("<I", angle * 10)  # Convert degrees to 0.1° units
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO, self._channel, payload)
         self._current_angle = angle
         setServoPosition(self._name, angle)
@@ -432,6 +440,7 @@ class ServoMotor:
         """Enable or disable the servo."""
         payload = struct.pack("<?", enabled)
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
+        self._enabled = enabled
 
     @property
     def angle(self) -> int:

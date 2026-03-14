@@ -179,7 +179,7 @@ def _sync_aruco_config_to_vision() -> Dict[str, Any]:
 
 
 def auto_calibrate() -> Dict[str, Any]:
-    """Sync live ArUco config into vision and trigger geometry recalculation."""
+    """Sync live ArUco config into vision and trigger region recomputation."""
     sync_result = _sync_aruco_config_to_vision()
     if not sync_result.get("synced"):
         return {
@@ -190,7 +190,8 @@ def auto_calibrate() -> Dict[str, Any]:
 
     assert vision_manager is not None
     try:
-        vision_manager.updateFeedingPlatformCache()
+        # force region recomputation by fetching current regions
+        vision_manager.getRegions()
         return {
             "ok": True,
             "calibrated": True,

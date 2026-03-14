@@ -50,12 +50,14 @@ class Telemetry:
         annotated_name = f"{base_name}_annotated.jpg"
 
         _, raw_buf = cv2.imencode(".jpg", raw_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        _, ann_buf = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
         files: Dict[str, tuple[str, bytes, str]] = {
             "raw_img": (raw_name, raw_buf.tobytes(), "image/jpeg"),
-            "annotated_img": (annotated_name, ann_buf.tobytes(), "image/jpeg"),
         }
+
+        if annotated_img is not None:
+            _, ann_buf = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            files["annotated_img"] = (annotated_name, ann_buf.tobytes(), "image/jpeg")
 
         if segmentation_map is not None:
             seg_name = f"{base_name}_segmentation.json"

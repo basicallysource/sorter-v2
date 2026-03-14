@@ -82,7 +82,7 @@ class StepperMotor:
         self._dev = device
         self._channel = channel
         self._steps_per_revolution = 200
-        self._microsteps = 16
+        self._microsteps = 8
         self._enabled = True
         self._name = f"stepper_{channel}"
         self._current_position_steps = 0

@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -18,6 +19,10 @@ LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 
 STEP_COUNTS: list[int] = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
 SERVO_ANGLE_STEPS: list[int] = [1, 5, 10, 15, 30, 45]
+SPEED_PRESETS: list[int] = [100, 250, 500, 1000, 2000, 4000, 8000]
+DEFAULT_SPEED_IDX: int = 3  # 1000
+CHUTE_REVOLVE_ANGLE: float = 347 #max reachable before hitting end switch
+CHUTE_MIN_ANGLE: float = 4
 
 
 def printStatus(
@@ -25,27 +30,37 @@ def printStatus(
     stepper_names: list[str],
     selected_idx: int,
     step_count_idx: int,
+    speed_idxs: dict[str, int],
     servos: list[ServoMotor],
+    chute=None,
 ) -> None:
     name: str = stepper_names[selected_idx]
     stepper: StepperMotor = steppers[name]
     step_count: int = STEP_COUNTS[step_count_idx]
+    speed: int = SPEED_PRESETS[speed_idxs[name]]
     quarter_degrees: int = 90
     print("\033[2J\033[H", end="")
     print("Motor Calibration Tool")
     print("======================")
-    print(f"Selected: {name} (position: {stepper.position_degrees:.2f}°)")
+    if name == "chute" and chute is not None:
+        print(f"Selected: {name} (stepper: {stepper.position_degrees:.2f}°, chute: {chute.current_angle:.2f}°)")
+    else:
+        print(f"Selected: {name} (position: {stepper.position_degrees:.2f}°)")
     print()
     print("Stepper Controls:")
     print(
         f"  ←/→     Move stepper (current: {stepper.degrees_for_microsteps(step_count):.3f}°)"
     )
     print(f"  ↑/↓     Change microstep pulse ({', '.join(map(str, STEP_COUNTS))})")
+    print(f"  W/E     Change max speed (current: {speed} µsteps/s)")
     print(f"  A/D     Quarter turn ({quarter_degrees}°)")
     print("  Tab     Switch stepper")
     print("  Enter   Set current position as zero")
     if name == "chute":
         print("  H       Home chute via sensor")
+        print("  G       Go to chute angle (0-360)")
+        print(f"  R       Revolve chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°)")
+        print("  T       Random movement test")
     print()
     print("Servo Controls (per layer):")
     for i, servo in enumerate(servos):
@@ -146,10 +161,13 @@ def main() -> None:
     stepper_names: list[str] = list(steppers.keys())
     selected_idx: int = 0
     step_count_idx: int = 1
+    speed_idxs: dict[str, int] = {name: DEFAULT_SPEED_IDX for name in stepper_names}
+    for sname, sobj in steppers.items():
+        sobj.set_speed_limits(16, SPEED_PRESETS[speed_idxs[sname]])
 
     servos: list[ServoMotor] = irl.servos
 
-    printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+    printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
 
     while True:
         key: str = readchar.readkey()
@@ -159,41 +177,125 @@ def main() -> None:
 
         if key == readchar.key.LEFT:
             stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key == readchar.key.RIGHT:
             stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key.lower() == "a":
             stepper.move_degrees(-90)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key.lower() == "d":
             stepper.move_degrees(90)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key == readchar.key.UP:
             step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key == readchar.key.DOWN:
             step_count_idx = max(step_count_idx - 1, 0)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
+        elif key.lower() == "w":
+            speed_idxs[name] = min(speed_idxs[name] + 1, len(SPEED_PRESETS) - 1)
+            stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
+        elif key.lower() == "e":
+            speed_idxs[name] = max(speed_idxs[name] - 1, 0)
+            stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key == "\t":
             selected_idx = (selected_idx + 1) % len(stepper_names)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key == readchar.key.ENTER:
             stepper.position_degrees = 0.0
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
             print(f"Zeroed {name} position")
         elif key in "1234":
             layer_idx: int = int(key) - 1
             if layer_idx < len(servos):
                 servos[layer_idx].toggle()
-                printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+                printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
+        elif key.lower() == "g" and name == "chute":
+            print("\033[2J\033[H", end="")
+            angle_str = input("Enter chute angle (0-360): ")
+            try:
+                target = float(angle_str)
+                if 0 <= target <= 360:
+                    irl.chute.moveToAngle(target)
+                    while not irl.chute.stepper.stopped:
+                        time.sleep(0.01)
+                else:
+                    print("Angle must be 0-360")
+                    readchar.readkey()
+            except ValueError:
+                print("Invalid number")
+                readchar.readkey()
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key.lower() == "h" and name == "chute":
             print("Homing chute...")
             irl.chute.home()
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
+        elif key.lower() == "r" and name == "chute":
+            print("Homing chute...")
+            irl.chute.home()
+            print(f"Revolving chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°). Press Q to stop.")
+            chute_at_zero = True
+            import select, sys as _sys, tty, termios
+            old_settings = termios.tcgetattr(_sys.stdin)
+            tty.setcbreak(_sys.stdin.fileno())
+            try:
+                while True:
+                    if chute_at_zero:
+                        irl.chute.moveToAngle(CHUTE_REVOLVE_ANGLE)
+                    else:
+                        irl.chute.home()
+                        chute_at_zero = not chute_at_zero
+                        continue
+                    # Wait for move to finish, checking for Q
+                    while not irl.chute.stepper.stopped:
+                        if select.select([_sys.stdin], [], [], 0)[0]:
+                            ch = _sys.stdin.read(1)
+                            if ch.lower() == "q":
+                                raise StopIteration
+                        time.sleep(0.01)
+                    chute_at_zero = not chute_at_zero
+            except StopIteration:
+                pass
+            finally:
+                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
+        elif key.lower() == "t" and name == "chute":
+            import random, select, sys as _sys, tty, termios
+            print("Homing chute...")
+            irl.chute.home()
+            print("Random movement test. Press Q to stop.")
+            old_settings = termios.tcgetattr(_sys.stdin)
+            tty.setcbreak(_sys.stdin.fileno())
+            try:
+                current = CHUTE_MIN_ANGLE
+                irl.chute.moveToAngle(current)
+                while not irl.chute.stepper.stopped:
+                    time.sleep(0.01)
+                while True:
+                    delta = random.choice([-1, 1]) * random.choice([10, 15, 30, 50, 70, 90, 120, 150, 180])
+                    target = max(CHUTE_MIN_ANGLE, min(CHUTE_REVOLVE_ANGLE, current + delta))
+                    if target == current:
+                        continue
+                    gc.logger.info(f"Chute random test: {current:.0f}° -> {target:.0f}°")
+                    irl.chute.moveToAngle(target)
+                    while not irl.chute.stepper.stopped:
+                        if select.select([_sys.stdin], [], [], 0)[0]:
+                            ch = _sys.stdin.read(1)
+                            if ch.lower() == "q":
+                                raise StopIteration
+                        time.sleep(0.01)
+                    current = target
+            except StopIteration:
+                pass
+            finally:
+                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key.lower() == "s":
             servo_calibrate_loop(servos)
-            printStatus(steppers, stepper_names, selected_idx, step_count_idx, servos)
+            printStatus(steppers, stepper_names, selected_idx, step_count_idx, speed_idxs, servos, irl.chute)
         elif key.lower() == "q":
             print("Exiting...")
             for s in steppers.values():

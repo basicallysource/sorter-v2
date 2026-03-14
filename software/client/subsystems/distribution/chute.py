@@ -7,13 +7,13 @@ from irl.bin_layout import DistributionLayout
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
 
-GEAR_RATIO = 4
+GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 SECTIONS_PER_LAYER = 6
 DEG_PER_SECTION = 60
 PILLAR_WIDTH_DEG = 2.5
 USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
 
-HOME_SPEED_MICROSTEPS_PER_SEC = -2000
+HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
 
 
@@ -52,12 +52,10 @@ class Chute:
         bin_offset = (address.bin_index + 0.5) * (USABLE_DEG_PER_SECTION / num_bins)
         angle = section_start + bin_offset
 
-        # convert to -180 to +180 range
-        if angle > 180:
-            angle -= 360
         return angle
 
     def moveToAngle(self, target: float) -> int:
+        target = max(0.0, min(360.0, target))
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
@@ -81,6 +79,7 @@ class Chute:
         return self.moveToAngle(target)
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
+        target = max(0.0, min(360.0, target))
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO

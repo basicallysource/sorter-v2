@@ -32,23 +32,32 @@ OBJECT_DETECTION_MAX_AREA_SQ_PX = 100000
 class VisionManager:
     _irl_config: IRLConfig
     _feeder_capture: CaptureThread
-    _classification_bottom_capture: CaptureThread
-    _classification_top_capture: CaptureThread
+    _classification_bottom_capture: Optional[CaptureThread]
+    _classification_top_capture: Optional[CaptureThread]
     _inference: InferenceThread
     _feeder_binding: CameraModelBinding
-    _classification_bottom_binding: CameraModelBinding
-    _classification_top_binding: CameraModelBinding
+    _classification_bottom_binding: Optional[CameraModelBinding]
+    _classification_top_binding: Optional[CameraModelBinding]
     _video_recorder: Optional[VideoRecorder]
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig):
         self.gc = gc
         self._irl_config = irl_config
         self._feeder_camera_config = irl_config.feeder_camera
+        self._disabled_cameras = set(gc.disable_video_streams)
+
+        if "feeder" in self._disabled_cameras:
+            raise RuntimeError("Cannot disable feeder camera — it is required for operation")
+
         self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
-        self._classification_bottom_capture = CaptureThread(
+
+        if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
+            raise RuntimeError("Cannot disable both classification cameras — at least one is required")
+
+        self._classification_bottom_capture = None if "classification_bottom" in self._disabled_cameras else CaptureThread(
             "classification_bottom", irl_config.classification_camera_bottom
         )
-        self._classification_top_capture = CaptureThread(
+        self._classification_top_capture = None if "classification_top" in self._disabled_cameras else CaptureThread(
             "classification_top", irl_config.classification_camera_top
         )
 
@@ -68,10 +77,10 @@ class VisionManager:
             feeder_model,
             use_compact_bbox_annotation=True,
         )
-        self._classification_bottom_binding = self._inference.addBinding(
+        self._classification_bottom_binding = None if self._classification_bottom_capture is None else self._inference.addBinding(
             self._classification_bottom_capture, classification_model
         )
-        self._classification_top_binding = self._inference.addBinding(
+        self._classification_top_binding = None if self._classification_top_capture is None else self._inference.addBinding(
             self._classification_top_capture, classification_model
         )
 
@@ -112,8 +121,10 @@ class VisionManager:
 
     def start(self) -> None:
         self._feeder_capture.start()
-        self._classification_bottom_capture.start()
-        self._classification_top_capture.start()
+        if self._classification_bottom_capture:
+            self._classification_bottom_capture.start()
+        if self._classification_top_capture:
+            self._classification_top_capture.start()
         self._aruco_tracker.start()
         self._inference.start()
 
@@ -121,8 +132,10 @@ class VisionManager:
         self._inference.stop()
         self._aruco_tracker.stop()
         self._feeder_capture.stop()
-        self._classification_bottom_capture.stop()
-        self._classification_top_capture.stop()
+        if self._classification_bottom_capture:
+            self._classification_bottom_capture.stop()
+        if self._classification_top_capture:
+            self._classification_top_capture.stop()
         if self._video_recorder:
             self._video_recorder.close()
 
@@ -218,6 +231,8 @@ class VisionManager:
 
     @property
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
+        if self._classification_bottom_binding is None or self._classification_bottom_capture is None:
+            return None
         return self._pickNewestFrame(
             self._classification_bottom_binding.latest_annotated_frame,
             self._classification_bottom_capture.latest_frame,
@@ -225,6 +240,8 @@ class VisionManager:
 
     @property
     def classification_top_frame(self) -> Optional[CameraFrame]:
+        if self._classification_top_binding is None or self._classification_top_capture is None:
+            return None
         return self._pickNewestFrame(
             self._classification_top_binding.latest_annotated_frame,
             self._classification_top_capture.latest_frame,
@@ -236,10 +253,14 @@ class VisionManager:
 
     @property
     def classification_bottom_result(self) -> Optional[VisionResult]:
+        if self._classification_bottom_binding is None:
+            return None
         return self._classification_bottom_binding.latest_result
 
     @property
     def classification_top_result(self) -> Optional[VisionResult]:
+        if self._classification_top_binding is None:
+            return None
         return self._classification_top_binding.latest_result
 
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
@@ -865,24 +886,30 @@ class VisionManager:
 
         return False
 
+    def _getLatestAnnotatedFrame(
+        self, binding: Optional[CameraModelBinding]
+    ) -> Optional[CameraFrame]:
+        if binding is None:
+            return None
+        return binding.latest_annotated_frame
+
     def captureFreshClassificationFrames(
         self, timeout_s: float = 1.0
     ) -> Tuple[Optional[CameraFrame], Optional[CameraFrame]]:
+        has_top = self._classification_top_binding is not None
+        has_bottom = self._classification_bottom_binding is not None
         start_time = time.time()
         while time.time() - start_time < timeout_s:
-            top = self._classification_top_binding.latest_annotated_frame
-            bottom = self._classification_bottom_binding.latest_annotated_frame
-            if (
-                top
-                and bottom
-                and top.timestamp > start_time
-                and bottom.timestamp > start_time
-            ):
+            top = self._getLatestAnnotatedFrame(self._classification_top_binding)
+            bottom = self._getLatestAnnotatedFrame(self._classification_bottom_binding)
+            top_ready = not has_top or (top and top.timestamp > start_time)
+            bottom_ready = not has_bottom or (bottom and bottom.timestamp > start_time)
+            if top_ready and bottom_ready:
                 return (top, bottom)
             time.sleep(0.05)
         return (
-            self._classification_top_binding.latest_annotated_frame,
-            self._classification_bottom_binding.latest_annotated_frame,
+            self._getLatestAnnotatedFrame(self._classification_top_binding),
+            self._getLatestAnnotatedFrame(self._classification_bottom_binding),
         )
 
     def getClassificationCrops(
@@ -891,14 +918,17 @@ class VisionManager:
         _ = confidence_threshold
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
         with ThreadPoolExecutor(max_workers=2) as executor:
-            top_future = executor.submit(
-                self._getMoondreamClassificationCrop, top_frame, "top"
-            )
-            bottom_future = executor.submit(
-                self._getMoondreamClassificationCrop, bottom_frame, "bottom"
-            )
-            top_crop = top_future.result()
-            bottom_crop = bottom_future.result()
+            futures = {}
+            if top_frame is not None:
+                futures["top"] = executor.submit(
+                    self._getMoondreamClassificationCrop, top_frame, "top"
+                )
+            if bottom_frame is not None:
+                futures["bottom"] = executor.submit(
+                    self._getMoondreamClassificationCrop, bottom_frame, "bottom"
+                )
+            top_crop = futures["top"].result() if "top" in futures else None
+            bottom_crop = futures["bottom"].result() if "bottom" in futures else None
         return (top_crop, bottom_crop)
 
     def _getMoondreamClassificationCrop(

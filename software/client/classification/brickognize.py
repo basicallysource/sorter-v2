@@ -14,8 +14,8 @@ FILTER_CATEGORIES = ["primo", "duplo"]
 
 def classify(
     gc: GlobalConfig,
-    top_image: np.ndarray,
-    bottom_image: np.ndarray,
+    top_image: Optional[np.ndarray],
+    bottom_image: Optional[np.ndarray],
     callback: Callable[[Optional[str]], None],
 ) -> None:
     thread = threading.Thread(
@@ -28,14 +28,14 @@ def classify(
 
 def _doClassify(
     gc: GlobalConfig,
-    top_image: np.ndarray,
-    bottom_image: np.ndarray,
+    top_image: Optional[np.ndarray],
+    bottom_image: Optional[np.ndarray],
     callback: Callable[[Optional[str]], None],
 ) -> None:
     gc.logger.info("Brickognize: classifying piece")
     try:
-        top_result = _classifyImage(top_image)
-        bottom_result = _classifyImage(bottom_image)
+        top_result = _classifyImage(top_image) if top_image is not None else None
+        bottom_result = _classifyImage(bottom_image) if bottom_image is not None else None
 
         best_item = _pickBestItem(top_result, bottom_result)
         if best_item:
@@ -75,10 +75,14 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
 
 
 def _pickBestItem(
-    top_result: BrickognizeResponse,
-    bottom_result: BrickognizeResponse,
+    top_result: Optional[BrickognizeResponse],
+    bottom_result: Optional[BrickognizeResponse],
 ) -> Optional[BrickognizeItem]:
-    all_items = top_result.get("items", []) + bottom_result.get("items", [])
+    all_items: list[BrickognizeItem] = []
+    if top_result is not None:
+        all_items += top_result.get("items", [])
+    if bottom_result is not None:
+        all_items += bottom_result.get("items", [])
     if not all_items:
         return None
     return max(all_items, key=lambda x: x.get("score", 0))

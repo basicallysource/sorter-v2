@@ -75,7 +75,7 @@ class Snapping(BaseState):
                 segmentation_map=bottom_frame.segmentation_map,
             )
 
-        if top_crop is None or bottom_crop is None:
+        if top_crop is None and bottom_crop is None:
             self.logger.warn(
                 "Snapping: no object detected in classification frames, marking not_found"
             )
@@ -84,8 +84,9 @@ class Snapping(BaseState):
             self.event_queue.put(knownObjectToEvent(piece))
             return
 
+        thumbnail_crop = top_crop if top_crop is not None else bottom_crop
         _, thumbnail_buffer = cv2.imencode(
-            ".jpg", top_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
+            ".jpg", thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
         )
         piece.thumbnail = base64.b64encode(thumbnail_buffer).decode("utf-8")
 

@@ -4,7 +4,7 @@ import time
 import cv2
 import numpy as np
 
-from global_config import GlobalConfig
+from global_config import GlobalConfig, RegionProviderType
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from blob_manager import VideoRecorder
@@ -13,6 +13,7 @@ from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
 from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
+from .handdrawn_region_provider import HanddrawnRegionProvider
 
 TELEMETRY_INTERVAL_S = 30
 
@@ -23,7 +24,7 @@ class VisionManager:
     _classification_bottom_capture: Optional[CaptureThread]
     _classification_top_capture: Optional[CaptureThread]
     _video_recorder: Optional[VideoRecorder]
-    _region_provider: Union[ArucoRegionProvider, DefaultRegionProvider]
+    _region_provider: Union[ArucoRegionProvider, DefaultRegionProvider, HanddrawnRegionProvider]
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig):
         self.gc = gc
@@ -51,9 +52,9 @@ class VisionManager:
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
-        if gc.disable_aruco:
-            self._region_provider = DefaultRegionProvider()
-        else:
+        if gc.region_provider == RegionProviderType.HANDDRAWN:
+            self._region_provider = HanddrawnRegionProvider()
+        elif gc.region_provider == RegionProviderType.ARUCO:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
     def setTelemetry(self, telemetry) -> None:

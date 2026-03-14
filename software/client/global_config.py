@@ -2,9 +2,15 @@ import os
 import sys
 import argparse
 import uuid
+from enum import Enum
 from logger import Logger
 from profiler import Profiler
 from blob_manager import getMachineId
+
+
+class RegionProviderType(Enum):
+    ARUCO = "aruco"
+    HANDDRAWN = "handdrawn"
 
 
 class Timeouts:
@@ -28,7 +34,7 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
-    disable_aruco: bool
+    region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
@@ -68,7 +74,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
 
     gc.disable_chute = "chute" in args.disable
-    gc.disable_aruco = True
+    gc.region_provider = RegionProviderType.HANDDRAWN
 
     from telemetry import Telemetry
 

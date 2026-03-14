@@ -100,7 +100,6 @@ class Rotating(BaseState):
             return ClassificationState.SNAPPING
         else:
             self.logger.info("Rotating: no piece at classification, returning to idle")
-            self.shared.classification_ready = True
             return ClassificationState.IDLE
 
     def cleanup(self) -> None:

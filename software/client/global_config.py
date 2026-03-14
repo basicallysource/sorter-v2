@@ -72,7 +72,7 @@ class FeederConfig:
         )
         self.second_rotor_precision = RotorPulseConfig(
             steps=300,
-            delay_us=150,
+            delay_us=200,
             delay_between_ms=350,
             accel_start_delay_us=1400,
             accel_steps=26,
@@ -80,7 +80,7 @@ class FeederConfig:
         )
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
-            delay_us=900,
+            delay_us=500,
             delay_between_ms=200,
             accel_start_delay_us=1200,
             accel_steps=130,
@@ -88,7 +88,7 @@ class FeederConfig:
         )
         self.third_rotor_precision = RotorPulseConfig(
             steps=150,
-            delay_us=150,
+            delay_us=200,
             delay_between_ms=600,
             accel_start_delay_us=1400,
             accel_steps=26,
@@ -118,7 +118,7 @@ class GlobalConfig:
 
     def __init__(self):
         self.debug_level = 0
-        self.should_write_camera_feeds = False
+        self.should_write_camera_feeds = os.getenv("WRITE_CAMERA_FEEDS", "0") == "1"
         self.log_buffer_size = 100
         self.disable_chute = False
         self.disable_servos = False

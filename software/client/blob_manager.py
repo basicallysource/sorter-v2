@@ -1,7 +1,9 @@
 import json
 import os
+import queue
 import tempfile
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -263,15 +265,27 @@ CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
 class VideoRecorder:
     _run_dir: Path
     _writers: dict[str, cv2.VideoWriter]
+    _last_write: dict[str, float]
+    _last_frame: dict[str, np.ndarray]
     _fps: int
+    _queue: queue.Queue
+    _thread: threading.Thread
+    _stopped: bool
 
-    def __init__(self, fps: int = 30):
+    def __init__(self, run_id: str, fps: int = 30):
         self._fps = fps
         self._writers = {}
+        self._last_write = {}
+        self._last_frame = {}
+        self._queue = queue.Queue()
+        self._stopped = False
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self._run_dir = BLOB_DIR / timestamp
+        self._run_dir = BLOB_DIR / f"{timestamp}-{run_id}"
         self._run_dir.mkdir(parents=True, exist_ok=True)
+
+        self._thread = threading.Thread(target=self._writerLoop, daemon=True)
+        self._thread.start()
 
     def _getWriter(self, key: str, frame: np.ndarray) -> cv2.VideoWriter:
         if key not in self._writers:
@@ -281,18 +295,50 @@ class VideoRecorder:
             self._writers[key] = cv2.VideoWriter(str(path), fourcc, self._fps, (w, h))
         return self._writers[key]
 
+    def _processFrame(self, key: str, frame: np.ndarray, t: float) -> None:
+        writer = self._getWriter(key, frame)
+        frame_duration = 1.0 / self._fps
+
+        if key in self._last_write:
+            elapsed = t - self._last_write[key]
+            gap_frames = int(elapsed / frame_duration) - 1
+            if gap_frames > 0 and key in self._last_frame:
+                for _ in range(gap_frames):
+                    writer.write(self._last_frame[key])
+
+        writer.write(frame)
+        self._last_write[key] = t
+        self._last_frame[key] = frame
+
+    def _writerLoop(self) -> None:
+        while not self._stopped:
+            try:
+                item = self._queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            key, frame, t = item
+            self._processFrame(key, frame, t)
+
     def writeFrame(
         self, camera: str, raw: Optional[np.ndarray], annotated: Optional[np.ndarray]
     ) -> None:
+        t = time.monotonic()
         if raw is not None:
-            writer = self._getWriter(f"{camera}_raw", raw)
-            writer.write(raw)
-
+            self._queue.put((f"{camera}_raw", raw, t))
         if annotated is not None:
-            writer = self._getWriter(f"{camera}_annotated", annotated)
-            writer.write(annotated)
+            self._queue.put((f"{camera}_annotated", annotated, t))
 
     def close(self) -> None:
+        self._stopped = True
+        self._thread.join(timeout=5.0)
+        while not self._queue.empty():
+            try:
+                key, frame, t = self._queue.get_nowait()
+                self._processFrame(key, frame, t)
+            except queue.Empty:
+                break
         for writer in self._writers.values():
             writer.release()
         self._writers.clear()
+        self._last_write.clear()
+        self._last_frame.clear()

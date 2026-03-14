@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor
 import base64
+import threading
 import time
 import cv2
 import numpy as np
@@ -13,6 +14,7 @@ from classification.moondream import getDetection
 from .camera import CaptureThread
 from .types import CameraFrame
 from .heatmap_diff import HeatmapDiff
+from .feeder_analysis_thread import FeederAnalysisThread
 from defs.consts import (
     CHANNEL_SECTION_COUNT, CHANNEL_SECTION_DEG,
     CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
@@ -42,7 +44,7 @@ class VisionManager:
             "classification_top", irl_config.classification_camera_top
         )
 
-        self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
+        self._video_recorder = VideoRecorder(gc.run_id) if gc.should_write_camera_feeds else None
 
         self._telemetry = None
         self._last_telemetry_save = 0.0
@@ -57,8 +59,13 @@ class VisionManager:
         self._classification_masks: Dict[str, Optional[np.ndarray]] = {"top": None, "bottom": None}
         self._loadClassificationPolygons()
 
-        self.heatmap_diff = HeatmapDiff()
+        self.heatmap_diff = HeatmapDiff(scale=0.25)
         self._carousel_heatmap = HeatmapDiff()
+        self._feeder_analysis: Optional[FeederAnalysisThread] = None
+        self._cached_feeder_frame: Optional[CameraFrame] = None
+        self._cached_feeder_frame_ts: float = 0.0
+        self._record_thread: Optional[threading.Thread] = None
+        self._record_stop = threading.Event()
 
     def _loadClassificationPolygons(self) -> None:
         saved = getClassificationPolygons()
@@ -81,7 +88,54 @@ class VisionManager:
         self._classification_bottom_capture.start()
         self._classification_top_capture.start()
 
+    def _startFeederAnalysis(self) -> None:
+        self._feeder_analysis = FeederAnalysisThread(
+            heatmap=self.heatmap_diff,
+            get_gray=self.getLatestFeederGray,
+            channel_polygons=self._channel_polygons,
+            channel_angles=self._channel_angles,
+            channel_masks=self._channel_masks,
+            profiler=self.gc.profiler,
+        )
+        self._feeder_analysis.start()
+
+    def startRecording(self) -> None:
+        if not self._video_recorder and not self._telemetry:
+            return
+        self._record_stop.clear()
+        self._record_thread = threading.Thread(target=self._recordLoop, daemon=True)
+        self._record_thread.start()
+
+    def _recordLoop(self) -> None:
+        RECORD_INTERVAL_S = 0.030
+        prof = self.gc.profiler
+        while not self._record_stop.is_set():
+            start = time.monotonic()
+            prof.hit("vision.record_loop.calls")
+            prof.mark("vision.record_loop.interval_ms")
+
+            with prof.timer("vision.record_loop.total_ms"):
+                if self._video_recorder:
+                    with prof.timer("vision.record_loop.get_frames_ms"):
+                        for camera in ["feeder", "classification_bottom", "classification_top"]:
+                            frame = self.getFrame(camera)
+                            if frame:
+                                self._video_recorder.writeFrame(camera, frame.raw, frame.annotated)
+
+                with prof.timer("vision.record_loop.telemetry_ms"):
+                    self._saveTelemetryFrames()
+
+            elapsed = time.monotonic() - start
+            sleep_time = RECORD_INTERVAL_S - elapsed
+            if sleep_time > 0:
+                self._record_stop.wait(sleep_time)
+
     def stop(self) -> None:
+        self._record_stop.set()
+        if self._record_thread:
+            self._record_thread.join(timeout=2.0)
+        if self._feeder_analysis:
+            self._feeder_analysis.stop()
         self._feeder_capture.stop()
         self._classification_bottom_capture.stop()
         self._classification_top_capture.stop()
@@ -159,6 +213,7 @@ class VisionManager:
 
         self._channel_mask = mask
         self.heatmap_diff.loadEnvelope(baseline_min, baseline_max, mask)
+        self._startFeederAnalysis()
         self.gc.logger.info("Feeder baseline loaded")
         return True
 
@@ -166,14 +221,15 @@ class VisionManager:
         prof = self.gc.profiler
         prof.hit("vision.record_frames.calls")
         with prof.timer("vision.record_frames.total_ms"):
-            # push feeder frame to both heatmap ring buffers
+            # push feeder frame to carousel heatmap ring buffer
+            # (feeder heatmap is driven by its own analysis thread)
             gray = self.getLatestFeederGray()
             if gray is not None:
-                self.heatmap_diff.pushFrame(gray)
                 self._carousel_heatmap.pushFrame(gray)
 
             if self._video_recorder:
-                with prof.timer("vision.record_frames.video_recorder_write_ms"):
+                with prof.timer("vision.record_frames.get_frames_for_recording_ms"):
+                    frames_to_record = []
                     for camera in [
                         "feeder",
                         "classification_bottom",
@@ -181,9 +237,9 @@ class VisionManager:
                     ]:
                         frame = self.getFrame(camera)
                         if frame:
-                            self._video_recorder.writeFrame(
-                                camera, frame.raw, frame.annotated
-                            )
+                            frames_to_record.append((camera, frame.raw, frame.annotated))
+                for camera, raw, annotated in frames_to_record:
+                    self._video_recorder.writeFrame(camera, raw, annotated)
             with prof.timer("vision.record_frames.save_telemetry_frames_ms"):
                 self._saveTelemetryFrames()
 
@@ -217,6 +273,10 @@ class VisionManager:
         if frame is None:
             return None
 
+        # return cached if raw frame hasn't changed
+        if self._cached_feeder_frame is not None and frame.timestamp == self._cached_feeder_frame_ts:
+            return self._cached_feeder_frame
+
         annotated = frame.raw.copy()
 
         # annotate with channel and carousel geometry
@@ -239,13 +299,16 @@ class VisionManager:
         if self._carousel_heatmap.has_baseline:
             annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
 
-        return CameraFrame(
+        result = CameraFrame(
             raw=frame.raw,
             annotated=annotated,
             results=frame.results,
             timestamp=frame.timestamp,
             segmentation_map=frame.segmentation_map,
         )
+        self._cached_feeder_frame = result
+        self._cached_feeder_frame_ts = frame.timestamp
+        return result
 
     def getLatestFeederGray(self) -> Optional[np.ndarray]:
         frame = self._feeder_capture.latest_frame
@@ -288,27 +351,9 @@ class VisionManager:
         return score >= TRIGGER_SCORE, score, hot_px
 
     def getFeederHeatmapDetections(self):
-        from defs.channel import ChannelDetection
-        from subsystems.feeder.analysis import computeChannelGeometry, determineObjectChannel
-
-        if not self.heatmap_diff.has_baseline or self._channel_polygons is None:
+        if self._feeder_analysis is None:
             return []
-
-        bboxes = self.heatmap_diff.computeBboxes()
-        if not bboxes:
-            return []
-
-        geometry = computeChannelGeometry(
-            self._channel_polygons, self._channel_angles, self._channel_masks,
-        )
-
-        detections = []
-        for bbox in bboxes:
-            x1, y1, x2, y2 = bbox
-            ch = determineObjectChannel(((x1 + x2) / 2.0, (y1 + y2) / 2.0), geometry)
-            if ch is not None:
-                detections.append(ChannelDetection(bbox=bbox, channel_id=ch.channel_id, channel=ch))
-        return detections
+        return self._feeder_analysis.getDetections()
 
     def getChannelGeometry(self):
         from defs.channel import ChannelGeometry

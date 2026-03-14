@@ -14,7 +14,7 @@ run:
 upload:
 	mpremote cp firmware/feeder/main.py :main.py
 format:
-	ruff format client
+	ruff format client --exclude client/hardware
 check:
 	pyright --project client/pyproject.toml client
 generate:

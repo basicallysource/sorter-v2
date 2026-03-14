@@ -32,7 +32,7 @@ def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
 
 
 class HeatmapDiff:
-    def __init__(self):
+    def __init__(self, scale: float = 1.0):
         self._baseline_gray: Optional[np.ndarray] = None
         self._baseline_min: Optional[np.ndarray] = None
         self._baseline_max: Optional[np.ndarray] = None
@@ -41,6 +41,9 @@ class HeatmapDiff:
         self._baseline_timestamp: float = 0.0
         self._gray_ring: deque = deque(maxlen=30)
         self._last_ring_time: float = 0.0
+        self._scale = scale
+        self._full_size: Optional[Tuple[int, int]] = None
+        self._cached_result: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None
 
     @property
     def has_baseline(self) -> bool:
@@ -52,11 +55,20 @@ class HeatmapDiff:
     def baseline_corners(self) -> Optional[List[Tuple[float, float]]]:
         return self._baseline_corners
 
+    def _downscale(self, img: np.ndarray) -> np.ndarray:
+        if self._scale >= 1.0:
+            return img
+        h, w = img.shape[:2]
+        self._full_size = (w, h)
+        new_w, new_h = int(w * self._scale), int(h * self._scale)
+        return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
     def pushFrame(self, gray: np.ndarray) -> None:
         now = time.time()
         if (now - self._last_ring_time) * 1000 >= CAPTURE_INTERVAL_MS:
-            self._gray_ring.append(gray)
+            self._gray_ring.append(self._downscale(gray))
             self._last_ring_time = now
+            self._cached_result = None
 
     def _getAveraged(self, count: int) -> Optional[np.ndarray]:
         n = min(count, len(self._gray_ring))
@@ -69,13 +81,21 @@ class HeatmapDiff:
         avg = self._getAveraged(BASELINE_FRAMES)
         if avg is None:
             return False
-        mask = _makePlatformMask(corners, shape)
+        if self._scale < 1.0:
+            scaled_corners = [(x * self._scale, y * self._scale) for x, y in corners]
+            scaled_shape = (int(shape[0] * self._scale), int(shape[1] * self._scale))
+            self._full_size = (shape[1], shape[0])
+        else:
+            scaled_corners = corners
+            scaled_shape = shape
+        mask = _makePlatformMask(scaled_corners, scaled_shape)
         self._baseline_gray = cv2.bitwise_and(avg, avg, mask=mask)
         self._baseline_min = None
         self._baseline_max = None
         self._baseline_mask = mask
         self._baseline_corners = list(corners)
         self._baseline_timestamp = time.time()
+        self._cached_result = None
         return True
 
     def setBaselineEnvelope(self, frames: List[np.ndarray], mask: np.ndarray) -> bool:
@@ -96,15 +116,24 @@ class HeatmapDiff:
         self._baseline_mask = mask
         self._baseline_corners = None
         self._baseline_timestamp = time.time()
+        self._cached_result = None
         return True
 
     def loadEnvelope(self, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray) -> None:
+        if self._scale < 1.0:
+            h, w = baseline_min.shape[:2]
+            self._full_size = (w, h)
+            new_w, new_h = int(w * self._scale), int(h * self._scale)
+            baseline_min = cv2.resize(baseline_min, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            baseline_max = cv2.resize(baseline_max, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            mask = cv2.resize(mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
         self._baseline_min = cv2.bitwise_and(baseline_min, baseline_min, mask=mask)
         self._baseline_max = cv2.bitwise_and(baseline_max, baseline_max, mask=mask)
         self._baseline_gray = None
         self._baseline_mask = mask
         self._baseline_corners = None
         self._baseline_timestamp = time.time()
+        self._cached_result = None
 
     def clearBaseline(self) -> None:
         self._baseline_gray = None
@@ -114,29 +143,38 @@ class HeatmapDiff:
         self._baseline_corners = None
         self._baseline_timestamp = 0.0
         self._gray_ring.clear()
+        self._cached_result = None
 
     def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-        if self._baseline_mask is None:
+        if self._cached_result is not None:
+            return self._cached_result
+
+        # snapshot to avoid race with resetBaseline()
+        mask = self._baseline_mask
+        bl_min = self._baseline_min
+        bl_max = self._baseline_max
+
+        if mask is None:
             return None
         avg = self._getAveraged(CURRENT_FRAMES)
         if avg is None:
             return None
 
-        mask_bool = self._baseline_mask > 0
+        mask_bool = mask > 0
 
-        if self._baseline_min is not None and self._baseline_max is not None:
-            current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
+        if bl_min is not None and bl_max is not None:
+            current_masked = cv2.bitwise_and(avg, avg, mask=mask)
             below = np.clip(
-                self._baseline_min.astype(np.int16) - current_masked.astype(np.int16),
+                bl_min.astype(np.int16) - current_masked.astype(np.int16),
                 0, 255,
             ).astype(np.uint8)
             above = np.clip(
-                current_masked.astype(np.int16) - self._baseline_max.astype(np.int16),
+                current_masked.astype(np.int16) - bl_max.astype(np.int16),
                 0, 255,
             ).astype(np.uint8)
             diff = np.maximum(below, above)
         elif self._baseline_gray is not None:
-            current_masked = cv2.bitwise_and(avg, avg, mask=self._baseline_mask)
+            current_masked = cv2.bitwise_and(avg, avg, mask=mask)
             diff = cv2.absdiff(current_masked, self._baseline_gray)
         else:
             return None
@@ -144,16 +182,19 @@ class HeatmapDiff:
         blur_k = BLUR_KERNEL | 1
         diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
 
+        # scale erosion kernel for downscaled images
+        scaled_thickness = max(1, int(MIN_HOT_THICKNESS_PIXELS * self._scale))
+        scaled_min_area = max(1, int(MIN_CONTOUR_AREA * self._scale * self._scale))
+
         # build hot mask, filtering out thin slivers (including curved arcs)
-        # erosion removes anything thinner than MIN_HOT_THICKNESS_PIXELS regardless of shape
         raw_hot = ((diff > PIXEL_THRESH) & mask_bool).astype(np.uint8) * 255
-        ek = max(1, MIN_HOT_THICKNESS_PIXELS // 2)
+        ek = max(1, scaled_thickness // 2)
         erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ek * 2 + 1, ek * 2 + 1))
         eroded = cv2.erode(raw_hot, erode_kernel)
         contours, _ = cv2.findContours(raw_hot, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         hot = np.zeros_like(raw_hot)
         for contour in contours:
-            if cv2.contourArea(contour) < MIN_CONTOUR_AREA:
+            if cv2.contourArea(contour) < scaled_min_area:
                 continue
             contour_mask = np.zeros_like(raw_hot)
             cv2.drawContours(contour_mask, [contour], -1, 255, -1)
@@ -161,13 +202,15 @@ class HeatmapDiff:
                 continue
             cv2.drawContours(hot, [contour], -1, 255, -1)
 
-        return diff, hot > 0, mask_bool
+        result = (diff, hot > 0, mask_bool)
+        self._cached_result = result
+        return result
 
     def computeDiff(self) -> Tuple[float, int]:
         result = self._computeDiffMap()
         if result is None:
             return 0.0, 0
-        diff, hot, mask_bool = result
+        diff, hot, _ = result
 
         hot_count = int(np.count_nonzero(hot))
         score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
@@ -182,8 +225,9 @@ class HeatmapDiff:
         contours, _ = cv2.findContours(
             hot.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
+        inv = 1.0 / self._scale if self._scale < 1.0 else 1.0
         return [
-            (x, y, x + w, y + h)
+            (int(x * inv), int(y * inv), int((x + w) * inv), int((y + h) * inv))
             for contour in contours
             for x, y, w, h in [cv2.boundingRect(contour)]
         ]
@@ -201,16 +245,28 @@ class HeatmapDiff:
         hot_count = int(np.count_nonzero(hot))
         score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
 
-        display = np.zeros_like(diff)
-        display[hot] = np.clip(
-            diff[hot].astype(np.float32) * HEAT_GAIN, 0, 255
+        # upscale diff/hot/mask to full resolution for overlay
+        out_h, out_w = annotated.shape[:2]
+        diff_h, diff_w = diff.shape[:2]
+        if diff_h != out_h or diff_w != out_w:
+            diff_up = cv2.resize(diff, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+            hot_up = cv2.resize(hot.astype(np.uint8) * 255, (out_w, out_h), interpolation=cv2.INTER_NEAREST) > 0
+            mask_up = cv2.resize(mask_bool.astype(np.uint8) * 255, (out_w, out_h), interpolation=cv2.INTER_NEAREST) > 0
+        else:
+            diff_up = diff
+            hot_up = hot
+            mask_up = mask_bool
+
+        display = np.zeros_like(diff_up)
+        display[hot_up] = np.clip(
+            diff_up[hot_up].astype(np.float32) * HEAT_GAIN, 0, 255
         ).astype(np.uint8)
 
         heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
 
         out = annotated.copy()
-        out[mask_bool] = (annotated[mask_bool] * 0.5).astype(np.uint8)
-        show_heat = hot & (display > 0)
+        out[mask_up] = (annotated[mask_up] * 0.5).astype(np.uint8)
+        show_heat = hot_up & (display > 0)
         out[show_heat] = (
             annotated[show_heat].astype(np.float32) * 0.2
             + heatmap[show_heat].astype(np.float32) * 0.8

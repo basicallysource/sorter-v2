@@ -30,7 +30,7 @@ import asyncio
 import sys
 
 SHUTDOWN_MOTOR_STOP_DELAY_MS = 100
-FRAME_BROADCAST_INTERVAL_MS = 100
+FRAME_BROADCAST_INTERVAL_MS = 30
 
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
@@ -86,6 +86,20 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 
 
+def runFrameBroadcaster(gc: GlobalConfig, vision, broadcast_queue) -> None:
+    prof = gc.profiler
+    while True:
+        prof.hit("frame_broadcast.calls")
+        prof.mark("frame_broadcast.interval_ms")
+        with prof.timer("frame_broadcast.total_ms"):
+            with prof.timer("frame_broadcast.get_all_frame_events_ms"):
+                frame_events = vision.getAllFrameEvents()
+            prof.observeValue("frame_broadcast.frame_count", float(len(frame_events)))
+            for frame_event in frame_events:
+                broadcast_queue.put(frame_event)
+        time.sleep(FRAME_BROADCAST_INTERVAL_MS / 1000.0)
+
+
 def main() -> None:
     gc = mkGlobalConfig()
     setGlobalConfig(gc)
@@ -118,6 +132,7 @@ def main() -> None:
     if not vision.loadFeederBaseline():
         gc.logger.error("Feeder baseline setup incomplete. See warnings above for details.")
         sys.exit(1)
+    vision.startRecording()
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)
@@ -129,7 +144,13 @@ def main() -> None:
     broadcaster_thread.start()
 
     last_heartbeat = time.time()
-    last_frame_broadcast = time.time()
+
+    frame_broadcast_thread = threading.Thread(
+        target=runFrameBroadcaster,
+        args=(gc, vision, main_to_server_queue),
+        daemon=True,
+    )
+    frame_broadcast_thread.start()
 
     try:
         while True:
@@ -144,7 +165,6 @@ def main() -> None:
             current_time = time.time()
 
             # send periodic heartbeat
-            # can probably remove this later, just helps debug web sockets from time to time
             if (
                 current_time - last_heartbeat
                 >= gc.timeouts.heartbeat_interval_ms / 1000.0
@@ -155,22 +175,10 @@ def main() -> None:
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
 
-            # broadcast camera frames and record to disk
-            if (
-                current_time - last_frame_broadcast
-                >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
-            ):
-                with gc.profiler.timer("main.loop.frame_broadcast_block_ms"):
-                    with gc.profiler.timer("main.loop.get_all_frame_events_ms"):
-                        frame_events = vision.getAllFrameEvents()
-                    gc.profiler.observeValue(
-                        "main.loop.frame_events_count", float(len(frame_events))
-                    )
-                    for frame_event in frame_events:
-                        main_to_server_queue.put(frame_event)
-                    with gc.profiler.timer("main.loop.record_frames_ms"):
-                        vision.recordFrames()
-                last_frame_broadcast = current_time
+            # push carousel heatmap frames on main thread so detection stays responsive
+            gray = vision.getLatestFeederGray()
+            if gray is not None:
+                vision._carousel_heatmap.pushFrame(gray)
 
             with gc.profiler.timer("main.loop.controller_step_ms"):
                 controller.step()

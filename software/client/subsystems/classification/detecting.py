@@ -10,7 +10,7 @@ from global_config import GlobalConfig
 if TYPE_CHECKING:
     from vision import VisionManager
 
-WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS = 500
+WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS = 2000
 DEBOUNCE_MS = 50
 
 
@@ -44,6 +44,12 @@ class Detecting(BaseState):
                 return None
             self._baseline_pending = False
             self.logger.info("Detecting: captured heatmap baseline")
+
+        if not self.shared.classification_ready:
+            if not self.shared.distribution_ready:
+                return None
+            self.shared.classification_ready = True
+            self.logger.info("Detecting: set classification_ready=True (baseline captured + distribution ready)")
             return None
 
         triggered, score, hot_px = self.vision.isCarouselTriggered()

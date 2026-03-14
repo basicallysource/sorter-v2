@@ -44,7 +44,6 @@ class Snapping(BaseState):
             self._captureAndClassify()
             self.snapped = True
 
-        self.shared.classification_ready = True
         return ClassificationState.IDLE
 
     def _captureAndClassify(self) -> None:

@@ -110,7 +110,7 @@ def main() -> int:
         irl.third_c_channel_rotor_stepper.moveStepsBlocking(
             -STEPS_PER_FRAME, MOVE_TIMEOUT_MS, STEP_DELAY_US,
         )
-        if not no_carousel:
+        if not no_carousel and i % 4 == 3:
             irl.carousel_stepper.moveSteps(-CAROUSEL_STEPS_PER_FRAME, 800)
             time.sleep(2)
         time.sleep(SETTLE_S)

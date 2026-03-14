@@ -27,9 +27,10 @@ class Telemetry:
             return
 
         seg_copy = segmentation_map.copy() if segmentation_map is not None else None
+        ann_copy = annotated_img.copy() if annotated_img is not None else None
         thread = threading.Thread(
             target=self._uploadCapture,
-            args=(camera_name, raw_img.copy(), annotated_img.copy(), source, seg_copy),
+            args=(camera_name, raw_img.copy(), ann_copy, source, seg_copy),
             daemon=True,
         )
         thread.start()

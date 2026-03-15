@@ -8,7 +8,7 @@ from global_config import GlobalConfig, RegionProviderType
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.channel import ChannelDetection
-from blob_manager import VideoRecorder
+from blob_manager import VideoRecorder, getClassificationPolygons
 from .camera import CaptureThread
 from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
@@ -72,6 +72,10 @@ class VisionManager:
         self._feeder_analysis: FeederAnalysisThread | None = None
         self._cached_feeder_frame: CameraFrame | None = None
         self._cached_feeder_frame_ts: float = 0.0
+
+        self._classification_masks: Dict[str, np.ndarray] = {}
+        self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
+        self._loadClassificationPolygons()
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -360,13 +364,48 @@ class VisionManager:
             self._classification_bottom_capture.latest_frame if self._classification_bottom_capture else None,
         )
 
-    # stubbed — returns raw frames, no crop detection
+    def _loadClassificationPolygons(self) -> None:
+        saved = getClassificationPolygons()
+        if saved is None:
+            return
+        res = saved.get("resolution")
+        if res and len(res) == 2:
+            self._classification_polygon_resolution = (int(res[0]), int(res[1]))
+        polygons = saved.get("polygons", {})
+        for key in ("top", "bottom"):
+            pts = polygons.get(key)
+            if pts and len(pts) >= 3:
+                self._classification_masks[key] = np.array(pts, dtype=np.int32)
+
+    def _scalePolygon(self, polygon: np.ndarray, frame_w: int, frame_h: int) -> np.ndarray:
+        src_w, src_h = self._classification_polygon_resolution
+        if src_w == frame_w and src_h == frame_h:
+            return polygon
+        scale_x = frame_w / src_w
+        scale_y = frame_h / src_h
+        scaled = polygon.astype(np.float64)
+        scaled[:, 0] *= scale_x
+        scaled[:, 1] *= scale_y
+        return scaled.astype(np.int32)
+
+    def _maskToRegion(self, frame: np.ndarray, key: str) -> np.ndarray:
+        polygon = self._classification_masks.get(key)
+        if polygon is None:
+            return frame
+        h, w = frame.shape[:2]
+        polygon = self._scalePolygon(polygon, w, h)
+        white = np.full_like(frame, 255)
+        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+        cv2.fillPoly(mask, [polygon], 255)
+        result = np.where(mask[:, :, np.newaxis] == 255, frame, white)
+        return result
+
     def getClassificationCrops(
         self, timeout_s: float = 1.0, confidence_threshold: float = 0.0
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
-        top_crop = top_frame.raw if top_frame is not None else None
-        bottom_crop = bottom_frame.raw if bottom_frame is not None else None
+        top_crop = self._maskToRegion(top_frame.raw, "top") if top_frame is not None else None
+        bottom_crop = self._maskToRegion(bottom_frame.raw, "bottom") if bottom_frame is not None else None
         return (top_crop, bottom_crop)
 
     def _encodeFrame(self, frame: np.ndarray) -> str:

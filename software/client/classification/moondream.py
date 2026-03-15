@@ -7,7 +7,7 @@ import numpy as np
 
 MOONDREAM_DETECT_URL = "https://api.moondream.ai/v1/detect"
 MOONDREAM_OBJECT_NAME = "lego piece"
-MOONDREAM_REQUEST_TIMEOUT_S = 5
+MOONDREAM_REQUEST_TIMEOUT_S = 15
 JPEG_QUALITY = 85
 
 

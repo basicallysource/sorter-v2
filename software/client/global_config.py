@@ -18,7 +18,8 @@ class Timeouts:
     heartbeat_interval_ms: float
 
     def __init__(self):
-        self.main_loop_sleep_ms = 10
+        from defs.consts import LOOP_TICK_MS
+        self.main_loop_sleep_ms = LOOP_TICK_MS
         self.heartbeat_interval_ms = 5000
 
 

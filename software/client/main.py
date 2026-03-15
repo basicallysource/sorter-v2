@@ -155,21 +155,19 @@ def main() -> None:
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
 
-            # broadcast camera frames and record to disk
+            # broadcast cached camera frames and record to disk
             if (
                 current_time - last_frame_broadcast
                 >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
             ):
-                with gc.profiler.timer("main.loop.frame_broadcast_block_ms"):
-                    with gc.profiler.timer("main.loop.get_all_frame_events_ms"):
-                        frame_events = vision.getAllFrameEvents()
-                    gc.profiler.observeValue(
-                        "main.loop.frame_events_count", float(len(frame_events))
-                    )
-                    for frame_event in frame_events:
-                        main_to_server_queue.put(frame_event)
-                    with gc.profiler.timer("main.loop.record_frames_ms"):
-                        vision.recordFrames()
+                frame_events = vision.getAllFrameEvents()
+                gc.profiler.observeValue(
+                    "main.loop.frame_events_count", float(len(frame_events))
+                )
+                for frame_event in frame_events:
+                    main_to_server_queue.put(frame_event)
+                with gc.profiler.timer("main.loop.record_frames_ms"):
+                    vision.recordFrames()
                 last_frame_broadcast = current_time
 
             with gc.profiler.timer("main.loop.controller_step_ms"):

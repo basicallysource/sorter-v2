@@ -35,12 +35,14 @@ class Positioning(BaseState):
         self.layout = layout
         self.sorting_profile = sorting_profile
         self.event_queue = event_queue
-        self.start_time: Optional[float] = None
-        self.position_duration_ms = 0
-        self.command_sent = False
+        self._phase: str = "init"
+        self._phase_started_at: float = 0.0
+        self._target_address: BinAddress | None = None
 
     def step(self) -> Optional[DistributionState]:
-        if self.start_time is None:
+        now = time.monotonic()
+
+        if self._phase == "init":
             carousel = self.shared.carousel
             piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
@@ -72,35 +74,48 @@ class Positioning(BaseState):
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self._selectDoor(address.layer_index)
+            self._target_address = address
+
             if SLEEP_BEFORE_CHUTE_MOVE_MS > 0:
                 self.logger.info(
-                    f"Positioning: extra wait before chute move {SLEEP_BEFORE_CHUTE_MOVE_MS}ms"
+                    f"Positioning: waiting {SLEEP_BEFORE_CHUTE_MOVE_MS}ms before chute move"
                 )
-                time.sleep(SLEEP_BEFORE_CHUTE_MOVE_MS / 1000.0)
-            self.shared.chute_move_in_progress = True
-            chute_move_ms = self.chute.moveToBinBlocking(
-                address, timeout_buffer_ms=POSITION_BUFFER_MS
-            )
-            self.shared.chute_move_in_progress = False
-            self.position_duration_ms = 0
-            self.logger.info(
-                f"Positioning: chute move confirmed (chute_move_ms={chute_move_ms}, timeout_buffer_ms={POSITION_BUFFER_MS})"
-            )
-            self.start_time = time.time()
-            self.command_sent = True
-
-        elapsed_ms = (time.time() - self.start_time) * 1000
-        if elapsed_ms < self.position_duration_ms:
+                self._phase = "waiting_before_move"
+                self._phase_started_at = now
+            else:
+                self._startChuteMove()
             return None
 
-        self.logger.info("Positioning: complete, ready for drop")
-        return DistributionState.READY
+        if self._phase == "waiting_before_move":
+            elapsed_ms = (now - self._phase_started_at) * 1000
+            if elapsed_ms < SLEEP_BEFORE_CHUTE_MOVE_MS:
+                return None
+            self._startChuteMove()
+            return None
+
+        if self._phase == "moving":
+            if not self.chute.stepper.stopped:
+                return None
+            self.shared.chute_move_in_progress = False
+            self.logger.info("Positioning: complete, ready for drop")
+            return DistributionState.READY
+
+        return None
+
+    def _startChuteMove(self) -> None:
+        assert self._target_address is not None
+        self.shared.chute_move_in_progress = True
+        estimated_ms = self.chute.moveToBin(self._target_address)
+        self.logger.info(
+            f"Positioning: chute move started (est_ms={estimated_ms})"
+        )
+        self._phase = "moving"
 
     def cleanup(self) -> None:
         super().cleanup()
-        self.start_time = None
-        self.position_duration_ms = 0
-        self.command_sent = False
+        self._phase = "init"
+        self._phase_started_at = 0.0
+        self._target_address = None
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:

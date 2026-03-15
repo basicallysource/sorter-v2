@@ -20,9 +20,7 @@ class Idle(BaseState):
         self.carousel = carousel
 
     def step(self) -> Optional[ClassificationState]:
-        if self.shared.classification_ready:
-            return ClassificationState.DETECTING
-        return None
+        return ClassificationState.DETECTING
 
     def cleanup(self) -> None:
         super().cleanup()

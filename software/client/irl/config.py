@@ -105,9 +105,9 @@ class FeederConfig:
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
-            steps=100,
+            steps=200,
             microsteps_per_second=2000,
-            delay_between_ms=5000,
+            delay_between_ms=1500,
         )
         self.second_rotor_normal = RotorPulseConfig(
             steps=500,
@@ -115,8 +115,8 @@ class FeederConfig:
             delay_between_ms=250,
         )
         self.second_rotor_precision = RotorPulseConfig(
-            steps=100,
-            microsteps_per_second=1250,
+            steps=200,
+            microsteps_per_second=2500,
             delay_between_ms=350,
         )
         self.third_rotor_normal = RotorPulseConfig(
@@ -125,8 +125,8 @@ class FeederConfig:
             delay_between_ms=250,
         )
         self.third_rotor_precision = RotorPulseConfig(
-            steps=100,
-            microsteps_per_second=1250,
+            steps=200,
+            microsteps_per_second=2000,
             delay_between_ms=350,
         )
 
@@ -273,10 +273,10 @@ def mkIRLConfig() -> IRLConfig:
 
     irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
     irl_config.classification_camera_bottom = mkCameraConfig(
-        device_index=classification_camera_bottom_index
+        device_index=classification_camera_bottom_index, width=9999, height=9999
     )
     irl_config.classification_camera_top = mkCameraConfig(
-        device_index=classification_camera_top_index
+        device_index=classification_camera_top_index, width=9999, height=9999
     )
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=8)

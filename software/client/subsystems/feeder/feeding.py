@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import FeederState
@@ -7,6 +7,11 @@ from .analysis import ChannelAction, analyzeFeederChannels
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
+from defs.consts import LOOP_TICK_MS
+
+if TYPE_CHECKING:
+    from hardware.sorter_interface import StepperMotor
+    from irl.config import RotorPulseConfig
 
 
 class Feeding(BaseState):
@@ -24,6 +29,7 @@ class Feeding(BaseState):
         self.vision = vision
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
+        self._busy_until: dict[str, float] = {}
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -31,6 +37,30 @@ class Feeding(BaseState):
         if not self.shared.classification_ready:
             return FeederState.IDLE
         return None
+
+    def _isStepperBusy(self, stepper: "StepperMotor") -> bool:
+        return time.monotonic() < self._busy_until.get(stepper._name, 0.0)
+
+    def _sendPulse(
+        self,
+        label: str,
+        stepper: "StepperMotor",
+        cfg: "RotorPulseConfig",
+    ) -> bool:
+        if self._isStepperBusy(stepper):
+            self.gc.profiler.hit(f"feeder.skip.busy.{label}")
+            return False
+        prof = self.gc.profiler
+        with prof.timer(f"feeder.move_cmd.{label}_ms"):
+            pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
+            stepper.move_degrees(pulse_degrees)
+        exec_ms = stepper.estimateMoveDegreesMs(
+            stepper.degrees_for_microsteps(cfg.steps_per_pulse)
+        )
+        cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+        self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
+        prof.observeValue(f"feeder.cooldown.{label}_ms", float(cooldown_ms))
+        return True
 
     def _executionLoop(self) -> None:
         fc = self.irl_config.feeder_config
@@ -60,70 +90,51 @@ class Feeding(BaseState):
                     self.gc.logger.info(f"state change: ch3 {self._last_ch3_action.value} -> {ch3_action.value}")
                     self._last_ch3_action = ch3_action
 
-                ACTUALLY_RUN = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
+                can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                     not self.shared.chute_move_in_progress
                 )
 
-                if not ACTUALLY_RUN:
-                    self.gc.logger.info("Feeder: skipping rotor pulse while chute move in progress")
+                if not can_run:
+                    prof.hit("feeder.skip.chute_in_progress")
+                    self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
                 # channel 3
                 if ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
-                    self.gc.logger.info("Feeder: ch3 precise, pulsing 3rd (precise)")
-                    cfg = fc.third_rotor_precision
-                    pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
-                        cfg.steps_per_pulse
-                    )
-                    self.irl.third_c_channel_rotor_stepper.move_degrees(pulse_degrees)
-                    if cfg.delay_between_pulse_ms > 0:
-                        time.sleep(cfg.delay_between_pulse_ms / 1000.0)
+                    if self._sendPulse("ch3_precise", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision):
+                        self.gc.logger.info("Feeder: ch3 precise, pulsing 3rd (precise)")
                 elif ch3_action == ChannelAction.PULSE_NORMAL:
                     prof.hit("feeder.path.ch3_normal")
-                    self.gc.logger.info("Feeder: ch3 normal, pulsing 3rd")
-                    cfg = fc.third_rotor_normal
-                    pulse_degrees = self.irl.third_c_channel_rotor_stepper.degrees_for_microsteps(
-                        cfg.steps_per_pulse
-                    )
-                    self.irl.third_c_channel_rotor_stepper.move_degrees(pulse_degrees)
-                    if cfg.delay_between_pulse_ms > 0:
-                        time.sleep(cfg.delay_between_pulse_ms / 1000.0)
+                    if self._sendPulse("ch3_normal", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_normal):
+                        self.gc.logger.info("Feeder: ch3 normal, pulsing 3rd")
+                else:
+                    prof.hit("feeder.path.ch3_idle")
 
                 # channel 2 — only pulse if ch3 dropzone is clear
                 if not analysis.ch3_dropzone_occupied:
                     if ch2_action == ChannelAction.PULSE_PRECISE:
                         prof.hit("feeder.path.ch2_precise")
-                        self.gc.logger.info("Feeder: ch2 precise, pulsing 2nd (precise)")
-                        cfg = fc.second_rotor_precision
-                        pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
-                            cfg.steps_per_pulse
-                        )
-                        self.irl.second_c_channel_rotor_stepper.move_degrees(pulse_degrees)
-                        if cfg.delay_between_pulse_ms > 0:
-                            time.sleep(cfg.delay_between_pulse_ms / 1000.0)
+                        if self._sendPulse("ch2_precise", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_precision):
+                            self.gc.logger.info("Feeder: ch2 precise, pulsing 2nd (precise)")
                     elif ch2_action == ChannelAction.PULSE_NORMAL:
                         prof.hit("feeder.path.ch2_normal")
-                        self.gc.logger.info("Feeder: ch2 normal, pulsing 2nd")
-                        cfg = fc.second_rotor_normal
-                        pulse_degrees = self.irl.second_c_channel_rotor_stepper.degrees_for_microsteps(
-                            cfg.steps_per_pulse
-                        )
-                        self.irl.second_c_channel_rotor_stepper.move_degrees(pulse_degrees)
-                        if cfg.delay_between_pulse_ms > 0:
-                            time.sleep(cfg.delay_between_pulse_ms / 1000.0)
+                        if self._sendPulse("ch2_normal", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_normal):
+                            self.gc.logger.info("Feeder: ch2 normal, pulsing 2nd")
+                    else:
+                        prof.hit("feeder.path.ch2_idle")
+                else:
+                    prof.hit("feeder.skip.ch2_dropzone_occupied")
 
                 # channel 1 — only pulse if ch2 dropzone is clear
                 if not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
-                    self.gc.logger.info("Feeder: clear, pulsing 1st")
-                    cfg = fc.first_rotor
-                    pulse_degrees = self.irl.first_c_channel_rotor_stepper.degrees_for_microsteps(
-                        cfg.steps_per_pulse
-                    )
-                    self.irl.first_c_channel_rotor_stepper.move_degrees(pulse_degrees)
-                    if cfg.delay_between_pulse_ms > 0:
-                        time.sleep(cfg.delay_between_pulse_ms / 1000.0)
+                    if self._sendPulse("ch1", self.irl.first_c_channel_rotor_stepper, fc.first_rotor):
+                        self.gc.logger.info("Feeder: clear, pulsing 1st")
+                else:
+                    prof.hit("feeder.skip.ch1_dropzone_occupied")
+
+            self._stop_event.wait(LOOP_TICK_MS / 1000.0)
 
     def cleanup(self) -> None:
         super().cleanup()

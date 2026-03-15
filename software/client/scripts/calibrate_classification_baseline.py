@@ -22,7 +22,7 @@ LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 from vision import VisionManager
 from blob_manager import BLOB_DIR
 
-MAX_FRAMES = 16
+MAX_FRAMES = 64
 DEGREES_PER_FRAME = -90
 MOVE_TIMEOUT_MS = 3000
 

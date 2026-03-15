@@ -73,7 +73,7 @@ class Rotating(BaseState):
         if self.start_time is None:
             self.start_time = time.time()
             self.logger.info("Rotating: starting rotation")
-            self.stepper.move_degrees(90.0)
+            self.stepper.move_degrees(-90.0)
             self.command_sent = True
 
         elapsed_ms = (time.time() - self.start_time) * 1000
@@ -100,7 +100,6 @@ class Rotating(BaseState):
             return ClassificationState.SNAPPING
         else:
             self.logger.info("Rotating: no piece at classification, returning to idle")
-            self.shared.classification_ready = True
             return ClassificationState.IDLE
 
     def cleanup(self) -> None:

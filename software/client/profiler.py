@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from typing import Optional
 
 DEFAULT_REPORT_INTERVAL_S = 5.0
-DEFAULT_TOP_N = 12
+DEFAULT_TOP_N = 20
 
 
 @dataclass
 class DurationStat:
     count: int = 0
     total_ms: float = 0.0
+    min_ms: float = float("inf")
     max_ms: float = 0.0
     last_ms: float = 0.0
 
@@ -121,6 +122,8 @@ class Profiler:
             stat.count += 1
             stat.total_ms += elapsed_ms
             stat.last_ms = elapsed_ms
+            if elapsed_ms < stat.min_ms:
+                stat.min_ms = elapsed_ms
             if elapsed_ms > stat.max_ms:
                 stat.max_ms = elapsed_ms
 
@@ -212,6 +215,8 @@ class Profiler:
         stat.count += 1
         stat.total_ms += elapsed_ms
         stat.last_ms = elapsed_ms
+        if elapsed_ms < stat.min_ms:
+            stat.min_ms = elapsed_ms
         if elapsed_ms > stat.max_ms:
             stat.max_ms = elapsed_ms
 
@@ -254,8 +259,9 @@ class Profiler:
         lines.append("Top durations (by total ms):")
         for name, stat in durations[: self.top_n]:
             avg_ms = stat.total_ms / stat.count if stat.count > 0 else 0.0
+            min_display = stat.min_ms if stat.min_ms != float("inf") else 0.0
             lines.append(
-                f"  {name}: count={stat.count} total={stat.total_ms:.1f}ms avg={avg_ms:.1f}ms max={stat.max_ms:.1f}ms last={stat.last_ms:.1f}ms"
+                f"  {name}: count={stat.count} total={stat.total_ms:.1f}ms avg={avg_ms:.1f}ms min={min_display:.1f}ms max={stat.max_ms:.1f}ms last={stat.last_ms:.1f}ms"
             )
 
         lines.append("Top counters:")

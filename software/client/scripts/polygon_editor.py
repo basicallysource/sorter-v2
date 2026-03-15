@@ -360,20 +360,33 @@ def init():
     return jsonify(result)
 
 
+def _getCaptureResolution(cam: str) -> list[int]:
+    cap = captures.get(cam)
+    if cap and cap.latest_frame is not None:
+        h, w = cap.latest_frame.raw.shape[:2]
+        return [w, h]
+    return [1920, 1080]
+
+
 @app.route("/save", methods=["POST"])
 def save():
     body = request.get_json()
+    feeder_res = _getCaptureResolution("feeder")
+    class_top_res = _getCaptureResolution("classification_top")
+    class_bottom_res = _getCaptureResolution("classification_bottom")
     # save channel polygons (feeder camera)
     setChannelPolygons({
         "polygons": body["polygons"],
         "user_pts": body["user_pts"],
         "channel_angles": body["channel_angles"],
         "section_zero_pts": body["section_zero_pts"],
+        "resolution": feeder_res,
     })
-    # save classification polygons
+    # save classification polygons — use top cam resolution (both should match)
     setClassificationPolygons({
         "polygons": body["class_polygons"],
         "user_pts": body["class_user_pts"],
+        "resolution": class_top_res or class_bottom_res or feeder_res,
     })
     return jsonify({"ok": True})
 

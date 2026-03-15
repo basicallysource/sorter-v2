@@ -14,13 +14,11 @@ from utils.event import knownObjectToEvent
 from telemetry import Telemetry
 from defs.known_object import ClassificationStatus
 from classification import classify
-from classification.moondream import getDetectionCrop
 from blob_manager import BLOB_DIR
 
 if TYPE_CHECKING:
     from vision import VisionManager
 
-CLASSIFICATION_OBJECT_CONFIDENCE_THRESHOLD = 0.2
 SNAP_JPEG_QUALITY = 90
 
 
@@ -64,9 +62,8 @@ class Snapping(BaseState):
             return
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
-        top_crop, bottom_crop = self.vision.getClassificationCrops(
-            confidence_threshold=CLASSIFICATION_OBJECT_CONFIDENCE_THRESHOLD
-        )
+        with self.gc.profiler.timer("classification.get_crops_ms"):
+            top_crop, bottom_crop = self.vision.getClassificationCrops()
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(
@@ -95,34 +92,11 @@ class Snapping(BaseState):
             return
 
         if top_crop is not None:
-            self._saveImage("top_masked", top_crop)
+            self._saveImage("top_crop", top_crop)
         if bottom_crop is not None:
-            self._saveImage("bottom_masked", bottom_crop)
+            self._saveImage("bottom_crop", bottom_crop)
 
-        try:
-            with self.gc.profiler.timer("classification.moondream.total_ms"):
-                top_detected = None
-                bottom_detected = None
-                if top_crop is not None:
-                    with self.gc.profiler.timer("classification.moondream.top_ms"):
-                        top_detected = getDetectionCrop(top_crop)
-                if bottom_crop is not None:
-                    with self.gc.profiler.timer("classification.moondream.bottom_ms"):
-                        bottom_detected = getDetectionCrop(bottom_crop)
-        except Exception as e:
-            self.logger.warn(f"Snapping: moondream detection failed: {e}")
-            top_detected = None
-            bottom_detected = None
-
-        if top_detected is not None:
-            self._saveImage("top_moondream", top_detected)
-        if bottom_detected is not None:
-            self._saveImage("bottom_moondream", bottom_detected)
-
-        top_final = top_detected if top_detected is not None else top_crop
-        bottom_final = bottom_detected if bottom_detected is not None else bottom_crop
-
-        thumbnail_crop = top_final if top_final is not None else bottom_final
+        thumbnail_crop = top_crop if top_crop is not None else bottom_crop
         _, thumbnail_buffer = cv2.imencode(
             ".jpg", thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
         )
@@ -149,11 +123,6 @@ class Snapping(BaseState):
             )
             piece.bottom_image = base64.b64encode(bottom_buffer).decode("utf-8")
 
-        if top_final is not None:
-            self._saveImage("top_to_brickognize", top_final)
-        if bottom_final is not None:
-            self._saveImage("bottom_to_brickognize", bottom_final)
-
         piece.classification_status = ClassificationStatus.classifying
         piece.updated_at = time.time()
         self.event_queue.put(knownObjectToEvent(piece))
@@ -166,7 +135,7 @@ class Snapping(BaseState):
             self.carousel.resolveClassification(piece.uuid, part_id, confidence)
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id}")
 
-        classify(self.gc, top_final, bottom_final, onResult)
+        classify(self.gc, top_crop, bottom_crop, onResult)
 
     def cleanup(self) -> None:
         super().cleanup()

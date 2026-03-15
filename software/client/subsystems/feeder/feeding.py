@@ -23,7 +23,7 @@ class Feeding(BaseState):
         self.irl_config = irl_config
         self.shared = shared
         self.vision = vision
-        self.last_analysis_state = None
+        self.last_analysis_state: Optional[FeederAnalysisState] = None
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -34,7 +34,6 @@ class Feeding(BaseState):
 
     def _executionLoop(self) -> None:
         fc = self.irl_config.feeder_config
-        irl_cfg = self.irl_config
         prof = self.gc.profiler
 
         while not self._stop_event.is_set():
@@ -49,11 +48,11 @@ class Feeding(BaseState):
                     "feeder.object_detection_count", float(len(object_detections))
                 )
 
-                with prof.timer("feeder.get_channel_geometry_ms"):
-                    geometry = self.vision.getChannelGeometry(irl_cfg.aruco_tags)
+                with prof.timer("feeder.get_regions_ms"):
+                    regions = self.vision.getRegions()
 
                 with prof.timer("feeder.analyze_state_ms"):
-                    state = analyzeFeederState(object_detections, geometry)
+                    state = analyzeFeederState(object_detections, regions)
 
                 if state != self.last_analysis_state:
                     self.gc.logger.info(

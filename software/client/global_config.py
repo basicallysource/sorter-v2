@@ -28,6 +28,7 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
+    disable_aruco: bool
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
@@ -67,6 +68,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
 
     gc.disable_chute = "chute" in args.disable
+    gc.disable_aruco = True
 
     from telemetry import Telemetry
 

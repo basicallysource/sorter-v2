@@ -7,11 +7,13 @@ from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from defs.consts import FEEDER_OBJECT_CLASS_ID
+from vision.regions import RegionName
 
 if TYPE_CHECKING:
     from vision import VisionManager
 
 OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.3
+CAROUSEL_PLATFORM_OVERLAP_THRESHOLD = 0.1
 
 
 class Detecting(BaseState):
@@ -45,9 +47,16 @@ class Detecting(BaseState):
         if not high_confidence_objects:
             return None
 
+        regions = self.vision.getRegions()
+        carousel_region = regions.get(RegionName.CAROUSEL_PLATFORM)
+
         # check if any high-confidence object is on a carousel platform
         for obj_dm in high_confidence_objects:
-            if self.vision.isObjectOnCarouselPlatform(obj_dm.mask):
+            on_platform = (
+                carousel_region is not None
+                and carousel_region.overlapFraction(obj_dm.mask) >= CAROUSEL_PLATFORM_OVERLAP_THRESHOLD
+            )
+            if on_platform:
                 object_area_px = int(np.count_nonzero(obj_dm.mask))
                 self.logger.info(
                     "Detecting: object on carousel platform "

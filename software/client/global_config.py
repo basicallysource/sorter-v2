@@ -27,7 +27,7 @@ class GlobalConfig:
     logger: Logger
     debug_level: int
     timeouts: Timeouts
-    parts_with_categories_file_path: str
+    sorting_profile_path: str
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -68,7 +68,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
     gc.timeouts = mkTimeouts()
-    gc.parts_with_categories_file_path = os.environ["PARTS_WITH_CATEGORIES_FILE_PATH"]
+    gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"

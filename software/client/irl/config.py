@@ -6,7 +6,7 @@ from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
 
 SERVO_OPEN_ANGLE = 10
-SERVO_CLOSED_ANGLE = 72
+SERVO_CLOSED_ANGLE = 83
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, ServoMotor
@@ -279,7 +279,7 @@ def mkIRLConfig() -> IRLConfig:
         device_index=classification_camera_top_index, width=9999, height=9999
     )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=8)
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=300, microsteps=8)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.second_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

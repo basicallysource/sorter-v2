@@ -17,6 +17,7 @@ from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .heatmap_diff import HeatmapDiff
 from .feeder_analysis_thread import FeederAnalysisThread
+from .classification_analysis_thread import ClassificationAnalysisThread
 
 TELEMETRY_INTERVAL_S = 30
 CHANNEL_MASK_CONTRACT_PX = 30
@@ -77,6 +78,11 @@ class VisionManager:
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
         self._loadClassificationPolygons()
 
+        self._classification_top_heatmap: HeatmapDiff | None = None
+        self._classification_bottom_heatmap: HeatmapDiff | None = None
+        self._classification_top_analysis: ClassificationAnalysisThread | None = None
+        self._classification_bottom_analysis: ClassificationAnalysisThread | None = None
+
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
 
@@ -95,6 +101,10 @@ class VisionManager:
     def stop(self) -> None:
         if self._feeder_analysis:
             self._feeder_analysis.stop()
+        if self._classification_top_analysis:
+            self._classification_top_analysis.stop()
+        if self._classification_bottom_analysis:
+            self._classification_bottom_analysis.stop()
         self._region_provider.stop()
         self._feeder_capture.stop()
         if self._classification_bottom_capture:
@@ -179,6 +189,105 @@ class VisionManager:
         self._feeder_analysis.start()
         self.gc.logger.info("Feeder baseline loaded")
         return True
+
+    def loadClassificationBaseline(self) -> bool:
+        from blob_manager import BLOB_DIR
+
+        baseline_dir = BLOB_DIR / "classification_baseline"
+        loaded_any = False
+
+        for cam_key, capture in [("top", self._classification_top_capture), ("bottom", self._classification_bottom_capture)]:
+            if capture is None:
+                continue
+            min_path = baseline_dir / f"{cam_key}_baseline_min.png"
+            max_path = baseline_dir / f"{cam_key}_baseline_max.png"
+            if not (min_path.exists() and max_path.exists()):
+                self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
+                continue
+
+            baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
+            baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
+            if baseline_min is None or baseline_max is None:
+                self.gc.logger.warn(f"Failed to read classification {cam_key} baseline images.")
+                continue
+
+            frame = capture.latest_frame
+            if frame is not None:
+                cam_h, cam_w = frame.raw.shape[:2]
+                bl_h, bl_w = baseline_min.shape[:2]
+                if cam_w != bl_w or cam_h != bl_h:
+                    self.gc.logger.info(
+                        f"Classification {cam_key} baseline {bl_w}x{bl_h} -> camera {cam_w}x{cam_h}, rescaling"
+                    )
+                    baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+                    baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+
+            polygon = self._classification_masks.get(cam_key)
+            if polygon is not None:
+                scaled = self._scalePolygon(polygon, baseline_min.shape[1], baseline_min.shape[0])
+                mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+                cv2.fillPoly(mask, [scaled], 255)
+            else:
+                mask = np.ones(baseline_min.shape[:2], dtype=np.uint8) * 255
+
+            heatmap = HeatmapDiff(scale=0.25)
+            heatmap.loadEnvelope(baseline_min, baseline_max, mask)
+
+            if cam_key == "top":
+                self._classification_top_heatmap = heatmap
+                self._classification_top_analysis = ClassificationAnalysisThread(
+                    name="top",
+                    heatmap=heatmap,
+                    get_gray=self._getLatestClassificationTopGray,
+                    profiler=self.gc.profiler,
+                    logger=self.gc.logger,
+                )
+                self._classification_top_analysis.start()
+            else:
+                self._classification_bottom_heatmap = heatmap
+                self._classification_bottom_analysis = ClassificationAnalysisThread(
+                    name="bottom",
+                    heatmap=heatmap,
+                    get_gray=self._getLatestClassificationBottomGray,
+                    profiler=self.gc.profiler,
+                    logger=self.gc.logger,
+                )
+                self._classification_bottom_analysis.start()
+
+            self.gc.logger.info(f"Classification {cam_key} baseline loaded")
+            loaded_any = True
+
+        return loaded_any
+
+    def _getLatestClassificationTopGray(self) -> np.ndarray | None:
+        if self._classification_top_capture is None:
+            return None
+        frame = self._classification_top_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
+    def _getLatestClassificationBottomGray(self) -> np.ndarray | None:
+        if self._classification_bottom_capture is None:
+            return None
+        frame = self._classification_bottom_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
+    def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
+        if cam == "top" and self._classification_top_analysis:
+            return self._classification_top_analysis.getBboxes()
+        if cam == "bottom" and self._classification_bottom_analysis:
+            return self._classification_bottom_analysis.getBboxes()
+        return []
+
+    def getClassificationCombinedBbox(self, cam: str) -> Tuple[int, int, int, int] | None:
+        if cam == "top" and self._classification_top_analysis:
+            return self._classification_top_analysis.getCombinedBbox()
+        if cam == "bottom" and self._classification_bottom_analysis:
+            return self._classification_bottom_analysis.getCombinedBbox()
+        return None
 
     def getLatestFeederGray(self) -> np.ndarray | None:
         frame = self._feeder_capture.latest_frame
@@ -310,13 +419,33 @@ class VisionManager:
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
         if self._classification_bottom_capture is None:
             return None
-        return self._classification_bottom_capture.latest_frame
+        frame = self._classification_bottom_capture.latest_frame
+        if frame is None:
+            return None
+        return self._annotateClassificationFrame(frame, "bottom", self._classification_bottom_heatmap)
 
     @property
     def classification_top_frame(self) -> Optional[CameraFrame]:
         if self._classification_top_capture is None:
             return None
-        return self._classification_top_capture.latest_frame
+        frame = self._classification_top_capture.latest_frame
+        if frame is None:
+            return None
+        return self._annotateClassificationFrame(frame, "top", self._classification_top_heatmap)
+
+    def _annotateClassificationFrame(
+        self, frame: CameraFrame, cam: str, heatmap: HeatmapDiff | None
+    ) -> CameraFrame:
+        if heatmap is None or not heatmap.has_baseline:
+            return frame
+        annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
+        annotated = heatmap.annotateFrame(annotated, label=f"class_{cam}", text_y=30)
+        return CameraFrame(
+            raw=frame.raw,
+            annotated=annotated,
+            results=frame.results,
+            timestamp=frame.timestamp,
+        )
 
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         if camera_name == "feeder":
@@ -400,12 +529,36 @@ class VisionManager:
         result = np.where(mask[:, :, np.newaxis] == 255, frame, white)
         return result
 
+    def _cropToBbox(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
+        x1, y1, x2, y2 = bbox
+        h, w = frame.shape[:2]
+        x1 = max(0, min(x1, w))
+        y1 = max(0, min(y1, h))
+        x2 = max(0, min(x2, w))
+        y2 = max(0, min(y2, h))
+        return frame[y1:y2, x1:x2]
+
     def getClassificationCrops(
-        self, timeout_s: float = 1.0, confidence_threshold: float = 0.0
+        self, timeout_s: float = 1.0
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
-        top_crop = self._maskToRegion(top_frame.raw, "top") if top_frame is not None else None
-        bottom_crop = self._maskToRegion(bottom_frame.raw, "bottom") if bottom_frame is not None else None
+
+        top_crop: np.ndarray | None = None
+        if top_frame is not None:
+            bbox = self.getClassificationCombinedBbox("top")
+            if bbox is not None:
+                top_crop = self._cropToBbox(top_frame.raw, bbox)
+            else:
+                top_crop = self._maskToRegion(top_frame.raw, "top")
+
+        bottom_crop: np.ndarray | None = None
+        if bottom_frame is not None:
+            bbox = self.getClassificationCombinedBbox("bottom")
+            if bbox is not None:
+                bottom_crop = self._cropToBbox(bottom_frame.raw, bbox)
+            else:
+                bottom_crop = self._maskToRegion(bottom_frame.raw, "bottom")
+
         return (top_crop, bottom_crop)
 
     def _encodeFrame(self, frame: np.ndarray) -> str:

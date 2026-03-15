@@ -113,7 +113,10 @@ def main() -> None:
 
     vision.start()
     if not vision.loadFeederBaseline():
-        gc.logger.error("Feeder baseline setup incomplete. See warnings above for details.")
+        gc.logger.error("Feeder baseline not found. Run: uv run python scripts/calibrate_feeder_baseline.py")
+        sys.exit(1)
+    if not vision.loadClassificationBaseline():
+        gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
         sys.exit(1)
     controller.start()
 

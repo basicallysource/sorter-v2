@@ -1,9 +1,12 @@
 import time
 from collections import deque
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, TYPE_CHECKING
 
 import cv2
 import numpy as np
+
+if TYPE_CHECKING:
+    from global_config import GlobalConfig
 
 PIXEL_THRESH = 8
 BLUR_KERNEL = 5
@@ -15,6 +18,7 @@ CURRENT_FRAMES = 3
 CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 100
 MIN_HOT_THICKNESS_PIXELS = 12
+MAX_CONTOUR_ASPECT_RATIO = 3.0
 
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> np.ndarray:
@@ -32,7 +36,8 @@ def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
 
 
 class HeatmapDiff:
-    def __init__(self, scale: float = 1.0):
+    def __init__(self, scale: float = 1.0, gc: Optional["GlobalConfig"] = None):
+        self._gc = gc
         self._baseline_gray: Optional[np.ndarray] = None
         self._baseline_min: Optional[np.ndarray] = None
         self._baseline_max: Optional[np.ndarray] = None
@@ -196,6 +201,12 @@ class HeatmapDiff:
             contour_mask = np.zeros_like(raw_hot)
             cv2.drawContours(contour_mask, [contour], -1, 255, -1)
             if not np.any(eroded & contour_mask):
+                continue
+            (_, _), (mar_w, mar_h), _ = cv2.minAreaRect(contour)
+            mar_short = min(mar_w, mar_h)
+            mar_long = max(mar_w, mar_h)
+            mar_aspect = mar_long / mar_short if mar_short > 0 else 999.0
+            if mar_aspect > MAX_CONTOUR_ASPECT_RATIO:
                 continue
             cv2.drawContours(hot, [contour], -1, 255, -1)
 

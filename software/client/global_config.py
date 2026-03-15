@@ -1,11 +1,16 @@
+from __future__ import annotations
 import os
 import sys
 import argparse
 import uuid
 from enum import Enum
+from typing import TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
 from blob_manager import getMachineId
+
+if TYPE_CHECKING:
+    from run_recorder import RunRecorder
 
 
 class RegionProviderType(Enum):
@@ -39,6 +44,7 @@ class GlobalConfig:
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
+    run_recorder: "RunRecorder"
 
     def __init__(self):
         self.debug_level = 0

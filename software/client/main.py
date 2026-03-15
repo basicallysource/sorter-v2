@@ -18,6 +18,7 @@ from server.api import (
 from aruco_config_manager import ArucoConfigManager
 from sorter_controller import SorterController
 from telemetry import Telemetry
+from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from irl.config import mkIRLConfig, mkIRLInterface
@@ -78,6 +79,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     gc = mkGlobalConfig()
+    gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
@@ -177,12 +179,13 @@ def main() -> None:
     except KeyboardInterrupt:
         gc.logger.info("Shutting down...")
 
+        gc.run_recorder.save()
+
         vision.stop()
 
-        # Shutdown all motors and sorter interfaces
         gc.logger.info("Stopping all motors...")
         irl.shutdown()
-        
+
         gc.logger.info("Cleanup complete")
         gc.logger.flushLogs()
         sys.exit(0)

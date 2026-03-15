@@ -245,7 +245,7 @@ class VisionManager:
             else:
                 mask = np.ones(baseline_min.shape[:2], dtype=np.uint8) * 255
 
-            heatmap = HeatmapDiff(scale=0.25)
+            heatmap = HeatmapDiff(scale=0.25, gc=self.gc)
             heatmap.loadEnvelope(baseline_min, baseline_max, mask)
 
             if cam_key == "top":

@@ -1,69 +1,124 @@
 from enum import Enum
-from typing import List
-from vision.types import VisionResult
-from vision.regions import RegionName, Region
+from typing import List, Dict, Tuple, TYPE_CHECKING
+import numpy as np
 
-OBJECT_DETECTION_CONFIDENCE_THRESHOLD = 0.4
+if TYPE_CHECKING:
+    from global_config import GlobalConfig
+
+from defs.consts import (
+    CHANNEL_SECTION_DEG,
+    CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
+    CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
+)
+from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
 
 
-class FeederAnalysisState(Enum):
-    OBJECT_IN_3_DROPZONE_PRECISE = "object_in_3_dropzone_precise"
-    OBJECT_IN_3_DROPZONE = "object_in_3_dropzone"
-    OBJECT_IN_2_DROPZONE_PRECISE = "object_in_2_dropzone_precise"
-    OBJECT_IN_2_DROPZONE = "object_in_2_dropzone"
-    CLEAR = "clear"
+class ChannelAction(Enum):
+    IDLE = "idle"
+    PULSE_NORMAL = "normal"
+    PULSE_PRECISE = "precise"
 
 
-def analyzeFeederState(
-    object_detections: List[VisionResult],
-    regions: dict[RegionName, Region],
-) -> FeederAnalysisState:
-    if not object_detections:
-        return FeederAnalysisState.CLEAR
+def computeChannelGeometry(
+    saved_polygons: Dict[str, np.ndarray],
+    channel_angles: Dict[str, float],
+    channel_masks: Dict[str, np.ndarray],
+) -> ChannelGeometry:
+    geometry = ChannelGeometry(second_channel=None, third_channel=None)
 
-    high_confidence_objects = [
-        detection
-        for detection in object_detections
-        if detection.confidence >= OBJECT_DETECTION_CONFIDENCE_THRESHOLD
+    second_poly = saved_polygons.get("second_channel")
+    if second_poly is not None and len(second_poly) >= 3:
+        center = tuple(np.mean(second_poly, axis=0).tolist())
+        r1_angle = channel_angles.get("second", 0.0)
+        geometry.second_channel = PolygonChannel(
+            channel_id=2,
+            polygon=second_poly,
+            center=center,
+            radius1_angle_image=r1_angle,
+            mask=channel_masks["second_channel"],
+        )
+
+    third_poly = saved_polygons.get("third_channel")
+    if third_poly is not None and len(third_poly) >= 3:
+        center = tuple(np.mean(third_poly, axis=0).tolist())
+        r1_angle = channel_angles.get("third", 0.0)
+        geometry.third_channel = PolygonChannel(
+            channel_id=3,
+            polygon=third_poly,
+            center=center,
+            radius1_angle_image=r1_angle,
+            mask=channel_masks["third_channel"],
+        )
+
+    return geometry
+
+
+def _isInChannel(point: Tuple[float, float], ch: PolygonChannel) -> bool:
+    x, y = int(point[0]), int(point[1])
+    if 0 <= y < ch.mask.shape[0] and 0 <= x < ch.mask.shape[1]:
+        return ch.mask[y, x] > 0
+    return False
+
+
+def determineObjectChannel(
+    obj_center_image: Tuple[float, float],
+    geometry: ChannelGeometry,
+) -> PolygonChannel | None:
+    if geometry.third_channel and _isInChannel(obj_center_image, geometry.third_channel):
+        return geometry.third_channel
+    if geometry.second_channel and _isInChannel(obj_center_image, geometry.second_channel):
+        return geometry.second_channel
+    return None
+
+
+def getBboxSections(bbox: Tuple[int, int, int, int], channel: PolygonChannel) -> set[int]:
+    x1, y1, x2, y2 = bbox
+    mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    points = [
+        (x1, y1), (x2, y1), (x1, y2), (x2, y2),
+        (mx, y1), (mx, y2), (x1, my), (x2, my),
+        (mx, my),
     ]
+    sections: set[int] = set()
+    for px, py in points:
+        dx = px - channel.center[0]
+        dy = py - channel.center[1]
+        angle = np.degrees(np.arctan2(dy, dx))
+        relative = (angle - channel.radius1_angle_image) % 360
+        sections.add(int(relative / CHANNEL_SECTION_DEG))
+    return sections
 
-    if not high_confidence_objects:
-        return FeederAnalysisState.CLEAR
 
-    ch3_precise = regions.get(RegionName.CHANNEL_3_PRECISE)
-    ch3_dropzone = regions.get(RegionName.CHANNEL_3_DROPZONE)
-    ch2_precise = regions.get(RegionName.CHANNEL_2_PRECISE)
-    ch2_dropzone = regions.get(RegionName.CHANNEL_2_DROPZONE)
+class FeederAnalysis:
+    def __init__(self) -> None:
+        self.ch2_action = ChannelAction.IDLE
+        self.ch3_action = ChannelAction.IDLE
+        self.ch3_dropzone_occupied = False
+        self.ch2_dropzone_occupied = False
 
-    has_3_precise = False
-    has_3_dropzone = False
-    has_2_precise = False
-    has_2_dropzone = False
 
-    for detection in high_confidence_objects:
-        if detection.bbox is None:
-            continue
-        x1, y1, x2, y2 = detection.bbox
-        cx = int((x1 + x2) / 2.0)
-        cy = int((y1 + y2) / 2.0)
+def analyzeFeederChannels(
+    gc: "GlobalConfig",
+    detections: List[ChannelDetection],
+) -> FeederAnalysis:
+    result = FeederAnalysis()
 
-        # check channel 3 (inner) first — higher priority
-        if ch3_precise and ch3_precise.containsPoint(cx, cy):
-            has_3_precise = True
-        elif ch3_dropzone and ch3_dropzone.containsPoint(cx, cy):
-            has_3_dropzone = True
-        elif ch2_precise and ch2_precise.containsPoint(cx, cy):
-            has_2_precise = True
-        elif ch2_dropzone and ch2_dropzone.containsPoint(cx, cy):
-            has_2_dropzone = True
+    for det in detections:
+        sections = getBboxSections(det.bbox, det.channel)
 
-    if has_3_precise:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE_PRECISE
-    if has_3_dropzone:
-        return FeederAnalysisState.OBJECT_IN_3_DROPZONE
-    if has_2_precise:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE_PRECISE
-    if has_2_dropzone:
-        return FeederAnalysisState.OBJECT_IN_2_DROPZONE
+        if det.channel_id == 3:
+            if sections & set(CH3_DROPZONE_SECTIONS):
+                result.ch3_dropzone_occupied = True
+            if sections & set(CH3_PRECISE_SECTIONS):
+                result.ch3_action = ChannelAction.PULSE_PRECISE
+            elif result.ch3_action == ChannelAction.IDLE:
+                result.ch3_action = ChannelAction.PULSE_NORMAL
+        elif det.channel_id == 2:
+            if sections & set(CH2_DROPZONE_SECTIONS):
+                result.ch2_dropzone_occupied = True
+            if sections & set(CH2_PRECISE_SECTIONS):
+                result.ch2_action = ChannelAction.PULSE_PRECISE
+            elif result.ch2_action == ChannelAction.IDLE:
+                result.ch2_action = ChannelAction.PULSE_NORMAL
 
-    return FeederAnalysisState.CLEAR
+    return result

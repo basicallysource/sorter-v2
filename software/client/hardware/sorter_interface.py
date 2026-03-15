@@ -7,8 +7,12 @@
 
 import logging
 import time
+from typing import TYPE_CHECKING
 from .bus import MCUDevice, BaseCommandCode
 import struct
+
+if TYPE_CHECKING:
+    from global_config import GlobalConfig
 
 class InterfaceCommandCode(BaseCommandCode):
     """Command codes specific to the Sorter Interface."""
@@ -86,6 +90,7 @@ class StepperMotor:
         self._enabled = True
         self._name = f"stepper_{channel}"
         self._current_position_steps = 0
+        self._gc: "GlobalConfig | None" = None
 
     def move_degrees(self, degrees: float) -> bool:
         """
@@ -104,13 +109,19 @@ class StepperMotor:
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
             self._current_position_steps += steps
+        else:
+            if self._gc:
+                self._gc.logger.error(f"Stepper '{self._name}' move_steps({steps}) failed")
         return success
     
     def move_at_speed(self, speed: int) -> bool:
         """Move the stepper at a given speed in microsteps per second."""
         payload = struct.pack("<i", speed) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
-        return bool(res.payload[0])
+        success = bool(res.payload[0])
+        if not success and self._gc:
+            self._gc.logger.error(f"Stepper '{self._name}' move_at_speed({speed}) failed")
+        return success
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
@@ -132,12 +143,12 @@ class StepperMotor:
     def position(self) -> int:
         """Get the current position of the stepper in microsteps."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_GET_POSITION, self._channel, b'')
-        return struct.unpack("<i", res.payload)[0] # 4 bytes, little-endian signed integer
-    
+        return struct.unpack("<i", res.payload)[0]
+
     @position.setter
     def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
-        payload = struct.pack("<i", position) # 4 bytes, little-endian signed integer
+        payload = struct.pack("<i", position)
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
     
     @property

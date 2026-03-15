@@ -34,12 +34,12 @@ class CameraConfig:
 
 
 class StepperConfig:
-    step_pin: int
-    dir_pin: int
-    enable_pin: int
+    default_steps_per_second: int
+    microsteps: int
 
-    def __init__(self):
-        pass
+    def __init__(self, default_steps_per_second: int = 2000, microsteps: int = 8):
+        self.default_steps_per_second = default_steps_per_second
+        self.microsteps = microsteps
 
 
 class CarouselArucoTagConfig:
@@ -203,12 +203,11 @@ def mkCameraConfig(
     return camera_config
 
 
-def mkStepperConfig(step_pin: int, dir_pin: int, enable_pin: int) -> StepperConfig:
-    stepper_config = StepperConfig()
-    stepper_config.step_pin = step_pin
-    stepper_config.dir_pin = dir_pin
-    stepper_config.enable_pin = enable_pin
-    return stepper_config
+def mkStepperConfig(
+    default_steps_per_second: int = 2000,
+    microsteps: int = 8,
+) -> StepperConfig:
+    return StepperConfig(default_steps_per_second, microsteps)
 
 
 def mkCarouselArucoTagConfig(
@@ -280,7 +279,12 @@ def mkIRLConfig() -> IRLConfig:
         device_index=classification_camera_top_index
     )
     
-    # Camera configuration complete - stepper config happens at firmware discovery time
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=8)
+    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
@@ -394,7 +398,19 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
             continue
 
+        stepper_config: StepperConfig | None = getattr(config, attr, None)
         stepper.set_name(stepper_name)
+        stepper._gc = gc
+        if stepper_config is not None:
+            stepper.set_microsteps(stepper_config.microsteps)
+            stepper.set_speed_limits(16, stepper_config.default_steps_per_second)
+            gc.logger.info(
+                f"Stepper '{stepper_name}' config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
+            )
+        else:
+            gc.logger.warn(
+                f"Stepper '{stepper_name}' has no StepperConfig (attr='{attr}'), using defaults"
+            )
         setattr(irl_interface, attr, stepper)
         gc.logger.info(
             f"Initialized Stepper '{stepper_name}' from {device_name} ({port}:{address}), position={stepper._current_position_steps} steps"

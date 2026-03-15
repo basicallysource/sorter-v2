@@ -7,6 +7,7 @@ import numpy as np
 from global_config import GlobalConfig, RegionProviderType
 from irl.config import IRLConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
+from defs.channel import ChannelDetection
 from blob_manager import VideoRecorder
 from .camera import CaptureThread
 from .types import CameraFrame, VisionResult, DetectedMask
@@ -14,8 +15,11 @@ from .regions import RegionName, Region
 from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
+from .heatmap_diff import HeatmapDiff
+from .feeder_analysis_thread import FeederAnalysisThread
 
 TELEMETRY_INTERVAL_S = 30
+CHANNEL_MASK_CONTRACT_PX = 30
 
 
 class VisionManager:
@@ -57,6 +61,18 @@ class VisionManager:
         elif gc.region_provider == RegionProviderType.ARUCO:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
+        self.heatmap_diff = HeatmapDiff(scale=0.25)
+        self._carousel_heatmap = HeatmapDiff()
+
+        self._channel_polygons: Dict[str, np.ndarray] = {}
+        self._channel_angles: Dict[str, float] = {}
+        self._channel_masks: Dict[str, np.ndarray] = {}
+        self._carousel_polygon: List[Tuple[float, float]] | None = None
+
+        self._feeder_analysis: FeederAnalysisThread | None = None
+        self._cached_feeder_frame: CameraFrame | None = None
+        self._cached_feeder_frame_ts: float = 0.0
+
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
 
@@ -73,6 +89,8 @@ class VisionManager:
         self._region_provider.start()
 
     def stop(self) -> None:
+        if self._feeder_analysis:
+            self._feeder_analysis.stop()
         self._region_provider.stop()
         self._feeder_capture.stop()
         if self._classification_bottom_capture:
@@ -81,6 +99,88 @@ class VisionManager:
             self._classification_top_capture.stop()
         if self._video_recorder:
             self._video_recorder.close()
+
+    def loadFeederBaseline(self) -> bool:
+        from blob_manager import getChannelPolygons, BLOB_DIR
+
+        saved = getChannelPolygons()
+        if saved is None:
+            self.gc.logger.warn("Channel polygons not found. Run: scripts/polygon_editor.py")
+            return False
+
+        polygon_data = saved.get("polygons", {})
+        polys: Dict[str, np.ndarray] = {}
+        for key in ("second_channel", "third_channel"):
+            pts = polygon_data.get(key)
+            if pts:
+                polys[key] = np.array(pts, dtype=np.int32)
+
+        if not polys:
+            self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
+            return False
+
+        self._channel_polygons = polys
+        self._channel_angles = saved.get("channel_angles", {})
+
+        carousel_pts = polygon_data.get("carousel")
+        if carousel_pts and len(carousel_pts) >= 3:
+            self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
+
+        baseline_dir = BLOB_DIR / "feeder_baseline"
+        min_path = baseline_dir / "baseline_min.png"
+        max_path = baseline_dir / "baseline_max.png"
+        if not (min_path.exists() and max_path.exists()):
+            self.gc.logger.warn("Feeder baseline not found. Run: scripts/calibrate_feeder_baseline.py")
+            return False
+
+        baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
+        baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
+        if baseline_min is None or baseline_max is None:
+            self.gc.logger.warn("Failed to read feeder baseline images.")
+            return False
+
+        contract_kernel = None
+        if CHANNEL_MASK_CONTRACT_PX != 0:
+            k = abs(CHANNEL_MASK_CONTRACT_PX) * 2 + 1
+            contract_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+
+        def _applyContract(m: np.ndarray) -> np.ndarray:
+            if contract_kernel is None:
+                return m
+            if CHANNEL_MASK_CONTRACT_PX < 0:
+                return cv2.erode(m, contract_kernel)
+            return cv2.dilate(m, contract_kernel)
+
+        channel_masks: Dict[str, np.ndarray] = {}
+        for key, pts in polys.items():
+            ch_mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+            cv2.fillPoly(ch_mask, [pts], 255)
+            channel_masks[key] = _applyContract(ch_mask)
+        self._channel_masks = channel_masks
+
+        mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+        for ch_mask in channel_masks.values():
+            mask = cv2.bitwise_or(mask, ch_mask)
+
+        self.heatmap_diff.loadEnvelope(baseline_min, baseline_max, mask)
+
+        self._feeder_analysis = FeederAnalysisThread(
+            heatmap=self.heatmap_diff,
+            get_gray=self.getLatestFeederGray,
+            channel_polygons=self._channel_polygons,
+            channel_angles=self._channel_angles,
+            channel_masks=self._channel_masks,
+            profiler=self.gc.profiler,
+        )
+        self._feeder_analysis.start()
+        self.gc.logger.info("Feeder baseline loaded")
+        return True
+
+    def getLatestFeederGray(self) -> np.ndarray | None:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
     def getRegions(self) -> dict[RegionName, Region]:
         prof = self.gc.profiler
@@ -91,10 +191,35 @@ class VisionManager:
                 return {}
             return self._region_provider.getRegions(frame.raw)
 
+    def getFeederHeatmapDetections(self) -> list[ChannelDetection]:
+        if self._feeder_analysis is None:
+            return []
+        return self._feeder_analysis.getDetections()
+
+    def captureCarouselBaseline(self) -> bool:
+        if self._carousel_polygon is None:
+            return False
+        gray = self.getLatestFeederGray()
+        if gray is None:
+            return False
+        return self._carousel_heatmap.captureBaseline(self._carousel_polygon, gray.shape)
+
+    def clearCarouselBaseline(self) -> None:
+        self._carousel_heatmap.clearBaseline()
+
+    def isCarouselTriggered(self) -> Tuple[bool, float, int]:
+        score, hot_px = self._carousel_heatmap.computeDiff()
+        from vision.heatmap_diff import TRIGGER_SCORE
+        return score >= TRIGGER_SCORE, score, hot_px
+
     def recordFrames(self) -> None:
         prof = self.gc.profiler
         prof.hit("vision.record_frames.calls")
         with prof.timer("vision.record_frames.total_ms"):
+            gray = self.getLatestFeederGray()
+            if gray is not None:
+                self._carousel_heatmap.pushFrame(gray)
+
             if self._video_recorder:
                 with prof.timer("vision.record_frames.video_recorder_write_ms"):
                     for camera in [
@@ -139,15 +264,43 @@ class VisionManager:
         if frame is None:
             return None
 
-        annotated = frame.annotated if frame.annotated is not None else frame.raw
+        if self._cached_feeder_frame is not None and frame.timestamp == self._cached_feeder_frame_ts:
+            return self._cached_feeder_frame
+
+        annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
         annotated = self._region_provider.annotateFrame(annotated)
 
-        return CameraFrame(
+        if self.heatmap_diff.has_baseline:
+            annotated = self.heatmap_diff.annotateFrame(annotated, label="feeder", text_y=50)
+            from subsystems.feeder.analysis import getBboxSections
+            from defs.consts import (
+                CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
+                CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
+            )
+            for det in self.getFeederHeatmapDetections():
+                x1, y1, x2, y2 = det.bbox
+                secs = getBboxSections(det.bbox, det.channel)
+                precise = bool(secs & set(CH3_PRECISE_SECTIONS if det.channel_id == 3 else CH2_PRECISE_SECTIONS))
+                drop = bool(secs & set(CH3_DROPZONE_SECTIONS if det.channel_id == 3 else CH2_DROPZONE_SECTIONS))
+                label = f"ch{det.channel_id} {sorted(secs)} p={precise} d={drop}"
+                cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
+
+        if self._carousel_heatmap.has_baseline:
+            annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
+
+        result = CameraFrame(
             raw=frame.raw,
             annotated=annotated,
             results=[],
             timestamp=frame.timestamp,
         )
+        self._cached_feeder_frame = result
+        self._cached_feeder_frame_ts = frame.timestamp
+        return result
+
+    @property
+    def feeding_platform_corners(self) -> List[Tuple[float, float]] | None:
+        return self._carousel_polygon
 
     @property
     def classification_bottom_frame(self) -> Optional[CameraFrame]:
@@ -216,7 +369,7 @@ class VisionManager:
         bottom_crop = bottom_frame.raw if bottom_frame is not None else None
         return (top_crop, bottom_crop)
 
-    def _encodeFrame(self, frame) -> str:
+    def _encodeFrame(self, frame: np.ndarray) -> str:
         with self.gc.profiler.timer("vision.encode_frame.imencode_ms"):
             _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         with self.gc.profiler.timer("vision.encode_frame.base64_ms"):

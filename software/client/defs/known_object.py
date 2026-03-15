@@ -33,3 +33,6 @@ class KnownObject:
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    classified_at: Optional[float] = None
+    distributing_at: Optional[float] = None
+    distributed_at: Optional[float] = None

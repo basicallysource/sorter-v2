@@ -72,6 +72,7 @@ class Carousel:
                 if part_id
                 else ClassificationStatus.unknown
             )
+            obj.classified_at = time.time()
             obj.updated_at = time.time()
             del self.pending_classifications[uuid]
             self._log(

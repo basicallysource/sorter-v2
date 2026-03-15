@@ -61,6 +61,7 @@ class Positioning(BaseState):
                 return DistributionState.IDLE
 
             piece.stage = PieceStage.distributing
+            piece.distributing_at = time.time()
             piece.category_id = category_id
             piece.destination_bin = (
                 address.layer_index,

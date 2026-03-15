@@ -87,6 +87,7 @@ class Snapping(BaseState):
                 "Snapping: no object detected in classification frames, marking not_found"
             )
             piece.classification_status = ClassificationStatus.not_found
+            piece.classified_at = time.time()
             piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(piece))
             return

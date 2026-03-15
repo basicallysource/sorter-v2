@@ -38,8 +38,10 @@ class Sending(BaseState):
 
         if self.piece:
             self.piece.stage = PieceStage.distributed
+            self.piece.distributed_at = time.time()
             self.piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(self.piece))
+            self.gc.run_recorder.recordPiece(self.piece)
         self.shared.distribution_ready = True
         return DistributionState.IDLE
 

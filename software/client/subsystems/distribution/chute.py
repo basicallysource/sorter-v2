@@ -8,9 +8,9 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
-SECTIONS_PER_LAYER = 6
 DEG_PER_SECTION = 60
-PILLAR_WIDTH_DEG = 2.5
+FIRST_BIN_CENTER = 8.4
+PILLAR_WIDTH_DEG = 1.9
 USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
@@ -47,11 +47,8 @@ class Chute:
         layer = self.layout.layers[address.layer_index]
         section = layer.sections[address.section_index]
         num_bins = len(section.bins)
-
-        section_start = address.section_index * DEG_PER_SECTION + PILLAR_WIDTH_DEG / 2
-        bin_offset = (address.bin_index + 0.5) * (USABLE_DEG_PER_SECTION / num_bins)
-        angle = section_start + bin_offset
-
+        bin_width = USABLE_DEG_PER_SECTION / num_bins
+        angle = FIRST_BIN_CENTER + address.section_index * DEG_PER_SECTION + address.bin_index * bin_width
         return angle
 
     def moveToAngle(self, target: float) -> int:

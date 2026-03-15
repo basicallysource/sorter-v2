@@ -133,6 +133,18 @@ def setChannelPolygons(polygons: dict) -> None:
         saveData(data)
 
 
+def getChuteCalibration() -> dict[str, float] | None:
+    data = loadData()
+    return data.get("chute_calibration")
+
+
+def setChuteCalibration(calibration: dict[str, float]) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["chute_calibration"] = calibration
+        saveData(data)
+
+
 def getClassificationPolygons() -> dict | None:
     data = loadData()
     return data.get("classification_polygons")

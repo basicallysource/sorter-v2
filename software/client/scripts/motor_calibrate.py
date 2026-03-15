@@ -13,11 +13,11 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 import readchar
 from global_config import mkGlobalConfig, GlobalConfig
 from hardware.sorter_interface import StepperMotor, ServoMotor
-from irl.config import mkIRLConfig, mkIRLInterface, IRLConfig, IRLInterface
+from irl.config import mkIRLConfig, mkIRLInterface, IRLConfig, IRLInterface, StepperConfig
 
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 
-STEP_COUNTS: list[int] = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000]
+STEP_COUNTS: list[int] = [1, 10, 50, 100, 200, 500, 750, 1000, 1500, 2000, 3000, 5000, 8000, 16000]
 SERVO_ANGLE_STEPS: list[int] = [1, 5, 10, 15, 30, 45]
 SPEED_PRESETS: list[int] = [100, 250, 500, 1000, 2000, 4000, 8000]
 DEFAULT_SPEED_IDX: int = 3  # 1000
@@ -150,6 +150,7 @@ def main() -> None:
     gc.logger._log_file = open(log_path, "a")
     irl_config: IRLConfig = mkIRLConfig()
     irl: IRLInterface = mkIRLInterface(irl_config, gc)
+    irl.enableSteppers()
 
     steppers: dict[str, StepperMotor] = {
         "carousel": irl.carousel_stepper,
@@ -161,9 +162,26 @@ def main() -> None:
     stepper_names: list[str] = list(steppers.keys())
     selected_idx: int = 0
     step_count_idx: int = 1
-    speed_idxs: dict[str, int] = {name: DEFAULT_SPEED_IDX for name in stepper_names}
-    for sname, sobj in steppers.items():
-        sobj.set_speed_limits(16, SPEED_PRESETS[speed_idxs[sname]])
+
+    stepper_config_map: dict[str, StepperConfig] = {
+        "carousel": irl_config.carousel_stepper,
+        "chute": irl_config.chute_stepper,
+        "c_channel_1": irl_config.first_c_channel_rotor_stepper,
+        "c_channel_2": irl_config.second_c_channel_rotor_stepper,
+        "c_channel_3": irl_config.third_c_channel_rotor_stepper,
+    }
+
+    def _closestSpeedIdx(target: int) -> int:
+        best = 0
+        for i, preset in enumerate(SPEED_PRESETS):
+            if abs(preset - target) < abs(SPEED_PRESETS[best] - target):
+                best = i
+        return best
+
+    speed_idxs: dict[str, int] = {
+        name: _closestSpeedIdx(stepper_config_map[name].default_steps_per_second)
+        for name in stepper_names
+    }
 
     servos: list[ServoMotor] = irl.servos
 

@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Tuple, Union
 import base64
 import time
+import threading
 import cv2
 import numpy as np
 
@@ -21,6 +22,7 @@ from .classification_analysis_thread import ClassificationAnalysisThread
 
 TELEMETRY_INTERVAL_S = 30
 CHANNEL_MASK_CONTRACT_PX = 30
+FRAME_ENCODE_INTERVAL_MS = 100
 
 
 class VisionManager:
@@ -83,6 +85,11 @@ class VisionManager:
         self._classification_top_analysis: ClassificationAnalysisThread | None = None
         self._classification_bottom_analysis: ClassificationAnalysisThread | None = None
 
+        self._cached_frame_events: List[FrameEvent] = []
+        self._cached_frame_events_lock = threading.Lock()
+        self._frame_encode_thread: threading.Thread | None = None
+        self._frame_encode_stop = threading.Event()
+
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
 
@@ -97,8 +104,16 @@ class VisionManager:
         if self._classification_top_capture:
             self._classification_top_capture.start()
         self._region_provider.start()
+        self._frame_encode_stop.clear()
+        self._frame_encode_thread = threading.Thread(
+            target=self._frameEncodeLoop, daemon=True
+        )
+        self._frame_encode_thread.start()
 
     def stop(self) -> None:
+        self._frame_encode_stop.set()
+        if self._frame_encode_thread:
+            self._frame_encode_thread.join(timeout=2.0)
         if self._feeder_analysis:
             self._feeder_analysis.stop()
         if self._classification_top_analysis:
@@ -604,15 +619,19 @@ class VisionManager:
         return event
 
     def getAllFrameEvents(self) -> List[FrameEvent]:
-        self.gc.profiler.hit("vision.get_all_frame_events.calls")
-        self.gc.profiler.startTimer("vision.get_all_frame_events.total_ms")
-        events = []
-        for camera in CameraName:
-            event = self.getFrameEvent(camera)
-            if event:
-                events.append(event)
-        self.gc.profiler.observeValue(
-            "vision.get_all_frame_events.count", float(len(events))
-        )
-        self.gc.profiler.endTimer("vision.get_all_frame_events.total_ms")
-        return events
+        with self._cached_frame_events_lock:
+            return list(self._cached_frame_events)
+
+    def _frameEncodeLoop(self) -> None:
+        while not self._frame_encode_stop.is_set():
+            prof = self.gc.profiler
+            prof.hit("vision.frame_encode_thread.calls")
+            with prof.timer("vision.frame_encode_thread.total_ms"):
+                events: List[FrameEvent] = []
+                for camera in CameraName:
+                    event = self.getFrameEvent(camera)
+                    if event:
+                        events.append(event)
+                with self._cached_frame_events_lock:
+                    self._cached_frame_events = events
+            self._frame_encode_stop.wait(FRAME_ENCODE_INTERVAL_MS / 1000.0)

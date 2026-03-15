@@ -5,6 +5,8 @@ import shutil
 import glob as globmod
 from datetime import datetime
 
+import random
+
 import cv2
 import numpy as np
 
@@ -77,8 +79,16 @@ def calibrateCamera(
 
     print(f"  {cam}: have {existing_count} existing frames, capturing {frames_needed} more...")
 
+    JITTER_RANGE = 5
+    debt = 0.0
     for i in range(frames_needed):
-        irl.carousel_stepper.move_degrees(DEGREES_PER_FRAME)
+        if i % 2 == 1:
+            jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE)
+        else:
+            jitter = 0.0
+        move = DEGREES_PER_FRAME + jitter - debt
+        debt = jitter
+        irl.carousel_stepper.move_degrees(move)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
 
         gray = getLatestGray(vision, cam)

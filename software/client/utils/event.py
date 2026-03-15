@@ -23,5 +23,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             thumbnail=obj.thumbnail,
             top_image=obj.top_image,
             bottom_image=obj.bottom_image,
+            classified_at=obj.classified_at,
+            distributing_at=obj.distributing_at,
+            distributed_at=obj.distributed_at,
         ),
     )

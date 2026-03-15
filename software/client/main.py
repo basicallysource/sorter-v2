@@ -112,6 +112,9 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
+    if not vision.loadFeederBaseline():
+        gc.logger.error("Feeder baseline setup incomplete. See warnings above for details.")
+        sys.exit(1)
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)

@@ -12,9 +12,7 @@ class Idle(BaseState):
         self.shared = shared
 
     def step(self) -> Optional[FeederState]:
-        if self.shared.classification_ready:
-            return FeederState.FEEDING
-        return None
+        return FeederState.FEEDING
 
     def cleanup(self) -> None:
         super().cleanup()

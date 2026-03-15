@@ -34,8 +34,6 @@ class Feeding(BaseState):
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
 
-        if not self.shared.classification_ready:
-            return FeederState.IDLE
         return None
 
     def _isStepperBusy(self, stepper: "StepperMotor") -> bool:
@@ -99,8 +97,11 @@ class Feeding(BaseState):
                     self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
-                # channel 3
-                if ch3_action == ChannelAction.PULSE_PRECISE:
+                # channel 3 — hold if piece is in precise zone and carousel not ready
+                ch3_held = ch3_action == ChannelAction.PULSE_PRECISE and not self.shared.classification_ready
+                if ch3_held:
+                    prof.hit("feeder.skip.ch3_held_for_carousel")
+                elif ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
                     if self._sendPulse("ch3_precise", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision):
                         self.gc.logger.info("Feeder: ch3 precise, pulsing 3rd (precise)")

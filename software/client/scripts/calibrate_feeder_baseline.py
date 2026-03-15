@@ -5,6 +5,8 @@ import shutil
 import glob as globmod
 from datetime import datetime
 
+import random
+
 import cv2
 import numpy as np
 
@@ -48,7 +50,8 @@ def saveEnvelope(frames: list[np.ndarray]) -> None:
 def main() -> int:
     wipe = "--wipe" in sys.argv
     no_carousel = "--no-carousel" in sys.argv
-    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--no-carousel")]
+    no_jitter = "--no-jitter" in sys.argv
+    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--no-carousel", "--no-jitter")]
 
     saved = getChannelPolygons()
     if saved is None:
@@ -108,12 +111,18 @@ def main() -> int:
 
     print(f"have {existing_count} existing frames, capturing {frames_needed} more...")
 
+    JITTER_RANGE = 15
+    CAROUSEL_JITTER_RANGE = 5
+    carousel_debt = 0.0
     for i in range(frames_needed):
-        irl.second_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME)
-        irl.third_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME)
+        jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE) if not no_jitter else 0.0
+        irl.second_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
+        irl.third_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
         if not no_carousel and i % 4 == 3:
-            irl.carousel_stepper.move_degrees(-90.0)
+            carousel_jitter = random.uniform(-CAROUSEL_JITTER_RANGE, CAROUSEL_JITTER_RANGE) if not no_jitter else 0.0
+            irl.carousel_stepper.move_degrees(-90.0 + carousel_jitter - carousel_debt)
+            carousel_debt = carousel_jitter
             time.sleep(2)
         gray = vision.getLatestFeederGray()
         if gray is None:

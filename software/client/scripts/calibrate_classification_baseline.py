@@ -24,7 +24,7 @@ LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 from vision import VisionManager
 from blob_manager import BLOB_DIR
 
-MAX_FRAMES = 64
+MAX_FRAMES = 16
 DEGREES_PER_FRAME = -90
 MOVE_TIMEOUT_MS = 3000
 
@@ -61,6 +61,7 @@ def calibrateCamera(
     baseline_dir: Path,
     cam: str,
     wipe: bool,
+    no_jitter: bool,
 ) -> bool:
     prefix = cam
     cam_dir = baseline_dir
@@ -82,7 +83,7 @@ def calibrateCamera(
     JITTER_RANGE = 5
     debt = 0.0
     for i in range(frames_needed):
-        if i % 2 == 1:
+        if not no_jitter and i % 2 == 1:
             jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE)
         else:
             jitter = 0.0
@@ -111,7 +112,8 @@ def calibrateCamera(
 
 def main() -> int:
     wipe = "--wipe" in sys.argv
-    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a != "--wipe"]
+    no_jitter = "--no-jitter" in sys.argv
+    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--no-jitter")]
 
     gc = mkGlobalConfig()
     LOGS_DIR.mkdir(exist_ok=True)
@@ -144,9 +146,9 @@ def main() -> int:
 
     ok = True
     if has_top:
-        ok = calibrateCamera(vision, irl, baseline_dir, "top", wipe) and ok
+        ok = calibrateCamera(vision, irl, baseline_dir, "top", wipe, no_jitter) and ok
     if has_bottom:
-        ok = calibrateCamera(vision, irl, baseline_dir, "bottom", wipe) and ok
+        ok = calibrateCamera(vision, irl, baseline_dir, "bottom", wipe, no_jitter) and ok
 
     print(f"done. baseline in {baseline_dir}")
 

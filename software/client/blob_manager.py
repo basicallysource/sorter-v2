@@ -1,4 +1,7 @@
 import json
+import os
+import tempfile
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -7,7 +10,25 @@ import cv2
 import numpy as np
 
 DATA_FILE = Path(__file__).parent / "data.json"
+_DATA_LOCK = threading.Lock()
 BLOB_DIR = Path(__file__).parent / "blob"
+
+
+def _writeJsonAtomic(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def loadData() -> dict[str, Any]:
@@ -21,26 +42,19 @@ def loadData() -> dict[str, Any]:
 
 
 def saveData(data: dict[str, Any]) -> None:
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    _writeJsonAtomic(DATA_FILE, data)
 
 
 def getMachineId() -> str:
-    data = loadData()
-    if "machine_id" in data:
-        return data["machine_id"]
+    with _DATA_LOCK:
+        data = loadData()
+        if "machine_id" in data:
+            return data["machine_id"]
 
-    old_machine_id_file = Path.home() / ".sorter_machine_id"
-    if old_machine_id_file.exists():
-        machine_id = old_machine_id_file.read_text().strip()
+        machine_id = str(uuid.uuid4())
         data["machine_id"] = machine_id
         saveData(data)
         return machine_id
-
-    machine_id = str(uuid.uuid4())
-    data["machine_id"] = machine_id
-    saveData(data)
-    return machine_id
 
 
 def getStepperPosition(name: str) -> int:
@@ -49,11 +63,12 @@ def getStepperPosition(name: str) -> int:
 
 
 def setStepperPosition(name: str, position_steps: int) -> None:
-    data = loadData()
-    if "stepper_positions" not in data:
-        data["stepper_positions"] = {}
-    data["stepper_positions"][name] = position_steps
-    saveData(data)
+    with _DATA_LOCK:
+        data = loadData()
+        if "stepper_positions" not in data:
+            data["stepper_positions"] = {}
+        data["stepper_positions"][name] = position_steps
+        saveData(data)
 
 
 def getServoPosition(name: str) -> int:
@@ -62,11 +77,12 @@ def getServoPosition(name: str) -> int:
 
 
 def setServoPosition(name: str, angle: int) -> None:
-    data = loadData()
-    if "servo_positions" not in data:
-        data["servo_positions"] = {}
-    data["servo_positions"][name] = angle
-    saveData(data)
+    with _DATA_LOCK:
+        data = loadData()
+        if "servo_positions" not in data:
+            data["servo_positions"] = {}
+        data["servo_positions"][name] = angle
+        saveData(data)
 
 
 def getBinCategories() -> list[list[list[str | None]]] | None:
@@ -75,9 +91,10 @@ def getBinCategories() -> list[list[list[str | None]]] | None:
 
 
 def setBinCategories(categories: list[list[list[str | None]]]) -> None:
-    data = loadData()
-    data["bin_categories"] = categories
-    saveData(data)
+    with _DATA_LOCK:
+        data = loadData()
+        data["bin_categories"] = categories
+        saveData(data)
 
 
 def getMcuPath() -> str | None:
@@ -86,9 +103,10 @@ def getMcuPath() -> str | None:
 
 
 def setMcuPath(path: str) -> None:
-    data = loadData()
-    data["mcu_path"] = path
-    saveData(data)
+    with _DATA_LOCK:
+        data = loadData()
+        data["mcu_path"] = path
+        saveData(data)
 
 
 def getCameraSetup() -> dict | None:
@@ -97,9 +115,34 @@ def getCameraSetup() -> dict | None:
 
 
 def setCameraSetup(setup: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["camera_setup"] = setup
+        saveData(data)
+
+
+def getChannelPolygons() -> dict | None:
     data = loadData()
-    data["camera_setup"] = setup
-    saveData(data)
+    return data.get("channel_polygons")
+
+
+def setChannelPolygons(polygons: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["channel_polygons"] = polygons
+        saveData(data)
+
+
+def getClassificationPolygons() -> dict | None:
+    data = loadData()
+    return data.get("classification_polygons")
+
+
+def setClassificationPolygons(polygons: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["classification_polygons"] = polygons
+        saveData(data)
 
 
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]

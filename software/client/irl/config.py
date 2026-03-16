@@ -1,4 +1,6 @@
 import time
+import json
+from pathlib import Path
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus
@@ -21,6 +23,86 @@ from .bin_layout import (
     applyCategories,
 )
 from blob_manager import getBinCategories, getCameraSetup
+
+
+STEPPER_CURRENT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "stepper_current_overrides.json"
+
+
+def loadStepperCurrentOverrides(gc: GlobalConfig) -> dict[str, tuple[int, int, int]]:
+    if not STEPPER_CURRENT_CONFIG_PATH.exists():
+        return {}
+
+    try:
+        with open(STEPPER_CURRENT_CONFIG_PATH, "r") as f:
+            raw = json.load(f)
+    except Exception as e:
+        gc.logger.warning(
+            f"Failed to load optional stepper current config at {STEPPER_CURRENT_CONFIG_PATH}: {e}. Using defaults."
+        )
+        return {}
+
+    if not isinstance(raw, dict):
+        gc.logger.warning(
+            f"Stepper current config at {STEPPER_CURRENT_CONFIG_PATH} must be a JSON object. Using defaults."
+        )
+        return {}
+
+    overrides: dict[str, tuple[int, int, int]] = {}
+    for stepper_name, value in raw.items():
+        if not isinstance(stepper_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper key in current config: {stepper_name!r} (must be string)"
+            )
+            continue
+
+        if not isinstance(value, dict):
+            gc.logger.warning(
+                f"Ignoring override for '{stepper_name}': expected object with irun/ihold/ihold_delay. Using firmware current defaults."
+            )
+            continue
+
+        irun = value.get("irun")
+        ihold = value.get("ihold")
+        ihold_delay = value.get("ihold_delay")
+
+        fields_valid = (
+            isinstance(irun, int)
+            and not isinstance(irun, bool)
+            and isinstance(ihold, int)
+            and not isinstance(ihold, bool)
+            and isinstance(ihold_delay, int)
+            and not isinstance(ihold_delay, bool)
+            and 0 <= irun <= 31
+            and 0 <= ihold <= 31
+            and 0 <= ihold_delay <= 15
+        )
+
+        if not fields_valid:
+            gc.logger.warning(
+                f"Ignoring invalid current override for '{stepper_name}': {value!r} (requires irun:0-31, ihold:0-31, ihold_delay:0-15). Using firmware current defaults."
+            )
+            continue
+
+        overrides[stepper_name] = (irun, ihold, ihold_delay)
+
+    return overrides
+
+
+def applyStepperCurrentOverride(
+    stepper: "StepperMotor",
+    stepper_name: str,
+    overrides: dict[str, tuple[int, int, int]],
+    gc: GlobalConfig,
+) -> None:
+    override = overrides.get(stepper_name)
+    if override is None:
+        return
+
+    irun, ihold, ihold_delay = override
+    stepper.set_current(irun, ihold, ihold_delay)
+    gc.logger.info(
+        f"Stepper '{stepper_name}' current override applied: IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+    )
 
 
 class CameraConfig:
@@ -298,6 +380,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     The firmware reports which steppers are available via stepper_names.
     """
     irl_interface = IRLInterface()
+    stepper_current_overrides = loadStepperCurrentOverrides(gc)
 
     ports = MCUBus.enumerate_buses()
     if not ports:
@@ -411,6 +494,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             gc.logger.warn(
                 f"Stepper '{stepper_name}' has no StepperConfig (attr='{attr}'), using defaults"
             )
+
+        applyStepperCurrentOverride(stepper, stepper_name, stepper_current_overrides, gc)
+
         setattr(irl_interface, attr, stepper)
         gc.logger.info(
             f"Initialized Stepper '{stepper_name}' from {device_name} ({port}:{address}), position={stepper._current_position_steps} steps"

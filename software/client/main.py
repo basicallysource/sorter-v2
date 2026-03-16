@@ -114,8 +114,8 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
-    if not vision.loadFeederBaseline():
-        gc.logger.error("Feeder baseline not found. Run: uv run python scripts/calibrate_feeder_baseline.py")
+    if not vision.initFeederDetection():
+        gc.logger.error("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py")
         sys.exit(1)
     if not vision.loadClassificationBaseline():
         gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")

@@ -17,11 +17,11 @@ from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .heatmap_diff import HeatmapDiff
+from .mog2_channel_detector import Mog2ChannelDetector
 from .feeder_analysis_thread import FeederAnalysisThread
 from .classification_analysis_thread import ClassificationAnalysisThread
 
 TELEMETRY_INTERVAL_S = 30
-CHANNEL_MASK_CONTRACT_PX = 30
 FRAME_ENCODE_INTERVAL_MS = 100
 
 
@@ -64,7 +64,7 @@ class VisionManager:
         elif gc.region_provider == RegionProviderType.ARUCO:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
-        self.heatmap_diff = HeatmapDiff(scale=0.25)
+        self._feeder_detector: Mog2ChannelDetector | None = None
         self._carousel_heatmap = HeatmapDiff()
 
         self._channel_polygons: Dict[str, np.ndarray] = {}
@@ -129,8 +129,8 @@ class VisionManager:
         if self._video_recorder:
             self._video_recorder.close()
 
-    def loadFeederBaseline(self) -> bool:
-        from blob_manager import getChannelPolygons, BLOB_DIR
+    def initFeederDetection(self) -> bool:
+        from blob_manager import getChannelPolygons
 
         saved = getChannelPolygons()
         if saved is None:
@@ -155,54 +155,29 @@ class VisionManager:
         if carousel_pts and len(carousel_pts) >= 3:
             self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
-        baseline_dir = BLOB_DIR / "feeder_baseline"
-        min_path = baseline_dir / "baseline_min.png"
-        max_path = baseline_dir / "baseline_max.png"
-        if not (min_path.exists() and max_path.exists()):
-            self.gc.logger.warn("Feeder baseline not found. Run: scripts/calibrate_feeder_baseline.py")
-            return False
-
-        baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
-        baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
-        if baseline_min is None or baseline_max is None:
-            self.gc.logger.warn("Failed to read feeder baseline images.")
-            return False
-
-        contract_kernel = None
-        if CHANNEL_MASK_CONTRACT_PX != 0:
-            k = abs(CHANNEL_MASK_CONTRACT_PX) * 2 + 1
-            contract_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-
-        def _applyContract(m: np.ndarray) -> np.ndarray:
-            if contract_kernel is None:
-                return m
-            if CHANNEL_MASK_CONTRACT_PX < 0:
-                return cv2.erode(m, contract_kernel)
-            return cv2.dilate(m, contract_kernel)
+        gray = self.getLatestFeederGray()
+        mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
 
         channel_masks: Dict[str, np.ndarray] = {}
         for key, pts in polys.items():
-            ch_mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+            ch_mask = np.zeros(mask_shape, dtype=np.uint8)
             cv2.fillPoly(ch_mask, [pts], 255)
-            channel_masks[key] = _applyContract(ch_mask)
+            channel_masks[key] = ch_mask
         self._channel_masks = channel_masks
 
-        mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
-        for ch_mask in channel_masks.values():
-            mask = cv2.bitwise_or(mask, ch_mask)
-
-        self.heatmap_diff.loadEnvelope(baseline_min, baseline_max, mask)
+        self._feeder_detector = Mog2ChannelDetector(
+            channel_polygons=polys,
+            channel_masks=channel_masks,
+            channel_angles=self._channel_angles,
+        )
 
         self._feeder_analysis = FeederAnalysisThread(
-            heatmap=self.heatmap_diff,
+            detector=self._feeder_detector,
             get_gray=self.getLatestFeederGray,
-            channel_polygons=self._channel_polygons,
-            channel_angles=self._channel_angles,
-            channel_masks=self._channel_masks,
             profiler=self.gc.profiler,
         )
         self._feeder_analysis.start()
-        self.gc.logger.info("Feeder baseline loaded")
+        self.gc.logger.info("Feeder MOG2 detection initialized")
         return True
 
     def loadClassificationBaseline(self) -> bool:
@@ -398,8 +373,8 @@ class VisionManager:
         annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
         annotated = self._region_provider.annotateFrame(annotated)
 
-        if self.heatmap_diff.has_baseline:
-            annotated = self.heatmap_diff.annotateFrame(annotated, label="feeder", text_y=50)
+        if self._feeder_detector is not None:
+            annotated = self._feeder_detector.annotateFrame(annotated)
             from subsystems.feeder.analysis import getBboxSections
             from defs.consts import (
                 CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,

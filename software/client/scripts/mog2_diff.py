@@ -26,7 +26,6 @@ from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision.heatmap_diff import HeatmapDiff
 
-EXPAND_RADIUS_CHANNELS_PX = 0
 CAROUSEL_SETTLE_AFTER_STOP_MS = 500
 
 PORT = 8098
@@ -76,13 +75,6 @@ def buildPolygonMask(polygons, shape):
             cv2.fillPoly(mask, [pts], 255)
     else:
         cv2.fillPoly(mask, [polygons], 255)
-    if EXPAND_RADIUS_CHANNELS_PX != 0:
-        k = abs(EXPAND_RADIUS_CHANNELS_PX) * 2 + 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-        if EXPAND_RADIUS_CHANNELS_PX > 0:
-            mask = cv2.dilate(mask, kernel)
-        else:
-            mask = cv2.erode(mask, kernel)
     if np.count_nonzero(mask) == 0:
         return None
     return mask

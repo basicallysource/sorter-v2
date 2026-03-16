@@ -5,14 +5,10 @@
 # Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 
-import logging
 import time
-from typing import TYPE_CHECKING
 from .bus import MCUDevice, BaseCommandCode
 import struct
-
-if TYPE_CHECKING:
-    from global_config import GlobalConfig
+from global_config import GlobalConfig
 
 class InterfaceCommandCode(BaseCommandCode):
     """Command codes specific to the Sorter Interface."""
@@ -47,10 +43,11 @@ class InterfaceCommandCode(BaseCommandCode):
 
 
 class DigitalInputPin:
-    def __init__(self, device: MCUDevice, channel: int):
+    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
-    
+        self._gc = gc
+
     @property
     def value(self):
         res = self._dev.send_command(InterfaceCommandCode.DIGITAL_READ, self._channel, b'')
@@ -61,11 +58,12 @@ class DigitalInputPin:
         return self._channel
     
 class DigitalOutputPin:
-    def __init__(self, device: MCUDevice, channel: int):
+    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._value = False
         self._enabled = True
+        self._gc = gc
 
     @property
     def value(self):
@@ -74,6 +72,7 @@ class DigitalOutputPin:
     @value.setter
     def value(self, value: bool):
         self._value = bool(value)
+        self._gc.logger.info(f"DigitalOutput ch{self._channel}: set value={self._value}")
         payload = struct.pack("<?", self._value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.DIGITAL_WRITE, self._channel, payload)
     
@@ -82,7 +81,7 @@ class DigitalOutputPin:
         return self._channel
 
 class StepperMotor:
-    def __init__(self, device: MCUDevice, channel: int):
+    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._steps_per_revolution = 200
@@ -90,7 +89,7 @@ class StepperMotor:
         self._enabled = True
         self._name = f"stepper_{channel}"
         self._current_position_steps = 0
-        self._gc: "GlobalConfig | None" = None
+        self._gc = gc
 
     def move_degrees(self, degrees: float) -> bool:
         """
@@ -104,32 +103,35 @@ class StepperMotor:
         """Move the stepper by a given number of microsteps (positive or negative)."""
         if steps == 0:
             return True
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: move_steps={steps} microsteps ({self.degrees_for_microsteps(steps):.2f}°), pos_before={self._current_position_steps}")
         payload = struct.pack("<i", steps) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
             self._current_position_steps += steps
         else:
-            if self._gc:
-                self._gc.logger.error(f"Stepper '{self._name}' move_steps({steps}) failed")
+            self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
         return success
     
     def move_at_speed(self, speed: int) -> bool:
         """Move the stepper at a given speed in microsteps per second."""
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: move_at_speed={speed} µsteps/s")
         payload = struct.pack("<i", speed) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         success = bool(res.payload[0])
-        if not success and self._gc:
-            self._gc.logger.error(f"Stepper '{self._name}' move_at_speed({speed}) failed")
+        if not success:
+            self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
         return success
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
-    
+
     def set_acceleration(self, acceleration: int) -> None:
         """Set the acceleration for the stepper in microsteps per second squared."""
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_acceleration={acceleration} µsteps/s²")
         payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
     
@@ -148,6 +150,7 @@ class StepperMotor:
     @position.setter
     def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_position={position} microsteps ({self.degrees_for_microsteps(position):.2f}°)")
         payload = struct.pack("<i", position)
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
     
@@ -181,6 +184,7 @@ class StepperMotor:
         else:
             pin_channel = home_pin
         
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: home speed={home_speed} µsteps/s, pin={pin_channel}, active_high={home_pin_active_high}")
         payload = struct.pack("<iB?", home_speed, pin_channel, bool(home_pin_active_high)) # 4 bytes for speed (signed), 1 byte for pin channel, 1 byte for active high/low
         self._dev.send_command(InterfaceCommandCode.STEPPER_HOME, self._channel, payload)
     
@@ -192,27 +196,34 @@ class StepperMotor:
     def enabled(self, value: bool):
         """Enable or disable the stepper."""
         self._enabled = bool(value)
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={self._enabled}")
         payload = struct.pack("<?", self._enabled) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
     
     def set_microsteps(self, microsteps: int):
         """Set the microsteps for the stepper."""
         if microsteps not in (1, 2, 4, 8, 16, 32, 64, 128, 256):
-            raise ValueError(f"Invalid microsteps value: {microsteps}.")        
+            raise ValueError(f"Invalid microsteps value: {microsteps}.")
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_microsteps={microsteps}")
         payload = struct.pack("<H", microsteps) # 2 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_MICROSTEPS, self._channel, payload)
         self._microsteps = microsteps
     
     def set_current(self, irun: int, ihold: int, ihold_delay: int):
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_current irun={irun} ihold={ihold} ihold_delay={ihold_delay}")
         payload = struct.pack("<BBB", irun, ihold, ihold_delay) # 3 bytes, three little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_CURRENT, self._channel, payload)
 
     def read_driver_register(self, address: int) -> int:
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X}")
         payload = struct.pack("<B", address) # 1 byte, unsigned integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_READ_REGISTER, self._channel, payload)
-        return struct.unpack("<I", res.payload)[0] # 4 bytes, little-endian unsigned integer
-    
+        val = struct.unpack("<I", res.payload)[0] # 4 bytes, little-endian unsigned integer
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X} -> 0x{val:08X}")
+        return val
+
     def write_driver_register(self, address: int, value: int):
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: write_driver_register addr=0x{address:02X} value=0x{value:08X}")
         payload = struct.pack("<BI", address, value) # 1 byte for address, 4 bytes for value
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_WRITE_REGISTER, self._channel, payload)
 
@@ -287,7 +298,7 @@ class StepperMotor:
 
 
 class ServoMotor:
-    def __init__(self, device: MCUDevice, channel: int):
+    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._name = f"servo_{channel}"
@@ -296,6 +307,7 @@ class ServoMotor:
         self._closed_angle = 72
         # Track enabled state locally; the firmware does not provide a GET for enabled.
         self._enabled = False
+        self._gc = gc
 
     @property
     def enabled(self) -> bool:
@@ -304,6 +316,7 @@ class ServoMotor:
     @enabled.setter
     def enabled(self, value: bool):
         bool_value = bool(value)
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: set_enabled={bool_value}")
         payload = struct.pack("<?", bool_value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
         self._enabled = bool_value
@@ -314,6 +327,7 @@ class ServoMotor:
             raise ValueError(f"Servo angle must be 0-180, got {angle}")
         if not self._enabled:
             self.enabled = True
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: move_to {angle}° (from {self._current_angle}°)")
         payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO, self._channel, payload)
         self._current_angle = angle
@@ -330,6 +344,7 @@ class ServoMotor:
             raise ValueError(f"Servo angle must be 0-180, got {angle}")
         if not self._enabled:
             self.enabled = True
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: move_to_and_release {angle}° (from {self._current_angle}°)")
         payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO_AND_RELEASE, self._channel, payload)
         self._current_angle = angle
@@ -344,6 +359,7 @@ class ServoMotor:
 
     def stop(self):
         """Stop the servo immediately"""
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: stop (was at {self._current_angle}°)")
         self._dev.send_command(InterfaceCommandCode.SERVO_STOP, self._channel, b'')
 
     @property
@@ -383,11 +399,13 @@ class ServoMotor:
             raise ValueError("Speed limits must be non-negative")
         if min_speed >= max_speed:
             raise ValueError("min_speed must be less than max_speed")
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} 0.1°/s")
         payload = struct.pack("<HH", min_speed, max_speed) # 4 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_SPEED_LIMITS, self._channel, payload)
 
     def set_acceleration(self, acceleration: int) -> None:
         """Set the acceleration for the servo in tenths of degrees per second squared."""
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: set_acceleration={acceleration} 0.1°/s²")
         payload = struct.pack("<H", acceleration)  # 2 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_ACCELERATION, self._channel, payload)
 
@@ -407,6 +425,7 @@ class ServoMotor:
         # assuming a 20ms period (50Hz): counts = (pulse_us / 20000us) * 4095.
         min_duty = int((min_duty_us / 20000.0) * 4095)
         max_duty = int((max_duty_us / 20000.0) * 4095)
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: set_duty_limits {min_duty_us}µs-{max_duty_us}µs (counts {min_duty}-{max_duty})")
         payload = struct.pack("<HH", min_duty, max_duty)  # 4 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_DUTY_LIMITS, self._channel, payload)
 
@@ -435,8 +454,9 @@ class SorterInterface(MCUDevice):
     digital_inputs : tuple[DigitalInputPin, ...]
     digital_outputs : tuple[DigitalOutputPin, ...]
 
-    def __init__(self, bus, address):
+    def __init__(self, bus, address, gc: GlobalConfig):
         super().__init__(bus, address)
+        self._gc = gc
         # Obtain the device information to populate the internal objects
         retries = 5
         while retries > 0:
@@ -444,7 +464,7 @@ class SorterInterface(MCUDevice):
                 self._board_info = self.detect()
                 break
             except Exception as e:
-                logging.warning(f"Error initializing device: {e}. Retrying...")
+                gc.logger.warning(f"Error initializing device: {e}. Retrying...")
                 retries -= 1
                 time.sleep(0.1)
         else:
@@ -454,10 +474,10 @@ class SorterInterface(MCUDevice):
         digital_output_channels = range(self._board_info.get("digital_output_count", 0))
         stepper_channels = range(self._board_info.get("stepper_count", 0))
         servo_channels = range(self._board_info.get("servo_count", 0))
-        self.digital_inputs = tuple(DigitalInputPin(self, ch) for ch in digital_input_channels)
-        self.digital_outputs = tuple(DigitalOutputPin(self, ch) for ch in digital_output_channels)
-        self.steppers = tuple(StepperMotor(self, ch) for ch in stepper_channels)
-        self.servos = tuple(ServoMotor(self, ch) for ch in servo_channels)
+        self.digital_inputs = tuple(DigitalInputPin(self, ch, gc) for ch in digital_input_channels)
+        self.digital_outputs = tuple(DigitalOutputPin(self, ch, gc) for ch in digital_output_channels)
+        self.steppers = tuple(StepperMotor(self, ch, gc) for ch in stepper_channels)
+        self.servos = tuple(ServoMotor(self, ch, gc) for ch in servo_channels)
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
 
@@ -473,13 +493,17 @@ class SorterInterface(MCUDevice):
         return self._name
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    import logging as _logging
     import random
     import time
     from .bus import MCUBus
-    
+    from global_config import mkGlobalConfig
+
+    _logging.basicConfig(level=_logging.INFO)
+    _gc = mkGlobalConfig()
+
     interfaces: dict[str, SorterInterface] = {}
-    
+
     print("Enumerating buses...")
     buses = MCUBus.enumerate_buses()
     print(f"Available buses: {buses}")
@@ -492,26 +516,26 @@ if __name__ == "__main__":
         print(f"Devices found: {devices}")
         for device in devices:
             try:
-                interface = SorterInterface(bus, device)
+                interface = SorterInterface(bus, device, _gc)
                 interfaces[interface.name] = interface
                 print(f"Initialized interface: {interface.name}")
             except Exception as e:
-                logging.error(f"Error initializing device at address {device}: {e}")
+                _logging.error(f"Error initializing device at address {device}: {e}")
                 continue
-        logging.info(f"Finished initializing interfaces: {list(interfaces.keys())}")
+        _logging.info(f"Finished initializing interfaces: {list(interfaces.keys())}")
         start_time = time.monotonic()
         while True:
             now = time.monotonic()
             elapsed = now - start_time
             if elapsed > 1:
                 for name, interface in interfaces.items():
-                    logging.info(f"Interface {name}:")
+                    _logging.info(f"Interface {name}:")
                     for i, stepper in enumerate(interface.steppers):
-                        logging.info(f"  Stepper {i}: position={stepper.position}, stopped={stepper.stopped}")
+                        _logging.info(f"  Stepper {i}: position={stepper.position}, stopped={stepper.stopped}")
                     for i, dout in enumerate(interface.digital_outputs):
-                        logging.info(f"  Digital Output {i}: value={dout.value}")
+                        _logging.info(f"  Digital Output {i}: value={dout.value}")
                     for i, din in enumerate(interface.digital_inputs):
-                        logging.info(f"  Digital Input {i}: value={din.value}")
+                        _logging.info(f"  Digital Input {i}: value={din.value}")
                 start_time = now
             for name, interface in interfaces.items():
                 if interface.servos and all(servo.stopped for servo in interface.servos):
@@ -520,7 +544,7 @@ if __name__ == "__main__":
                         servo.set_speed_limits(100, 20000) # Set speed limits to 10-2000 degrees per second
                         servo.set_acceleration(2000)
                         angle = random.choice([0, 90, 180]) # Move to either 0, 90, or 180 degrees
-                        logging.info(f"Moving servo {servo.channel} on interface {name} to {angle} degrees")
+                        _logging.info(f"Moving servo {servo.channel} on interface {name} to {angle} degrees")
                         servo.move_to_and_release(angle)
 
                 for stepper in interface.steppers:
@@ -528,6 +552,6 @@ if __name__ == "__main__":
                         continue
                     # Randomly decide to move the stepper
                     steps = random.randint(-1000, 1000)
-                    logging.info(f"Moving stepper {stepper.channel} on interface {name} by {steps} steps")
+                    _logging.info(f"Moving stepper {stepper.channel} on interface {name} by {steps} steps")
                     stepper.move_steps(steps)
             time.sleep(0.01)

@@ -13,6 +13,7 @@ import argparse
 
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
+from global_config import mkGlobalConfig
 
 
 def main() -> None:
@@ -59,7 +60,8 @@ def main() -> None:
     if not devices:
         raise RuntimeError(f"No Pico devices found on {mcu_port}")
 
-    sorter_interface = SorterInterface(bus, devices[0])
+    gc = mkGlobalConfig()
+    sorter_interface = SorterInterface(bus, devices[0], gc)
     steppers = sorter_interface.steppers
 
     speed = abs(args.speed) if args.forward else -abs(args.speed)

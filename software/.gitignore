@@ -85,3 +85,4 @@ client/aruco_config.json
 client/bin_layout.json
 client/every_part_bl_api_res.json
 client/stepper_current_overrides.json
+client/sorting_profile.json

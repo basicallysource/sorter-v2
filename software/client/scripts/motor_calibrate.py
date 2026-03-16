@@ -179,6 +179,8 @@ def printStatus(
     print(f"  ↑/↓     Change microstep pulse ({', '.join(map(str, STEP_COUNTS))})")
     print(f"  W/E     Change max speed (current: {speed} µsteps/s)")
     print(f"  A/D     Quarter turn ({quarter_degrees}°)")
+    if name == "carousel":
+        print("  L       Loop carousel (-90° turns)")
     print("  Tab     Switch stepper")
     print("  Enter   Set current position as zero")
     if name == "chute":
@@ -488,6 +490,30 @@ def main() -> None:
             result = chuteCalibrateLoop(irl.chute, step_count_idx)
             if result is not None:
                 chute_cal = result
+            _printMain()
+        elif key.lower() == "l" and name == "carousel":
+            import select, sys as _sys, tty, termios
+            print("Looping carousel (-90° turns). Press Q to stop.")
+            old_settings = termios.tcgetattr(_sys.stdin)
+            tty.setcbreak(_sys.stdin.fileno())
+            try:
+                while True:
+                    stepper.move_degrees(-90)
+                    while not stepper.stopped:
+                        if select.select([_sys.stdin], [], [], 0)[0]:
+                            ch = _sys.stdin.read(1)
+                            if ch.lower() == "q":
+                                raise StopIteration
+                        time.sleep(0.01)
+                    time.sleep(0.5)
+                    if select.select([_sys.stdin], [], [], 0)[0]:
+                        ch = _sys.stdin.read(1)
+                        if ch.lower() == "q":
+                            raise StopIteration
+            except StopIteration:
+                pass
+            finally:
+                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
             _printMain()
         elif key.lower() == "s":
             servo_calibrate_loop(servos)

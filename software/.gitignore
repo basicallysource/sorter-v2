@@ -78,6 +78,8 @@ Thumbs.db
 #merge on purpose
 #ui/src/lib/api/rest.ts
 #ui/src/lib/api/events.ts
+client/logs/
+client/blob/
 
 # Persistent data
 client/data.json

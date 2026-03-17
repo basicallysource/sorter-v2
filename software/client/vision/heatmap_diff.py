@@ -8,15 +8,15 @@ import numpy as np
 if TYPE_CHECKING:
     from global_config import GlobalConfig
 
-PIXEL_THRESH = 8
-BLUR_KERNEL = 5
+PIXEL_THRESH = 4
+BLUR_KERNEL = 7
 HEAT_GAIN = 12.0
 MIN_HOT_PIXELS = 50
-TRIGGER_SCORE = 17
+TRIGGER_SCORE = 10
 BASELINE_FRAMES = 5
 CURRENT_FRAMES = 3
 CAPTURE_INTERVAL_MS = 50
-MIN_CONTOUR_AREA = 100
+MIN_CONTOUR_AREA = 70
 MIN_HOT_THICKNESS_PIXELS = 12
 MAX_CONTOUR_ASPECT_RATIO = 3.0
 
@@ -36,9 +36,30 @@ def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
 
 
 class HeatmapDiff:
-    def __init__(self, scale: float = 1.0, gc: Optional["GlobalConfig"] = None,
-                 max_contour_aspect_ratio: Optional[float] = None):
+    def __init__(
+        self,
+        scale: float = 1.0,
+        gc: Optional["GlobalConfig"] = None,
+        pixel_thresh: int = PIXEL_THRESH,
+        blur_kernel: int = BLUR_KERNEL,
+        min_hot_pixels: int = MIN_HOT_PIXELS,
+        trigger_score: int = TRIGGER_SCORE,
+        min_contour_area: int = MIN_CONTOUR_AREA,
+        min_hot_thickness_px: int = MIN_HOT_THICKNESS_PIXELS,
+        max_contour_aspect: float = MAX_CONTOUR_ASPECT_RATIO,
+        heat_gain: float = HEAT_GAIN,
+        current_frames: int = CURRENT_FRAMES,
+    ):
         self._gc = gc
+        self._pixel_thresh = pixel_thresh
+        self._blur_kernel = blur_kernel
+        self._min_hot_pixels = min_hot_pixels
+        self._trigger_score = trigger_score
+        self._min_contour_area = min_contour_area
+        self._min_hot_thickness_px = min_hot_thickness_px
+        self._max_contour_aspect = max_contour_aspect
+        self._heat_gain = heat_gain
+        self._current_frames = current_frames
         self._baseline_gray: Optional[np.ndarray] = None
         self._baseline_min: Optional[np.ndarray] = None
         self._baseline_max: Optional[np.ndarray] = None
@@ -50,7 +71,6 @@ class HeatmapDiff:
         self._scale = scale
         self._full_size: Optional[Tuple[int, int]] = None
         self._cached_result: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None
-        self._max_contour_aspect_ratio = max_contour_aspect_ratio
 
     @property
     def has_baseline(self) -> bool:
@@ -162,7 +182,7 @@ class HeatmapDiff:
 
         if mask is None:
             return None
-        avg = self._getAveraged(CURRENT_FRAMES)
+        avg = self._getAveraged(self._current_frames)
         if avg is None:
             return None
 
@@ -185,13 +205,13 @@ class HeatmapDiff:
         else:
             return None
 
-        blur_k = BLUR_KERNEL | 1
+        blur_k = self._blur_kernel | 1
         diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
 
-        scaled_thickness = max(1, int(MIN_HOT_THICKNESS_PIXELS * self._scale))
-        scaled_min_area = max(1, int(MIN_CONTOUR_AREA * self._scale * self._scale))
+        scaled_thickness = max(1, int(self._min_hot_thickness_px * self._scale))
+        scaled_min_area = max(1, int(self._min_contour_area * self._scale * self._scale))
 
-        raw_hot = ((diff > PIXEL_THRESH) & mask_bool).astype(np.uint8) * 255
+        raw_hot = ((diff > self._pixel_thresh) & mask_bool).astype(np.uint8) * 255
         ek = max(1, scaled_thickness // 2)
         erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ek * 2 + 1, ek * 2 + 1))
         eroded = cv2.erode(raw_hot, erode_kernel)
@@ -208,8 +228,7 @@ class HeatmapDiff:
             mar_short = min(mar_w, mar_h)
             mar_long = max(mar_w, mar_h)
             mar_aspect = mar_long / mar_short if mar_short > 0 else 999.0
-            max_aspect = self._max_contour_aspect_ratio if self._max_contour_aspect_ratio is not None else MAX_CONTOUR_ASPECT_RATIO
-            if mar_aspect > max_aspect:
+            if mar_aspect > self._max_contour_aspect:
                 continue
             cv2.drawContours(hot, [contour], -1, 255, -1)
 
@@ -224,7 +243,7 @@ class HeatmapDiff:
         diff, hot, _ = result
 
         hot_count = int(np.count_nonzero(hot))
-        score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
+        score = float(np.mean(diff[hot])) if hot_count >= self._min_hot_pixels else 0.0
         return score, hot_count
 
     def computeBboxes(self) -> List[Tuple[int, int, int, int]]:
@@ -245,7 +264,7 @@ class HeatmapDiff:
 
     def isTriggered(self) -> bool:
         score, _ = self.computeDiff()
-        return score >= TRIGGER_SCORE
+        return score >= self._trigger_score
 
     def annotateFrame(self, annotated: np.ndarray, label: str = "diff", text_y: int = 50) -> np.ndarray:
         result = self._computeDiffMap()
@@ -254,7 +273,7 @@ class HeatmapDiff:
         diff, hot, mask_bool = result
 
         hot_count = int(np.count_nonzero(hot))
-        score = float(np.mean(diff[hot])) if hot_count >= MIN_HOT_PIXELS else 0.0
+        score = float(np.mean(diff[hot])) if hot_count >= self._min_hot_pixels else 0.0
 
         out_h, out_w = annotated.shape[:2]
         diff_h, diff_w = diff.shape[:2]
@@ -269,7 +288,7 @@ class HeatmapDiff:
 
         display = np.zeros_like(diff_up)
         display[hot_up] = np.clip(
-            diff_up[hot_up].astype(np.float32) * HEAT_GAIN, 0, 255
+            diff_up[hot_up].astype(np.float32) * self._heat_gain, 0, 255
         ).astype(np.uint8)
 
         heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
@@ -282,7 +301,7 @@ class HeatmapDiff:
             + heatmap[show_heat].astype(np.float32) * 0.8
         ).clip(0, 255).astype(np.uint8)
 
-        triggered = score >= TRIGGER_SCORE
+        triggered = score >= self._trigger_score
         color = (0, 0, 255) if triggered else (0, 255, 0)
         cv2.putText(out, f"{label}: {score:.1f} px:{hot_count}", (30, text_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)

@@ -24,9 +24,9 @@ LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 from vision import VisionManager
 from blob_manager import BLOB_DIR
 
-MAX_FRAMES = 16
+MAX_FRAMES = 64
 DEGREES_PER_FRAME = -90
-MOVE_TIMEOUT_MS = 3000
+MOVE_TIMEOUT_MS = 2000
 
 
 def loadExistingFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
@@ -89,7 +89,7 @@ def calibrateCamera(
             jitter = 0.0
         move = DEGREES_PER_FRAME + jitter - debt
         debt = jitter
-        irl.carousel_stepper.move_degrees(move)
+        irl.carousel_stepper.move_degrees_blocking(move)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
 
         gray = getLatestGray(vision, cam)
@@ -112,8 +112,8 @@ def calibrateCamera(
 
 def main() -> int:
     wipe = "--wipe" in sys.argv
-    no_jitter = "--no-jitter" in sys.argv
-    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--no-jitter")]
+    no_jitter = "--jitter" not in sys.argv
+    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in ("--wipe", "--jitter")]
 
     gc = mkGlobalConfig()
     LOGS_DIR.mkdir(exist_ok=True)

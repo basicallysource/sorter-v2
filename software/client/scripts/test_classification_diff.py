@@ -24,18 +24,16 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision.camera import CaptureThread
-from vision.heatmap_diff import (
-    HeatmapDiff, PIXEL_THRESH, BLUR_KERNEL, MIN_HOT_PIXELS,
-    TRIGGER_SCORE, MIN_CONTOUR_AREA, MIN_HOT_THICKNESS_PIXELS,
-    MAX_CONTOUR_ASPECT_RATIO, HEAT_GAIN, CURRENT_FRAMES,
-)
-from vision.classification_analysis_thread import MIN_BBOX_DIMENSION_PX, MIN_BBOX_AREA_PX
+from vision.heatmap_diff import HeatmapDiff
+from vision.diff_configs import DEFAULT_CLASSIFICATION_DIFF_CONFIG
 from blob_manager import BLOB_DIR, getCameraSetup, getClassificationPolygons
 from irl.config import mkCameraConfig
 import glob as globmod
 
 PORT = 8099
 DEGREES_PER_STEP = -90
+DEGREES_BACKOFF = 0
+BACKOFF_SPEED = 50
 SCALE = 0.25
 
 ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k", "mask_erode_px"}
@@ -79,9 +77,10 @@ def computeStddevMap(frames: list[np.ndarray]) -> np.ndarray:
 
 
 class AppState:
-    def __init__(self, capture: CaptureThread, carousel_stepper, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray, calibration_frames: list[np.ndarray]):
+    def __init__(self, capture: CaptureThread, carousel_stepper, irl_config, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray, calibration_frames: list[np.ndarray]):
         self.capture = capture
         self.carousel_stepper = carousel_stepper
+        self._normal_speed = irl_config.carousel_stepper.default_steps_per_second
         self._baseline_min_orig = baseline_min.copy()
         self._baseline_max_orig = baseline_max.copy()
         self._mask_orig = mask.copy()
@@ -96,24 +95,26 @@ class AppState:
         self.detection_log: list[dict] = []
         self.rotation_count = 0
 
+        _cfg = DEFAULT_CLASSIFICATION_DIFF_CONFIG
         self._default_params: dict[str, float] = {
-            "envelope_margin": 0.0,
-            "adaptive_std_k": 0.0,
+            "envelope_margin": float(_cfg.envelope_margin),
+            "adaptive_std_k": float(_cfg.adaptive_std_k),
+            "pixel_thresh": float(_cfg.pixel_thresh),
+            "blur_kernel": float(_cfg.blur_kernel),
+            "min_hot_pixels": float(_cfg.min_hot_pixels),
+            "trigger_score": float(_cfg.trigger_score),
+            "min_contour_area": float(_cfg.min_contour_area),
+            "min_hot_thickness": float(_cfg.min_hot_thickness_px),
+            "max_contour_aspect": float(_cfg.max_contour_aspect),
+            "heat_gain": float(_cfg.heat_gain),
+            "current_frames": float(_cfg.current_frames),
+            "min_bbox_dim": float(_cfg.min_bbox_dim),
+            "min_bbox_area": float(_cfg.min_bbox_area),
+            "crop_margin_px": float(_cfg.crop_margin_px),
+            "edge_bias_mult": float(_cfg.edge_bias_mult),
+            "edge_bias_threshold_px": float(_cfg.edge_bias_threshold_px),
+            # script-only
             "mask_erode_px": 0.0,
-            "pixel_thresh": float(PIXEL_THRESH),
-            "blur_kernel": float(BLUR_KERNEL),
-            "min_hot_pixels": float(MIN_HOT_PIXELS),
-            "trigger_score": float(TRIGGER_SCORE),
-            "min_contour_area": float(MIN_CONTOUR_AREA),
-            "min_hot_thickness": float(MIN_HOT_THICKNESS_PIXELS),
-            "max_contour_aspect": float(MAX_CONTOUR_ASPECT_RATIO),
-            "heat_gain": float(HEAT_GAIN),
-            "current_frames": float(CURRENT_FRAMES),
-            "min_bbox_dim": float(MIN_BBOX_DIMENSION_PX),
-            "min_bbox_area": float(MIN_BBOX_AREA_PX),
-            "crop_margin_px": 50.0,
-            "edge_bias_mult": 2.0,
-            "edge_bias_threshold_px": 80.0,
         }
         self.params: dict[str, float] = dict(self._default_params)
 
@@ -250,7 +251,11 @@ class AppState:
         return annotated
 
     def rotateCarousel(self) -> None:
-        self.carousel_stepper.move_degrees(DEGREES_PER_STEP)
+        self.carousel_stepper.move_degrees_blocking(DEGREES_PER_STEP, timeout_ms=15000)
+        # time.sleep(0.2)
+        # self.carousel_stepper.set_speed_limits(16, BACKOFF_SPEED)
+        # self.carousel_stepper.move_degrees_blocking(DEGREES_BACKOFF, timeout_ms=10000)
+        # self.carousel_stepper.set_speed_limits(16, self._normal_speed)
         self.rotation_count += 1
 
 
@@ -644,7 +649,7 @@ if __name__ == "__main__":
 
     mask = buildMask("top", min_img.shape)
 
-    state = AppState(capture, irl.carousel_stepper, min_img, max_img, mask, calibration_frames)
+    state = AppState(capture, irl.carousel_stepper, irl_config, min_img, max_img, mask, calibration_frames)
 
     print(f"Server starting on http://localhost:{PORT}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

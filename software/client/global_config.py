@@ -45,10 +45,6 @@ class GlobalConfig:
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
-    classification_bbox_margin_px: int
-    classification_edge_bias_mult: float
-    classification_edge_bias_threshold_px: int
-
     def __init__(self):
         self.debug_level = 0
         self.should_write_camera_feeds = False
@@ -56,9 +52,6 @@ class GlobalConfig:
         self.disable_chute = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.disable_video_streams = ["classification_bottom"]
-        self.classification_bbox_margin_px = 50
-        self.classification_edge_bias_mult = 2.0
-        self.classification_edge_bias_threshold_px = 80
 
 
 def mkTimeouts() -> Timeouts:

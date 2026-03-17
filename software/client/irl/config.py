@@ -279,7 +279,7 @@ def mkIRLConfig() -> IRLConfig:
         device_index=classification_camera_top_index, width=9999, height=9999
     )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=300, microsteps=8)
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.second_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

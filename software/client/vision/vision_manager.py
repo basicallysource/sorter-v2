@@ -20,6 +20,7 @@ from .heatmap_diff import HeatmapDiff
 from .mog2_channel_detector import Mog2ChannelDetector
 from .feeder_analysis_thread import FeederAnalysisThread
 from .classification_analysis_thread import ClassificationAnalysisThread
+from .diff_configs import CarouselDiffConfig, ClassificationDiffConfig, DEFAULT_CAROUSEL_DIFF_CONFIG, DEFAULT_CLASSIFICATION_DIFF_CONFIG
 
 TELEMETRY_INTERVAL_S = 30
 FRAME_ENCODE_INTERVAL_MS = 100
@@ -66,7 +67,7 @@ class VisionManager:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
         self._feeder_detector: Mog2ChannelDetector | None = None
-        self._carousel_heatmap = HeatmapDiff()
+        self._carousel_heatmap: HeatmapDiff = HeatmapDiff()  # overwritten after configs set
 
         self._channel_polygons: Dict[str, np.ndarray] = {}
         self._channel_angles: Dict[str, float] = {}
@@ -81,6 +82,9 @@ class VisionManager:
         self._classification_mask_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
         self._loadClassificationPolygons()
+        self._carousel_diff_config: CarouselDiffConfig = DEFAULT_CAROUSEL_DIFF_CONFIG
+        self._diff_config: ClassificationDiffConfig = DEFAULT_CLASSIFICATION_DIFF_CONFIG
+        self._carousel_heatmap = self._makeCarouselHeatmap()
 
         self._classification_top_heatmap: HeatmapDiff | None = None
         self._classification_bottom_heatmap: HeatmapDiff | None = None
@@ -194,15 +198,41 @@ class VisionManager:
         self.gc.logger.info("Feeder MOG2 detection initialized")
         return True
 
+    def _makeCarouselHeatmap(self) -> HeatmapDiff:
+        c = self._carousel_diff_config
+        return HeatmapDiff(
+            pixel_thresh=c.pixel_thresh,
+            blur_kernel=c.blur_kernel,
+            min_hot_pixels=c.min_hot_pixels,
+            trigger_score=c.trigger_score,
+            min_contour_area=c.min_contour_area,
+            min_hot_thickness_px=c.min_hot_thickness_px,
+            max_contour_aspect=c.max_contour_aspect,
+            heat_gain=c.heat_gain,
+            current_frames=c.current_frames,
+        )
+
+    def _makeClassificationHeatmap(self) -> HeatmapDiff:
+        c = self._diff_config
+        return HeatmapDiff(
+            scale=0.25,
+            gc=self.gc,
+            pixel_thresh=c.pixel_thresh,
+            blur_kernel=c.blur_kernel,
+            min_hot_pixels=c.min_hot_pixels,
+            trigger_score=c.trigger_score,
+            min_contour_area=c.min_contour_area,
+            min_hot_thickness_px=c.min_hot_thickness_px,
+            max_contour_aspect=c.max_contour_aspect,
+            heat_gain=c.heat_gain,
+            current_frames=c.current_frames,
+        )
+
     def loadClassificationBaseline(self) -> bool:
         from blob_manager import BLOB_DIR
         import glob as globmod
 
-        ENVELOPE_MARGIN = 9
-        ADAPTIVE_STD_K = 0.5
-        CLASSIFICATION_MAX_CONTOUR_ASPECT = 10.0
-        CLASSIFICATION_MIN_BBOX_DIM = 20
-        CLASSIFICATION_MIN_BBOX_AREA = 0
+        cfg = self._diff_config
 
         baseline_dir = BLOB_DIR / "classification_baseline"
         loaded_any = False
@@ -240,15 +270,15 @@ class VisionManager:
                     baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
                     calibration_frames = [cv2.resize(f, (cam_w, cam_h), interpolation=cv2.INTER_AREA) for f in calibration_frames]
 
-            if len(calibration_frames) >= 2 and ADAPTIVE_STD_K > 0:
+            if len(calibration_frames) >= 2 and cfg.adaptive_std_k > 0:
                 stddev = np.std(np.stack(calibration_frames, axis=0).astype(np.float32), axis=0)
-                adaptive_margin = np.clip(stddev * ADAPTIVE_STD_K, 0, 100).astype(np.uint8)
+                adaptive_margin = np.clip(stddev * cfg.adaptive_std_k, 0, 100).astype(np.uint8)
                 baseline_min = np.clip(baseline_min.astype(np.int16) - adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
                 baseline_max = np.clip(baseline_max.astype(np.int16) + adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
 
-            if ENVELOPE_MARGIN > 0:
-                baseline_min = np.clip(baseline_min.astype(np.int16) - ENVELOPE_MARGIN, 0, 255).astype(np.uint8)
-                baseline_max = np.clip(baseline_max.astype(np.int16) + ENVELOPE_MARGIN, 0, 255).astype(np.uint8)
+            if cfg.envelope_margin > 0:
+                baseline_min = np.clip(baseline_min.astype(np.int16) - cfg.envelope_margin, 0, 255).astype(np.uint8)
+                baseline_max = np.clip(baseline_max.astype(np.int16) + cfg.envelope_margin, 0, 255).astype(np.uint8)
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
@@ -260,7 +290,7 @@ class VisionManager:
             mx, my, mw, mh = cv2.boundingRect(mask)
             self._classification_mask_bboxes[cam_key] = (mx, my, mx + mw, my + mh)
 
-            heatmap = HeatmapDiff(scale=0.25, gc=self.gc, max_contour_aspect_ratio=CLASSIFICATION_MAX_CONTOUR_ASPECT)
+            heatmap = self._makeClassificationHeatmap()
             heatmap.loadEnvelope(baseline_min, baseline_max, mask)
 
             if cam_key == "top":
@@ -271,8 +301,8 @@ class VisionManager:
                     get_gray=self._getLatestClassificationTopGray,
                     profiler=self.gc.profiler,
                     logger=self.gc.logger,
-                    min_bbox_dimension_px=CLASSIFICATION_MIN_BBOX_DIM,
-                    min_bbox_area_px=CLASSIFICATION_MIN_BBOX_AREA,
+                    min_bbox_dimension_px=cfg.min_bbox_dim,
+                    min_bbox_area_px=cfg.min_bbox_area,
                 )
                 self._classification_top_analysis.start()
             else:
@@ -283,12 +313,12 @@ class VisionManager:
                     get_gray=self._getLatestClassificationBottomGray,
                     profiler=self.gc.profiler,
                     logger=self.gc.logger,
-                    min_bbox_dimension_px=CLASSIFICATION_MIN_BBOX_DIM,
-                    min_bbox_area_px=CLASSIFICATION_MIN_BBOX_AREA,
+                    min_bbox_dimension_px=cfg.min_bbox_dim,
+                    min_bbox_area_px=cfg.min_bbox_area,
                 )
                 self._classification_bottom_analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={ENVELOPE_MARGIN}, adaptive_k={ADAPTIVE_STD_K}, {len(calibration_frames)} cal frames)")
+            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
             loaded_any = True
 
         return loaded_any
@@ -485,7 +515,7 @@ class VisionManager:
             my2 = min(fh, bbox[3] + margins[3])
             cv2.rectangle(annotated, (mx1, my1), (mx2, my2), (0, 200, 255), 2, cv2.LINE_AA)
             bias_parts = []
-            base = self.gc.classification_bbox_margin_px
+            base = self._diff_config.crop_margin_px
             for side, val in zip(["L", "T", "R", "B"], margins):
                 if val != base:
                     bias_parts.append(f"{side}:{val}")
@@ -594,9 +624,10 @@ class VisionManager:
 
     def _edgeBiasedMargins(self, bbox: Tuple[int, int, int, int],
                            mask_key: str) -> Tuple[int, int, int, int]:
-        base = self.gc.classification_bbox_margin_px
-        mult = self.gc.classification_edge_bias_mult
-        threshold = self.gc.classification_edge_bias_threshold_px
+        cfg = self._diff_config
+        base = cfg.crop_margin_px
+        mult = cfg.edge_bias_mult
+        threshold = cfg.edge_bias_threshold_px
         mask_bbox = self._classification_mask_bboxes.get(mask_key)
         if mask_bbox is None or threshold <= 0:
             return (base, base, base, base)

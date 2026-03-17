@@ -79,7 +79,7 @@ def main() -> int:
     irl = mkIRLInterface(irl_config, gc)
     irl.enableSteppers()
 
-    vision = VisionManager(irl_config, gc)
+    vision = VisionManager(irl_config, gc, irl)
     vision.start()
 
     print("waiting for camera frame...")

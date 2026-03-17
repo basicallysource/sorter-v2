@@ -104,7 +104,7 @@ def main() -> None:
     irl.chute.home()
 
     telemetry = Telemetry(gc)
-    vision = VisionManager(irl_config, gc)
+    vision = VisionManager(irl_config, gc, irl)
     vision.setTelemetry(telemetry)
     setVisionManager(vision)
     controller = SorterController(

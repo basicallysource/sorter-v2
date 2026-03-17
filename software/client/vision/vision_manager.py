@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from global_config import GlobalConfig, RegionProviderType
-from irl.config import IRLConfig
+from irl.config import IRLConfig, IRLInterface
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.channel import ChannelDetection
 from blob_manager import VideoRecorder, getClassificationPolygons
@@ -33,9 +33,10 @@ class VisionManager:
     _video_recorder: Optional[VideoRecorder]
     _region_provider: Union[ArucoRegionProvider, DefaultRegionProvider, HanddrawnRegionProvider]
 
-    def __init__(self, irl_config: IRLConfig, gc: GlobalConfig):
+    def __init__(self, irl_config: IRLConfig, gc: GlobalConfig, irl: IRLInterface):
         self.gc = gc
         self._irl_config = irl_config
+        self._irl = irl
         self._feeder_camera_config = irl_config.feeder_camera
         self._disabled_cameras = set(gc.disable_video_streams)
 
@@ -165,10 +166,22 @@ class VisionManager:
             channel_masks[key] = ch_mask
         self._channel_masks = channel_masks
 
+        channel_steppers = {
+            "second_channel": self._irl.second_c_channel_rotor_stepper,
+            "third_channel": self._irl.third_c_channel_rotor_stepper,
+        }
+
+        def is_channel_rotating(name: str) -> bool:
+            stepper = channel_steppers.get(name)
+            if stepper is None:
+                return False
+            return not stepper.stopped
+
         self._feeder_detector = Mog2ChannelDetector(
             channel_polygons=polys,
             channel_masks=channel_masks,
             channel_angles=self._channel_angles,
+            is_channel_rotating=is_channel_rotating,
         )
 
         self._feeder_analysis = FeederAnalysisThread(

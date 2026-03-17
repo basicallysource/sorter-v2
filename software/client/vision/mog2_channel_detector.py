@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import cv2
 import numpy as np
@@ -42,11 +42,13 @@ class Mog2ChannelDetector:
         channel_polygons: Dict[str, np.ndarray],
         channel_masks: Dict[str, np.ndarray],
         channel_angles: Dict[str, float],
+        is_channel_rotating: Callable[[str], bool],
     ):
         self._channels: Dict[str, _ChannelMog2] = {}
         self._combined_mask: np.ndarray | None = None
         self._last_fg: np.ndarray | None = None
         self._last_detections: List[ChannelDetection] = []
+        self._is_channel_rotating = is_channel_rotating
 
         for key, polygon in channel_polygons.items():
             if len(polygon) < 3:
@@ -75,7 +77,8 @@ class Mog2ChannelDetector:
         fg_combined = np.zeros(gray.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
-            fg_raw = ch.mog2.apply(blurred, learningRate=LEARNING_RATE)
+            lr = LEARNING_RATE if self._is_channel_rotating(ch.name) else 0.0
+            fg_raw = ch.mog2.apply(blurred, learningRate=lr)
             fg_masked = cv2.bitwise_and(fg_raw, ch.mask)
             fg_clean = cv2.morphologyEx(fg_masked, cv2.MORPH_OPEN, kernel)
             fg_clean = cv2.morphologyEx(fg_clean, cv2.MORPH_CLOSE, kernel)

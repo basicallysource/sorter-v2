@@ -46,6 +46,7 @@ class Mog2ChannelDetector:
         self._channels: Dict[str, _ChannelMog2] = {}
         self._combined_mask: np.ndarray | None = None
         self._last_fg: np.ndarray | None = None
+        self._last_detections: List[ChannelDetection] = []
 
         for key, polygon in channel_polygons.items():
             if len(polygon) < 3:
@@ -92,6 +93,7 @@ class Mog2ChannelDetector:
                 ))
 
         self._last_fg = fg_combined
+        self._last_detections = detections
         return detections
 
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
@@ -128,6 +130,10 @@ class Mog2ChannelDetector:
             label = f"feeder fg_px: {hot_count}"
             cv2.putText(out, label, (30, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+        for det in self._last_detections:
+            x1, y1, x2, y2 = det.bbox
+            cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         for ch in self._channels.values():
             ch_color = CHANNEL_COLORS.get(ch.name, (200, 200, 200))

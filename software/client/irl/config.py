@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from global_config import GlobalConfig
-from hardware.bus import MCUBus
+from hardware.bus import MCUBus, MCUBusError
 from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
 
@@ -30,11 +30,19 @@ STEPPER_CURRENT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "stepper_
 
 def loadStepperCurrentOverrides(gc: GlobalConfig) -> dict[str, tuple[int, int, int]]:
     if not STEPPER_CURRENT_CONFIG_PATH.exists():
+        gc.logger.info(
+            f"Optional stepper current override file not found at {STEPPER_CURRENT_CONFIG_PATH}; using firmware default stepper currents."
+        )
         return {}
 
     try:
         with open(STEPPER_CURRENT_CONFIG_PATH, "r") as f:
             raw = json.load(f)
+    except FileNotFoundError:
+        gc.logger.info(
+            f"Optional stepper current override file not found at {STEPPER_CURRENT_CONFIG_PATH}; using firmware default stepper currents."
+        )
+        return {}
     except Exception as e:
         gc.logger.warning(
             f"Failed to load optional stepper current config at {STEPPER_CURRENT_CONFIG_PATH}: {e}. Using defaults."
@@ -99,7 +107,14 @@ def applyStepperCurrentOverride(
         return
 
     irun, ihold, ihold_delay = override
-    stepper.set_current(irun, ihold, ihold_delay)
+    try:
+        stepper.set_current(irun, ihold, ihold_delay)
+    except (MCUBusError, OSError) as e:
+        gc.logger.warning(
+            f"Failed to apply optional current override for '{stepper_name}' (IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing with firmware defaults."
+        )
+        return
+
     gc.logger.info(
         f"Stepper '{stepper_name}' current override applied: IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
     )

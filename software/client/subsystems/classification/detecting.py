@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from vision import VisionManager
 
 WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS = 0
-DEBOUNCE_MS = 50
+DEBOUNCE_MS = 0
 
 
 class Detecting(BaseState):

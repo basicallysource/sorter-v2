@@ -125,9 +125,9 @@ class FeederConfig:
             delay_between_ms=250,
         )
         self.third_rotor_precision = RotorPulseConfig(
-            steps=200,
+            steps=100,
             microsteps_per_second=2000,
-            delay_between_ms=350,
+            delay_between_ms=500,
         )
 
 

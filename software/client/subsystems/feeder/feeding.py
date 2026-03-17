@@ -97,8 +97,8 @@ class Feeding(BaseState):
                     self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
-                # channel 3 — hold if piece is in precise zone and carousel not ready
-                ch3_held = ch3_action == ChannelAction.PULSE_PRECISE and not self.shared.classification_ready
+                # channel 3 — hold all pulses if carousel not ready to receive
+                ch3_held = not self.shared.classification_ready
                 if ch3_held:
                     prof.hit("feeder.skip.ch3_held_for_carousel")
                 elif ch3_action == ChannelAction.PULSE_PRECISE:

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
 ROTATE_DURATION_MS = 3000
+PRE_ROTATE_DELAY_MS = 250
 
 
 class Rotating(BaseState):
@@ -30,6 +31,7 @@ class Rotating(BaseState):
         self.carousel = carousel
         self.stepper = stepper
         self.event_queue = event_queue
+        self.entered_at: Optional[float] = None
         self.start_time: Optional[float] = None
         self.command_sent = False
         self.wait_started_at: Optional[float] = None
@@ -70,7 +72,13 @@ class Rotating(BaseState):
             self.wait_started_at = None
             self.last_wait_log_ms = 0.0
 
+        if self.entered_at is None:
+            self.entered_at = time.time()
+
         if self.start_time is None:
+            elapsed_since_entry_ms = (time.time() - self.entered_at) * 1000
+            if elapsed_since_entry_ms < PRE_ROTATE_DELAY_MS:
+                return None
             self.start_time = time.time()
             self.logger.info("Rotating: starting rotation")
             self.stepper.move_degrees(-90.0)
@@ -104,6 +112,7 @@ class Rotating(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
+        self.entered_at = None
         self.start_time = None
         self.command_sent = False
         self.wait_started_at = None

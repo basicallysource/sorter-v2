@@ -78,6 +78,7 @@ class VisionManager:
         self._cached_feeder_frame_ts: float = 0.0
 
         self._classification_masks: Dict[str, np.ndarray] = {}
+        self._classification_mask_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
         self._loadClassificationPolygons()
 
@@ -195,6 +196,13 @@ class VisionManager:
 
     def loadClassificationBaseline(self) -> bool:
         from blob_manager import BLOB_DIR
+        import glob as globmod
+
+        ENVELOPE_MARGIN = 9
+        ADAPTIVE_STD_K = 0.5
+        CLASSIFICATION_MAX_CONTOUR_ASPECT = 10.0
+        CLASSIFICATION_MIN_BBOX_DIM = 20
+        CLASSIFICATION_MIN_BBOX_AREA = 0
 
         baseline_dir = BLOB_DIR / "classification_baseline"
         loaded_any = False
@@ -214,6 +222,12 @@ class VisionManager:
                 self.gc.logger.warn(f"Failed to read classification {cam_key} baseline images.")
                 continue
 
+            calibration_frames: List[np.ndarray] = []
+            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_*.png"))):
+                gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+                if gray is not None:
+                    calibration_frames.append(gray)
+
             frame = capture.latest_frame
             if frame is not None:
                 cam_h, cam_w = frame.raw.shape[:2]
@@ -224,6 +238,17 @@ class VisionManager:
                     )
                     baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
                     baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+                    calibration_frames = [cv2.resize(f, (cam_w, cam_h), interpolation=cv2.INTER_AREA) for f in calibration_frames]
+
+            if len(calibration_frames) >= 2 and ADAPTIVE_STD_K > 0:
+                stddev = np.std(np.stack(calibration_frames, axis=0).astype(np.float32), axis=0)
+                adaptive_margin = np.clip(stddev * ADAPTIVE_STD_K, 0, 100).astype(np.uint8)
+                baseline_min = np.clip(baseline_min.astype(np.int16) - adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
+                baseline_max = np.clip(baseline_max.astype(np.int16) + adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
+
+            if ENVELOPE_MARGIN > 0:
+                baseline_min = np.clip(baseline_min.astype(np.int16) - ENVELOPE_MARGIN, 0, 255).astype(np.uint8)
+                baseline_max = np.clip(baseline_max.astype(np.int16) + ENVELOPE_MARGIN, 0, 255).astype(np.uint8)
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
@@ -232,8 +257,10 @@ class VisionManager:
                 cv2.fillPoly(mask, [scaled], 255)
             else:
                 mask = np.ones(baseline_min.shape[:2], dtype=np.uint8) * 255
+            mx, my, mw, mh = cv2.boundingRect(mask)
+            self._classification_mask_bboxes[cam_key] = (mx, my, mx + mw, my + mh)
 
-            heatmap = HeatmapDiff(scale=0.25, gc=self.gc)
+            heatmap = HeatmapDiff(scale=0.25, gc=self.gc, max_contour_aspect_ratio=CLASSIFICATION_MAX_CONTOUR_ASPECT)
             heatmap.loadEnvelope(baseline_min, baseline_max, mask)
 
             if cam_key == "top":
@@ -244,6 +271,8 @@ class VisionManager:
                     get_gray=self._getLatestClassificationTopGray,
                     profiler=self.gc.profiler,
                     logger=self.gc.logger,
+                    min_bbox_dimension_px=CLASSIFICATION_MIN_BBOX_DIM,
+                    min_bbox_area_px=CLASSIFICATION_MIN_BBOX_AREA,
                 )
                 self._classification_top_analysis.start()
             else:
@@ -254,10 +283,12 @@ class VisionManager:
                     get_gray=self._getLatestClassificationBottomGray,
                     profiler=self.gc.profiler,
                     logger=self.gc.logger,
+                    min_bbox_dimension_px=CLASSIFICATION_MIN_BBOX_DIM,
+                    min_bbox_area_px=CLASSIFICATION_MIN_BBOX_AREA,
                 )
                 self._classification_bottom_analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded")
+            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={ENVELOPE_MARGIN}, adaptive_k={ADAPTIVE_STD_K}, {len(calibration_frames)} cal frames)")
             loaded_any = True
 
         return loaded_any
@@ -443,6 +474,25 @@ class VisionManager:
             return frame
         annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
         annotated = heatmap.annotateFrame(annotated, label=f"class_{cam}", text_y=30)
+
+        bbox = self.getClassificationCombinedBbox(cam)
+        if bbox is not None:
+            margins = self._edgeBiasedMargins(bbox, cam)
+            fh, fw = annotated.shape[:2]
+            mx1 = max(0, bbox[0] - margins[0])
+            my1 = max(0, bbox[1] - margins[1])
+            mx2 = min(fw, bbox[2] + margins[2])
+            my2 = min(fh, bbox[3] + margins[3])
+            cv2.rectangle(annotated, (mx1, my1), (mx2, my2), (0, 200, 255), 2, cv2.LINE_AA)
+            bias_parts = []
+            base = self.gc.classification_bbox_margin_px
+            for side, val in zip(["L", "T", "R", "B"], margins):
+                if val != base:
+                    bias_parts.append(f"{side}:{val}")
+            bias_label = f"  ({', '.join(bias_parts)})" if bias_parts else ""
+            cv2.putText(annotated, f"crop +{base}px{bias_label}", (mx1, my1 - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 1)
+
         return CameraFrame(
             raw=frame.raw,
             annotated=annotated,
@@ -532,14 +582,38 @@ class VisionManager:
         result = np.where(mask[:, :, np.newaxis] == 255, frame, white)
         return result
 
-    def _cropToBbox(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
+    def _cropToBbox(self, frame: np.ndarray, bbox: Tuple[int, int, int, int],
+                    margins: Tuple[int, int, int, int]) -> np.ndarray:
         x1, y1, x2, y2 = bbox
         h, w = frame.shape[:2]
-        x1 = max(0, min(x1, w))
-        y1 = max(0, min(y1, h))
-        x2 = max(0, min(x2, w))
-        y2 = max(0, min(y2, h))
+        x1 = max(0, min(x1 - margins[0], w))
+        y1 = max(0, min(y1 - margins[1], h))
+        x2 = max(0, min(x2 + margins[2], w))
+        y2 = max(0, min(y2 + margins[3], h))
         return frame[y1:y2, x1:x2]
+
+    def _edgeBiasedMargins(self, bbox: Tuple[int, int, int, int],
+                           mask_key: str) -> Tuple[int, int, int, int]:
+        base = self.gc.classification_bbox_margin_px
+        mult = self.gc.classification_edge_bias_mult
+        threshold = self.gc.classification_edge_bias_threshold_px
+        mask_bbox = self._classification_mask_bboxes.get(mask_key)
+        if mask_bbox is None or threshold <= 0:
+            return (base, base, base, base)
+        distances = (
+            bbox[0] - mask_bbox[0],
+            bbox[1] - mask_bbox[1],
+            mask_bbox[2] - bbox[2],
+            mask_bbox[3] - bbox[3],
+        )
+        result: list[int] = []
+        for dist in distances:
+            if dist >= threshold:
+                result.append(base)
+            else:
+                proximity = 1.0 - (max(0, dist) / threshold)
+                result.append(int(base * (1.0 + (mult - 1.0) * proximity)))
+        return (result[0], result[1], result[2], result[3])
 
     def getClassificationCrops(
         self, timeout_s: float = 1.0
@@ -550,17 +624,15 @@ class VisionManager:
         if top_frame is not None:
             bbox = self.getClassificationCombinedBbox("top")
             if bbox is not None:
-                top_crop = self._cropToBbox(top_frame.raw, bbox)
-            else:
-                top_crop = self._maskToRegion(top_frame.raw, "top")
+                margins = self._edgeBiasedMargins(bbox, "top")
+                top_crop = self._cropToBbox(top_frame.raw, bbox, margins)
 
         bottom_crop: np.ndarray | None = None
         if bottom_frame is not None:
             bbox = self.getClassificationCombinedBbox("bottom")
             if bbox is not None:
-                bottom_crop = self._cropToBbox(bottom_frame.raw, bbox)
-            else:
-                bottom_crop = self._maskToRegion(bottom_frame.raw, "bottom")
+                margins = self._edgeBiasedMargins(bbox, "bottom")
+                bottom_crop = self._cropToBbox(bottom_frame.raw, bbox, margins)
 
         return (top_crop, bottom_crop)
 

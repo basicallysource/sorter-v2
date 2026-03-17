@@ -36,7 +36,8 @@ def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
 
 
 class HeatmapDiff:
-    def __init__(self, scale: float = 1.0, gc: Optional["GlobalConfig"] = None):
+    def __init__(self, scale: float = 1.0, gc: Optional["GlobalConfig"] = None,
+                 max_contour_aspect_ratio: Optional[float] = None):
         self._gc = gc
         self._baseline_gray: Optional[np.ndarray] = None
         self._baseline_min: Optional[np.ndarray] = None
@@ -49,6 +50,7 @@ class HeatmapDiff:
         self._scale = scale
         self._full_size: Optional[Tuple[int, int]] = None
         self._cached_result: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None
+        self._max_contour_aspect_ratio = max_contour_aspect_ratio
 
     @property
     def has_baseline(self) -> bool:
@@ -206,7 +208,8 @@ class HeatmapDiff:
             mar_short = min(mar_w, mar_h)
             mar_long = max(mar_w, mar_h)
             mar_aspect = mar_long / mar_short if mar_short > 0 else 999.0
-            if mar_aspect > MAX_CONTOUR_ASPECT_RATIO:
+            max_aspect = self._max_contour_aspect_ratio if self._max_contour_aspect_ratio is not None else MAX_CONTOUR_ASPECT_RATIO
+            if mar_aspect > max_aspect:
                 continue
             cv2.drawContours(hot, [contour], -1, 255, -1)
 

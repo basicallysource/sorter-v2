@@ -9,7 +9,7 @@ from global_config import GlobalConfig
 from utils.event import knownObjectToEvent
 from defs.known_object import PieceStage
 
-CHUTE_SETTLE_MS = 500
+CHUTE_SETTLE_MS = 1500
 
 
 class Sending(BaseState):
@@ -36,6 +36,7 @@ class Sending(BaseState):
         if elapsed_ms < CHUTE_SETTLE_MS:
             return None
 
+        self.logger.info(f"Sending: settle complete ({elapsed_ms:.0f}ms)")
         if self.piece:
             self.piece.stage = PieceStage.distributed
             self.piece.distributed_at = time.time()

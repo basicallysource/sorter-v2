@@ -45,7 +45,10 @@ class Snapping(BaseState):
 
     def step(self) -> Optional[ClassificationState]:
         if not self.snapped:
+            snap_start = time.time()
             self._captureAndClassify()
+            snap_ms = (time.time() - snap_start) * 1000
+            self.logger.info(f"Snapping: capture+classify took {snap_ms:.0f}ms")
             self.snapped = True
 
         return ClassificationState.IDLE

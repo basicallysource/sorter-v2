@@ -13,11 +13,6 @@ from blob_manager import setBinCategories
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
-POSITION_BUFFER_MS = 5000
-SLEEP_AFTER_CLOSE_DOOR_MS = 1500
-SLEEP_BEFORE_CHUTE_MOVE_MS = 5000
-
-
 class Positioning(BaseState):
     def __init__(
         self,
@@ -36,13 +31,16 @@ class Positioning(BaseState):
         self.sorting_profile = sorting_profile
         self.event_queue = event_queue
         self._phase: str = "init"
-        self._phase_started_at: float = 0.0
         self._target_address: BinAddress | None = None
+        self._door_servo_index: int | None = None
+        self._state_entered_at: float = 0.0
+        self._moving_started_at: float = 0.0
 
     def step(self) -> Optional[DistributionState]:
         now = time.monotonic()
 
         if self._phase == "init":
+            self._state_entered_at = now
             carousel = self.shared.carousel
             piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
@@ -75,30 +73,23 @@ class Positioning(BaseState):
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self._selectDoor(address.layer_index)
+            self._door_servo_index = address.layer_index
             self._target_address = address
-
-            if SLEEP_BEFORE_CHUTE_MOVE_MS > 0:
-                self.logger.info(
-                    f"Positioning: waiting {SLEEP_BEFORE_CHUTE_MOVE_MS}ms before chute move"
-                )
-                self._phase = "waiting_before_move"
-                self._phase_started_at = now
-            else:
-                self._startChuteMove()
-            return None
-
-        if self._phase == "waiting_before_move":
-            elapsed_ms = (now - self._phase_started_at) * 1000
-            if elapsed_ms < SLEEP_BEFORE_CHUTE_MOVE_MS:
-                return None
             self._startChuteMove()
+            self._moving_started_at = now
+            init_ms = (now - self._state_entered_at) * 1000
+            self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
             return None
 
         if self._phase == "moving":
-            if not self.chute.stepper.stopped:
+            chute_stopped = self.chute.stepper.stopped
+            servo_stopped = self.irl.servos[self._door_servo_index].stopped if self._door_servo_index is not None else True
+            if not chute_stopped or not servo_stopped:
                 return None
             self.shared.chute_move_in_progress = False
-            self.logger.info("Positioning: complete, ready for drop")
+            move_ms = (now - self._moving_started_at) * 1000
+            total_ms = (now - self._state_entered_at) * 1000
+            self.logger.info(f"Positioning: complete (servo+chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
             return DistributionState.READY
 
         return None
@@ -115,8 +106,10 @@ class Positioning(BaseState):
     def cleanup(self) -> None:
         super().cleanup()
         self._phase = "init"
-        self._phase_started_at = 0.0
         self._target_address = None
+        self._door_servo_index = None
+        self._state_entered_at = 0.0
+        self._moving_started_at = 0.0
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
@@ -127,7 +120,6 @@ class Positioning(BaseState):
                     servo.open()
 
         target_servo.close()
-        time.sleep(SLEEP_AFTER_CLOSE_DOOR_MS / 1000.0)
 
     def _findOrAssignBinForCategory(
         self, category_id: str

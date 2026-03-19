@@ -1,3 +1,4 @@
+import os
 import time
 import json
 from pathlib import Path
@@ -25,33 +26,33 @@ from .bin_layout import (
 from blob_manager import getBinCategories, getCameraSetup
 
 
-STEPPER_CURRENT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "stepper_current_overrides.json"
-
-
 def loadStepperCurrentOverrides(gc: GlobalConfig) -> dict[str, tuple[int, int, int]]:
-    if not STEPPER_CURRENT_CONFIG_PATH.exists():
+    current_override_env_path = os.getenv("STEPPER_CURRENT_OVERRIDES_PATH")
+    if not current_override_env_path:
         gc.logger.info(
-            f"Optional stepper current override file not found at {STEPPER_CURRENT_CONFIG_PATH}; using firmware default stepper currents."
+            "No STEPPER_CURRENT_OVERRIDES_PATH set; using firmware default stepper currents."
+        )
+        return {}
+
+    stepper_current_config_path = Path(current_override_env_path).expanduser()
+    if not stepper_current_config_path.exists():
+        gc.logger.warning(
+            f"STEPPER_CURRENT_OVERRIDES_PATH is set to '{stepper_current_config_path}', but file does not exist. Using firmware defaults."
         )
         return {}
 
     try:
-        with open(STEPPER_CURRENT_CONFIG_PATH, "r") as f:
+        with open(stepper_current_config_path, "r") as f:
             raw = json.load(f)
-    except FileNotFoundError:
-        gc.logger.info(
-            f"Optional stepper current override file not found at {STEPPER_CURRENT_CONFIG_PATH}; using firmware default stepper currents."
-        )
-        return {}
     except Exception as e:
         gc.logger.warning(
-            f"Failed to load optional stepper current config at {STEPPER_CURRENT_CONFIG_PATH}: {e}. Using defaults."
+            f"Failed to load optional stepper current config at {stepper_current_config_path}: {e}. Using defaults."
         )
         return {}
 
     if not isinstance(raw, dict):
         gc.logger.warning(
-            f"Stepper current config at {STEPPER_CURRENT_CONFIG_PATH} must be a JSON object. Using defaults."
+            f"Stepper current config at {stepper_current_config_path} must be a JSON object. Using defaults."
         )
         return {}
 

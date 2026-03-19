@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from blob_manager import getCameraSetup, setCameraSetup
 
 MAX_INDEX = 10
+WARMUP_FRAMES = 5
 
 ROLES = {
     ord("f"): "feeder",
@@ -28,10 +29,19 @@ MENU_LINES = [
 
 def main():
     caps = []
+    stderr_fd = sys.stderr.fileno()
     for i in range(MAX_INDEX):
+        old_stderr = os.dup(stderr_fd)
+        os.dup2(os.open(os.devnull, os.O_WRONLY), stderr_fd)
         cap = cv2.VideoCapture(i)
+        os.dup2(old_stderr, stderr_fd)
+        os.close(old_stderr)
         if cap.isOpened():
-            ret, _ = cap.read()
+            ret = False
+            for _ in range(WARMUP_FRAMES):
+                ret, _ = cap.read()
+                if ret:
+                    break
             if ret:
                 caps.append((i, cap))
                 continue

@@ -7,6 +7,7 @@ Run from /software/client: uv run python scripts/test_classification_diff.py
 Then open http://localhost:8099 in a browser.
 """
 
+import os
 import sys
 import time
 import threading
@@ -35,6 +36,7 @@ DEGREES_PER_STEP = -90
 DEGREES_BACKOFF = 0
 BACKOFF_SPEED = 50
 SCALE = 0.25
+RECORDINGS_DIR = "recordings_diff"
 
 ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k", "mask_erode_px"}
 
@@ -113,6 +115,7 @@ class AppState:
             "crop_margin_px": float(_cfg.crop_margin_px),
             "edge_bias_mult": float(_cfg.edge_bias_mult),
             "edge_bias_threshold_px": float(_cfg.edge_bias_threshold_px),
+            "bbox_diff_thresh": 0.0,
             # script-only
             "mask_erode_px": 0.0,
         }
@@ -120,21 +123,34 @@ class AppState:
 
         self._rebuildHeatmap()
         self._running = True
+        self._recording = False
+        self._record_writer: cv2.VideoWriter | None = None
+        self._record_path: str | None = None
+        self._replay_mode = False
+        self._replay_cap: cv2.VideoCapture | None = None
+        self._replay_idx = 0
+        self._replay_total = 0
+        self._replay_paused = False
+        self._replay_speed = 1
+        self._last_replay_out: np.ndarray | None = None
+        self._replay_lock = threading.Lock()
+        self._params_version = 0
+        self._replay_params_ver = 0
         self._thread = threading.Thread(target=self._feedLoop, daemon=True)
         self._thread.start()
 
     def _applyModuleConstants(self) -> None:
-        import vision.heatmap_diff as hd_mod
         p = self.params
-        hd_mod.PIXEL_THRESH = int(p["pixel_thresh"])
-        hd_mod.BLUR_KERNEL = int(p["blur_kernel"])
-        hd_mod.MIN_HOT_PIXELS = int(p["min_hot_pixels"])
-        hd_mod.TRIGGER_SCORE = int(p["trigger_score"])
-        hd_mod.MIN_CONTOUR_AREA = int(p["min_contour_area"])
-        hd_mod.MIN_HOT_THICKNESS_PIXELS = int(p["min_hot_thickness"])
-        hd_mod.MAX_CONTOUR_ASPECT_RATIO = float(p["max_contour_aspect"])
-        hd_mod.HEAT_GAIN = float(p["heat_gain"])
-        hd_mod.CURRENT_FRAMES = int(p["current_frames"])
+        h = self.heatmap
+        h._pixel_thresh = int(p["pixel_thresh"])
+        h._blur_kernel = int(p["blur_kernel"])
+        h._min_hot_pixels = int(p["min_hot_pixels"])
+        h._trigger_score = int(p["trigger_score"])
+        h._min_contour_area = int(p["min_contour_area"])
+        h._min_hot_thickness_px = int(p["min_hot_thickness"])
+        h._max_contour_aspect = float(p["max_contour_aspect"])
+        h._heat_gain = float(p["heat_gain"])
+        h._current_frames = int(p["current_frames"])
 
     def _rebuildEnvelope(self) -> None:
         p = self.params
@@ -164,8 +180,8 @@ class AppState:
         self.heatmap.loadEnvelope(bl_min, bl_max, mask)
 
     def _rebuildHeatmap(self) -> None:
-        self._applyModuleConstants()
         self._rebuildEnvelope()
+        self._applyModuleConstants()
 
     def _feedLoop(self) -> None:
         while self._running:
@@ -173,6 +189,9 @@ class AppState:
             if frame is not None:
                 gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
                 self.heatmap.pushFrame(gray)
+                with self.lock:
+                    if self._recording and self._record_writer is not None:
+                        self._record_writer.write(frame.raw)
             time.sleep(0.04)
 
     def _edgeBiasedMargins(
@@ -196,15 +215,11 @@ class AppState:
 
         return (biased(dist_left), biased(dist_top), biased(dist_right), biased(dist_bottom))
 
-    def getAnnotatedFrame(self) -> np.ndarray | None:
-        frame = self.capture.latest_frame
-        if frame is None:
-            return None
-
-        annotated = frame.raw.copy()
+    def _annotate(self, raw: np.ndarray) -> np.ndarray:
+        annotated = raw.copy()
         annotated = self.heatmap.annotateFrame(annotated, label="diff", text_y=50)
 
-        bboxes = self.heatmap.computeBboxes()
+        bboxes = self.heatmap.computeBboxes(diff_thresh=self.params["bbox_diff_thresh"])
         min_dim = int(self.params["min_bbox_dim"])
         min_area = int(self.params["min_bbox_area"])
         filtered = []
@@ -222,7 +237,7 @@ class AppState:
         crop_margin = int(self.params["crop_margin_px"])
         edge_mult = self.params["edge_bias_mult"]
         edge_thresh = int(self.params["edge_bias_threshold_px"])
-        fh, fw = frame.raw.shape[:2]
+        fh, fw = raw.shape[:2]
         mask_x, mask_y, mask_w, mask_h = self._mask_bbox
         for bbox in filtered:
             margins = self._edgeBiasedMargins(bbox, crop_margin, edge_mult, edge_thresh, mask_x, mask_y, mask_x + mask_w, mask_y + mask_h)
@@ -245,10 +260,135 @@ class AppState:
         cv2.putText(annotated, label, (30, 130),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
 
-        cv2.putText(annotated, f"rotations: {self.rotation_count}", (30, 165),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 2)
+        if self._replay_mode:
+            speed_label = "MAX" if self._replay_speed == 0 else f"{self._replay_speed}x"
+            status = "PAUSED" if self._replay_paused else speed_label
+            cv2.putText(annotated, f"REPLAY {self._replay_idx}/{self._replay_total} [{status}]", (30, 165),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 100), 2)
+        else:
+            cv2.putText(annotated, f"rotations: {self.rotation_count}", (30, 165),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 2)
 
         return annotated
+
+    def getAnnotatedFrame(self) -> np.ndarray | None:
+        if self._replay_mode:
+            return self._getReplayFrame()
+        frame = self.capture.latest_frame
+        if frame is None:
+            return None
+        return self._annotate(frame.raw)
+
+    def startRecording(self) -> None:
+        os.makedirs(RECORDINGS_DIR, exist_ok=True)
+        path = os.path.join(RECORDINGS_DIR, f"diff_{int(time.time())}.avi")
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        frame = self.capture.latest_frame
+        h, w = (1080, 1920) if frame is None else frame.raw.shape[:2]
+        self._record_writer = cv2.VideoWriter(path, fourcc, 25.0, (w, h))
+        self._record_path = path
+        self._recording = True
+        print(f"Recording started: {path}")
+
+    def stopRecording(self) -> None:
+        with self.lock:
+            self._recording = False
+            writer = self._record_writer
+            self._record_writer = None
+        if writer is not None:
+            writer.release()
+        print(f"Recording stopped: {self._record_path}")
+
+    def startReplay(self, path: str | None = None) -> bool:
+        target = path or self._record_path
+        if not target or not os.path.exists(target):
+            return False
+        self.stopRecording()
+        with self._replay_lock:
+            self._record_path = target
+            self._replay_cap = cv2.VideoCapture(target)
+            self._replay_total = int(self._replay_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self._replay_idx = 0
+            self._replay_mode = True
+            self._replay_paused = False
+            self._replay_speed = 1
+            self._replay_params_ver = self._params_version
+        print(f"Replay started: {target} ({self._replay_total} frames)")
+        return True
+
+    def stopReplay(self) -> None:
+        with self._replay_lock:
+            self._replay_mode = False
+            self._replay_paused = False
+            cap = self._replay_cap
+            self._replay_cap = None
+        if cap is not None:
+            cap.release()
+        self._rebuildHeatmap()
+        print("Replay stopped")
+
+    def _pushReplayFrame(self, gray: np.ndarray) -> None:
+        self.heatmap._last_ring_time = 0
+        self.heatmap.pushFrame(gray)
+
+    def _seekAndCompute(self, target_idx: int) -> None:
+        cap = self._replay_cap
+        if cap is None:
+            return
+        n_ctx = max(1, int(self.params["current_frames"]))
+        start = max(0, target_idx - n_ctx)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        self._rebuildHeatmap()
+        last_raw = None
+        for i in range(start, target_idx):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            self._pushReplayFrame(gray)
+            last_raw = frame
+        self._replay_idx = target_idx
+        if last_raw is not None:
+            self._last_replay_out = self._annotate(last_raw)
+
+    def seekReplay(self, target_idx: int) -> None:
+        if not self._replay_mode:
+            return
+        with self._replay_lock:
+            target_idx = max(1, min(target_idx, self._replay_total))
+            self._seekAndCompute(target_idx)
+            self._replay_paused = True
+            self._replay_params_ver = self._params_version
+
+    def _getReplayFrame(self) -> np.ndarray | None:
+        if not self._replay_lock.acquire(blocking=False):
+            return self._last_replay_out
+        try:
+            if self._params_version != self._replay_params_ver:
+                self._seekAndCompute(self._replay_idx)
+                self._replay_params_ver = self._params_version
+                return self._last_replay_out
+
+            cap = self._replay_cap
+            if self._replay_paused or cap is None:
+                return self._last_replay_out
+
+            batch = 30 if self._replay_speed == 0 else self._replay_speed
+            out = None
+            for _ in range(batch):
+                ret, frame = cap.read()
+                if not ret:
+                    self._replay_paused = True
+                    break
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                self._pushReplayFrame(gray)
+                self._replay_idx += 1
+                out = self._annotate(frame)
+            if out is not None:
+                self._last_replay_out = out
+            return self._last_replay_out
+        finally:
+            self._replay_lock.release()
 
     def rotateCarousel(self) -> None:
         self.carousel_stepper.move_degrees_blocking(DEGREES_PER_STEP, timeout_ms=15000)
@@ -285,6 +425,16 @@ HTML = """
         button:hover { background: #3b7; }
         button.warn { background: #b63; }
         button.warn:hover { background: #d84; }
+        button.record { background: #900; }
+        button.record.active { background: #f00; }
+        button.replay { background: #06a; }
+        button.replay:hover { background: #08c; }
+        .replay-controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .replay-controls select { padding: 4px 6px; font-size: 12px; background: #222; color: #eee;
+                                   border: 1px solid #555; border-radius: 4px; font-family: monospace; }
+        .scrub-row { display: flex; align-items: center; gap: 6px; }
+        .scrub-row input[type=range] { flex: 1; accent-color: #06a; }
+        .scrub-row span { font-size: 11px; color: #aaa; }
         .section { border-top: 1px solid #333; padding-top: 8px; margin-top: 4px; }
         .section-label { font-size: 11px; color: #666; text-transform: uppercase;
                          letter-spacing: 1px; margin-bottom: 4px; }
@@ -308,6 +458,31 @@ HTML = """
             <button class="warn" onclick="resetParams()">Reset All</button>
             <button onclick="copyParams()">Copy Params</button>
             <span id="copy-status" style="font-size:11px;color:#888;"></span>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Record &amp; Replay</div>
+            <div class="actions">
+                <button id="btn_record" class="record" onclick="toggleRecord()">Record</button>
+            </div>
+            <div class="replay-controls">
+                <select id="recording_select" style="max-width:200px"></select>
+                <button class="replay" id="btn_replay" onclick="startReplay()">Replay</button>
+                <button class="replay" id="btn_stop_replay" onclick="stopReplay()" style="display:none">Stop</button>
+                <button id="btn_pause" onclick="togglePause()" style="display:none">Pause</button>
+                <select id="replay_speed" onchange="setSpeed(this.value)" style="display:none">
+                    <option value="1">1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                    <option value="8">8x</option>
+                    <option value="0">Max</option>
+                </select>
+            </div>
+            <div class="scrub-row" id="scrub_row" style="display:none;margin-top:4px">
+                <input type="range" id="scrub_slider" min="1" max="1" value="1"
+                       oninput="onScrubInput(this.value)" onchange="onScrubChange(this.value)" />
+                <span id="scrub_label">0 / 0</span>
+            </div>
         </div>
 
         <div class="section">
@@ -416,6 +591,14 @@ HTML = """
 
         <div class="section">
             <div class="section-label">BBox Filters &amp; Crop</div>
+            <div class="param">
+                <label>BBox Diff Threshold</label>
+                <div class="row">
+                    <input type="range" min="0" max="40" step="1" data-key="bbox_diff_thresh" />
+                    <span class="val"></span>
+                </div>
+                <span class="desc">Only pixels with diff above this drive bbox shapes (0 = use all hot pixels)</span>
+            </div>
             <div class="param">
                 <label>Min BBox Dimension (px)</label>
                 <div class="row">
@@ -526,7 +709,125 @@ HTML = """
             el.scrollTop = el.scrollHeight;
         }
 
+        async function loadRecordings() {
+            const res = await fetch('/recordings');
+            const data = await res.json();
+            const sel = document.getElementById('recording_select');
+            sel.innerHTML = '';
+            for (const r of data.recordings) {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.textContent = r;
+                sel.appendChild(opt);
+            }
+        }
+
+        async function toggleRecord() {
+            const res = await fetch('/record/toggle', { method: 'POST' });
+            const data = await res.json();
+            const btn = document.getElementById('btn_record');
+            if (data.recording) {
+                btn.classList.add('active');
+                btn.textContent = 'Stop Record';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Record';
+                loadRecordings();
+            }
+        }
+
+        async function startReplay() {
+            const path = document.getElementById('recording_select').value;
+            if (!path) return;
+            const res = await fetch('/replay/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                document.getElementById('btn_replay').style.display = 'none';
+                document.getElementById('btn_stop_replay').style.display = '';
+                document.getElementById('btn_pause').style.display = '';
+                document.getElementById('btn_pause').textContent = 'Pause';
+                document.getElementById('replay_speed').style.display = '';
+                const row = document.getElementById('scrub_row');
+                const slider = document.getElementById('scrub_slider');
+                row.style.display = 'flex';
+                slider.max = data.total_frames;
+                startStatusPoll();
+            }
+        }
+
+        async function stopReplay() {
+            await fetch('/replay/stop', { method: 'POST' });
+            document.getElementById('btn_replay').style.display = '';
+            document.getElementById('btn_stop_replay').style.display = 'none';
+            document.getElementById('btn_pause').style.display = 'none';
+            document.getElementById('replay_speed').style.display = 'none';
+            document.getElementById('scrub_row').style.display = 'none';
+            stopStatusPoll();
+        }
+
+        async function togglePause() {
+            const res = await fetch('/replay/pause', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('btn_pause').textContent = data.paused ? 'Resume' : 'Pause';
+        }
+
+        async function setSpeed(val) {
+            await fetch('/replay/speed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseInt(val) }),
+            });
+        }
+
+        let scrubTimeout = null;
+        let scrubbing = false;
+
+        function onScrubInput(val) {
+            document.getElementById('scrub_label').textContent = val + ' / ' + document.getElementById('scrub_slider').max;
+            scrubbing = true;
+            if (scrubTimeout) clearTimeout(scrubTimeout);
+            scrubTimeout = setTimeout(() => onScrubChange(val), 200);
+        }
+
+        function onScrubChange(val) {
+            scrubbing = false;
+            if (scrubTimeout) clearTimeout(scrubTimeout);
+            scrubTimeout = null;
+            fetch('/replay/seek', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frame: parseInt(val) }),
+            }).then(() => {
+                document.getElementById('btn_pause').textContent = 'Resume';
+            });
+        }
+
+        let statusInterval = null;
+        function startStatusPoll() {
+            if (statusInterval) return;
+            statusInterval = setInterval(async () => {
+                const res = await fetch('/replay/status');
+                const data = await res.json();
+                if (!data.active) { stopStatusPoll(); return; }
+                if (!scrubbing) {
+                    const slider = document.getElementById('scrub_slider');
+                    slider.max = data.total;
+                    slider.value = data.frame;
+                    document.getElementById('scrub_label').textContent = data.frame + ' / ' + data.total;
+                }
+            }, 250);
+        }
+
+        function stopStatusPoll() {
+            if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
+        }
+
         loadParams();
+        loadRecordings();
     </script>
 </body>
 </html>
@@ -547,7 +848,8 @@ def generateFrames():
         _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         yield (b"--frame\r\n"
                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
-        time.sleep(0.033)
+        if not state._replay_mode:
+            time.sleep(0.033)
 
 
 @app.route("/feed")
@@ -577,6 +879,7 @@ def set_params():
     elif needs_constants:
         state._applyModuleConstants()
         state.heatmap._cached_result = None
+    state._params_version += 1
     return jsonify(state.params)
 
 
@@ -608,6 +911,68 @@ def reset_params():
 def rotate():
     state.rotateCarousel()
     return jsonify({"ok": True})
+
+
+@app.route("/record/toggle", methods=["POST"])
+def toggle_record():
+    if state._recording:
+        state.stopRecording()
+    else:
+        state.startRecording()
+    return jsonify({"recording": state._recording, "path": state._record_path})
+
+
+@app.route("/recordings", methods=["GET"])
+def list_recordings():
+    if not os.path.isdir(RECORDINGS_DIR):
+        return jsonify({"recordings": []})
+    files = sorted(globmod.glob(os.path.join(RECORDINGS_DIR, "*.avi")), reverse=True)
+    return jsonify({"recordings": files})
+
+
+@app.route("/replay/start", methods=["POST"])
+def start_replay():
+    data = request.get_json() or {}
+    path = data.get("path")
+    ok = state.startReplay(path)
+    return jsonify({"ok": ok, "total_frames": state._replay_total})
+
+
+@app.route("/replay/stop", methods=["POST"])
+def stop_replay():
+    state.stopReplay()
+    return jsonify({"ok": True})
+
+
+@app.route("/replay/pause", methods=["POST"])
+def pause_replay():
+    state._replay_paused = not state._replay_paused
+    return jsonify({"paused": state._replay_paused})
+
+
+@app.route("/replay/speed", methods=["POST"])
+def set_replay_speed():
+    data = request.get_json() or {}
+    state._replay_speed = int(data.get("speed", 1))
+    return jsonify({"speed": state._replay_speed})
+
+
+@app.route("/replay/seek", methods=["POST"])
+def seek_replay():
+    data = request.get_json() or {}
+    target = int(data.get("frame", 0))
+    state.seekReplay(target)
+    return jsonify({"ok": True, "frame": state._replay_idx, "total": state._replay_total})
+
+
+@app.route("/replay/status", methods=["GET"])
+def replay_status():
+    return jsonify({
+        "active": state._replay_mode,
+        "frame": state._replay_idx,
+        "total": state._replay_total,
+        "paused": state._replay_paused,
+    })
 
 
 if __name__ == "__main__":

@@ -64,8 +64,8 @@ bool PCA9685::initialize() {
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
-    // Initialize all channels to 0 duty cycle (ON=0, OFF=0)
-    uint8_t all_led_data[5] = {PCA_REG_ALL_LED_ON_L, 0, 0, 0, 0};
+    // Initialize all channels to 0 duty cycle (off)
+    uint8_t all_led_data[5] = {PCA_REG_ALL_LED_ON_L, 0, 0, 0x10, 0}; // ON count = 0, OFF count = 4096 (full off)
     res = i2c_write_timeout_us(_i2c_port, _i2c_addr, all_led_data, 5, false, PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;

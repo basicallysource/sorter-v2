@@ -83,20 +83,38 @@
 	</div>
 
 	{#if machine.machine}
+		{@const has_top = machine.frames.has('classification_top')}
+		{@const has_bottom = machine.frames.has('classification_bottom')}
+		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
 		<div class="flex h-[60vh] gap-3">
-			<div class="flex min-w-0 flex-1 gap-3">
-				<div class="flex-1">
-					<CameraFeed camera="feeder" />
-				</div>
-				<div class="flex flex-1 flex-col gap-3">
+			{#if single_classification}
+				<div class="flex min-w-0 flex-1 flex-col gap-3">
 					<div class="flex-1">
-						<CameraFeed camera="classification_top" />
+						<CameraFeed camera="feeder" />
 					</div>
 					<div class="flex-1">
-						<CameraFeed camera="classification_bottom" />
+						{#if has_top}
+							<CameraFeed camera="classification_top" />
+						{:else}
+							<CameraFeed camera="classification_bottom" />
+						{/if}
 					</div>
 				</div>
-			</div>
+			{:else}
+				<div class="flex min-w-0 flex-1 gap-3">
+					<div class="flex-1">
+						<CameraFeed camera="feeder" />
+					</div>
+					<div class="flex flex-1 flex-col gap-3">
+						<div class="flex-1">
+							<CameraFeed camera="classification_top" />
+						</div>
+						<div class="flex-1">
+							<CameraFeed camera="classification_bottom" />
+						</div>
+					</div>
+				</div>
+			{/if}
 			<div class="w-64 flex-shrink-0">
 				<RecentObjects />
 			</div>

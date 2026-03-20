@@ -7,6 +7,8 @@ Then open http://localhost:8098 in a browser.
 """
 
 import argparse
+import glob
+import os
 import sys
 import time
 import threading
@@ -27,16 +29,21 @@ from irl.config import mkIRLConfig, mkIRLInterface
 from vision.heatmap_diff import HeatmapDiff
 
 CAROUSEL_SETTLE_AFTER_STOP_MS = 500
+RECORDINGS_DIR = "recordings"
 
 PORT = 8098
 
 DEFAULT_PARAMS = {
-    "history": 500,
+    "history": -1,  # does nothing since we pass explicit learning_rate to apply()
     "var_threshold": 16.0,
-    "learning_rate": 0.005,
+    "learning_rate": 0.002,
     "blur_kernel": 5,
     "min_contour_area": 100,
+    "max_contour_area": 0,
     "morph_kernel": 5,
+    "dilate_iterations": 2,
+    "fg_threshold": 0,
+    "n_mixtures": 5,
     "heat_gain": 3.0,
     "carousel_settle_ms": float(CAROUSEL_SETTLE_AFTER_STOP_MS),
 }
@@ -175,6 +182,7 @@ class ChannelMog2:
             varThreshold=params["var_threshold"],
             detectShadows=False,
         )
+        self.mog2.setNMixtures(int(params["n_mixtures"]))
 
     def rebuild(self, params):
         self.mog2 = cv2.createBackgroundSubtractorMOG2(
@@ -182,6 +190,7 @@ class ChannelMog2:
             varThreshold=params["var_threshold"],
             detectShadows=False,
         )
+        self.mog2.setNMixtures(int(params["n_mixtures"]))
 
 
 class AppState:
@@ -206,6 +215,21 @@ class AppState:
         self.carousel_heatmap = HeatmapDiff()
         self._carousel_rotating = False
         self._carousel_stopped_at: float = 0.0
+        self._recording = False
+        self._record_writer: cv2.VideoWriter | None = None
+        self._record_path: str | None = None
+        self._replay_mode = False
+        self._replay_cap: cv2.VideoCapture | None = None
+        self._replay_idx = 0
+        self._replay_total = 0
+        self._replay_paused = False
+        self._replay_speed = 1
+        self._last_replay_out: np.ndarray | None = None
+        self._params_version = 0
+        self._replay_params_ver = 0
+        self._reprocessing = False
+        self._replay_lock = threading.Lock()
+        self._seek_cancel = False
         self._thread = threading.Thread(target=self._captureLoop, daemon=True)
         self._thread.start()
 
@@ -263,14 +287,169 @@ class AppState:
             with self.lock:
                 self.latest_frame = frame
                 self.latest_gray = gray
+                if self._recording and self._record_writer is not None:
+                    self._record_writer.write(frame)
+
+    def startRecording(self):
+        os.makedirs(RECORDINGS_DIR, exist_ok=True)
+        path = os.path.join(RECORDINGS_DIR, f"mog2_{int(time.time())}.avi")
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        h, w = 1080, 1920
+        with self.lock:
+            if self.latest_frame is not None:
+                h, w = self.latest_frame.shape[:2]
+        self._record_writer = cv2.VideoWriter(path, fourcc, 30.0, (w, h))
+        self._record_path = path
+        self._recording = True
+        print(f"Recording started: {path}")
+
+    def stopRecording(self):
+        with self.lock:
+            self._recording = False
+            writer = self._record_writer
+            self._record_writer = None
+        if writer is not None:
+            writer.release()
+        print(f"Recording stopped: {self._record_path}")
+
+    def startReplay(self, path: str | None = None):
+        target = path or self._record_path
+        if not target or not os.path.exists(target):
+            return False
+        self.stopRecording()
+        self._seek_cancel = True
+        with self._replay_lock:
+            self._seek_cancel = False
+            self._record_path = target
+            self._replay_mode = True
+            self._replay_paused = False
+            self._replay_speed = 1
+            self._replay_params_ver = self._params_version
+            self._restartReplay()
+        print(f"Replay started: {target} ({self._replay_total} frames)")
+        return True
+
+    def _restartReplay(self):
+        old_cap = self._replay_cap
+        self._replay_cap = None
+        if old_cap is not None:
+            old_cap.release()
+        self._replay_cap = cv2.VideoCapture(self._record_path)
+        self._replay_total = int(self._replay_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self._replay_idx = 0
+        self._rebuildMog2()
+        self.carousel_heatmap = HeatmapDiff()
+        self._last_replay_out = None
+
+    def stopReplay(self):
+        self._seek_cancel = True
+        with self._replay_lock:
+            self._seek_cancel = False
+            self._replay_mode = False
+            self._replay_paused = False
+            cap = self._replay_cap
+            self._replay_cap = None
+        if cap is not None:
+            cap.release()
+        self._rebuildMog2()
+        print("Replay stopped")
 
     def getAnnotatedFrame(self):
+        if self._replay_mode:
+            return self._getReplayFrame()
         with self.lock:
             frame = self.latest_frame
             gray = self.latest_gray
         if frame is None or gray is None:
             return None
+        return self._processAndAnnotate(frame, gray, force_learn=False)
 
+    def _feedMog2(self, gray):
+        if not self.channel_mog2s and self.channel_polygons:
+            self._initChannelMog2s(gray.shape)
+        p = self.params
+        blur_k = int(p["blur_kernel"]) | 1
+        blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        for ch in self.channel_mog2s.values():
+            if ch.mask is not None:
+                ch.mog2.apply(blurred, learningRate=p["learning_rate"])
+
+    def _reprocessToFrame(self, target_idx: int):
+        hold = self._last_replay_out
+        self._restartReplay()
+        self._last_replay_out = hold
+        cap = self._replay_cap
+        if cap is None:
+            return
+        last_frame = None
+        last_gray = None
+        for i in range(target_idx):
+            if self._seek_cancel:
+                break
+            ret, frame = cap.read()
+            if not ret:
+                break
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            self._replay_idx = i + 1
+            if i < target_idx - 1:
+                self._feedMog2(gray)
+            else:
+                last_frame = frame
+                last_gray = gray
+        if last_frame is not None and not self._seek_cancel:
+            self._last_replay_out = self._processAndAnnotate(last_frame, last_gray, force_learn=True)
+
+    def _getReplayFrame(self):
+        if not self._replay_lock.acquire(blocking=False):
+            return self._last_replay_out
+        try:
+            if self._params_version != self._replay_params_ver:
+                target = self._replay_idx
+                was_paused = self._replay_paused
+                self._reprocessing = True
+                self._reprocessToFrame(target)
+                self._reprocessing = False
+                self._replay_params_ver = self._params_version
+                if was_paused:
+                    self._replay_paused = True
+                    return self._last_replay_out
+
+            cap = self._replay_cap
+            if self._replay_paused or cap is None:
+                return self._last_replay_out
+
+            batch = 30 if self._replay_speed == 0 else self._replay_speed
+            out = None
+            for _ in range(batch):
+                if self._seek_cancel:
+                    break
+                ret, frame = cap.read()
+                if not ret:
+                    self._replay_paused = True
+                    break
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                self._replay_idx += 1
+                out = self._processAndAnnotate(frame, gray, force_learn=True)
+            if out is not None:
+                self._last_replay_out = out
+            return self._last_replay_out
+        finally:
+            self._replay_lock.release()
+
+    def seekReplay(self, target_idx: int):
+        if not self._replay_mode:
+            return
+        self._seek_cancel = True
+        with self._replay_lock:
+            self._seek_cancel = False
+            target_idx = max(1, min(target_idx, self._replay_total))
+            self._reprocessing = True
+            self._reprocessToFrame(target_idx)
+            self._reprocessing = False
+            self._replay_paused = True
+            self._replay_params_ver = self._params_version
+
+    def _processAndAnnotate(self, frame, gray, force_learn=False):
         if not self.channel_mog2s and self.channel_polygons:
             self._initChannelMog2s(gray.shape)
 
@@ -294,7 +473,7 @@ class AppState:
         for name, ch in self.channel_mog2s.items():
             if ch.mask is None:
                 continue
-            if self.learn_only_rotating and not self._isChannelRotating(name):
+            if not force_learn and self.learn_only_rotating and not self._isChannelRotating(name):
                 ch_lr = 0.0
             else:
                 ch_lr = learning_rate
@@ -302,14 +481,26 @@ class AppState:
             ch_fg = cv2.bitwise_and(ch_fg_raw, ch.mask)
             fg_mask = cv2.bitwise_or(fg_mask, ch_fg)
 
+        fg_thresh = int(p["fg_threshold"])
+        if fg_thresh > 0:
+            _, fg_mask = cv2.threshold(fg_mask, fg_thresh, 255, cv2.THRESH_BINARY)
+
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
 
+        dilate_iters = int(p["dilate_iterations"])
+        if dilate_iters > 0:
+            fg_mask = cv2.dilate(fg_mask, kernel, iterations=dilate_iters)
+
+        max_area = int(p["max_contour_area"])
         contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         bboxes = []
         for contour in contours:
-            if cv2.contourArea(contour) < min_area:
+            area = cv2.contourArea(contour)
+            if area < min_area:
+                continue
+            if max_area > 0 and area > max_area:
                 continue
             x, y, w, h = cv2.boundingRect(contour)
             bboxes.append((x, y, x + w, y + h))
@@ -334,17 +525,21 @@ class AppState:
 
         if self.channel_polygons:
             for name, pts in self.channel_polygons.items():
-                rotating = self._isChannelRotating(name)
-                frozen = self.learn_only_rotating and not rotating
-                color = (255, 200, 0) if "second" in name else (0, 200, 255)
-                if frozen:
-                    color = (80, 80, 80)
-                cv2.polylines(out, [pts], True, color, 2)
-                if frozen:
-                    cx = int(np.mean(pts[:, 0]))
-                    cy = int(np.mean(pts[:, 1]))
-                    cv2.putText(out, "FROZEN", (cx - 40, cy),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (80, 80, 80), 2)
+                if force_learn:
+                    color = (255, 200, 0) if "second" in name else (0, 200, 255)
+                    cv2.polylines(out, [pts], True, color, 2)
+                else:
+                    rotating = self._isChannelRotating(name)
+                    frozen = self.learn_only_rotating and not rotating
+                    color = (255, 200, 0) if "second" in name else (0, 200, 255)
+                    if frozen:
+                        color = (80, 80, 80)
+                    cv2.polylines(out, [pts], True, color, 2)
+                    if frozen:
+                        cx = int(np.mean(pts[:, 0]))
+                        cy = int(np.mean(pts[:, 1]))
+                        cv2.putText(out, "FROZEN", (cx - 40, cy),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (80, 80, 80), 2)
 
         for x1, y1, x2, y2 in bboxes:
             cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -357,34 +552,47 @@ class AppState:
         cv2.putText(out, f"fg_px: {hot_count}", (30, 85),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
-        mr = self.motor_runner
-        ch2_label = "CH2: ON" if mr.second_running else "CH2: off"
-        ch3_label = "CH3: ON" if mr.third_running else "CH3: off"
-        ch2_color = (0, 200, 255) if mr.second_running else (100, 100, 100)
-        ch3_color = (0, 200, 255) if mr.third_running else (100, 100, 100)
-        cv2.putText(out, ch2_label, (30, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, ch2_color, 2)
-        cv2.putText(out, ch3_label, (30, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, ch3_color, 2)
+        if not force_learn:
+            mr = self.motor_runner
+            ch2_label = "CH2: ON" if mr.second_running else "CH2: off"
+            ch3_label = "CH3: ON" if mr.third_running else "CH3: off"
+            ch2_color = (0, 200, 255) if mr.second_running else (100, 100, 100)
+            ch3_color = (0, 200, 255) if mr.third_running else (100, 100, 100)
+            cv2.putText(out, ch2_label, (30, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, ch2_color, 2)
+            cv2.putText(out, ch3_label, (30, 150),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, ch3_color, 2)
 
-        if self.learn_only_rotating:
-            cv2.putText(out, "LEARN-ONLY-ROTATING", (30, 180),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 0), 2)
+            if self.learn_only_rotating:
+                cv2.putText(out, "LEARN-ONLY-ROTATING", (30, 180),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 0), 2)
 
-        self._maybeRecaptureCarouselBaseline(gray)
-        if self.carousel_heatmap.has_baseline:
-            out = self.carousel_heatmap.annotateFrame(out, label="carousel", text_y=210)
-        elif self._carousel_rotating:
-            cv2.putText(out, "carousel rotating...", (30, 210),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 2)
-        elif self._carousel_stopped_at > 0:
-            remaining_ms = self.params["carousel_settle_ms"] - (time.time() - self._carousel_stopped_at) * 1000
-            if remaining_ms > 0:
-                cv2.putText(out, f"carousel settling... {remaining_ms:.0f}ms", (30, 210),
+            self._maybeRecaptureCarouselBaseline(gray)
+            if self.carousel_heatmap.has_baseline:
+                out = self.carousel_heatmap.annotateFrame(out, label="carousel", text_y=210)
+            elif self._carousel_rotating:
+                cv2.putText(out, "carousel rotating...", (30, 210),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 2)
-        elif self.carousel_polygon:
-            cv2.putText(out, "carousel: no baseline (press Rotate)", (30, 210),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 2)
+            elif self._carousel_stopped_at > 0:
+                remaining_ms = self.params["carousel_settle_ms"] - (time.time() - self._carousel_stopped_at) * 1000
+                if remaining_ms > 0:
+                    cv2.putText(out, f"carousel settling... {remaining_ms:.0f}ms", (30, 210),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 2)
+            elif self.carousel_polygon:
+                cv2.putText(out, "carousel: no baseline (press Rotate)", (30, 210),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 2)
+
+        if self._replay_mode:
+            speed_label = "MAX" if self._replay_speed == 0 else f"{self._replay_speed}x"
+            cv2.putText(out, f"REPLAY {self._replay_idx}/{self._replay_total} [{speed_label}]", (30, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 100, 100), 2)
+            if self._reprocessing:
+                cv2.putText(out, "REPROCESSING...", (30, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 180, 255), 2)
+            elif self._replay_paused:
+                paused_label = "END" if self._replay_idx >= self._replay_total else "PAUSED"
+                cv2.putText(out, paused_label, (30, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
         self.frame_count += 1
         return out
@@ -413,6 +621,11 @@ HTML = """
         button.motor.active { background: #c62; }
         button.motor:hover { background: #777; }
         button.motor.active:hover { background: #e73; }
+        button.record { background: #900; }
+        button.record.active { background: #f00; }
+        button.replay { background: #06a; }
+        button.replay:hover { background: #08c; }
+        button.replay.active { background: #0af; }
         #status { color: #aaa; font-size: 13px; }
         img { max-width: 95vw; max-height: 70vh; border: 1px solid #333; }
         .controls { display: flex; flex-wrap: wrap; gap: 16px; margin: 10px 0;
@@ -424,6 +637,12 @@ HTML = """
         .param input[type=range] { flex: 1; accent-color: #2a6; }
         .param .val { font-size: 14px; min-width: 50px; text-align: right; color: #4f8; }
         .param .desc { font-size: 10px; color: #666; }
+        .replay-row { display: flex; align-items: center; gap: 12px; margin: 4px 0; flex-wrap: wrap; }
+        .replay-row select { padding: 4px 8px; font-size: 13px; background: #222; color: #eee;
+                             border: 1px solid #555; border-radius: 4px; }
+        .scrub-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; max-width: 95vw; }
+        .scrub-row input[type=range] { flex: 1; accent-color: #06a; }
+        .scrub-row span { font-size: 13px; color: #aaa; min-width: 100px; }
     </style>
 </head>
 <body>
@@ -433,15 +652,33 @@ HTML = """
         <button id="btn_ch2" class="motor" onclick="toggleMotor('second')">Channel 2 Motor</button>
         <button id="btn_ch3" class="motor" onclick="toggleMotor('third')">Channel 3 Motor</button>
         <button onclick="rotateCarousel()">Rotate Carousel</button>
+        <button id="btn_record" class="record" onclick="toggleRecord()">Record</button>
+        <button onclick="copyParams()">Copy Params</button>
+        <span id="copy_status" style="font-size:11px;color:#888;"></span>
         <span id="status">MOG2 learning...</span>
+    </div>
+    <div class="replay-row" id="replay_row">
+        <select id="recording_select"></select>
+        <button class="replay" id="btn_replay" onclick="startReplay()">Replay</button>
+        <button class="replay" id="btn_stop_replay" onclick="stopReplay()" style="display:none">Stop Replay</button>
+        <button id="btn_pause" onclick="togglePause()" style="display:none">Pause</button>
+        <select id="replay_speed" onchange="setSpeed(this.value)" style="display:none">
+            <option value="1">1x</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+            <option value="8">8x</option>
+            <option value="0">Max</option>
+        </select>
+    </div>
+    <div class="scrub-row" id="scrub_row" style="display:none">
+        <input type="range" id="scrub_slider" min="1" max="1" value="1"
+               oninput="onScrubInput(this.value)" onchange="onScrubChange(this.value)" />
+        <span id="scrub_label">0 / 0</span>
     </div>
     <div class="controls" id="controls"></div>
     <img id="feed" src="/feed" />
     <script>
         const PARAMS = [
-            { key: 'history', label: 'History',
-              desc: 'Number of frames MOG2 uses to model background (higher = slower adaptation)',
-              min: 50, max: 2000, step: 50 },
             { key: 'var_threshold', label: 'Variance Threshold',
               desc: 'How many sigma from a mode to be foreground (lower = more sensitive)',
               min: 4, max: 64, step: 1 },
@@ -454,9 +691,21 @@ HTML = """
             { key: 'min_contour_area', label: 'Min Contour Area',
               desc: 'Minimum foreground blob area (px^2) to count as detection',
               min: 10, max: 1000, step: 10 },
+            { key: 'max_contour_area', label: 'Max Contour Area',
+              desc: 'Maximum blob area (0 = no limit) — rejects huge false positives',
+              min: 0, max: 50000, step: 500 },
             { key: 'morph_kernel', label: 'Morph Kernel',
               desc: 'Morphological open/close kernel size (cleans up noise blobs)',
               min: 1, max: 15, step: 2 },
+            { key: 'dilate_iterations', label: 'Dilate Iterations',
+              desc: 'Expands foreground blobs before contouring — merges nearby clumps into one bbox',
+              min: 0, max: 10, step: 1 },
+            { key: 'fg_threshold', label: 'FG Threshold',
+              desc: 'Min pixel confidence to count as foreground (0 = any nonzero, 128 = high confidence only)',
+              min: 0, max: 254, step: 1 },
+            { key: 'n_mixtures', label: 'Gaussian Mixtures',
+              desc: 'Number of MOG2 mixtures per pixel (more = handles complex backgrounds like rotating rotors)',
+              min: 1, max: 10, step: 1 },
             { key: 'heat_gain', label: 'Heat Gain',
               desc: 'Visual amplification for heatmap overlay',
               min: 1, max: 10, step: 0.5 },
@@ -466,6 +715,7 @@ HTML = """
         ];
 
         let currentValues = {};
+        let inReplay = false;
 
         async function loadParams() {
             const res = await fetch('/params');
@@ -504,6 +754,15 @@ HTML = """
             });
         }
 
+        async function copyParams() {
+            const res = await fetch('/params_export');
+            const text = await res.text();
+            await navigator.clipboard.writeText(text);
+            const el = document.getElementById('copy_status');
+            el.textContent = 'copied!';
+            setTimeout(() => { el.textContent = ''; }, 2000);
+        }
+
         async function resetMog2() {
             const res = await fetch('/reset', { method: 'POST' });
             const data = await res.json();
@@ -534,12 +793,145 @@ HTML = """
                 : 'Carousel rotate failed';
         }
 
+        async function toggleRecord() {
+            const res = await fetch('/record/toggle', { method: 'POST' });
+            const data = await res.json();
+            const btn = document.getElementById('btn_record');
+            if (data.recording) {
+                btn.classList.add('active');
+                btn.textContent = 'Stop Record';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Record';
+                loadRecordings();
+            }
+            document.getElementById('status').textContent = data.recording
+                ? 'Recording...' : 'Stopped recording';
+        }
+
+        async function loadRecordings() {
+            const res = await fetch('/recordings');
+            const data = await res.json();
+            const sel = document.getElementById('recording_select');
+            sel.innerHTML = '';
+            for (const r of data.recordings) {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.textContent = r;
+                sel.appendChild(opt);
+            }
+        }
+
+        async function startReplay() {
+            const sel = document.getElementById('recording_select');
+            const path = sel.value;
+            if (!path) return;
+            const res = await fetch('/replay/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: path }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                inReplay = true;
+                document.getElementById('btn_replay').style.display = 'none';
+                document.getElementById('btn_stop_replay').style.display = '';
+                document.getElementById('btn_pause').style.display = '';
+                document.getElementById('btn_pause').textContent = 'Pause';
+                document.getElementById('replay_speed').style.display = '';
+                document.getElementById('status').textContent = 'Replay: ' + data.total_frames + ' frames';
+                showScrub(data.total_frames);
+                startStatusPoll();
+            }
+        }
+
+        async function stopReplay() {
+            await fetch('/replay/stop', { method: 'POST' });
+            inReplay = false;
+            document.getElementById('btn_replay').style.display = '';
+            document.getElementById('btn_stop_replay').style.display = 'none';
+            document.getElementById('btn_pause').style.display = 'none';
+            document.getElementById('replay_speed').style.display = 'none';
+            document.getElementById('status').textContent = 'Live';
+            hideScrub();
+            stopStatusPoll();
+        }
+
+        async function togglePause() {
+            const res = await fetch('/replay/pause', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('btn_pause').textContent = data.paused ? 'Resume' : 'Pause';
+        }
+
+        async function setSpeed(val) {
+            await fetch('/replay/speed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseInt(val) }),
+            });
+        }
+
+        let scrubTimeout = null;
+        let scrubbing = false;
+
+        function onScrubInput(val) {
+            document.getElementById('scrub_label').textContent = val + ' / ' + document.getElementById('scrub_slider').max;
+            scrubbing = true;
+            if (scrubTimeout) clearTimeout(scrubTimeout);
+            scrubTimeout = setTimeout(() => onScrubChange(val), 200);
+        }
+
+        function onScrubChange(val) {
+            scrubbing = false;
+            if (scrubTimeout) clearTimeout(scrubTimeout);
+            scrubTimeout = null;
+            fetch('/replay/seek', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frame: parseInt(val) }),
+            }).then(res => res.json()).then(data => {
+                document.getElementById('btn_pause').textContent = 'Resume';
+            });
+        }
+
+        function showScrub(total) {
+            const row = document.getElementById('scrub_row');
+            const slider = document.getElementById('scrub_slider');
+            row.style.display = 'flex';
+            slider.max = total;
+        }
+
+        function hideScrub() {
+            document.getElementById('scrub_row').style.display = 'none';
+        }
+
+        let statusInterval = null;
+        function startStatusPoll() {
+            if (statusInterval) return;
+            statusInterval = setInterval(async () => {
+                const res = await fetch('/replay/status');
+                const data = await res.json();
+                if (!data.active) { stopStatusPoll(); return; }
+                if (!scrubbing) {
+                    const slider = document.getElementById('scrub_slider');
+                    slider.max = data.total;
+                    slider.value = data.frame;
+                    document.getElementById('scrub_label').textContent = data.frame + ' / ' + data.total;
+                }
+            }, 250);
+        }
+
+        function stopStatusPoll() {
+            if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
+        }
+
         setInterval(() => {
             const img = document.getElementById('feed');
             img.src = '/feed?' + Date.now();
         }, 30000);
 
         loadParams();
+        loadRecordings();
     </script>
 </body>
 </html>
@@ -575,6 +967,22 @@ def toggle_motor(channel):
 def get_params():
     return jsonify(state.params)
 
+@app.route("/params_export")
+def params_export():
+    lines = ["mog2 diff params:"]
+    for k, v in state.params.items():
+        default = DEFAULT_PARAMS[k]
+        marker = "  <-- changed" if v != default else ""
+        lines.append(f"  {k}: {v}{marker}")
+    changed = {k: v for k, v in state.params.items() if v != DEFAULT_PARAMS[k]}
+    if changed:
+        lines.append("")
+        lines.append(f"changed from default: {changed}")
+    else:
+        lines.append("")
+        lines.append("(all defaults)")
+    return Response("\n".join(lines), mimetype="text/plain")
+
 @app.route("/params", methods=["POST"])
 def set_params():
     updates = request.get_json()
@@ -582,11 +990,67 @@ def set_params():
     for k, v in updates.items():
         if k in state.params:
             state.params[k] = float(v)
-            if k in ("history", "var_threshold"):
+            if k in ("history", "var_threshold", "n_mixtures"):
                 rebuild = True
     if rebuild:
         state._rebuildMog2()
+    state._params_version += 1
     return jsonify(state.params)
+
+@app.route("/record/toggle", methods=["POST"])
+def toggle_record():
+    if state._recording:
+        state.stopRecording()
+    else:
+        state.startRecording()
+    return jsonify({"recording": state._recording, "path": state._record_path})
+
+@app.route("/recordings", methods=["GET"])
+def list_recordings():
+    if not os.path.isdir(RECORDINGS_DIR):
+        return jsonify({"recordings": []})
+    files = sorted(glob.glob(os.path.join(RECORDINGS_DIR, "*.avi")), reverse=True)
+    return jsonify({"recordings": files})
+
+@app.route("/replay/start", methods=["POST"])
+def start_replay():
+    data = request.get_json() or {}
+    path = data.get("path")
+    ok = state.startReplay(path)
+    return jsonify({"ok": ok, "total_frames": state._replay_total})
+
+@app.route("/replay/stop", methods=["POST"])
+def stop_replay():
+    state.stopReplay()
+    return jsonify({"ok": True})
+
+@app.route("/replay/pause", methods=["POST"])
+def pause_replay():
+    state._replay_paused = not state._replay_paused
+    return jsonify({"paused": state._replay_paused})
+
+@app.route("/replay/speed", methods=["POST"])
+def set_replay_speed():
+    data = request.get_json() or {}
+    state._replay_speed = int(data.get("speed", 1))
+    return jsonify({"speed": state._replay_speed})
+
+@app.route("/replay/seek", methods=["POST"])
+def seek_replay():
+    data = request.get_json() or {}
+    target = int(data.get("frame", 0))
+    state.seekReplay(target)
+    return jsonify({"ok": True, "frame": state._replay_idx, "total": state._replay_total})
+
+@app.route("/replay/status", methods=["GET"])
+def replay_status():
+    return jsonify({
+        "active": state._replay_mode,
+        "frame": state._replay_idx,
+        "total": state._replay_total,
+        "paused": state._replay_paused,
+        "reprocessing": state._reprocessing,
+    })
 
 def generateFrames():
     while True:
@@ -597,7 +1061,8 @@ def generateFrames():
         _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         yield (b"--frame\r\n"
                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
-        time.sleep(0.033)
+        if not state._replay_mode:
+            time.sleep(0.033)
 
 @app.route("/feed")
 def feed():

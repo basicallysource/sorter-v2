@@ -246,14 +246,19 @@ class HeatmapDiff:
         score = float(np.mean(diff[hot])) if hot_count >= self._min_hot_pixels else 0.0
         return score, hot_count
 
-    def computeBboxes(self) -> List[Tuple[int, int, int, int]]:
+    def computeBboxes(self, diff_thresh: float = 0) -> List[Tuple[int, int, int, int]]:
         result = self._computeDiffMap()
         if result is None:
             return []
-        _, hot, _ = result
+        diff, hot, _ = result
+
+        if diff_thresh > 0:
+            bbox_mask = (hot & (diff > diff_thresh)).astype(np.uint8) * 255
+        else:
+            bbox_mask = hot.astype(np.uint8) * 255
 
         contours, _ = cv2.findContours(
-            hot.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            bbox_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         inv = 1.0 / self._scale if self._scale < 1.0 else 1.0
         return [

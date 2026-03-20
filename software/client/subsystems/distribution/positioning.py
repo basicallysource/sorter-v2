@@ -48,7 +48,7 @@ class Positioning(BaseState):
                 return DistributionState.IDLE
 
             if piece.part_id is not None:
-                category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id)
+                category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
                 category_id = MISC_CATEGORY
             address, _ = self._findOrAssignBinForCategory(category_id)

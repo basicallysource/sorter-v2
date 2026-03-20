@@ -50,6 +50,8 @@ class RunRecorder:
                 "distributed_at": p.distributed_at,
                 "classification_status": p.classification_status.value,
                 "part_id": p.part_id,
+                "color_id": p.color_id,
+                "color_name": p.color_name,
                 "category_id": p.category_id,
                 "confidence": p.confidence,
                 "destination_bin": list(p.destination_bin) if p.destination_bin else None,

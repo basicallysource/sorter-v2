@@ -27,6 +27,8 @@ class KnownObject:
     stage: PieceStage = PieceStage.created
     classification_status: ClassificationStatus = ClassificationStatus.pending
     part_id: Optional[str] = None
+    color_id: str = "any_color"
+    color_name: str = "Any Color"
     category_id: Optional[str] = None
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None

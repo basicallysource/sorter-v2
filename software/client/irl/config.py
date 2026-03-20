@@ -314,7 +314,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
         for address in devices:
             try:
-                sorter_interface = SorterInterface(bus, address)
+                sorter_interface = SorterInterface(bus, address, gc)
                 discovered_interfaces.append((port, address, sorter_interface))
                 gc.logger.info(
                     f"SorterInterface initialized: port={port} address={address} name={sorter_interface.name}"
@@ -400,7 +400,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
         stepper_config: StepperConfig | None = getattr(config, attr, None)
         stepper.set_name(stepper_name)
-        stepper._gc = gc
         if stepper_config is not None:
             stepper.set_microsteps(stepper_config.microsteps)
             stepper.set_speed_limits(16, stepper_config.default_steps_per_second)

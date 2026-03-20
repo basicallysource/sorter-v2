@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 
 class SharedVariables:
     def __init__(self):
-        self.classification_ready: bool = True
+        self.classification_ready: bool = False
         self.distribution_ready: bool = True
         self.carousel: Optional["Carousel"] = None
         self.chute_move_in_progress: bool = False

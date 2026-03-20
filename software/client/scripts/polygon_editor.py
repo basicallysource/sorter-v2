@@ -57,8 +57,21 @@ HTML = """<!DOCTYPE html>
                     background: #2a6; color: #fff; border: none; font-family: monospace; font-size: 13px; }
     button.danger { background: #833; }
     #status { color: #888; font-size: 12px; margin-left: auto; }
-    .canvas-wrap { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .canvas-wrap { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
     canvas { max-width: 100%; max-height: 100%; cursor: crosshair; display: block; }
+    .help-panel { position: absolute; top: 10px; left: 10px; z-index: 10; }
+    .help-toggle { background: rgba(30,30,30,0.85); border: 1px solid #555; color: #ccc;
+                   padding: 4px 10px; cursor: pointer; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .help-toggle:hover { background: rgba(50,50,50,0.9); }
+    .help-body { display: none; background: rgba(20,20,20,0.92); border: 1px solid #444;
+                 border-radius: 4px; padding: 10px 14px; margin-top: 4px; font-size: 12px;
+                 line-height: 1.7; color: #ccc; min-width: 280px; position: relative; }
+    .help-body.open { display: block; }
+    .help-body kbd { background: #333; border: 1px solid #555; border-radius: 3px;
+                     padding: 1px 5px; font-family: monospace; font-size: 11px; color: #eee; }
+    .help-close { position: absolute; top: 6px; right: 8px; background: none; border: none;
+                  color: #888; font-size: 16px; cursor: pointer; font-family: monospace; line-height: 1; padding: 0; }
+    .help-close:hover { color: #eee; }
   </style>
 </head>
 <body>
@@ -72,9 +85,29 @@ HTML = """<!DOCTYPE html>
     <div class="sep"></div>
     <button class="action danger" onclick="clearCurrent()">Clear</button>
     <button class="action" onclick="savePolygons()">Save</button>
-    <span id="status">loading... | shift-click to set section 0</span>
+    <span id="status">loading... | drag to move | scroll to resize | shift-click for sec 0</span>
   </div>
   <div class="canvas-wrap">
+    <div class="help-panel">
+      <button class="help-toggle" onclick="document.querySelector('.help-body').classList.toggle('open')">? Controls</button>
+      <div class="help-body open">
+        <button class="help-close" onclick="document.querySelector('.help-body').classList.remove('open')">&times;</button>
+        <b>Drawing</b><br>
+        <kbd>Click</kbd> &mdash; add vertex<br>
+        <kbd>Right-click</kbd> &mdash; remove nearest vertex<br>
+        <br>
+        <b>Editing</b><br>
+        <kbd>Drag</kbd> inside polygon &mdash; move it<br>
+        <kbd>Scroll</kbd> &mdash; expand / shrink polygon<br>
+        <br>
+        <b>Feeder channels only</b><br>
+        <kbd>Shift + Click</kbd> &mdash; set section-0 reference point<br>
+        <br>
+        <b>Toolbar</b><br>
+        <kbd>Clear</kbd> &mdash; delete current channel polygon<br>
+        <kbd>Save</kbd> &mdash; persist all polygons<br>
+      </div>
+    </div>
     <canvas id="c" width="1920" height="1080"></canvas>
   </div>
   <script>
@@ -118,12 +151,85 @@ HTML = """<!DOCTYPE html>
       ];
     }
 
+    let dragging = false;
+    let didDrag = false;
+    let dragStart = null;
+    let dragOrigPts = null;
+    let dragOrigSec0 = null;
+    const DRAG_THRESHOLD = 5;
+
+    function pointInPolygon(x, y, pts) {
+      if (pts.length < 3) return false;
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i][0], yi = pts[i][1];
+        const xj = pts[j][0], yj = pts[j][1];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+          inside = !inside;
+      }
+      return inside;
+    }
+
+    function getSortedPolyPts(ch) {
+      return computePolygon(ch).map(p => p.pos);
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      const [x, y] = canvasCoords(e);
+      const sorted = getSortedPolyPts(currentChannel);
+      if (sorted.length >= 3 && pointInPolygon(x, y, sorted) && !e.shiftKey) {
+        dragging = true;
+        dragStart = [x, y];
+        dragOrigPts = userPoints[currentChannel].map(p => [...p]);
+        if (sectionZeroPoints[currentChannel])
+          dragOrigSec0 = [...sectionZeroPoints[currentChannel]];
+        else
+          dragOrigSec0 = null;
+      }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const [x, y] = canvasCoords(e);
+      const dx = x - dragStart[0];
+      const dy = y - dragStart[1];
+      for (let i = 0; i < dragOrigPts.length; i++) {
+        userPoints[currentChannel][i] = [dragOrigPts[i][0] + dx, dragOrigPts[i][1] + dy];
+      }
+      if (dragOrigSec0 && sectionZeroPoints[currentChannel]) {
+        sectionZeroPoints[currentChannel] = [dragOrigSec0[0] + dx, dragOrigSec0[1] + dy];
+      }
+    });
+
+    canvas.addEventListener('mouseup', e => {
+      if (e.button !== 0) return;
+      if (dragging) {
+        const [x, y] = canvasCoords(e);
+        const dist = Math.hypot(x - dragStart[0], y - dragStart[1]);
+        if (dist < DRAG_THRESHOLD) {
+          userPoints[currentChannel] = dragOrigPts;
+          if (dragOrigSec0) sectionZeroPoints[currentChannel] = dragOrigSec0;
+          userPoints[currentChannel].push([dragStart[0], dragStart[1]]);
+        } else {
+          didDrag = true;
+        }
+        dragging = false;
+        dragStart = null;
+        dragOrigPts = null;
+        dragOrigSec0 = null;
+      }
+    });
+
     canvas.addEventListener('click', e => {
+      if (didDrag) { didDrag = false; return; }
       const [x, y] = canvasCoords(e);
       if (e.shiftKey && (currentChannel === 'second' || currentChannel === 'third')) {
         sectionZeroPoints[currentChannel] = [x, y];
         return;
       }
+      const sorted = getSortedPolyPts(currentChannel);
+      if (sorted.length >= 3 && pointInPolygon(x, y, sorted)) return;
       userPoints[currentChannel].push([x, y]);
     });
 
@@ -138,6 +244,18 @@ HTML = """<!DOCTYPE html>
       }
       if (minIdx >= 0 && minDist < 40) pts.splice(minIdx, 1);
     });
+
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const pts = userPoints[currentChannel];
+      if (pts.length < 3) return;
+      const scale = e.deltaY > 0 ? 0.95 : 1.05;
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      for (let i = 0; i < pts.length; i++) {
+        pts[i] = [cx + (pts[i][0] - cx) * scale, cy + (pts[i][1] - cy) * scale];
+      }
+    }, { passive: false });
 
     function computePolygon(ch) {
       const pts = userPoints[ch].map(pos => ({ pos }));

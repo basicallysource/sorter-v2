@@ -1,4 +1,5 @@
 from typing import Optional
+import time
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
@@ -11,15 +12,18 @@ class Ready(BaseState):
         super().__init__(irl, gc)
         self.shared = shared
         self.signaled = False
+        self._signaled_at: float = 0.0
 
     def step(self) -> Optional[DistributionState]:
         if not self.signaled:
             self.logger.info("Ready: distribution positioned, signaling ready")
             self.shared.distribution_ready = True
             self.signaled = True
+            self._signaled_at = time.monotonic()
 
         if not self.shared.distribution_ready:
-            self.logger.info("Ready: piece dropped, moving to SENDING")
+            wait_ms = (time.monotonic() - self._signaled_at) * 1000
+            self.logger.info(f"Ready: piece dropped -> SENDING (waited={wait_ms:.0f}ms)")
             return DistributionState.SENDING
 
         return None
@@ -27,3 +31,4 @@ class Ready(BaseState):
     def cleanup(self) -> None:
         super().cleanup()
         self.signaled = False
+        self._signaled_at = 0.0

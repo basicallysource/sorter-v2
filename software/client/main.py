@@ -22,6 +22,7 @@ from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from irl.config import mkIRLConfig, mkIRLInterface
+from subsystems.feeder.calibration import calibrateFeederChannels
 from vision import VisionManager
 import uvicorn
 import threading
@@ -104,7 +105,7 @@ def main() -> None:
     irl.chute.home()
 
     telemetry = Telemetry(gc)
-    vision = VisionManager(irl_config, gc)
+    vision = VisionManager(irl_config, gc, irl)
     vision.setTelemetry(telemetry)
     setVisionManager(vision)
     controller = SorterController(
@@ -114,9 +115,11 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
-    if not vision.loadFeederBaseline():
-        gc.logger.error("Feeder baseline not found. Run: uv run python scripts/calibrate_feeder_baseline.py")
+    if not vision.initFeederDetection():
+        gc.logger.error("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py")
         sys.exit(1)
+    calibrateFeederChannels(gc, irl, irl_config)
+
     if not vision.loadClassificationBaseline():
         gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
         sys.exit(1)

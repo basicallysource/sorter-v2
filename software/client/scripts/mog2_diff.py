@@ -24,8 +24,9 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 from blob_manager import getCameraSetup, getChannelPolygons
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
+from vision.heatmap_diff import HeatmapDiff
 
-EXPAND_RADIUS_CHANNELS_PX = 0
+CAROUSEL_SETTLE_AFTER_STOP_MS = 500
 
 PORT = 8098
 
@@ -37,6 +38,7 @@ DEFAULT_PARAMS = {
     "min_contour_area": 100,
     "morph_kernel": 5,
     "heat_gain": 3.0,
+    "carousel_settle_ms": float(CAROUSEL_SETTLE_AFTER_STOP_MS),
 }
 
 
@@ -55,6 +57,17 @@ def loadChannelPolygons():
     return result if result else None
 
 
+def loadCarouselPolygon():
+    saved = getChannelPolygons()
+    if saved is None:
+        return None
+    polygon_data = saved.get("polygons", {})
+    pts = polygon_data.get("carousel")
+    if not pts:
+        return None
+    return [(float(p[0]), float(p[1])) for p in pts]
+
+
 def buildPolygonMask(polygons, shape):
     mask = np.zeros(shape[:2], dtype=np.uint8)
     if isinstance(polygons, dict):
@@ -62,13 +75,6 @@ def buildPolygonMask(polygons, shape):
             cv2.fillPoly(mask, [pts], 255)
     else:
         cv2.fillPoly(mask, [polygons], 255)
-    if EXPAND_RADIUS_CHANNELS_PX != 0:
-        k = abs(EXPAND_RADIUS_CHANNELS_PX) * 2 + 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-        if EXPAND_RADIUS_CHANNELS_PX > 0:
-            mask = cv2.dilate(mask, kernel)
-        else:
-            mask = cv2.erode(mask, kernel)
     if np.count_nonzero(mask) == 0:
         return None
     return mask
@@ -179,7 +185,7 @@ class ChannelMog2:
 
 
 class AppState:
-    def __init__(self, device_index, motor_runner, learn_only_rotating):
+    def __init__(self, device_index, motor_runner, learn_only_rotating, carousel_stepper):
         self.cap = cv2.VideoCapture(device_index)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
@@ -195,6 +201,11 @@ class AppState:
         self.frame_count = 0
         self.motor_runner = motor_runner
         self.learn_only_rotating = learn_only_rotating
+        self.carousel_stepper = carousel_stepper
+        self.carousel_polygon = loadCarouselPolygon()
+        self.carousel_heatmap = HeatmapDiff()
+        self._carousel_rotating = False
+        self._carousel_stopped_at: float = 0.0
         self._thread = threading.Thread(target=self._captureLoop, daemon=True)
         self._thread.start()
 
@@ -217,6 +228,30 @@ class AppState:
             return self.motor_runner.third_running
         return False
 
+    def rotateCarousel(self):
+        self.carousel_stepper.move_degrees(-90.0)
+        self._carousel_rotating = True
+        self._carousel_stopped_at = 0.0
+        self.carousel_heatmap.clearBaseline()
+
+    def _maybeRecaptureCarouselBaseline(self, gray):
+        if not self._carousel_rotating and self._carousel_stopped_at == 0.0:
+            return
+        if self.carousel_heatmap.has_baseline:
+            return
+        if self._carousel_rotating:
+            if self.carousel_stepper.stopped:
+                self._carousel_rotating = False
+                self._carousel_stopped_at = time.time()
+                print("Carousel stepper stopped, waiting for settle...")
+            return
+        elapsed_ms = (time.time() - self._carousel_stopped_at) * 1000
+        if elapsed_ms < self.params["carousel_settle_ms"]:
+            return
+        if self.carousel_polygon:
+            self.carousel_heatmap.captureBaseline(self.carousel_polygon, gray.shape)
+            print(f"Carousel baseline captured after {elapsed_ms:.0f}ms settle")
+
     def _captureLoop(self):
         while self.running:
             ret, frame = self.cap.read()
@@ -224,6 +259,7 @@ class AppState:
                 time.sleep(0.01)
                 continue
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            self.carousel_heatmap.pushFrame(gray)
             with self.lock:
                 self.latest_frame = frame
                 self.latest_gray = gray
@@ -335,6 +371,21 @@ class AppState:
             cv2.putText(out, "LEARN-ONLY-ROTATING", (30, 180),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 0), 2)
 
+        self._maybeRecaptureCarouselBaseline(gray)
+        if self.carousel_heatmap.has_baseline:
+            out = self.carousel_heatmap.annotateFrame(out, label="carousel", text_y=210)
+        elif self._carousel_rotating:
+            cv2.putText(out, "carousel rotating...", (30, 210),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 2)
+        elif self._carousel_stopped_at > 0:
+            remaining_ms = self.params["carousel_settle_ms"] - (time.time() - self._carousel_stopped_at) * 1000
+            if remaining_ms > 0:
+                cv2.putText(out, f"carousel settling... {remaining_ms:.0f}ms", (30, 210),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 2)
+        elif self.carousel_polygon:
+            cv2.putText(out, "carousel: no baseline (press Rotate)", (30, 210),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 2)
+
         self.frame_count += 1
         return out
 
@@ -381,6 +432,7 @@ HTML = """
         <button onclick="resetMog2()">Reset MOG2</button>
         <button id="btn_ch2" class="motor" onclick="toggleMotor('second')">Channel 2 Motor</button>
         <button id="btn_ch3" class="motor" onclick="toggleMotor('third')">Channel 3 Motor</button>
+        <button onclick="rotateCarousel()">Rotate Carousel</button>
         <span id="status">MOG2 learning...</span>
     </div>
     <div class="controls" id="controls"></div>
@@ -408,6 +460,9 @@ HTML = """
             { key: 'heat_gain', label: 'Heat Gain',
               desc: 'Visual amplification for heatmap overlay',
               min: 1, max: 10, step: 0.5 },
+            { key: 'carousel_settle_ms', label: 'Carousel Settle (ms)',
+              desc: 'Time to wait after stepper stops before snapping baseline',
+              min: 0, max: 5000, step: 50 },
         ];
 
         let currentValues = {};
@@ -471,6 +526,14 @@ HTML = """
             }
         }
 
+        async function rotateCarousel() {
+            const res = await fetch('/carousel/rotate', { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('status').textContent = data.ok
+                ? 'Carousel rotating, settling ' + data.settle_ms + 'ms...'
+                : 'Carousel rotate failed';
+        }
+
         setInterval(() => {
             const img = document.getElementById('feed');
             img.src = '/feed?' + Date.now();
@@ -490,6 +553,13 @@ def index():
 def reset_mog2():
     state._rebuildMog2()
     return jsonify({"ok": True})
+
+@app.route("/carousel/rotate", methods=["POST"])
+def rotate_carousel():
+    if not state.carousel_polygon:
+        return jsonify({"ok": False, "error": "no carousel polygon"}), 400
+    state.rotateCarousel()
+    return jsonify({"ok": True, "settle_ms": state.params["carousel_settle_ms"]})
 
 @app.route("/motor/<channel>", methods=["POST"])
 def toggle_motor(channel):
@@ -537,8 +607,8 @@ def feed():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MOG2 background subtraction test")
     parser.add_argument(
-        "--learn-only-rotating", action="store_true",
-        help="only update MOG2 background model for channels whose motors are spinning",
+        "--learn-always", action="store_true",
+        help="update MOG2 background model even when motors are stopped",
     )
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
@@ -554,7 +624,8 @@ if __name__ == "__main__":
 
     device_index = camera_setup["feeder"]
     print(f"Using feeder camera device index: {device_index}")
-    if args.learn_only_rotating:
+    learn_only_rotating = not args.learn_always
+    if learn_only_rotating:
         print("Mode: learn-only-rotating (frozen channels won't update background)")
 
     gc = mkGlobalConfig()
@@ -563,6 +634,6 @@ if __name__ == "__main__":
     irl.enableSteppers()
 
     motor_runner = MotorRunner(irl, irl_config.feeder_config)
-    state = AppState(device_index, motor_runner, args.learn_only_rotating)
+    state = AppState(device_index, motor_runner, learn_only_rotating, irl.carousel_stepper)
     print(f"Server starting on http://localhost:{PORT}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

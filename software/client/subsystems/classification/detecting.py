@@ -30,6 +30,7 @@ class Detecting(BaseState):
         self._baseline_pending = True
         self._entered_at: Optional[float] = None
         self._detected_at: Optional[float] = None
+        self._ready_at: Optional[float] = None
 
     def step(self) -> Optional[ClassificationState]:
         now = time.time()
@@ -49,7 +50,9 @@ class Detecting(BaseState):
             if not self.shared.distribution_ready:
                 return None
             self.shared.classification_ready = True
-            self.logger.info("Detecting: set classification_ready=True (baseline captured + distribution ready)")
+            self._ready_at = now
+            elapsed_since_enter = (now - self._entered_at) * 1000 if self._entered_at else 0
+            self.logger.info(f"Detecting: classification_ready=True ({elapsed_since_enter:.0f}ms since enter)")
             return None
 
         triggered, score, hot_px = self.vision.isCarouselTriggered()
@@ -66,7 +69,9 @@ class Detecting(BaseState):
                     f"(score={score:.1f}, hot_px={hot_px})"
                 )
                 self.shared.classification_ready = False
-                self.logger.info("Detecting: set classification_ready=False")
+                wait_ms = (now - self._ready_at) * 1000 if self._ready_at else 0
+                total_ms = (now - self._entered_at) * 1000 if self._entered_at else 0
+                self.logger.info(f"Detecting: confirmed -> ROTATING (wait_for_piece={wait_ms:.0f}ms, total={total_ms:.0f}ms)")
                 self.carousel.addPieceAtFeeder()
                 return ClassificationState.ROTATING
         else:
@@ -86,3 +91,4 @@ class Detecting(BaseState):
         self._baseline_pending = True
         self._entered_at = None
         self._detected_at = None
+        self._ready_at = None

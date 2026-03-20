@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
 ROTATE_DURATION_MS = 3000
+PRE_ROTATE_DELAY_MS = 250
 
 
 class Rotating(BaseState):
@@ -30,12 +31,16 @@ class Rotating(BaseState):
         self.carousel = carousel
         self.stepper = stepper
         self.event_queue = event_queue
+        self.entered_at: Optional[float] = None
         self.start_time: Optional[float] = None
         self.command_sent = False
         self.wait_started_at: Optional[float] = None
         self.last_wait_log_ms = 0.0
+        self._state_entered_at: Optional[float] = None
 
     def step(self) -> Optional[ClassificationState]:
+        if self._state_entered_at is None:
+            self._state_entered_at = time.time()
         piece_at_intermediate = self.carousel.getPieceAtIntermediate()
         requires_distribution_ready = piece_at_intermediate is not None and (
             piece_at_intermediate.part_id is not None
@@ -70,7 +75,13 @@ class Rotating(BaseState):
             self.wait_started_at = None
             self.last_wait_log_ms = 0.0
 
+        if self.entered_at is None:
+            self.entered_at = time.time()
+
         if self.start_time is None:
+            elapsed_since_entry_ms = (time.time() - self.entered_at) * 1000
+            if elapsed_since_entry_ms < PRE_ROTATE_DELAY_MS:
+                return None
             self.start_time = time.time()
             self.logger.info("Rotating: starting rotation")
             self.stepper.move_degrees(-90.0)
@@ -80,7 +91,12 @@ class Rotating(BaseState):
         if elapsed_ms < ROTATE_DURATION_MS:
             return None
 
-        self.logger.info("Rotating: rotation complete")
+        total_ms = (time.time() - self._state_entered_at) * 1000 if self._state_entered_at else 0
+        wait_ms = 0.0
+        if self.wait_started_at is not None and self.entered_at is not None:
+            wait_ms = (self.entered_at - self._state_entered_at) * 1000 if self._state_entered_at else 0
+        rotate_ms = (time.time() - self.start_time) * 1000 if self.start_time else 0
+        self.logger.info(f"Rotating: complete (dist_wait={wait_ms:.0f}ms, rotate={rotate_ms:.0f}ms, total={total_ms:.0f}ms)")
         exiting = self.carousel.rotate()
         if exiting:
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
@@ -104,7 +120,9 @@ class Rotating(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
+        self.entered_at = None
         self.start_time = None
         self.command_sent = False
         self.wait_started_at = None
         self.last_wait_log_ms = 0.0
+        self._state_entered_at = None

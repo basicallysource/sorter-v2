@@ -5,74 +5,74 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
-export type CameraName = 'feeder' | 'classification_bottom' | 'classification_top';
-export type PieceStage = 'created' | 'distributing' | 'distributed';
-export type ClassificationStatus =
-	| 'pending'
-	| 'classifying'
-	| 'classified'
-	| 'unknown'
-	| 'not_found';
+export type CameraName = "feeder" | "classification_bottom" | "classification_top";
+export type PieceStage = "created" | "distributing" | "distributed";
+export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found";
 
 export interface FrameData {
-	camera: CameraName;
-	timestamp: number;
-	raw: string;
-	annotated: string | null;
-	results: FrameResultData[];
+  camera: CameraName;
+  timestamp: number;
+  raw: string;
+  annotated: string | null;
+  results: FrameResultData[];
 }
 export interface FrameResultData {
-	class_id: number | null;
-	class_name: string | null;
-	confidence: number;
-	bbox: [unknown, unknown, unknown, unknown] | null;
+  class_id: number | null;
+  class_name: string | null;
+  confidence: number;
+  bbox: [unknown, unknown, unknown, unknown] | null;
 }
 export interface FrameEvent {
-	tag: 'frame';
-	data: FrameData;
+  tag: "frame";
+  data: FrameData;
 }
 export interface HeartbeatData {
-	timestamp: number;
+  timestamp: number;
 }
 export interface HeartbeatEvent {
-	tag: 'heartbeat';
-	data: HeartbeatData;
+  tag: "heartbeat";
+  data: HeartbeatData;
 }
 export interface IdentityEvent {
-	tag: 'identity';
-	data: MachineIdentityData;
+  tag: "identity";
+  data: MachineIdentityData;
 }
 export interface MachineIdentityData {
-	machine_id: string;
-	nickname: string | null;
+  machine_id: string;
+  nickname: string | null;
 }
 export interface KnownObjectData {
-	uuid: string;
-	created_at: number;
-	updated_at: number;
-	stage: PieceStage;
-	classification_status: ClassificationStatus;
-	part_id?: string | null;
-	category_id?: string | null;
-	confidence?: number | null;
-	destination_bin?: [unknown, unknown, unknown] | null;
-	thumbnail?: string | null;
-	top_image?: string | null;
-	bottom_image?: string | null;
+  uuid: string;
+  created_at: number;
+  updated_at: number;
+  stage: PieceStage;
+  classification_status: ClassificationStatus;
+  part_id?: string | null;
+  color_id?: string;
+  color_name?: string;
+  category_id?: string | null;
+  confidence?: number | null;
+  destination_bin?: [unknown, unknown, unknown] | null;
+  thumbnail?: string | null;
+  top_image?: string | null;
+  bottom_image?: string | null;
+  classified_at?: number | null;
+  distributing_at?: number | null;
+  distributed_at?: number | null;
 }
 export interface KnownObjectEvent {
-	tag: 'known_object';
-	data: KnownObjectData;
+  tag: "known_object";
+  data: KnownObjectData;
 }
 export interface PauseCommandData {}
 export interface PauseCommandEvent {
-	tag: 'pause';
-	data: PauseCommandData;
+  tag: "pause";
+  data: PauseCommandData;
 }
 export interface ResumeCommandData {}
 export interface ResumeCommandEvent {
-	tag: 'resume';
-	data: ResumeCommandData;
+  tag: "resume";
+  data: ResumeCommandData;
 }
 
 export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent;

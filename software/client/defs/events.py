@@ -69,6 +69,8 @@ class KnownObjectData(BaseModel):
     stage: PieceStage
     classification_status: ClassificationStatus
     part_id: Optional[str] = None
+    color_id: str = "any_color"
+    color_name: str = "Any Color"
     category_id: Optional[str] = None
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None

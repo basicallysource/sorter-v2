@@ -26,7 +26,14 @@ class BrickognizeItem(TypedDict):
     score: float
 
 
+class BrickognizeColor(TypedDict):
+    id: str
+    name: str
+    score: float
+
+
 class BrickognizeResponse(TypedDict):
     listing_id: str
     bounding_box: BrickognizeBoundingBox
     items: List[BrickognizeItem]
+    colors: List[BrickognizeColor]

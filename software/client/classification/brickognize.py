@@ -6,9 +6,11 @@ import numpy as np
 import cv2
 from PIL import Image
 from global_config import GlobalConfig
-from .brickognize_types import BrickognizeResponse, BrickognizeItem
+from .brickognize_types import BrickognizeResponse, BrickognizeItem, BrickognizeColor
 
-API_URL = "https://api.brickognize.com/predict/"
+API_URL = "https://api.brickognize.com/predict/?predict_color=true"
+ANY_COLOR = "any_color"
+ANY_COLOR_NAME = "Any Color"
 FILTER_CATEGORIES = ["primo", "duplo"]
 
 
@@ -16,7 +18,7 @@ def classify(
     gc: GlobalConfig,
     top_image: Optional[np.ndarray],
     bottom_image: Optional[np.ndarray],
-    callback: Callable[[Optional[str]], None],
+    callback: Callable[[Optional[str], str, str, Optional[float]], None],
 ) -> None:
     thread = threading.Thread(
         target=_doClassify,
@@ -30,7 +32,7 @@ def _doClassify(
     gc: GlobalConfig,
     top_image: Optional[np.ndarray],
     bottom_image: Optional[np.ndarray],
-    callback: Callable[[Optional[str]], None],
+    callback: Callable[[Optional[str], str, str, Optional[float]], None],
 ) -> None:
     gc.logger.info("Brickognize: classifying piece")
     try:
@@ -45,18 +47,21 @@ def _doClassify(
                     bottom_result = _classifyImage(bottom_image)
 
         best_item = _pickBestItem(top_result, bottom_result)
+        best_color = _pickBestColor(top_result, bottom_result)
+        color_id = best_color["id"] if best_color else ANY_COLOR
+        color_name = best_color["name"] if best_color else ANY_COLOR_NAME
         if best_item:
             gc.logger.info(
                 f"Brickognize: {best_item['id']} ({best_item['name']}) "
-                f"score={best_item['score']:.2f}"
+                f"score={best_item['score']:.2f} color={color_name}"
             )
-            callback(best_item["id"])
+            callback(best_item["id"], color_id, color_name, best_item["score"])
         else:
             gc.logger.warn("Brickognize: no items found")
-            callback(None)
+            callback(None, color_id, color_name, None)
     except Exception as e:
         gc.logger.error(f"Brickognize: classification failed: {e}")
-        callback(None)
+        callback(None, ANY_COLOR, ANY_COLOR_NAME, None)
 
 
 def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
@@ -93,3 +98,17 @@ def _pickBestItem(
     if not all_items:
         return None
     return max(all_items, key=lambda x: x.get("score", 0))
+
+
+def _pickBestColor(
+    top_result: Optional[BrickognizeResponse],
+    bottom_result: Optional[BrickognizeResponse],
+) -> Optional[BrickognizeColor]:
+    all_colors: list[BrickognizeColor] = []
+    if top_result is not None:
+        all_colors += top_result.get("colors", [])
+    if bottom_result is not None:
+        all_colors += bottom_result.get("colors", [])
+    if not all_colors:
+        return None
+    return max(all_colors, key=lambda x: x.get("score", 0))

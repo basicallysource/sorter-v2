@@ -8,7 +8,7 @@ MISC_CATEGORY = "misc"
 
 class SortingProfile(ABC):
     @abstractmethod
-    def getCategoryIdForPart(self, part_id: str) -> str:
+    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
         pass
 
 
@@ -32,9 +32,12 @@ class JsonSortingProfile(SortingProfile):
         for part_id, category_id in part_to_category.items():
             self.part_to_category[str(part_id)] = str(category_id)
 
-    def getCategoryIdForPart(self, part_id: str) -> str:
-        key = f"any_color-{part_id}"
-        return self.part_to_category.get(key, self.default_category_id)
+    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+        color_key = f"{color_id}-{part_id}"
+        if color_key in self.part_to_category:
+            return self.part_to_category[color_key]
+        any_key = f"any_color-{part_id}"
+        return self.part_to_category.get(any_key, self.default_category_id)
 
 
 def mkSortingProfile(gc: GlobalConfig) -> SortingProfile:

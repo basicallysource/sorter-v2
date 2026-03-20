@@ -141,10 +141,10 @@ class Snapping(BaseState):
         self.carousel.markPendingClassification(piece)
 
         def onResult(
-            part_id: Optional[str], confidence: Optional[float] = None
+            part_id: Optional[str], color_id: str, color_name: str, confidence: Optional[float] = None
         ) -> None:
-            self.carousel.resolveClassification(piece.uuid, part_id, confidence)
-            self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id}")
+            self.carousel.resolveClassification(piece.uuid, part_id, color_id, color_name, confidence)
+            self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
 
         classify(self.gc, top_crop, bottom_crop, onResult)
 

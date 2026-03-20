@@ -17,6 +17,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             stage=PieceStage(obj.stage),
             classification_status=ClassificationStatus(obj.classification_status),
             part_id=obj.part_id,
+            color_id=obj.color_id,
+            color_name=obj.color_name,
             category_id=obj.category_id,
             confidence=obj.confidence,
             destination_bin=obj.destination_bin,

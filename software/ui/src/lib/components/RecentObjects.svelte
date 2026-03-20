@@ -73,7 +73,7 @@
 			case 'classifying':
 				return `classifying`;
 			case 'classified':
-				return obj.confidence != null ? `${(obj.confidence * 100).toFixed(0)}%` : 'classified';
+				return 'classified';
 			case 'unknown':
 				return 'unknown';
 			case 'not_found':
@@ -169,6 +169,11 @@
 									{#if bl_data?.name}
 										<div class="dark:text-text-muted-dark truncate text-text-muted">
 											{bl_data.name}
+										</div>
+									{/if}
+									{#if obj.color_name && obj.color_name !== 'Any Color'}
+										<div class="dark:text-text-muted-dark truncate text-text-muted">
+											{obj.color_name}
 										</div>
 									{/if}
 									<div class="flex flex-wrap gap-1">

@@ -31,12 +31,16 @@ class ClassificationAnalysisThread:
         get_gray: Callable[[], np.ndarray | None],
         profiler: Profiler,
         logger: Logger,
+        min_bbox_dimension_px: int = MIN_BBOX_DIMENSION_PX,
+        min_bbox_area_px: int = MIN_BBOX_AREA_PX,
     ):
         self._name = name
         self._heatmap = heatmap
         self._get_gray = get_gray
         self._profiler = profiler
         self._logger = logger
+        self._min_bbox_dimension_px = min_bbox_dimension_px
+        self._min_bbox_area_px = min_bbox_area_px
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
         self._latest_bboxes = []
@@ -91,7 +95,7 @@ class ClassificationAnalysisThread:
                         w = bbox[2] - bbox[0]
                         h = bbox[3] - bbox[1]
                         area = w * h
-                        if w < MIN_BBOX_DIMENSION_PX or h < MIN_BBOX_DIMENSION_PX or area < MIN_BBOX_AREA_PX:
+                        if w < self._min_bbox_dimension_px or h < self._min_bbox_dimension_px or area < self._min_bbox_area_px:
                             prof.hit(f"{prefix}.bbox_rejected")
                             continue
                         bboxes.append(bbox)

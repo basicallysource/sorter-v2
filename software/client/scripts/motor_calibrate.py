@@ -181,6 +181,7 @@ def printStatus(
     print(f"  A/D     Quarter turn ({quarter_degrees}°)")
     if name == "carousel":
         print("  L       Loop carousel (-90° turns)")
+        print("  H       Home carousel (+95°, set zero)")
     print("  Tab     Switch stepper")
     print("  Enter   Set current position as zero")
     if name == "chute":
@@ -514,6 +515,13 @@ def main() -> None:
                 pass
             finally:
                 termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+            _printMain()
+        elif key.lower() == "h" and name == "carousel":
+            print("Homing carousel (+95°, zeroing)...")
+            stepper.move_degrees(95)
+            while not stepper.stopped:
+                time.sleep(0.01)
+            stepper.position_degrees = 0.0
             _printMain()
         elif key.lower() == "s":
             servo_calibrate_loop(servos)

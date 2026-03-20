@@ -12,7 +12,6 @@ from defs.known_object import ClassificationStatus
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
-ROTATE_DURATION_MS = 3000
 PRE_ROTATE_DELAY_MS = 250
 
 
@@ -87,8 +86,7 @@ class Rotating(BaseState):
             self.stepper.move_degrees(-90.0)
             self.command_sent = True
 
-        elapsed_ms = (time.time() - self.start_time) * 1000
-        if elapsed_ms < ROTATE_DURATION_MS:
+        if not self.stepper.stopped:
             return None
 
         total_ms = (time.time() - self._state_entered_at) * 1000 if self._state_entered_at else 0

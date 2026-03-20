@@ -9,6 +9,8 @@ from global_config import GlobalConfig
 from vision import VisionManager
 from defs.consts import LOOP_TICK_MS
 
+CH3_PRECISE_HOLDOVER_MS = 1500
+
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
     from irl.config import RotorPulseConfig
@@ -30,6 +32,7 @@ class Feeding(BaseState):
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
         self._busy_until: dict[str, float] = {}
+        self._ch3_last_precise_at: float = 0.0
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -80,6 +83,13 @@ class Feeding(BaseState):
 
                 ch2_action = analysis.ch2_action
                 ch3_action = analysis.ch3_action
+
+                now = time.monotonic()
+                if ch3_action == ChannelAction.PULSE_PRECISE:
+                    self._ch3_last_precise_at = now
+                elif ch3_action == ChannelAction.PULSE_NORMAL and self._ch3_last_precise_at > 0:
+                    if (now - self._ch3_last_precise_at) * 1000 < CH3_PRECISE_HOLDOVER_MS:
+                        ch3_action = ChannelAction.PULSE_PRECISE
 
                 if ch2_action != self._last_ch2_action:
                     self.gc.logger.info(f"state change: ch2 {self._last_ch2_action.value} -> {ch2_action.value}")

@@ -45,7 +45,6 @@ class GlobalConfig:
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
-
     def __init__(self):
         self.debug_level = 0
         self.should_write_camera_feeds = False

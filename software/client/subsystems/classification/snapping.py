@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from vision import VisionManager
 
 SNAP_JPEG_QUALITY = 90
+SETTLE_MS = 1500
 
 
 class Snapping(BaseState):
@@ -40,10 +41,16 @@ class Snapping(BaseState):
         self.event_queue = event_queue
         self.telemetry = telemetry
         self.snapped = False
+        self._entered_at: Optional[float] = None
         self._snap_dir = BLOB_DIR / gc.run_id
         self._snap_dir.mkdir(parents=True, exist_ok=True)
 
     def step(self) -> Optional[ClassificationState]:
+        if self._entered_at is None:
+            self._entered_at = time.time()
+        if (time.time() - self._entered_at) * 1000 < SETTLE_MS:
+            return None
+
         if not self.snapped:
             snap_start = time.time()
             self._captureAndClassify()
@@ -144,3 +151,4 @@ class Snapping(BaseState):
     def cleanup(self) -> None:
         super().cleanup()
         self.snapped = False
+        self._entered_at = None

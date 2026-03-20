@@ -23,6 +23,7 @@ from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
+from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
 from vision import VisionManager
 import uvicorn
 import threading
@@ -78,6 +79,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 
 
+
 def main() -> None:
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
@@ -103,6 +105,7 @@ def main() -> None:
 
     gc.logger.info("Homing chute to zero...")
     irl.chute.home()
+    # sensorlessHomeCarousel(gc, irl)
 
     telemetry = Telemetry(gc)
     vision = VisionManager(irl_config, gc, irl)

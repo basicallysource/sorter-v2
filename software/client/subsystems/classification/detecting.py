@@ -72,7 +72,8 @@ class Detecting(BaseState):
                 wait_ms = (now - self._ready_at) * 1000 if self._ready_at else 0
                 total_ms = (now - self._entered_at) * 1000 if self._entered_at else 0
                 self.logger.info(f"Detecting: confirmed -> ROTATING (wait_for_piece={wait_ms:.0f}ms, total={total_ms:.0f}ms)")
-                self.carousel.addPieceAtFeeder()
+                obj = self.carousel.addPieceAtFeeder()
+                obj.feeding_started_at = self._ready_at
                 return ClassificationState.ROTATING
         else:
             if self._detected_at is not None:

@@ -45,6 +45,7 @@ class RunRecorder:
             pieces_data.append({
                 "uuid": p.uuid,
                 "created_at": p.created_at,
+                "feeding_started_at": p.feeding_started_at,
                 "classified_at": p.classified_at,
                 "distributing_at": p.distributing_at,
                 "distributed_at": p.distributed_at,

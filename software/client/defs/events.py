@@ -77,6 +77,7 @@ class KnownObjectData(BaseModel):
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    feeding_started_at: Optional[float] = None
     classified_at: Optional[float] = None
     distributing_at: Optional[float] = None
     distributed_at: Optional[float] = None

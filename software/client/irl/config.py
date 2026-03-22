@@ -105,7 +105,7 @@ class FeederConfig:
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
-            steps=200,
+            steps=50,
             microsteps_per_second=2000,
             delay_between_ms=1500,
         )

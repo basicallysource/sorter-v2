@@ -332,205 +332,206 @@ def main() -> None:
 
     _printMain()
 
-    while True:
-        key: str = readchar.readkey()
-        name: str = stepper_names[selected_idx]
-        stepper: StepperMotor = steppers[name]
-        step_count: int = STEP_COUNTS[step_count_idx]
+    try:
+        while True:
+            key: str = readchar.readkey()
+            name: str = stepper_names[selected_idx]
+            stepper: StepperMotor = steppers[name]
+            step_count: int = STEP_COUNTS[step_count_idx]
 
-        if key == readchar.key.LEFT:
-            stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
-            _printMain()
-        elif key == readchar.key.RIGHT:
-            stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
-            _printMain()
-        elif key.lower() == "a":
-            stepper.move_degrees(-90)
-            _printMain()
-        elif key.lower() == "d":
-            stepper.move_degrees(90)
-            _printMain()
-        elif key == readchar.key.UP:
-            step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
-            _printMain()
-        elif key == readchar.key.DOWN:
-            step_count_idx = max(step_count_idx - 1, 0)
-            _printMain()
-        elif key.lower() == "w":
-            speed_idxs[name] = min(speed_idxs[name] + 1, len(SPEED_PRESETS) - 1)
-            stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
-            _printMain()
-        elif key.lower() == "e":
-            speed_idxs[name] = max(speed_idxs[name] - 1, 0)
-            stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
-            _printMain()
-        elif key == "\t":
-            selected_idx = (selected_idx + 1) % len(stepper_names)
-            _printMain()
-        elif key == readchar.key.ENTER:
-            stepper.position_degrees = 0.0
-            _printMain()
-            print(f"Zeroed {name} position")
-        elif key in "1234":
-            layer_idx: int = int(key) - 1
-            if layer_idx < len(servos):
-                servos[layer_idx].toggle()
+            if key == readchar.key.LEFT:
+                stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
                 _printMain()
-        elif key.lower() == "g" and name == "chute":
-            print("\033[2J\033[H", end="")
-            angle_str = input("Enter chute angle (0-360): ")
-            try:
-                target = float(angle_str)
-                if 0 <= target <= 360:
-                    irl.chute.moveToAngle(target)
-                    while not irl.chute.stepper.stopped:
-                        time.sleep(0.01)
-                else:
-                    print("Angle must be 0-360")
-                    readchar.readkey()
-            except ValueError:
-                print("Invalid number")
-                readchar.readkey()
-            _printMain()
-        elif key.lower() == "h" and name == "chute":
-            print("Homing chute...")
-            irl.chute.home()
-            _printMain()
-        elif key.lower() == "r" and name == "chute":
-            print("Homing chute...")
-            irl.chute.home()
-            print(f"Revolving chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°). Press Q to stop.")
-            chute_at_zero = True
-            import select, sys as _sys, tty, termios
-            old_settings = termios.tcgetattr(_sys.stdin)
-            tty.setcbreak(_sys.stdin.fileno())
-            try:
-                while True:
-                    if chute_at_zero:
-                        irl.chute.moveToAngle(CHUTE_REVOLVE_ANGLE)
-                    else:
-                        irl.chute.home()
-                        chute_at_zero = not chute_at_zero
-                        continue
-                    # Wait for move to finish, checking for Q
-                    while not irl.chute.stepper.stopped:
-                        if select.select([_sys.stdin], [], [], 0)[0]:
-                            ch = _sys.stdin.read(1)
-                            if ch.lower() == "q":
-                                raise StopIteration
-                        time.sleep(0.01)
-                    chute_at_zero = not chute_at_zero
-            except StopIteration:
-                pass
-            finally:
-                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
-            _printMain()
-        elif key.lower() == "t" and name == "chute":
-            import random, select, sys as _sys, tty, termios
-            print("Homing chute...")
-            irl.chute.home()
-            print("Random movement test. Press Q to stop.")
-            old_settings = termios.tcgetattr(_sys.stdin)
-            tty.setcbreak(_sys.stdin.fileno())
-            try:
-                current = CHUTE_MIN_ANGLE
-                irl.chute.moveToAngle(current)
-                while not irl.chute.stepper.stopped:
-                    time.sleep(0.01)
-                while True:
-                    delta = random.choice([-1, 1]) * random.choice([10, 15, 30, 50, 70, 90, 120, 150, 180])
-                    target = max(CHUTE_MIN_ANGLE, min(CHUTE_REVOLVE_ANGLE, current + delta))
-                    if target == current:
-                        continue
-                    gc.logger.info(f"Chute random test: {current:.0f}° -> {target:.0f}°")
-                    irl.chute.moveToAngle(target)
-                    while not irl.chute.stepper.stopped:
-                        if select.select([_sys.stdin], [], [], 0)[0]:
-                            ch = _sys.stdin.read(1)
-                            if ch.lower() == "q":
-                                raise StopIteration
-                        time.sleep(0.01)
-                    current = target
-            except StopIteration:
-                pass
-            finally:
-                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
-            _printMain()
-        elif key.lower() == "b" and name == "chute":
-            if chute_cal is None or "pillar_width" not in chute_cal:
-                print("No calibration set. Run calibration first (C).")
-                print("Press any key...")
-                readchar.readkey()
-            else:
+            elif key == readchar.key.RIGHT:
+                stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
+                _printMain()
+            elif key.lower() == "a":
+                stepper.move_degrees(-90)
+                _printMain()
+            elif key.lower() == "d":
+                stepper.move_degrees(90)
+                _printMain()
+            elif key == readchar.key.UP:
+                step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
+                _printMain()
+            elif key == readchar.key.DOWN:
+                step_count_idx = max(step_count_idx - 1, 0)
+                _printMain()
+            elif key.lower() == "w":
+                speed_idxs[name] = min(speed_idxs[name] + 1, len(SPEED_PRESETS) - 1)
+                stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
+                _printMain()
+            elif key.lower() == "e":
+                speed_idxs[name] = max(speed_idxs[name] - 1, 0)
+                stepper.set_speed_limits(16, SPEED_PRESETS[speed_idxs[name]])
+                _printMain()
+            elif key == "\t":
+                selected_idx = (selected_idx + 1) % len(stepper_names)
+                _printMain()
+            elif key == readchar.key.ENTER:
+                stepper.position_degrees = 0.0
+                _printMain()
+                print(f"Zeroed {name} position")
+            elif key in "1234":
+                layer_idx: int = int(key) - 1
+                if layer_idx < len(servos):
+                    servos[layer_idx].toggle()
+                    _printMain()
+            elif key.lower() == "g" and name == "chute":
                 print("\033[2J\033[H", end="")
-                print("Bin Targeting (1-12)")
-                print("====================")
-                for b in range(BINS_PER_LAYER):
-                    s = b // 2
-                    bi = b % 2
-                    a = angleForBin(chute_cal, b)
-                    print(f"  Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
-                print()
-                bin_str = input("Enter bin number (1-12): ")
+                angle_str = input("Enter chute angle (0-360): ")
                 try:
-                    bin_num = int(bin_str)
-                    if 1 <= bin_num <= BINS_PER_LAYER:
-                        target_angle = angleForBin(chute_cal, bin_num - 1)
-                        print(f"Moving to bin {bin_num} at {target_angle:.2f}°...")
-                        irl.chute.moveToAngle(target_angle)
+                    target = float(angle_str)
+                    if 0 <= target <= 360:
+                        irl.chute.moveToAngle(target)
                         while not irl.chute.stepper.stopped:
                             time.sleep(0.01)
                     else:
-                        print(f"Must be 1-{BINS_PER_LAYER}")
+                        print("Angle must be 0-360")
                         readchar.readkey()
                 except ValueError:
                     print("Invalid number")
                     readchar.readkey()
-            _printMain()
-        elif key.lower() == "c" and name == "chute":
-            result = chuteCalibrateLoop(irl.chute, step_count_idx)
-            if result is not None:
-                chute_cal = result
-            _printMain()
-        elif key.lower() == "l" and name == "carousel":
-            import select, sys as _sys, tty, termios
-            print("Looping carousel (-90° turns). Press Q to stop.")
-            old_settings = termios.tcgetattr(_sys.stdin)
-            tty.setcbreak(_sys.stdin.fileno())
-            try:
-                while True:
-                    stepper.move_degrees(-90)
-                    while not stepper.stopped:
+                _printMain()
+            elif key.lower() == "h" and name == "chute":
+                print("Homing chute...")
+                irl.chute.home()
+                _printMain()
+            elif key.lower() == "r" and name == "chute":
+                print("Homing chute...")
+                irl.chute.home()
+                print(f"Revolving chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°). Press Q to stop.")
+                chute_at_zero = True
+                import select, sys as _sys, tty, termios
+                old_settings = termios.tcgetattr(_sys.stdin)
+                tty.setcbreak(_sys.stdin.fileno())
+                try:
+                    while True:
+                        if chute_at_zero:
+                            irl.chute.moveToAngle(CHUTE_REVOLVE_ANGLE)
+                        else:
+                            irl.chute.home()
+                            chute_at_zero = not chute_at_zero
+                            continue
+                        # Wait for move to finish, checking for Q
+                        while not irl.chute.stepper.stopped:
+                            if select.select([_sys.stdin], [], [], 0)[0]:
+                                ch = _sys.stdin.read(1)
+                                if ch.lower() == "q":
+                                    raise StopIteration
+                            time.sleep(0.01)
+                        chute_at_zero = not chute_at_zero
+                except StopIteration:
+                    pass
+                finally:
+                    termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+                _printMain()
+            elif key.lower() == "t" and name == "chute":
+                import random, select, sys as _sys, tty, termios
+                print("Homing chute...")
+                irl.chute.home()
+                print("Random movement test. Press Q to stop.")
+                old_settings = termios.tcgetattr(_sys.stdin)
+                tty.setcbreak(_sys.stdin.fileno())
+                try:
+                    current = CHUTE_MIN_ANGLE
+                    irl.chute.moveToAngle(current)
+                    while not irl.chute.stepper.stopped:
+                        time.sleep(0.01)
+                    while True:
+                        delta = random.choice([-1, 1]) * random.choice([10, 15, 30, 50, 70, 90, 120, 150, 180])
+                        target = max(CHUTE_MIN_ANGLE, min(CHUTE_REVOLVE_ANGLE, current + delta))
+                        if target == current:
+                            continue
+                        gc.logger.info(f"Chute random test: {current:.0f}° -> {target:.0f}°")
+                        irl.chute.moveToAngle(target)
+                        while not irl.chute.stepper.stopped:
+                            if select.select([_sys.stdin], [], [], 0)[0]:
+                                ch = _sys.stdin.read(1)
+                                if ch.lower() == "q":
+                                    raise StopIteration
+                            time.sleep(0.01)
+                        current = target
+                except StopIteration:
+                    pass
+                finally:
+                    termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+                _printMain()
+            elif key.lower() == "b" and name == "chute":
+                if chute_cal is None or "pillar_width" not in chute_cal:
+                    print("No calibration set. Run calibration first (C).")
+                    print("Press any key...")
+                    readchar.readkey()
+                else:
+                    print("\033[2J\033[H", end="")
+                    print("Bin Targeting (1-12)")
+                    print("====================")
+                    for b in range(BINS_PER_LAYER):
+                        s = b // 2
+                        bi = b % 2
+                        a = angleForBin(chute_cal, b)
+                        print(f"  Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
+                    print()
+                    bin_str = input("Enter bin number (1-12): ")
+                    try:
+                        bin_num = int(bin_str)
+                        if 1 <= bin_num <= BINS_PER_LAYER:
+                            target_angle = angleForBin(chute_cal, bin_num - 1)
+                            print(f"Moving to bin {bin_num} at {target_angle:.2f}°...")
+                            irl.chute.moveToAngle(target_angle)
+                            while not irl.chute.stepper.stopped:
+                                time.sleep(0.01)
+                        else:
+                            print(f"Must be 1-{BINS_PER_LAYER}")
+                            readchar.readkey()
+                    except ValueError:
+                        print("Invalid number")
+                        readchar.readkey()
+                _printMain()
+            elif key.lower() == "c" and name == "chute":
+                result = chuteCalibrateLoop(irl.chute, step_count_idx)
+                if result is not None:
+                    chute_cal = result
+                _printMain()
+            elif key.lower() == "l" and name == "carousel":
+                import select, sys as _sys, tty, termios
+                print("Looping carousel (-90° turns). Press Q to stop.")
+                old_settings = termios.tcgetattr(_sys.stdin)
+                tty.setcbreak(_sys.stdin.fileno())
+                try:
+                    while True:
+                        stepper.move_degrees(-90)
+                        while not stepper.stopped:
+                            if select.select([_sys.stdin], [], [], 0)[0]:
+                                ch = _sys.stdin.read(1)
+                                if ch.lower() == "q":
+                                    raise StopIteration
+                            time.sleep(0.01)
+                        time.sleep(0.5)
                         if select.select([_sys.stdin], [], [], 0)[0]:
                             ch = _sys.stdin.read(1)
                             if ch.lower() == "q":
                                 raise StopIteration
-                        time.sleep(0.01)
-                    time.sleep(0.5)
-                    if select.select([_sys.stdin], [], [], 0)[0]:
-                        ch = _sys.stdin.read(1)
-                        if ch.lower() == "q":
-                            raise StopIteration
-            except StopIteration:
-                pass
-            finally:
-                termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
-            _printMain()
-        elif key.lower() == "h" and name == "carousel":
-            print("Homing carousel (+95°, zeroing)...")
-            stepper.move_degrees(95)
-            while not stepper.stopped:
-                time.sleep(0.01)
-            stepper.position_degrees = 0.0
-            _printMain()
-        elif key.lower() == "s":
-            servo_calibrate_loop(servos)
-            _printMain()
-        elif key.lower() == "q":
-            print("Exiting...")
-            for s in steppers.values():
-                s.enabled = False
-            sys.exit(0)
+                except StopIteration:
+                    pass
+                finally:
+                    termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
+                _printMain()
+            elif key.lower() == "h" and name == "carousel":
+                print("Homing carousel (+95°, zeroing)...")
+                stepper.move_degrees(95)
+                while not stepper.stopped:
+                    time.sleep(0.01)
+                stepper.position_degrees = 0.0
+                _printMain()
+            elif key.lower() == "s":
+                servo_calibrate_loop(servos)
+                _printMain()
+            elif key.lower() == "q":
+                print("Exiting...")
+                break
+    finally:
+        irl.disableSteppers()
 
 
 if __name__ == "__main__":

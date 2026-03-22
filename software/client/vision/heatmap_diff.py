@@ -186,6 +186,13 @@ class HeatmapDiff:
         if avg is None:
             return None
 
+        if avg.shape[:2] != mask.shape[:2]:
+            mask = cv2.resize(mask, (avg.shape[1], avg.shape[0]), interpolation=cv2.INTER_NEAREST)
+            if bl_min is not None:
+                bl_min = cv2.resize(bl_min, (avg.shape[1], avg.shape[0]), interpolation=cv2.INTER_AREA)
+            if bl_max is not None:
+                bl_max = cv2.resize(bl_max, (avg.shape[1], avg.shape[0]), interpolation=cv2.INTER_AREA)
+
         mask_bool = mask > 0
 
         if bl_min is not None and bl_max is not None:
@@ -201,7 +208,10 @@ class HeatmapDiff:
             diff = np.maximum(below, above)
         elif self._baseline_gray is not None:
             current_masked = cv2.bitwise_and(avg, avg, mask=mask)
-            diff = cv2.absdiff(current_masked, self._baseline_gray)
+            bl_gray = self._baseline_gray
+            if bl_gray.shape[:2] != avg.shape[:2]:
+                bl_gray = cv2.resize(bl_gray, (avg.shape[1], avg.shape[0]), interpolation=cv2.INTER_AREA)
+            diff = cv2.absdiff(current_masked, bl_gray)
         else:
             return None
 

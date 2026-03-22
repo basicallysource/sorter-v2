@@ -79,6 +79,7 @@ def reportSingle(record: dict) -> None:
     creation_to_distributed = []
     classification_times = []
     distribution_times = []
+    feeding_times = []
 
     for p in pieces:
         if p.get("distributed_at") and p.get("created_at"):
@@ -87,6 +88,8 @@ def reportSingle(record: dict) -> None:
             classification_times.append(p["classified_at"] - p["created_at"])
         if p.get("distributed_at") and p.get("distributing_at"):
             distribution_times.append(p["distributed_at"] - p["distributing_at"])
+        if p.get("feeding_started_at") and p.get("created_at"):
+            feeding_times.append(p["created_at"] - p["feeding_started_at"])
 
     if creation_to_distributed:
         avg = sum(creation_to_distributed) / len(creation_to_distributed)
@@ -97,6 +100,9 @@ def reportSingle(record: dict) -> None:
     if distribution_times:
         avg = sum(distribution_times) / len(distribution_times)
         print(f"  Avg chute time (distributing->distributed): {avg:.2f}s")
+    if feeding_times:
+        avg = sum(feeding_times) / len(feeding_times)
+        print(f"  Avg feed time (ready->landed): {avg:.2f}s")
 
     statuses: dict[str, int] = {}
     for p in pieces:

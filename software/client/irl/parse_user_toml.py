@@ -79,15 +79,23 @@ def loadStepperCurrentOverrides(
     if raw is None:
         raw = loadMachineSpecificParams(gc)
 
-    if isinstance(raw, dict) and isinstance(raw.get("stepper_current_overrides"), dict):
-        raw = raw["stepper_current_overrides"]
-
     if not isinstance(raw, dict):
         gc.logger.warning("Stepper current config must be an object. Using defaults.")
         return {}
 
+    overrides_table: object = raw.get("stepper_current_overrides")
+    if overrides_table is None:
+        # No explicit stepper_current_overrides table; no overrides to apply.
+        return {}
+
+    if not isinstance(overrides_table, dict):
+        gc.logger.warning(
+            "Stepper current overrides must be an object. Using defaults."
+        )
+        return {}
+
     overrides: dict[str, tuple[int, int, int]] = {}
-    for stepper_name, value in raw.items():
+    for stepper_name, value in overrides_table.items():
         if not isinstance(stepper_name, str):
             gc.logger.warning(
                 f"Ignoring invalid stepper key in current config: {stepper_name!r} (must be string)"

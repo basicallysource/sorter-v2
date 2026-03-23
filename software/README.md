@@ -36,15 +36,17 @@ picotool load -f sorter_interface_firmware.uf2
 cp .env.example .env
 ```
 
+Edit `.env` and update:
+- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
+- Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
+
 Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
 ```bash
 cd client
 uv run python scripts/camera_setup.py
 ```
 
-Edit `.env` and update:
-- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
-- Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
+
 
 ## UI Dependencies
 

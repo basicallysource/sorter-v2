@@ -1,4 +1,5 @@
 # Sorting Profile Builder
+> Warning: You have entered extreme vibe coding territory
 
 Web UI for building rule-based sorting profiles that map LEGO parts to categories.
 

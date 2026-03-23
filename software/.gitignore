@@ -27,6 +27,9 @@ share/python-wheels/
 *.egg
 PIPFILE.lock
 
+# firmware builds
+firmware/sorter_interface_firmware/build*
+
 # PyInstaller
 *.manifest
 *.spec
@@ -78,9 +81,13 @@ Thumbs.db
 #merge on purpose
 #ui/src/lib/api/rest.ts
 #ui/src/lib/api/events.ts
+client/logs/
+client/blob/
 
 # Persistent data
 client/data.json
 client/aruco_config.json
-
+client/bin_layout.json
 client/every_part_bl_api_res.json
+client/stepper_current_overrides.json
+client/sorting_profile.json

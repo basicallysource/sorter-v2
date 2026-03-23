@@ -1,0 +1,13 @@
+# This file is for setting / tuning parameters that will likely vary between
+
+[servo]
+open_angle = 10
+closed_angle = 83
+
+[stepper_current_overrides]
+# default = 16, max = 31
+
+[stepper_current_overrides.chute_stepper]
+irun = 16
+
+

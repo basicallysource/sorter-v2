@@ -27,6 +27,9 @@ share/python-wheels/
 *.egg
 PIPFILE.lock
 
+# firmware builds
+firmware/sorter_interface_firmware/build*
+
 # PyInstaller
 *.manifest
 *.spec

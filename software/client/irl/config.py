@@ -17,7 +17,7 @@ from .bin_layout import (
     layoutMatchesCategories,
     applyCategories,
 )
-from .parse_user_toml import (  # type: ignore[reportMissingImports]
+from .parse_user_toml import (
     loadMachineSpecificParams,
     loadStepperCurrentOverrides,
     loadServoPresetAngles,

@@ -39,6 +39,7 @@ cp .env.example .env
 Edit `.env` and update:
 - `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
 - Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
+- `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `client/irl/example_configs/machine_specific_params_example.toml` for an example)
 
 Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
 ```bash

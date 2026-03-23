@@ -28,7 +28,7 @@ def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
 
     if not current_override_env_path:
         gc.logger.info(
-            f"No {MACHINE_SPECIFIC_PARAMS_ENV_VAR} set; using firmware default stepper currents and default servo angles."
+            f"No {MACHINE_SPECIFIC_PARAMS_ENV_VAR} set; using default stepper currents and servo angles."
         )
         return {}
 

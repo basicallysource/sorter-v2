@@ -133,11 +133,24 @@
         </div>
     </div>
 </div>
+
+<!-- preview modal -->
+<div id="preview-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40" onclick="if(event.target===this)closePreviewModal()">
+    <div class="relative mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col rounded border border-slate-200 bg-white shadow-xl">
+        <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-2">
+            <h4 id="preview-modal-title" class="text-sm font-semibold text-slate-900">Rule Preview</h4>
+            <button data-ui-btn="1" type="button" class="inline-flex h-6 w-6 items-center justify-center border border-slate-300 bg-white text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="closePreviewModal()">&times;</button>
+        </div>
+        <div id="preview-modal-body" class="min-h-0 flex-1 overflow-y-auto p-4"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 
 <script>
+function refreshIcons() { if (window.lucide) lucide.createIcons(); }
+
 function mkUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         let r = Math.random() * 16 | 0;
@@ -469,6 +482,146 @@ function toggleMatchedPartRow(row_el) {
     let detail_row = row_el && row_el.nextElementSibling;
     if (!detail_row || !detail_row.classList.contains('matched-detail-row')) return;
     detail_row.classList.toggle('hidden');
+}
+
+// --- preview components (small / medium / large) ---
+
+let _previewModalData = null;
+let _previewStore = {};
+let _previewStoreId = 0;
+
+function _storePreview(preview) {
+    let id = '_pv_' + (++_previewStoreId);
+    _previewStore[id] = preview;
+    return id;
+}
+
+function openStoredPreview(id) {
+    openPreviewModal(_previewStore[id]);
+}
+
+function renderPartPreviewSmall(preview) {
+    if (!preview) return '';
+    let pvId = _storePreview(preview);
+    let total = preview.total || 0;
+    let sample = preview.sample || [];
+    let count_class = total === 0 ? 'text-red-600' : 'text-green-700';
+    let html = `<div class="mt-1 rounded border border-slate-200 bg-white p-1.5 text-[10px]">`;
+    html += `<div class="flex items-center justify-between">`;
+    html += `<span class="${count_class} font-semibold">${total.toLocaleString()} parts matched</span>`;
+    html += `<button type="button" class="text-slate-400 hover:text-slate-600" onclick="openStoredPreview('${pvId}')" title="Expand preview">`;
+    html += `<i data-lucide="maximize-2" class="h-3.5 w-3.5"></i></button>`;
+    html += `</div>`;
+    if (sample.length > 0) {
+        html += `<div class="mt-1 flex flex-wrap gap-1">`;
+        let show = sample.slice(0, 6);
+        for (let p of show) {
+            let img = p.part_img_url ? `<img src="${p.part_img_url}" class="h-7 w-7 object-contain" loading="lazy" alt="">` : '';
+            let color = p.color_id !== undefined ? renderColorSwatch(p.color_id) : '';
+            html += `<div class="flex items-center gap-1 rounded border border-slate-100 bg-slate-50 px-1 py-0.5" title="${escHtml(p.name)}">`;
+            html += img;
+            html += `<span class="max-w-[80px] truncate">${escHtml(p.name)}</span>`;
+            if (color) html += color;
+            html += `</div>`;
+        }
+        if (total > show.length) {
+            html += `<span class="self-center text-slate-400">+${(total - show.length).toLocaleString()}</span>`;
+        }
+        html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
+}
+
+function renderPartPreviewMedium(preview) {
+    if (!preview) return '';
+    let pvId = _storePreview(preview);
+    let total = preview.total || 0;
+    let sample = preview.sample || [];
+    let count_class = total === 0 ? 'text-red-600' : 'text-green-700';
+    let has_color = sample.length > 0 && sample[0].color_id !== undefined;
+    let html = `<div class="mt-1.5 rounded border border-slate-200 bg-white text-[11px]">`;
+    html += `<div class="flex items-center justify-between border-b border-slate-100 px-2 py-1">`;
+    html += `<span class="${count_class} font-semibold">${total.toLocaleString()} parts matched</span>`;
+    html += `<button type="button" class="text-slate-400 hover:text-slate-600" onclick="openStoredPreview('${pvId}')" title="Expand preview">`;
+    html += `<i data-lucide="maximize-2" class="h-3.5 w-3.5"></i></button>`;
+    html += `</div>`;
+    if (sample.length > 0) {
+        let show = sample.slice(0, 8);
+        html += `<table class="w-full"><tbody>`;
+        for (let p of show) {
+            let img = p.part_img_url ? `<img src="${p.part_img_url}" class="h-8 w-8 object-contain" loading="lazy" alt="">` : '<div class="h-8 w-8"></div>';
+            let color_cell = has_color && p.color_id !== undefined ? `<td class="px-1">${renderColorSwatch(p.color_id)}</td>` : '';
+            html += `<tr class="border-t border-slate-50">`;
+            html += `<td class="w-9 px-1 py-0.5">${img}</td>`;
+            html += `<td class="px-1 py-0.5 font-mono text-slate-500">${escHtml(p.part_num)}</td>`;
+            html += `<td class="px-1 py-0.5">${escHtml(p.name)}</td>`;
+            html += color_cell;
+            html += `</tr>`;
+        }
+        html += `</tbody></table>`;
+        if (total > show.length) {
+            html += `<div class="border-t border-slate-100 px-2 py-1 text-slate-400">… and ${(total - show.length).toLocaleString()} more</div>`;
+        }
+    }
+    html += `</div>`;
+    return html;
+}
+
+function renderPartPreviewLarge(preview) {
+    if (!preview) return '';
+    let total = preview.total || 0;
+    let sample = preview.sample || [];
+    let has_color = sample.length > 0 && sample[0].color_id !== undefined;
+    let count_class = total === 0 ? 'text-red-600' : 'text-green-700';
+    let html = `<div class="text-xs">`;
+    html += `<div class="mb-3"><span class="${count_class} text-sm font-semibold">${total.toLocaleString()} parts matched</span></div>`;
+    if (sample.length > 0) {
+        html += `<table class="w-full"><thead><tr><th></th><th class="text-left">Part</th><th class="text-left">Name</th>`;
+        if (has_color) html += `<th>Color</th>`;
+        html += `<th class="text-left">BL Name</th><th class="text-left">BL Category</th><th class="text-right">BL Avg</th>`;
+        html += `</tr></thead><tbody>`;
+        for (let p of sample) {
+            let img = p.part_img_url ? `<img src="${p.part_img_url}" class="h-10 w-10 object-contain" loading="lazy" alt="">` : '<div class="h-10 w-10"></div>';
+            let color_cell = has_color && p.color_id !== undefined ? `<td class="px-1.5 py-1">${renderColorSwatch(p.color_id)}</td>` : '';
+            let bl_name = p.bl_catalog_name || '';
+            let bl_cat = p.bl_category_name || '';
+            let bl_avg = p.bl_price_avg != null ? `$${fmtPriceVal(p.bl_price_avg)}` : '';
+            html += `<tr class="border-t border-slate-100 hover:bg-slate-50">`;
+            html += `<td class="w-11 px-1.5 py-1">${img}</td>`;
+            html += `<td class="px-1.5 py-1 font-mono text-slate-500">${escHtml(p.part_num)}</td>`;
+            html += `<td class="px-1.5 py-1">${escHtml(p.name)}</td>`;
+            html += color_cell;
+            html += `<td class="px-1.5 py-1 text-slate-600">${escHtml(bl_name)}</td>`;
+            html += `<td class="px-1.5 py-1 text-slate-600">${escHtml(bl_cat)}</td>`;
+            html += `<td class="px-1.5 py-1 text-right text-slate-600">${bl_avg}</td>`;
+            html += `</tr>`;
+        }
+        html += `</tbody></table>`;
+        if (total > sample.length) {
+            html += `<div class="mt-2 text-slate-400">Showing ${sample.length} of ${total.toLocaleString()} matched parts</div>`;
+        }
+    }
+    html += `</div>`;
+    return html;
+}
+
+function openPreviewModal(preview) {
+    if (!preview) return;
+    _previewModalData = preview;
+    let modal = document.getElementById('preview-modal');
+    let body = document.getElementById('preview-modal-body');
+    let title = document.getElementById('preview-modal-title');
+    title.textContent = `Rule Preview — ${preview.total.toLocaleString()} parts`;
+    body.innerHTML = renderPartPreviewLarge(preview);
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closePreviewModal() {
+    let modal = document.getElementById('preview-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function renderMatchedPartDetail(p, has_color) {
@@ -1611,24 +1764,26 @@ async function fetchPartList() {
     let top_id = findTopLevelId(selected_rule_id);
     let is_child = top_id !== selected_rule_id;
 
+    let expand_btn = `<button type="button" class="ml-1 inline-flex items-center text-slate-400 hover:text-slate-600" onclick="openPreviewModal(_previewModalData)" title="Expand preview"><i data-lucide="maximize-2" class="h-3.5 w-3.5"></i></button>`;
     let data;
     if (is_child) {
-        // subrule: show what this subrule's own conditions match
         data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}&standalone=1`, {rules: RULES});
         if (!data) { match_el.textContent = 'error'; return; }
-        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts matched by sub-rule`;
+        _previewModalData = data;
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts matched by sub-rule ${expand_btn}`;
     } else if (standalone_mode) {
-        // top-level standalone: only this rule's own conditions, no children
         data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}&standalone=1`, {rules: RULES});
         if (!data) { match_el.textContent = 'error'; return; }
-        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (standalone)`;
+        _previewModalData = data;
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (standalone) ${expand_btn}`;
     } else {
-        // top-level in context: what actually lands in this category
         data = await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${top_id}?${_plParams()}`, {rules: RULES});
         if (!data) { match_el.textContent = 'error'; return; }
-        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (in context)`;
+        _previewModalData = data;
+        match_el.innerHTML = `<strong>${data.total.toLocaleString()}</strong> parts (in context) ${expand_btn}`;
     }
     renderPartListResults(list_el, data);
+    refreshIcons();
 }
 
 async function fetchRbCatParts() {
@@ -2178,12 +2333,18 @@ function renderToolCallHtml(tc) {
 }
 
 function renderProposalHtml(msg) {
+    let preview = msg.proposed_rule.preview || null;
+    // stash for modal expand button
+    if (preview) _previewModalData = preview;
     let conds_html = msg.proposed_rule.conditions.map(c =>
         `<span class="inline-block rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px]">${escHtml(c.field)} ${escHtml(c.op)} ${escHtml(JSON.stringify(c.value))}</span>`
     ).join(' ');
     let html = `<div class="mb-1.5 mt-1 rounded border border-slate-200 bg-slate-50 p-1.5">`;
     html += `<div class="mb-0.5 text-[10px] font-semibold text-slate-500">Proposed: ${escHtml(msg.proposed_rule.name)} (${msg.proposed_rule.match_mode})</div>`;
     html += `<div class="flex flex-wrap gap-1">${conds_html}</div>`;
+    if (preview) {
+        html += renderPartPreviewSmall(preview);
+    }
     html += `</div>`;
     if (msg.accepted) {
         html += `<div class="text-[10px] font-medium text-green-600">Accepted</div>`;
@@ -2216,6 +2377,7 @@ function renderAiMessages(container, messages) {
     }
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
+    refreshIcons();
 }
 
 function sendAiChatForSelected() {
@@ -2350,6 +2512,7 @@ async function sendAiChat(rule_id) {
                         }
                     }
                     container.scrollTop = container.scrollHeight;
+                    refreshIcons();
                 } else if (evt.event === 'error') {
                     stream_area.innerHTML += `<div class="rounded bg-red-50 px-2 py-1 text-red-600">${escHtml(evt.detail)}</div>`;
                 }

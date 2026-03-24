@@ -519,6 +519,21 @@ async def chatWithRuleStream(
             "conditions": [{"field": c.field, "op": c.op, "value": c.value} for c in proposal.conditions],
         }
 
+        # run a preview so the user can see what this rule would match
+        try:
+            preview = previewRule(
+                proposed_rule, deps.parts,
+                categories=deps.categories,
+                bricklink_categories=deps.bricklink_categories,
+                limit=20,
+            )
+            proposed_rule["preview"] = {
+                "total": preview["total"],
+                "sample": preview["sample"],
+            }
+        except Exception:
+            log.exception("failed to generate proposal preview")
+
         assistant_msg = addDisplayMessage(
             conn, chat_id, "assistant", proposal.explanation, proposed_rule,
             tool_calls=collected_tool_calls if collected_tool_calls else None,

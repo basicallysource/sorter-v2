@@ -518,7 +518,7 @@
       "plot": "1_Distribution_Board_Outputs/GerbersV0.3/",
       "pos_files": "1_Distribution_Board_Outputs/Pick-Place/",
       "specctra_dsn": "",
-      "step": "",
+      "step": "1_Distribution_Board.step",
       "svg": "",
       "vrml": ""
     },

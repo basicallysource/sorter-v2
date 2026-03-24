@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 import sqlite3
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -18,7 +19,7 @@ from sorting_profile import (
     reorderRules, reorderChildren, _migrateRules,
 )
 from rule_engine import mkCondition, generateProfile, previewRule, partsForCategory
-from ai_chat import chatWithRule, getChatHistory, acceptProposal, deleteChat, getOrCreateChat
+from ai_chat import chatWithRuleStream, getChatHistory, acceptProposal, deleteChat, getOrCreateChat
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
@@ -310,6 +311,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.part_to_category = result["part_to_category"]
         sp.categories = {}
@@ -336,6 +338,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
         return result["stats"]
@@ -361,6 +364,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             offset=offset,
             q=q,
             ancestor_checks=ancestor_checks,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
         return result
@@ -378,6 +382,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
         return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit, categories=parts_data.categories, bricklink_categories=parts_data.bricklink_categories)
@@ -416,13 +421,12 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
                 all_rules = sp2.rules
             except Exception:
                 pass
-        try:
-            result = await chatWithRule(conn, profile_id, rule_id, body.message, rule, all_rules, parts_data)
-            log.info(f"ai-chat success for rule {rule_id}")
-            return result
-        except Exception as e:
-            log.exception(f"ai-chat failed for rule {rule_id}")
-            raise HTTPException(500, str(e))
+
+        async def sseGenerator():
+            async for event in chatWithRuleStream(conn, profile_id, rule_id, body.message, rule, all_rules, parts_data):
+                yield f"data: {json.dumps(event)}\n\n"
+
+        return StreamingResponse(sseGenerator(), media_type="text/event-stream")
 
     @app.post("/api/profile/{profile_id}/rules/{rule_id}/ai-chat/accept/{message_id}")
     def apiAcceptAiProposal(profile_id: str, rule_id: str, message_id: str):

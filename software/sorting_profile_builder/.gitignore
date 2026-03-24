@@ -14,5 +14,6 @@ bricklink_request_record.json
 profiles/*.json
 
 *.log
+logs/
 
 parts.db*

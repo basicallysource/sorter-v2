@@ -412,6 +412,18 @@ function renderPartImg(url, size_class, loading_mode='lazy') {
     return `<img src="${url}" class="part-img ${size_class} ${size_tw}" loading="${loading_mode}" decoding="async" alt="">`;
 }
 
+function renderColorSwatch(color_id) {
+    let c = RB_COLORS[color_id];
+    if (!c) return `<span class="inline-block rounded bg-slate-200 px-1 py-0.5 text-[10px]">${escHtml(String(color_id))}</span>`;
+    let rgb = c.rgb || 'cccccc';
+    let name = c.name || '';
+    let border = c.is_trans ? '1.5px dashed rgba(0,0,0,0.4)' : '1px solid rgba(0,0,0,0.15)';
+    let bg = c.is_trans ? `linear-gradient(135deg, #${rgb}cc 50%, transparent 50%), repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 0 0/8px 8px` : `#${rgb}`;
+    let swatch = `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:${border};background:${bg};vertical-align:middle;flex-shrink:0"></span>`;
+    let label = `<span style="background:#1a1a1a;color:#fff;font-size:10px;line-height:1;padding:1px 4px;border-radius:2px;white-space:nowrap">${escHtml(name)}</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:4px">${swatch}${label}</span>`;
+}
+
 function fmtYears(year_from, year_to) {
     if (!year_from) return '';
     if (!year_to || year_from === year_to) return String(year_from);
@@ -434,8 +446,7 @@ function toggleMatchedPartRow(row_el) {
 function renderMatchedPartDetail(p, has_color) {
     let color_line = '';
     if (has_color && p.color_id !== undefined) {
-        let color_name = RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id;
-        color_line = `<div><strong>Color:</strong> ${escHtml(color_name)}</div>`;
+        color_line = `<div><strong>Color:</strong> ${renderColorSwatch(p.color_id)}</div>`;
     }
     let years = fmtYears(p.year_from, p.year_to);
     let years_line = years ? `<div><strong>Years:</strong> ${escHtml(years)}</div>` : '';
@@ -1048,6 +1059,27 @@ function renderEditor() {
     // save bar placeholder — updated independently by updateSaveBar()
     html += `<div id="editor-save-bar"></div>`;
 
+    // ai chat
+    html += `
+        <div class="editor-section mt-4 border-t border-slate-200 pt-3">
+            <div class="flex items-center justify-between">
+                <h6 class="flex items-center gap-1.5">AI Assistant</h6>
+                <button data-ui-btn="1" type="button" class="inline-flex h-5 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-1.5 text-[10px] font-medium leading-none text-slate-500 hover:bg-slate-50"
+                    onclick="clearAiChat('${rule.id}')">Clear Chat</button>
+            </div>
+            <div id="ai-chat-messages" class="mt-2 flex max-h-[300px] min-h-[60px] flex-col gap-2 overflow-y-auto border border-slate-200 bg-slate-50 p-2 text-xs">
+                <div class="text-slate-400">Describe what this rule should match...</div>
+            </div>
+            <div class="mt-2 flex gap-1.5">
+                <input type="text" id="ai-chat-input" class="m-0 flex-1 text-xs" placeholder="e.g. match all technic gears"
+                    onkeydown="if(event.key==='Enter')sendAiChat('${rule.id}')">
+                <button data-ui-btn="1" type="button" id="ai-chat-send"
+                    class="inline-flex h-7 items-center justify-center whitespace-nowrap border border-slate-900 bg-slate-900 px-3 text-xs font-medium leading-none text-white hover:bg-slate-800"
+                    onclick="sendAiChat('${rule.id}')">Send</button>
+            </div>
+        </div>
+    `;
+
     content.innerHTML = html;
 
     // render conditions into the area
@@ -1055,6 +1087,7 @@ function renderEditor() {
     renderConditions(conds_el, rule);
     applyProfileTailwindUi(content);
     updateSaveBar();
+    loadAiChat(rule.id);
 }
 
 function updateSaveBar() {
@@ -1614,7 +1647,7 @@ function renderPartListResults(container, data) {
         div.className = 'preview-list';
         let has_color = sample[0].color_id !== undefined;
         let rows = sample.map(p => {
-            let color_cell = has_color ? `<td>${escHtml(RB_COLORS[p.color_id] ? RB_COLORS[p.color_id].name : p.color_id)}</td>` : '';
+            let color_cell = has_color ? `<td>${renderColorSwatch(p.color_id)}</td>` : '';
             let img_cell = `<td class="preview-part-cell">${renderPartImg(p.part_img_url, 'part-img-sm')}</td>`;
             let detail_html = renderMatchedPartDetail(p, has_color);
             return `
@@ -1989,5 +2022,123 @@ let profile_ui_observer = new MutationObserver((mutations) => {
     }
 });
 profile_ui_observer.observe(document.body, {childList: true, subtree: true});
+
+// --- ai chat ---
+
+let ai_chat_loading = false;
+
+function loadAiChat(rule_id) {
+    let container = document.getElementById('ai-chat-messages');
+    if (!container) return;
+    fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.messages || data.messages.length === 0) {
+                container.innerHTML = '<div class="text-slate-400">Describe what this rule should match...</div>';
+                return;
+            }
+            renderAiMessages(container, data.messages);
+        });
+}
+
+function renderAiMessages(container, messages) {
+    let html = '';
+    for (let msg of messages) {
+        if (msg.role === 'user') {
+            html += `<div class="ai-msg-user self-end rounded bg-slate-900 px-2 py-1 text-white">${escHtml(msg.content)}</div>`;
+        } else {
+            html += `<div class="ai-msg-assistant rounded border border-slate-200 bg-white px-2 py-1.5">`;
+            html += `<div class="mb-1">${escHtml(msg.content)}</div>`;
+            if (msg.proposed_rule) {
+                let conds_html = msg.proposed_rule.conditions.map(c =>
+                    `<span class="inline-block rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px]">${escHtml(c.field)} ${escHtml(c.op)} ${escHtml(JSON.stringify(c.value))}</span>`
+                ).join(' ');
+                html += `<div class="mb-1.5 mt-1 rounded border border-slate-200 bg-slate-50 p-1.5">`;
+                html += `<div class="mb-0.5 text-[10px] font-semibold text-slate-500">Proposed: ${escHtml(msg.proposed_rule.name)} (${msg.proposed_rule.match_mode})</div>`;
+                html += `<div class="flex flex-wrap gap-1">${conds_html}</div>`;
+                html += `</div>`;
+                if (msg.accepted) {
+                    html += `<div class="text-[10px] font-medium text-green-600">Accepted</div>`;
+                } else {
+                    html += `<button data-ui-btn="1" type="button"
+                        class="inline-flex h-5 items-center justify-center whitespace-nowrap border border-green-600 bg-green-600 px-2 text-[10px] font-medium leading-none text-white hover:bg-green-700"
+                        onclick="acceptAiProposal('${msg.id}')">Accept</button>`;
+                }
+            }
+            html += `</div>`;
+        }
+    }
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendAiChat(rule_id) {
+    if (ai_chat_loading) return;
+    let input = document.getElementById('ai-chat-input');
+    let message = input.value.trim();
+    if (!message) return;
+    input.value = '';
+
+    let container = document.getElementById('ai-chat-messages');
+    // clear placeholder
+    if (container.querySelector('.text-slate-400')) container.innerHTML = '';
+
+    // show user message immediately
+    container.innerHTML += `<div class="ai-msg-user self-end rounded bg-slate-900 px-2 py-1 text-white">${escHtml(message)}</div>`;
+    container.innerHTML += `<div id="ai-thinking" class="text-slate-400 animate-pulse">Thinking...</div>`;
+    container.scrollTop = container.scrollHeight;
+
+    ai_chat_loading = true;
+    document.getElementById('ai-chat-send').disabled = true;
+
+    try {
+        let resp = await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message, current_rule: findRuleById(RULES, rule_id), all_rules: RULES}),
+        });
+        let data = await resp.json();
+        if (!resp.ok) {
+            let thinking = document.getElementById('ai-thinking');
+            if (thinking) thinking.outerHTML = `<div class="rounded bg-red-50 px-2 py-1 text-red-600">Error: ${escHtml(data.detail || 'Unknown error')}</div>`;
+            return;
+        }
+        // reload full chat to get proper state
+        loadAiChat(rule_id);
+    } catch (e) {
+        let thinking = document.getElementById('ai-thinking');
+        if (thinking) thinking.outerHTML = `<div class="rounded bg-red-50 px-2 py-1 text-red-600">Error: ${e.message}</div>`;
+    } finally {
+        ai_chat_loading = false;
+        let btn = document.getElementById('ai-chat-send');
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function acceptAiProposal(message_id) {
+    let rule_id = selected_rule_id;
+    if (!rule_id) return;
+    let resp = await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat/accept/${message_id}`, {method: 'POST'});
+    if (!resp.ok) { alert('Failed to accept proposal'); return; }
+    let data = await resp.json();
+    // update local rule state
+    let rule = findRuleById(RULES, rule_id);
+    if (rule && data.rule) {
+        rule.name = data.rule.name;
+        rule.match_mode = data.rule.match_mode;
+        rule.conditions = data.rule.conditions;
+        markDirty(rule_id);
+    }
+    renderEditor();
+    renderRuleList();
+    loadAiChat(rule_id);
+}
+
+async function clearAiChat(rule_id) {
+    await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`, {method: 'DELETE'});
+    let container = document.getElementById('ai-chat-messages');
+    if (container) container.innerHTML = '<div class="text-slate-400">Describe what this rule should match...</div>';
+}
+
 </script>
 {% endblock %}

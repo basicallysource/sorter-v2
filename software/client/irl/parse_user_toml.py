@@ -2,10 +2,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    tomllib = None
+import tomllib
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBusError

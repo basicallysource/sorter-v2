@@ -5,9 +5,6 @@ from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
 from typing import TYPE_CHECKING
 
-SERVO_OPEN_ANGLE = 10
-SERVO_CLOSED_ANGLE = 83
-
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, ServoMotor
     from subsystems.distribution.chute import Chute
@@ -19,6 +16,12 @@ from .bin_layout import (
     mkLayoutFromConfig,
     layoutMatchesCategories,
     applyCategories,
+)
+from .parse_user_toml import (
+    loadMachineSpecificParams,
+    loadStepperCurrentOverrides,
+    loadServoPresetAngles,
+    applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories, getCameraSetup
 
@@ -298,6 +301,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     The firmware reports which steppers are available via stepper_names.
     """
     irl_interface = IRLInterface()
+    machine_specific_params = loadMachineSpecificParams(gc)
+    stepper_current_overrides = loadStepperCurrentOverrides(gc, machine_specific_params)
+    servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
 
     ports = MCUBus.enumerate_buses()
     if not ports:
@@ -410,6 +416,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             gc.logger.warn(
                 f"Stepper '{stepper_name}' has no StepperConfig (attr='{attr}'), using defaults"
             )
+
+        applyStepperCurrentOverride(stepper, stepper_name, stepper_current_overrides, gc)
+
         setattr(irl_interface, attr, stepper)
         gc.logger.info(
             f"Initialized Stepper '{stepper_name}' from {device_name} ({port}:{address}), position={stepper._current_position_steps} steps"
@@ -430,7 +439,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
         servo = servo_source.servos[i]
         servo.set_name(f"layer_{i}_servo")
-        servo.set_preset_angles(SERVO_OPEN_ANGLE, SERVO_CLOSED_ANGLE)
+        servo.set_preset_angles(servo_open_angle, servo_closed_angle)
         irl_interface.servos.append(servo)
         gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
 

@@ -490,19 +490,31 @@ let _previewModalData = null;
 let _previewStore = {};
 let _previewStoreId = 0;
 
-function _storePreview(preview) {
+function _storePreview(preview, rule) {
     let id = '_pv_' + (++_previewStoreId);
-    _previewStore[id] = preview;
+    _previewStore[id] = {preview, rule: rule || null};
     return id;
 }
 
 function openStoredPreview(id) {
-    openPreviewModal(_previewStore[id]);
+    let entry = _previewStore[id];
+    if (!entry) return;
+    let fetcher = null;
+    if (entry.rule) {
+        fetcher = async (offset, limit, q) => {
+            let p = new URLSearchParams();
+            if (q) p.set('q', q);
+            p.set('offset', offset);
+            p.set('limit', limit);
+            return await apiJson('POST', `/api/preview-rule?${p.toString()}`, {rule: entry.rule});
+        };
+    }
+    openPreviewModal(entry.preview, fetcher);
 }
 
-function renderPartPreviewSmall(preview) {
+function renderPartPreviewSmall(preview, rule) {
     if (!preview) return '';
-    let pvId = _storePreview(preview);
+    let pvId = _storePreview(preview, rule);
     let total = preview.total || 0;
     let sample = preview.sample || [];
     let count_class = total === 0 ? 'text-red-600' : 'text-green-700';
@@ -606,22 +618,66 @@ function renderPartPreviewLarge(preview) {
     return html;
 }
 
-function openPreviewModal(preview) {
+const MODAL_PAGE = 50;
+let _modalOffset = 0;
+let _modalQuery = '';
+let _modalFetcher = null; // async function(offset, limit, q) => {total, sample}
+
+function openPreviewModal(preview, fetcher) {
     if (!preview) return;
     _previewModalData = preview;
+    _modalOffset = 0;
+    _modalQuery = '';
+    _modalFetcher = fetcher || null;
+    _renderModal(preview);
     let modal = document.getElementById('preview-modal');
-    let body = document.getElementById('preview-modal-body');
-    let title = document.getElementById('preview-modal-title');
-    title.textContent = `Rule Preview — ${preview.total.toLocaleString()} parts`;
-    body.innerHTML = renderPartPreviewLarge(preview);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
+
+function _renderModal(data) {
+    let body = document.getElementById('preview-modal-body');
+    let title = document.getElementById('preview-modal-title');
+    title.textContent = `Rule Preview — ${data.total.toLocaleString()} parts`;
+    let html = renderPartPreviewLarge(data);
+    let total = data.total || 0;
+    let sample_len = (data.sample || []).length;
+    if (_modalFetcher && total > MODAL_PAGE) {
+        let from = _modalOffset + 1;
+        let to = Math.min(_modalOffset + sample_len, total);
+        let has_prev = _modalOffset > 0;
+        let has_next = _modalOffset + MODAL_PAGE < total;
+        html += `<div class="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">`;
+        html += `<input type="search" placeholder="Search..." value="${escHtml(_modalQuery)}" class="h-6 w-48 border border-slate-300 px-2 text-xs" oninput="_modalSearchDebounced(this.value)">`;
+        html += `<button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="modalPrev()" ${has_prev ? '' : 'disabled'}>Prev</button>`;
+        html += `<span class="text-xs text-slate-500">${from}–${to} of ${total.toLocaleString()}</span>`;
+        html += `<button data-ui-btn="1" type="button" class="inline-flex h-6 items-center justify-center whitespace-nowrap border border-slate-300 bg-white px-2 text-xs font-medium leading-none text-slate-700 hover:bg-slate-50" onclick="modalNext()" ${has_next ? '' : 'disabled'}>Next</button>`;
+        html += `</div>`;
+    }
+    body.innerHTML = html;
+    refreshIcons();
+}
+
+let _modalSearchTimer = null;
+function _modalSearchDebounced(val) {
+    clearTimeout(_modalSearchTimer);
+    _modalSearchTimer = setTimeout(() => { _modalQuery = val; _modalOffset = 0; _fetchModalPage(); }, 300);
+}
+
+async function _fetchModalPage() {
+    if (!_modalFetcher) return;
+    let data = await _modalFetcher(_modalOffset, MODAL_PAGE, _modalQuery);
+    if (data) _renderModal(data);
+}
+
+function modalPrev() { _modalOffset = Math.max(0, _modalOffset - MODAL_PAGE); _fetchModalPage(); }
+function modalNext() { _modalOffset += MODAL_PAGE; _fetchModalPage(); }
 
 function closePreviewModal() {
     let modal = document.getElementById('preview-modal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    _modalFetcher = null;
 }
 
 function renderMatchedPartDetail(p, has_color) {
@@ -1764,7 +1820,7 @@ async function fetchPartList() {
     let top_id = findTopLevelId(selected_rule_id);
     let is_child = top_id !== selected_rule_id;
 
-    let expand_btn = `<button type="button" class="ml-1 inline-flex items-center text-slate-400 hover:text-slate-600" onclick="openPreviewModal(_previewModalData)" title="Expand preview"><i data-lucide="maximize-2" class="h-3.5 w-3.5"></i></button>`;
+    let expand_btn = `<button type="button" class="ml-1 inline-flex items-center text-slate-400 hover:text-slate-600" onclick="openEditorPreviewModal()" title="Expand preview"><i data-lucide="maximize-2" class="h-3.5 w-3.5"></i></button>`;
     let data;
     if (is_child) {
         data = await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${selected_rule_id}/preview?${_plParams()}&standalone=1`, {rules: RULES});
@@ -1784,6 +1840,26 @@ async function fetchPartList() {
     }
     renderPartListResults(list_el, data);
     refreshIcons();
+}
+
+function openEditorPreviewModal() {
+    if (!selected_rule_id || !_previewModalData) return;
+    let rule_id = selected_rule_id;
+    let top_id = findTopLevelId(rule_id);
+    let is_child = top_id !== rule_id;
+    let use_standalone = is_child || standalone_mode;
+    let fetcher = async (offset, limit, q) => {
+        let p = new URLSearchParams();
+        if (q) p.set('q', q);
+        p.set('offset', offset);
+        p.set('limit', limit);
+        if (use_standalone) {
+            return await apiJson('POST', `/api/profile/${PROFILE_ID}/rules/${rule_id}/preview?${p.toString()}&standalone=1`, {rules: RULES});
+        } else {
+            return await apiJson('POST', `/api/profile/${PROFILE_ID}/category-parts/${top_id}?${p.toString()}`, {rules: RULES});
+        }
+    };
+    openPreviewModal(_previewModalData, fetcher);
 }
 
 async function fetchRbCatParts() {
@@ -2251,18 +2327,20 @@ function updateAiSidebar() {
     }
 }
 
-function loadAiChat(rule_id) {
+function loadAiChat(rule_id) { _loadAiChatAsync(rule_id); }
+
+async function _loadAiChatAsync(rule_id) {
     let container = document.getElementById('ai-chat-messages');
     if (!container) return;
-    fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.messages || data.messages.length === 0) {
-                container.innerHTML = '<div class="text-slate-400 p-2">Describe what this rule should match...</div>';
-                return;
-            }
-            renderAiMessages(container, data.messages);
-        });
+    try {
+        let resp = await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`);
+        let data = await resp.json();
+        if (!data.messages || data.messages.length === 0) {
+            container.innerHTML = '<div class="ai-chat-placeholder text-slate-400 p-2">Describe what this rule should match...</div>';
+            return;
+        }
+        renderAiMessages(container, data.messages);
+    } catch (e) {}
 }
 
 function formatToolArgs(tool, args) {
@@ -2334,7 +2412,11 @@ function renderToolCallHtml(tc) {
 
 function renderProposalHtml(msg) {
     let preview = msg.proposed_rule.preview || null;
-    // stash for modal expand button
+    let rule_def = {
+        name: msg.proposed_rule.name,
+        match_mode: msg.proposed_rule.match_mode,
+        conditions: msg.proposed_rule.conditions,
+    };
     if (preview) _previewModalData = preview;
     let conds_html = msg.proposed_rule.conditions.map(c =>
         `<span class="inline-block rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px]">${escHtml(c.field)} ${escHtml(c.op)} ${escHtml(JSON.stringify(c.value))}</span>`
@@ -2343,7 +2425,7 @@ function renderProposalHtml(msg) {
     html += `<div class="mb-0.5 text-[10px] font-semibold text-slate-500">Proposed: ${escHtml(msg.proposed_rule.name)} (${msg.proposed_rule.match_mode})</div>`;
     html += `<div class="flex flex-wrap gap-1">${conds_html}</div>`;
     if (preview) {
-        html += renderPartPreviewSmall(preview);
+        html += renderPartPreviewSmall(preview, rule_def);
     }
     html += `</div>`;
     if (msg.accepted) {
@@ -2403,22 +2485,8 @@ function setAiChatBusy(busy) {
 function stopAiChat() {
     if (ai_abort_controller) {
         ai_abort_controller.abort();
-        ai_abort_controller = null;
     }
-    let stream_area = document.getElementById('ai-stream-area');
-    if (stream_area) {
-        // remove any "running..." indicators
-        stream_area.querySelectorAll('.animate-pulse').forEach(el => {
-            el.classList.remove('animate-pulse');
-            if (el.textContent === 'running...') el.remove();
-            if (el.textContent === 'Thinking...') el.remove();
-        });
-        let stopped_el = document.createElement('div');
-        stopped_el.className = 'text-[10px] text-slate-400 mt-1 italic';
-        stopped_el.textContent = 'Stopped by user';
-        stream_area.appendChild(stopped_el);
-    }
-    setAiChatBusy(false);
+    // finally block in sendAiChat handles cleanup + DB reload
 }
 
 async function sendAiChat(rule_id) {
@@ -2428,18 +2496,26 @@ async function sendAiChat(rule_id) {
     if (!message) return;
     input.value = '';
 
+    // render all previous messages from DB, then append live streaming area
+    await _loadAiChatAsync(rule_id);
     let container = document.getElementById('ai-chat-messages');
-    if (container.querySelector('.text-slate-400')) container.innerHTML = '';
+    if (!container) return;
 
-    container.innerHTML += `<div class="ai-msg-user self-end rounded bg-slate-900 px-2 py-1 text-white">${escHtml(message)}</div>`;
-    container.innerHTML += `<div id="ai-stream-area" class="ai-msg-assistant rounded border border-slate-200 bg-white px-2 py-1.5"></div>`;
-    let stream_area = document.getElementById('ai-stream-area');
+    // optimistic user message (server saves it too, DB reload will replace)
+    let user_el = document.createElement('div');
+    user_el.className = 'ai-msg-user self-end rounded bg-slate-900 px-2 py-1 text-white';
+    user_el.textContent = message;
+    container.appendChild(user_el);
+
+    // live streaming area
+    let stream_area = document.createElement('div');
+    stream_area.className = 'ai-msg-assistant rounded border border-slate-200 bg-white px-2 py-1.5';
     stream_area.innerHTML = `<div class="text-slate-400 animate-pulse text-xs">Thinking...</div>`;
+    container.appendChild(stream_area);
     container.scrollTop = container.scrollHeight;
 
     ai_abort_controller = new AbortController();
     setAiChatBusy(true);
-    let got_result = false;
 
     try {
         let resp = await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`, {
@@ -2497,39 +2573,20 @@ async function sendAiChat(rule_id) {
                         }
                     }
                     container.scrollTop = container.scrollHeight;
-                } else if (evt.event === 'result') {
-                    got_result = true;
-                    let msg = evt.assistant_message;
-                    if (msg) {
-                        let result_el = document.createElement('div');
-                        result_el.className = 'mb-1';
-                        result_el.textContent = msg.content;
-                        stream_area.appendChild(result_el);
-                        if (msg.proposed_rule) {
-                            let proposal_el = document.createElement('div');
-                            proposal_el.innerHTML = renderProposalHtml(msg);
-                            stream_area.appendChild(proposal_el);
-                        }
-                    }
-                    container.scrollTop = container.scrollHeight;
-                    refreshIcons();
                 } else if (evt.event === 'error') {
                     stream_area.innerHTML += `<div class="rounded bg-red-50 px-2 py-1 text-red-600">${escHtml(evt.detail)}</div>`;
                 }
             }
         }
     } catch (e) {
-        if (e.name === 'AbortError') return; // handled by stopAiChat
-        let sa = document.getElementById('ai-stream-area');
-        if (sa) sa.innerHTML += `<div class="rounded bg-red-50 px-2 py-1 text-red-600">Error: ${e.message}</div>`;
+        if (e.name !== 'AbortError') {
+            stream_area.innerHTML += `<div class="rounded bg-red-50 px-2 py-1 text-red-600">Error: ${e.message}</div>`;
+        }
     } finally {
         ai_abort_controller = null;
-        if (!got_result) {
-            // stream ended without final result (server error, disconnect, etc.)
-            // reload from DB to pick up any partial state saved server-side
-            ai_sidebar_rule_id = null;
-            updateAiSidebar();
-        }
+        // ALWAYS reload from DB — it's the single source of truth
+        ai_sidebar_rule_id = null;
+        loadAiChat(rule_id);
         setAiChatBusy(false);
     }
 }
@@ -2556,7 +2613,7 @@ async function acceptAiProposal(message_id) {
 async function clearAiChat(rule_id) {
     await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat`, {method: 'DELETE'});
     let container = document.getElementById('ai-chat-messages');
-    if (container) container.innerHTML = '<div class="text-slate-400 p-2">Describe what this rule should match...</div>';
+    if (container) container.innerHTML = '<div class="ai-chat-placeholder text-slate-400 p-2">Describe what this rule should match...</div>';
     ai_sidebar_rule_id = null;
 }
 

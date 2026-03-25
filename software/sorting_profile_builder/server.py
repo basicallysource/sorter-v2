@@ -66,6 +66,11 @@ class ConditionUpdateBody(BaseModel):
     value: str | int | list | None = None
 
 
+class AdHocPreviewBody(BaseModel):
+    rule: dict
+    all_rules: list[dict] | None = None
+
+
 class AiChatBody(BaseModel):
     message: str
     current_rule: dict | None = None
@@ -367,6 +372,20 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
+        return result
+
+    @app.post("/api/preview-rule")
+    def apiPreviewAdHoc(body: AdHocPreviewBody, q: str = "", offset: int = 0, limit: int = 50):
+        result = previewRule(
+            body.rule,
+            parts_data.parts,
+            categories=parts_data.categories,
+            bricklink_categories=parts_data.bricklink_categories,
+            limit=limit,
+            offset=offset,
+            q=q,
+            parts_generation=parts_data.generation,
+        )
         return result
 
     @app.post("/api/profile/{profile_id}/category-parts/{cat_id:path}")

@@ -2153,18 +2153,6 @@
 		)
 	)
 	(rectangle
-		(start 17.78 112.395)
-		(end 75.565 165.735)
-		(stroke
-			(width 0)
-			(type dash)
-		)
-		(fill
-			(type none)
-		)
-		(uuid 02a8d0bd-ce78-44f4-8816-247f49874215)
-	)
-	(rectangle
 		(start 95.25 84.455)
 		(end 132.715 100.33)
 		(stroke
@@ -2249,18 +2237,6 @@
 		(uuid 594d4add-4af6-4b50-a85d-67600a98279c)
 	)
 	(rectangle
-		(start 36.195 99.695)
-		(end 74.93 108.585)
-		(stroke
-			(width 0)
-			(type dash)
-		)
-		(fill
-			(type none)
-		)
-		(uuid 784493e9-d704-479b-8b2f-c01b0a0ae977)
-	)
-	(rectangle
 		(start 95.25 102.235)
 		(end 132.715 130.81)
 		(stroke
@@ -2303,18 +2279,6 @@
 			(type none)
 		)
 		(uuid d857ba31-54ea-449d-ab47-b6d26f1d388c)
-	)
-	(rectangle
-		(start 17.78 22.225)
-		(end 78.74 52.07)
-		(stroke
-			(width 0)
-			(type dash)
-		)
-		(fill
-			(type none)
-		)
-		(uuid f0282f82-18fa-4fae-89d7-f16f601c9577)
 	)
 	(text "Processor Connections named as follows:\n\nProcessor_Port-Pin_Function{-Fancy_Name}*\nEx: GPIO16-UART0_RX-StepperUART\n\n*Fancy_Name only for easy of reading air-wired items"
 		(exclude_from_sim no)
@@ -2375,26 +2339,6 @@
 			)
 		)
 		(uuid "5a265945-4c10-43f8-ba54-02004498358b")
-	)
-	(text "Connections Shared with Motor0"
-		(exclude_from_sim no)
-		(at 61.468 107.696 0)
-		(effects
-			(font
-				(size 1.016 1.016)
-			)
-		)
-		(uuid "5af591a8-679e-459b-807d-8f77aea34fb7")
-	)
-	(text "Connections Shared with Motor0"
-		(exclude_from_sim no)
-		(at 53.34 114.046 0)
-		(effects
-			(font
-				(size 1.016 1.016)
-			)
-		)
-		(uuid "5d2904f2-4598-48c0-b80e-d49d8ce2bb4d")
 	)
 	(text "VBUS is USB Voltage from Pi Pico"
 		(exclude_from_sim no)
@@ -2487,16 +2431,6 @@
 			)
 		)
 		(uuid "c90f3507-2854-419f-b436-c971c7482dd2")
-	)
-	(text "Connections Shared with\nHALL_SW_3,HALL_SW_2,Stepper and Stepper1"
-		(exclude_from_sim no)
-		(at 59.182 24.638 0)
-		(effects
-			(font
-				(size 1.016 1.016)
-			)
-		)
-		(uuid "f18ce49c-5a5c-409f-9e84-9893b888d3a4")
 	)
 	(junction
 		(at 115.57 46.99)
@@ -2614,16 +2548,6 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 34.29) (xy 69.85 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1fafeffd-50a7-47a6-bc3c-853a8f43d437")
-	)
-	(wire
-		(pts
 			(xy 170.18 34.29) (xy 170.18 41.91)
 		)
 		(stroke
@@ -2631,16 +2555,6 @@
 			(type default)
 		)
 		(uuid "1fb28081-09e1-46e2-92f6-127c21dc363e")
-	)
-	(wire
-		(pts
-			(xy 35.56 44.45) (xy 69.85 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "22316a08-2c21-4c68-ad28-e27de340d41a")
 	)
 	(wire
 		(pts
@@ -2694,7 +2608,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 57.15) (xy 69.85 57.15)
+			(xy 44.45 50.8) (xy 78.74 50.8)
 		)
 		(stroke
 			(width 0)
@@ -2794,7 +2708,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 67.31) (xy 69.85 67.31)
+			(xy 44.45 60.96) (xy 78.74 60.96)
 		)
 		(stroke
 			(width 0)
@@ -2834,7 +2748,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 69.85) (xy 69.85 69.85)
+			(xy 44.45 63.5) (xy 78.74 63.5)
 		)
 		(stroke
 			(width 0)
@@ -2914,16 +2828,6 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 49.53) (xy 69.85 49.53)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5ea3f814-fe02-41a0-83a3-178da09d9aa3")
-	)
-	(wire
-		(pts
 			(xy 115.57 46.99) (xy 138.43 46.99)
 		)
 		(stroke
@@ -2934,17 +2838,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 29.21) (xy 69.85 29.21)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "628d1c10-0920-4aef-b97d-e1feadb4654a")
-	)
-	(wire
-		(pts
-			(xy 35.56 77.47) (xy 69.85 77.47)
+			(xy 44.45 71.12) (xy 78.74 71.12)
 		)
 		(stroke
 			(width 0)
@@ -2994,17 +2888,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 39.37) (xy 69.85 39.37)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "75e3a3b9-4b65-4fe8-91af-b1a0ddba6909")
-	)
-	(wire
-		(pts
-			(xy 35.56 62.23) (xy 69.85 62.23)
+			(xy 44.45 55.88) (xy 78.74 55.88)
 		)
 		(stroke
 			(width 0)
@@ -3184,16 +3068,6 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 31.75) (xy 69.85 31.75)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a856be1c-7078-42bc-8472-64ee4ea16766")
-	)
-	(wire
-		(pts
 			(xy 185.42 41.91) (xy 185.42 58.42)
 		)
 		(stroke
@@ -3204,7 +3078,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 72.39) (xy 69.85 72.39)
+			(xy 44.45 66.04) (xy 78.74 66.04)
 		)
 		(stroke
 			(width 0)
@@ -3344,16 +3218,6 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 41.91) (xy 69.85 41.91)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d621cf82-5118-432e-82fe-dbb5502c7fd9")
-	)
-	(wire
-		(pts
 			(xy 213.36 109.22) (xy 245.11 109.22)
 		)
 		(stroke
@@ -3414,7 +3278,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 59.69) (xy 69.85 59.69)
+			(xy 44.45 53.34) (xy 78.74 53.34)
 		)
 		(stroke
 			(width 0)
@@ -3444,7 +3308,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 88.9) (xy 63.5 88.9)
+			(xy 35.56 80.01) (xy 63.5 80.01)
 		)
 		(stroke
 			(width 0)
@@ -3464,7 +3328,7 @@
 	)
 	(wire
 		(pts
-			(xy 35.56 91.44) (xy 63.5 91.44)
+			(xy 35.56 82.55) (xy 63.5 82.55)
 		)
 		(stroke
 			(width 0)
@@ -3582,26 +3446,6 @@
 		)
 		(uuid "18a20669-42d9-4217-bf49-d15c31afcab0")
 	)
-	(label "GPIO12-GPIO_IN_HALL-SW_3"
-		(at 36.83 29.21 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "2052227a-f784-4dd4-a361-bc23000cdfc1")
-	)
-	(label "GPIO22-GPIO_OUT-Stepper1_DIR"
-		(at 36.83 41.91 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "21acd02f-a75b-4396-b69e-fb1365c7d1b3")
-	)
 	(label "GPIO18-GPIO_OUT-Stepper3_DIR"
 		(at 213.36 88.9 0)
 		(effects
@@ -3622,18 +3466,8 @@
 		)
 		(uuid "28f15b3e-3c37-48a4-a604-19d5527776c4")
 	)
-	(label "GPIO13-GPIO_IN_HALL-SW_2"
-		(at 36.83 39.37 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "2a44f8b6-0073-4b13-a148-c1dbe3a537bd")
-	)
 	(label "GPIO4-GPIO_OUT-MOTOR1_B_IN1"
-		(at 36.83 67.31 0)
+		(at 45.72 60.96 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3652,16 +3486,6 @@
 		)
 		(uuid "34c5bb9f-6f31-4599-95f2-355437fbd97e")
 	)
-	(label "GPIO28-PWM6_A-Stepper_STEP"
-		(at 36.83 34.29 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "3acf81a9-b205-4848-9dcf-232726ed729e")
-	)
 	(label "GPIO12-GPIO_IN_HALL-SW_3"
 		(at 36.83 105.41 0)
 		(effects
@@ -3671,16 +3495,6 @@
 			(justify left bottom)
 		)
 		(uuid "3b845107-b25c-41ae-9519-47487409c258")
-	)
-	(label "GPIO26-PWM5_A-Stepper1_STEP"
-		(at 36.83 44.45 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "3e5039f5-0a38-4fb8-89c8-681dbecf0be5")
 	)
 	(label "I2C1_SCL-PCA9685_SCL"
 		(at 146.05 173.99 0)
@@ -3713,7 +3527,7 @@
 		(uuid "438be984-c7bc-4a9f-89c8-b490ae2ccd9e")
 	)
 	(label "GPIO2-GPIO_OUT-MOTOR1_A_IN2"
-		(at 36.83 59.69 0)
+		(at 45.72 53.34 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3773,7 +3587,7 @@
 		(uuid "52c8b33a-47db-4a19-ab4a-47488a7a3297")
 	)
 	(label "GPIO6-PWM3_A-MOTOR1_B_PWM"
-		(at 36.83 72.39 0)
+		(at 45.72 66.04 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3783,7 +3597,7 @@
 		(uuid "5b7b9d90-1eb9-4b8f-9e4d-500c75f25da1")
 	)
 	(label "GPIO14-GPIO_OUT-LED_0"
-		(at 36.83 88.9 0)
+		(at 36.83 80.01 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3831,16 +3645,6 @@
 			(justify left bottom)
 		)
 		(uuid "737defb1-b42b-4abd-a924-2b4af20ccb25")
-	)
-	(label "GPIO7-GPIO_OUT-Motor_~{STBY}"
-		(at 36.83 49.53 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "74b4bb47-523d-455f-a46f-b623f6df006a")
 	)
 	(label "GPIO27-GPIO_OUT-Stepper_DIR"
 		(at 36.83 132.08 0)
@@ -3903,7 +3707,7 @@
 		(uuid "8bfd8e34-252c-4f34-bf94-b16872691ba2")
 	)
 	(label "GPIO7-GPIO_OUT-Motor_~{STBY}"
-		(at 36.83 77.47 0)
+		(at 45.72 71.12 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3913,7 +3717,7 @@
 		(uuid "8e81c510-9c28-462d-9a8c-9511a5527e46")
 	)
 	(label "GPIO5-GPIO_OUT-MOTOR1_B_IN2"
-		(at 36.83 69.85 0)
+		(at 45.72 63.5 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3923,7 +3727,7 @@
 		(uuid "926af910-e5d4-476e-87f9-e4ae206402cf")
 	)
 	(label "GPIO3-GPIO_OUT-MOTOR1_A_IN1"
-		(at 36.83 57.15 0)
+		(at 45.72 50.8 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4023,7 +3827,7 @@
 		(uuid "bb91a059-330f-4bb8-9459-2457187b1b49")
 	)
 	(label "GPIO15-GPIO_OUT-LED_1"
-		(at 36.83 91.44 0)
+		(at 36.83 82.55 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4043,7 +3847,7 @@
 		(uuid "c2a3384f-1359-489f-890f-a373fa643308")
 	)
 	(label "GPIO1-PWM0_B-MOTOR1_A_PWM"
-		(at 36.83 62.23 0)
+		(at 45.72 55.88 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4101,16 +3905,6 @@
 			(justify left bottom)
 		)
 		(uuid "e3a2d435-d360-46fc-8b73-f165e9940b03")
-	)
-	(label "GPIO27-GPIO_OUT-Stepper_DIR"
-		(at 36.83 31.75 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e9ffd692-8500-49a4-ad49-b2c432fc0c17")
 	)
 	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
 		(at 36.83 118.11 0)
@@ -4664,7 +4458,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "51c2bb92-4dd7-4f3a-a4eb-8e6c38be88cb")
 		(property "Reference" "Q1"
@@ -5468,7 +5262,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "cc122ce1-1ede-4bed-a0e9-b0c59ebbce8f")
 		(property "Reference" "D1"
@@ -5809,7 +5603,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "2")
+					(page "5")
 				)
 			)
 		)
@@ -5851,120 +5645,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "5")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 19.05 54.61)
-		(size 16.51 25.4)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "406ed9e9-c014-4ad1-b5c7-3c59cc994d52")
-		(property "Sheetname" "DC Motor Control_1"
-			(at 19.05 53.8984 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "DC_Motor_Controller.kicad_sch"
-			(at 19.05 80.5946 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(pin "A_IN2" input
-			(at 35.56 59.69 0)
-			(uuid "91934216-63d2-4d00-b664-37032b0be554")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_PWM" input
-			(at 35.56 72.39 0)
-			(uuid "a4a0e772-15d3-4a4a-9da6-0a5e9b374bbc")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_IN1" input
-			(at 35.56 67.31 0)
-			(uuid "cb3bb4a3-1f51-47d5-b6a4-605bc7f5fc08")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "A_PWM" input
-			(at 35.56 62.23 0)
-			(uuid "a093efe1-10c7-4324-ad89-ae85dfd7a2b3")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "A_IN1" input
-			(at 35.56 57.15 0)
-			(uuid "5321c924-51e6-4d12-88b2-c2c27595e226")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "~{STBY}" input
-			(at 35.56 77.47 0)
-			(uuid "e7389b80-f745-465a-ad1a-84fee9691954")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_IN2" input
-			(at 35.56 69.85 0)
-			(uuid "0f1a3942-d185-46b9-9ebb-90bc4c1fb9a6")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "4")
+					(page "2")
 				)
 			)
 		)
@@ -6026,120 +5707,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "10")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 19.05 26.035)
-		(size 16.51 25.4)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "6afb3c5f-c712-4230-bfac-30dcc87f4845")
-		(property "Sheetname" "DC Motor Control_0"
-			(at 19.05 25.3234 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "DC_Motor_Controller.kicad_sch"
-			(at 19.05 52.0196 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(pin "A_IN2" input
-			(at 35.56 31.75 0)
-			(uuid "164ffcbd-3cc4-49ca-8320-cf721238a389")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_PWM" input
-			(at 35.56 44.45 0)
-			(uuid "c3eac37e-b9e7-424f-a216-53023fdf3119")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_IN1" input
-			(at 35.56 39.37 0)
-			(uuid "4a80e7b4-c4ba-47c3-ba8e-0917e132215d")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "A_PWM" input
-			(at 35.56 34.29 0)
-			(uuid "2df30443-d919-43fd-8988-911041be8f41")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "A_IN1" input
-			(at 35.56 29.21 0)
-			(uuid "9d5b17ca-0a43-4edb-9e97-7b852ac9d8d3")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "~{STBY}" input
-			(at 35.56 49.53 0)
-			(uuid "7f259377-1dbb-4466-af79-dcb2314ed64a")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "B_IN2" input
-			(at 35.56 41.91 0)
-			(uuid "a4368513-5791-43a0-a278-02e8c3bc10f7")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "3")
+					(page "4")
 				)
 			)
 		)
@@ -6221,14 +5789,14 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "7")
+					(page "6")
 				)
 			)
 		)
 	)
 	(sheet
-		(at 19.05 84.455)
-		(size 16.51 24.13)
+		(at 19.05 73.66)
+		(size 16.51 34.925)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -6243,7 +5811,7 @@
 		)
 		(uuid "aa124a9b-4ca6-4e8b-864b-f6c7e5891937")
 		(property "Sheetname" "Hall_Switch_LED"
-			(at 19.05 83.7434 0)
+			(at 19.05 72.9484 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6301,7 +5869,7 @@
 			)
 		)
 		(pin "LED_1" input
-			(at 35.56 91.44 0)
+			(at 35.56 82.55 0)
 			(uuid "a787bbd1-f860-4bb7-8c9b-42e24f39b481")
 			(effects
 				(font
@@ -6311,8 +5879,28 @@
 			)
 		)
 		(pin "LED_0" input
-			(at 35.56 88.9 0)
+			(at 35.56 80.01 0)
 			(uuid "eb2bf412-5c52-43c8-b1e4-6fa336fe8e02")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "LED_2" input
+			(at 35.56 85.09 0)
+			(uuid "7f8f3319-b4f1-4f39-8487-32df4b8514e1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "LED_3" input
+			(at 35.56 87.63 0)
+			(uuid "f10afc1e-0402-4d29-96f9-815d9b6e2222")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6323,7 +5911,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "6")
+					(page "3")
 				)
 			)
 		)
@@ -6405,7 +5993,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "9")
+					(page "8")
 				)
 			)
 		)
@@ -6487,7 +6075,7 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
-					(page "8")
+					(page "7")
 				)
 			)
 		)

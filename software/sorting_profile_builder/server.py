@@ -1,9 +1,13 @@
+import json
+import logging
 import os
 import sqlite3
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
+log = logging.getLogger("sorting_profile_builder.server")
 
 from global_config import GlobalConfig
 from db import PartsData, searchParts as dbSearchParts
@@ -15,6 +19,7 @@ from sorting_profile import (
     reorderRules, reorderChildren, _migrateRules,
 )
 from rule_engine import mkCondition, generateProfile, previewRule, partsForCategory
+from ai_chat import chatWithRuleStream, getChatHistory, acceptProposal, deleteChat, getOrCreateChat
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
@@ -59,6 +64,17 @@ class ConditionUpdateBody(BaseModel):
     field: str | None = None
     op: str | None = None
     value: str | int | list | None = None
+
+
+class AdHocPreviewBody(BaseModel):
+    rule: dict
+    all_rules: list[dict] | None = None
+
+
+class AiChatBody(BaseModel):
+    message: str
+    current_rule: dict | None = None
+    all_rules: list[dict] | None = None
 
 
 def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, sync: SyncManager) -> FastAPI:
@@ -300,6 +316,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.part_to_category = result["part_to_category"]
         sp.categories = {}
@@ -326,6 +343,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
         return result["stats"]
@@ -351,8 +369,23 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             offset=offset,
             q=q,
             ancestor_checks=ancestor_checks,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
+        return result
+
+    @app.post("/api/preview-rule")
+    def apiPreviewAdHoc(body: AdHocPreviewBody, q: str = "", offset: int = 0, limit: int = 50):
+        result = previewRule(
+            body.rule,
+            parts_data.parts,
+            categories=parts_data.categories,
+            bricklink_categories=parts_data.bricklink_categories,
+            limit=limit,
+            offset=offset,
+            q=q,
+            parts_generation=parts_data.generation,
+        )
         return result
 
     @app.post("/api/profile/{profile_id}/category-parts/{cat_id:path}")
@@ -368,6 +401,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.categories,
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
+            parts_generation=parts_data.generation,
         )
         sp.rules = original_rules
         return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit, categories=parts_data.categories, bricklink_categories=parts_data.bricklink_categories)
@@ -380,6 +414,74 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             "category_count": len(sp.rules),
             "rule_count": _countRules(sp.rules),
         }
+
+    # --- api: ai chat ---
+
+    @app.get("/api/profile/{profile_id}/rules/{rule_id}/ai-chat")
+    def apiGetAiChat(profile_id: str, rule_id: str):
+        chat = getOrCreateChat(conn, profile_id, rule_id)
+        messages = getChatHistory(conn, chat["id"])
+        return {"chat_id": chat["id"], "messages": messages}
+
+    @app.post("/api/profile/{profile_id}/rules/{rule_id}/ai-chat")
+    async def apiAiChat(profile_id: str, rule_id: str, body: AiChatBody):
+        log.info(f"POST ai-chat profile={profile_id} rule={rule_id} msg={body.message!r}")
+        rule = body.current_rule
+        if not rule:
+            sp = _getOpenProfile(open_profile, gc, profile_id)
+            rule = getRule(sp, rule_id)
+        if not rule:
+            log.warning(f"rule {rule_id} not found in profile or request body")
+            raise HTTPException(404, "Rule not found")
+        all_rules = body.all_rules or []
+        if not all_rules:
+            try:
+                sp2 = _getOpenProfile(open_profile, gc, profile_id)
+                all_rules = sp2.rules
+            except Exception:
+                pass
+
+        async def sseGenerator():
+            async for event in chatWithRuleStream(conn, profile_id, rule_id, body.message, rule, all_rules, parts_data):
+                yield f"data: {json.dumps(event)}\n\n"
+
+        return StreamingResponse(sseGenerator(), media_type="text/event-stream")
+
+    @app.post("/api/profile/{profile_id}/rules/{rule_id}/ai-chat/accept/{message_id}")
+    def apiAcceptAiProposal(profile_id: str, rule_id: str, message_id: str):
+        log.info(f"POST accept proposal msg={message_id} rule={rule_id}")
+        proposed = acceptProposal(conn, message_id)
+        if not proposed:
+            log.warning(f"proposal {message_id} not found")
+            raise HTTPException(404, "Proposal not found")
+        import uuid as _uuid
+        proposed_rule = {
+            "name": proposed["name"],
+            "match_mode": proposed["match_mode"],
+            "conditions": [
+                {"id": str(_uuid.uuid4()), "field": c["field"], "op": c["op"], "value": c["value"]}
+                for c in proposed["conditions"]
+            ],
+        }
+        try:
+            sp = _getOpenProfile(open_profile, gc, profile_id)
+            rule = getRule(sp, rule_id)
+            if rule:
+                rule["name"] = proposed_rule["name"]
+                rule["match_mode"] = proposed_rule["match_mode"]
+                rule["conditions"] = proposed_rule["conditions"]
+                saveSortingProfile(gc.profiles_dir, sp)
+                log.info(f"applied proposal to saved profile rule {rule_id}")
+            else:
+                log.info(f"rule {rule_id} not in saved profile, returning proposal for client-side apply")
+        except Exception:
+            log.info(f"could not apply to saved profile, returning proposal for client-side apply")
+        return {"rule": proposed_rule}
+
+    @app.delete("/api/profile/{profile_id}/rules/{rule_id}/ai-chat")
+    def apiDeleteAiChat(profile_id: str, rule_id: str):
+        deleteChat(conn, profile_id, rule_id)
+        return {"deleted": True}
 
     return app
 

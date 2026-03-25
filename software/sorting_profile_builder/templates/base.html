@@ -197,6 +197,7 @@
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --pico-primary: #0ea5e9;
@@ -397,13 +398,19 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             applyTailwindUi(document);
+            if (window.lucide) lucide.createIcons();
 
             let observer = new MutationObserver((mutations) => {
+                let needs_icons = false;
                 for (let m of mutations) {
                     for (let n of m.addedNodes) {
-                        if (n instanceof Element) applyTailwindUi(n.parentElement || n);
+                        if (n instanceof Element) {
+                            applyTailwindUi(n.parentElement || n);
+                            if (n.querySelector && n.querySelector('[data-lucide]')) needs_icons = true;
+                        }
                     }
                 }
+                if (needs_icons && window.lucide) lucide.createIcons();
             });
             observer.observe(document.body, {childList: true, subtree: true});
         });

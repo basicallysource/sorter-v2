@@ -19,12 +19,15 @@ class PartsData:
     colors: dict[int, dict]
     api_total_parts: int | None
 
+    generation: int
+
     def __init__(self):
         self.parts = {}
         self.categories = {}
         self.bricklink_categories = {}
         self.colors = {}
         self.api_total_parts = None
+        self.generation = 0
 
 
 def initDb(db_path):
@@ -145,6 +148,7 @@ def reloadPartsData(conn, parts_data):
     parts_data.parts = loadPartsDict(conn)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
+    parts_data.generation += 1
 
 
 def _loadCategories(conn):

@@ -1,5 +1,38 @@
+import hashlib
+import json
 import re
 import uuid
+
+_cache: dict[str, dict] = {}
+_MAX_CACHE = 64
+
+
+def _stripIds(obj):
+    if isinstance(obj, dict):
+        return {k: _stripIds(v) for k, v in obj.items() if k != "id"}
+    if isinstance(obj, list):
+        return [_stripIds(item) for item in obj]
+    return obj
+
+
+def _cacheKey(parts_generation: int, *objs) -> str:
+    raw = json.dumps([parts_generation] + [_stripIds(o) for o in objs], sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _cacheGet(key: str) -> dict | None:
+    return _cache.get(key)
+
+
+def _cachePut(key: str, value: dict):
+    if len(_cache) >= _MAX_CACHE:
+        oldest = next(iter(_cache))
+        del _cache[oldest]
+    _cache[key] = value
+
+
+def clearCache():
+    _cache.clear()
 
 
 def mkCondition(field, op, value):
@@ -297,7 +330,11 @@ def _partKey(part, color_id):
     return f"any_color-{part_id}"
 
 
-def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None):
+def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0):
+    cache_key = _cacheKey(parts_generation, sp.rules, sp.default_category_id, fallback_mode or getattr(sp, "fallback_mode", None) or {})
+    cached = _cacheGet(cache_key)
+    if cached:
+        return cached
     ctx = {}
     if categories:
         ctx["categories"] = categories
@@ -360,7 +397,9 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
     for key, cat_id in part_to_category.items():
         stats["per_category"][cat_id] = stats["per_category"].get(cat_id, 0) + 1
 
-    return {"part_to_category": part_to_category, "stats": stats}
+    result = {"part_to_category": part_to_category, "stats": stats}
+    _cachePut(cache_key, result)
+    return result
 
 
 def partsForCategory(part_to_category, cat_id, parts, q="", offset=0, limit=50, categories=None, bricklink_categories=None):
@@ -416,43 +455,51 @@ def partsForCategory(part_to_category, cat_id, parts, q="", offset=0, limit=50, 
     return {"total": total, "sample": page, "offset": offset, "limit": limit}
 
 
-def previewRule(rule, parts, categories=None, bricklink_categories=None, limit=50, offset=0, q="", ancestor_checks=None):
-    ctx = {}
-    if categories:
-        ctx["categories"] = categories
-    if bricklink_categories:
-        ctx["bricklink_categories"] = bricklink_categories
-    if not ctx:
-        ctx = None
+def previewRule(rule, parts, categories=None, bricklink_categories=None, limit=50, offset=0, q="", ancestor_checks=None, parts_generation=0):
     if ancestor_checks is None:
         ancestor_checks = []
-    checks = ancestor_checks + [{"conditions": rule.get("conditions", []), "match_mode": rule.get("match_mode", "all")}]
-    all_conds = _allConditions(checks)
 
-    if not all_conds:
-        return {"total": 0, "sample": [], "offset": offset, "limit": limit}
+    # cache the full match list (independent of q/offset/limit)
+    cache_key = _cacheKey(parts_generation, rule, ancestor_checks)
+    cached = _cacheGet(cache_key)
+    if cached:
+        matches = cached["_matches"]
+    else:
+        ctx = {}
+        if categories:
+            ctx["categories"] = categories
+        if bricklink_categories:
+            ctx["bricklink_categories"] = bricklink_categories
+        if not ctx:
+            ctx = None
+        checks = ancestor_checks + [{"conditions": rule.get("conditions", []), "match_mode": rule.get("match_mode", "all")}]
+        all_conds = _allConditions(checks)
 
-    color_sensitive = _ruleHasColorConditions(all_conds)
-    q_lower = q.strip().lower()
+        if not all_conds:
+            return {"total": 0, "sample": [], "offset": offset, "limit": limit}
 
-    matches = []
-    for pnum, part in parts.items():
-        if color_sensitive:
-            rule_colors = _extractColorValues(all_conds)
-            for cid in rule_colors:
-                if _evaluateChecks(checks, part, cid, ctx):
-                    entry = {"part_num": pnum, "name": part.get("name", ""), "color_id": cid}
-                    entry.update(_partPreviewMeta(part, ctx))
-                    if not q_lower or q_lower in entry["name"].lower() or q_lower in pnum.lower():
+        color_sensitive = _ruleHasColorConditions(all_conds)
+        matches = []
+        for pnum, part in parts.items():
+            if color_sensitive:
+                rule_colors = _extractColorValues(all_conds)
+                for cid in rule_colors:
+                    if _evaluateChecks(checks, part, cid, ctx):
+                        entry = {"part_num": pnum, "name": part.get("name", ""), "color_id": cid}
+                        entry.update(_partPreviewMeta(part, ctx))
                         matches.append(entry)
-                    break
-        else:
-            if _evaluateChecks(checks, part, None, ctx):
-                entry = {"part_num": pnum, "name": part.get("name", "")}
-                entry.update(_partPreviewMeta(part, ctx))
-                if not q_lower or q_lower in entry["name"].lower() or q_lower in pnum.lower():
+                        break
+            else:
+                if _evaluateChecks(checks, part, None, ctx):
+                    entry = {"part_num": pnum, "name": part.get("name", "")}
+                    entry.update(_partPreviewMeta(part, ctx))
                     matches.append(entry)
+        _cachePut(cache_key, {"_matches": matches})
 
+    # filter by query and paginate from cached matches
+    q_lower = q.strip().lower()
+    if q_lower:
+        matches = [m for m in matches if q_lower in m.get("name", "").lower() or q_lower in m.get("part_num", "").lower()]
     total = len(matches)
     page = matches[offset:offset + limit] if limit else matches
     return {"total": total, "sample": page, "offset": offset, "limit": limit}

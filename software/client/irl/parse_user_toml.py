@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -186,6 +187,63 @@ def loadServoPresetAngles(
         closed_angle = DEFAULT_SERVO_CLOSED_ANGLE
 
     return (open_angle, closed_angle)
+
+
+@dataclass
+class WaveshareServoChannelConfig:
+    id: int
+    invert: bool = False
+
+
+@dataclass
+class WaveshareServoConfig:
+    port: str | None  # None = auto-detect
+    channels: list[WaveshareServoChannelConfig]
+
+
+def loadWaveshareServoConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> WaveshareServoConfig | None:
+    """Parse waveshare servo config from TOML. Returns None if backend is not 'waveshare'."""
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return None
+
+    servo_params = raw.get("servo")
+    if not isinstance(servo_params, dict):
+        return None
+
+    backend = servo_params.get("backend", "pca9685")
+    if backend != "waveshare":
+        return None
+
+    port = servo_params.get("port")  # None = auto-detect
+    if port is not None and not isinstance(port, str):
+        gc.logger.warning(f"Invalid servo.port={port!r}; expected string. Will auto-detect.")
+        port = None
+
+    channels_raw = servo_params.get("channels", [])
+    if not isinstance(channels_raw, list):
+        gc.logger.warning("servo.channels must be a list of {{id, invert}} objects.")
+        return WaveshareServoConfig(port=port, channels=[])
+
+    channels: list[WaveshareServoChannelConfig] = []
+    for i, ch in enumerate(channels_raw):
+        if not isinstance(ch, dict):
+            gc.logger.warning(f"Ignoring invalid servo.channels[{i}]: expected object.")
+            continue
+        ch_id = ch.get("id")
+        if not isinstance(ch_id, int) or ch_id < 1 or ch_id > 253:
+            gc.logger.warning(f"Ignoring servo.channels[{i}]: id must be int 1-253, got {ch_id!r}")
+            continue
+        invert = bool(ch.get("invert", False))
+        channels.append(WaveshareServoChannelConfig(id=ch_id, invert=invert))
+
+    return WaveshareServoConfig(port=port, channels=channels)
 
 
 def applyStepperCurrentOverride(

@@ -1,13 +1,33 @@
 # This file is for setting / tuning parameters that will likely vary between
+# machines. Set MACHINE_SPECIFIC_PARAMS_PATH env var to point to your copy.
+
+# --- Servo configuration ---
+# backend = "pca9685" (default) uses the PCA9685 I2C servo controller on the
+# SKR Pico distribution board. Requires open_angle/closed_angle.
+#
+# backend = "waveshare" uses Waveshare SC series serial bus servos (SC09, etc.)
+# with auto-calibration. Only servo bus IDs are needed — open/close positions
+# are found automatically by stepping to physical limits on first run.
 
 [servo]
+# For PCA9685 (default):
 open_angle = 10
 closed_angle = 83
+
+# For Waveshare SC bus servos, uncomment below:
+# backend = "waveshare"
+# port = "/dev/cu.usbmodem5A7C1215731"  # optional, auto-detected if omitted
+#
+# [[servo.channels]]
+# id = 1
+# invert = false
+#
+# [[servo.channels]]
+# id = 2
+# invert = false
 
 [stepper_current_overrides]
 # default = 16, max = 31
 
 [stepper_current_overrides.chute_stepper]
 irun = 16
-
-

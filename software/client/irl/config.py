@@ -21,6 +21,7 @@ from .parse_user_toml import (
     loadMachineSpecificParams,
     loadStepperCurrentOverrides,
     loadServoPresetAngles,
+    loadWaveshareServoConfig,
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories, getCameraSetup
@@ -427,21 +428,57 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
-    # Initialize servos directly from sorter_interface
+    # Initialize servos — either Waveshare SC bus or PCA9685 (default)
     irl_interface.servos = []
-    if servo_source is None:
-        gc.logger.warning("No servo-capable SorterInterface detected")
-        servo_source = next(iter(irl_interface.interfaces.values()))
+    waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
 
-    for i, layer in enumerate(irl_interface.distribution_layout.layers):
-        if i >= len(servo_source.servos):
-            gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
-            raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
-        servo = servo_source.servos[i]
-        servo.set_name(f"layer_{i}_servo")
-        servo.set_preset_angles(servo_open_angle, servo_closed_angle)
-        irl_interface.servos.append(servo)
-        gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
+    if waveshare_config is not None:
+        from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor
+
+        ws_port = waveshare_config.port
+        if ws_port is None:
+            # Auto-detect: find a USB serial device that is NOT one of our MCU buses
+            import serial.tools.list_ports
+            mcu_ports = set(ports)
+            for p in serial.tools.list_ports.comports():
+                if p.device not in mcu_ports and p.vid is not None:
+                    ws_port = p.device
+                    break
+        if ws_port is None:
+            raise RuntimeError("Waveshare servo backend configured but no serial port found. Set servo.port in config.")
+
+        gc.logger.info(f"Using Waveshare SC servo bus on {ws_port}")
+        ws_bus = ScServoBus(ws_port)
+
+        for i, layer in enumerate(irl_interface.distribution_layout.layers):
+            if i >= len(waveshare_config.channels):
+                raise IndexError(
+                    f"Layer {i} servo not configured. Only {len(waveshare_config.channels)} servo.channels defined."
+                )
+            ch_cfg = waveshare_config.channels[i]
+            servo = WaveshareServoMotor(ws_bus, ch_cfg.id, invert=ch_cfg.invert)
+            servo.initialize()
+            servo.set_name(f"layer_{i}_servo")
+            irl_interface.servos.append(servo)
+            gc.logger.info(
+                f"Initialized Waveshare Servo 'layer_{i}_servo' id={ch_cfg.id}, "
+                f"range={servo._min_limit}-{servo._max_limit}, invert={ch_cfg.invert}"
+            )
+    else:
+        # Default: PCA9685 servos via SorterInterface
+        if servo_source is None:
+            gc.logger.warning("No servo-capable SorterInterface detected")
+            servo_source = next(iter(irl_interface.interfaces.values()))
+
+        for i, layer in enumerate(irl_interface.distribution_layout.layers):
+            if i >= len(servo_source.servos):
+                gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
+                raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
+            servo = servo_source.servos[i]
+            servo.set_name(f"layer_{i}_servo")
+            servo.set_preset_angles(servo_open_angle, servo_closed_angle)
+            irl_interface.servos.append(servo)
+            gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

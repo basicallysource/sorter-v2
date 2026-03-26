@@ -372,7 +372,7 @@ def main() -> None:
                 stepper.position_degrees = 0.0
                 _printMain()
                 print(f"Zeroed {name} position")
-            elif key in "1234":
+            elif key.isdigit() and 1 <= int(key) <= 16:
                 layer_idx: int = int(key) - 1
                 if layer_idx < len(servos):
                     servos[layer_idx].toggle()

@@ -1,5 +1,3 @@
-import os
-import json
 from typing import Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -41,8 +39,6 @@ class Layer:
 class DistributionLayout:
     layers: List[Layer] = field(default_factory=list)
 
-
-VALID_BIN_SIZES = {"small", "medium", "big"}
 
 DEFAULT_BIN_LAYOUT = BinLayoutConfig(
     layers=[
@@ -88,30 +84,6 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
         ),
     ]
 )
-
-
-def getBinLayout() -> BinLayoutConfig:
-    path = os.environ.get("BIN_LAYOUT_PATH")
-    if path is None:
-        return DEFAULT_BIN_LAYOUT
-
-    with open(path, "r") as f:
-        data = json.load(f)
-
-    layers = []
-    for layer_idx, layer_data in enumerate(data["layers"]):
-        sections = []
-        for section_data in layer_data["sections"]:
-            for bin_size in section_data:
-                if bin_size not in VALID_BIN_SIZES:
-                    raise ValueError(
-                        f"Invalid bin size '{bin_size}' in layer {layer_idx}. "
-                        f"Must be one of: {VALID_BIN_SIZES}"
-                    )
-            sections.append(section_data)
-        layers.append(LayerConfig(sections=sections))
-
-    return BinLayoutConfig(layers=layers)
 
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:

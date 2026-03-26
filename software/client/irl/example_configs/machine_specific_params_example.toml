@@ -1,13 +1,22 @@
-# This file is for setting / tuning parameters that will likely vary between
+# Machine-specific parameters
+# Set MACHINE_SPECIFIC_PARAMS_PATH env var to point to your copy of this file.
 
 [servo]
 open_angle = 10
 closed_angle = 83
+
+# Each entry in sections is one layer's bin layout (bottom to top).
+# servo_open_angles / servo_closed_angles override the global [servo] defaults per layer index.
+[layers]
+sections = [
+    [["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"]],
+    [["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"]],
+]
+# servo_open_angles = {1 = 25}
+# servo_closed_angles = {1 = 110}
 
 [stepper_current_overrides]
 # default = 16, max = 31
 
 [stepper_current_overrides.chute_stepper]
 irun = 16
-
-

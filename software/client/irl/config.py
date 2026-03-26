@@ -10,17 +10,16 @@ if TYPE_CHECKING:
     from subsystems.distribution.chute import Chute
 
 from .bin_layout import (
-    getBinLayout,
     BinLayoutConfig,
+    LayerConfig,
+    DEFAULT_BIN_LAYOUT,
     DistributionLayout,
     mkLayoutFromConfig,
     layoutMatchesCategories,
     applyCategories,
 )
 from .parse_user_toml import (
-    loadMachineSpecificParams,
-    loadStepperCurrentOverrides,
-    loadServoPresetAngles,
+    loadMachineConfig,
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories, getCameraSetup
@@ -144,7 +143,6 @@ class IRLConfig:
     second_c_channel_rotor_stepper: StepperConfig
     third_c_channel_rotor_stepper: StepperConfig
     aruco_tags: ArucoTagConfig
-    bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
 
     def __init__(self):
@@ -289,7 +287,6 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.third_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
 
     irl_config.aruco_tags = mkArucoTagConfig()
-    irl_config.bin_layout_config = getBinLayout()
     return irl_config
 
 
@@ -301,9 +298,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     The firmware reports which steppers are available via stepper_names.
     """
     irl_interface = IRLInterface()
-    machine_specific_params = loadMachineSpecificParams(gc)
-    stepper_current_overrides = loadStepperCurrentOverrides(gc, machine_specific_params)
-    servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
+    machine_config = loadMachineConfig(gc)
+    stepper_current_overrides = machine_config.stepper_current_overrides
 
     ports = MCUBus.enumerate_buses()
     if not ports:
@@ -425,7 +421,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         )
         time.sleep(0.1)
 
-    irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
+    bin_layout = BinLayoutConfig(layers=[
+        LayerConfig(sections=s) for s in machine_config.layer_sections
+    ]) if machine_config.layer_sections else DEFAULT_BIN_LAYOUT
+    irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos directly from sorter_interface
     irl_interface.servos = []
@@ -433,15 +432,17 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         gc.logger.warning("No servo-capable SorterInterface detected")
         servo_source = next(iter(irl_interface.interfaces.values()))
 
-    for i, layer in enumerate(irl_interface.distribution_layout.layers):
+    for i in range(len(irl_interface.distribution_layout.layers)):
         if i >= len(servo_source.servos):
             gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
             raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
         servo = servo_source.servos[i]
         servo.set_name(f"layer_{i}_servo")
-        servo.set_preset_angles(servo_open_angle, servo_closed_angle)
+        open_angle = machine_config.servo_open_angle_overrides.get(i, machine_config.servo_open_angle)
+        closed_angle = machine_config.servo_closed_angle_overrides.get(i, machine_config.servo_closed_angle)
+        servo.set_preset_angles(open_angle, closed_angle)
         irl_interface.servos.append(servo)
-        gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
+        gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, open={open_angle}° closed={closed_angle}°")
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

@@ -9,9 +9,11 @@ if TYPE_CHECKING:
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 DEG_PER_SECTION = 60
-FIRST_SECTION_CENTER = 8.4
-PILLAR_WIDTH_DEG = 1.9
+FIRST_SECTION_CENTER = 54.6
+PILLAR_WIDTH_DEG = 8.2
 USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
+HOME_SECTION_LAST_BIN = 12.2
+CHUTE_MAX_ANGLE = 360-9
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
@@ -50,7 +52,13 @@ class Chute:
         slot_width = USABLE_DEG_PER_SECTION / num_bins
         section_center = FIRST_SECTION_CENTER + address.section_index * DEG_PER_SECTION
         bin_offset = (address.bin_index - (num_bins - 1) / 2) * slot_width
-        return section_center + bin_offset
+        angle = section_center + bin_offset
+        if angle > CHUTE_MAX_ANGLE:
+            bins_from_end = (num_bins - 1) - address.bin_index
+            wrapped = HOME_SECTION_LAST_BIN - bins_from_end * slot_width
+            if wrapped >= 0:
+                angle = wrapped
+        return angle
 
     def moveToAngle(self, target: float) -> int:
         target = max(0.0, min(360.0, target))

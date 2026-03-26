@@ -36,7 +36,13 @@ def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 
     slot_width = usable / bins_per_section
     section_center = cal["first_section_center"] + section * DEG_PER_SECTION
     bin_offset = (bin_in_section - (bins_per_section - 1) / 2) * slot_width
-    return section_center + bin_offset
+    angle = section_center + bin_offset
+    if angle > CHUTE_REVOLVE_ANGLE:
+        bins_from_end = (bins_per_section - 1) - bin_in_section
+        wrapped = cal["home_section_last_bin"] - bins_from_end * cal["slot_width"]
+        if wrapped >= 0:
+            angle = wrapped
+    return angle
 
 
 def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | None:
@@ -134,6 +140,8 @@ def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | 
     cal: dict[str, float] = {
         "first_section_center": round(first_section_center, 3),
         "pillar_width": round(pillar_width, 3),
+        "home_section_last_bin": round(home_bin, 3),
+        "slot_width": round(slot_width, 3),
     }
 
     setChuteCalibration(cal)
@@ -142,9 +150,10 @@ def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | 
     print("\033[2J\033[H", end="")
     print("Chute Calibration Complete")
     print("==========================")
-    print(f"  FIRST_SECTION_CENTER = {cal['first_section_center']:.1f}°")
-    print(f"  PILLAR_WIDTH_DEG     = {cal['pillar_width']:.1f}°")
-    print(f"  slot width           = {slot_width:.1f}°")
+    print(f"  FIRST_SECTION_CENTER  = {cal['first_section_center']:.1f}°")
+    print(f"  PILLAR_WIDTH_DEG      = {cal['pillar_width']:.1f}°")
+    print(f"  slot width            = {cal['slot_width']:.1f}°")
+    print(f"  home section last bin = {cal['home_section_last_bin']:.1f}°")
     print()
     print(f"  usable per section: {usable:.3f}°")
     for size_name, bps in BINS_PER_SIZE.items():

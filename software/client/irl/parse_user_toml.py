@@ -246,6 +246,60 @@ def loadWaveshareServoConfig(
     return WaveshareServoConfig(port=port, channels=channels)
 
 
+@dataclass
+class CameraLayoutConfig:
+    """Camera layout from TOML [cameras] section.
+
+    layout = "default" (single feeder camera + classification cameras)
+    layout = "split_feeder" (separate cameras per c-channel + carousel, no classification)
+    """
+    layout: str = "default"
+    # split_feeder camera indices (only used when layout == "split_feeder")
+    c_channel_2: int | None = None
+    c_channel_3: int | None = None
+    carousel: int | None = None
+
+
+def loadCameraLayoutConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> CameraLayoutConfig | None:
+    """Parse camera layout config from TOML. Returns None if no [cameras] section."""
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return None
+
+    cameras_params = raw.get("cameras")
+    if not isinstance(cameras_params, dict):
+        return None
+
+    layout = cameras_params.get("layout", "default")
+    if layout not in ("default", "split_feeder"):
+        gc.logger.warning(f"Unknown cameras.layout={layout!r}; expected 'default' or 'split_feeder'. Using default.")
+        return CameraLayoutConfig(layout="default")
+
+    if layout == "split_feeder":
+        c_channel_2 = cameras_params.get("c_channel_2")
+        c_channel_3 = cameras_params.get("c_channel_3")
+        carousel = cameras_params.get("carousel")
+
+        for name, val in [("c_channel_2", c_channel_2), ("c_channel_3", c_channel_3), ("carousel", carousel)]:
+            if val is not None and not isinstance(val, int):
+                gc.logger.warning(f"cameras.{name}={val!r} must be an integer camera index.")
+
+        return CameraLayoutConfig(
+            layout="split_feeder",
+            c_channel_2=c_channel_2 if isinstance(c_channel_2, int) else None,
+            c_channel_3=c_channel_3 if isinstance(c_channel_3, int) else None,
+            carousel=carousel if isinstance(carousel, int) else None,
+        )
+
+    return CameraLayoutConfig(layout="default")
+
+
 def applyStepperCurrentOverride(
     stepper: "StepperMotor",
     stepper_name: str,

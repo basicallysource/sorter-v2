@@ -38,23 +38,42 @@ class VisionManager:
         self.gc = gc
         self._irl_config = irl_config
         self._irl = irl
-        self._feeder_camera_config = irl_config.feeder_camera
+        self._camera_layout = getattr(irl_config, "camera_layout", "default")
         self._disabled_cameras = set(gc.disable_video_streams)
 
-        if "feeder" in self._disabled_cameras:
-            raise RuntimeError("Cannot disable feeder camera — it is required for operation")
+        # split_feeder: separate cameras per c-channel + carousel
+        self._c_channel_2_capture: Optional[CaptureThread] = None
+        self._c_channel_3_capture: Optional[CaptureThread] = None
+        self._carousel_capture: Optional[CaptureThread] = None
 
-        self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
+        if self._camera_layout == "split_feeder":
+            if irl_config.c_channel_2_camera is not None:
+                self._c_channel_2_capture = CaptureThread("c_channel_2", irl_config.c_channel_2_camera)
+            if irl_config.c_channel_3_camera is not None:
+                self._c_channel_3_capture = CaptureThread("c_channel_3", irl_config.c_channel_3_camera)
+            if irl_config.carousel_camera is not None:
+                self._carousel_capture = CaptureThread("carousel", irl_config.carousel_camera)
+            # In split mode, feeder_capture points to c_channel_2 as a fallback for code that expects it
+            self._feeder_capture = self._c_channel_2_capture or CaptureThread("feeder", irl_config.feeder_camera)
+            self._classification_bottom_capture = None
+            self._classification_top_capture = None
+        else:
+            self._feeder_camera_config = irl_config.feeder_camera
 
-        if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
-            raise RuntimeError("Cannot disable both classification cameras — at least one is required")
+            if "feeder" in self._disabled_cameras:
+                raise RuntimeError("Cannot disable feeder camera — it is required for operation")
 
-        self._classification_bottom_capture = None if "classification_bottom" in self._disabled_cameras else CaptureThread(
-            "classification_bottom", irl_config.classification_camera_bottom
-        )
-        self._classification_top_capture = None if "classification_top" in self._disabled_cameras else CaptureThread(
-            "classification_top", irl_config.classification_camera_top
-        )
+            self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
+
+            if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
+                raise RuntimeError("Cannot disable both classification cameras — at least one is required")
+
+            self._classification_bottom_capture = None if "classification_bottom" in self._disabled_cameras else CaptureThread(
+                "classification_bottom", irl_config.classification_camera_bottom
+            )
+            self._classification_top_capture = None if "classification_top" in self._disabled_cameras else CaptureThread(
+                "classification_top", irl_config.classification_camera_top
+            )
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
 
@@ -62,7 +81,10 @@ class VisionManager:
         self._last_telemetry_save = 0.0
 
         if gc.region_provider == RegionProviderType.HANDDRAWN:
-            self._region_provider = HanddrawnRegionProvider()
+            try:
+                self._region_provider = HanddrawnRegionProvider()
+            except RuntimeError:
+                self._region_provider = DefaultRegionProvider()
         elif gc.region_provider == RegionProviderType.ARUCO:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
@@ -104,11 +126,19 @@ class VisionManager:
             self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
 
     def start(self) -> None:
-        self._feeder_capture.start()
-        if self._classification_bottom_capture:
-            self._classification_bottom_capture.start()
-        if self._classification_top_capture:
-            self._classification_top_capture.start()
+        if self._camera_layout == "split_feeder":
+            if self._c_channel_2_capture:
+                self._c_channel_2_capture.start()
+            if self._c_channel_3_capture:
+                self._c_channel_3_capture.start()
+            if self._carousel_capture:
+                self._carousel_capture.start()
+        else:
+            self._feeder_capture.start()
+            if self._classification_bottom_capture:
+                self._classification_bottom_capture.start()
+            if self._classification_top_capture:
+                self._classification_top_capture.start()
         self._region_provider.start()
         self._frame_encode_stop.clear()
         self._frame_encode_thread = threading.Thread(
@@ -127,11 +157,19 @@ class VisionManager:
         if self._classification_bottom_analysis:
             self._classification_bottom_analysis.stop()
         self._region_provider.stop()
-        self._feeder_capture.stop()
-        if self._classification_bottom_capture:
-            self._classification_bottom_capture.stop()
-        if self._classification_top_capture:
-            self._classification_top_capture.stop()
+        if self._camera_layout == "split_feeder":
+            if self._c_channel_2_capture:
+                self._c_channel_2_capture.stop()
+            if self._c_channel_3_capture:
+                self._c_channel_3_capture.stop()
+            if self._carousel_capture:
+                self._carousel_capture.stop()
+        else:
+            self._feeder_capture.stop()
+            if self._classification_bottom_capture:
+                self._classification_bottom_capture.stop()
+            if self._classification_top_capture:
+                self._classification_top_capture.stop()
         if self._video_recorder:
             self._video_recorder.close()
 
@@ -172,8 +210,8 @@ class VisionManager:
         self._channel_masks = channel_masks
 
         channel_steppers = {
-            "second_channel": self._irl.second_c_channel_rotor_stepper,
-            "third_channel": self._irl.third_c_channel_rotor_stepper,
+            "second_channel": self._irl.c_channel_2_rotor_stepper,
+            "third_channel": self._irl.c_channel_3_rotor_stepper,
         }
 
         def is_channel_rotating(name: str) -> bool:
@@ -393,21 +431,25 @@ class VisionManager:
         prof = self.gc.profiler
         prof.hit("vision.record_frames.calls")
         with prof.timer("vision.record_frames.total_ms"):
-            gray = self.getLatestFeederGray()
-            if gray is not None:
-                self._carousel_heatmap.pushFrame(gray)
+            if self._camera_layout == "split_feeder":
+                # In split_feeder mode, push carousel camera frames for heatmap
+                if self._carousel_capture:
+                    frame = self._carousel_capture.latest_frame
+                    if frame is not None:
+                        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+                        self._carousel_heatmap.pushFrame(gray)
+            else:
+                gray = self.getLatestFeederGray()
+                if gray is not None:
+                    self._carousel_heatmap.pushFrame(gray)
 
             if self._video_recorder:
                 with prof.timer("vision.record_frames.video_recorder_write_ms"):
-                    for camera in [
-                        "feeder",
-                        "classification_bottom",
-                        "classification_top",
-                    ]:
-                        frame = self.getFrame(camera)
+                    for cam in self._active_cameras:
+                        frame = self.getFrame(cam.value)
                         if frame:
                             self._video_recorder.writeFrame(
-                                camera, frame.raw, frame.annotated
+                                cam.value, frame.raw, frame.annotated
                             )
             with prof.timer("vision.record_frames.save_telemetry_frames_ms"):
                 self._saveTelemetryFrames()
@@ -420,12 +462,19 @@ class VisionManager:
             return
         self._last_telemetry_save = now
 
-        CAMERA_NAME_MAP = {
-            "feeder": "c_channel",
-            "classification_bottom": "classification_chamber_bottom",
-            "classification_top": "classification_chamber_top",
-        }
-        for internal_name, telemetry_name in CAMERA_NAME_MAP.items():
+        if self._camera_layout == "split_feeder":
+            camera_name_map = {
+                "c_channel_2": "c_channel_2",
+                "c_channel_3": "c_channel_3",
+                "carousel": "carousel",
+            }
+        else:
+            camera_name_map = {
+                "feeder": "c_channel",
+                "classification_bottom": "classification_chamber_bottom",
+                "classification_top": "classification_chamber_top",
+            }
+        for internal_name, telemetry_name in camera_name_map.items():
             frame = self.getFrame(internal_name)
             if frame and frame.raw is not None:
                 self._telemetry.saveCapture(
@@ -530,6 +579,11 @@ class VisionManager:
             timestamp=frame.timestamp,
         )
 
+    def _getCaptureFrame(self, capture: Optional[CaptureThread]) -> Optional[CameraFrame]:
+        if capture is None:
+            return None
+        return capture.latest_frame
+
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         if camera_name == "feeder":
             return self.feeder_frame
@@ -537,6 +591,12 @@ class VisionManager:
             return self.classification_bottom_frame
         elif camera_name == "classification_top":
             return self.classification_top_frame
+        elif camera_name == "c_channel_2":
+            return self._getCaptureFrame(self._c_channel_2_capture)
+        elif camera_name == "c_channel_3":
+            return self._getCaptureFrame(self._c_channel_3_capture)
+        elif camera_name == "carousel":
+            return self._getCaptureFrame(self._carousel_capture)
         return None
 
     def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
@@ -713,13 +773,19 @@ class VisionManager:
         with self._cached_frame_events_lock:
             return list(self._cached_frame_events)
 
+    @property
+    def _active_cameras(self) -> List[CameraName]:
+        if self._camera_layout == "split_feeder":
+            return [CameraName.c_channel_2, CameraName.c_channel_3, CameraName.carousel]
+        return [CameraName.feeder, CameraName.classification_bottom, CameraName.classification_top]
+
     def _frameEncodeLoop(self) -> None:
         while not self._frame_encode_stop.is_set():
             prof = self.gc.profiler
             prof.hit("vision.frame_encode_thread.calls")
             with prof.timer("vision.frame_encode_thread.total_ms"):
                 events: List[FrameEvent] = []
-                for camera in CameraName:
+                for camera in self._active_cameras:
                     event = self.getFrameEvent(camera)
                     if event:
                         events.append(event)

@@ -7,6 +7,9 @@ class CameraName(str, Enum):
     feeder = "feeder"
     classification_bottom = "classification_bottom"
     classification_top = "classification_top"
+    c_channel_2 = "c_channel_2"
+    c_channel_3 = "c_channel_3"
+    carousel = "carousel"
 
 
 class PieceStage(str, Enum):

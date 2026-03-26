@@ -26,6 +26,19 @@ closed_angle = 83
 # id = 2
 # invert = false
 
+# --- Camera configuration ---
+# layout = "default" (default): single feeder camera + classification cameras.
+#   Camera indices come from data.json (via scripts/camera_setup.py).
+#
+# layout = "split_feeder": separate camera per c-channel + carousel.
+#   No classification cameras. Indices are OpenCV device indices.
+
+# [cameras]
+# layout = "split_feeder"
+# c_channel_2 = 0
+# c_channel_3 = 2
+# carousel = 4
+
 [stepper_current_overrides]
 # default = 16, max = 31
 

@@ -22,6 +22,7 @@ from .parse_user_toml import (
     loadStepperCurrentOverrides,
     loadServoPresetAngles,
     loadWaveshareServoConfig,
+    loadCameraLayoutConfig,
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories, getCameraSetup
@@ -136,28 +137,39 @@ class FeederConfig:
 
 
 class IRLConfig:
+    # camera_layout: "default" = single feeder + classification cameras
+    #                "split_feeder" = per-channel + carousel cameras (no classification)
+    camera_layout: str
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
+    # split_feeder cameras (only set when camera_layout == "split_feeder")
+    c_channel_2_camera: CameraConfig | None
+    c_channel_3_camera: CameraConfig | None
+    carousel_camera: CameraConfig | None
     carousel_stepper: StepperConfig
     chute_stepper: StepperConfig
-    first_c_channel_rotor_stepper: StepperConfig
-    second_c_channel_rotor_stepper: StepperConfig
-    third_c_channel_rotor_stepper: StepperConfig
+    c_channel_1_rotor_stepper: StepperConfig
+    c_channel_2_rotor_stepper: StepperConfig
+    c_channel_3_rotor_stepper: StepperConfig
     aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
 
     def __init__(self):
+        self.camera_layout = "default"
+        self.c_channel_2_camera = None
+        self.c_channel_3_camera = None
+        self.carousel_camera = None
         self.feeder_config = FeederConfig()
 
 
 class IRLInterface:
     carousel_stepper: "StepperMotor"
     chute_stepper: "StepperMotor"
-    first_c_channel_rotor_stepper: "StepperMotor"
-    second_c_channel_rotor_stepper: "StepperMotor"
-    third_c_channel_rotor_stepper: "StepperMotor"
+    c_channel_1_rotor_stepper: "StepperMotor"
+    c_channel_2_rotor_stepper: "StepperMotor"
+    c_channel_3_rotor_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
@@ -168,9 +180,9 @@ class IRLInterface:
 
     def enableSteppers(self) -> None:
         for stepper_name in [
-            "first_c_channel_rotor",
-            "second_c_channel_rotor",
-            "third_c_channel_rotor",
+            "c_channel_1_rotor",
+            "c_channel_2_rotor",
+            "c_channel_3_rotor",
             "carousel",
             "chute",
         ]:
@@ -180,9 +192,9 @@ class IRLInterface:
 
     def disableSteppers(self) -> None:
         for stepper_name in [
-            "first_c_channel_rotor",
-            "second_c_channel_rotor",
-            "third_c_channel_rotor",
+            "c_channel_1_rotor",
+            "c_channel_2_rotor",
+            "c_channel_3_rotor",
             "carousel",
             "chute",
         ]:
@@ -255,39 +267,88 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     return config
 
 
-def mkIRLConfig() -> IRLConfig:
+def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
-    camera_setup = getCameraSetup()
 
-    if camera_setup is None:
-        raise RuntimeError(
-            "No camera setup found. Run client/scripts/camera_setup.py first."
-        )
+    # Check for TOML camera layout override
+    from global_config import mkGlobalConfig as _mkGC
+    # We need a lightweight logger; borrow from GlobalConfig if available later.
+    # For now, camera layout is parsed in mkIRLInterface where gc is available.
+    # Here we just check the raw TOML for layout type.
+    import os, tomllib
+    camera_layout_type = "default"
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if params_path and os.path.exists(params_path):
+        try:
+            with open(params_path, "rb") as f:
+                raw_toml = tomllib.load(f)
+            cameras_section = raw_toml.get("cameras", {})
+            if isinstance(cameras_section, dict):
+                camera_layout_type = cameras_section.get("layout", "default")
+        except Exception:
+            pass
 
-    def resolveCamera(role: str) -> int:
-        if role not in camera_setup:
+    irl_config.camera_layout = camera_layout_type
+
+    if camera_layout_type == "split_feeder":
+        # split_feeder: per-channel cameras from TOML, no single feeder or classification
+        cameras_section = {}
+        if params_path and os.path.exists(params_path):
+            try:
+                with open(params_path, "rb") as f:
+                    raw_toml = tomllib.load(f)
+                cameras_section = raw_toml.get("cameras", {})
+            except Exception:
+                pass
+
+        c_ch2_idx = cameras_section.get("c_channel_2")
+        c_ch3_idx = cameras_section.get("c_channel_3")
+        carousel_idx = cameras_section.get("carousel")
+
+        if isinstance(c_ch2_idx, int):
+            irl_config.c_channel_2_camera = mkCameraConfig(device_index=c_ch2_idx)
+        if isinstance(c_ch3_idx, int):
+            irl_config.c_channel_3_camera = mkCameraConfig(device_index=c_ch3_idx)
+        if isinstance(carousel_idx, int):
+            irl_config.carousel_camera = mkCameraConfig(device_index=carousel_idx)
+
+        # Set dummy configs for the default cameras so nothing crashes on attr access
+        irl_config.feeder_camera = mkCameraConfig(device_index=-1)
+        irl_config.classification_camera_bottom = mkCameraConfig(device_index=-1)
+        irl_config.classification_camera_top = mkCameraConfig(device_index=-1)
+    else:
+        # default: single feeder + classification cameras from camera_setup
+        camera_setup = getCameraSetup()
+
+        if camera_setup is None:
             raise RuntimeError(
-                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
+                "No camera setup found. Run client/scripts/camera_setup.py first."
             )
-        return camera_setup[role]
 
-    feeder_camera_index = resolveCamera("feeder")
-    classification_camera_bottom_index = resolveCamera("classification_bottom")
-    classification_camera_top_index = resolveCamera("classification_top")
+        def resolveCamera(role: str) -> int:
+            if role not in camera_setup:
+                raise RuntimeError(
+                    f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
+                )
+            return camera_setup[role]
 
-    irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
-    irl_config.classification_camera_bottom = mkCameraConfig(
-        device_index=classification_camera_bottom_index, width=9999, height=9999
-    )
-    irl_config.classification_camera_top = mkCameraConfig(
-        device_index=classification_camera_top_index, width=9999, height=9999
-    )
+        feeder_camera_index = resolveCamera("feeder")
+        classification_camera_bottom_index = resolveCamera("classification_bottom")
+        classification_camera_top_index = resolveCamera("classification_top")
+
+        irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
+        irl_config.classification_camera_bottom = mkCameraConfig(
+            device_index=classification_camera_bottom_index, width=9999, height=9999
+        )
+        irl_config.classification_camera_top = mkCameraConfig(
+            device_index=classification_camera_top_index, width=9999, height=9999
+        )
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
 
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
@@ -384,9 +445,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     required_steppers = [
         "carousel",
-        "third_c_channel_rotor",
-        "second_c_channel_rotor",
-        "first_c_channel_rotor",
+        "c_channel_3_rotor",
+        "c_channel_2_rotor",
+        "c_channel_1_rotor",
         "chute_stepper",
     ]
     available_stepper_names = {name for name, _, _, _, _ in stepper_entries}

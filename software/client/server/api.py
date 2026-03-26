@@ -313,13 +313,31 @@ def updateRuntimeVariables(
 
 class StateResponse(BaseModel):
     state: str
+    camera_layout: str = "default"
+
+
+def _getCameraLayout() -> str:
+    if vision_manager is not None:
+        return getattr(vision_manager, "_camera_layout", "default")
+    # Fallback: read directly from TOML
+    import os, tomllib
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if params_path and os.path.exists(params_path):
+        try:
+            with open(params_path, "rb") as f:
+                raw = tomllib.load(f)
+            return raw.get("cameras", {}).get("layout", "default")
+        except Exception:
+            pass
+    return "default"
 
 
 @app.get("/state", response_model=StateResponse)
 def getState() -> StateResponse:
+    layout = _getCameraLayout()
     if controller_ref is None:
-        return StateResponse(state=SorterLifecycle.INITIALIZING.value)
-    return StateResponse(state=controller_ref.state.value)
+        return StateResponse(state=SorterLifecycle.INITIALIZING.value, camera_layout=layout)
+    return StateResponse(state=controller_ref.state.value, camera_layout=layout)
 
 
 class CommandResponse(BaseModel):
@@ -363,9 +381,9 @@ def _resolve_stepper(stepper_name: str) -> Any:
 
     irl = controller_ref.irl
     mapping = {
-        "c_channel_1": getattr(irl, "first_c_channel_rotor_stepper", None),
-        "c_channel_2": getattr(irl, "second_c_channel_rotor_stepper", None),
-        "c_channel_3": getattr(irl, "third_c_channel_rotor_stepper", None),
+        "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
+        "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
+        "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
         "carousel": getattr(irl, "carousel_stepper", None),
         "chute": getattr(irl, "chute_stepper", None),
     }
@@ -645,3 +663,221 @@ def recalibrate_aruco() -> Dict[str, Any]:
     if not calibration.get("ok"):
         raise HTTPException(status_code=500, detail=calibration)
     return calibration
+
+
+# --- Camera Setup ---
+
+@app.get("/api/cameras/config")
+def get_camera_config() -> Dict[str, Any]:
+    """Return current camera assignments from TOML."""
+    import os, tomllib
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if not params_path or not os.path.exists(params_path):
+        return {"c_channel_2": None, "c_channel_3": None, "carousel": None}
+    try:
+        with open(params_path, "rb") as f:
+            raw = tomllib.load(f)
+        cameras = raw.get("cameras", {})
+        return {
+            "c_channel_2": cameras.get("c_channel_2"),
+            "c_channel_3": cameras.get("c_channel_3"),
+            "carousel": cameras.get("carousel"),
+        }
+    except Exception:
+        return {"c_channel_2": None, "c_channel_3": None, "carousel": None}
+
+
+@app.get("/api/cameras/list")
+def list_cameras() -> List[Dict[str, Any]]:
+    """List all available camera indices."""
+    cameras: List[Dict[str, Any]] = []
+    for i in range(10):
+        cap = cv2.VideoCapture(i)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        ret, frame = cap.read()
+        cap.release()
+        if not ret:
+            continue
+        h, w = frame.shape[:2]
+        cameras.append({"index": i, "width": w, "height": h})
+    return cameras
+
+
+@app.get("/api/cameras/stream/{index}")
+def camera_stream(index: int):
+    """MJPEG stream for a single camera by index (thumbnail)."""
+    def generate():
+        cap = cv2.VideoCapture(index)
+        if not cap.isOpened():
+            return
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                thumb = cv2.resize(frame, (426, 240))
+                _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                )
+        finally:
+            cap.release()
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@app.get("/api/cameras/feed/{role}")
+def camera_feed_by_role(role: str):
+    """MJPEG stream for a camera role (c_channel_2, c_channel_3, carousel). Full resolution."""
+    import os, tomllib
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if not params_path or not os.path.exists(params_path):
+        raise HTTPException(404, "No camera config found")
+    with open(params_path, "rb") as f:
+        raw = tomllib.load(f)
+    cameras_section = raw.get("cameras", {})
+    index = cameras_section.get(role)
+    if not isinstance(index, int):
+        raise HTTPException(404, f"Camera role '{role}' not configured")
+
+    def generate():
+        cap = cv2.VideoCapture(index)
+        if not cap.isOpened():
+            return
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                )
+        finally:
+            cap.release()
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+class CameraAssignment(BaseModel):
+    c_channel_2: Optional[int] = None
+    c_channel_3: Optional[int] = None
+    carousel: Optional[int] = None
+
+
+@app.post("/api/cameras/assign")
+def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
+    """Save camera role assignments to the machine TOML config."""
+    import os, tomllib
+
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if not params_path:
+        raise HTTPException(status_code=500, detail="MACHINE_SPECIFIC_PARAMS_PATH not set")
+
+    # Read existing TOML
+    try:
+        with open(params_path, "rb") as f:
+            config = tomllib.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read config: {e}")
+
+    # Update cameras section
+    cameras = config.get("cameras", {})
+    cameras["layout"] = "split_feeder"
+    if assignment.c_channel_2 is not None:
+        cameras["c_channel_2"] = assignment.c_channel_2
+    if assignment.c_channel_3 is not None:
+        cameras["c_channel_3"] = assignment.c_channel_3
+    if assignment.carousel is not None:
+        cameras["carousel"] = assignment.carousel
+    config["cameras"] = cameras
+
+    # Write back as TOML (simple serializer since tomllib is read-only)
+    def _write_toml(data: dict, path: str) -> None:
+        lines: list[str] = []
+        simple_keys: list[str] = []
+        table_keys: list[str] = []
+        array_table_keys: list[str] = []
+
+        for k, v in data.items():
+            if isinstance(v, dict):
+                # Check if any value is a list of dicts (TOML array of tables)
+                has_array_tables = any(isinstance(sv, list) and sv and isinstance(sv[0], dict) for sv in v.values())
+                if has_array_tables:
+                    array_table_keys.append(k)
+                else:
+                    table_keys.append(k)
+            else:
+                simple_keys.append(k)
+
+        for k in simple_keys:
+            v = data[k]
+            lines.append(f"{k} = {_toml_value(v)}")
+
+        for k in table_keys:
+            lines.append(f"\n[{k}]")
+            table = data[k]
+            sub_tables = []
+            for sk, sv in table.items():
+                if isinstance(sv, dict):
+                    sub_tables.append((sk, sv))
+                elif isinstance(sv, list) and sv and isinstance(sv[0], dict):
+                    pass  # handled below
+                else:
+                    lines.append(f"{sk} = {_toml_value(sv)}")
+            for sk, sv in sub_tables:
+                lines.append(f"\n[{k}.{sk}]")
+                for ssk, ssv in sv.items():
+                    lines.append(f"{ssk} = {_toml_value(ssv)}")
+
+        for k in array_table_keys:
+            table = data[k]
+            non_array = {sk: sv for sk, sv in table.items() if not (isinstance(sv, list) and sv and isinstance(sv[0], dict))}
+            array_items = {sk: sv for sk, sv in table.items() if isinstance(sv, list) and sv and isinstance(sv[0], dict)}
+            lines.append(f"\n[{k}]")
+            for sk, sv in non_array.items():
+                lines.append(f"{sk} = {_toml_value(sv)}")
+            for sk, sv in array_items.items():
+                for item in sv:
+                    lines.append(f"\n[[{k}.{sk}]]")
+                    for ik, iv in item.items():
+                        lines.append(f"{ik} = {_toml_value(iv)}")
+
+        with open(path, "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+    def _toml_value(v: object) -> str:
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, int):
+            return str(v)
+        if isinstance(v, float):
+            return str(v)
+        if isinstance(v, str):
+            return f'"{v}"'
+        return str(v)
+
+    try:
+        _write_toml(config, params_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    return {
+        "ok": True,
+        "assignment": {
+            "c_channel_2": assignment.c_channel_2,
+            "c_channel_3": assignment.c_channel_3,
+            "carousel": assignment.carousel,
+        },
+        "message": "Camera assignment saved. Restart backend for changes to take effect.",
+    }

@@ -5,7 +5,7 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
-export type CameraName = "feeder" | "classification_bottom" | "classification_top";
+export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found";
 

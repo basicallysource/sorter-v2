@@ -116,8 +116,8 @@ def main() -> int:
     carousel_debt = 0.0
     for i in range(frames_needed):
         jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE) if not no_jitter else 0.0
-        irl.second_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
-        irl.third_c_channel_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
+        irl.c_channel_2_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
+        irl.c_channel_3_rotor_stepper.move_degrees(DEGREES_PER_FRAME + jitter)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
         if not no_carousel and i % 4 == 3:
             carousel_jitter = random.uniform(-CAROUSEL_JITTER_RANGE, CAROUSEL_JITTER_RANGE) if not no_jitter else 0.0

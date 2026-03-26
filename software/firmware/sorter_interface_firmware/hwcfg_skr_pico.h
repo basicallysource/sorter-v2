@@ -1,12 +1,12 @@
 const uint8_t STEPPER_COUNT = 4;
-const uint8_t STEPPER_STEP_PINS[] = {11, 6, 19, 14};
-const uint8_t STEPPER_DIR_PINS[] = {10, 5, 28, 13};
+const uint8_t STEPPER_STEP_PINS[] = {14, 11, 6, 19};
+const uint8_t STEPPER_DIR_PINS[] = {13, 10, 5, 28};
 
 // Stepper channel wiring for this board family (SKR Pico)
-// Channel 0: pins 11/10
-// Channel 1: pins 6/5
-// Channel 2: pins 19/28
-// Channel 3: pins 14/13
+// Channel 0: pins 14/13 (E0)
+// Channel 1: pins 11/10 (X)
+// Channel 2: pins 6/5   (Y)
+// Channel 3: pins 19/28 (Z)
 
 // Role-specific logical naming over identical channel wiring.
 #ifdef FIRMWARE_ROLE_DISTRIBUTION
@@ -23,15 +23,15 @@ const char* const STEPPER_NAMES[] = {
 };
 #else
 // Feeder role
-// Channel 0: carousel
-// Channel 1: first_c_channel_rotor
-// Channel 2: second_c_channel_rotor
-// Channel 3: third_c_channel_rotor
+// Channel 0: c_channel_1_rotor (E0 port) — bulk agitator
+// Channel 1: c_channel_2_rotor (X port)
+// Channel 2: c_channel_3_rotor (Y port)
+// Channel 3: carousel          (Z port)
 const char* const STEPPER_NAMES[] = {
-    "carousel",
-    "first_c_channel_rotor",
-    "second_c_channel_rotor",
-    "third_c_channel_rotor"
+    "c_channel_1_rotor",
+    "c_channel_2_rotor",
+    "c_channel_3_rotor",
+    "carousel"
 };
 #endif
 
@@ -39,9 +39,9 @@ uart_inst_t* const TMC_UART = uart1;
 const int TMC_UART_TX_PIN = 8;
 const int TMC_UART_RX_PIN = 9;
 const int TMC_UART_BAUDRATE = 400000;
-const uint8_t TMC_UART_ADDRESSES[] = {0, 2, 1, 3};
+const uint8_t TMC_UART_ADDRESSES[] = {3, 0, 2, 1};
 
-const int STEPPER_nEN_PINS[] = {12, 7, 2, 15};
+const int STEPPER_nEN_PINS[] = {15, 12, 7, 2};
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {4, 3, 25, 16};

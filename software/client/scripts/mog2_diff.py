@@ -115,16 +115,16 @@ class MotorRunner:
             pulsed = False
             if next_is_second:
                 if run_second:
-                    self.irl.second_c_channel_rotor_stepper.set_speed_limits(16, self._second_speed)
-                    stepper = self.irl.second_c_channel_rotor_stepper
+                    self.irl.c_channel_2_rotor_stepper.set_speed_limits(16, self._second_speed)
+                    stepper = self.irl.c_channel_2_rotor_stepper
                     stepper.move_degrees(stepper.degrees_for_microsteps(self._second_steps))
                     pulsed = True
                     time.sleep(self._second_delay)
                 next_is_second = False
             else:
                 if run_third:
-                    self.irl.third_c_channel_rotor_stepper.set_speed_limits(16, self._third_speed)
-                    stepper = self.irl.third_c_channel_rotor_stepper
+                    self.irl.c_channel_3_rotor_stepper.set_speed_limits(16, self._third_speed)
+                    stepper = self.irl.c_channel_3_rotor_stepper
                     stepper.move_degrees(stepper.degrees_for_microsteps(self._third_steps))
                     pulsed = True
                     time.sleep(self._third_delay)
@@ -132,13 +132,13 @@ class MotorRunner:
 
             if not pulsed:
                 if next_is_second and run_second:
-                    self.irl.second_c_channel_rotor_stepper.set_speed_limits(16, self._second_speed)
-                    stepper = self.irl.second_c_channel_rotor_stepper
+                    self.irl.c_channel_2_rotor_stepper.set_speed_limits(16, self._second_speed)
+                    stepper = self.irl.c_channel_2_rotor_stepper
                     stepper.move_degrees(stepper.degrees_for_microsteps(self._second_steps))
                     time.sleep(self._second_delay)
                 elif not next_is_second and run_third:
-                    self.irl.third_c_channel_rotor_stepper.set_speed_limits(16, self._third_speed)
-                    stepper = self.irl.third_c_channel_rotor_stepper
+                    self.irl.c_channel_3_rotor_stepper.set_speed_limits(16, self._third_speed)
+                    stepper = self.irl.c_channel_3_rotor_stepper
                     stepper.move_degrees(stepper.degrees_for_microsteps(self._third_steps))
                     time.sleep(self._third_delay)
                 else:

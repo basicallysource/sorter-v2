@@ -296,9 +296,9 @@ def main() -> None:
     steppers: dict[str, StepperMotor] = {
         "carousel": irl.carousel_stepper,
         "chute": irl.chute_stepper,
-        "c_channel_1": irl.first_c_channel_rotor_stepper,
-        "c_channel_2": irl.second_c_channel_rotor_stepper,
-        "c_channel_3": irl.third_c_channel_rotor_stepper,
+        "c_channel_1": irl.c_channel_1_rotor_stepper,
+        "c_channel_2": irl.c_channel_2_rotor_stepper,
+        "c_channel_3": irl.c_channel_3_rotor_stepper,
     }
     stepper_names: list[str] = list(steppers.keys())
     selected_idx: int = 0
@@ -307,9 +307,9 @@ def main() -> None:
     stepper_config_map: dict[str, StepperConfig] = {
         "carousel": irl_config.carousel_stepper,
         "chute": irl_config.chute_stepper,
-        "c_channel_1": irl_config.first_c_channel_rotor_stepper,
-        "c_channel_2": irl_config.second_c_channel_rotor_stepper,
-        "c_channel_3": irl_config.third_c_channel_rotor_stepper,
+        "c_channel_1": irl_config.c_channel_1_rotor_stepper,
+        "c_channel_2": irl_config.c_channel_2_rotor_stepper,
+        "c_channel_3": irl_config.c_channel_3_rotor_stepper,
     }
 
     def _closestSpeedIdx(target: int) -> int:

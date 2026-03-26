@@ -113,11 +113,11 @@ class Feeding(BaseState):
                     prof.hit("feeder.skip.ch3_held_for_carousel")
                 elif ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
-                    if self._sendPulse("ch3_precise", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision):
+                    if self._sendPulse("ch3_precise", self.irl.c_channel_3_rotor_stepper, fc.third_rotor_precision):
                         self.gc.logger.info("Feeder: ch3 precise, pulsing 3rd (precise)")
                 elif ch3_action == ChannelAction.PULSE_NORMAL:
                     prof.hit("feeder.path.ch3_normal")
-                    if self._sendPulse("ch3_normal", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_normal):
+                    if self._sendPulse("ch3_normal", self.irl.c_channel_3_rotor_stepper, fc.third_rotor_normal):
                         self.gc.logger.info("Feeder: ch3 normal, pulsing 3rd")
                 else:
                     prof.hit("feeder.path.ch3_idle")
@@ -126,11 +126,11 @@ class Feeding(BaseState):
                 if not analysis.ch3_dropzone_occupied:
                     if ch2_action == ChannelAction.PULSE_PRECISE:
                         prof.hit("feeder.path.ch2_precise")
-                        if self._sendPulse("ch2_precise", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_precision):
+                        if self._sendPulse("ch2_precise", self.irl.c_channel_2_rotor_stepper, fc.second_rotor_precision):
                             self.gc.logger.info("Feeder: ch2 precise, pulsing 2nd (precise)")
                     elif ch2_action == ChannelAction.PULSE_NORMAL:
                         prof.hit("feeder.path.ch2_normal")
-                        if self._sendPulse("ch2_normal", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_normal):
+                        if self._sendPulse("ch2_normal", self.irl.c_channel_2_rotor_stepper, fc.second_rotor_normal):
                             self.gc.logger.info("Feeder: ch2 normal, pulsing 2nd")
                     else:
                         prof.hit("feeder.path.ch2_idle")
@@ -140,7 +140,7 @@ class Feeding(BaseState):
                 # channel 1 — only pulse if ch2 dropzone is clear
                 if not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
-                    if self._sendPulse("ch1", self.irl.first_c_channel_rotor_stepper, fc.first_rotor):
+                    if self._sendPulse("ch1", self.irl.c_channel_1_rotor_stepper, fc.first_rotor):
                         self.gc.logger.info("Feeder: clear, pulsing 1st")
                 else:
                     prof.hit("feeder.skip.ch1_dropzone_occupied")

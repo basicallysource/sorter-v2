@@ -109,6 +109,107 @@ class CalibrationAnalysis:
         }
 
 
+def generate_color_profile_from_analysis(
+    analysis: CalibrationAnalysis | dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if isinstance(analysis, CalibrationAnalysis):
+        tile_samples = analysis.tile_samples
+    elif isinstance(analysis, dict):
+        raw_samples = analysis.get("tile_samples")
+        tile_samples = raw_samples if isinstance(raw_samples, dict) else {}
+    else:
+        return None
+
+    observed_rows: list[list[float]] = []
+    target_rows: list[list[float]] = []
+    weights: list[float] = []
+    white_samples: list[np.ndarray] = []
+    black_samples: list[np.ndarray] = []
+
+    for tile_label, raw_sample in tile_samples.items():
+        if not isinstance(raw_sample, dict):
+            continue
+        expected_label = _TARGET_TILE_GROUP_EXPECTATION.get(tile_label)
+        if expected_label is None:
+            continue
+        mean_rgb = raw_sample.get("mean_rgb")
+        if (
+            not isinstance(mean_rgb, list)
+            or len(mean_rgb) != 3
+            or not all(isinstance(value, (int, float)) for value in mean_rgb)
+        ):
+            continue
+
+        observed = np.array([float(value) / 255.0 for value in mean_rgb], dtype=np.float32)
+        target_rgb = REFERENCE_TILE_RGB[expected_label]
+        target = np.array([float(channel) / 255.0 for channel in target_rgb], dtype=np.float32)
+        observed_rows.append([float(observed[0]), float(observed[1]), float(observed[2])])
+        target_rows.append([float(target[0]), float(target[1]), float(target[2])])
+        if expected_label == "white":
+            weights.append(1.8)
+            white_samples.append(observed)
+        elif expected_label == "black":
+            weights.append(1.9)
+            black_samples.append(observed)
+        elif expected_label == "yellow":
+            weights.append(1.15)
+        else:
+            weights.append(1.0)
+
+    if len(observed_rows) < 4:
+        return None
+
+    x = np.array(observed_rows, dtype=np.float32)
+    y = np.array(target_rows, dtype=np.float32)
+
+    reference_white = np.array(REFERENCE_TILE_RGB["white"], dtype=np.float32) / 255.0
+    reference_black = np.array(REFERENCE_TILE_RGB["black"], dtype=np.float32) / 255.0
+    if white_samples:
+        observed_white = np.mean(np.stack(white_samples, axis=0), axis=0)
+    else:
+        observed_white = np.max(x, axis=0)
+    if black_samples:
+        observed_black = np.mean(np.stack(black_samples, axis=0), axis=0)
+    else:
+        observed_black = np.min(x, axis=0)
+
+    neutral_span = np.maximum(observed_white - observed_black, 0.05)
+    neutral_scale = np.clip((reference_white - reference_black) / neutral_span, 0.45, 3.0)
+    neutral_bias = np.clip(reference_black - observed_black * neutral_scale, -0.25, 0.25)
+
+    normalized = np.clip((x * neutral_scale) + neutral_bias, 0.0, 1.0)
+    w = np.sqrt(np.array(weights, dtype=np.float32)).reshape(-1, 1)
+    xw = normalized * w
+    yw = y * w
+
+    identity_prior = 0.3
+    x_prior = np.eye(3, dtype=np.float32) * identity_prior
+    y_prior = np.eye(3, dtype=np.float32) * identity_prior
+
+    residual_matrix, _, _, _ = np.linalg.lstsq(
+        np.vstack([xw, x_prior]),
+        np.vstack([yw, y_prior]),
+        rcond=None,
+    )
+
+    residual_matrix = np.clip(residual_matrix.T, -2.0, 2.0)
+    neutral_matrix = np.diag(neutral_scale.astype(np.float32))
+    matrix = residual_matrix @ neutral_matrix
+    bias = residual_matrix @ neutral_bias
+    bias = np.clip(bias, -0.2, 0.2)
+
+    corrected = np.clip(x @ matrix.T + bias, 0.0, 1.0)
+    errors = np.linalg.norm(corrected - y, axis=1)
+
+    return {
+        "enabled": True,
+        "matrix": [[float(value) for value in row] for row in matrix.tolist()],
+        "bias": [float(value) for value in bias.tolist()],
+        "reference_error_mean": float(np.mean(errors)),
+        "reference_error_max": float(np.max(errors)),
+    }
+
+
 @dataclass(frozen=True)
 class TargetColorRegion:
     center: tuple[float, float]
@@ -496,6 +597,11 @@ def _analyze_fixed_color_candidate(
                 "saturation": float(merged.saturation),
                 "clip_fraction": float(merged.clip_fraction),
                 "shadow_fraction": float(merged.shadow_fraction),
+                "mean_rgb": [
+                    float(merged.mean_bgr[2]),
+                    float(merged.mean_bgr[1]),
+                    float(merged.mean_bgr[0]),
+                ],
                 "reference_error": float(
                     _reference_lab_distance(merged, _TARGET_TILE_GROUP_EXPECTATION[label])
                 ),

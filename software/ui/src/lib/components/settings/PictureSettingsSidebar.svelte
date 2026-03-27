@@ -645,6 +645,8 @@
 				return 'Searching White Balance';
 			case 'white_balance_refine':
 				return 'Refining White Balance';
+			case 'profile_generation':
+				return 'Generating Color Profile';
 			case 'tone_search':
 				return 'Refining Tone Controls';
 			case 'polish_search':
@@ -767,8 +769,8 @@
 									</div>
 									<div class="dark:text-text-muted-dark mt-1 text-xs leading-5 text-text-muted">
 										Place the 6-color calibration plate fully in view. This tunes real camera
-										exposure, white balance, and secondary tone controls, then saves the best
-										result for this camera.
+										exposure and white balance, then generates a color profile for this
+										camera.
 									</div>
 								</div>
 								<button

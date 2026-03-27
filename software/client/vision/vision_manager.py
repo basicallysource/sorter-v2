@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from global_config import GlobalConfig, RegionProviderType
-from irl.config import IRLConfig, IRLInterface, CameraPictureSettings, mkCameraConfig
+from irl.config import IRLConfig, IRLInterface, CameraColorProfile, CameraPictureSettings, mkCameraConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.channel import ChannelDetection
 from blob_manager import VideoRecorder, getClassificationPolygons
@@ -678,6 +678,22 @@ class VisionManager:
             if config is not None:
                 config.device_settings = dict(settings or {})
         return capture.setDeviceSettings(settings, persist=persist)
+
+    def setColorProfileForRole(
+        self,
+        camera_name: str,
+        profile: CameraColorProfile | None,
+    ) -> bool:
+        capture = self.getCaptureThreadForRole(camera_name)
+        if capture is None:
+            return False
+        config_attr = self._cameraRoleAttrs(camera_name)[1]
+        if config_attr is not None:
+            config = getattr(self._irl_config, config_attr, None)
+            if config is not None:
+                config.color_profile = profile
+        capture.setColorProfile(profile)
+        return True
 
     def _cameraRoleAttrs(self, camera_name: str) -> tuple[str | None, str | None]:
         if camera_name == "feeder":

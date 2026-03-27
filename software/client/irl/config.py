@@ -49,6 +49,7 @@ class CameraConfig:
     fps: int
     picture_settings: "CameraPictureSettings"
     device_settings: dict[str, int | float | bool]
+    color_profile: "CameraColorProfile"
 
     def __init__(self):
         self.url = None
@@ -68,6 +69,26 @@ class CameraPictureSettings:
         self.rotation = rotation
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
+
+
+class CameraColorProfile:
+    enabled: bool
+    matrix: list[list[float]]
+    bias: list[float]
+
+    def __init__(
+        self,
+        enabled: bool = False,
+        matrix: list[list[float]] | None = None,
+        bias: list[float] | None = None,
+    ):
+        self.enabled = enabled
+        self.matrix = matrix or [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        self.bias = bias or [0.0, 0.0, 0.0]
 
 
 class StepperConfig:
@@ -251,6 +272,7 @@ def mkCameraConfig(
     url: str | None = None,
     picture_settings: CameraPictureSettings | None = None,
     device_settings: dict[str, int | float | bool] | None = None,
+    color_profile: CameraColorProfile | None = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
@@ -260,6 +282,7 @@ def mkCameraConfig(
     camera_config.fps = fps
     camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
     camera_config.device_settings = parseCameraDeviceSettings(device_settings)
+    camera_config.color_profile = color_profile or mkCameraColorProfile()
     return camera_config
 
 
@@ -310,6 +333,78 @@ def cameraPictureSettingsToDict(settings: CameraPictureSettings) -> dict[str, in
         "rotation": clamped.rotation,
         "flip_horizontal": clamped.flip_horizontal,
         "flip_vertical": clamped.flip_vertical,
+    }
+
+
+def mkCameraColorProfile(
+    enabled: bool = False,
+    matrix: list[list[float]] | None = None,
+    bias: list[float] | None = None,
+) -> CameraColorProfile:
+    return CameraColorProfile(
+        enabled=enabled,
+        matrix=matrix,
+        bias=bias,
+    )
+
+
+def clampCameraColorProfile(profile: CameraColorProfile) -> CameraColorProfile:
+    def _number(value: object, default: float) -> float:
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else default
+
+    raw_matrix = getattr(profile, "matrix", None)
+    matrix_rows: list[list[float]] = []
+    if isinstance(raw_matrix, list):
+        for row_index, raw_row in enumerate(raw_matrix[:3]):
+            if isinstance(raw_row, list):
+                row = [
+                    _number(raw_row[col_index] if col_index < len(raw_row) else 1.0 if row_index == col_index else 0.0,
+                            1.0 if row_index == col_index else 0.0)
+                    for col_index in range(3)
+                ]
+            else:
+                row = [1.0 if row_index == col_index else 0.0 for col_index in range(3)]
+            matrix_rows.append(row)
+    while len(matrix_rows) < 3:
+        row_index = len(matrix_rows)
+        matrix_rows.append([1.0 if row_index == col_index else 0.0 for col_index in range(3)])
+
+    raw_bias = getattr(profile, "bias", None)
+    bias_values: list[float] = []
+    if isinstance(raw_bias, list):
+        bias_values = [
+            _number(raw_bias[index] if index < len(raw_bias) else 0.0, 0.0)
+            for index in range(3)
+        ]
+    while len(bias_values) < 3:
+        bias_values.append(0.0)
+
+    return mkCameraColorProfile(
+        enabled=bool(getattr(profile, "enabled", False)),
+        matrix=matrix_rows,
+        bias=bias_values,
+    )
+
+
+def parseCameraColorProfile(raw: object) -> CameraColorProfile:
+    if not isinstance(raw, dict):
+        return mkCameraColorProfile()
+
+    return clampCameraColorProfile(
+        mkCameraColorProfile(
+            enabled=bool(raw.get("enabled", False)),
+            matrix=raw.get("matrix") if isinstance(raw.get("matrix"), list) else None,
+            bias=raw.get("bias") if isinstance(raw.get("bias"), list) else None,
+        )
+    )
+
+
+def cameraColorProfileToDict(profile: CameraColorProfile) -> dict[str, object]:
+    clamped = clampCameraColorProfile(profile)
+    return {
+        "enabled": clamped.enabled,
+        "matrix": [[float(value) for value in row] for row in clamped.matrix],
+        "bias": [float(value) for value in clamped.bias],
     }
 
 
@@ -432,6 +527,9 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     device_settings_section = {}
     if isinstance(raw_toml, dict):
         device_settings_section = raw_toml.get("camera_device_settings", {})
+    color_profiles_section = {}
+    if isinstance(raw_toml, dict):
+        color_profiles_section = raw_toml.get("camera_color_profiles", {})
 
     def _picture_settings(role: str) -> CameraPictureSettings:
         if not isinstance(picture_settings_section, dict):
@@ -442,6 +540,11 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         if not isinstance(device_settings_section, dict):
             return {}
         return parseCameraDeviceSettings(device_settings_section.get(role))
+
+    def _color_profile(role: str) -> CameraColorProfile:
+        if not isinstance(color_profiles_section, dict):
+            return mkCameraColorProfile()
+        return parseCameraColorProfile(color_profiles_section.get(role))
 
     irl_config.camera_layout = camera_layout_type
 
@@ -465,24 +568,28 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=c_ch2_idx,
                 picture_settings=_picture_settings("c_channel_2"),
                 device_settings=_device_settings("c_channel_2"),
+                color_profile=_color_profile("c_channel_2"),
             )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = mkCameraConfig(
                 device_index=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
+                color_profile=_color_profile("c_channel_3"),
             )
         if isinstance(carousel_source, str):
             irl_config.carousel_camera = mkCameraConfig(
                 url=carousel_source,
                 picture_settings=_picture_settings("carousel"),
                 device_settings=_device_settings("carousel"),
+                color_profile=_color_profile("carousel"),
             )
         elif isinstance(carousel_source, int):
             irl_config.carousel_camera = mkCameraConfig(
                 device_index=carousel_source,
                 picture_settings=_picture_settings("carousel"),
                 device_settings=_device_settings("carousel"),
+                color_profile=_color_profile("carousel"),
             )
 
         # Classification cameras (optional in split_feeder mode) — int or URL string
@@ -494,6 +601,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=cls_top,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
+                color_profile=_color_profile("classification_top"),
             )
         elif isinstance(cls_top, int):
             irl_config.classification_camera_top = mkCameraConfig(
@@ -502,12 +610,14 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 height=9999,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
+                color_profile=_color_profile("classification_top"),
             )
         else:
             irl_config.classification_camera_top = mkCameraConfig(
                 device_index=-1,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
+                color_profile=_color_profile("classification_top"),
             )
 
         if isinstance(cls_bottom, str):
@@ -515,6 +625,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=cls_bottom,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
+                color_profile=_color_profile("classification_bottom"),
             )
         elif isinstance(cls_bottom, int):
             irl_config.classification_camera_bottom = mkCameraConfig(
@@ -523,12 +634,14 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 height=9999,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
+                color_profile=_color_profile("classification_bottom"),
             )
         else:
             irl_config.classification_camera_bottom = mkCameraConfig(
                 device_index=-1,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
+                color_profile=_color_profile("classification_bottom"),
             )
 
         # Dummy feeder camera so nothing crashes on attr access
@@ -536,6 +649,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             device_index=-1,
             picture_settings=_picture_settings("feeder"),
             device_settings=_device_settings("feeder"),
+            color_profile=_color_profile("feeder"),
         )
     else:
         # default: single feeder + classification cameras from camera_setup
@@ -561,6 +675,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             device_index=feeder_camera_index,
             picture_settings=_picture_settings("feeder"),
             device_settings=_device_settings("feeder"),
+            color_profile=_color_profile("feeder"),
         )
         irl_config.classification_camera_bottom = mkCameraConfig(
             device_index=classification_camera_bottom_index,
@@ -568,6 +683,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             height=9999,
             picture_settings=_picture_settings("classification_bottom"),
             device_settings=_device_settings("classification_bottom"),
+            color_profile=_color_profile("classification_bottom"),
         )
         irl_config.classification_camera_top = mkCameraConfig(
             device_index=classification_camera_top_index,
@@ -575,6 +691,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             height=9999,
             picture_settings=_picture_settings("classification_top"),
             device_settings=_device_settings("classification_top"),
+            color_profile=_color_profile("classification_top"),
         )
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)

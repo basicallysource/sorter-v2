@@ -7,8 +7,10 @@ import numpy as np
 
 from irl.config import (
     CameraConfig,
+    CameraColorProfile,
     CameraPictureSettings,
     cameraDeviceSettingsToDict,
+    clampCameraColorProfile,
     clampCameraPictureSettings,
     parseCameraDeviceSettings,
 )
@@ -362,6 +364,28 @@ def apply_picture_settings(
     return adjusted
 
 
+def apply_camera_color_profile(
+    frame: np.ndarray,
+    profile: CameraColorProfile | None,
+) -> np.ndarray:
+    if profile is None:
+        return frame
+
+    current = clampCameraColorProfile(profile)
+    if not current.enabled:
+        return frame
+
+    matrix = np.array(current.matrix, dtype=np.float32)
+    bias = np.array(current.bias, dtype=np.float32)
+    if matrix.shape != (3, 3) or bias.shape != (3,):
+        return frame
+
+    rgb = frame[:, :, ::-1].astype(np.float32) / 255.0
+    corrected = np.tensordot(rgb, matrix.T, axes=1) + bias
+    corrected = np.clip(corrected, 0.0, 1.0)
+    return np.round(corrected[:, :, ::-1] * 255.0).astype(np.uint8)
+
+
 class CaptureThread:
     _thread: Optional[threading.Thread]
     _stop_event: threading.Event
@@ -380,8 +404,10 @@ class CaptureThread:
         self.latest_frame = None
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
         self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
+        self._color_profile = clampCameraColorProfile(config.color_profile)
         self._picture_settings_lock = threading.Lock()
         self._device_settings_lock = threading.Lock()
+        self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
 
@@ -394,6 +420,16 @@ class CaptureThread:
     def getPictureSettings(self) -> CameraPictureSettings:
         with self._picture_settings_lock:
             return clampCameraPictureSettings(self._picture_settings)
+
+    def setColorProfile(self, profile: CameraColorProfile | None) -> None:
+        clamped = clampCameraColorProfile(profile or CameraColorProfile())
+        with self._color_profile_lock:
+            self._color_profile = clamped
+            self._config.color_profile = clamped
+
+    def getColorProfile(self) -> CameraColorProfile:
+        with self._color_profile_lock:
+            return clampCameraColorProfile(self._color_profile)
 
     def setDeviceSettings(
         self,
@@ -534,6 +570,7 @@ class CaptureThread:
             with self._cap_lock:
                 ret, frame = cap.read()
             if ret:
+                frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
                 self.latest_frame = CameraFrame(
                     raw=frame, annotated=None, results=[], timestamp=time.time()

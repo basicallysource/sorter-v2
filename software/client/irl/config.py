@@ -30,12 +30,42 @@ from blob_manager import getBinCategories, getCameraSetup
 
 class CameraConfig:
     device_index: int
+    url: str | None  # if set, use URL instead of device_index
     width: int
     height: int
     fps: int
+    picture_settings: "CameraPictureSettings"
 
     def __init__(self):
-        pass
+        self.url = None
+
+
+class CameraPictureSettings:
+    brightness: int
+    contrast: float
+    saturation: float
+    gamma: float
+    rotation: int
+    flip_horizontal: bool
+    flip_vertical: bool
+
+    def __init__(
+        self,
+        brightness: int = 0,
+        contrast: float = 1.0,
+        saturation: float = 1.0,
+        gamma: float = 1.0,
+        rotation: int = 0,
+        flip_horizontal: bool = False,
+        flip_vertical: bool = False,
+    ):
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.gamma = gamma
+        self.rotation = rotation
+        self.flip_horizontal = flip_horizontal
+        self.flip_vertical = flip_vertical
 
 
 class StepperConfig:
@@ -209,14 +239,92 @@ class IRLInterface:
 
 
 def mkCameraConfig(
-    device_index: int, width: int = 1920, height: int = 1080, fps: int = 30
+    device_index: int = -1, width: int = 1920, height: int = 1080, fps: int = 30,
+    url: str | None = None,
+    picture_settings: CameraPictureSettings | None = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
+    camera_config.url = url
     camera_config.width = width
     camera_config.height = height
     camera_config.fps = fps
+    camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
     return camera_config
+
+
+def mkCameraPictureSettings(
+    brightness: int = 0,
+    contrast: float = 1.0,
+    saturation: float = 1.0,
+    gamma: float = 1.0,
+    rotation: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> CameraPictureSettings:
+    return CameraPictureSettings(
+        brightness=brightness,
+        contrast=contrast,
+        saturation=saturation,
+        gamma=gamma,
+        rotation=rotation,
+        flip_horizontal=flip_horizontal,
+        flip_vertical=flip_vertical,
+    )
+
+
+def clampCameraPictureSettings(settings: CameraPictureSettings) -> CameraPictureSettings:
+    def _number(value: object, default: float) -> float:
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else default
+
+    brightness = int(round(_number(settings.brightness, 0.0)))
+    contrast = _number(settings.contrast, 1.0)
+    saturation = _number(settings.saturation, 1.0)
+    gamma = _number(settings.gamma, 1.0)
+    rotation = int(round(_number(getattr(settings, "rotation", 0), 0.0)))
+    rotation = (round(rotation / 90) * 90) % 360
+    flip_horizontal = bool(getattr(settings, "flip_horizontal", False))
+    flip_vertical = bool(getattr(settings, "flip_vertical", False))
+
+    return mkCameraPictureSettings(
+        brightness=max(-100, min(100, brightness)),
+        contrast=max(0.5, min(2.0, contrast)),
+        saturation=max(0.0, min(2.0, saturation)),
+        gamma=max(0.5, min(2.0, gamma)),
+        rotation=rotation,
+        flip_horizontal=flip_horizontal,
+        flip_vertical=flip_vertical,
+    )
+
+
+def parseCameraPictureSettings(raw: object) -> CameraPictureSettings:
+    if not isinstance(raw, dict):
+        return mkCameraPictureSettings()
+
+    return clampCameraPictureSettings(
+        mkCameraPictureSettings(
+            brightness=raw.get("brightness", 0),
+            contrast=raw.get("contrast", 1.0),
+            saturation=raw.get("saturation", 1.0),
+            gamma=raw.get("gamma", 1.0),
+            rotation=raw.get("rotation", 0),
+            flip_horizontal=raw.get("flip_horizontal", False),
+            flip_vertical=raw.get("flip_vertical", False),
+        )
+    )
+
+
+def cameraPictureSettingsToDict(settings: CameraPictureSettings) -> dict[str, int | float | bool]:
+    clamped = clampCameraPictureSettings(settings)
+    return {
+        "brightness": clamped.brightness,
+        "contrast": clamped.contrast,
+        "saturation": clamped.saturation,
+        "gamma": clamped.gamma,
+        "rotation": clamped.rotation,
+        "flip_horizontal": clamped.flip_horizontal,
+        "flip_vertical": clamped.flip_vertical,
+    }
 
 
 def mkStepperConfig(
@@ -277,6 +385,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     # Here we just check the raw TOML for layout type.
     import os, tomllib
     camera_layout_type = "default"
+    raw_toml: dict[str, object] = {}
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
         try:
@@ -287,6 +396,15 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 camera_layout_type = cameras_section.get("layout", "default")
         except Exception:
             pass
+
+    picture_settings_section = {}
+    if isinstance(raw_toml, dict):
+        picture_settings_section = raw_toml.get("camera_picture_settings", {})
+
+    def _picture_settings(role: str) -> CameraPictureSettings:
+        if not isinstance(picture_settings_section, dict):
+            return mkCameraPictureSettings()
+        return parseCameraPictureSettings(picture_settings_section.get(role))
 
     irl_config.camera_layout = camera_layout_type
 
@@ -303,19 +421,74 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
 
         c_ch2_idx = cameras_section.get("c_channel_2")
         c_ch3_idx = cameras_section.get("c_channel_3")
-        carousel_idx = cameras_section.get("carousel")
+        carousel_source = cameras_section.get("carousel")
 
         if isinstance(c_ch2_idx, int):
-            irl_config.c_channel_2_camera = mkCameraConfig(device_index=c_ch2_idx)
+            irl_config.c_channel_2_camera = mkCameraConfig(
+                device_index=c_ch2_idx,
+                picture_settings=_picture_settings("c_channel_2"),
+            )
         if isinstance(c_ch3_idx, int):
-            irl_config.c_channel_3_camera = mkCameraConfig(device_index=c_ch3_idx)
-        if isinstance(carousel_idx, int):
-            irl_config.carousel_camera = mkCameraConfig(device_index=carousel_idx)
+            irl_config.c_channel_3_camera = mkCameraConfig(
+                device_index=c_ch3_idx,
+                picture_settings=_picture_settings("c_channel_3"),
+            )
+        if isinstance(carousel_source, str):
+            irl_config.carousel_camera = mkCameraConfig(
+                url=carousel_source,
+                picture_settings=_picture_settings("carousel"),
+            )
+        elif isinstance(carousel_source, int):
+            irl_config.carousel_camera = mkCameraConfig(
+                device_index=carousel_source,
+                picture_settings=_picture_settings("carousel"),
+            )
 
-        # Set dummy configs for the default cameras so nothing crashes on attr access
-        irl_config.feeder_camera = mkCameraConfig(device_index=-1)
-        irl_config.classification_camera_bottom = mkCameraConfig(device_index=-1)
-        irl_config.classification_camera_top = mkCameraConfig(device_index=-1)
+        # Classification cameras (optional in split_feeder mode) — int or URL string
+        cls_top = cameras_section.get("classification_top")
+        cls_bottom = cameras_section.get("classification_bottom")
+
+        if isinstance(cls_top, str):
+            irl_config.classification_camera_top = mkCameraConfig(
+                url=cls_top,
+                picture_settings=_picture_settings("classification_top"),
+            )
+        elif isinstance(cls_top, int):
+            irl_config.classification_camera_top = mkCameraConfig(
+                device_index=cls_top,
+                width=9999,
+                height=9999,
+                picture_settings=_picture_settings("classification_top"),
+            )
+        else:
+            irl_config.classification_camera_top = mkCameraConfig(
+                device_index=-1,
+                picture_settings=_picture_settings("classification_top"),
+            )
+
+        if isinstance(cls_bottom, str):
+            irl_config.classification_camera_bottom = mkCameraConfig(
+                url=cls_bottom,
+                picture_settings=_picture_settings("classification_bottom"),
+            )
+        elif isinstance(cls_bottom, int):
+            irl_config.classification_camera_bottom = mkCameraConfig(
+                device_index=cls_bottom,
+                width=9999,
+                height=9999,
+                picture_settings=_picture_settings("classification_bottom"),
+            )
+        else:
+            irl_config.classification_camera_bottom = mkCameraConfig(
+                device_index=-1,
+                picture_settings=_picture_settings("classification_bottom"),
+            )
+
+        # Dummy feeder camera so nothing crashes on attr access
+        irl_config.feeder_camera = mkCameraConfig(
+            device_index=-1,
+            picture_settings=_picture_settings("feeder"),
+        )
     else:
         # default: single feeder + classification cameras from camera_setup
         camera_setup = getCameraSetup()
@@ -336,12 +509,21 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         classification_camera_bottom_index = resolveCamera("classification_bottom")
         classification_camera_top_index = resolveCamera("classification_top")
 
-        irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
+        irl_config.feeder_camera = mkCameraConfig(
+            device_index=feeder_camera_index,
+            picture_settings=_picture_settings("feeder"),
+        )
         irl_config.classification_camera_bottom = mkCameraConfig(
-            device_index=classification_camera_bottom_index, width=9999, height=9999
+            device_index=classification_camera_bottom_index,
+            width=9999,
+            height=9999,
+            picture_settings=_picture_settings("classification_bottom"),
         )
         irl_config.classification_camera_top = mkCameraConfig(
-            device_index=classification_camera_top_index, width=9999, height=9999
+            device_index=classification_camera_top_index,
+            width=9999,
+            height=9999,
+            picture_settings=_picture_settings("classification_top"),
         )
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
@@ -353,6 +535,54 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
+
+
+REQUIRED_STEPPER_NAMES = [
+    "carousel",
+    "c_channel_3_rotor",
+    "c_channel_2_rotor",
+    "c_channel_1_rotor",
+    "chute_stepper",
+]
+HARDWARE_DISCOVERY_ATTEMPTS = 8
+HARDWARE_DISCOVERY_RETRY_DELAY_S = 0.75
+
+
+def _stepper_names_for_interface(
+    sorter_interface: SorterInterface,
+    gc: GlobalConfig,
+    port: str,
+    address: int,
+) -> tuple[str, list[str]]:
+    board_info = sorter_interface._board_info
+    device_name = board_info.get("device_name", sorter_interface.name)
+    stepper_names = board_info.get("stepper_names", [])
+    available_stepper_count = len(sorter_interface.steppers)
+
+    if not stepper_names:
+        gc.logger.warning(
+            f"{device_name} on {port}:{address} did not report stepper_names; using generic names"
+        )
+        stepper_names = [
+            f"{device_name.lower().replace(' ', '_')}_ch{i}"
+            for i in range(available_stepper_count)
+        ]
+
+    if len(stepper_names) > available_stepper_count:
+        gc.logger.warning(
+            f"{device_name} reported {len(stepper_names)} stepper_names but only {available_stepper_count} channels; truncating"
+        )
+        stepper_names = stepper_names[:available_stepper_count]
+
+    return device_name, stepper_names
+
+
+def _close_mcu_buses(buses: list[MCUBus]) -> None:
+    for bus in buses:
+        try:
+            bus._serial.close()
+        except Exception:
+            pass
 
 
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
@@ -372,30 +602,78 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         raise RuntimeError("No MCU buses found.")
     discovered_interfaces: list[tuple[str, int, SorterInterface]] = []
 
-    for port in ports:
-        gc.logger.info(f"Scanning SorterInterface devices on {port}")
-        bus = MCUBus(port=port)
-        devices = bus.scan_devices()
-        if not devices:
-            gc.logger.warning(f"No SorterInterface devices found on {port}")
+    for attempt in range(1, HARDWARE_DISCOVERY_ATTEMPTS + 1):
+        attempt_buses: list[MCUBus] = []
+        attempt_interfaces: list[tuple[str, int, SorterInterface]] = []
+
+        for port in ports:
+            gc.logger.info(f"Scanning SorterInterface devices on {port}")
+            try:
+                bus = MCUBus(port=port)
+            except Exception as e:
+                gc.logger.warning(f"Failed to open MCU bus on {port}: {e}")
+                continue
+
+            attempt_buses.append(bus)
+            devices = bus.scan_devices()
+            if not devices:
+                gc.logger.warning(f"No SorterInterface devices found on {port}")
+                continue
+
+            for address in devices:
+                try:
+                    sorter_interface = SorterInterface(bus, address, gc)
+                    attempt_interfaces.append((port, address, sorter_interface))
+                    gc.logger.info(
+                        f"SorterInterface initialized: port={port} address={address} name={sorter_interface.name}"
+                    )
+                except Exception as e:
+                    gc.logger.warning(
+                        f"Failed to initialize SorterInterface on {port} addr {address}: {e}"
+                    )
+
+        if not attempt_interfaces:
+            _close_mcu_buses(attempt_buses)
+            if attempt == HARDWARE_DISCOVERY_ATTEMPTS:
+                raise RuntimeError(f"No SorterInterface devices found on buses: {ports}")
+            gc.logger.warning(
+                f"No SorterInterface devices fully initialized on attempt "
+                f"{attempt}/{HARDWARE_DISCOVERY_ATTEMPTS}. Retrying in "
+                f"{HARDWARE_DISCOVERY_RETRY_DELAY_S:.2f}s..."
+            )
+            time.sleep(HARDWARE_DISCOVERY_RETRY_DELAY_S)
             continue
 
-        for address in devices:
-            try:
-                sorter_interface = SorterInterface(bus, address, gc)
-                discovered_interfaces.append((port, address, sorter_interface))
-                gc.logger.info(
-                    f"SorterInterface initialized: port={port} address={address} name={sorter_interface.name}"
-                )
-            except Exception as e:
-                gc.logger.warning(
-                    f"Failed to initialize SorterInterface on {port} addr {address}: {e}"
-                )
+        available_stepper_names: set[str] = set()
+        for port, address, sorter_interface in attempt_interfaces:
+            _, stepper_names = _stepper_names_for_interface(
+                sorter_interface, gc, port, address
+            )
+            available_stepper_names.update(stepper_names)
 
-    if not discovered_interfaces:
-        raise RuntimeError(
-            f"No SorterInterface devices found on buses: {ports}"
+        missing_steppers = [
+            stepper_name
+            for stepper_name in REQUIRED_STEPPER_NAMES
+            if stepper_name not in available_stepper_names
+        ]
+        if not missing_steppers:
+            discovered_interfaces = attempt_interfaces
+            break
+
+        _close_mcu_buses(attempt_buses)
+        if attempt == HARDWARE_DISCOVERY_ATTEMPTS:
+            raise RuntimeError(
+                "Incomplete hardware discovery after "
+                f"{HARDWARE_DISCOVERY_ATTEMPTS} attempts. Missing required "
+                f"steppers: {missing_steppers}"
+            )
+        gc.logger.warning(
+            f"Incomplete hardware discovery on attempt "
+            f"{attempt}/{HARDWARE_DISCOVERY_ATTEMPTS}. Missing required "
+            f"steppers: {missing_steppers}. Retrying in "
+            f"{HARDWARE_DISCOVERY_RETRY_DELAY_S:.2f}s..."
         )
+        time.sleep(HARDWARE_DISCOVERY_RETRY_DELAY_S)
 
     irl_interface.interfaces = {si.name: si for _, _, si in discovered_interfaces}
 
@@ -404,25 +682,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     distribution_board: SorterInterface | None = None
 
     for port, address, sorter_interface in discovered_interfaces:
-        board_info = sorter_interface._board_info
-        device_name = board_info.get("device_name", sorter_interface.name)
-        stepper_names = board_info.get("stepper_names", [])
-        available_stepper_count = len(sorter_interface.steppers)
-
-        if not stepper_names:
-            gc.logger.warning(
-                f"{device_name} on {port}:{address} did not report stepper_names; using generic names"
-            )
-            stepper_names = [
-                f"{device_name.lower().replace(' ', '_')}_ch{i}"
-                for i in range(available_stepper_count)
-            ]
-
-        if len(stepper_names) > available_stepper_count:
-            gc.logger.warning(
-                f"{device_name} reported {len(stepper_names)} stepper_names but only {available_stepper_count} channels; truncating"
-            )
-            stepper_names = stepper_names[:available_stepper_count]
+        device_name, stepper_names = _stepper_names_for_interface(
+            sorter_interface, gc, port, address
+        )
 
         gc.logger.info(
             f"Detected actuators on {device_name} ({port}:{address}): steppers={stepper_names}, servos={len(sorter_interface.servos)}"
@@ -443,15 +705,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         f"Global actuator inventory: steppers={[name for name, _, _, _, _ in stepper_entries]}"
     )
 
-    required_steppers = [
-        "carousel",
-        "c_channel_3_rotor",
-        "c_channel_2_rotor",
-        "c_channel_1_rotor",
-        "chute_stepper",
-    ]
     available_stepper_names = {name for name, _, _, _, _ in stepper_entries}
-    for stepper_name in required_steppers:
+    for stepper_name in REQUIRED_STEPPER_NAMES:
         if stepper_name not in available_stepper_names:
             gc.logger.warning(
                 f"Required stepper interface '{stepper_name}' not found in detected firmware actuators"

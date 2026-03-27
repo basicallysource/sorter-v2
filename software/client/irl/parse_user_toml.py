@@ -251,13 +251,16 @@ class CameraLayoutConfig:
     """Camera layout from TOML [cameras] section.
 
     layout = "default" (single feeder camera + classification cameras)
-    layout = "split_feeder" (separate cameras per c-channel + carousel, no classification)
+    layout = "split_feeder" (separate cameras per c-channel + carousel)
     """
     layout: str = "default"
-    # split_feeder camera indices (only used when layout == "split_feeder")
+    # split_feeder cameras: c-channels are indices, carousel may be index or URL
     c_channel_2: int | None = None
     c_channel_3: int | None = None
-    carousel: int | None = None
+    carousel: int | str | None = None
+    # classification cameras — int (device index) or str (URL, e.g. MJPEG stream)
+    classification_top: int | str | None = None
+    classification_bottom: int | str | None = None
 
 
 def loadCameraLayoutConfig(
@@ -286,15 +289,27 @@ def loadCameraLayoutConfig(
         c_channel_3 = cameras_params.get("c_channel_3")
         carousel = cameras_params.get("carousel")
 
-        for name, val in [("c_channel_2", c_channel_2), ("c_channel_3", c_channel_3), ("carousel", carousel)]:
+        for name, val in [("c_channel_2", c_channel_2), ("c_channel_3", c_channel_3)]:
             if val is not None and not isinstance(val, int):
                 gc.logger.warning(f"cameras.{name}={val!r} must be an integer camera index.")
+
+        if carousel is not None and not isinstance(carousel, (int, str)):
+            gc.logger.warning("cameras.carousel must be an integer index or URL string.")
+
+        # Classification cameras: int (device index) or str (URL)
+        classification_top = cameras_params.get("classification_top")
+        classification_bottom = cameras_params.get("classification_bottom")
+        for name, val in [("classification_top", classification_top), ("classification_bottom", classification_bottom)]:
+            if val is not None and not isinstance(val, (int, str)):
+                gc.logger.warning(f"cameras.{name}={val!r} must be an integer index or URL string.")
 
         return CameraLayoutConfig(
             layout="split_feeder",
             c_channel_2=c_channel_2 if isinstance(c_channel_2, int) else None,
             c_channel_3=c_channel_3 if isinstance(c_channel_3, int) else None,
-            carousel=carousel if isinstance(carousel, int) else None,
+            carousel=carousel if isinstance(carousel, (int, str)) else None,
+            classification_top=classification_top if isinstance(classification_top, (int, str)) else None,
+            classification_bottom=classification_bottom if isinstance(classification_bottom, (int, str)) else None,
         )
 
     return CameraLayoutConfig(layout="default")

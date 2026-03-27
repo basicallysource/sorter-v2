@@ -14,3 +14,14 @@ export const backendWsBaseUrl = (env.PUBLIC_BACKEND_WS_URL ?? fallbackWsBaseUrl)
 	/\/+$/,
 	''
 );
+
+export function machineHttpBaseUrlFromWsUrl(wsUrl: string | null | undefined): string | null {
+	if (!wsUrl) return null;
+	try {
+		const parsed = new URL(wsUrl);
+		const protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+		return `${protocol}//${parsed.host}`;
+	} catch {
+		return null;
+	}
+}

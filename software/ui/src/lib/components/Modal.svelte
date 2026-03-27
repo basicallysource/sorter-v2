@@ -4,8 +4,9 @@
 	let {
 		open = $bindable(false),
 		title,
+		wide = false,
 		children
-	}: { open?: boolean; title?: string; children?: Snippet } = $props();
+	}: { open?: boolean; title?: string; wide?: boolean; children?: Snippet } = $props();
 
 	function close() {
 		open = false;
@@ -25,7 +26,7 @@
 		role="presentation"
 	>
 		<div
-			class="dark:border-border-dark dark:bg-bg-dark relative max-h-[90vh] w-full max-w-2xl overflow-auto border border-border bg-bg shadow-lg"
+			class="dark:border-border-dark dark:bg-bg-dark relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide ? 'max-w-6xl' : 'max-w-2xl'}"
 		>
 			<div
 				class="dark:border-border-dark dark:bg-surface-dark sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"

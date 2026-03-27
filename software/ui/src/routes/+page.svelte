@@ -1,30 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
+	import { getMachineContext } from '$lib/machines/context';
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
-	import SettingsModal from '$lib/components/SettingsModal.svelte';
-	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
-	import CameraSetupModal from '$lib/components/CameraSetupModal.svelte';
-	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { Settings, Wrench, Pause, Play, Camera } from 'lucide-svelte';
-	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
+	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 
-	const manager = getMachinesContext();
 	const machine = getMachineContext();
 
-	let settings_open = $state(false);
-	let runtime_vars_open = $state(false);
-	let camera_setup_open = $state(false);
-	let machine_state = $state<string>('initializing');
 	let camera_layout = $state<string>('default');
+	let cameraConfig = $state<Record<string, number | string | null>>({});
+
+	function currentBackendBaseUrl(): string {
+		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
+	}
 
 	async function fetchState() {
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/state`);
+			const res = await fetch(`${currentBackendBaseUrl()}/state`);
 			if (res.ok) {
 				const data = await res.json();
-				machine_state = data.state;
 				camera_layout = data.camera_layout ?? 'default';
 			}
 		} catch {
@@ -32,77 +27,74 @@
 		}
 	}
 
-	async function togglePauseResume() {
-		const endpoint = machine_state === 'paused' ? '/resume' : '/pause';
+	async function fetchCameraConfig() {
 		try {
-			await fetch(`${backendHttpBaseUrl}${endpoint}`, { method: 'POST' });
-			await fetchState();
+			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/config`);
+			if (res.ok) {
+				cameraConfig = await res.json();
+			}
 		} catch {
 			// ignore
 		}
 	}
 
+	function isConfigured(role: string): boolean {
+		return cameraConfig[role] !== null && cameraConfig[role] !== undefined;
+	}
+
+	const CAMERA_LABELS: Record<string, string> = {
+		feeder: 'Feeder',
+		c_channel_2: 'C-Channel 2',
+		c_channel_3: 'C-Channel 3',
+		carousel: 'Carousel',
+		classification_top: 'Classification Top',
+		classification_bottom: 'Classification Bottom'
+	};
+
 	onMount(() => {
-		manager.connect(`${backendWsBaseUrl}/ws`);
-		fetchState();
-		const interval = setInterval(fetchState, 1000);
+		void fetchState();
+		void fetchCameraConfig();
+		const interval = setInterval(() => {
+			void fetchState();
+			void fetchCameraConfig();
+		}, 3000);
 		return () => clearInterval(interval);
 	});
 </script>
 
 <div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
-	<div class="mb-4 flex items-center justify-between">
-		<h1 class="dark:text-text-dark text-2xl font-bold text-text">Sorter</h1>
-		<div class="flex items-center gap-2">
-			<MachineDropdown />
-			<button
-				onclick={togglePauseResume}
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
-				title={machine_state === 'paused' ? 'Resume' : 'Pause'}
-			>
-				{#if machine_state === 'paused'}
-					<Play size={24} />
-				{:else}
-					<Pause size={24} />
-				{/if}
-			</button>
-			<button
-				onclick={() => (camera_setup_open = true)}
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
-				title="Camera Setup"
-			>
-				<Camera size={24} />
-			</button>
-			<button
-				onclick={() => (runtime_vars_open = true)}
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
-				title="Runtime Variables"
-			>
-				<Wrench size={24} />
-			</button>
-			<button
-				onclick={() => (settings_open = true)}
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
-				title="Settings"
-			>
-				<Settings size={24} />
-			</button>
-		</div>
-	</div>
+	<AppHeader />
 
 	{#if machine.machine}
-		<div class="flex h-[60vh] gap-3">
+		<div class="flex h-[calc(100vh-7rem)] gap-3">
 			{#if camera_layout === 'split_feeder'}
+				{@const has_cls_top = isConfigured('classification_top') || machine.frames.has('classification_top')}
+				{@const has_cls_bottom = isConfigured('classification_bottom') || machine.frames.has('classification_bottom')}
+				{@const has_classification = has_cls_top || has_cls_bottom}
 				<div class="flex min-w-0 flex-1 gap-3">
 					<div class="flex-1">
-						<CameraFeed camera="c_channel_2" />
+						<CameraFeed camera="c_channel_2" label={CAMERA_LABELS.c_channel_2} />
 					</div>
 					<div class="flex-1">
-						<CameraFeed camera="c_channel_3" />
+						<CameraFeed camera="c_channel_3" label={CAMERA_LABELS.c_channel_3} />
 					</div>
 					<div class="flex-1">
-						<CameraFeed camera="carousel" />
+						<CameraFeed camera="carousel" label={CAMERA_LABELS.carousel} />
 					</div>
+					{#if has_classification}
+						<div class="flex flex-1 flex-col gap-3">
+							{#if has_cls_top}
+								<div class="flex-1">
+									<CameraFeed camera="classification_top" label={CAMERA_LABELS.classification_top} />
+								</div>
+							{/if}
+							{#if has_cls_bottom}
+								<div class="flex-1">
+									<CameraFeed camera="classification_bottom" label={CAMERA_LABELS.classification_bottom} />
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{:else}
 				{@const has_top = machine.frames.has('classification_top')}
@@ -111,27 +103,27 @@
 				{#if single_classification}
 					<div class="flex min-w-0 flex-1 flex-col gap-3">
 						<div class="flex-1">
-							<CameraFeed camera="feeder" />
+							<CameraFeed camera="feeder" label={CAMERA_LABELS.feeder} />
 						</div>
 						<div class="flex-1">
 							{#if has_top}
-								<CameraFeed camera="classification_top" />
+								<CameraFeed camera="classification_top" label={CAMERA_LABELS.classification_top} />
 							{:else}
-								<CameraFeed camera="classification_bottom" />
+								<CameraFeed camera="classification_bottom" label={CAMERA_LABELS.classification_bottom} />
 							{/if}
 						</div>
 					</div>
 				{:else}
 					<div class="flex min-w-0 flex-1 gap-3">
 						<div class="flex-1">
-							<CameraFeed camera="feeder" />
+							<CameraFeed camera="feeder" label={CAMERA_LABELS.feeder} />
 						</div>
 						<div class="flex flex-1 flex-col gap-3">
 							<div class="flex-1">
-								<CameraFeed camera="classification_top" />
+								<CameraFeed camera="classification_top" label={CAMERA_LABELS.classification_top} />
 							</div>
 							<div class="flex-1">
-								<CameraFeed camera="classification_bottom" />
+								<CameraFeed camera="classification_bottom" label={CAMERA_LABELS.classification_bottom} />
 							</div>
 						</div>
 					</div>
@@ -147,7 +139,3 @@
 		</div>
 	{/if}
 </div>
-
-<SettingsModal bind:open={settings_open} />
-<RuntimeVariablesModal bind:open={runtime_vars_open} />
-<CameraSetupModal bind:open={camera_setup_open} />

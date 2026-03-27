@@ -14,6 +14,7 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 export interface MachineState {
 	identity: MachineIdentity | null;
 	connection: WebSocket;
+	url: string | null;
 	status: ConnectionStatus;
 	frames: Map<CameraName, FrameData>;
 	lastHeartbeat: number | null;

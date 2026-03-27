@@ -31,13 +31,30 @@ closed_angle = 83
 #   Camera indices come from data.json (via scripts/camera_setup.py).
 #
 # layout = "split_feeder": separate camera per c-channel + carousel.
-#   No classification cameras. Indices are OpenCV device indices.
+#   Indices are OpenCV device indices.
+#   Carousel and classification cameras may also use a URL source
+#   (e.g. MJPEG stream from IP Webcam app via ADB or a local scrcpy bridge).
 
 # [cameras]
 # layout = "split_feeder"
 # c_channel_2 = 0
 # c_channel_3 = 2
 # carousel = 4
+# carousel = "http://127.0.0.1:18081/carousel.mjpg" # Android phone via scrcpy bridge
+# classification_top = "http://localhost:8080/video"   # Android phone via ADB
+# classification_bottom = 3                             # or a USB camera index
+
+# [camera_picture_settings.c_channel_2]
+# brightness = 0
+# contrast = 1.0
+# saturation = 1.0
+# gamma = 1.0
+
+# [camera_picture_settings.carousel]
+# brightness = 8
+# contrast = 1.1
+# saturation = 1.0
+# gamma = 1.0
 
 [stepper_current_overrides]
 # default = 16, max = 31

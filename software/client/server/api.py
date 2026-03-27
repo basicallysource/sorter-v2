@@ -10,6 +10,10 @@ import threading
 import cv2
 import numpy as np
 from pathlib import Path
+import platform
+import re
+import shutil
+import subprocess
 
 from defs.sorter_controller import SorterLifecycle
 from aruco_config_manager import ArucoConfigManager
@@ -23,9 +27,16 @@ from defs.events import (
     ResumeCommandData,
 )
 from bricklink.api import getPartInfo
+from blob_manager import getMachineId, getMachineNickname, setMachineNickname
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
-from irl.config import ArucoTagConfig, CarouselArucoTagConfig
+from irl.config import (
+    ArucoTagConfig,
+    CarouselArucoTagConfig,
+    parseCameraPictureSettings,
+    cameraPictureSettingsToDict,
+)
+from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
 
 app = FastAPI(title="Sorter API", version="0.0.1")
 app.add_middleware(
@@ -54,6 +65,15 @@ def setGlobalConfig(gc: GlobalConfig) -> None:
 def setRuntimeVariables(rv: RuntimeVariables) -> None:
     global runtime_vars
     runtime_vars = rv
+
+
+def _getRuntimeVariables() -> RuntimeVariables:
+    global runtime_vars
+    if runtime_vars is None:
+        # The standalone API used in local UI dev does not boot the full machine
+        # process, so lazily provide an empty runtime variable set instead of 500s.
+        runtime_vars = RuntimeVariables()
+    return runtime_vars
 
 
 def setCommandQueue(q: queue.Queue) -> None:
@@ -212,6 +232,11 @@ async def onStartup() -> None:
     server_loop = asyncio.get_running_loop()
 
 
+@app.on_event("shutdown")
+async def onShutdown() -> None:
+    shutdownCameraDiscovery()
+
+
 class HealthResponse(BaseModel):
     status: str
 
@@ -221,16 +246,39 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
+class MachineIdentityUpdateRequest(BaseModel):
+    nickname: Optional[str] = None
+
+
+def _getMachineIdentityData() -> MachineIdentityData:
+    machine_id = gc_ref.machine_id if gc_ref is not None else getMachineId()
+    return MachineIdentityData(
+        machine_id=machine_id,
+        nickname=getMachineNickname(),
+    )
+
+
+def _broadcastIdentityUpdate() -> None:
+    if server_loop is None:
+        return
+
+    identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
+    future = asyncio.run_coroutine_threadsafe(
+        broadcastEvent(identity_event.model_dump()),
+        server_loop,
+    )
+    try:
+        future.result(timeout=1.0)
+    except Exception:
+        pass
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     active_connections.append(websocket)
 
-    machine_id = gc_ref.machine_id if gc_ref is not None else "unknown"
-    identity_event = IdentityEvent(
-        tag="identity",
-        data=MachineIdentityData(machine_id=machine_id, nickname=None),
-    )
+    identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
 
     try:
@@ -268,6 +316,19 @@ class BricklinkPartResponse(BaseModel):
     is_obsolete: Optional[bool] = None
 
 
+@app.get("/api/machine-identity", response_model=MachineIdentityData)
+def get_machine_identity() -> MachineIdentityData:
+    return _getMachineIdentityData()
+
+
+@app.post("/api/machine-identity", response_model=MachineIdentityData)
+def save_machine_identity(payload: MachineIdentityUpdateRequest) -> MachineIdentityData:
+    setMachineNickname(payload.nickname)
+    identity = _getMachineIdentityData()
+    _broadcastIdentityUpdate()
+    return identity
+
+
 @app.get("/bricklink/part/{part_id}", response_model=BricklinkPartResponse)
 def getBricklinkPart(part_id: str) -> BricklinkPartResponse:
     data = getPartInfo(part_id)
@@ -294,18 +355,15 @@ class RuntimeVariablesUpdateRequest(BaseModel):
 
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
 def getRuntimeVariables() -> RuntimeVariablesResponse:
-    if runtime_vars is None:
-        raise HTTPException(status_code=500, detail="Runtime variables not initialized")
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
+    return RuntimeVariablesResponse(definitions=defs, values=_getRuntimeVariables().getAll())
 
 
 @app.post("/runtime-variables", response_model=RuntimeVariablesResponse)
 def updateRuntimeVariables(
     req: RuntimeVariablesUpdateRequest,
 ) -> RuntimeVariablesResponse:
-    if runtime_vars is None:
-        raise HTTPException(status_code=500, detail="Runtime variables not initialized")
+    runtime_vars = _getRuntimeVariables()
     runtime_vars.setAll(req.values)
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
     return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
@@ -667,49 +725,291 @@ def recalibrate_aruco() -> Dict[str, Any]:
 
 # --- Camera Setup ---
 
+CAMERA_SETUP_ROLES = {
+    "feeder",
+    "c_channel_2",
+    "c_channel_3",
+    "carousel",
+    "classification_top",
+    "classification_bottom",
+}
+
+
+def _camera_params_path() -> str:
+    import os
+
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if not params_path:
+        raise HTTPException(status_code=500, detail="MACHINE_SPECIFIC_PARAMS_PATH not set")
+    return params_path
+
+
+def _read_machine_params_config(
+    *,
+    require_exists: bool = False,
+) -> tuple[str, Dict[str, Any]]:
+    import os
+    import tomllib
+
+    params_path = _camera_params_path()
+    if not os.path.exists(params_path):
+        if require_exists:
+            raise HTTPException(status_code=404, detail="Machine params file not found")
+        return params_path, {}
+
+    try:
+        with open(params_path, "rb") as f:
+            return params_path, tomllib.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read config: {e}")
+
+
+def _toml_value(v: object) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return str(v)
+    if isinstance(v, str):
+        return f'"{v}"'
+    return str(v)
+
+
+def _write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
+    lines: list[str] = []
+    simple_keys: list[str] = []
+    table_keys: list[str] = []
+    array_table_keys: list[str] = []
+
+    for k, v in data.items():
+        if isinstance(v, dict):
+            has_array_tables = any(
+                isinstance(sv, list) and sv and isinstance(sv[0], dict)
+                for sv in v.values()
+            )
+            if has_array_tables:
+                array_table_keys.append(k)
+            else:
+                table_keys.append(k)
+        else:
+            simple_keys.append(k)
+
+    for k in simple_keys:
+        lines.append(f"{k} = {_toml_value(data[k])}")
+
+    for k in table_keys:
+        lines.append(f"\n[{k}]")
+        table = data[k]
+        sub_tables = []
+        for sk, sv in table.items():
+            if isinstance(sv, dict):
+                sub_tables.append((sk, sv))
+            elif isinstance(sv, list) and sv and isinstance(sv[0], dict):
+                pass
+            else:
+                lines.append(f"{sk} = {_toml_value(sv)}")
+        for sk, sv in sub_tables:
+            lines.append(f"\n[{k}.{sk}]")
+            for ssk, ssv in sv.items():
+                lines.append(f"{ssk} = {_toml_value(ssv)}")
+
+    for k in array_table_keys:
+        table = data[k]
+        non_array = {
+            sk: sv
+            for sk, sv in table.items()
+            if not (isinstance(sv, list) and sv and isinstance(sv[0], dict))
+        }
+        array_items = {
+            sk: sv
+            for sk, sv in table.items()
+            if isinstance(sv, list) and sv and isinstance(sv[0], dict)
+        }
+        lines.append(f"\n[{k}]")
+        for sk, sv in non_array.items():
+            lines.append(f"{sk} = {_toml_value(sv)}")
+        for sk, sv in array_items.items():
+            for item in sv:
+                lines.append(f"\n[[{k}.{sk}]]")
+                for ik, iv in item.items():
+                    lines.append(f"{ik} = {_toml_value(iv)}")
+
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
+    picture_settings = config.get("camera_picture_settings", {})
+    return picture_settings if isinstance(picture_settings, dict) else {}
+
+
+def _picture_settings_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    picture_settings = _get_picture_settings_table(config)
+    return cameraPictureSettingsToDict(parseCameraPictureSettings(picture_settings.get(role)))
+
+
 @app.get("/api/cameras/config")
 def get_camera_config() -> Dict[str, Any]:
     """Return current camera assignments from TOML."""
-    import os, tomllib
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path or not os.path.exists(params_path):
-        return {"c_channel_2": None, "c_channel_3": None, "carousel": None}
     try:
-        with open(params_path, "rb") as f:
-            raw = tomllib.load(f)
-        cameras = raw.get("cameras", {})
+        _, raw = _read_machine_params_config()
+        cameras = raw.get("cameras", {}) if isinstance(raw, dict) else {}
+        if not isinstance(cameras, dict):
+            cameras = {}
         return {
+            "layout": cameras.get("layout", "default"),
             "c_channel_2": cameras.get("c_channel_2"),
             "c_channel_3": cameras.get("c_channel_3"),
             "carousel": cameras.get("carousel"),
+            "classification_top": cameras.get("classification_top"),
+            "classification_bottom": cameras.get("classification_bottom"),
         }
-    except Exception:
-        return {"c_channel_2": None, "c_channel_3": None, "carousel": None}
+    except HTTPException:
+        return {
+            "layout": "default",
+            "c_channel_2": None,
+            "c_channel_3": None,
+            "carousel": None,
+            "classification_top": None,
+            "classification_bottom": None,
+        }
 
 
 @app.get("/api/cameras/list")
-def list_cameras() -> List[Dict[str, Any]]:
-    """List all available camera indices."""
-    cameras: List[Dict[str, Any]] = []
-    for i in range(10):
-        cap = cv2.VideoCapture(i)
-        if not cap.isOpened():
-            cap.release()
-            continue
-        ret, frame = cap.read()
+def list_cameras() -> Dict[str, Any]:
+    """List local USB cameras plus discovered network camera streams."""
+    usb_cameras = _list_usb_cameras()
+    return {
+        "usb": usb_cameras,
+        "network": getDiscoveredCameraStreams(),
+    }
+
+
+def _open_camera(index: int) -> cv2.VideoCapture:
+    if platform.system() == "Darwin":
+        return cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+    return cv2.VideoCapture(index)
+
+
+def _open_camera_source(source: int | str) -> cv2.VideoCapture:
+    if isinstance(source, int):
+        return _open_camera(source)
+    return cv2.VideoCapture(source)
+
+
+def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
+    cap = _open_camera(index)
+    if not cap.isOpened():
         cap.release()
-        if not ret:
+        return None
+
+    try:
+        ret, frame = cap.read()
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+        if ret and frame is not None:
+            height, width = frame.shape[:2]
+        if width <= 0 or height <= 0:
+            return None
+        return {
+            "kind": "usb",
+            "index": index,
+            "width": width,
+            "height": height,
+            "preview_available": bool(ret and frame is not None),
+        }
+    finally:
+        cap.release()
+
+
+def _list_avfoundation_video_devices() -> List[Dict[str, Any]]:
+    if platform.system() != "Darwin":
+        return []
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        return []
+
+    try:
+        result = subprocess.run(
+            [ffmpeg, "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+    except Exception:
+        return []
+
+    output = f"{result.stdout}\n{result.stderr}"
+    devices: List[Dict[str, Any]] = []
+    in_video_section = False
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if "AVFoundation video devices:" in line:
+            in_video_section = True
             continue
-        h, w = frame.shape[:2]
-        cameras.append({"index": i, "width": w, "height": h})
-    return cameras
+        if "AVFoundation audio devices:" in line:
+            break
+        if not in_video_section:
+            continue
+
+        match = re.search(r"\[(\d+)\]\s+(.+)$", line)
+        if not match:
+            continue
+
+        index = int(match.group(1))
+        name = match.group(2).strip()
+        if name.lower().startswith("capture screen"):
+            continue
+
+        devices.append(
+            {
+                "kind": "usb",
+                "index": index,
+                "name": name,
+            }
+        )
+
+    return devices
+
+
+def _list_usb_cameras() -> List[Dict[str, Any]]:
+    if platform.system() == "Darwin":
+        enumerated = _list_avfoundation_video_devices()
+        if enumerated:
+            cameras: List[Dict[str, Any]] = []
+            for camera in enumerated:
+                probed = _probe_camera_index(int(camera["index"]))
+                cameras.append(
+                    {
+                        "kind": "usb",
+                        "index": int(camera["index"]),
+                        "name": str(camera["name"]),
+                        "width": int((probed or {}).get("width", 0)),
+                        "height": int((probed or {}).get("height", 0)),
+                        "preview_available": bool((probed or {}).get("preview_available", False)),
+                    }
+                )
+            return cameras
+
+    usb_cameras: List[Dict[str, Any]] = []
+    for i in range(16):
+        probed = _probe_camera_index(i)
+        if probed is None:
+            continue
+        usb_cameras.append(probed)
+    return usb_cameras
 
 
 @app.get("/api/cameras/stream/{index}")
 def camera_stream(index: int):
     """MJPEG stream for a single camera by index (thumbnail)."""
     def generate():
-        cap = cv2.VideoCapture(index)
+        cap = _open_camera(index)
         if not cap.isOpened():
             return
         try:
@@ -734,20 +1034,46 @@ def camera_stream(index: int):
 
 @app.get("/api/cameras/feed/{role}")
 def camera_feed_by_role(role: str):
-    """MJPEG stream for a camera role (c_channel_2, c_channel_3, carousel). Full resolution."""
-    import os, tomllib
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path or not os.path.exists(params_path):
-        raise HTTPException(404, "No camera config found")
-    with open(params_path, "rb") as f:
-        raw = tomllib.load(f)
+    """MJPEG stream for a camera role."""
+    from vision.camera import apply_picture_settings
+
+    _, raw = _read_machine_params_config(require_exists=True)
     cameras_section = raw.get("cameras", {})
-    index = cameras_section.get(role)
-    if not isinstance(index, int):
+    picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(role))
+    source = cameras_section.get(role)
+    if source is None or not isinstance(source, (int, str)):
         raise HTTPException(404, f"Camera role '{role}' not configured")
 
-    def generate():
-        cap = cv2.VideoCapture(index)
+    def _encode_chunk(frame: np.ndarray) -> bytes:
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        return (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+        )
+
+    if vision_manager is not None and hasattr(vision_manager, "getCaptureThreadForRole"):
+        try:
+            capture = vision_manager.getCaptureThreadForRole(role)
+        except Exception:
+            capture = None
+        if capture is not None and hasattr(vision_manager, "getFrame"):
+            def generate_live():
+                while True:
+                    frame_obj = vision_manager.getFrame(role)
+                    if frame_obj is None:
+                        time.sleep(0.05)
+                        continue
+                    frame = frame_obj.annotated if frame_obj.annotated is not None else frame_obj.raw
+                    yield _encode_chunk(frame)
+                    time.sleep(0.03)
+
+            return StreamingResponse(
+                generate_live(),
+                media_type="multipart/x-mixed-replace; boundary=frame",
+            )
+
+    def generate_direct():
+        cap = _open_camera_source(source)
         if not cap.isOpened():
             return
         try:
@@ -755,16 +1081,13 @@ def camera_feed_by_role(role: str):
                 ret, frame = cap.read()
                 if not ret:
                     break
-                _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
+                frame = apply_picture_settings(frame, picture_settings)
+                yield _encode_chunk(frame)
         finally:
             cap.release()
 
     return StreamingResponse(
-        generate(),
+        generate_direct(),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 
@@ -772,112 +1095,137 @@ def camera_feed_by_role(role: str):
 class CameraAssignment(BaseModel):
     c_channel_2: Optional[int] = None
     c_channel_3: Optional[int] = None
-    carousel: Optional[int] = None
+    carousel: Optional[int | str] = None
+    classification_top: Optional[int | str] = None
+    classification_bottom: Optional[int | str] = None
+
+
+class CameraPictureSettingsPayload(BaseModel):
+    brightness: int = 0
+    contrast: float = 1.0
+    saturation: float = 1.0
+    gamma: float = 1.0
+    rotation: int = 0
+    flip_horizontal: bool = False
+    flip_vertical: bool = False
 
 
 @app.post("/api/cameras/assign")
 def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     """Save camera role assignments to the machine TOML config."""
-    import os, tomllib
-
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path:
-        raise HTTPException(status_code=500, detail="MACHINE_SPECIFIC_PARAMS_PATH not set")
-
-    # Read existing TOML
-    try:
-        with open(params_path, "rb") as f:
-            config = tomllib.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read config: {e}")
+    params_path, config = _read_machine_params_config()
 
     # Update cameras section
     cameras = config.get("cameras", {})
-    cameras["layout"] = "split_feeder"
-    if assignment.c_channel_2 is not None:
-        cameras["c_channel_2"] = assignment.c_channel_2
-    if assignment.c_channel_3 is not None:
-        cameras["c_channel_3"] = assignment.c_channel_3
-    if assignment.carousel is not None:
-        cameras["carousel"] = assignment.carousel
+    updates = assignment.model_dump(exclude_unset=True)
+    if updates:
+        cameras["layout"] = "split_feeder"
+    for key, value in updates.items():
+        if value is None:
+            cameras.pop(key, None)
+        else:
+            cameras[key] = value
     config["cameras"] = cameras
 
-    # Write back as TOML (simple serializer since tomllib is read-only)
-    def _write_toml(data: dict, path: str) -> None:
-        lines: list[str] = []
-        simple_keys: list[str] = []
-        table_keys: list[str] = []
-        array_table_keys: list[str] = []
-
-        for k, v in data.items():
-            if isinstance(v, dict):
-                # Check if any value is a list of dicts (TOML array of tables)
-                has_array_tables = any(isinstance(sv, list) and sv and isinstance(sv[0], dict) for sv in v.values())
-                if has_array_tables:
-                    array_table_keys.append(k)
-                else:
-                    table_keys.append(k)
-            else:
-                simple_keys.append(k)
-
-        for k in simple_keys:
-            v = data[k]
-            lines.append(f"{k} = {_toml_value(v)}")
-
-        for k in table_keys:
-            lines.append(f"\n[{k}]")
-            table = data[k]
-            sub_tables = []
-            for sk, sv in table.items():
-                if isinstance(sv, dict):
-                    sub_tables.append((sk, sv))
-                elif isinstance(sv, list) and sv and isinstance(sv[0], dict):
-                    pass  # handled below
-                else:
-                    lines.append(f"{sk} = {_toml_value(sv)}")
-            for sk, sv in sub_tables:
-                lines.append(f"\n[{k}.{sk}]")
-                for ssk, ssv in sv.items():
-                    lines.append(f"{ssk} = {_toml_value(ssv)}")
-
-        for k in array_table_keys:
-            table = data[k]
-            non_array = {sk: sv for sk, sv in table.items() if not (isinstance(sv, list) and sv and isinstance(sv[0], dict))}
-            array_items = {sk: sv for sk, sv in table.items() if isinstance(sv, list) and sv and isinstance(sv[0], dict)}
-            lines.append(f"\n[{k}]")
-            for sk, sv in non_array.items():
-                lines.append(f"{sk} = {_toml_value(sv)}")
-            for sk, sv in array_items.items():
-                for item in sv:
-                    lines.append(f"\n[[{k}.{sk}]]")
-                    for ik, iv in item.items():
-                        lines.append(f"{ik} = {_toml_value(iv)}")
-
-        with open(path, "w") as f:
-            f.write("\n".join(lines) + "\n")
-
-    def _toml_value(v: object) -> str:
-        if isinstance(v, bool):
-            return "true" if v else "false"
-        if isinstance(v, int):
-            return str(v)
-        if isinstance(v, float):
-            return str(v)
-        if isinstance(v, str):
-            return f'"{v}"'
-        return str(v)
-
     try:
-        _write_toml(config, params_path)
+        _write_machine_params_config(params_path, config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    applied_live: Dict[str, bool] = {}
+    if vision_manager is not None and hasattr(vision_manager, "setCameraSourceForRole"):
+        for key, value in updates.items():
+            try:
+                applied_live[key] = bool(vision_manager.setCameraSourceForRole(key, value))
+            except Exception:
+                applied_live[key] = False
 
     return {
         "ok": True,
         "assignment": {
-            "c_channel_2": assignment.c_channel_2,
-            "c_channel_3": assignment.c_channel_3,
-            "carousel": assignment.carousel,
+            "c_channel_2": cameras.get("c_channel_2"),
+            "c_channel_3": cameras.get("c_channel_3"),
+            "carousel": cameras.get("carousel"),
+            "classification_top": cameras.get("classification_top"),
+            "classification_bottom": cameras.get("classification_bottom"),
         },
-        "message": "Camera assignment saved. Restart backend for changes to take effect.",
+        "applied_live": applied_live,
+        "message": (
+            "Camera assignment updated live."
+            if updates and all(applied_live.get(key, False) for key in updates.keys())
+            else "Camera assignment saved."
+        ),
     }
+
+
+@app.get("/api/cameras/picture-settings/{role}")
+def get_camera_picture_settings(role: str) -> Dict[str, Any]:
+    """Return persisted picture settings for a camera role."""
+    _, config = _read_machine_params_config()
+    return {
+        "role": role,
+        "settings": _picture_settings_for_role(config, role),
+    }
+
+
+@app.post("/api/cameras/picture-settings/{role}")
+def save_camera_picture_settings(
+    role: str,
+    payload: CameraPictureSettingsPayload,
+) -> Dict[str, Any]:
+    """Save and live-apply picture settings for a camera role when possible."""
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+
+    params_path, config = _read_machine_params_config()
+    picture_settings = _get_picture_settings_table(config)
+    parsed = parseCameraPictureSettings(payload.model_dump())
+    picture_settings[role] = cameraPictureSettingsToDict(parsed)
+    config["camera_picture_settings"] = picture_settings
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    applied_live = False
+    if vision_manager is not None and hasattr(vision_manager, "setPictureSettingsForRole"):
+        try:
+            applied_live = bool(vision_manager.setPictureSettingsForRole(role, parsed))
+        except Exception:
+            applied_live = False
+
+    return {
+        "ok": True,
+        "role": role,
+        "settings": cameraPictureSettingsToDict(parsed),
+        "applied_live": applied_live,
+        "message": "Picture settings saved.",
+    }
+
+
+# --- Polygon editor endpoints ---
+
+@app.get("/api/polygons")
+def get_polygons() -> Dict[str, Any]:
+    """Load saved channel and classification polygons."""
+    from blob_manager import getChannelPolygons, getClassificationPolygons
+    result: Dict[str, Any] = {}
+    channel = getChannelPolygons()
+    if channel:
+        result["channel"] = channel
+    classification = getClassificationPolygons()
+    if classification:
+        result["classification"] = classification
+    return result
+
+
+@app.post("/api/polygons")
+def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Save channel and classification polygons."""
+    from blob_manager import setChannelPolygons, setClassificationPolygons
+    if "channel" in body:
+        setChannelPolygons(body["channel"])
+    if "classification" in body:
+        setClassificationPolygons(body["classification"])
+    return {"ok": True}

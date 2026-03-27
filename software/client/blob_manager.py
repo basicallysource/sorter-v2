@@ -59,6 +59,26 @@ def getMachineId() -> str:
         return machine_id
 
 
+def getMachineNickname() -> str | None:
+    data = loadData()
+    nickname = data.get("machine_nickname")
+    if not isinstance(nickname, str):
+        return None
+    nickname = nickname.strip()
+    return nickname or None
+
+
+def setMachineNickname(nickname: str | None) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        normalized = nickname.strip() if isinstance(nickname, str) else ""
+        if normalized:
+            data["machine_nickname"] = normalized
+        else:
+            data.pop("machine_nickname", None)
+        saveData(data)
+
+
 def getStepperPosition(name: str) -> int:
     data = loadData()
     return data.get("stepper_positions", {}).get(name, 0)

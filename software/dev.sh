@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Unified dev runner / watchdog for the LEGO sorter.
-# Starts backend (uvicorn) + frontend (vite) with:
+# Starts the full machine client backend + frontend (vite) with:
 #   - Color-coded, prefixed log output
 #   - Auto-restart on crash (with backoff)
 #   - Graceful shutdown on Ctrl+C
 #
 # Usage:
 #   ./dev.sh            # start both
-#   ./dev.sh backend    # backend only
+#   ./dev.sh backend    # full machine backend only
+#   ./dev.sh api        # API-only backend (no controller / hardware)
 #   ./dev.sh frontend   # frontend only
 
 set -euo pipefail
@@ -82,7 +83,7 @@ run_backend() {
         log "${GREEN}Starting backend...${RESET}"
         (
             cd "$ROOT/client"
-            exec uv run uvicorn server.api:app --host 0.0.0.0 --port 8000 2>&1 \
+            exec uv run python main.py 2>&1 \
                 | sed -u "s/^/${GREEN}[backend]${RESET}  /"
         ) &
         BACKEND_PID=$!
@@ -93,6 +94,32 @@ run_backend() {
 
         # Reset attempt counter after 30s of successful running
         # (checked implicitly: if we get here quickly, it was a crash)
+    done
+}
+
+run_api_only_backend() {
+    local attempt=0
+    local max_backoff=10
+
+    while ! $SHUTTING_DOWN; do
+        attempt=$((attempt + 1))
+        if [ "$attempt" -gt 1 ]; then
+            local delay=$((attempt > max_backoff ? max_backoff : attempt))
+            log "${YELLOW}API backend crashed. Restarting in ${delay}s (attempt $attempt)...${RESET}"
+            sleep "$delay"
+        fi
+
+        log "${GREEN}Starting API-only backend...${RESET}"
+        (
+            cd "$ROOT/client"
+            exec uv run uvicorn server.api:app --host 0.0.0.0 --port 8000 2>&1 \
+                | sed -u "s/^/${GREEN}[api]${RESET}      /"
+        ) &
+        BACKEND_PID=$!
+        wait "$BACKEND_PID" 2>/dev/null || true
+        BACKEND_PID=""
+
+        $SHUTTING_DOWN && break
     done
 }
 
@@ -131,10 +158,19 @@ log "Mode: $MODE"
 
 load_env
 
+# ADB port forward for Android camera (IP Webcam) — silently skip if no device
+if command -v adb &>/dev/null && adb devices 2>/dev/null | grep -q "device$"; then
+    adb forward tcp:8080 tcp:8080 2>/dev/null && log "ADB forward: tcp:8080 -> phone:8080"
+fi
+
 case "$MODE" in
     backend)
         kill_port 8000
         run_backend
+        ;;
+    api)
+        kill_port 8000
+        run_api_only_backend
         ;;
     frontend)
         kill_port 5173

@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from global_config import GlobalConfig, RegionProviderType
-from irl.config import IRLConfig, IRLInterface
+from irl.config import IRLConfig, IRLInterface, CameraPictureSettings, mkCameraConfig
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.channel import ChannelDetection
 from blob_manager import VideoRecorder, getClassificationPolygons
@@ -55,8 +55,17 @@ class VisionManager:
                 self._carousel_capture = CaptureThread("carousel", irl_config.carousel_camera)
             # In split mode, feeder_capture points to c_channel_2 as a fallback for code that expects it
             self._feeder_capture = self._c_channel_2_capture or CaptureThread("feeder", irl_config.feeder_camera)
-            self._classification_bottom_capture = None
-            self._classification_top_capture = None
+            # Classification cameras are optional in split_feeder — enabled when configured via URL or device index
+            def _is_real_camera(cfg) -> bool:
+                return cfg is not None and (cfg.url is not None or cfg.device_index >= 0)
+            self._classification_top_capture = (
+                CaptureThread("classification_top", irl_config.classification_camera_top)
+                if _is_real_camera(irl_config.classification_camera_top) else None
+            )
+            self._classification_bottom_capture = (
+                CaptureThread("classification_bottom", irl_config.classification_camera_bottom)
+                if _is_real_camera(irl_config.classification_camera_bottom) else None
+            )
         else:
             self._feeder_camera_config = irl_config.feeder_camera
 
@@ -117,6 +126,7 @@ class VisionManager:
         self._cached_frame_events_lock = threading.Lock()
         self._frame_encode_thread: threading.Thread | None = None
         self._frame_encode_stop = threading.Event()
+        self._started = False
 
     def setTelemetry(self, telemetry) -> None:
         self._telemetry = telemetry
@@ -126,6 +136,7 @@ class VisionManager:
             self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
 
     def start(self) -> None:
+        self._started = True
         if self._camera_layout == "split_feeder":
             if self._c_channel_2_capture:
                 self._c_channel_2_capture.start()
@@ -135,10 +146,10 @@ class VisionManager:
                 self._carousel_capture.start()
         else:
             self._feeder_capture.start()
-            if self._classification_bottom_capture:
-                self._classification_bottom_capture.start()
-            if self._classification_top_capture:
-                self._classification_top_capture.start()
+        if self._classification_bottom_capture:
+            self._classification_bottom_capture.start()
+        if self._classification_top_capture:
+            self._classification_top_capture.start()
         self._region_provider.start()
         self._frame_encode_stop.clear()
         self._frame_encode_thread = threading.Thread(
@@ -147,6 +158,7 @@ class VisionManager:
         self._frame_encode_thread.start()
 
     def stop(self) -> None:
+        self._started = False
         self._frame_encode_stop.set()
         if self._frame_encode_thread:
             self._frame_encode_thread.join(timeout=2.0)
@@ -166,10 +178,10 @@ class VisionManager:
                 self._carousel_capture.stop()
         else:
             self._feeder_capture.stop()
-            if self._classification_bottom_capture:
-                self._classification_bottom_capture.stop()
-            if self._classification_top_capture:
-                self._classification_top_capture.stop()
+        if self._classification_bottom_capture:
+            self._classification_bottom_capture.stop()
+        if self._classification_top_capture:
+            self._classification_top_capture.stop()
         if self._video_recorder:
             self._video_recorder.close()
 
@@ -584,6 +596,87 @@ class VisionManager:
             return None
         return capture.latest_frame
 
+    def getCaptureThreadForRole(self, camera_name: str) -> Optional[CaptureThread]:
+        if camera_name == "feeder":
+            return self._feeder_capture
+        if camera_name == "classification_bottom":
+            return self._classification_bottom_capture
+        if camera_name == "classification_top":
+            return self._classification_top_capture
+        if camera_name == "c_channel_2":
+            return self._c_channel_2_capture
+        if camera_name == "c_channel_3":
+            return self._c_channel_3_capture
+        if camera_name == "carousel":
+            return self._carousel_capture
+        return None
+
+    def setCameraSourceForRole(
+        self,
+        camera_name: str,
+        source: int | str | None,
+    ) -> bool:
+        capture_attr, config_attr = self._cameraRoleAttrs(camera_name)
+        if capture_attr is None or config_attr is None:
+            return False
+
+        config = getattr(self._irl_config, config_attr, None)
+        if config is None:
+            config = mkCameraConfig(device_index=-1)
+            setattr(self._irl_config, config_attr, config)
+
+        if isinstance(source, str):
+            config.url = source
+            config.device_index = -1
+        elif isinstance(source, int):
+            config.url = None
+            config.device_index = source
+        else:
+            config.url = None
+            config.device_index = -1
+
+        capture = getattr(self, capture_attr, None)
+        if capture is None:
+            if source is None:
+                return True
+            capture = CaptureThread(camera_name, config)
+            setattr(self, capture_attr, capture)
+            if self._started:
+                capture.start()
+        else:
+            capture.setCameraSource(source)
+
+        if self._camera_layout == "split_feeder" and camera_name == "c_channel_2":
+            self._feeder_capture = capture
+
+        return True
+
+    def setPictureSettingsForRole(
+        self,
+        camera_name: str,
+        settings: CameraPictureSettings,
+    ) -> bool:
+        capture = self.getCaptureThreadForRole(camera_name)
+        if capture is None:
+            return False
+        capture.setPictureSettings(settings)
+        return True
+
+    def _cameraRoleAttrs(self, camera_name: str) -> tuple[str | None, str | None]:
+        if camera_name == "feeder":
+            return "_feeder_capture", "feeder_camera"
+        if camera_name == "classification_bottom":
+            return "_classification_bottom_capture", "classification_camera_bottom"
+        if camera_name == "classification_top":
+            return "_classification_top_capture", "classification_camera_top"
+        if camera_name == "c_channel_2":
+            return "_c_channel_2_capture", "c_channel_2_camera"
+        if camera_name == "c_channel_3":
+            return "_c_channel_3_capture", "c_channel_3_camera"
+        if camera_name == "carousel":
+            return "_carousel_capture", "carousel_camera"
+        return None, None
+
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         if camera_name == "feeder":
             return self.feeder_frame
@@ -776,7 +869,12 @@ class VisionManager:
     @property
     def _active_cameras(self) -> List[CameraName]:
         if self._camera_layout == "split_feeder":
-            return [CameraName.c_channel_2, CameraName.c_channel_3, CameraName.carousel]
+            cams = [CameraName.c_channel_2, CameraName.c_channel_3, CameraName.carousel]
+            if self._classification_top_capture:
+                cams.append(CameraName.classification_top)
+            if self._classification_bottom_capture:
+                cams.append(CameraName.classification_bottom)
+            return cams
         return [CameraName.feeder, CameraName.classification_bottom, CameraName.classification_top]
 
     def _frameEncodeLoop(self) -> None:

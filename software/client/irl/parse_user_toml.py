@@ -22,6 +22,15 @@ DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.4
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 1.9
 
+LOGICAL_STEPPER_BINDING_BASES = {
+    "c_channel_1": "c_channel_1_rotor",
+    "c_channel_2": "c_channel_2_rotor",
+    "c_channel_3": "c_channel_3_rotor",
+    "carousel": "carousel",
+    "chute": "chute_stepper",
+}
+PHYSICAL_STEPPER_BINDING_NAMES = set(LOGICAL_STEPPER_BINDING_BASES.values())
+
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
     current_override_env_path = os.getenv(MACHINE_SPECIFIC_PARAMS_ENV_VAR)
@@ -154,6 +163,98 @@ def loadStepperCurrentOverrides(
     return overrides
 
 
+def loadStepperBindingOverrides(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, str]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    bindings_table: object = raw.get("stepper_bindings")
+    if bindings_table is None:
+        return {}
+
+    if not isinstance(bindings_table, dict):
+        gc.logger.warning("stepper_bindings must be an object. Ignoring stepper binding overrides.")
+        return {}
+
+    overrides: dict[str, str] = {}
+    for logical_name, physical_name in bindings_table.items():
+        if not isinstance(logical_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper_bindings key {logical_name!r}: must be a string."
+            )
+            continue
+        if logical_name not in LOGICAL_STEPPER_BINDING_BASES:
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}: unknown logical stepper. "
+                f"Expected one of {sorted(LOGICAL_STEPPER_BINDING_BASES)}."
+            )
+            continue
+        if not isinstance(physical_name, str):
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}: expected physical stepper name string, got {physical_name!r}."
+            )
+            continue
+        if physical_name not in PHYSICAL_STEPPER_BINDING_NAMES:
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}={physical_name!r}: "
+                f"expected one of {sorted(PHYSICAL_STEPPER_BINDING_NAMES)}."
+            )
+            continue
+        overrides[logical_name] = physical_name
+
+    return overrides
+
+
+def loadStepperDirectionInverts(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, bool]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    invert_table: object = raw.get("stepper_direction_inverts")
+    if invert_table is None:
+        return {}
+
+    if not isinstance(invert_table, dict):
+        gc.logger.warning(
+            "stepper_direction_inverts must be an object. Ignoring stepper direction overrides."
+        )
+        return {}
+
+    overrides: dict[str, bool] = {}
+    for logical_name, inverted in invert_table.items():
+        if not isinstance(logical_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper_direction_inverts key {logical_name!r}: must be a string."
+            )
+            continue
+        if logical_name not in LOGICAL_STEPPER_BINDING_BASES:
+            gc.logger.warning(
+                f"Ignoring stepper_direction_inverts.{logical_name}: unknown logical stepper. "
+                f"Expected one of {sorted(LOGICAL_STEPPER_BINDING_BASES)}."
+            )
+            continue
+        if not isinstance(inverted, bool):
+            gc.logger.warning(
+                f"Ignoring stepper_direction_inverts.{logical_name}={inverted!r}: expected true/false."
+            )
+            continue
+        overrides[logical_name] = inverted
+
+    return overrides
+
+
 def loadServoPresetAngles(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
@@ -207,6 +308,7 @@ class WaveshareServoConfig:
 class ChuteCalibrationConfig:
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    endstop_active_high: bool = True
 
 
 def loadServoChannelConfig(
@@ -320,6 +422,7 @@ def loadChuteCalibrationConfig(
     pillar_width_deg = chute_params.get(
         "pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     )
+    endstop_active_high = chute_params.get("endstop_active_high", True)
 
     if not isinstance(first_bin_center, (int, float)) or isinstance(first_bin_center, bool):
         gc.logger.warning(
@@ -343,9 +446,16 @@ def loadChuteCalibrationConfig(
         )
         pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 
+    if not isinstance(endstop_active_high, bool):
+        gc.logger.warning(
+            f"Invalid chute.endstop_active_high={endstop_active_high!r}; using default True."
+        )
+        endstop_active_high = True
+
     return ChuteCalibrationConfig(
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
+        endstop_active_high=endstop_active_high,
     )
 
 

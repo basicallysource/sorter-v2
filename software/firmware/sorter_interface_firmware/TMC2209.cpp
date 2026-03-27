@@ -89,6 +89,20 @@ void TMC2209::enableStealthChop(bool enable) {
     _bus->writeRegister(_address, TMC2209_Register::GCONF, _gconf);
 }
 
+void TMC2209::enableCoolStep(uint8_t semin, uint8_t semax, uint8_t seup, uint8_t sedn) {
+    uint32_t coolconf = (semin & 0x0F)
+                      | ((seup & 0x03) << 5)
+                      | ((semax & 0x0F) << 8)
+                      | ((sedn & 0x03) << 13);
+    _bus->writeRegister(_address, TMC2209_Register::COOLCONF, coolconf);
+    _bus->writeRegister(_address, TMC2209_Register::TCOOLTHRS, 0xFFFFF);
+}
+
+void TMC2209::disableCoolStep() {
+    _bus->writeRegister(_address, TMC2209_Register::COOLCONF, 0);
+    _bus->writeRegister(_address, TMC2209_Register::TCOOLTHRS, 0);
+}
+
 void TMC2209::enableDriver(bool enable) {
     _chopconf.toff = enable ? 3 : 0;
     _bus->writeRegister(_address, TMC2209_Register::CHOPCONF, _chopconf.value);

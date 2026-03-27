@@ -18,8 +18,11 @@ from .bin_layout import (
     applyCategories,
 )
 from .parse_user_toml import (
+    LOGICAL_STEPPER_BINDING_BASES,
     loadMachineSpecificParams,
+    loadStepperBindingOverrides,
     loadStepperCurrentOverrides,
+    loadStepperDirectionInverts,
     loadServoPresetAngles,
     loadServoChannelConfig,
     loadWaveshareServoConfig,
@@ -596,7 +599,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     irl_interface = IRLInterface()
     machine_specific_params = loadMachineSpecificParams(gc)
+    stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
     stepper_current_overrides = loadStepperCurrentOverrides(gc, machine_specific_params)
+    stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
     servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
 
@@ -715,35 +720,68 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 f"Required stepper interface '{stepper_name}' not found in detected firmware actuators"
             )
 
-    # Bind steppers by firmware name (first match wins)
+    logical_attr_base_for_physical: dict[str, str] = {
+        physical_name: physical_name
+        for physical_name in LOGICAL_STEPPER_BINDING_BASES.values()
+    }
+    for logical_name, physical_name in stepper_binding_overrides.items():
+        logical_attr_base_for_physical[physical_name] = LOGICAL_STEPPER_BINDING_BASES[
+            logical_name
+        ]
+
+    logical_name_for_attr_base: dict[str, str] = {
+        attr_base: logical_name
+        for logical_name, attr_base in LOGICAL_STEPPER_BINDING_BASES.items()
+    }
+
+    bound_attrs: dict[str, str] = {}
+
+    # Bind steppers by physical firmware name, then remap to logical attrs if configured.
     for stepper_name, stepper, port, address, device_name in stepper_entries:
-        attr = stepper_name if stepper_name.endswith("_stepper") else f"{stepper_name}_stepper"
-        if hasattr(irl_interface, attr):
+        attr_base = logical_attr_base_for_physical.get(stepper_name, stepper_name)
+        attr = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
+        if attr in bound_attrs:
             gc.logger.warning(
-                f"Duplicate stepper name '{stepper_name}' detected at {device_name} ({port}:{address}); keeping first binding"
+                f"Stepper '{stepper_name}' at {device_name} ({port}:{address}) maps to logical attr "
+                f"'{attr}', which is already bound to physical stepper '{bound_attrs[attr]}'. Keeping first binding."
             )
             continue
 
         stepper_config: StepperConfig | None = getattr(config, attr, None)
-        stepper.set_name(stepper_name)
+        stepper.set_hardware_name(stepper_name)
+        stepper.set_name(attr_base)
         if stepper_config is not None:
             stepper.set_microsteps(stepper_config.microsteps)
             stepper.set_speed_limits(16, stepper_config.default_steps_per_second)
             gc.logger.info(
-                f"Stepper '{stepper_name}' config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
+                f"Stepper '{attr_base}' (physical '{stepper_name}') config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
             )
         else:
             gc.logger.warn(
-                f"Stepper '{stepper_name}' has no StepperConfig (attr='{attr}'), using defaults"
+                f"Stepper '{attr_base}' (physical '{stepper_name}') has no StepperConfig (attr='{attr}'), using defaults"
             )
 
         applyStepperCurrentOverride(stepper, stepper_name, stepper_current_overrides, gc)
+        logical_name = logical_name_for_attr_base.get(attr_base)
+        stepper.set_direction_inverted(
+            stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False
+        )
 
         setattr(irl_interface, attr, stepper)
+        bound_attrs[attr] = stepper_name
         gc.logger.info(
-            f"Initialized Stepper '{stepper_name}' from {device_name} ({port}:{address}), position={stepper._current_position_steps} steps"
+            f"Initialized Stepper logical='{attr_base}' physical='{stepper_name}' from {device_name} "
+            f"({port}:{address}), channel={stepper.channel}, position={stepper.current_position_steps} steps, "
+            f"direction_inverted={stepper.direction_inverted}"
         )
         time.sleep(0.1)
+
+    for logical_name, attr_base in LOGICAL_STEPPER_BINDING_BASES.items():
+        attr = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
+        if not hasattr(irl_interface, attr):
+            gc.logger.warning(
+                f"Logical stepper '{logical_name}' (attr '{attr}') is unbound after applying stepper_bindings."
+            )
 
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
@@ -825,7 +863,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     from subsystems.distribution.chute import Chute
 
-    CHUTE_HOME_PIN_CHANNEL = 0
+    # On the SKR Pico distributor board, the chute endstop is wired to IO16,
+    # which the firmware exposes as digital input channel 3.
+    CHUTE_HOME_PIN_CHANNEL = 3
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
     chute_home_pin = distribution_board.digital_inputs[CHUTE_HOME_PIN_CHANNEL]
@@ -838,6 +878,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.distribution_layout,
         first_bin_center=chute_calibration.first_bin_center,
         pillar_width_deg=chute_calibration.pillar_width_deg,
+        endstop_active_high=chute_calibration.endstop_active_high,
     )
 
     return irl_interface

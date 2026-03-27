@@ -1795,36 +1795,6 @@
 		wide={true}
 	>
 		<div class="flex flex-col gap-4">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<div class="dark:text-text-dark text-sm font-medium text-text">
-						{ROLE_LABELS[currentRole()]}
-					</div>
-					<div class="dark:text-text-muted-dark text-xs text-text-muted">
-						Current source: {formatSource(currentAssignment())}
-					</div>
-				</div>
-				<div class="flex flex-wrap items-center gap-2">
-					{#if currentAssignment() !== null}
-						<button
-							onclick={() => saveCameraRole(currentRole(), null)}
-							disabled={cameraSaving}
-							class="cursor-pointer border border-red-500 bg-red-500/15 px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
-						>
-							Clear
-						</button>
-					{/if}
-					<button
-						onclick={refreshCameras}
-						disabled={cameraLoading}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<RefreshCw size={15} />
-						<span>{cameraLoading ? 'Scanning...' : 'Refresh Cameras'}</span>
-					</button>
-				</div>
-			</div>
-
 			{#if cameraError}
 				<div
 					class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -1838,76 +1808,64 @@
 					Scanning cameras...
 				</div>
 			{:else}
-				{#if usbCameras.length > 0}
-					<div class="flex flex-col gap-3">
-						<div class="dark:text-text-dark text-sm font-medium text-text">USB Cameras</div>
-						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-							{#each usbCameras as cam}
-								{@const role = currentRole()}
-								{@const isSelected = assignments[role] === cam.index}
-								{@const usedByOther =
-									!isSelected &&
-									ALL_CAMERA_ROLES.some(
-										(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
-									)}
-								<button
-									onclick={() => selectCamera(role, cam.index)}
-									disabled={usedByOther || cameraSaving}
-									class="relative overflow-hidden border-2 text-left transition-all {isSelected
-										? 'border-blue-500'
-										: usedByOther
-											? 'dark:border-border-dark cursor-not-allowed border-border opacity-40'
-											: 'border-transparent hover:border-blue-300 dark:hover:border-blue-600'}"
-								>
-									{#if cam.preview_available === false}
-										<div
-											class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-sm text-text-muted"
-										>
-											Preview unavailable right now
-										</div>
-									{:else}
-										<img
-											src={cameraIndexPreviewUrl(cam.index)}
-											alt={cam.name ?? `Camera ${cam.index}`}
-											class="block aspect-video w-full object-cover"
-										/>
-									{/if}
+				{@const hasAnyCameras = usbCameras.length > 0 || (ROLE_SUPPORTS_URL[currentRole()] && networkCameras.length > 0)}
+				{#if hasAnyCameras}
+					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+						{#each usbCameras as cam}
+							{@const role = currentRole()}
+							{@const isSelected = assignments[role] === cam.index}
+							{@const usedByOther =
+								!isSelected &&
+								ALL_CAMERA_ROLES.some(
+									(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
+								)}
+							<button
+								onclick={() => selectCamera(role, cam.index)}
+								disabled={usedByOther || cameraSaving}
+								class="group relative overflow-hidden text-left transition-all {isSelected
+									? 'ring-2 ring-blue-500'
+									: usedByOther
+										? 'cursor-not-allowed opacity-40'
+										: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+							>
+								{#if cam.preview_available === false}
 									<div
-										class="absolute right-0 bottom-0 left-0 bg-black/75 px-2 py-1 text-center text-[11px] text-white"
+										class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
 									>
-										<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
-										<div>
-											Camera {cam.index}
-											{#if cam.width > 0 && cam.height > 0}
-												· {cam.width}x{cam.height}
-											{/if}
-										</div>
+										No preview
 									</div>
-									{#if isSelected}
-										<div
-											class="absolute top-0 right-0 left-0 bg-blue-500/90 px-2 py-1 text-center text-[11px] font-medium text-white"
-										>
-											Selected
-										</div>
-									{:else if usedByOther}
-										<div
-											class="absolute top-0 right-0 left-0 bg-black/70 px-2 py-1 text-center text-[11px] font-medium text-white"
-										>
-											In use by another station
+								{:else}
+									<img
+										src={cameraIndexPreviewUrl(cam.index)}
+										alt={cam.name ?? `Camera ${cam.index}`}
+										class="block aspect-video w-full object-cover"
+									/>
+								{/if}
+								<div
+									class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
+								>
+									<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
+									{#if cam.name && cam.width > 0 && cam.height > 0}
+										<div class="text-white/70">{cam.width}x{cam.height}</div>
+									{:else if !cam.name}
+										<div class="text-white/70">
+											Index {cam.index}{#if cam.width > 0 && cam.height > 0} · {cam.width}x{cam.height}{/if}
 										</div>
 									{/if}
-								</button>
-							{/each}
-						</div>
-					</div>
-				{/if}
+								</div>
+								{#if isSelected}
+									<div class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+										Active
+									</div>
+								{:else if usedByOther}
+									<div class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+										In use
+									</div>
+								{/if}
+							</button>
+						{/each}
 
-				{#if ROLE_SUPPORTS_URL[currentRole()] && networkCameras.length > 0}
-					<div class="flex flex-col gap-3">
-						<div class="dark:text-text-dark text-sm font-medium text-text">
-							Discovered Android Cameras
-						</div>
-						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+						{#if ROLE_SUPPORTS_URL[currentRole()]}
 							{#each networkCameras as cam}
 								{@const role = currentRole()}
 								{@const isSelected = assignments[role] === cam.source}
@@ -1919,11 +1877,11 @@
 								<button
 									onclick={() => saveCameraRole(role, cam.source)}
 									disabled={usedByOther || cameraSaving}
-									class="relative overflow-hidden border-2 text-left transition-all {isSelected
-										? 'border-blue-500'
+									class="group relative overflow-hidden text-left transition-all {isSelected
+										? 'ring-2 ring-blue-500'
 										: usedByOther
-											? 'dark:border-border-dark cursor-not-allowed border-border opacity-40'
-											: 'border-transparent hover:border-blue-300 dark:hover:border-blue-600'}"
+											? 'cursor-not-allowed opacity-40'
+											: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
 								>
 									<img
 										src={discoveredPreviewUrl(cam)}
@@ -1931,50 +1889,54 @@
 										class="block aspect-video w-full object-cover"
 									/>
 									<div
-										class="absolute right-0 bottom-0 left-0 bg-black/75 px-2 py-1.5 text-center text-[11px] text-white"
+										class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
 									>
 										<div class="font-medium">{cam.name}</div>
-										<div>
-											{cam.host}:{cam.port}
-											{#if cam.lens_facing}
-												· {cam.lens_facing}
-											{/if}
+										<div class="text-white/70">
+											{cam.host}:{cam.port}{#if cam.lens_facing} · {cam.lens_facing}{/if}
 										</div>
 									</div>
 									{#if isSelected}
-										<div
-											class="absolute top-0 right-0 left-0 bg-blue-500/90 px-2 py-1 text-center text-[11px] font-medium text-white"
-										>
-											Selected
+										<div class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+											Active
 										</div>
 									{:else if usedByOther}
-										<div
-											class="absolute top-0 right-0 left-0 bg-black/70 px-2 py-1 text-center text-[11px] font-medium text-white"
-										>
-											In use by another station
+										<div class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+											In use
 										</div>
 									{/if}
 								</button>
 							{/each}
-						</div>
+						{/if}
 					</div>
-				{/if}
-
-				{#if !ROLE_SUPPORTS_URL[currentRole()] && networkCameras.length > 0}
-					<div class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-3 text-sm text-text-muted">
-						Discovered network cameras can be assigned to MJPEG URL stations like Carousel and
-						Classification.
-					</div>
-				{/if}
-
-				{#if usbCameras.length === 0 && (!ROLE_SUPPORTS_URL[currentRole()] || networkCameras.length === 0)}
+				{:else}
 					<div
 						class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
 					>
-						No assignable cameras were detected right now.
+						No cameras detected. Click Refresh to scan again.
 					</div>
 				{/if}
 			{/if}
+
+			<div class="dark:border-border-dark flex items-center justify-between border-t border-border pt-3">
+				<button
+					onclick={refreshCameras}
+					disabled={cameraLoading}
+					class="dark:text-text-muted-dark inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-text-dark"
+				>
+					<RefreshCw size={13} />
+					<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
+				</button>
+				{#if currentAssignment() !== null}
+					<button
+						onclick={() => saveCameraRole(currentRole(), null)}
+						disabled={cameraSaving}
+						class="cursor-pointer text-xs text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+					>
+						Remove current camera
+					</button>
+				{/if}
+			</div>
 		</div>
 	</Modal>
 </div><!-- /content -->

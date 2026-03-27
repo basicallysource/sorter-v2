@@ -18,6 +18,7 @@ procedure only runs once per servo (unless limits are reset to 0-1023).
 import logging
 import struct
 import time
+from typing import Any, Dict
 
 import serial
 
@@ -471,6 +472,20 @@ class WaveshareServoMotor:
     @property
     def channel(self) -> int:
         return self._servo_id
+
+    def feedback(self) -> Dict[str, Any]:
+        position = self.position
+        return {
+            "channel": self._servo_id,
+            "position": position,
+            "angle": self._position_to_angle(position),
+            "open_position": self._open_position,
+            "closed_position": self._closed_position,
+            "min_limit": self._min_limit,
+            "max_limit": self._max_limit,
+            "is_open": abs(position - self._open_position) < abs(position - self._closed_position),
+            "invert": self._invert,
+        }
 
     # -- internal -----------------------------------------------------------
 

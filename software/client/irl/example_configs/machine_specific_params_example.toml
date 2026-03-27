@@ -35,6 +35,29 @@ closed_angle = 83
 # [chute]
 # first_bin_center = 8.4
 # pillar_width_deg = 1.9
+# endstop_active_high = true
+
+# --- Carousel endstop polarity ---
+# The carousel home switch is currently expected on feeder input channel 2
+# (`Z-stop / IO25`). Set active high when that input reads High at the exact
+# moment the optical endstop is physically triggered.
+
+# [carousel]
+# endstop_active_high = false
+
+# --- Stepper binding and direction overrides ---
+# Use stepper_bindings when the physical wiring does not match the firmware's
+# default logical names. Example: carousel motor physically wired to feeder E0,
+# while the firmware reports that channel as c_channel_1_rotor.
+#
+# [stepper_bindings]
+# carousel = "c_channel_1_rotor"
+# c_channel_1 = "carousel"
+#
+# Use stepper_direction_inverts to flip logical CW / CCW without reflashing.
+#
+# [stepper_direction_inverts]
+# carousel = false
 
 # --- Camera configuration ---
 # layout = "default" (default): single feeder camera + classification cameras.

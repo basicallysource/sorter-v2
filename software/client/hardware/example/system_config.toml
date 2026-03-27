@@ -52,7 +52,7 @@ microsteps = 16
 
 [digital_inputs]
 chute_home = ["DISTRIBUTOR", 0]
-carousel_home = ["FEEDER", 3]
+carousel_home = ["FEEDER", 2]
 
 [digital_outputs]
 feeder_lights = ["FEEDER", 0]

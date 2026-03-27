@@ -88,8 +88,16 @@ class StepperMotor:
         self._microsteps = 8
         self._enabled = True
         self._name = f"stepper_{channel}"
+        self._hardware_name = self._name
+        self._direction_inverted = False
         self._current_position_steps = 0
         self._gc = gc
+
+    def _logical_to_physical_steps(self, value: int) -> int:
+        return -value if self._direction_inverted else value
+
+    def _physical_to_logical_steps(self, value: int) -> int:
+        return -value if self._direction_inverted else value
 
     def move_degrees(self, degrees: float) -> bool:
         """
@@ -103,8 +111,14 @@ class StepperMotor:
         """Move the stepper by a given number of microsteps (positive or negative)."""
         if steps == 0:
             return True
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: move_steps={steps} microsteps ({self.degrees_for_microsteps(steps):.2f}°), pos_before={self._current_position_steps}")
-        payload = struct.pack("<i", steps) # 4 bytes, little-endian signed integer
+        physical_steps = self._logical_to_physical_steps(steps)
+        self._gc.logger.info(
+            f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
+            f"move_steps logical={steps} physical={physical_steps} microsteps "
+            f"({self.degrees_for_microsteps(steps):.2f}°), pos_before={self._current_position_steps}, "
+            f"inverted={self._direction_inverted}"
+        )
+        payload = struct.pack("<i", physical_steps) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
@@ -115,8 +129,13 @@ class StepperMotor:
     
     def move_at_speed(self, speed: int) -> bool:
         """Move the stepper at a given speed in microsteps per second."""
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: move_at_speed={speed} µsteps/s")
-        payload = struct.pack("<i", speed) # 4 bytes, little-endian signed integer
+        physical_speed = self._logical_to_physical_steps(speed)
+        self._gc.logger.info(
+            f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
+            f"move_at_speed logical={speed} physical={physical_speed} µsteps/s, "
+            f"inverted={self._direction_inverted}"
+        )
+        payload = struct.pack("<i", physical_speed) # 4 bytes, little-endian signed integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         success = bool(res.payload[0])
         if not success:
@@ -145,13 +164,13 @@ class StepperMotor:
     def position(self) -> int:
         """Get the current position of the stepper in microsteps."""
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_GET_POSITION, self._channel, b'')
-        return struct.unpack("<i", res.payload)[0]
+        return self._physical_to_logical_steps(struct.unpack("<i", res.payload)[0])
 
     @position.setter
     def position(self, position: int):
         """Set the current position of the stepper in microsteps."""
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_position={position} microsteps ({self.degrees_for_microsteps(position):.2f}°)")
-        payload = struct.pack("<i", position)
+        payload = struct.pack("<i", self._logical_to_physical_steps(position))
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_POSITION, self._channel, payload)
     
     @property
@@ -184,8 +203,13 @@ class StepperMotor:
         else:
             pin_channel = home_pin
         
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: home speed={home_speed} µsteps/s, pin={pin_channel}, active_high={home_pin_active_high}")
-        payload = struct.pack("<iB?", home_speed, pin_channel, bool(home_pin_active_high)) # 4 bytes for speed (signed), 1 byte for pin channel, 1 byte for active high/low
+        physical_speed = self._logical_to_physical_steps(home_speed)
+        self._gc.logger.info(
+            f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
+            f"home logical_speed={home_speed} physical_speed={physical_speed} µsteps/s, "
+            f"pin={pin_channel}, active_high={home_pin_active_high}, inverted={self._direction_inverted}"
+        )
+        payload = struct.pack("<iB?", physical_speed, pin_channel, bool(home_pin_active_high)) # 4 bytes for speed (signed), 1 byte for pin channel, 1 byte for active high/low
         self._dev.send_command(InterfaceCommandCode.STEPPER_HOME, self._channel, payload)
     
     @property
@@ -254,6 +278,25 @@ class StepperMotor:
     def set_name(self, name: str) -> None:
         """Set a human-readable name for this stepper."""
         self._name = name
+
+    def set_hardware_name(self, name: str) -> None:
+        """Set the physical firmware-reported name for this stepper."""
+        self._hardware_name = name
+
+    @property
+    def hardware_name(self) -> str:
+        return self._hardware_name
+
+    def set_direction_inverted(self, inverted: bool) -> None:
+        self._direction_inverted = bool(inverted)
+        self._gc.logger.info(
+            f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
+            f"set_direction_inverted={self._direction_inverted}"
+        )
+
+    @property
+    def direction_inverted(self) -> bool:
+        return self._direction_inverted
 
     def move_steps_blocking(self, steps: int, timeout_ms: int = 5000) -> bool:
         """Move the stepper by a given number of microsteps and wait for completion."""

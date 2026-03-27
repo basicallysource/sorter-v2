@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CarouselControlSection from '$lib/components/settings/CarouselControlSection.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import StepperControlSection from '$lib/components/settings/StepperControlSection.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
@@ -17,7 +18,13 @@
 	{/if}
 
 	{#if data.station.stepperKeys.length > 0}
-		<div class="grid gap-6 xl:grid-cols-2">
+		{#if data.station.slug === 'carousel'}
+			<div class="w-full lg:max-w-[50%]">
+				<SectionCard>
+					<CarouselControlSection stepperKey={data.station.stepperKeys[0] ?? 'carousel'} />
+				</SectionCard>
+			</div>
+		{:else}
 			<SectionCard
 				title="Stepper Test / Control"
 				description="Manually pulse or stop the mechanism tied to this station."
@@ -28,6 +35,6 @@
 					keyboardShortcutStepper={data.station.stepperKeys[0] ?? null}
 				/>
 			</SectionCard>
-		</div>
+		{/if}
 	{/if}
 </div>

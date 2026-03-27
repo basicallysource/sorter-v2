@@ -377,6 +377,17 @@ class ServoHardwareSettingsPayload(BaseModel):
 class ChuteHardwareSettingsPayload(BaseModel):
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    endstop_active_high: bool = True
+
+
+class CarouselHardwareSettingsPayload(BaseModel):
+    endstop_active_high: bool = False
+    stepper_direction_inverted: bool = False
+
+
+class ServoLayerPreviewPayload(BaseModel):
+    invert: bool = False
+    is_open: bool = False
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -385,6 +396,14 @@ class StorageLayerSettingsPayload(BaseModel):
 
 ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
 DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
+CAROUSEL_HOME_PIN_CHANNEL = 2
+DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
+CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC = 400
+CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC = 100
+CAROUSEL_BACKOFF_STEPS = 200
+CAROUSEL_HOME_PASSES = 3
+CAROUSEL_HOME_TIMEOUT_MS = 30000
+CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
@@ -411,6 +430,33 @@ def get_hardware_config() -> Dict[str, Any]:
         "storage_layers": _storage_layer_settings_from_layout(layout),
         "servo": _servo_settings_from_config(config),
         "chute": _chute_settings_from_config(config),
+        "carousel": _carousel_settings_from_config(config),
+    }
+
+
+@app.get("/api/hardware-config/servo/live")
+def get_live_servo_feedback() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    servo_settings = _servo_settings_from_config(config)
+    layer_count = int(servo_settings.get("layer_count", 0))
+
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        return {
+            "ok": True,
+            "backend": servo_settings["backend"],
+            "live_available": False,
+            "layers": [],
+        }
+
+    servos = list(getattr(controller_ref.irl, "servos", []))
+    return {
+        "ok": True,
+        "backend": servo_settings["backend"],
+        "live_available": len(servos) > 0,
+        "layers": [
+            _live_servo_feedback_for_layer(index, servos[index] if index < len(servos) else None)
+            for index in range(layer_count)
+        ],
     }
 
 
@@ -526,7 +572,8 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
 
     try:
         servo.toggle()
-        is_open = bool(servo.isOpen()) if hasattr(servo, "isOpen") else False
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+        is_open = bool(feedback.get("is_open")) if feedback.get("available") else False
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to toggle layer {layer_index + 1} servo: {e}")
 
@@ -534,10 +581,61 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
         "ok": True,
         "layer_index": layer_index,
         "is_open": is_open,
+        "feedback": feedback,
         "message": (
             f"Layer {layer_index + 1} servo opened."
             if is_open
             else f"Layer {layer_index + 1} servo closed."
+        ),
+    }
+
+
+@app.post("/api/hardware-config/servo/layers/{layer_index}/preview")
+def preview_layer_servo(
+    layer_index: int,
+    payload: ServoLayerPreviewPayload,
+) -> Dict[str, Any]:
+    servo = _live_servo_for_layer(layer_index)
+    _, config = _read_machine_params_config()
+    servo_settings = _servo_settings_from_config(config)
+    backend = servo_settings["backend"]
+    open_angle = int(servo_settings["open_angle"])
+    closed_angle = int(servo_settings["closed_angle"])
+    desired_open = bool(payload.is_open)
+    invert = bool(payload.invert)
+
+    try:
+        if backend == "waveshare":
+            if hasattr(servo, "set_invert"):
+                servo.set_invert(invert)
+        elif hasattr(servo, "set_preset_angles"):
+            if invert:
+                servo.set_preset_angles(closed_angle, open_angle)
+            else:
+                servo.set_preset_angles(open_angle, closed_angle)
+
+        if desired_open:
+            if hasattr(servo, "open"):
+                servo.open()
+        else:
+            if hasattr(servo, "close"):
+                servo.close()
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to preview invert on layer {layer_index + 1}: {e}",
+        )
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "is_open": desired_open,
+        "invert": invert,
+        "feedback": feedback,
+        "message": (
+            f"Layer {layer_index + 1} preview updated to {'open' if desired_open else 'closed'} "
+            f"with invert {'on' if invert else 'off'}."
         ),
     }
 
@@ -553,6 +651,7 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
 
     try:
         min_limit, max_limit = servo.recalibrate()
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to calibrate layer {layer_index + 1} servo: {e}")
 
@@ -560,6 +659,7 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
         "ok": True,
         "layer_index": layer_index,
         "limits": {"min": min_limit, "max": max_limit},
+        "feedback": feedback,
         "message": f"Layer {layer_index + 1} servo calibrated.",
     }
 
@@ -570,6 +670,7 @@ def save_chute_hardware_config(
 ) -> Dict[str, Any]:
     first_bin_center = float(payload.first_bin_center)
     pillar_width_deg = float(payload.pillar_width_deg)
+    endstop_active_high = bool(payload.endstop_active_high)
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         raise HTTPException(
             status_code=400,
@@ -580,6 +681,7 @@ def save_chute_hardware_config(
     config["chute"] = {
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
+        "endstop_active_high": endstop_active_high,
     }
 
     try:
@@ -592,7 +694,7 @@ def save_chute_hardware_config(
         chute = getattr(controller_ref.irl, "chute", None)
         if chute is not None and hasattr(chute, "setCalibration"):
             try:
-                chute.setCalibration(first_bin_center, pillar_width_deg)
+                chute.setCalibration(first_bin_center, pillar_width_deg, endstop_active_high)
                 applied_live = True
             except Exception:
                 applied_live = False
@@ -606,6 +708,299 @@ def save_chute_hardware_config(
             if applied_live
             else "Chute settings saved."
         ),
+    }
+
+
+@app.get("/api/hardware-config/chute/live")
+def get_live_chute_status() -> Dict[str, Any]:
+    return _live_chute_status()
+
+
+@app.post("/api/hardware-config/chute/calibrate/find-endstop")
+def calibrate_chute_find_endstop() -> Dict[str, Any]:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Chute controller not initialized.")
+
+    chute = getattr(controller_ref.irl, "chute", None)
+    if chute is None or not hasattr(chute, "home"):
+        raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
+
+    try:
+        homed = bool(chute.home())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to find chute endstop: {e}")
+    if not homed:
+        raise HTTPException(
+            status_code=409,
+            detail="Chute homing stopped before the endstop triggered.",
+        )
+
+    return {
+        "ok": True,
+        "status": _live_chute_status(),
+        "message": "Step 1 complete. Chute moved slowly until the endstop was found and re-homed.",
+    }
+
+
+@app.post("/api/hardware-config/chute/calibrate/cancel")
+def cancel_chute_find_endstop() -> Dict[str, Any]:
+    try:
+        stop_all_steppers()
+    except HTTPException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+    return {
+        "ok": True,
+        "status": _live_chute_status(),
+        "message": "Chute homing canceled. All steppers were stopped for safety.",
+    }
+
+
+@app.get("/api/hardware-config/carousel/live")
+def get_live_carousel_status() -> Dict[str, Any]:
+    return _live_carousel_status()
+
+
+@app.get("/api/hardware-config/carousel")
+def get_carousel_hardware_config() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    return _carousel_settings_from_config(config)
+
+
+@app.post("/api/hardware-config/carousel")
+def save_carousel_hardware_config(
+    payload: CarouselHardwareSettingsPayload,
+) -> Dict[str, Any]:
+    endstop_active_high = bool(payload.endstop_active_high)
+    stepper_direction_inverted = bool(payload.stepper_direction_inverted)
+
+    params_path, config = _read_machine_params_config()
+    carousel_config = config.get("carousel", {})
+    if not isinstance(carousel_config, dict):
+        carousel_config = {}
+    carousel_config = {**carousel_config, "endstop_active_high": endstop_active_high}
+    config["carousel"] = carousel_config
+
+    stepper_direction_inverts = config.get("stepper_direction_inverts", {})
+    if not isinstance(stepper_direction_inverts, dict):
+        stepper_direction_inverts = {}
+    stepper_direction_inverts = {
+        **stepper_direction_inverts,
+        "carousel": stepper_direction_inverted,
+    }
+    config["stepper_direction_inverts"] = stepper_direction_inverts
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        stepper = getattr(controller_ref.irl, "carousel_stepper", None)
+        if stepper is not None and hasattr(stepper, "set_direction_inverted"):
+            try:
+                stepper.set_direction_inverted(stepper_direction_inverted)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Settings were saved, but live direction inversion could not be applied: {e}",
+                )
+
+    return {
+        "ok": True,
+        "settings": _carousel_settings_from_config(config),
+        "status": _live_carousel_status(),
+        "message": "Carousel settings saved.",
+    }
+
+
+@app.post("/api/hardware-config/carousel/home")
+def home_carousel_to_endstop() -> Dict[str, Any]:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Carousel controller not initialized.")
+
+    irl = controller_ref.irl
+    interfaces = getattr(irl, "interfaces", {})
+    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+    if feeder_board is None:
+        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+
+    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
+    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
+        )
+
+    _, config = _read_machine_params_config()
+    endstop_active_high = bool(
+        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
+    )
+
+    stepper = getattr(irl, "carousel_stepper", None)
+    if stepper is None:
+        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
+
+    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
+
+    def _read_endstop() -> bool:
+        raw = bool(home_pin.value)
+        return raw if endstop_active_high else not raw
+
+    def _home_and_wait(speed: int, timeout_ms: int) -> None:
+        """Issue firmware home command, wait for stop, verify endstop."""
+        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
+        start = time.monotonic()
+        while not stepper.stopped:
+            if (time.monotonic() - start) * 1000 > timeout_ms:
+                stepper.move_at_speed(0)
+                raise TimeoutError("Carousel homing timed out.")
+            time.sleep(0.01)
+        if not _read_endstop():
+            raise HTTPException(
+                status_code=409,
+                detail="Carousel homing stopped before the endstop triggered.",
+            )
+
+    try:
+        stepper.enabled = True
+
+        # Pass 1: fast approach
+        _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
+
+        # Passes 2..N: back off then slow approach for precision
+        for _ in range(CAROUSEL_HOME_PASSES - 1):
+            stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
+            _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
+
+        stepper.position_degrees = 0.0
+        # Keep stepper enabled to hold position
+    except HTTPException:
+        raise
+    except TimeoutError as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to home carousel to endstop: {e}")
+
+    return {
+        "ok": True,
+        "status": _live_carousel_status(),
+        "message": f"Carousel homed ({CAROUSEL_HOME_PASSES}-pass) and zeroed.",
+    }
+
+
+@app.post("/api/hardware-config/carousel/calibrate")
+def calibrate_carousel() -> Dict[str, Any]:
+    """Calibrate carousel by measuring steps for one full revolution."""
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Carousel controller not initialized.")
+
+    irl = controller_ref.irl
+    interfaces = getattr(irl, "interfaces", {})
+    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+    if feeder_board is None:
+        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+
+    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
+    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
+        )
+
+    _, config = _read_machine_params_config()
+    endstop_active_high = bool(
+        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
+    )
+
+    stepper = getattr(irl, "carousel_stepper", None)
+    if stepper is None:
+        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
+
+    home_pin_obj = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
+
+    def _read_endstop() -> bool:
+        raw = bool(home_pin_obj.value)
+        return raw if endstop_active_high else not raw
+
+    if not _read_endstop():
+        raise HTTPException(
+            status_code=409,
+            detail="Carousel must be homed first (endstop not currently triggered).",
+        )
+
+    try:
+        stepper.enabled = True
+
+        # Back off the endstop
+        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
+
+        # Zero position counter at this point
+        stepper.position = 0
+
+        # Move CW until endstop triggers again (full rotation) using firmware home
+        stepper.home(
+            CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC,
+            home_pin_obj,
+            home_pin_active_high=endstop_active_high,
+        )
+        start = time.monotonic()
+        while not stepper.stopped:
+            if (time.monotonic() - start) * 1000 > CAROUSEL_CALIBRATE_TIMEOUT_MS:
+                stepper.move_at_speed(0)
+                raise TimeoutError("Carousel calibration timed out.")
+            time.sleep(0.01)
+
+        if not _read_endstop():
+            raise HTTPException(
+                status_code=409,
+                detail="Calibration failed: endstop did not trigger after full rotation.",
+            )
+
+        measured_steps = abs(stepper.position)
+
+        # Save to config
+        params_path, config = _read_machine_params_config()
+        carousel_config = config.get("carousel", {})
+        if not isinstance(carousel_config, dict):
+            carousel_config = {}
+        carousel_config["steps_per_revolution"] = measured_steps
+        config["carousel"] = carousel_config
+        _write_machine_params_config(params_path, config)
+
+        # Update stepper in-memory
+        stepper.steps_per_revolution = measured_steps
+
+        # Re-zero position at the endstop
+        stepper.position_degrees = 0.0
+
+    except HTTPException:
+        raise
+    except TimeoutError as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Calibration failed: {e}")
+
+    return {
+        "ok": True,
+        "steps_per_revolution": measured_steps,
+        "degrees": 360,
+        "status": _live_carousel_status(),
+        "message": f"Calibrated: {measured_steps} steps/revolution.",
+    }
+
+
+@app.post("/api/hardware-config/carousel/home/cancel")
+def cancel_carousel_home_to_endstop() -> Dict[str, Any]:
+    try:
+        stop_all_steppers()
+    except HTTPException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+    return {
+        "ok": True,
+        "status": _live_carousel_status(),
+        "message": "Carousel homing canceled. All steppers were stopped for safety.",
     }
 
 
@@ -739,18 +1134,27 @@ class StepperStopResponse(BaseModel):
     stepper: str
 
 
-def _resolve_stepper(stepper_name: str) -> Any:
+class StepperStopAllResponse(BaseModel):
+    success: bool
+    steppers: List[str]
+
+
+def _stepper_mapping() -> Dict[str, Any]:
     if controller_ref is None or not hasattr(controller_ref, "irl"):
         raise HTTPException(status_code=500, detail="Controller not initialized")
 
     irl = controller_ref.irl
-    mapping = {
+    return {
         "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
         "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
         "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
         "carousel": getattr(irl, "carousel_stepper", None),
         "chute": getattr(irl, "chute_stepper", None),
     }
+
+
+def _resolve_stepper(stepper_name: str) -> Any:
+    mapping = _stepper_mapping()
 
     if stepper_name not in mapping:
         raise HTTPException(status_code=400, detail=f"Unknown stepper '{stepper_name}'")
@@ -761,11 +1165,42 @@ def _resolve_stepper(stepper_name: str) -> Any:
     return stepper
 
 
+def _halt_stepper(stepper: Any) -> None:
+    errors: list[str] = []
+    stopped = False
+
+    if hasattr(stepper, "move_at_speed"):
+        try:
+            result = stepper.move_at_speed(0)
+            stopped = stopped or bool(result)
+            if result is False:
+                errors.append("move_at_speed(0) was not acknowledged")
+        except Exception as e:
+            errors.append(f"move_at_speed(0) failed: {e}")
+
+    if hasattr(stepper, "stop"):
+        try:
+            stepper.stop()
+            stopped = True
+        except Exception as e:
+            errors.append(f"stop() failed: {e}")
+
+    if hasattr(stepper, "enabled"):
+        try:
+            stepper.enabled = False
+            stopped = True
+        except Exception as e:
+            errors.append(f"disable failed: {e}")
+
+    if not stopped:
+        detail = "; ".join(errors) if errors else "No supported stop method found"
+        raise RuntimeError(detail)
+
+
 def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock) -> None:
     try:
         time.sleep(delay_s)
-        stepper.move_at_speed(0)
-        stepper.enabled = False
+        _halt_stepper(stepper)
     except Exception:
         pass
     finally:
@@ -824,11 +1259,182 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
     target = _resolve_stepper(stepper)
 
     try:
-        target.enabled = False
+        _halt_stepper(target)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Disable failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Stop failed: {e}")
 
     return StepperStopResponse(success=True, stepper=stepper)
+
+
+@app.post("/stepper/stop-all", response_model=StepperStopAllResponse)
+def stop_all_steppers() -> StepperStopAllResponse:
+    halted: list[str] = []
+    errors: Dict[str, str] = {}
+
+    for name, stepper in _stepper_mapping().items():
+        if stepper is None:
+            continue
+        try:
+            _halt_stepper(stepper)
+            halted.append(name)
+        except Exception as e:
+            errors[name] = str(e)
+
+    if errors:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "One or more steppers failed to stop.",
+                "errors": errors,
+                "stopped": halted,
+            },
+        )
+
+    return StepperStopAllResponse(success=True, steppers=halted)
+
+
+# --- TMC2209 Driver Settings ---
+
+TMC_REG_GCONF = 0x00
+TMC_REG_IHOLD_IRUN = 0x10
+TMC_REG_TCOOLTHRS = 0x14
+TMC_REG_COOLCONF = 0x42
+TMC_REG_CHOPCONF = 0x6C
+TMC_REG_DRV_STATUS = 0x6F
+
+MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
+MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
+
+
+def _parse_drv_status(raw: int) -> Dict[str, Any]:
+    return {
+        "ot": bool(raw & (1 << 1)),
+        "otpw": bool(raw & (1 << 0)),
+        "s2ga": bool(raw & (1 << 2)),
+        "s2gb": bool(raw & (1 << 3)),
+        "ola": bool(raw & (1 << 4)),
+        "olb": bool(raw & (1 << 5)),
+        "stst": bool(raw & (1 << 31)),
+        "stealth": bool(raw & (1 << 30)),
+        "cs_actual": (raw >> 16) & 0x1F,
+        "sg_result": (raw >> 10) & 0x3FF,
+    }
+
+
+def _parse_ihold_irun(raw: int) -> Dict[str, int]:
+    return {
+        "ihold": raw & 0x1F,
+        "irun": (raw >> 8) & 0x1F,
+        "ihold_delay": (raw >> 16) & 0x0F,
+    }
+
+
+def _parse_chopconf_mres(raw: int) -> int:
+    mres = (raw >> 24) & 0x0F
+    return MRES_TO_MICROSTEPS.get(mres, 256)
+
+
+def _safe_read_register(stepper: Any, addr: int) -> Optional[int]:
+    try:
+        return stepper.read_driver_register(addr)
+    except Exception:
+        return None
+
+
+@app.get("/api/stepper/{name}/tmc")
+def get_tmc_settings(name: str) -> Dict[str, Any]:
+    stepper = _resolve_stepper(name)
+
+    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    ihold_irun_raw = _safe_read_register(stepper, TMC_REG_IHOLD_IRUN)
+    chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
+    coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
+    drv_status_raw = _safe_read_register(stepper, TMC_REG_DRV_STATUS)
+
+    result: Dict[str, Any] = {}
+
+    if ihold_irun_raw is not None:
+        parsed = _parse_ihold_irun(ihold_irun_raw)
+        result["irun"] = parsed["irun"]
+        result["ihold"] = parsed["ihold"]
+    else:
+        result["irun"] = None
+        result["ihold"] = None
+
+    if chopconf_raw is not None:
+        result["microsteps"] = _parse_chopconf_mres(chopconf_raw)
+    else:
+        result["microsteps"] = None
+
+    if gconf_raw is not None:
+        result["stealthchop"] = not bool(gconf_raw & (1 << 2))
+    else:
+        result["stealthchop"] = None
+
+    if coolconf_raw is not None:
+        result["coolstep"] = (coolconf_raw & 0x0F) > 0  # semin > 0
+    else:
+        result["coolstep"] = None
+
+    if drv_status_raw is not None:
+        result["drv_status"] = _parse_drv_status(drv_status_raw)
+    else:
+        result["drv_status"] = None
+
+    return result
+
+
+class TmcSettingsRequest(BaseModel):
+    irun: Optional[int] = None
+    ihold: Optional[int] = None
+    microsteps: Optional[int] = None
+    stealthchop: Optional[bool] = None
+    coolstep: Optional[bool] = None
+
+
+@app.post("/api/stepper/{name}/tmc")
+def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
+    stepper = _resolve_stepper(name)
+
+    if body.irun is not None or body.ihold is not None:
+        ihold_irun_raw = _safe_read_register(stepper, TMC_REG_IHOLD_IRUN)
+        if ihold_irun_raw is not None:
+            current = _parse_ihold_irun(ihold_irun_raw)
+        else:
+            current = {"irun": 16, "ihold": 8, "ihold_delay": 1}
+        irun = body.irun if body.irun is not None else current["irun"]
+        ihold = body.ihold if body.ihold is not None else current["ihold"]
+        if not (0 <= irun <= 31):
+            raise HTTPException(status_code=400, detail="irun must be 0-31")
+        if not (0 <= ihold <= 31):
+            raise HTTPException(status_code=400, detail="ihold must be 0-31")
+        stepper.set_current(irun, ihold, current["ihold_delay"])
+
+    if body.microsteps is not None:
+        if body.microsteps not in MICROSTEPS_TO_MRES:
+            raise HTTPException(status_code=400, detail=f"microsteps must be one of {sorted(MICROSTEPS_TO_MRES.keys())}")
+        stepper.set_microsteps(body.microsteps)
+
+    if body.stealthchop is not None:
+        gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+        if gconf_raw is not None:
+            if body.stealthchop:
+                gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
+            else:
+                gconf_raw |= (1 << 2)   # set EN_SPREADCYCLE
+            stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+
+    if body.coolstep is not None:
+        if body.coolstep:
+            # semin=5, semax=2, seup=1(=2 increments), sedn=0(=32 steps)
+            coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
+            stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
+            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+        else:
+            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+
+    return get_tmc_settings(name)
 
 
 # Video Streaming Routes
@@ -1207,6 +1813,57 @@ def _pca_available_servo_channels() -> List[int]:
     return list(range(_distribution_layer_count()))
 
 
+def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
+    found_ids: set[int] = set()
+
+    servo = config.get("servo", {})
+    if isinstance(servo, dict):
+        channels_raw = servo.get("channels", [])
+        if isinstance(channels_raw, list):
+            for item in channels_raw:
+                if not isinstance(item, dict):
+                    continue
+                channel_id = item.get("id")
+                if isinstance(channel_id, int) and not isinstance(channel_id, bool) and channel_id > 0:
+                    found_ids.add(channel_id)
+
+    live_servos = []
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        live_servos = list(getattr(controller_ref.irl, "servos", []))
+        for servo_obj in live_servos:
+            channel = getattr(servo_obj, "channel", None)
+            if isinstance(channel, int) and not isinstance(channel, bool) and channel > 0:
+                found_ids.add(channel)
+
+    scan_bus = None
+    if live_servos:
+        candidate_bus = getattr(live_servos[0], "_bus", None)
+        if candidate_bus is not None and hasattr(candidate_bus, "scan"):
+            scan_bus = candidate_bus
+
+    if scan_bus is not None:
+        try:
+            found_ids.update(int(servo_id) for servo_id in scan_bus.scan(1, 32))
+        except Exception:
+            pass
+        return sorted(found_ids)
+
+    port = servo.get("port")
+    if isinstance(port, str) and port.strip():
+        try:
+            from hardware.waveshare_servo import ScServoBus
+
+            bus = ScServoBus(port.strip(), timeout=0.01)
+            try:
+                found_ids.update(int(servo_id) for servo_id in bus.scan(1, 32))
+            finally:
+                bus.close()
+        except Exception:
+            pass
+
+    return sorted(found_ids)
+
+
 def _live_servo_for_layer(layer_index: int) -> Any:
     if controller_ref is None or not hasattr(controller_ref, "irl"):
         raise HTTPException(status_code=503, detail="Servo controller not initialized.")
@@ -1215,6 +1872,42 @@ def _live_servo_for_layer(layer_index: int) -> Any:
     if layer_index < 0 or layer_index >= len(servos):
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
     return servos[layer_index]
+
+
+def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -> Dict[str, Any]:
+    servo = servo if servo is not None else _live_servo_for_layer(layer_index)
+    channel = getattr(servo, "channel", None)
+    base: Dict[str, Any] = {
+        "layer_index": layer_index,
+        "channel": channel,
+        "available": False,
+    }
+
+    if hasattr(servo, "feedback"):
+        try:
+            feedback = servo.feedback()
+            if isinstance(feedback, dict):
+                return {
+                    "layer_index": layer_index,
+                    "available": True,
+                    **feedback,
+                }
+        except Exception as e:
+            return {**base, "error": str(e)}
+
+    if not hasattr(servo, "position"):
+        return base
+
+    try:
+        position = int(servo.position)
+        return {
+            **base,
+            "available": True,
+            "position": position,
+            "is_open": bool(servo.isOpen()) if hasattr(servo, "isOpen") else None,
+        }
+    except Exception as e:
+        return {**base, "error": str(e)}
 
 
 def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
@@ -1246,6 +1939,192 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
         "layers": layers,
     }
+
+
+def _live_chute_status() -> Dict[str, Any]:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        return {
+            "live_available": False,
+            "endstop_triggered": None,
+            "raw_endstop_high": None,
+            "endstop_active_high": None,
+            "current_angle": None,
+            "stepper_position_degrees": None,
+            "stepper_microsteps": None,
+            "stepper_stopped": None,
+            "digital_inputs": [],
+        }
+
+    irl = controller_ref.irl
+    chute = getattr(irl, "chute", None)
+    stepper = getattr(irl, "chute_stepper", None)
+    interfaces = getattr(irl, "interfaces", {})
+    distribution_board = interfaces.get("DISTRIBUTION MB") if isinstance(interfaces, dict) else None
+    if chute is None or stepper is None:
+        return {
+            "live_available": False,
+            "endstop_triggered": None,
+            "raw_endstop_high": None,
+            "endstop_active_high": None,
+            "current_angle": None,
+            "stepper_position_degrees": None,
+            "stepper_microsteps": None,
+            "stepper_stopped": None,
+            "digital_inputs": [],
+        }
+
+    status: Dict[str, Any] = {
+        "live_available": True,
+        "endstop_triggered": None,
+        "raw_endstop_high": None,
+        "endstop_active_high": getattr(chute, "endstop_active_high", True),
+        "current_angle": None,
+        "stepper_position_degrees": None,
+        "stepper_microsteps": None,
+        "stepper_stopped": None,
+        "digital_inputs": [],
+    }
+
+    try:
+        status["raw_endstop_high"] = bool(chute.home_pin.value)
+        if hasattr(chute, "endstop_triggered"):
+            status["endstop_triggered"] = bool(chute.endstop_triggered)
+        elif status["raw_endstop_high"] is not None:
+            active_high = bool(status["endstop_active_high"])
+            status["endstop_triggered"] = (
+                bool(status["raw_endstop_high"])
+                if active_high
+                else not bool(status["raw_endstop_high"])
+            )
+        status["home_pin_channel"] = getattr(chute.home_pin, "channel", None)
+    except Exception as e:
+        status["endstop_error"] = str(e)
+
+    try:
+        status["current_angle"] = float(chute.current_angle)
+    except Exception as e:
+        status["current_angle_error"] = str(e)
+
+    try:
+        status["stepper_position_degrees"] = float(stepper.position_degrees)
+        status["stepper_microsteps"] = int(stepper.position)
+    except Exception as e:
+        status["stepper_position_error"] = str(e)
+
+    try:
+        status["stepper_stopped"] = bool(stepper.stopped)
+    except Exception as e:
+        status["stepper_stopped_error"] = str(e)
+
+    if distribution_board is not None:
+        try:
+            status["digital_inputs"] = [
+                {
+                    "channel": index,
+                    "raw_high": bool(pin.value),
+                }
+                for index, pin in enumerate(getattr(distribution_board, "digital_inputs", []))
+            ]
+        except Exception as e:
+            status["digital_inputs_error"] = str(e)
+
+    return status
+
+
+def _live_carousel_status() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    carousel_settings = _carousel_settings_from_config(config)
+    endstop_active_high = bool(
+        carousel_settings.get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
+    )
+    stepper_direction_inverted = bool(
+        carousel_settings.get("stepper_direction_inverted", False)
+    )
+
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        return {
+            "live_available": False,
+            "endstop_triggered": None,
+            "raw_endstop_high": None,
+            "endstop_active_high": endstop_active_high,
+            "stepper_direction_inverted": stepper_direction_inverted,
+            "current_position_degrees": None,
+            "stepper_microsteps": None,
+            "stepper_stopped": None,
+            "bound_stepper_name": None,
+            "bound_stepper_channel": None,
+            "digital_inputs": [],
+            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        }
+
+    irl = controller_ref.irl
+    stepper = getattr(irl, "carousel_stepper", None)
+    interfaces = getattr(irl, "interfaces", {})
+    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+
+    if stepper is None or feeder_board is None:
+        return {
+            "live_available": False,
+            "endstop_triggered": None,
+            "raw_endstop_high": None,
+            "endstop_active_high": endstop_active_high,
+            "stepper_direction_inverted": stepper_direction_inverted,
+            "current_position_degrees": None,
+            "stepper_microsteps": None,
+            "stepper_stopped": None,
+            "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper is not None else None,
+            "bound_stepper_channel": getattr(stepper, "channel", None) if stepper is not None else None,
+            "digital_inputs": [],
+            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        }
+
+    status: Dict[str, Any] = {
+        "live_available": True,
+        "endstop_triggered": None,
+        "raw_endstop_high": None,
+        "endstop_active_high": endstop_active_high,
+        "stepper_direction_inverted": stepper_direction_inverted,
+        "current_position_degrees": None,
+        "stepper_microsteps": None,
+        "stepper_stopped": None,
+        "bound_stepper_name": getattr(stepper, "hardware_name", None),
+        "bound_stepper_channel": getattr(stepper, "channel", None),
+        "digital_inputs": [],
+        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+    }
+
+    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
+    if 0 <= CAROUSEL_HOME_PIN_CHANNEL < len(digital_inputs):
+        try:
+            raw_high = bool(digital_inputs[CAROUSEL_HOME_PIN_CHANNEL].value)
+            status["raw_endstop_high"] = raw_high
+            status["endstop_triggered"] = raw_high if endstop_active_high else not raw_high
+        except Exception as e:
+            status["endstop_error"] = str(e)
+
+    try:
+        status["current_position_degrees"] = float(stepper.position_degrees)
+        status["stepper_microsteps"] = int(stepper.position)
+    except Exception as e:
+        status["stepper_position_error"] = str(e)
+
+    try:
+        status["stepper_stopped"] = bool(stepper.stopped)
+    except Exception as e:
+        status["stepper_stopped_error"] = str(e)
+
+    try:
+        status["digital_inputs"] = [
+            {
+                "channel": index,
+                "raw_high": bool(pin.value),
+            }
+            for index, pin in enumerate(digital_inputs)
+        ]
+    except Exception as e:
+        status["digital_inputs_error"] = str(e)
+
+    return status
 
 
 def _coerce_float(value: object, default: float) -> float:
@@ -1310,7 +2189,11 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
         "layer_count": layer_count,
-        "available_channel_ids": _pca_available_servo_channels() if backend == "pca9685" else [],
+        "available_channel_ids": (
+            _pca_available_servo_channels()
+            if backend == "pca9685"
+            else _waveshare_available_servo_ids(config)
+        ),
         "supports_calibration": backend == "waveshare",
     }
 
@@ -1328,6 +2211,9 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         chute.get("pillar_width_deg"),
         DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     )
+    endstop_active_high = chute.get("endstop_active_high", True)
+    if not isinstance(endstop_active_high, bool):
+        endstop_active_high = True
 
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
@@ -1335,6 +2221,33 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
+        "endstop_active_high": endstop_active_high,
+    }
+
+
+def _carousel_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    carousel = config.get("carousel", {})
+    if not isinstance(carousel, dict):
+        carousel = {}
+
+    endstop_active_high = carousel.get(
+        "endstop_active_high",
+        DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH,
+    )
+    if not isinstance(endstop_active_high, bool):
+        endstop_active_high = DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH
+
+    stepper_direction_inverts = config.get("stepper_direction_inverts", {})
+    if not isinstance(stepper_direction_inverts, dict):
+        stepper_direction_inverts = {}
+    stepper_direction_inverted = stepper_direction_inverts.get("carousel", False)
+    if not isinstance(stepper_direction_inverted, bool):
+        stepper_direction_inverted = False
+
+    return {
+        "endstop_active_high": endstop_active_high,
+        "stepper_direction_inverted": stepper_direction_inverted,
+        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
     }
 
 

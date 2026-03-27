@@ -67,14 +67,14 @@ class Mog2ChannelDetector:
             )
             self._channels[key] = _ChannelMog2(key, pc, channel_masks[key])
 
-    def detect(self, gray: np.ndarray) -> List[ChannelDetection]:
+    def detect(self, lab_frame: np.ndarray) -> List[ChannelDetection]:
         blur_k = BLUR_KERNEL | 1
         morph_k = MORPH_KERNEL | 1
-        blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        blurred = cv2.GaussianBlur(lab_frame, (blur_k, blur_k), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
 
         detections: List[ChannelDetection] = []
-        fg_combined = np.zeros(gray.shape[:2], dtype=np.uint8)
+        fg_combined = np.zeros(lab_frame.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
             lr = LEARNING_RATE if self._is_channel_rotating(ch.name) else 0.0

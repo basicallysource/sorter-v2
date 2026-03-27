@@ -161,8 +161,8 @@ class VisionManager:
         if carousel_pts and len(carousel_pts) >= 3:
             self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
-        gray = self.getLatestFeederGray()
-        mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
+        feeder_lab = self.getLatestFeederLab()
+        mask_shape = feeder_lab.shape[:2] if feeder_lab is not None else (1080, 1920)
 
         channel_masks: Dict[str, np.ndarray] = {}
         for key, pts in polys.items():
@@ -191,7 +191,7 @@ class VisionManager:
 
         self._feeder_analysis = FeederAnalysisThread(
             detector=self._feeder_detector,
-            get_gray=self.getLatestFeederGray,
+            get_gray=self.getLatestFeederLab,
             profiler=self.gc.profiler,
         )
         self._feeder_analysis.start()
@@ -355,6 +355,12 @@ class VisionManager:
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
+    def getLatestFeederLab(self) -> np.ndarray | None:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
 
     def getRegions(self) -> dict[RegionName, Region]:
         prof = self.gc.profiler

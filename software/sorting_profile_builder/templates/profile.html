@@ -1087,16 +1087,47 @@ function mkRbCategoryCard(cat_key, cat_name, count) {
     let count_html = count !== null
         ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
         : `<span class="rule-count dim">--</span>`;
+    let promote_btn = mkBtn('Make Rule', `event.stopPropagation(); promoteFallbackToRule('${escHtml(cat_key)}', '${escHtml(cat_name)}')`);
     div.innerHTML = `
         <div class="rule-summary-top">
             <span class="drag-handle invisible">&#x2807;</span>
             <span class="rule-name">${escHtml(cat_name)}</span>
-            ${count_html}
+            <span class="flex items-center gap-2">${count_html} ${promote_btn}</span>
         </div>
         <div class="rule-meta">Fallback: ${escHtml(cat_key)}</div>
     `;
     div.addEventListener('click', () => selectRbCat(cat_key, cat_name));
     return div;
+}
+
+function promoteFallbackToRule(cat_key, cat_name) {
+    let field, value;
+    if (cat_key.startsWith('bl_')) {
+        field = 'bl_category_id';
+        value = parseInt(cat_key.substring(3));
+    } else if (cat_key.startsWith('rb_')) {
+        field = 'category_id';
+        value = parseInt(cat_key.substring(3));
+    } else {
+        return;
+    }
+    let rule = {
+        id: uuid(),
+        name: cat_name,
+        match_mode: 'all',
+        conditions: [
+            {id: uuid(), field: field, op: 'eq', value: value},
+        ],
+        children: [],
+        disabled: false,
+    };
+    RULES.push(rule);
+    pending_rules.add(rule.id);
+    selected_rule_id = rule.id;
+    selected_rb_cat = null;
+    renderRuleList();
+    renderEditor();
+    refreshPreview();
 }
 
 function getRbFallbackEntries() {

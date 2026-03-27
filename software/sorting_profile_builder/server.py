@@ -318,6 +318,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.part_to_category = result["part_to_category"]
         sp.categories = {}
@@ -349,6 +350,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.rules = original_rules
         return result["stats"]
@@ -407,6 +409,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.rules = original_rules
         return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit, categories=parts_data.categories, bricklink_categories=parts_data.bricklink_categories)

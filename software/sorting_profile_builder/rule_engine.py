@@ -324,15 +324,16 @@ def _flattenRules(rules, ancestor_checks=None, top_level_id=None):
     return flat
 
 
-def _partKey(part, color_id):
+def _partKey(part, color_id, rb_to_bl_color=None):
     bl_ids = part.get("external_ids", {}).get("BrickLink", [])
     part_id = bl_ids[0] if bl_ids else part.get("part_num", "")
     if color_id is not None:
-        return f"{color_id}-{part_id}"
+        out_color = rb_to_bl_color.get(color_id, color_id) if rb_to_bl_color else color_id
+        return f"{out_color}-{part_id}"
     return f"any_color-{part_id}"
 
 
-def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0):
+def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0, rb_to_bl_color=None):
     cache_key = _cacheKey(parts_generation, sp.rules, sp.default_category_id, fallback_mode or getattr(sp, "fallback_mode", None) or {})
     cached = _cacheGet(cache_key)
     if cached:
@@ -394,7 +395,7 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
             if ri["rule_colors"] is not None:
                 # color-sensitive rule: claim only listed colors not already taken
                 for cid in ri["rule_colors"]:
-                    key = _partKey(part, cid)
+                    key = _partKey(part, cid, rb_to_bl_color)
                     if key not in part_to_category:
                         part_to_category[key] = tid
                         claimed_specific = True
@@ -402,7 +403,7 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
                         cat_colors.setdefault(tid, set()).add(cid)
             else:
                 # non-color rule: claim all remaining colors via any_color
-                key = _partKey(part, None)
+                key = _partKey(part, None, rb_to_bl_color)
                 if key not in part_to_category:
                     part_to_category[key] = tid
                     cat_parts.setdefault(tid, set()).add(_pnum)
@@ -412,7 +413,7 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
         matched = claimed_any_color or claimed_specific
         if not claimed_any_color:
             # some or all colors still unclaimed — assign fallback to any_color slot
-            any_key = _partKey(part, None)
+            any_key = _partKey(part, None, rb_to_bl_color)
             if any_key not in part_to_category:
                 fallback_cat = None
                 if use_bl_cats:

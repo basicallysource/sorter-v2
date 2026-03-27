@@ -19,6 +19,8 @@ DEFAULT_SERVO_CLOSED_ANGLE = 83
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 16
 DEFAULT_STEPPER_IHOLD_DELAY = 8
+DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.4
+DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 1.9
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -201,6 +203,12 @@ class WaveshareServoConfig:
     channels: list[WaveshareServoChannelConfig]
 
 
+@dataclass
+class ChuteCalibrationConfig:
+    first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
+    pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+
+
 def loadWaveshareServoConfig(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
@@ -244,6 +252,59 @@ def loadWaveshareServoConfig(
         channels.append(WaveshareServoChannelConfig(id=ch_id, invert=invert))
 
     return WaveshareServoConfig(port=port, channels=channels)
+
+
+def loadChuteCalibrationConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> ChuteCalibrationConfig:
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return ChuteCalibrationConfig()
+
+    chute_params = raw.get("chute")
+    if chute_params is None:
+        return ChuteCalibrationConfig()
+    if not isinstance(chute_params, dict):
+        gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
+        return ChuteCalibrationConfig()
+
+    first_bin_center = chute_params.get(
+        "first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER
+    )
+    pillar_width_deg = chute_params.get(
+        "pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    )
+
+    if not isinstance(first_bin_center, (int, float)) or isinstance(first_bin_center, bool):
+        gc.logger.warning(
+            f"Invalid chute.first_bin_center={first_bin_center!r}; using default {DEFAULT_CHUTE_FIRST_BIN_CENTER}."
+        )
+        first_bin_center = DEFAULT_CHUTE_FIRST_BIN_CENTER
+    else:
+        first_bin_center = float(first_bin_center)
+
+    if not isinstance(pillar_width_deg, (int, float)) or isinstance(pillar_width_deg, bool):
+        gc.logger.warning(
+            f"Invalid chute.pillar_width_deg={pillar_width_deg!r}; using default {DEFAULT_CHUTE_PILLAR_WIDTH_DEG}."
+        )
+        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    else:
+        pillar_width_deg = float(pillar_width_deg)
+
+    if pillar_width_deg < 0 or pillar_width_deg >= 60:
+        gc.logger.warning(
+            f"Invalid chute.pillar_width_deg={pillar_width_deg!r}; expected 0 <= value < 60. Using default {DEFAULT_CHUTE_PILLAR_WIDTH_DEG}."
+        )
+        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+
+    return ChuteCalibrationConfig(
+        first_bin_center=first_bin_center,
+        pillar_width_deg=pillar_width_deg,
+    )
 
 
 @dataclass

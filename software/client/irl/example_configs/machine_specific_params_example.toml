@@ -11,6 +11,7 @@
 
 [servo]
 # For PCA9685 (default):
+# backend = "pca9685"
 open_angle = 10
 closed_angle = 83
 
@@ -25,6 +26,15 @@ closed_angle = 83
 # [[servo.channels]]
 # id = 2
 # invert = false
+
+# --- Chute positioning calibration ---
+# These values define where the first bin center sits after homing and how much
+# angular width each divider pillar consumes. They directly affect how the chute
+# computes bin center positions around the ring.
+
+# [chute]
+# first_bin_center = 8.4
+# pillar_width_deg = 1.9
 
 # --- Camera configuration ---
 # layout = "default" (default): single feeder camera + classification cameras.

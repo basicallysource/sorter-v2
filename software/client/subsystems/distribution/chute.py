@@ -11,7 +11,6 @@ GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 DEG_PER_SECTION = 60
 FIRST_BIN_CENTER = 8.4
 PILLAR_WIDTH_DEG = 1.9
-USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
@@ -31,12 +30,24 @@ class Chute:
         stepper: "StepperMotor",
         home_pin: "DigitalInputPin",
         layout: DistributionLayout,
+        first_bin_center: float = FIRST_BIN_CENTER,
+        pillar_width_deg: float = PILLAR_WIDTH_DEG,
     ):
         self.gc = gc
         self.logger = gc.logger
         self.stepper = stepper
         self.home_pin = home_pin
         self.layout = layout
+        self.first_bin_center = first_bin_center
+        self.pillar_width_deg = pillar_width_deg
+
+    @property
+    def usable_deg_per_section(self) -> float:
+        return DEG_PER_SECTION - self.pillar_width_deg
+
+    def setCalibration(self, first_bin_center: float, pillar_width_deg: float) -> None:
+        self.first_bin_center = first_bin_center
+        self.pillar_width_deg = pillar_width_deg
 
     @property
     def current_angle(self) -> float:
@@ -47,8 +58,12 @@ class Chute:
         layer = self.layout.layers[address.layer_index]
         section = layer.sections[address.section_index]
         num_bins = len(section.bins)
-        bin_width = USABLE_DEG_PER_SECTION / num_bins
-        angle = FIRST_BIN_CENTER + address.section_index * DEG_PER_SECTION + address.bin_index * bin_width
+        bin_width = self.usable_deg_per_section / num_bins
+        angle = (
+            self.first_bin_center
+            + address.section_index * DEG_PER_SECTION
+            + address.bin_index * bin_width
+        )
         return angle
 
     def moveToAngle(self, target: float) -> int:

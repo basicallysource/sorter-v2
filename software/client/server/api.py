@@ -30,11 +30,18 @@ from bricklink.api import getPartInfo
 from blob_manager import getMachineId, getMachineNickname, setMachineNickname
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
+from irl.bin_layout import getBinLayout
 from irl.config import (
     ArucoTagConfig,
     CarouselArucoTagConfig,
     parseCameraPictureSettings,
     cameraPictureSettingsToDict,
+)
+from irl.parse_user_toml import (
+    DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
+    DEFAULT_SERVO_CLOSED_ANGLE,
+    DEFAULT_SERVO_OPEN_ANGLE,
 )
 from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
 
@@ -353,6 +360,24 @@ class RuntimeVariablesUpdateRequest(BaseModel):
     values: Dict[str, Any]
 
 
+class ServoChannelConfigPayload(BaseModel):
+    id: int
+    invert: bool = False
+
+
+class ServoHardwareSettingsPayload(BaseModel):
+    backend: str = "pca9685"
+    open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
+    closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    port: Optional[str] = None
+    channels: List[ServoChannelConfigPayload] = []
+
+
+class ChuteHardwareSettingsPayload(BaseModel):
+    first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
+    pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+
+
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
 def getRuntimeVariables() -> RuntimeVariablesResponse:
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
@@ -367,6 +392,125 @@ def updateRuntimeVariables(
     runtime_vars.setAll(req.values)
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
     return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
+
+
+@app.get("/api/hardware-config")
+def get_hardware_config() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    return {
+        "servo": _servo_settings_from_config(config),
+        "chute": _chute_settings_from_config(config),
+    }
+
+
+@app.post("/api/hardware-config/servo")
+def save_servo_hardware_config(
+    payload: ServoHardwareSettingsPayload,
+) -> Dict[str, Any]:
+    backend = payload.backend if payload.backend in {"pca9685", "waveshare"} else "pca9685"
+    open_angle = max(0, min(180, int(payload.open_angle)))
+    closed_angle = max(0, min(180, int(payload.closed_angle)))
+    port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
+    channels = [
+        {"id": channel.id, "invert": bool(channel.invert)}
+        for channel in payload.channels
+        if 1 <= channel.id <= 253
+    ]
+
+    params_path, config = _read_machine_params_config()
+    previous = _servo_settings_from_config(config)
+
+    servo_table: Dict[str, Any] = {
+        "backend": backend,
+        "open_angle": open_angle,
+        "closed_angle": closed_angle,
+    }
+    if backend == "waveshare":
+        if port is not None:
+            servo_table["port"] = port
+        if channels:
+            servo_table["channels"] = channels
+        else:
+            servo_table["channels"] = []
+
+    config["servo"] = servo_table
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    restart_required = backend != previous["backend"] or (
+        backend == "waveshare"
+        and (port != previous["port"] or channels != previous["channels"])
+    )
+
+    applied_live = False
+    if not restart_required and controller_ref is not None and hasattr(controller_ref, "irl"):
+        try:
+            for servo in controller_ref.irl.servos:
+                if hasattr(servo, "set_preset_angles"):
+                    servo.set_preset_angles(open_angle, closed_angle)
+            applied_live = True
+        except Exception:
+            applied_live = False
+
+    return {
+        "ok": True,
+        "settings": _servo_settings_from_config(config),
+        "applied_live": applied_live,
+        "restart_required": restart_required,
+        "message": (
+            "Servo settings saved and applied live."
+            if applied_live
+            else "Servo settings saved. Restart backend to apply backend or bus changes."
+        ),
+    }
+
+
+@app.post("/api/hardware-config/chute")
+def save_chute_hardware_config(
+    payload: ChuteHardwareSettingsPayload,
+) -> Dict[str, Any]:
+    first_bin_center = float(payload.first_bin_center)
+    pillar_width_deg = float(payload.pillar_width_deg)
+    if pillar_width_deg < 0 or pillar_width_deg >= 60:
+        raise HTTPException(
+            status_code=400,
+            detail="pillar_width_deg must be between 0 and less than 60 degrees",
+        )
+
+    params_path, config = _read_machine_params_config()
+    config["chute"] = {
+        "first_bin_center": first_bin_center,
+        "pillar_width_deg": pillar_width_deg,
+    }
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    applied_live = False
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        chute = getattr(controller_ref.irl, "chute", None)
+        if chute is not None and hasattr(chute, "setCalibration"):
+            try:
+                chute.setCalibration(first_bin_center, pillar_width_deg)
+                applied_live = True
+            except Exception:
+                applied_live = False
+
+    return {
+        "ok": True,
+        "settings": _chute_settings_from_config(config),
+        "applied_live": applied_live,
+        "message": (
+            "Chute settings saved and applied live."
+            if applied_live
+            else "Chute settings saved."
+        ),
+    }
 
 
 class StateResponse(BaseModel):
@@ -842,6 +986,90 @@ def _write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
 def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
     picture_settings = config.get("camera_picture_settings", {})
     return picture_settings if isinstance(picture_settings, dict) else {}
+
+
+def _distribution_layer_count() -> int:
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        layout = getattr(controller_ref.irl, "distribution_layout", None)
+        if layout is not None and hasattr(layout, "layers"):
+            return len(layout.layers)
+    return len(getBinLayout().layers)
+
+
+def _coerce_float(value: object, default: float) -> float:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return default
+
+
+def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    servo = config.get("servo", {})
+    if not isinstance(servo, dict):
+        servo = {}
+
+    backend = servo.get("backend", "pca9685")
+    if backend not in {"pca9685", "waveshare"}:
+        backend = "pca9685"
+
+    open_angle = servo.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE)
+    if not isinstance(open_angle, int) or isinstance(open_angle, bool):
+        open_angle = DEFAULT_SERVO_OPEN_ANGLE
+
+    closed_angle = servo.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE)
+    if not isinstance(closed_angle, int) or isinstance(closed_angle, bool):
+        closed_angle = DEFAULT_SERVO_CLOSED_ANGLE
+
+    port = servo.get("port")
+    if port is not None and not isinstance(port, str):
+        port = None
+
+    channels: List[Dict[str, Any]] = []
+    channels_raw = servo.get("channels", [])
+    if isinstance(channels_raw, list):
+        for item in channels_raw:
+            if not isinstance(item, dict):
+                continue
+            channel_id = item.get("id")
+            if not isinstance(channel_id, int) or isinstance(channel_id, bool):
+                continue
+            channels.append(
+                {
+                    "id": channel_id,
+                    "invert": bool(item.get("invert", False)),
+                }
+            )
+
+    return {
+        "backend": backend,
+        "open_angle": max(0, min(180, open_angle)),
+        "closed_angle": max(0, min(180, closed_angle)),
+        "port": port.strip() if isinstance(port, str) and port.strip() else None,
+        "channels": channels,
+        "layer_count": _distribution_layer_count(),
+    }
+
+
+def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    chute = config.get("chute", {})
+    if not isinstance(chute, dict):
+        chute = {}
+
+    first_bin_center = _coerce_float(
+        chute.get("first_bin_center"),
+        DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    )
+    pillar_width_deg = _coerce_float(
+        chute.get("pillar_width_deg"),
+        DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
+    )
+
+    if pillar_width_deg < 0 or pillar_width_deg >= 60:
+        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+
+    return {
+        "first_bin_center": first_bin_center,
+        "pillar_width_deg": pillar_width_deg,
+    }
 
 
 def _picture_settings_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:

@@ -22,6 +22,7 @@ from .parse_user_toml import (
     loadStepperCurrentOverrides,
     loadServoPresetAngles,
     loadWaveshareServoConfig,
+    loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
 )
@@ -811,8 +812,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
     chute_home_pin = distribution_board.digital_inputs[CHUTE_HOME_PIN_CHANNEL]
 
+    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
     irl_interface.chute = Chute(
-        gc, irl_interface.chute_stepper, chute_home_pin, irl_interface.distribution_layout
+        gc,
+        irl_interface.chute_stepper,
+        chute_home_pin,
+        irl_interface.distribution_layout,
+        first_bin_center=chute_calibration.first_bin_center,
+        pillar_width_deg=chute_calibration.pillar_width_deg,
     )
 
     return irl_interface

@@ -13,7 +13,7 @@ FIRST_SECTION_CENTER = 54.6
 PILLAR_WIDTH_DEG = 8.2
 USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
 HOME_SECTION_LAST_BIN = 12.2
-CHUTE_MAX_ANGLE = 360-9
+CHUTE_MAX_ANGLE = 350
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
@@ -45,7 +45,7 @@ class Chute:
         stepper_angle = self.stepper.position_degrees
         return stepper_angle / GEAR_RATIO
 
-    def getAngleForBin(self, address: BinAddress) -> float:
+    def getAngleForBin(self, address: BinAddress) -> float | None:
         layer = self.layout.layers[address.layer_index]
         section = layer.sections[address.section_index]
         num_bins = len(section.bins)
@@ -58,6 +58,8 @@ class Chute:
             wrapped = HOME_SECTION_LAST_BIN - bins_from_end * slot_width
             if wrapped >= 0:
                 angle = wrapped
+            else:
+                return None
         return angle
 
     def moveToAngle(self, target: float) -> int:
@@ -80,8 +82,14 @@ class Chute:
         self.stepper.move_degrees(delta_stepper_angle)
         return estimated_ms
 
+    def isBinReachable(self, address: BinAddress) -> bool:
+        return self.getAngleForBin(address) is not None
+
     def moveToBin(self, address: BinAddress) -> int:
         target = self.getAngleForBin(address)
+        if target is None:
+            self.logger.error(f"Chute: bin {address} is unreachable")
+            return 0
         return self.moveToAngle(target)
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
@@ -107,6 +115,9 @@ class Chute:
 
     def moveToBinBlocking(self, address: BinAddress, timeout_buffer_ms: int = 0) -> int:
         target = self.getAngleForBin(address)
+        if target is None:
+            self.logger.error(f"Chute: bin {address} is unreachable")
+            return 0
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
     def home(self) -> None:

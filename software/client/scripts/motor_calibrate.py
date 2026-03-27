@@ -29,7 +29,7 @@ BINS_PER_SIZE: dict[str, int] = {"small": 3, "medium": 2, "large": 1}
 DEG_PER_SECTION: float = 60.0
 
 
-def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 2) -> float:
+def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 2) -> float | None:
     section = bin_number // bins_per_section
     bin_in_section = bin_number % bins_per_section
     usable = DEG_PER_SECTION - cal["pillar_width"]
@@ -42,6 +42,8 @@ def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 
         wrapped = cal["home_section_last_bin"] - bins_from_end * cal["slot_width"]
         if wrapped >= 0:
             angle = wrapped
+        else:
+            return None
     return angle
 
 
@@ -358,15 +360,23 @@ def main() -> None:
 
             if key == readchar.key.LEFT:
                 stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key == readchar.key.RIGHT:
                 stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key.lower() == "a":
                 stepper.move_degrees(-90)
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key.lower() == "d":
                 stepper.move_degrees(90)
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key == readchar.key.UP:
                 step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -507,7 +517,10 @@ def main() -> None:
                                 bi = b % bins_per_section
                                 a = angleForBin(chute_cal, b, bins_per_section)
                                 marker = " >> " if current_bin == b + 1 else "    "
-                                print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
+                                if a is None:
+                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → UNREACHABLE")
+                                else:
+                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
                             print()
                             print("  Q to go back")
                             print()
@@ -518,6 +531,10 @@ def main() -> None:
                                 bin_num = int(bin_str)
                                 if 1 <= bin_num <= total_bins:
                                     target_angle = angleForBin(chute_cal, bin_num - 1, bins_per_section)
+                                    if target_angle is None:
+                                        print(f"Bin {bin_num} is unreachable")
+                                        readchar.readkey()
+                                        continue
                                     irl.chute.moveToAngle(target_angle)
                                     while not irl.chute.stepper.stopped:
                                         time.sleep(0.01)

@@ -4,14 +4,7 @@ import cv2
 import numpy as np
 
 from defs.channel import PolygonChannel, ChannelDetection
-
-HISTORY = 500
-VAR_THRESHOLD = 16.0
-LEARNING_RATE = 0.005
-BLUR_KERNEL = 5
-MIN_CONTOUR_AREA = 100
-MORPH_KERNEL = 5
-HEAT_GAIN = 3.0
+from .mog2_diff_configs import Mog2DiffConfig, DEFAULT_MOG2_DIFF_CONFIG
 
 CHANNEL_ID_MAP = {
     "second_channel": 2,
@@ -25,15 +18,16 @@ CHANNEL_COLORS = {
 
 
 class _ChannelMog2:
-    def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray):
+    def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray, cfg: Mog2DiffConfig):
         self.name = name
         self.polygon_channel = polygon_channel
         self.mask = mask
         self.mog2 = cv2.createBackgroundSubtractorMOG2(
-            history=HISTORY,
-            varThreshold=VAR_THRESHOLD,
+            history=int(cfg.history),
+            varThreshold=float(cfg.var_threshold),
             detectShadows=False,
         )
+        self.mog2.setNMixtures(int(cfg.n_mixtures))
 
 
 class Mog2ChannelDetector:
@@ -43,12 +37,14 @@ class Mog2ChannelDetector:
         channel_masks: Dict[str, np.ndarray],
         channel_angles: Dict[str, float],
         is_channel_rotating: Callable[[str], bool],
+        cfg: Mog2DiffConfig = DEFAULT_MOG2_DIFF_CONFIG,
     ):
         self._channels: Dict[str, _ChannelMog2] = {}
         self._combined_mask: np.ndarray | None = None
         self._last_fg: np.ndarray | None = None
         self._last_detections: List[ChannelDetection] = []
         self._is_channel_rotating = is_channel_rotating
+        self._cfg = cfg
 
         for key, polygon in channel_polygons.items():
             if len(polygon) < 3:
@@ -65,11 +61,16 @@ class Mog2ChannelDetector:
                 radius1_angle_image=channel_angles.get(angle_key, 0.0),
                 mask=channel_masks[key],
             )
-            self._channels[key] = _ChannelMog2(key, pc, channel_masks[key])
+            self._channels[key] = _ChannelMog2(key, pc, channel_masks[key], cfg)
 
     def detect(self, lab_frame: np.ndarray) -> List[ChannelDetection]:
-        blur_k = BLUR_KERNEL | 1
-        morph_k = MORPH_KERNEL | 1
+        blur_k = int(self._cfg.blur_kernel) | 1
+        morph_k = int(self._cfg.morph_kernel) | 1
+        learning_rate = float(self._cfg.learning_rate)
+        min_contour_area = float(self._cfg.min_contour_area)
+        max_contour_area = int(self._cfg.max_contour_area)
+        fg_threshold = int(self._cfg.fg_threshold)
+        dilate_iterations = int(self._cfg.dilate_iterations)
         blurred = cv2.GaussianBlur(lab_frame, (blur_k, blur_k), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
 
@@ -77,16 +78,23 @@ class Mog2ChannelDetector:
         fg_combined = np.zeros(lab_frame.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
-            lr = LEARNING_RATE if self._is_channel_rotating(ch.name) else 0.0
+            lr = learning_rate if self._is_channel_rotating(ch.name) else 0.0
             fg_raw = ch.mog2.apply(blurred, learningRate=lr)
             fg_masked = cv2.bitwise_and(fg_raw, ch.mask)
+            if fg_threshold > 0:
+                _, fg_masked = cv2.threshold(fg_masked, fg_threshold, 255, cv2.THRESH_BINARY)
             fg_clean = cv2.morphologyEx(fg_masked, cv2.MORPH_OPEN, kernel)
             fg_clean = cv2.morphologyEx(fg_clean, cv2.MORPH_CLOSE, kernel)
+            if dilate_iterations > 0:
+                fg_clean = cv2.dilate(fg_clean, kernel, iterations=dilate_iterations)
             fg_combined = cv2.bitwise_or(fg_combined, fg_clean)
 
             contours, _ = cv2.findContours(fg_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for contour in contours:
-                if cv2.contourArea(contour) < MIN_CONTOUR_AREA:
+                area = cv2.contourArea(contour)
+                if area < min_contour_area:
+                    continue
+                if max_contour_area > 0 and area > max_contour_area:
                     continue
                 x, y, w, h = cv2.boundingRect(contour)
                 detections.append(ChannelDetection(
@@ -119,7 +127,7 @@ class Mog2ChannelDetector:
 
             display = np.zeros(self._last_fg.shape[:2], dtype=np.uint8)
             display[hot] = np.clip(
-                self._last_fg[hot].astype(np.float32) * HEAT_GAIN, 0, 255
+                self._last_fg[hot].astype(np.float32) * float(self._cfg.heat_gain), 0, 255
             ).astype(np.uint8)
             heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
             show = hot & (display > 0)

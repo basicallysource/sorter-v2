@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import threading
+from dataclasses import asdict
 from pathlib import Path
 
 import cv2
@@ -27,26 +28,13 @@ from blob_manager import getCameraSetup, getChannelPolygons
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision.heatmap_diff import HeatmapDiff
+from vision.mog2_diff_configs import DEFAULT_MOG2_DIFF_CONFIG
 
-CAROUSEL_SETTLE_AFTER_STOP_MS = 500
 RECORDINGS_DIR = "recordings"
 
 PORT = 8098
 
-DEFAULT_PARAMS = {
-    "history": -1,  # does nothing since we pass explicit learning_rate to apply()
-    "var_threshold": 16.0,
-    "learning_rate": 0.002,
-    "blur_kernel": 5,
-    "min_contour_area": 100,
-    "max_contour_area": 0,
-    "morph_kernel": 5,
-    "dilate_iterations": 2,
-    "fg_threshold": 0,
-    "n_mixtures": 5,
-    "heat_gain": 3.0,
-    "carousel_settle_ms": float(CAROUSEL_SETTLE_AFTER_STOP_MS),
-}
+DEFAULT_PARAMS = asdict(DEFAULT_MOG2_DIFF_CONFIG)
 
 
 # --- Channel geometry ---

@@ -32,6 +32,77 @@ export type CameraDeviceSettingsResponse = {
 	message?: string;
 };
 
+export type CameraCalibrationAnalysis = {
+	pattern_size: [number, number];
+	score: number;
+	total_cells: number;
+	bright_cell_count: number;
+	dark_cell_count: number;
+	color_cell_count: number;
+	white_luma_mean: number;
+	black_luma_mean: number;
+	neutral_contrast: number;
+	clipped_white_fraction: number;
+	shadow_black_fraction: number;
+	white_balance_cast: number;
+	color_separation: number;
+	colorfulness: number;
+	reference_color_error_mean: number;
+	board_bbox: [number, number, number, number];
+	normalized_board_bbox: [number, number, number, number];
+	tile_samples: Record<
+		string,
+		{
+			luma: number;
+			saturation: number;
+			clip_fraction: number;
+			shadow_fraction: number;
+			reference_error: number;
+			reference_match_percent: number;
+		}
+	>;
+};
+
+export type CameraCalibrationResponse = {
+	ok: boolean;
+	role: string;
+	source: string | number | null;
+	provider: CameraDeviceProvider | string;
+	settings?: Record<string, unknown>;
+	analysis?: Partial<CameraCalibrationAnalysis>;
+	persisted?: boolean;
+	applied_live?: boolean;
+	message?: string;
+};
+
+export type CameraCalibrationTaskStartResponse = {
+	ok: boolean;
+	started: boolean;
+	task_id: string;
+	role: string;
+	source: string | number | null;
+	provider: CameraDeviceProvider | string;
+	status: string;
+	stage: string;
+	progress: number;
+	message?: string;
+};
+
+export type CameraCalibrationTaskStatusResponse = {
+	ok: boolean;
+	task_id: string;
+	role: string;
+	source: string | number | null;
+	provider: CameraDeviceProvider | string;
+	status: string;
+	stage: string;
+	progress: number;
+	message?: string;
+	result?: CameraCalibrationResponse;
+	analysis_preview?: Partial<CameraCalibrationAnalysis>;
+	error?: string | null;
+};
+
 export function normalizeUsbCameraControls(value: unknown): UsbCameraControl[] {
 	if (!Array.isArray(value)) return [];
 	const controls = value

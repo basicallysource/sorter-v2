@@ -14,6 +14,10 @@
 		type AndroidProcessingMode
 	} from '$lib/settings/android-camera-settings';
 	import {
+		type CameraCalibrationAnalysis,
+		type CameraCalibrationResponse,
+		type CameraCalibrationTaskStartResponse,
+		type CameraCalibrationTaskStatusResponse,
 		cloneUsbCameraSettings,
 		normalizeUsbCameraControls,
 		normalizeUsbCameraSettings,
@@ -41,7 +45,8 @@
 		hasCamera = true,
 		onSaved,
 		onClose,
-		onPreviewChange
+		onPreviewChange,
+		onCalibrationHighlightChange
 	}: {
 		role: CameraRole;
 		label: string;
@@ -51,6 +56,9 @@
 		onClose?: (() => void) | undefined;
 		onPreviewChange?:
 			| ((role: CameraRole, savedSettings: PictureSettings, draftSettings: PictureSettings) => void)
+			| undefined;
+		onCalibrationHighlightChange?:
+			| ((bbox: [number, number, number, number] | null) => void)
 			| undefined;
 	} = $props();
 
@@ -80,9 +88,51 @@
 	});
 
 	let devicePreviewRequest = 0;
+	let calibrating = $state(false);
+	let calibrationResult = $state<CameraCalibrationAnalysis | null>(null);
+	let calibrationStage = $state('');
+	let calibrationProgress = $state(0);
+	let calibrationMessage = $state('');
+
+	const CALIBRATION_TILE_ORDER = [
+		'white_top',
+		'black_top',
+		'blue',
+		'red',
+		'green',
+		'yellow',
+		'black_bottom',
+		'white_bottom'
+	] as const;
+
+	const CALIBRATION_TILE_LABELS: Record<string, string> = {
+		white_top: 'White Top',
+		black_top: 'Black Top',
+		white_bottom: 'White Bottom',
+		black_bottom: 'Black Bottom',
+		red: 'Red',
+		yellow: 'Yellow',
+		green: 'Green',
+		blue: 'Blue'
+	};
+
+	const CALIBRATION_TILE_SWATCH: Record<string, string> = {
+		white_top: '#f8fafc',
+		black_top: '#111827',
+		white_bottom: '#e2e8f0',
+		black_bottom: '#1f2937',
+		red: '#dc2626',
+		yellow: '#eab308',
+		green: '#16a34a',
+		blue: '#0284c7'
+	};
 
 	function emitPreview(roleName: CameraRole, saved: PictureSettings, draft: PictureSettings) {
 		onPreviewChange?.(roleName, clonePictureSettings(saved), clonePictureSettings(draft));
+	}
+
+	function emitCalibrationHighlight(analysis: CameraCalibrationAnalysis | null) {
+		onCalibrationHighlightChange?.(analysis?.normalized_board_bbox ?? null);
 	}
 
 	function currentLoadKey() {
@@ -263,6 +313,11 @@
 		loading = true;
 		error = null;
 		status = '';
+		calibrationResult = null;
+		calibrationStage = '';
+		calibrationProgress = 0;
+		calibrationMessage = '';
+		emitCalibrationHighlight(null);
 		try {
 			await Promise.all([loadLocalSettings(), loadDeviceSettings()]);
 			emitPreview(role, savedSettings, savedSettings);
@@ -271,6 +326,90 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	function normalizeCalibrationAnalysis(value: unknown): CameraCalibrationAnalysis | null {
+		if (!value || typeof value !== 'object') return null;
+		const record = value as Record<string, unknown>;
+		const pattern = Array.isArray(record.pattern_size)
+			? record.pattern_size.filter((item): item is number => typeof item === 'number')
+			: [];
+		const bbox = Array.isArray(record.board_bbox)
+			? record.board_bbox.filter((item): item is number => typeof item === 'number')
+			: [];
+		const normalizedBbox = Array.isArray(record.normalized_board_bbox)
+			? record.normalized_board_bbox.filter((item): item is number => typeof item === 'number')
+			: [];
+		if (pattern.length !== 2 || bbox.length !== 4 || normalizedBbox.length !== 4) return null;
+		const numbers = [
+			'total_cells',
+			'bright_cell_count',
+			'dark_cell_count',
+			'color_cell_count',
+			'score',
+			'white_luma_mean',
+			'black_luma_mean',
+			'neutral_contrast',
+			'clipped_white_fraction',
+			'shadow_black_fraction',
+			'white_balance_cast',
+			'color_separation',
+			'colorfulness',
+			'reference_color_error_mean'
+		] as const;
+		for (const key of numbers) {
+			if (typeof record[key] !== 'number') return null;
+		}
+		const tileSamples: CameraCalibrationAnalysis['tile_samples'] = {};
+		if (record.tile_samples && typeof record.tile_samples === 'object') {
+			for (const [key, rawValue] of Object.entries(record.tile_samples as Record<string, unknown>)) {
+				if (!rawValue || typeof rawValue !== 'object') continue;
+				const sample = rawValue as Record<string, unknown>;
+				if (
+					typeof sample.luma !== 'number' ||
+					typeof sample.saturation !== 'number' ||
+					typeof sample.clip_fraction !== 'number' ||
+					typeof sample.shadow_fraction !== 'number' ||
+					typeof sample.reference_error !== 'number' ||
+					typeof sample.reference_match_percent !== 'number'
+				) {
+					continue;
+				}
+				tileSamples[key] = {
+					luma: sample.luma,
+					saturation: sample.saturation,
+					clip_fraction: sample.clip_fraction,
+					shadow_fraction: sample.shadow_fraction,
+					reference_error: sample.reference_error,
+					reference_match_percent: sample.reference_match_percent
+				};
+			}
+		}
+		return {
+			pattern_size: [pattern[0], pattern[1]],
+			board_bbox: [bbox[0], bbox[1], bbox[2], bbox[3]],
+			normalized_board_bbox: [
+				normalizedBbox[0],
+				normalizedBbox[1],
+				normalizedBbox[2],
+				normalizedBbox[3]
+			],
+			total_cells: record.total_cells as number,
+			bright_cell_count: record.bright_cell_count as number,
+			dark_cell_count: record.dark_cell_count as number,
+			color_cell_count: record.color_cell_count as number,
+			score: record.score as number,
+			white_luma_mean: record.white_luma_mean as number,
+			black_luma_mean: record.black_luma_mean as number,
+			neutral_contrast: record.neutral_contrast as number,
+			clipped_white_fraction: record.clipped_white_fraction as number,
+			shadow_black_fraction: record.shadow_black_fraction as number,
+			white_balance_cast: record.white_balance_cast as number,
+			color_separation: record.color_separation as number,
+			colorfulness: record.colorfulness as number,
+			reference_color_error_mean: record.reference_color_error_mean as number,
+			tile_samples: tileSamples
+		};
 	}
 
 	async function sendDevicePreview() {
@@ -358,6 +497,67 @@
 		}
 	}
 
+	async function calibrateFromTarget() {
+		calibrating = true;
+		error = null;
+		status = '';
+		calibrationResult = null;
+		calibrationStage = 'starting';
+		calibrationProgress = 0.01;
+		calibrationMessage = 'Starting camera calibration.';
+		emitCalibrationHighlight(null);
+		try {
+			const res = await fetch(
+				`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/calibrate-target`,
+				{
+					method: 'POST'
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const start = (await res.json()) as CameraCalibrationTaskStartResponse;
+			let taskDone = false;
+			while (!taskDone) {
+				await new Promise((resolve) => setTimeout(resolve, 450));
+				const poll = await fetch(
+					`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/calibrate-target/${start.task_id}`
+				);
+				if (!poll.ok) throw new Error(await poll.text());
+				const task = (await poll.json()) as CameraCalibrationTaskStatusResponse;
+				calibrationStage = task.stage ?? '';
+				calibrationProgress = typeof task.progress === 'number' ? task.progress : calibrationProgress;
+				calibrationMessage = task.message ?? calibrationMessage;
+
+				const normalizedTaskPreview = normalizeCalibrationAnalysis(task.analysis_preview);
+				if (normalizedTaskPreview) {
+					calibrationResult = normalizedTaskPreview;
+					emitCalibrationHighlight(normalizedTaskPreview);
+				}
+
+				const normalizedTaskResult = normalizeCalibrationAnalysis(task.result?.analysis);
+				if (
+					normalizedTaskResult &&
+					(hasTileDetails(normalizedTaskResult) || !hasTileDetails(calibrationResult))
+				) {
+					calibrationResult = normalizedTaskResult;
+					emitCalibrationHighlight(normalizedTaskResult);
+				}
+
+				if (task.status === 'completed') {
+					taskDone = true;
+					await loadDeviceSettings();
+					status = task.result?.message ?? task.message ?? 'Camera calibrated from target plate.';
+				} else if (task.status === 'failed') {
+					throw new Error(task.error ?? task.message ?? 'Failed to calibrate camera from target plate');
+				}
+			}
+		} catch (e: any) {
+			error = e.message ?? 'Failed to calibrate camera from target plate';
+			emitCalibrationHighlight(null);
+		} finally {
+			calibrating = false;
+		}
+	}
+
 	function revertChanges() {
 		draftSettings = clonePictureSettings(savedSettings);
 		const devicePayload = savedDevicePayload();
@@ -407,6 +607,7 @@
 		status = '';
 		error = null;
 		emitPreview(role, savedSettings, savedSettings);
+		emitCalibrationHighlight(null);
 		onClose?.();
 	}
 
@@ -428,6 +629,63 @@
 			return localChanged || !usbCameraSettingsEqual(draftUsbSettings, savedUsbSettings, usbControls);
 		}
 		return localChanged;
+	}
+
+	function calibrationStageLabel(stage: string): string {
+		switch (stage) {
+			case 'preparing':
+				return 'Preparing';
+			case 'baseline':
+				return 'Analyzing Baseline';
+			case 'exposure_search':
+				return 'Searching Exposure';
+			case 'exposure_refine':
+				return 'Refining Exposure';
+			case 'white_balance_search':
+				return 'Searching White Balance';
+			case 'white_balance_refine':
+				return 'Refining White Balance';
+			case 'tone_search':
+				return 'Refining Tone Controls';
+			case 'polish_search':
+				return 'Polishing Calibration';
+			case 'saving':
+				return 'Saving';
+			case 'verifying':
+				return 'Verifying';
+			case 'completed':
+				return 'Completed';
+			case 'failed':
+				return 'Failed';
+			default:
+				return 'Starting';
+		}
+	}
+
+	function calibrationTileEntries(analysis: CameraCalibrationAnalysis | null) {
+		if (!analysis) return [];
+		return CALIBRATION_TILE_ORDER
+			.map((key) => {
+				const sample = analysis.tile_samples[key];
+				if (!sample) return null;
+				const matchPercent = Math.max(0, Math.min(100, sample.reference_match_percent));
+				return {
+					key,
+					label: CALIBRATION_TILE_LABELS[key] ?? key,
+					swatch: CALIBRATION_TILE_SWATCH[key] ?? '#94a3b8',
+					matchPercent,
+					matchTone:
+						matchPercent >= 85 ? 'good'
+						: matchPercent >= 65 ? 'okay'
+						: 'weak',
+					...sample
+				};
+			})
+			.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+	}
+
+	function hasTileDetails(analysis: CameraCalibrationAnalysis | null) {
+		return !!analysis && Object.keys(analysis.tile_samples).length > 0;
 	}
 
 	$effect(() => {
@@ -497,6 +755,135 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-4">
 					<div class="dark:text-text-dark text-sm font-medium text-text">Device Controls</div>
+
+					{#if deviceSupported}
+						<div
+							class="dark:border-border-dark dark:bg-surface-dark flex flex-col gap-3 border border-border bg-surface px-3 py-3"
+						>
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<div class="dark:text-text-dark text-sm font-medium text-text">
+										Target Calibration
+									</div>
+									<div class="dark:text-text-muted-dark mt-1 text-xs leading-5 text-text-muted">
+										Place the 6-color calibration plate fully in view. This tunes real camera
+										exposure, white balance, and secondary tone controls, then saves the best
+										result for this camera.
+									</div>
+								</div>
+								<button
+									onclick={calibrateFromTarget}
+									disabled={!hasCamera || calibrating || saving}
+									class="inline-flex cursor-pointer items-center justify-center gap-2 border border-sky-500 bg-sky-500/15 px-3 py-2 text-sm text-sky-700 transition-colors hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300"
+								>
+									<span>{calibrating ? 'Calibrating...' : 'Calibrate from Target'}</span>
+								</button>
+							</div>
+
+							{#if calibrationResult}
+								<div class="grid grid-cols-2 gap-1.5 text-[11px]">
+									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
+										<div class="dark:text-text-muted-dark text-text-muted">Score</div>
+										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+											{calibrationResult.score.toFixed(1)}
+										</div>
+									</div>
+									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
+										<div class="dark:text-text-muted-dark text-text-muted">Ref Error</div>
+										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+											{calibrationResult.reference_color_error_mean.toFixed(1)}
+										</div>
+									</div>
+									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
+										<div class="dark:text-text-muted-dark text-text-muted">White / Black</div>
+										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+											{calibrationResult.white_luma_mean.toFixed(1)} / {calibrationResult.black_luma_mean.toFixed(1)}
+										</div>
+									</div>
+									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
+										<div class="dark:text-text-muted-dark text-text-muted">WB Cast</div>
+										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+											{calibrationResult.white_balance_cast.toFixed(3)}
+										</div>
+									</div>
+								</div>
+
+								{#if calibrationTileEntries(calibrationResult).length > 0}
+									<div class="grid gap-2">
+										<div class="dark:text-text-muted-dark text-[11px] uppercase tracking-[0.14em] text-text-muted">
+											Live Tile Levels
+										</div>
+										<div class="grid grid-cols-2 gap-1.5">
+											{#each calibrationTileEntries(calibrationResult) as tile}
+												<div class="dark:border-border-dark dark:bg-bg-dark grid gap-1 border border-border bg-bg px-2.5 py-2">
+													<div class="flex items-center justify-between gap-2 text-[10px]">
+														<div class="flex items-center gap-2">
+															<span
+																class="inline-block h-3 w-3 rounded-[2px] border border-black/15"
+																style={`background:${tile.swatch}`}
+															></span>
+															<span class="dark:text-text-dark font-medium text-text">{tile.label}</span>
+														</div>
+														<span
+															class:text-emerald-700={tile.matchTone === 'good'}
+															class:text-amber-700={tile.matchTone === 'okay'}
+															class:text-rose-700={tile.matchTone === 'weak'}
+															class:dark:text-emerald-300={tile.matchTone === 'good'}
+															class:dark:text-amber-300={tile.matchTone === 'okay'}
+															class:dark:text-rose-300={tile.matchTone === 'weak'}
+															class="font-mono text-[10px] font-semibold"
+														>
+															{tile.matchPercent.toFixed(0)}%
+														</span>
+													</div>
+													<div class="flex items-center justify-between gap-2 text-[10px]">
+														<span class="dark:text-text-muted-dark text-text-muted">
+															dE {tile.reference_error.toFixed(1)}
+														</span>
+														<span class="dark:text-text-muted-dark text-text-muted">
+															L {tile.luma.toFixed(0)} / S {tile.saturation.toFixed(0)}
+														</span>
+													</div>
+													<div class="flex items-center justify-between gap-2 text-[10px]">
+														<span class="dark:text-text-muted-dark text-text-muted">
+															C {(tile.clip_fraction * 100).toFixed(0)}
+														</span>
+														<span class="dark:text-text-muted-dark text-text-muted">
+															Sh {(tile.shadow_fraction * 100).toFixed(0)}
+														</span>
+													</div>
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							{/if}
+
+							{#if calibrating || calibrationMessage}
+								<div class="flex flex-col gap-2">
+									<div class="flex items-center justify-between gap-3 text-xs">
+										<span class="dark:text-text-dark font-medium text-text">
+											{calibrationStageLabel(calibrationStage)}
+										</span>
+										<span class="dark:text-text-muted-dark font-mono text-text-muted">
+											{Math.round(calibrationProgress * 100)}%
+										</span>
+									</div>
+									<div class="dark:bg-bg-dark h-2 overflow-hidden rounded-full bg-bg">
+										<div
+											class="h-full bg-sky-500 transition-[width] duration-300"
+											style={`width: ${Math.max(4, Math.min(100, calibrationProgress * 100))}%`}
+										></div>
+									</div>
+									{#if calibrationMessage}
+										<div class="dark:text-text-muted-dark text-xs text-text-muted">
+											{calibrationMessage}
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/if}
 
 					{#if deviceProvider === 'android-camera-app' && deviceSupported}
 						<div
@@ -704,7 +1091,7 @@
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
 					<button
 						onclick={revertChanges}
-						disabled={saving || !hasUnsavedChanges()}
+						disabled={saving || calibrating || !hasUnsavedChanges()}
 						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Undo2 size={15} />
@@ -712,7 +1099,7 @@
 					</button>
 					<button
 						onclick={resetToDefaults}
-						disabled={saving}
+						disabled={saving || calibrating}
 						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RotateCcw size={15} />
@@ -720,7 +1107,7 @@
 					</button>
 					<button
 						onclick={saveSettings}
-						disabled={saving || !hasUnsavedChanges()}
+						disabled={saving || calibrating || !hasUnsavedChanges()}
 						class="inline-flex cursor-pointer items-center justify-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
 					>
 						<Save size={15} />

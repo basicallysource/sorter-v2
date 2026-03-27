@@ -62,6 +62,7 @@
 		saved: PictureSettings;
 		draft: PictureSettings;
 	};
+	type CalibrationHighlight = [number, number, number, number];
 	type SidePanel = 'picture' | 'zone' | null;
 	type DragState =
 		| {
@@ -190,6 +191,7 @@
 		classification_bottom: null
 	});
 	let picturePreviewByRole = $state<Partial<Record<CameraRole, PicturePreviewState>>>({});
+	let calibrationHighlightByRole = $state<Partial<Record<CameraRole, CalibrationHighlight>>>({});
 	let feedRevision = $state(0);
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
@@ -370,6 +372,23 @@
 
 	function getPicturePreview(role: CameraRole = currentRole()): PicturePreviewState | null {
 		return picturePreviewByRole[role] ?? null;
+	}
+
+	function setCalibrationHighlight(
+		role: CameraRole,
+		bbox: CalibrationHighlight | null
+	) {
+		const next = { ...calibrationHighlightByRole };
+		if (bbox) {
+			next[role] = bbox;
+		} else {
+			delete next[role];
+		}
+		calibrationHighlightByRole = next;
+	}
+
+	function getCalibrationHighlight(role: CameraRole = currentRole()): CalibrationHighlight | null {
+		return calibrationHighlightByRole[role] ?? null;
 	}
 
 	function hasDraftPicturePreview(role: CameraRole = currentRole()): boolean {
@@ -1578,6 +1597,17 @@
 								class="absolute inset-0 h-full w-full object-contain"
 								style={feedImageStyle(currentChannel)}
 							/>
+							{#if getCalibrationHighlight(currentRole())}
+								{@const highlight = getCalibrationHighlight(currentRole())!}
+								<div
+									class="pointer-events-none absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
+									style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+								>
+									<div class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-[11px] font-medium text-slate-950 shadow-md">
+										Calibration Target
+									</div>
+								</div>
+							{/if}
 						{:else}
 							<div
 								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
@@ -1629,12 +1659,17 @@
 					onPreviewChange={(role, savedSettings, draftSettings) => {
 						setPicturePreview(role, savedSettings, draftSettings);
 					}}
+					onCalibrationHighlightChange={(bbox) => {
+						setCalibrationHighlight(currentRole(), bbox);
+					}}
 					onClose={() => {
 						clearPicturePreview(currentRole());
+						setCalibrationHighlight(currentRole(), null);
 						activeSidebar = null;
 					}}
 					onSaved={() => {
 						clearPicturePreview(currentRole());
+						setCalibrationHighlight(currentRole(), null);
 						activeSidebar = null;
 						feedRevision += 1;
 						statusMsg = 'Picture settings updated.';

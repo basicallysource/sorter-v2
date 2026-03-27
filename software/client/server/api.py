@@ -2,12 +2,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 import asyncio
 import json
 import queue
 import time
 import threading
+from uuid import uuid4
 import cv2
 import numpy as np
 from pathlib import Path
@@ -47,6 +48,7 @@ from irl.parse_user_toml import (
     DEFAULT_SERVO_OPEN_ANGLE,
 )
 from hardware.macos_camera_registry import refresh_macos_cameras
+from server.camera_calibration import analyze_calibration_target
 from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
 
 app = FastAPI(title="Sorter API", version="0.0.1")
@@ -67,6 +69,8 @@ aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
+camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
+camera_calibration_tasks_lock = threading.Lock()
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -1869,6 +1873,23 @@ def _android_camera_request(
     return parsed
 
 
+def _android_camera_bytes_request(source: int | str | None, path: str) -> bytes:
+    base_url = _android_camera_base_url(source)
+    if base_url is None:
+        raise HTTPException(status_code=400, detail="Camera source is not an Android camera app URL.")
+
+    url = f"{base_url}{path}"
+    request = urllib_request.Request(url, method="GET")
+    try:
+        with urllib_request.urlopen(request, timeout=4) as response:
+            return response.read()
+    except urllib_error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=502, detail=detail or f"Android camera app returned HTTP {exc.code}.")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to reach Android camera app: {exc}")
+
+
 def _live_usb_device_controls(
     role: str,
     source: int,
@@ -1891,6 +1912,223 @@ def _live_usb_device_controls(
 
     controls, current_settings = probe_camera_device_controls(source, saved_settings)
     return controls, cameraDeviceSettingsToDict(current_settings)
+
+
+def _as_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _quantize_numeric_value(value: float, min_value: float, step: float | None) -> float:
+    if not isinstance(step, (int, float)) or step <= 0:
+        return float(value)
+    return float(min_value + round((value - min_value) / float(step)) * float(step))
+
+
+def _numeric_control_candidates(
+    control: Dict[str, Any],
+    current: Any,
+    *,
+    count: int,
+    prefer_log: bool = False,
+    preferred_values: List[float] | None = None,
+) -> List[float]:
+    min_value = _as_number(control.get("min"))
+    max_value = _as_number(control.get("max"))
+    if min_value is None or max_value is None:
+        current_value = _as_number(current)
+        return [current_value] if current_value is not None else []
+
+    step = _as_number(control.get("step"))
+    values: List[float] = []
+    current_value = _as_number(current)
+    default_value = _as_number(control.get("default"))
+
+    if prefer_log and min_value > 0 and max_value / max(min_value, 1e-6) >= 16:
+        generated = np.geomspace(min_value, max_value, num=max(count, 2))
+    else:
+        generated = np.linspace(min_value, max_value, num=max(count, 2))
+
+    values.extend(float(v) for v in generated.tolist())
+    if preferred_values:
+        values.extend(float(v) for v in preferred_values)
+    if current_value is not None:
+        values.append(current_value)
+    if default_value is not None:
+        values.append(default_value)
+    values.extend([min_value, max_value])
+
+    normalized: List[float] = []
+    seen: set[float] = set()
+    for raw in values:
+        clipped = max(min_value, min(max_value, float(raw)))
+        quantized = _quantize_numeric_value(clipped, min_value, step)
+        rounded = round(quantized, 6)
+        if rounded in seen:
+            continue
+        seen.add(rounded)
+        normalized.append(int(round(quantized)) if step is not None and step >= 1 else float(quantized))
+
+    normalized.sort(key=float)
+    return normalized
+
+
+def _focused_numeric_control_candidates(
+    control: Dict[str, Any],
+    current: Any,
+    *,
+    count: int,
+    prefer_log: bool = False,
+    relative_span: float = 0.35,
+    linear_span_fraction: float = 0.12,
+) -> List[float]:
+    min_value = _as_number(control.get("min"))
+    max_value = _as_number(control.get("max"))
+    current_value = _as_number(current)
+    if min_value is None or max_value is None or current_value is None:
+        return _numeric_control_candidates(control, current, count=count, prefer_log=prefer_log)
+
+    step = _as_number(control.get("step"))
+    if prefer_log and current_value > 0:
+        low = max(min_value, current_value * (1.0 - relative_span))
+        high = min(max_value, current_value * (1.0 + relative_span))
+        if high <= low:
+            values = [current_value]
+        else:
+            values = np.geomspace(low, high, num=max(count, 3)).tolist()
+    else:
+        span = max(
+            float(step) if step is not None else 0.0,
+            (max_value - min_value) * linear_span_fraction,
+        )
+        low = max(min_value, current_value - span)
+        high = min(max_value, current_value + span)
+        if high <= low:
+            values = [current_value]
+        else:
+            values = np.linspace(low, high, num=max(count, 3)).tolist()
+
+    values.append(current_value)
+    normalized: List[float] = []
+    seen: set[float] = set()
+    for raw in values:
+        clipped = max(min_value, min(max_value, float(raw)))
+        quantized = _quantize_numeric_value(clipped, min_value, step)
+        rounded = round(quantized, 6)
+        if rounded in seen:
+            continue
+        seen.add(rounded)
+        normalized.append(int(round(quantized)) if step is not None and step >= 1 else float(quantized))
+    normalized.sort(key=float)
+    return normalized
+
+
+def _usb_control_defaults(
+    controls: List[Dict[str, Any]],
+    current_settings: Dict[str, int | float | bool],
+) -> Dict[str, int | float | bool]:
+    defaults: Dict[str, int | float | bool] = {}
+    for control in controls:
+        key = control.get("key")
+        if not isinstance(key, str):
+            continue
+        default = control.get("default")
+        if isinstance(default, (int, float, bool)) and not isinstance(default, bool):
+            defaults[key] = float(default) if isinstance(default, float) or isinstance(default, int) else default
+            continue
+        if isinstance(default, bool):
+            defaults[key] = default
+            continue
+        if key in {"auto_exposure", "auto_white_balance", "autofocus"} and isinstance(control.get("kind"), str):
+            defaults[key] = True
+            continue
+        if key in current_settings:
+            defaults[key] = current_settings[key]
+            continue
+        value = control.get("value")
+        if isinstance(value, bool):
+            defaults[key] = value
+        elif isinstance(value, (int, float)) and not isinstance(value, bool):
+            defaults[key] = float(value)
+    return defaults
+
+
+def _capture_frame_for_calibration(
+    role: str,
+    source: int | str | None,
+    *,
+    after_timestamp: float | None = None,
+    fallback_settings: Dict[str, int | float | bool] | None = None,
+) -> np.ndarray | None:
+    if vision_manager is not None and hasattr(vision_manager, "getFrame"):
+        deadline = time.time() + 2.5
+        while time.time() < deadline:
+            frame_obj = vision_manager.getFrame(role)
+            if frame_obj is not None and (after_timestamp is None or frame_obj.timestamp >= after_timestamp):
+                return frame_obj.raw.copy()
+            time.sleep(0.05)
+
+    if isinstance(source, str):
+        try:
+            jpg = _android_camera_bytes_request(source, "/snapshot.jpg")
+            buffer = np.frombuffer(jpg, dtype=np.uint8)
+            frame = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+            if frame is not None and frame.size > 0:
+                return frame
+        except HTTPException:
+            return None
+        return None
+
+    if not isinstance(source, int):
+        return None
+
+    from vision.camera import apply_camera_device_settings
+
+    cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION) if platform.system() == "Darwin" else cv2.VideoCapture(source)
+    if not cap.isOpened():
+        cap.release()
+        return None
+
+    try:
+        if fallback_settings:
+            apply_camera_device_settings(cap, fallback_settings, source=source)
+            time.sleep(0.2)
+        frame: np.ndarray | None = None
+        for _ in range(4):
+            ret, current = cap.read()
+            if ret and current is not None:
+                frame = current
+        return frame.copy() if frame is not None else None
+    finally:
+        cap.release()
+
+
+def _analyze_candidate_settings(
+    role: str,
+    source: int | str | None,
+    settings: Dict[str, Any],
+) -> tuple[Dict[str, Any], Dict[str, Any] | None]:
+    preview_started_at = time.time()
+    preview = preview_camera_device_settings(role, settings)
+    preview_settings = preview.get("settings", settings)
+    if isinstance(source, str):
+        applied_settings = dict(preview_settings) if isinstance(preview_settings, dict) else dict(settings)
+    else:
+        applied_settings = cameraDeviceSettingsToDict(
+            parseCameraDeviceSettings(preview_settings)
+        )
+    time.sleep(0.35)
+    frame = _capture_frame_for_calibration(
+        role,
+        source,
+        after_timestamp=preview_started_at,
+        fallback_settings=applied_settings,
+    )
+    if frame is None:
+        return applied_settings, None
+    analysis = analyze_calibration_target(frame)
+    return applied_settings, analysis.to_dict() if analysis is not None else None
 
 
 def _distribution_layer_count() -> int:
@@ -2843,6 +3081,771 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
         "persisted": True,
         "applied_live": applied_live,
         "message": "Camera device settings saved.",
+    }
+
+
+def _restore_preview_settings(role: str, settings: Dict[str, int | float | bool]) -> None:
+    try:
+        preview_camera_device_settings(role, settings)
+    except Exception:
+        pass
+
+
+def _analysis_number(analysis: Dict[str, Any] | None, key: str, default: float = 0.0) -> float:
+    if not isinstance(analysis, dict):
+        return default
+    value = analysis.get(key)
+    return float(value) if isinstance(value, (int, float)) else default
+
+
+def _analysis_neutral_mean_bgr(analysis: Dict[str, Any] | None) -> tuple[float, float, float] | None:
+    if not isinstance(analysis, dict):
+        return None
+    value = analysis.get("neutral_mean_bgr")
+    if not isinstance(value, list) or len(value) != 3:
+        return None
+    if not all(isinstance(channel, (int, float)) for channel in value):
+        return None
+    return float(value[0]), float(value[1]), float(value[2])
+
+
+def _exposure_direction(analysis: Dict[str, Any] | None) -> int:
+    white_luma = _analysis_number(analysis, "white_luma_mean")
+    black_luma = _analysis_number(analysis, "black_luma_mean")
+    clipped = _analysis_number(analysis, "clipped_white_fraction")
+    if clipped >= 0.03 or white_luma >= 210.0:
+        return 1
+    if white_luma <= 165.0 and black_luma <= 28.0:
+        return -1
+    if white_luma <= 180.0:
+        return -1
+    return 0
+
+
+def _white_balance_direction(analysis: Dict[str, Any] | None) -> int:
+    neutral_bgr = _analysis_neutral_mean_bgr(analysis)
+    if neutral_bgr is None:
+        return 0
+    blue, green, red = neutral_bgr
+    if green <= 1e-6:
+        return 0
+    bias = (red - blue) / green
+    if abs(bias) <= 0.035:
+        return 0
+    return -1 if bias > 0 else 1
+
+
+def _camera_analysis_score(analysis: Dict[str, Any] | None) -> float:
+    if not isinstance(analysis, dict):
+        return float("-inf")
+    value = analysis.get("score")
+    return float(value) if isinstance(value, (int, float)) else float("-inf")
+
+
+def _calibration_selection_value(analysis: Dict[str, Any] | None) -> float:
+    score = _camera_analysis_score(analysis)
+    if not isinstance(analysis, dict):
+        return score
+    tile_samples = analysis.get("tile_samples")
+    if not isinstance(tile_samples, dict) or not tile_samples:
+        return score
+
+    important_keys = ("white_top", "white_bottom", "red", "yellow")
+    important_matches: List[float] = []
+    all_matches: List[float] = []
+    for key, raw in tile_samples.items():
+        if not isinstance(raw, dict):
+            continue
+        match_value = raw.get("reference_match_percent")
+        if not isinstance(match_value, (int, float)):
+            continue
+        match = float(match_value)
+        all_matches.append(match)
+        if key in important_keys:
+            important_matches.append(match)
+
+    if not important_matches:
+        return score
+
+    min_match = min(important_matches)
+    avg_match = float(sum(important_matches) / len(important_matches))
+    overall_match = float(sum(all_matches) / len(all_matches)) if all_matches else avg_match
+    return score * 0.15 + avg_match + min_match * 1.3 + overall_match * 0.25
+
+
+def _create_camera_calibration_task(
+    role: str,
+    provider: str,
+    source: int | str | None,
+) -> str:
+    task_id = uuid4().hex
+    task = {
+        "task_id": task_id,
+        "role": role,
+        "provider": provider,
+        "source": source,
+        "status": "queued",
+        "stage": "queued",
+        "message": "Queued camera calibration.",
+        "progress": 0.0,
+        "result": None,
+        "analysis_preview": None,
+        "error": None,
+        "created_at": time.time(),
+        "updated_at": time.time(),
+    }
+    with camera_calibration_tasks_lock:
+        camera_calibration_tasks[task_id] = task
+    return task_id
+
+
+def _update_camera_calibration_task(task_id: str, **updates: Any) -> None:
+    with camera_calibration_tasks_lock:
+        task = camera_calibration_tasks.get(task_id)
+        if task is None:
+            return
+        task.update(updates)
+        task["updated_at"] = time.time()
+
+
+def _get_camera_calibration_task(task_id: str) -> Dict[str, Any] | None:
+    with camera_calibration_tasks_lock:
+        task = camera_calibration_tasks.get(task_id)
+        return dict(task) if task is not None else None
+
+
+def _calibrate_usb_camera_device_settings(
+    role: str,
+    source: int,
+    controls: List[Dict[str, Any]],
+    current_settings: Dict[str, int | float | bool],
+    *,
+    report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+) -> tuple[Dict[str, int | float | bool], Dict[str, Any]]:
+    control_by_key = {
+        str(control.get("key")): control
+        for control in controls
+        if isinstance(control, dict) and isinstance(control.get("key"), str)
+    }
+
+    defaults = _usb_control_defaults(controls, current_settings)
+    initial_candidates: List[Dict[str, int | float | bool]] = [dict(current_settings)]
+    if defaults and defaults != current_settings:
+        initial_candidates.append(dict(defaults))
+
+    best_settings: Dict[str, int | float | bool] | None = None
+    best_analysis: Dict[str, Any] | None = None
+
+    exposure_control = control_by_key.get("exposure")
+    gain_control = control_by_key.get("gain")
+    brightness_control = control_by_key.get("brightness")
+    contrast_control = control_by_key.get("contrast")
+    saturation_control = control_by_key.get("saturation")
+    gamma_control = control_by_key.get("gamma")
+    wb_control = control_by_key.get("white_balance_temperature")
+    auto_exposure_control = control_by_key.get("auto_exposure")
+    auto_wb_control = control_by_key.get("auto_white_balance")
+
+    total_steps = max(
+        1,
+        len(initial_candidates)
+        + (6 if exposure_control is not None else 0)
+        + (3 if gain_control is not None else 0)
+        + (5 if wb_control is not None else 0)
+        + (3 if brightness_control is not None else 0)
+        + (3 if contrast_control is not None else 0)
+        + (3 if saturation_control is not None else 0),
+        + (3 if gamma_control is not None else 0)
+        + (12 if exposure_control is not None else 0)
+        + (12 if wb_control is not None else 0)
+        + (10 if brightness_control is not None else 0)
+        + (10 if contrast_control is not None else 0)
+        + (10 if saturation_control is not None else 0)
+        + (10 if gamma_control is not None else 0),
+    )
+    completed_steps = 0
+
+    def tick(stage: str, message: str, analysis: Dict[str, Any] | None = None) -> None:
+        nonlocal completed_steps
+        completed_steps += 1
+        if report_progress is not None:
+            report_progress(
+                stage,
+                min(0.9, completed_steps / total_steps),
+                message,
+                analysis,
+            )
+
+    def consider(
+        candidate: Dict[str, int | float | bool],
+        *,
+        stage: str,
+        message: str,
+    ) -> tuple[Dict[str, Any], Dict[str, Any] | None]:
+        nonlocal best_settings, best_analysis
+        tick(stage, message)
+        applied_settings, analysis = _analyze_candidate_settings(role, source, candidate)
+        if report_progress is not None and analysis is not None:
+            report_progress(
+                stage,
+                min(0.9, completed_steps / total_steps),
+                message,
+                analysis,
+            )
+        if analysis is None:
+            return applied_settings, None
+        if best_analysis is None or _calibration_selection_value(analysis) > _calibration_selection_value(best_analysis):
+            best_settings = dict(applied_settings)
+            best_analysis = analysis
+            if report_progress is not None:
+                report_progress(
+                    stage,
+                    min(0.9, completed_steps / total_steps),
+                    message,
+                    analysis,
+                )
+        return applied_settings, analysis
+
+    for index, candidate in enumerate(initial_candidates, start=1):
+        consider(
+            candidate,
+            stage="baseline",
+            message=f"Analyzing baseline candidate {index} of {len(initial_candidates)}.",
+        )
+
+    if best_settings is None or best_analysis is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Calibration target not found. Make sure the 6-color calibration plate is fully visible and not clipped.",
+        )
+
+    if exposure_control is not None:
+        exposure_min = _as_number(exposure_control.get("min"))
+        exposure_max = _as_number(exposure_control.get("max"))
+        current_exposure = _as_number(best_settings.get("exposure"))
+        if exposure_min is not None and exposure_max is not None and current_exposure is not None:
+            low = max(exposure_min, min(current_exposure, exposure_max))
+            high = exposure_max
+            if exposure_min < current_exposure:
+                low = exposure_min
+            trial = current_exposure
+            last_quantized: float | None = None
+            for index in range(6):
+                candidate = dict(best_settings)
+                candidate["exposure"] = trial
+                if auto_exposure_control is not None:
+                    candidate["auto_exposure"] = False
+                _, analysis = consider(
+                    candidate,
+                    stage="exposure_search",
+                    message=f"Evaluating exposure candidate {index + 1} of 6.",
+                )
+                if analysis is None:
+                    break
+                direction = _exposure_direction(analysis)
+                quantized_trial = float(candidate["exposure"])
+                if direction > 0:
+                    high = min(high, quantized_trial)
+                elif direction < 0:
+                    low = max(low, quantized_trial)
+                else:
+                    break
+                if high <= low:
+                    break
+                next_trial = float(np.sqrt(low * high)) if low > 0 else float((low + high) / 2.0)
+                next_trial = float(
+                    _quantize_numeric_value(
+                        max(exposure_min, min(exposure_max, next_trial)),
+                        exposure_min,
+                        _as_number(exposure_control.get("step")),
+                    )
+                )
+                if last_quantized is not None and abs(next_trial - last_quantized) < 1e-6:
+                    break
+                last_quantized = quantized_trial
+                trial = next_trial
+
+    def refine_control(
+        control_key: str,
+        control: Dict[str, Any] | None,
+        *,
+        stage: str,
+        message_prefix: str,
+        count: int,
+        passes: int,
+        prefer_log: bool = False,
+        relative_span: float = 0.28,
+        linear_span_fraction: float = 0.08,
+    ) -> None:
+        nonlocal best_settings
+        if control is None or best_settings is None:
+            return
+        for pass_index in range(passes):
+            if best_settings is None:
+                break
+            focused_values = _focused_numeric_control_candidates(
+                control,
+                best_settings.get(control_key),
+                count=count,
+                prefer_log=prefer_log,
+                relative_span=relative_span,
+                linear_span_fraction=linear_span_fraction,
+            )
+            total = len(focused_values)
+            for candidate_index, value in enumerate(focused_values, start=1):
+                if best_settings is None:
+                    break
+                candidate = dict(best_settings)
+                candidate[control_key] = value
+                if control_key == "exposure" and auto_exposure_control is not None:
+                    candidate["auto_exposure"] = False
+                if control_key == "white_balance_temperature" and auto_wb_control is not None:
+                    candidate["auto_white_balance"] = False
+                consider(
+                    candidate,
+                    stage=stage,
+                    message=f"{message_prefix} {candidate_index} of {total} (pass {pass_index + 1}).",
+                )
+
+    if gain_control is not None:
+        for refine_index, gain_value in enumerate(
+            _focused_numeric_control_candidates(
+                gain_control,
+                best_settings.get("gain"),
+                count=3,
+                linear_span_fraction=0.08,
+            ),
+            start=1,
+        ):
+            candidate = dict(best_settings)
+            candidate["gain"] = gain_value
+            consider(
+                candidate,
+                stage="exposure_refine",
+                message=f"Refining gain candidate {refine_index} of 3.",
+            )
+
+    if wb_control is not None:
+        wb_min = _as_number(wb_control.get("min"))
+        wb_max = _as_number(wb_control.get("max"))
+        current_wb = _as_number(best_settings.get("white_balance_temperature"))
+        if wb_min is not None and wb_max is not None and current_wb is not None:
+            low = wb_min
+            high = wb_max
+            trial = current_wb
+            last_quantized: float | None = None
+            for wb_index in range(5):
+                quantized_trial = float(
+                    _quantize_numeric_value(
+                        max(wb_min, min(wb_max, trial)),
+                        wb_min,
+                        _as_number(wb_control.get("step")),
+                    )
+                )
+                if last_quantized is not None and abs(quantized_trial - last_quantized) < 1e-6:
+                    break
+                last_quantized = quantized_trial
+                candidate = dict(best_settings)
+                candidate["white_balance_temperature"] = quantized_trial
+                if auto_wb_control is not None:
+                    candidate["auto_white_balance"] = False
+                _, analysis = consider(
+                    candidate,
+                    stage="white_balance_search",
+                    message=f"Evaluating white balance candidate {wb_index + 1} of 5.",
+                )
+                if analysis is None:
+                    break
+                direction = _white_balance_direction(analysis)
+                if direction > 0:
+                    low = max(low, quantized_trial)
+                elif direction < 0:
+                    high = min(high, quantized_trial)
+                else:
+                    break
+                if high <= low:
+                    break
+                trial = float((low + high) / 2.0)
+
+    for control_key, control in [
+        ("brightness", brightness_control),
+        ("contrast", contrast_control),
+        ("saturation", saturation_control),
+    ]:
+        if control is None:
+            continue
+        focused_values = _focused_numeric_control_candidates(
+            control,
+            best_settings.get(control_key),
+            count=3,
+            linear_span_fraction=0.06,
+        )
+        total = len(focused_values)
+        for candidate_index, value in enumerate(focused_values, start=1):
+            candidate = dict(best_settings)
+            candidate[control_key] = value
+            consider(
+                candidate,
+                stage="tone_search",
+                message=f"Refining {control_key.replace('_', ' ')} candidate {candidate_index} of {total}.",
+            )
+
+    refine_control(
+        "white_balance_temperature",
+        wb_control,
+        stage="polish_search",
+        message_prefix="Polishing white balance candidate",
+        count=7,
+        passes=2,
+        linear_span_fraction=0.14,
+    )
+    refine_control(
+        "exposure",
+        exposure_control,
+        stage="polish_search",
+        message_prefix="Polishing exposure candidate",
+        count=7,
+        passes=2,
+        prefer_log=True,
+        relative_span=0.42,
+    )
+    refine_control(
+        "brightness",
+        brightness_control,
+        stage="polish_search",
+        message_prefix="Polishing brightness candidate",
+        count=5,
+        passes=2,
+        linear_span_fraction=0.12,
+    )
+    refine_control(
+        "contrast",
+        contrast_control,
+        stage="polish_search",
+        message_prefix="Polishing contrast candidate",
+        count=5,
+        passes=2,
+        linear_span_fraction=0.12,
+    )
+    refine_control(
+        "saturation",
+        saturation_control,
+        stage="polish_search",
+        message_prefix="Polishing saturation candidate",
+        count=5,
+        passes=2,
+        linear_span_fraction=0.12,
+    )
+    refine_control(
+        "gamma",
+        gamma_control,
+        stage="polish_search",
+        message_prefix="Polishing gamma candidate",
+        count=5,
+        passes=2,
+        linear_span_fraction=0.12,
+    )
+
+    if best_settings is None or best_analysis is None:
+        raise HTTPException(status_code=400, detail="Calibration failed to find usable settings.")
+
+    return best_settings, best_analysis
+
+
+def _calibrate_android_camera_device_settings(
+    role: str,
+    source: str,
+    current_settings: Dict[str, Any],
+    capabilities: Dict[str, Any],
+    *,
+    report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    base_settings = {
+        "exposure_compensation": int(current_settings.get("exposure_compensation", 0)),
+        "ae_lock": False,
+        "awb_lock": False,
+        "white_balance_mode": str(current_settings.get("white_balance_mode", "auto")),
+        "processing_mode": str(current_settings.get("processing_mode", "standard")),
+    }
+
+    exposure_min = int(capabilities.get("exposure_compensation_min", 0))
+    exposure_max = int(capabilities.get("exposure_compensation_max", 0))
+    white_balance_modes = [
+        str(mode)
+        for mode in capabilities.get("white_balance_modes", ["auto"])
+        if isinstance(mode, str) and mode
+    ] or ["auto"]
+
+    best_settings: Dict[str, int | float | bool] | None = None
+    best_analysis: Dict[str, Any] | None = None
+    total_steps = 1
+
+    def tick(stage: str, progress: float, message: str, analysis: Dict[str, Any] | None = None) -> None:
+        if report_progress is not None:
+            report_progress(stage, min(0.9, progress), message, analysis)
+
+    steps_done = 0
+
+    def consider(candidate: Dict[str, Any], *, stage: str, message: str) -> None:
+        nonlocal best_settings, best_analysis
+        nonlocal steps_done
+        steps_done += 1
+        tick(stage, steps_done / total_steps, message)
+        applied_settings, analysis = _analyze_candidate_settings(role, source, candidate)
+        if analysis is None:
+            return
+        if best_analysis is None or _calibration_selection_value(analysis) > _calibration_selection_value(best_analysis):
+            best_settings = dict(applied_settings)
+            best_analysis = analysis
+            tick(stage, steps_done / total_steps, message, analysis)
+
+    exposure_values = sorted(
+        {
+            exposure_min,
+            exposure_max,
+            int(base_settings["exposure_compensation"]),
+            *[
+                int(round(value))
+                for value in np.linspace(exposure_min, exposure_max, num=max(3, min(7, exposure_max - exposure_min + 1))).tolist()
+            ],
+        }
+    )
+    total_steps = max(1, 1 + len(exposure_values) + len(white_balance_modes))
+
+    consider(
+        base_settings,
+        stage="baseline",
+        message="Analyzing baseline candidate 1 of 1.",
+    )
+
+    for index, exposure_value in enumerate(exposure_values, start=1):
+        candidate = dict(base_settings)
+        candidate["exposure_compensation"] = int(exposure_value)
+        consider(
+            candidate,
+            stage="exposure_search",
+            message=f"Evaluating exposure candidate {index} of {len(exposure_values)}.",
+        )
+
+    if best_settings is None or best_analysis is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Calibration target not found. Make sure the 6-color calibration plate is fully visible and not clipped.",
+        )
+
+    wb_base = dict(best_settings)
+    wb_base["ae_lock"] = False
+    wb_base["awb_lock"] = False
+    for index, mode in enumerate(white_balance_modes, start=1):
+        candidate = dict(wb_base)
+        candidate["white_balance_mode"] = mode
+        consider(
+            candidate,
+            stage="white_balance_search",
+            message=f"Evaluating white balance candidate {index} of {len(white_balance_modes)}.",
+        )
+
+    if best_settings is None or best_analysis is None:
+        raise HTTPException(status_code=400, detail="Calibration failed to find usable settings.")
+
+    if bool(capabilities.get("supports_ae_lock")):
+        best_settings["ae_lock"] = True
+    if bool(capabilities.get("supports_awb_lock")):
+        best_settings["awb_lock"] = True
+
+    return best_settings, best_analysis
+
+
+def _run_camera_calibration_sync(
+    role: str,
+    *,
+    report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+) -> Dict[str, Any]:
+    current_response = get_camera_device_settings(role)
+    source = current_response.get("source")
+    provider = current_response.get("provider")
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+    if not bool(current_response.get("supported")):
+        raise HTTPException(status_code=400, detail=current_response.get("message") or "This camera cannot be calibrated through the current control backend.")
+
+    if provider == "android-camera-app":
+        original_settings = (
+            dict(current_response.get("settings"))
+            if isinstance(current_response.get("settings"), dict)
+            else {}
+        )
+    else:
+        original_settings = cameraDeviceSettingsToDict(
+            parseCameraDeviceSettings(current_response.get("settings"))
+        )
+
+    try:
+        if provider == "usb-opencv":
+            controls = current_response.get("controls")
+            if not isinstance(controls, list) or not isinstance(source, int):
+                raise HTTPException(status_code=400, detail="USB camera controls are not available for calibration.")
+            if report_progress is not None:
+                report_progress("preparing", 0.05, "Preparing USB camera calibration.", None)
+            best_settings, analysis = _calibrate_usb_camera_device_settings(
+                role,
+                source,
+                controls,
+                original_settings,
+                report_progress=report_progress,
+            )
+        elif provider == "android-camera-app":
+            capabilities = current_response.get("capabilities")
+            if not isinstance(capabilities, dict) or not isinstance(source, str):
+                raise HTTPException(status_code=400, detail="Android camera capabilities are not available for calibration.")
+            if report_progress is not None:
+                report_progress("preparing", 0.05, "Preparing Android camera calibration.", None)
+            best_settings, analysis = _calibrate_android_camera_device_settings(
+                role,
+                source,
+                current_response.get("settings") if isinstance(current_response.get("settings"), dict) else {},
+                capabilities,
+                report_progress=report_progress,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="This camera provider does not support target-based calibration yet.",
+            )
+
+        if report_progress is not None:
+            report_progress("saving", 0.93, "Saving calibrated camera settings.", analysis)
+        saved_started_at = time.time()
+        saved = save_camera_device_settings(role, best_settings)
+        time.sleep(0.35)
+        if report_progress is not None:
+            report_progress("verifying", 0.97, "Verifying the saved calibration on the live feed.", analysis)
+        final_frame = _capture_frame_for_calibration(
+            role,
+            source,
+            after_timestamp=saved_started_at,
+            fallback_settings=best_settings,
+        )
+        final_analysis = analyze_calibration_target(final_frame) if final_frame is not None else None
+        chosen_analysis = analysis
+        if final_analysis is not None and getattr(final_analysis, "tile_samples", None):
+            chosen_analysis = final_analysis.to_dict()
+        result = {
+            **saved,
+            "analysis": chosen_analysis,
+            "message": "Camera calibrated from the 6-color target plate and settings saved.",
+        }
+        if report_progress is not None:
+            report_progress("completed", 1.0, "Camera calibration finished.", result.get("analysis"))
+        return result
+    except HTTPException:
+        _restore_preview_settings(role, original_settings)
+        raise
+    except Exception as exc:
+        _restore_preview_settings(role, original_settings)
+        raise HTTPException(status_code=500, detail=f"Camera calibration failed: {exc}")
+
+
+def _run_camera_calibration_task(task_id: str, role: str) -> None:
+    def report_progress(stage: str, progress: float, message: str, analysis: Dict[str, Any] | None = None) -> None:
+        _update_camera_calibration_task(
+            task_id,
+            status="running" if stage != "completed" else "completed",
+            stage=stage,
+            progress=max(0.0, min(1.0, float(progress))),
+            message=message,
+            analysis_preview=analysis,
+        )
+
+    try:
+        _update_camera_calibration_task(
+            task_id,
+            status="running",
+            stage="starting",
+            progress=0.01,
+            message="Starting camera calibration.",
+        )
+        result = _run_camera_calibration_sync(role, report_progress=report_progress)
+        _update_camera_calibration_task(
+            task_id,
+            status="completed",
+            stage="completed",
+            progress=1.0,
+            message=str(result.get("message") or "Camera calibration finished."),
+            result=result,
+            error=None,
+        )
+    except HTTPException as exc:
+        _update_camera_calibration_task(
+            task_id,
+            status="failed",
+            stage="failed",
+            progress=1.0,
+            message="Camera calibration failed.",
+            error=str(exc.detail),
+        )
+    except Exception as exc:
+        _update_camera_calibration_task(
+            task_id,
+            status="failed",
+            stage="failed",
+            progress=1.0,
+            message="Camera calibration failed.",
+            error=str(exc),
+        )
+
+
+@app.post("/api/cameras/device-settings/{role}/calibrate-target")
+def start_camera_device_settings_calibration_from_target(role: str) -> Dict[str, Any]:
+    current_response = get_camera_device_settings(role)
+    source = current_response.get("source")
+    provider = str(current_response.get("provider") or "unknown")
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+    if not bool(current_response.get("supported")):
+        raise HTTPException(status_code=400, detail=current_response.get("message") or "This camera cannot be calibrated through the current control backend.")
+
+    task_id = _create_camera_calibration_task(role, provider, source)
+    thread = threading.Thread(
+        target=_run_camera_calibration_task,
+        args=(task_id, role),
+        daemon=True,
+    )
+    thread.start()
+    task = _get_camera_calibration_task(task_id)
+    assert task is not None
+    return {
+        "ok": True,
+        "started": True,
+        "task_id": task_id,
+        "role": role,
+        "provider": provider,
+        "source": source,
+        "status": task.get("status"),
+        "stage": task.get("stage"),
+        "progress": task.get("progress"),
+        "message": task.get("message"),
+    }
+
+
+@app.get("/api/cameras/device-settings/{role}/calibrate-target/{task_id}")
+def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict[str, Any]:
+    task = _get_camera_calibration_task(task_id)
+    if task is None or task.get("role") != role:
+        raise HTTPException(status_code=404, detail="Calibration task not found.")
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "role": role,
+        "provider": task.get("provider"),
+        "source": task.get("source"),
+        "status": task.get("status"),
+        "stage": task.get("stage"),
+        "progress": task.get("progress"),
+        "message": task.get("message"),
+        "result": task.get("result"),
+        "analysis_preview": task.get("analysis_preview"),
+        "error": task.get("error"),
     }
 
 

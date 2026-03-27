@@ -103,8 +103,7 @@ def main() -> None:
         except Exception as e:
             gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
-    gc.logger.info("Homing chute to zero...")
-    irl.chute.home()
+    gc.logger.info("Skipping automatic chute homing on backend startup.")
     # sensorlessHomeCarousel(gc, irl)
 
     telemetry = Telemetry(gc)

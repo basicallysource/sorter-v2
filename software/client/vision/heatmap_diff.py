@@ -19,6 +19,7 @@ CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 70
 MIN_HOT_THICKNESS_PIXELS = 12
 MAX_CONTOUR_ASPECT_RATIO = 3.0
+COLOR_THRESH_AB = 0
 
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> np.ndarray:
@@ -47,6 +48,7 @@ class HeatmapDiff:
         min_contour_area: int = MIN_CONTOUR_AREA,
         min_hot_thickness_px: int = MIN_HOT_THICKNESS_PIXELS,
         max_contour_aspect: float = MAX_CONTOUR_ASPECT_RATIO,
+        color_thresh_ab: int = COLOR_THRESH_AB,
         heat_gain: float = HEAT_GAIN,
         current_frames: int = CURRENT_FRAMES,
     ):
@@ -58,6 +60,7 @@ class HeatmapDiff:
         self._min_contour_area = min_contour_area
         self._min_hot_thickness_px = min_hot_thickness_px
         self._max_contour_aspect = max_contour_aspect
+        self._color_thresh_ab = color_thresh_ab
         self._heat_gain = heat_gain
         self._current_frames = current_frames
         self._baseline_gray: Optional[np.ndarray] = None
@@ -66,7 +69,7 @@ class HeatmapDiff:
         self._baseline_mask: Optional[np.ndarray] = None
         self._baseline_corners: Optional[List[Tuple[float, float]]] = None
         self._baseline_timestamp: float = 0.0
-        self._gray_ring: deque[np.ndarray] = deque(maxlen=30)
+        self._frame_ring: deque[np.ndarray] = deque(maxlen=30)
         self._last_ring_time: float = 0.0
         self._scale = scale
         self._full_size: Optional[Tuple[int, int]] = None
@@ -90,18 +93,18 @@ class HeatmapDiff:
         new_w, new_h = int(w * self._scale), int(h * self._scale)
         return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-    def pushFrame(self, gray: np.ndarray) -> None:
+    def pushFrame(self, frame: np.ndarray) -> None:
         now = time.time()
         if (now - self._last_ring_time) * 1000 >= CAPTURE_INTERVAL_MS:
-            self._gray_ring.append(self._downscale(gray))
+            self._frame_ring.append(self._downscale(frame))
             self._last_ring_time = now
             self._cached_result = None
 
     def _getAveraged(self, count: int) -> Optional[np.ndarray]:
-        n = min(count, len(self._gray_ring))
+        n = min(count, len(self._frame_ring))
         if n == 0:
             return None
-        frames = list(self._gray_ring)[-n:]
+        frames = list(self._frame_ring)[-n:]
         return _averageGrays(frames)
 
     def captureBaseline(self, corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> bool:
@@ -169,7 +172,7 @@ class HeatmapDiff:
         self._baseline_mask = None
         self._baseline_corners = None
         self._baseline_timestamp = 0.0
-        self._gray_ring.clear()
+        self._frame_ring.clear()
         self._cached_result = None
 
     def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
@@ -218,10 +221,21 @@ class HeatmapDiff:
         blur_k = self._blur_kernel | 1
         diff = cv2.GaussianBlur(diff, (blur_k, blur_k), 0)
 
+        if diff.ndim == 2:
+            diff_l = diff
+            diff_ab = None
+        else:
+            diff_l = diff[:, :, 0]
+            diff_ab = np.maximum(diff[:, :, 1], diff[:, :, 2])
+
         scaled_thickness = max(1, int(self._min_hot_thickness_px * self._scale))
         scaled_min_area = max(1, int(self._min_contour_area * self._scale * self._scale))
 
-        raw_hot = ((diff > self._pixel_thresh) & mask_bool).astype(np.uint8) * 255
+        raw_hot_l = diff_l > self._pixel_thresh
+        raw_hot_ab = np.zeros_like(raw_hot_l, dtype=bool)
+        if diff_ab is not None and self._color_thresh_ab > 0:
+            raw_hot_ab = diff_ab > self._color_thresh_ab
+        raw_hot = ((raw_hot_l | raw_hot_ab) & mask_bool).astype(np.uint8) * 255
         ek = max(1, scaled_thickness // 2)
         erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ek * 2 + 1, ek * 2 + 1))
         eroded = cv2.erode(raw_hot, erode_kernel)
@@ -242,7 +256,8 @@ class HeatmapDiff:
                 continue
             cv2.drawContours(hot, [contour], -1, 255, -1)
 
-        result = (diff, hot > 0, mask_bool)
+        score_map = diff_l if diff_ab is None else np.maximum(diff_l, diff_ab)
+        result = (score_map, hot > 0, mask_bool)
         self._cached_result = result
         return result
 

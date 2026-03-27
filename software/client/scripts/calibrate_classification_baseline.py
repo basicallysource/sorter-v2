@@ -1,7 +1,6 @@
 import sys
 import os
 import time
-import shutil
 import glob as globmod
 from datetime import datetime
 
@@ -29,30 +28,30 @@ DEGREES_PER_FRAME = -90
 MOVE_TIMEOUT_MS = 2000
 
 
-def loadExistingFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
+def loadExistingLabFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
     frames = []
-    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_*.png")))
+    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_lab_*.png")))
     for p in paths:
-        gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
-        if gray is not None:
-            frames.append(gray)
+        lab_frame = cv2.imread(p, cv2.IMREAD_COLOR)
+        if lab_frame is not None:
+            frames.append(lab_frame)
     return frames
 
 
-def saveEnvelope(baseline_dir: Path, prefix: str, frames: list[np.ndarray]) -> None:
+def saveLabEnvelope(baseline_dir: Path, prefix: str, frames: list[np.ndarray]) -> None:
     stack = np.stack(frames, axis=0)
-    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_min.png"), np.min(stack, axis=0).astype(np.uint8))
-    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_max.png"), np.max(stack, axis=0).astype(np.uint8))
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_lab_min.png"), np.min(stack, axis=0).astype(np.uint8))
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_lab_max.png"), np.max(stack, axis=0).astype(np.uint8))
 
 
-def getLatestGray(vision: VisionManager, cam: str) -> np.ndarray | None:
+def getLatestRaw(vision: VisionManager, cam: str) -> np.ndarray | None:
     if cam == "top":
         frame = vision.classification_top_frame
     else:
         frame = vision.classification_bottom_frame
     if frame is None:
         return None
-    return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+    return frame.raw
 
 
 def calibrateCamera(
@@ -70,8 +69,9 @@ def calibrateCamera(
         for p in globmod.glob(str(cam_dir / f"{prefix}_*.png")):
             os.remove(p)
 
-    frames = loadExistingFrames(cam_dir, prefix)
-    existing_count = len(frames)
+    lab_frames = loadExistingLabFrames(cam_dir, prefix)
+    existing_count = len(lab_frames)
+    lab_frames = lab_frames[:existing_count]
     frames_needed = MAX_FRAMES - existing_count
 
     if frames_needed <= 0:
@@ -92,21 +92,25 @@ def calibrateCamera(
         irl.carousel_stepper.move_degrees_blocking(move)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
 
-        gray = getLatestGray(vision, cam)
-        if gray is None:
+        raw = getLatestRaw(vision, cam)
+        if raw is None:
             print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} - no frame")
             continue
 
-        frames.append(gray)
-        cv2.imwrite(str(cam_dir / f"{prefix}_frame_{len(frames)-1:03d}.png"), gray)
-        saveEnvelope(cam_dir, prefix, frames)
-        print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(frames)} total)")
+        lab_frame = cv2.cvtColor(raw, cv2.COLOR_BGR2LAB)
 
-    if not frames:
+        lab_frames.append(lab_frame)
+
+        frame_idx = len(lab_frames) - 1
+        cv2.imwrite(str(cam_dir / f"{prefix}_frame_lab_{frame_idx:03d}.png"), lab_frame)
+        saveLabEnvelope(cam_dir, prefix, lab_frames)
+        print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(lab_frames)} total)")
+
+    if not lab_frames:
         print(f"  {cam}: no frames captured")
         return False
 
-    print(f"  {cam}: done. {len(frames)} frames + envelope")
+    print(f"  {cam}: done. {len(lab_frames)} frames + lab envelope")
     return True
 
 
@@ -153,7 +157,6 @@ def main() -> int:
     print(f"done. baseline in {baseline_dir}")
 
     vision.stop()
-    irl.disableSteppers()
     return 0 if ok else 1
 
 

@@ -218,6 +218,7 @@ class VisionManager:
             scale=0.25,
             gc=self.gc,
             pixel_thresh=c.pixel_thresh,
+            color_thresh_ab=c.color_thresh_ab,
             blur_kernel=c.blur_kernel,
             min_hot_pixels=c.min_hot_pixels,
             trigger_score=c.trigger_score,
@@ -240,23 +241,19 @@ class VisionManager:
         for cam_key, capture in [("top", self._classification_top_capture), ("bottom", self._classification_bottom_capture)]:
             if capture is None:
                 continue
-            min_path = baseline_dir / f"{cam_key}_baseline_min.png"
-            max_path = baseline_dir / f"{cam_key}_baseline_max.png"
-            if not (min_path.exists() and max_path.exists()):
+            lab_min_path = baseline_dir / f"{cam_key}_baseline_lab_min.png"
+            lab_max_path = baseline_dir / f"{cam_key}_baseline_lab_max.png"
+            baseline_min = cv2.imread(str(lab_min_path), cv2.IMREAD_COLOR)
+            baseline_max = cv2.imread(str(lab_max_path), cv2.IMREAD_COLOR)
+            if baseline_min is None or baseline_max is None:
                 self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
                 continue
 
-            baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
-            baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
-            if baseline_min is None or baseline_max is None:
-                self.gc.logger.warn(f"Failed to read classification {cam_key} baseline images.")
-                continue
-
             calibration_frames: List[np.ndarray] = []
-            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_*.png"))):
-                gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
-                if gray is not None:
-                    calibration_frames.append(gray)
+            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_lab_*.png"))):
+                lab_frame = cv2.imread(p, cv2.IMREAD_COLOR)
+                if lab_frame is not None:
+                    calibration_frames.append(lab_frame)
 
             frame = capture.latest_frame
             if frame is not None:
@@ -318,7 +315,7 @@ class VisionManager:
                 )
                 self._classification_bottom_analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
+            self.gc.logger.info(f"Classification {cam_key} baseline loaded (lab, margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
             loaded_any = True
 
         return loaded_any
@@ -329,7 +326,7 @@ class VisionManager:
         frame = self._classification_top_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
 
     def _getLatestClassificationBottomGray(self) -> np.ndarray | None:
         if self._classification_bottom_capture is None:
@@ -337,7 +334,7 @@ class VisionManager:
         frame = self._classification_bottom_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
 
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
         if cam == "top" and self._classification_top_analysis:

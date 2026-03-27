@@ -43,13 +43,13 @@ ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k", "mask_erode_px"}
 app = Flask(__name__)
 
 
-def loadBaselineFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
+def loadBaselineLabFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
     frames = []
-    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_*.png")))
+    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_lab_*.png")))
     for p in paths:
-        gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
-        if gray is not None:
-            frames.append(gray)
+        lab_frame = cv2.imread(p, cv2.IMREAD_COLOR)
+        if lab_frame is not None:
+            frames.append(lab_frame)
     return frames
 
 
@@ -102,6 +102,7 @@ class AppState:
             "envelope_margin": float(_cfg.envelope_margin),
             "adaptive_std_k": float(_cfg.adaptive_std_k),
             "pixel_thresh": float(_cfg.pixel_thresh),
+            "color_thresh_ab": float(_cfg.color_thresh_ab),
             "blur_kernel": float(_cfg.blur_kernel),
             "min_hot_pixels": float(_cfg.min_hot_pixels),
             "trigger_score": float(_cfg.trigger_score),
@@ -143,6 +144,7 @@ class AppState:
         p = self.params
         h = self.heatmap
         h._pixel_thresh = int(p["pixel_thresh"])
+        h._color_thresh_ab = int(p["color_thresh_ab"])
         h._blur_kernel = int(p["blur_kernel"])
         h._min_hot_pixels = int(p["min_hot_pixels"])
         h._trigger_score = int(p["trigger_score"])
@@ -187,8 +189,8 @@ class AppState:
         while self._running:
             frame = self.capture.latest_frame
             if frame is not None:
-                gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
-                self.heatmap.pushFrame(gray)
+                diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+                self.heatmap.pushFrame(diff_frame)
                 with self.lock:
                     if self._recording and self._record_writer is not None:
                         self._record_writer.write(frame.raw)
@@ -522,6 +524,14 @@ HTML = """
                     <span class="val"></span>
                 </div>
                 <span class="desc">Min diff value to count as hot pixel</span>
+            </div>
+            <div class="param">
+                <label>Color Threshold (LAB a/b)</label>
+                <div class="row">
+                    <input type="range" min="0" max="40" step="1" data-key="color_thresh_ab" />
+                    <span class="val"></span>
+                </div>
+                <span class="desc">Color-only diff threshold (0 disables color channel trigger)</span>
             </div>
             <div class="param">
                 <label>Blur Kernel</label>
@@ -982,14 +992,16 @@ if __name__ == "__main__":
         sys.exit(1)
 
     baseline_dir = BLOB_DIR / "classification_baseline"
-    min_img = cv2.imread(str(baseline_dir / "top_baseline_min.png"), cv2.IMREAD_GRAYSCALE)
-    max_img = cv2.imread(str(baseline_dir / "top_baseline_max.png"), cv2.IMREAD_GRAYSCALE)
+    lab_min_path = baseline_dir / "top_baseline_lab_min.png"
+    lab_max_path = baseline_dir / "top_baseline_lab_max.png"
+    min_img = cv2.imread(str(lab_min_path), cv2.IMREAD_COLOR)
+    max_img = cv2.imread(str(lab_max_path), cv2.IMREAD_COLOR)
     if min_img is None or max_img is None:
-        print("ERROR: no baseline images. run calibrate_classification_baseline.py first.")
+        print("ERROR: no LAB baseline images. run calibrate_classification_baseline.py first.")
         sys.exit(1)
 
-    calibration_frames = loadBaselineFrames(baseline_dir, "top")
-    print(f"loaded {len(calibration_frames)} calibration frames")
+    calibration_frames = loadBaselineLabFrames(baseline_dir, "top")
+    print(f"loaded {len(calibration_frames)} calibration frames (lab)")
 
     gc = mkGlobalConfig()
     irl_config = mkIRLConfig()

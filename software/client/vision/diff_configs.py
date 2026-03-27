@@ -21,10 +21,11 @@ class CarouselDiffConfig:
 class ClassificationDiffConfig:
     # envelope improvements applied on top of calibration min/max
     envelope_margin: int = 4
-    adaptive_std_k: float = 1.0
+    adaptive_std_k: float = 1
 
     # heatmap diff params
-    pixel_thresh: int = 22
+    pixel_thresh: int = 15
+    color_thresh_ab: int = 10
     blur_kernel: int = 7
     min_hot_pixels: int = 50
     trigger_score: int = 17
@@ -37,7 +38,7 @@ class ClassificationDiffConfig:
     min_bbox_area: int = 0
 
     # crop sent to classifier
-    crop_margin_px: int = 50
+    crop_margin_px: int = 70
     edge_bias_mult: float = 2.0
     edge_bias_threshold_px: int = 80
 

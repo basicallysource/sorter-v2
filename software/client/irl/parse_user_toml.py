@@ -29,7 +29,18 @@ LOGICAL_STEPPER_BINDING_BASES = {
     "carousel": "carousel",
     "chute": "chute_stepper",
 }
-PHYSICAL_STEPPER_BINDING_NAMES = set(LOGICAL_STEPPER_BINDING_BASES.values())
+PHYSICAL_STEPPER_BINDING_ALIASES = {
+    "first_c_channel_rotor": "c_channel_1_rotor",
+    "second_c_channel_rotor": "c_channel_2_rotor",
+    "third_c_channel_rotor": "c_channel_3_rotor",
+}
+PHYSICAL_STEPPER_BINDING_NAMES = set(LOGICAL_STEPPER_BINDING_BASES.values()) | set(
+    PHYSICAL_STEPPER_BINDING_ALIASES
+)
+
+
+def normalizePhysicalStepperBindingName(stepper_name: str) -> str:
+    return PHYSICAL_STEPPER_BINDING_ALIASES.get(stepper_name, stepper_name)
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -158,7 +169,11 @@ def loadStepperCurrentOverrides(
                 f"Stepper '{stepper_name}' current override missing fields; using defaults for {', '.join(missing_fields)}."
             )
 
-        overrides[stepper_name] = (irun, ihold, ihold_delay)
+        overrides[normalizePhysicalStepperBindingName(stepper_name)] = (
+            irun,
+            ihold,
+            ihold_delay,
+        )
 
     return overrides
 
@@ -206,7 +221,7 @@ def loadStepperBindingOverrides(
                 f"expected one of {sorted(PHYSICAL_STEPPER_BINDING_NAMES)}."
             )
             continue
-        overrides[logical_name] = physical_name
+        overrides[logical_name] = normalizePhysicalStepperBindingName(physical_name)
 
     return overrides
 

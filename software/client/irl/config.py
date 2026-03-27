@@ -3,9 +3,17 @@ import time
 from global_config import GlobalConfig
 from hardware.bus import MCUBus
 from hardware.sorter_interface import SorterInterface
+from machine_platform import (
+    build_machine_profile,
+    build_servo_controller,
+    discover_control_boards,
+)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from machine_platform.control_board import ControlBoard
+    from machine_platform.machine_profile import MachineProfile
+    from machine_platform.servo_controller import ServoController
     from hardware.sorter_interface import StepperMotor, ServoMotor
     from subsystems.distribution.chute import Chute
 
@@ -209,9 +217,15 @@ class IRLInterface:
     chute: "Chute"
     distribution_layout: DistributionLayout
     interfaces: dict[str, SorterInterface]
+    control_boards: dict[str, "ControlBoard"]
+    servo_controller: "ServoController | None"
+    machine_profile: "MachineProfile | None"
 
     def __init__(self):
         self.interfaces: dict[str, SorterInterface] = {}
+        self.control_boards = {}
+        self.servo_controller = None
+        self.machine_profile = None
 
     def enableSteppers(self) -> None:
         for stepper_name in [
@@ -551,45 +565,6 @@ REQUIRED_STEPPER_NAMES = [
 ]
 HARDWARE_DISCOVERY_ATTEMPTS = 8
 HARDWARE_DISCOVERY_RETRY_DELAY_S = 0.75
-
-
-def _stepper_names_for_interface(
-    sorter_interface: SorterInterface,
-    gc: GlobalConfig,
-    port: str,
-    address: int,
-) -> tuple[str, list[str]]:
-    board_info = sorter_interface._board_info
-    device_name = board_info.get("device_name", sorter_interface.name)
-    stepper_names = board_info.get("stepper_names", [])
-    available_stepper_count = len(sorter_interface.steppers)
-
-    if not stepper_names:
-        gc.logger.warning(
-            f"{device_name} on {port}:{address} did not report stepper_names; using generic names"
-        )
-        stepper_names = [
-            f"{device_name.lower().replace(' ', '_')}_ch{i}"
-            for i in range(available_stepper_count)
-        ]
-
-    if len(stepper_names) > available_stepper_count:
-        gc.logger.warning(
-            f"{device_name} reported {len(stepper_names)} stepper_names but only {available_stepper_count} channels; truncating"
-        )
-        stepper_names = stepper_names[:available_stepper_count]
-
-    return device_name, stepper_names
-
-
-def _close_mcu_buses(buses: list[MCUBus]) -> None:
-    for bus in buses:
-        try:
-            bus._serial.close()
-        except Exception:
-            pass
-
-
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
@@ -604,116 +579,47 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
     servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
+    mcu_ports = MCUBus.enumerate_buses()
+    control_boards = discover_control_boards(
+        gc,
+        REQUIRED_STEPPER_NAMES,
+        attempts=HARDWARE_DISCOVERY_ATTEMPTS,
+        retry_delay_s=HARDWARE_DISCOVERY_RETRY_DELAY_S,
+    )
+    irl_interface.interfaces = {
+        board.interface.name: board.interface for board in control_boards
+    }
+    irl_interface.control_boards = {
+        board.board_key: board for board in control_boards
+    }
 
-    ports = MCUBus.enumerate_buses()
-    if not ports:
-        raise RuntimeError("No MCU buses found.")
-    discovered_interfaces: list[tuple[str, int, SorterInterface]] = []
+    stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
+    distribution_board: "ControlBoard | None" = None
 
-    for attempt in range(1, HARDWARE_DISCOVERY_ATTEMPTS + 1):
-        attempt_buses: list[MCUBus] = []
-        attempt_interfaces: list[tuple[str, int, SorterInterface]] = []
-
-        for port in ports:
-            gc.logger.info(f"Scanning SorterInterface devices on {port}")
-            try:
-                bus = MCUBus(port=port)
-            except Exception as e:
-                gc.logger.warning(f"Failed to open MCU bus on {port}: {e}")
-                continue
-
-            attempt_buses.append(bus)
-            devices = bus.scan_devices()
-            if not devices:
-                gc.logger.warning(f"No SorterInterface devices found on {port}")
-                continue
-
-            for address in devices:
-                try:
-                    sorter_interface = SorterInterface(bus, address, gc)
-                    attempt_interfaces.append((port, address, sorter_interface))
-                    gc.logger.info(
-                        f"SorterInterface initialized: port={port} address={address} name={sorter_interface.name}"
-                    )
-                except Exception as e:
-                    gc.logger.warning(
-                        f"Failed to initialize SorterInterface on {port} addr {address}: {e}"
-                    )
-
-        if not attempt_interfaces:
-            _close_mcu_buses(attempt_buses)
-            if attempt == HARDWARE_DISCOVERY_ATTEMPTS:
-                raise RuntimeError(f"No SorterInterface devices found on buses: {ports}")
-            gc.logger.warning(
-                f"No SorterInterface devices fully initialized on attempt "
-                f"{attempt}/{HARDWARE_DISCOVERY_ATTEMPTS}. Retrying in "
-                f"{HARDWARE_DISCOVERY_RETRY_DELAY_S:.2f}s..."
-            )
-            time.sleep(HARDWARE_DISCOVERY_RETRY_DELAY_S)
-            continue
-
-        available_stepper_names: set[str] = set()
-        for port, address, sorter_interface in attempt_interfaces:
-            _, stepper_names = _stepper_names_for_interface(
-                sorter_interface, gc, port, address
-            )
-            available_stepper_names.update(stepper_names)
-
-        missing_steppers = [
-            stepper_name
-            for stepper_name in REQUIRED_STEPPER_NAMES
-            if stepper_name not in available_stepper_names
-        ]
-        if not missing_steppers:
-            discovered_interfaces = attempt_interfaces
-            break
-
-        _close_mcu_buses(attempt_buses)
-        if attempt == HARDWARE_DISCOVERY_ATTEMPTS:
-            raise RuntimeError(
-                "Incomplete hardware discovery after "
-                f"{HARDWARE_DISCOVERY_ATTEMPTS} attempts. Missing required "
-                f"steppers: {missing_steppers}"
-            )
-        gc.logger.warning(
-            f"Incomplete hardware discovery on attempt "
-            f"{attempt}/{HARDWARE_DISCOVERY_ATTEMPTS}. Missing required "
-            f"steppers: {missing_steppers}. Retrying in "
-            f"{HARDWARE_DISCOVERY_RETRY_DELAY_S:.2f}s..."
-        )
-        time.sleep(HARDWARE_DISCOVERY_RETRY_DELAY_S)
-
-    irl_interface.interfaces = {si.name: si for _, _, si in discovered_interfaces}
-
-    stepper_entries: list[tuple[str, "StepperMotor", str, int, str]] = []
-    servo_source: SorterInterface | None = None
-    distribution_board: SorterInterface | None = None
-
-    for port, address, sorter_interface in discovered_interfaces:
-        device_name, stepper_names = _stepper_names_for_interface(
-            sorter_interface, gc, port, address
-        )
-
+    for board in control_boards:
+        identity = board.identity
         gc.logger.info(
-            f"Detected actuators on {device_name} ({port}:{address}): steppers={stepper_names}, servos={len(sorter_interface.servos)}"
+            f"Detected actuators on {identity.device_name} ({identity.port}:{identity.address}): "
+            f"family={identity.family}, role={identity.role}, "
+            f"steppers={list(board.logical_stepper_names)}, servos={len(board.servos)}"
         )
-
-        for channel, stepper_name in enumerate(stepper_names):
+        for discovered_stepper in board.iter_steppers():
             stepper_entries.append(
-                (stepper_name, sorter_interface.steppers[channel], port, address, device_name)
+                (
+                    discovered_stepper.canonical_name,
+                    discovered_stepper.physical_name,
+                    discovered_stepper.stepper,
+                    board,
+                )
             )
-
-        if servo_source is None and len(sorter_interface.servos) > 0:
-            servo_source = sorter_interface
-        if "chute_stepper" in stepper_names:
-            distribution_board = sorter_interface
-            servo_source = sorter_interface
+        if board.identity.role == "distribution":
+            distribution_board = board
 
     gc.logger.info(
-        f"Global actuator inventory: steppers={[name for name, _, _, _, _ in stepper_entries]}"
+        f"Global actuator inventory: steppers={[name for name, _, _, _ in stepper_entries]}"
     )
 
-    available_stepper_names = {name for name, _, _, _, _ in stepper_entries}
+    available_stepper_names = {name for name, _, _, _ in stepper_entries}
     for stepper_name in REQUIRED_STEPPER_NAMES:
         if stepper_name not in available_stepper_names:
             gc.logger.warning(
@@ -736,42 +642,43 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     bound_attrs: dict[str, str] = {}
 
-    # Bind steppers by physical firmware name, then remap to logical attrs if configured.
-    for stepper_name, stepper, port, address, device_name in stepper_entries:
-        attr_base = logical_attr_base_for_physical.get(stepper_name, stepper_name)
+    # Bind steppers by canonical physical name, then remap to logical attrs if configured.
+    for canonical_name, physical_name, stepper, board in stepper_entries:
+        identity = board.identity
+        attr_base = logical_attr_base_for_physical.get(canonical_name, canonical_name)
         attr = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
         if attr in bound_attrs:
             gc.logger.warning(
-                f"Stepper '{stepper_name}' at {device_name} ({port}:{address}) maps to logical attr "
+                f"Stepper '{physical_name}' at {identity.device_name} ({identity.port}:{identity.address}) maps to logical attr "
                 f"'{attr}', which is already bound to physical stepper '{bound_attrs[attr]}'. Keeping first binding."
             )
             continue
 
         stepper_config: StepperConfig | None = getattr(config, attr, None)
-        stepper.set_hardware_name(stepper_name)
+        stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
         if stepper_config is not None:
             stepper.set_microsteps(stepper_config.microsteps)
             stepper.set_speed_limits(16, stepper_config.default_steps_per_second)
             gc.logger.info(
-                f"Stepper '{attr_base}' (physical '{stepper_name}') config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
+                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
             )
         else:
             gc.logger.warn(
-                f"Stepper '{attr_base}' (physical '{stepper_name}') has no StepperConfig (attr='{attr}'), using defaults"
+                f"Stepper '{attr_base}' (physical '{physical_name}') has no StepperConfig (attr='{attr}'), using defaults"
             )
 
-        applyStepperCurrentOverride(stepper, stepper_name, stepper_current_overrides, gc)
+        applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False
         )
 
         setattr(irl_interface, attr, stepper)
-        bound_attrs[attr] = stepper_name
+        bound_attrs[attr] = physical_name
         gc.logger.info(
-            f"Initialized Stepper logical='{attr_base}' physical='{stepper_name}' from {device_name} "
-            f"({port}:{address}), channel={stepper.channel}, position={stepper.current_position_steps} steps, "
+            f"Initialized Stepper logical='{attr_base}' physical='{physical_name}' from {identity.device_name} "
+            f"({identity.port}:{identity.address}), channel={stepper.channel}, position={stepper.current_position_steps} steps, "
             f"direction_inverted={stepper.direction_inverted}"
         )
         time.sleep(0.1)
@@ -786,72 +693,26 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
-    irl_interface.servos = []
     waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
-
-    if waveshare_config is not None:
-        from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor
-
-        ws_port = waveshare_config.port
-        if ws_port is None:
-            # Auto-detect: find a USB serial device that is NOT one of our MCU buses
-            import serial.tools.list_ports
-            mcu_ports = set(ports)
-            for p in serial.tools.list_ports.comports():
-                if p.device not in mcu_ports and p.vid is not None:
-                    ws_port = p.device
-                    break
-        if ws_port is None:
-            raise RuntimeError("Waveshare servo backend configured but no serial port found. Set servo.port in config.")
-
-        gc.logger.info(f"Using Waveshare SC servo bus on {ws_port}")
-        ws_bus = ScServoBus(ws_port)
-
-        for i, layer in enumerate(irl_interface.distribution_layout.layers):
-            if i >= len(waveshare_config.channels):
-                raise IndexError(
-                    f"Layer {i} servo not configured. Only {len(waveshare_config.channels)} servo.channels defined."
-                )
-            ch_cfg = waveshare_config.channels[i]
-            servo = WaveshareServoMotor(ws_bus, ch_cfg.id, invert=ch_cfg.invert)
-            servo.initialize()
-            servo.set_name(f"layer_{i}_servo")
-            irl_interface.servos.append(servo)
-            gc.logger.info(
-                f"Initialized Waveshare Servo 'layer_{i}_servo' id={ch_cfg.id}, "
-                f"range={servo._min_limit}-{servo._max_limit}, invert={ch_cfg.invert}"
-            )
-    else:
-        # Default: PCA9685 servos via SorterInterface
-        if servo_source is None:
-            gc.logger.warning("No servo-capable SorterInterface detected")
-            servo_source = next(iter(irl_interface.interfaces.values()))
-
-        for i, layer in enumerate(irl_interface.distribution_layout.layers):
-            channel_id = servo_channel_config[i].id if i < len(servo_channel_config) else i
-            invert = servo_channel_config[i].invert if i < len(servo_channel_config) else False
-
-            if channel_id < 0 or channel_id >= len(servo_source.servos):
-                gc.logger.error(
-                    f"Layer {i} servo channel {channel_id} not available. "
-                    f"Only {len(servo_source.servos)} servos are configured."
-                )
-                raise IndexError(
-                    f"Layer {i} servo channel {channel_id} not available. "
-                    f"Only {len(servo_source.servos)} servos are configured."
-                )
-
-            servo = servo_source.servos[channel_id]
-            servo.set_name(f"layer_{i}_servo")
-            if invert:
-                servo.set_preset_angles(servo_closed_angle, servo_open_angle)
-            else:
-                servo.set_preset_angles(servo_open_angle, servo_closed_angle)
-            irl_interface.servos.append(servo)
-            gc.logger.info(
-                f"Initialized Servo 'layer_{i}_servo' on channel {channel_id}, "
-                f"angle={servo.angle}°, invert={invert}"
-            )
+    irl_interface.servo_controller = build_servo_controller(
+        gc,
+        control_boards=control_boards,
+        open_angle=servo_open_angle,
+        closed_angle=servo_closed_angle,
+        servo_channel_config=servo_channel_config,
+        waveshare_config=waveshare_config,
+        mcu_ports=mcu_ports,
+    )
+    irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
+        irl_interface.distribution_layout
+    )
+    irl_interface.machine_profile = build_machine_profile(
+        camera_layout=config.camera_layout,
+        servo_backend=irl_interface.servo_controller.backend_name,
+        stepper_bindings=stepper_binding_overrides,
+        stepper_direction_inverts=stepper_direction_inverts,
+        control_boards=control_boards,
+    )
 
     saved_categories = getBinCategories()
     if saved_categories is not None:
@@ -863,12 +724,17 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     from subsystems.distribution.chute import Chute
 
-    # On the SKR Pico distributor board, the chute endstop is wired to IO16,
-    # which the firmware exposes as digital input channel 3.
-    CHUTE_HOME_PIN_CHANNEL = 3
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
-    chute_home_pin = distribution_board.digital_inputs[CHUTE_HOME_PIN_CHANNEL]
+    chute_home_pin = distribution_board.get_input("chute_home")
+    if chute_home_pin is None:
+        gc.logger.warning(
+            "Distribution board does not declare a chute_home input alias; "
+            "falling back to digital input channel 3."
+        )
+        chute_home_pin = distribution_board.get_input(3)
+    if chute_home_pin is None:
+        raise RuntimeError("Distribution board chute home input is unavailable.")
 
     chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
     irl_interface.chute = Chute(

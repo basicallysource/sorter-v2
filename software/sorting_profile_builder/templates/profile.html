@@ -814,14 +814,21 @@ async function refreshPreview() {
     if (preview_pending) return;
     if (RULES.length === 0) { preview_stats = null; renderRuleList(); return; }
     preview_pending = true;
+    showPreviewLoading(true);
     let data = await apiJson('POST', `/api/profile/${PROFILE_ID}/preview`, {rules: RULES});
     preview_pending = false;
+    showPreviewLoading(false);
     if (data) {
         preview_stats = data;
         // only update counts, don't re-render editor (fixes dropdown bug)
         renderRuleList();
         updateEditorMatchCount();
     }
+}
+
+function showPreviewLoading(on) {
+    let el = document.getElementById('preview-loading');
+    if (el) el.style.display = on ? 'inline' : 'none';
 }
 
 function updateEditorMatchCount() {
@@ -831,7 +838,7 @@ function updateEditorMatchCount() {
 
 function ruleMatchCount(rule_id) {
     if (!preview_stats || !preview_stats.per_category) return null;
-    return preview_stats.per_category[rule_id] ?? 0;
+    return preview_stats.per_category[rule_id] ?? null;
 }
 
 // ========== LEFT PANE: RULE LIST ==========
@@ -844,11 +851,22 @@ function renderRuleList() {
         applyProfileTailwindUi(container);
         return;
     }
+    let fallback_entries = getRbFallbackEntries();
+    let rule_count = RULES.length;
+    let total_count = rule_count + fallback_entries.length + 1; // +1 for misc
+    let count_text = rule_count === total_count
+        ? `${rule_count} rules`
+        : `${rule_count} rules · ${total_count} total categories`;
+    let count_el = document.createElement('div');
+    count_el.className = 'text-xs text-slate-500 px-2 py-1';
+    count_el.textContent = count_text;
+    container.appendChild(count_el);
+
     for (let rule of RULES) {
         container.appendChild(mkRuleSummary(rule));
     }
     // rb fallback category cards
-    for (let entry of getRbFallbackEntries()) {
+    for (let entry of fallback_entries) {
         container.appendChild(mkRbCategoryCard(entry.key, entry.name, entry.count));
     }
     container.appendChild(mkEverythingElseCard());
@@ -856,6 +874,41 @@ function renderRuleList() {
     let save_all_btn = document.getElementById('btn-save-all');
     if (save_all_btn) save_all_btn.classList.toggle('hidden', !hasAnyDirty());
     applyProfileTailwindUi(container);
+}
+
+function rulePreviewStrip(rule) {
+    let parts_html = '';
+    let colors_html = '';
+    // sample part thumbnails
+    let samples = preview_stats?.samples?.[rule.id] || [];
+    if (samples.length > 0) {
+        let imgs = samples.slice(0, 3).map(s =>
+            s.part_img_url ? `<img src="${s.part_img_url}" class="h-6 w-6 object-contain rounded" loading="lazy" alt="">` : ''
+        ).filter(Boolean).join('');
+        if (imgs) parts_html = `<span class="inline-flex items-center gap-0.5">${imgs}</span>`;
+    }
+    // color swatches from conditions
+    let color_ids = [];
+    for (let c of (rule.conditions || [])) {
+        if (c.field === 'color_id') {
+            if (c.op === 'in' && Array.isArray(c.value)) color_ids.push(...c.value);
+            else if (c.op === 'eq') color_ids.push(c.value);
+        }
+    }
+    if (color_ids.length > 0) {
+        let max_show = 5;
+        let swatches = color_ids.slice(0, max_show).map(cid => {
+            let col = RB_COLORS[cid];
+            if (!col) return '';
+            let rgb = '#' + col.rgb;
+            let border = col.rgb === 'FFFFFF' ? 'border border-slate-300' : '';
+            return `<span class="inline-flex items-center gap-0.5"><span class="inline-block w-2.5 h-2.5 rounded-sm ${border}" style="background:${rgb}"></span><span class="text-[10px] text-slate-500">${escHtml(col.name)}</span></span>`;
+        }).filter(Boolean).join('');
+        if (color_ids.length > max_show) swatches += `<span class="text-[10px] text-slate-400">+${color_ids.length - max_show}</span>`;
+        colors_html = `<span class="inline-flex items-center gap-1.5 flex-wrap">${swatches}</span>`;
+    }
+    if (!parts_html && !colors_html) return '';
+    return `<div class="rule-preview-strip flex items-center gap-2 mt-1">${parts_html}${colors_html}</div>`;
 }
 
 function mkRuleSummary(rule) {
@@ -878,11 +931,16 @@ function mkRuleSummary(rule) {
     let meta_text = meta_parts.join(', ') || 'no conditions';
 
     let count = ruleMatchCount(rule.id);
-    let count_html = rule.disabled
-        ? `<span class="rule-count dim">off</span>`
-        : count !== null
-            ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
-            : `<span class="rule-count dim">--</span>`;
+    let count_html;
+    if (rule.disabled) {
+        count_html = `<span class="rule-count dim">off</span>`;
+    } else if (count !== null) {
+        let parts_str = `${count.parts.toLocaleString()} parts`;
+        let color_str = count.colors > 0 ? ` · ${count.colors} colors` : '';
+        count_html = `<span class="rule-count">${parts_str}${color_str}</span>`;
+    } else {
+        count_html = `<span class="rule-count dim">--</span>`;
+    }
 
     let toggle_label = rule.disabled ? 'Off' : 'On';
     let toggle_kind = rule.disabled ? 'danger' : 'secondary';
@@ -907,6 +965,7 @@ function mkRuleSummary(rule) {
             <span class="drag-handle" title="Drag to reorder">&#x2807;</span>
             <span class="rule-name">${escHtml(rule.name)}</span>
             ${state_badge}
+            <span class="rule-meta">${meta_text}</span>
             ${count_html}
             <div class="rule-summary-actions">
                 ${toggle_btn}
@@ -915,7 +974,7 @@ function mkRuleSummary(rule) {
                 ${del_btn}
             </div>
         </div>
-        <div class="rule-meta">${meta_text}</div>
+        ${rulePreviewStrip(rule)}
     `;
 
     // sub-rules inline
@@ -956,22 +1015,29 @@ function mkRuleSummary(rule) {
 function renderFallbackOptions() {
     let el = document.getElementById('fallback-options');
     let rb_checked = FALLBACK_MODE.rebrickable_categories ? 'checked' : '';
+    let bl_checked = FALLBACK_MODE.bricklink_categories ? 'checked' : '';
     let color_checked = FALLBACK_MODE.by_color ? 'checked' : '';
-    let color_disabled = FALLBACK_MODE.rebrickable_categories ? '' : 'disabled';
+    let any_cats = FALLBACK_MODE.rebrickable_categories || FALLBACK_MODE.bricklink_categories;
+    let color_disabled = any_cats ? '' : 'disabled';
     let fallback_mode_label = 'Disabled';
-    if (FALLBACK_MODE.rebrickable_categories && FALLBACK_MODE.by_color) fallback_mode_label = 'Rebrickable categories + color';
+    if (FALLBACK_MODE.bricklink_categories) fallback_mode_label = 'BrickLink categories';
     else if (FALLBACK_MODE.rebrickable_categories) fallback_mode_label = 'Rebrickable categories';
+    if (any_cats && FALLBACK_MODE.by_color) fallback_mode_label += ' + color';
     el.innerHTML = `
         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
                 <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fallback Routing</div>
                 <p class="stats mt-1">Controls where unmatched parts go after rule matching.</p>
-                <p class="mt-1 text-xs text-slate-700">Current mode: <span class="font-medium">${fallback_mode_label}</span></p>
+                <p class="mt-1 text-xs text-slate-700">Current mode: <span class="font-medium">${fallback_mode_label}</span> <span id="preview-loading" style="display:none" class="text-slate-400">⏳ generating...</span></p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <label class="inline-flex items-center gap-2 text-xs text-slate-700">
                     <input data-native-check="1" type="checkbox" class="m-0" ${rb_checked} onchange="setFallbackRbCats(this.checked)">
                     <span>Use Rebrickable categories</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+                    <input data-native-check="1" type="checkbox" class="m-0" ${bl_checked} onchange="setFallbackBlCats(this.checked)">
+                    <span>Use BrickLink categories</span>
                 </label>
                 <label class="inline-flex items-center gap-2 text-xs text-slate-700 ${color_disabled ? 'opacity-50' : ''}">
                     <input data-native-check="1" type="checkbox" class="m-0" ${color_checked} ${color_disabled} onchange="setFallbackByColor(this.checked)">
@@ -985,17 +1051,21 @@ function renderFallbackOptions() {
 
 function mkEverythingElseCard() {
     let div = document.createElement('div');
-    div.className = 'rule-summary everything-else';
-    let misc_count = preview_stats && preview_stats.per_category ? (preview_stats.per_category['misc'] || 0) : null;
+    let cls = 'rule-summary everything-else cursor-pointer';
+    if (selected_rb_cat && selected_rb_cat.key === 'misc') cls += ' selected';
+    div.className = cls;
+    let misc_entry = preview_stats && preview_stats.per_category ? (preview_stats.per_category['misc'] || null) : null;
+    let misc_count = misc_entry ? misc_entry.parts : null;
     let total = preview_stats ? preview_stats.total_parts : null;
-    let count = FALLBACK_MODE.rebrickable_categories
+    let any_fallback = FALLBACK_MODE.rebrickable_categories || FALLBACK_MODE.bricklink_categories;
+    let count = any_fallback
         ? (preview_stats ? (preview_stats.unmatched || 0) : null)
         : (misc_count !== null ? misc_count : null);
     let count_html = count !== null
         ? `<span class="rule-count">${count.toLocaleString()} parts</span>`
         : `<span class="rule-count dim">--</span>`;
     let desc = total !== null
-        ? `Everything not matched by rules${FALLBACK_MODE.rebrickable_categories ? ' or fallback categories' : ''} (of ${total.toLocaleString()} total)`
+        ? `Everything not matched by rules${any_fallback ? ' or fallback categories' : ''} (of ${total.toLocaleString()} total)`
         : `Everything not matched`;
     div.innerHTML = `
         <div class="rule-summary-top">
@@ -1005,6 +1075,7 @@ function mkEverythingElseCard() {
         </div>
         <div class="rule-meta">${desc}</div>
     `;
+    div.addEventListener('click', () => selectRbCat('misc', 'Everything Else (misc)'));
     return div;
 }
 
@@ -1029,20 +1100,41 @@ function mkRbCategoryCard(cat_key, cat_name, count) {
 }
 
 function getRbFallbackEntries() {
-    if (!FALLBACK_MODE.rebrickable_categories || !preview_stats || !preview_stats.per_category) return [];
-    return Object.entries(preview_stats.per_category)
-        .filter(([k]) => k.startsWith('rb_'))
-        .map(([k, v]) => {
+    if (!preview_stats || !preview_stats.per_category) return [];
+    let entries = [];
+    if (FALLBACK_MODE.rebrickable_categories) {
+        for (let [k, v] of Object.entries(preview_stats.per_category)) {
+            if (!k.startsWith('rb_')) continue;
             let rb_id = parseInt(k.substring(3));
             let name = RB_CATEGORIES[rb_id] ? RB_CATEGORIES[rb_id].name : k;
-            return {key: k, name, count: v};
-        })
-        .sort((a, b) => b.count - a.count);
+            entries.push({key: k, name, count: v.parts});
+        }
+    }
+    if (FALLBACK_MODE.bricklink_categories) {
+        for (let [k, v] of Object.entries(preview_stats.per_category)) {
+            if (!k.startsWith('bl_')) continue;
+            let bl_id = parseInt(k.substring(3));
+            let name = BL_CATEGORIES[bl_id] ? (BL_CATEGORIES[bl_id].category_name || k) : k;
+            entries.push({key: k, name, count: v.parts});
+        }
+    }
+    return entries.sort((a, b) => b.count - a.count);
 }
 
 async function setFallbackRbCats(checked) {
     FALLBACK_MODE.rebrickable_categories = checked;
-    if (!checked) FALLBACK_MODE.by_color = false;
+    if (checked) FALLBACK_MODE.bricklink_categories = false;
+    if (!checked && !FALLBACK_MODE.bricklink_categories) FALLBACK_MODE.by_color = false;
+    await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
+    renderFallbackOptions();
+    renderRuleList();
+    refreshPreview();
+}
+
+async function setFallbackBlCats(checked) {
+    FALLBACK_MODE.bricklink_categories = checked;
+    if (checked) FALLBACK_MODE.rebrickable_categories = false;
+    if (!checked && !FALLBACK_MODE.rebrickable_categories) FALLBACK_MODE.by_color = false;
     await apiJson('PUT', `/api/profile/${PROFILE_ID}/fallback-mode`, FALLBACK_MODE);
     renderFallbackOptions();
     renderRuleList();

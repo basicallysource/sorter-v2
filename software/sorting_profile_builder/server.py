@@ -53,6 +53,7 @@ class SaveRulesBody(BaseModel):
 
 class FallbackModeBody(BaseModel):
     rebrickable_categories: bool = False
+    bricklink_categories: bool = False
     by_color: bool = False
 
 
@@ -301,7 +302,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
     @app.put("/api/profile/{profile_id}/fallback-mode")
     def apiSetFallbackMode(profile_id: str, body: FallbackModeBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        sp.fallback_mode = {"rebrickable_categories": body.rebrickable_categories, "by_color": body.by_color}
+        sp.fallback_mode = {"rebrickable_categories": body.rebrickable_categories, "bricklink_categories": body.bricklink_categories, "by_color": body.by_color}
         saveSortingProfile(gc.profiles_dir, sp)
         return {"fallback_mode": sp.fallback_mode}
 
@@ -327,6 +328,10 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
                 rb_id = int(cat_id[3:])
                 rb_cat = parts_data.categories.get(rb_id)
                 sp.categories[cat_id] = {"name": rb_cat["name"] if rb_cat else cat_id}
+            elif cat_id.startswith("bl_"):
+                bl_id = int(cat_id[3:])
+                bl_cat = parts_data.bricklink_categories.get(bl_id)
+                sp.categories[cat_id] = {"name": bl_cat.get("category_name", cat_id) if bl_cat else cat_id}
         saveSortingProfile(gc.profiles_dir, sp)
         return result["stats"]
 

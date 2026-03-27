@@ -55,6 +55,22 @@ Rule order = precedence. First matching rule wins. Children inherit parent condi
 
 Operators: `eq` (equals), `neq` (not equals), `in` (value is list, matches any), `contains` (case-insensitive substring), `regex` (case-insensitive regex), `gte` (>=), `lte` (<=).
 
+## Step 0: Look at existing profiles for reference
+
+Before creating new rules, look at the rules in other profiles for examples of how rules are structured. Only read the rules section — don't pull entire profile files into context as they can be very large (the `part_to_category` field is huge).
+
+```python
+import json, glob
+for f in sorted(glob.glob('profiles/*.json')):
+    with open(f) as fh:
+        data = json.load(fh)
+    print(f"=== {data['name']} ({f}) - {len(data['rules'])} rules ===")
+    for i, r in enumerate(data['rules']):
+        conds = [(c['field'], c['op'], c['value']) for c in r['conditions']]
+        children = f" ({len(r['children'])} children)" if r.get('children') else ''
+        print(f"  {i}: {r['name']} [{r['match_mode']}] {conds}{children}")
+```
+
 ## Step 1: Find the profile file
 
 ```python
@@ -252,9 +268,12 @@ sp = loadSortingProfile('profiles/cb3a66bc-36a8-493c-ada7-930efcc080f7.json')
 result = generateProfile(sp, pd.parts, pd.categories, pd.bricklink_categories)
 
 for r in sp.rules:
-    count = result['stats']['per_category'].get(r['id'], 0)
-    if count > 0 or not r.get('disabled'):
-        print(f"{r['name']}: {count} parts")
+    entry = result['stats']['per_category'].get(r['id'])
+    if entry or not r.get('disabled'):
+        parts = entry['parts'] if entry else 0
+        colors = entry['colors'] if entry else 0
+        color_str = f" - {colors} colors" if colors > 0 else ""
+        print(f"{r['name']}: {parts} parts{color_str}")
 ```
 
 ## Notes

@@ -35,7 +35,7 @@ class SortingProfile:
         self.rules = []
         self.part_to_category = {}
         self.default_category_id = "misc"
-        self.fallback_mode = {"rebrickable_categories": False, "by_color": False}
+        self.fallback_mode = {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False}
 
 
 def mkSortingProfile(name: str, description: str = "") -> SortingProfile:
@@ -63,7 +63,12 @@ def loadSortingProfile(file_path: str) -> SortingProfile:
     sp.rules = data.get("rules", [])
     _migrateRules(sp.rules)
     sp.part_to_category = data.get("part_to_category", {})
-    sp.fallback_mode = data.get("fallback_mode", {"rebrickable_categories": False, "by_color": False})
+    fm = data.get("fallback_mode", {})
+    sp.fallback_mode = {
+        "rebrickable_categories": fm.get("rebrickable_categories", False),
+        "bricklink_categories": fm.get("bricklink_categories", False),
+        "by_color": fm.get("by_color", False),
+    }
     return sp
 
 

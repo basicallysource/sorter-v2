@@ -55,15 +55,11 @@ HTML = """
       flex: 1;
       min-width: 0;
     }
-    .side_panel {
-      width: 320px;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 10px;
+    .top_row {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       gap: 8px;
+      margin-bottom: 4px;
     }
     .row_title {
       margin: 0;
@@ -73,12 +69,26 @@ HTML = """
     .subtle {
       color: #666;
       font-size: 12px;
+      margin: 0;
+    }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid #f0c24f;
+      background: #fff7dc;
+      color: #8a5a00;
+    }
+    .badge.hidden {
+      display: none;
     }
     .layer {
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
-      margin-bottom: 10px;
+      margin-top: 10px;
       padding: 10px;
     }
     .layer_header {
@@ -121,10 +131,11 @@ HTML = """
       margin-bottom: 4px;
       color: #333;
     }
-    .bin select {
-      width: 100%;
-      padding: 4px;
-      font-size: 12px;
+    .bin_current {
+      font-size: 11px;
+      color: #444;
+      margin-bottom: 6px;
+      word-break: break-word;
     }
     .bin_controls {
       display: flex;
@@ -133,15 +144,51 @@ HTML = """
     }
     .bin_controls select {
       flex: 1;
-    }
-    .clear_btn {
-      padding: 4px 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
+      width: 100%;
+      padding: 4px;
       font-size: 12px;
-      line-height: 1;
-      cursor: pointer;
+    }
+    .side_panel {
+      width: 360px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .side_actions {
+      display: flex;
+      gap: 8px;
+    }
+    .import_panel {
+      border: 1px solid #eee;
+      border-radius: 6px;
+      padding: 8px;
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .import_panel textarea {
+      width: 100%;
+      min-height: 150px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .import_actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .status_text {
+      font-size: 11px;
+      color: #555;
     }
     .category_list {
       overflow: auto;
@@ -149,6 +196,7 @@ HTML = """
       border-radius: 6px;
       background: #fafafa;
       min-height: 150px;
+      max-height: 34vh;
     }
     .category_item {
       display: flex;
@@ -182,11 +230,30 @@ HTML = """
 <body>
   <div class="app">
     <div class="main_panel">
-      <p class="row_title">Arrange Bins</p>
+      <div class="top_row">
+        <p class="row_title">Arrange Bins</p>
+        <span class="badge hidden" id="dirty_badge">UNSAVED</span>
+      </div>
       <p class="subtle">Layers are vertical. Sections are horizontal.</p>
       <div id="layers"></div>
     </div>
+
     <div class="side_panel">
+      <p class="row_title">Actions</p>
+      <div class="side_actions">
+        <button id="clear_all_btn">Clear All</button>
+        <button id="apply_changes_btn">Apply Changes</button>
+      </div>
+
+      <div class="import_panel">
+        <p class="row_title" style="font-size:13px;">View Layout JSON</p>
+        <textarea id="layout_json_input" placeholder='Paste JSON with "bin_categories"'></textarea>
+        <div class="import_actions">
+          <button id="view_json_btn">View JSON Layout</button>
+          <span class="status_text" id="import_status"></span>
+        </div>
+      </div>
+
       <p class="row_title">Unassigned Categories</p>
       <p class="subtle" id="selection_status">Select a bin to assign from this list.</p>
       <div class="category_list" id="category_list"></div>
@@ -214,6 +281,27 @@ HTML = """
       return app_state.category_options.filter(c => !assigned.has(c.id));
     }
 
+    function categoryDisplayName(category_id) {
+      if (category_id === null) return 'unassigned';
+      const known = app_state.category_by_id[category_id];
+      return known ? known.name : category_id;
+    }
+
+    function setImportStatus(message, is_error) {
+      const status = document.getElementById('import_status');
+      status.textContent = message || '';
+      status.style.color = is_error ? '#b10f2e' : '#555';
+    }
+
+    function renderDirtyBadge() {
+      const badge = document.getElementById('dirty_badge');
+      if (app_state.is_dirty) {
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
     async function loadState() {
       const res = await fetch('/api/state');
       app_state = await res.json();
@@ -232,6 +320,51 @@ HTML = """
         return;
       }
       app_state = await res.json();
+      renderAll();
+    }
+
+    async function clearAllBins() {
+      const okay = confirm('Set all bins to unassigned in draft?');
+      if (!okay) return;
+      const res = await fetch('/api/clear_all', { method: 'POST' });
+      if (!res.ok) {
+        const msg = await res.text();
+        alert(msg || 'clear all failed');
+        return;
+      }
+      selected_bin = null;
+      app_state = await res.json();
+      renderAll();
+    }
+
+    async function applyChanges() {
+      const okay = confirm('Apply current draft to data.json?');
+      if (!okay) return;
+      const res = await fetch('/api/apply_changes', { method: 'POST' });
+      if (!res.ok) {
+        const msg = await res.text();
+        alert(msg || 'apply failed');
+        return;
+      }
+      app_state = await res.json();
+      setImportStatus('Applied changes to data.json', false);
+      renderAll();
+    }
+
+    async function viewLayoutJson() {
+      const layout_json_text = document.getElementById('layout_json_input').value;
+      const res = await fetch('/api/view_layout_json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ layout_json_text }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        setImportStatus(msg || 'invalid json', true);
+        return;
+      }
+      app_state = await res.json();
+      setImportStatus('Preview loaded (unsaved)', false);
       renderAll();
     }
 
@@ -280,6 +413,14 @@ HTML = """
             label_el.textContent = `Bin ${bin_idx} (${bin.size})`;
             bin_el.appendChild(label_el);
 
+            const current_el = document.createElement('div');
+            current_el.className = 'bin_current';
+            current_el.textContent = `Current: ${categoryDisplayName(bin.category_id)}`;
+            bin_el.appendChild(current_el);
+
+            const controls_el = document.createElement('div');
+            controls_el.className = 'bin_controls';
+
             const select_el = document.createElement('select');
 
             const empty_opt = document.createElement('option');
@@ -302,11 +443,7 @@ HTML = """
             });
             select_el.addEventListener('click', (e) => e.stopPropagation());
 
-            const controls_el = document.createElement('div');
-            controls_el.className = 'bin_controls';
-
             const clear_btn = document.createElement('button');
-            clear_btn.className = 'clear_btn';
             clear_btn.textContent = 'x';
             clear_btn.title = 'Set unassigned';
             clear_btn.addEventListener('click', (e) => {
@@ -372,10 +509,15 @@ HTML = """
     }
 
     function renderAll() {
+      renderDirtyBadge();
       renderLayers();
       renderUnassignedPanel();
+      document.getElementById('apply_changes_btn').disabled = !app_state.is_dirty;
     }
 
+    document.getElementById('clear_all_btn').addEventListener('click', clearAllBins);
+    document.getElementById('apply_changes_btn').addEventListener('click', applyChanges);
+    document.getElementById('view_json_btn').addEventListener('click', viewLayoutJson);
     loadState();
   </script>
 </body>
@@ -388,13 +530,15 @@ state_lock = threading.Lock()
 app_state: dict = {}
 
 
+def cloneData(data):
+    return json.loads(json.dumps(data))
+
+
 def getBinLayoutConfigFromMain(gc) -> BinLayoutConfig:
     machine_config = loadMachineConfig(gc)
     if machine_config.layer_sections:
         return BinLayoutConfig(
-            layers=[
-                LayerConfig(sections=sections) for sections in machine_config.layer_sections
-            ]
+            layers=[LayerConfig(sections=sections) for sections in machine_config.layer_sections]
         )
     return DEFAULT_BIN_LAYOUT
 
@@ -404,69 +548,28 @@ def loadSortingCategoriesFromMain(gc) -> list[dict[str, str]]:
         sorting_profile_data = json.load(f)
 
     categories_dict = sorting_profile_data.get("categories", {})
-    category_options = []
+    category_options: list[dict[str, str]] = []
     for category_id, category_data in categories_dict.items():
         category_name = str(category_data.get("name", category_id))
         category_options.append({"id": str(category_id), "name": category_name})
 
     default_category_id = str(sorting_profile_data.get("default_category_id", "misc"))
-    has_default = any(c["id"] == default_category_id for c in category_options)
-    if not has_default:
+    if all(c["id"] != default_category_id for c in category_options):
         category_options.append({"id": default_category_id, "name": default_category_id})
 
     category_options.sort(key=lambda c: c["name"].lower())
     return category_options
 
 
-def buildStateFromMain() -> dict:
-    gc = mkGlobalConfig()
-    bin_layout_config = getBinLayoutConfigFromMain(gc)
-    layout = mkLayoutFromConfig(bin_layout_config)
-
-    saved_categories = getBinCategories()
-    if saved_categories is not None and layoutMatchesCategories(layout, saved_categories):
-        applyCategories(layout, saved_categories)
-
-    layers = []
-    for layer in layout.layers:
-        layer_data = {"sections": []}
-        for section in layer.sections:
-            section_data = {"bins": []}
-            for b in section.bins:
-                section_data["bins"].append(
-                    {
-                        "size": b.size.value,
-                        "category_id": b.category_id,
-                    }
-                )
-            layer_data["sections"].append(section_data)
-        layers.append(layer_data)
-
-    category_options = loadSortingCategoriesFromMain(gc)
-    category_by_id = {c["id"]: {"name": c["name"]} for c in category_options}
-
-    return {
-        "layers": layers,
-        "category_options": category_options,
-        "category_by_id": category_by_id,
-    }
-
-
-def extractCategoryMatrix(state: dict) -> list[list[list[str | None]]]:
+def extractCategoryMatrixFromLayers(layers: list[dict]) -> list[list[list[str | None]]]:
     categories: list[list[list[str | None]]] = []
-    for layer in state["layers"]:
-        layer_categories = []
+    for layer in layers:
+        layer_categories: list[list[str | None]] = []
         for section in layer["sections"]:
             section_categories = [b["category_id"] for b in section["bins"]]
             layer_categories.append(section_categories)
         categories.append(layer_categories)
     return categories
-
-
-def validateCategoryChoice(state: dict, category_id: str | None) -> bool:
-    if category_id is None:
-        return True
-    return category_id in state["category_by_id"]
 
 
 def validateBinIndex(state: dict, layer_idx: int, section_idx: int, bin_idx: int) -> bool:
@@ -481,6 +584,129 @@ def validateBinIndex(state: dict, layer_idx: int, section_idx: int, bin_idx: int
     return True
 
 
+def buildCategoryOptionsForState(state: dict) -> list[dict[str, str]]:
+    known_by_id = {c["id"]: c["name"] for c in state["base_category_options"]}
+    draft_ids = set()
+    for layer in state["layers"]:
+        for section in layer["sections"]:
+            for b in section["bins"]:
+                category_id = b["category_id"]
+                if isinstance(category_id, str):
+                    draft_ids.add(category_id)
+
+    for category_id in draft_ids:
+        if category_id not in known_by_id:
+            known_by_id[category_id] = category_id
+
+    merged = [{"id": category_id, "name": name} for category_id, name in known_by_id.items()]
+    merged.sort(key=lambda c: c["name"].lower())
+    return merged
+
+
+def refreshDerivedState(state: dict) -> None:
+    state["category_options"] = buildCategoryOptionsForState(state)
+    state["category_by_id"] = {c["id"]: {"name": c["name"]} for c in state["category_options"]}
+    draft_matrix = extractCategoryMatrixFromLayers(state["layers"])
+    state["is_dirty"] = draft_matrix != state["saved_categories"]
+
+
+def buildLayersFromLayout(layout) -> list[dict]:
+    layers = []
+    for layer in layout.layers:
+        layer_data = {"sections": []}
+        for section in layer.sections:
+            section_data = {"bins": []}
+            for b in section.bins:
+                section_data["bins"].append({"size": b.size.value, "category_id": b.category_id})
+            layer_data["sections"].append(section_data)
+        layers.append(layer_data)
+    return layers
+
+
+def applyCategoryMatrixToLayers(layers: list[dict], category_matrix: list[list[list[str | None]]]) -> None:
+    for layer_idx, layer in enumerate(layers):
+        for section_idx, section in enumerate(layer["sections"]):
+            for bin_idx, b in enumerate(section["bins"]):
+                b["category_id"] = category_matrix[layer_idx][section_idx][bin_idx]
+
+
+def parseIncomingCategoryMatrix(raw_text: str) -> list[list[list[str | None]]]:
+    try:
+        payload = json.loads(raw_text)
+    except Exception as e:
+        raise ValueError(f"invalid json: {e}")
+
+    if isinstance(payload, dict) and "bin_categories" in payload:
+        payload = payload["bin_categories"]
+
+    if not isinstance(payload, list):
+        raise ValueError("json must be a list or contain bin_categories")
+
+    matrix: list[list[list[str | None]]] = []
+    for layer in payload:
+        if not isinstance(layer, list):
+            raise ValueError("each layer must be a list")
+        parsed_layer = []
+        for section in layer:
+            if not isinstance(section, list):
+                raise ValueError("each section must be a list")
+            parsed_section = []
+            for category_id in section:
+                if category_id is not None and not isinstance(category_id, str):
+                    raise ValueError("category values must be string or null")
+                parsed_section.append(category_id)
+            parsed_layer.append(parsed_section)
+        matrix.append(parsed_layer)
+
+    return matrix
+
+
+def categoryMatrixMatchesLayers(layers: list[dict], category_matrix: list[list[list[str | None]]]) -> bool:
+    if len(category_matrix) != len(layers):
+        return False
+    for layer_idx, layer in enumerate(layers):
+        sections = layer["sections"]
+        if len(category_matrix[layer_idx]) != len(sections):
+            return False
+        for section_idx, section in enumerate(sections):
+            bins = section["bins"]
+            if len(category_matrix[layer_idx][section_idx]) != len(bins):
+                return False
+    return True
+
+
+def buildStateFromMain() -> dict:
+    gc = mkGlobalConfig()
+    bin_layout_config = getBinLayoutConfigFromMain(gc)
+    layout = mkLayoutFromConfig(bin_layout_config)
+
+    saved_categories = getBinCategories()
+    if saved_categories is not None and layoutMatchesCategories(layout, saved_categories):
+        applyCategories(layout, saved_categories)
+
+    layers = buildLayersFromLayout(layout)
+    saved_matrix = extractCategoryMatrixFromLayers(layers)
+
+    base_category_options = loadSortingCategoriesFromMain(gc)
+
+    state = {
+        "layers": layers,
+        "saved_categories": cloneData(saved_matrix),
+        "base_category_options": base_category_options,
+    }
+    refreshDerivedState(state)
+    return state
+
+
+def stateForClient(state: dict) -> dict:
+    return {
+        "layers": state["layers"],
+        "category_options": state["category_options"],
+        "category_by_id": state["category_by_id"],
+        "is_dirty": state["is_dirty"],
+    }
+
+
 @app.get("/")
 def index():
     return render_template_string(HTML)
@@ -489,7 +715,7 @@ def index():
 @app.get("/api/state")
 def getState():
     with state_lock:
-        return jsonify(app_state)
+        return jsonify(stateForClient(app_state))
 
 
 @app.post("/api/assign")
@@ -509,12 +735,53 @@ def assignCategory():
     with state_lock:
         if not validateBinIndex(app_state, layer_idx, section_idx, bin_idx):
             return ("bin index out of range", 400)
-        if not validateCategoryChoice(app_state, category_id):
-            return ("unknown category_id", 400)
 
         app_state["layers"][layer_idx]["sections"][section_idx]["bins"][bin_idx]["category_id"] = category_id
-        setBinCategories(extractCategoryMatrix(app_state))
-        return jsonify(app_state)
+        refreshDerivedState(app_state)
+        return jsonify(stateForClient(app_state))
+
+
+@app.post("/api/clear_all")
+def clearAllBins():
+    with state_lock:
+        for layer in app_state["layers"]:
+            for section in layer["sections"]:
+                for b in section["bins"]:
+                    b["category_id"] = None
+        refreshDerivedState(app_state)
+        return jsonify(stateForClient(app_state))
+
+
+@app.post("/api/view_layout_json")
+def viewLayoutJson():
+    payload = request.get_json(silent=True) or {}
+    layout_json_text = payload.get("layout_json_text")
+
+    if not isinstance(layout_json_text, str) or not layout_json_text.strip():
+        return ("layout_json_text is required", 400)
+
+    try:
+        category_matrix = parseIncomingCategoryMatrix(layout_json_text)
+    except ValueError as e:
+        return (str(e), 400)
+
+    with state_lock:
+        if not categoryMatrixMatchesLayers(app_state["layers"], category_matrix):
+            return ("bin_categories shape does not match current layout", 400)
+
+        applyCategoryMatrixToLayers(app_state["layers"], category_matrix)
+        refreshDerivedState(app_state)
+        return jsonify(stateForClient(app_state))
+
+
+@app.post("/api/apply_changes")
+def applyChanges():
+    with state_lock:
+        draft_matrix = extractCategoryMatrixFromLayers(app_state["layers"])
+        setBinCategories(draft_matrix)
+        app_state["saved_categories"] = cloneData(draft_matrix)
+        refreshDerivedState(app_state)
+        return jsonify(stateForClient(app_state))
 
 
 def main():
@@ -525,6 +792,7 @@ def main():
     global app_state
     with state_lock:
         app_state = buildStateFromMain()
+
     print(f"arrange_bins on http://localhost:{DEFAULT_PORT}")
     app.run(
         host="0.0.0.0",

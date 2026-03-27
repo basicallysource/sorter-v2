@@ -12,9 +12,9 @@ import cv2
 import numpy as np
 from pathlib import Path
 import platform
-import re
-import shutil
-import subprocess
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 
 from defs.sorter_controller import SorterLifecycle
 from aruco_config_manager import ArucoConfigManager
@@ -35,7 +35,9 @@ from irl.bin_layout import getBinLayout
 from irl.config import (
     ArucoTagConfig,
     CarouselArucoTagConfig,
+    cameraDeviceSettingsToDict,
     parseCameraPictureSettings,
+    parseCameraDeviceSettings,
     cameraPictureSettingsToDict,
 )
 from irl.parse_user_toml import (
@@ -44,6 +46,7 @@ from irl.parse_user_toml import (
     DEFAULT_SERVO_CLOSED_ANGLE,
     DEFAULT_SERVO_OPEN_ANGLE,
 )
+from hardware.macos_camera_registry import refresh_macos_cameras
 from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
 
 app = FastAPI(title="Sorter API", version="0.0.1")
@@ -63,6 +66,7 @@ gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
+camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -1790,6 +1794,105 @@ def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
     return picture_settings if isinstance(picture_settings, dict) else {}
 
 
+def _get_camera_device_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
+    device_settings = config.get("camera_device_settings", {})
+    return device_settings if isinstance(device_settings, dict) else {}
+
+
+def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | None:
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+
+    cameras = config.get("cameras", {})
+    if isinstance(cameras, dict):
+        source = cameras.get(role)
+        if isinstance(source, (int, str)):
+            return source
+
+    if role in {"feeder", "classification_top", "classification_bottom"}:
+        camera_setup = getCameraSetup()
+        if isinstance(camera_setup, dict):
+            fallback_source = camera_setup.get(role)
+            if isinstance(fallback_source, int):
+                return fallback_source
+    return None
+
+
+def _android_camera_base_url(source: int | str | None) -> str | None:
+    if not isinstance(source, str):
+        return None
+    try:
+        parsed = urllib_parse.urlparse(source)
+    except Exception:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _android_camera_request(
+    source: int | str | None,
+    path: str,
+    *,
+    method: str = "GET",
+    payload: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    base_url = _android_camera_base_url(source)
+    if base_url is None:
+        raise HTTPException(status_code=400, detail="Camera source is not an Android camera app URL.")
+
+    url = f"{base_url}{path}"
+    data = None
+    headers: Dict[str, str] = {}
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    request = urllib_request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib_request.urlopen(request, timeout=4) as response:
+            body = response.read().decode("utf-8")
+    except urllib_error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=502, detail=detail or f"Android camera app returned HTTP {exc.code}.")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to reach Android camera app: {exc}")
+
+    try:
+        parsed = json.loads(body)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Android camera app returned invalid JSON: {exc}")
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=502, detail="Android camera app returned an unexpected response.")
+
+    return parsed
+
+
+def _live_usb_device_controls(
+    role: str,
+    source: int,
+    saved_settings: Dict[str, int | float | bool],
+) -> tuple[List[Dict[str, Any]], Dict[str, int | float | bool]]:
+    from vision.camera import probe_camera_device_controls
+
+    if vision_manager is not None and hasattr(vision_manager, "getCaptureThreadForRole"):
+        try:
+            capture = vision_manager.getCaptureThreadForRole(role)
+        except Exception:
+            capture = None
+        if capture is not None and hasattr(capture, "describeDeviceControls"):
+            try:
+                controls, live_settings = capture.describeDeviceControls()
+                if controls:
+                    return controls, cameraDeviceSettingsToDict(live_settings)
+            except Exception:
+                pass
+
+    controls, current_settings = probe_camera_device_controls(source, saved_settings)
+    return controls, cameraDeviceSettingsToDict(current_settings)
+
+
 def _distribution_layer_count() -> int:
     if controller_ref is not None and hasattr(controller_ref, "irl"):
         layout = getattr(controller_ref.irl, "distribution_layout", None)
@@ -2332,70 +2435,18 @@ def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
         cap.release()
 
 
-def _list_avfoundation_video_devices() -> List[Dict[str, Any]]:
-    if platform.system() != "Darwin":
-        return []
-
-    ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg is None:
-        return []
-
-    try:
-        result = subprocess.run(
-            [ffmpeg, "-f", "avfoundation", "-list_devices", "true", "-i", ""],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=8,
-        )
-    except Exception:
-        return []
-
-    output = f"{result.stdout}\n{result.stderr}"
-    devices: List[Dict[str, Any]] = []
-    in_video_section = False
-    for raw_line in output.splitlines():
-        line = raw_line.strip()
-        if "AVFoundation video devices:" in line:
-            in_video_section = True
-            continue
-        if "AVFoundation audio devices:" in line:
-            break
-        if not in_video_section:
-            continue
-
-        match = re.search(r"\[(\d+)\]\s+(.+)$", line)
-        if not match:
-            continue
-
-        index = int(match.group(1))
-        name = match.group(2).strip()
-        if name.lower().startswith("capture screen"):
-            continue
-
-        devices.append(
-            {
-                "kind": "usb",
-                "index": index,
-                "name": name,
-            }
-        )
-
-    return devices
-
-
 def _list_usb_cameras() -> List[Dict[str, Any]]:
     if platform.system() == "Darwin":
-        enumerated = _list_avfoundation_video_devices()
+        enumerated = list(refresh_macos_cameras())
         if enumerated:
             cameras: List[Dict[str, Any]] = []
             for camera in enumerated:
-                probed = _probe_camera_index(int(camera["index"]))
+                probed = _probe_camera_index(int(camera.index))
                 cameras.append(
                     {
                         "kind": "usb",
-                        "index": int(camera["index"]),
-                        "name": str(camera["name"]),
+                        "index": int(camera.index),
+                        "name": str(camera.name),
                         "width": int((probed or {}).get("width", 0)),
                         "height": int((probed or {}).get("height", 0)),
                         "preview_available": bool((probed or {}).get("preview_available", False)),
@@ -2442,11 +2493,18 @@ def camera_stream(index: int):
 @app.get("/api/cameras/feed/{role}")
 def camera_feed_by_role(role: str):
     """MJPEG stream for a camera role."""
-    from vision.camera import apply_picture_settings
+    from vision.camera import apply_camera_device_settings, apply_picture_settings
 
     _, raw = _read_machine_params_config(require_exists=True)
     cameras_section = raw.get("cameras", {})
     picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(role))
+    saved_device_settings = parseCameraDeviceSettings(
+        _get_camera_device_settings_table(raw).get(role)
+    )
+    preview_device_settings = camera_device_preview_overrides.get(role)
+    device_settings = cameraDeviceSettingsToDict(
+        preview_device_settings if preview_device_settings is not None else saved_device_settings
+    )
     source = cameras_section.get(role)
     if source is None or not isinstance(source, (int, str)):
         raise HTTPException(404, f"Camera role '{role}' not configured")
@@ -2484,6 +2542,8 @@ def camera_feed_by_role(role: str):
         if not cap.isOpened():
             return
         try:
+            if isinstance(source, int) and device_settings:
+                apply_camera_device_settings(cap, device_settings, source=source)
             while True:
                 ret, frame = cap.read()
                 if not ret:
@@ -2508,10 +2568,6 @@ class CameraAssignment(BaseModel):
 
 
 class CameraPictureSettingsPayload(BaseModel):
-    brightness: int = 0
-    contrast: float = 1.0
-    saturation: float = 1.0
-    gamma: float = 1.0
     rotation: int = 0
     flip_horizontal: bool = False
     flip_vertical: bool = False
@@ -2607,7 +2663,186 @@ def save_camera_picture_settings(
         "role": role,
         "settings": cameraPictureSettingsToDict(parsed),
         "applied_live": applied_live,
-        "message": "Picture settings saved.",
+        "message": "Feed orientation saved.",
+    }
+
+
+@app.get("/api/cameras/device-settings/{role}")
+def get_camera_device_settings(role: str) -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        return {
+            "ok": True,
+            "role": role,
+            "source": None,
+            "provider": "none",
+            "settings": {},
+            "controls": [],
+            "supported": False,
+            "message": "No camera is assigned to this role.",
+        }
+
+    if isinstance(source, str):
+        try:
+            android_data = _android_camera_request(source, "/camera-settings")
+        except HTTPException as exc:
+            return {
+                "ok": True,
+                "role": role,
+                "source": source,
+                "provider": "network-stream",
+                "settings": {},
+                "controls": [],
+                "supported": False,
+                "message": str(exc.detail),
+            }
+
+        return {
+            "ok": True,
+            "role": role,
+            "source": source,
+            "provider": android_data.get("provider", "android-camera-app"),
+            "settings": android_data.get("settings", {}),
+            "capabilities": android_data.get("capabilities", {}),
+            "controls": [],
+            "supported": True,
+        }
+
+    saved_settings = cameraDeviceSettingsToDict(
+        parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
+    )
+    controls, live_settings = _live_usb_device_controls(role, source, saved_settings)
+    current_settings = live_settings or saved_settings
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "provider": "usb-opencv",
+        "settings": current_settings,
+        "controls": controls,
+        "supported": bool(controls),
+        "message": (
+            "Real USB camera controls are available for this camera."
+            if controls
+            else (
+                "This USB camera does not expose adjustable UVC controls on this macOS setup."
+                if platform.system() == "Darwin"
+                else "This USB camera does not expose adjustable controls through the current capture backend."
+            )
+        ),
+    }
+
+
+@app.post("/api/cameras/device-settings/{role}/preview")
+def preview_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+
+    if isinstance(source, str):
+        proxied = _android_camera_request(
+            source,
+            "/camera-settings/preview",
+            method="POST",
+            payload=payload,
+        )
+        return {
+            "ok": True,
+            "role": role,
+            "source": source,
+            "provider": proxied.get("provider", "android-camera-app"),
+            "settings": proxied.get("settings", payload),
+            "persisted": False,
+            "applied_live": True,
+        }
+
+    parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(payload))
+    camera_device_preview_overrides[role] = dict(parsed)
+    applied_live = False
+    applied_settings = dict(parsed)
+
+    if vision_manager is not None and hasattr(vision_manager, "setDeviceSettingsForRole"):
+        try:
+            live_result = vision_manager.setDeviceSettingsForRole(role, parsed, persist=False)
+            if live_result is not None:
+                applied_settings = cameraDeviceSettingsToDict(live_result)
+                camera_device_preview_overrides[role] = dict(applied_settings)
+                applied_live = True
+        except Exception:
+            applied_live = False
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "provider": "usb-opencv",
+        "settings": applied_settings,
+        "persisted": False,
+        "applied_live": applied_live,
+    }
+
+
+@app.post("/api/cameras/device-settings/{role}")
+def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    params_path, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+
+    if isinstance(source, str):
+        proxied = _android_camera_request(
+            source,
+            "/camera-settings",
+            method="POST",
+            payload=payload,
+        )
+        return {
+            "ok": True,
+            "role": role,
+            "source": source,
+            "provider": proxied.get("provider", "android-camera-app"),
+            "settings": proxied.get("settings", payload),
+            "persisted": True,
+            "applied_live": True,
+        }
+
+    parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(payload))
+    device_settings = _get_camera_device_settings_table(config)
+    if parsed:
+        device_settings[role] = dict(parsed)
+    else:
+        device_settings.pop(role, None)
+    config["camera_device_settings"] = device_settings
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    camera_device_preview_overrides[role] = dict(parsed)
+    applied_live = False
+    applied_settings = dict(parsed)
+    if vision_manager is not None and hasattr(vision_manager, "setDeviceSettingsForRole"):
+        try:
+            live_result = vision_manager.setDeviceSettingsForRole(role, parsed, persist=True)
+            if live_result is not None:
+                applied_settings = cameraDeviceSettingsToDict(live_result)
+                camera_device_preview_overrides[role] = dict(applied_settings)
+                applied_live = True
+        except Exception:
+            applied_live = False
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "provider": "usb-opencv",
+        "settings": applied_settings,
+        "persisted": True,
+        "applied_live": applied_live,
+        "message": "Camera device settings saved.",
     }
 
 

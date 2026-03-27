@@ -372,49 +372,9 @@
 		return picturePreviewByRole[role] ?? null;
 	}
 
-	function previewFilterId(role: CameraRole = currentRole()): string {
-		return `picture-preview-${role}`;
-	}
-
 	function hasDraftPicturePreview(role: CameraRole = currentRole()): boolean {
 		const preview = getPicturePreview(role);
 		return preview !== null && !pictureSettingsEqual(preview.saved, preview.draft);
-	}
-
-	function normalizeLinearSlope(value: number): number {
-		return Math.max(value, 0.0001);
-	}
-
-	function normalizeGammaValue(value: number): number {
-		return Math.max(value, 0.0001);
-	}
-
-	function normalizeSaturationValue(value: number): number {
-		return Math.max(value, 0.0001);
-	}
-
-	function forwardLinearIntercept(settings: PictureSettings): number {
-		return settings.brightness / 255;
-	}
-
-	function inverseLinearSlope(settings: PictureSettings): number {
-		return 1 / normalizeLinearSlope(settings.contrast);
-	}
-
-	function inverseLinearIntercept(settings: PictureSettings): number {
-		return -forwardLinearIntercept(settings) / normalizeLinearSlope(settings.contrast);
-	}
-
-	function forwardGammaExponent(settings: PictureSettings): number {
-		return 1 / normalizeGammaValue(settings.gamma);
-	}
-
-	function inverseGammaExponent(settings: PictureSettings): number {
-		return normalizeGammaValue(settings.gamma);
-	}
-
-	function inverseSaturation(settings: PictureSettings): number {
-		return 1 / normalizeSaturationValue(settings.saturation);
 	}
 
 	type TransformMatrix = [number, number, number, number];
@@ -475,14 +435,8 @@
 	}
 
 	function feedImageStyle(channel: Channel): string {
-		const role = currentRole(channel);
-		const styles: string[] = [];
-		if (hasDraftPicturePreview(role)) {
-			styles.push(`filter: url(#${previewFilterId(role)});`);
-		}
 		const transformStyle = picturePreviewTransform(channel);
-		if (transformStyle) styles.push(transformStyle);
-		return styles.join(' ');
+		return transformStyle;
 	}
 
 	function togglePictureSidebar() {
@@ -1607,105 +1561,6 @@
 	>
 		<div class="flex min-w-0 flex-col gap-3">
 			<div class="relative overflow-hidden bg-black">
-				{#if hasDraftPicturePreview() && getPicturePreview()}
-					{@const currentPreview = getPicturePreview()!}
-					<svg
-						class="pointer-events-none absolute h-0 w-0 overflow-hidden"
-						aria-hidden="true"
-						focusable="false"
-					>
-						<defs>
-							<filter id={previewFilterId()} color-interpolation-filters="sRGB">
-								<feColorMatrix
-									in="SourceGraphic"
-									type="saturate"
-									values={String(inverseSaturation(currentPreview.saved))}
-									result="previewInverseSaturation"
-								/>
-								<feComponentTransfer in="previewInverseSaturation" result="previewInverseGamma">
-									<feFuncR
-										type="gamma"
-										amplitude="1"
-										exponent={String(inverseGammaExponent(currentPreview.saved))}
-										offset="0"
-									/>
-									<feFuncG
-										type="gamma"
-										amplitude="1"
-										exponent={String(inverseGammaExponent(currentPreview.saved))}
-										offset="0"
-									/>
-									<feFuncB
-										type="gamma"
-										amplitude="1"
-										exponent={String(inverseGammaExponent(currentPreview.saved))}
-										offset="0"
-									/>
-								</feComponentTransfer>
-								<feComponentTransfer in="previewInverseGamma" result="previewInverseLinear">
-									<feFuncR
-										type="linear"
-										slope={String(inverseLinearSlope(currentPreview.saved))}
-										intercept={String(inverseLinearIntercept(currentPreview.saved))}
-									/>
-									<feFuncG
-										type="linear"
-										slope={String(inverseLinearSlope(currentPreview.saved))}
-										intercept={String(inverseLinearIntercept(currentPreview.saved))}
-									/>
-									<feFuncB
-										type="linear"
-										slope={String(inverseLinearSlope(currentPreview.saved))}
-										intercept={String(inverseLinearIntercept(currentPreview.saved))}
-									/>
-								</feComponentTransfer>
-								<feComponentTransfer in="previewInverseLinear" result="previewDraftLinear">
-									<feFuncR
-										type="linear"
-										slope={String(normalizeLinearSlope(currentPreview.draft.contrast))}
-										intercept={String(forwardLinearIntercept(currentPreview.draft))}
-									/>
-									<feFuncG
-										type="linear"
-										slope={String(normalizeLinearSlope(currentPreview.draft.contrast))}
-										intercept={String(forwardLinearIntercept(currentPreview.draft))}
-									/>
-									<feFuncB
-										type="linear"
-										slope={String(normalizeLinearSlope(currentPreview.draft.contrast))}
-										intercept={String(forwardLinearIntercept(currentPreview.draft))}
-									/>
-								</feComponentTransfer>
-								<feComponentTransfer in="previewDraftLinear" result="previewDraftGamma">
-									<feFuncR
-										type="gamma"
-										amplitude="1"
-										exponent={String(forwardGammaExponent(currentPreview.draft))}
-										offset="0"
-									/>
-									<feFuncG
-										type="gamma"
-										amplitude="1"
-										exponent={String(forwardGammaExponent(currentPreview.draft))}
-										offset="0"
-									/>
-									<feFuncB
-										type="gamma"
-										amplitude="1"
-										exponent={String(forwardGammaExponent(currentPreview.draft))}
-										offset="0"
-									/>
-								</feComponentTransfer>
-								<feColorMatrix
-									in="previewDraftGamma"
-									type="saturate"
-									values={String(normalizeSaturationValue(currentPreview.draft.saturation))}
-								/>
-							</filter>
-						</defs>
-					</svg>
-				{/if}
-
 				<div class="relative aspect-video">
 					{#key feedInstanceKey(currentChannel)}
 						{#if !cameraConfigLoaded}

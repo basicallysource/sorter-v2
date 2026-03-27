@@ -662,6 +662,23 @@ class VisionManager:
         capture.setPictureSettings(settings)
         return True
 
+    def setDeviceSettingsForRole(
+        self,
+        camera_name: str,
+        settings: dict[str, int | float | bool] | None,
+        *,
+        persist: bool = False,
+    ) -> dict[str, int | float | bool] | None:
+        capture = self.getCaptureThreadForRole(camera_name)
+        if capture is None:
+            return None
+        config_attr = self._cameraRoleAttrs(camera_name)[1]
+        if persist and config_attr is not None:
+            config = getattr(self._irl_config, config_attr, None)
+            if config is not None:
+                config.device_settings = dict(settings or {})
+        return capture.setDeviceSettings(settings, persist=persist)
+
     def _cameraRoleAttrs(self, camera_name: str) -> tuple[str | None, str | None]:
         if camera_name == "feeder":
             return "_feeder_capture", "feeder_camera"

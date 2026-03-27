@@ -48,34 +48,23 @@ class CameraConfig:
     height: int
     fps: int
     picture_settings: "CameraPictureSettings"
+    device_settings: dict[str, int | float | bool]
 
     def __init__(self):
         self.url = None
 
 
 class CameraPictureSettings:
-    brightness: int
-    contrast: float
-    saturation: float
-    gamma: float
     rotation: int
     flip_horizontal: bool
     flip_vertical: bool
 
     def __init__(
         self,
-        brightness: int = 0,
-        contrast: float = 1.0,
-        saturation: float = 1.0,
-        gamma: float = 1.0,
         rotation: int = 0,
         flip_horizontal: bool = False,
         flip_vertical: bool = False,
     ):
-        self.brightness = brightness
-        self.contrast = contrast
-        self.saturation = saturation
-        self.gamma = gamma
         self.rotation = rotation
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
@@ -261,6 +250,7 @@ def mkCameraConfig(
     device_index: int = -1, width: int = 1920, height: int = 1080, fps: int = 30,
     url: str | None = None,
     picture_settings: CameraPictureSettings | None = None,
+    device_settings: dict[str, int | float | bool] | None = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
@@ -269,23 +259,16 @@ def mkCameraConfig(
     camera_config.height = height
     camera_config.fps = fps
     camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
+    camera_config.device_settings = parseCameraDeviceSettings(device_settings)
     return camera_config
 
 
 def mkCameraPictureSettings(
-    brightness: int = 0,
-    contrast: float = 1.0,
-    saturation: float = 1.0,
-    gamma: float = 1.0,
     rotation: int = 0,
     flip_horizontal: bool = False,
     flip_vertical: bool = False,
 ) -> CameraPictureSettings:
     return CameraPictureSettings(
-        brightness=brightness,
-        contrast=contrast,
-        saturation=saturation,
-        gamma=gamma,
         rotation=rotation,
         flip_horizontal=flip_horizontal,
         flip_vertical=flip_vertical,
@@ -296,20 +279,12 @@ def clampCameraPictureSettings(settings: CameraPictureSettings) -> CameraPicture
     def _number(value: object, default: float) -> float:
         return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else default
 
-    brightness = int(round(_number(settings.brightness, 0.0)))
-    contrast = _number(settings.contrast, 1.0)
-    saturation = _number(settings.saturation, 1.0)
-    gamma = _number(settings.gamma, 1.0)
     rotation = int(round(_number(getattr(settings, "rotation", 0), 0.0)))
     rotation = (round(rotation / 90) * 90) % 360
     flip_horizontal = bool(getattr(settings, "flip_horizontal", False))
     flip_vertical = bool(getattr(settings, "flip_vertical", False))
 
     return mkCameraPictureSettings(
-        brightness=max(-100, min(100, brightness)),
-        contrast=max(0.5, min(2.0, contrast)),
-        saturation=max(0.0, min(2.0, saturation)),
-        gamma=max(0.5, min(2.0, gamma)),
         rotation=rotation,
         flip_horizontal=flip_horizontal,
         flip_vertical=flip_vertical,
@@ -322,10 +297,6 @@ def parseCameraPictureSettings(raw: object) -> CameraPictureSettings:
 
     return clampCameraPictureSettings(
         mkCameraPictureSettings(
-            brightness=raw.get("brightness", 0),
-            contrast=raw.get("contrast", 1.0),
-            saturation=raw.get("saturation", 1.0),
-            gamma=raw.get("gamma", 1.0),
             rotation=raw.get("rotation", 0),
             flip_horizontal=raw.get("flip_horizontal", False),
             flip_vertical=raw.get("flip_vertical", False),
@@ -336,14 +307,53 @@ def parseCameraPictureSettings(raw: object) -> CameraPictureSettings:
 def cameraPictureSettingsToDict(settings: CameraPictureSettings) -> dict[str, int | float | bool]:
     clamped = clampCameraPictureSettings(settings)
     return {
-        "brightness": clamped.brightness,
-        "contrast": clamped.contrast,
-        "saturation": clamped.saturation,
-        "gamma": clamped.gamma,
         "rotation": clamped.rotation,
         "flip_horizontal": clamped.flip_horizontal,
         "flip_vertical": clamped.flip_vertical,
     }
+
+
+def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:
+    if not isinstance(raw, dict):
+        return {}
+
+    result: dict[str, int | float | bool] = {}
+    bool_keys = {
+        "auto_exposure",
+        "auto_white_balance",
+        "autofocus",
+    }
+    float_keys = {
+        "brightness",
+        "contrast",
+        "saturation",
+        "sharpness",
+        "gamma",
+        "gain",
+        "exposure",
+        "white_balance_temperature",
+        "focus",
+        "power_line_frequency",
+        "backlight_compensation",
+    }
+
+    for key in bool_keys:
+        value = raw.get(key)
+        if isinstance(value, bool):
+            result[key] = value
+
+    for key in float_keys:
+        value = raw.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            result[key] = float(value)
+
+    return result
+
+
+def cameraDeviceSettingsToDict(
+    settings: dict[str, int | float | bool] | None,
+) -> dict[str, int | float | bool]:
+    return parseCameraDeviceSettings(settings)
 
 
 def mkStepperConfig(
@@ -419,11 +429,19 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     picture_settings_section = {}
     if isinstance(raw_toml, dict):
         picture_settings_section = raw_toml.get("camera_picture_settings", {})
+    device_settings_section = {}
+    if isinstance(raw_toml, dict):
+        device_settings_section = raw_toml.get("camera_device_settings", {})
 
     def _picture_settings(role: str) -> CameraPictureSettings:
         if not isinstance(picture_settings_section, dict):
             return mkCameraPictureSettings()
         return parseCameraPictureSettings(picture_settings_section.get(role))
+
+    def _device_settings(role: str) -> dict[str, int | float | bool]:
+        if not isinstance(device_settings_section, dict):
+            return {}
+        return parseCameraDeviceSettings(device_settings_section.get(role))
 
     irl_config.camera_layout = camera_layout_type
 
@@ -446,21 +464,25 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             irl_config.c_channel_2_camera = mkCameraConfig(
                 device_index=c_ch2_idx,
                 picture_settings=_picture_settings("c_channel_2"),
+                device_settings=_device_settings("c_channel_2"),
             )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = mkCameraConfig(
                 device_index=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
+                device_settings=_device_settings("c_channel_3"),
             )
         if isinstance(carousel_source, str):
             irl_config.carousel_camera = mkCameraConfig(
                 url=carousel_source,
                 picture_settings=_picture_settings("carousel"),
+                device_settings=_device_settings("carousel"),
             )
         elif isinstance(carousel_source, int):
             irl_config.carousel_camera = mkCameraConfig(
                 device_index=carousel_source,
                 picture_settings=_picture_settings("carousel"),
+                device_settings=_device_settings("carousel"),
             )
 
         # Classification cameras (optional in split_feeder mode) — int or URL string
@@ -471,6 +493,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             irl_config.classification_camera_top = mkCameraConfig(
                 url=cls_top,
                 picture_settings=_picture_settings("classification_top"),
+                device_settings=_device_settings("classification_top"),
             )
         elif isinstance(cls_top, int):
             irl_config.classification_camera_top = mkCameraConfig(
@@ -478,17 +501,20 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 width=9999,
                 height=9999,
                 picture_settings=_picture_settings("classification_top"),
+                device_settings=_device_settings("classification_top"),
             )
         else:
             irl_config.classification_camera_top = mkCameraConfig(
                 device_index=-1,
                 picture_settings=_picture_settings("classification_top"),
+                device_settings=_device_settings("classification_top"),
             )
 
         if isinstance(cls_bottom, str):
             irl_config.classification_camera_bottom = mkCameraConfig(
                 url=cls_bottom,
                 picture_settings=_picture_settings("classification_bottom"),
+                device_settings=_device_settings("classification_bottom"),
             )
         elif isinstance(cls_bottom, int):
             irl_config.classification_camera_bottom = mkCameraConfig(
@@ -496,17 +522,20 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 width=9999,
                 height=9999,
                 picture_settings=_picture_settings("classification_bottom"),
+                device_settings=_device_settings("classification_bottom"),
             )
         else:
             irl_config.classification_camera_bottom = mkCameraConfig(
                 device_index=-1,
                 picture_settings=_picture_settings("classification_bottom"),
+                device_settings=_device_settings("classification_bottom"),
             )
 
         # Dummy feeder camera so nothing crashes on attr access
         irl_config.feeder_camera = mkCameraConfig(
             device_index=-1,
             picture_settings=_picture_settings("feeder"),
+            device_settings=_device_settings("feeder"),
         )
     else:
         # default: single feeder + classification cameras from camera_setup
@@ -531,18 +560,21 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         irl_config.feeder_camera = mkCameraConfig(
             device_index=feeder_camera_index,
             picture_settings=_picture_settings("feeder"),
+            device_settings=_device_settings("feeder"),
         )
         irl_config.classification_camera_bottom = mkCameraConfig(
             device_index=classification_camera_bottom_index,
             width=9999,
             height=9999,
             picture_settings=_picture_settings("classification_bottom"),
+            device_settings=_device_settings("classification_bottom"),
         )
         irl_config.classification_camera_top = mkCameraConfig(
             device_index=classification_camera_top_index,
             width=9999,
             height=9999,
             picture_settings=_picture_settings("classification_top"),
+            device_settings=_device_settings("classification_top"),
         )
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)

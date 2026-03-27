@@ -1,13 +1,31 @@
 import threading
 import time
-from functools import lru_cache
-from typing import Optional
+from typing import Any, Optional
 import platform
 import cv2
 import numpy as np
 
-from irl.config import CameraConfig, CameraPictureSettings, clampCameraPictureSettings
+from irl.config import (
+    CameraConfig,
+    CameraPictureSettings,
+    cameraDeviceSettingsToDict,
+    clampCameraPictureSettings,
+    parseCameraDeviceSettings,
+)
 from .types import CameraFrame
+
+if platform.system() == "Darwin":
+    try:
+        from hardware.macos_uvc_controls import (
+            apply_controls_for_index as _apply_macos_uvc_controls_for_index,
+            describe_controls_for_index as _describe_macos_uvc_controls_for_index,
+        )
+    except Exception:
+        _apply_macos_uvc_controls_for_index = None
+        _describe_macos_uvc_controls_for_index = None
+else:
+    _apply_macos_uvc_controls_for_index = None
+    _describe_macos_uvc_controls_for_index = None
 
 
 def _open_capture_source(source: int | str) -> cv2.VideoCapture:
@@ -16,14 +34,306 @@ def _open_capture_source(source: int | str) -> cv2.VideoCapture:
     return cv2.VideoCapture(source)
 
 
-@lru_cache(maxsize=32)
-def _gamma_lut(gamma: float) -> np.ndarray:
-    exponent = 1.0 / max(gamma, 1e-6)
-    table = np.array(
-        [((value / 255.0) ** exponent) * 255.0 for value in range(256)],
-        dtype=np.uint8,
+def _cv_prop(name: str) -> int | None:
+    return getattr(cv2, name, None)
+
+
+def _usb_camera_control_specs() -> list[dict[str, Any]]:
+    specs = [
+        {
+            "key": "auto_exposure",
+            "label": "Auto Exposure",
+            "kind": "boolean",
+            "prop": _cv_prop("CAP_PROP_AUTO_EXPOSURE"),
+            "help": "Let the camera manage exposure automatically.",
+        },
+        {
+            "key": "exposure",
+            "label": "Exposure",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_EXPOSURE"),
+            "min": -13.0,
+            "max": 13.0,
+            "step": 1.0,
+            "help": "Driver-reported exposure value.",
+        },
+        {
+            "key": "gain",
+            "label": "Gain",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_GAIN"),
+            "min": 0.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Analog or digital sensor gain, if exposed by the driver.",
+        },
+        {
+            "key": "brightness",
+            "label": "Brightness",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_BRIGHTNESS"),
+            "min": -100.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Real camera brightness control when supported by the device.",
+        },
+        {
+            "key": "contrast",
+            "label": "Contrast",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_CONTRAST"),
+            "min": 0.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Real camera contrast control when supported by the device.",
+        },
+        {
+            "key": "saturation",
+            "label": "Saturation",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_SATURATION"),
+            "min": 0.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Real camera saturation control when supported by the device.",
+        },
+        {
+            "key": "sharpness",
+            "label": "Sharpness",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_SHARPNESS"),
+            "min": 0.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Real camera sharpness control when supported by the device.",
+        },
+        {
+            "key": "auto_white_balance",
+            "label": "Auto White Balance",
+            "kind": "boolean",
+            "prop": _cv_prop("CAP_PROP_AUTO_WB"),
+            "help": "Let the camera manage white balance automatically.",
+        },
+        {
+            "key": "white_balance_temperature",
+            "label": "White Balance Temperature",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_WB_TEMPERATURE"),
+            "min": 2000.0,
+            "max": 8000.0,
+            "step": 50.0,
+            "help": "White balance temperature in Kelvin, when supported by the driver.",
+        },
+        {
+            "key": "autofocus",
+            "label": "Autofocus",
+            "kind": "boolean",
+            "prop": _cv_prop("CAP_PROP_AUTOFOCUS"),
+            "help": "Let the camera focus automatically, when supported.",
+        },
+        {
+            "key": "focus",
+            "label": "Focus",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_FOCUS"),
+            "min": 0.0,
+            "max": 255.0,
+            "step": 1.0,
+            "help": "Manual focus distance, when supported by the driver.",
+        },
+    ]
+    return [spec for spec in specs if spec["prop"] is not None]
+
+
+def _bool_from_capture_value(key: str, value: float) -> bool:
+    if key == "auto_exposure" and platform.system() == "Linux":
+        return value >= 0.5
+    return value >= 0.5
+
+
+def _value_for_capture(key: str, value: bool | float) -> float:
+    if key == "auto_exposure" and platform.system() == "Linux":
+        return 0.75 if bool(value) else 0.25
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+    return float(value)
+
+
+def _read_capture_value(cap: cv2.VideoCapture, spec: dict[str, Any]) -> bool | float | None:
+    prop = spec.get("prop")
+    if prop is None:
+        return None
+    raw = cap.get(prop)
+    if raw is None or (isinstance(raw, float) and (np.isnan(raw) or np.isinf(raw))):
+        return None
+    if spec["kind"] == "boolean":
+        return _bool_from_capture_value(spec["key"], float(raw))
+    return float(raw)
+
+
+def parseCameraDeviceSettingsForCapture(raw: object) -> dict[str, int | float | bool]:
+    return cameraDeviceSettingsToDict(parseCameraDeviceSettings(raw))
+
+
+def _supports_macos_uvc_controls(source: int | str | None) -> bool:
+    return (
+        platform.system() == "Darwin"
+        and isinstance(source, int)
+        and _describe_macos_uvc_controls_for_index is not None
+        and _apply_macos_uvc_controls_for_index is not None
     )
-    return table
+
+
+def _describe_macos_uvc_controls(
+    source: int | str | None,
+) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
+    if not _supports_macos_uvc_controls(source):
+        return [], {}
+    assert isinstance(source, int)
+    try:
+        return _describe_macos_uvc_controls_for_index(source)
+    except Exception:
+        return [], {}
+
+
+def _apply_macos_uvc_controls(
+    source: int | str | None,
+    settings: dict[str, int | float | bool] | None,
+) -> tuple[bool, dict[str, int | float | bool]]:
+    if not _supports_macos_uvc_controls(source):
+        return False, {}
+    assert isinstance(source, int)
+    controls, current = _describe_macos_uvc_controls(source)
+    if not controls:
+        return False, {}
+    normalized = parseCameraDeviceSettingsForCapture(settings)
+    if not normalized:
+        return True, current
+    try:
+        applied = cameraDeviceSettingsToDict(_apply_macos_uvc_controls_for_index(source, normalized))
+        return True, applied or current
+    except Exception:
+        return True, current
+
+
+def apply_camera_device_settings(
+    cap: cv2.VideoCapture,
+    settings: dict[str, int | float | bool] | None,
+    *,
+    source: int | str | None = None,
+) -> dict[str, int | float | bool]:
+    normalized = parseCameraDeviceSettingsForCapture(settings)
+    macos_handled, macos_applied = _apply_macos_uvc_controls(source, normalized)
+    if macos_handled:
+        return macos_applied
+
+    spec_by_key = {spec["key"]: spec for spec in _usb_camera_control_specs()}
+    applied: dict[str, int | float | bool] = {}
+
+    for key, value in normalized.items():
+        spec = spec_by_key.get(key)
+        if spec is None:
+            continue
+        try:
+            cap.set(spec["prop"], _value_for_capture(key, value))
+            current = _read_capture_value(cap, spec)
+            if current is not None:
+                applied[key] = current
+            else:
+                applied[key] = value
+        except Exception:
+            continue
+
+    return applied
+
+
+def read_camera_device_settings(cap: cv2.VideoCapture) -> dict[str, int | float | bool]:
+    settings: dict[str, int | float | bool] = {}
+    for spec in _usb_camera_control_specs():
+        current = _read_capture_value(cap, spec)
+        if current is not None:
+            settings[spec["key"]] = current
+    return settings
+
+
+def describe_camera_device_controls(
+    cap: cv2.VideoCapture,
+    *,
+    source: int | str | None = None,
+) -> list[dict[str, Any]]:
+    macos_controls, _ = _describe_macos_uvc_controls(source)
+    if macos_controls:
+        return macos_controls
+
+    controls: list[dict[str, Any]] = []
+    for spec in _usb_camera_control_specs():
+        current = _read_capture_value(cap, spec)
+        if current is None:
+            continue
+
+        supported = False
+        try:
+            supported = bool(cap.set(spec["prop"], _value_for_capture(spec["key"], current)))
+        except Exception:
+            supported = False
+
+        if not supported:
+            continue
+
+        control: dict[str, Any] = {
+            "key": spec["key"],
+            "label": spec["label"],
+            "kind": spec["kind"],
+            "help": spec.get("help"),
+            "value": current,
+        }
+        if spec["kind"] == "number":
+            min_value = spec.get("min")
+            max_value = spec.get("max")
+            step_value = spec.get("step", 1.0)
+            if isinstance(current, (int, float)) and not isinstance(current, bool):
+                if isinstance(min_value, (int, float)):
+                    min_value = min(min_value, float(current))
+                if isinstance(max_value, (int, float)):
+                    max_value = max(max_value, float(current))
+            if min_value is not None:
+                control["min"] = min_value
+            if max_value is not None:
+                control["max"] = max_value
+            control["step"] = step_value
+
+        controls.append(control)
+
+    return controls
+
+
+def probe_camera_device_controls(
+    source: int | str | None,
+    settings: dict[str, int | float | bool] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
+    if not isinstance(source, int):
+        return [], {}
+
+    macos_controls, macos_settings = _describe_macos_uvc_controls(source)
+    if macos_controls:
+        if settings:
+            applied = _apply_macos_uvc_controls(source, settings)
+            return macos_controls, applied or macos_settings
+        return macos_controls, macos_settings
+
+    cap = _open_capture_source(source)
+    if not cap.isOpened():
+        cap.release()
+        return [], {}
+
+    try:
+        if settings:
+            apply_camera_device_settings(cap, settings)
+        controls = describe_camera_device_controls(cap)
+        current = read_camera_device_settings(cap)
+        return controls, current
+    finally:
+        cap.release()
 
 
 def apply_picture_settings(
@@ -35,21 +345,6 @@ def apply_picture_settings(
 
     current = clampCameraPictureSettings(settings)
     adjusted = frame
-
-    if current.contrast != 1.0 or current.brightness != 0:
-        adjusted = cv2.convertScaleAbs(
-            adjusted,
-            alpha=current.contrast,
-            beta=current.brightness,
-        )
-
-    if current.gamma != 1.0:
-        adjusted = cv2.LUT(adjusted, _gamma_lut(current.gamma))
-
-    if current.saturation != 1.0:
-        hsv = cv2.cvtColor(adjusted, cv2.COLOR_BGR2HSV).astype(np.float32)
-        hsv[..., 1] = np.clip(hsv[..., 1] * current.saturation, 0, 255)
-        adjusted = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
 
     if current.rotation == 90:
         adjusted = cv2.rotate(adjusted, cv2.ROTATE_90_CLOCKWISE)
@@ -84,8 +379,11 @@ class CaptureThread:
         self._cap = None
         self.latest_frame = None
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
+        self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
         self._picture_settings_lock = threading.Lock()
+        self._device_settings_lock = threading.Lock()
         self._config_lock = threading.Lock()
+        self._cap_lock = threading.Lock()
 
     def setPictureSettings(self, settings: CameraPictureSettings) -> None:
         clamped = clampCameraPictureSettings(settings)
@@ -96,6 +394,54 @@ class CaptureThread:
     def getPictureSettings(self) -> CameraPictureSettings:
         with self._picture_settings_lock:
             return clampCameraPictureSettings(self._picture_settings)
+
+    def setDeviceSettings(
+        self,
+        settings: dict[str, int | float | bool] | None,
+        *,
+        persist: bool = False,
+    ) -> dict[str, int | float | bool]:
+        normalized = parseCameraDeviceSettingsForCapture(settings)
+        with self._device_settings_lock:
+            self._device_settings = normalized
+            if persist:
+                self._config.device_settings = dict(normalized)
+
+        with self._cap_lock:
+            if self._cap is not None and isinstance(self.getCameraSource(), int):
+                applied = apply_camera_device_settings(
+                    self._cap,
+                    normalized,
+                    source=self.getCameraSource(),
+                )
+                with self._device_settings_lock:
+                    self._device_settings = dict(applied)
+                    if persist:
+                        self._config.device_settings = dict(applied)
+                return dict(applied)
+
+        return dict(normalized)
+
+    def getDeviceSettings(self) -> dict[str, int | float | bool]:
+        with self._device_settings_lock:
+            return dict(self._device_settings)
+
+    def describeDeviceControls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
+        source = self.getCameraSource()
+        if not isinstance(source, int):
+            return [], {}
+
+        with self._cap_lock:
+            if self._cap is not None:
+                controls = describe_camera_device_controls(self._cap, source=source)
+                current = read_camera_device_settings(self._cap)
+                if controls:
+                    macos_controls, macos_settings = _describe_macos_uvc_controls(source)
+                    if macos_controls:
+                        return macos_controls, macos_settings
+                return controls, current
+
+        return probe_camera_device_controls(source, self.getDeviceSettings())
 
     def setCameraSource(self, source: int | str | None) -> None:
         with self._config_lock:
@@ -162,21 +508,31 @@ class CaptureThread:
                 continue
 
             if cap is None:
-                cap = _open_capture_source(source)
-                self._cap = cap
-                if not is_url:
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-                    cap.set(cv2.CAP_PROP_FPS, fps)
-                if not cap.isOpened():
-                    cap.release()
-                    cap = None
-                    self._cap = None
-                    self.latest_frame = None
-                    time.sleep(0.2)
-                    continue
+                with self._cap_lock:
+                    cap = _open_capture_source(source)
+                    self._cap = cap
+                    if not is_url:
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+                        cap.set(cv2.CAP_PROP_FPS, fps)
+                        applied_device_settings = apply_camera_device_settings(
+                            cap,
+                            self.getDeviceSettings(),
+                            source=source,
+                        )
+                        if applied_device_settings:
+                            with self._device_settings_lock:
+                                self._device_settings = dict(applied_device_settings)
+                    if not cap.isOpened():
+                        cap.release()
+                        cap = None
+                        self._cap = None
+                        self.latest_frame = None
+                        time.sleep(0.2)
+                        continue
 
-            ret, frame = cap.read()
+            with self._cap_lock:
+                ret, frame = cap.read()
             if ret:
                 frame = apply_picture_settings(frame, self.getPictureSettings())
                 self.latest_frame = CameraFrame(

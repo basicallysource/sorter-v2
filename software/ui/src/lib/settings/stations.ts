@@ -1,4 +1,4 @@
-import { Camera, Settings, Shapes, Wrench } from 'lucide-svelte';
+import { Camera, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -36,6 +36,18 @@ export const generalNavItem: SettingsNavItem = {
 	href: '/settings',
 	label: 'General',
 	icon: Settings
+};
+
+export const storageLayersNavItem: SettingsNavItem = {
+	href: '/settings/storage-layers',
+	label: 'Storage Layers',
+	icon: Layers3
+};
+
+export const chuteNavItem: SettingsNavItem = {
+	href: '/settings/chute',
+	label: 'Chute',
+	icon: Wrench
 };
 
 export const stationPageConfigs: StationPageConfig[] = [
@@ -93,7 +105,12 @@ export const stationPageConfigs: StationPageConfig[] = [
 	}
 ];
 
-export const settingsNavItems: SettingsNavItem[] = [generalNavItem, ...stationPageConfigs];
+export const settingsNavItems: SettingsNavItem[] = [
+	generalNavItem,
+	storageLayersNavItem,
+	chuteNavItem,
+	...stationPageConfigs
+];
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);

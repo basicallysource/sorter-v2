@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
+import json
 import queue
 import time
 import threading
@@ -378,6 +379,14 @@ class ChuteHardwareSettingsPayload(BaseModel):
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 
 
+class StorageLayerSettingsPayload(BaseModel):
+    layer_bin_counts: List[int] = []
+
+
+ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
+DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
+
+
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
 def getRuntimeVariables() -> RuntimeVariablesResponse:
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
@@ -397,7 +406,9 @@ def updateRuntimeVariables(
 @app.get("/api/hardware-config")
 def get_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
+    _, layout = _read_bin_layout_config()
     return {
+        "storage_layers": _storage_layer_settings_from_layout(layout),
         "servo": _servo_settings_from_config(config),
         "chute": _chute_settings_from_config(config),
     }
@@ -510,6 +521,61 @@ def save_chute_hardware_config(
             if applied_live
             else "Chute settings saved."
         ),
+    }
+
+
+@app.post("/api/hardware-config/storage-layers")
+def save_storage_layer_hardware_config(
+    payload: StorageLayerSettingsPayload,
+) -> Dict[str, Any]:
+    layout_path, layout = _read_bin_layout_config()
+    current = _storage_layer_settings_from_layout(layout)
+    layer_bin_counts = [int(count) for count in payload.layer_bin_counts]
+
+    if len(layer_bin_counts) != len(current["layers"]):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Expected {len(current['layers'])} layer bin counts, got {len(layer_bin_counts)}.",
+        )
+
+    updated_layers: List[Dict[str, Any]] = []
+    for count, layer in zip(layer_bin_counts, current["layers"]):
+        if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Each layer bin count must be one of {ALLOWED_STORAGE_LAYER_BIN_COUNTS}.",
+            )
+
+        section_count = int(layer["section_count"])
+        if section_count <= 0 or count % section_count != 0:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Layer {layer['index']} cannot be configured to {count} bins "
+                    f"with its current {section_count} sections."
+                ),
+            )
+
+        updated_layers.append(
+            {
+                "section_count": section_count,
+                "bin_size": layer["bin_size"],
+                "bins_per_section": count // section_count,
+            }
+        )
+
+    try:
+        _write_bin_layout_config(layout_path, updated_layers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write bin layout: {e}")
+
+    _, saved_layout = _read_bin_layout_config()
+    return {
+        "ok": True,
+        "settings": _storage_layer_settings_from_layout(saved_layout),
+        "applied_live": False,
+        "restart_required": True,
+        "message": "Storage layer layout saved. Restart backend to apply layer changes.",
     }
 
 
@@ -888,6 +954,15 @@ def _camera_params_path() -> str:
     return params_path
 
 
+def _bin_layout_path() -> str:
+    import os
+
+    layout_path = os.getenv("BIN_LAYOUT_PATH")
+    if not layout_path:
+        raise HTTPException(status_code=500, detail="BIN_LAYOUT_PATH not set")
+    return layout_path
+
+
 def _read_machine_params_config(
     *,
     require_exists: bool = False,
@@ -906,6 +981,14 @@ def _read_machine_params_config(
             return params_path, tomllib.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read config: {e}")
+
+
+def _read_bin_layout_config() -> tuple[str, Any]:
+    layout_path = _bin_layout_path()
+    try:
+        return layout_path, getBinLayout()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read bin layout: {e}")
 
 
 def _toml_value(v: object) -> str:
@@ -983,6 +1066,23 @@ def _write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
         f.write("\n".join(lines) + "\n")
 
 
+def _write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
+    payload = {
+        "layers": [
+            {
+                "sections": [
+                    [layer["bin_size"]] * layer["bins_per_section"]
+                    for _ in range(layer["section_count"])
+                ]
+            }
+            for layer in layers
+        ]
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+
+
 def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
     picture_settings = config.get("camera_picture_settings", {})
     return picture_settings if isinstance(picture_settings, dict) else {}
@@ -994,6 +1094,37 @@ def _distribution_layer_count() -> int:
         if layout is not None and hasattr(layout, "layers"):
             return len(layout.layers)
     return len(getBinLayout().layers)
+
+
+def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
+    layers: List[Dict[str, Any]] = []
+    for index, layer in enumerate(getattr(layout, "layers", []), start=1):
+        sections = getattr(layer, "sections", [])
+        bin_count = sum(len(section) for section in sections)
+        section_count = len(sections) or DEFAULT_STORAGE_LAYER_SECTION_COUNT
+
+        bin_size = "medium"
+        for section in sections:
+            for value in section:
+                if isinstance(value, str) and value:
+                    bin_size = value
+                    break
+            if bin_size != "medium":
+                break
+
+        layers.append(
+            {
+                "index": index,
+                "bin_count": bin_count,
+                "section_count": section_count,
+                "bin_size": bin_size,
+            }
+        )
+
+    return {
+        "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
+        "layers": layers,
+    }
 
 
 def _coerce_float(value: object, default: float) -> float:

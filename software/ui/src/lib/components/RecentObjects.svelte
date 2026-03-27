@@ -5,6 +5,7 @@
 	import Spinner from './Spinner.svelte';
 	import Badge from './Badge.svelte';
 	import { CircleHelp, TriangleAlert } from 'lucide-svelte';
+	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	type BadgeColor = 'gray' | 'yellow' | 'blue' | 'orange' | 'green' | 'red';
@@ -12,6 +13,8 @@
 	const ctx = getMachineContext();
 
 	const objects = $derived(ctx.machine?.recentObjects ?? []);
+
+	sortingProfileStore.load();
 
 	let expanded_id = $state<string | null>(null);
 	let bricklink_cache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
@@ -112,6 +115,7 @@
 					{@const minimized = isMinimized(obj)}
 					{@const bl_data = obj.part_id ? bricklink_cache.get(obj.part_id) : null}
 					{@const bl_thumb = bl_data?.thumbnail_url ? `https:${bl_data.thumbnail_url}` : null}
+					{@const category_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 					{#if minimized}
 						<button
 							type="button"
@@ -174,6 +178,11 @@
 									{#if obj.color_name && obj.color_name !== 'Any Color'}
 										<div class="dark:text-text-muted-dark truncate text-text-muted">
 											{obj.color_name}
+										</div>
+									{/if}
+									{#if category_name}
+										<div class="dark:text-text-muted-dark truncate text-text-muted">
+											{category_name}
 										</div>
 									{/if}
 									<div class="flex flex-wrap gap-1">

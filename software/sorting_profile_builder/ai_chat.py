@@ -87,11 +87,21 @@ class ConditionProposal(BaseModel):
         return v
 
 
-class RuleProposal(BaseModel):
-    explanation: str
-    name: str
-    match_mode: str
-    conditions: list[ConditionProposal]
+class RuleProposalItem(BaseModel):
+    action: str  # "edit", "create", or "move"
+    target_rule_id: str | None = None  # for edit/move: which rule (null = context rule)
+    parent_id: str | None = None  # for create/move: new parent (null = top-level)
+    position: int | None = None  # for create/move: index among siblings (null = append)
+    name: str = ""  # required for edit/create, optional for move
+    match_mode: str = "all"
+    conditions: list[ConditionProposal] = []  # empty for move
+
+    @field_validator("action")
+    @classmethod
+    def validateAction(cls, v: str) -> str:
+        if v not in ("edit", "create", "move"):
+            raise ValueError("action must be 'edit', 'create', or 'move'")
+        return v
 
     @field_validator("match_mode")
     @classmethod
@@ -99,6 +109,11 @@ class RuleProposal(BaseModel):
         if v not in ("all", "any"):
             raise ValueError("match_mode must be 'all' or 'any'")
         return v
+
+
+class MultiRuleProposal(BaseModel):
+    summary: str
+    proposals: list[RuleProposalItem]
 
 
 # --- context / deps ---
@@ -126,6 +141,16 @@ def _collectAncestorChecks(rules: list[dict], rule_id: str) -> list[dict] | None
     return None
 
 
+def _findRuleById(rules: list[dict], rule_id: str) -> dict | None:
+    for rule in rules:
+        if rule.get("id") == rule_id:
+            return rule
+        found = _findRuleById(rule.get("children", []), rule_id)
+        if found:
+            return found
+    return None
+
+
 def _buildAncestorChecks(current_rule: dict, all_rules: list[dict]) -> list[dict]:
     rule_id = current_rule.get("id")
     if not rule_id:
@@ -139,7 +164,8 @@ def _formatRuleSummary(rule: dict, indent: int = 0) -> str:
     conds = rule.get("conditions", [])
     mode = rule.get("match_mode", "all")
     disabled = " [DISABLED]" if rule.get("disabled") else ""
-    lines = [f"{prefix}- {rule.get('name', '?')}{disabled} (match_mode={mode})"]
+    rule_id = rule.get('id', '?')
+    lines = [f"{prefix}- [{rule_id}] {rule.get('name', '?')}{disabled} (match_mode={mode})"]
     for c in conds:
         lines.append(f"{prefix}    {c.get('field')} {c.get('op')} {json.dumps(c.get('value'))}")
     for child in rule.get("children", []):
@@ -156,28 +182,31 @@ def _formatExistingRules(all_rules: list[dict]) -> str:
 def _buildSystemPrompt(ctx: RunContext[AiChatDeps]) -> str:
     deps = ctx.deps
     rule = deps.current_rule
+    context_rule_id = rule.get('id', '(unsaved)')
 
-    # build compact category lists
     rb_cats = ", ".join(f"{cid}: {c['name']}" for cid, c in sorted(deps.categories.items()))
     bl_cats = ", ".join(
         f"{cid}: {c.get('category_name', '')}"
         for cid, c in sorted(deps.bricklink_categories.items())
     )
     colors = ", ".join(f"{cid}: {c['name']}" for cid, c in sorted(deps.colors.items()))
-
     field_ops_str = "\n".join(f"  {f}: {sorted(ops)}" for f, ops in sorted(FIELD_OPS.items()))
-
     existing_rules = _formatExistingRules(deps.all_rules)
 
     return f"""You edit sorting rules for a LEGO part sorting machine.
 
 A rule matches LEGO parts based on conditions. Each condition has a field, operator, and value.
-The rule's match_mode is "all" (AND - every condition must match) or "any" (OR - at least one must match).
+The rule's match_mode is "all" (AND) or "any" (OR).
+Rules are organized in a hierarchy — child rules inherit parent conditions. Rule order = precedence.
 
-CURRENT RULE STATE:
+CONTEXT RULE (the rule the user currently has open):
+  id: {context_rule_id}
   name: {rule.get('name', 'New Rule')}
   match_mode: {rule.get('match_mode', 'all')}
   conditions: {json.dumps(rule.get('conditions', []), indent=2)}
+
+FULL RULE HIERARCHY (IDs in brackets, indentation = nesting):
+{existing_rules}
 
 AVAILABLE FIELDS AND THEIR OPERATORS:
 {field_ops_str}
@@ -200,56 +229,63 @@ BRICKLINK CATEGORIES:
 COLORS:
 {colors}
 
-USER'S CURRENT SAVED RULES (for reference, to demonstrate the rule system's capabilities):
-{existing_rules}
-
 TESTING RULES:
-You have two tools to test candidate rules against the real parts database BEFORE proposing them:
-- tryRuleStandalone: tests the rule in isolation. "Standalone" means just this rule's conditions,
-  ignoring all other rules. Use this to understand what the conditions match on their own.
-- tryRuleInContext: tests the rule within the full rule hierarchy. "In context" means the rule is
-  evaluated with its parent/ancestor conditions applied — a part only matches if it also passes
-  all ancestor conditions. This shows what the rule would actually match in the real sorting profile.
+- tryRuleStandalone: tests conditions in isolation, ignoring other rules.
+- tryRuleInContext: tests with ancestor conditions applied. Pass parent_rule_id to test
+  as if the rule were a child of a specific parent.
 
-Skip testing for trivial changes (renames, toggling a single value). For most edits, 2-5 test calls
-is enough — sanity-check the match count and move on. Only go to 10+ calls if the user is insistent
-that the rule is very complex, or if your test results are clearly not matching what you expected.
+Skip testing for trivial changes. For most edits, 2-5 test calls is enough. Only go to 10+
+if the user insists the rule is very complex or results are clearly wrong.
+
+OUTPUT FORMAT:
+Return a MultiRuleProposal with a summary and a list of proposals. Each proposal is one of:
+- action="edit": update an existing rule. target_rule_id = rule ID (null = context rule).
+  Must include name, match_mode, and COMPLETE conditions.
+- action="create": new rule. parent_id = parent rule ID (null = top-level). position = index (null = append).
+  Must include name, match_mode, and conditions.
+- action="move": move an existing rule. target_rule_id = rule to move.
+  parent_id = new parent (null = top-level). position = index (null = append).
+  Conditions/name/match_mode are ignored for move — only placement changes.
+
+You can return one proposal (simple edit) or multiple (e.g. "sort technic by sub-type" = several child rules).
 
 INSTRUCTIONS:
-- Return a RuleProposal with the COMPLETE updated rule (not just changes).
-- Include ALL conditions, not just new ones. If the user says "also add X", keep existing conditions and add the new one.
-- If the user says "change" or "replace", modify accordingly.
-- Give a short explanation of what you changed AND the match counts from your testing.
-- Use the correct category/color IDs from the lists above.
-- Make sure field+op combinations are valid per the table above."""
+- Each edit/create proposal must have COMPLETE conditions (not deltas).
+- When editing, include ALL existing conditions plus changes.
+- Use correct category/color IDs from the lists above.
+- Make sure field+op combinations are valid.
+- Reference rule IDs from the hierarchy for target_rule_id or parent_id."""
 
 
-_rule_agent: Agent[AiChatDeps, RuleProposal] | None = None
+_rule_agent: Agent[AiChatDeps, MultiRuleProposal] | None = None
 
 
-def _getAgent() -> Agent[AiChatDeps, RuleProposal]:
+def _getAgent() -> Agent[AiChatDeps, MultiRuleProposal]:
     global _rule_agent
     if _rule_agent is not None:
         return _rule_agent
     _rule_agent = Agent(
         "anthropic:claude-sonnet-4-6",
         deps_type=AiChatDeps,
-        output_type=RuleProposal,
+        output_type=MultiRuleProposal,
         instructions=_buildSystemPrompt,
         retries=3,
     )
 
     @_rule_agent.output_validator
-    def validateProposal(_ctx: RunContext[AiChatDeps], proposal: RuleProposal) -> RuleProposal:
-        for i, cond in enumerate(proposal.conditions):
-            allowed_ops = FIELD_OPS.get(cond.field)
-            if allowed_ops and cond.op not in allowed_ops:
-                raise ModelRetry(
-                    f"Condition {i}: op '{cond.op}' not valid for field '{cond.field}'. "
-                    f"Valid ops: {sorted(allowed_ops)}"
-                )
-            if cond.op == "in" and not isinstance(cond.value, list):
-                raise ModelRetry(f"Condition {i}: op 'in' requires a list value, got {type(cond.value).__name__}")
+    def validateProposal(_ctx: RunContext[AiChatDeps], proposal: MultiRuleProposal) -> MultiRuleProposal:
+        for pi, item in enumerate(proposal.proposals):
+            if item.action == "move":
+                continue
+            for ci, cond in enumerate(item.conditions):
+                allowed_ops = FIELD_OPS.get(cond.field)
+                if allowed_ops and cond.op not in allowed_ops:
+                    raise ModelRetry(
+                        f"Proposal {pi} condition {ci}: op '{cond.op}' not valid for field '{cond.field}'. "
+                        f"Valid ops: {sorted(allowed_ops)}"
+                    )
+                if cond.op == "in" and not isinstance(cond.value, list):
+                    raise ModelRetry(f"Proposal {pi} condition {ci}: op 'in' requires a list value, got {type(cond.value).__name__}")
         return proposal
 
     @_rule_agent.tool
@@ -280,22 +316,29 @@ def _getAgent() -> Agent[AiChatDeps, RuleProposal]:
         return f"{total} parts matched. Sample:\n" + "\n".join(names) + more
 
     @_rule_agent.tool
-    def tryRuleInContext(ctx: RunContext[AiChatDeps], conditions_json: str, match_mode: str) -> str:
+    def tryRuleInContext(ctx: RunContext[AiChatDeps], conditions_json: str, match_mode: str, parent_rule_id: str | None = None) -> str:
         """Test a rule in-context against the parts database.
         Returns the total match count and a sample of up to 10 matched part names.
         In-context means this rule is evaluated within the full rule hierarchy — a part only
-        matches if it ALSO satisfies all ancestor/parent rule conditions. Use this to see what
-        the rule would actually match in the real sorting profile.
+        matches if it ALSO satisfies all ancestor/parent rule conditions.
         conditions_json: JSON array of condition objects, each with field, op, value.
-        match_mode: "all" or "any"."""
+        match_mode: "all" or "any".
+        parent_rule_id: optional. If provided, compute ancestor checks as if this rule were
+        a child of that parent. If null, uses the context rule's ancestors."""
         try:
             conditions = json.loads(conditions_json)
         except json.JSONDecodeError as e:
             return f"Invalid JSON: {e}"
         rule = {"conditions": conditions, "match_mode": match_mode}
         deps = ctx.deps
-        # build ancestor checks from the current rule's position in the hierarchy
-        ancestor_checks = _buildAncestorChecks(deps.current_rule, deps.all_rules)
+        if parent_rule_id:
+            ancestor_checks = _collectAncestorChecks(deps.all_rules, parent_rule_id) or []
+            # also include the parent's own conditions
+            parent = _findRuleById(deps.all_rules, parent_rule_id)
+            if parent:
+                ancestor_checks.append({"conditions": parent.get("conditions", []), "match_mode": parent.get("match_mode", "all")})
+        else:
+            ancestor_checks = _buildAncestorChecks(deps.current_rule, deps.all_rules)
         result = previewRule(
             rule, deps.parts,
             categories=deps.categories,
@@ -306,7 +349,7 @@ def _getAgent() -> Agent[AiChatDeps, RuleProposal]:
         total = result["total"]
         sample = result["sample"]
         if total == 0:
-            return "0 parts matched in context (with ancestor conditions applied)."
+            return "0 parts matched in context."
         names = [f"  - {p.get('name', p.get('part_num', '?'))}" for p in sample]
         more = f"\n  ... and {total - len(sample)} more" if total > len(sample) else ""
         return f"{total} parts matched in context. Sample:\n" + "\n".join(names) + more
@@ -372,16 +415,36 @@ def getChatHistory(conn: sqlite3.Connection, chat_id: str) -> list[dict]:
     return messages
 
 
-def acceptProposal(conn: sqlite3.Connection, message_id: str) -> dict | None:
+def acceptProposal(conn: sqlite3.Connection, message_id: str, proposal_index: int | None = None) -> list[dict] | None:
+    """Accept one or all proposals. Returns list of accepted proposal items."""
     row = conn.execute(
         "SELECT id, proposed_rule FROM ai_chat_messages WHERE id=? AND role='assistant' AND proposed_rule IS NOT NULL",
         (message_id,),
     ).fetchone()
     if not row:
         return None
-    conn.execute("UPDATE ai_chat_messages SET accepted=1 WHERE id=?", (message_id,))
+    data = json.loads(row[1])
+    proposals = data.get("proposals") if isinstance(data, dict) and "proposals" in data else None
+    if proposals is None:
+        # legacy single-rule format — wrap it
+        proposals = [{"action": "edit", "target_rule_id": None, **data}]
+
+    if proposal_index is not None:
+        if proposal_index < 0 or proposal_index >= len(proposals):
+            return None
+        proposals[proposal_index]["accepted"] = True
+        accepted = [proposals[proposal_index]]
+    else:
+        for p in proposals:
+            p["accepted"] = True
+        accepted = proposals
+
+    # save back with accepted flags
+    if isinstance(data, dict) and "proposals" in data:
+        data["proposals"] = proposals
+    conn.execute("UPDATE ai_chat_messages SET accepted=1, proposed_rule=? WHERE id=?", (json.dumps(data), message_id))
     conn.commit()
-    return json.loads(row[1])
+    return accepted
 
 
 def deleteChat(conn: sqlite3.Connection, profile_id: str, rule_id: str):
@@ -511,31 +574,35 @@ async def chatWithRuleStream(
                 saved = True
                 return
 
-        proposal = result.output
-        log.info(f"agent returned: name={proposal.name!r} conditions={len(proposal.conditions)} explanation={proposal.explanation!r}")
-        proposed_rule = {
-            "name": proposal.name,
-            "match_mode": proposal.match_mode,
-            "conditions": [{"field": c.field, "op": c.op, "value": c.value} for c in proposal.conditions],
-        }
+        multi = result.output
+        log.info(f"agent returned: {len(multi.proposals)} proposals, summary={multi.summary!r}")
 
-        # run a preview so the user can see what this rule would match
-        try:
-            preview = previewRule(
-                proposed_rule, deps.parts,
-                categories=deps.categories,
-                bricklink_categories=deps.bricklink_categories,
-                limit=20,
-            )
-            proposed_rule["preview"] = {
-                "total": preview["total"],
-                "sample": preview["sample"],
+        proposed_data = {"summary": multi.summary, "proposals": []}
+        for item in multi.proposals:
+            p = {
+                "action": item.action,
+                "target_rule_id": item.target_rule_id,
+                "parent_id": item.parent_id,
+                "position": item.position,
+                "name": item.name,
+                "match_mode": item.match_mode,
+                "conditions": [{"field": c.field, "op": c.op, "value": c.value} for c in item.conditions],
             }
-        except Exception:
-            log.exception("failed to generate proposal preview")
+            if item.action != "move" and item.conditions:
+                try:
+                    preview = previewRule(
+                        p, deps.parts,
+                        categories=deps.categories,
+                        bricklink_categories=deps.bricklink_categories,
+                        limit=20,
+                    )
+                    p["preview"] = {"total": preview["total"], "sample": preview["sample"]}
+                except Exception:
+                    log.exception("failed to generate proposal preview")
+            proposed_data["proposals"].append(p)
 
         assistant_msg = addDisplayMessage(
-            conn, chat_id, "assistant", proposal.explanation, proposed_rule,
+            conn, chat_id, "assistant", multi.summary, proposed_data,
             tool_calls=collected_tool_calls if collected_tool_calls else None,
         )
 

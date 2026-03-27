@@ -354,7 +354,11 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
 
     for _pnum, part in parts.items():
         matched = False
+        any_color_matched = False
+        matched_categories = set()
         for entry in flat:
+            if any_color_matched:
+                break
             all_conds = _allConditions(entry["checks"])
             if not all_conds:
                 continue
@@ -368,14 +372,15 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
                         if key not in part_to_category:
                             part_to_category[key] = entry["top_level_id"]
                             matched = True
+                            matched_categories.add(entry["top_level_id"])
             else:
                 if _evaluateChecks(entry["checks"], part, None, ctx):
                     key = _partKey(part, None)
                     if key not in part_to_category:
                         part_to_category[key] = entry["top_level_id"]
                         matched = True
-            if matched:
-                break
+                        matched_categories.add(entry["top_level_id"])
+                        any_color_matched = True
 
         if not matched:
             if use_rb_cats:
@@ -385,17 +390,20 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
                 if key not in part_to_category:
                     part_to_category[key] = fallback_cat
                     stats["unmatched"] += 1
+                    matched_categories.add(fallback_cat)
             elif sp.default_category_id:
                 key = _partKey(part, None)
                 if key not in part_to_category:
                     part_to_category[key] = sp.default_category_id
                     stats["unmatched"] += 1
+                    matched_categories.add(sp.default_category_id)
 
         if matched:
             stats["matched"] += 1
 
-    for key, cat_id in part_to_category.items():
-        stats["per_category"][cat_id] = stats["per_category"].get(cat_id, 0) + 1
+        # count unique parts per category (not per color-key)
+        for cat_id in matched_categories:
+            stats["per_category"][cat_id] = stats["per_category"].get(cat_id, 0) + 1
 
     result = {"part_to_category": part_to_category, "stats": stats}
     _cachePut(cache_key, result)

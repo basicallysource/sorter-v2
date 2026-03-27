@@ -200,7 +200,7 @@ def _collectAncestorChecks(rules, rule_id):
     return None
 
 
-def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "all", parent_id: str | None = None) -> str | None:
+def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "all", parent_id: str | None = None, position: int | None = None) -> str | None:
     rule_id = str(uuid.uuid4())
     rule = {
         "id": rule_id,
@@ -214,9 +214,15 @@ def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "
         parent = _findRuleInList(sp.rules, parent_id)
         if parent is None:
             return None
-        parent["children"].append(rule)
+        if position is not None and 0 <= position <= len(parent["children"]):
+            parent["children"].insert(position, rule)
+        else:
+            parent["children"].append(rule)
     else:
-        sp.rules.append(rule)
+        if position is not None and 0 <= position <= len(sp.rules):
+            sp.rules.insert(position, rule)
+        else:
+            sp.rules.append(rule)
     return rule_id
 
 

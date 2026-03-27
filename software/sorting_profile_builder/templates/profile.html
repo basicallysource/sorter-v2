@@ -2411,29 +2411,58 @@ function renderToolCallHtml(tc) {
 }
 
 function renderProposalHtml(msg) {
-    let preview = msg.proposed_rule.preview || null;
-    let rule_def = {
-        name: msg.proposed_rule.name,
-        match_mode: msg.proposed_rule.match_mode,
-        conditions: msg.proposed_rule.conditions,
-    };
-    if (preview) _previewModalData = preview;
-    let conds_html = msg.proposed_rule.conditions.map(c =>
-        `<span class="inline-block rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px]">${escHtml(c.field)} ${escHtml(c.op)} ${escHtml(JSON.stringify(c.value))}</span>`
-    ).join(' ');
-    let html = `<div class="mb-1.5 mt-1 rounded border border-slate-200 bg-slate-50 p-1.5">`;
-    html += `<div class="mb-0.5 text-[10px] font-semibold text-slate-500">Proposed: ${escHtml(msg.proposed_rule.name)} (${msg.proposed_rule.match_mode})</div>`;
-    html += `<div class="flex flex-wrap gap-1">${conds_html}</div>`;
-    if (preview) {
-        html += renderPartPreviewSmall(preview, rule_def);
+    let data = msg.proposed_rule;
+    // support both new multi-format and legacy single-rule
+    let proposals = data.proposals || [Object.assign({action: 'edit'}, data)];
+
+    let html = '';
+    for (let pi = 0; pi < proposals.length; pi++) {
+        let p = proposals[pi];
+        let is_accepted = p.accepted || false;
+        let action_badge = p.action === 'create'
+            ? '<span class="rounded bg-emerald-100 px-1 py-px text-[9px] font-semibold text-emerald-700">NEW</span>'
+            : p.action === 'move'
+            ? '<span class="rounded bg-amber-100 px-1 py-px text-[9px] font-semibold text-amber-700">MOVE</span>'
+            : '<span class="rounded bg-blue-100 px-1 py-px text-[9px] font-semibold text-blue-700">EDIT</span>';
+        let placement = '';
+        if ((p.action === 'create' || p.action === 'move') && p.parent_id) {
+            let parent = findRuleById(RULES, p.parent_id);
+            placement = parent ? ` under ${escHtml(parent.name)}` : '';
+        }
+        let conds_html = (p.conditions || []).map(c =>
+            `<span class="inline-block rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px]">${escHtml(c.field)} ${escHtml(c.op)} ${escHtml(JSON.stringify(c.value))}</span>`
+        ).join(' ');
+        let rule_def = {name: p.name, match_mode: p.match_mode, conditions: p.conditions};
+        let preview = p.preview || null;
+
+        html += `<div class="mb-1.5 mt-1 rounded border border-slate-200 bg-slate-50 p-1.5">`;
+        if (p.action === 'move') {
+            let target = p.target_rule_id ? findRuleById(RULES, p.target_rule_id) : null;
+            let target_name = target ? target.name : (p.target_rule_id || 'current rule');
+            let dest = p.parent_id ? (findRuleById(RULES, p.parent_id)?.name || 'unknown') : 'top-level';
+            let pos_str = p.position != null ? ` at position ${p.position}` : '';
+            html += `<div class="mb-0.5 flex items-center gap-1.5 text-[10px]">${action_badge} <span class="font-semibold text-slate-500">Move "${escHtml(target_name)}" → ${escHtml(dest)}${pos_str}</span></div>`;
+        } else {
+            html += `<div class="mb-0.5 flex items-center gap-1.5 text-[10px]">${action_badge} <span class="font-semibold text-slate-500">${escHtml(p.name)} (${p.match_mode})${placement}</span></div>`;
+            if (conds_html) html += `<div class="flex flex-wrap gap-1">${conds_html}</div>`;
+            if (preview) html += renderPartPreviewSmall(preview, rule_def);
+        }
+        html += `</div>`;
+        if (is_accepted) {
+            html += `<div class="text-[10px] font-medium text-green-600 mb-1">Accepted</div>`;
+        } else if (!msg.accepted) {
+            html += `<button data-ui-btn="1" type="button"
+                class="mb-1 inline-flex h-5 items-center justify-center whitespace-nowrap border border-green-600 bg-green-600 px-2 text-[10px] font-medium leading-none text-white hover:bg-green-700"
+                onclick="acceptAiProposal('${msg.id}', ${pi})">Accept</button>`;
+        }
     }
-    html += `</div>`;
-    if (msg.accepted) {
-        html += `<div class="text-[10px] font-medium text-green-600">Accepted</div>`;
-    } else {
-        html += `<button data-ui-btn="1" type="button"
-            class="inline-flex h-5 items-center justify-center whitespace-nowrap border border-green-600 bg-green-600 px-2 text-[10px] font-medium leading-none text-white hover:bg-green-700"
-            onclick="acceptAiProposal('${msg.id}')">Accept</button>`;
+    if (proposals.length > 1 && !msg.accepted) {
+        let all_accepted = proposals.every(p => p.accepted);
+        if (!all_accepted) {
+            html += `<button data-ui-btn="1" type="button"
+                class="mt-1 inline-flex h-5 items-center justify-center whitespace-nowrap border border-green-600 bg-green-600 px-2 text-[10px] font-medium leading-none text-white hover:bg-green-700"
+                onclick="acceptAiProposal('${msg.id}')">Accept All</button>`;
+        }
     }
     return html;
 }
@@ -2591,18 +2620,84 @@ async function sendAiChat(rule_id) {
     }
 }
 
-async function acceptAiProposal(message_id) {
+async function acceptAiProposal(message_id, proposal_index) {
     let rule_id = selected_rule_id;
     if (!rule_id) return;
-    let resp = await fetch(`/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat/accept/${message_id}`, {method: 'POST'});
+    let url = `/api/profile/${PROFILE_ID}/rules/${rule_id}/ai-chat/accept/${message_id}`;
+    if (proposal_index !== undefined) url += `?proposal_index=${proposal_index}`;
+    let resp = await fetch(url, {method: 'POST'});
     if (!resp.ok) { alert('Failed to accept proposal'); return; }
     let data = await resp.json();
-    let rule = findRuleById(RULES, rule_id);
-    if (rule && data.rule) {
-        rule.name = data.rule.name;
-        rule.match_mode = data.rule.match_mode;
-        rule.conditions = data.rule.conditions;
-        markDirty(rule_id);
+    for (let r of (data.results || [])) {
+        if (r.action === 'edit') {
+            let target = findRuleById(RULES, r.rule_id);
+            if (target && r.rule) {
+                target.name = r.rule.name;
+                target.match_mode = r.rule.match_mode;
+                target.conditions = r.rule.conditions;
+                // handle edit+move (position specified)
+                if (r.position != null) {
+                    removeRuleById(RULES, r.rule_id);
+                    if (r.parent_id) {
+                        let parent = findRuleById(RULES, r.parent_id);
+                        if (parent) {
+                            if (!parent.children) parent.children = [];
+                            if (r.position >= 0 && r.position <= parent.children.length) parent.children.splice(r.position, 0, target);
+                            else parent.children.push(target);
+                        }
+                    } else {
+                        if (r.position >= 0 && r.position <= RULES.length) RULES.splice(r.position, 0, target);
+                        else RULES.push(target);
+                    }
+                }
+                markDirty(findTopLevelId(r.rule_id) || r.rule_id);
+            }
+        } else if (r.action === 'move') {
+            // remove from current location
+            let rule_to_move = findRuleById(RULES, r.rule_id);
+            if (rule_to_move) {
+                removeRuleById(RULES, r.rule_id);
+                // insert at new location
+                if (r.parent_id) {
+                    let parent = findRuleById(RULES, r.parent_id);
+                    if (parent) {
+                        if (!parent.children) parent.children = [];
+                        if (r.position != null && r.position >= 0 && r.position <= parent.children.length) {
+                            parent.children.splice(r.position, 0, rule_to_move);
+                        } else {
+                            parent.children.push(rule_to_move);
+                        }
+                    }
+                } else {
+                    if (r.position != null && r.position >= 0 && r.position <= RULES.length) {
+                        RULES.splice(r.position, 0, rule_to_move);
+                    } else {
+                        RULES.push(rule_to_move);
+                    }
+                }
+                markDirty(findTopLevelId(r.rule_id) || r.rule_id);
+            }
+        } else if (r.action === 'create' && r.rule) {
+            if (r.parent_id) {
+                let parent = findRuleById(RULES, r.parent_id);
+                if (parent) {
+                    if (!parent.children) parent.children = [];
+                    if (r.position != null && r.position >= 0 && r.position <= parent.children.length) {
+                        parent.children.splice(r.position, 0, r.rule);
+                    } else {
+                        parent.children.push(r.rule);
+                    }
+                    markDirty(findTopLevelId(r.parent_id));
+                }
+            } else {
+                if (r.position != null && r.position >= 0 && r.position <= RULES.length) {
+                    RULES.splice(r.position, 0, r.rule);
+                } else {
+                    RULES.push(r.rule);
+                }
+                pending_rules.add(r.rule.id);
+            }
+        }
     }
     renderEditor();
     renderRuleList();

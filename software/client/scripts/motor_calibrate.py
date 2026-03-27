@@ -25,16 +25,26 @@ SPEED_PRESETS: list[int] = [100, 250, 500, 1000, 2000, 4000, 8000]
 DEFAULT_SPEED_IDX: int = 3  # 1000
 CHUTE_REVOLVE_ANGLE: float = 347 #max reachable before hitting end switch
 CHUTE_MIN_ANGLE: float = 4
-BINS_PER_LAYER: int = 12
+BINS_PER_SIZE: dict[str, int] = {"small": 3, "medium": 2, "large": 1}
 DEG_PER_SECTION: float = 60.0
 
 
-def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 2) -> float:
+def angleForBin(cal: dict[str, float], bin_number: int, bins_per_section: int = 2) -> float | None:
     section = bin_number // bins_per_section
     bin_in_section = bin_number % bins_per_section
     usable = DEG_PER_SECTION - cal["pillar_width"]
-    bin_width = usable / bins_per_section
-    return cal["first_bin_center"] + section * DEG_PER_SECTION + bin_in_section * bin_width
+    slot_width = usable / bins_per_section
+    section_center = cal["first_section_center"] + section * DEG_PER_SECTION
+    bin_offset = (bin_in_section - (bins_per_section - 1) / 2) * slot_width
+    angle = section_center + bin_offset
+    if angle > CHUTE_REVOLVE_ANGLE:
+        bins_from_end = (bins_per_section - 1) - bin_in_section
+        wrapped = cal["home_section_last_bin"] - bins_from_end * cal["slot_width"]
+        if wrapped >= 0:
+            angle = wrapped
+        else:
+            return None
+    return angle
 
 
 def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | None:
@@ -56,78 +66,84 @@ def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | 
         print(f"  Q       Cancel calibration")
         print()
 
+    def _nudgeUntilConfirm(stage: str, instructions: str) -> float | None:
+        nonlocal step_count_idx
+        _printCalScreen(stage, instructions)
+        while True:
+            key = readchar.readkey()
+            step_count = STEP_COUNTS[step_count_idx]
+            if key == readchar.key.LEFT:
+                stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
+            elif key == readchar.key.RIGHT:
+                stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
+            elif key == readchar.key.UP:
+                step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
+            elif key == readchar.key.DOWN:
+                step_count_idx = max(step_count_idx - 1, 0)
+            elif key == readchar.key.ENTER:
+                return chute.current_angle
+            elif key.lower() == "q":
+                return None
+            else:
+                continue
+            _printCalScreen(stage, instructions)
+
+    print("\033[2J\033[H", end="")
+    print("Chute Calibration Wizard")
+    print("========================")
+    print("What bin size is currently installed?")
+    print("  S = small (3/section)")
+    print("  M = medium (2/section)")
+    print("  L = large (1/section)")
+    print()
+    size_key = input("Bin size [S/M/L]: ").strip().lower()
+    size_map = {"s": "small", "m": "medium", "l": "large"}
+    if size_key not in size_map:
+        print("Invalid size")
+        readchar.readkey()
+        return None
+    bins_per_section = BINS_PER_SIZE[size_map[size_key]]
+    if bins_per_section < 2:
+        print("Need at least 2 bins per section to calibrate. Use small or medium.")
+        readchar.readkey()
+        return None
+
     print("Homing chute before calibration...")
     chute.home()
 
-    _printCalScreen(
-        "1/2 — Aim at BIN 1 (first bin after home)",
-        "Nudge the chute until it points at the CENTER of the first bin.\n"
-        "This bin is in the middle of a section (pillar is ahead of it)."
+    home_bin = _nudgeUntilConfirm(
+        "1/3 — Last bin of home section",
+        "Nudge to the CENTER of the last bin in the home section\n"
+        "(the bin closest to home, just past home in the + direction)."
     )
+    if home_bin is None:
+        return None
 
-    while True:
-        key = readchar.readkey()
-        step_count = STEP_COUNTS[step_count_idx]
-        if key == readchar.key.LEFT:
-            stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
-        elif key == readchar.key.RIGHT:
-            stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
-        elif key == readchar.key.UP:
-            step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
-        elif key == readchar.key.DOWN:
-            step_count_idx = max(step_count_idx - 1, 0)
-        elif key == readchar.key.ENTER:
-            break
-        elif key.lower() == "q":
-            return None
-        else:
-            continue
-        _printCalScreen(
-            "1/2 — Aim at BIN 1 (first bin after home)",
-            "Nudge the chute until it points at the CENTER of the first bin.\n"
-            "This bin is in the middle of a section (pillar is ahead of it)."
-        )
-
-    home_to_bin1 = chute.current_angle
-
-    _printCalScreen(
-        "2/2 — Aim at BIN 2 (next bin, across the pillar)",
-        "Nudge the chute until it points at the CENTER of the next bin.\n"
-        "This bin is ACROSS the support pillar from bin 1."
+    next_bin = _nudgeUntilConfirm(
+        "2/3 — First bin after pillar",
+        "Now nudge PAST the pillar.\n"
+        "Aim at the CENTER of the first bin in the next section."
     )
+    if next_bin is None:
+        return None
 
-    while True:
-        key = readchar.readkey()
-        step_count = STEP_COUNTS[step_count_idx]
-        if key == readchar.key.LEFT:
-            stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
-        elif key == readchar.key.RIGHT:
-            stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
-        elif key == readchar.key.UP:
-            step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
-        elif key == readchar.key.DOWN:
-            step_count_idx = max(step_count_idx - 1, 0)
-        elif key == readchar.key.ENTER:
-            break
-        elif key.lower() == "q":
-            return None
-        else:
-            continue
-        _printCalScreen(
-            "2/2 — Aim at BIN 2 (section 0, second bin)",
-            "Nudge the chute until it points at the CENTER of the second bin.\n"
-            "This is the bin AFTER the support pillar, still in the same section."
-        )
+    adjacent_bin = _nudgeUntilConfirm(
+        "3/3 — Second bin in same section",
+        "Now aim at the CENTER of the next bin over in this same section\n"
+        "(adjacent bin, no pillar between them)."
+    )
+    if adjacent_bin is None:
+        return None
 
-    gap = chute.current_angle - home_to_bin1
-    if gap < 30:
-        pillar_width = DEG_PER_SECTION - 2 * gap
-    else:
-        pillar_width = 2 * (gap - 30)
+    slot_width = adjacent_bin - next_bin
+    pillar_width = (next_bin - home_bin) - slot_width
+    first_section_center = next_bin + slot_width * ((bins_per_section - 1) / 2)
 
     cal: dict[str, float] = {
-        "first_bin_center": round(home_to_bin1, 3),
+        "first_section_center": round(first_section_center, 3),
         "pillar_width": round(pillar_width, 3),
+        "home_section_last_bin": round(home_bin, 3),
+        "slot_width": round(slot_width, 3),
     }
 
     setChuteCalibration(cal)
@@ -136,14 +152,16 @@ def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | 
     print("\033[2J\033[H", end="")
     print("Chute Calibration Complete")
     print("==========================")
-    print(f"  FIRST_BIN_CENTER = {cal['first_bin_center']:.1f}")
-    print(f"  PILLAR_WIDTH_DEG = {cal['pillar_width']:.1f}")
+    print(f"  FIRST_SECTION_CENTER  = {cal['first_section_center']:.1f}°")
+    print(f"  PILLAR_WIDTH_DEG      = {cal['pillar_width']:.1f}°")
+    print(f"  slot width            = {cal['slot_width']:.1f}°")
+    print(f"  home section last bin = {cal['home_section_last_bin']:.1f}°")
     print()
     print(f"  usable per section: {usable:.3f}°")
-    print(f"  bin width (2/section): {usable / 2:.3f}°")
-    print(f"  gap between calibrated bins: {gap:.3f}°")
+    for size_name, bps in BINS_PER_SIZE.items():
+        print(f"  bin width ({size_name}, {bps}/section): {usable / bps:.3f}°")
     print()
-    print("Paste these into chute.py. Saved to blob storage.")
+    print("Saved to blob storage. Update FIRST_SECTION_CENTER and PILLAR_WIDTH_DEG in chute.py.")
     print("Press any key to continue.")
     readchar.readkey()
     return cal
@@ -189,15 +207,16 @@ def printStatus(
         print("  G       Go to chute angle (0-360)")
         print(f"  R       Revolve chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°)")
         print("  T       Random movement test")
-        print("  B       Go to bin (1-12)")
+        print("  B       Go to bin (small/medium/large)")
         print("  C       Chute calibration wizard")
         print()
-        if chute_cal is not None and "pillar_width" in chute_cal:
+        if chute_cal is not None and "first_section_center" in chute_cal:
             usable = DEG_PER_SECTION - chute_cal["pillar_width"]
             print("Chute Calibration:")
-            print(f"  FIRST_BIN_CENTER = {chute_cal['first_bin_center']:.1f}")
-            print(f"  PILLAR_WIDTH_DEG = {chute_cal['pillar_width']:.1f}")
-            print(f"  bin width (2/section): {usable / 2:.3f}°")
+            print(f"  FIRST_SECTION_CENTER = {chute_cal['first_section_center']:.1f}")
+            print(f"  PILLAR_WIDTH_DEG     = {chute_cal['pillar_width']:.1f}")
+            for size_name, bps in BINS_PER_SIZE.items():
+                print(f"  bin width ({size_name}, {bps}/section): {usable / bps:.3f}°")
         elif chute_cal is not None:
             print("Chute Calibration: STALE (re-run calibration with C)")
         else:
@@ -341,15 +360,23 @@ def main() -> None:
 
             if key == readchar.key.LEFT:
                 stepper.move_degrees(-stepper.degrees_for_microsteps(step_count))
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key == readchar.key.RIGHT:
                 stepper.move_degrees(stepper.degrees_for_microsteps(step_count))
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key.lower() == "a":
                 stepper.move_degrees(-90)
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key.lower() == "d":
                 stepper.move_degrees(90)
+                while not stepper.stopped:
+                    time.sleep(0.01)
                 _printMain()
             elif key == readchar.key.UP:
                 step_count_idx = min(step_count_idx + 1, len(STEP_COUNTS) - 1)
@@ -458,35 +485,66 @@ def main() -> None:
                     termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
                 _printMain()
             elif key.lower() == "b" and name == "chute":
-                if chute_cal is None or "pillar_width" not in chute_cal:
+                if chute_cal is None or "first_section_center" not in chute_cal:
                     print("No calibration set. Run calibration first (C).")
                     print("Press any key...")
                     readchar.readkey()
                 else:
                     print("\033[2J\033[H", end="")
-                    print("Bin Targeting (1-12)")
-                    print("====================")
-                    for b in range(BINS_PER_LAYER):
-                        s = b // 2
-                        bi = b % 2
-                        a = angleForBin(chute_cal, b)
-                        print(f"  Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
+                    print("Bin Targeting")
+                    print("=============")
+                    print("  S = small (3/section, 18 total)")
+                    print("  M = medium (2/section, 12 total)")
+                    print("  L = large (1/section, 6 total)")
                     print()
-                    bin_str = input("Enter bin number (1-12): ")
-                    try:
-                        bin_num = int(bin_str)
-                        if 1 <= bin_num <= BINS_PER_LAYER:
-                            target_angle = angleForBin(chute_cal, bin_num - 1)
-                            print(f"Moving to bin {bin_num} at {target_angle:.2f}°...")
-                            irl.chute.moveToAngle(target_angle)
-                            while not irl.chute.stepper.stopped:
-                                time.sleep(0.01)
-                        else:
-                            print(f"Must be 1-{BINS_PER_LAYER}")
-                            readchar.readkey()
-                    except ValueError:
-                        print("Invalid number")
+                    size_key = input("Bin size [S/M/L]: ").strip().lower()
+                    size_map = {"s": "small", "m": "medium", "l": "large"}
+                    if size_key not in size_map:
+                        print("Invalid size")
                         readchar.readkey()
+                    else:
+                        bins_per_section = BINS_PER_SIZE[size_map[size_key]]
+                        total_bins = bins_per_section * 6
+                        current_bin: int | None = None
+                        while True:
+                            print("\033[2J\033[H", end="")
+                            print(f"Bin Targeting — {size_map[size_key]} (1-{total_bins})")
+                            if current_bin is not None:
+                                print(f"Currently at: bin {current_bin}")
+                            print("=" * 40)
+                            for b in range(total_bins):
+                                s = b // bins_per_section
+                                bi = b % bins_per_section
+                                a = angleForBin(chute_cal, b, bins_per_section)
+                                marker = " >> " if current_bin == b + 1 else "    "
+                                if a is None:
+                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → UNREACHABLE")
+                                else:
+                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
+                            print()
+                            print("  Q to go back")
+                            print()
+                            bin_str = input(f"Enter bin number (1-{total_bins}): ").strip()
+                            if bin_str.lower() == "q":
+                                break
+                            try:
+                                bin_num = int(bin_str)
+                                if 1 <= bin_num <= total_bins:
+                                    target_angle = angleForBin(chute_cal, bin_num - 1, bins_per_section)
+                                    if target_angle is None:
+                                        print(f"Bin {bin_num} is unreachable")
+                                        readchar.readkey()
+                                        continue
+                                    irl.chute.moveToAngle(target_angle)
+                                    while not irl.chute.stepper.stopped:
+                                        time.sleep(0.01)
+                                    current_bin = bin_num
+                                else:
+                                    print(f"Must be 1-{total_bins}")
+                                    readchar.readkey()
+                            except ValueError:
+                                print("Invalid number")
+                                readchar.readkey()
                 _printMain()
             elif key.lower() == "c" and name == "chute":
                 result = chuteCalibrateLoop(irl.chute, step_count_idx)

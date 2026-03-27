@@ -129,13 +129,13 @@ class Positioning(BaseState):
         for layer_idx, layer in enumerate(self.layout.layers):
             for section_idx, section in enumerate(layer.sections):
                 for bin_idx, b in enumerate(section.bins):
+                    address = BinAddress(layer_idx, section_idx, bin_idx)
+                    if not self.chute.isBinReachable(address):
+                        continue
                     if b.category_id == category_id:
-                        return BinAddress(layer_idx, section_idx, bin_idx), False
+                        return address, False
                     if b.category_id is None and first_unassigned is None:
-                        first_unassigned = (
-                            BinAddress(layer_idx, section_idx, bin_idx),
-                            b,
-                        )
+                        first_unassigned = (address, b)
 
         if first_unassigned is not None:
             address, b = first_unassigned

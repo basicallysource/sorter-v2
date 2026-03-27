@@ -589,7 +589,7 @@ def main() -> None:
                 print("Exiting...")
                 break
     finally:
-        irl.disableSteppers()
+        pass
 
 
 if __name__ == "__main__":

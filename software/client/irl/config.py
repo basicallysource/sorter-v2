@@ -188,7 +188,6 @@ class IRLInterface:
                 getattr(self, attr).enabled = False
 
     def shutdown(self) -> None:
-        self.disableSteppers()
         for iface in self.interfaces.values():
             iface.shutdown()
 

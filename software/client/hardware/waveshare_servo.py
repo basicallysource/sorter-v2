@@ -347,6 +347,26 @@ class WaveshareServoMotor:
         if pos is not None:
             self._current_position = pos
 
+    def set_invert(self, invert: bool) -> None:
+        self._invert = invert
+        if self._invert:
+            self._open_position = self._max_limit
+            self._closed_position = self._min_limit
+        else:
+            self._open_position = self._min_limit
+            self._closed_position = self._max_limit
+
+    def recalibrate(self) -> tuple[int, int]:
+        min_lim, max_lim = calibrate_servo(self._bus, self._servo_id)
+        self._min_limit = min_lim
+        self._max_limit = max_lim
+        self.set_invert(self._invert)
+        pos = self._bus.read_position(self._servo_id)
+        if pos is not None:
+            self._current_position = pos
+        else:
+            self._current_position = (min_lim + max_lim) // 2
+
     # -- ServoMotor-compatible interface ------------------------------------
 
     @property

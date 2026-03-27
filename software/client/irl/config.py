@@ -21,6 +21,7 @@ from .parse_user_toml import (
     loadMachineSpecificParams,
     loadStepperCurrentOverrides,
     loadServoPresetAngles,
+    loadServoChannelConfig,
     loadWaveshareServoConfig,
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
@@ -597,6 +598,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     machine_specific_params = loadMachineSpecificParams(gc)
     stepper_current_overrides = loadStepperCurrentOverrides(gc, machine_specific_params)
     servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
+    servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
 
     ports = MCUBus.enumerate_buses()
     if not ports:
@@ -788,14 +790,30 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             servo_source = next(iter(irl_interface.interfaces.values()))
 
         for i, layer in enumerate(irl_interface.distribution_layout.layers):
-            if i >= len(servo_source.servos):
-                gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
-                raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
-            servo = servo_source.servos[i]
+            channel_id = servo_channel_config[i].id if i < len(servo_channel_config) else i
+            invert = servo_channel_config[i].invert if i < len(servo_channel_config) else False
+
+            if channel_id < 0 or channel_id >= len(servo_source.servos):
+                gc.logger.error(
+                    f"Layer {i} servo channel {channel_id} not available. "
+                    f"Only {len(servo_source.servos)} servos are configured."
+                )
+                raise IndexError(
+                    f"Layer {i} servo channel {channel_id} not available. "
+                    f"Only {len(servo_source.servos)} servos are configured."
+                )
+
+            servo = servo_source.servos[channel_id]
             servo.set_name(f"layer_{i}_servo")
-            servo.set_preset_angles(servo_open_angle, servo_closed_angle)
+            if invert:
+                servo.set_preset_angles(servo_closed_angle, servo_open_angle)
+            else:
+                servo.set_preset_angles(servo_open_angle, servo_closed_angle)
             irl_interface.servos.append(servo)
-            gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, angle={servo.angle}°")
+            gc.logger.info(
+                f"Initialized Servo 'layer_{i}_servo' on channel {channel_id}, "
+                f"angle={servo.angle}°, invert={invert}"
+            )
 
     saved_categories = getBinCategories()
     if saved_categories is not None:

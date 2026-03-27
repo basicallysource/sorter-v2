@@ -422,27 +422,51 @@ def save_servo_hardware_config(
     open_angle = max(0, min(180, int(payload.open_angle)))
     closed_angle = max(0, min(180, int(payload.closed_angle)))
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
-    channels = [
-        {"id": channel.id, "invert": bool(channel.invert)}
-        for channel in payload.channels
-        if 1 <= channel.id <= 253
-    ]
+    layer_count = _distribution_layer_count()
+    available_pca_channels = _pca_available_servo_channels()
+
+    if len(payload.channels) != layer_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Expected {layer_count} layer servo assignments, got {len(payload.channels)}.",
+        )
+
+    channels: List[Dict[str, Any]] = []
+    seen_ids: set[int] = set()
+    for index, channel in enumerate(payload.channels):
+        channel_id = int(channel.id)
+        if backend == "waveshare":
+            valid = 1 <= channel_id <= 253
+            help_text = "an SC servo ID between 1 and 253"
+        else:
+            valid = channel_id >= 0 and (
+                not available_pca_channels or channel_id in available_pca_channels
+            )
+            help_text = "a valid PCA servo channel"
+
+        if not valid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Layer {index + 1} needs {help_text}.",
+            )
+        if channel_id in seen_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Servo assignment {channel_id} is used more than once.",
+            )
+        seen_ids.add(channel_id)
+        channels.append({"id": channel_id, "invert": bool(channel.invert)})
 
     params_path, config = _read_machine_params_config()
     previous = _servo_settings_from_config(config)
 
-    servo_table: Dict[str, Any] = {
-        "backend": backend,
-        "open_angle": open_angle,
-        "closed_angle": closed_angle,
-    }
+    servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
+    if backend == "pca9685":
+        servo_table["open_angle"] = open_angle
+        servo_table["closed_angle"] = closed_angle
     if backend == "waveshare":
         if port is not None:
             servo_table["port"] = port
-        if channels:
-            servo_table["channels"] = channels
-        else:
-            servo_table["channels"] = []
 
     config["servo"] = servo_table
 
@@ -451,18 +475,33 @@ def save_servo_hardware_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
-    restart_required = backend != previous["backend"] or (
-        backend == "waveshare"
-        and (port != previous["port"] or channels != previous["channels"])
+    previous_ids = [int(channel["id"]) for channel in previous["channels"]]
+    previous_inverts = [bool(channel["invert"]) for channel in previous["channels"]]
+    channel_ids = [int(channel["id"]) for channel in channels]
+    channel_inverts = [bool(channel["invert"]) for channel in channels]
+
+    restart_required = (
+        backend != previous["backend"]
+        or channel_ids != previous_ids
+        or (backend == "waveshare" and port != previous["port"])
     )
 
     applied_live = False
     if not restart_required and controller_ref is not None and hasattr(controller_ref, "irl"):
         try:
-            for servo in controller_ref.irl.servos:
-                if hasattr(servo, "set_preset_angles"):
-                    servo.set_preset_angles(open_angle, closed_angle)
-            applied_live = True
+            live_servos = list(getattr(controller_ref.irl, "servos", []))
+            if len(live_servos) == len(channels):
+                for index, servo in enumerate(live_servos):
+                    invert = channel_inverts[index]
+                    if backend == "waveshare":
+                        if hasattr(servo, "set_invert"):
+                            servo.set_invert(invert)
+                    elif hasattr(servo, "set_preset_angles"):
+                        if invert:
+                            servo.set_preset_angles(closed_angle, open_angle)
+                        else:
+                            servo.set_preset_angles(open_angle, closed_angle)
+                applied_live = True
         except Exception:
             applied_live = False
 
@@ -476,6 +515,52 @@ def save_servo_hardware_config(
             if applied_live
             else "Servo settings saved. Restart backend to apply backend or bus changes."
         ),
+    }
+
+
+@app.post("/api/hardware-config/servo/layers/{layer_index}/toggle")
+def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
+    servo = _live_servo_for_layer(layer_index)
+    if not hasattr(servo, "toggle"):
+        raise HTTPException(status_code=500, detail="Selected servo does not support test toggling.")
+
+    try:
+        servo.toggle()
+        is_open = bool(servo.isOpen()) if hasattr(servo, "isOpen") else False
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "is_open": is_open,
+        "message": (
+            f"Layer {layer_index + 1} servo opened."
+            if is_open
+            else f"Layer {layer_index + 1} servo closed."
+        ),
+    }
+
+
+@app.post("/api/hardware-config/servo/layers/{layer_index}/calibrate")
+def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
+    servo = _live_servo_for_layer(layer_index)
+    if not hasattr(servo, "recalibrate"):
+        raise HTTPException(
+            status_code=400,
+            detail="Calibration is only supported for Waveshare storage-layer servos.",
+        )
+
+    try:
+        min_limit, max_limit = servo.recalibrate()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to calibrate layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "limits": {"min": min_limit, "max": max_limit},
+        "message": f"Layer {layer_index + 1} servo calibrated.",
     }
 
 
@@ -539,6 +624,7 @@ def save_storage_layer_hardware_config(
         )
 
     updated_layers: List[Dict[str, Any]] = []
+    changed = False
     for count, layer in zip(layer_bin_counts, current["layers"]):
         if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
             raise HTTPException(
@@ -563,6 +649,16 @@ def save_storage_layer_hardware_config(
                 "bins_per_section": count // section_count,
             }
         )
+        changed = changed or count != int(layer["bin_count"])
+
+    if not changed:
+        return {
+            "ok": True,
+            "settings": current,
+            "applied_live": False,
+            "restart_required": False,
+            "message": "Storage layer layout unchanged.",
+        }
 
     try:
         _write_bin_layout_config(layout_path, updated_layers)
@@ -1096,6 +1192,31 @@ def _distribution_layer_count() -> int:
     return len(getBinLayout().layers)
 
 
+def _pca_available_servo_channels() -> List[int]:
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        interfaces = getattr(controller_ref.irl, "interfaces", {})
+        channels: set[int] = set()
+        if isinstance(interfaces, dict):
+            for interface in interfaces.values():
+                for servo in getattr(interface, "servos", []):
+                    channel = getattr(servo, "channel", None)
+                    if isinstance(channel, int) and not isinstance(channel, bool):
+                        channels.add(channel)
+        if channels:
+            return sorted(channels)
+    return list(range(_distribution_layer_count()))
+
+
+def _live_servo_for_layer(layer_index: int) -> Any:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Servo controller not initialized.")
+
+    servos = list(getattr(controller_ref.irl, "servos", []))
+    if layer_index < 0 or layer_index >= len(servos):
+        raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    return servos[layer_index]
+
+
 def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
     layers: List[Dict[str, Any]] = []
     for index, layer in enumerate(getattr(layout, "layers", []), start=1):
@@ -1154,7 +1275,8 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if port is not None and not isinstance(port, str):
         port = None
 
-    channels: List[Dict[str, Any]] = []
+    layer_count = _distribution_layer_count()
+    parsed_channels: List[Dict[str, Any]] = []
     channels_raw = servo.get("channels", [])
     if isinstance(channels_raw, list):
         for item in channels_raw:
@@ -1163,12 +1285,23 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             channel_id = item.get("id")
             if not isinstance(channel_id, int) or isinstance(channel_id, bool):
                 continue
-            channels.append(
+            parsed_channels.append(
                 {
                     "id": channel_id,
                     "invert": bool(item.get("invert", False)),
                 }
             )
+
+    channels: List[Dict[str, Any]] = []
+    for index in range(layer_count):
+        existing = parsed_channels[index] if index < len(parsed_channels) else None
+        default_id = index + 1 if backend == "waveshare" else index
+        channels.append(
+            {
+                "id": int(existing["id"]) if existing is not None else default_id,
+                "invert": bool(existing["invert"]) if existing is not None else False,
+            }
+        )
 
     return {
         "backend": backend,
@@ -1176,7 +1309,9 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "closed_angle": max(0, min(180, closed_angle)),
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
-        "layer_count": _distribution_layer_count(),
+        "layer_count": layer_count,
+        "available_channel_ids": _pca_available_servo_channels() if backend == "pca9685" else [],
+        "supports_calibration": backend == "waveshare",
     }
 
 

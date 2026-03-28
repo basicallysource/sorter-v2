@@ -2,13 +2,14 @@
 	import { backendHttpBaseUrl } from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
+	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneEditingSidebar from '$lib/components/settings/ZoneEditingSidebar.svelte';
 	import {
 		clonePictureSettings,
 		pictureSettingsEqual,
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
-	import type { CameraRole } from '$lib/settings/stations';
+	import type { CameraRole, StepperKey, EndstopConfig } from '$lib/settings/stations';
 	import { Camera, Check, Pencil, RefreshCw, RotateCcw, SlidersHorizontal, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -189,10 +190,16 @@
 	const EXIT_ZONE_COLOR = '#ef4444';
 
 	let {
-		channels = ALL_CHANNELS
+		channels = ALL_CHANNELS,
+		stepperKey = undefined,
+		stepperEndstop = undefined
 	}: {
 		channels?: Channel[];
+		stepperKey?: StepperKey;
+		stepperEndstop?: EndstopConfig;
 	} = $props();
+
+	const hasStepper = $derived(!!stepperKey);
 
 	let currentChannel = $state<Channel>('second');
 	let userPoints = $state<Record<Channel, number[][]>>({
@@ -1803,7 +1810,7 @@
 	<!-- Content -->
 	<div class="-mx-4 -mb-4 px-4 pb-4">
 	<div
-		class={`grid gap-4 ${activeSidebar ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
+		class={`grid gap-4 ${activeSidebar || hasStepper ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
 	>
 		<div class="flex min-w-0 flex-col gap-3">
 			<div class="relative overflow-hidden bg-black">
@@ -1903,6 +1910,14 @@
 					}}
 				/>
 			{/key}
+		{/if}
+
+		{#if !activeSidebar && hasStepper && stepperKey}
+			<StepperSidebar
+				{stepperKey}
+				endstop={stepperEndstop}
+				keyboardShortcuts={true}
+			/>
 		{/if}
 	</div>
 

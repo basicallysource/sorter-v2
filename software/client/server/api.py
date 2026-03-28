@@ -587,6 +587,15 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to toggle layer {layer_index + 1} servo: {e}")
 
+    # Persist servo states so they survive restarts
+    try:
+        from irl.config import save_servo_states
+        if controller_ref is not None and hasattr(controller_ref, "irl"):
+            servos = getattr(controller_ref.irl, "servos", [])
+            save_servo_states(servos, controller_ref.gc)
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "layer_index": layer_index,

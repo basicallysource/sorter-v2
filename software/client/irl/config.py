@@ -1,3 +1,5 @@
+import json
+import os
 import time
 
 from global_config import GlobalConfig
@@ -39,6 +41,57 @@ from .parse_user_toml import (
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories, getCameraSetup
+
+
+def _servo_state_path() -> str | None:
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    if not params_path:
+        return None
+    return os.path.join(os.path.dirname(params_path), "servo_states.json")
+
+
+def save_servo_states(servos: list, gc: GlobalConfig) -> None:
+    path = _servo_state_path()
+    if not path:
+        return
+    states = {}
+    for i, servo in enumerate(servos):
+        is_open = getattr(servo, "isOpen", lambda: None)()
+        if is_open is not None:
+            states[str(i)] = {"is_open": is_open}
+    try:
+        with open(path, "w") as f:
+            json.dump(states, f)
+    except Exception as e:
+        gc.logger.warning(f"Failed to save servo states: {e}")
+
+
+def restore_servo_states(servos: list, gc: GlobalConfig) -> None:
+    path = _servo_state_path()
+    if not path or not os.path.exists(path):
+        return
+    try:
+        with open(path, "r") as f:
+            states = json.load(f)
+    except Exception as e:
+        gc.logger.warning(f"Failed to load servo states: {e}")
+        return
+
+    for i, servo in enumerate(servos):
+        entry = states.get(str(i))
+        if entry is None:
+            continue
+        was_open = entry.get("is_open")
+        if was_open is None:
+            continue
+        try:
+            if was_open:
+                servo.open()
+            else:
+                servo.close()
+            gc.logger.info(f"Restored servo {i} to {'open' if was_open else 'closed'}")
+        except Exception as e:
+            gc.logger.warning(f"Failed to restore servo {i}: {e}")
 
 
 class CameraConfig:
@@ -855,6 +908,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
         irl_interface.distribution_layout
     )
+    restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
         servo_backend=irl_interface.servo_controller.backend_name,

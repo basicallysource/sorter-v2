@@ -224,6 +224,8 @@ class VisionManager:
             trigger_score=c.trigger_score,
             min_contour_area=c.min_contour_area,
             min_hot_thickness_px=c.min_hot_thickness_px,
+            hot_erode_iters=c.hot_erode_iters,
+            hot_regrow_iters=c.hot_regrow_iters,
             max_contour_aspect=c.max_contour_aspect,
             heat_gain=c.heat_gain,
             current_frames=c.current_frames,

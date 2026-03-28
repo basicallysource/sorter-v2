@@ -26,6 +26,16 @@ from blob_manager import BLOB_DIR
 MAX_FRAMES = 64
 DEGREES_PER_FRAME = -90
 MOVE_TIMEOUT_MS = 2000
+JITTER_RANGE = 1
+
+
+def formatEta(seconds_remaining: float) -> str:
+    seconds_remaining = max(0, int(round(seconds_remaining)))
+    minutes, seconds = divmod(seconds_remaining, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:02d}:{seconds:02d}"
 
 
 def loadExistingGrayFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
@@ -99,8 +109,8 @@ def calibrateCamera(
 
     print(f"  {cam}: have {existing_count} existing frames, capturing {frames_needed} more...")
 
-    JITTER_RANGE = 5
     debt = 0.0
+    capture_start_time = time.time()
     for i in range(frames_needed):
         if not no_jitter and i % 2 == 1:
             jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE)
@@ -111,9 +121,17 @@ def calibrateCamera(
         irl.carousel_stepper.move_degrees_blocking(move)
         time.sleep(MOVE_TIMEOUT_MS / 1000.0)
 
+        completed_steps = i + 1
+        total_elapsed_seconds = time.time() - capture_start_time
+        avg_step_seconds = total_elapsed_seconds / completed_steps
+        remaining_steps = frames_needed - completed_steps
+        eta_seconds = avg_step_seconds * remaining_steps
+        eta_text = formatEta(eta_seconds)
+        progress_total = existing_count + completed_steps
+
         raw = getLatestRaw(vision, cam)
         if raw is None:
-            print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} - no frame")
+            print(f"    frame {progress_total}/{MAX_FRAMES} - no frame - eta {eta_text}")
             continue
 
         gray = cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
@@ -127,11 +145,15 @@ def calibrateCamera(
         cv2.imwrite(str(cam_dir / f"{prefix}_frame_lab_{frame_idx:03d}.png"), lab_frame)
         saveGrayEnvelope(cam_dir, prefix, gray_frames)
         saveLabEnvelope(cam_dir, prefix, lab_frames)
-        print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(gray_frames)} total)")
+        print(f"    frame {progress_total}/{MAX_FRAMES} ({len(gray_frames)} total) - eta {eta_text}")
 
     if not gray_frames:
         print(f"  {cam}: no frames captured")
         return False
+
+    if not no_jitter and abs(debt) > 1e-6:
+        print(f"  {cam}: closing jitter residual ({debt:+.3f}°)")
+        irl.carousel_stepper.move_degrees_blocking(-debt)
 
     print(f"  {cam}: done. {len(gray_frames)} frames + gray/lab envelopes")
     return True

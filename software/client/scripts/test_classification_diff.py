@@ -38,7 +38,7 @@ BACKOFF_SPEED = 50
 SCALE = 0.25
 RECORDINGS_DIR = "recordings_diff"
 
-ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k", "mask_erode_px"}
+ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k"}
 
 app = Flask(__name__)
 
@@ -127,6 +127,8 @@ class AppState:
             "trigger_score": float(_cfg.trigger_score),
             "min_contour_area": float(_cfg.min_contour_area),
             "min_hot_thickness": float(_cfg.min_hot_thickness_px),
+            "hot_erode_iters": float(_cfg.hot_erode_iters),
+            "hot_regrow_iters": float(_cfg.hot_regrow_iters),
             "max_contour_aspect": float(_cfg.max_contour_aspect),
             "heat_gain": float(_cfg.heat_gain),
             "current_frames": float(_cfg.current_frames),
@@ -135,9 +137,7 @@ class AppState:
             "crop_margin_px": float(_cfg.crop_margin_px),
             "edge_bias_mult": float(_cfg.edge_bias_mult),
             "edge_bias_threshold_px": float(_cfg.edge_bias_threshold_px),
-            "bbox_diff_thresh": 0.0,
-            # script-only
-            "mask_erode_px": 0.0,
+            "bbox_diff_thresh": float(_cfg.bbox_diff_thresh),
         }
         self.params: dict[str, float | str] = dict(self._default_params)
 
@@ -169,6 +169,8 @@ class AppState:
         h._trigger_score = int(p["trigger_score"])
         h._min_contour_area = int(p["min_contour_area"])
         h._min_hot_thickness_px = int(p["min_hot_thickness"])
+        h._hot_erode_iters = int(p["hot_erode_iters"])
+        h._hot_regrow_iters = int(p["hot_regrow_iters"])
         h._max_contour_aspect = float(p["max_contour_aspect"])
         h._heat_gain = float(p["heat_gain"])
         h._current_frames = int(p["current_frames"])
@@ -177,7 +179,6 @@ class AppState:
         p = self.params
         margin = int(p["envelope_margin"])
         adaptive_k = p["adaptive_std_k"]
-        erode_px = int(p["mask_erode_px"])
 
         bl_min = self._baseline_min_orig.copy()
         bl_max = self._baseline_max_orig.copy()
@@ -191,11 +192,6 @@ class AppState:
         if margin > 0:
             bl_min = np.clip(bl_min.astype(np.int16) - margin, 0, 255).astype(np.uint8)
             bl_max = np.clip(bl_max.astype(np.int16) + margin, 0, 255).astype(np.uint8)
-
-        if erode_px > 0:
-            k = max(1, int(erode_px))
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k * 2 + 1, k * 2 + 1))
-            mask = cv2.erode(mask, kernel)
 
         self.heatmap = HeatmapDiff(scale=SCALE)
         self.heatmap.loadEnvelope(bl_min, bl_max, mask)
@@ -527,14 +523,6 @@ HTML = """
                 </div>
                 <span class="desc">Per-pixel margin = K &times; stddev from calibration frames</span>
             </div>
-            <div class="param">
-                <label>Mask Erode (px)</label>
-                <div class="row">
-                    <input type="range" min="0" max="60" step="1" data-key="mask_erode_px" />
-                    <span class="val"></span>
-                </div>
-                <span class="desc">Shrink polygon mask inward to exclude edges</span>
-            </div>
         </div>
 
         <div class="section">
@@ -594,6 +582,22 @@ HTML = """
                     <span class="val"></span>
                 </div>
                 <span class="desc">Erosion thickness filter (kills thin edge lines)</span>
+            </div>
+            <div class="param">
+                <label>Hot Erode Iters</label>
+                <div class="row">
+                    <input type="range" min="1" max="4" step="1" data-key="hot_erode_iters" />
+                    <span class="val"></span>
+                </div>
+                <span class="desc">Erode passes on hot zones before contouring</span>
+            </div>
+            <div class="param">
+                <label>Hot Regrow Iters</label>
+                <div class="row">
+                    <input type="range" min="0" max="4" step="1" data-key="hot_regrow_iters" />
+                    <span class="val"></span>
+                </div>
+                <span class="desc">Dilate passes after hot erosion (lower trims tails more)</span>
             </div>
             <div class="param">
                 <label>Max Contour Aspect</label>

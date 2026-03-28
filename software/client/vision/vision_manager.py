@@ -187,6 +187,7 @@ class VisionManager:
 
     def initFeederDetection(self) -> bool:
         from blob_manager import getChannelPolygons
+        from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
 
         saved = getChannelPolygons()
         if saved is None:
@@ -194,10 +195,32 @@ class VisionManager:
             return False
 
         polygon_data = saved.get("polygons", {})
+        raw_arc_params = saved.get("arc_params", {})
         polys: Dict[str, np.ndarray] = {}
+        inner_polys: Dict[str, np.ndarray] = {}
         for key in ("second_channel", "third_channel"):
             pts = polygon_data.get(key)
-            if pts:
+            channel_key = "second" if key == "second_channel" else "third"
+            arc = parseSavedChannelArcZones(channel_key, saved.get("channel_angles", {}), raw_arc_params)
+            if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                segment_count = 96
+                outer_pts = np.array([
+                    [
+                        int(round(arc.center[0] + arc.outer_radius * np.cos((2 * np.pi * i) / segment_count))),
+                        int(round(arc.center[1] + arc.outer_radius * np.sin((2 * np.pi * i) / segment_count))),
+                    ]
+                    for i in range(segment_count)
+                ], dtype=np.int32)
+                inner_pts = np.array([
+                    [
+                        int(round(arc.center[0] + arc.inner_radius * np.cos((2 * np.pi * i) / segment_count))),
+                        int(round(arc.center[1] + arc.inner_radius * np.sin((2 * np.pi * i) / segment_count))),
+                    ]
+                    for i in range(segment_count)
+                ], dtype=np.int32)
+                polys[key] = outer_pts
+                inner_polys[key] = inner_pts
+            elif pts:
                 polys[key] = np.array(pts, dtype=np.int32)
 
         if not polys:
@@ -215,10 +238,24 @@ class VisionManager:
         mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
 
         channel_masks: Dict[str, np.ndarray] = {}
+        channel_zone_sections: Dict[str, Dict[str, set[int]]] = {}
         for key, pts in polys.items():
             ch_mask = np.zeros(mask_shape, dtype=np.uint8)
             cv2.fillPoly(ch_mask, [pts], 255)
+            if key in inner_polys:
+                cv2.fillPoly(ch_mask, [inner_polys[key]], 0)
             channel_masks[key] = ch_mask
+            channel_key = "second" if key == "second_channel" else "third"
+            arc = parseSavedChannelArcZones(channel_key, self._channel_angles, raw_arc_params)
+            drop_sections, exit_sections = zoneSectionsForChannel(
+                2 if channel_key == "second" else 3,
+                float(self._channel_angles.get(channel_key, 0.0)),
+                arc,
+            )
+            channel_zone_sections[channel_key] = {
+                "drop": drop_sections,
+                "exit": exit_sections,
+            }
         self._channel_masks = channel_masks
 
         channel_steppers = {
@@ -236,6 +273,8 @@ class VisionManager:
             channel_polygons=polys,
             channel_masks=channel_masks,
             channel_angles=self._channel_angles,
+            channel_inner_polygons=inner_polys,
+            channel_zone_sections=channel_zone_sections,
             is_channel_rotating=is_channel_rotating,
         )
 
@@ -511,16 +550,12 @@ class VisionManager:
         if self._feeder_detector is not None:
             annotated = self._feeder_detector.annotateFrame(annotated)
             from subsystems.feeder.analysis import getBboxSections
-            from defs.consts import (
-                CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
-                CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
-            )
             for det in self.getFeederHeatmapDetections():
                 x1, y1, x2, y2 = det.bbox
                 secs = getBboxSections(det.bbox, det.channel)
-                precise = bool(secs & set(CH3_PRECISE_SECTIONS if det.channel_id == 3 else CH2_PRECISE_SECTIONS))
-                drop = bool(secs & set(CH3_DROPZONE_SECTIONS if det.channel_id == 3 else CH2_DROPZONE_SECTIONS))
-                label = f"ch{det.channel_id} {sorted(secs)} p={precise} d={drop}"
+                exit_zone = bool(secs & det.channel.exit_sections)
+                drop = bool(secs & det.channel.dropzone_sections)
+                label = f"ch{det.channel_id} {sorted(secs)} e={exit_zone} d={drop}"
                 cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
 
         if self._carousel_heatmap.has_baseline:

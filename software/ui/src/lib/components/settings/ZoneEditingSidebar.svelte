@@ -50,15 +50,18 @@
 			<div class="font-medium">How to edit</div>
 			{#if isArc}
 				<div class="dark:text-text-muted-dark text-sm leading-6 text-text-muted">
-					Drag the <span class="dark:text-text-dark font-medium text-text">Start</span>,
+					Drag the
+					<span class="dark:text-text-dark font-medium text-text">Drop Start</span>,
+					<span class="dark:text-text-dark font-medium text-text">Drop End</span>,
+					<span class="dark:text-text-dark font-medium text-text">Exit Start</span>,
+					<span class="dark:text-text-dark font-medium text-text">Exit End</span>,
 					<span class="dark:text-text-dark font-medium text-text">Center</span>,
-					<span class="dark:text-text-dark font-medium text-text">Exit</span>,
 					<span class="dark:text-text-dark font-medium text-text">Inner</span>, and
-					<span class="dark:text-text-dark font-medium text-text">Outer</span> handles to reshape the
-					arc.
+					<span class="dark:text-text-dark font-medium text-text">Outer</span> handles to shape the full
+					ring and its angular zones.
 				</div>
 				<div class="dark:text-text-muted-dark text-sm leading-6 text-text-muted">
-					Drag anywhere inside the highlighted zone to move the full arc as one piece.
+					Drag anywhere inside the ring to move the whole C-channel zone as one piece.
 				</div>
 				<div class="dark:text-text-muted-dark text-sm leading-6 text-text-muted">
 					Use the mouse wheel for fine radius scaling, and

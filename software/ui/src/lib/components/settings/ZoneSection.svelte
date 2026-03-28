@@ -42,14 +42,29 @@
 		center: Point;
 		innerRadius: number;
 		outerRadius: number;
+		dropZone: AngularZone;
+		exitZone: AngularZone;
+	};
+	type AngularZone = {
 		startAngle: number;
 		endAngle: number;
 	};
-	type ArcHandle = 'center' | 'inner' | 'outer' | 'start' | 'end';
+	type ArcHandle =
+		| 'center'
+		| 'inner'
+		| 'outer'
+		| 'dropStart'
+		| 'dropEnd'
+		| 'exitStart'
+		| 'exitEnd';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
 		outer_radius: number;
+		drop_zone?: AngularZonePayload;
+		exit_zone?: AngularZonePayload;
+	};
+	type AngularZonePayload = {
 		start_angle: number;
 		end_angle: number;
 	};
@@ -80,7 +95,13 @@
 				origSec0: Point | null;
 		  }
 		| {
-				kind: 'arc-inner' | 'arc-outer' | 'arc-start' | 'arc-end';
+				kind:
+					| 'arc-inner'
+					| 'arc-outer'
+					| 'arc-drop-start'
+					| 'arc-drop-end'
+					| 'arc-exit-start'
+					| 'arc-exit-end';
 				channel: ArcChannel;
 				orig: ArcParams;
 		  }
@@ -98,8 +119,10 @@
 	const VERTEX_HIT_RADIUS = 18;
 	const LABEL_EDGE_PADDING = 12;
 	const ARC_SEGMENTS = 64;
-	const MIN_ARC_SPAN_DEG = 12;
+	const MIN_ZONE_SPAN_DEG = 12;
 	const MIN_ARC_THICKNESS = 20;
+	const CHANNEL_SECTION_COUNT = 64;
+	const CHANNEL_SECTION_DEG = 360 / CHANNEL_SECTION_COUNT;
 	const ALL_CAMERA_ROLES: CameraRole[] = [
 		'c_channel_2',
 		'c_channel_3',
@@ -147,6 +170,23 @@
 		classification_top: true,
 		classification_bottom: true
 	};
+
+	const LEGACY_ZONE_SECTION_RANGES: Record<
+		ArcChannel,
+		{ drop: [number, number]; exit: [number, number] }
+	> = {
+		second: {
+			drop: [18, 32],
+			exit: [54, 60]
+		},
+		third: {
+			drop: [8, 21],
+			exit: [54, 64]
+		}
+	};
+
+	const DROP_ZONE_COLOR = '#22c55e';
+	const EXIT_ZONE_COLOR = '#ef4444';
 
 	let {
 		channels = ALL_CHANNELS
@@ -244,15 +284,23 @@
 		return span === 0 ? 360 : span;
 	}
 
-	function clampAngleSpan(params: ArcParams): ArcParams {
-		const next = copyArcParams(params);
+	function angularDistance(a: number, b: number): number {
+		const delta = Math.abs(normalizeAngle(a) - normalizeAngle(b));
+		return Math.min(delta, 360 - delta);
+	}
+
+	function clampZone(zone: AngularZone): AngularZone {
+		const next = {
+			startAngle: normalizeAngle(zone.startAngle),
+			endAngle: normalizeAngle(zone.endAngle)
+		};
 		let span = positiveAngleSpan(next.startAngle, next.endAngle);
-		if (span < MIN_ARC_SPAN_DEG) {
-			next.endAngle = normalizeAngle(next.startAngle + MIN_ARC_SPAN_DEG);
-			span = MIN_ARC_SPAN_DEG;
+		if (span < MIN_ZONE_SPAN_DEG) {
+			next.endAngle = normalizeAngle(next.startAngle + MIN_ZONE_SPAN_DEG);
+			span = MIN_ZONE_SPAN_DEG;
 		}
-		if (span > 360 - MIN_ARC_SPAN_DEG) {
-			next.endAngle = normalizeAngle(next.startAngle + (360 - MIN_ARC_SPAN_DEG));
+		if (span > 360 - MIN_ZONE_SPAN_DEG) {
+			next.endAngle = normalizeAngle(next.startAngle + (360 - MIN_ZONE_SPAN_DEG));
 		}
 		return next;
 	}
@@ -262,9 +310,23 @@
 			center: [params.center[0], params.center[1]],
 			innerRadius: params.innerRadius,
 			outerRadius: params.outerRadius,
-			startAngle: params.startAngle,
-			endAngle: params.endAngle
+			dropZone: {
+				startAngle: params.dropZone.startAngle,
+				endAngle: params.dropZone.endAngle
+			},
+			exitZone: {
+				startAngle: params.exitZone.startAngle,
+				endAngle: params.exitZone.endAngle
+			}
 		};
+	}
+
+	function sectionRangeToZone(channel: ArcChannel, zoneKey: 'drop' | 'exit', sectionZeroAngle = 0): AngularZone {
+		const [startSection, endSection] = LEGACY_ZONE_SECTION_RANGES[channel][zoneKey];
+		return clampZone({
+			startAngle: normalizeAngle(sectionZeroAngle + startSection * CHANNEL_SECTION_DEG),
+			endAngle: normalizeAngle(sectionZeroAngle + endSection * CHANNEL_SECTION_DEG)
+		});
 	}
 
 	function pointDistance(a: Point, b: Point): number {
@@ -513,6 +575,13 @@
 		return [center[0] + radius * Math.cos(angleRad), center[1] + radius * Math.sin(angleRad)];
 	}
 
+	function defaultZoneLayout(channel: ArcChannel, sectionZeroAngle = 0): Pick<ArcParams, 'dropZone' | 'exitZone'> {
+		return {
+			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle),
+			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle)
+		};
+	}
+
 	function defaultArcParams(channel: ArcChannel): ArcParams {
 		const center: Point =
 			channel === 'second'
@@ -522,8 +591,7 @@
 			center,
 			innerRadius: 180,
 			outerRadius: 360,
-			startAngle: -150,
-			endAngle: 150
+			...defaultZoneLayout(channel)
 		};
 	}
 
@@ -532,40 +600,63 @@
 			center: [Math.round(params.center[0]), Math.round(params.center[1])],
 			inner_radius: Math.round(params.innerRadius),
 			outer_radius: Math.round(params.outerRadius),
-			start_angle: params.startAngle,
-			end_angle: params.endAngle
+			drop_zone: {
+				start_angle: params.dropZone.startAngle,
+				end_angle: params.dropZone.endAngle
+			},
+			exit_zone: {
+				start_angle: params.exitZone.startAngle,
+				end_angle: params.exitZone.endAngle
+			}
 		};
 	}
 
-	function parseArcParams(raw: unknown): ArcParams | null {
+	function parseAngularZone(raw: unknown): AngularZone | null {
+		if (!raw || typeof raw !== 'object') return null;
+		const startAngle = (raw as AngularZonePayload).start_angle;
+		const endAngle = (raw as AngularZonePayload).end_angle;
+		if (typeof startAngle !== 'number' || typeof endAngle !== 'number') return null;
+		return clampZone({
+			startAngle,
+			endAngle
+		});
+	}
+
+	function parseArcParams(
+		raw: unknown,
+		channel: ArcChannel,
+		sectionZeroAngle = 0
+	): ArcParams | null {
 		if (!raw || typeof raw !== 'object') return null;
 		const center = (raw as ArcParamsPayload).center;
 		const innerRadius = (raw as ArcParamsPayload).inner_radius;
 		const outerRadius = (raw as ArcParamsPayload).outer_radius;
-		const startAngle = (raw as ArcParamsPayload).start_angle;
-		const endAngle = (raw as ArcParamsPayload).end_angle;
 		if (
 			!Array.isArray(center) ||
 			center.length !== 2 ||
 			typeof center[0] !== 'number' ||
 			typeof center[1] !== 'number' ||
 			typeof innerRadius !== 'number' ||
-			typeof outerRadius !== 'number' ||
-			typeof startAngle !== 'number' ||
-			typeof endAngle !== 'number'
+			typeof outerRadius !== 'number'
 		) {
 			return null;
 		}
-		return clampAngleSpan({
+		const dropZone = parseAngularZone((raw as ArcParamsPayload).drop_zone) ?? sectionRangeToZone(channel, 'drop', sectionZeroAngle);
+		const exitZone = parseAngularZone((raw as ArcParamsPayload).exit_zone) ?? sectionRangeToZone(channel, 'exit', sectionZeroAngle);
+		return {
 			center: [center[0], center[1]],
 			innerRadius: Math.max(10, innerRadius),
 			outerRadius: Math.max(innerRadius + MIN_ARC_THICKNESS, outerRadius),
-			startAngle,
-			endAngle
-		});
+			dropZone,
+			exitZone
+		};
 	}
 
-	function deriveArcParamsFromPolygon(points: number[][]): ArcParams | null {
+	function deriveArcParamsFromPolygon(
+		points: number[][],
+		channel: ArcChannel,
+		sectionZeroAngle = 0
+	): ArcParams | null {
 		if (points.length < 3) return null;
 		const center = polyCenter(points);
 		if (!center) return null;
@@ -573,81 +664,90 @@
 		const distances = points.map((pt) => pointDistance([pt[0], pt[1]], [center[0], center[1]]));
 		const innerRadius = Math.max(10, Math.min(...distances));
 		const outerRadius = Math.max(innerRadius + MIN_ARC_THICKNESS, Math.max(...distances));
-		const angles = points
-			.map((pt) => normalizeAngle(angleFromCenter([pt[0], pt[1]], [center[0], center[1]])))
-			.sort((a, b) => a - b);
-
-		let largestGap = -1;
-		let gapIndex = -1;
-		for (let i = 0; i < angles.length; i++) {
-			const nextIndex = (i + 1) % angles.length;
-			const gap = (angles[nextIndex] - angles[i] + 360) % 360;
-			if (gap > largestGap) {
-				largestGap = gap;
-				gapIndex = i;
-			}
-		}
-
-		const startAngle = angles[(gapIndex + 1) % angles.length];
-		const endAngle = angles[gapIndex];
-
-		return clampAngleSpan({
+		return {
 			center: [center[0], center[1]],
 			innerRadius,
 			outerRadius,
-			startAngle,
-			endAngle
-		});
+			...defaultZoneLayout(channel, sectionZeroAngle)
+		};
 	}
 
-	function arcMidAngle(params: ArcParams): number {
-		return normalizeAngle(
-			params.startAngle + positiveAngleSpan(params.startAngle, params.endAngle) / 2
-		);
+	function zoneMidAngle(zone: AngularZone): number {
+		return normalizeAngle(zone.startAngle + positiveAngleSpan(zone.startAngle, zone.endAngle) / 2);
 	}
 
-	function buildArcPolygon(params: ArcParams): Point[] {
-		const span = positiveAngleSpan(params.startAngle, params.endAngle);
-		const segments = Math.max(12, Math.round((span / 360) * ARC_SEGMENTS));
+	function buildZonePolygon(params: ArcParams, zone: AngularZone): Point[] {
+		const span = positiveAngleSpan(zone.startAngle, zone.endAngle);
+		const segments = Math.max(8, Math.round((span / 360) * ARC_SEGMENTS));
 		const pts: Point[] = [];
 
 		for (let i = 0; i <= segments; i++) {
-			const angle = params.startAngle + (span * i) / segments;
+			const angle = zone.startAngle + (span * i) / segments;
 			pts.push(polarPoint(params.center, params.outerRadius, angle));
 		}
 		for (let i = segments; i >= 0; i--) {
-			const angle = params.startAngle + (span * i) / segments;
+			const angle = zone.startAngle + (span * i) / segments;
 			pts.push(polarPoint(params.center, params.innerRadius, angle));
 		}
 
 		return pts;
 	}
 
-	function getArcPolygon(channel: ArcChannel): Point[] {
-		const params = arcParams[channel];
-		if (!params) return [];
-		return buildArcPolygon(params);
+	function buildCirclePoints(center: Point, radius: number, segments = ARC_SEGMENTS): Point[] {
+		const pts: Point[] = [];
+		for (let i = 0; i < segments; i++) {
+			const angle = (i / segments) * 360;
+			pts.push(polarPoint(center, radius, angle));
+		}
+		return pts;
+	}
+
+	function buildRingStoragePoints(params: ArcParams): Point[] {
+		return [
+			...buildCirclePoints(params.center, params.outerRadius),
+			...buildCirclePoints(params.center, params.innerRadius).reverse()
+		];
 	}
 
 	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
 		const params = arcParams[channel];
 		if (!params) return null;
-		const midAngle = arcMidAngle(params);
+		const ringHandleCandidates = Array.from({ length: 12 }, (_, index) => index * 30);
+		const occupiedAngles = [
+			params.dropZone.startAngle,
+			params.dropZone.endAngle,
+			params.exitZone.startAngle,
+			params.exitZone.endAngle
+		];
+		const ringHandleAngle =
+			ringHandleCandidates.reduce(
+				(best, candidate) =>
+					ringHandleCandidates.length === 0 ||
+					Math.min(...occupiedAngles.map((angle) => angularDistance(candidate, angle))) >
+						Math.min(...occupiedAngles.map((angle) => angularDistance(best, angle)))
+						? candidate
+						: best,
+				270
+			) ?? 270;
 		return {
 			center: [params.center[0], params.center[1]],
-			inner: polarPoint(params.center, params.innerRadius, midAngle),
-			outer: polarPoint(params.center, params.outerRadius, midAngle),
-			start: polarPoint(params.center, params.outerRadius, params.startAngle),
-			end: polarPoint(params.center, params.outerRadius, params.endAngle)
+			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
+			outer: polarPoint(params.center, params.outerRadius, ringHandleAngle),
+			dropStart: polarPoint(params.center, params.outerRadius, params.dropZone.startAngle),
+			dropEnd: polarPoint(params.center, params.outerRadius, params.dropZone.endAngle),
+			exitStart: polarPoint(params.center, params.outerRadius, params.exitZone.startAngle),
+			exitEnd: polarPoint(params.center, params.outerRadius, params.exitZone.endAngle)
 		};
 	}
 
 	function setArc(channel: ArcChannel, next: ArcParams) {
-		const clamped = clampAngleSpan({
+		const clamped = {
 			...next,
 			innerRadius: Math.max(10, Math.min(next.innerRadius, next.outerRadius - MIN_ARC_THICKNESS)),
-			outerRadius: Math.max(next.innerRadius + MIN_ARC_THICKNESS, next.outerRadius)
-		});
+			outerRadius: Math.max(next.innerRadius + MIN_ARC_THICKNESS, next.outerRadius),
+			dropZone: clampZone(next.dropZone),
+			exitZone: clampZone(next.exitZone)
+		};
 		arcParams[channel] = clamped;
 	}
 
@@ -750,7 +850,9 @@
 
 	function getShapePoints(channel: Channel): Point[] {
 		if (isArcChannel(channel)) {
-			return getArcPolygon(channel);
+			const params = arcParams[channel];
+			if (!params) return [];
+			return buildCirclePoints(params.center, params.outerRadius);
 		}
 		return sortPolygon(userPoints[channel]).map((pt) => [pt[0], pt[1]]);
 	}
@@ -793,10 +895,23 @@
 		return inside;
 	}
 
+	function pointInAnnulus(point: Point, params: ArcParams): boolean {
+		const distance = pointDistance(point, params.center);
+		return distance >= params.innerRadius && distance <= params.outerRadius;
+	}
+
 	function hitArcHandle(channel: ArcChannel, point: Point): ArcHandle | null {
 		const handles = getArcHandles(channel);
 		if (!handles) return null;
-		const order: ArcHandle[] = ['start', 'end', 'outer', 'inner', 'center'];
+		const order: ArcHandle[] = [
+			'dropStart',
+			'dropEnd',
+			'exitStart',
+			'exitEnd',
+			'outer',
+			'inner',
+			'center'
+		];
 		for (const handle of order) {
 			if (pointDistance(point, handles[handle]) <= HANDLE_HIT_RADIUS) {
 				return handle;
@@ -832,9 +947,10 @@
 				canvasCursor = 'pointer';
 				return;
 			}
-			const shape = getShapePoints(currentChannel);
 			canvasCursor =
-				shape.length >= 3 && pointInPolygon(point[0], point[1], shape) ? 'grab' : 'crosshair';
+				arcParams[currentChannel] && pointInAnnulus(point, arcParams[currentChannel]!)
+					? 'grab'
+					: 'crosshair';
 			return;
 		}
 
@@ -882,9 +998,13 @@
 							? 'arc-inner'
 							: handle === 'outer'
 								? 'arc-outer'
-								: handle === 'start'
-									? 'arc-start'
-									: 'arc-end',
+								: handle === 'dropStart'
+									? 'arc-drop-start'
+									: handle === 'dropEnd'
+										? 'arc-drop-end'
+										: handle === 'exitStart'
+											? 'arc-exit-start'
+											: 'arc-exit-end',
 					channel: currentChannel,
 					orig: copyArcParams(params)
 				};
@@ -892,8 +1012,7 @@
 				return;
 			}
 
-			const shape = getShapePoints(currentChannel);
-			if (shape.length >= 3 && pointInPolygon(point[0], point[1], shape) && !e.shiftKey && params) {
+			if (params && pointInAnnulus(point, params) && !e.shiftKey) {
 				dragState = {
 					kind: 'arc-shape',
 					channel: currentChannel,
@@ -980,19 +1099,47 @@
 				});
 				break;
 			}
-			case 'arc-start': {
+			case 'arc-drop-start': {
 				didDrag = true;
 				setArc(dragState.channel, {
 					...dragState.orig,
-					startAngle: angleFromCenter(point, dragState.orig.center)
+					dropZone: {
+						...dragState.orig.dropZone,
+						startAngle: angleFromCenter(point, dragState.orig.center)
+					}
 				});
 				break;
 			}
-			case 'arc-end': {
+			case 'arc-drop-end': {
 				didDrag = true;
 				setArc(dragState.channel, {
 					...dragState.orig,
-					endAngle: angleFromCenter(point, dragState.orig.center)
+					dropZone: {
+						...dragState.orig.dropZone,
+						endAngle: angleFromCenter(point, dragState.orig.center)
+					}
+				});
+				break;
+			}
+			case 'arc-exit-start': {
+				didDrag = true;
+				setArc(dragState.channel, {
+					...dragState.orig,
+					exitZone: {
+						...dragState.orig.exitZone,
+						startAngle: angleFromCenter(point, dragState.orig.center)
+					}
+				});
+				break;
+			}
+			case 'arc-exit-end': {
+				didDrag = true;
+				setArc(dragState.channel, {
+					...dragState.orig,
+					exitZone: {
+						...dragState.orig.exitZone,
+						endAngle: angleFromCenter(point, dragState.orig.center)
+					}
 				});
 				break;
 			}
@@ -1158,21 +1305,59 @@
 		const params = arcParams[channel];
 		if (!params) return;
 
-		const polygon = buildArcPolygon(params);
 		const color = CHANNEL_COLORS[channel];
 		const alpha = active ? 1 : 0.35;
+		const outerCircle = buildCirclePoints(params.center, params.outerRadius);
+		const innerCircle = buildCirclePoints(params.center, params.innerRadius);
+		const dropPolygon = buildZonePolygon(params, params.dropZone);
+		const exitPolygon = buildZonePolygon(params, params.exitZone);
 
 		ctx.beginPath();
-		ctx.moveTo(polygon[0][0], polygon[0][1]);
-		for (let i = 1; i < polygon.length; i++) {
-			ctx.lineTo(polygon[i][0], polygon[i][1]);
+		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
+		for (let i = 1; i < outerCircle.length; i++) {
+			ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
 		}
 		ctx.closePath();
-		ctx.fillStyle = active ? `${color}22` : `${color}0d`;
-		ctx.fill();
+		ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
+		for (let i = 1; i < innerCircle.length; i++) {
+			ctx.lineTo(innerCircle[i][0], innerCircle[i][1]);
+		}
+		ctx.closePath();
+		ctx.fillStyle = active ? `${color}14` : `${color}0a`;
+		ctx.fill('evenodd');
+
+		for (const [zonePolygon, zoneColor, zoneAlpha] of [
+			[dropPolygon, DROP_ZONE_COLOR, active ? 0.22 : 0.1],
+			[exitPolygon, EXIT_ZONE_COLOR, active ? 0.22 : 0.1]
+		] as const) {
+			ctx.beginPath();
+			ctx.moveTo(zonePolygon[0][0], zonePolygon[0][1]);
+			for (let i = 1; i < zonePolygon.length; i++) {
+				ctx.lineTo(zonePolygon[i][0], zonePolygon[i][1]);
+			}
+			ctx.closePath();
+			ctx.fillStyle = zoneColor;
+			ctx.globalAlpha = zoneAlpha;
+			ctx.fill();
+			ctx.globalAlpha = 1;
+		}
+
+		ctx.beginPath();
+		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
+		for (let i = 1; i < outerCircle.length; i++) {
+			ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
+		}
+		ctx.closePath();
 		ctx.strokeStyle = color;
 		ctx.globalAlpha = alpha;
 		ctx.lineWidth = active ? 2 : 1;
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
+		for (let i = 1; i < innerCircle.length; i++) {
+			ctx.lineTo(innerCircle[i][0], innerCircle[i][1]);
+		}
+		ctx.closePath();
 		ctx.stroke();
 		ctx.globalAlpha = 1;
 
@@ -1180,13 +1365,26 @@
 		if (!handles) return;
 
 		if (active && editingZone) {
-			ctx.strokeStyle = `${color}aa`;
+			ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
+			ctx.lineWidth = 1.25;
+			ctx.beginPath();
+			ctx.moveTo(params.center[0], params.center[1]);
+			ctx.lineTo(handles.dropStart[0], handles.dropStart[1]);
+			ctx.moveTo(params.center[0], params.center[1]);
+			ctx.lineTo(handles.dropEnd[0], handles.dropEnd[1]);
+			ctx.stroke();
+
+			ctx.strokeStyle = `${EXIT_ZONE_COLOR}cc`;
 			ctx.lineWidth = 1;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.start[0], handles.start[1]);
+			ctx.lineTo(handles.exitStart[0], handles.exitStart[1]);
 			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.end[0], handles.end[1]);
+			ctx.lineTo(handles.exitEnd[0], handles.exitEnd[1]);
+			ctx.stroke();
+
+			ctx.strokeStyle = `${color}aa`;
+			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.inner[0], handles.inner[1]);
 			ctx.moveTo(params.center[0], params.center[1]);
@@ -1196,8 +1394,10 @@
 			drawHandle(ctx, handles.center, color, '#111', 'Center');
 			drawHandle(ctx, handles.inner, color, '#111', 'Inner');
 			drawHandle(ctx, handles.outer, color, '#111', 'Outer');
-			drawHandle(ctx, handles.start, color, '#111', 'Start', [-34, -20]);
-			drawHandle(ctx, handles.end, color, '#111', 'Exit', [34, -20]);
+			drawHandle(ctx, handles.dropStart, DROP_ZONE_COLOR, '#111', 'Drop Start', [-40, -20]);
+			drawHandle(ctx, handles.dropEnd, DROP_ZONE_COLOR, '#111', 'Drop End', [40, -20]);
+			drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
+			drawHandle(ctx, handles.exitEnd, EXIT_ZONE_COLOR, '#111', 'Exit End', [40, 24]);
 		}
 
 		drawSectionZero(ctx, channel, active);
@@ -1277,6 +1477,8 @@
 			const channelUserPts = channelData.user_pts ?? {};
 			const channelPolygons = channelData.polygons ?? {};
 			const channelArcParams = channelData.arc_params ?? {};
+			const savedChannelAngles = channelData.channel_angles ?? {};
+			const sectionZero = channelData.section_zero_pts ?? {};
 
 			for (const channel of ARC_CHANNELS) {
 				const savedUserPts = channelUserPts[channel];
@@ -1284,17 +1486,35 @@
 					userPoints[channel] = savedUserPts;
 				}
 
-				const savedArc = parseArcParams(channelArcParams[channel]);
+				const savedAngle =
+					typeof savedChannelAngles[channel] === 'number' ? savedChannelAngles[channel] : 0;
+				const savedArc = parseArcParams(channelArcParams[channel], channel, savedAngle);
 				if (savedArc) {
 					arcParams[channel] = savedArc;
-					continue;
+				} else {
+					const polygonKey = `${channel}_channel`;
+					const fallbackPts = savedUserPts ?? channelPolygons[polygonKey];
+					const derived = Array.isArray(fallbackPts)
+						? deriveArcParamsFromPolygon(fallbackPts, channel, savedAngle)
+						: null;
+					if (derived) {
+						arcParams[channel] = derived;
+					}
 				}
 
-				const polygonKey = `${channel}_channel`;
-				const fallbackPts = savedUserPts ?? channelPolygons[polygonKey];
-				const derived = Array.isArray(fallbackPts) ? deriveArcParamsFromPolygon(fallbackPts) : null;
-				if (derived) {
-					arcParams[channel] = derived;
+				if (
+					Array.isArray(sectionZero[channel]) &&
+					sectionZero[channel].length === 2 &&
+					typeof sectionZero[channel][0] === 'number' &&
+					typeof sectionZero[channel][1] === 'number'
+				) {
+					sectionZeroPoints[channel] = [sectionZero[channel][0], sectionZero[channel][1]];
+				} else if (arcParams[channel]) {
+					sectionZeroPoints[channel] = polarPoint(
+						arcParams[channel]!.center,
+						arcParams[channel]!.outerRadius,
+						savedAngle
+					);
 				}
 			}
 
@@ -1303,10 +1523,6 @@
 			} else if (Array.isArray(channelPolygons.carousel)) {
 				userPoints.carousel = channelPolygons.carousel;
 			}
-
-			const sectionZero = channelData.section_zero_pts ?? {};
-			if (Array.isArray(sectionZero.second)) sectionZeroPoints.second = sectionZero.second;
-			if (Array.isArray(sectionZero.third)) sectionZeroPoints.third = sectionZero.third;
 
 			const classificationData = data.classification ?? {};
 			const classUserPts = classificationData.user_pts ?? {};
@@ -1335,9 +1551,20 @@
 
 			for (const channel of FEEDER_CHANNELS) {
 				const key = channel === 'carousel' ? 'carousel' : `${channel}_channel`;
-				const points = getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+				const points = isArcChannel(channel) && arcParams[channel]
+					? buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map((pt) => [
+							Math.round(pt[0]),
+							Math.round(pt[1])
+						])
+					: getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
 				polygons[key] = points;
-				user_pts[channel] = points;
+				user_pts[channel] =
+					isArcChannel(channel) && arcParams[channel]
+						? buildRingStoragePoints(arcParams[channel]!).map((pt) => [
+								Math.round(pt[0]),
+								Math.round(pt[1])
+							])
+						: points;
 				if (isArcChannel(channel) && arcParams[channel]) {
 					arc_params[channel] = serializeArcParams(arcParams[channel]);
 				}

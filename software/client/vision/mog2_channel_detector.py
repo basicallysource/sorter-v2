@@ -42,6 +42,8 @@ class Mog2ChannelDetector:
         channel_polygons: Dict[str, np.ndarray],
         channel_masks: Dict[str, np.ndarray],
         channel_angles: Dict[str, float],
+        channel_inner_polygons: Dict[str, np.ndarray] | None,
+        channel_zone_sections: Dict[str, Dict[str, set[int]]] | None,
         is_channel_rotating: Callable[[str], bool],
     ):
         self._channels: Dict[str, _ChannelMog2] = {}
@@ -64,6 +66,9 @@ class Mog2ChannelDetector:
                 center=center,
                 radius1_angle_image=channel_angles.get(angle_key, 0.0),
                 mask=channel_masks[key],
+                dropzone_sections=set((channel_zone_sections or {}).get(angle_key, {}).get("drop", set())),
+                exit_sections=set((channel_zone_sections or {}).get(angle_key, {}).get("exit", set())),
+                inner_polygon=(channel_inner_polygons or {}).get(key),
             )
             self._channels[key] = _ChannelMog2(key, pc, channel_masks[key])
 
@@ -141,5 +146,7 @@ class Mog2ChannelDetector:
         for ch in self._channels.values():
             ch_color = CHANNEL_COLORS.get(ch.name, (200, 200, 200))
             cv2.polylines(out, [ch.polygon_channel.polygon], True, ch_color, 2)
+            if ch.polygon_channel.inner_polygon is not None and len(ch.polygon_channel.inner_polygon) >= 3:
+                cv2.polylines(out, [ch.polygon_channel.inner_polygon], True, ch_color, 2)
 
         return out

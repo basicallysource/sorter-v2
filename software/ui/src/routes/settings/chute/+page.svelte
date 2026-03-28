@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChuteSettingsSection from '$lib/components/settings/ChuteSettingsSection.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import StepperControlSection from '$lib/components/settings/StepperControlSection.svelte';
+	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 </script>
 
 <div class="flex flex-col gap-6">
@@ -12,10 +12,15 @@
 		<ChuteSettingsSection />
 	</SectionCard>
 
-	<SectionCard
-		title="Chute Control"
-		description="Manual chute stepper control and testing for the distribution chute."
-	>
-		<StepperControlSection steppers={['chute']} title="Chute Stepper" />
-	</SectionCard>
+	<div class="lg:max-w-[18rem]">
+		<StepperSidebar
+			stepperKey="chute"
+			endstop={{
+				configEndpoint: '/api/hardware-config/chute',
+				liveEndpoint: '/api/hardware-config/chute/live',
+				homeEndpoint: '/api/hardware-config/chute/calibrate/find-endstop',
+				homeCancelEndpoint: '/api/hardware-config/chute/calibrate/cancel'
+			}}
+		/>
+	</div>
 </div>

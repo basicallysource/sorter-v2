@@ -1,7 +1,6 @@
 <script lang="ts">
-	import CarouselControlSection from '$lib/components/settings/CarouselControlSection.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import StepperControlSection from '$lib/components/settings/StepperControlSection.svelte';
+	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
 	import type { PageData } from './$types';
 
@@ -12,29 +11,23 @@
 	{#if data.station.zoneChannels.length > 0}
 		<SectionCard>
 			{#key data.station.slug}
-				<ZoneSection channels={data.station.zoneChannels} />
+				<ZoneSection
+					channels={data.station.zoneChannels}
+					stepperKey={data.station.stepperKeys[0]}
+					stepperEndstop={data.station.stepperEndstops?.[data.station.stepperKeys[0]]}
+				/>
 			{/key}
 		</SectionCard>
-	{/if}
-
-	{#if data.station.stepperKeys.length > 0}
-		{#if data.station.slug === 'carousel'}
-			<div class="w-full lg:max-w-[50%]">
-				<SectionCard>
-					<CarouselControlSection stepperKey={data.station.stepperKeys[0] ?? 'carousel'} />
-				</SectionCard>
-			</div>
-		{:else}
-			<SectionCard
-				title="Stepper Test / Control"
-				description="Manually pulse or stop the mechanism tied to this station."
-			>
-				<StepperControlSection
-					steppers={data.station.stepperKeys}
-					title={data.station.label}
-					keyboardShortcutStepper={data.station.stepperKeys[0] ?? null}
+	{:else if data.station.stepperKeys.length > 0}
+		<!-- Stations without cameras (e.g. c-channel-1): show stepper standalone -->
+		<div class="lg:max-w-[20rem]">
+			{#each data.station.stepperKeys as key, i}
+				<StepperSidebar
+					stepperKey={key}
+					endstop={data.station.stepperEndstops?.[key]}
+					keyboardShortcuts={i === 0}
 				/>
-			</SectionCard>
-		{/if}
+			{/each}
+		</div>
 	{/if}
 </div>

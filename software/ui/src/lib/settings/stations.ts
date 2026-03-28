@@ -11,6 +11,14 @@ export type ZoneChannel = 'second' | 'third' | 'carousel' | 'class_top' | 'class
 
 export type StepperKey = 'c_channel_1' | 'c_channel_2' | 'c_channel_3' | 'carousel' | 'chute';
 
+export type EndstopConfig = {
+	configEndpoint: string;
+	liveEndpoint: string;
+	homeEndpoint: string;
+	homeCancelEndpoint: string;
+	calibrateEndpoint?: string;
+};
+
 export type StationSlug =
 	| 'c-channel-1'
 	| 'c-channel-2'
@@ -30,6 +38,7 @@ export type StationPageConfig = SettingsNavItem & {
 	cameraRoles: CameraRole[];
 	zoneChannels: ZoneChannel[];
 	stepperKeys: StepperKey[];
+	stepperEndstops?: Partial<Record<StepperKey, EndstopConfig>>;
 };
 
 export const generalNavItem: SettingsNavItem = {
@@ -90,7 +99,16 @@ export const stationPageConfigs: StationPageConfig[] = [
 		description: 'Configure the carousel camera, carousel polygon, and carousel stepper.',
 		cameraRoles: ['carousel'],
 		zoneChannels: ['carousel'],
-		stepperKeys: ['carousel']
+		stepperKeys: ['carousel'],
+		stepperEndstops: {
+			carousel: {
+				configEndpoint: '/api/hardware-config/carousel',
+				liveEndpoint: '/api/hardware-config/carousel/live',
+				homeEndpoint: '/api/hardware-config/carousel/home',
+				homeCancelEndpoint: '/api/hardware-config/carousel/home/cancel',
+				calibrateEndpoint: '/api/hardware-config/carousel/calibrate'
+			}
+		}
 	},
 	{
 		slug: 'classification-chamber',

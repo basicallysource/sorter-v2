@@ -36,7 +36,7 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
-	import { RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
+	import { ChevronDown, RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
 
 	let {
 		role,
@@ -87,6 +87,7 @@
 		...DEFAULT_ANDROID_CAMERA_CAPABILITIES
 	});
 
+	let manualSettingsOpen = $state(false);
 	let devicePreviewRequest = 0;
 	let calibrating = $state(false);
 	let calibrationResult = $state<CameraCalibrationAnalysis | null>(null);
@@ -714,10 +715,6 @@
 				</div>
 				<div class="min-w-0">
 					<div class="dark:text-text-dark text-sm font-semibold text-text">Picture Settings</div>
-					<p class="dark:text-text-muted-dark mt-1 text-xs leading-5 text-text-muted">
-						Real camera controls live at the top when the source exposes them. Feed orientation
-						stays available below.
-					</p>
 				</div>
 			</div>
 			{#if onClose}
@@ -732,7 +729,7 @@
 		</div>
 	</div>
 
-	<div class="flex flex-1 flex-col gap-4 px-4 py-4">
+	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
 		{#if !hasCamera}
 			<div
 				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
@@ -754,35 +751,51 @@
 				Loading picture settings...
 			</div>
 		{:else}
-			<div class="flex flex-col gap-4">
-				<div class="flex flex-col gap-4">
-					<div class="dark:text-text-dark text-sm font-medium text-text">Device Controls</div>
-
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-col gap-3">
 					{#if deviceSupported}
-						<div
-							class="dark:border-border-dark dark:bg-surface-dark flex flex-col gap-3 border border-border bg-surface px-3 py-3"
-						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<div class="dark:text-text-dark text-sm font-medium text-text">
-										Target Calibration
-									</div>
-									<div class="dark:text-text-muted-dark mt-1 text-xs leading-5 text-text-muted">
-										Place the 6-color calibration plate fully in view. This tunes real camera
-										exposure and white balance, then generates a color profile for this
-										camera.
-									</div>
-								</div>
-								<button
-									onclick={calibrateFromTarget}
-									disabled={!hasCamera || calibrating || saving}
-									class="inline-flex cursor-pointer items-center justify-center gap-2 border border-sky-500 bg-sky-500/15 px-3 py-2 text-sm text-sky-700 transition-colors hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300"
-								>
-									<span>{calibrating ? 'Calibrating...' : 'Calibrate from Target'}</span>
-								</button>
-							</div>
+						<div class="flex items-start gap-3">
+							<svg viewBox="0 0 40 60" width="36" height="54" class="shrink-0 rounded-sm border border-black/10 dark:border-white/10">
+								<!-- Row 1: white, black, white, dark navy -->
+								<rect x="0"  y="0"  width="10" height="10" fill="#f0f0f0"/>
+								<rect x="10" y="0"  width="10" height="10" fill="#111111"/>
+								<rect x="20" y="0"  width="10" height="10" fill="#e0eef8"/>
+								<rect x="30" y="0"  width="10" height="10" fill="#0a0a2a"/>
+								<!-- Rows 2-3: blue (2x2), red (2x2) -->
+								<rect x="0"  y="10" width="20" height="20" fill="#1a8cff"/>
+								<rect x="20" y="10" width="20" height="20" fill="#e02020"/>
+								<!-- Rows 4-5: green (2x2), yellow (2x2) -->
+								<rect x="0"  y="30" width="20" height="20" fill="#16a34a"/>
+								<rect x="20" y="30" width="20" height="20" fill="#eab308"/>
+								<!-- Row 6: dark navy, white, dark gray, white -->
+								<rect x="0"  y="50" width="10" height="10" fill="#0a0a2a"/>
+								<rect x="10" y="50" width="10" height="10" fill="#f0f0f0"/>
+								<rect x="20" y="50" width="10" height="10" fill="#222222"/>
+								<rect x="30" y="50" width="10" height="10" fill="#e0eef8"/>
+								<!-- Grid lines -->
+								<line x1="10" y1="0"  x2="10" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="20" y1="0"  x2="20" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="30" y1="0"  x2="30" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0"  y1="10" x2="40" y2="10" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0"  y1="20" x2="40" y2="20" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0"  y1="30" x2="40" y2="30" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0"  y1="40" x2="40" y2="40" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0"  y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5"/>
+							</svg>
+							<p class="dark:text-text-muted-dark text-xs leading-4 text-text-muted">
+								Place the color calibration plate fully in view, then calibrate.
+							</p>
+						</div>
 
-							{#if calibrationResult}
+						<button
+							onclick={calibrateFromTarget}
+							disabled={!hasCamera || calibrating || saving}
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-sky-500 bg-sky-500/15 px-3 py-2 text-sm text-sky-700 transition-colors hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300"
+						>
+							<span>{calibrating ? 'Calibrating...' : 'Calibrate'}</span>
+						</button>
+
+						{#if calibrationResult}
 								<div class="grid grid-cols-2 gap-1.5 text-[11px]">
 									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
 										<div class="dark:text-text-muted-dark text-text-muted">Score</div>
@@ -884,17 +897,9 @@
 									{/if}
 								</div>
 							{/if}
-						</div>
 					{/if}
 
 					{#if deviceProvider === 'android-camera-app' && deviceSupported}
-						<div
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
-						>
-							These controls are applied directly on the Android phone camera and update the live
-							feed in place.
-						</div>
-
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
 								<span class="dark:text-text-dark font-medium text-text">Processing Mode</span>
@@ -981,13 +986,18 @@
 							{/if}
 						</div>
 					{:else if deviceProvider === 'usb-opencv' && deviceSupported && usbControls.length > 0}
-						<div
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+						<button
+							onclick={() => (manualSettingsOpen = !manualSettingsOpen)}
+							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
 						>
-							These controls are applied directly to the USB camera hardware and preview live on
-							the feed.
-						</div>
+							<span>Manual Settings</span>
+							<ChevronDown
+								size={15}
+								class="transition-transform duration-200 {manualSettingsOpen ? 'rotate-180' : ''}"
+							/>
+						</button>
 
+						{#if manualSettingsOpen}
 						{#each usbControls as control (control.key)}
 							{#if control.kind === 'boolean'}
 								<label
@@ -1026,6 +1036,7 @@
 								</label>
 							{/if}
 						{/each}
+						{/if}
 					{:else}
 						<div
 							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
@@ -1035,85 +1046,69 @@
 					{/if}
 				</div>
 
-				<div class="dark:border-border-dark flex flex-col gap-4 border-t border-border pt-4">
-					<div class="dark:text-text-dark text-sm font-medium text-text">Feed Orientation</div>
-
-					<label class="flex flex-col gap-2">
-						<div class="flex items-center justify-between gap-3 text-sm">
-							<span class="dark:text-text-dark font-medium text-text">Rotation</span>
-							<span class="dark:text-text-muted-dark font-mono text-xs text-text-muted">
-								{draftSettings.rotation}deg
-							</span>
-						</div>
-						<select
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-3 py-2 text-sm text-text"
-							value={String(draftSettings.rotation)}
-							onchange={(event) => updateRotation(Number(event.currentTarget.value))}
-						>
-							<option value="0">0deg</option>
-							<option value="90">90deg</option>
-							<option value="180">180deg</option>
-							<option value="270">270deg</option>
-						</select>
+				<div class="dark:border-border-dark flex items-center gap-3 border-t border-border pt-3">
+					<select
+						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1.5 text-xs text-text"
+						value={String(draftSettings.rotation)}
+						onchange={(event) => updateRotation(Number(event.currentTarget.value))}
+					>
+						<option value="0">0deg</option>
+						<option value="90">90deg</option>
+						<option value="180">180deg</option>
+						<option value="270">270deg</option>
+					</select>
+					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
+						<input
+							type="checkbox"
+							checked={draftSettings.flip_horizontal}
+							onchange={(event) =>
+								updateBooleanSetting('flip_horizontal', event.currentTarget.checked)}
+						/>
+						<span>Flip H</span>
 					</label>
-
-					<div class="grid gap-2 sm:grid-cols-2">
-						<label
-							class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
-						>
-							<input
-								type="checkbox"
-								checked={draftSettings.flip_horizontal}
-								onchange={(event) =>
-									updateBooleanSetting('flip_horizontal', event.currentTarget.checked)}
-							/>
-							<span>Flip Horizontal</span>
-						</label>
-
-						<label
-							class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
-						>
-							<input
-								type="checkbox"
-								checked={draftSettings.flip_vertical}
-								onchange={(event) =>
-									updateBooleanSetting('flip_vertical', event.currentTarget.checked)}
-							/>
-							<span>Flip Vertical</span>
-						</label>
-					</div>
+					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
+						<input
+							type="checkbox"
+							checked={draftSettings.flip_vertical}
+							onchange={(event) =>
+								updateBooleanSetting('flip_vertical', event.currentTarget.checked)}
+						/>
+						<span>Flip V</span>
+					</label>
 				</div>
 			</div>
 
-			<div class="dark:border-border-dark mt-auto flex flex-col gap-3 border-t border-border pt-4">
+			<div class="dark:border-border-dark mt-auto flex flex-col gap-2 border-t border-border pt-3">
 				{#if status}
 					<div class="dark:text-text-muted-dark text-xs text-text-muted">{status}</div>
 				{/if}
 
-				<div class="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
+				<div class="flex items-center gap-2">
 					<button
 						onclick={revertChanges}
 						disabled={saving || calibrating || !hasUnsavedChanges()}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						title="Revert changes"
+						aria-label="Revert changes"
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Undo2 size={15} />
-						<span>Revert</span>
 					</button>
 					<button
 						onclick={resetToDefaults}
 						disabled={saving || calibrating}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						title="Reset to defaults"
+						aria-label="Reset to defaults"
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RotateCcw size={15} />
-						<span>Defaults</span>
 					</button>
 					<button
 						onclick={saveSettings}
 						disabled={saving || calibrating || !hasUnsavedChanges()}
-						class="inline-flex cursor-pointer items-center justify-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
 					>
 						<Save size={15} />
-						<span>{saving ? 'Saving...' : 'Save Settings'}</span>
+						<span>{saving ? 'Saving...' : 'Save'}</span>
 					</button>
 				</div>
 			</div>

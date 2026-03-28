@@ -338,26 +338,29 @@ def _detect_checkerboard(frame: np.ndarray) -> tuple[tuple[int, int], np.ndarray
 
 def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None:
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # Scale min_area for color region detection based on frame resolution
+    frame_pixels = frame.shape[0] * frame.shape[1]
+    min_region_area = max(25.0, frame_pixels / 30_000.0)
     region_candidates = {
         "red": _collect_color_regions(
             cv2.inRange(hsv, np.array([0, 70, 25]), np.array([12, 255, 255]))
             | cv2.inRange(hsv, np.array([165, 70, 25]), np.array([179, 255, 255])),
-            min_area=25.0,
+            min_area=min_region_area,
             max_regions=12,
         ),
         "yellow": _collect_color_regions(
             cv2.inRange(hsv, np.array([15, 35, 20]), np.array([50, 255, 255])),
-            min_area=25.0,
+            min_area=min_region_area,
             max_regions=12,
         ),
         "green": _collect_color_regions(
             cv2.inRange(hsv, np.array([35, 20, 15]), np.array([100, 255, 255])),
-            min_area=25.0,
+            min_area=min_region_area,
             max_regions=12,
         ),
         "blue": _collect_color_regions(
             cv2.inRange(hsv, np.array([80, 25, 15]), np.array([145, 255, 255])),
-            min_area=25.0,
+            min_area=min_region_area,
             max_regions=12,
         ),
     }
@@ -376,7 +379,7 @@ def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None
             region_lists = [region_candidates[label][:8] for label in anchor_labels]
             for selected in product(*region_lists):
                 dst = np.array([region.center for region in selected], dtype=np.float32)
-                if not _target_anchor_cluster_is_plausible(dst):
+                if not _target_anchor_cluster_is_plausible(dst, frame_shape=frame.shape):
                     continue
                 affine = cv2.getAffineTransform(src, dst)
                 analysis = _analyze_fixed_color_candidate(frame, affine, rotation)
@@ -429,14 +432,21 @@ def _color_anchor_combinations(colors: list[str]) -> list[tuple[str, str, str]]:
     return combinations
 
 
-def _target_anchor_cluster_is_plausible(points: np.ndarray) -> bool:
+def _target_anchor_cluster_is_plausible(points: np.ndarray, frame_shape: tuple[int, ...] | None = None) -> bool:
     if points.shape[0] < 3:
         return False
     span = np.ptp(points, axis=0)
-    if float(max(span)) > 240.0 or float(min(span)) < 8.0:
+    # Scale limits based on frame resolution (base: 640px wide)
+    if frame_shape is not None:
+        scale = max(frame_shape[1], frame_shape[0]) / 640.0
+    else:
+        scale = 1.0
+    max_span = 240.0 * scale
+    max_area = 18_000.0 * scale * scale
+    if float(max(span)) > max_span or float(min(span)) < 8.0:
         return False
     bbox_area = float(max(span[0], 1.0) * max(span[1], 1.0))
-    return bbox_area <= 18_000.0
+    return bbox_area <= max_area
 
 
 def _affine_residual(affine: np.ndarray, src: np.ndarray, dst: np.ndarray) -> float:
@@ -457,7 +467,8 @@ def _analyze_fixed_color_candidate(
     origin = _apply_affine(affine, np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=np.float32))
     x_scale = float(np.linalg.norm(origin[1] - origin[0]))
     y_scale = float(np.linalg.norm(origin[2] - origin[0]))
-    if x_scale < 7.0 or y_scale < 7.0 or x_scale > 260.0 or y_scale > 260.0:
+    max_scale = max(260.0, max(frame.shape[1], frame.shape[0]) * 0.4)
+    if x_scale < 7.0 or y_scale < 7.0 or x_scale > max_scale or y_scale > max_scale:
         return None
 
     board_quad = _apply_affine(
@@ -525,6 +536,14 @@ def _analyze_fixed_color_candidate(
         tile_label: _merge_sample_group([cell_samples[cell] for cell in cells])
         for tile_label, cells in _TARGET_TILE_GROUPS.items()
     }
+    tile_match_percentages = {
+        tile_label: _reference_match_percent(
+            _reference_lab_distance(merged_sample, _TARGET_TILE_GROUP_EXPECTATION[tile_label])
+        )
+        for tile_label, merged_sample in merged_tile_samples.items()
+    }
+    if not _fixed_target_matches_are_plausible(tile_match_percentages):
+        return None
     color_cells = [
         merged_color_samples["blue"],
         merged_color_samples["red"],
@@ -605,15 +624,36 @@ def _analyze_fixed_color_candidate(
                 "reference_error": float(
                     _reference_lab_distance(merged, _TARGET_TILE_GROUP_EXPECTATION[label])
                 ),
-                "reference_match_percent": float(
-                    _reference_match_percent(
-                        _reference_lab_distance(merged, _TARGET_TILE_GROUP_EXPECTATION[label])
-                    )
-                ),
+                "reference_match_percent": float(tile_match_percentages[label]),
             }
             for label, merged in merged_tile_samples.items()
         },
     )
+
+
+def _fixed_target_matches_are_plausible(tile_match_percentages: dict[str, float]) -> bool:
+    color_keys = ("blue", "red", "green", "yellow")
+    white_keys = ("white_top", "white_bottom")
+    black_keys = ("black_top", "black_bottom")
+
+    color_matches = [float(tile_match_percentages.get(key, 0.0)) for key in color_keys]
+    white_matches = [float(tile_match_percentages.get(key, 0.0)) for key in white_keys]
+    black_matches = [float(tile_match_percentages.get(key, 0.0)) for key in black_keys]
+
+    strong_color_count = sum(match >= 45.0 for match in color_matches)
+    average_color_match = float(np.mean(color_matches)) if color_matches else 0.0
+    best_white_match = max(white_matches) if white_matches else 0.0
+    best_black_match = max(black_matches) if black_matches else 0.0
+
+    if strong_color_count < 3:
+        return False
+    if average_color_match < 55.0:
+        return False
+    if best_white_match < 35.0:
+        return False
+    if best_black_match < 20.0:
+        return False
+    return True
 
 
 def _expected_region_score(sample: CellSample, label: str) -> float:

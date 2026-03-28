@@ -15,6 +15,13 @@
 		isOpen: boolean | null;
 		error: string | null;
 	};
+	type HardwareIssue = {
+		kind: string;
+		backend?: string;
+		layer_index?: number;
+		servo_id?: number;
+		message: string;
+	};
 	type LayerDraft = {
 		index: number;
 		binCount: string;
@@ -35,6 +42,7 @@
 	let statusMsg = $state('');
 	let allowedCounts = $state<number[]>([12, 18, 30]);
 	let availableServoIds = $state<number[]>([]);
+	let servoIssues = $state<HardwareIssue[]>([]);
 	let backend = $state<ServoBackend>('pca9685');
 	let openAngle = $state(10);
 	let closedAngle = $state(83);
@@ -138,6 +146,10 @@
 		return value === null ? '--' : String(value);
 	}
 
+	function layerIsOffline(layer: LayerDraft): boolean {
+		return backend === 'waveshare' && !layer.telemetry.available && !!layer.telemetry.error;
+	}
+
 	function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? payload?.settings ?? {};
 		const servo = payload?.servo ?? {};
@@ -155,6 +167,15 @@
 		port = typeof servo.port === 'string' ? servo.port : '';
 		availableServoIds = Array.isArray(servo.available_channel_ids)
 			? servo.available_channel_ids.filter((value: unknown): value is number => typeof value === 'number')
+			: [];
+		servoIssues = Array.isArray(servo.issues)
+			? servo.issues.filter(
+					(value: unknown): value is HardwareIssue =>
+						typeof value === 'object' &&
+						value !== null &&
+						typeof (value as HardwareIssue).kind === 'string' &&
+						typeof (value as HardwareIssue).message === 'string'
+				)
 			: [];
 
 		const storageLayers = Array.isArray(storage?.layers) ? storage.layers : [];
@@ -504,6 +525,26 @@
 		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 
+	{#if servoIssues.length > 0}
+		<div class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
+			<div class="font-medium">Some storage-layer hardware is offline.</div>
+			<div class="mt-1 space-y-1 text-xs">
+				{#each servoIssues as issue}
+					<div>
+						{#if typeof issue.layer_index === 'number'}
+							Layer {issue.layer_index + 1}
+							{#if typeof issue.servo_id === 'number'}
+								servo {issue.servo_id}
+							{/if}
+							:
+						{/if}
+						{issue.message}
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	{#if layers.length === 0 && !loading}
 		<div class="dark:text-text-muted-dark text-sm text-text-muted">
 			No storage layers found.
@@ -575,15 +616,27 @@
 							</td>
 							{#if backend === 'waveshare'}
 								<td class="dark:text-text-muted-dark px-3 py-2 font-mono text-xs text-text-muted">
-									{formatTelemetryValue(layer.telemetry.position)}
-									<span class="dark:text-text-muted-dark/50 text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
-									{#if layer.telemetry.error}
-										<span class="ml-1 text-red-500" title={layer.telemetry.error}>!</span>
+									{#if layerIsOffline(layer)}
+										<span class="text-red-600 dark:text-red-400">Offline</span>
+									{:else}
+										{formatTelemetryValue(layer.telemetry.position)}
+										<span class="dark:text-text-muted-dark/50 text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
+										{#if layer.telemetry.error}
+											<span class="ml-1 text-red-500" title={layer.telemetry.error}>!</span>
+										{/if}
 									{/if}
 								</td>
 							{/if}
 							<td class="px-3 py-2">
-								{#if layer.liveOpen !== null}
+								{#if layerIsOffline(layer)}
+									<span
+										class="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
+										title={layer.telemetry.error ?? 'Servo offline'}
+									>
+										<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+										Offline
+									</span>
+								{:else if layer.liveOpen !== null}
 									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-green-600 dark:text-green-400' : 'dark:text-text-muted-dark text-text-muted'}">
 										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-green-500' : 'dark:bg-border-dark bg-border'}"></span>
 										{layer.liveOpen ? 'Open' : 'Closed'}
@@ -596,7 +649,7 @@
 								<div class="flex items-center justify-end gap-1.5">
 									<button
 										onclick={() => toggleLayerServo(index)}
-										disabled={loading || saving || layer.testing}
+										disabled={loading || saving || layer.testing || layerIsOffline(layer)}
 										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 									>
 										{#if layer.testing}
@@ -612,7 +665,7 @@
 									{#if backend === 'waveshare'}
 										<button
 											onclick={() => calibrateLayerServo(index)}
-											disabled={loading || saving || layer.calibrating}
+											disabled={loading || saving || layer.calibrating || layerIsOffline(layer)}
 											class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											{layer.calibrating ? '...' : 'Cal'}

@@ -109,6 +109,16 @@ class VisionManager:
         self._cached_feeder_frame: CameraFrame | None = None
         self._cached_feeder_frame_ts: float = 0.0
 
+        # Per-channel detectors/analysis for split_feeder mode
+        self._per_channel_detectors: Dict[str, Mog2ChannelDetector] = {}
+        self._per_channel_analysis: Dict[str, FeederAnalysisThread] = {}
+        self._cached_c_channel_2_frame: CameraFrame | None = None
+        self._cached_c_channel_2_frame_ts: float = 0.0
+        self._cached_c_channel_3_frame: CameraFrame | None = None
+        self._cached_c_channel_3_frame_ts: float = 0.0
+        self._cached_carousel_frame: CameraFrame | None = None
+        self._cached_carousel_frame_ts: float = 0.0
+
         self._classification_masks: Dict[str, np.ndarray] = {}
         self._classification_mask_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
@@ -164,6 +174,9 @@ class VisionManager:
             self._frame_encode_thread.join(timeout=2.0)
         if self._feeder_analysis:
             self._feeder_analysis.stop()
+        for analysis in self._per_channel_analysis.values():
+            analysis.stop()
+        self._per_channel_analysis.clear()
         if self._classification_top_analysis:
             self._classification_top_analysis.stop()
         if self._classification_bottom_analysis:
@@ -234,6 +247,22 @@ class VisionManager:
         if carousel_pts and len(carousel_pts) >= 3:
             self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
+        channel_steppers = {
+            "second_channel": self._irl.c_channel_2_rotor_stepper,
+            "third_channel": self._irl.c_channel_3_rotor_stepper,
+        }
+
+        def is_channel_rotating(name: str) -> bool:
+            stepper = channel_steppers.get(name)
+            if stepper is None:
+                return False
+            return not stepper.stopped
+
+        if self._camera_layout == "split_feeder":
+            return self._initSplitFeederDetection(
+                polys, inner_polys, raw_arc_params, channel_steppers, is_channel_rotating,
+            )
+
         gray = self.getLatestFeederGray()
         mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
 
@@ -258,17 +287,6 @@ class VisionManager:
             }
         self._channel_masks = channel_masks
 
-        channel_steppers = {
-            "second_channel": self._irl.c_channel_2_rotor_stepper,
-            "third_channel": self._irl.c_channel_3_rotor_stepper,
-        }
-
-        def is_channel_rotating(name: str) -> bool:
-            stepper = channel_steppers.get(name)
-            if stepper is None:
-                return False
-            return not stepper.stopped
-
         self._feeder_detector = Mog2ChannelDetector(
             channel_polygons=polys,
             channel_masks=channel_masks,
@@ -286,6 +304,78 @@ class VisionManager:
         self._feeder_analysis.start()
         self.gc.logger.info("Feeder MOG2 detection initialized")
         return True
+
+    def _initSplitFeederDetection(
+        self,
+        polys: Dict[str, np.ndarray],
+        inner_polys: Dict[str, np.ndarray],
+        raw_arc_params: dict,
+        channel_steppers: dict,
+        is_channel_rotating,
+    ) -> bool:
+        from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
+
+        channel_map = {
+            "second_channel": ("c_channel_2", self._c_channel_2_capture),
+            "third_channel": ("c_channel_3", self._c_channel_3_capture),
+        }
+
+        for key, (role, capture) in channel_map.items():
+            if key not in polys or capture is None:
+                continue
+
+            frame = capture.latest_frame
+            mask_shape = frame.raw.shape[:2] if frame is not None else (1080, 1920)
+
+            ch_mask = np.zeros(mask_shape, dtype=np.uint8)
+            cv2.fillPoly(ch_mask, [polys[key]], 255)
+            if key in inner_polys:
+                cv2.fillPoly(ch_mask, [inner_polys[key]], 0)
+
+            channel_key = "second" if key == "second_channel" else "third"
+            arc = parseSavedChannelArcZones(channel_key, self._channel_angles, raw_arc_params)
+            drop_sections, exit_sections = zoneSectionsForChannel(
+                2 if channel_key == "second" else 3,
+                float(self._channel_angles.get(channel_key, 0.0)),
+                arc,
+            )
+
+            single_polys = {key: polys[key]}
+            single_masks = {key: ch_mask}
+            single_inner = {key: inner_polys[key]} if key in inner_polys else {}
+            single_zone_sections = {channel_key: {"drop": drop_sections, "exit": exit_sections}}
+
+            def _make_rotating_check(name: str):
+                return lambda n: is_channel_rotating(name)
+
+            detector = Mog2ChannelDetector(
+                channel_polygons=single_polys,
+                channel_masks=single_masks,
+                channel_angles=self._channel_angles,
+                channel_inner_polygons=single_inner,
+                channel_zone_sections=single_zone_sections,
+                is_channel_rotating=_make_rotating_check(key),
+            )
+            self._per_channel_detectors[role] = detector
+
+            def _make_gray_getter(cap: CaptureThread):
+                def _get_gray() -> np.ndarray | None:
+                    f = cap.latest_frame
+                    if f is None:
+                        return None
+                    return cv2.cvtColor(f.raw, cv2.COLOR_BGR2GRAY)
+                return _get_gray
+
+            analysis = FeederAnalysisThread(
+                detector=detector,
+                get_gray=_make_gray_getter(capture),
+                profiler=self.gc.profiler,
+            )
+            analysis.start()
+            self._per_channel_analysis[role] = analysis
+            self.gc.logger.info(f"Split-feeder MOG2 detection initialized for {role}")
+
+        return bool(self._per_channel_detectors)
 
     def _makeCarouselHeatmap(self) -> HeatmapDiff:
         c = self._carousel_diff_config
@@ -458,6 +548,11 @@ class VisionManager:
             return self._region_provider.getRegions(frame.raw)
 
     def getFeederHeatmapDetections(self) -> list[ChannelDetection]:
+        if self._per_channel_analysis:
+            detections: list[ChannelDetection] = []
+            for analysis in self._per_channel_analysis.values():
+                detections.extend(analysis.getDetections())
+            return detections
         if self._feeder_analysis is None:
             return []
         return self._feeder_analysis.getDetections()
@@ -465,9 +560,15 @@ class VisionManager:
     def captureCarouselBaseline(self) -> bool:
         if self._carousel_polygon is None:
             return False
-        gray = self.getLatestFeederGray()
-        if gray is None:
-            return False
+        if self._camera_layout == "split_feeder" and self._carousel_capture is not None:
+            frame = self._carousel_capture.latest_frame
+            if frame is None:
+                return False
+            gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = self.getLatestFeederGray()
+            if gray is None:
+                return False
         return self._carousel_heatmap.captureBaseline(self._carousel_polygon, gray.shape)
 
     def clearCarouselBaseline(self) -> None:
@@ -569,6 +670,91 @@ class VisionManager:
         )
         self._cached_feeder_frame = result
         self._cached_feeder_frame_ts = frame.timestamp
+        return result
+
+    def _annotateSplitChannelFrame(
+        self, role: str, capture: Optional[CaptureThread],
+        cached_frame_attr: str, cached_ts_attr: str,
+    ) -> Optional[CameraFrame]:
+        if capture is None:
+            return None
+        frame = capture.latest_frame
+        if frame is None:
+            return None
+
+        cached = getattr(self, cached_frame_attr)
+        cached_ts = getattr(self, cached_ts_attr)
+        if cached is not None and frame.timestamp == cached_ts:
+            return cached
+
+        annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
+
+        detector = self._per_channel_detectors.get(role)
+        if detector is not None:
+            annotated = detector.annotateFrame(annotated)
+            from subsystems.feeder.analysis import getBboxSections
+            analysis = self._per_channel_analysis.get(role)
+            if analysis is not None:
+                for det in analysis.getDetections():
+                    x1, y1, x2, y2 = det.bbox
+                    secs = getBboxSections(det.bbox, det.channel)
+                    exit_zone = bool(secs & det.channel.exit_sections)
+                    drop = bool(secs & det.channel.dropzone_sections)
+                    label = f"ch{det.channel_id} {sorted(secs)} e={exit_zone} d={drop}"
+                    cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
+
+        result = CameraFrame(
+            raw=frame.raw,
+            annotated=annotated,
+            results=[],
+            timestamp=frame.timestamp,
+        )
+        setattr(self, cached_frame_attr, result)
+        setattr(self, cached_ts_attr, frame.timestamp)
+        return result
+
+    @property
+    def c_channel_2_frame(self) -> Optional[CameraFrame]:
+        return self._annotateSplitChannelFrame(
+            "c_channel_2", self._c_channel_2_capture,
+            "_cached_c_channel_2_frame", "_cached_c_channel_2_frame_ts",
+        )
+
+    @property
+    def c_channel_3_frame(self) -> Optional[CameraFrame]:
+        return self._annotateSplitChannelFrame(
+            "c_channel_3", self._c_channel_3_capture,
+            "_cached_c_channel_3_frame", "_cached_c_channel_3_frame_ts",
+        )
+
+    @property
+    def carousel_frame(self) -> Optional[CameraFrame]:
+        if self._carousel_capture is None:
+            return None
+        frame = self._carousel_capture.latest_frame
+        if frame is None:
+            return None
+
+        if self._cached_carousel_frame is not None and frame.timestamp == self._cached_carousel_frame_ts:
+            return self._cached_carousel_frame
+
+        annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
+
+        if self._carousel_heatmap.has_baseline:
+            annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
+
+        if self._carousel_polygon:
+            pts = np.array([[int(p[0]), int(p[1])] for p in self._carousel_polygon], dtype=np.int32)
+            cv2.polylines(annotated, [pts], True, (0, 255, 128), 2)
+
+        result = CameraFrame(
+            raw=frame.raw,
+            annotated=annotated,
+            results=[],
+            timestamp=frame.timestamp,
+        )
+        self._cached_carousel_frame = result
+        self._cached_carousel_frame_ts = frame.timestamp
         return result
 
     @property
@@ -753,11 +939,11 @@ class VisionManager:
         elif camera_name == "classification_top":
             return self.classification_top_frame
         elif camera_name == "c_channel_2":
-            return self._getCaptureFrame(self._c_channel_2_capture)
+            return self.c_channel_2_frame
         elif camera_name == "c_channel_3":
-            return self._getCaptureFrame(self._c_channel_3_capture)
+            return self.c_channel_3_frame
         elif camera_name == "carousel":
-            return self._getCaptureFrame(self._carousel_capture)
+            return self.carousel_frame
         return None
 
     def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:

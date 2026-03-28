@@ -17,10 +17,83 @@ class LayerServoAssignment:
     invert: bool = False
 
 
+class OfflineServoMotor:
+    def __init__(
+        self,
+        *,
+        servo_id: int,
+        invert: bool,
+        error: str,
+        layer_index: int,
+    ):
+        self.channel = servo_id
+        self._invert = invert
+        self._error = error
+        self._layer_index = layer_index
+        self._name = f"layer_{layer_index}_servo"
+
+    @property
+    def available(self) -> bool:
+        return False
+
+    @property
+    def stopped(self) -> bool:
+        return True
+
+    @property
+    def enabled(self) -> bool:
+        return False
+
+    @enabled.setter
+    def enabled(self, _value: bool) -> None:
+        return
+
+    def set_name(self, name: str) -> None:
+        self._name = name
+
+    def set_invert(self, invert: bool) -> None:
+        self._invert = invert
+
+    def feedback(self) -> dict[str, Any]:
+        return {
+            "available": False,
+            "channel": self.channel,
+            "position": None,
+            "is_open": None,
+            "open_position": None,
+            "closed_position": None,
+            "min_limit": None,
+            "max_limit": None,
+            "error": self._error,
+            "name": self._name,
+            "layer_index": self._layer_index,
+            "invert": self._invert,
+        }
+
+    def open(self, _open_angle: int | None = None) -> None:
+        raise RuntimeError(self._error)
+
+    def close(self, _closed_angle: int | None = None) -> None:
+        raise RuntimeError(self._error)
+
+    def toggle(self) -> None:
+        raise RuntimeError(self._error)
+
+    def recalibrate(self) -> tuple[int, int]:
+        raise RuntimeError(self._error)
+
+    def isOpen(self) -> bool:
+        return False
+
+    def isClosed(self) -> bool:
+        return False
+
+
 class ServoController(ABC):
     backend_name: str
     supports_feedback: bool = False
     supports_calibration: bool = False
+    issues: list[dict[str, Any]]
 
     @abstractmethod
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
@@ -44,6 +117,7 @@ class Pca9685ServoController(ServoController):
         self._assignments = tuple(assignments)
         self._open_angle = open_angle
         self._closed_angle = closed_angle
+        self.issues = []
 
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
         layer_servos: list[Any] = []
@@ -90,27 +164,42 @@ class WaveshareServoController(ServoController):
         self._port = port
         self._assignments = tuple(assignments)
         self._mcu_ports = tuple(mcu_ports)
+        self.issues = []
 
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
         from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor
 
         port = self._resolve_port()
         if port is None:
-            raise RuntimeError(
-                "Waveshare servo backend configured but no serial port found. Set servo.port in config."
-            )
+            error = "Waveshare servo backend configured but no serial port found. Set servo.port in config."
+            self._gc.logger.warning(error)
+            return [
+                self._make_offline_servo(index, assignment, error)
+                for index, assignment in self._iter_layer_assignments(distribution_layout)
+            ]
 
         self._gc.logger.info(f"Using Waveshare SC servo bus on {port}")
-        bus = ScServoBus(port)
+        try:
+            bus = ScServoBus(port)
+        except Exception as exc:
+            error = f"Failed to open Waveshare SC servo bus on {port}: {exc}"
+            self._gc.logger.warning(error)
+            return [
+                self._make_offline_servo(index, assignment, error)
+                for index, assignment in self._iter_layer_assignments(distribution_layout)
+            ]
         layer_servos: list[Any] = []
-        for index, _layer in enumerate(distribution_layout.layers):
-            if index >= len(self._assignments):
-                raise IndexError(
-                    f"Layer {index} servo not configured. Only {len(self._assignments)} servo.channels defined."
-                )
-            assignment = self._assignments[index]
+        for index, assignment in self._iter_layer_assignments(distribution_layout):
             servo = WaveshareServoMotor(bus, assignment.id, invert=assignment.invert)
-            servo.initialize()
+            try:
+                servo.initialize()
+            except Exception as exc:
+                error = f"Cannot communicate with servo {assignment.id}: {exc}"
+                self._gc.logger.warning(
+                    f"Waveshare servo layer {index + 1} id={assignment.id} unavailable: {exc}"
+                )
+                layer_servos.append(self._make_offline_servo(index, assignment, error))
+                continue
             servo.set_name(f"layer_{index}_servo")
             layer_servos.append(servo)
             self._gc.logger.info(
@@ -118,6 +207,39 @@ class WaveshareServoController(ServoController):
                 f"invert={assignment.invert}"
             )
         return layer_servos
+
+    def _iter_layer_assignments(self, distribution_layout: Any) -> list[tuple[int, LayerServoAssignment]]:
+        assignments: list[tuple[int, LayerServoAssignment]] = []
+        for index, _layer in enumerate(distribution_layout.layers):
+            if index >= len(self._assignments):
+                raise IndexError(
+                    f"Layer {index} servo not configured. Only {len(self._assignments)} servo.channels defined."
+                )
+            assignments.append((index, self._assignments[index]))
+        return assignments
+
+    def _make_offline_servo(
+        self,
+        index: int,
+        assignment: LayerServoAssignment,
+        error: str,
+    ) -> OfflineServoMotor:
+        issue = {
+            "kind": "servo",
+            "backend": self.backend_name,
+            "layer_index": index,
+            "servo_id": assignment.id,
+            "message": error,
+        }
+        self.issues.append(issue)
+        offline = OfflineServoMotor(
+            servo_id=assignment.id,
+            invert=assignment.invert,
+            error=error,
+            layer_index=index,
+        )
+        offline.set_name(f"layer_{index}_servo")
+        return offline
 
     def _resolve_port(self) -> str | None:
         if self._port is not None:

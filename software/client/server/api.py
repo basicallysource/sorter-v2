@@ -441,6 +441,7 @@ def get_hardware_config() -> Dict[str, Any]:
         "servo": _servo_settings_from_config(config),
         "chute": _chute_settings_from_config(config),
         "carousel": _carousel_settings_from_config(config),
+        "issues": _hardware_issues(),
     }
 
 
@@ -2199,16 +2200,24 @@ def _capture_frame_for_calibration(
     parsed_color_profile = parseCameraColorProfile(color_profile)
 
     if isinstance(source, str):
-        try:
-            jpg = _android_camera_bytes_request(source, "/snapshot.jpg")
-            buffer = np.frombuffer(jpg, dtype=np.uint8)
-            frame = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
-            if frame is not None and frame.size > 0:
-                frame = apply_camera_color_profile(frame, parsed_color_profile)
-                frame = apply_picture_settings(frame, parsed_picture_settings)
-                return frame
-        except HTTPException:
-            return None
+        # Take several snapshots over a short period so Android cameras can settle
+        # after exposure / white-balance changes before we evaluate the frame.
+        best_frame = None
+        for index in range(5):
+            try:
+                jpg = _android_camera_bytes_request(source, "/snapshot.jpg")
+                buffer = np.frombuffer(jpg, dtype=np.uint8)
+                frame = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+                if frame is not None and frame.size > 0:
+                    best_frame = frame
+            except HTTPException:
+                pass
+            if index < 4:
+                time.sleep(0.18)
+        if best_frame is not None:
+            best_frame = apply_camera_color_profile(best_frame, parsed_color_profile)
+            best_frame = apply_picture_settings(best_frame, parsed_picture_settings)
+            return best_frame
         return None
 
     if not isinstance(source, int):
@@ -2247,11 +2256,12 @@ def _analyze_candidate_settings(
     preview_settings = preview.get("settings", settings)
     if isinstance(source, str):
         applied_settings = dict(preview_settings) if isinstance(preview_settings, dict) else dict(settings)
+        time.sleep(1.35)  # Android cameras need longer to apply exposure/WB changes
     else:
         applied_settings = cameraDeviceSettingsToDict(
             parseCameraDeviceSettings(preview_settings)
         )
-    time.sleep(0.35)
+        time.sleep(0.35)
     frame = _capture_frame_for_calibration(
         role,
         source,
@@ -2311,9 +2321,11 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
 
     scan_bus = None
     if live_servos:
-        candidate_bus = getattr(live_servos[0], "_bus", None)
-        if candidate_bus is not None and hasattr(candidate_bus, "scan"):
-            scan_bus = candidate_bus
+        for servo_obj in live_servos:
+            candidate_bus = getattr(servo_obj, "_bus", None)
+            if candidate_bus is not None and hasattr(candidate_bus, "scan"):
+                scan_bus = candidate_bus
+                break
 
     if scan_bus is not None:
         try:
@@ -2363,7 +2375,6 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
             if isinstance(feedback, dict):
                 return {
                     "layer_index": layer_index,
-                    "available": True,
                     **feedback,
                 }
         except Exception as e:
@@ -2669,7 +2680,22 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             else _waveshare_available_servo_ids(config)
         ),
         "supports_calibration": backend == "waveshare",
+        "issues": _servo_hardware_issues(),
     }
+
+
+def _servo_hardware_issues() -> List[Dict[str, Any]]:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        return []
+    servo_controller = getattr(controller_ref.irl, "servo_controller", None)
+    issues = getattr(servo_controller, "issues", None)
+    if not isinstance(issues, list):
+        return []
+    return [issue for issue in issues if isinstance(issue, dict)]
+
+
+def _hardware_issues() -> List[Dict[str, Any]]:
+    return _servo_hardware_issues()
 
 
 def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -3617,21 +3643,23 @@ def _calibrate_android_camera_device_settings(
     *,
     report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-    base_settings = {
-        "exposure_compensation": int(current_settings.get("exposure_compensation", 0)),
-        "ae_lock": False,
-        "awb_lock": False,
-        "white_balance_mode": str(current_settings.get("white_balance_mode", "auto")),
-        "processing_mode": str(current_settings.get("processing_mode", "standard")),
-    }
-
-    exposure_min = int(capabilities.get("exposure_compensation_min", 0))
-    exposure_max = int(capabilities.get("exposure_compensation_max", 0))
     white_balance_modes = [
         str(mode)
         for mode in capabilities.get("white_balance_modes", ["auto"])
         if isinstance(mode, str) and mode
     ] or ["auto"]
+    preferred_wb_mode = "auto" if "auto" in white_balance_modes else white_balance_modes[0]
+    exposure_min = int(capabilities.get("exposure_compensation_min", 0))
+    exposure_max = int(capabilities.get("exposure_compensation_max", 0))
+    neutral_exposure = int(max(exposure_min, min(exposure_max, 0)))
+
+    base_settings = {
+        "exposure_compensation": neutral_exposure,
+        "ae_lock": False,
+        "awb_lock": False,
+        "white_balance_mode": preferred_wb_mode,
+        "processing_mode": str(current_settings.get("processing_mode", "standard")),
+    }
 
     best_settings: Dict[str, int | float | bool] | None = None
     best_analysis: Dict[str, Any] | None = None
@@ -3660,7 +3688,8 @@ def _calibrate_android_camera_device_settings(
         {
             exposure_min,
             exposure_max,
-            int(base_settings["exposure_compensation"]),
+            neutral_exposure,
+            int(current_settings.get("exposure_compensation", neutral_exposure)),
             *[
                 int(round(value))
                 for value in np.linspace(exposure_min, exposure_max, num=max(3, min(7, exposure_max - exposure_min + 1))).tolist()
@@ -3690,6 +3719,28 @@ def _calibrate_android_camera_device_settings(
             detail="Calibration target not found. Make sure the 6-color calibration plate is fully visible and not clipped.",
         )
 
+    # Refine exposure: try values around the best with finer steps
+    if best_settings is not None and exposure_min != exposure_max:
+        best_exp = int(best_settings.get("exposure_compensation", 0))
+        refine_values = sorted(
+            {
+                value
+                for value in range(max(exposure_min, best_exp - 2), min(exposure_max, best_exp + 2) + 1)
+                if value != best_exp
+            }
+        )
+        total_steps += len(refine_values)
+        for index, exp_value in enumerate(refine_values, start=1):
+            candidate = dict(best_settings)
+            candidate["exposure_compensation"] = int(exp_value)
+            candidate["ae_lock"] = False
+            candidate["awb_lock"] = False
+            consider(
+                candidate,
+                stage="exposure_refine",
+                message=f"Refining exposure candidate {index} of {len(refine_values)}.",
+            )
+
     wb_base = dict(best_settings)
     wb_base["ae_lock"] = False
     wb_base["awb_lock"] = False
@@ -3704,6 +3755,19 @@ def _calibrate_android_camera_device_settings(
 
     if best_settings is None or best_analysis is None:
         raise HTTPException(status_code=400, detail="Calibration failed to find usable settings.")
+
+    # Final polish: try the best settings with locks to verify stability
+    total_steps += 1
+    polish_candidate = dict(best_settings)
+    if bool(capabilities.get("supports_ae_lock")):
+        polish_candidate["ae_lock"] = True
+    if bool(capabilities.get("supports_awb_lock")):
+        polish_candidate["awb_lock"] = True
+    consider(
+        polish_candidate,
+        stage="polish_search",
+        message="Verifying with exposure and white balance locked.",
+    )
 
     if bool(capabilities.get("supports_ae_lock")):
         best_settings["ae_lock"] = True
@@ -3777,7 +3841,7 @@ def _run_camera_calibration_sync(
         if report_progress is not None:
             report_progress("saving", 0.91, "Saving calibrated exposure and white balance.", analysis)
         saved = save_camera_device_settings(role, best_settings)
-        time.sleep(0.2)
+        time.sleep(1.5 if isinstance(source, str) else 0.2)
 
         if report_progress is not None:
             report_progress("profile_generation", 0.95, "Generating a color correction profile from the target plate.", analysis)

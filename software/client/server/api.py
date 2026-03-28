@@ -1139,6 +1139,13 @@ class StepperPulseResponse(BaseModel):
     speed: int
 
 
+class StepperMoveDegreesResponse(BaseModel):
+    success: bool
+    stepper: str
+    degrees: float
+    speed: int
+
+
 class StepperStopResponse(BaseModel):
     success: bool
     stepper: str
@@ -1260,6 +1267,49 @@ def pulse_stepper(
         stepper=stepper,
         direction=direction,
         duration_s=duration_s,
+        speed=speed,
+    )
+
+
+@app.post("/stepper/move-degrees", response_model=StepperMoveDegreesResponse)
+def move_stepper_degrees(
+    stepper: str,
+    degrees: float,
+    speed: int = 800,
+) -> StepperMoveDegreesResponse:
+    if degrees == 0:
+        raise HTTPException(status_code=400, detail="degrees must be non-zero")
+    if speed <= 0:
+        raise HTTPException(status_code=400, detail="speed must be > 0")
+
+    target = _resolve_stepper(stepper)
+
+    lock = pulse_locks.setdefault(stepper, threading.Lock())
+    if not lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is already moving")
+
+    try:
+        target.enabled = True
+        target.set_speed_limits(min_speed=speed, max_speed=speed)
+        target.move_degrees(degrees)
+    except Exception as e:
+        lock.release()
+        raise HTTPException(status_code=500, detail=f"Move failed: {e}")
+
+    def _release_after_move():
+        try:
+            start = time.monotonic()
+            while not target.stopped and (time.monotonic() - start) < 30:
+                time.sleep(0.02)
+        finally:
+            lock.release()
+
+    threading.Thread(target=_release_after_move, daemon=True).start()
+
+    return StepperMoveDegreesResponse(
+        success=True,
+        stepper=stepper,
+        degrees=degrees,
         speed=speed,
     )
 

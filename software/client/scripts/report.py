@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import statistics
 from datetime import datetime
 from pathlib import Path
 
@@ -40,6 +41,19 @@ def calcActiveSeconds(record: dict) -> float:
     return total
 
 
+def printTimingStats(label: str, values: list[float]) -> None:
+    if not values:
+        return
+    values_sorted = sorted(values)
+    avg = statistics.mean(values_sorted)
+    med = statistics.median(values_sorted)
+    p90 = values_sorted[int(len(values_sorted) * 0.9)]
+    lo = values_sorted[0]
+    hi = values_sorted[-1]
+    print(f"  {label} (n={len(values)}):")
+    print(f"    avg={avg:.2f}s  med={med:.2f}s  p90={p90:.2f}s  min={lo:.2f}s  max={hi:.2f}s")
+
+
 def reportSingle(record: dict) -> None:
     run_id = record["run_id"]
     pieces = record["pieces"]
@@ -61,7 +75,6 @@ def reportSingle(record: dict) -> None:
         return
 
     distributed = [p for p in pieces if p.get("distributed_at")]
-    classified = [p for p in pieces if p.get("classified_at")]
 
     if len(distributed) >= 2:
         sorted_by_distributed = sorted(distributed, key=lambda p: p["distributed_at"])
@@ -91,18 +104,14 @@ def reportSingle(record: dict) -> None:
         if p.get("feeding_started_at") and p.get("created_at"):
             feeding_times.append(p["created_at"] - p["feeding_started_at"])
 
-    if creation_to_distributed:
-        avg = sum(creation_to_distributed) / len(creation_to_distributed)
-        print(f"  Avg total time (created->distributed): {avg:.2f}s")
-    if classification_times:
-        avg = sum(classification_times) / len(classification_times)
-        print(f"  Avg classification time (created->classified): {avg:.2f}s")
-    if distribution_times:
-        avg = sum(distribution_times) / len(distribution_times)
-        print(f"  Avg chute time (distributing->distributed): {avg:.2f}s")
-    if feeding_times:
-        avg = sum(feeding_times) / len(feeding_times)
-        print(f"  Avg feed time (ready->landed): {avg:.2f}s")
+    timing_sections = [
+        ("Feed time (ready->landed)", feeding_times),
+        ("Total time (created->distributed)", creation_to_distributed),
+        ("Classification time (created->classified)", classification_times),
+        ("Chute time (distributing->distributed)", distribution_times),
+    ]
+    for label, values in timing_sections:
+        printTimingStats(label, values)
 
     statuses: dict[str, int] = {}
     for p in pieces:

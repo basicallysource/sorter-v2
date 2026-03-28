@@ -37,6 +37,13 @@ PORT = 8098
 DEFAULT_PARAMS = asdict(DEFAULT_MOG2_DIFF_CONFIG)
 
 
+def normalizeColorMode(value: str) -> str:
+    mode = str(value).lower()
+    if mode not in ("gray", "lab"):
+        raise ValueError(f"invalid color_mode: {value}")
+    return mode
+
+
 # --- Channel geometry ---
 
 def loadChannelPolygons():
@@ -272,12 +279,12 @@ class AppState:
                 time.sleep(0.01)
                 continue
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            mog2_frame = self._toMog2Frame(frame)
             self.carousel_heatmap.pushFrame(gray)
             with self.lock:
                 self.latest_frame = frame
                 self.latest_gray = gray
-                self.latest_lab = lab_frame
+                self.latest_lab = mog2_frame
                 if self._recording and self._record_writer is not None:
                     self._record_writer.write(frame)
 
@@ -383,7 +390,7 @@ class AppState:
             if not ret:
                 break
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            lab_frame = self._toMog2Frame(frame)
             self._replay_idx = i + 1
             if i < target_idx - 1:
                 self._feedMog2(lab_frame)
@@ -423,7 +430,7 @@ class AppState:
                     self._replay_paused = True
                     break
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+                lab_frame = self._toMog2Frame(frame)
                 self._replay_idx += 1
                 out = self._processAndAnnotate(frame, gray, lab_frame, force_learn=True)
             if out is not None:
@@ -592,6 +599,12 @@ class AppState:
 
         self.frame_count += 1
         return out
+
+    def _toMog2Frame(self, frame: np.ndarray) -> np.ndarray:
+        mode = normalizeColorMode(self.params["color_mode"])
+        if mode == "lab":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
 
 # --- Flask app ---
@@ -985,6 +998,10 @@ def set_params():
     rebuild = False
     for k, v in updates.items():
         if k in state.params:
+            if k == "color_mode":
+                state.params[k] = normalizeColorMode(v)
+                rebuild = True
+                continue
             state.params[k] = float(v)
             if k in ("history", "var_threshold", "n_mixtures"):
                 rebuild = True

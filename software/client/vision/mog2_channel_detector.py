@@ -63,7 +63,16 @@ class Mog2ChannelDetector:
             )
             self._channels[key] = _ChannelMog2(key, pc, channel_masks[key], cfg)
 
-    def detect(self, lab_frame: np.ndarray) -> List[ChannelDetection]:
+    def _mog2InputFrame(self, frame: np.ndarray) -> np.ndarray:
+        mode = str(self._cfg.color_mode).lower()
+        if mode == "lab":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        if mode == "gray":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        raise ValueError(f"Invalid mog2 color_mode: {self._cfg.color_mode}")
+
+    def detect(self, frame: np.ndarray) -> List[ChannelDetection]:
+        mog2_frame = self._mog2InputFrame(frame)
         blur_k = int(self._cfg.blur_kernel) | 1
         morph_k = int(self._cfg.morph_kernel) | 1
         learning_rate = float(self._cfg.learning_rate)
@@ -71,11 +80,11 @@ class Mog2ChannelDetector:
         max_contour_area = int(self._cfg.max_contour_area)
         fg_threshold = int(self._cfg.fg_threshold)
         dilate_iterations = int(self._cfg.dilate_iterations)
-        blurred = cv2.GaussianBlur(lab_frame, (blur_k, blur_k), 0)
+        blurred = cv2.GaussianBlur(mog2_frame, (blur_k, blur_k), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
 
         detections: List[ChannelDetection] = []
-        fg_combined = np.zeros(lab_frame.shape[:2], dtype=np.uint8)
+        fg_combined = np.zeros(mog2_frame.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
             lr = learning_rate if self._is_channel_rotating(ch.name) else 0.0

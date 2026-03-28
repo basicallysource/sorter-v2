@@ -53,6 +53,23 @@ def loadBaselineLabFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
     return frames
 
 
+def loadBaselineGrayFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
+    frames = []
+    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_*.png")))
+    for p in paths:
+        gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+        if gray is not None:
+            frames.append(gray)
+    return frames
+
+
+def normalizeColorMode(value: str) -> str:
+    mode = str(value).lower()
+    if mode not in ("gray", "lab"):
+        raise ValueError(f"invalid color_mode: {value}")
+    return mode
+
+
 def buildMask(cam_key: str, shape: tuple[int, ...]) -> np.ndarray:
     saved = getClassificationPolygons()
     if saved is None:
@@ -79,9 +96,10 @@ def computeStddevMap(frames: list[np.ndarray]) -> np.ndarray:
 
 
 class AppState:
-    def __init__(self, capture: CaptureThread, carousel_stepper, irl_config, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray, calibration_frames: list[np.ndarray]):
+    def __init__(self, capture: CaptureThread, carousel_stepper, irl_config, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray, calibration_frames: list[np.ndarray], color_mode: str):
         self.capture = capture
         self.carousel_stepper = carousel_stepper
+        self._color_mode = normalizeColorMode(color_mode)
         self._normal_speed = irl_config.carousel_stepper.default_steps_per_second
         self._baseline_min_orig = baseline_min.copy()
         self._baseline_max_orig = baseline_max.copy()
@@ -98,7 +116,8 @@ class AppState:
         self.rotation_count = 0
 
         _cfg = DEFAULT_CLASSIFICATION_DIFF_CONFIG
-        self._default_params: dict[str, float] = {
+        self._default_params: dict[str, float | str] = {
+            "color_mode": self._color_mode,
             "envelope_margin": float(_cfg.envelope_margin),
             "adaptive_std_k": float(_cfg.adaptive_std_k),
             "pixel_thresh": float(_cfg.pixel_thresh),
@@ -120,7 +139,7 @@ class AppState:
             # script-only
             "mask_erode_px": 0.0,
         }
-        self.params: dict[str, float] = dict(self._default_params)
+        self.params: dict[str, float | str] = dict(self._default_params)
 
         self._rebuildHeatmap()
         self._running = True
@@ -144,7 +163,7 @@ class AppState:
         p = self.params
         h = self.heatmap
         h._pixel_thresh = int(p["pixel_thresh"])
-        h._color_thresh_ab = int(p["color_thresh_ab"])
+        h._color_thresh_ab = int(p["color_thresh_ab"]) if self._color_mode == "lab" else 0
         h._blur_kernel = int(p["blur_kernel"])
         h._min_hot_pixels = int(p["min_hot_pixels"])
         h._trigger_score = int(p["trigger_score"])
@@ -189,7 +208,10 @@ class AppState:
         while self._running:
             frame = self.capture.latest_frame
             if frame is not None:
-                diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+                if self._color_mode == "lab":
+                    diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+                else:
+                    diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
                 self.heatmap.pushFrame(diff_frame)
                 with self.lock:
                     if self._recording and self._record_writer is not None:
@@ -879,6 +901,12 @@ def set_params():
     needs_constants = False
     for k, v in updates.items():
         if k in state.params:
+            if k == "color_mode":
+                state._color_mode = normalizeColorMode(v)
+                state.params[k] = state._color_mode
+                needs_envelope_rebuild = True
+                needs_constants = True
+                continue
             state.params[k] = float(v)
             if k in ENVELOPE_PARAMS:
                 needs_envelope_rebuild = True
@@ -992,16 +1020,25 @@ if __name__ == "__main__":
         sys.exit(1)
 
     baseline_dir = BLOB_DIR / "classification_baseline"
-    lab_min_path = baseline_dir / "top_baseline_lab_min.png"
-    lab_max_path = baseline_dir / "top_baseline_lab_max.png"
-    min_img = cv2.imread(str(lab_min_path), cv2.IMREAD_COLOR)
-    max_img = cv2.imread(str(lab_max_path), cv2.IMREAD_COLOR)
+    color_mode = normalizeColorMode(DEFAULT_CLASSIFICATION_DIFF_CONFIG.color_mode)
+    if color_mode == "lab":
+        min_path = baseline_dir / "top_baseline_lab_min.png"
+        max_path = baseline_dir / "top_baseline_lab_max.png"
+        read_mode = cv2.IMREAD_COLOR
+        load_frames = loadBaselineLabFrames
+    else:
+        min_path = baseline_dir / "top_baseline_min.png"
+        max_path = baseline_dir / "top_baseline_max.png"
+        read_mode = cv2.IMREAD_GRAYSCALE
+        load_frames = loadBaselineGrayFrames
+    min_img = cv2.imread(str(min_path), read_mode)
+    max_img = cv2.imread(str(max_path), read_mode)
     if min_img is None or max_img is None:
-        print("ERROR: no LAB baseline images. run calibrate_classification_baseline.py first.")
+        print(f"ERROR: no {color_mode} baseline images. run calibrate_classification_baseline.py first.")
         sys.exit(1)
 
-    calibration_frames = loadBaselineLabFrames(baseline_dir, "top")
-    print(f"loaded {len(calibration_frames)} calibration frames (lab)")
+    calibration_frames = load_frames(baseline_dir, "top")
+    print(f"loaded {len(calibration_frames)} calibration frames ({color_mode})")
 
     gc = mkGlobalConfig()
     irl_config = mkIRLConfig()
@@ -1026,7 +1063,7 @@ if __name__ == "__main__":
 
     mask = buildMask("top", min_img.shape)
 
-    state = AppState(capture, irl.carousel_stepper, irl_config, min_img, max_img, mask, calibration_frames)
+    state = AppState(capture, irl.carousel_stepper, irl_config, min_img, max_img, mask, calibration_frames, color_mode)
 
     print(f"Server starting on http://localhost:{PORT}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

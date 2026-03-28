@@ -28,6 +28,16 @@ DEGREES_PER_FRAME = -90
 MOVE_TIMEOUT_MS = 2000
 
 
+def loadExistingGrayFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
+    frames = []
+    paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_*.png")))
+    for p in paths:
+        gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+        if gray is not None:
+            frames.append(gray)
+    return frames
+
+
 def loadExistingLabFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
     frames = []
     paths = sorted(globmod.glob(str(baseline_dir / f"{prefix}_frame_lab_*.png")))
@@ -36,6 +46,12 @@ def loadExistingLabFrames(baseline_dir: Path, prefix: str) -> list[np.ndarray]:
         if lab_frame is not None:
             frames.append(lab_frame)
     return frames
+
+
+def saveGrayEnvelope(baseline_dir: Path, prefix: str, frames: list[np.ndarray]) -> None:
+    stack = np.stack(frames, axis=0)
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_min.png"), np.min(stack, axis=0).astype(np.uint8))
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_max.png"), np.max(stack, axis=0).astype(np.uint8))
 
 
 def saveLabEnvelope(baseline_dir: Path, prefix: str, frames: list[np.ndarray]) -> None:
@@ -69,9 +85,12 @@ def calibrateCamera(
         for p in globmod.glob(str(cam_dir / f"{prefix}_*.png")):
             os.remove(p)
 
+    gray_frames = loadExistingGrayFrames(cam_dir, prefix)
     lab_frames = loadExistingLabFrames(cam_dir, prefix)
-    existing_count = len(lab_frames)
-    lab_frames = lab_frames[:existing_count]
+    if len(gray_frames) != len(lab_frames):
+        print(f"  {cam}: gray/lab frame count mismatch ({len(gray_frames)} vs {len(lab_frames)}). run with --wipe to rebuild.")
+        return False
+    existing_count = len(gray_frames)
     frames_needed = MAX_FRAMES - existing_count
 
     if frames_needed <= 0:
@@ -97,20 +116,24 @@ def calibrateCamera(
             print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} - no frame")
             continue
 
+        gray = cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
         lab_frame = cv2.cvtColor(raw, cv2.COLOR_BGR2LAB)
 
+        gray_frames.append(gray)
         lab_frames.append(lab_frame)
 
-        frame_idx = len(lab_frames) - 1
+        frame_idx = len(gray_frames) - 1
+        cv2.imwrite(str(cam_dir / f"{prefix}_frame_{frame_idx:03d}.png"), gray)
         cv2.imwrite(str(cam_dir / f"{prefix}_frame_lab_{frame_idx:03d}.png"), lab_frame)
+        saveGrayEnvelope(cam_dir, prefix, gray_frames)
         saveLabEnvelope(cam_dir, prefix, lab_frames)
-        print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(lab_frames)} total)")
+        print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(gray_frames)} total)")
 
-    if not lab_frames:
+    if not gray_frames:
         print(f"  {cam}: no frames captured")
         return False
 
-    print(f"  {cam}: done. {len(lab_frames)} frames + lab envelope")
+    print(f"  {cam}: done. {len(gray_frames)} frames + gray/lab envelopes")
     return True
 
 

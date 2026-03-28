@@ -19,12 +19,14 @@ class CarouselDiffConfig:
 
 @dataclass
 class ClassificationDiffConfig:
+    color_mode: str = "lab"
+
     # envelope improvements applied on top of calibration min/max
-    envelope_margin: int = 4
-    adaptive_std_k: float = 1
+    envelope_margin: int = 8
+    adaptive_std_k: float = 1.5
 
     # heatmap diff params
-    pixel_thresh: int = 15
+    pixel_thresh: int = 24
     color_thresh_ab: int = 10
     blur_kernel: int = 7
     min_hot_pixels: int = 50

@@ -191,7 +191,7 @@ class VisionManager:
 
         self._feeder_analysis = FeederAnalysisThread(
             detector=self._feeder_detector,
-            get_gray=self.getLatestFeederLab,
+            get_gray=self.getLatestFeederRaw,
             profiler=self.gc.profiler,
         )
         self._feeder_analysis.start()
@@ -234,6 +234,7 @@ class VisionManager:
         import glob as globmod
 
         cfg = self._diff_config
+        mode = self._classificationColorMode()
 
         baseline_dir = BLOB_DIR / "classification_baseline"
         loaded_any = False
@@ -241,19 +242,20 @@ class VisionManager:
         for cam_key, capture in [("top", self._classification_top_capture), ("bottom", self._classification_bottom_capture)]:
             if capture is None:
                 continue
-            lab_min_path = baseline_dir / f"{cam_key}_baseline_lab_min.png"
-            lab_max_path = baseline_dir / f"{cam_key}_baseline_lab_max.png"
-            baseline_min = cv2.imread(str(lab_min_path), cv2.IMREAD_COLOR)
-            baseline_max = cv2.imread(str(lab_max_path), cv2.IMREAD_COLOR)
+            baseline_min_path, baseline_max_path = self._classificationBaselinePaths(baseline_dir, cam_key, mode)
+            read_mode = cv2.IMREAD_COLOR if mode == "lab" else cv2.IMREAD_GRAYSCALE
+            baseline_min = cv2.imread(str(baseline_min_path), read_mode)
+            baseline_max = cv2.imread(str(baseline_max_path), read_mode)
             if baseline_min is None or baseline_max is None:
-                self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
+                self.gc.logger.warn(f"Classification {cam_key} {mode} baseline not found. Run: scripts/calibrate_classification_baseline.py")
                 continue
 
             calibration_frames: List[np.ndarray] = []
-            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_lab_*.png"))):
-                lab_frame = cv2.imread(p, cv2.IMREAD_COLOR)
-                if lab_frame is not None:
-                    calibration_frames.append(lab_frame)
+            frame_pattern = f"{cam_key}_frame_lab_*.png" if mode == "lab" else f"{cam_key}_frame_*.png"
+            for p in sorted(globmod.glob(str(baseline_dir / frame_pattern))):
+                cal_frame = cv2.imread(p, read_mode)
+                if cal_frame is not None:
+                    calibration_frames.append(cal_frame)
 
             frame = capture.latest_frame
             if frame is not None:
@@ -315,7 +317,7 @@ class VisionManager:
                 )
                 self._classification_bottom_analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded (lab, margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
+            self.gc.logger.info(f"Classification {cam_key} baseline loaded ({mode}, margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
             loaded_any = True
 
         return loaded_any
@@ -326,7 +328,7 @@ class VisionManager:
         frame = self._classification_top_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+        return self._classificationDiffFrame(frame.raw)
 
     def _getLatestClassificationBottomGray(self) -> np.ndarray | None:
         if self._classification_bottom_capture is None:
@@ -334,7 +336,7 @@ class VisionManager:
         frame = self._classification_bottom_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+        return self._classificationDiffFrame(frame.raw)
 
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
         if cam == "top" and self._classification_top_analysis:
@@ -361,6 +363,35 @@ class VisionManager:
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+
+    def getLatestFeederRaw(self) -> np.ndarray | None:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return frame.raw
+
+    def _classificationColorMode(self) -> str:
+        mode = str(self._diff_config.color_mode).lower()
+        if mode not in ("gray", "lab"):
+            raise ValueError(f"Invalid classification color_mode: {self._diff_config.color_mode}")
+        return mode
+
+    def _classificationDiffFrame(self, raw: np.ndarray) -> np.ndarray:
+        mode = self._classificationColorMode()
+        if mode == "lab":
+            return cv2.cvtColor(raw, cv2.COLOR_BGR2LAB)
+        return cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
+
+    def _classificationBaselinePaths(self, baseline_dir, cam_key: str, mode: str):
+        if mode == "lab":
+            return (
+                baseline_dir / f"{cam_key}_baseline_lab_min.png",
+                baseline_dir / f"{cam_key}_baseline_lab_max.png",
+            )
+        return (
+            baseline_dir / f"{cam_key}_baseline_min.png",
+            baseline_dir / f"{cam_key}_baseline_max.png",
+        )
 
     def getRegions(self) -> dict[RegionName, Region]:
         prof = self.gc.profiler

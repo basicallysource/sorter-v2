@@ -674,6 +674,12 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
     }
 
 
+@app.get("/api/hardware-config/chute")
+def get_chute_hardware_config() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    return _chute_settings_from_config(config)
+
+
 @app.post("/api/hardware-config/chute")
 def save_chute_hardware_config(
     payload: ChuteHardwareSettingsPayload,
@@ -1378,7 +1384,15 @@ def _parse_drv_status(raw: int) -> Dict[str, Any]:
         "stealth": bool(raw & (1 << 30)),
         "cs_actual": (raw >> 16) & 0x1F,
         "sg_result": (raw >> 10) & 0x3FF,
+        "t120": bool(raw & (1 << 8)),
+        "t143": bool(raw & (1 << 7)),
+        "t150": bool(raw & (1 << 6)),
+        "t157": bool(raw & (1 << 11)),
     }
+
+
+# Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
+_stepper_current_cache: Dict[str, Dict[str, int]] = {}
 
 
 def _parse_ihold_irun(raw: int) -> Dict[str, int]:
@@ -1413,13 +1427,29 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
 
     result: Dict[str, Any] = {}
 
-    if ihold_irun_raw is not None:
+    if name in _stepper_current_cache:
+        result["irun"] = _stepper_current_cache[name].get("irun")
+        result["ihold"] = _stepper_current_cache[name].get("ihold")
+    elif ihold_irun_raw is not None:
         parsed = _parse_ihold_irun(ihold_irun_raw)
         result["irun"] = parsed["irun"]
         result["ihold"] = parsed["ihold"]
     else:
-        result["irun"] = None
-        result["ihold"] = None
+        # Fall back to persisted config
+        try:
+            _, config = _read_machine_params_config()
+            toml_name = _STEPPER_API_TO_TOML_NAME.get(name, name)
+            overrides = config.get("stepper_current_overrides", {})
+            entry = overrides.get(toml_name, {}) if isinstance(overrides, dict) else {}
+            if isinstance(entry, dict) and ("irun" in entry or "ihold" in entry):
+                result["irun"] = entry.get("irun")
+                result["ihold"] = entry.get("ihold")
+            else:
+                result["irun"] = None
+                result["ihold"] = None
+        except Exception:
+            result["irun"] = None
+            result["ihold"] = None
 
     if chopconf_raw is not None:
         result["microsteps"] = _parse_chopconf_mres(chopconf_raw)
@@ -1469,6 +1499,8 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
         if not (0 <= ihold <= 31):
             raise HTTPException(status_code=400, detail="ihold must be 0-31")
         stepper.set_current(irun, ihold, current["ihold_delay"])
+        _stepper_current_cache[name] = {"irun": irun, "ihold": ihold}
+        _persist_stepper_current(name, irun, ihold)
 
     if body.microsteps is not None:
         if body.microsteps not in MICROSTEPS_TO_MRES:
@@ -1763,6 +1795,34 @@ def _toml_value(v: object) -> str:
     if isinstance(v, str):
         return f'"{v}"'
     return str(v)
+
+
+_STEPPER_API_TO_TOML_NAME: Dict[str, str] = {
+    "c_channel_1": "c_channel_1_rotor",
+    "c_channel_2": "c_channel_2_rotor",
+    "c_channel_3": "c_channel_3_rotor",
+    "carousel": "carousel",
+    "chute": "chute_stepper",
+}
+
+
+def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
+    try:
+        params_path, config = _read_machine_params_config()
+        overrides = config.get("stepper_current_overrides", {})
+        if not isinstance(overrides, dict):
+            overrides = {}
+        entry = overrides.get(toml_name, {})
+        if not isinstance(entry, dict):
+            entry = {}
+        entry["irun"] = irun
+        entry["ihold"] = ihold
+        overrides[toml_name] = entry
+        config["stepper_current_overrides"] = overrides
+        _write_machine_params_config(params_path, config)
+    except Exception:
+        pass  # best-effort persistence
 
 
 def _write_machine_params_config(path: str, data: Dict[str, Any]) -> None:

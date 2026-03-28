@@ -551,17 +551,26 @@ def applyStepperCurrentOverride(
 ) -> None:
     override = overrides.get(stepper_name)
     if override is None:
-        return
+        irun, ihold, ihold_delay = (
+            DEFAULT_STEPPER_IRUN,
+            DEFAULT_STEPPER_IHOLD,
+            DEFAULT_STEPPER_IHOLD_DELAY,
+        )
+        source = "defaults"
+    else:
+        irun, ihold, ihold_delay = override
+        source = "override"
 
-    irun, ihold, ihold_delay = override
     try:
         stepper.set_current(irun, ihold, ihold_delay)
     except (MCUBusError, OSError) as e:
         gc.logger.warning(
-            f"Failed to apply optional current override for '{stepper_name}' (IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing with firmware defaults."
+            f"Failed to apply stepper current config for '{stepper_name}' from {source} "
+            f"(IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing."
         )
         return
 
     gc.logger.info(
-        f"Stepper '{stepper_name}' current override applied: IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+        f"Stepper '{stepper_name}' current config applied from {source}: "
+        f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
     )

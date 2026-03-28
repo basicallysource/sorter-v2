@@ -850,6 +850,25 @@
 								<div class="dark:text-text-muted-dark text-text-muted">
 									SG Result: {tmcDrvStatus.sg_result}
 								</div>
+								<div
+									class="col-span-2 {tmcDrvStatus.ot
+										? 'font-semibold text-red-500'
+										: tmcDrvStatus.otpw
+											? 'font-semibold text-yellow-500'
+											: 'dark:text-text-muted-dark text-text-muted'}"
+								>
+									Temp: {tmcDrvStatus.ot
+										? '>157°C SHUTDOWN'
+										: tmcDrvStatus.t157
+											? '>157°C'
+											: tmcDrvStatus.t150
+												? '>150°C'
+												: tmcDrvStatus.t143
+													? '>143°C'
+													: tmcDrvStatus.t120
+														? '>120°C'
+														: '<120°C'}
+								</div>
 							</div>
 						</div>
 					{/if}

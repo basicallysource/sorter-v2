@@ -105,8 +105,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 				configEndpoint: '/api/hardware-config/carousel',
 				liveEndpoint: '/api/hardware-config/carousel/live',
 				homeEndpoint: '/api/hardware-config/carousel/home',
-				homeCancelEndpoint: '/api/hardware-config/carousel/home/cancel',
-				calibrateEndpoint: '/api/hardware-config/carousel/calibrate'
+				homeCancelEndpoint: '/api/hardware-config/carousel/home/cancel'
 			}
 		}
 	},
@@ -125,9 +124,9 @@ export const stationPageConfigs: StationPageConfig[] = [
 
 export const settingsNavItems: SettingsNavItem[] = [
 	generalNavItem,
-	storageLayersNavItem,
+	...stationPageConfigs,
 	chuteNavItem,
-	...stationPageConfigs
+	storageLayersNavItem
 ];
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {

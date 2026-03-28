@@ -1,5 +1,6 @@
 import threading
 import time
+import logging
 from typing import Callable
 import numpy as np
 
@@ -62,7 +63,11 @@ class FeederAnalysisThread:
                 detections: list[ChannelDetection] = []
                 if gray is not None:
                     with prof.timer("feeder_analysis.detect_ms"):
-                        detections = self._detector.detect(gray)
+                        try:
+                            detections = self._detector.detect(gray)
+                        except Exception as e:
+                            logging.warning(f"FeederAnalysisThread detect failed: {e}")
+                            detections = []
 
                 prof.observeValue("feeder_analysis.detection_count", float(len(detections)))
 

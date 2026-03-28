@@ -9,7 +9,7 @@ from global_config import GlobalConfig
 from vision import VisionManager
 from defs.consts import LOOP_TICK_MS
 
-CH3_PRECISE_HOLDOVER_MS = 1500
+CH3_PRECISE_HOLDOVER_MS = 2000
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -107,8 +107,8 @@ class Feeding(BaseState):
                     self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
-                # channel 3 — hold all pulses if carousel not ready to receive
-                ch3_held = not self.shared.classification_ready
+                # channel 3 — hold precise pulses if carousel not ready to receive
+                ch3_held = not self.shared.classification_ready and ch3_action == ChannelAction.PULSE_PRECISE
                 if ch3_held:
                     prof.hit("feeder.skip.ch3_held_for_carousel")
                 elif ch3_action == ChannelAction.PULSE_PRECISE:

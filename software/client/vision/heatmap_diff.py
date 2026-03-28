@@ -235,7 +235,7 @@ class HeatmapDiff:
             diff_ab = np.maximum(diff[:, :, 1], diff[:, :, 2])
 
         scaled_thickness = max(1, int(self._min_hot_thickness_px * self._scale))
-        scaled_min_area = max(1, int(self._min_contour_area * self._scale * self._scale))
+        scaled_min_area = max(1, int(self._min_contour_area))
 
         raw_hot_l = diff_l > self._pixel_thresh
         raw_hot_ab = np.zeros_like(raw_hot_l, dtype=bool)
@@ -283,6 +283,10 @@ class HeatmapDiff:
         return score, hot_count
 
     def computeBboxes(self, diff_thresh: float = 0) -> List[Tuple[int, int, int, int]]:
+        score, _ = self.computeDiff()
+        if score < self._trigger_score:
+            return []
+
         result = self._computeDiffMap()
         if result is None:
             return []

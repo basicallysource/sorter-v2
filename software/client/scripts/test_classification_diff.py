@@ -240,7 +240,10 @@ class AppState:
         annotated = raw.copy()
         annotated = self.heatmap.annotateFrame(annotated, label="diff", text_y=50)
 
-        bboxes = self.heatmap.computeBboxes(diff_thresh=self.params["bbox_diff_thresh"])
+        if self.heatmap.isTriggered():
+            bboxes = self.heatmap.computeBboxes(diff_thresh=self.params["bbox_diff_thresh"])
+        else:
+            bboxes = []
         min_dim = int(self.params["min_bbox_dim"])
         min_area = int(self.params["min_bbox_area"])
         filtered = []
@@ -581,7 +584,7 @@ HTML = """
             <div class="param">
                 <label>Min Contour Area</label>
                 <div class="row">
-                    <input type="range" min="10" max="1000" step="10" data-key="min_contour_area" />
+                    <input type="range" min="10" max="200000" step="250" data-key="min_contour_area" />
                     <span class="val"></span>
                 </div>
                 <span class="desc">Min contour area at diff scale</span>
@@ -679,7 +682,7 @@ HTML = """
             <div class="param">
                 <label>Edge Bias Threshold (px)</label>
                 <div class="row">
-                    <input type="range" min="0" max="200" step="5" data-key="edge_bias_threshold_px" />
+                    <input type="range" min="0" max="2000" step="10" data-key="edge_bias_threshold_px" />
                     <span class="val"></span>
                 </div>
                 <span class="desc">Distance from mask edge where bias kicks in</span>

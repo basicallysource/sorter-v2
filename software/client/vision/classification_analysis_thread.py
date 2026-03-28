@@ -85,7 +85,10 @@ class ClassificationAnalysisThread:
                 bboxes: List[Tuple[int, int, int, int]] = []
                 if self._heatmap.has_baseline:
                     with prof.timer(f"{prefix}.compute_bboxes_ms"):
-                        raw_bboxes = self._heatmap.computeBboxes()
+                        if self._heatmap.isTriggered():
+                            raw_bboxes = self._heatmap.computeBboxes()
+                        else:
+                            raw_bboxes = []
                     prof.observeValue(f"{prefix}.raw_bbox_count", float(len(raw_bboxes)))
                     for bbox in raw_bboxes:
                         w = bbox[2] - bbox[0]

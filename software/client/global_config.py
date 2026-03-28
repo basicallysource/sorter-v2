@@ -40,6 +40,7 @@ class GlobalConfig:
     telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
+    disable_servos: bool
     region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
@@ -50,6 +51,7 @@ class GlobalConfig:
         self.should_write_camera_feeds = False
         self.log_buffer_size = 100
         self.disable_chute = False
+        self.disable_servos = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.disable_video_streams = ["classification_bottom"]
 
@@ -65,7 +67,7 @@ def mkGlobalConfig() -> GlobalConfig:
         "--disable",
         action="append",
         default=[],
-        help="disable subsystems (e.g., --disable chute)",
+        help="disable subsystems (e.g., --disable chute, --disable servos)",
     )
     args = parser.parse_args()
 
@@ -80,6 +82,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
 
     gc.disable_chute = "chute" in args.disable
+    gc.disable_servos = "servos" in args.disable
     gc.region_provider = RegionProviderType.HANDDRAWN
 
     from telemetry import Telemetry

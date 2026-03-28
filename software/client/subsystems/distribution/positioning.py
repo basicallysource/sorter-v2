@@ -73,12 +73,16 @@ class Positioning(BaseState):
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self._selectDoor(address.layer_index)
-            self._door_servo_index = address.layer_index
+            if not self.gc.disable_servos:
+                self._door_servo_index = address.layer_index
             self._target_address = address
             self._startChuteMove()
             self._moving_started_at = now
             init_ms = (now - self._state_entered_at) * 1000
-            self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
+            if self.gc.disable_servos:
+                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for chute")
+            else:
+                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
             return None
 
         if self._phase == "moving":
@@ -89,7 +93,10 @@ class Positioning(BaseState):
             self.shared.chute_move_in_progress = False
             move_ms = (now - self._moving_started_at) * 1000
             total_ms = (now - self._state_entered_at) * 1000
-            self.logger.info(f"Positioning: complete (servo+chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
+            if self.gc.disable_servos:
+                self.logger.info(f"Positioning: complete (chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
+            else:
+                self.logger.info(f"Positioning: complete (servo+chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
             return DistributionState.READY
 
         return None
@@ -113,6 +120,8 @@ class Positioning(BaseState):
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
+        if self.gc.disable_servos:
+            return
         target_servo = self.irl.servos[target_layer_index]
         if not target_servo.isClosed():
             for i, servo in enumerate(self.irl.servos):

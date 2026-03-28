@@ -96,12 +96,15 @@ def main() -> None:
     
     irl = mkIRLInterface(irl_config, gc)
 
-    gc.logger.info("Opening all layer servos...")
-    for servo in irl.servos:
-        try:
-            servo.open()
-        except Exception as e:
-            gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+    if gc.disable_servos:
+        gc.logger.info("Servo control disabled via --disable servos")
+    else:
+        gc.logger.info("Opening all layer servos...")
+        for servo in irl.servos:
+            try:
+                servo.open()
+            except Exception as e:
+                gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
     gc.logger.info("Homing chute to zero...")
     irl.chute.home()

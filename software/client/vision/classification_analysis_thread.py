@@ -63,11 +63,7 @@ class ClassificationAnalysisThread:
         with self._lock:
             if not self._latest_bboxes:
                 return None
-            x1 = min(b[0] for b in self._latest_bboxes)
-            y1 = min(b[1] for b in self._latest_bboxes)
-            x2 = max(b[2] for b in self._latest_bboxes)
-            y2 = max(b[3] for b in self._latest_bboxes)
-            return (x1, y1, x2, y2)
+            return max(self._latest_bboxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
 
     def _loop(self) -> None:
         prof = self._profiler

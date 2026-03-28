@@ -27,18 +27,16 @@ from irl.config import mkIRLConfig, mkIRLInterface
 from vision.camera import CaptureThread
 from vision.heatmap_diff import HeatmapDiff
 from vision.diff_configs import DEFAULT_CLASSIFICATION_DIFF_CONFIG
-from blob_manager import BLOB_DIR, getCameraSetup, getClassificationPolygons
-from irl.config import mkCameraConfig
+from blob_manager import BLOB_DIR, getClassificationPolygons
 import glob as globmod
 
 PORT = 8099
 DEGREES_PER_STEP = -90
 DEGREES_BACKOFF = 0
 BACKOFF_SPEED = 50
-SCALE = 0.25
 RECORDINGS_DIR = "recordings_diff"
 
-ENVELOPE_PARAMS = {"envelope_margin", "adaptive_std_k"}
+ENVELOPE_PARAMS = {"classification_scale", "envelope_margin", "adaptive_std_k"}
 
 app = Flask(__name__)
 
@@ -110,7 +108,7 @@ class AppState:
         if len(calibration_frames) >= 2:
             self._stddev_map = computeStddevMap(calibration_frames)
 
-        self.heatmap = HeatmapDiff(scale=SCALE)
+        self.heatmap = HeatmapDiff(scale=float(DEFAULT_CLASSIFICATION_DIFF_CONFIG.classification_scale))
         self.lock = threading.Lock()
         self.detection_log: list[dict] = []
         self.rotation_count = 0
@@ -118,6 +116,7 @@ class AppState:
         _cfg = DEFAULT_CLASSIFICATION_DIFF_CONFIG
         self._default_params: dict[str, float | str] = {
             "color_mode": self._color_mode,
+            "classification_scale": float(_cfg.classification_scale),
             "envelope_margin": float(_cfg.envelope_margin),
             "adaptive_std_k": float(_cfg.adaptive_std_k),
             "pixel_thresh": float(_cfg.pixel_thresh),
@@ -193,7 +192,7 @@ class AppState:
             bl_min = np.clip(bl_min.astype(np.int16) - margin, 0, 255).astype(np.uint8)
             bl_max = np.clip(bl_max.astype(np.int16) + margin, 0, 255).astype(np.uint8)
 
-        self.heatmap = HeatmapDiff(scale=SCALE)
+        self.heatmap = HeatmapDiff(scale=float(p["classification_scale"]))
         self.heatmap.loadEnvelope(bl_min, bl_max, mask)
 
     def _rebuildHeatmap(self) -> None:
@@ -204,15 +203,17 @@ class AppState:
         while self._running:
             frame = self.capture.latest_frame
             if frame is not None:
-                if self._color_mode == "lab":
-                    diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
-                else:
-                    diff_frame = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+                diff_frame = self._toDiffFrame(frame.raw)
                 self.heatmap.pushFrame(diff_frame)
                 with self.lock:
                     if self._recording and self._record_writer is not None:
                         self._record_writer.write(frame.raw)
             time.sleep(0.04)
+
+    def _toDiffFrame(self, raw: np.ndarray) -> np.ndarray:
+        if self._color_mode == "lab":
+            return cv2.cvtColor(raw, cv2.COLOR_BGR2LAB)
+        return cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
 
     def _edgeBiasedMargins(
         self,
@@ -259,7 +260,9 @@ class AppState:
         edge_thresh = int(self.params["edge_bias_threshold_px"])
         fh, fw = raw.shape[:2]
         mask_x, mask_y, mask_w, mask_h = self._mask_bbox
-        for bbox in filtered:
+        primary_bbox = max(filtered, key=lambda b: (b[2] - b[0]) * (b[3] - b[1])) if filtered else None
+        if primary_bbox is not None:
+            bbox = primary_bbox
             margins = self._edgeBiasedMargins(bbox, crop_margin, edge_mult, edge_thresh, mask_x, mask_y, mask_x + mask_w, mask_y + mask_h)
             mx1 = max(0, bbox[0] - margins[0])
             my1 = max(0, bbox[1] - margins[1])
@@ -274,8 +277,8 @@ class AppState:
             cv2.putText(annotated, f"crop +{crop_margin}px{bias_label}", (mx1, my1 - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 1)
 
-        detected = len(filtered) > 0
-        label = f"DETECTED: {len(filtered)}" if detected else "clear"
+        detected = primary_bbox is not None
+        label = "DETECTED: 1" if detected else "clear"
         color = (0, 0, 255) if detected else (0, 255, 0)
         cv2.putText(annotated, label, (30, 130),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
@@ -364,8 +367,8 @@ class AppState:
             ret, frame = cap.read()
             if not ret:
                 break
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            self._pushReplayFrame(gray)
+            diff_frame = self._toDiffFrame(frame)
+            self._pushReplayFrame(diff_frame)
             last_raw = frame
         self._replay_idx = target_idx
         if last_raw is not None:
@@ -400,8 +403,8 @@ class AppState:
                 if not ret:
                     self._replay_paused = True
                     break
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                self._pushReplayFrame(gray)
+                diff_frame = self._toDiffFrame(frame)
+                self._pushReplayFrame(diff_frame)
                 self._replay_idx += 1
                 out = self._annotate(frame)
             if out is not None:
@@ -508,6 +511,14 @@ HTML = """
         <div class="section">
             <div class="section-label">Envelope Improvements</div>
             <div class="param">
+                <label>Classification Scale</label>
+                <div class="row">
+                    <input type="range" min="0.10" max="1.00" step="0.05" data-key="classification_scale" />
+                    <span class="val"></span>
+                </div>
+                <span class="desc">Heatmap processing scale (lower = faster, less detail)</span>
+            </div>
+            <div class="param">
                 <label>Envelope Margin (&plusmn;N)</label>
                 <div class="row">
                     <input type="range" min="0" max="40" step="1" data-key="envelope_margin" />
@@ -586,7 +597,7 @@ HTML = """
             <div class="param">
                 <label>Hot Erode Iters</label>
                 <div class="row">
-                    <input type="range" min="1" max="4" step="1" data-key="hot_erode_iters" />
+                    <input type="range" min="1" max="12" step="1" data-key="hot_erode_iters" />
                     <span class="val"></span>
                 </div>
                 <span class="desc">Erode passes on hot zones before contouring</span>
@@ -594,7 +605,7 @@ HTML = """
             <div class="param">
                 <label>Hot Regrow Iters</label>
                 <div class="row">
-                    <input type="range" min="0" max="4" step="1" data-key="hot_regrow_iters" />
+                    <input type="range" min="0" max="12" step="1" data-key="hot_regrow_iters" />
                     <span class="val"></span>
                 </div>
                 <span class="desc">Dilate passes after hot erosion (lower trims tails more)</span>
@@ -1018,11 +1029,6 @@ def replay_status():
 
 
 if __name__ == "__main__":
-    camera_setup = getCameraSetup()
-    if camera_setup is None or "classification_top" not in camera_setup:
-        print("ERROR: No classification_top camera found. Run camera_setup.py first.")
-        sys.exit(1)
-
     baseline_dir = BLOB_DIR / "classification_baseline"
     color_mode = normalizeColorMode(DEFAULT_CLASSIFICATION_DIFF_CONFIG.color_mode)
     if color_mode == "lab":
@@ -1049,7 +1055,7 @@ if __name__ == "__main__":
     irl = mkIRLInterface(irl_config, gc)
     irl.enableSteppers()
 
-    capture = CaptureThread("classification_top", mkCameraConfig(camera_setup["classification_top"]))
+    capture = CaptureThread("classification_top", irl_config.classification_camera_top)
     capture.start()
 
     print("waiting for camera...")

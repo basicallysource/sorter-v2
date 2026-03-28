@@ -20,21 +20,22 @@ class CarouselDiffConfig:
 @dataclass
 class ClassificationDiffConfig:
     color_mode: str = "lab"
+    classification_scale: float = 0.25
 
     # envelope improvements applied on top of calibration min/max
     envelope_margin: int = 12
     adaptive_std_k: float = 0.0
 
     # heatmap diff params
-    pixel_thresh: int = 4
+    pixel_thresh: int = 6
     color_thresh_ab: int = 15
-    blur_kernel: int = 9
+    blur_kernel: int = 5
     min_hot_pixels: int = 50
     trigger_score: int = 17
     min_contour_area: int = 70
     min_hot_thickness_px: int = 12
-    hot_erode_iters: int = 4
-    hot_regrow_iters: int = 3
+    hot_erode_iters: int = 8
+    hot_regrow_iters: int = 8
     max_contour_aspect: float = 10.0
     heat_gain: float = 2.0
     current_frames: int = 1
@@ -42,8 +43,8 @@ class ClassificationDiffConfig:
     min_bbox_area: int = 0
 
     # crop sent to classifier
-    crop_margin_px: int = 70
-    edge_bias_mult: float = 2.0
+    crop_margin_px: int = 100
+    edge_bias_mult: float = 1.5
     edge_bias_threshold_px: int = 80
 
     # tuning script params (not currently used in runtime path)

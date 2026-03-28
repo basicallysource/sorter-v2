@@ -215,7 +215,7 @@ class VisionManager:
     def _makeClassificationHeatmap(self) -> HeatmapDiff:
         c = self._diff_config
         return HeatmapDiff(
-            scale=0.25,
+            scale=c.classification_scale,
             gc=self.gc,
             pixel_thresh=c.pixel_thresh,
             color_thresh_ab=c.color_thresh_ab,

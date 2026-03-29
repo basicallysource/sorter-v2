@@ -117,10 +117,10 @@
 				</div>
 			{/if}
 			<div class="flex flex-shrink-0 gap-3">
-				<div class="w-72 min-w-64 max-w-80">
+				<div class="w-96 min-w-80">
 					<RecentObjects />
 				</div>
-				<div class="w-80 min-w-72 max-w-96">
+				<div class="w-96 min-w-80">
 					<RuntimeStats />
 				</div>
 			</div>

@@ -25,6 +25,18 @@ class Sending(BaseState):
         self.event_queue = event_queue
         self.piece = None
         self.start_time: float = 0.0
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "distribution.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[DistributionState]:
         if self.piece is None:
@@ -33,10 +45,12 @@ class Sending(BaseState):
             self.start_time = time.time()
 
         elapsed_ms = (time.time() - self.start_time) * 1000
+        self._setOccupancyState("sending.wait_chute_settle")
         if elapsed_ms < CHUTE_SETTLE_MS:
             return None
 
         self.logger.info(f"Sending: settle complete ({elapsed_ms:.0f}ms)")
+        self._setOccupancyState("sending.commit_piece")
         if self.piece:
             self.piece.stage = PieceStage.distributed
             self.piece.distributed_at = time.time()

@@ -27,6 +27,7 @@ from bricklink.api import getPartInfo
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
 from irl.config import ArucoTagConfig, CarouselArucoTagConfig
+from run_recorder import RECORDS_DIR
 
 app = FastAPI(title="Sorter API", version="0.0.1")
 app.add_middleware(
@@ -45,6 +46,7 @@ gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
+runtime_stats_snapshot: Optional[dict[str, Any]] = None
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -278,6 +280,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         data=MachineIdentityData(machine_id=machine_id, nickname=None),
     )
     await websocket.send_json(identity_event.model_dump())
+    if runtime_stats_snapshot is not None:
+        await websocket.send_json(
+            {
+                "tag": "runtime_stats",
+                "data": {"payload": runtime_stats_snapshot},
+            }
+        )
 
     try:
         while True:
@@ -288,6 +297,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 
 async def broadcastEvent(event: dict) -> None:
+    global runtime_stats_snapshot
+    if event.get("tag") == "runtime_stats":
+        data = event.get("data")
+        if isinstance(data, dict):
+            payload = data.get("payload")
+            if isinstance(payload, dict):
+                runtime_stats_snapshot = payload
     dead_connections = []
     for connection in active_connections[:]:
         try:
@@ -336,6 +352,87 @@ class RuntimeVariablesResponse(BaseModel):
 
 class RuntimeVariablesUpdateRequest(BaseModel):
     values: Dict[str, Any]
+
+
+class RuntimeStatsResponse(BaseModel):
+    payload: Dict[str, Any]
+
+
+class RuntimeStatsRecordItem(BaseModel):
+    record_id: str
+    run_id: str
+    started_at: float
+    ended_at: float
+    total_pieces: int
+
+
+class RuntimeStatsRecordsResponse(BaseModel):
+    records: List[RuntimeStatsRecordItem]
+
+
+@app.get("/runtime-stats", response_model=RuntimeStatsResponse)
+def getRuntimeStats() -> RuntimeStatsResponse:
+    if runtime_stats_snapshot is None:
+        return RuntimeStatsResponse(payload={})
+    return RuntimeStatsResponse(payload=runtime_stats_snapshot)
+
+
+@app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
+def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
+    if not RECORDS_DIR.exists():
+        return RuntimeStatsRecordsResponse(records=[])
+
+    records: List[RuntimeStatsRecordItem] = []
+    for path in sorted(RECORDS_DIR.glob("*.json"), reverse=True):
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        runtime_stats = data.get("runtime_stats_final")
+        if not isinstance(runtime_stats, dict):
+            continue
+        run_id = data.get("run_id")
+        started_at = data.get("started_at")
+        ended_at = data.get("ended_at")
+        total_pieces = data.get("total_pieces")
+        if not isinstance(run_id, str):
+            continue
+        if not isinstance(started_at, (int, float)):
+            continue
+        if not isinstance(ended_at, (int, float)):
+            continue
+        if not isinstance(total_pieces, int):
+            continue
+        records.append(
+            RuntimeStatsRecordItem(
+                record_id=path.name,
+                run_id=run_id,
+                started_at=float(started_at),
+                ended_at=float(ended_at),
+                total_pieces=total_pieces,
+            )
+        )
+    return RuntimeStatsRecordsResponse(records=records)
+
+
+@app.get("/runtime-stats/record/{record_id}", response_model=RuntimeStatsResponse)
+def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
+    safe_name = Path(record_id).name
+    if safe_name != record_id:
+        raise HTTPException(status_code=400, detail="Invalid record id")
+    path = RECORDS_DIR / safe_name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Record not found")
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed reading record: {e}")
+    runtime_stats = data.get("runtime_stats_final")
+    if not isinstance(runtime_stats, dict):
+        raise HTTPException(status_code=404, detail="runtime_stats_final missing")
+    return RuntimeStatsResponse(payload=runtime_stats)
 
 
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)

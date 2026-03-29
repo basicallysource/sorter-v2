@@ -46,8 +46,18 @@ class RunRecorder:
                 "uuid": p.uuid,
                 "created_at": p.created_at,
                 "feeding_started_at": p.feeding_started_at,
+                "carousel_detected_confirmed_at": p.carousel_detected_confirmed_at,
+                "carousel_rotate_started_at": p.carousel_rotate_started_at,
+                "carousel_rotated_at": p.carousel_rotated_at,
+                "carousel_snapping_started_at": p.carousel_snapping_started_at,
+                "carousel_snapping_completed_at": p.carousel_snapping_completed_at,
+                "carousel_next_baseline_captured_at": p.carousel_next_baseline_captured_at,
+                "carousel_next_ready_at": p.carousel_next_ready_at,
                 "classified_at": p.classified_at,
                 "distributing_at": p.distributing_at,
+                "distribution_target_selected_at": p.distribution_target_selected_at,
+                "distribution_motion_started_at": p.distribution_motion_started_at,
+                "distribution_positioned_at": p.distribution_positioned_at,
                 "distributed_at": p.distributed_at,
                 "classification_status": p.classification_status.value,
                 "part_id": p.part_id,
@@ -68,6 +78,8 @@ class RunRecorder:
             "total_pieces": len(self.pieces),
             "pieces": pieces_data,
         }
+        if hasattr(self.gc, "runtime_stats"):
+            record["runtime_stats_final"] = self.gc.runtime_stats.snapshot()
 
         RECORDS_DIR.mkdir(parents=True, exist_ok=True)
         dt_str = datetime.fromtimestamp(self.started_at).strftime("%Y-%m-%d_%H-%M-%S")

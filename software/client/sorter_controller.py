@@ -30,20 +30,24 @@ class SorterController:
 
     def start(self) -> None:
         self.state = SorterLifecycle.PAUSED
+        self.gc.runtime_stats.setLifecycleState(self.state.value)
 
     def resume(self) -> None:
         self.irl.enableSteppers()
         self.state = SorterLifecycle.RUNNING
+        self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markRunning()
 
     def pause(self) -> None:
         self.coordinator.cleanup()
         self.state = SorterLifecycle.PAUSED
+        self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
 
     def stop(self) -> None:
         self.coordinator.cleanup()
         self.state = SorterLifecycle.READY
+        self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
 
     def step(self) -> None:

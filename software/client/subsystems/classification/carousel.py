@@ -48,6 +48,9 @@ class Carousel:
     def getPieceAtClassification(self) -> Optional[KnownObject]:
         return self.platforms[CLASSIFICATION_POSITION]
 
+    def getPieceAtFeeder(self) -> Optional[KnownObject]:
+        return self.platforms[FEEDER_POSITION]
+
     def getPieceAtIntermediate(self) -> Optional[KnownObject]:
         return self.platforms[INTERMEDIATE_POSITION]
 

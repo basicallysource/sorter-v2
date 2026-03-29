@@ -36,10 +36,23 @@ class Rotating(BaseState):
         self.wait_started_at: Optional[float] = None
         self.last_wait_log_ms = 0.0
         self._state_entered_at: Optional[float] = None
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "classification.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[ClassificationState]:
+        now = time.time()
         if self._state_entered_at is None:
-            self._state_entered_at = time.time()
+            self._state_entered_at = now
         piece_at_intermediate = self.carousel.getPieceAtIntermediate()
         requires_distribution_ready = piece_at_intermediate is not None and (
             piece_at_intermediate.part_id is not None
@@ -48,14 +61,18 @@ class Rotating(BaseState):
         )
 
         if requires_distribution_ready and not self.shared.distribution_ready:
+            self._setOccupancyState("rotating.wait_distribution_ready")
+            self.gc.runtime_stats.observeBlockedReason(
+                "classification", "waiting_distribution_ready"
+            )
             if self.wait_started_at is None:
-                self.wait_started_at = time.time()
+                self.wait_started_at = now
                 self.last_wait_log_ms = 0.0
                 self.logger.info(
                     "Rotating: waiting for distribution_ready before sending carousel rotate"
                 )
 
-            waited_ms = (time.time() - self.wait_started_at) * 1000
+            waited_ms = (now - self.wait_started_at) * 1000
             if waited_ms - self.last_wait_log_ms >= 1000:
                 self.last_wait_log_ms = waited_ms
                 self.logger.info(
@@ -75,13 +92,14 @@ class Rotating(BaseState):
             self.last_wait_log_ms = 0.0
 
         if self.entered_at is None:
-            self.entered_at = time.time()
+            self.entered_at = now
 
         if self.start_time is None:
-            elapsed_since_entry_ms = (time.time() - self.entered_at) * 1000
+            elapsed_since_entry_ms = (now - self.entered_at) * 1000
+            self._setOccupancyState("rotating.pre_rotate_delay")
             if elapsed_since_entry_ms < PRE_ROTATE_DELAY_MS:
                 return None
-            self.start_time = time.time()
+            self.start_time = now
             piece_at_feeder = self.carousel.getPieceAtFeeder()
             if (
                 piece_at_feeder is not None
@@ -93,6 +111,7 @@ class Rotating(BaseState):
             self.command_sent = True
 
         if not self.stepper.stopped:
+            self._setOccupancyState("rotating.wait_stepper_motion_complete")
             return None
 
         total_ms = (time.time() - self._state_entered_at) * 1000 if self._state_entered_at else 0

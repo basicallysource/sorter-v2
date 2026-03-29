@@ -3,14 +3,20 @@
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import { Settings, Wrench, Pause, Play } from 'lucide-svelte';
 	import type { components } from '$lib/api/rest';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 
 	type StateResponse = components['schemas']['StateResponse'];
+
+	const SIDEBAR_MIN = 300;
+	const SIDEBAR_MAX = 900;
+	const SIDEBAR_DEFAULT = 420;
 
 	const manager = getMachinesContext();
 	const machine = getMachineContext();
@@ -18,6 +24,11 @@
 	let settings_open = $state(false);
 	let runtime_vars_open = $state(false);
 	let machine_state = $state<string>('initializing');
+	let sidebar_width = $state(SIDEBAR_DEFAULT);
+
+	function onSidebarResize(delta: number) {
+		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
+	}
 
 	async function fetchState() {
 		try {
@@ -49,7 +60,7 @@
 	});
 </script>
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
+<div class="dark:bg-bg-dark flex h-screen flex-col bg-bg p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<h1 class="dark:text-text-dark text-2xl font-bold text-text">Sorter</h1>
 		<div class="flex items-center gap-2">
@@ -86,7 +97,7 @@
 		{@const has_top = machine.frames.has('classification_top')}
 		{@const has_bottom = machine.frames.has('classification_bottom')}
 		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
-		<div class="flex h-[60vh] gap-3">
+		<div class="flex min-h-0 flex-1 gap-3">
 			{#if single_classification}
 				<div class="flex min-w-0 flex-1 flex-col gap-3">
 					<div class="flex-1">
@@ -115,8 +126,14 @@
 					</div>
 				</div>
 			{/if}
-			<div class="w-64 flex-shrink-0">
-				<RecentObjects />
+			<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
+			<div class="flex flex-shrink-0 flex-col gap-3 min-h-0" style="width: {sidebar_width}px;">
+				<div class="min-h-0 flex-1">
+					<RecentObjects />
+				</div>
+				<div class="min-h-0 flex-1 overflow-y-auto">
+					<RuntimeStats />
+				</div>
 			</div>
 		</div>
 	{:else}

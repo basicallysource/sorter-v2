@@ -15,15 +15,6 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
     from irl.config import RotorPulseConfig
 
-FEEDER_RUNTIME_STATE_PULSING = "pulsing"
-FEEDER_RUNTIME_STATE_WAITING_CHUTE = "waiting_chute"
-FEEDER_RUNTIME_STATE_WAITING_CLASSIFICATION = "waiting_classification_ready"
-FEEDER_RUNTIME_STATE_WAITING_CH2_DROPZONE = "waiting_ch2_dropzone_clear"
-FEEDER_RUNTIME_STATE_WAITING_CH3_DROPZONE = "waiting_ch3_dropzone_clear"
-FEEDER_RUNTIME_STATE_WAITING_STEPPER = "waiting_stepper"
-FEEDER_RUNTIME_STATE_STABLE = "stable"
-
-
 class Feeding(BaseState):
     def __init__(
         self,
@@ -41,15 +32,15 @@ class Feeding(BaseState):
         self._last_ch3_action = ChannelAction.IDLE
         self._busy_until: dict[str, float] = {}
         self._ch3_last_precise_at: float = 0.0
-        self._runtime_state: str | None = None
+        self._occupancy_state_by_resource: dict[str, str] = {}
 
-    def _setRuntimeState(self, state_name: str) -> None:
-        if state_name == self._runtime_state:
+    def _setOccupancyState(self, resource_name: str, state_name: str) -> None:
+        prev_state = self._occupancy_state_by_resource.get(resource_name)
+        if prev_state == state_name:
             return
-        prev_state = self._runtime_state
-        self._runtime_state = state_name
+        self._occupancy_state_by_resource[resource_name] = state_name
         self.gc.runtime_stats.observeStateTransition(
-            "feeder_runtime",
+            resource_name,
             prev_state,
             state_name,
         )
@@ -180,9 +171,11 @@ class Feeding(BaseState):
                         },
                         now_monotonic=now,
                     )
+                    self._setOccupancyState("feeder.ch1", "feeding.wait_chute_move_in_progress")
+                    self._setOccupancyState("feeder.ch2", "feeding.wait_chute_move_in_progress")
+                    self._setOccupancyState("feeder.ch3", "feeding.wait_chute_move_in_progress")
                     prof.hit("feeder.skip.chute_in_progress")
                     self.gc.runtime_stats.observeBlockedReason("feeder", "chute_in_progress")
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_WAITING_CHUTE)
                     self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
@@ -235,18 +228,28 @@ class Feeding(BaseState):
                     prof.hit("feeder.skip.ch1_dropzone_occupied")
                     self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_blocked_by_ch2_dropzone")
 
-                if ch3_held:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_WAITING_CLASSIFICATION)
-                elif analysis.ch2_dropzone_occupied:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_WAITING_CH2_DROPZONE)
-                elif analysis.ch3_dropzone_occupied and ch2_action != ChannelAction.IDLE:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_WAITING_CH3_DROPZONE)
-                elif pulse_sent:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_PULSING)
-                elif pulse_intent:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_WAITING_STEPPER)
+                if analysis.ch2_dropzone_occupied:
+                    self._setOccupancyState("feeder.ch1", "feeding.wait_ch2_dropzone_clear")
                 else:
-                    self._setRuntimeState(FEEDER_RUNTIME_STATE_STABLE)
+                    self._setOccupancyState("feeder.ch1", "feeding.pulse_ch1_when_clear")
+
+                if analysis.ch3_dropzone_occupied:
+                    self._setOccupancyState("feeder.ch2", "feeding.wait_ch3_dropzone_clear")
+                elif ch2_action == ChannelAction.IDLE:
+                    self._setOccupancyState("feeder.ch2", "feeding.idle_no_piece_in_ch2")
+                elif ch2_action == ChannelAction.PULSE_PRECISE:
+                    self._setOccupancyState("feeder.ch2", "feeding.pulse_ch2_precise")
+                else:
+                    self._setOccupancyState("feeder.ch2", "feeding.pulse_ch2_normal")
+
+                if ch3_held:
+                    self._setOccupancyState("feeder.ch3", "feeding.wait_classification_ready_for_ch3_precise")
+                elif ch3_action == ChannelAction.IDLE:
+                    self._setOccupancyState("feeder.ch3", "feeding.idle_no_piece_in_ch3")
+                elif ch3_action == ChannelAction.PULSE_PRECISE:
+                    self._setOccupancyState("feeder.ch3", "feeding.pulse_ch3_precise")
+                else:
+                    self._setOccupancyState("feeder.ch3", "feeding.pulse_ch3_normal")
 
                 self.gc.runtime_stats.observeFeederSignals(
                     {

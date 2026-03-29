@@ -36,16 +36,30 @@ class Positioning(BaseState):
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
         self._piece = None
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "distribution.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[DistributionState]:
         now = time.monotonic()
 
         if self._phase == "init":
+            self._setOccupancyState("positioning.select_target_bin")
             self._state_entered_at = now
             carousel = self.shared.carousel
             piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
                 self.logger.warn("Positioning: no piece at intermediate")
+                self._setOccupancyState("positioning.wait_piece_at_intermediate")
                 return DistributionState.IDLE
 
             if piece.part_id is not None:
@@ -89,6 +103,7 @@ class Positioning(BaseState):
             return None
 
         if self._phase == "moving":
+            self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
             servo_stopped = self.irl.servos[self._door_servo_index].stopped if self._door_servo_index is not None else True
             if not chute_stopped or not servo_stopped:

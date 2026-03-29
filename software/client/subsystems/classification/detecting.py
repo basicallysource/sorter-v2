@@ -31,6 +31,18 @@ class Detecting(BaseState):
         self._entered_at: Optional[float] = None
         self._detected_at: Optional[float] = None
         self._ready_at: Optional[float] = None
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "classification.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[ClassificationState]:
         now = time.time()
@@ -38,9 +50,11 @@ class Detecting(BaseState):
             self._entered_at = now
 
         if self._baseline_pending:
+            self._setOccupancyState("detecting.wait_for_settle_to_take_baseline")
             elapsed_ms = (now - self._entered_at) * 1000
             if elapsed_ms < WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS:
                 return None
+            self._setOccupancyState("detecting.capture_baseline")
             if not self.vision.captureCarouselBaseline():
                 return None
             piece_at_classification = self.carousel.getPieceAtClassification()
@@ -54,10 +68,10 @@ class Detecting(BaseState):
 
         if not self.shared.classification_ready:
             if not self.shared.distribution_ready:
-                if hasattr(self.gc, "runtime_stats"):
-                    self.gc.runtime_stats.observeBlockedReason(
-                        "classification", "distribution_not_ready"
-                    )
+                self._setOccupancyState("detecting.wait_distribution_ready")
+                self.gc.runtime_stats.observeBlockedReason(
+                    "classification", "distribution_not_ready"
+                )
                 return None
             self.shared.classification_ready = True
             self._ready_at = now
@@ -74,12 +88,14 @@ class Detecting(BaseState):
         triggered, score, hot_px = self.vision.isCarouselTriggered()
         if triggered:
             if self._detected_at is None:
+                self._setOccupancyState("detecting.wait_piece_trigger")
                 self._detected_at = now
                 self.logger.info(
                     f"Detecting: piece detected via heatmap diff "
                     f"(score={score:.1f}, hot_px={hot_px}), debouncing {DEBOUNCE_MS}ms"
                 )
             elif (now - self._detected_at) * 1000 >= DEBOUNCE_MS:
+                self._setOccupancyState("detecting.debounce_trigger")
                 self.logger.info(
                     f"Detecting: confirming detection "
                     f"(score={score:.1f}, hot_px={hot_px})"
@@ -93,6 +109,7 @@ class Detecting(BaseState):
                 obj.carousel_detected_confirmed_at = now
                 return ClassificationState.ROTATING
         else:
+            self._setOccupancyState("detecting.wait_piece_trigger")
             if self._detected_at is not None:
                 elapsed = (now - self._detected_at) * 1000
                 self.logger.info(

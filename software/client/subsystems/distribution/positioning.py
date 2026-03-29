@@ -149,14 +149,14 @@ class Positioning(BaseState):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
                     if not self.chute.isBinReachable(address):
                         continue
-                    if b.category_id == category_id:
+                    if category_id in b.category_ids:
                         return address, False
-                    if b.category_id is None and first_unassigned is None:
+                    if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)
 
         if first_unassigned is not None:
             address, b = first_unassigned
-            b.category_id = category_id
+            b.category_ids = [category_id]
             setBinCategories(extractCategories(self.layout))
             self.logger.info(
                 f"Positioning: assigned category {category_id} to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"

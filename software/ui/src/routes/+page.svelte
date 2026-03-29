@@ -50,7 +50,7 @@
 	});
 </script>
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
+<div class="dark:bg-bg-dark flex h-screen flex-col bg-bg p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<h1 class="dark:text-text-dark text-2xl font-bold text-text">Sorter</h1>
 		<div class="flex items-center gap-2">
@@ -87,7 +87,7 @@
 		{@const has_top = machine.frames.has('classification_top')}
 		{@const has_bottom = machine.frames.has('classification_bottom')}
 		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
-		<div class="flex h-[60vh] gap-3">
+		<div class="flex min-h-0 flex-1 gap-3">
 			{#if single_classification}
 				<div class="flex min-w-0 flex-1 flex-col gap-3">
 					<div class="flex-1">
@@ -116,11 +116,11 @@
 					</div>
 				</div>
 			{/if}
-			<div class="flex w-[32rem] flex-shrink-0 gap-3">
-				<div class="w-64">
+			<div class="flex flex-shrink-0 gap-3">
+				<div class="w-72 min-w-64 max-w-80">
 					<RecentObjects />
 				</div>
-				<div class="w-64">
+				<div class="w-80 min-w-72 max-w-96">
 					<RuntimeStats />
 				</div>
 			</div>

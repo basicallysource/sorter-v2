@@ -48,6 +48,10 @@ class Rotating(BaseState):
         )
 
         if requires_distribution_ready and not self.shared.distribution_ready:
+            if hasattr(self.gc, "runtime_stats"):
+                self.gc.runtime_stats.observeBlockedReason(
+                    "classification", "waiting_distribution_ready"
+                )
             if self.wait_started_at is None:
                 self.wait_started_at = time.time()
                 self.last_wait_log_ms = 0.0

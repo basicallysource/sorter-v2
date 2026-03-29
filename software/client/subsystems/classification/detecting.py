@@ -54,6 +54,10 @@ class Detecting(BaseState):
 
         if not self.shared.classification_ready:
             if not self.shared.distribution_ready:
+                if hasattr(self.gc, "runtime_stats"):
+                    self.gc.runtime_stats.observeBlockedReason(
+                        "classification", "distribution_not_ready"
+                    )
                 return None
             self.shared.classification_ready = True
             self._ready_at = now

@@ -26,7 +26,6 @@ from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
 from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
 from vision import VisionManager
-from runtime_stats import RuntimeStatsCollector
 import uvicorn
 import threading
 import queue
@@ -71,7 +70,11 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         for command in pending_commands:
             if command.tag == "known_object":
                 gc.runtime_stats.observeKnownObject(command.data.model_dump())
-            if command.tag != "frame" and command.tag != "heartbeat":
+            if (
+                command.tag != "frame"
+                and command.tag != "heartbeat"
+                and command.tag != "runtime_stats"
+            ):
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
                 broadcastEvent(command.model_dump()), api.server_loop
@@ -87,55 +90,75 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     gc = mkGlobalConfig()
-    gc.runtime_stats = RuntimeStatsCollector()
     gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
-    irl_config = mkIRLConfig()
-    
+    startup_total_start = time.time()
+
+    with gc.profiler.timer("startup.irl_config_ms"):
+        irl_config = mkIRLConfig()
+
     # Initialize ArUco tag configuration manager
-    aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
-    aruco_mgr = ArucoConfigManager(str(aruco_config_path))
-    setArucoManager(aruco_mgr)
-    
-    irl = mkIRLInterface(irl_config, gc)
+    with gc.profiler.timer("startup.aruco_config_ms"):
+        aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
+        aruco_mgr = ArucoConfigManager(str(aruco_config_path))
+        setArucoManager(aruco_mgr)
+
+    with gc.profiler.timer("startup.irl_interface_ms"):
+        irl = mkIRLInterface(irl_config, gc)
 
     if gc.disable_servos:
         gc.logger.info("Servo control disabled via --disable servos")
     else:
         gc.logger.info("Opening all layer servos...")
-        for servo in irl.servos:
-            try:
-                servo.open()
-            except Exception as e:
-                gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+        with gc.profiler.timer("startup.servo_open_ms"):
+            for servo in irl.servos:
+                try:
+                    servo.open()
+                except Exception as e:
+                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
     gc.logger.info("Homing chute to zero...")
-    irl.chute.home()
+    with gc.profiler.timer("startup.chute_home_ms"):
+        irl.chute.home()
     # sensorlessHomeCarousel(gc, irl)
 
-    telemetry = Telemetry(gc)
-    vision = VisionManager(irl_config, gc, irl)
-    vision.setTelemetry(telemetry)
-    setVisionManager(vision)
-    controller = SorterController(
-        irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
-    )
-    setController(controller)
+    with gc.profiler.timer("startup.telemetry_init_ms"):
+        telemetry = Telemetry(gc)
+    with gc.profiler.timer("startup.vision_init_ms"):
+        vision = VisionManager(irl_config, gc, irl)
+        vision.setTelemetry(telemetry)
+        setVisionManager(vision)
+    with gc.profiler.timer("startup.controller_init_ms"):
+        controller = SorterController(
+            irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
+        )
+        setController(controller)
     gc.logger.info("client starting...")
 
-    vision.start()
-    if not vision.initFeederDetection():
-        gc.logger.error("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py")
-        sys.exit(1)
-    calibrateFeederChannels(gc, irl, irl_config)
+    with gc.profiler.timer("startup.vision_start_ms"):
+        vision.start()
+    with gc.profiler.timer("startup.init_feeder_detection_ms"):
+        if not vision.initFeederDetection():
+            gc.logger.error("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py")
+            sys.exit(1)
+    with gc.profiler.timer("startup.calibrate_feeder_ms"):
+        calibrateFeederChannels(gc, irl, irl_config)
 
-    if not vision.loadClassificationBaseline():
-        gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
-        sys.exit(1)
-    controller.start()
+    with gc.profiler.timer("startup.load_classification_baseline_ms"):
+        if not vision.loadClassificationBaseline():
+            gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
+            sys.exit(1)
+    with gc.profiler.timer("startup.controller_start_ms"):
+        controller.start()
+
+    startup_total_ms = (time.time() - startup_total_start) * 1000
+    gc.logger.info(f"startup complete in {startup_total_ms:.0f}ms")
+    startup_report = gc.profiler.getReport()
+    if startup_report:
+        print(startup_report)
 
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()

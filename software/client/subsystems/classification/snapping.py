@@ -44,6 +44,18 @@ class Snapping(BaseState):
         self._entered_at: Optional[float] = None
         self._snap_dir = BLOB_DIR / gc.run_id
         self._snap_dir.mkdir(parents=True, exist_ok=True)
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "classification.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[ClassificationState]:
         if self._entered_at is None:
@@ -51,10 +63,13 @@ class Snapping(BaseState):
             piece = self.carousel.getPieceAtClassification()
             if piece is not None and piece.carousel_snapping_started_at is None:
                 piece.carousel_snapping_started_at = self._entered_at
-        if (time.time() - self._entered_at) * 1000 < SETTLE_MS:
+        elapsed_ms = (time.time() - self._entered_at) * 1000
+        self._setOccupancyState("snapping.wait_settle")
+        if elapsed_ms < SETTLE_MS:
             return None
 
         if not self.snapped:
+            self._setOccupancyState("snapping.capture_and_classify")
             snap_start = time.time()
             piece = self.carousel.getPieceAtClassification()
             self._captureAndClassify()

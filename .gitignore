@@ -1,0 +1,8 @@
+.claude/
+.tmp-*
+
+# Local debug captures and ad-hoc review artifacts
+/c-channel-3-zone-editor.png
+/c2-debug.png
+/classification-*.png
+/classification-*.md

@@ -60,13 +60,13 @@ bool Stepper::moveSteps(int32_t distance) {
     // From this point we assume we start from a standstill
     if (distance == 0) return true; // No move
     _mc_distance = (distance > 0) ? distance : -distance;
-    _mc_dir = (distance > 0) ? 1 : -1;
+    _mc_dir.store((distance > 0) ? 1 : -1);
     _mc_speed = -1; // Not a speed move
-    _mc_home_pin = -1; // Not homing
+    _mc_home_pin.store(-1); // Not homing
     // Initialize motion state
     _current_speed = _min_speed; // Start from minimum speed
     _current_speed_frac = 0;
-    _current_dir.store(_mc_dir);
+    _current_dir.store(_mc_dir.load());
     _steps_moved = 0;
     _steps_frac = 0;
     _brake_distance = _mc_distance / 2; // Initially set braking point to half way (true if we never reach max speed)
@@ -75,7 +75,7 @@ bool Stepper::moveSteps(int32_t distance) {
 }
 
 bool Stepper::moveAtSpeed(int32_t speed) {
-    _mc_dir = (speed > 0) ? 1 : -1;
+    _mc_dir.store((speed > 0) ? 1 : -1);
     _mc_speed = (speed > 0) ? speed : -speed;
     _mc_distance = 0;
     // Limit maximum speed
@@ -83,17 +83,17 @@ bool Stepper::moveAtSpeed(int32_t speed) {
         _mc_speed = STEPPER_MAX_SPEED;
     }
     _mc_distance = -1; // Not a distance move
-    _mc_home_pin = -1; // Abort homing if we were homing
+    _mc_home_pin.store(-1); // Abort homing if we were homing
     // Determine if the stepper needs to reverse direction, go faster or slower
     if (_state == STEPPER_STOPPED) {
-        _current_dir.store(_mc_dir);
+        _current_dir.store(_mc_dir.load());
         _current_speed = _min_speed; // Start from minimum speed
         _current_speed_frac = 0;
         _state = STEPPER_ACCELERATING;
-    } else if (_current_speed == _mc_speed && _current_dir == _mc_dir) {
+    } else if (_current_speed == _mc_speed && _current_dir == _mc_dir.load()) {
         // Already at target speed and direction, force cruise
         _state = STEPPER_CRUISING;
-    } else if (_current_dir != _mc_dir) {
+    } else if (_current_dir != _mc_dir.load()) {
         // Need to reverse direction, enter braking state to slow down to zero first
         _state = STEPPER_BRAKING;
     } else if (_current_speed > _mc_speed) {
@@ -111,8 +111,8 @@ bool Stepper::moveAtSpeed(int32_t speed) {
 
 void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
     moveAtSpeed(home_speed);
-    _mc_home_pin = home_pin;
-    _mc_home_pin_polarity = home_pin_polarity;
+    _mc_home_pin.store(home_pin);
+    _mc_home_pin_polarity.store(home_pin_polarity);
 }
 
 /*! \brief Step generator tick
@@ -125,6 +125,17 @@ void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
  */
 void Stepper::stepgen_tick() {
     if (_state == STEPPER_STOPPED) return; // Return fast if stopped
+    // Check home switch at 10kHz - catches narrow optical endstops
+    int home_pin = _mc_home_pin.load();
+    if (home_pin >= 0) {
+        if (gpio_get(home_pin) == _mc_home_pin_polarity.load()) {
+            _state = STEPPER_STOPPED;
+            _current_speed = 0;
+            _absolute_position = 0;
+            _mc_home_pin.store(-1);
+            return;
+        }
+    }
     // Set direction pin
     gpio_put(_dir_pin, (_current_dir > 0) ? 1 : 0);
     // Advance step counter by fractional steps
@@ -143,7 +154,7 @@ void Stepper::stepgen_tick() {
             _steps_frac += STEP_TICK_RATE_HZ;
         }
         // And the move counter
-        _steps_moved += _current_dir*_mc_dir;
+        _steps_moved += _current_dir * _mc_dir.load();
         // Update absolute position
         _absolute_position += _current_dir;
         if (_mc_distance > 0) {
@@ -191,13 +202,13 @@ void Stepper::motion_update_tick() {
             // Fall through to cruising to check for braking point
         case STEPPER_CRUISING:
             // Check home switch if homing
-            if (_mc_home_pin >= 0) {
-                if (gpio_get(_mc_home_pin) == _mc_home_pin_polarity) {
+            if (_mc_home_pin.load() >= 0) {
+                if (gpio_get(_mc_home_pin.load()) == _mc_home_pin_polarity.load()) {
                     // Home switch triggered, stop now and set position to zero
                     _state = STEPPER_STOPPED;
                     _current_speed = 0;
                     _absolute_position = 0;
-                    _mc_home_pin = -1; // Homing done
+                    _mc_home_pin.store(-1); // Homing done
                     break;
                 }
             }
@@ -217,9 +228,9 @@ void Stepper::motion_update_tick() {
                 _current_speed = _min_speed;
                 _current_speed_frac = 0;
                 // Check if we are reversing a speed move, in that case, flip the direction and accelerate!
-                if ((_mc_speed > 0) && (_current_dir != _mc_dir)) {
+                if ((_mc_speed > 0) && (_current_dir != _mc_dir.load())) {
                     // Reached zero speed, now reverse direction
-                    _current_dir.store(_mc_dir);
+                    _current_dir.store(_mc_dir.load());
                     _steps_frac = -_steps_frac; // Invert fractional step counter to match new direction
                     _state = STEPPER_ACCELERATING;
                 } else if (_mc_speed == 0) {
@@ -231,7 +242,7 @@ void Stepper::motion_update_tick() {
                 }
             }
             // Reached target speed on a speed move? Cruise
-            if ((_mc_speed > 0) && (_mc_dir == _current_dir) && (_current_speed >= _mc_speed)) {
+            if ((_mc_speed > 0) && (_mc_dir.load() == _current_dir) && (_current_speed >= _mc_speed)) {
                 _current_speed.store(_mc_speed.load());
                 _current_speed_frac = 0;
                 _state = STEPPER_CRUISING;

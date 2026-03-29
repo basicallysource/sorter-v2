@@ -25,6 +25,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             thumbnail=obj.thumbnail,
             top_image=obj.top_image,
             bottom_image=obj.bottom_image,
+            brickognize_preview_url=obj.brickognize_preview_url,
+            brickognize_source_view=obj.brickognize_source_view,
             feeding_started_at=obj.feeding_started_at,
             carousel_detected_confirmed_at=obj.carousel_detected_confirmed_at,
             carousel_rotate_started_at=obj.carousel_rotate_started_at,

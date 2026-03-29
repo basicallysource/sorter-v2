@@ -19,6 +19,28 @@ DEFAULT_SERVO_CLOSED_ANGLE = 83
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
+DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.4
+DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 1.9
+
+LOGICAL_STEPPER_BINDING_BASES = {
+    "c_channel_1": "c_channel_1_rotor",
+    "c_channel_2": "c_channel_2_rotor",
+    "c_channel_3": "c_channel_3_rotor",
+    "carousel": "carousel",
+    "chute": "chute_stepper",
+}
+PHYSICAL_STEPPER_BINDING_ALIASES = {
+    "first_c_channel_rotor": "c_channel_1_rotor",
+    "second_c_channel_rotor": "c_channel_2_rotor",
+    "third_c_channel_rotor": "c_channel_3_rotor",
+}
+PHYSICAL_STEPPER_BINDING_NAMES = set(LOGICAL_STEPPER_BINDING_BASES.values()) | set(
+    PHYSICAL_STEPPER_BINDING_ALIASES
+)
+
+
+def normalizePhysicalStepperBindingName(stepper_name: str) -> str:
+    return PHYSICAL_STEPPER_BINDING_ALIASES.get(stepper_name, stepper_name)
 
 VALID_BIN_SIZES = {"small", "medium", "big"}
 
@@ -160,7 +182,117 @@ def _parseStepperCurrentOverrides(
                 f"Stepper '{stepper_name}' current override missing fields; using defaults for {', '.join(missing_fields)}."
             )
 
-        overrides[stepper_name] = (irun, ihold, ihold_delay)
+        overrides[normalizePhysicalStepperBindingName(stepper_name)] = (
+            irun,
+            ihold,
+            ihold_delay,
+        )
+
+    return overrides
+
+
+def loadStepperBindingOverrides(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, str]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    bindings_table: object = raw.get("stepper_bindings")
+    if bindings_table is None:
+        return {}
+
+    if not isinstance(bindings_table, dict):
+        gc.logger.warning("stepper_bindings must be an object. Ignoring stepper binding overrides.")
+        return {}
+
+    overrides: dict[str, str] = {}
+    for logical_name, physical_name in bindings_table.items():
+        if not isinstance(logical_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper_bindings key {logical_name!r}: must be a string."
+            )
+            continue
+        if logical_name not in LOGICAL_STEPPER_BINDING_BASES:
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}: unknown logical stepper. "
+                f"Expected one of {sorted(LOGICAL_STEPPER_BINDING_BASES)}."
+            )
+            continue
+        if not isinstance(physical_name, str):
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}: expected physical stepper name string, got {physical_name!r}."
+            )
+            continue
+        if physical_name not in PHYSICAL_STEPPER_BINDING_NAMES:
+            gc.logger.warning(
+                f"Ignoring stepper_bindings.{logical_name}={physical_name!r}: "
+                f"expected one of {sorted(PHYSICAL_STEPPER_BINDING_NAMES)}."
+            )
+            continue
+        overrides[logical_name] = normalizePhysicalStepperBindingName(physical_name)
+
+    return overrides
+
+
+def loadStepperCurrentOverrides(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, tuple[int, int, int]]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    return _parseStepperCurrentOverrides(gc, raw)
+
+
+def loadStepperDirectionInverts(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, bool]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    invert_table: object = raw.get("stepper_direction_inverts")
+    if invert_table is None:
+        return {}
+
+    if not isinstance(invert_table, dict):
+        gc.logger.warning(
+            "stepper_direction_inverts must be an object. Ignoring stepper direction overrides."
+        )
+        return {}
+
+    overrides: dict[str, bool] = {}
+    for logical_name, inverted in invert_table.items():
+        if not isinstance(logical_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper_direction_inverts key {logical_name!r}: must be a string."
+            )
+            continue
+        if logical_name not in LOGICAL_STEPPER_BINDING_BASES:
+            gc.logger.warning(
+                f"Ignoring stepper_direction_inverts.{logical_name}: unknown logical stepper. "
+                f"Expected one of {sorted(LOGICAL_STEPPER_BINDING_BASES)}."
+            )
+            continue
+        if not isinstance(inverted, bool):
+            gc.logger.warning(
+                f"Ignoring stepper_direction_inverts.{logical_name}={inverted!r}: expected true/false."
+            )
+            continue
+        overrides[logical_name] = inverted
 
     return overrides
 
@@ -256,6 +388,242 @@ def loadMachineConfig(
     return config
 
 
+@dataclass
+class ServoChannelConfig:
+    id: int
+    invert: bool = False
+
+
+@dataclass
+class WaveshareServoConfig:
+    port: str | None  # None = auto-detect
+    channels: list[ServoChannelConfig]
+
+
+@dataclass
+class ChuteCalibrationConfig:
+    first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
+    pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    endstop_active_high: bool = True
+
+
+def loadServoChannelConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+    *,
+    backend: str | None = None,
+) -> list[ServoChannelConfig]:
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return []
+
+    servo_params = raw.get("servo")
+    if not isinstance(servo_params, dict):
+        return []
+
+    channels_raw = servo_params.get("channels", [])
+    if not isinstance(channels_raw, list):
+        gc.logger.warning("servo.channels must be a list of {id, invert} objects.")
+        return []
+
+    backend_name = backend
+    if backend_name is None:
+        raw_backend = servo_params.get("backend", "pca9685")
+        backend_name = raw_backend if isinstance(raw_backend, str) else "pca9685"
+
+    channels: list[ServoChannelConfig] = []
+    for i, ch in enumerate(channels_raw):
+        if not isinstance(ch, dict):
+            gc.logger.warning(f"Ignoring invalid servo.channels[{i}]: expected object.")
+            continue
+
+        ch_id = ch.get("id")
+        if not isinstance(ch_id, int) or isinstance(ch_id, bool):
+            gc.logger.warning(f"Ignoring servo.channels[{i}]: id must be an integer, got {ch_id!r}")
+            continue
+
+        if backend_name == "waveshare":
+            valid = 1 <= ch_id <= 253
+            valid_text = "int 1-253"
+        else:
+            valid = ch_id >= 0
+            valid_text = "non-negative int"
+
+        if not valid:
+            gc.logger.warning(
+                f"Ignoring servo.channels[{i}]: id must be {valid_text}, got {ch_id!r}"
+            )
+            continue
+
+        channels.append(ServoChannelConfig(id=ch_id, invert=bool(ch.get("invert", False))))
+
+    return channels
+
+
+def loadWaveshareServoConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> WaveshareServoConfig | None:
+    """Parse waveshare servo config from TOML. Returns None if backend is not 'waveshare'."""
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return None
+
+    servo_params = raw.get("servo")
+    if not isinstance(servo_params, dict):
+        return None
+
+    backend = servo_params.get("backend", "pca9685")
+    if backend != "waveshare":
+        return None
+
+    port = servo_params.get("port")  # None = auto-detect
+    if port is not None and not isinstance(port, str):
+        gc.logger.warning(f"Invalid servo.port={port!r}; expected string. Will auto-detect.")
+        port = None
+
+    return WaveshareServoConfig(
+        port=port,
+        channels=loadServoChannelConfig(gc, raw, backend="waveshare"),
+    )
+
+
+def loadChuteCalibrationConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> ChuteCalibrationConfig:
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return ChuteCalibrationConfig()
+
+    chute_params = raw.get("chute")
+    if chute_params is None:
+        return ChuteCalibrationConfig()
+    if not isinstance(chute_params, dict):
+        gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
+        return ChuteCalibrationConfig()
+
+    first_bin_center = chute_params.get(
+        "first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER
+    )
+    pillar_width_deg = chute_params.get(
+        "pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    )
+    endstop_active_high = chute_params.get("endstop_active_high", True)
+
+    if not isinstance(first_bin_center, (int, float)) or isinstance(first_bin_center, bool):
+        gc.logger.warning(
+            f"Invalid chute.first_bin_center={first_bin_center!r}; using default {DEFAULT_CHUTE_FIRST_BIN_CENTER}."
+        )
+        first_bin_center = DEFAULT_CHUTE_FIRST_BIN_CENTER
+    else:
+        first_bin_center = float(first_bin_center)
+
+    if not isinstance(pillar_width_deg, (int, float)) or isinstance(pillar_width_deg, bool):
+        gc.logger.warning(
+            f"Invalid chute.pillar_width_deg={pillar_width_deg!r}; using default {DEFAULT_CHUTE_PILLAR_WIDTH_DEG}."
+        )
+        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+    else:
+        pillar_width_deg = float(pillar_width_deg)
+
+    if pillar_width_deg < 0 or pillar_width_deg >= 60:
+        gc.logger.warning(
+            f"Invalid chute.pillar_width_deg={pillar_width_deg!r}; expected 0 <= value < 60. Using default {DEFAULT_CHUTE_PILLAR_WIDTH_DEG}."
+        )
+        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
+
+    if not isinstance(endstop_active_high, bool):
+        gc.logger.warning(
+            f"Invalid chute.endstop_active_high={endstop_active_high!r}; using default True."
+        )
+        endstop_active_high = True
+
+    return ChuteCalibrationConfig(
+        first_bin_center=first_bin_center,
+        pillar_width_deg=pillar_width_deg,
+        endstop_active_high=endstop_active_high,
+    )
+
+
+@dataclass
+class CameraLayoutConfig:
+    """Camera layout from TOML [cameras] section.
+
+    layout = "default" (single feeder camera + classification cameras)
+    layout = "split_feeder" (separate cameras per c-channel + carousel)
+    """
+    layout: str = "default"
+    # split_feeder cameras: c-channels are indices, carousel may be index or URL
+    c_channel_2: int | None = None
+    c_channel_3: int | None = None
+    carousel: int | str | None = None
+    # classification cameras — int (device index) or str (URL, e.g. MJPEG stream)
+    classification_top: int | str | None = None
+    classification_bottom: int | str | None = None
+
+
+def loadCameraLayoutConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> CameraLayoutConfig | None:
+    """Parse camera layout config from TOML. Returns None if no [cameras] section."""
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return None
+
+    cameras_params = raw.get("cameras")
+    if not isinstance(cameras_params, dict):
+        return None
+
+    layout = cameras_params.get("layout", "default")
+    if layout not in ("default", "split_feeder"):
+        gc.logger.warning(f"Unknown cameras.layout={layout!r}; expected 'default' or 'split_feeder'. Using default.")
+        return CameraLayoutConfig(layout="default")
+
+    if layout == "split_feeder":
+        c_channel_2 = cameras_params.get("c_channel_2")
+        c_channel_3 = cameras_params.get("c_channel_3")
+        carousel = cameras_params.get("carousel")
+
+        for name, val in [("c_channel_2", c_channel_2), ("c_channel_3", c_channel_3)]:
+            if val is not None and not isinstance(val, int):
+                gc.logger.warning(f"cameras.{name}={val!r} must be an integer camera index.")
+
+        if carousel is not None and not isinstance(carousel, (int, str)):
+            gc.logger.warning("cameras.carousel must be an integer index or URL string.")
+
+        # Classification cameras: int (device index) or str (URL)
+        classification_top = cameras_params.get("classification_top")
+        classification_bottom = cameras_params.get("classification_bottom")
+        for name, val in [("classification_top", classification_top), ("classification_bottom", classification_bottom)]:
+            if val is not None and not isinstance(val, (int, str)):
+                gc.logger.warning(f"cameras.{name}={val!r} must be an integer index or URL string.")
+
+        return CameraLayoutConfig(
+            layout="split_feeder",
+            c_channel_2=c_channel_2 if isinstance(c_channel_2, int) else None,
+            c_channel_3=c_channel_3 if isinstance(c_channel_3, int) else None,
+            carousel=carousel if isinstance(carousel, (int, str)) else None,
+            classification_top=classification_top if isinstance(classification_top, (int, str)) else None,
+            classification_bottom=classification_bottom if isinstance(classification_bottom, (int, str)) else None,
+        )
+
+    return CameraLayoutConfig(layout="default")
+
+
 def applyStepperCurrentOverride(
     stepper: "StepperMotor",
     stepper_name: str,
@@ -264,17 +632,26 @@ def applyStepperCurrentOverride(
 ) -> None:
     override = overrides.get(stepper_name)
     if override is None:
-        return
+        irun, ihold, ihold_delay = (
+            DEFAULT_STEPPER_IRUN,
+            DEFAULT_STEPPER_IHOLD,
+            DEFAULT_STEPPER_IHOLD_DELAY,
+        )
+        source = "defaults"
+    else:
+        irun, ihold, ihold_delay = override
+        source = "override"
 
-    irun, ihold, ihold_delay = override
     try:
         stepper.set_current(irun, ihold, ihold_delay)
     except (MCUBusError, OSError) as e:
         gc.logger.warning(
-            f"Failed to apply optional current override for '{stepper_name}' (IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing with firmware defaults."
+            f"Failed to apply stepper current config for '{stepper_name}' from {source} "
+            f"(IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing."
         )
         return
 
     gc.logger.info(
-        f"Stepper '{stepper_name}' current override applied: IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+        f"Stepper '{stepper_name}' current config applied from {source}: "
+        f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
     )

@@ -15,6 +15,7 @@ from telemetry import Telemetry
 from defs.known_object import ClassificationStatus
 from classification import classify
 from blob_manager import BLOB_DIR
+from server.classification_training import getClassificationTrainingManager
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -86,6 +87,14 @@ class Snapping(BaseState):
         path = self._snap_dir / f"{ts}_{name}.jpg"
         cv2.imwrite(str(path), image, [cv2.IMWRITE_JPEG_QUALITY, SNAP_JPEG_QUALITY])
 
+    def _encodeImageBase64(self, image: np.ndarray | None) -> Optional[str]:
+        if image is None:
+            return None
+        ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        if not ok:
+            return None
+        return base64.b64encode(buffer).decode("utf-8")
+
     def _captureAndClassify(self) -> None:
         piece = self.carousel.getPieceAtClassification()
         if piece is None:
@@ -93,8 +102,20 @@ class Snapping(BaseState):
             return
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
-        with self.gc.profiler.timer("classification.get_crops_ms"):
-            top_crop, bottom_crop = self.vision.getClassificationCrops()
+        top_candidates = (
+            self.vision.getClassificationDetectionCandidates("top", force=True, frame=top_frame)
+            if top_frame is not None
+            else []
+        )
+        bottom_candidates = (
+            self.vision.getClassificationDetectionCandidates("bottom", force=True, frame=bottom_frame)
+            if bottom_frame is not None
+            else []
+        )
+        top_candidate_count = len(top_candidates)
+        bottom_candidate_count = len(bottom_candidates)
+        detection_bbox_count = max(top_candidate_count, bottom_candidate_count)
+        detection_found = detection_bbox_count > 0
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(
@@ -113,9 +134,105 @@ class Snapping(BaseState):
                 segmentation_map=bottom_frame.segmentation_map,
             )
 
-        if top_crop is None and bottom_crop is None:
+        sample_capture = self.vision.getClassificationSampleFromFrames(top_frame, bottom_frame)
+        detection_algorithm = self.vision.getClassificationDetectionAlgorithm()
+        detection_openrouter_model = (
+            self.vision.getClassificationOpenRouterModel()
+            if detection_algorithm == "gemini_sam"
+            else None
+        )
+        sample_manager = getClassificationTrainingManager()
+
+        if top_frame:
+            top_img = (
+                top_frame.annotated
+                if top_frame.annotated is not None
+                else top_frame.raw
+            )
+            piece.top_image = self._encodeImageBase64(top_img)
+        if bottom_frame:
+            bottom_img = (
+                bottom_frame.annotated
+                if bottom_frame.annotated is not None
+                else bottom_frame.raw
+            )
+            piece.bottom_image = self._encodeImageBase64(bottom_img)
+
+        if piece.thumbnail is None:
+            piece.thumbnail = self._encodeImageBase64(
+                sample_capture.get("top_zone") if sample_capture.get("top_zone") is not None else sample_capture.get("bottom_zone")
+            )
+
+        def saveLiveSample(detection_found: bool, detection_message: str | None) -> None:
+            try:
+                saved = sample_manager.saveLiveClassificationCapture(
+                    piece_uuid=piece.uuid,
+                    machine_id=self.gc.machine_id,
+                    run_id=self.gc.run_id,
+                    detection_found=detection_found,
+                    detection_algorithm=detection_algorithm,
+                    detection_openrouter_model=detection_openrouter_model,
+                    detection_bbox_count=detection_bbox_count,
+                    top_detection_bbox_count=top_candidate_count,
+                    bottom_detection_bbox_count=bottom_candidate_count,
+                    detection_message=detection_message,
+                    top_zone=sample_capture.get("top_zone"),
+                    bottom_zone=sample_capture.get("bottom_zone"),
+                    top_frame=sample_capture.get("top_frame"),
+                    bottom_frame=sample_capture.get("bottom_frame"),
+                )
+                self.logger.info(
+                    f"Snapping: saved sample {saved['sample_id']} for piece {piece.uuid[:8]}"
+                )
+            except Exception as exc:
+                self.logger.warning(f"Snapping: failed to save live sample: {exc}")
+
+        if not detection_found:
+            message = "No object detected in classification frames."
+            saveLiveSample(False, message)
             self.logger.warn(
                 "Snapping: no object detected in classification frames, marking not_found"
+            )
+            piece.classification_status = ClassificationStatus.not_found
+            piece.classified_at = time.time()
+            piece.updated_at = time.time()
+            self.event_queue.put(knownObjectToEvent(piece))
+            return
+
+        if detection_bbox_count > 1:
+            message = (
+                "Multiple candidate pieces detected in classification chamber; "
+                "skipping Brickognize."
+            )
+            saveLiveSample(True, message)
+            self.gc.runtime_stats.observeBlockedReason(
+                "classification", "multiple_parts_detected"
+            )
+            self.logger.warn(
+                "Snapping: multiple candidate pieces detected "
+                f"(top={top_candidate_count}, bottom={bottom_candidate_count}); "
+                "skipping Brickognize and marking piece unknown"
+            )
+            piece.classification_status = ClassificationStatus.unknown
+            piece.classified_at = time.time()
+            piece.updated_at = time.time()
+            self.event_queue.put(knownObjectToEvent(piece))
+            return
+
+        with self.gc.profiler.timer("classification.get_crops_ms"):
+            top_crop, bottom_crop = self.vision.getClassificationCrops(
+                top_frame=top_frame,
+                bottom_frame=bottom_frame,
+            )
+
+        if top_crop is None and bottom_crop is None:
+            message = (
+                "Single candidate piece was detected, but crop extraction returned no image."
+            )
+            saveLiveSample(True, message)
+            self.logger.warn(
+                "Snapping: detection found a candidate, but crop extraction produced no crop; "
+                "marking not_found"
             )
             piece.classification_status = ClassificationStatus.not_found
             piece.classified_at = time.time()
@@ -128,42 +245,32 @@ class Snapping(BaseState):
         if bottom_crop is not None:
             self._saveImage("bottom_crop", bottom_crop)
 
-        thumbnail_crop = top_crop if top_crop is not None else bottom_crop
-        _, thumbnail_buffer = cv2.imencode(
-            ".jpg", thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
-        )
-        piece.thumbnail = base64.b64encode(thumbnail_buffer).decode("utf-8")
+        top_crop_b64 = self._encodeImageBase64(top_crop)
+        bottom_crop_b64 = self._encodeImageBase64(bottom_crop)
 
-        if top_frame:
-            top_img = (
-                top_frame.annotated
-                if top_frame.annotated is not None
-                else top_frame.raw
-            )
-            _, top_buffer = cv2.imencode(
-                ".jpg", top_img, [cv2.IMWRITE_JPEG_QUALITY, 80]
-            )
-            piece.top_image = base64.b64encode(top_buffer).decode("utf-8")
-        if bottom_frame:
-            bottom_img = (
-                bottom_frame.annotated
-                if bottom_frame.annotated is not None
-                else bottom_frame.raw
-            )
-            _, bottom_buffer = cv2.imencode(
-                ".jpg", bottom_img, [cv2.IMWRITE_JPEG_QUALITY, 80]
-            )
-            piece.bottom_image = base64.b64encode(bottom_buffer).decode("utf-8")
+        piece.thumbnail = top_crop_b64 if top_crop_b64 is not None else bottom_crop_b64
 
         piece.classification_status = ClassificationStatus.classifying
         piece.updated_at = time.time()
         self.event_queue.put(knownObjectToEvent(piece))
 
         self.carousel.markPendingClassification(piece)
+        saveLiveSample(True, "Single candidate piece detected; sent crop to Brickognize.")
 
         def onResult(
-            part_id: Optional[str], color_id: str, color_name: str, confidence: Optional[float] = None
+            part_id: Optional[str],
+            color_id: str,
+            color_name: str,
+            confidence: Optional[float] = None,
+            brickognize_preview_url: Optional[str] = None,
+            brickognize_source_view: Optional[str] = None,
         ) -> None:
+            if brickognize_source_view == "bottom" and bottom_crop_b64 is not None:
+                piece.thumbnail = bottom_crop_b64
+            elif brickognize_source_view == "top" and top_crop_b64 is not None:
+                piece.thumbnail = top_crop_b64
+            piece.brickognize_preview_url = brickognize_preview_url
+            piece.brickognize_source_view = brickognize_source_view
             self.carousel.resolveClassification(piece.uuid, part_id, color_id, color_name, confidence)
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
 

@@ -59,6 +59,26 @@ def getMachineId() -> str:
         return machine_id
 
 
+def getMachineNickname() -> str | None:
+    data = loadData()
+    nickname = data.get("machine_nickname")
+    if not isinstance(nickname, str):
+        return None
+    nickname = nickname.strip()
+    return nickname or None
+
+
+def setMachineNickname(nickname: str | None) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        normalized = nickname.strip() if isinstance(nickname, str) else ""
+        if normalized:
+            data["machine_nickname"] = normalized
+        else:
+            data.pop("machine_nickname", None)
+        saveData(data)
+
+
 def getStepperPosition(name: str) -> int:
     data = loadData()
     return data.get("stepper_positions", {}).get(name, 0)
@@ -156,6 +176,66 @@ def setClassificationPolygons(polygons: dict) -> None:
     with _DATA_LOCK:
         data = loadData()
         data["classification_polygons"] = polygons
+        saveData(data)
+
+
+def getClassificationDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("classification_detection")
+
+
+def setClassificationDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["classification_detection"] = config
+        saveData(data)
+
+
+def getFeederDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("feeder_detection")
+
+
+def setFeederDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["feeder_detection"] = config
+        saveData(data)
+
+
+def getCarouselDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("carousel_detection")
+
+
+def setCarouselDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["carousel_detection"] = config
+        saveData(data)
+
+
+def getClassificationTrainingConfig() -> dict | None:
+    data = loadData()
+    return data.get("classification_training")
+
+
+def setClassificationTrainingConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["classification_training"] = config
+        saveData(data)
+
+
+def getApiKeys() -> dict:
+    data = loadData()
+    return data.get("api_keys", {})
+
+
+def setApiKeys(keys: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["api_keys"] = keys
         saveData(data)
 
 

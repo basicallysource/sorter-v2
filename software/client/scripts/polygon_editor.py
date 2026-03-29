@@ -123,8 +123,13 @@ HTML = """<!DOCTYPE html>
     let sectionZeroPoints = { second: null, third: null };
 
     let frameImg = new Image();
+    let cameraMapOverride = {};
+
+    // Load camera map for split_feeder mode
+    fetch('/camera_map').then(r => r.json()).then(m => { cameraMapOverride = m; }).catch(() => {});
 
     function cameraForChannel(ch) {
+      if (cameraMapOverride[ch]) return cameraMapOverride[ch];
       if (CLASSIFICATION_CHANNELS.includes(ch)) {
         return ch === 'class_top' ? 'classification_top' : 'classification_bottom';
       }
@@ -510,26 +515,82 @@ def save():
 
 
 if __name__ == "__main__":
-    camera_setup = getCameraSetup()
-    if camera_setup is None or "feeder" not in camera_setup:
-        print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
-        sys.exit(1)
+    import os
+    import tomllib
 
-    captures["feeder"] = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
-    captures["feeder"].start()
+    # Check for split_feeder layout from TOML
+    camera_layout = "default"
+    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+    cameras_section = {}
+    if params_path and os.path.exists(params_path):
+        try:
+            with open(params_path, "rb") as f:
+                raw_toml = tomllib.load(f)
+            cameras_section = raw_toml.get("cameras", {})
+            camera_layout = cameras_section.get("layout", "default")
+        except Exception:
+            pass
 
-    if "classification_top" in camera_setup:
-        captures["classification_top"] = CaptureThread(
-            "classification_top", mkCameraConfig(camera_setup["classification_top"])
-        )
-        captures["classification_top"].start()
+    if camera_layout == "split_feeder":
+        # split_feeder: one camera per channel + carousel + optional classification
+        for role in ("c_channel_2", "c_channel_3", "carousel"):
+            idx = cameras_section.get(role)
+            if isinstance(idx, int):
+                captures[role] = CaptureThread(role, mkCameraConfig(device_index=idx))
+                captures[role].start()
 
-    if "classification_bottom" in camera_setup:
-        captures["classification_bottom"] = CaptureThread(
-            "classification_bottom", mkCameraConfig(camera_setup["classification_bottom"])
-        )
-        captures["classification_bottom"].start()
+        # Map split_feeder cameras to polygon editor channel names
+        # second_channel polygon → c_channel_2 camera
+        # third_channel polygon → c_channel_3 camera
+        # carousel polygon → carousel camera
+        CAMERA_FOR_CHANNEL_OVERRIDE = {
+            "second": "c_channel_2",
+            "third": "c_channel_3",
+            "carousel": "carousel",
+        }
+
+        for role in ("classification_top", "classification_bottom"):
+            source = cameras_section.get(role)
+            if isinstance(source, str):
+                captures[role] = CaptureThread(role, mkCameraConfig(url=source))
+                captures[role].start()
+            elif isinstance(source, int):
+                captures[role] = CaptureThread(role, mkCameraConfig(device_index=source))
+                captures[role].start()
+
+        CAMERA_FOR_CHANNEL_OVERRIDE["class_top"] = "classification_top"
+        CAMERA_FOR_CHANNEL_OVERRIDE["class_bottom"] = "classification_bottom"
+
+        # Monkey-patch the JS camera mapping via a global
+        @app.route("/camera_map")
+        def camera_map():
+            return jsonify(CAMERA_FOR_CHANNEL_OVERRIDE)
+    else:
+        camera_setup = getCameraSetup()
+        if camera_setup is None or "feeder" not in camera_setup:
+            print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
+            sys.exit(1)
+
+        captures["feeder"] = CaptureThread("feeder", mkCameraConfig(device_index=camera_setup["feeder"]))
+        captures["feeder"].start()
+
+        if "classification_top" in camera_setup:
+            captures["classification_top"] = CaptureThread(
+                "classification_top", mkCameraConfig(device_index=camera_setup["classification_top"])
+            )
+            captures["classification_top"].start()
+
+        if "classification_bottom" in camera_setup:
+            captures["classification_bottom"] = CaptureThread(
+                "classification_bottom", mkCameraConfig(device_index=camera_setup["classification_bottom"])
+            )
+            captures["classification_bottom"].start()
+
+        @app.route("/camera_map")
+        def camera_map():
+            return jsonify({})
 
     print(f"Server starting on http://localhost:{PORT}")
+    print(f"Layout: {camera_layout}")
     print(f"Cameras: {list(captures.keys())}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

@@ -20,14 +20,73 @@ CHANNEL_COLORS = {
 class _ChannelMog2:
     def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray, cfg: Mog2DiffConfig):
         self.name = name
+        self._channel_id = polygon_channel.channel_id
+        self._radius1_angle_image = polygon_channel.radius1_angle_image
+        self._dropzone_sections = set(polygon_channel.dropzone_sections)
+        self._exit_sections = set(polygon_channel.exit_sections)
+        self._source_shape = mask.shape[:2]
+        self._source_polygon = polygon_channel.polygon.astype(np.float64).copy()
+        self._source_inner_polygon = (
+            polygon_channel.inner_polygon.astype(np.float64).copy()
+            if polygon_channel.inner_polygon is not None
+            else None
+        )
         self.polygon_channel = polygon_channel
         self.mask = mask
-        self.mog2 = cv2.createBackgroundSubtractorMOG2(
-            history=int(cfg.history),
-            varThreshold=float(cfg.var_threshold),
+        self._cfg = cfg
+        self._current_shape = mask.shape[:2]
+        self.mog2 = self._make_subtractor()
+
+    def _make_subtractor(self):
+        subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=int(self._cfg.history),
+            varThreshold=float(self._cfg.var_threshold),
             detectShadows=False,
         )
-        self.mog2.setNMixtures(int(cfg.n_mixtures))
+        subtractor.setNMixtures(int(self._cfg.n_mixtures))
+        return subtractor
+
+    def ensure_shape(self, shape: tuple[int, int]) -> bool:
+        if shape == self._current_shape:
+            return False
+
+        src_h, src_w = self._source_shape
+        dst_h, dst_w = shape
+        scale_x = dst_w / max(src_w, 1)
+        scale_y = dst_h / max(src_h, 1)
+
+        polygon = self._source_polygon.copy()
+        polygon[:, 0] *= scale_x
+        polygon[:, 1] *= scale_y
+        polygon_i32 = np.round(polygon).astype(np.int32)
+
+        inner_i32 = None
+        if self._source_inner_polygon is not None:
+            inner = self._source_inner_polygon.copy()
+            inner[:, 0] *= scale_x
+            inner[:, 1] *= scale_y
+            inner_i32 = np.round(inner).astype(np.int32)
+
+        mask = np.zeros((dst_h, dst_w), dtype=np.uint8)
+        cv2.fillPoly(mask, [polygon_i32], 255)
+        if inner_i32 is not None and len(inner_i32) >= 3:
+            cv2.fillPoly(mask, [inner_i32], 0)
+
+        center = tuple(np.mean(polygon_i32, axis=0).tolist())
+        self.mask = mask
+        self.polygon_channel = PolygonChannel(
+            channel_id=self._channel_id,
+            polygon=polygon_i32,
+            center=center,
+            radius1_angle_image=self._radius1_angle_image,
+            mask=mask,
+            dropzone_sections=set(self._dropzone_sections),
+            exit_sections=set(self._exit_sections),
+            inner_polygon=inner_i32,
+        )
+        self._current_shape = shape
+        self.mog2 = self._make_subtractor()
+        return True
 
 
 class Mog2ChannelDetector:
@@ -36,6 +95,8 @@ class Mog2ChannelDetector:
         channel_polygons: Dict[str, np.ndarray],
         channel_masks: Dict[str, np.ndarray],
         channel_angles: Dict[str, float],
+        channel_inner_polygons: Dict[str, np.ndarray] | None,
+        channel_zone_sections: Dict[str, Dict[str, set[int]]] | None,
         is_channel_rotating: Callable[[str], bool],
         cfg: Mog2DiffConfig = DEFAULT_MOG2_DIFF_CONFIG,
     ):
@@ -60,11 +121,30 @@ class Mog2ChannelDetector:
                 center=center,
                 radius1_angle_image=channel_angles.get(angle_key, 0.0),
                 mask=channel_masks[key],
+                dropzone_sections=set((channel_zone_sections or {}).get(angle_key, {}).get("drop", set())),
+                exit_sections=set((channel_zone_sections or {}).get(angle_key, {}).get("exit", set())),
+                inner_polygon=(channel_inner_polygons or {}).get(key),
             )
             self._channels[key] = _ChannelMog2(key, pc, channel_masks[key], cfg)
 
+    def _ensure_shape(self, shape: tuple[int, int]) -> None:
+        changed = False
+        for ch in self._channels.values():
+            changed = ch.ensure_shape(shape) or changed
+        if changed:
+            self._combined_mask = None
+            self._last_fg = None
+            self._last_detections = []
+
     def _mog2InputFrame(self, frame: np.ndarray) -> np.ndarray:
         mode = str(self._cfg.color_mode).lower()
+        if frame.ndim == 2:
+            if mode == "gray":
+                return frame
+            if mode == "lab":
+                return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2LAB)
+        if frame.ndim == 3 and frame.shape[2] == 4:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
         if mode == "lab":
             return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
         if mode == "gray":
@@ -117,13 +197,16 @@ class Mog2ChannelDetector:
         return detections
 
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
+        self._ensure_shape(frame.shape[:2])
         out = frame.copy()
 
-        if self._combined_mask is None and self._channels:
+        if self._channels:
             first = next(iter(self._channels.values()))
-            self._combined_mask = np.zeros(first.mask.shape[:2], dtype=np.uint8)
-            for ch in self._channels.values():
-                self._combined_mask = cv2.bitwise_or(self._combined_mask, ch.mask)
+            expected_shape = first.mask.shape[:2]
+            if self._combined_mask is None or self._combined_mask.shape[:2] != expected_shape:
+                self._combined_mask = np.zeros(expected_shape, dtype=np.uint8)
+                for ch in self._channels.values():
+                    self._combined_mask = cv2.bitwise_or(self._combined_mask, ch.mask)
 
         if self._combined_mask is not None:
             mask_bool = self._combined_mask > 0
@@ -158,5 +241,11 @@ class Mog2ChannelDetector:
         for ch in self._channels.values():
             ch_color = CHANNEL_COLORS.get(ch.name, (200, 200, 200))
             cv2.polylines(out, [ch.polygon_channel.polygon], True, ch_color, 2)
+            if ch.polygon_channel.inner_polygon is not None and len(ch.polygon_channel.inner_polygon) >= 3:
+                cv2.polylines(out, [ch.polygon_channel.inner_polygon], True, ch_color, 2)
 
         return out
+
+    def primaryChannel(self) -> PolygonChannel | None:
+        first = next(iter(self._channels.values()), None)
+        return first.polygon_channel if first is not None else None

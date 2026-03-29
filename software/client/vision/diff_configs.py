@@ -1,5 +1,9 @@
 from dataclasses import dataclass
 
+from .detection_registry import (
+    ClassificationDetectionAlgorithm,
+)
+
 
 @dataclass
 class CarouselDiffConfig:
@@ -19,6 +23,7 @@ class CarouselDiffConfig:
 
 @dataclass
 class ClassificationDiffConfig:
+    algorithm: ClassificationDetectionAlgorithm = "baseline_diff"
     color_mode: str = "lab"
     classification_scale: float = 0.25
 

@@ -89,5 +89,13 @@ client/data.json
 client/aruco_config.json
 client/bin_layout.json
 client/every_part_bl_api_res.json
+client/machine_params.toml
 client/stepper_current_overrides.json
 client/sorting_profile.json
+client/servo_states.json
+
+# Android app local/build state
+android-camera-app/.gradle/
+android-camera-app/build/
+android-camera-app/app/build/
+android-camera-app/local.properties

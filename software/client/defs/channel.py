@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 import numpy as np
 
@@ -10,6 +10,9 @@ class PolygonChannel:
     center: Tuple[float, float]
     radius1_angle_image: float
     mask: np.ndarray
+    dropzone_sections: set[int] = field(default_factory=set)
+    exit_sections: set[int] = field(default_factory=set)
+    inner_polygon: np.ndarray | None = None
 
 
 @dataclass

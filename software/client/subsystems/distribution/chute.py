@@ -9,10 +9,8 @@ if TYPE_CHECKING:
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 DEG_PER_SECTION = 60
-FIRST_SECTION_CENTER = 54.6
-PILLAR_WIDTH_DEG = 8.2
-USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
-HOME_SECTION_LAST_BIN = 12.2
+FIRST_BIN_CENTER = 8.4
+PILLAR_WIDTH_DEG = 1.9
 CHUTE_MAX_ANGLE = 350
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
@@ -33,12 +31,42 @@ class Chute:
         stepper: "StepperMotor",
         home_pin: "DigitalInputPin",
         layout: DistributionLayout,
+        first_bin_center: float = FIRST_BIN_CENTER,
+        pillar_width_deg: float = PILLAR_WIDTH_DEG,
+        endstop_active_high: bool = True,
     ):
         self.gc = gc
         self.logger = gc.logger
         self.stepper = stepper
         self.home_pin = home_pin
         self.layout = layout
+        self.first_bin_center = first_bin_center
+        self.pillar_width_deg = pillar_width_deg
+        self.endstop_active_high = endstop_active_high
+
+    @property
+    def usable_deg_per_section(self) -> float:
+        return DEG_PER_SECTION - self.pillar_width_deg
+
+    def setCalibration(
+        self,
+        first_bin_center: float,
+        pillar_width_deg: float,
+        endstop_active_high: bool | None = None,
+    ) -> None:
+        self.first_bin_center = first_bin_center
+        self.pillar_width_deg = pillar_width_deg
+        if endstop_active_high is not None:
+            self.endstop_active_high = endstop_active_high
+
+    @property
+    def raw_endstop_active(self) -> bool:
+        return bool(self.home_pin.value)
+
+    @property
+    def endstop_triggered(self) -> bool:
+        raw_value = self.raw_endstop_active
+        return raw_value if self.endstop_active_high else not raw_value
 
     @property
     def current_angle(self) -> float:
@@ -49,17 +77,14 @@ class Chute:
         layer = self.layout.layers[address.layer_index]
         section = layer.sections[address.section_index]
         num_bins = len(section.bins)
-        slot_width = USABLE_DEG_PER_SECTION / num_bins
-        section_center = FIRST_SECTION_CENTER + address.section_index * DEG_PER_SECTION
-        bin_offset = (address.bin_index - (num_bins - 1) / 2) * slot_width
-        angle = section_center + bin_offset
-        if angle > CHUTE_MAX_ANGLE:
-            bins_from_end = (num_bins - 1) - address.bin_index
-            wrapped = HOME_SECTION_LAST_BIN - bins_from_end * slot_width
-            if wrapped >= 0:
-                angle = wrapped
-            else:
-                return None
+        bin_width = self.usable_deg_per_section / num_bins
+        angle = (
+            self.first_bin_center
+            + address.section_index * DEG_PER_SECTION
+            + address.bin_index * bin_width
+        )
+        if angle < 0 or angle > CHUTE_MAX_ANGLE:
+            return None
         return angle
 
     def moveToAngle(self, target: float) -> int:
@@ -120,13 +145,21 @@ class Chute:
             return 0
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
-    def home(self) -> None:
+    def home(self) -> bool:
         self.logger.info("Chute: homing via sensor")
-        self.stepper.home(HOME_SPEED_MICROSTEPS_PER_SEC, self.home_pin, home_pin_active_high=True)
+        self.stepper.home(
+            HOME_SPEED_MICROSTEPS_PER_SEC,
+            self.home_pin,
+            home_pin_active_high=self.endstop_active_high,
+        )
         start = time.monotonic()
         while not self.stepper.stopped:
             if (time.monotonic() - start) * 1000 > HOME_TIMEOUT_MS:
                 self.logger.error("Chute: homing timed out")
-                return
+                return False
             time.sleep(0.01)
+        if not self.endstop_triggered:
+            self.logger.warning("Chute: homing stopped before the endstop triggered")
+            return False
         self.logger.info("Chute: homed successfully")
+        return True

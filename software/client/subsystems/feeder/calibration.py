@@ -10,8 +10,8 @@ def calibrateFeederChannels(gc: GlobalConfig, irl: IRLInterface, irl_config: IRL
     gc.logger.info("Calibrating feeder channels (reverse pulse)...")
     fc = irl_config.feeder_config
 
-    ch2_stepper = irl.second_c_channel_rotor_stepper
-    ch3_stepper = irl.third_c_channel_rotor_stepper
+    ch2_stepper = irl.c_channel_2_rotor_stepper
+    ch3_stepper = irl.c_channel_3_rotor_stepper
     ch2_degrees = ch2_stepper.degrees_for_microsteps(fc.second_rotor_normal.steps_per_pulse)
     ch3_degrees = ch3_stepper.degrees_for_microsteps(fc.third_rotor_normal.steps_per_pulse)
 

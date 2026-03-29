@@ -107,7 +107,7 @@ class Rotating(BaseState):
             ):
                 piece_at_feeder.carousel_rotate_started_at = self.start_time
             self.logger.info("Rotating: starting rotation")
-            self.stepper.move_degrees(-90.0)
+            self.stepper.move_degrees(90.0)
             self.command_sent = True
 
         if not self.stepper.stopped:

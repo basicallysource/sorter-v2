@@ -1,3 +1,5 @@
+import json
+import os
 from typing import List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -6,6 +8,7 @@ from enum import Enum
 @dataclass
 class LayerConfig:
     sections: List[List[str]]
+    enabled: bool = True
 
 
 @dataclass
@@ -33,11 +36,15 @@ class BinSection:
 @dataclass
 class Layer:
     sections: List[BinSection] = field(default_factory=list)
+    enabled: bool = True
 
 
 @dataclass
 class DistributionLayout:
     layers: List[Layer] = field(default_factory=list)
+
+
+VALID_BIN_SIZES = {"small", "medium", "big"}
 
 
 DEFAULT_BIN_LAYOUT = BinLayoutConfig(
@@ -86,6 +93,32 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 )
 
 
+def getBinLayout() -> BinLayoutConfig:
+    path = os.environ.get("BIN_LAYOUT_PATH")
+    if path is None:
+        return DEFAULT_BIN_LAYOUT
+
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    layers = []
+    for layer_idx, layer_data in enumerate(data["layers"]):
+        sections = []
+        for section_data in layer_data["sections"]:
+            for bin_size in section_data:
+                if bin_size not in VALID_BIN_SIZES:
+                    raise ValueError(
+                        f"Invalid bin size '{bin_size}' in layer {layer_idx}. "
+                        f"Must be one of: {VALID_BIN_SIZES}"
+                    )
+            sections.append(section_data)
+        enabled = layer_data.get("enabled", True)
+        if not isinstance(enabled, bool):
+            enabled = True
+        layers.append(LayerConfig(sections=sections, enabled=enabled))
+    return BinLayoutConfig(layers=layers)
+
+
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
     for layer_config in config.layers:
@@ -96,7 +129,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
                 bin_size = BinSize(bin_size_str)
                 bins.append(Bin(size=bin_size))
             sections.append(BinSection(bins=bins))
-        layers.append(Layer(sections=sections))
+        layers.append(Layer(sections=sections, enabled=layer_config.enabled))
     return DistributionLayout(layers=layers)
 
 

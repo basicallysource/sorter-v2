@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Tuple, Union
+from pathlib import Path
 import base64
 import time
 import threading
@@ -161,8 +162,8 @@ class VisionManager:
         if carousel_pts and len(carousel_pts) >= 3:
             self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
-        gray = self.getLatestFeederGray()
-        mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
+        feeder_lab = self.getLatestFeederLab()
+        mask_shape = feeder_lab.shape[:2] if feeder_lab is not None else (1080, 1920)
 
         channel_masks: Dict[str, np.ndarray] = {}
         for key, pts in polys.items():
@@ -191,7 +192,7 @@ class VisionManager:
 
         self._feeder_analysis = FeederAnalysisThread(
             detector=self._feeder_detector,
-            get_gray=self.getLatestFeederGray,
+            get_gray=self.getLatestFeederRaw,
             profiler=self.gc.profiler,
         )
         self._feeder_analysis.start()
@@ -215,24 +216,66 @@ class VisionManager:
     def _makeClassificationHeatmap(self) -> HeatmapDiff:
         c = self._diff_config
         return HeatmapDiff(
-            scale=0.25,
+            scale=c.classification_scale,
             gc=self.gc,
             pixel_thresh=c.pixel_thresh,
+            color_thresh_ab=c.color_thresh_ab,
             blur_kernel=c.blur_kernel,
             min_hot_pixels=c.min_hot_pixels,
             trigger_score=c.trigger_score,
             min_contour_area=c.min_contour_area,
             min_hot_thickness_px=c.min_hot_thickness_px,
+            hot_erode_iters=c.hot_erode_iters,
+            hot_regrow_iters=c.hot_regrow_iters,
             max_contour_aspect=c.max_contour_aspect,
             heat_gain=c.heat_gain,
             current_frames=c.current_frames,
         )
 
-    def loadClassificationBaseline(self) -> bool:
-        from blob_manager import BLOB_DIR
+    def _loadPrecomputedBaseline(self, baseline_dir: Path, cam_key: str, mode: str) -> tuple[np.ndarray, np.ndarray] | None:
+        mode_suffix = f"_{mode}" if mode != "gray" else ""
+        min_path = baseline_dir / f"{cam_key}_precomputed{mode_suffix}_min.npy"
+        max_path = baseline_dir / f"{cam_key}_precomputed{mode_suffix}_max.npy"
+        if not min_path.exists() or not max_path.exists():
+            return None
+        return np.load(str(min_path)), np.load(str(max_path))
+
+    def _loadPngBaseline(self, baseline_dir: Path, cam_key: str, mode: str) -> tuple[np.ndarray, np.ndarray] | None:
         import glob as globmod
 
         cfg = self._diff_config
+        baseline_min_path, baseline_max_path = self._classificationBaselinePaths(baseline_dir, cam_key, mode)
+        read_mode = cv2.IMREAD_COLOR if mode == "lab" else cv2.IMREAD_GRAYSCALE
+        baseline_min = cv2.imread(str(baseline_min_path), read_mode)
+        baseline_max = cv2.imread(str(baseline_max_path), read_mode)
+        if baseline_min is None or baseline_max is None:
+            return None
+
+        calibration_frames: List[np.ndarray] = []
+        frame_pattern = f"{cam_key}_frame_lab_*.png" if mode == "lab" else f"{cam_key}_frame_*.png"
+        for p in sorted(globmod.glob(str(baseline_dir / frame_pattern))):
+            cal_frame = cv2.imread(p, read_mode)
+            if cal_frame is not None:
+                calibration_frames.append(cal_frame)
+
+        if len(calibration_frames) >= 2 and cfg.adaptive_std_k > 0:
+            stddev = np.std(np.stack(calibration_frames, axis=0).astype(np.float32), axis=0)
+            adaptive_margin = np.clip(stddev * cfg.adaptive_std_k, 0, 100).astype(np.uint8)
+            baseline_min = np.clip(baseline_min.astype(np.int16) - adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
+            baseline_max = np.clip(baseline_max.astype(np.int16) + adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
+
+        if cfg.envelope_margin > 0:
+            baseline_min = np.clip(baseline_min.astype(np.int16) - cfg.envelope_margin, 0, 255).astype(np.uint8)
+            baseline_max = np.clip(baseline_max.astype(np.int16) + cfg.envelope_margin, 0, 255).astype(np.uint8)
+
+        self.gc.logger.info(f"Classification {cam_key} loaded from PNG fallback ({len(calibration_frames)} cal frames)")
+        return baseline_min, baseline_max
+
+    def loadClassificationBaseline(self) -> bool:
+        from blob_manager import BLOB_DIR
+
+        cfg = self._diff_config
+        mode = self._classificationColorMode()
 
         baseline_dir = BLOB_DIR / "classification_baseline"
         loaded_any = False
@@ -240,23 +283,17 @@ class VisionManager:
         for cam_key, capture in [("top", self._classification_top_capture), ("bottom", self._classification_bottom_capture)]:
             if capture is None:
                 continue
-            min_path = baseline_dir / f"{cam_key}_baseline_min.png"
-            max_path = baseline_dir / f"{cam_key}_baseline_max.png"
-            if not (min_path.exists() and max_path.exists()):
-                self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
-                continue
 
-            baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
-            baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
-            if baseline_min is None or baseline_max is None:
-                self.gc.logger.warn(f"Failed to read classification {cam_key} baseline images.")
-                continue
-
-            calibration_frames: List[np.ndarray] = []
-            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_*.png"))):
-                gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
-                if gray is not None:
-                    calibration_frames.append(gray)
+            result = self._loadPrecomputedBaseline(baseline_dir, cam_key, mode)
+            if result is not None:
+                baseline_min, baseline_max = result
+                self.gc.logger.info(f"Classification {cam_key} loaded from precomputed npy")
+            else:
+                result = self._loadPngBaseline(baseline_dir, cam_key, mode)
+                if result is None:
+                    self.gc.logger.warn(f"Classification {cam_key} {mode} baseline not found. Run: scripts/calibrate_classification_baseline.py")
+                    continue
+                baseline_min, baseline_max = result
 
             frame = capture.latest_frame
             if frame is not None:
@@ -268,17 +305,6 @@ class VisionManager:
                     )
                     baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
                     baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
-                    calibration_frames = [cv2.resize(f, (cam_w, cam_h), interpolation=cv2.INTER_AREA) for f in calibration_frames]
-
-            if len(calibration_frames) >= 2 and cfg.adaptive_std_k > 0:
-                stddev = np.std(np.stack(calibration_frames, axis=0).astype(np.float32), axis=0)
-                adaptive_margin = np.clip(stddev * cfg.adaptive_std_k, 0, 100).astype(np.uint8)
-                baseline_min = np.clip(baseline_min.astype(np.int16) - adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
-                baseline_max = np.clip(baseline_max.astype(np.int16) + adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
-
-            if cfg.envelope_margin > 0:
-                baseline_min = np.clip(baseline_min.astype(np.int16) - cfg.envelope_margin, 0, 255).astype(np.uint8)
-                baseline_max = np.clip(baseline_max.astype(np.int16) + cfg.envelope_margin, 0, 255).astype(np.uint8)
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
@@ -318,7 +344,6 @@ class VisionManager:
                 )
                 self._classification_bottom_analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
             loaded_any = True
 
         return loaded_any
@@ -329,7 +354,7 @@ class VisionManager:
         frame = self._classification_top_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        return self._classificationDiffFrame(frame.raw)
 
     def _getLatestClassificationBottomGray(self) -> np.ndarray | None:
         if self._classification_bottom_capture is None:
@@ -337,7 +362,7 @@ class VisionManager:
         frame = self._classification_bottom_capture.latest_frame
         if frame is None:
             return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        return self._classificationDiffFrame(frame.raw)
 
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
         if cam == "top" and self._classification_top_analysis:
@@ -358,6 +383,41 @@ class VisionManager:
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
+    def getLatestFeederLab(self) -> np.ndarray | None:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
+
+    def getLatestFeederRaw(self) -> np.ndarray | None:
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return frame.raw
+
+    def _classificationColorMode(self) -> str:
+        mode = str(self._diff_config.color_mode).lower()
+        if mode not in ("gray", "lab"):
+            raise ValueError(f"Invalid classification color_mode: {self._diff_config.color_mode}")
+        return mode
+
+    def _classificationDiffFrame(self, raw: np.ndarray) -> np.ndarray:
+        mode = self._classificationColorMode()
+        if mode == "lab":
+            return cv2.cvtColor(raw, cv2.COLOR_BGR2LAB)
+        return cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
+
+    def _classificationBaselinePaths(self, baseline_dir, cam_key: str, mode: str):
+        if mode == "lab":
+            return (
+                baseline_dir / f"{cam_key}_baseline_lab_min.png",
+                baseline_dir / f"{cam_key}_baseline_lab_max.png",
+            )
+        return (
+            baseline_dir / f"{cam_key}_baseline_min.png",
+            baseline_dir / f"{cam_key}_baseline_max.png",
+        )
 
     def getRegions(self) -> dict[RegionName, Region]:
         prof = self.gc.profiler

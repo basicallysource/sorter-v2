@@ -26,6 +26,11 @@ class Ready(BaseState):
             self.logger.info(f"Ready: piece dropped -> SENDING (waited={wait_ms:.0f}ms)")
             return DistributionState.SENDING
 
+        if hasattr(self.gc, "runtime_stats"):
+            self.gc.runtime_stats.observeBlockedReason(
+                "distribution", "waiting_piece_drop"
+            )
+
         return None
 
     def cleanup(self) -> None:

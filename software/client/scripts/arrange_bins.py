@@ -269,7 +269,7 @@ HTML = """
       for (const layer of app_state.layers) {
         for (const section of layer.sections) {
           for (const bin of section.bins) {
-            if (bin.category_id !== null) ids.add(bin.category_id);
+            for (const category_id of bin.category_ids) ids.add(category_id);
           }
         }
       }
@@ -282,9 +282,13 @@ HTML = """
     }
 
     function categoryDisplayName(category_id) {
-      if (category_id === null) return 'unassigned';
       const known = app_state.category_by_id[category_id];
       return known ? known.name : category_id;
+    }
+
+    function categoryListDisplay(category_ids) {
+      if (!category_ids || category_ids.length === 0) return 'unassigned';
+      return category_ids.map(categoryDisplayName).join(', ');
     }
 
     function setImportStatus(message, is_error) {
@@ -308,11 +312,15 @@ HTML = """
       renderAll();
     }
 
-    async function assignCategory(layer_idx, section_idx, bin_idx, category_id) {
+    function getBin(layer_idx, section_idx, bin_idx) {
+      return app_state.layers[layer_idx].sections[section_idx].bins[bin_idx];
+    }
+
+    async function assignCategoryList(layer_idx, section_idx, bin_idx, category_ids) {
       const res = await fetch('/api/assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer_idx, section_idx, bin_idx, category_id }),
+        body: JSON.stringify({ layer_idx, section_idx, bin_idx, category_ids }),
       });
       if (!res.ok) {
         const msg = await res.text();
@@ -415,40 +423,36 @@ HTML = """
 
             const current_el = document.createElement('div');
             current_el.className = 'bin_current';
-            current_el.textContent = `Current: ${categoryDisplayName(bin.category_id)}`;
+            current_el.textContent = `Current: ${categoryListDisplay(bin.category_ids)}`;
             bin_el.appendChild(current_el);
 
             const controls_el = document.createElement('div');
             controls_el.className = 'bin_controls';
 
             const select_el = document.createElement('select');
-
-            const empty_opt = document.createElement('option');
-            empty_opt.value = '';
-            empty_opt.textContent = 'unassigned';
-            if (bin.category_id === null) empty_opt.selected = true;
-            select_el.appendChild(empty_opt);
+            select_el.multiple = true;
+            select_el.size = 5;
 
             app_state.category_options.forEach((cat) => {
               const opt = document.createElement('option');
               opt.value = cat.id;
               opt.textContent = `${cat.name} (${cat.id})`;
-              if (bin.category_id === cat.id) opt.selected = true;
+              if (bin.category_ids.includes(cat.id)) opt.selected = true;
               select_el.appendChild(opt);
             });
 
-            select_el.addEventListener('change', (e) => {
-              const value = e.target.value || null;
-              assignCategory(layer_idx, section_idx, bin_idx, value);
+            select_el.addEventListener('change', (event) => {
+              const selected_values = Array.from(event.target.selectedOptions).map((opt) => opt.value);
+              assignCategoryList(layer_idx, section_idx, bin_idx, selected_values);
             });
             select_el.addEventListener('click', (e) => e.stopPropagation());
 
             const clear_btn = document.createElement('button');
             clear_btn.textContent = 'x';
-            clear_btn.title = 'Set unassigned';
+            clear_btn.title = 'Set unassigned (no categories)';
             clear_btn.addEventListener('click', (e) => {
               e.stopPropagation();
-              assignCategory(layer_idx, section_idx, bin_idx, null);
+              assignCategoryList(layer_idx, section_idx, bin_idx, []);
             });
 
             controls_el.appendChild(select_el);
@@ -499,7 +503,14 @@ HTML = """
         btn.disabled = !selected_bin;
         btn.addEventListener('click', () => {
           if (!selected_bin) return;
-          assignCategory(selected_bin.layer_idx, selected_bin.section_idx, selected_bin.bin_idx, cat.id);
+          const bin = getBin(selected_bin.layer_idx, selected_bin.section_idx, selected_bin.bin_idx);
+          if (bin.category_ids.includes(cat.id)) return;
+          assignCategoryList(
+            selected_bin.layer_idx,
+            selected_bin.section_idx,
+            selected_bin.bin_idx,
+            [...bin.category_ids, cat.id]
+          );
         });
 
         row.appendChild(text);
@@ -561,12 +572,12 @@ def loadSortingCategoriesFromMain(gc) -> list[dict[str, str]]:
     return category_options
 
 
-def extractCategoryMatrixFromLayers(layers: list[dict]) -> list[list[list[str | None]]]:
-    categories: list[list[list[str | None]]] = []
+def extractCategoryMatrixFromLayers(layers: list[dict]) -> list[list[list[list[str]]]]:
+    categories: list[list[list[list[str]]]] = []
     for layer in layers:
-        layer_categories: list[list[str | None]] = []
+        layer_categories: list[list[list[str]]] = []
         for section in layer["sections"]:
-            section_categories = [b["category_id"] for b in section["bins"]]
+            section_categories = [list(b["category_ids"]) for b in section["bins"]]
             layer_categories.append(section_categories)
         categories.append(layer_categories)
     return categories
@@ -590,8 +601,7 @@ def buildCategoryOptionsForState(state: dict) -> list[dict[str, str]]:
     for layer in state["layers"]:
         for section in layer["sections"]:
             for b in section["bins"]:
-                category_id = b["category_id"]
-                if isinstance(category_id, str):
+                for category_id in b["category_ids"]:
                     draft_ids.add(category_id)
 
     for category_id in draft_ids:
@@ -617,20 +627,20 @@ def buildLayersFromLayout(layout) -> list[dict]:
         for section in layer.sections:
             section_data = {"bins": []}
             for b in section.bins:
-                section_data["bins"].append({"size": b.size.value, "category_id": b.category_id})
+                section_data["bins"].append({"size": b.size.value, "category_ids": list(b.category_ids)})
             layer_data["sections"].append(section_data)
         layers.append(layer_data)
     return layers
 
 
-def applyCategoryMatrixToLayers(layers: list[dict], category_matrix: list[list[list[str | None]]]) -> None:
+def applyCategoryMatrixToLayers(layers: list[dict], category_matrix: list[list[list[list[str]]]]) -> None:
     for layer_idx, layer in enumerate(layers):
         for section_idx, section in enumerate(layer["sections"]):
             for bin_idx, b in enumerate(section["bins"]):
-                b["category_id"] = category_matrix[layer_idx][section_idx][bin_idx]
+                b["category_ids"] = list(category_matrix[layer_idx][section_idx][bin_idx])
 
 
-def parseIncomingCategoryMatrix(raw_text: str) -> list[list[list[str | None]]]:
+def parseIncomingCategoryMatrix(raw_text: str) -> list[list[list[list[str]]]]:
     try:
         payload = json.loads(raw_text)
     except Exception as e:
@@ -642,7 +652,7 @@ def parseIncomingCategoryMatrix(raw_text: str) -> list[list[list[str | None]]]:
     if not isinstance(payload, list):
         raise ValueError("json must be a list or contain bin_categories")
 
-    matrix: list[list[list[str | None]]] = []
+    matrix: list[list[list[list[str]]]] = []
     for layer in payload:
         if not isinstance(layer, list):
             raise ValueError("each layer must be a list")
@@ -651,17 +661,22 @@ def parseIncomingCategoryMatrix(raw_text: str) -> list[list[list[str | None]]]:
             if not isinstance(section, list):
                 raise ValueError("each section must be a list")
             parsed_section = []
-            for category_id in section:
-                if category_id is not None and not isinstance(category_id, str):
-                    raise ValueError("category values must be string or null")
-                parsed_section.append(category_id)
+            for category_ids in section:
+                if not isinstance(category_ids, list):
+                    raise ValueError("each bin must be a list of strings")
+                parsed_bin_categories = []
+                for category_id in category_ids:
+                    if not isinstance(category_id, str):
+                        raise ValueError("category values must be strings")
+                    parsed_bin_categories.append(category_id)
+                parsed_section.append(parsed_bin_categories)
             parsed_layer.append(parsed_section)
         matrix.append(parsed_layer)
 
     return matrix
 
 
-def categoryMatrixMatchesLayers(layers: list[dict], category_matrix: list[list[list[str | None]]]) -> bool:
+def categoryMatrixMatchesLayers(layers: list[dict], category_matrix: list[list[list[list[str]]]]) -> bool:
     if len(category_matrix) != len(layers):
         return False
     for layer_idx, layer in enumerate(layers):
@@ -725,18 +740,18 @@ def assignCategory():
     layer_idx = payload.get("layer_idx")
     section_idx = payload.get("section_idx")
     bin_idx = payload.get("bin_idx")
-    category_id = payload.get("category_id")
+    category_ids = payload.get("category_ids")
 
     if not isinstance(layer_idx, int) or not isinstance(section_idx, int) or not isinstance(bin_idx, int):
         return ("invalid bin indexes", 400)
-    if category_id is not None and not isinstance(category_id, str):
-        return ("invalid category_id", 400)
+    if not isinstance(category_ids, list) or any(not isinstance(category_id, str) for category_id in category_ids):
+        return ("invalid category_ids", 400)
 
     with state_lock:
         if not validateBinIndex(app_state, layer_idx, section_idx, bin_idx):
             return ("bin index out of range", 400)
 
-        app_state["layers"][layer_idx]["sections"][section_idx]["bins"][bin_idx]["category_id"] = category_id
+        app_state["layers"][layer_idx]["sections"][section_idx]["bins"][bin_idx]["category_ids"] = list(dict.fromkeys(category_ids))
         refreshDerivedState(app_state)
         return jsonify(stateForClient(app_state))
 
@@ -747,7 +762,7 @@ def clearAllBins():
         for layer in app_state["layers"]:
             for section in layer["sections"]:
                 for b in section["bins"]:
-                    b["category_id"] = None
+                    b["category_ids"] = []
         refreshDerivedState(app_state)
         return jsonify(stateForClient(app_state))
 

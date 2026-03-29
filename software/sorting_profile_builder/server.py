@@ -53,6 +53,7 @@ class SaveRulesBody(BaseModel):
 
 class FallbackModeBody(BaseModel):
     rebrickable_categories: bool = False
+    bricklink_categories: bool = False
     by_color: bool = False
 
 
@@ -301,7 +302,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
     @app.put("/api/profile/{profile_id}/fallback-mode")
     def apiSetFallbackMode(profile_id: str, body: FallbackModeBody):
         sp = _getOpenProfile(open_profile, gc, profile_id)
-        sp.fallback_mode = {"rebrickable_categories": body.rebrickable_categories, "by_color": body.by_color}
+        sp.fallback_mode = {"rebrickable_categories": body.rebrickable_categories, "bricklink_categories": body.bricklink_categories, "by_color": body.by_color}
         saveSortingProfile(gc.profiles_dir, sp)
         return {"fallback_mode": sp.fallback_mode}
 
@@ -317,6 +318,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.part_to_category = result["part_to_category"]
         sp.categories = {}
@@ -327,6 +329,10 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
                 rb_id = int(cat_id[3:])
                 rb_cat = parts_data.categories.get(rb_id)
                 sp.categories[cat_id] = {"name": rb_cat["name"] if rb_cat else cat_id}
+            elif cat_id.startswith("bl_"):
+                bl_id = int(cat_id[3:])
+                bl_cat = parts_data.bricklink_categories.get(bl_id)
+                sp.categories[cat_id] = {"name": bl_cat.get("category_name", cat_id) if bl_cat else cat_id}
         saveSortingProfile(gc.profiles_dir, sp)
         return result["stats"]
 
@@ -344,6 +350,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.rules = original_rules
         return result["stats"]
@@ -402,6 +409,7 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
             parts_data.bricklink_categories,
             fallback_mode=sp.fallback_mode,
             parts_generation=parts_data.generation,
+            rb_to_bl_color=parts_data.rb_to_bl_color,
         )
         sp.rules = original_rules
         return partsForCategory(result["part_to_category"], cat_id, parts_data.parts, q=q, offset=offset, limit=limit, categories=parts_data.categories, bricklink_categories=parts_data.bricklink_categories)
@@ -448,35 +456,97 @@ def mkApp(gc: GlobalConfig, conn: sqlite3.Connection, parts_data: PartsData, syn
         return StreamingResponse(sseGenerator(), media_type="text/event-stream")
 
     @app.post("/api/profile/{profile_id}/rules/{rule_id}/ai-chat/accept/{message_id}")
-    def apiAcceptAiProposal(profile_id: str, rule_id: str, message_id: str):
-        log.info(f"POST accept proposal msg={message_id} rule={rule_id}")
-        proposed = acceptProposal(conn, message_id)
-        if not proposed:
+    def apiAcceptAiProposal(profile_id: str, rule_id: str, message_id: str, proposal_index: int | None = None):
+        log.info(f"POST accept proposal msg={message_id} rule={rule_id} index={proposal_index}")
+        accepted = acceptProposal(conn, message_id, proposal_index)
+        if not accepted:
             log.warning(f"proposal {message_id} not found")
             raise HTTPException(404, "Proposal not found")
         import uuid as _uuid
-        proposed_rule = {
-            "name": proposed["name"],
-            "match_mode": proposed["match_mode"],
-            "conditions": [
-                {"id": str(_uuid.uuid4()), "field": c["field"], "op": c["op"], "value": c["value"]}
-                for c in proposed["conditions"]
-            ],
-        }
+        results = []
         try:
             sp = _getOpenProfile(open_profile, gc, profile_id)
-            rule = getRule(sp, rule_id)
-            if rule:
-                rule["name"] = proposed_rule["name"]
-                rule["match_mode"] = proposed_rule["match_mode"]
-                rule["conditions"] = proposed_rule["conditions"]
-                saveSortingProfile(gc.profiles_dir, sp)
-                log.info(f"applied proposal to saved profile rule {rule_id}")
-            else:
-                log.info(f"rule {rule_id} not in saved profile, returning proposal for client-side apply")
         except Exception:
-            log.info(f"could not apply to saved profile, returning proposal for client-side apply")
-        return {"rule": proposed_rule}
+            sp = None
+        for item in accepted:
+            action = item.get("action", "edit")
+            if action == "create":
+                conds = [{"id": str(_uuid.uuid4()), "field": c["field"], "op": c["op"], "value": c["value"]} for c in item.get("conditions", [])]
+                new_rule_id = None
+                if sp:
+                    new_rule_id = addRule(sp, item["name"], conds, item["match_mode"], item.get("parent_id"), item.get("position"))
+                    if new_rule_id:
+                        saveSortingProfile(gc.profiles_dir, sp)
+                if not new_rule_id:
+                    new_rule_id = str(_uuid.uuid4())
+                results.append({
+                    "action": "create",
+                    "rule_id": new_rule_id,
+                    "parent_id": item.get("parent_id"),
+                    "position": item.get("position"),
+                    "rule": {"id": new_rule_id, "name": item["name"], "match_mode": item["match_mode"], "conditions": conds, "children": [], "disabled": False},
+                })
+            elif action == "move":
+                target_id = item.get("target_rule_id") or rule_id
+                new_parent_id = item.get("parent_id")
+                position = item.get("position")
+                results.append({"action": "move", "rule_id": target_id, "parent_id": new_parent_id, "position": position})
+                if sp:
+                    # remove from current location, re-insert at new location
+                    rule = getRule(sp, target_id)
+                    if rule:
+                        removeRule(sp, target_id)
+                        if new_parent_id:
+                            parent = getRule(sp, new_parent_id)
+                            if parent:
+                                children = parent.get("children", [])
+                                if position is not None and 0 <= position <= len(children):
+                                    children.insert(position, rule)
+                                else:
+                                    children.append(rule)
+                                parent["children"] = children
+                        else:
+                            if position is not None and 0 <= position <= len(sp.rules):
+                                sp.rules.insert(position, rule)
+                            else:
+                                sp.rules.append(rule)
+                        saveSortingProfile(gc.profiles_dir, sp)
+            else:
+                target_id = item.get("target_rule_id") or rule_id
+                conds = [{"id": str(_uuid.uuid4()), "field": c["field"], "op": c["op"], "value": c["value"]} for c in item.get("conditions", [])]
+                rule_data = {"name": item["name"], "match_mode": item["match_mode"], "conditions": conds}
+                new_parent_id = item.get("parent_id")
+                position = item.get("position")
+                if sp:
+                    rule = getRule(sp, target_id)
+                    if rule:
+                        rule["name"] = rule_data["name"]
+                        rule["match_mode"] = rule_data["match_mode"]
+                        rule["conditions"] = rule_data["conditions"]
+                        # handle position/reparent if specified
+                        if position is not None:
+                            removeRule(sp, target_id)
+                            if new_parent_id:
+                                parent = getRule(sp, new_parent_id)
+                                if parent:
+                                    children = parent.get("children", [])
+                                    if 0 <= position <= len(children):
+                                        children.insert(position, rule)
+                                    else:
+                                        children.append(rule)
+                                    parent["children"] = children
+                            else:
+                                if 0 <= position <= len(sp.rules):
+                                    sp.rules.insert(position, rule)
+                                else:
+                                    sp.rules.append(rule)
+                        saveSortingProfile(gc.profiles_dir, sp)
+                result_item = {"action": "edit", "rule_id": target_id, "rule": rule_data}
+                if position is not None:
+                    result_item["parent_id"] = new_parent_id
+                    result_item["position"] = position
+                results.append(result_item)
+        return {"results": results}
 
     @app.delete("/api/profile/{profile_id}/rules/{rule_id}/ai-chat")
     def apiDeleteAiChat(profile_id: str, rule_id: str):
@@ -494,11 +564,13 @@ def _countRules(rules):
 
 
 def _getOpenProfile(container: dict, gc: GlobalConfig, profile_id: str) -> SortingProfile:
+    fpath = os.path.join(gc.profiles_dir, f"{profile_id}.json")
+    if not os.path.exists(fpath):
+        raise HTTPException(404, "Profile not found")
     sp = container.get("profile")
-    if sp is None or sp.id != profile_id:
-        fpath = os.path.join(gc.profiles_dir, f"{profile_id}.json")
-        if not os.path.exists(fpath):
-            raise HTTPException(404, "Profile not found")
+    mtime = os.path.getmtime(fpath)
+    if sp is None or sp.id != profile_id or container.get("mtime") != mtime:
         sp = loadSortingProfile(fpath)
         container["profile"] = sp
+        container["mtime"] = mtime
     return sp

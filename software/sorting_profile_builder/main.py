@@ -44,5 +44,15 @@ def main():
     uvicorn.run(app, host="0.0.0.0", port=gc.port)
 
 
+def create_app():
+    setupLogging()
+    gc = mkGlobalConfig()
+    conn = initDb(gc.db_path)
+    parts_data = PartsData()
+    reloadPartsData(conn, parts_data)
+    sync = SyncManager()
+    return mkApp(gc, conn, parts_data, sync)
+
+
 if __name__ == "__main__":
     main()

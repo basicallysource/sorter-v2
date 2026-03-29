@@ -267,8 +267,10 @@ def _collectAllConditions(rule):
     return conds
 
 
-def _ruleHasColorConditions(conditions):
-    return any(c.get("field") == "color_id" for c in conditions)
+def _splitConditions(conditions):
+    part_conds = [c for c in conditions if c.get("field") != "color_id"]
+    color_conds = [c for c in conditions if c.get("field") == "color_id"]
+    return part_conds, color_conds
 
 
 def _extractColorValues(conditions):
@@ -322,15 +324,16 @@ def _flattenRules(rules, ancestor_checks=None, top_level_id=None):
     return flat
 
 
-def _partKey(part, color_id):
+def _partKey(part, color_id, rb_to_bl_color=None):
     bl_ids = part.get("external_ids", {}).get("BrickLink", [])
     part_id = bl_ids[0] if bl_ids else part.get("part_num", "")
     if color_id is not None:
-        return f"{color_id}-{part_id}"
+        out_color = rb_to_bl_color.get(color_id, color_id) if rb_to_bl_color else color_id
+        return f"{out_color}-{part_id}"
     return f"any_color-{part_id}"
 
 
-def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0):
+def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0, rb_to_bl_color=None):
     cache_key = _cacheKey(parts_generation, sp.rules, sp.default_category_id, fallback_mode or getattr(sp, "fallback_mode", None) or {})
     cached = _cacheGet(cache_key)
     if cached:
@@ -344,59 +347,106 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
         ctx = None
     fb = fallback_mode or getattr(sp, "fallback_mode", None) or {}
     use_rb_cats = fb.get("rebrickable_categories", False)
+    use_bl_cats = fb.get("bricklink_categories", False)
     use_by_color = fb.get("by_color", False)
 
     flat = []
     for rule in sp.rules:
         flat.extend(_flattenRules([rule]))
+
+    # pre-compute per-rule: part conditions vs color conditions
+    rule_info: list[dict] = []
+    for entry in flat:
+        all_conds = _allConditions(entry["checks"])
+        _, color_conds = _splitConditions(all_conds)
+        rule_colors = _extractColorValues(color_conds) if color_conds else None
+        # build checks that only contain non-color conditions for part matching
+        part_checks = []
+        for check in entry["checks"]:
+            pc, _ = _splitConditions(check["conditions"])
+            part_checks.append({"conditions": pc, "match_mode": check["match_mode"], "children": check.get("children")})
+        rule_info.append({
+            "entry": entry,
+            "has_conditions": bool(all_conds),
+            "part_checks": part_checks,
+            "rule_colors": rule_colors,
+        })
+
     part_to_category = {}
     stats = {"total_parts": len(parts), "matched": 0, "unmatched": 0, "per_category": {}}
+    cat_parts: dict[str, set] = {}
+    cat_colors: dict[str, set] = {}
 
     for _pnum, part in parts.items():
-        matched = False
-        for entry in flat:
-            all_conds = _allConditions(entry["checks"])
-            if not all_conds:
-                continue
-            color_sensitive = _ruleHasColorConditions(all_conds)
-
-            if color_sensitive:
-                rule_colors = _extractColorValues(all_conds)
-                for cid in rule_colors:
-                    if _evaluateChecks(entry["checks"], part, cid, ctx):
-                        key = _partKey(part, cid)
-                        if key not in part_to_category:
-                            part_to_category[key] = entry["top_level_id"]
-                            matched = True
-            else:
-                if _evaluateChecks(entry["checks"], part, None, ctx):
-                    key = _partKey(part, None)
-                    if key not in part_to_category:
-                        part_to_category[key] = entry["top_level_id"]
-                        matched = True
-            if matched:
+        claimed_any_color = False
+        claimed_specific = False
+        for ri in rule_info:
+            if claimed_any_color:
                 break
+            if not ri["has_conditions"]:
+                continue
+            entry = ri["entry"]
+            tid = entry["top_level_id"]
 
-        if not matched:
-            if use_rb_cats:
-                cat_id = part.get("part_cat_id")
-                fallback_cat = f"rb_{cat_id}" if cat_id is not None else sp.default_category_id
-                key = _partKey(part, None)
+            # check if part matches the non-color conditions
+            if not _evaluateChecks(ri["part_checks"], part, None, ctx):
+                continue
+
+            if ri["rule_colors"] is not None:
+                # color-sensitive rule: claim only listed colors not already taken
+                for cid in ri["rule_colors"]:
+                    key = _partKey(part, cid, rb_to_bl_color)
+                    if key not in part_to_category:
+                        part_to_category[key] = tid
+                        claimed_specific = True
+                        cat_parts.setdefault(tid, set()).add(_pnum)
+                        cat_colors.setdefault(tid, set()).add(cid)
+            else:
+                # non-color rule: claim all remaining colors via any_color
+                key = _partKey(part, None, rb_to_bl_color)
                 if key not in part_to_category:
-                    part_to_category[key] = fallback_cat
+                    part_to_category[key] = tid
+                    cat_parts.setdefault(tid, set()).add(_pnum)
+                    claimed_any_color = True
+
+        # determine fallback for unclaimed colors
+        matched = claimed_any_color or claimed_specific
+        if not claimed_any_color:
+            # some or all colors still unclaimed — assign fallback to any_color slot
+            any_key = _partKey(part, None, rb_to_bl_color)
+            if any_key not in part_to_category:
+                fallback_cat = None
+                if use_bl_cats:
+                    bl_item = _getBricklinkPrimaryItem(part)
+                    bl_cat_id = _getNested(bl_item, "catalog", "data", "category_id")
+                    if bl_cat_id is not None:
+                        fallback_cat = f"bl_{bl_cat_id}"
+                    elif use_rb_cats and part.get("part_cat_id") is not None:
+                        fallback_cat = f"rb_{part.get('part_cat_id')}"
+                elif use_rb_cats:
+                    cat_id = part.get("part_cat_id")
+                    if cat_id is not None:
+                        fallback_cat = f"rb_{cat_id}"
+                if fallback_cat is None:
+                    fallback_cat = sp.default_category_id
+                if fallback_cat:
+                    part_to_category[any_key] = fallback_cat
                     stats["unmatched"] += 1
-            elif sp.default_category_id:
-                key = _partKey(part, None)
-                if key not in part_to_category:
-                    part_to_category[key] = sp.default_category_id
-                    stats["unmatched"] += 1
+                    cat_parts.setdefault(fallback_cat, set()).add(_pnum)
 
         if matched:
             stats["matched"] += 1
 
-    for key, cat_id in part_to_category.items():
-        stats["per_category"][cat_id] = stats["per_category"].get(cat_id, 0) + 1
+    cat_samples: dict[str, list] = {}
+    for cat_id in cat_parts:
+        stats["per_category"][cat_id] = {
+            "parts": len(cat_parts[cat_id]),
+            "colors": len(cat_colors.get(cat_id, set())),
+        }
+        sample_pnums = list(cat_parts[cat_id])[:4]
+        cat_samples[cat_id] = [{"part_num": pn, "part_img_url": parts[pn].get("part_img_url")} for pn in sample_pnums if pn in parts]
 
+    stats["samples"] = cat_samples
     result = {"part_to_category": part_to_category, "stats": stats}
     _cachePut(cache_key, result)
     return result
@@ -478,22 +528,28 @@ def previewRule(rule, parts, categories=None, bricklink_categories=None, limit=5
         if not all_conds:
             return {"total": 0, "sample": [], "offset": offset, "limit": limit}
 
-        color_sensitive = _ruleHasColorConditions(all_conds)
+        _, color_conds = _splitConditions(all_conds)
+        rule_colors = _extractColorValues(color_conds) if color_conds else None
+        # build part-only checks for initial filtering
+        part_checks = []
+        for check in checks:
+            pc, _ = _splitConditions(check["conditions"])
+            part_checks.append({"conditions": pc, "match_mode": check["match_mode"], "children": check.get("children")})
+
         matches = []
         for pnum, part in parts.items():
-            if color_sensitive:
-                rule_colors = _extractColorValues(all_conds)
+            if not _evaluateChecks(part_checks, part, None, ctx):
+                continue
+            if rule_colors is not None:
                 for cid in rule_colors:
-                    if _evaluateChecks(checks, part, cid, ctx):
-                        entry = {"part_num": pnum, "name": part.get("name", ""), "color_id": cid}
-                        entry.update(_partPreviewMeta(part, ctx))
-                        matches.append(entry)
-                        break
-            else:
-                if _evaluateChecks(checks, part, None, ctx):
-                    entry = {"part_num": pnum, "name": part.get("name", "")}
+                    entry = {"part_num": pnum, "name": part.get("name", ""), "color_id": cid}
                     entry.update(_partPreviewMeta(part, ctx))
                     matches.append(entry)
+                    break
+            else:
+                entry = {"part_num": pnum, "name": part.get("name", "")}
+                entry.update(_partPreviewMeta(part, ctx))
+                matches.append(entry)
         _cachePut(cache_key, {"_matches": matches})
 
     # filter by query and paginate from cached matches

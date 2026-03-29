@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Tuple, Union
+from typing import Optional, List, Dict, Tuple, Union, cast
 import base64
 import time
 import threading
@@ -31,20 +31,18 @@ from .classification_analysis_thread import ClassificationAnalysisThread
 from .detection_registry import (
     DetectionRequest,
     DetectionScope,
+    CarouselDetectionAlgorithm,
+    ClassificationDetectionAlgorithm,
+    FeederDetectionAlgorithm,
     detection_algorithm_definition,
+    normalize_detection_algorithm,
     scope_supports_detection_algorithm,
 )
 from .diff_configs import (
     CarouselDiffConfig,
-    CarouselDetectionAlgorithm,
-    FeederDetectionAlgorithm,
     ClassificationDiffConfig,
-    ClassificationDetectionAlgorithm,
     DEFAULT_CAROUSEL_DIFF_CONFIG,
     DEFAULT_CLASSIFICATION_DIFF_CONFIG,
-    normalizeCarouselDetectionAlgorithm,
-    normalizeFeederDetectionAlgorithm,
-    normalizeClassificationDetectionAlgorithm,
 )
 
 TELEMETRY_INTERVAL_S = 30
@@ -94,8 +92,6 @@ class VisionManager:
                 if _is_real_camera(irl_config.classification_camera_bottom) else None
             )
         else:
-            self._feeder_camera_config = irl_config.feeder_camera
-
             if "feeder" in self._disabled_cameras:
                 raise RuntimeError("Cannot disable feeder camera — it is required for operation")
 
@@ -252,14 +248,14 @@ class VisionManager:
     def _loadClassificationDetectionConfig(self) -> None:
         config = getClassificationDetectionConfig()
         candidate = config.get("algorithm") if isinstance(config, dict) else None
-        self._diff_config.algorithm = normalizeClassificationDetectionAlgorithm(candidate)
+        self._diff_config.algorithm = self._normalizeClassificationDetectionAlgorithm(candidate)
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._classification_openrouter_model = normalize_openrouter_model(model)
 
     def _loadFeederDetectionConfig(self) -> None:
         config = getFeederDetectionConfig()
         candidate = config.get("algorithm") if isinstance(config, dict) else None
-        self._feeder_detection_algorithm = normalizeFeederDetectionAlgorithm(candidate)
+        self._feeder_detection_algorithm = self._normalizeFeederDetectionAlgorithm(candidate)
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._feeder_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
@@ -268,7 +264,7 @@ class VisionManager:
     def _loadCarouselDetectionConfig(self) -> None:
         config = getCarouselDetectionConfig()
         candidate = config.get("algorithm") if isinstance(config, dict) else None
-        self._carousel_detection_algorithm = normalizeCarouselDetectionAlgorithm(candidate)
+        self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(candidate)
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._carousel_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
@@ -285,7 +281,7 @@ class VisionManager:
         self._classification_bottom_heatmap = None
 
     def getClassificationDetectionAlgorithm(self) -> ClassificationDetectionAlgorithm:
-        return normalizeClassificationDetectionAlgorithm(self._diff_config.algorithm)
+        return self._normalizeClassificationDetectionAlgorithm(self._diff_config.algorithm)
 
     def getClassificationOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._classification_openrouter_model)
@@ -311,17 +307,54 @@ class VisionManager:
     def usesClassificationBaseline(self) -> bool:
         return self.usesDetectionBaseline("classification")
 
+    def _normalizeClassificationDetectionAlgorithm(
+        self,
+        value: str | None,
+    ) -> ClassificationDetectionAlgorithm:
+        return cast(
+            ClassificationDetectionAlgorithm,
+            normalize_detection_algorithm("classification", value),
+        )
+
+    def _normalizeFeederDetectionAlgorithm(self, value: str | None) -> FeederDetectionAlgorithm:
+        return cast(
+            FeederDetectionAlgorithm,
+            normalize_detection_algorithm("feeder", value),
+        )
+
+    def _normalizeCarouselDetectionAlgorithm(
+        self,
+        value: str | None,
+    ) -> CarouselDetectionAlgorithm:
+        return cast(
+            CarouselDetectionAlgorithm,
+            normalize_detection_algorithm("carousel", value),
+        )
+
+    @staticmethod
+    def _detectionScoreValue(
+        detection: ClassificationDetectionResult | None,
+        *,
+        default: float | None = None,
+    ) -> float | None:
+        if detection is None or detection.score is None:
+            return default
+        return float(detection.score)
+
     def getFeederDetectionAlgorithm(self) -> FeederDetectionAlgorithm:
-        return normalizeFeederDetectionAlgorithm(self._feeder_detection_algorithm)
+        return self._normalizeFeederDetectionAlgorithm(self._feeder_detection_algorithm)
 
     def getFeederOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._feeder_openrouter_model)
 
+    def supportsFeederSampleCollection(self) -> bool:
+        return self._camera_layout == "split_feeder"
+
     def isFeederSampleCollectionEnabled(self) -> bool:
-        return bool(self._feeder_sample_collection_enabled)
+        return self.supportsFeederSampleCollection() and bool(self._feeder_sample_collection_enabled)
 
     def getCarouselDetectionAlgorithm(self) -> CarouselDetectionAlgorithm:
-        return normalizeCarouselDetectionAlgorithm(self._carousel_detection_algorithm)
+        return self._normalizeCarouselDetectionAlgorithm(self._carousel_detection_algorithm)
 
     def getCarouselOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._carousel_openrouter_model)
@@ -335,7 +368,7 @@ class VisionManager:
     def setClassificationDetectionAlgorithm(self, algorithm: ClassificationDetectionAlgorithm) -> bool:
         if not scope_supports_detection_algorithm("classification", algorithm):
             raise ValueError(f"Unsupported classification detection algorithm '{algorithm}'")
-        normalized = normalizeClassificationDetectionAlgorithm(algorithm)
+        normalized = self._normalizeClassificationDetectionAlgorithm(algorithm)
         self._diff_config.algorithm = normalized
         self._classification_dynamic_detection_cache.clear()
         self._stopClassificationAnalysis()
@@ -354,7 +387,7 @@ class VisionManager:
     def setFeederDetectionAlgorithm(self, algorithm: FeederDetectionAlgorithm) -> None:
         if not scope_supports_detection_algorithm("feeder", algorithm):
             raise ValueError(f"Unsupported feeder detection algorithm '{algorithm}'")
-        self._feeder_detection_algorithm = normalizeFeederDetectionAlgorithm(algorithm)
+        self._feeder_detection_algorithm = self._normalizeFeederDetectionAlgorithm(algorithm)
         self._feeder_dynamic_detection_cache.clear()
 
     def setFeederOpenRouterModel(self, model: str) -> str:
@@ -366,13 +399,15 @@ class VisionManager:
         return normalized
 
     def setFeederSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._feeder_sample_collection_enabled = bool(enabled)
+        self._feeder_sample_collection_enabled = (
+            bool(enabled) if self.supportsFeederSampleCollection() else False
+        )
         return self._feeder_sample_collection_enabled
 
     def setCarouselDetectionAlgorithm(self, algorithm: CarouselDetectionAlgorithm) -> None:
         if not scope_supports_detection_algorithm("carousel", algorithm):
             raise ValueError(f"Unsupported carousel detection algorithm '{algorithm}'")
-        self._carousel_detection_algorithm = normalizeCarouselDetectionAlgorithm(algorithm)
+        self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(algorithm)
         self._carousel_dynamic_detection_cache = None
 
     def setCarouselOpenRouterModel(self, model: str) -> str:
@@ -947,7 +982,7 @@ class VisionManager:
                         self._encodeDebugCrop(frame.raw, candidate) for candidate in detection.bboxes
                     ],
                     "bbox_count": len(detection.bboxes),
-                    "score": float(detection.score),
+                    "score": self._detectionScoreValue(detection),
                     "message": f"{algorithm.replace('_', ' ')} found candidate pieces.",
                 }
             )
@@ -1273,7 +1308,7 @@ class VisionManager:
         if self.getCarouselDetectionAlgorithm() == "gemini_sam":
             detection = self._getCarouselDynamicDetection(force=False)
             bbox_count = len(detection.bboxes) if detection is not None else 0
-            score = float(detection.score) if detection is not None else 0.0
+            score = self._detectionScoreValue(detection, default=0.0) or 0.0
             return bool(detection is not None and detection.bbox is not None), score, bbox_count
         score, hot_px = self._carousel_heatmap.computeDiff()
         from vision.heatmap_diff import TRIGGER_SCORE
@@ -1551,7 +1586,7 @@ class VisionManager:
                     "bbox": list(detection.bbox) if detection.bbox is not None else None,
                     "candidate_bboxes": [list(candidate) for candidate in detection.bboxes],
                     "bbox_count": len(detection.bboxes),
-                    "score": float(detection.score),
+                    "score": self._detectionScoreValue(detection),
                     "message": (
                         "Cloud vision found candidate pieces."
                         if detection.bbox is not None
@@ -1660,7 +1695,7 @@ class VisionManager:
                     "bbox": list(detection.bbox) if detection.bbox is not None else None,
                     "candidate_bboxes": [list(candidate) for candidate in detection.bboxes],
                     "bbox_count": len(detection.bboxes),
-                    "score": float(detection.score),
+                    "score": self._detectionScoreValue(detection),
                     "message": (
                         "Cloud vision found a carousel piece."
                         if detection.bbox is not None

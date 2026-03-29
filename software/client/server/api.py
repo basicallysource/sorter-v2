@@ -3464,11 +3464,18 @@ def get_feeder_detection_config() -> Dict[str, Any]:
             sample_collection_enabled = bool(vision_manager.isFeederSampleCollectionEnabled())
         except Exception:
             pass
+    sample_collection_supported = True
+    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
+        try:
+            sample_collection_supported = bool(vision_manager.supportsFeederSampleCollection())
+        except Exception:
+            pass
     return {
         "ok": True,
         "algorithm": algorithm,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
+        "sample_collection_supported": sample_collection_supported,
         "available_algorithms": detection_algorithm_options("feeder"),
         "available_openrouter_models": _openrouter_model_options(),
     }
@@ -3496,17 +3503,29 @@ def save_feeder_detection_config(
             if hasattr(vision_manager, "setFeederOpenRouterModel"):
                 vision_manager.setFeederOpenRouterModel(openrouter_model)
             if hasattr(vision_manager, "setFeederSampleCollectionEnabled"):
-                vision_manager.setFeederSampleCollectionEnabled(sample_collection_enabled)
+                sample_collection_enabled = bool(
+                    vision_manager.setFeederSampleCollectionEnabled(sample_collection_enabled)
+                )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to apply feeder detection config: {exc}")
+    message = f"C-channel detection switched to {_detection_algorithm_label('feeder', algorithm)}."
+    sample_collection_supported = True
+    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
+        try:
+            sample_collection_supported = bool(vision_manager.supportsFeederSampleCollection())
+            if not sample_collection_supported:
+                message += " Periodic sample collection is only available with split feeder cameras."
+        except Exception:
+            pass
     return {
         "ok": True,
         "algorithm": algorithm,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
-        "message": f"C-channel detection switched to {_detection_algorithm_label('feeder', algorithm)}.",
+        "sample_collection_supported": sample_collection_supported,
+        "message": message,
     }
 
 

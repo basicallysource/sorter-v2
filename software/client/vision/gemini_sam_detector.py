@@ -1,20 +1,13 @@
-"""Gemini Vision API detector for classification chamber piece detection.
-
-Calls the Gemini API with a chamber frame to detect LEGO piece bounding boxes.
-Returns ClassificationDetectionResult compatible with the algorithm framework.
-"""
+"""OpenRouter-backed detector for chamber, feeder, and carousel piece detection."""
 
 from __future__ import annotations
 
 import base64
-import io
 import json
 import logging
 import os
 import re
 import time
-import urllib.error
-import urllib.request
 from typing import Any
 
 import cv2
@@ -24,7 +17,6 @@ from .classification_detection import ClassificationDetectionResult
 
 logger = logging.getLogger(__name__)
 
-GEMINI_GOOGLE_MODEL = "gemini-2.5-flash"
 DEFAULT_OPENROUTER_MODEL = "google/gemini-3-flash-preview"
 SUPPORTED_OPENROUTER_MODELS = (
     DEFAULT_OPENROUTER_MODEL,
@@ -73,54 +65,10 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(match.group())
 
 
-def _call_google_gemini(prompt: str, image_b64: str) -> dict[str, Any]:
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY is not set.")
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_GOOGLE_MODEL}:generateContent"
-        f"?key={api_key}"
-    )
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}},
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "responseMimeType": "application/json",
-        },
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=90) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def _extract_google_text(payload: dict[str, Any]) -> str:
-    candidates = payload.get("candidates", [])
-    if not candidates:
-        raise RuntimeError("Google Gemini response contained no candidates.")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text_parts = [part.get("text", "") for part in parts if isinstance(part.get("text"), str)]
-    text = "".join(text_parts).strip()
-    if not text:
-        raise RuntimeError("Google Gemini response did not contain text content.")
-    return text
-
-
 def _call_openrouter(prompt: str, image_b64: str, *, model: str) -> dict[str, Any]:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        raise RuntimeError("Neither GOOGLE_API_KEY nor OPENROUTER_API_KEY is set.")
+        raise RuntimeError("OPENROUTER_API_KEY is not set.")
     try:
         from openai import OpenAI
     except ImportError:
@@ -159,18 +107,15 @@ def _get_detections(
     sy = height / 1000.0
 
     raw_detections = payload.get("detections", [])
-    # Write debug log to file since Python logging may not be configured
-    try:
-        with open("/tmp/gemini_debug.log", "a") as f:
-            import datetime
-            f.write(
-                f"\n[{datetime.datetime.now()}] image={width}x{height} "
-                f"model={normalize_openrouter_model(openrouter_model)} dets={len(raw_detections)}\n"
-            )
-            for rd in raw_detections:
-                f.write(f"  raw bbox={rd.get('bbox')} desc={rd.get('description','?')}\n")
-    except Exception:
-        pass
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Gemini raw detections image=%sx%s model=%s count=%s bboxes=%s",
+            width,
+            height,
+            normalize_openrouter_model(openrouter_model),
+            len(raw_detections),
+            [det.get("bbox") for det in raw_detections if isinstance(det, dict)],
+        )
 
     result: list[dict[str, Any]] = []
     for det in raw_detections:
@@ -198,7 +143,7 @@ MIN_API_INTERVAL_S = 5.0  # minimum seconds between Gemini API calls
 
 
 class GeminiSamDetector:
-    """Detects LEGO pieces in classification chamber frames using Gemini Vision API."""
+    """Detects LEGO pieces in scoped frames using an OpenRouter vision model."""
 
     def __init__(self, openrouter_model: str = DEFAULT_OPENROUTER_MODEL) -> None:
         self._last_call_time: float = 0.0
@@ -232,7 +177,6 @@ class GeminiSamDetector:
         _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         image_b64 = base64.b64encode(buf).decode("utf-8")
 
-        self._last_call_time = now
         self._last_error = None
         start = time.time()
         try:
@@ -247,7 +191,9 @@ class GeminiSamDetector:
             logger.error(f"Gemini detection failed: {exc}")
             self._last_result = None
             return None
-        elapsed_ms = (time.time() - start) * 1000
+        finished_at = time.time()
+        self._last_call_time = finished_at
+        elapsed_ms = (finished_at - start) * 1000
         logger.info(f"Gemini detection: {len(detections)} pieces in {elapsed_ms:.0f}ms")
 
         if not detections:

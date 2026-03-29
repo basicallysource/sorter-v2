@@ -81,6 +81,7 @@
 	let availableOpenrouterModels = $state<OpenRouterModelOption[]>([]);
 	let savedSampleDetailUrl = $state<string | null>(null);
 	let sampleCollectionEnabled = $state(true);
+	let sampleCollectionSupported = $state(true);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -178,6 +179,12 @@
 					: typeof payload?.sample_collection_enabled === 'boolean'
 						? payload.sample_collection_enabled
 						: true;
+			sampleCollectionSupported =
+				scope === 'classification'
+					? false
+					: typeof payload?.sample_collection_supported === 'boolean'
+						? payload.sample_collection_supported
+						: true;
 			availableAlgorithms = Array.isArray(payload?.available_algorithms)
 				? payload.available_algorithms.filter(
 						(value: any): value is DetectionAlgorithmOption =>
@@ -235,6 +242,10 @@
 					typeof payload?.sample_collection_enabled === 'boolean'
 						? payload.sample_collection_enabled
 						: nextSampleCollection;
+				sampleCollectionSupported =
+					typeof payload?.sample_collection_supported === 'boolean'
+						? payload.sample_collection_supported
+						: sampleCollectionSupported;
 			}
 			applyDebugResult(null);
 			captureResult = null;
@@ -362,6 +373,13 @@
 		return scope !== 'classification';
 	}
 
+	function sampleCollectionDescription(): string {
+		if (!sampleCollectionSupported) {
+			return 'Periodic sample collection for C-channels requires split feeder cameras.';
+		}
+		return 'Archive positive detections from this live view at most once per second for later filtering and retesting.';
+	}
+
 	function canCaptureBaseline(): boolean {
 		return !!baselineCapturePath() && !!selectedAlgorithmOption()?.needs_baseline;
 	}
@@ -478,7 +496,13 @@
 							type="checkbox"
 							checked={sampleCollectionEnabled}
 							onchange={(event) => void saveSampleCollection(event.currentTarget.checked)}
-							disabled={loadingConfig || savingConfig || capturing || testing}
+							disabled={
+								loadingConfig ||
+								savingConfig ||
+								capturing ||
+								testing ||
+								!sampleCollectionSupported
+							}
 							class="mt-0.5 h-4 w-4 accent-sky-500"
 						/>
 						<span class="min-w-0">
@@ -486,7 +510,7 @@
 								Collect Positive Samples
 							</span>
 							<span class="dark:text-text-muted-dark mt-0.5 block text-[11px] text-text-muted">
-								Archive positive detections from this live view at most once per second for later filtering and retesting.
+								{sampleCollectionDescription()}
 							</span>
 						</span>
 					</label>

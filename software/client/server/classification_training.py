@@ -422,7 +422,11 @@ class ClassificationTrainingManager:
             "bbox": list(bbox) if bbox is not None else None,
             "candidate_bboxes": [list(candidate) for candidate in bboxes],
             "bbox_count": len(bboxes),
-            "score": float(detection.score) if detection is not None else None,
+            "score": (
+                float(detection.score)
+                if detection is not None and detection.score is not None
+                else None
+            ),
             "error": last_error if isinstance(last_error, str) and last_error else None,
             "result_json": str(result_path),
             "overlay_image": str(overlay_path),

@@ -221,7 +221,8 @@
 		nextAlgorithm = algorithm,
 		nextModel = openrouterModel,
 		nextSampleCollection = sampleCollectionEnabled,
-		fallbackMessage = 'Detection settings updated.'
+		fallbackMessage = 'Detection settings updated.',
+		preferFallbackMessage = false
 	) {
 		savingConfig = true;
 		errorMsg = null;
@@ -249,7 +250,17 @@
 			}
 			applyDebugResult(null);
 			captureResult = null;
-			statusMsg = payload?.message ?? fallbackMessage;
+			const backendMessage =
+				typeof payload?.message === 'string' && payload.message ? payload.message : null;
+			const sampleCollectionSupportNote =
+				backendMessage?.includes(
+					'Periodic sample collection is only available with split feeder cameras.'
+				)
+					? 'Periodic sample collection is only available with split feeder cameras.'
+					: null;
+			statusMsg = preferFallbackMessage
+				? `${fallbackMessage}${sampleCollectionSupportNote ? ` ${sampleCollectionSupportNote}` : ''}`
+				: (backendMessage ?? fallbackMessage);
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to update detection settings.';
 		} finally {
@@ -264,7 +275,13 @@
 
 	async function saveOpenRouterModel(value: string) {
 		if (!availableOpenrouterModels.some((option) => option.id === value)) return;
-		await persistConfig(algorithm, value, sampleCollectionEnabled, 'OpenRouter model updated.');
+		await persistConfig(
+			algorithm,
+			value,
+			sampleCollectionEnabled,
+			'OpenRouter model updated.',
+			true
+		);
 	}
 
 	async function saveSampleCollection(value: boolean) {
@@ -274,7 +291,8 @@
 			value,
 			value
 				? 'Periodic positive-sample collection enabled.'
-				: 'Periodic positive-sample collection disabled.'
+				: 'Periodic positive-sample collection disabled.',
+			true
 		);
 	}
 

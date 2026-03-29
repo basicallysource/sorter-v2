@@ -146,6 +146,15 @@ def _supported_openrouter_models() -> tuple[str, ...]:
     return SUPPORTED_OPENROUTER_MODELS
 
 
+def _feeder_sample_collection_supported() -> bool:
+    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
+        try:
+            return bool(vision_manager.supportsFeederSampleCollection())
+        except Exception:
+            return True
+    return True
+
+
 def _openrouter_model_label(model: str) -> str:
     if model == "google/gemini-3-flash-preview":
         return "Gemini 3 Flash Preview"
@@ -3464,12 +3473,7 @@ def get_feeder_detection_config() -> Dict[str, Any]:
             sample_collection_enabled = bool(vision_manager.isFeederSampleCollectionEnabled())
         except Exception:
             pass
-    sample_collection_supported = True
-    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
-        try:
-            sample_collection_supported = bool(vision_manager.supportsFeederSampleCollection())
-        except Exception:
-            pass
+    sample_collection_supported = _feeder_sample_collection_supported()
     return {
         "ok": True,
         "algorithm": algorithm,
@@ -3511,14 +3515,9 @@ def save_feeder_detection_config(
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to apply feeder detection config: {exc}")
     message = f"C-channel detection switched to {_detection_algorithm_label('feeder', algorithm)}."
-    sample_collection_supported = True
-    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
-        try:
-            sample_collection_supported = bool(vision_manager.supportsFeederSampleCollection())
-            if not sample_collection_supported:
-                message += " Periodic sample collection is only available with split feeder cameras."
-        except Exception:
-            pass
+    sample_collection_supported = _feeder_sample_collection_supported()
+    if not sample_collection_supported:
+        message += " Periodic sample collection is only available with split feeder cameras."
     return {
         "ok": True,
         "algorithm": algorithm,

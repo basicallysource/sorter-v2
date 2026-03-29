@@ -98,7 +98,7 @@ def _get_detections(
     *,
     openrouter_model: str,
 ) -> list[dict[str, Any]]:
-    """Call Gemini API and return parsed detections with pixel-coordinate bboxes."""
+    """Call the configured OpenRouter vision model and parse pixel-coordinate bboxes."""
     prompt = _gemini_prompt(width, height)
 
     payload = _call_openrouter(prompt, image_b64, model=openrouter_model)

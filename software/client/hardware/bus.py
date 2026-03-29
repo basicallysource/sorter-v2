@@ -137,8 +137,12 @@ class MCUBus:
             self._serial.write(encoded_message)
             # Read response, will block until data received or timeout occurs
             resp_buf = bytearray(self._serial.read_until(b"\x00", 254))
-            if not resp_buf or resp_buf[-1] != 0:
-                raise MCUBusError("Truncated response received")
+            if not resp_buf:
+                raise MCUBusError("Timeout waiting for response terminator (0x00)")
+            if resp_buf[-1] != 0:
+                if len(resp_buf) >= 254:
+                    raise MCUBusError("Response exceeded max frame size before terminator")
+                raise MCUBusError(f"Partial response (missing terminator), got {len(resp_buf)} bytes")
 
         logging.debug(f"Received: {resp_buf.hex(b' ', 1)}")
 

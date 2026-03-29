@@ -70,6 +70,8 @@ class HanddrawnRegionProvider:
         self._polygons = polygons
         self._channel_angles = saved.get("channel_angles", {})
         self._arc_params = saved.get("arc_params", {})
+        res = saved.get("resolution", [1920, 1080])
+        self._saved_resolution = (int(res[0]), int(res[1]))
 
     def _channelMask(
         self,
@@ -276,7 +278,7 @@ class HanddrawnRegionProvider:
             cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-        # draw carousel polygon
+        # draw carousel polygon (only in unified feeder mode)
         carousel_pts = self._polygons.get("carousel")
         if carousel_pts and len(carousel_pts) >= 3:
             pts = np.array(carousel_pts, dtype=np.int32)
@@ -288,5 +290,136 @@ class HanddrawnRegionProvider:
                 annotated, "Carousel", (cx - 30, cy + 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2,
             )
+
+        return annotated
+
+    def _scaleForFrame(self, frame: np.ndarray):
+        """Compute scale factors from saved polygon resolution to actual frame size."""
+        h, w = frame.shape[:2]
+        src_w, src_h = self._saved_resolution
+        return w / src_w, h / src_h
+
+    def _scaledChannelMask(self, h, w, poly_key, pts_list, sx, sy):
+        """Like _channelMask but scales coordinates from saved resolution to frame size."""
+        channel_key = "second" if poly_key == "second_channel" else "third"
+        arc = parseSavedChannelArcZones(channel_key, self._channel_angles, self._arc_params)
+        if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+            cx = arc.center[0] * sx
+            cy = arc.center[1] * sy
+            r_scale = (sx + sy) / 2.0
+            outer_r = arc.outer_radius * r_scale
+            inner_r = arc.inner_radius * r_scale
+            segment_count = 96
+            outer = np.array([
+                [int(round(cx + outer_r * np.cos((2 * np.pi * i) / segment_count))),
+                 int(round(cy + outer_r * np.sin((2 * np.pi * i) / segment_count)))]
+                for i in range(segment_count)
+            ], dtype=np.int32)
+            inner = np.array([
+                [int(round(cx + inner_r * np.cos((2 * np.pi * i) / segment_count))),
+                 int(round(cy + inner_r * np.sin((2 * np.pi * i) / segment_count)))]
+                for i in range(segment_count)
+            ], dtype=np.int32)
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(mask, [outer], 255)
+            cv2.fillPoly(mask, [inner], 0)
+            return mask, outer, inner, (cx, cy), outer_r
+
+        pts = np.array(pts_list, dtype=np.float64)
+        pts[:, 0] *= sx
+        pts[:, 1] *= sy
+        pts = pts.astype(np.int32)
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(mask, [pts], 255)
+        center = (float(np.mean(pts[:, 0])), float(np.mean(pts[:, 1])))
+        radius = float(np.max(np.linalg.norm(pts - np.array(center), axis=1)))
+        return mask, pts, None, center, radius
+
+    def annotateFrameForChannel(self, frame: np.ndarray, poly_key: str) -> np.ndarray:
+        """Annotate a frame with zone overlays for a single channel.
+
+        poly_key: 'second_channel', 'third_channel', or 'carousel'
+        """
+        sx, sy = self._scaleForFrame(frame)
+
+        if poly_key == "carousel":
+            annotated = frame.copy()
+            carousel_pts = self._polygons.get("carousel")
+            if carousel_pts and len(carousel_pts) >= 3:
+                pts = np.array(carousel_pts, dtype=np.float64)
+                pts[:, 0] *= sx
+                pts[:, 1] *= sy
+                pts = pts.astype(np.int32)
+                color = CHANNEL_COLORS[RegionName.CAROUSEL_PLATFORM]
+                cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
+            return annotated
+
+        region_name = RegionName.CHANNEL_2 if poly_key == "second_channel" else RegionName.CHANNEL_3
+        label = "Ch2" if poly_key == "second_channel" else "Ch3"
+        angle_key = "second" if poly_key == "second_channel" else "third"
+        channel_id = 2 if poly_key == "second_channel" else 3
+
+        pts_list = self._polygons.get(poly_key)
+        if not pts_list or len(pts_list) < 3:
+            return frame.copy()
+
+        annotated = frame.copy()
+        dz_sections, ex_sections = zoneSectionsForChannel(
+            channel_id,
+            float(self._channel_angles.get(angle_key, 0.0)),
+            parseSavedChannelArcZones(angle_key, self._channel_angles, self._arc_params),
+        )
+        ch_mask, pts, inner_pts, center, disp_r = self._scaledChannelMask(
+            annotated.shape[0], annotated.shape[1], poly_key, pts_list, sx, sy,
+        )
+        color = CHANNEL_COLORS[region_name]
+        cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
+        if inner_pts is not None and len(inner_pts) >= 3:
+            cv2.polylines(annotated, [inner_pts], isClosed=True, color=color, thickness=2)
+
+        cx, cy = int(center[0]), int(center[1])
+        disp_r = int(disp_r)
+        r1_angle = self._channel_angles.get(angle_key, 0.0)
+
+        overlay = annotated.copy()
+        for q in range(CHANNEL_SECTION_COUNT):
+            if q in ex_sections:
+                fill = (0, 80, 255)
+            elif q in dz_sections:
+                fill = (0, 200, 80)
+            else:
+                continue
+            arc_pts = [(cx, cy)]
+            for a in np.linspace(
+                r1_angle + q * CHANNEL_SECTION_DEG,
+                r1_angle + (q + 1) * CHANNEL_SECTION_DEG,
+                8,
+            ):
+                arc_pts.append((
+                    int(cx + disp_r * np.cos(np.radians(a))),
+                    int(cy + disp_r * np.sin(np.radians(a))),
+                ))
+            cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
+        overlay[ch_mask == 0] = annotated[ch_mask == 0]
+        annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
+
+        dim_color = tuple(int(c * 0.7) for c in color)
+        for q in range(CHANNEL_SECTION_COUNT):
+            angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG)
+            ex = int(cx + disp_r * np.cos(angle_rad))
+            ey = int(cy + disp_r * np.sin(angle_rad))
+            cv2.line(annotated, (cx, cy), (ex, ey), dim_color, 1)
+
+        for q in range(CHANNEL_SECTION_COUNT):
+            angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG + CHANNEL_SECTION_DEG / 2.0)
+            lx = int(cx + disp_r * 0.7 * np.cos(angle_rad))
+            ly = int(cy + disp_r * 0.7 * np.sin(angle_rad))
+            cv2.putText(annotated, str(q), (lx - 6, ly + 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 0), 2)
+            cv2.putText(annotated, str(q), (lx - 6, ly + 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
+
+        cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         return annotated

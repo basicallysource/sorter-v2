@@ -1,10 +1,11 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any, Callable
 import asyncio
 import json
+import os
 import queue
 import time
 import threading
@@ -29,7 +30,20 @@ from defs.events import (
     ResumeCommandData,
 )
 from bricklink.api import getPartInfo
-from blob_manager import getMachineId, getMachineNickname, setMachineNickname
+from blob_manager import (
+    BLOB_DIR,
+    getApiKeys,
+    getCarouselDetectionConfig,
+    getClassificationDetectionConfig,
+    getFeederDetectionConfig,
+    getMachineId,
+    getMachineNickname,
+    setApiKeys,
+    setCarouselDetectionConfig,
+    setClassificationDetectionConfig,
+    setFeederDetectionConfig,
+    setMachineNickname,
+)
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
 from irl.bin_layout import getBinLayout
@@ -50,8 +64,19 @@ from irl.parse_user_toml import (
     DEFAULT_SERVO_OPEN_ANGLE,
 )
 from hardware.macos_camera_registry import refresh_macos_cameras
-from server.camera_calibration import analyze_calibration_target, generate_color_profile_from_analysis
+from server.camera_calibration import (
+    analyze_calibration_target,
+    analyze_color_plate_target,
+    generate_color_profile_from_analysis,
+)
+from server.classification_training import getClassificationTrainingManager
 from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
+from vision.detection_registry import (
+    detection_algorithm_definition,
+    detection_algorithm_options,
+    normalize_detection_algorithm,
+    scope_supports_detection_algorithm,
+)
 
 app = FastAPI(title="Sorter API", version="0.0.1")
 app.add_middleware(
@@ -60,6 +85,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Load persisted API keys into environment at import time (overrides env vars)
+_saved_api_keys = getApiKeys()
+if _saved_api_keys.get("google"):
+    os.environ["GOOGLE_API_KEY"] = _saved_api_keys["google"]
+if _saved_api_keys.get("openrouter"):
+    os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 
 active_connections: List[WebSocket] = []
 server_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -73,6 +105,79 @@ pulse_locks: Dict[str, threading.Lock] = {}
 camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
 camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
 camera_calibration_tasks_lock = threading.Lock()
+CLASSIFICATION_BASELINE_SAMPLES = 12
+CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S = 4.0
+CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S = 0.1
+
+
+def _normalize_classification_detection_algorithm(value: str | None) -> str:
+    return normalize_detection_algorithm("classification", value)
+
+
+def _normalize_feeder_detection_algorithm(value: str | None) -> str:
+    return normalize_detection_algorithm("feeder", value)
+
+
+def _normalize_carousel_detection_algorithm(value: str | None) -> str:
+    return normalize_detection_algorithm("carousel", value)
+
+
+def _detection_algorithm_label(scope: str, algorithm: str | None) -> str:
+    definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
+    if definition is None:
+        return (algorithm or "detection").replace("_", " ")
+    return definition.label
+
+
+def _detection_algorithm_uses_baseline(scope: str, algorithm: str | None) -> bool:
+    definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
+    return bool(definition is not None and definition.needs_baseline)
+
+
+def _normalize_openrouter_model(value: str | None) -> str:
+    from vision.gemini_sam_detector import normalize_openrouter_model
+
+    return normalize_openrouter_model(value)
+
+
+def _supported_openrouter_models() -> tuple[str, ...]:
+    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
+
+    return SUPPORTED_OPENROUTER_MODELS
+
+
+def _openrouter_model_label(model: str) -> str:
+    if model == "google/gemini-3-flash-preview":
+        return "Gemini 3 Flash Preview"
+    if model == "google/gemini-3.1-flash-lite-preview":
+        return "Gemini 3.1 Flash-Lite Preview"
+    if model == "google/gemini-3.1-pro-preview":
+        return "Gemini 3.1 Pro Preview"
+    if model == "reka/reka-edge":
+        return "Reka Edge"
+    if model == "anthropic/claude-sonnet-4.6":
+        return "Claude Sonnet 4.6"
+    if model == "xiaomi/mimo-v2-omni":
+        return "MiMo-V2-Omni"
+    if model == "moonshotai/kimi-k2.5":
+        return "Kimi K2.5"
+    if model == "openai/gpt-5.4":
+        return "GPT-5.4"
+    if model == "openai/gpt-5.4-nano":
+        return "GPT-5.4 Nano"
+    if model == "qwen/qwen3.5-flash-02-23":
+        return "Qwen3.5-Flash"
+    return model
+
+
+def _openrouter_model_options() -> list[dict[str, str]]:
+    return [
+        {
+            "id": model,
+            "label": _openrouter_model_label(model),
+        }
+        for model in _supported_openrouter_models()
+    ]
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -113,6 +218,7 @@ def setArucoManager(mgr: ArucoConfigManager) -> None:
 def setVisionManager(mgr: Any) -> None:
     global vision_manager
     vision_manager = mgr
+    getClassificationTrainingManager().setVisionManager(mgr)
     auto_calibrate()
 
 
@@ -400,8 +506,14 @@ class ServoLayerPreviewPayload(BaseModel):
     is_open: bool = False
 
 
+class StorageLayerPayload(BaseModel):
+    bin_count: int
+    enabled: bool = True
+
+
 class StorageLayerSettingsPayload(BaseModel):
     layer_bin_counts: List[int] = []
+    layers: List[StorageLayerPayload] = []
 
 
 ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
@@ -1036,17 +1148,33 @@ def save_storage_layer_hardware_config(
 ) -> Dict[str, Any]:
     layout_path, layout = _read_bin_layout_config()
     current = _storage_layer_settings_from_layout(layout)
-    layer_bin_counts = [int(count) for count in payload.layer_bin_counts]
+    requested_layers = list(payload.layers)
+    if requested_layers:
+        layer_updates = [
+            {"bin_count": int(layer.bin_count), "enabled": bool(layer.enabled)}
+            for layer in requested_layers
+        ]
+    else:
+        layer_updates = [
+            {
+                "bin_count": int(count),
+                "enabled": bool(layer.get("enabled", True)),
+            }
+            for count, layer in zip(payload.layer_bin_counts, current["layers"])
+        ]
 
-    if len(layer_bin_counts) != len(current["layers"]):
+    if len(layer_updates) != len(current["layers"]):
         raise HTTPException(
             status_code=400,
-            detail=f"Expected {len(current['layers'])} layer bin counts, got {len(layer_bin_counts)}.",
+            detail=f"Expected {len(current['layers'])} storage layers, got {len(layer_updates)}.",
         )
 
     updated_layers: List[Dict[str, Any]] = []
-    changed = False
-    for count, layer in zip(layer_bin_counts, current["layers"]):
+    layout_changed = False
+    enabled_changed = False
+    for layer_update, layer in zip(layer_updates, current["layers"]):
+        count = int(layer_update["bin_count"])
+        enabled = bool(layer_update["enabled"])
         if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
             raise HTTPException(
                 status_code=400,
@@ -1068,11 +1196,13 @@ def save_storage_layer_hardware_config(
                 "section_count": section_count,
                 "bin_size": layer["bin_size"],
                 "bins_per_section": count // section_count,
+                "enabled": enabled,
             }
         )
-        changed = changed or count != int(layer["bin_count"])
+        layout_changed = layout_changed or count != int(layer["bin_count"])
+        enabled_changed = enabled_changed or enabled != bool(layer.get("enabled", True))
 
-    if not changed:
+    if not layout_changed and not enabled_changed:
         return {
             "ok": True,
             "settings": current,
@@ -1087,12 +1217,26 @@ def save_storage_layer_hardware_config(
         raise HTTPException(status_code=500, detail=f"Failed to write bin layout: {e}")
 
     _, saved_layout = _read_bin_layout_config()
+    saved_settings = _storage_layer_settings_from_layout(saved_layout)
+    applied_live = False
+    restart_required = layout_changed
+    if enabled_changed and not layout_changed:
+        applied_live = _apply_live_storage_layer_enabled(saved_settings["layers"])
+
     return {
         "ok": True,
-        "settings": _storage_layer_settings_from_layout(saved_layout),
-        "applied_live": False,
-        "restart_required": True,
-        "message": "Storage layer layout saved. Restart backend to apply layer changes.",
+        "settings": saved_settings,
+        "applied_live": applied_live,
+        "restart_required": restart_required,
+        "message": (
+            "Storage layer status saved and applied live."
+            if applied_live
+            else (
+                "Storage layer status saved."
+                if enabled_changed and not layout_changed
+                else "Storage layer layout saved. Restart backend to apply layer changes."
+            )
+        ),
     }
 
 
@@ -1902,6 +2046,7 @@ def _write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
     payload = {
         "layers": [
             {
+                "enabled": bool(layer.get("enabled", True)),
                 "sections": [
                     [layer["bin_size"]] * layer["bins_per_section"]
                     for _ in range(layer["section_count"])
@@ -2270,7 +2415,7 @@ def _analyze_candidate_settings(
     )
     if frame is None:
         return applied_settings, None
-    analysis = analyze_calibration_target(frame)
+    analysis = analyze_color_plate_target(frame)
     return applied_settings, analysis.to_dict() if analysis is not None else None
 
 
@@ -2401,6 +2546,7 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         sections = getattr(layer, "sections", [])
         bin_count = sum(len(section) for section in sections)
         section_count = len(sections) or DEFAULT_STORAGE_LAYER_SECTION_COUNT
+        enabled = bool(getattr(layer, "enabled", True))
 
         bin_size = "medium"
         for section in sections:
@@ -2417,6 +2563,7 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
                 "bin_count": bin_count,
                 "section_count": section_count,
                 "bin_size": bin_size,
+                "enabled": enabled,
             }
         )
 
@@ -2424,6 +2571,21 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
         "layers": layers,
     }
+
+
+def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
+    if controller_ref is None or not hasattr(controller_ref, "irl"):
+        return False
+
+    distribution_layout = getattr(controller_ref.irl, "distribution_layout", None)
+    runtime_layers = list(getattr(distribution_layout, "layers", [])) if distribution_layout is not None else []
+    if len(runtime_layers) != len(layers):
+        return False
+
+    # Config order is mirrored into runtime order during mkLayoutFromConfig.
+    for runtime_layer, layer in zip(runtime_layers, reversed(layers)):
+        setattr(runtime_layer, "enabled", bool(layer.get("enabled", True)))
+    return True
 
 
 def _live_chute_status() -> Dict[str, Any]:
@@ -2983,6 +3145,39 @@ class CameraPictureSettingsPayload(BaseModel):
     flip_vertical: bool = False
 
 
+class ClassificationDetectionConfigPayload(BaseModel):
+    algorithm: str
+    openrouter_model: Optional[str] = None
+
+
+class AuxiliaryDetectionConfigPayload(BaseModel):
+    algorithm: str
+    openrouter_model: Optional[str] = None
+    sample_collection_enabled: Optional[bool] = None
+
+
+class ClassificationSampleRetestPayload(BaseModel):
+    openrouter_model: Optional[str] = None
+
+
+def _normalize_bbox(
+    bbox: list[int] | tuple[int, int, int, int] | None,
+    frame_resolution: list[int] | tuple[int, int] | None,
+) -> list[float] | None:
+    if bbox is None or frame_resolution is None or len(frame_resolution) != 2:
+        return None
+    frame_w = int(frame_resolution[0])
+    frame_h = int(frame_resolution[1])
+    if frame_w <= 0 or frame_h <= 0:
+        return None
+    return [
+        max(0.0, min(1.0, float(bbox[0]) / float(frame_w))),
+        max(0.0, min(1.0, float(bbox[1]) / float(frame_h))),
+        max(0.0, min(1.0, float(bbox[2]) / float(frame_w))),
+        max(0.0, min(1.0, float(bbox[3]) / float(frame_h))),
+    ]
+
+
 @app.post("/api/cameras/assign")
 def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     """Save camera role assignments to the machine TOML config."""
@@ -3075,6 +3270,661 @@ def save_camera_picture_settings(
         "applied_live": applied_live,
         "message": "Feed orientation saved.",
     }
+
+
+SUPPORTED_API_KEY_PROVIDERS = ("google", "openrouter")
+
+
+@app.get("/api/settings/api-keys")
+def get_api_keys() -> Dict[str, Any]:
+    saved = getApiKeys()
+    masked: Dict[str, str | None] = {}
+    for provider in SUPPORTED_API_KEY_PROVIDERS:
+        key = saved.get(provider) or os.environ.get(
+            "GOOGLE_API_KEY" if provider == "google" else "OPENROUTER_API_KEY", ""
+        )
+        if key:
+            masked[provider] = key[:8] + "..." + key[-4:] if len(key) > 12 else "***"
+        else:
+            masked[provider] = None
+    return {"ok": True, "keys": masked}
+
+
+class ApiKeySavePayload(BaseModel):
+    provider: str
+    key: str
+
+
+@app.post("/api/settings/api-keys")
+def save_api_key(payload: ApiKeySavePayload) -> Dict[str, Any]:
+    if payload.provider not in SUPPORTED_API_KEY_PROVIDERS:
+        raise HTTPException(400, f"Unsupported provider '{payload.provider}'.")
+    saved = getApiKeys()
+    saved[payload.provider] = payload.key.strip()
+    setApiKeys(saved)
+    env_var = "GOOGLE_API_KEY" if payload.provider == "google" else "OPENROUTER_API_KEY"
+    os.environ[env_var] = payload.key.strip()
+    return {"ok": True, "message": f"API key for {payload.provider} saved and activated."}
+
+
+@app.get("/api/classification/detection-config")
+def get_classification_detection_config() -> Dict[str, Any]:
+    saved = getClassificationDetectionConfig()
+    algorithm = _normalize_classification_detection_algorithm(
+        saved.get("algorithm") if isinstance(saved, dict) else None
+    )
+    openrouter_model = _normalize_openrouter_model(
+        saved.get("openrouter_model") if isinstance(saved, dict) else None
+    )
+    if vision_manager is not None and hasattr(vision_manager, "getClassificationDetectionAlgorithm"):
+        try:
+            algorithm = _normalize_classification_detection_algorithm(
+                vision_manager.getClassificationDetectionAlgorithm()
+            )
+        except Exception:
+            pass
+    if vision_manager is not None and hasattr(vision_manager, "getClassificationOpenRouterModel"):
+        try:
+            openrouter_model = _normalize_openrouter_model(
+                vision_manager.getClassificationOpenRouterModel()
+            )
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "available_algorithms": detection_algorithm_options("classification"),
+        "available_openrouter_models": _openrouter_model_options(),
+    }
+
+
+@app.post("/api/classification/detection-config")
+def save_classification_detection_config(
+    payload: ClassificationDetectionConfigPayload,
+) -> Dict[str, Any]:
+    if not scope_supports_detection_algorithm("classification", payload.algorithm):
+        raise HTTPException(status_code=400, detail="Unsupported classification detection algorithm.")
+    algorithm = _normalize_classification_detection_algorithm(payload.algorithm)
+    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
+    setClassificationDetectionConfig(
+        {
+            "algorithm": algorithm,
+            "openrouter_model": openrouter_model,
+        }
+    )
+    baseline_loaded = False
+    if vision_manager is not None and hasattr(vision_manager, "setClassificationDetectionAlgorithm"):
+        try:
+            baseline_loaded = bool(vision_manager.setClassificationDetectionAlgorithm(algorithm))
+            if hasattr(vision_manager, "setClassificationOpenRouterModel"):
+                vision_manager.setClassificationOpenRouterModel(openrouter_model)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to apply classification detection config: {exc}")
+
+    algorithm_label = _detection_algorithm_label("classification", algorithm)
+    uses_baseline = _detection_algorithm_uses_baseline("classification", algorithm)
+    message = (
+        f"Classification chamber detection switched to {algorithm_label}."
+        if uses_baseline and baseline_loaded
+        else (
+            f"Classification chamber detection switched to {algorithm_label}. Capture an empty baseline if detection stays unavailable."
+            if uses_baseline
+            else f"Classification chamber detection switched to {algorithm_label}."
+        )
+    )
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "baseline_loaded": baseline_loaded,
+        "uses_baseline": uses_baseline,
+        "message": message,
+    }
+
+
+@app.get("/api/feeder/detection-config")
+def get_feeder_detection_config() -> Dict[str, Any]:
+    saved = getFeederDetectionConfig()
+    algorithm = _normalize_feeder_detection_algorithm(
+        saved.get("algorithm") if isinstance(saved, dict) else None
+    )
+    openrouter_model = _normalize_openrouter_model(
+        saved.get("openrouter_model") if isinstance(saved, dict) else None
+    )
+    sample_collection_enabled = (
+        True
+        if not isinstance(saved, dict) or saved.get("sample_collection_enabled") is None
+        else bool(saved.get("sample_collection_enabled"))
+    )
+    if vision_manager is not None and hasattr(vision_manager, "getFeederDetectionAlgorithm"):
+        try:
+            algorithm = _normalize_feeder_detection_algorithm(vision_manager.getFeederDetectionAlgorithm())
+        except Exception:
+            pass
+    if vision_manager is not None and hasattr(vision_manager, "getFeederOpenRouterModel"):
+        try:
+            openrouter_model = _normalize_openrouter_model(vision_manager.getFeederOpenRouterModel())
+        except Exception:
+            pass
+    if vision_manager is not None and hasattr(vision_manager, "isFeederSampleCollectionEnabled"):
+        try:
+            sample_collection_enabled = bool(vision_manager.isFeederSampleCollectionEnabled())
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "sample_collection_enabled": sample_collection_enabled,
+        "available_algorithms": detection_algorithm_options("feeder"),
+        "available_openrouter_models": _openrouter_model_options(),
+    }
+
+
+@app.post("/api/feeder/detection-config")
+def save_feeder_detection_config(
+    payload: AuxiliaryDetectionConfigPayload,
+) -> Dict[str, Any]:
+    if not scope_supports_detection_algorithm("feeder", payload.algorithm):
+        raise HTTPException(status_code=400, detail="Unsupported feeder detection algorithm.")
+    algorithm = _normalize_feeder_detection_algorithm(payload.algorithm)
+    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
+    sample_collection_enabled = True if payload.sample_collection_enabled is None else bool(payload.sample_collection_enabled)
+    setFeederDetectionConfig(
+        {
+            "algorithm": algorithm,
+            "openrouter_model": openrouter_model,
+            "sample_collection_enabled": sample_collection_enabled,
+        }
+    )
+    if vision_manager is not None and hasattr(vision_manager, "setFeederDetectionAlgorithm"):
+        try:
+            vision_manager.setFeederDetectionAlgorithm(algorithm)
+            if hasattr(vision_manager, "setFeederOpenRouterModel"):
+                vision_manager.setFeederOpenRouterModel(openrouter_model)
+            if hasattr(vision_manager, "setFeederSampleCollectionEnabled"):
+                vision_manager.setFeederSampleCollectionEnabled(sample_collection_enabled)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to apply feeder detection config: {exc}")
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "sample_collection_enabled": sample_collection_enabled,
+        "message": f"C-channel detection switched to {_detection_algorithm_label('feeder', algorithm)}.",
+    }
+
+
+@app.get("/api/carousel/detection-config")
+def get_carousel_detection_config() -> Dict[str, Any]:
+    saved = getCarouselDetectionConfig()
+    algorithm = _normalize_carousel_detection_algorithm(
+        saved.get("algorithm") if isinstance(saved, dict) else None
+    )
+    openrouter_model = _normalize_openrouter_model(
+        saved.get("openrouter_model") if isinstance(saved, dict) else None
+    )
+    sample_collection_enabled = (
+        True
+        if not isinstance(saved, dict) or saved.get("sample_collection_enabled") is None
+        else bool(saved.get("sample_collection_enabled"))
+    )
+    if vision_manager is not None and hasattr(vision_manager, "getCarouselDetectionAlgorithm"):
+        try:
+            algorithm = _normalize_carousel_detection_algorithm(vision_manager.getCarouselDetectionAlgorithm())
+        except Exception:
+            pass
+    if vision_manager is not None and hasattr(vision_manager, "getCarouselOpenRouterModel"):
+        try:
+            openrouter_model = _normalize_openrouter_model(vision_manager.getCarouselOpenRouterModel())
+        except Exception:
+            pass
+    if vision_manager is not None and hasattr(vision_manager, "isCarouselSampleCollectionEnabled"):
+        try:
+            sample_collection_enabled = bool(vision_manager.isCarouselSampleCollectionEnabled())
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "sample_collection_enabled": sample_collection_enabled,
+        "available_algorithms": detection_algorithm_options("carousel"),
+        "available_openrouter_models": _openrouter_model_options(),
+    }
+
+
+@app.post("/api/carousel/detection-config")
+def save_carousel_detection_config(
+    payload: AuxiliaryDetectionConfigPayload,
+) -> Dict[str, Any]:
+    if not scope_supports_detection_algorithm("carousel", payload.algorithm):
+        raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
+    algorithm = _normalize_carousel_detection_algorithm(payload.algorithm)
+    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
+    sample_collection_enabled = True if payload.sample_collection_enabled is None else bool(payload.sample_collection_enabled)
+    setCarouselDetectionConfig(
+        {
+            "algorithm": algorithm,
+            "openrouter_model": openrouter_model,
+            "sample_collection_enabled": sample_collection_enabled,
+        }
+    )
+    if vision_manager is not None and hasattr(vision_manager, "setCarouselDetectionAlgorithm"):
+        try:
+            vision_manager.setCarouselDetectionAlgorithm(algorithm)
+            if hasattr(vision_manager, "setCarouselOpenRouterModel"):
+                vision_manager.setCarouselOpenRouterModel(openrouter_model)
+            if hasattr(vision_manager, "setCarouselSampleCollectionEnabled"):
+                vision_manager.setCarouselSampleCollectionEnabled(sample_collection_enabled)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to apply carousel detection config: {exc}")
+    algorithm_label = _detection_algorithm_label("carousel", algorithm)
+    uses_baseline = _detection_algorithm_uses_baseline("carousel", algorithm)
+    return {
+        "ok": True,
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "sample_collection_enabled": sample_collection_enabled,
+        "uses_baseline": uses_baseline,
+        "message": (
+            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable."
+            if uses_baseline
+            else f"Carousel detection switched to {algorithm_label}."
+        ),
+    }
+
+
+@app.post("/api/carousel/detection/baseline/capture")
+def capture_carousel_detection_baseline() -> Dict[str, Any]:
+    if vision_manager is None:
+        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
+    ok = bool(vision_manager.captureCarouselBaseline())
+    if not ok:
+        raise HTTPException(
+            status_code=409,
+            detail="Could not capture a carousel baseline. Check the live carousel frame and saved zone first.",
+        )
+    resolution = None
+    capture = vision_manager.getCaptureThreadForRole("carousel") if hasattr(vision_manager, "getCaptureThreadForRole") else None
+    frame = capture.latest_frame if capture is not None else None
+    if frame is not None:
+        resolution = [int(frame.raw.shape[1]), int(frame.raw.shape[0])]
+    return {
+        "ok": True,
+        "message": "Carousel baseline captured from the current live frame.",
+        "cameras": {
+            "carousel": {
+                "available": True,
+                "captured_frames": 1,
+                "resolution": resolution,
+            }
+        },
+    }
+
+
+def _classification_training_asset_url(session_id: str, rel_path: str | None) -> str | None:
+    if not isinstance(rel_path, str) or not rel_path:
+        return None
+    return f"/api/classification/training/sessions/{session_id}/file/{rel_path}"
+
+
+def _serialize_training_sample_summary(sample: Dict[str, Any]) -> Dict[str, Any]:
+    session_id = sample.get("session_id") if isinstance(sample.get("session_id"), str) else None
+    return {
+        **sample,
+        "input_image_url": _classification_training_asset_url(session_id, sample.get("input_image_rel")) if session_id else None,
+        "overlay_image_url": _classification_training_asset_url(session_id, sample.get("overlay_image_rel")) if session_id else None,
+        "top_frame_url": _classification_training_asset_url(session_id, sample.get("top_frame_rel")) if session_id else None,
+        "bottom_frame_url": _classification_training_asset_url(session_id, sample.get("bottom_frame_rel")) if session_id else None,
+        "detail_url": (
+            f"/classification-samples/{session_id}/{sample.get('sample_id')}"
+            if session_id and isinstance(sample.get("sample_id"), str)
+            else None
+        ),
+    }
+
+
+def _serialize_training_sample_detail(sample: Dict[str, Any]) -> Dict[str, Any]:
+    session_id = sample.get("session_id") if isinstance(sample.get("session_id"), str) else None
+    distill_result = sample.get("distill_result") if isinstance(sample.get("distill_result"), dict) else None
+    retests = sample.get("retests") if isinstance(sample.get("retests"), list) else []
+    return {
+        **sample,
+        "input_image_url": _classification_training_asset_url(session_id, sample.get("input_image_rel")) if session_id else None,
+        "top_zone_url": _classification_training_asset_url(session_id, sample.get("top_zone_rel")) if session_id else None,
+        "bottom_zone_url": _classification_training_asset_url(session_id, sample.get("bottom_zone_rel")) if session_id else None,
+        "top_frame_url": _classification_training_asset_url(session_id, sample.get("top_frame_rel")) if session_id else None,
+        "bottom_frame_url": _classification_training_asset_url(session_id, sample.get("bottom_frame_rel")) if session_id else None,
+        "distill_result": (
+            {
+                **distill_result,
+                "overlay_image_url": _classification_training_asset_url(session_id, distill_result.get("overlay_image_rel")),
+                "result_json_url": _classification_training_asset_url(session_id, distill_result.get("result_json_rel")),
+                "yolo_label_url": _classification_training_asset_url(session_id, distill_result.get("yolo_label_rel")),
+            }
+            if session_id and distill_result is not None
+            else distill_result
+        ),
+        "retests": [
+            {
+                **retest,
+                "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
+                "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
+            }
+            for retest in retests
+            if isinstance(retest, dict)
+        ],
+    }
+
+
+@app.get("/api/classification/training/library")
+def get_classification_training_library() -> Dict[str, Any]:
+    payload = getClassificationTrainingManager().getLibrary()
+    return {
+        "ok": True,
+        "sessions": payload.get("sessions", []),
+        "samples": [
+            _serialize_training_sample_summary(sample)
+            for sample in payload.get("samples", [])
+            if isinstance(sample, dict)
+        ],
+    }
+
+
+@app.get("/api/classification/training/sessions/{session_id}/samples/{sample_id}")
+def get_classification_training_sample_detail(session_id: str, sample_id: str) -> Dict[str, Any]:
+    manager = getClassificationTrainingManager()
+    try:
+        payload = manager.getSampleDetail(session_id, sample_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load classification sample: {exc}")
+    session = payload.get("session", {}) if isinstance(payload, dict) else {}
+    sample = payload.get("sample", {}) if isinstance(payload, dict) else {}
+    if isinstance(sample, dict):
+        sample = _serialize_training_sample_detail(sample)
+    return {
+        "ok": True,
+        "session": session,
+        "sample": sample,
+        "available_openrouter_models": _openrouter_model_options(),
+    }
+
+
+@app.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retest")
+def retest_classification_training_sample(
+    session_id: str,
+    sample_id: str,
+    payload: ClassificationSampleRetestPayload,
+) -> Dict[str, Any]:
+    manager = getClassificationTrainingManager()
+    model = _normalize_openrouter_model(payload.openrouter_model)
+    try:
+        result = manager.runSampleRetest(session_id, sample_id, openrouter_model=model)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to retest classification sample: {exc}")
+    retest = result.get("retest", {}) if isinstance(result, dict) else {}
+    if isinstance(retest, dict):
+        retest = {
+            **retest,
+            "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
+            "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
+        }
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "sample_id": sample_id,
+        "retest": retest,
+    }
+
+
+@app.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retest-all")
+def retest_all_classification_training_sample(
+    session_id: str,
+    sample_id: str,
+) -> Dict[str, Any]:
+    manager = getClassificationTrainingManager()
+    try:
+        result = manager.runSampleRetests(
+            session_id,
+            sample_id,
+            openrouter_models=list(_supported_openrouter_models()),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to retest classification sample across all models: {exc}")
+    retests = result.get("retests", []) if isinstance(result, dict) else []
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "sample_id": sample_id,
+        "completed_count": len(retests),
+        "retests": [
+            {
+                **retest,
+                "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
+                "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
+            }
+            for retest in retests
+            if isinstance(retest, dict)
+        ],
+    }
+
+
+@app.get("/api/classification/training/sessions/{session_id}/file/{asset_path:path}")
+def get_classification_training_asset(session_id: str, asset_path: str) -> FileResponse:
+    manager = getClassificationTrainingManager()
+    try:
+        resolved = manager.resolveAssetPath(session_id, asset_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return FileResponse(resolved)
+
+
+@app.post("/api/classification/detect/{camera}")
+def debug_classification_detection(camera: str) -> Dict[str, Any]:
+    if camera not in {"top", "bottom"}:
+        raise HTTPException(status_code=400, detail="Unsupported classification camera.")
+    if vision_manager is None:
+        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
+    if not hasattr(vision_manager, "debugClassificationDetection"):
+        raise HTTPException(status_code=503, detail="Classification detection debug is unavailable.")
+
+    try:
+        payload = vision_manager.debugClassificationDetection(camera, include_capture=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to test classification detection: {exc}")
+
+    sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
+    frame_resolution = payload.get("frame_resolution")
+    bbox = payload.get("bbox")
+    zone_bbox = payload.get("zone_bbox")
+    candidate_bboxes = payload.get("candidate_bboxes")
+    payload["normalized_bbox"] = _normalize_bbox(bbox, frame_resolution) if isinstance(bbox, (list, tuple)) else None
+    payload["normalized_candidate_bboxes"] = (
+        [
+            normalized
+            for normalized in (
+                _normalize_bbox(candidate, frame_resolution) for candidate in candidate_bboxes
+            )
+            if normalized is not None
+        ]
+        if isinstance(candidate_bboxes, list)
+        else []
+    )
+    payload["normalized_zone_bbox"] = (
+        _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
+    )
+    if isinstance(sample_capture, dict):
+        save_model = None
+        if payload.get("algorithm") == "gemini_sam" and hasattr(vision_manager, "getClassificationOpenRouterModel"):
+            try:
+                save_model = vision_manager.getClassificationOpenRouterModel()
+            except Exception:
+                save_model = None
+        try:
+            saved = getClassificationTrainingManager().saveDetectionDebugCapture(
+                camera=camera,
+                algorithm=str(payload.get("algorithm") or ""),
+                openrouter_model=save_model,
+                debug_result=payload,
+                top_zone=sample_capture.get("top_zone"),
+                bottom_zone=sample_capture.get("bottom_zone"),
+                top_frame=sample_capture.get("top_frame"),
+                bottom_frame=sample_capture.get("bottom_frame"),
+            )
+            saved_sample_id = saved.get("sample_id")
+            saved_session_id = saved.get("session_id")
+            payload["saved_to_library"] = True
+            payload["saved_sample_id"] = saved_sample_id if isinstance(saved_sample_id, str) else None
+            payload["saved_session_id"] = saved_session_id if isinstance(saved_session_id, str) else None
+            payload["saved_detail_url"] = (
+                f"/classification-samples/{saved_session_id}/{saved_sample_id}"
+                if isinstance(saved_session_id, str) and isinstance(saved_sample_id, str)
+                else None
+            )
+        except Exception as exc:
+            payload["saved_to_library"] = False
+            payload["saved_sample_error"] = str(exc)
+    payload["ok"] = True
+    return payload
+
+
+def _finalize_aux_detection_debug_payload(
+    *,
+    role: str,
+    payload: Dict[str, Any],
+    sample_capture: dict[str, Any] | None,
+    openrouter_model: str | None,
+) -> Dict[str, Any]:
+    frame_resolution = payload.get("frame_resolution")
+    bbox = payload.get("bbox")
+    zone_bbox = payload.get("zone_bbox")
+    candidate_bboxes = payload.get("candidate_bboxes")
+    payload["normalized_bbox"] = _normalize_bbox(bbox, frame_resolution) if isinstance(bbox, (list, tuple)) else None
+    payload["normalized_candidate_bboxes"] = (
+        [
+            normalized
+            for normalized in (
+                _normalize_bbox(candidate, frame_resolution) for candidate in candidate_bboxes
+            )
+            if normalized is not None
+        ]
+        if isinstance(candidate_bboxes, list)
+        else []
+    )
+    payload["normalized_zone_bbox"] = (
+        _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
+    )
+    if isinstance(sample_capture, dict):
+        try:
+            saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
+                source="settings_detection_test",
+                source_role=role,
+                detection_scope=(
+                    "feeder" if role in {"c_channel_2", "c_channel_3"} else "carousel"
+                ),
+                capture_reason="settings_detection_test",
+                detection_algorithm=str(payload.get("algorithm") or ""),
+                detection_openrouter_model=openrouter_model,
+                detection_found=bool(payload.get("found")),
+                detection_bbox=bbox if isinstance(bbox, (list, tuple)) else None,
+                detection_candidate_bboxes=candidate_bboxes if isinstance(candidate_bboxes, list) else [],
+                detection_bbox_count=int(payload.get("bbox_count") or 0),
+                detection_score=float(payload.get("score")) if isinstance(payload.get("score"), (int, float)) else None,
+                detection_message=payload.get("message") if isinstance(payload.get("message"), str) else None,
+                input_image=sample_capture.get("input_image"),
+                source_frame=sample_capture.get("frame"),
+            )
+            saved_sample_id = saved.get("sample_id")
+            saved_session_id = saved.get("session_id")
+            payload["saved_to_library"] = True
+            payload["saved_sample_id"] = saved_sample_id if isinstance(saved_sample_id, str) else None
+            payload["saved_session_id"] = saved_session_id if isinstance(saved_session_id, str) else None
+            payload["saved_detail_url"] = (
+                f"/classification-samples/{saved_session_id}/{saved_sample_id}"
+                if isinstance(saved_session_id, str) and isinstance(saved_sample_id, str)
+                else None
+            )
+        except Exception as exc:
+            payload["saved_to_library"] = False
+            payload["saved_sample_error"] = str(exc)
+    payload["ok"] = True
+    return payload
+
+
+@app.post("/api/feeder/detect/{role}")
+def debug_feeder_detection(role: str) -> Dict[str, Any]:
+    if role not in {"c_channel_2", "c_channel_3"}:
+        raise HTTPException(status_code=400, detail="Unsupported feeder role.")
+    if vision_manager is None:
+        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
+    if not hasattr(vision_manager, "debugFeederDetection"):
+        raise HTTPException(status_code=503, detail="Feeder detection debug is unavailable.")
+
+    try:
+        payload = vision_manager.debugFeederDetection(role, include_capture=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to test feeder detection: {exc}")
+
+    sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
+    save_model = None
+    if payload.get("algorithm") == "gemini_sam" and hasattr(vision_manager, "getFeederOpenRouterModel"):
+        try:
+            save_model = vision_manager.getFeederOpenRouterModel()
+        except Exception:
+            save_model = None
+    return _finalize_aux_detection_debug_payload(
+        role=role,
+        payload=payload,
+        sample_capture=sample_capture,
+        openrouter_model=save_model,
+    )
+
+
+@app.post("/api/carousel/detect/current")
+def debug_carousel_detection() -> Dict[str, Any]:
+    if vision_manager is None:
+        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
+    if not hasattr(vision_manager, "debugCarouselDetection"):
+        raise HTTPException(status_code=503, detail="Carousel detection debug is unavailable.")
+
+    try:
+        payload = vision_manager.debugCarouselDetection(include_capture=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to test carousel detection: {exc}")
+
+    sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
+    save_model = None
+    if payload.get("algorithm") == "gemini_sam" and hasattr(vision_manager, "getCarouselOpenRouterModel"):
+        try:
+            save_model = vision_manager.getCarouselOpenRouterModel()
+        except Exception:
+            save_model = None
+    return _finalize_aux_detection_debug_payload(
+        role="carousel",
+        payload=payload,
+        sample_capture=sample_capture,
+        openrouter_model=save_model,
+    )
 
 
 @app.get("/api/cameras/device-settings/{role}")
@@ -3428,6 +4278,67 @@ def _get_camera_calibration_task(task_id: str) -> Dict[str, Any] | None:
     with camera_calibration_tasks_lock:
         task = camera_calibration_tasks.get(task_id)
         return dict(task) if task is not None else None
+
+
+def _collect_classification_baseline_frames(
+    capture: Any,
+    sample_count: int = CLASSIFICATION_BASELINE_SAMPLES,
+    timeout_s: float = CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S,
+    interval_s: float = CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S,
+) -> List[np.ndarray]:
+    frames: List[np.ndarray] = []
+    deadline = time.monotonic() + timeout_s
+    last_timestamp: float | None = None
+    last_accept_at = 0.0
+
+    while len(frames) < sample_count and time.monotonic() < deadline:
+        frame = getattr(capture, "latest_frame", None)
+        now = time.monotonic()
+        if frame is None:
+            time.sleep(interval_s)
+            continue
+
+        timestamp = float(getattr(frame, "timestamp", 0.0) or 0.0)
+        if (
+            last_timestamp is not None
+            and timestamp == last_timestamp
+            and (now - last_accept_at) < interval_s * 1.5
+        ):
+            time.sleep(interval_s)
+            continue
+
+        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+        frames.append(gray.copy())
+        last_timestamp = timestamp
+        last_accept_at = now
+        time.sleep(interval_s)
+
+    return frames
+
+
+def _write_classification_baseline_frames(
+    baseline_dir: Path,
+    prefix: str,
+    frames: List[np.ndarray],
+) -> Dict[str, Any]:
+    for old_path in baseline_dir.glob(f"{prefix}_*.png"):
+        old_path.unlink(missing_ok=True)
+
+    for index, gray in enumerate(frames):
+        cv2.imwrite(str(baseline_dir / f"{prefix}_frame_{index:03d}.png"), gray)
+
+    stack = np.stack(frames, axis=0)
+    baseline_min = np.min(stack, axis=0).astype(np.uint8)
+    baseline_max = np.max(stack, axis=0).astype(np.uint8)
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_min.png"), baseline_min)
+    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_max.png"), baseline_max)
+
+    height, width = baseline_min.shape[:2]
+    return {
+        "available": True,
+        "captured_frames": len(frames),
+        "resolution": [width, height],
+    }
 
 
 def _calibrate_usb_camera_device_settings(
@@ -3850,7 +4761,7 @@ def _run_camera_calibration_sync(
             source,
             fallback_settings=best_settings,
         )
-        raw_analysis_obj = analyze_calibration_target(raw_frame) if raw_frame is not None else None
+        raw_analysis_obj = analyze_color_plate_target(raw_frame) if raw_frame is not None else None
         raw_analysis = raw_analysis_obj.to_dict() if raw_analysis_obj is not None else analysis
         profile_payload = generate_color_profile_from_analysis(raw_analysis)
         if profile_payload is None:
@@ -3883,7 +4794,7 @@ def _run_camera_calibration_sync(
                 parseCameraPictureSettings(original_picture_settings),
             )
 
-        final_analysis = analyze_calibration_target(final_frame) if final_frame is not None else None
+        final_analysis = analyze_color_plate_target(final_frame) if final_frame is not None else None
         chosen_analysis = final_analysis.to_dict() if final_analysis is not None else raw_analysis
         result = {
             **saved,
@@ -4004,6 +4915,62 @@ def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict
         "result": task.get("result"),
         "analysis_preview": task.get("analysis_preview"),
         "error": task.get("error"),
+    }
+
+
+@app.post("/api/classification/baseline/capture")
+def capture_classification_baseline() -> Dict[str, Any]:
+    if vision_manager is None:
+        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
+
+    baseline_dir = BLOB_DIR / "classification_baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+
+    captures = {
+        "top": vision_manager.getCaptureThreadForRole("classification_top"),
+        "bottom": vision_manager.getCaptureThreadForRole("classification_bottom"),
+    }
+    available = {name: capture for name, capture in captures.items() if capture is not None}
+    if not available:
+        raise HTTPException(status_code=404, detail="No classification cameras are configured.")
+
+    camera_results: Dict[str, Any] = {
+        name: {"available": capture is not None, "captured_frames": 0}
+        for name, capture in captures.items()
+    }
+    captured_any = False
+
+    for prefix, capture in available.items():
+        frames = _collect_classification_baseline_frames(capture)
+        if len(frames) < 2:
+            camera_results[prefix] = {
+                "available": True,
+                "captured_frames": len(frames),
+                "error": "Not enough fresh frames were available.",
+            }
+            continue
+
+        camera_results[prefix] = _write_classification_baseline_frames(baseline_dir, prefix, frames)
+        captured_any = True
+
+    if not captured_any:
+        raise HTTPException(
+            status_code=504,
+            detail="Failed to capture enough classification baseline frames from the live cameras.",
+        )
+
+    reloaded = bool(vision_manager.loadClassificationBaseline())
+    if not reloaded:
+        raise HTTPException(
+            status_code=500,
+            detail="Baseline images were captured, but the live classification baseline failed to reload.",
+        )
+
+    return {
+        "ok": True,
+        "message": "Classification baseline captured from the empty chamber and reloaded live.",
+        "cameras": camera_results,
+        "baseline_dir": str(baseline_dir),
     }
 
 

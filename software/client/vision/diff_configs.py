@@ -1,5 +1,40 @@
 from dataclasses import dataclass
 
+from .detection_registry import (
+    CarouselDetectionAlgorithm,
+    ClassificationDetectionAlgorithm,
+    FeederDetectionAlgorithm,
+    normalize_detection_algorithm,
+)
+
+
+CANONICAL_CLASSIFICATION_DETECTION_ALGORITHMS = (
+    "baseline_diff",
+    "gemini_sam",
+)
+
+CANONICAL_FEEDER_DETECTION_ALGORITHMS = (
+    "mog2",
+    "gemini_sam",
+)
+
+CANONICAL_CAROUSEL_DETECTION_ALGORITHMS = (
+    "heatmap_diff",
+    "gemini_sam",
+)
+
+
+def normalizeClassificationDetectionAlgorithm(value: str | None) -> ClassificationDetectionAlgorithm:
+    return normalize_detection_algorithm("classification", value)  # type: ignore[return-value]
+
+
+def normalizeFeederDetectionAlgorithm(value: str | None) -> FeederDetectionAlgorithm:
+    return normalize_detection_algorithm("feeder", value)  # type: ignore[return-value]
+
+
+def normalizeCarouselDetectionAlgorithm(value: str | None) -> CarouselDetectionAlgorithm:
+    return normalize_detection_algorithm("carousel", value)  # type: ignore[return-value]
+
 
 @dataclass
 class CarouselDiffConfig:
@@ -19,6 +54,8 @@ class CarouselDiffConfig:
 
 @dataclass
 class ClassificationDiffConfig:
+    algorithm: ClassificationDetectionAlgorithm = "baseline_diff"
+
     # envelope improvements applied on top of calibration min/max
     envelope_margin: int = 4
     adaptive_std_k: float = 1.0

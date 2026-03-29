@@ -747,7 +747,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=400, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

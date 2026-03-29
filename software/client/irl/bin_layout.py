@@ -8,6 +8,7 @@ from enum import Enum
 @dataclass
 class LayerConfig:
     sections: List[List[str]]
+    enabled: bool = True
 
 
 @dataclass
@@ -35,6 +36,7 @@ class BinSection:
 @dataclass
 class Layer:
     sections: List[BinSection] = field(default_factory=list)
+    enabled: bool = True
 
 
 @dataclass
@@ -109,7 +111,10 @@ def getBinLayout() -> BinLayoutConfig:
                         f"Must be one of: {VALID_BIN_SIZES}"
                     )
             sections.append(section_data)
-        layers.append(LayerConfig(sections=sections))
+        enabled = layer_data.get("enabled", True)
+        if not isinstance(enabled, bool):
+            enabled = True
+        layers.append(LayerConfig(sections=sections, enabled=enabled))
 
     return BinLayoutConfig(layers=layers)
 
@@ -128,7 +133,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
                 bin_size = BinSize(bin_size_str)
                 bins.append(Bin(size=bin_size))
             sections.append(BinSection(bins=bins))
-        layers.append(Layer(sections=sections))
+        layers.append(Layer(sections=sections, enabled=layer_config.enabled))
     return DistributionLayout(layers=layers)
 
 

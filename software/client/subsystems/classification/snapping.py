@@ -15,6 +15,7 @@ from telemetry import Telemetry
 from defs.known_object import ClassificationStatus
 from classification import classify
 from blob_manager import BLOB_DIR
+from server.classification_training import getClassificationTrainingManager
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -92,7 +93,37 @@ class Snapping(BaseState):
                 segmentation_map=bottom_frame.segmentation_map,
             )
 
+        sample_capture = self.vision.getClassificationSampleFromFrames(top_frame, bottom_frame)
+        detection_algorithm = self.vision.getClassificationDetectionAlgorithm()
+        detection_openrouter_model = (
+            self.vision.getClassificationOpenRouterModel()
+            if detection_algorithm == "gemini_sam"
+            else None
+        )
+        sample_manager = getClassificationTrainingManager()
+
+        def saveLiveSample(detection_found: bool) -> None:
+            try:
+                saved = sample_manager.saveLiveClassificationCapture(
+                    piece_uuid=piece.uuid,
+                    machine_id=self.gc.machine_id,
+                    run_id=self.gc.run_id,
+                    detection_found=detection_found,
+                    detection_algorithm=detection_algorithm,
+                    detection_openrouter_model=detection_openrouter_model,
+                    top_zone=sample_capture.get("top_zone"),
+                    bottom_zone=sample_capture.get("bottom_zone"),
+                    top_frame=sample_capture.get("top_frame"),
+                    bottom_frame=sample_capture.get("bottom_frame"),
+                )
+                self.logger.info(
+                    f"Snapping: saved sample {saved['sample_id']} for piece {piece.uuid[:8]}"
+                )
+            except Exception as exc:
+                self.logger.warning(f"Snapping: failed to save live sample: {exc}")
+
         if top_crop is None and bottom_crop is None:
+            saveLiveSample(False)
             self.logger.warn(
                 "Snapping: no object detected in classification frames, marking not_found"
             )
@@ -107,11 +138,21 @@ class Snapping(BaseState):
         if bottom_crop is not None:
             self._saveImage("bottom_crop", bottom_crop)
 
-        thumbnail_crop = top_crop if top_crop is not None else bottom_crop
-        _, thumbnail_buffer = cv2.imencode(
-            ".jpg", thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
-        )
-        piece.thumbnail = base64.b64encode(thumbnail_buffer).decode("utf-8")
+        top_crop_b64: Optional[str] = None
+        if top_crop is not None:
+            _, top_crop_buffer = cv2.imencode(
+                ".jpg", top_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
+            )
+            top_crop_b64 = base64.b64encode(top_crop_buffer).decode("utf-8")
+
+        bottom_crop_b64: Optional[str] = None
+        if bottom_crop is not None:
+            _, bottom_crop_buffer = cv2.imencode(
+                ".jpg", bottom_crop, [cv2.IMWRITE_JPEG_QUALITY, 80]
+            )
+            bottom_crop_b64 = base64.b64encode(bottom_crop_buffer).decode("utf-8")
+
+        piece.thumbnail = top_crop_b64 if top_crop_b64 is not None else bottom_crop_b64
 
         if top_frame:
             top_img = (
@@ -139,10 +180,22 @@ class Snapping(BaseState):
         self.event_queue.put(knownObjectToEvent(piece))
 
         self.carousel.markPendingClassification(piece)
+        saveLiveSample(True)
 
         def onResult(
-            part_id: Optional[str], color_id: str, color_name: str, confidence: Optional[float] = None
+            part_id: Optional[str],
+            color_id: str,
+            color_name: str,
+            confidence: Optional[float] = None,
+            brickognize_preview_url: Optional[str] = None,
+            brickognize_source_view: Optional[str] = None,
         ) -> None:
+            if brickognize_source_view == "bottom" and bottom_crop_b64 is not None:
+                piece.thumbnail = bottom_crop_b64
+            elif brickognize_source_view == "top" and top_crop_b64 is not None:
+                piece.thumbnail = top_crop_b64
+            piece.brickognize_preview_url = brickognize_preview_url
+            piece.brickognize_source_view = brickognize_source_view
             self.carousel.resolveClassification(piece.uuid, part_id, color_id, color_name, confidence)
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
 

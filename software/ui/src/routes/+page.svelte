@@ -70,31 +70,31 @@
 			{#if camera_layout === 'split_feeder'}
 				{@const has_cls_top = isConfigured('classification_top') || machine.frames.has('classification_top')}
 				{@const has_cls_bottom = isConfigured('classification_bottom') || machine.frames.has('classification_bottom')}
-				{@const has_classification = has_cls_top || has_cls_bottom}
-				<div class="flex min-w-0 flex-1 gap-3">
-					<div class="flex-1">
-						<CameraFeed camera="c_channel_2" label={CAMERA_LABELS.c_channel_2} />
-					</div>
-					<div class="flex-1">
-						<CameraFeed camera="c_channel_3" label={CAMERA_LABELS.c_channel_3} />
-					</div>
-					<div class="flex-1">
-						<CameraFeed camera="carousel" label={CAMERA_LABELS.carousel} />
-					</div>
-					{#if has_classification}
-						<div class="flex flex-1 flex-col gap-3">
-							{#if has_cls_top}
-								<div class="flex-1">
-									<CameraFeed camera="classification_top" label={CAMERA_LABELS.classification_top} />
-								</div>
-							{/if}
-							{#if has_cls_bottom}
-								<div class="flex-1">
-									<CameraFeed camera="classification_bottom" label={CAMERA_LABELS.classification_bottom} />
-								</div>
-							{/if}
+				{@const has_secondary = has_cls_top || has_cls_bottom}
+				<div class="flex min-w-0 flex-1 flex-col gap-3">
+					<div class="flex flex-[7] gap-3">
+						<div class="flex-1">
+							<CameraFeed camera="c_channel_2" label={CAMERA_LABELS.c_channel_2} />
 						</div>
-					{/if}
+						<div class="flex-1">
+							<CameraFeed camera="c_channel_3" label={CAMERA_LABELS.c_channel_3} />
+						</div>
+					</div>
+					<div class="flex flex-[3] gap-3">
+						<div class="flex-1">
+							<CameraFeed camera="carousel" label={CAMERA_LABELS.carousel} />
+						</div>
+						{#if has_cls_top}
+							<div class="flex-1">
+								<CameraFeed camera="classification_top" label={CAMERA_LABELS.classification_top} />
+							</div>
+						{/if}
+						{#if has_cls_bottom}
+							<div class="flex-1">
+								<CameraFeed camera="classification_bottom" label={CAMERA_LABELS.classification_bottom} />
+							</div>
+						{/if}
+					</div>
 				</div>
 			{:else}
 				{@const has_top = machine.frames.has('classification_top')}

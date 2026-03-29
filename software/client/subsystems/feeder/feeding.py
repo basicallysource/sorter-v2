@@ -52,16 +52,19 @@ class Feeding(BaseState):
             self.gc.profiler.hit(f"feeder.skip.busy.{label}")
             return False
         prof = self.gc.profiler
+        pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
         with prof.timer(f"feeder.move_cmd.{label}_ms"):
-            pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            stepper.move_degrees(pulse_degrees)
-        exec_ms = stepper.estimateMoveDegreesMs(
-            stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-        )
-        cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+            success = stepper.move_degrees(pulse_degrees)
+        exec_ms = stepper.estimateMoveDegreesMs(pulse_degrees)
+        if success:
+            cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+        else:
+            # Back off briefly after a rejected hardware move to avoid a hot retry loop.
+            cooldown_ms = max(500, cfg.delay_between_pulse_ms)
+            prof.hit(f"feeder.move_failed.{label}")
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         prof.observeValue(f"feeder.cooldown.{label}_ms", float(cooldown_ms))
-        return True
+        return success
 
     def _executionLoop(self) -> None:
         fc = self.irl_config.feeder_config

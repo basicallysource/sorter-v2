@@ -179,6 +179,66 @@ def setClassificationPolygons(polygons: dict) -> None:
         saveData(data)
 
 
+def getClassificationDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("classification_detection")
+
+
+def setClassificationDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["classification_detection"] = config
+        saveData(data)
+
+
+def getFeederDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("feeder_detection")
+
+
+def setFeederDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["feeder_detection"] = config
+        saveData(data)
+
+
+def getCarouselDetectionConfig() -> dict | None:
+    data = loadData()
+    return data.get("carousel_detection")
+
+
+def setCarouselDetectionConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["carousel_detection"] = config
+        saveData(data)
+
+
+def getClassificationTrainingConfig() -> dict | None:
+    data = loadData()
+    return data.get("classification_training")
+
+
+def setClassificationTrainingConfig(config: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["classification_training"] = config
+        saveData(data)
+
+
+def getApiKeys() -> dict:
+    data = loadData()
+    return data.get("api_keys", {})
+
+
+def setApiKeys(keys: dict) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["api_keys"] = keys
+        saveData(data)
+
+
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
 
 

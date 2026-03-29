@@ -25,6 +25,7 @@
 	type LayerDraft = {
 		index: number;
 		binCount: string;
+		enabled: boolean;
 		servoId: string;
 		invert: boolean;
 		liveOpen: boolean | null;
@@ -183,6 +184,7 @@
 		layers = storageLayers.map((layer: any, index: number) => ({
 			index: Number(layer?.index ?? index + 1),
 			binCount: String(Number(layer?.bin_count ?? 12)),
+			enabled: layer?.enabled !== false,
 			servoId: String(
 				Number(
 					servoChannels[index]?.id ?? (backend === 'waveshare' ? index + 1 : index)
@@ -273,12 +275,16 @@
 		statusMsg = '';
 		try {
 			const layerBinCounts = parsedLayerCounts();
+			const storageLayers = layerBinCounts.map((binCount, index) => ({
+				bin_count: binCount,
+				enabled: layers[index]?.enabled ?? true
+			}));
 			const channels = parsedServoChannels();
 
 			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ layer_bin_counts: layerBinCounts })
+				body: JSON.stringify({ layer_bin_counts: layerBinCounts, layers: storageLayers })
 			});
 			if (!storageRes.ok) throw new Error(await storageRes.text());
 			const storagePayload = await storageRes.json();
@@ -368,6 +374,12 @@
 	function updateLayerCount(index: number, value: string) {
 		layers = layers.map((layer, layerIndex) =>
 			layerIndex === index ? { ...layer, binCount: value } : layer
+		);
+	}
+
+	function updateLayerEnabled(index: number, value: boolean) {
+		layers = layers.map((layer, layerIndex) =>
+			layerIndex === index ? { ...layer, enabled: value } : layer
 		);
 	}
 
@@ -555,6 +567,7 @@
 				<thead>
 					<tr class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface text-left text-xs">
 						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Layer</th>
+						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Active</th>
 						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Bins</th>
 						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
 						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Invert</th>
@@ -567,8 +580,17 @@
 				</thead>
 				<tbody>
 					{#each layers as layer, index}
-						<tr class="dark:border-border-dark dark:bg-bg-dark border-b border-border bg-bg last:border-b-0">
+						<tr class="dark:border-border-dark dark:bg-bg-dark border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
 							<td class="dark:text-text-dark px-3 py-2 font-medium text-text">{layer.index}</td>
+							<td class="px-3 py-2">
+								<input
+									type="checkbox"
+									checked={layer.enabled}
+									onchange={(event) => updateLayerEnabled(index, event.currentTarget.checked)}
+									disabled={loading || saving}
+									aria-label={`Layer ${layer.index} active`}
+								/>
+							</td>
 							<td class="px-3 py-2">
 								<select
 									value={layer.binCount}
@@ -628,7 +650,15 @@
 								</td>
 							{/if}
 							<td class="px-3 py-2">
-								{#if layerIsOffline(layer)}
+								{#if !layer.enabled}
+									<span
+										class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
+										title="Inactive layers are ignored when assigning bins."
+									>
+										<span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+										Inactive
+									</span>
+								{:else if layerIsOffline(layer)}
 									<span
 										class="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
 										title={layer.telemetry.error ?? 'Servo offline'}

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import json
+import subprocess
+import sys
 
 import cv2
 
@@ -46,8 +49,76 @@ def parse_macos_location_id(path: str | None) -> int | None:
         return None
 
 
-@lru_cache(maxsize=1)
-def enumerate_macos_cameras() -> tuple[MacOSCameraInfo, ...]:
+def _camera_from_payload(payload: dict) -> MacOSCameraInfo:
+    path = payload.get("path")
+    return MacOSCameraInfo(
+        index=int(payload.get("index", -1)),
+        name=str(payload.get("name", "Camera")),
+        path=path if isinstance(path, str) else None,
+        vid=int(payload["vid"]) if payload.get("vid") is not None else None,
+        pid=int(payload["pid"]) if payload.get("pid") is not None else None,
+        backend=int(payload.get("backend", cv2.CAP_AVFOUNDATION)),
+        location_id=parse_macos_location_id(path if isinstance(path, str) else None),
+    )
+
+
+def _enumerate_macos_cameras_subprocess() -> tuple[MacOSCameraInfo, ...]:
+    if enumerate_cameras is None:
+        return ()
+
+    helper = """
+import json
+import cv2
+from cv2_enumerate_cameras import enumerate_cameras
+
+cameras = []
+for camera in enumerate_cameras(cv2.CAP_AVFOUNDATION):
+    cameras.append({
+        "index": int(getattr(camera, "index", -1)),
+        "name": str(getattr(camera, "name", "Camera")),
+        "path": getattr(camera, "path", None),
+        "vid": getattr(camera, "vid", None),
+        "pid": getattr(camera, "pid", None),
+        "backend": int(getattr(camera, "backend", cv2.CAP_AVFOUNDATION)),
+    })
+print(json.dumps(cameras))
+"""
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", helper],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=True,
+        )
+    except Exception:
+        return ()
+
+    stdout = result.stdout.strip()
+    if not stdout:
+        return ()
+
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError:
+        return ()
+
+    if not isinstance(payload, list):
+        return ()
+
+    cameras: list[MacOSCameraInfo] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            cameras.append(_camera_from_payload(item))
+        except Exception:
+            continue
+    return tuple(cameras)
+
+
+def _enumerate_macos_cameras_in_process() -> tuple[MacOSCameraInfo, ...]:
     if enumerate_cameras is None:
         return ()
 
@@ -72,6 +143,14 @@ def enumerate_macos_cameras() -> tuple[MacOSCameraInfo, ...]:
         )
 
     return tuple(cameras)
+
+
+@lru_cache(maxsize=1)
+def enumerate_macos_cameras() -> tuple[MacOSCameraInfo, ...]:
+    cameras = _enumerate_macos_cameras_subprocess()
+    if cameras:
+        return cameras
+    return _enumerate_macos_cameras_in_process()
 
 
 def refresh_macos_cameras() -> tuple[MacOSCameraInfo, ...]:

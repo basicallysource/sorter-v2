@@ -4,6 +4,11 @@
 	import type { StepperKey } from '$lib/settings/stations';
 	import { stepperLabels } from '$lib/settings/stations';
 	import type { EndstopConfig } from '$lib/settings/stations';
+	import {
+		STEPPER_GEAR_RATIOS,
+		loadStoredStepperPulseSetting,
+		persistStoredStepperPulseSetting
+	} from '$lib/settings/stepper-control';
 	import { ChevronLeft, ChevronRight, ChevronDown, Home, Square, Cog } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -49,48 +54,38 @@
 	// --- Stepper control (persisted per stepper) ---
 	type PulseMode = 'duration' | 'degrees';
 
-	function storageKey(field: string): string {
-		return `stepper:${stepperKey}:${field}`;
-	}
+	let pulseMode = $state<PulseMode>('duration');
+	let pulseDuration = $state(0.25);
+	let pulseSpeed = $state(800);
+	let pulseDegrees = $state(90);
+	let pulseSettingsLoadedFor = $state<StepperKey | null>(null);
 
-	function loadStored<T>(field: string, fallback: T): T {
-		try {
-			const raw = localStorage.getItem(storageKey(field));
-			if (raw === null) return fallback;
-			const parsed = JSON.parse(raw);
-			return typeof parsed === typeof fallback ? parsed : fallback;
-		} catch {
-			return fallback;
-		}
-	}
+	$effect(() => {
+		pulseMode = loadStoredStepperPulseSetting(stepperKey, 'pulseMode', 'duration');
+		pulseDuration = loadStoredStepperPulseSetting(stepperKey, 'pulseDuration', 0.25);
+		pulseSpeed = loadStoredStepperPulseSetting(stepperKey, 'pulseSpeed', 800);
+		pulseDegrees = loadStoredStepperPulseSetting(stepperKey, 'pulseDegrees', 90);
+		pulseSettingsLoadedFor = stepperKey;
+	});
 
-	function persist(field: string, value: any) {
-		try {
-			localStorage.setItem(storageKey(field), JSON.stringify(value));
-		} catch {
-			// ignore
-		}
-	}
+	$effect(() => {
+		if (pulseSettingsLoadedFor !== stepperKey) return;
+		persistStoredStepperPulseSetting(stepperKey, 'pulseMode', pulseMode);
+	});
+	$effect(() => {
+		if (pulseSettingsLoadedFor !== stepperKey) return;
+		persistStoredStepperPulseSetting(stepperKey, 'pulseDuration', pulseDuration);
+	});
+	$effect(() => {
+		if (pulseSettingsLoadedFor !== stepperKey) return;
+		persistStoredStepperPulseSetting(stepperKey, 'pulseSpeed', pulseSpeed);
+	});
+	$effect(() => {
+		if (pulseSettingsLoadedFor !== stepperKey) return;
+		persistStoredStepperPulseSetting(stepperKey, 'pulseDegrees', pulseDegrees);
+	});
 
-	let pulseMode = $state<PulseMode>(loadStored('pulseMode', 'duration'));
-	let pulseDuration = $state(loadStored('pulseDuration', 0.25));
-	let pulseSpeed = $state(loadStored('pulseSpeed', 800));
-	let pulseDegrees = $state(loadStored('pulseDegrees', 90));
-
-	$effect(() => { persist('pulseMode', pulseMode); });
-	$effect(() => { persist('pulseDuration', pulseDuration); });
-	$effect(() => { persist('pulseSpeed', pulseSpeed); });
-	$effect(() => { persist('pulseDegrees', pulseDegrees); });
-
-	// Gear ratios: output teeth / input teeth (motor turns × ratio = output turns)
-	const GEAR_RATIOS: Record<StepperKey, number> = {
-		c_channel_1: 130 / 12,
-		c_channel_2: 130 / 12,
-		c_channel_3: 130 / 12,
-		carousel: 1,
-		chute: 120 / 25
-	};
-	const gearRatio = $derived(GEAR_RATIOS[stepperKey]);
+	const gearRatio = $derived(STEPPER_GEAR_RATIOS[stepperKey]);
 
 	// --- Endstop settings ---
 	let endstopActiveHigh = $state(false);

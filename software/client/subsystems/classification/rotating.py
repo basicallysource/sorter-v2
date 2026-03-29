@@ -83,7 +83,7 @@ class Rotating(BaseState):
                 return None
             self.start_time = time.time()
             self.logger.info("Rotating: starting rotation")
-            self.stepper.move_degrees(-90.0)
+            self.stepper.move_degrees(90.0)
             self.command_sent = True
 
         if not self.stepper.stopped:

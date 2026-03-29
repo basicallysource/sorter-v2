@@ -41,10 +41,13 @@ class Detecting(BaseState):
             elapsed_ms = (now - self._entered_at) * 1000
             if elapsed_ms < WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS:
                 return None
-            if not self.vision.captureCarouselBaseline():
+            if hasattr(self.vision, "usesCarouselBaseline") and not self.vision.usesCarouselBaseline():
+                self.logger.info("Detecting: skipping carousel baseline for live cloud detection")
+            elif not self.vision.captureCarouselBaseline():
                 return None
             self._baseline_pending = False
-            self.logger.info("Detecting: captured heatmap baseline")
+            if hasattr(self.vision, "usesCarouselBaseline") and self.vision.usesCarouselBaseline():
+                self.logger.info("Detecting: captured heatmap baseline")
 
         if not self.shared.classification_ready:
             if not self.shared.distribution_ready:

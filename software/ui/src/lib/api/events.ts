@@ -56,6 +56,8 @@ export interface KnownObjectData {
   thumbnail?: string | null;
   top_image?: string | null;
   bottom_image?: string | null;
+  brickognize_preview_url?: string | null;
+  brickognize_source_view?: string | null;
   classified_at?: number | null;
   distributing_at?: number | null;
   distributed_at?: number | null;

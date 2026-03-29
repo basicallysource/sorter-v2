@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { backendHttpBaseUrl } from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
+	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneEditingSidebar from '$lib/components/settings/ZoneEditingSidebar.svelte';
@@ -10,7 +11,16 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole, StepperKey, EndstopConfig } from '$lib/settings/stations';
-	import { Camera, Check, Pencil, RefreshCw, RotateCcw, SlidersHorizontal, X } from 'lucide-svelte';
+	import {
+		Bug,
+		Camera,
+		Check,
+		Pencil,
+		RefreshCw,
+		RotateCcw,
+		SlidersHorizontal,
+		X
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
@@ -50,14 +60,7 @@
 		startAngle: number;
 		endAngle: number;
 	};
-	type ArcHandle =
-		| 'center'
-		| 'inner'
-		| 'outer'
-		| 'dropStart'
-		| 'dropEnd'
-		| 'exitStart'
-		| 'exitEnd';
+	type ArcHandle = 'center' | 'inner' | 'outer' | 'dropStart' | 'dropEnd' | 'exitStart' | 'exitEnd';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
@@ -74,12 +77,17 @@
 		arcParams: Record<ArcChannel, ArcParams | null>;
 		sectionZeroPoints: Record<ArcChannel, Point | null>;
 	};
+	type PreviewImageSize = {
+		width: number;
+		height: number;
+	};
 	type PicturePreviewState = {
 		saved: PictureSettings;
 		draft: PictureSettings;
 	};
 	type CalibrationHighlight = [number, number, number, number];
-	type SidePanel = 'picture' | 'zone' | null;
+	type DetectionHighlight = [number, number, number, number];
+	type SidePanel = 'picture' | 'zone' | 'classification' | null;
 	type DragState =
 		| {
 				kind: 'polygon-shape';
@@ -114,6 +122,13 @@
 	const ARC_CHANNELS: ArcChannel[] = ['second', 'third'];
 	const FEEDER_CHANNELS: Channel[] = ['second', 'third', 'carousel'];
 	const CLASSIFICATION_CHANNELS: Channel[] = ['class_top', 'class_bottom'];
+	const DETECTION_CHANNELS: Channel[] = [
+		'second',
+		'third',
+		'carousel',
+		'class_top',
+		'class_bottom'
+	];
 	const ALL_CHANNELS: Channel[] = [...FEEDER_CHANNELS, ...CLASSIFICATION_CHANNELS];
 	const HANDLE_HIT_RADIUS = 22;
 	const HANDLE_DRAW_RADIUS = 9;
@@ -238,10 +253,14 @@
 		classification_bottom: null
 	});
 	let picturePreviewByRole = $state<Partial<Record<CameraRole, PicturePreviewState>>>({});
+	let previewImageSizeByRole = $state<Partial<Record<CameraRole, PreviewImageSize>>>({});
 	let calibrationHighlightByRole = $state<Partial<Record<CameraRole, CalibrationHighlight>>>({});
+	let detectionHighlightByRole = $state<Partial<Record<CameraRole, DetectionHighlight[]>>>({});
 	let feedRevision = $state(0);
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
+	let previewViewportEl: HTMLDivElement | null = null;
+	let previewViewportSize = $state<PreviewImageSize>({ width: 0, height: 0 });
 	let persistedSnapshot: Snapshot = createSnapshot();
 	let channelSetKey = $state('');
 
@@ -280,6 +299,29 @@
 
 	function isArcChannel(ch: Channel): ch is ArcChannel {
 		return ARC_CHANNELS.includes(ch as ArcChannel);
+	}
+
+	function isClassificationChannel(ch: Channel): ch is (typeof CLASSIFICATION_CHANNELS)[number] {
+		return CLASSIFICATION_CHANNELS.includes(ch as (typeof CLASSIFICATION_CHANNELS)[number]);
+	}
+
+	function supportsDetectionSidebar(ch: Channel): ch is (typeof DETECTION_CHANNELS)[number] {
+		return DETECTION_CHANNELS.includes(ch as (typeof DETECTION_CHANNELS)[number]);
+	}
+
+	function detectionScopeForChannel(channel: Channel): 'classification' | 'feeder' | 'carousel' {
+		if (channel === 'second' || channel === 'third') return 'feeder';
+		if (channel === 'carousel') return 'carousel';
+		return 'classification';
+	}
+
+	function detectionCameraForChannel(
+		channel: Channel
+	): 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel' {
+		if (channel === 'second') return 'c_channel_2';
+		if (channel === 'third') return 'c_channel_3';
+		if (channel === 'carousel') return 'carousel';
+		return channel === 'class_top' ? 'top' : 'bottom';
 	}
 
 	function normalizeAngle(angle: number): number {
@@ -328,7 +370,11 @@
 		};
 	}
 
-	function sectionRangeToZone(channel: ArcChannel, zoneKey: 'drop' | 'exit', sectionZeroAngle = 0): AngularZone {
+	function sectionRangeToZone(
+		channel: ArcChannel,
+		zoneKey: 'drop' | 'exit',
+		sectionZeroAngle = 0
+	): AngularZone {
 		const [startSection, endSection] = LEGACY_ZONE_SECTION_RANGES[channel][zoneKey];
 		return clampZone({
 			startAngle: normalizeAngle(sectionZeroAngle + startSection * CHANNEL_SECTION_DEG),
@@ -443,10 +489,7 @@
 		return picturePreviewByRole[role] ?? null;
 	}
 
-	function setCalibrationHighlight(
-		role: CameraRole,
-		bbox: CalibrationHighlight | null
-	) {
+	function setCalibrationHighlight(role: CameraRole, bbox: CalibrationHighlight | null) {
 		const next = { ...calibrationHighlightByRole };
 		if (bbox) {
 			next[role] = bbox;
@@ -458,6 +501,66 @@
 
 	function getCalibrationHighlight(role: CameraRole = currentRole()): CalibrationHighlight | null {
 		return calibrationHighlightByRole[role] ?? null;
+	}
+
+	function setDetectionHighlights(role: CameraRole, bboxes: DetectionHighlight[] | null) {
+		const next = { ...detectionHighlightByRole };
+		if (bboxes && bboxes.length > 0) {
+			next[role] = bboxes;
+		} else {
+			delete next[role];
+		}
+		detectionHighlightByRole = next;
+	}
+
+	function getDetectionHighlights(role: CameraRole = currentRole()): DetectionHighlight[] {
+		return detectionHighlightByRole[role] ?? [];
+	}
+
+	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
+		if (!(target instanceof HTMLImageElement)) return;
+		const width = target.naturalWidth;
+		const height = target.naturalHeight;
+		if (width <= 0 || height <= 0) return;
+		const current = previewImageSizeByRole[role];
+		if (current?.width === width && current.height === height) return;
+		previewImageSizeByRole = {
+			...previewImageSizeByRole,
+			[role]: { width, height }
+		};
+	}
+
+	function updatePreviewViewportSize() {
+		if (!previewViewportEl) return;
+		const rect = previewViewportEl.getBoundingClientRect();
+		const width = Math.round(rect.width);
+		const height = Math.round(rect.height);
+		if (width === previewViewportSize.width && height === previewViewportSize.height) return;
+		previewViewportSize = { width, height };
+	}
+
+	function containedImageRect(
+		container: PreviewImageSize,
+		source: PreviewImageSize
+	): { left: number; top: number; width: number; height: number } {
+		if (container.width <= 0 || container.height <= 0 || source.width <= 0 || source.height <= 0) {
+			return {
+				left: 0,
+				top: 0,
+				width: container.width,
+				height: container.height
+			};
+		}
+
+		const scale = Math.min(container.width / source.width, container.height / source.height);
+		const width = source.width * scale;
+		const height = source.height * scale;
+		return {
+			left: (container.width - width) / 2,
+			top: (container.height - height) / 2,
+			width,
+			height
+		};
 	}
 
 	function hasDraftPicturePreview(role: CameraRole = currentRole()): boolean {
@@ -493,7 +596,10 @@
 			270: [0, 1, -1, 0]
 		};
 
-		matrix = multiplyTransformMatrices(rotationMatrix[settings.rotation] ?? rotationMatrix[0], matrix);
+		matrix = multiplyTransformMatrices(
+			rotationMatrix[settings.rotation] ?? rotationMatrix[0],
+			matrix
+		);
 		if (settings.flip_horizontal) {
 			matrix = multiplyTransformMatrices([-1, 0, 0, 1], matrix);
 		}
@@ -527,7 +633,20 @@
 		return transformStyle;
 	}
 
+	function previewOverlayStyle(channel: Channel): string {
+		const imageSize = previewImageSizeByRole[currentRole(channel)];
+		const transformStyle = picturePreviewTransform(channel);
+		if (!imageSize) {
+			return `inset:0;${transformStyle}`;
+		}
+		const fitted = containedImageRect(previewViewportSize, imageSize);
+		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
+	}
+
 	function togglePictureSidebar() {
+		if (activeSidebar === 'classification') {
+			setDetectionHighlights(currentRole(), null);
+		}
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
 			activeSidebar = null;
@@ -536,9 +655,26 @@
 		activeSidebar = 'picture';
 	}
 
+	function toggleClassificationSidebar() {
+		if (!supportsDetectionSidebar(currentChannel)) return;
+		if (activeSidebar === 'picture') {
+			clearPicturePreview(currentRole());
+			setCalibrationHighlight(currentRole(), null);
+		}
+		if (activeSidebar === 'classification') {
+			setDetectionHighlights(currentRole(), null);
+			activeSidebar = null;
+			return;
+		}
+		activeSidebar = 'classification';
+	}
+
 	function selectChannel(channel: Channel) {
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
+		}
+		if (activeSidebar === 'classification' && !supportsDetectionSidebar(channel)) {
+			activeSidebar = null;
 		}
 		currentChannel = channel;
 		dragState = null;
@@ -582,7 +718,10 @@
 		return [center[0] + radius * Math.cos(angleRad), center[1] + radius * Math.sin(angleRad)];
 	}
 
-	function defaultZoneLayout(channel: ArcChannel, sectionZeroAngle = 0): Pick<ArcParams, 'dropZone' | 'exitZone'> {
+	function defaultZoneLayout(
+		channel: ArcChannel,
+		sectionZeroAngle = 0
+	): Pick<ArcParams, 'dropZone' | 'exitZone'> {
 		return {
 			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle),
 			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle)
@@ -648,8 +787,12 @@
 		) {
 			return null;
 		}
-		const dropZone = parseAngularZone((raw as ArcParamsPayload).drop_zone) ?? sectionRangeToZone(channel, 'drop', sectionZeroAngle);
-		const exitZone = parseAngularZone((raw as ArcParamsPayload).exit_zone) ?? sectionRangeToZone(channel, 'exit', sectionZeroAngle);
+		const dropZone =
+			parseAngularZone((raw as ArcParamsPayload).drop_zone) ??
+			sectionRangeToZone(channel, 'drop', sectionZeroAngle);
+		const exitZone =
+			parseAngularZone((raw as ArcParamsPayload).exit_zone) ??
+			sectionRangeToZone(channel, 'exit', sectionZeroAngle);
 		return {
 			center: [center[0], center[1]],
 			innerRadius: Math.max(10, innerRadius),
@@ -1558,12 +1701,12 @@
 
 			for (const channel of FEEDER_CHANNELS) {
 				const key = channel === 'carousel' ? 'carousel' : `${channel}_channel`;
-				const points = isArcChannel(channel) && arcParams[channel]
-					? buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map((pt) => [
-							Math.round(pt[0]),
-							Math.round(pt[1])
-						])
-					: getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+				const points =
+					isArcChannel(channel) && arcParams[channel]
+						? buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map(
+								(pt) => [Math.round(pt[0]), Math.round(pt[1])]
+							)
+						: getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
 				polygons[key] = points;
 				user_pts[channel] =
 					isArcChannel(channel) && arcParams[channel]
@@ -1650,6 +1793,9 @@
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
 		}
+		if (activeSidebar === 'classification') {
+			setDetectionHighlights(currentRole(), null);
+		}
 		restoreSnapshot(persistedSnapshot);
 		editingZone = true;
 		activeSidebar = 'zone';
@@ -1679,6 +1825,22 @@
 		userPoints[currentChannel] = [];
 		statusMsg = 'Zone reset. Save to keep it.';
 	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') {
+			return;
+		}
+		if (!previewViewportEl || typeof ResizeObserver === 'undefined') {
+			previewViewportSize = { width: 0, height: 0 };
+			return;
+		}
+		updatePreviewViewportSize();
+		const observer = new ResizeObserver(() => {
+			updatePreviewViewportSize();
+		});
+		observer.observe(previewViewportEl);
+		return () => observer.disconnect();
+	});
 
 	onMount(() => {
 		void loadCameraConfig();
@@ -1766,6 +1928,21 @@
 				<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
 			</button>
 
+			{#if supportsDetectionSidebar(currentChannel)}
+				<button
+					onclick={toggleClassificationSidebar}
+					disabled={editingZone}
+					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+						activeSidebar === 'classification'
+							? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
+							: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 border-border bg-bg text-text hover:bg-bg/80'
+					}`}
+				>
+					<Bug size={15} />
+					<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
+				</button>
+			{/if}
+
 			{#if editingZone}
 				<button
 					onclick={resetCurrentChannel}
@@ -1804,210 +1981,197 @@
 
 	<!-- Help text -->
 	<div class="dark:text-text-muted-dark -mx-4 px-4 py-2 text-xs text-text-muted">
-		Use the assigned camera as the main view, tune picture settings from the sidebar, and only unlock zone editing when you want to change the mask.
+		Use the assigned camera as the main view, tune picture settings from the sidebar, and only
+		unlock zone editing when you want to change the mask.
 	</div>
 
 	<!-- Content -->
 	<div class="-mx-4 -mb-4 px-4 pb-4">
-	<div
-		class={`grid gap-4 ${activeSidebar || hasStepper ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
-	>
-		<div class="flex min-w-0 flex-col gap-3">
-			<div class="relative overflow-hidden bg-black">
-				<div class="relative aspect-video">
-					{#key feedInstanceKey(currentChannel)}
-						{#if !cameraConfigLoaded}
-							<div
-								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-							>
-								<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-									Loading camera source for {CHANNEL_LABELS[currentChannel]}...
-								</div>
-							</div>
-						{:else if currentAssignment() !== null}
-							<img
-								src={streamUrl(currentChannel)}
-								alt={CHANNEL_LABELS[currentChannel]}
-								class="absolute inset-0 h-full w-full object-contain"
-								style={feedImageStyle(currentChannel)}
-							/>
-							{#if getCalibrationHighlight(currentRole())}
-								{@const highlight = getCalibrationHighlight(currentRole())!}
+		<div
+			class={`grid gap-4 ${activeSidebar || hasStepper ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
+		>
+			<div class="flex min-w-0 flex-col gap-3">
+				<div class="relative overflow-hidden bg-black">
+					<div class="relative aspect-video" bind:this={previewViewportEl}>
+						{#key feedInstanceKey(currentChannel)}
+							{#if !cameraConfigLoaded}
 								<div
-									class="pointer-events-none absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
-									style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+									class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
 								>
-									<div class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-[11px] font-medium text-slate-950 shadow-md">
-										Calibration Target
+									<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
+										Loading camera source for {CHANNEL_LABELS[currentChannel]}...
+									</div>
+								</div>
+							{:else if currentAssignment() !== null}
+								<img
+									src={streamUrl(currentChannel)}
+									alt={CHANNEL_LABELS[currentChannel]}
+									class="absolute inset-0 h-full w-full object-contain"
+									style={feedImageStyle(currentChannel)}
+									onload={(event) =>
+										rememberPreviewImageSize(currentRole(currentChannel), event.currentTarget)}
+								/>
+								<div
+									class="pointer-events-none absolute"
+									style={previewOverlayStyle(currentChannel)}
+								>
+									{#if getCalibrationHighlight(currentRole())}
+										{@const highlight = getCalibrationHighlight(currentRole())!}
+										<div
+											class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
+											style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+										>
+											<div
+												class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-[11px] font-medium text-slate-950 shadow-md"
+											>
+												Calibration Target
+											</div>
+										</div>
+									{/if}
+								{#each getDetectionHighlights(currentRole()) as highlight, index}
+									<div
+										class={`absolute border-2 shadow-[0_0_0_1px_rgba(255,255,255,0.35)] ${
+											index === 0
+												? 'border-violet-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(167,139,250,0.35)]'
+													: 'border-violet-300/80'
+											}`}
+										style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+									>
+										<div
+											class="absolute right-1 top-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-md backdrop-blur-sm"
+										>
+											{index + 1}
+										</div>
+									</div>
+								{/each}
+							</div>
+							{:else}
+								<div
+									class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
+								>
+									<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
+										No camera source configured for {CHANNEL_LABELS[currentChannel]} yet.
 									</div>
 								</div>
 							{/if}
-						{:else}
-							<div
-								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-							>
-								<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-									No camera source configured for {CHANNEL_LABELS[currentChannel]} yet.
-								</div>
-							</div>
-						{/if}
-					{/key}
+						{/key}
 
-					<canvas
-						bind:this={canvasEl}
-						width={CANVAS_W}
-						height={CANVAS_H}
-						class="absolute inset-0 h-full w-full"
-						class:pointer-events-none={!editingZone}
-						style={`object-fit: contain; cursor: ${canvasCursor}; ${picturePreviewTransform(currentChannel)}`}
-						onmousedown={onMouseDown}
-						onmousemove={onMouseMove}
-						onmouseup={onMouseUp}
-						onmouseleave={() => {
-							dragState = null;
-							canvasCursor = editingZone ? 'crosshair' : 'default';
-						}}
-						onclick={onClick}
-						oncontextmenu={onContextMenu}
-						onwheel={onWheel}
-					></canvas>
+						<canvas
+							bind:this={canvasEl}
+							width={CANVAS_W}
+							height={CANVAS_H}
+							class="absolute inset-0 h-full w-full"
+							class:pointer-events-none={!editingZone}
+							style={`object-fit: contain; cursor: ${canvasCursor}; ${picturePreviewTransform(currentChannel)}`}
+							onmousedown={onMouseDown}
+							onmousemove={onMouseMove}
+							onmouseup={onMouseUp}
+							onmouseleave={() => {
+								dragState = null;
+								canvasCursor = editingZone ? 'crosshair' : 'default';
+							}}
+							onclick={onClick}
+							oncontextmenu={onContextMenu}
+							onwheel={onWheel}
+						></canvas>
+					</div>
 				</div>
 			</div>
-		</div>
 
-		{#if editingZone && activeSidebar === 'zone'}
-			<ZoneEditingSidebar
-				label={CHANNEL_LABELS[currentChannel]}
-				isArc={isArcChannel(currentChannel)}
-				statusMessage={statusMsg}
-			/>
-		{/if}
-
-		{#if activeSidebar === 'picture'}
-			{#key `${currentRole()}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
-				<PictureSettingsSidebar
-					role={currentRole()}
+			{#if editingZone && activeSidebar === 'zone'}
+				<ZoneEditingSidebar
 					label={CHANNEL_LABELS[currentChannel]}
-					source={currentAssignment()}
-					hasCamera={currentAssignment() !== null}
-					onPreviewChange={(role, savedSettings, draftSettings) => {
-						setPicturePreview(role, savedSettings, draftSettings);
-					}}
-					onCalibrationHighlightChange={(bbox) => {
-						setCalibrationHighlight(currentRole(), bbox);
-					}}
-					onClose={() => {
-						clearPicturePreview(currentRole());
-						setCalibrationHighlight(currentRole(), null);
-						activeSidebar = null;
-					}}
-					onSaved={() => {
-						clearPicturePreview(currentRole());
-						setCalibrationHighlight(currentRole(), null);
-						activeSidebar = null;
-						feedRevision += 1;
-						statusMsg = 'Picture settings updated.';
-					}}
+					isArc={isArcChannel(currentChannel)}
+					statusMessage={statusMsg}
 				/>
-			{/key}
-		{/if}
-
-		{#if !activeSidebar && hasStepper && stepperKey}
-			<StepperSidebar
-				{stepperKey}
-				endstop={stepperEndstop}
-				keyboardShortcuts={true}
-			/>
-		{/if}
-	</div>
-
-	<Modal
-		bind:open={cameraModalOpen}
-		title={`Choose Camera for ${CHANNEL_LABELS[currentChannel]}`}
-		wide={true}
-	>
-		<div class="flex flex-col gap-4">
-			{#if cameraError}
-				<div
-					class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
-				>
-					{cameraError}
-				</div>
 			{/if}
 
-			{#if cameraLoading}
-				<div class="dark:text-text-muted-dark py-8 text-center text-sm text-text-muted">
-					Scanning cameras...
-				</div>
-			{:else}
-				{@const hasAnyCameras = usbCameras.length > 0 || (ROLE_SUPPORTS_URL[currentRole()] && networkCameras.length > 0)}
-				{#if hasAnyCameras}
-					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-						{#each usbCameras as cam}
-							{@const role = currentRole()}
-							{@const isSelected = assignments[role] === cam.index}
-							{@const usedByOther =
-								!isSelected &&
-								ALL_CAMERA_ROLES.some(
-									(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
-								)}
-							<button
-								onclick={() => selectCamera(role, cam.index)}
-								disabled={usedByOther || cameraSaving}
-								class="group relative overflow-hidden text-left transition-all {isSelected
-									? 'ring-2 ring-blue-500'
-									: usedByOther
-										? 'cursor-not-allowed opacity-40'
-										: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
-							>
-								{#if cam.preview_available === false}
-									<div
-										class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
-									>
-										No preview
-									</div>
-								{:else}
-									<img
-										src={cameraIndexPreviewUrl(cam.index)}
-										alt={cam.name ?? `Camera ${cam.index}`}
-										class="block aspect-video w-full object-cover"
-									/>
-								{/if}
-								<div
-									class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
-								>
-									<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
-									{#if cam.name && cam.width > 0 && cam.height > 0}
-										<div class="text-white/70">{cam.width}x{cam.height}</div>
-									{:else if !cam.name}
-										<div class="text-white/70">
-											Index {cam.index}{#if cam.width > 0 && cam.height > 0} · {cam.width}x{cam.height}{/if}
-										</div>
-									{/if}
-								</div>
-								{#if isSelected}
-									<div class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
-										Active
-									</div>
-								{:else if usedByOther}
-									<div class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-										In use
-									</div>
-								{/if}
-							</button>
-						{/each}
+			{#if activeSidebar === 'picture'}
+				{#key `${currentRole()}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
+					<PictureSettingsSidebar
+						role={currentRole()}
+						label={CHANNEL_LABELS[currentChannel]}
+						source={currentAssignment()}
+						hasCamera={currentAssignment() !== null}
+						onPreviewChange={(role, savedSettings, draftSettings) => {
+							setPicturePreview(role, savedSettings, draftSettings);
+						}}
+						onCalibrationHighlightChange={(bbox) => {
+							setCalibrationHighlight(currentRole(), bbox);
+						}}
+						onClose={() => {
+							clearPicturePreview(currentRole());
+							setCalibrationHighlight(currentRole(), null);
+							activeSidebar = null;
+						}}
+						onSaved={() => {
+							clearPicturePreview(currentRole());
+							setCalibrationHighlight(currentRole(), null);
+							activeSidebar = null;
+							feedRevision += 1;
+							statusMsg = 'Picture settings updated.';
+						}}
+					/>
+				{/key}
+			{/if}
 
-						{#if ROLE_SUPPORTS_URL[currentRole()]}
-							{#each networkCameras as cam}
+			{#if activeSidebar === 'classification' && supportsDetectionSidebar(currentChannel)}
+				{#key `${currentChannel}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
+					<ClassificationBaselineSection
+						scope={detectionScopeForChannel(currentChannel)}
+						camera={detectionCameraForChannel(currentChannel)}
+						label={CHANNEL_LABELS[currentChannel]}
+						hasCamera={currentAssignment() !== null}
+						onDetectionHighlightChange={(bboxes) => {
+							setDetectionHighlights(currentRole(), bboxes);
+						}}
+						onClose={() => {
+							setDetectionHighlights(currentRole(), null);
+							activeSidebar = null;
+						}}
+					/>
+				{/key}
+			{/if}
+
+			{#if !activeSidebar && hasStepper && stepperKey}
+				<StepperSidebar {stepperKey} endstop={stepperEndstop} keyboardShortcuts={true} />
+			{/if}
+		</div>
+
+		<Modal
+			bind:open={cameraModalOpen}
+			title={`Choose Camera for ${CHANNEL_LABELS[currentChannel]}`}
+			wide={true}
+		>
+			<div class="flex flex-col gap-4">
+				{#if cameraError}
+					<div
+						class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
+					>
+						{cameraError}
+					</div>
+				{/if}
+
+				{#if cameraLoading}
+					<div class="dark:text-text-muted-dark py-8 text-center text-sm text-text-muted">
+						Scanning cameras...
+					</div>
+				{:else}
+					{@const hasAnyCameras =
+						usbCameras.length > 0 ||
+						(ROLE_SUPPORTS_URL[currentRole()] && networkCameras.length > 0)}
+					{#if hasAnyCameras}
+						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+							{#each usbCameras as cam}
 								{@const role = currentRole()}
-								{@const isSelected = assignments[role] === cam.source}
+								{@const isSelected = assignments[role] === cam.index}
 								{@const usedByOther =
 									!isSelected &&
 									ALL_CAMERA_ROLES.some(
-										(otherRole) => otherRole !== role && assignments[otherRole] === cam.source
+										(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
 									)}
 								<button
-									onclick={() => saveCameraRole(role, cam.source)}
+									onclick={() => selectCamera(role, cam.index)}
 									disabled={usedByOther || cameraSaving}
 									class="group relative overflow-hidden text-left transition-all {isSelected
 										? 'ring-2 ring-blue-500'
@@ -2015,61 +2179,129 @@
 											? 'cursor-not-allowed opacity-40'
 											: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
 								>
-									<img
-										src={discoveredPreviewUrl(cam)}
-										alt={cam.name}
-										class="block aspect-video w-full object-cover"
-									/>
+									{#if cam.preview_available === false}
+										<div
+											class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
+										>
+											No preview
+										</div>
+									{:else}
+										<img
+											src={cameraIndexPreviewUrl(cam.index)}
+											alt={cam.name ?? `Camera ${cam.index}`}
+											class="block aspect-video w-full object-cover"
+										/>
+									{/if}
 									<div
 										class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
 									>
-										<div class="font-medium">{cam.name}</div>
-										<div class="text-white/70">
-											{cam.host}:{cam.port}{#if cam.lens_facing} · {cam.lens_facing}{/if}
-										</div>
+										<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
+										{#if cam.name && cam.width > 0 && cam.height > 0}
+											<div class="text-white/70">{cam.width}x{cam.height}</div>
+										{:else if !cam.name}
+											<div class="text-white/70">
+												Index {cam.index}{#if cam.width > 0 && cam.height > 0}
+													· {cam.width}x{cam.height}{/if}
+											</div>
+										{/if}
 									</div>
 									{#if isSelected}
-										<div class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+										<div
+											class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+										>
 											Active
 										</div>
 									{:else if usedByOther}
-										<div class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+										<div
+											class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+										>
 											In use
 										</div>
 									{/if}
 								</button>
 							{/each}
-						{/if}
-					</div>
-				{:else}
-					<div
-						class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
-					>
-						No cameras detected. Click Refresh to scan again.
-					</div>
-				{/if}
-			{/if}
 
-			<div class="dark:border-border-dark flex items-center justify-between border-t border-border pt-3">
-				<button
-					onclick={refreshCameras}
-					disabled={cameraLoading}
-					class="dark:text-text-muted-dark inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-text-dark"
-				>
-					<RefreshCw size={13} />
-					<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
-				</button>
-				{#if currentAssignment() !== null}
-					<button
-						onclick={() => saveCameraRole(currentRole(), null)}
-						disabled={cameraSaving}
-						class="cursor-pointer text-xs text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
-					>
-						Remove current camera
-					</button>
+							{#if ROLE_SUPPORTS_URL[currentRole()]}
+								{#each networkCameras as cam}
+									{@const role = currentRole()}
+									{@const isSelected = assignments[role] === cam.source}
+									{@const usedByOther =
+										!isSelected &&
+										ALL_CAMERA_ROLES.some(
+											(otherRole) => otherRole !== role && assignments[otherRole] === cam.source
+										)}
+									<button
+										onclick={() => saveCameraRole(role, cam.source)}
+										disabled={usedByOther || cameraSaving}
+										class="group relative overflow-hidden text-left transition-all {isSelected
+											? 'ring-2 ring-blue-500'
+											: usedByOther
+												? 'cursor-not-allowed opacity-40'
+												: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+									>
+										<img
+											src={discoveredPreviewUrl(cam)}
+											alt={cam.name}
+											class="block aspect-video w-full object-cover"
+										/>
+										<div
+											class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
+										>
+											<div class="font-medium">{cam.name}</div>
+											<div class="text-white/70">
+												{cam.host}:{cam.port}{#if cam.lens_facing}
+													· {cam.lens_facing}{/if}
+											</div>
+										</div>
+										{#if isSelected}
+											<div
+												class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											>
+												Active
+											</div>
+										{:else if usedByOther}
+											<div
+												class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											>
+												In use
+											</div>
+										{/if}
+									</button>
+								{/each}
+							{/if}
+						</div>
+					{:else}
+						<div
+							class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
+						>
+							No cameras detected. Click Refresh to scan again.
+						</div>
+					{/if}
 				{/if}
+
+				<div
+					class="dark:border-border-dark flex items-center justify-between border-t border-border pt-3"
+				>
+					<button
+						onclick={refreshCameras}
+						disabled={cameraLoading}
+						class="dark:text-text-muted-dark dark:hover:text-text-dark inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<RefreshCw size={13} />
+						<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
+					</button>
+					{#if currentAssignment() !== null}
+						<button
+							onclick={() => saveCameraRole(currentRole(), null)}
+							disabled={cameraSaving}
+							class="cursor-pointer text-xs text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+						>
+							Remove current camera
+						</button>
+					{/if}
+				</div>
 			</div>
-		</div>
-	</Modal>
-</div><!-- /content -->
+		</Modal>
+	</div>
+	<!-- /content -->
 </div>

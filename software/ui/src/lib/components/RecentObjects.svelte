@@ -112,6 +112,7 @@
 					{@const minimized = isMinimized(obj)}
 					{@const bl_data = obj.part_id ? bricklink_cache.get(obj.part_id) : null}
 					{@const bl_thumb = bl_data?.thumbnail_url ? `https:${bl_data.thumbnail_url}` : null}
+					{@const preview_url = obj.brickognize_preview_url ?? null}
 					{#if minimized}
 						<button
 							type="button"
@@ -143,17 +144,23 @@
 							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
 						>
 							<div class="flex gap-2">
-								{#if bl_thumb}
+								{#if obj.thumbnail}
+									<img
+										src={`data:image/jpeg;base64,${obj.thumbnail}`}
+										alt="piece"
+										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
+									/>
+								{:else if preview_url}
+									<img
+										src={preview_url}
+										alt="Brickognize preview"
+										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
+									/>
+								{:else if bl_thumb}
 									<img
 										src={bl_thumb}
 										alt="piece"
 										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
-									/>
-								{:else if obj.thumbnail}
-									<img
-										src={`data:image/jpeg;base64,${obj.thumbnail}`}
-										alt="piece"
-										class="h-12 w-12 flex-shrink-0 object-cover"
 									/>
 								{:else}
 									<div
@@ -191,6 +198,35 @@
 									</div>
 								</div>
 							</div>
+
+							{#if is_expanded && (obj.thumbnail || preview_url)}
+								<div class="dark:border-border-dark mt-2 grid gap-2 border-t border-border pt-2 sm:grid-cols-2">
+									{#if obj.thumbnail}
+										<div>
+											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+												Local Crop{#if obj.brickognize_source_view} ({obj.brickognize_source_view}){/if}
+											</div>
+											<img
+												src={`data:image/jpeg;base64,${obj.thumbnail}`}
+												alt="classification crop"
+												class="w-full bg-white object-contain"
+											/>
+										</div>
+									{/if}
+									{#if preview_url}
+										<div>
+											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+												Brickognize Match
+											</div>
+											<img
+												src={preview_url}
+												alt="Brickognize preview"
+												class="w-full bg-white object-contain"
+											/>
+										</div>
+									{/if}
+								</div>
+							{/if}
 
 							{#if is_expanded && (obj.top_image || obj.bottom_image)}
 								<div class="dark:border-border-dark mt-2 flex gap-2 border-t border-border pt-2">

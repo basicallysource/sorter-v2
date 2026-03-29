@@ -117,23 +117,22 @@ def main() -> None:
     gc.logger.info("client starting...")
 
     vision.start()
+    if not vision.initFeederDetection():
+        gc.logger.warning("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py — continuing without feeder detection")
+    else:
+        calibrateFeederChannels(gc, irl, irl_config)
+
     if irl_config.camera_layout == "split_feeder":
-        gc.logger.info("Split-feeder camera layout active — skipping polygon detection")
         # Classification cameras are optional in split_feeder mode
         has_classification = (
             vision._classification_top_capture is not None
             or vision._classification_bottom_capture is not None
         )
-        if has_classification:
+        if has_classification and vision.usesClassificationBaseline():
             if not vision.loadClassificationBaseline():
                 gc.logger.warning("Classification baseline not found — continuing without classification")
     else:
-        if not vision.initFeederDetection():
-            gc.logger.warning("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py — continuing without feeder detection")
-        else:
-            calibrateFeederChannels(gc, irl, irl_config)
-
-        if not vision.loadClassificationBaseline():
+        if vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
             gc.logger.warning("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py — continuing without classification")
     controller.start()
 

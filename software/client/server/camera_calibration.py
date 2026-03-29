@@ -293,6 +293,12 @@ def analyze_calibration_target(frame: np.ndarray) -> CalibrationAnalysis | None:
     return _analyze_plate_quad(frame, plate_quad)
 
 
+def analyze_color_plate_target(frame: np.ndarray) -> CalibrationAnalysis | None:
+    if frame is None or frame.size == 0:
+        return None
+    return _analyze_fixed_color_target(frame)
+
+
 def _detect_checkerboard(frame: np.ndarray) -> tuple[tuple[int, int], np.ndarray] | None:
     max_dim = max(frame.shape[0], frame.shape[1])
     scale = min(1.0, 1280.0 / float(max_dim))
@@ -342,24 +348,41 @@ def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None
     frame_pixels = frame.shape[0] * frame.shape[1]
     min_region_area = max(25.0, frame_pixels / 30_000.0)
     region_candidates = {
-        "red": _collect_color_regions(
-            cv2.inRange(hsv, np.array([0, 70, 25]), np.array([12, 255, 255]))
-            | cv2.inRange(hsv, np.array([165, 70, 25]), np.array([179, 255, 255])),
+        "red": _collect_color_regions_for_specs(
+            hsv,
+            [
+                ((0, 70, 25), (12, 255, 255)),
+                ((165, 70, 25), (179, 255, 255)),
+            ],
             min_area=min_region_area,
             max_regions=12,
         ),
-        "yellow": _collect_color_regions(
-            cv2.inRange(hsv, np.array([15, 35, 20]), np.array([50, 255, 255])),
+        "yellow": _collect_color_regions_for_specs(
+            hsv,
+            [
+                ((18, 55, 25), (45, 255, 255)),
+                ((15, 35, 20), (50, 255, 255)),
+            ],
             min_area=min_region_area,
             max_regions=12,
         ),
-        "green": _collect_color_regions(
-            cv2.inRange(hsv, np.array([35, 20, 15]), np.array([100, 255, 255])),
+        "green": _collect_color_regions_for_specs(
+            hsv,
+            [
+                ((40, 80, 20), (90, 255, 255)),
+                ((35, 60, 20), (95, 255, 255)),
+                ((35, 20, 15), (100, 255, 255)),
+            ],
             min_area=min_region_area,
             max_regions=12,
         ),
-        "blue": _collect_color_regions(
-            cv2.inRange(hsv, np.array([80, 25, 15]), np.array([145, 255, 255])),
+        "blue": _collect_color_regions_for_specs(
+            hsv,
+            [
+                ((95, 90, 20), (125, 255, 255)),
+                ((90, 70, 20), (135, 255, 255)),
+                ((80, 25, 15), (145, 255, 255)),
+            ],
             min_area=min_region_area,
             max_regions=12,
         ),
@@ -390,6 +413,52 @@ def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None
                     best = (arrangement_score, analysis)
 
     return best[1] if best is not None else None
+
+
+def _collect_color_regions_for_specs(
+    hsv: np.ndarray,
+    specs: list[tuple[tuple[int, int, int], tuple[int, int, int]]],
+    *,
+    min_area: float,
+    max_regions: int,
+) -> list[TargetColorRegion]:
+    all_candidates: list[TargetColorRegion] = []
+    for lower, upper in specs:
+        mask = cv2.inRange(
+            hsv,
+            np.array(lower, dtype=np.uint8),
+            np.array(upper, dtype=np.uint8),
+        )
+        all_candidates.extend(
+            _collect_color_regions(
+                mask,
+                min_area=min_area,
+                max_regions=max_regions,
+            )
+        )
+    return _dedupe_color_regions(all_candidates, max_regions=max_regions)
+
+
+def _dedupe_color_regions(
+    candidates: list[TargetColorRegion],
+    *,
+    max_regions: int,
+) -> list[TargetColorRegion]:
+    deduped: list[TargetColorRegion] = []
+    for candidate in sorted(candidates, key=lambda region: region.area, reverse=True):
+        if any(
+            np.hypot(
+                candidate.center[0] - existing.center[0],
+                candidate.center[1] - existing.center[1],
+            )
+            <= max(14.0, min(np.sqrt(existing.area), np.sqrt(candidate.area)) * 0.45)
+            for existing in deduped
+        ):
+            continue
+        deduped.append(candidate)
+        if len(deduped) >= max_regions:
+            break
+    return deduped
 
 
 def _collect_color_regions(
@@ -640,18 +709,18 @@ def _fixed_target_matches_are_plausible(tile_match_percentages: dict[str, float]
     white_matches = [float(tile_match_percentages.get(key, 0.0)) for key in white_keys]
     black_matches = [float(tile_match_percentages.get(key, 0.0)) for key in black_keys]
 
-    strong_color_count = sum(match >= 45.0 for match in color_matches)
+    strong_color_count = sum(match >= 30.0 for match in color_matches)
     average_color_match = float(np.mean(color_matches)) if color_matches else 0.0
     best_white_match = max(white_matches) if white_matches else 0.0
     best_black_match = max(black_matches) if black_matches else 0.0
 
     if strong_color_count < 3:
         return False
-    if average_color_match < 55.0:
+    if average_color_match < 30.0:
         return False
-    if best_white_match < 35.0:
+    if best_white_match < 30.0:
         return False
-    if best_black_match < 20.0:
+    if best_black_match < 30.0:
         return False
     return True
 

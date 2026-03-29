@@ -35,6 +35,7 @@ class Positioning(BaseState):
         self._door_servo_index: int | None = None
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
+        self._piece = None
 
     def step(self) -> Optional[DistributionState]:
         now = time.monotonic()
@@ -60,6 +61,7 @@ class Positioning(BaseState):
 
             piece.stage = PieceStage.distributing
             piece.distributing_at = time.time()
+            piece.distribution_target_selected_at = piece.distributing_at
             piece.category_id = category_id
             piece.destination_bin = (
                 address.layer_index,
@@ -67,6 +69,7 @@ class Positioning(BaseState):
                 address.bin_index,
             )
             piece.updated_at = time.time()
+            self._piece = piece
             self.event_queue.put(knownObjectToEvent(piece))
 
             self.logger.info(
@@ -91,6 +94,8 @@ class Positioning(BaseState):
             if not chute_stopped or not servo_stopped:
                 return None
             self.shared.chute_move_in_progress = False
+            if self._piece is not None and self._piece.distribution_positioned_at is None:
+                self._piece.distribution_positioned_at = time.time()
             move_ms = (now - self._moving_started_at) * 1000
             total_ms = (now - self._state_entered_at) * 1000
             if self.gc.disable_servos:
@@ -104,6 +109,8 @@ class Positioning(BaseState):
     def _startChuteMove(self) -> None:
         assert self._target_address is not None
         self.shared.chute_move_in_progress = True
+        if self._piece is not None and self._piece.distribution_motion_started_at is None:
+            self._piece.distribution_motion_started_at = time.time()
         estimated_ms = self.chute.moveToBin(self._target_address)
         self.logger.info(
             f"Positioning: chute move started (est_ms={estimated_ms})"
@@ -117,6 +124,7 @@ class Positioning(BaseState):
         self._door_servo_index = None
         self._state_entered_at = 0.0
         self._moving_started_at = 0.0
+        self._piece = None
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:

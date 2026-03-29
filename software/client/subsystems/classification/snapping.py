@@ -48,12 +48,18 @@ class Snapping(BaseState):
     def step(self) -> Optional[ClassificationState]:
         if self._entered_at is None:
             self._entered_at = time.time()
+            piece = self.carousel.getPieceAtClassification()
+            if piece is not None and piece.carousel_snapping_started_at is None:
+                piece.carousel_snapping_started_at = self._entered_at
         if (time.time() - self._entered_at) * 1000 < SETTLE_MS:
             return None
 
         if not self.snapped:
             snap_start = time.time()
+            piece = self.carousel.getPieceAtClassification()
             self._captureAndClassify()
+            if piece is not None and piece.carousel_snapping_completed_at is None:
+                piece.carousel_snapping_completed_at = time.time()
             snap_ms = (time.time() - snap_start) * 1000
             self.logger.info(f"Snapping: capture+classify took {snap_ms:.0f}ms")
             self.snapped = True

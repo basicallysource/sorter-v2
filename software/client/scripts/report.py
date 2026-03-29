@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import sys
 import statistics
@@ -6,6 +7,64 @@ from datetime import datetime
 from pathlib import Path
 
 RECORDS_DIR = Path(__file__).parent.parent / "blob" / "records"
+
+
+def loadRuntimeWaits() -> list[tuple[str, float | None]]:
+    wait_values: list[tuple[str, float | None]] = []
+    client_root = Path(__file__).resolve().parent.parent
+
+    def readConstValue(path: Path, name: str) -> float | None:
+        try:
+            source = path.read_text()
+            tree = ast.parse(source)
+        except Exception:
+            return None
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    try:
+                        value = ast.literal_eval(node.value)
+                    except Exception:
+                        return None
+                    if isinstance(value, (int, float)):
+                        return float(value)
+                    return None
+        return None
+
+    wait_values.append(
+        (
+            "classification.detecting.WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS",
+            readConstValue(client_root / "subsystems" / "classification" / "detecting.py", "WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS"),
+        )
+    )
+    wait_values.append(
+        (
+            "classification.detecting.DEBOUNCE_MS",
+            readConstValue(client_root / "subsystems" / "classification" / "detecting.py", "DEBOUNCE_MS"),
+        )
+    )
+    wait_values.append(
+        (
+            "classification.rotating.PRE_ROTATE_DELAY_MS",
+            readConstValue(client_root / "subsystems" / "classification" / "rotating.py", "PRE_ROTATE_DELAY_MS"),
+        )
+    )
+    wait_values.append(
+        (
+            "classification.snapping.SETTLE_MS",
+            readConstValue(client_root / "subsystems" / "classification" / "snapping.py", "SETTLE_MS"),
+        )
+    )
+    wait_values.append(
+        (
+            "distribution.sending.CHUTE_SETTLE_MS",
+            readConstValue(client_root / "subsystems" / "distribution" / "sending.py", "CHUTE_SETTLE_MS"),
+        )
+    )
+
+    return wait_values
 
 
 def loadRecord(path: Path) -> dict:
@@ -93,6 +152,20 @@ def reportSingle(record: dict) -> None:
     classification_times = []
     distribution_times = []
     feeding_times = []
+    find_to_rotate_times = []
+    find_to_snap_done_times = []
+    find_to_next_baseline_times = []
+    find_to_next_ready_times = []
+    rotate_only_times = []
+    snapping_only_times = []
+    chute_servo_target_to_positioned_times = []
+    chute_servo_motion_only_times = []
+
+    def appendDuration(out: list[float], start: float | None, end: float | None) -> None:
+        if start is None or end is None:
+            return
+        if end >= start:
+            out.append(end - start)
 
     for p in pieces:
         if p.get("distributed_at") and p.get("created_at"):
@@ -104,14 +177,49 @@ def reportSingle(record: dict) -> None:
         if p.get("feeding_started_at") and p.get("created_at"):
             feeding_times.append(p["created_at"] - p["feeding_started_at"])
 
+        detect_confirmed_at = p.get("carousel_detected_confirmed_at") or p.get("created_at")
+        appendDuration(find_to_rotate_times, detect_confirmed_at, p.get("carousel_rotated_at"))
+        appendDuration(find_to_snap_done_times, detect_confirmed_at, p.get("carousel_snapping_completed_at"))
+        appendDuration(find_to_next_baseline_times, detect_confirmed_at, p.get("carousel_next_baseline_captured_at"))
+        appendDuration(find_to_next_ready_times, detect_confirmed_at, p.get("carousel_next_ready_at"))
+        appendDuration(rotate_only_times, p.get("carousel_rotate_started_at"), p.get("carousel_rotated_at"))
+        appendDuration(snapping_only_times, p.get("carousel_snapping_started_at"), p.get("carousel_snapping_completed_at"))
+        appendDuration(
+            chute_servo_target_to_positioned_times,
+            p.get("distribution_target_selected_at"),
+            p.get("distribution_positioned_at"),
+        )
+        appendDuration(
+            chute_servo_motion_only_times,
+            p.get("distribution_motion_started_at"),
+            p.get("distribution_positioned_at"),
+        )
+
     timing_sections = [
         ("Feed time (ready->landed)", feeding_times),
         ("Total time (created->distributed)", creation_to_distributed),
         ("Classification time (created->classified)", classification_times),
         ("Chute time (distributing->distributed)", distribution_times),
+        ("Carousel: found->rotated", find_to_rotate_times),
+        ("Carousel: found->snap done", find_to_snap_done_times),
+        ("Carousel: found->next baseline captured", find_to_next_baseline_times),
+        ("Carousel: found->next ready", find_to_next_ready_times),
+        ("Carousel: rotate only", rotate_only_times),
+        ("Carousel: snapping window (includes settle)", snapping_only_times),
+        ("Distribution positioning: target selected->positioned", chute_servo_target_to_positioned_times),
+        ("Distribution positioning: motion start->positioned", chute_servo_motion_only_times),
     ]
     for label, values in timing_sections:
         printTimingStats(label, values)
+
+    waits = loadRuntimeWaits()
+    if waits:
+        print("  Constant waits currently configured:")
+        for name, value in waits:
+            if value is None:
+                print(f"    {name}=<unavailable>")
+            else:
+                print(f"    {name}={value:.0f}ms")
 
     statuses: dict[str, int] = {}
     for p in pieces:

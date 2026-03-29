@@ -82,6 +82,12 @@ class Rotating(BaseState):
             if elapsed_since_entry_ms < PRE_ROTATE_DELAY_MS:
                 return None
             self.start_time = time.time()
+            piece_at_feeder = self.carousel.getPieceAtFeeder()
+            if (
+                piece_at_feeder is not None
+                and piece_at_feeder.carousel_rotate_started_at is None
+            ):
+                piece_at_feeder.carousel_rotate_started_at = self.start_time
             self.logger.info("Rotating: starting rotation")
             self.stepper.move_degrees(-90.0)
             self.command_sent = True
@@ -108,6 +114,8 @@ class Rotating(BaseState):
 
         piece_at_class = self.carousel.getPieceAtClassification()
         if piece_at_class is not None:
+            if piece_at_class.carousel_rotated_at is None:
+                piece_at_class.carousel_rotated_at = time.time()
             self.logger.info(
                 f"Rotating: piece {piece_at_class.uuid[:8]} at classification position"
             )

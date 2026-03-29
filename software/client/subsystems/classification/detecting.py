@@ -43,6 +43,12 @@ class Detecting(BaseState):
                 return None
             if not self.vision.captureCarouselBaseline():
                 return None
+            piece_at_classification = self.carousel.getPieceAtClassification()
+            if (
+                piece_at_classification is not None
+                and piece_at_classification.carousel_next_baseline_captured_at is None
+            ):
+                piece_at_classification.carousel_next_baseline_captured_at = now
             self._baseline_pending = False
             self.logger.info("Detecting: captured heatmap baseline")
 
@@ -51,6 +57,12 @@ class Detecting(BaseState):
                 return None
             self.shared.classification_ready = True
             self._ready_at = now
+            piece_at_classification = self.carousel.getPieceAtClassification()
+            if (
+                piece_at_classification is not None
+                and piece_at_classification.carousel_next_ready_at is None
+            ):
+                piece_at_classification.carousel_next_ready_at = now
             elapsed_since_enter = (now - self._entered_at) * 1000 if self._entered_at else 0
             self.logger.info(f"Detecting: classification_ready=True ({elapsed_since_enter:.0f}ms since enter)")
             return None
@@ -74,6 +86,7 @@ class Detecting(BaseState):
                 self.logger.info(f"Detecting: confirmed -> ROTATING (wait_for_piece={wait_ms:.0f}ms, total={total_ms:.0f}ms)")
                 obj = self.carousel.addPieceAtFeeder()
                 obj.feeding_started_at = self._ready_at
+                obj.carousel_detected_confirmed_at = now
                 return ClassificationState.ROTATING
         else:
             if self._detected_at is not None:

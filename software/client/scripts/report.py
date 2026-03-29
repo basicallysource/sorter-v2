@@ -134,19 +134,24 @@ def reportSingle(record: dict) -> None:
         return
 
     distributed = [p for p in pieces if p.get("distributed_at")]
+    distributed_counted_for_throughput = [
+        p for p in distributed if p.get("classification_status") != "not_found"
+    ]
 
-    if len(distributed) >= 2:
-        sorted_by_distributed = sorted(distributed, key=lambda p: p["distributed_at"])
+    if len(distributed_counted_for_throughput) >= 2:
+        sorted_by_distributed = sorted(
+            distributed_counted_for_throughput, key=lambda p: p["distributed_at"]
+        )
         first = sorted_by_distributed[0]["distributed_at"]
         last = sorted_by_distributed[-1]["distributed_at"]
         span = last - first
         if span > 0:
-            ppm = (len(distributed) - 1) / (span / 60.0)
-            print(f"  Throughput: {ppm:.1f} pieces/min (distributed)")
+            ppm = (len(distributed_counted_for_throughput) - 1) / (span / 60.0)
+            print(f"  Throughput: {ppm:.1f} pieces/min (distributed, excluding not_found)")
 
-    if active_time > 0 and len(distributed) > 0:
-        ppm_active = len(distributed) / (active_time / 60.0)
-        print(f"  Throughput (active): {ppm_active:.1f} pieces/min")
+    if active_time > 0 and len(distributed_counted_for_throughput) > 0:
+        ppm_active = len(distributed_counted_for_throughput) / (active_time / 60.0)
+        print(f"  Throughput (active): {ppm_active:.1f} pieces/min (excluding not_found)")
 
     creation_to_distributed = []
     classification_times = []
@@ -265,6 +270,7 @@ def reportAggregate(records: list[dict]) -> None:
     total_pieces = 0
     total_active = 0.0
     total_distributed = 0
+    total_distributed_counted_for_throughput = 0
     all_throughputs: list[float] = []
 
     for record in records:
@@ -274,20 +280,26 @@ def reportAggregate(records: list[dict]) -> None:
 
         distributed = [p for p in pieces if p.get("distributed_at")]
         total_distributed += len(distributed)
+        distributed_counted_for_throughput = [
+            p for p in distributed if p.get("classification_status") != "not_found"
+        ]
+        total_distributed_counted_for_throughput += len(distributed_counted_for_throughput)
 
-        if len(distributed) >= 2:
-            sorted_d = sorted(distributed, key=lambda p: p["distributed_at"])
+        if len(distributed_counted_for_throughput) >= 2:
+            sorted_d = sorted(distributed_counted_for_throughput, key=lambda p: p["distributed_at"])
             span = sorted_d[-1]["distributed_at"] - sorted_d[0]["distributed_at"]
             if span > 0:
-                all_throughputs.append((len(distributed) - 1) / (span / 60.0))
+                all_throughputs.append((len(distributed_counted_for_throughput) - 1) / (span / 60.0))
 
     print(f"\n=== Aggregate ({len(records)} runs) ===")
     print(f"  Total pieces: {total_pieces}")
     print(f"  Total distributed: {total_distributed}")
     print(f"  Total active time: {formatDuration(total_active)}")
 
-    if total_active > 0 and total_distributed > 0:
-        print(f"  Overall throughput (active): {total_distributed / (total_active / 60.0):.1f} pieces/min")
+    if total_active > 0 and total_distributed_counted_for_throughput > 0:
+        print(
+            f"  Overall throughput (active): {total_distributed_counted_for_throughput / (total_active / 60.0):.1f} pieces/min (excluding not_found)"
+        )
     if all_throughputs:
         avg_tp = sum(all_throughputs) / len(all_throughputs)
         print(f"  Avg run throughput: {avg_tp:.1f} pieces/min")

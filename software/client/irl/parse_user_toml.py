@@ -239,6 +239,20 @@ def loadStepperBindingOverrides(
     return overrides
 
 
+def loadStepperCurrentOverrides(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> dict[str, tuple[int, int, int]]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    return _parseStepperCurrentOverrides(gc, raw)
+
+
 def loadStepperDirectionInverts(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,

@@ -138,6 +138,13 @@ class Mog2ChannelDetector:
 
     def _mog2InputFrame(self, frame: np.ndarray) -> np.ndarray:
         mode = str(self._cfg.color_mode).lower()
+        if frame.ndim == 2:
+            if mode == "gray":
+                return frame
+            if mode == "lab":
+                return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2LAB)
+        if frame.ndim == 3 and frame.shape[2] == 4:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
         if mode == "lab":
             return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
         if mode == "gray":

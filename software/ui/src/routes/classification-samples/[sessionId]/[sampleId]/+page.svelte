@@ -558,7 +558,7 @@
 							<div>
 								<div class="dark:text-text-muted-dark text-xs text-text-muted">Camera</div>
 								<div class="dark:text-text-dark mt-1 text-text">
-									{sample.source_role ?? sample.preferred_camera ?? sample.camera ?? 'n/a'}
+									{sourceLabel(sample.source_role ?? sample.preferred_camera ?? sample.camera ?? 'n/a')}
 								</div>
 							</div>
 							{#if sample.capture_reason}

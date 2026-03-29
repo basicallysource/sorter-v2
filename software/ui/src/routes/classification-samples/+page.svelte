@@ -383,7 +383,7 @@
 										<div class="dark:text-text-muted-dark text-text-muted">
 											<div>Camera</div>
 											<div class="dark:text-text-dark mt-1 font-medium text-text">
-												{sample.source_role ?? sample.preferred_camera ?? sample.camera ?? 'n/a'}
+												{titleCase(sample.source_role ?? sample.preferred_camera ?? sample.camera ?? 'n/a')}
 											</div>
 										</div>
 										<div class="dark:text-text-muted-dark text-text-muted">

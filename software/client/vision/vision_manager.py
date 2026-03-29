@@ -839,6 +839,15 @@ class VisionManager:
         return self._classificationDiffFrame(frame.raw)
 
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
+        return self.getClassificationDetectionCandidates(cam)
+
+    def getClassificationDetectionCandidates(
+        self,
+        cam: str,
+        *,
+        force: bool = False,
+        frame: CameraFrame | None = None,
+    ) -> List[Tuple[int, int, int, int]]:
         if self.usesClassificationBaseline():
             if cam == "top" and self._classification_top_analysis:
                 return self._classification_top_analysis.getBboxes()
@@ -846,7 +855,11 @@ class VisionManager:
                 return self._classification_bottom_analysis.getBboxes()
             return []
 
-        detection = self._getDynamicClassificationDetection(cam)
+        detection = (
+            self._getDynamicClassificationDetectionForFrame(cam, frame, force=force)
+            if frame is not None
+            else self._getDynamicClassificationDetection(cam, force=force)
+        )
         if detection is None:
             return []
         return list(detection.bboxes)

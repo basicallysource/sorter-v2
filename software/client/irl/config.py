@@ -36,7 +36,6 @@ from .parse_user_toml import (
     loadStepperBindingOverrides,
     loadStepperCurrentOverrides,
     loadStepperDirectionInverts,
-    loadServoPresetAngles,
     loadServoChannelConfig,
     loadWaveshareServoConfig,
     loadChuteCalibrationConfig,

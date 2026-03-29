@@ -29,6 +29,11 @@ AUTODISTILL_ROOT = Path("/Users/mneuhaus/Workspace/LegoSorter/autodistill")
 SAM2_CHECKPOINT = AUTODISTILL_ROOT / "checkpoints" / "sam2.1_hiera_small.pt"
 DISTILL_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "distill_segment_sample.py"
 DEFAULT_PROCESSOR = "gemini_sam"
+CLASSIFICATION_SAMPLE_SOURCES = {
+    "manual_capture",
+    "settings_detection_test",
+    "live_classification",
+}
 
 
 def _slugify(value: str) -> str:
@@ -138,6 +143,9 @@ class ClassificationTrainingManager:
             raise ValueError("No live classification tray crop is available for this view.")
         metadata = {
             "source": "manual_capture",
+            "source_role": "classification_chamber",
+            "capture_reason": "manual_capture",
+            "detection_scope": "classification",
             "camera": camera,
             "captured_at": time.time(),
         }
@@ -171,6 +179,9 @@ class ClassificationTrainingManager:
             processor = self._processor
         metadata: dict[str, Any] = {
             "source": "settings_detection_test",
+            "source_role": "classification_chamber",
+            "capture_reason": "settings_detection_test",
+            "detection_scope": "classification",
             "camera": camera,
             "captured_at": time.time(),
             "detection_algorithm": algorithm if isinstance(algorithm, str) and algorithm else None,
@@ -217,6 +228,10 @@ class ClassificationTrainingManager:
         detection_found: bool,
         detection_algorithm: str | None,
         detection_openrouter_model: str | None,
+        detection_bbox_count: int | None = None,
+        top_detection_bbox_count: int | None = None,
+        bottom_detection_bbox_count: int | None = None,
+        detection_message: str | None = None,
         top_zone: np.ndarray | None,
         bottom_zone: np.ndarray | None,
         top_frame: np.ndarray | None,
@@ -229,6 +244,9 @@ class ClassificationTrainingManager:
             processor = self._processor
         metadata = {
             "source": "live_classification",
+            "source_role": "classification_chamber",
+            "capture_reason": "live_classification",
+            "detection_scope": "classification",
             "piece_uuid": piece_uuid,
             "machine_id": machine_id,
             "run_id": run_id,
@@ -248,6 +266,10 @@ class ClassificationTrainingManager:
                 )
                 else None
             ),
+            "detection_bbox_count": int(detection_bbox_count or 0),
+            "top_detection_bbox_count": int(top_detection_bbox_count or 0),
+            "bottom_detection_bbox_count": int(bottom_detection_bbox_count or 0),
+            "detection_message": detection_message if isinstance(detection_message, str) else None,
         }
         return self._enqueueSavedSample(
             session_dir=session_dir,
@@ -337,6 +359,7 @@ class ClassificationTrainingManager:
                 metadata = self._readJsonFile(metadata_path)
                 if not isinstance(metadata, dict):
                     continue
+                metadata = self._normalizeAndPersistMetadata(metadata_path, metadata)
                 summary = self._sampleSummary(session_dir, metadata, manifest)
                 session_samples.append(summary)
                 samples.append(summary)
@@ -579,6 +602,45 @@ class ClassificationTrainingManager:
         metadata = self._readJsonFile(metadata_path)
         if metadata is None:
             raise ValueError("Unknown sample.")
+        return self._normalizeAndPersistMetadata(metadata_path, metadata)
+
+    def _normalizeLegacyMetadata(self, metadata: dict[str, Any]) -> bool:
+        changed = False
+        source = metadata.get("source")
+        if not isinstance(source, str):
+            return False
+
+        if source in CLASSIFICATION_SAMPLE_SOURCES:
+            if not isinstance(metadata.get("source_role"), str) or not metadata.get("source_role"):
+                metadata["source_role"] = "classification_chamber"
+                changed = True
+            if not isinstance(metadata.get("detection_scope"), str) or not metadata.get("detection_scope"):
+                metadata["detection_scope"] = "classification"
+                changed = True
+            if not isinstance(metadata.get("capture_reason"), str) or not metadata.get("capture_reason"):
+                metadata["capture_reason"] = source
+                changed = True
+            if (
+                not isinstance(metadata.get("camera"), str)
+                and isinstance(metadata.get("preferred_camera"), str)
+                and metadata.get("preferred_camera")
+            ):
+                metadata["camera"] = metadata["preferred_camera"]
+                changed = True
+
+        return changed
+
+    def _normalizeAndPersistMetadata(
+        self,
+        metadata_path: Path,
+        metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not self._normalizeLegacyMetadata(metadata):
+            return metadata
+        try:
+            metadata_path.write_text(json.dumps(metadata, indent=2))
+        except Exception:
+            pass
         return metadata
 
     def _existingSampleImagePath(self, metadata: dict[str, Any]) -> Path | None:

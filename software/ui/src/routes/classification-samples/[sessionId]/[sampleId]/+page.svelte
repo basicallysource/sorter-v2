@@ -5,7 +5,7 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 
-	type OpenRouterModelOption = {
+	type RetestModelOption = {
 		id: string;
 		label: string;
 	};
@@ -97,7 +97,7 @@
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
 	let sample = $state<SampleDetail | null>(null);
-	let availableOpenrouterModels = $state<OpenRouterModelOption[]>([]);
+	let availableRetestModels = $state<RetestModelOption[]>([]);
 	let retestModel = $state('google/gemini-3-flash-preview');
 	let liveRetests = $state<LiveRetestCard[]>([]);
 	let activeRetestCount = $state(0);
@@ -130,7 +130,7 @@
 
 	function modelLabel(model: string | null | undefined): string {
 		if (typeof model !== 'string' || !model) return 'n/a';
-		return availableOpenrouterModels.find((option) => option.id === model)?.label ?? model;
+		return availableRetestModels.find((option) => option.id === model)?.label ?? model;
 	}
 
 	function sourceLabel(source: string | null | undefined): string {
@@ -153,17 +153,22 @@
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			sample = (payload?.sample ?? null) as SampleDetail | null;
-			availableOpenrouterModels = Array.isArray(payload?.available_openrouter_models)
-				? payload.available_openrouter_models.filter(
-						(value: any): value is OpenRouterModelOption =>
+			availableRetestModels = Array.isArray(payload?.available_retest_models)
+				? payload.available_retest_models.filter(
+						(value: any): value is RetestModelOption =>
 							typeof value?.id === 'string' && typeof value?.label === 'string'
 				  )
-				: [];
+				: Array.isArray(payload?.available_openrouter_models)
+					? payload.available_openrouter_models.filter(
+							(value: any): value is RetestModelOption =>
+								typeof value?.id === 'string' && typeof value?.label === 'string'
+					  )
+					: [];
 			if (
-				availableOpenrouterModels.length > 0 &&
-				!availableOpenrouterModels.some((option) => option.id === retestModel)
+				availableRetestModels.length > 0 &&
+				!availableRetestModels.some((option) => option.id === retestModel)
 			) {
-				retestModel = availableOpenrouterModels[0].id;
+				retestModel = availableRetestModels[0].id;
 			}
 			return true;
 		} catch (error: unknown) {
@@ -253,7 +258,7 @@
 				{
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ openrouter_model: model })
+					body: JSON.stringify({ model_id: model })
 				}
 			);
 			if (!res.ok) {
@@ -322,7 +327,7 @@
 
 	async function runAllRetests() {
 		await runRetests(
-			availableOpenrouterModels.map((option) => option.id),
+			availableRetestModels.map((option) => option.id),
 			(succeeded, failed) =>
 				failed === 0
 					? `Completed ${succeeded} retests and saved them to the sample history.`
@@ -474,20 +479,20 @@
 							<div>
 								<div class="dark:text-text-dark text-sm font-semibold text-text">Retest With Another Model</div>
 								<div class="dark:text-text-muted-dark mt-1 text-xs text-text-muted">
-									Run one model or the full OpenRouter comparison set on the saved raw crop.
+									Run one model or the full comparison set on the saved raw crop, including local detector runs.
 								</div>
 							</div>
 						</div>
 						<div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end">
 							<label class="dark:text-text-dark min-w-0 flex-1 text-xs text-text">
-								OpenRouter Model
+								Retest Model
 								<select
 									value={retestModel}
 									onchange={(event) => (retestModel = event.currentTarget.value)}
 									disabled={retesting}
 									class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
 								>
-									{#each availableOpenrouterModels as option}
+									{#each availableRetestModels as option}
 										<option value={option.id}>{option.label}</option>
 									{/each}
 								</select>
@@ -495,7 +500,7 @@
 							<button
 								type="button"
 								onclick={runRetest}
-								disabled={retesting || availableOpenrouterModels.length === 0}
+								disabled={retesting || availableRetestModels.length === 0}
 								class="border border-sky-500 bg-sky-500/15 px-3 py-2 text-sm text-sky-700 transition-colors hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300"
 							>
 								{retesting ? 'Running...' : 'Run Selected'}
@@ -503,10 +508,10 @@
 							<button
 								type="button"
 								onclick={runAllRetests}
-								disabled={retesting || availableOpenrouterModels.length === 0}
+								disabled={retesting || availableRetestModels.length === 0}
 								class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								{retesting ? 'Running...' : `Run All Models (${availableOpenrouterModels.length})`}
+								{retesting ? 'Running...' : `Run All Models (${availableRetestModels.length})`}
 							</button>
 						</div>
 

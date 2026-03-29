@@ -71,6 +71,7 @@ from server.camera_calibration import (
 )
 from server.classification_training import getClassificationTrainingManager
 from server.camera_discovery import getDiscoveredCameraStreams, shutdownCameraDiscovery
+from server.local_detector_models import get_local_detector_model, local_detector_model_options
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -187,6 +188,17 @@ def _openrouter_model_options() -> list[dict[str, str]]:
         }
         for model in _supported_openrouter_models()
     ]
+
+
+def _available_retest_model_options() -> list[dict[str, str]]:
+    return [*local_detector_model_options(), *_openrouter_model_options()]
+
+
+def _normalize_retest_model_id(value: str | None) -> str:
+    local_model = get_local_detector_model(value)
+    if local_model is not None:
+        return local_model.id
+    return _normalize_openrouter_model(value)
 runtime_stats_snapshot: Optional[dict[str, Any]] = None
 
 
@@ -3312,6 +3324,7 @@ class AuxiliaryDetectionConfigPayload(BaseModel):
 
 
 class ClassificationSampleRetestPayload(BaseModel):
+    model_id: Optional[str] = None
     openrouter_model: Optional[str] = None
 
 
@@ -3814,6 +3827,7 @@ def get_classification_training_sample_detail(session_id: str, sample_id: str) -
         "ok": True,
         "session": session,
         "sample": sample,
+        "available_retest_models": _available_retest_model_options(),
         "available_openrouter_models": _openrouter_model_options(),
     }
 
@@ -3844,9 +3858,9 @@ def retest_classification_training_sample(
     payload: ClassificationSampleRetestPayload,
 ) -> Dict[str, Any]:
     manager = getClassificationTrainingManager()
-    model = _normalize_openrouter_model(payload.openrouter_model)
+    model = _normalize_retest_model_id(payload.model_id or payload.openrouter_model)
     try:
-        result = manager.runSampleRetest(session_id, sample_id, openrouter_model=model)
+        result = manager.runSampleRetest(session_id, sample_id, model_id=model)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
@@ -3876,7 +3890,7 @@ def retest_all_classification_training_sample(
         result = manager.runSampleRetests(
             session_id,
             sample_id,
-            openrouter_models=list(_supported_openrouter_models()),
+            model_ids=[option["id"] for option in _available_retest_model_options() if isinstance(option, dict) and isinstance(option.get("id"), str)],
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

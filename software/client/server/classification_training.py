@@ -19,6 +19,7 @@ from blob_manager import (
     getClassificationTrainingConfig,
     setClassificationTrainingConfig,
 )
+from server.local_detector_models import get_local_detector_model, local_detector_model_options
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -28,6 +29,7 @@ TRAINING_ROOT = BLOB_DIR / "classification_training"
 AUTODISTILL_ROOT = Path("/Users/mneuhaus/Workspace/LegoSorter/autodistill")
 SAM2_CHECKPOINT = AUTODISTILL_ROOT / "checkpoints" / "sam2.1_hiera_small.pt"
 DISTILL_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "distill_segment_sample.py"
+LOCAL_RETEST_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "retest_local_detector_sample.py"
 DEFAULT_PROCESSOR = "gemini_sam"
 CLASSIFICATION_SAMPLE_SOURCES = {
     "manual_capture",
@@ -388,6 +390,12 @@ class ClassificationTrainingManager:
             "samples": samples,
         }
 
+    def availableRetestModels(self) -> list[dict[str, str]]:
+        from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
+
+        cloud_options = [{"id": model, "label": model} for model in SUPPORTED_OPENROUTER_MODELS]
+        return [*local_detector_model_options(), *cloud_options]
+
     def getSampleDetail(self, session_id: str, sample_id: str) -> dict[str, Any]:
         session_dir = self.resolveSessionDir(session_id)
         manifest = self._readSessionManifest(session_dir)
@@ -458,9 +466,7 @@ class ClassificationTrainingManager:
             "removed_session": removed_session,
         }
 
-    def runSampleRetest(self, session_id: str, sample_id: str, *, openrouter_model: str) -> dict[str, Any]:
-        from vision.gemini_sam_detector import GeminiSamDetector, normalize_openrouter_model
-
+    def runSampleRetest(self, session_id: str, sample_id: str, *, model_id: str) -> dict[str, Any]:
         session_dir = self.resolveSessionDir(session_id)
         metadata_path = session_dir / "metadata" / f"{sample_id}.json"
         metadata = self._loadSampleMetadata(session_dir, sample_id)
@@ -472,14 +478,8 @@ class ClassificationTrainingManager:
         if image is None or image.size == 0:
             raise ValueError("Saved sample image could not be read.")
 
-        normalized_model = normalize_openrouter_model(openrouter_model)
-        detector = GeminiSamDetector(normalized_model)
-        detection = detector.detect(image, force=True)
-        last_error = getattr(detector, "_last_error", None)
-
-        overlay = self._annotatedDetectionOverlay(image, detection)
         retest_id = f"{int(time.time() * 1000)}-{uuid4().hex[:8]}"
-        model_slug = _slugify(normalized_model)
+        model_slug = _slugify(model_id)
         retest_dir = session_dir / "retests"
         retest_json_dir = retest_dir / "json"
         retest_overlay_dir = retest_dir / "overlays"
@@ -487,28 +487,23 @@ class ClassificationTrainingManager:
         retest_overlay_dir.mkdir(parents=True, exist_ok=True)
         result_path = retest_json_dir / f"{sample_id}__{model_slug}__{retest_id}.json"
         overlay_path = retest_overlay_dir / f"{sample_id}__{model_slug}__{retest_id}.jpg"
-        self._writeImage(overlay_path, overlay)
-
-        bboxes = list(detection.bboxes) if detection is not None else []
-        bbox = detection.bbox if detection is not None else None
-        payload = {
-            "retest_id": retest_id,
-            "sample_id": sample_id,
-            "created_at": time.time(),
-            "model": normalized_model,
-            "found": bool(detection is not None and detection.bbox is not None),
-            "bbox": list(bbox) if bbox is not None else None,
-            "candidate_bboxes": [list(candidate) for candidate in bboxes],
-            "bbox_count": len(bboxes),
-            "score": (
-                float(detection.score)
-                if detection is not None and detection.score is not None
-                else None
-            ),
-            "error": last_error if isinstance(last_error, str) and last_error else None,
-            "result_json": str(result_path),
-            "overlay_image": str(overlay_path),
-        }
+        payload = self._runRetestModel(
+            image=image,
+            image_path=image_path,
+            model_id=model_id,
+            result_path=result_path,
+            overlay_path=overlay_path,
+        )
+        payload.update(
+            {
+                "retest_id": retest_id,
+                "sample_id": sample_id,
+                "created_at": time.time(),
+                "model": model_id,
+                "result_json": str(result_path),
+                "overlay_image": str(overlay_path),
+            }
+        )
         result_path.write_text(json.dumps(payload, indent=2))
 
         retests = metadata.get("retests", [])
@@ -530,18 +525,18 @@ class ClassificationTrainingManager:
         session_id: str,
         sample_id: str,
         *,
-        openrouter_models: list[str],
+        model_ids: list[str],
     ) -> dict[str, Any]:
         requested_models = [
-            model for model in dict.fromkeys(openrouter_models)
+            model for model in dict.fromkeys(model_ids)
             if isinstance(model, str) and model.strip()
         ]
         if not requested_models:
-            raise ValueError("No OpenRouter models were provided for retesting.")
+            raise ValueError("No retest models were provided.")
 
         retests: list[dict[str, Any]] = []
         for model in requested_models:
-            result = self.runSampleRetest(session_id, sample_id, openrouter_model=model)
+            result = self.runSampleRetest(session_id, sample_id, model_id=model)
             retest = result.get("retest")
             if isinstance(retest, dict):
                 retests.append(retest)
@@ -551,6 +546,121 @@ class ClassificationTrainingManager:
             "sample_id": sample_id,
             "session_id": session_id,
             "retests": retests,
+        }
+
+    def _runRetestModel(
+        self,
+        *,
+        image: np.ndarray,
+        image_path: Path,
+        model_id: str,
+        result_path: Path,
+        overlay_path: Path,
+    ) -> dict[str, Any]:
+        local_model = get_local_detector_model(model_id)
+        if local_model is not None:
+            return self._runLocalDetectorRetest(
+                image_path=image_path,
+                model_id=model_id,
+                local_model=local_model,
+                result_path=result_path,
+                overlay_path=overlay_path,
+            )
+        return self._runOpenRouterRetest(
+            image=image,
+            model_id=model_id,
+            result_path=result_path,
+            overlay_path=overlay_path,
+        )
+
+    def _runOpenRouterRetest(
+        self,
+        *,
+        image: np.ndarray,
+        model_id: str,
+        result_path: Path,
+        overlay_path: Path,
+    ) -> dict[str, Any]:
+        from vision.gemini_sam_detector import GeminiSamDetector, normalize_openrouter_model
+
+        normalized_model = normalize_openrouter_model(model_id)
+        detector = GeminiSamDetector(normalized_model)
+        detection = detector.detect(image, force=True)
+        last_error = getattr(detector, "_last_error", None)
+
+        overlay = self._annotatedDetectionOverlay(image, detection)
+        self._writeImage(overlay_path, overlay)
+
+        bboxes = list(detection.bboxes) if detection is not None else []
+        bbox = detection.bbox if detection is not None else None
+        return {
+            "found": bool(detection is not None and detection.bbox is not None),
+            "bbox": list(bbox) if bbox is not None else None,
+            "candidate_bboxes": [list(candidate) for candidate in bboxes],
+            "bbox_count": len(bboxes),
+            "score": float(detection.score) if detection is not None and detection.score is not None else None,
+            "error": last_error if isinstance(last_error, str) and last_error else None,
+        }
+
+    def _runLocalDetectorRetest(
+        self,
+        *,
+        image_path: Path,
+        model_id: str,
+        local_model: Any,
+        result_path: Path,
+        overlay_path: Path,
+    ) -> dict[str, Any]:
+        if not LOCAL_RETEST_SCRIPT.exists():
+            raise RuntimeError(f"Local detector retest script not found at {LOCAL_RETEST_SCRIPT}.")
+
+        command = [
+            "uv",
+            "run",
+            "--with",
+            "ultralytics",
+            "--with",
+            "onnx",
+            "--with",
+            "onnxruntime",
+            "python",
+            str(LOCAL_RETEST_SCRIPT),
+            "--input",
+            str(image_path),
+            "--model",
+            str(local_model.onnx_path),
+            "--result-json",
+            str(result_path),
+            "--overlay-image",
+            str(overlay_path),
+            "--imgsz",
+            str(local_model.imgsz),
+        ]
+        proc = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[1]),
+            capture_output=True,
+            text=True,
+            timeout=240,
+            check=False,
+        )
+        if proc.returncode != 0:
+            stderr = proc.stderr.strip()
+            stdout = proc.stdout.strip()
+            detail = stderr or stdout or f"local detector subprocess exited with {proc.returncode}"
+            raise RuntimeError(detail)
+        if not result_path.exists():
+            raise RuntimeError("Local detector result JSON was not written.")
+        payload = json.loads(result_path.read_text())
+        return {
+            "found": bool(payload.get("found")),
+            "bbox": payload.get("bbox") if isinstance(payload.get("bbox"), list) else None,
+            "candidate_bboxes": (
+                payload.get("candidate_bboxes") if isinstance(payload.get("candidate_bboxes"), list) else []
+            ),
+            "bbox_count": int(payload.get("bbox_count", 0)),
+            "score": _safe_float(payload.get("score")),
+            "error": payload.get("error") if isinstance(payload.get("error"), str) else None,
         }
 
     def resolveAssetPath(self, session_id: str, asset_path: str) -> Path:

@@ -45,6 +45,7 @@ gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
+runtime_stats_snapshot: Optional[dict[str, Any]] = None
 
 
 def setGlobalConfig(gc: GlobalConfig) -> None:
@@ -278,6 +279,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         data=MachineIdentityData(machine_id=machine_id, nickname=None),
     )
     await websocket.send_json(identity_event.model_dump())
+    if runtime_stats_snapshot is not None:
+        await websocket.send_json(
+            {
+                "tag": "runtime_stats",
+                "data": {"payload": runtime_stats_snapshot},
+            }
+        )
 
     try:
         while True:
@@ -288,6 +296,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 
 async def broadcastEvent(event: dict) -> None:
+    global runtime_stats_snapshot
+    if event.get("tag") == "runtime_stats":
+        data = event.get("data")
+        if isinstance(data, dict):
+            payload = data.get("payload")
+            if isinstance(payload, dict):
+                runtime_stats_snapshot = payload
     dead_connections = []
     for connection in active_connections[:]:
         try:
@@ -336,6 +351,17 @@ class RuntimeVariablesResponse(BaseModel):
 
 class RuntimeVariablesUpdateRequest(BaseModel):
     values: Dict[str, Any]
+
+
+class RuntimeStatsResponse(BaseModel):
+    payload: Dict[str, Any]
+
+
+@app.get("/runtime-stats", response_model=RuntimeStatsResponse)
+def getRuntimeStats() -> RuntimeStatsResponse:
+    if runtime_stats_snapshot is None:
+        return RuntimeStatsResponse(payload={})
+    return RuntimeStatsResponse(payload=runtime_stats_snapshot)
 
 
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)

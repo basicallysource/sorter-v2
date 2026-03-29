@@ -34,6 +34,9 @@ class Feeding(BaseState):
         self._busy_until: dict[str, float] = {}
         self._ch3_last_precise_at: float = 0.0
 
+    def _runtimeStats(self):
+        return getattr(self.gc, "runtime_stats", None)
+
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
 
@@ -48,20 +51,27 @@ class Feeding(BaseState):
         stepper: "StepperMotor",
         cfg: "RotorPulseConfig",
     ) -> bool:
+        now_mono = time.monotonic()
         if self._isStepperBusy(stepper):
             self.gc.profiler.hit(f"feeder.skip.busy.{label}")
+            stats = self._runtimeStats()
+            if stats is not None:
+                stats.observePulse(label, "busy", now_mono)
             return False
         prof = self.gc.profiler
         with prof.timer(f"feeder.move_cmd.{label}_ms"):
             pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            stepper.move_degrees(pulse_degrees)
+            pulse_sent = stepper.move_degrees(pulse_degrees)
         exec_ms = stepper.estimateMoveDegreesMs(
             stepper.degrees_for_microsteps(cfg.steps_per_pulse)
         )
         cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         prof.observeValue(f"feeder.cooldown.{label}_ms", float(cooldown_ms))
-        return True
+        stats = self._runtimeStats()
+        if stats is not None:
+            stats.observePulse(label, "sent" if pulse_sent else "failed", now_mono)
+        return pulse_sent
 
     def _executionLoop(self) -> None:
         fc = self.irl_config.feeder_config
@@ -101,6 +111,17 @@ class Feeding(BaseState):
                 can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                     not self.shared.chute_move_in_progress
                 )
+                stats = self._runtimeStats()
+                if stats is not None:
+                    stats.observeFeederState(
+                        now_monotonic=now,
+                        ch2_dropzone_occupied=analysis.ch2_dropzone_occupied,
+                        ch3_dropzone_occupied=analysis.ch3_dropzone_occupied,
+                        can_run=can_run,
+                        classification_ready=self.shared.classification_ready,
+                        ch2_action=ch2_action.value,
+                        ch3_action=ch3_action.value,
+                    )
 
                 if not can_run:
                     prof.hit("feeder.skip.chute_in_progress")

@@ -78,6 +78,8 @@ class RunRecorder:
             "total_pieces": len(self.pieces),
             "pieces": pieces_data,
         }
+        if hasattr(self.gc, "runtime_stats"):
+            record["runtime_stats_final"] = self.gc.runtime_stats.snapshot()
 
         RECORDS_DIR.mkdir(parents=True, exist_ok=True)
         dt_str = datetime.fromtimestamp(self.started_at).strftime("%Y-%m-%d_%H-%M-%S")

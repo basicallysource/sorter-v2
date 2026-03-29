@@ -3,6 +3,7 @@
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
@@ -115,8 +116,13 @@
 					</div>
 				</div>
 			{/if}
-			<div class="w-64 flex-shrink-0">
-				<RecentObjects />
+			<div class="flex w-[32rem] flex-shrink-0 gap-3">
+				<div class="w-64">
+					<RecentObjects />
+				</div>
+				<div class="w-64">
+					<RuntimeStats />
+				</div>
 			</div>
 		</div>
 	{:else}

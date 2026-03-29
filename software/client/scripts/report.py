@@ -235,6 +235,31 @@ def reportSingle(record: dict) -> None:
     if top_cats:
         print(f"  Top categories: {dict(top_cats)}")
 
+    runtime_stats = record.get("runtime_stats_final")
+    if isinstance(runtime_stats, dict):
+        feeder = runtime_stats.get("feeder", {})
+        timings = runtime_stats.get("timings", {})
+        ch2_to_ch1 = timings.get("ch2_clear_to_ch1_pulse_s", {})
+        ch3_to_ch2 = timings.get("ch3_clear_to_ch2_pulse_s", {})
+        held = timings.get("ch3_precise_held_s", {})
+        print("  Feeder runtime stats (final snapshot):")
+        if isinstance(ch2_to_ch1, dict) and ch2_to_ch1.get("n", 0) > 0:
+            print(
+                f"    ch2 clear->ch1 pulse: avg={ch2_to_ch1.get('avg_s', 0.0):.2f}s med={ch2_to_ch1.get('med_s', 0.0):.2f}s p90={ch2_to_ch1.get('p90_s', 0.0):.2f}s n={int(ch2_to_ch1.get('n', 0))}"
+            )
+        if isinstance(ch3_to_ch2, dict) and ch3_to_ch2.get("n", 0) > 0:
+            print(
+                f"    ch3 clear->ch2 pulse: avg={ch3_to_ch2.get('avg_s', 0.0):.2f}s med={ch3_to_ch2.get('med_s', 0.0):.2f}s p90={ch3_to_ch2.get('p90_s', 0.0):.2f}s n={int(ch3_to_ch2.get('n', 0))}"
+            )
+        if isinstance(held, dict) and held.get("n", 0) > 0:
+            print(
+                f"    ch3 precise held: avg={held.get('avg_s', 0.0):.2f}s med={held.get('med_s', 0.0):.2f}s p90={held.get('p90_s', 0.0):.2f}s n={int(held.get('n', 0))}"
+            )
+        if isinstance(feeder, dict):
+            held_count = feeder.get("ch3_precise_held_count")
+            if isinstance(held_count, int):
+                print(f"    ch3 precise held count: {held_count}")
+
 
 def reportAggregate(records: list[dict]) -> None:
     total_pieces = 0

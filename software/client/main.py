@@ -21,10 +21,12 @@ from telemetry import Telemetry
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
 from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
 from vision import VisionManager
+from runtime_stats import RuntimeStatsCollector
 import uvicorn
 import threading
 import queue
@@ -33,6 +35,7 @@ import asyncio
 import sys
 
 FRAME_BROADCAST_INTERVAL_MS = 100
+RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
@@ -66,6 +69,8 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
+            if command.tag == "known_object":
+                gc.runtime_stats.observeKnownObject(command.data.model_dump())
             if command.tag != "frame" and command.tag != "heartbeat":
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
@@ -82,6 +87,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     gc = mkGlobalConfig()
+    gc.runtime_stats = RuntimeStatsCollector()
     gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
@@ -141,6 +147,7 @@ def main() -> None:
 
     last_heartbeat = time.time()
     last_frame_broadcast = time.time()
+    last_runtime_stats_broadcast = time.time()
 
     try:
         while True:
@@ -180,6 +187,17 @@ def main() -> None:
                 with gc.profiler.timer("main.loop.record_frames_ms"):
                     vision.recordFrames()
                 last_frame_broadcast = current_time
+
+            if (
+                current_time - last_runtime_stats_broadcast
+                >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
+            ):
+                runtime_stats = RuntimeStatsEvent(
+                    tag="runtime_stats",
+                    data=RuntimeStatsData(payload=gc.runtime_stats.snapshot()),
+                )
+                main_to_server_queue.put(runtime_stats)
+                last_runtime_stats_broadcast = current_time
 
             with gc.profiler.timer("main.loop.controller_step_ms"):
                 controller.step()

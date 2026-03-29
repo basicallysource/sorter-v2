@@ -23,6 +23,7 @@ class Idle(BaseState):
         can_distribute = piece.part_id is not None or piece.classification_status in (
             ClassificationStatus.unknown,
             ClassificationStatus.not_found,
+            ClassificationStatus.multi_drop_fail,
         )
         is_unhandled = piece.stage != PieceStage.distributing
 

@@ -171,6 +171,10 @@
 							<td class="text-right tabular-nums">{fmtCount(counts.not_found)}</td>
 						</tr>
 						<tr class="dark:text-text-muted-dark text-text-muted">
+							<td class="pr-3">Multi drop fail</td>
+							<td class="text-right tabular-nums">{fmtCount(counts.multi_drop_fail)}</td>
+						</tr>
+						<tr class="dark:text-text-muted-dark text-text-muted">
 							<td class="pr-3">Distributed</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.distributed)}</td>
 						</tr>

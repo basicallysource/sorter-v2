@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
+	import { Search, X } from 'lucide-svelte';
 
 	type SessionSummary = {
 		session_id: string;
@@ -46,10 +47,7 @@
 	let samples = $state<SampleSummary[]>([]);
 	let selectedSessionId = $state<string>('all');
 	let selectedScope = $state<string>('all');
-	let selectedRole = $state<string>('all');
-	let selectedAlgorithm = $state<string>('all');
-	let selectedModel = $state<string>('all');
-	let selectedStatus = $state<string>('all');
+	let showFilters = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -65,59 +63,49 @@
 		return `${currentBackendBaseUrl()}${path}`;
 	}
 
-	function formatDate(timestamp: number | null | undefined): string {
-		if (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp <= 0) {
-			return 'n/a';
-		}
-		return new Date(timestamp * 1000).toLocaleString();
+	function timeAgo(timestamp: number | null | undefined): string {
+		if (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp <= 0) return '';
+		const seconds = Math.floor(Date.now() / 1000 - timestamp);
+		if (seconds < 60) return 'just now';
+		if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+		if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+		return `${Math.floor(seconds / 86400)}d ago`;
 	}
 
-	function sourceLabel(source: string | null | undefined): string {
-		if (typeof source !== 'string' || !source) return 'n/a';
-		return source
-			.split('_')
-			.map((part) => (part ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
-			.join(' ');
+	function shortId(id: string): string {
+		return id.length > 12 ? id.slice(-8) : id;
 	}
 
-	function titleCase(value: string | null | undefined): string {
-		if (typeof value !== 'string' || !value) return 'n/a';
-		return value
-			.split('_')
-			.map((part) => (part ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
-			.join(' ');
+	function modelShort(model: string | null | undefined): string {
+		if (!model) return '';
+		const parts = model.split('/');
+		return parts[parts.length - 1] ?? model;
 	}
 
-	function modelLabel(model: string | null | undefined): string {
-		if (typeof model !== 'string' || !model) return 'n/a';
-		const compact = model.split('/').pop() ?? model;
-		return compact.length > 28 ? `${compact.slice(0, 28)}...` : compact;
+	function scopeLabel(scope: string | null | undefined): string {
+		if (!scope) return '';
+		return scope.replace(/_/g, ' ');
 	}
 
 	function filterOptions(values: Array<string | null | undefined>): string[] {
-		return [...new Set(values.filter((value): value is string => typeof value === 'string' && !!value))].sort();
+		return [...new Set(values.filter((v): v is string => typeof v === 'string' && !!v))].sort();
 	}
 
 	function visibleSamples(): SampleSummary[] {
-		return samples.filter((sample) => {
-			if (selectedSessionId !== 'all' && sample.session_id !== selectedSessionId) return false;
-			if (selectedScope !== 'all' && (sample.detection_scope ?? 'unknown') !== selectedScope) return false;
-			if (selectedRole !== 'all' && (sample.source_role ?? sample.camera ?? 'unknown') !== selectedRole) return false;
-			if (
-				selectedAlgorithm !== 'all' &&
-				(sample.detection_algorithm ?? 'unknown') !== selectedAlgorithm
-			) {
-				return false;
-			}
-			if (
-				selectedModel !== 'all' &&
-				(sample.detection_openrouter_model ?? 'unknown') !== selectedModel
-			) {
-				return false;
-			}
-			if (selectedStatus !== 'all' && sample.distill_status !== selectedStatus) return false;
+		return samples.filter((s) => {
+			if (selectedSessionId !== 'all' && s.session_id !== selectedSessionId) return false;
+			if (selectedScope !== 'all' && (s.detection_scope ?? 'unknown') !== selectedScope) return false;
 			return true;
 		});
+	}
+
+	function hasActiveFilters(): boolean {
+		return selectedSessionId !== 'all' || selectedScope !== 'all';
+	}
+
+	function clearFilters() {
+		selectedSessionId = 'all';
+		selectedScope = 'all';
 	}
 
 	async function loadLibrary() {
@@ -129,7 +117,10 @@
 			const payload = await res.json();
 			sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
 			samples = Array.isArray(payload?.samples) ? payload.samples : [];
-			if (selectedSessionId !== 'all' && !sessions.some((session) => session.session_id === selectedSessionId)) {
+			if (
+				selectedSessionId !== 'all' &&
+				!sessions.some((s) => s.session_id === selectedSessionId)
+			) {
 				selectedSessionId = 'all';
 			}
 		} catch (error: unknown) {
@@ -162,22 +153,55 @@
 <div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
 	<AppHeader />
 
-	<div class="flex flex-col gap-6">
-		<div class="flex flex-wrap items-end justify-between gap-3">
-			<div>
-				<h2 class="dark:text-text-dark text-2xl font-semibold text-text">Classification Samples</h2>
-				<p class="dark:text-text-muted-dark mt-1 max-w-3xl text-sm text-text-muted">
-					Saved detection samples from chamber, C-channels, and carousel views for later review, distillation, and model-vs-model retests.
-				</p>
+	<div class="flex flex-col gap-4">
+		<div class="flex items-center justify-between gap-3">
+			<h2 class="dark:text-text-dark text-lg font-semibold text-text">
+				Samples
+				{#if !loading}
+					<span class="dark:text-text-muted-dark ml-1 text-sm font-normal text-text-muted">
+						{visibleSamples().length}
+					</span>
+				{/if}
+			</h2>
+			<div class="flex items-center gap-2">
+				{#if hasActiveFilters()}
+					<button
+						type="button"
+						onclick={clearFilters}
+						class="dark:text-text-muted-dark flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-red-500"
+					>
+						<X size={12} />
+						Clear filters
+					</button>
+				{/if}
+				<div class="flex gap-1">
+					{#each [{ id: 'all', label: 'All' }, ...sessions.map((s) => ({ id: s.session_id, label: s.session_name }))] as tab}
+						<button
+							type="button"
+							onclick={() => (selectedSessionId = tab.id)}
+							class={`px-2.5 py-1 text-xs transition-colors ${
+								selectedSessionId === tab.id
+									? 'bg-text text-bg dark:bg-text-dark dark:text-bg-dark'
+									: 'dark:text-text-muted-dark dark:hover:text-text-dark text-text-muted hover:text-text'
+							}`}
+						>
+							{tab.label}
+						</button>
+					{/each}
+				</div>
+				{#if filterOptions(samples.map((s) => s.detection_scope)).length > 1}
+					<select
+						value={selectedScope}
+						onchange={(e) => (selectedScope = e.currentTarget.value)}
+						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1 text-xs text-text"
+					>
+						<option value="all">All scopes</option>
+						{#each filterOptions(samples.map((s) => s.detection_scope)) as scope}
+							<option value={scope}>{scopeLabel(scope)}</option>
+						{/each}
+					</select>
+				{/if}
 			</div>
-			<button
-				type="button"
-				onclick={loadLibrary}
-				disabled={loading}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{loading ? 'Loading...' : 'Reload'}
-			</button>
 		</div>
 
 		{#if errorMsg}
@@ -186,234 +210,74 @@
 			</div>
 		{/if}
 
-		<div class="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-4">
-				<div class="dark:text-text-dark text-sm font-semibold text-text">Sessions</div>
-				<div class="mt-3 flex flex-col gap-2">
-					<button
-						type="button"
-						onclick={() => (selectedSessionId = 'all')}
-						class={`w-full border px-3 py-2 text-left text-sm transition-colors ${
-							selectedSessionId === 'all'
-								? 'border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300'
-								: 'dark:border-border-dark dark:text-text-dark dark:hover:bg-bg-dark border-border text-text hover:bg-bg'
-						}`}
-					>
-						<div class="font-medium">All Sessions</div>
-						<div class="dark:text-text-muted-dark mt-1 text-xs text-text-muted">
-							{samples.length} samples total
-						</div>
-					</button>
-
-					{#each sessions as session}
-						<button
-							type="button"
-							onclick={() => (selectedSessionId = session.session_id)}
-							class={`w-full border px-3 py-2 text-left text-sm transition-colors ${
-								selectedSessionId === session.session_id
-									? 'border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300'
-									: 'dark:border-border-dark dark:text-text-dark dark:hover:bg-bg-dark border-border text-text hover:bg-bg'
-							}`}
-						>
-							<div class="font-medium">{session.session_name}</div>
-							<div class="dark:text-text-muted-dark mt-1 text-xs text-text-muted">
-								{session.sample_count} samples
-							</div>
-							<div class="dark:text-text-muted-dark mt-1 text-[11px] text-text-muted">
-								Started {formatDate(session.created_at)}
-							</div>
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<div class="flex flex-col gap-4">
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface px-4 py-3">
-						<div class="dark:text-text-muted-dark text-xs uppercase tracking-[0.14em] text-text-muted">Samples</div>
-						<div class="dark:text-text-dark mt-1 text-2xl font-semibold text-text">{visibleSamples().length}</div>
-					</div>
-					<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface px-4 py-3">
-						<div class="dark:text-text-muted-dark text-xs uppercase tracking-[0.14em] text-text-muted">Sessions</div>
-						<div class="dark:text-text-dark mt-1 text-2xl font-semibold text-text">{sessions.length}</div>
-					</div>
-					<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface px-4 py-3">
-						<div class="dark:text-text-muted-dark text-xs uppercase tracking-[0.14em] text-text-muted">Ready</div>
-						<div class="dark:text-text-dark mt-1 text-2xl font-semibold text-text">
-							{visibleSamples().filter((sample) => sample.distill_status === 'completed').length}
-						</div>
-					</div>
-				</div>
-
-				<div class="dark:border-border-dark dark:bg-surface-dark grid gap-3 border border-border bg-surface p-4 md:grid-cols-3 xl:grid-cols-6">
-					<label class="dark:text-text-dark text-xs text-text">
-						Scope
-						<select
-							value={selectedScope}
-							onchange={(event) => (selectedScope = event.currentTarget.value)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
-						>
-							<option value="all">All scopes</option>
-							{#each filterOptions(samples.map((sample) => sample.detection_scope)) as scope}
-								<option value={scope}>{titleCase(scope)}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="dark:text-text-dark text-xs text-text">
-						Role
-						<select
-							value={selectedRole}
-							onchange={(event) => (selectedRole = event.currentTarget.value)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
-						>
-							<option value="all">All roles</option>
-							{#each filterOptions(samples.map((sample) => sample.source_role ?? sample.camera)) as role}
-								<option value={role}>{titleCase(role)}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="dark:text-text-dark text-xs text-text">
-						Algorithm
-						<select
-							value={selectedAlgorithm}
-							onchange={(event) => (selectedAlgorithm = event.currentTarget.value)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
-						>
-							<option value="all">All algorithms</option>
-							{#each filterOptions(samples.map((sample) => sample.detection_algorithm)) as detectionAlgorithm}
-								<option value={detectionAlgorithm}>{titleCase(detectionAlgorithm)}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="dark:text-text-dark text-xs text-text">
-						Model
-						<select
-							value={selectedModel}
-							onchange={(event) => (selectedModel = event.currentTarget.value)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
-						>
-							<option value="all">All models</option>
-							{#each filterOptions(samples.map((sample) => sample.detection_openrouter_model)) as model}
-								<option value={model}>{modelLabel(model)}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="dark:text-text-dark text-xs text-text">
-						Distill
-						<select
-							value={selectedStatus}
-							onchange={(event) => (selectedStatus = event.currentTarget.value)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-2 text-sm text-text"
-						>
-							<option value="all">All statuses</option>
-							{#each filterOptions(samples.map((sample) => sample.distill_status)) as status}
-								<option value={status}>{titleCase(status)}</option>
-							{/each}
-						</select>
-					</label>
-					<div class="dark:border-border-dark dark:bg-bg-dark flex items-end border border-border bg-bg px-3 py-2 text-xs text-text-muted dark:text-text-muted-dark">
-						{visibleSamples().length} matching sample{visibleSamples().length === 1 ? '' : 's'}
-					</div>
-				</div>
-
-				{#if !loading && visibleSamples().length === 0}
-					<div class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-4 py-5 text-sm text-text-muted">
-						No saved samples match the current filters. Run a detection test or enable positive sample collection on a live station to build the library.
-					</div>
+		{#if !loading && visibleSamples().length === 0}
+			<div class="dark:text-text-muted-dark py-16 text-center text-sm text-text-muted">
+				{#if hasActiveFilters()}
+					No samples match the current filters.
 				{:else}
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each visibleSamples() as sample}
-							<a
-								href={sample.detail_url ?? '#'}
-								class="dark:border-border-dark dark:bg-surface-dark overflow-hidden border border-border bg-surface transition-colors hover:border-sky-500/60"
-							>
-								<div class="dark:bg-bg-dark aspect-[4/3] bg-bg">
-									{#if assetUrl(sample.input_image_url)}
-										<img
-											src={assetUrl(sample.input_image_url) ?? undefined}
-											alt={`Sample ${sample.sample_id}`}
-											class="h-full w-full object-contain"
-										/>
-									{:else}
-										<div class="dark:text-text-muted-dark flex h-full items-center justify-center text-sm text-text-muted">
-											No preview
-										</div>
-									{/if}
-								</div>
-								<div class="flex flex-col gap-2 px-4 py-3">
-									<div class="flex items-center justify-between gap-2">
-										<div class="dark:text-text-dark min-w-0 truncate text-sm font-semibold text-text">
-											{sample.sample_id}
-										</div>
-										<div
-											class={`shrink-0 text-[11px] uppercase tracking-[0.12em] ${
-												sample.distill_status === 'completed'
-													? 'text-emerald-600 dark:text-emerald-300'
-													: sample.distill_status === 'failed'
-														? 'text-red-600 dark:text-red-400'
-														: 'text-amber-600 dark:text-amber-300'
-											}`}
-										>
-											{sample.distill_status}
-										</div>
-									</div>
-									<div class="dark:text-text-muted-dark text-xs text-text-muted">
-										{sample.session_name}
-									</div>
-									<div class="flex flex-wrap gap-1 text-[11px]">
-										<span class="dark:bg-bg-dark dark:text-text-dark rounded border border-border bg-bg px-2 py-1 text-text">
-											{titleCase(sample.detection_scope ?? 'unknown')}
-										</span>
-										<span class="dark:bg-bg-dark dark:text-text-dark rounded border border-border bg-bg px-2 py-1 text-text">
-											{titleCase(sample.source_role ?? sample.camera ?? 'unknown')}
-										</span>
-										{#if sample.detection_algorithm}
-											<span class="dark:bg-bg-dark dark:text-text-dark rounded border border-border bg-bg px-2 py-1 text-text">
-												{titleCase(sample.detection_algorithm)}
-											</span>
-										{/if}
-									</div>
-									<div class="grid grid-cols-2 gap-2 text-xs">
-										<div class="dark:text-text-muted-dark text-text-muted">
-											<div>Source</div>
-											<div class="dark:text-text-dark mt-1 font-medium text-text">
-												{sourceLabel(sample.source)}
-											</div>
-										</div>
-										<div class="dark:text-text-muted-dark text-text-muted">
-											<div>Camera</div>
-											<div class="dark:text-text-dark mt-1 font-medium text-text">
-												{titleCase(sample.source_role ?? sample.preferred_camera ?? sample.camera ?? 'n/a')}
-											</div>
-										</div>
-										<div class="dark:text-text-muted-dark text-text-muted">
-											<div>Detections</div>
-											<div class="dark:text-text-dark mt-1 font-medium text-text">
-												{sample.detection_bbox_count ?? sample.distill_detections ?? 0}
-											</div>
-										</div>
-										<div class="dark:text-text-muted-dark text-text-muted">
-											<div>Retests</div>
-											<div class="dark:text-text-dark mt-1 font-medium text-text">{sample.retest_count}</div>
-										</div>
-										{#if sample.detection_openrouter_model}
-											<div class="dark:text-text-muted-dark col-span-2 text-text-muted">
-												<div>Capture Model</div>
-												<div class="dark:text-text-dark mt-1 font-medium text-text">
-													{modelLabel(sample.detection_openrouter_model)}
-												</div>
-											</div>
-										{/if}
-									</div>
-									<div class="dark:text-text-muted-dark text-[11px] text-text-muted">
-										{formatDate(sample.captured_at)}
-									</div>
-								</div>
-							</a>
-						{/each}
-					</div>
+					No samples yet. Run a detection test to start building the library.
 				{/if}
 			</div>
-		</div>
+		{:else}
+			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+				{#each visibleSamples() as sample}
+					<a
+						href={sample.detail_url ?? '#'}
+						class="dark:border-border-dark dark:bg-surface-dark group overflow-hidden border border-border bg-surface transition-all hover:border-sky-500/60 hover:shadow-sm"
+					>
+						<div class="dark:bg-bg-dark relative aspect-square bg-bg">
+							{#if assetUrl(sample.overlay_image_url ?? sample.input_image_url)}
+								<img
+									src={assetUrl(sample.overlay_image_url ?? sample.input_image_url) ?? undefined}
+									alt=""
+									class="h-full w-full object-cover"
+								/>
+							{:else}
+								<div class="dark:text-text-muted-dark flex h-full items-center justify-center text-xs text-text-muted">
+									No preview
+								</div>
+							{/if}
+							<div class="absolute right-1 top-1">
+								<span
+									class={`inline-block rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${
+										sample.distill_status === 'completed'
+											? 'bg-emerald-500/90 text-white'
+											: sample.distill_status === 'failed'
+												? 'bg-red-500/90 text-white'
+												: sample.distill_status === 'skipped'
+													? 'bg-gray-500/80 text-white'
+													: 'bg-amber-500/90 text-white'
+									}`}
+								>
+									{sample.distill_status === 'completed'
+										? `${sample.distill_detections ?? sample.detection_bbox_count ?? 0} det`
+										: sample.distill_status}
+								</span>
+							</div>
+							{#if sample.retest_count > 0}
+								<div class="absolute bottom-1 right-1">
+									<span class="inline-block rounded-sm bg-violet-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+										{sample.retest_count} retest{sample.retest_count === 1 ? '' : 's'}
+									</span>
+								</div>
+							{/if}
+						</div>
+						<div class="px-2 py-1.5">
+							<div class="flex items-baseline justify-between gap-1">
+								<span class="dark:text-text-dark truncate text-xs font-medium text-text">
+									{scopeLabel(sample.detection_scope) || scopeLabel(sample.source_role ?? sample.camera)}
+								</span>
+								<span class="dark:text-text-muted-dark shrink-0 text-[10px] text-text-muted">
+									{timeAgo(sample.captured_at)}
+								</span>
+							</div>
+							<div class="dark:text-text-muted-dark mt-0.5 truncate text-[10px] text-text-muted">
+								{modelShort(sample.detection_openrouter_model) || sample.detection_algorithm || ''}
+							</div>
+						</div>
+					</a>
+				{/each}
+			</div>
+		{/if}
 	</div>
 </div>

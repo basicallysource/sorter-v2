@@ -62,6 +62,7 @@ class ClassificationTrainingManager:
         self._failed = 0
         self._running_task: dict[str, Any] | None = None
         self._last_task: dict[str, Any] | None = None
+        self._deleted_samples: set[tuple[str, str]] = set()
         self._loadPersistedConfig()
         self._worker = threading.Thread(target=self._workerLoop, daemon=True, name="classification-training-worker")
         self._worker.start()
@@ -403,6 +404,60 @@ class ClassificationTrainingManager:
             "sample": detail,
         }
 
+    def deleteSample(self, session_id: str, sample_id: str) -> dict[str, Any]:
+        session_dir = self.resolveSessionDir(session_id)
+        metadata_path = session_dir / "metadata" / f"{sample_id}.json"
+        metadata = self._readJsonFile(metadata_path)
+        if metadata is None:
+            raise ValueError("Unknown sample.")
+
+        sample_key = (session_id, sample_id)
+        with self._lock:
+            running_task = self._running_task if isinstance(self._running_task, dict) else None
+            if (
+                running_task is not None
+                and running_task.get("session_id") == session_id
+                and running_task.get("sample_id") == sample_id
+            ):
+                raise RuntimeError("Cannot delete a sample while pseudo-label distillation is running.")
+            self._deleted_samples.add(sample_key)
+
+        for path in self._sampleAssetPaths(session_dir, sample_id, metadata):
+            self._removeSampleFile(session_dir, path)
+        self._removeSampleFile(session_dir, metadata_path)
+        self._pruneEmptySessionDirs(session_dir)
+
+        removed_session = False
+        metadata_dir = session_dir / "metadata"
+        if not metadata_dir.exists() or not any(metadata_dir.glob("*.json")):
+            shutil.rmtree(session_dir, ignore_errors=True)
+            removed_session = True
+
+        with self._lock:
+            if removed_session and self._session_dir is not None:
+                try:
+                    same_session = self._session_dir.resolve() == session_dir.resolve()
+                except Exception:
+                    same_session = False
+                if same_session:
+                    self._session_id = None
+                    self._session_name = None
+                    self._session_dir = None
+                    self._created_at = None
+                    self._queued = 0
+                    self._completed = 0
+                    self._failed = 0
+                    self._running_task = None
+                    self._last_task = None
+                    self._persistConfig()
+
+        return {
+            "ok": True,
+            "session_id": session_id,
+            "sample_id": sample_id,
+            "removed_session": removed_session,
+        }
+
     def runSampleRetest(self, session_id: str, sample_id: str, *, openrouter_model: str) -> dict[str, Any]:
         from vision.gemini_sam_detector import GeminiSamDetector, normalize_openrouter_model
 
@@ -583,6 +638,73 @@ class ClassificationTrainingManager:
         except Exception:
             return None
         return parsed if isinstance(parsed, dict) else None
+
+    def _sampleAssetPaths(
+        self,
+        session_dir: Path,
+        sample_id: str,
+        metadata: dict[str, Any],
+    ) -> list[Path]:
+        paths: set[Path] = set()
+
+        def addPath(value: Any) -> None:
+            if isinstance(value, str) and value:
+                paths.add(Path(value))
+
+        for key in ("input_image", "top_zone_path", "bottom_zone_path", "top_frame_path", "bottom_frame_path"):
+            addPath(metadata.get(key))
+
+        distill_result = metadata.get("distill_result")
+        if isinstance(distill_result, dict):
+            for key in ("overlay_image", "result_json", "yolo_label"):
+                addPath(distill_result.get(key))
+
+        retests = metadata.get("retests")
+        if isinstance(retests, list):
+            for retest in retests:
+                if not isinstance(retest, dict):
+                    continue
+                for key in ("overlay_image", "result_json"):
+                    addPath(retest.get(key))
+
+        paths.add(session_dir / "dataset" / "images" / f"{sample_id}.jpg")
+        paths.add(session_dir / "dataset" / "labels" / f"{sample_id}.txt")
+        paths.add(session_dir / "distilled" / "json" / f"{sample_id}.json")
+        paths.add(session_dir / "distilled" / "overlays" / f"{sample_id}.jpg")
+        paths.update((session_dir / "captures").glob(f"{sample_id}_*"))
+        paths.update((session_dir / "retests" / "json").glob(f"{sample_id}__*"))
+        paths.update((session_dir / "retests" / "overlays").glob(f"{sample_id}__*"))
+
+        return sorted(paths, key=lambda path: len(path.parts), reverse=True)
+
+    def _removeSampleFile(self, session_dir: Path, path: Path) -> None:
+        try:
+            resolved = path.resolve()
+            resolved.relative_to(session_dir.resolve())
+        except Exception:
+            return
+        try:
+            resolved.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    def _pruneEmptySessionDirs(self, session_dir: Path) -> None:
+        if not session_dir.exists():
+            return
+        for directory in sorted(
+            (path for path in session_dir.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            try:
+                next(directory.iterdir())
+            except StopIteration:
+                try:
+                    directory.rmdir()
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
     def _readSessionManifest(self, session_dir: Path) -> dict[str, Any]:
         manifest = self._readJsonFile(session_dir / "session.json") or {}
@@ -939,9 +1061,21 @@ class ClassificationTrainingManager:
             task = self._queue.get()
             if task is None:
                 return
+            sample_key = (str(task.get("session_id") or ""), str(task.get("sample_id") or ""))
             with self._lock:
+                if sample_key in self._deleted_samples:
+                    self._last_task = {
+                        "task_id": task["task_id"],
+                        "session_id": task.get("session_id"),
+                        "sample_id": task["sample_id"],
+                        "status": "deleted",
+                        "finished_at": time.time(),
+                        "processor": task["processor"],
+                    }
+                    continue
                 self._running_task = {
                     "task_id": task["task_id"],
+                    "session_id": task.get("session_id"),
                     "sample_id": task["sample_id"],
                     "status": "running",
                     "started_at": time.time(),
@@ -953,6 +1087,7 @@ class ClassificationTrainingManager:
                     self._completed += 1
                     self._last_task = {
                         "task_id": task["task_id"],
+                        "session_id": task.get("session_id"),
                         "sample_id": task["sample_id"],
                         "status": "completed",
                         "finished_at": time.time(),
@@ -964,6 +1099,7 @@ class ClassificationTrainingManager:
                     self._failed += 1
                     self._last_task = {
                         "task_id": task["task_id"],
+                        "session_id": task.get("session_id"),
                         "sample_id": task["sample_id"],
                         "status": "failed",
                         "finished_at": time.time(),

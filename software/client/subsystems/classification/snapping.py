@@ -211,9 +211,9 @@ class Snapping(BaseState):
             self.logger.warn(
                 "Snapping: multiple candidate pieces detected "
                 f"(top={top_candidate_count}, bottom={bottom_candidate_count}); "
-                "skipping Brickognize and marking piece unknown"
+                "skipping Brickognize and marking piece multi_drop_fail"
             )
-            piece.classification_status = ClassificationStatus.unknown
+            piece.classification_status = ClassificationStatus.multi_drop_fail
             piece.classified_at = time.time()
             piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(piece))

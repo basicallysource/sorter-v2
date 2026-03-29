@@ -123,10 +123,10 @@
 
 	function scopeDescription(): string {
 		if (scope === 'feeder') {
-			return `Compare detection methods on the live ${label} frame and archive channel-positive frames for later review.`;
+			return `Compare detection methods on the live ${label} frame. Auxiliary sample archiving is currently disabled.`;
 		}
 		if (scope === 'carousel') {
-			return 'Compare carousel trigger methods on the live drop frame and archive positive snapshots for later review.';
+			return 'Compare carousel trigger methods on the live drop frame. Auxiliary sample archiving is currently disabled.';
 		}
 		return `Compare detection methods on the live ${label} frame and save chamber samples for later review and retesting.`;
 	}
@@ -178,13 +178,13 @@
 					? false
 					: typeof payload?.sample_collection_enabled === 'boolean'
 						? payload.sample_collection_enabled
-						: true;
+						: false;
 			sampleCollectionSupported =
 				scope === 'classification'
 					? false
 					: typeof payload?.sample_collection_supported === 'boolean'
 						? payload.sample_collection_supported
-						: true;
+						: false;
 			availableAlgorithms = Array.isArray(payload?.available_algorithms)
 				? payload.available_algorithms.filter(
 						(value: any): value is DetectionAlgorithmOption =>
@@ -388,12 +388,12 @@
 	}
 
 	function showSampleCollectionToggle(): boolean {
-		return scope !== 'classification';
+		return scope !== 'classification' && sampleCollectionSupported;
 	}
 
 	function sampleCollectionDescription(): string {
 		if (!sampleCollectionSupported) {
-			return 'Periodic sample collection for C-channels requires split feeder cameras.';
+			return 'Auxiliary sample archiving for C-channels and carousel is temporarily disabled.';
 		}
 		return 'Archive positive detections from this live view at most once per second for later filtering and retesting.';
 	}
@@ -532,6 +532,10 @@
 							</span>
 						</span>
 					</label>
+				{:else if scope !== 'classification'}
+					<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-3 py-2.5 text-[11px] text-text-muted dark:text-text-muted-dark">
+						{sampleCollectionDescription()}
+					</div>
 				{/if}
 
 				<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-3 py-2 text-xs leading-5 text-text-muted dark:text-text-muted-dark">

@@ -147,13 +147,12 @@ def _supported_openrouter_models() -> tuple[str, ...]:
     return SUPPORTED_OPENROUTER_MODELS
 
 
+def _auxiliary_sample_collection_supported() -> bool:
+    return False
+
+
 def _feeder_sample_collection_supported() -> bool:
-    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
-        try:
-            return bool(vision_manager.supportsFeederSampleCollection())
-        except Exception:
-            return True
-    return True
+    return _auxiliary_sample_collection_supported()
 
 
 def _openrouter_model_label(model: str) -> str:
@@ -3550,11 +3549,7 @@ def get_feeder_detection_config() -> Dict[str, Any]:
     openrouter_model = _normalize_openrouter_model(
         saved.get("openrouter_model") if isinstance(saved, dict) else None
     )
-    sample_collection_enabled = (
-        True
-        if not isinstance(saved, dict) or saved.get("sample_collection_enabled") is None
-        else bool(saved.get("sample_collection_enabled"))
-    )
+    sample_collection_enabled = False
     if vision_manager is not None and hasattr(vision_manager, "getFeederDetectionAlgorithm"):
         try:
             algorithm = _normalize_feeder_detection_algorithm(vision_manager.getFeederDetectionAlgorithm())
@@ -3569,7 +3564,7 @@ def get_feeder_detection_config() -> Dict[str, Any]:
         try:
             sample_collection_enabled = bool(vision_manager.isFeederSampleCollectionEnabled())
         except Exception:
-            pass
+            sample_collection_enabled = False
     sample_collection_supported = _feeder_sample_collection_supported()
     return {
         "ok": True,
@@ -3590,7 +3585,7 @@ def save_feeder_detection_config(
         raise HTTPException(status_code=400, detail="Unsupported feeder detection algorithm.")
     algorithm = _normalize_feeder_detection_algorithm(payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    sample_collection_enabled = True if payload.sample_collection_enabled is None else bool(payload.sample_collection_enabled)
+    sample_collection_enabled = False
     setFeederDetectionConfig(
         {
             "algorithm": algorithm,
@@ -3614,7 +3609,7 @@ def save_feeder_detection_config(
     message = f"C-channel detection switched to {_detection_algorithm_label('feeder', algorithm)}."
     sample_collection_supported = _feeder_sample_collection_supported()
     if not sample_collection_supported:
-        message += " Periodic sample collection is only available with split feeder cameras."
+        message += " Auxiliary sample archiving is temporarily disabled."
     return {
         "ok": True,
         "algorithm": algorithm,
@@ -3634,11 +3629,7 @@ def get_carousel_detection_config() -> Dict[str, Any]:
     openrouter_model = _normalize_openrouter_model(
         saved.get("openrouter_model") if isinstance(saved, dict) else None
     )
-    sample_collection_enabled = (
-        True
-        if not isinstance(saved, dict) or saved.get("sample_collection_enabled") is None
-        else bool(saved.get("sample_collection_enabled"))
-    )
+    sample_collection_enabled = False
     if vision_manager is not None and hasattr(vision_manager, "getCarouselDetectionAlgorithm"):
         try:
             algorithm = _normalize_carousel_detection_algorithm(vision_manager.getCarouselDetectionAlgorithm())
@@ -3653,12 +3644,13 @@ def get_carousel_detection_config() -> Dict[str, Any]:
         try:
             sample_collection_enabled = bool(vision_manager.isCarouselSampleCollectionEnabled())
         except Exception:
-            pass
+            sample_collection_enabled = False
     return {
         "ok": True,
         "algorithm": algorithm,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
+        "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "available_algorithms": detection_algorithm_options("carousel"),
         "available_openrouter_models": _openrouter_model_options(),
     }
@@ -3672,7 +3664,7 @@ def save_carousel_detection_config(
         raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
     algorithm = _normalize_carousel_detection_algorithm(payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    sample_collection_enabled = True if payload.sample_collection_enabled is None else bool(payload.sample_collection_enabled)
+    sample_collection_enabled = False
     setCarouselDetectionConfig(
         {
             "algorithm": algorithm,
@@ -3698,11 +3690,12 @@ def save_carousel_detection_config(
         "algorithm": algorithm,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
+        "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "uses_baseline": uses_baseline,
         "message": (
-            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable."
+            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Auxiliary sample archiving is temporarily disabled."
             if uses_baseline
-            else f"Carousel detection switched to {algorithm_label}."
+            else f"Carousel detection switched to {algorithm_label}. Auxiliary sample archiving is temporarily disabled."
         ),
     }
 
@@ -3822,6 +3815,25 @@ def get_classification_training_sample_detail(session_id: str, sample_id: str) -
         "session": session,
         "sample": sample,
         "available_openrouter_models": _openrouter_model_options(),
+    }
+
+
+@app.delete("/api/classification/training/sessions/{session_id}/samples/{sample_id}")
+def delete_classification_training_sample(session_id: str, sample_id: str) -> Dict[str, Any]:
+    manager = getClassificationTrainingManager()
+    try:
+        result = manager.deleteSample(session_id, sample_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to delete classification sample: {exc}")
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "sample_id": sample_id,
+        "removed_session": bool(result.get("removed_session")),
     }
 
 
@@ -3995,7 +4007,7 @@ def _finalize_aux_detection_debug_payload(
     payload["normalized_zone_bbox"] = (
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
-    if isinstance(sample_capture, dict):
+    if isinstance(sample_capture, dict) and _auxiliary_sample_collection_supported():
         try:
             saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
                 source="settings_detection_test",
@@ -4028,6 +4040,8 @@ def _finalize_aux_detection_debug_payload(
         except Exception as exc:
             payload["saved_to_library"] = False
             payload["saved_sample_error"] = str(exc)
+    else:
+        payload["saved_to_library"] = False
     payload["ok"] = True
     return payload
 

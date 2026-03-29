@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -91,6 +92,7 @@
 
 	let loadedKey = $state('');
 	let loading = $state(false);
+	let deleting = $state(false);
 	let retesting = $state(false);
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
@@ -328,6 +330,37 @@
 		);
 	}
 
+	async function deleteSample() {
+		if (!sample || deleting || retesting) return;
+		if (
+			typeof window !== 'undefined' &&
+			!window.confirm(`Delete sample ${sample.sample_id}? This also removes its saved assets and retests.`)
+		) {
+			return;
+		}
+
+		deleting = true;
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const sessionId = page.params.sessionId;
+			const sampleId = page.params.sampleId;
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/classification/training/sessions/${sessionId}/samples/${sampleId}`,
+				{ method: 'DELETE' }
+			);
+			if (!res.ok) throw new Error(await res.text());
+			await goto('/classification-samples');
+		} catch (error: unknown) {
+			errorMsg =
+				error instanceof Error && error.message
+					? error.message
+					: 'Failed to delete the sample.';
+		} finally {
+			deleting = false;
+		}
+	}
+
 	$effect(() => {
 		const routeKey = `${page.params.sessionId}/${page.params.sampleId}/${
 			(manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null) ?? '__local__'
@@ -358,14 +391,24 @@
 					{sample?.session_name ?? 'Loading session...'}
 				</p>
 			</div>
-			<button
-				type="button"
-				onclick={loadSample}
-				disabled={loading}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{loading ? 'Loading...' : 'Reload'}
-			</button>
+			<div class="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onclick={loadSample}
+					disabled={loading || deleting}
+					class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{loading ? 'Loading...' : 'Reload'}
+				</button>
+				<button
+					type="button"
+					onclick={deleteSample}
+					disabled={!sample || loading || deleting || retesting}
+					class="border border-red-500 bg-red-500/10 px-3 py-2 text-sm text-red-700 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+				>
+					{deleting ? 'Deleting...' : 'Delete Sample'}
+				</button>
+			</div>
 		</div>
 
 		{#if errorMsg}

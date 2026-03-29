@@ -17,6 +17,7 @@ class ClassificationStatus(str, Enum):
     classified = "classified"
     unknown = "unknown"
     not_found = "not_found"
+    multi_drop_fail = "multi_drop_fail"
 
 
 @dataclass

@@ -7,7 +7,7 @@
 
 export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
 export type PieceStage = "created" | "distributing" | "distributed";
-export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found";
+export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
 export interface FrameData {
   camera: CameraName;

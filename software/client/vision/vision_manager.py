@@ -152,10 +152,10 @@ class VisionManager:
         self._loadClassificationDetectionConfig()
         self._feeder_detection_algorithm: FeederDetectionAlgorithm = "mog2"
         self._feeder_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
-        self._feeder_sample_collection_enabled: bool = True
+        self._feeder_sample_collection_enabled: bool = False
         self._carousel_detection_algorithm: CarouselDetectionAlgorithm = "heatmap_diff"
         self._carousel_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
-        self._carousel_sample_collection_enabled: bool = True
+        self._carousel_sample_collection_enabled: bool = False
         self._loadFeederDetectionConfig()
         self._loadCarouselDetectionConfig()
         self._carousel_heatmap = self._makeCarouselHeatmap()
@@ -260,7 +260,7 @@ class VisionManager:
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._feeder_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
-        self._feeder_sample_collection_enabled = True if enabled is None else bool(enabled)
+        self._feeder_sample_collection_enabled = False if enabled is None else bool(enabled)
 
     def _loadCarouselDetectionConfig(self) -> None:
         config = getCarouselDetectionConfig()
@@ -269,7 +269,7 @@ class VisionManager:
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._carousel_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
-        self._carousel_sample_collection_enabled = True if enabled is None else bool(enabled)
+        self._carousel_sample_collection_enabled = False if enabled is None else bool(enabled)
 
     def _stopClassificationAnalysis(self) -> None:
         if self._classification_top_analysis:
@@ -349,10 +349,10 @@ class VisionManager:
         return normalize_openrouter_model(self._feeder_openrouter_model)
 
     def supportsFeederSampleCollection(self) -> bool:
-        return self._camera_layout == "split_feeder"
+        return False
 
     def isFeederSampleCollectionEnabled(self) -> bool:
-        return self.supportsFeederSampleCollection() and bool(self._feeder_sample_collection_enabled)
+        return False
 
     def getCarouselDetectionAlgorithm(self) -> CarouselDetectionAlgorithm:
         return self._normalizeCarouselDetectionAlgorithm(self._carousel_detection_algorithm)
@@ -361,7 +361,7 @@ class VisionManager:
         return normalize_openrouter_model(self._carousel_openrouter_model)
 
     def isCarouselSampleCollectionEnabled(self) -> bool:
-        return bool(self._carousel_sample_collection_enabled)
+        return False
 
     def usesCarouselBaseline(self) -> bool:
         return self.usesDetectionBaseline("carousel")
@@ -400,9 +400,7 @@ class VisionManager:
         return normalized
 
     def setFeederSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._feeder_sample_collection_enabled = (
-            bool(enabled) if self.supportsFeederSampleCollection() else False
-        )
+        self._feeder_sample_collection_enabled = False
         return self._feeder_sample_collection_enabled
 
     def setCarouselDetectionAlgorithm(self, algorithm: CarouselDetectionAlgorithm) -> None:
@@ -420,7 +418,7 @@ class VisionManager:
         return normalized
 
     def setCarouselSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._carousel_sample_collection_enabled = bool(enabled)
+        self._carousel_sample_collection_enabled = False
         return self._carousel_sample_collection_enabled
 
     def initFeederDetection(self) -> bool:
@@ -1826,42 +1824,7 @@ class VisionManager:
         return result
 
     def _archiveAuxiliaryDetectionSample(self, role: str, payload: Dict[str, object]) -> None:
-        sample = self._captureAuxiliarySample(role)
-        input_image = sample.get("input_image")
-        frame = sample.get("frame")
-        if not isinstance(input_image, np.ndarray) or input_image.size == 0:
-            return
-        try:
-            from server.classification_training import getClassificationTrainingManager
-        except Exception:
-            return
-
-        bbox = payload.get("bbox")
-        candidate_bboxes = payload.get("candidate_bboxes")
-        getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
-            source="periodic_detection_snapshot",
-            source_role=role,
-            detection_scope=self._sampleRoleScope(role),
-            capture_reason="positive_detection",
-            detection_algorithm=str(payload.get("algorithm") or ""),
-            detection_openrouter_model=(
-                self.getFeederOpenRouterModel()
-                if role in {"c_channel_2", "c_channel_3"} and self.getFeederDetectionAlgorithm() == "gemini_sam"
-                else (
-                    self.getCarouselOpenRouterModel()
-                    if role == "carousel" and self.getCarouselDetectionAlgorithm() == "gemini_sam"
-                    else None
-                )
-            ),
-            detection_found=bool(payload.get("found")),
-            detection_bbox=bbox if isinstance(bbox, list) else None,
-            detection_candidate_bboxes=candidate_bboxes if isinstance(candidate_bboxes, list) else [],
-            detection_bbox_count=int(payload.get("bbox_count") or 0),
-            detection_score=float(payload.get("score")) if isinstance(payload.get("score"), (int, float)) else None,
-            detection_message=payload.get("message") if isinstance(payload.get("message"), str) else None,
-            input_image=input_image,
-            source_frame=frame if isinstance(frame, np.ndarray) else None,
-        )
+        return None
 
     def _refreshAuxiliaryDetections(self) -> None:
         if self.getFeederDetectionAlgorithm() == "gemini_sam":

@@ -426,6 +426,7 @@ class RuntimeStatsCollector:
             "classified": 0,
             "unknown": 0,
             "not_found": 0,
+            "multi_drop_fail": 0,
             "distributed": 0,
             "stage_created": 0,
             "stage_distributing": 0,
@@ -457,6 +458,8 @@ class RuntimeStatsCollector:
                 counts["unknown"] += 1
             elif status == "not_found":
                 counts["not_found"] += 1
+            elif status == "multi_drop_fail":
+                counts["multi_drop_fail"] += 1
             if stage == "created":
                 counts["stage_created"] += 1
             elif stage == "distributing":

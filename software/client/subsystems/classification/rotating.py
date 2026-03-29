@@ -57,7 +57,11 @@ class Rotating(BaseState):
         requires_distribution_ready = piece_at_intermediate is not None and (
             piece_at_intermediate.part_id is not None
             or piece_at_intermediate.classification_status
-            in (ClassificationStatus.unknown, ClassificationStatus.not_found)
+            in (
+                ClassificationStatus.unknown,
+                ClassificationStatus.not_found,
+                ClassificationStatus.multi_drop_fail,
+            )
         )
 
         if requires_distribution_ready and not self.shared.distribution_ready:

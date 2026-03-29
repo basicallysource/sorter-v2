@@ -51,6 +51,8 @@
 				return 'yellow';
 			case 'classified':
 				return 'blue';
+			case 'multi_drop_fail':
+				return 'red';
 			case 'unknown':
 				return 'gray';
 			case 'not_found':
@@ -77,6 +79,8 @@
 				return `classifying`;
 			case 'classified':
 				return 'classified';
+			case 'multi_drop_fail':
+				return 'multi drop fail';
 			case 'unknown':
 				return 'unknown';
 			case 'not_found':
@@ -91,7 +95,11 @@
 	}
 
 	function isMinimized(obj: KnownObjectData): boolean {
-		return obj.classification_status === 'unknown' || obj.classification_status === 'not_found';
+		return (
+			obj.classification_status === 'unknown' ||
+			obj.classification_status === 'not_found' ||
+			obj.classification_status === 'multi_drop_fail'
+		);
 	}
 </script>
 
@@ -123,8 +131,15 @@
 							onclick={() => toggleExpand(obj.uuid)}
 							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
 						>
-							{#if obj.classification_status === 'not_found'}
-								<TriangleAlert size={14} class="flex-shrink-0 text-yellow-500" />
+							{#if obj.classification_status === 'not_found' || obj.classification_status === 'multi_drop_fail'}
+								<TriangleAlert
+									size={14}
+									class={`flex-shrink-0 ${
+										obj.classification_status === 'multi_drop_fail'
+											? 'text-red-500 dark:text-red-400'
+											: 'text-yellow-500'
+									}`}
+								/>
 							{:else}
 								<CircleHelp
 									size={14}
@@ -132,7 +147,11 @@
 								/>
 							{/if}
 							<span class="dark:text-text-muted-dark truncate text-text-muted">
-								{obj.classification_status === 'not_found' ? 'Not found' : 'Unknown'}
+								{obj.classification_status === 'not_found'
+									? 'Not found'
+									: obj.classification_status === 'multi_drop_fail'
+										? 'Multi drop fail'
+										: 'Unknown'}
 							</span>
 							<span class="dark:text-text-dark truncate font-mono text-text">
 								{obj.uuid.slice(0, 8)}

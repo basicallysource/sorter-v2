@@ -15,7 +15,7 @@ from global_config import mkGlobalConfig, GlobalConfig
 from hardware.sorter_interface import StepperMotor, ServoMotor
 from irl.config import mkIRLConfig, mkIRLInterface, IRLConfig, IRLInterface, StepperConfig
 from blob_manager import getChuteCalibration, setChuteCalibration
-from subsystems.distribution.chute import Chute
+from subsystems.distribution.chute import Chute, BinAddress
 
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 
@@ -207,7 +207,7 @@ def printStatus(
         print("  G       Go to chute angle (0-360)")
         print(f"  R       Revolve chute (0° ↔ {CHUTE_REVOLVE_ANGLE:.0f}°)")
         print("  T       Random movement test")
-        print("  B       Go to bin (small/medium/large)")
+        print("  B       Go to bin (runtime layout grid)")
         print("  C       Chute calibration wizard")
         print()
         if chute_cal is not None and "first_section_center" in chute_cal:
@@ -257,6 +257,101 @@ def printServoCalStatus(
     print("  G       Go to angle (type a number)")
     print("  Q       Back to main menu")
     print()
+
+
+def _layerBinCoords(layout, layer_idx: int) -> list[tuple[int, int]]:
+    coords: list[tuple[int, int]] = []
+    layer = layout.layers[layer_idx]
+    for section_idx, section in enumerate(layer.sections):
+        for bin_idx, _ in enumerate(section.bins):
+            coords.append((section_idx, bin_idx))
+    return coords
+
+
+def _printBinGridStatus(
+    irl: IRLInterface,
+    selected_layer_idx: int,
+    selected_flat_idx: int,
+    last_target: BinAddress | None,
+) -> None:
+    layout = irl.distribution_layout
+    print("\033[2J\033[H", end="")
+    print("Bin Targeting (runtime layout)")
+    print("==============================")
+    print("Uses the same live layout/chute code path as main machine runtime.")
+    print()
+    print(f"Layers: {len(layout.layers)} (selected layer: {selected_layer_idx})")
+    layer_coords = _layerBinCoords(layout, selected_layer_idx)
+    if not layer_coords:
+        print("Selected layer has no bins.")
+        print()
+        print("  ↑/↓   Change layer")
+        print("  Q     Back")
+        print()
+        return
+
+    selected_section_idx, selected_bin_idx = layer_coords[selected_flat_idx]
+    selected_address = BinAddress(selected_layer_idx, selected_section_idx, selected_bin_idx)
+    selected_angle = irl.chute.getAngleForBin(selected_address)
+    selected_bin = layout.layers[selected_layer_idx].sections[selected_section_idx].bins[selected_bin_idx]
+
+    print(
+        f"Selected: layer={selected_layer_idx} section={selected_section_idx} "
+        f"bin={selected_bin_idx} size={selected_bin.size.value} "
+        f"angle={'UNREACHABLE' if selected_angle is None else f'{selected_angle:.2f}°'}"
+    )
+    if last_target is not None:
+        print(
+            f"Last moved: layer={last_target.layer_index} section={last_target.section_index} "
+            f"bin={last_target.bin_index}"
+        )
+    print()
+
+    for layer_idx, layer in enumerate(layout.layers):
+        marker = ">>" if layer_idx == selected_layer_idx else "  "
+        section_bits: list[str] = []
+        for section_idx, section in enumerate(layer.sections):
+            bin_bits: list[str] = []
+            for bin_idx, b in enumerate(section.bins):
+                address = BinAddress(layer_idx, section_idx, bin_idx)
+                reachable = irl.chute.getAngleForBin(address) is not None
+                label = "S" if b.size.value == "small" else "M" if b.size.value == "medium" else "B"
+                cell = f"{label}{bin_idx}"
+                if not reachable:
+                    cell = f"x{cell}"
+                if (
+                    layer_idx == selected_layer_idx
+                    and section_idx == selected_section_idx
+                    and bin_idx == selected_bin_idx
+                ):
+                    cell = f"[{cell}]"
+                bin_bits.append(cell)
+            if not bin_bits:
+                section_bits.append("[]")
+            else:
+                section_bits.append("[" + " ".join(bin_bits) + "]")
+        print(f"{marker} layer {layer_idx}: " + " ".join(section_bits))
+
+    print()
+    print("Legend: S=small M=medium B=big, x*=unreachable")
+    print("Controls:")
+    print("  ↑/↓   Change layer")
+    print("  ←/→   Move selection within selected layer")
+    print("  Enter Move chute to selected bin")
+    print("  Q     Back")
+    print()
+
+
+def _selectDoorLikeRuntime(servos: list[ServoMotor], target_layer_index: int) -> None:
+    target_servo = servos[target_layer_index]
+    target_servo._gc.logger.info(
+        f"Bin targeting: selecting layer={target_layer_index} via servo channel={target_layer_index} (motor_cal key {target_layer_index + 1})"
+    )
+    if not target_servo.isClosed():
+        for i, servo in enumerate(servos):
+            if i != target_layer_index and servo.isClosed():
+                servo.open()
+    target_servo.close()
 
 
 def servo_calibrate_loop(servos: list[ServoMotor]) -> None:
@@ -485,66 +580,62 @@ def main() -> None:
                     termios.tcsetattr(_sys.stdin, termios.TCSADRAIN, old_settings)
                 _printMain()
             elif key.lower() == "b" and name == "chute":
-                if chute_cal is None or "first_section_center" not in chute_cal:
-                    print("No calibration set. Run calibration first (C).")
+                layout = irl.distribution_layout
+                if not layout.layers:
+                    print("No layers in runtime layout.")
                     print("Press any key...")
                     readchar.readkey()
-                else:
-                    print("\033[2J\033[H", end="")
-                    print("Bin Targeting")
-                    print("=============")
-                    print("  S = small (3/section, 18 total)")
-                    print("  M = medium (2/section, 12 total)")
-                    print("  L = large (1/section, 6 total)")
-                    print()
-                    size_key = input("Bin size [S/M/L]: ").strip().lower()
-                    size_map = {"s": "small", "m": "medium", "l": "large"}
-                    if size_key not in size_map:
-                        print("Invalid size")
-                        readchar.readkey()
+                    _printMain()
+                    continue
+
+                selected_layer_idx = 0
+                layer_coords = _layerBinCoords(layout, selected_layer_idx)
+                selected_flat_idx = 0 if layer_coords else -1
+                last_target: BinAddress | None = None
+
+                while True:
+                    if selected_flat_idx < 0:
+                        selected_flat_idx = 0
+                    layer_coords = _layerBinCoords(layout, selected_layer_idx)
+                    if layer_coords:
+                        selected_flat_idx = min(selected_flat_idx, len(layer_coords) - 1)
                     else:
-                        bins_per_section = BINS_PER_SIZE[size_map[size_key]]
-                        total_bins = bins_per_section * 6
-                        current_bin: int | None = None
-                        while True:
-                            print("\033[2J\033[H", end="")
-                            print(f"Bin Targeting — {size_map[size_key]} (1-{total_bins})")
-                            if current_bin is not None:
-                                print(f"Currently at: bin {current_bin}")
-                            print("=" * 40)
-                            for b in range(total_bins):
-                                s = b // bins_per_section
-                                bi = b % bins_per_section
-                                a = angleForBin(chute_cal, b, bins_per_section)
-                                marker = " >> " if current_bin == b + 1 else "    "
-                                if a is None:
-                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → UNREACHABLE")
-                                else:
-                                    print(f"{marker}Bin {b + 1:2d}  (section {s}, bin {bi})  → {a:.2f}°")
-                            print()
-                            print("  Q to go back")
-                            print()
-                            bin_str = input(f"Enter bin number (1-{total_bins}): ").strip()
-                            if bin_str.lower() == "q":
-                                break
-                            try:
-                                bin_num = int(bin_str)
-                                if 1 <= bin_num <= total_bins:
-                                    target_angle = angleForBin(chute_cal, bin_num - 1, bins_per_section)
-                                    if target_angle is None:
-                                        print(f"Bin {bin_num} is unreachable")
-                                        readchar.readkey()
-                                        continue
-                                    irl.chute.moveToAngle(target_angle)
-                                    while not irl.chute.stepper.stopped:
-                                        time.sleep(0.01)
-                                    current_bin = bin_num
-                                else:
-                                    print(f"Must be 1-{total_bins}")
-                                    readchar.readkey()
-                            except ValueError:
-                                print("Invalid number")
-                                readchar.readkey()
+                        selected_flat_idx = -1
+
+                    _printBinGridStatus(irl, selected_layer_idx, max(selected_flat_idx, 0), last_target)
+                    nav_key = readchar.readkey()
+
+                    if nav_key.lower() == "q":
+                        break
+                    if nav_key == readchar.key.UP:
+                        selected_layer_idx = max(0, selected_layer_idx - 1)
+                        continue
+                    if nav_key == readchar.key.DOWN:
+                        selected_layer_idx = min(len(layout.layers) - 1, selected_layer_idx + 1)
+                        continue
+                    if nav_key == readchar.key.LEFT and selected_flat_idx >= 0:
+                        selected_flat_idx = max(0, selected_flat_idx - 1)
+                        continue
+                    if nav_key == readchar.key.RIGHT and selected_flat_idx >= 0:
+                        selected_flat_idx = min(len(layer_coords) - 1, selected_flat_idx + 1)
+                        continue
+                    if nav_key == readchar.key.ENTER and selected_flat_idx >= 0 and layer_coords:
+                        section_idx, bin_idx = layer_coords[selected_flat_idx]
+                        target = BinAddress(
+                            layer_index=selected_layer_idx,
+                            section_index=section_idx,
+                            bin_index=bin_idx,
+                        )
+                        if not irl.chute.isBinReachable(target):
+                            print("Selected bin is unreachable. Press any key...")
+                            readchar.readkey()
+                            continue
+                        _selectDoorLikeRuntime(irl.servos, selected_layer_idx)
+                        irl.chute.moveToBin(target)
+                        target_servo = irl.servos[selected_layer_idx]
+                        while not irl.chute.stepper.stopped or not target_servo.stopped:
+                            time.sleep(0.01)
+                        last_target = target
                 _printMain()
             elif key.lower() == "c" and name == "chute":
                 result = chuteCalibrateLoop(irl.chute, step_count_idx)

@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import threading
+from dataclasses import asdict
 from pathlib import Path
 
 import cv2
@@ -27,26 +28,20 @@ from blob_manager import getCameraSetup, getChannelPolygons
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision.heatmap_diff import HeatmapDiff
+from vision.mog2_diff_configs import DEFAULT_MOG2_DIFF_CONFIG
 
-CAROUSEL_SETTLE_AFTER_STOP_MS = 500
 RECORDINGS_DIR = "recordings"
 
 PORT = 8098
 
-DEFAULT_PARAMS = {
-    "history": -1,  # does nothing since we pass explicit learning_rate to apply()
-    "var_threshold": 16.0,
-    "learning_rate": 0.002,
-    "blur_kernel": 5,
-    "min_contour_area": 100,
-    "max_contour_area": 0,
-    "morph_kernel": 5,
-    "dilate_iterations": 2,
-    "fg_threshold": 0,
-    "n_mixtures": 5,
-    "heat_gain": 3.0,
-    "carousel_settle_ms": float(CAROUSEL_SETTLE_AFTER_STOP_MS),
-}
+DEFAULT_PARAMS = asdict(DEFAULT_MOG2_DIFF_CONFIG)
+
+
+def normalizeColorMode(value: str) -> str:
+    mode = str(value).lower()
+    if mode not in ("gray", "lab"):
+        raise ValueError(f"invalid color_mode: {value}")
+    return mode
 
 
 # --- Channel geometry ---
@@ -202,6 +197,7 @@ class AppState:
         self.lock = threading.Lock()
         self.latest_frame = None
         self.latest_gray = None
+        self.latest_lab = None
         self.channel_polygons = loadChannelPolygons()
         self.channel_mog2s: dict[str, ChannelMog2] = {}
         self.combined_mask = None
@@ -283,10 +279,12 @@ class AppState:
                 time.sleep(0.01)
                 continue
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            mog2_frame = self._toMog2Frame(frame)
             self.carousel_heatmap.pushFrame(gray)
             with self.lock:
                 self.latest_frame = frame
                 self.latest_gray = gray
+                self.latest_lab = mog2_frame
                 if self._recording and self._record_writer is not None:
                     self._record_writer.write(frame)
 
@@ -360,16 +358,17 @@ class AppState:
         with self.lock:
             frame = self.latest_frame
             gray = self.latest_gray
-        if frame is None or gray is None:
+            lab_frame = self.latest_lab
+        if frame is None or gray is None or lab_frame is None:
             return None
-        return self._processAndAnnotate(frame, gray, force_learn=False)
+        return self._processAndAnnotate(frame, gray, lab_frame, force_learn=False)
 
-    def _feedMog2(self, gray):
+    def _feedMog2(self, lab_frame):
         if not self.channel_mog2s and self.channel_polygons:
-            self._initChannelMog2s(gray.shape)
+            self._initChannelMog2s(lab_frame.shape)
         p = self.params
         blur_k = int(p["blur_kernel"]) | 1
-        blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        blurred = cv2.GaussianBlur(lab_frame, (blur_k, blur_k), 0)
         for ch in self.channel_mog2s.values():
             if ch.mask is not None:
                 ch.mog2.apply(blurred, learningRate=p["learning_rate"])
@@ -383,6 +382,7 @@ class AppState:
             return
         last_frame = None
         last_gray = None
+        last_lab = None
         for i in range(target_idx):
             if self._seek_cancel:
                 break
@@ -390,14 +390,16 @@ class AppState:
             if not ret:
                 break
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            lab_frame = self._toMog2Frame(frame)
             self._replay_idx = i + 1
             if i < target_idx - 1:
-                self._feedMog2(gray)
+                self._feedMog2(lab_frame)
             else:
                 last_frame = frame
                 last_gray = gray
-        if last_frame is not None and not self._seek_cancel:
-            self._last_replay_out = self._processAndAnnotate(last_frame, last_gray, force_learn=True)
+                last_lab = lab_frame
+        if last_frame is not None and last_gray is not None and last_lab is not None and not self._seek_cancel:
+            self._last_replay_out = self._processAndAnnotate(last_frame, last_gray, last_lab, force_learn=True)
 
     def _getReplayFrame(self):
         if not self._replay_lock.acquire(blocking=False):
@@ -428,8 +430,9 @@ class AppState:
                     self._replay_paused = True
                     break
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                lab_frame = self._toMog2Frame(frame)
                 self._replay_idx += 1
-                out = self._processAndAnnotate(frame, gray, force_learn=True)
+                out = self._processAndAnnotate(frame, gray, lab_frame, force_learn=True)
             if out is not None:
                 self._last_replay_out = out
             return self._last_replay_out
@@ -449,9 +452,9 @@ class AppState:
             self._replay_paused = True
             self._replay_params_ver = self._params_version
 
-    def _processAndAnnotate(self, frame, gray, force_learn=False):
+    def _processAndAnnotate(self, frame, gray, lab_frame, force_learn=False):
         if not self.channel_mog2s and self.channel_polygons:
-            self._initChannelMog2s(gray.shape)
+            self._initChannelMog2s(lab_frame.shape)
 
         annotated = frame.copy()
 
@@ -467,9 +470,9 @@ class AppState:
         heat_gain = p["heat_gain"]
         min_area = int(p["min_contour_area"])
 
-        blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        blurred = cv2.GaussianBlur(lab_frame, (blur_k, blur_k), 0)
 
-        fg_mask = np.zeros(gray.shape[:2], dtype=np.uint8)
+        fg_mask = np.zeros(lab_frame.shape[:2], dtype=np.uint8)
         for name, ch in self.channel_mog2s.items():
             if ch.mask is None:
                 continue
@@ -512,7 +515,7 @@ class AppState:
         out = annotated.copy()
         out[mask_bool] = (annotated[mask_bool] * 0.5).astype(np.uint8)
 
-        display = np.zeros_like(gray)
+        display = np.zeros_like(fg_mask)
         display[fg_bool & mask_bool] = np.clip(
             fg_mask[fg_bool & mask_bool].astype(np.float32) * heat_gain, 0, 255
         ).astype(np.uint8)
@@ -596,6 +599,12 @@ class AppState:
 
         self.frame_count += 1
         return out
+
+    def _toMog2Frame(self, frame: np.ndarray) -> np.ndarray:
+        mode = normalizeColorMode(self.params["color_mode"])
+        if mode == "lab":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
 
 # --- Flask app ---
@@ -989,6 +998,10 @@ def set_params():
     rebuild = False
     for k, v in updates.items():
         if k in state.params:
+            if k == "color_mode":
+                state.params[k] = normalizeColorMode(v)
+                rebuild = True
+                continue
             state.params[k] = float(v)
             if k in ("history", "var_threshold", "n_mixtures"):
                 rebuild = True

@@ -18,6 +18,8 @@ CURRENT_FRAMES = 3
 CAPTURE_INTERVAL_MS = 50
 MIN_CONTOUR_AREA = 70
 MIN_HOT_THICKNESS_PIXELS = 12
+HOT_ERODE_ITERS = 1
+HOT_REGROW_ITERS = 1
 MAX_CONTOUR_ASPECT_RATIO = 3.0
 COLOR_THRESH_AB = 0
 
@@ -47,6 +49,8 @@ class HeatmapDiff:
         trigger_score: int = TRIGGER_SCORE,
         min_contour_area: int = MIN_CONTOUR_AREA,
         min_hot_thickness_px: int = MIN_HOT_THICKNESS_PIXELS,
+        hot_erode_iters: int = HOT_ERODE_ITERS,
+        hot_regrow_iters: int = HOT_REGROW_ITERS,
         max_contour_aspect: float = MAX_CONTOUR_ASPECT_RATIO,
         color_thresh_ab: int = COLOR_THRESH_AB,
         heat_gain: float = HEAT_GAIN,
@@ -59,6 +63,8 @@ class HeatmapDiff:
         self._trigger_score = trigger_score
         self._min_contour_area = min_contour_area
         self._min_hot_thickness_px = min_hot_thickness_px
+        self._hot_erode_iters = hot_erode_iters
+        self._hot_regrow_iters = hot_regrow_iters
         self._max_contour_aspect = max_contour_aspect
         self._color_thresh_ab = color_thresh_ab
         self._heat_gain = heat_gain
@@ -229,7 +235,7 @@ class HeatmapDiff:
             diff_ab = np.maximum(diff[:, :, 1], diff[:, :, 2])
 
         scaled_thickness = max(1, int(self._min_hot_thickness_px * self._scale))
-        scaled_min_area = max(1, int(self._min_contour_area * self._scale * self._scale))
+        scaled_min_area = max(1, int(self._min_contour_area))
 
         raw_hot_l = diff_l > self._pixel_thresh
         raw_hot_ab = np.zeros_like(raw_hot_l, dtype=bool)
@@ -238,15 +244,20 @@ class HeatmapDiff:
         raw_hot = ((raw_hot_l | raw_hot_ab) & mask_bool).astype(np.uint8) * 255
         ek = max(1, scaled_thickness // 2)
         erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ek * 2 + 1, ek * 2 + 1))
-        eroded = cv2.erode(raw_hot, erode_kernel)
-        contours, _ = cv2.findContours(raw_hot, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        erode_iters = max(1, int(self._hot_erode_iters))
+        eroded = cv2.erode(raw_hot, erode_kernel, iterations=erode_iters)
+        regrow_iters = max(0, int(self._hot_regrow_iters))
+        rk = max(1, ek // 2)
+        regrow_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (rk * 2 + 1, rk * 2 + 1))
+        if regrow_iters > 0:
+            regrown = cv2.dilate(eroded, regrow_kernel, iterations=regrow_iters)
+        else:
+            regrown = eroded
+        clean_hot = cv2.bitwise_and(regrown, raw_hot)
+        contours, _ = cv2.findContours(clean_hot, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         hot = np.zeros_like(raw_hot)
         for contour in contours:
             if cv2.contourArea(contour) < scaled_min_area:
-                continue
-            contour_mask = np.zeros_like(raw_hot)
-            cv2.drawContours(contour_mask, [contour], -1, 255, -1)
-            if not np.any(eroded & contour_mask):
                 continue
             (_, _), (mar_w, mar_h), _ = cv2.minAreaRect(contour)
             mar_short = min(mar_w, mar_h)
@@ -272,6 +283,10 @@ class HeatmapDiff:
         return score, hot_count
 
     def computeBboxes(self, diff_thresh: float = 0) -> List[Tuple[int, int, int, int]]:
+        score, _ = self.computeDiff()
+        if score < self._trigger_score:
+            return []
+
         result = self._computeDiffMap()
         if result is None:
             return []

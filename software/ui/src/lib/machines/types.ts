@@ -4,7 +4,8 @@ import type {
 	MachineIdentityData,
 	SocketEvent,
 	KnownObjectData,
-	KnownObjectEvent
+	KnownObjectEvent,
+	RuntimeStatsEvent
 } from '$lib/api/events';
 
 export type MachineIdentity = MachineIdentityData;
@@ -18,6 +19,7 @@ export interface MachineState {
 	frames: Map<CameraName, FrameData>;
 	lastHeartbeat: number | null;
 	recentObjects: KnownObjectData[];
+	runtimeStats: Record<string, unknown> | null;
 }
 
 export interface MachinesContext {
@@ -53,4 +55,8 @@ export function isHeartbeatEvent(
 
 export function isKnownObjectEvent(event: SocketEvent): event is KnownObjectEvent {
 	return event.tag === 'known_object';
+}
+
+export function isRuntimeStatsEvent(event: SocketEvent): event is RuntimeStatsEvent {
+	return event.tag === 'runtime_stats';
 }

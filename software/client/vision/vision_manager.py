@@ -791,16 +791,13 @@ class VisionManager:
             return []
         return list(detection.bboxes)
 
-    def _getDynamicClassificationDetection(
-        self, cam: str, *, force: bool = False,
+    def _getDynamicClassificationDetectionForFrame(
+        self,
+        cam: str,
+        frame: CameraFrame,
+        *,
+        force: bool = False,
     ) -> ClassificationDetectionResult | None:
-        capture = self._classification_top_capture if cam == "top" else self._classification_bottom_capture
-        if capture is None:
-            return None
-        frame = capture.latest_frame
-        if frame is None:
-            return None
-
         cached = self._classification_dynamic_detection_cache.get(cam)
         if cached is not None and cached[0] == frame.timestamp:
             return cached[1]
@@ -833,13 +830,28 @@ class VisionManager:
         self._classification_dynamic_detection_cache[cam] = (frame.timestamp, detection)
         return detection
 
+    def _getDynamicClassificationDetection(
+        self, cam: str, *, force: bool = False,
+    ) -> ClassificationDetectionResult | None:
+        capture = self._classification_top_capture if cam == "top" else self._classification_bottom_capture
+        if capture is None:
+            return None
+        frame = capture.latest_frame
+        if frame is None:
+            return None
+        return self._getDynamicClassificationDetectionForFrame(cam, frame, force=force)
+
     def _classificationAnnotationLabel(self, cam: str) -> str:
         if self.usesClassificationBaseline():
             return f"class_{cam}"
         return f"class_{cam}:{self._diff_config.algorithm}"
 
     def getClassificationCombinedBbox(
-        self, cam: str, *, force: bool = False,
+        self,
+        cam: str,
+        *,
+        force: bool = False,
+        frame: CameraFrame | None = None,
     ) -> Tuple[int, int, int, int] | None:
         if self.usesClassificationBaseline():
             if cam == "top" and self._classification_top_analysis:
@@ -847,7 +859,11 @@ class VisionManager:
             if cam == "bottom" and self._classification_bottom_analysis:
                 return self._classification_bottom_analysis.getCombinedBbox()
             return None
-        detection = self._getDynamicClassificationDetection(cam, force=force)
+        detection = (
+            self._getDynamicClassificationDetectionForFrame(cam, frame, force=force)
+            if frame is not None
+            else self._getDynamicClassificationDetection(cam, force=force)
+        )
         return detection.bbox if detection is not None else None
 
     def debugClassificationDetection(self, cam: str, *, include_capture: bool = False) -> Dict[str, object]:
@@ -2164,20 +2180,25 @@ class VisionManager:
         return (result[0], result[1], result[2], result[3])
 
     def getClassificationCrops(
-        self, timeout_s: float = 1.0
+        self,
+        timeout_s: float = 1.0,
+        *,
+        top_frame: CameraFrame | None = None,
+        bottom_frame: CameraFrame | None = None,
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
+        if top_frame is None and bottom_frame is None:
+            top_frame, bottom_frame = self.captureFreshClassificationFrames(timeout_s)
 
         top_crop: np.ndarray | None = None
         if top_frame is not None:
-            bbox = self.getClassificationCombinedBbox("top", force=True)
+            bbox = self.getClassificationCombinedBbox("top", force=True, frame=top_frame)
             if bbox is not None:
                 margins = self._edgeBiasedMargins(bbox, "top")
                 top_crop = self._cropToBbox(top_frame.raw, bbox, margins)
 
         bottom_crop: np.ndarray | None = None
         if bottom_frame is not None:
-            bbox = self.getClassificationCombinedBbox("bottom", force=True)
+            bbox = self.getClassificationCombinedBbox("bottom", force=True, frame=bottom_frame)
             if bbox is not None:
                 margins = self._edgeBiasedMargins(bbox, "bottom")
                 bottom_crop = self._cropToBbox(bottom_frame.raw, bbox, margins)

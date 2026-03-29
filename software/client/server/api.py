@@ -1735,16 +1735,24 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
     def generate_frames():
         """Generator function that yields JPEG frames"""
         import time
+
         quality = 80  # JPEG quality (0-100)
-        
+
         while True:
             frame_obj = vm.getFrame(camera_name)
             if frame_obj is None:
                 # Send a placeholder frame if no frame available
                 placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
-                cv2.putText(placeholder, f"Waiting for {camera_name} camera...", 
-                           (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (200, 200, 200), 2)
-                _, buffer = cv2.imencode('.jpg', placeholder, [cv2.IMWRITE_JPEG_QUALITY, quality])
+                cv2.putText(
+                    placeholder,
+                    f"Waiting for {camera_name} camera...",
+                    (50, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (200, 200, 200),
+                    2,
+                )
+                _, buffer = cv2.imencode(".jpg", placeholder, [cv2.IMWRITE_JPEG_QUALITY, quality])
             else:
                 # Use annotated frame if available, otherwise use raw frame
                 frame_to_encode = frame_obj.annotated if frame_obj.annotated is not None else frame_obj.raw
@@ -1765,16 +1773,17 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
                             1,
                         )
 
-                _, buffer = cv2.imencode('.jpg', frame_to_encode, [cv2.IMWRITE_JPEG_QUALITY, quality])
-            
+                _, buffer = cv2.imencode(".jpg", frame_to_encode, [cv2.IMWRITE_JPEG_QUALITY, quality])
+
             # Yield frame in MJPEG format
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n'
-                   b'Content-Length: ' + str(len(buffer)).encode() + b'\r\n\r\n' +
-                   buffer.tobytes() + b'\r\n')
-            
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(buffer)).encode() + b"\r\n\r\n" + buffer.tobytes() + b"\r\n"
+            )
+
             time.sleep(0.03)  # ~30 FPS
-    
+
     return StreamingResponse(
         generate_frames(),
         media_type="multipart/x-mixed-replace; boundary=frame"

@@ -74,7 +74,10 @@ class Snapping(BaseState):
 
         top_frame, bottom_frame = self.vision.captureFreshClassificationFrames()
         with self.gc.profiler.timer("classification.get_crops_ms"):
-            top_crop, bottom_crop = self.vision.getClassificationCrops()
+            top_crop, bottom_crop = self.vision.getClassificationCrops(
+                top_frame=top_frame,
+                bottom_frame=bottom_frame,
+            )
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(

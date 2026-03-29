@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
     from irl.config import RotorPulseConfig
 
-
 class Feeding(BaseState):
     def __init__(
         self,
@@ -33,6 +32,18 @@ class Feeding(BaseState):
         self._last_ch3_action = ChannelAction.IDLE
         self._busy_until: dict[str, float] = {}
         self._ch3_last_precise_at: float = 0.0
+        self._occupancy_state_by_resource: dict[str, str] = {}
+
+    def _setOccupancyState(self, resource_name: str, state_name: str) -> None:
+        prev_state = self._occupancy_state_by_resource.get(resource_name)
+        if prev_state == state_name:
+            return
+        self._occupancy_state_by_resource[resource_name] = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            resource_name,
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -48,20 +59,23 @@ class Feeding(BaseState):
         stepper: "StepperMotor",
         cfg: "RotorPulseConfig",
     ) -> bool:
+        now_mono = time.monotonic()
         if self._isStepperBusy(stepper):
             self.gc.profiler.hit(f"feeder.skip.busy.{label}")
+            self.gc.runtime_stats.observePulse(label, "busy", now_mono)
             return False
         prof = self.gc.profiler
         with prof.timer(f"feeder.move_cmd.{label}_ms"):
             pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            stepper.move_degrees(pulse_degrees)
+            pulse_sent = stepper.move_degrees(pulse_degrees)
         exec_ms = stepper.estimateMoveDegreesMs(
             stepper.degrees_for_microsteps(cfg.steps_per_pulse)
         )
         cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         prof.observeValue(f"feeder.cooldown.{label}_ms", float(cooldown_ms))
-        return True
+        self.gc.runtime_stats.observePulse(label, "sent" if pulse_sent else "failed", now_mono)
+        return pulse_sent
 
     def _executionLoop(self) -> None:
         fc = self.irl_config.feeder_config
@@ -101,16 +115,74 @@ class Feeding(BaseState):
                 can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                     not self.shared.chute_move_in_progress
                 )
+                ch3_held = (
+                    not self.shared.classification_ready
+                    and ch3_action == ChannelAction.PULSE_PRECISE
+                )
+                ch1_pulse_intent = not analysis.ch2_dropzone_occupied
+                ch2_pulse_intent = (
+                    not analysis.ch3_dropzone_occupied
+                    and (
+                        ch2_action == ChannelAction.PULSE_PRECISE
+                        or ch2_action == ChannelAction.PULSE_NORMAL
+                    )
+                )
+                ch3_pulse_intent = (
+                    not ch3_held
+                    and (
+                        ch3_action == ChannelAction.PULSE_PRECISE
+                        or ch3_action == ChannelAction.PULSE_NORMAL
+                    )
+                )
+                ch1_stepper_busy = self._isStepperBusy(self.irl.first_c_channel_rotor_stepper)
+                ch2_stepper_busy = self._isStepperBusy(self.irl.second_c_channel_rotor_stepper)
+                ch3_stepper_busy = self._isStepperBusy(self.irl.third_c_channel_rotor_stepper)
+                wait_stepper_busy = (
+                    (ch1_pulse_intent and ch1_stepper_busy)
+                    or (ch2_pulse_intent and ch2_stepper_busy)
+                    or (ch3_pulse_intent and ch3_stepper_busy)
+                )
+                self.gc.runtime_stats.observeFeederState(
+                    now_monotonic=now,
+                    ch2_dropzone_occupied=analysis.ch2_dropzone_occupied,
+                    ch3_dropzone_occupied=analysis.ch3_dropzone_occupied,
+                    can_run=can_run,
+                    classification_ready=self.shared.classification_ready,
+                    ch2_action=ch2_action.value,
+                    ch3_action=ch3_action.value,
+                )
 
                 if not can_run:
+                    self.gc.runtime_stats.observeFeederSignals(
+                        {
+                            "wait_chute": True,
+                            "wait_classification_ready": ch3_held,
+                            "wait_ch2_dropzone_clear": analysis.ch2_dropzone_occupied,
+                            "wait_ch3_dropzone_clear": analysis.ch3_dropzone_occupied,
+                            "wait_stepper_busy": wait_stepper_busy,
+                            "pulse_intent_ch1": ch1_pulse_intent,
+                            "pulse_intent_ch2": ch2_pulse_intent,
+                            "pulse_intent_ch3": ch3_pulse_intent,
+                            "stepper_busy_ch1": ch1_stepper_busy,
+                            "stepper_busy_ch2": ch2_stepper_busy,
+                            "stepper_busy_ch3": ch3_stepper_busy,
+                            "pulse_sent_any": False,
+                            "stable": False,
+                        },
+                        now_monotonic=now,
+                    )
+                    self._setOccupancyState("feeder.ch1", "feeding.wait_chute_move_in_progress")
+                    self._setOccupancyState("feeder.ch2", "feeding.wait_chute_move_in_progress")
+                    self._setOccupancyState("feeder.ch3", "feeding.wait_chute_move_in_progress")
                     prof.hit("feeder.skip.chute_in_progress")
+                    self.gc.runtime_stats.observeBlockedReason("feeder", "chute_in_progress")
                     self._stop_event.wait(LOOP_TICK_MS / 1000.0)
                     continue
 
                 # channel 3 — hold precise pulses if carousel not ready to receive
-                ch3_held = not self.shared.classification_ready and ch3_action == ChannelAction.PULSE_PRECISE
                 if ch3_held:
                     prof.hit("feeder.skip.ch3_held_for_carousel")
+                    self.gc.runtime_stats.observeBlockedReason("feeder", "ch3_held_for_carousel")
                 elif ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
                     if self._sendPulse("ch3_precise", self.irl.third_c_channel_rotor_stepper, fc.third_rotor_precision):
@@ -122,28 +194,81 @@ class Feeding(BaseState):
                 else:
                     prof.hit("feeder.path.ch3_idle")
 
+                pulse_intent = False
+                pulse_sent = False
+
                 # channel 2 — only pulse if ch3 dropzone is clear
                 if not analysis.ch3_dropzone_occupied:
                     if ch2_action == ChannelAction.PULSE_PRECISE:
                         prof.hit("feeder.path.ch2_precise")
+                        pulse_intent = True
                         if self._sendPulse("ch2_precise", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_precision):
+                            pulse_sent = True
                             self.gc.logger.info("Feeder: ch2 precise, pulsing 2nd (precise)")
                     elif ch2_action == ChannelAction.PULSE_NORMAL:
                         prof.hit("feeder.path.ch2_normal")
+                        pulse_intent = True
                         if self._sendPulse("ch2_normal", self.irl.second_c_channel_rotor_stepper, fc.second_rotor_normal):
+                            pulse_sent = True
                             self.gc.logger.info("Feeder: ch2 normal, pulsing 2nd")
                     else:
                         prof.hit("feeder.path.ch2_idle")
                 else:
                     prof.hit("feeder.skip.ch2_dropzone_occupied")
+                    self.gc.runtime_stats.observeBlockedReason("feeder", "ch2_blocked_by_ch3_dropzone")
 
                 # channel 1 — only pulse if ch2 dropzone is clear
                 if not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
+                    pulse_intent = True
                     if self._sendPulse("ch1", self.irl.first_c_channel_rotor_stepper, fc.first_rotor):
+                        pulse_sent = True
                         self.gc.logger.info("Feeder: clear, pulsing 1st")
                 else:
                     prof.hit("feeder.skip.ch1_dropzone_occupied")
+                    self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_blocked_by_ch2_dropzone")
+
+                if analysis.ch2_dropzone_occupied:
+                    self._setOccupancyState("feeder.ch1", "feeding.wait_ch2_dropzone_clear")
+                else:
+                    self._setOccupancyState("feeder.ch1", "feeding.pulse_ch1_when_clear")
+
+                if analysis.ch3_dropzone_occupied:
+                    self._setOccupancyState("feeder.ch2", "feeding.wait_ch3_dropzone_clear")
+                elif ch2_action == ChannelAction.IDLE:
+                    self._setOccupancyState("feeder.ch2", "feeding.idle_no_piece_in_ch2")
+                elif ch2_action == ChannelAction.PULSE_PRECISE:
+                    self._setOccupancyState("feeder.ch2", "feeding.pulse_ch2_precise")
+                else:
+                    self._setOccupancyState("feeder.ch2", "feeding.pulse_ch2_normal")
+
+                if ch3_held:
+                    self._setOccupancyState("feeder.ch3", "feeding.wait_classification_ready_for_ch3_precise")
+                elif ch3_action == ChannelAction.IDLE:
+                    self._setOccupancyState("feeder.ch3", "feeding.idle_no_piece_in_ch3")
+                elif ch3_action == ChannelAction.PULSE_PRECISE:
+                    self._setOccupancyState("feeder.ch3", "feeding.pulse_ch3_precise")
+                else:
+                    self._setOccupancyState("feeder.ch3", "feeding.pulse_ch3_normal")
+
+                self.gc.runtime_stats.observeFeederSignals(
+                    {
+                        "wait_chute": False,
+                        "wait_classification_ready": ch3_held,
+                        "wait_ch2_dropzone_clear": analysis.ch2_dropzone_occupied,
+                        "wait_ch3_dropzone_clear": analysis.ch3_dropzone_occupied,
+                        "wait_stepper_busy": wait_stepper_busy and pulse_intent and (not pulse_sent),
+                        "pulse_intent_ch1": ch1_pulse_intent,
+                        "pulse_intent_ch2": ch2_pulse_intent,
+                        "pulse_intent_ch3": ch3_pulse_intent,
+                        "stepper_busy_ch1": ch1_stepper_busy,
+                        "stepper_busy_ch2": ch2_stepper_busy,
+                        "stepper_busy_ch3": ch3_stepper_busy,
+                        "pulse_sent_any": pulse_sent,
+                        "stable": (not ch3_held) and (not pulse_intent) and (not analysis.ch2_dropzone_occupied) and (not analysis.ch3_dropzone_occupied),
+                    },
+                    now_monotonic=now,
+                )
 
             self._stop_event.wait(LOOP_TICK_MS / 1000.0)
 

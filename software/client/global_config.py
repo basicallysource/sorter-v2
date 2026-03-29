@@ -11,6 +11,7 @@ from blob_manager import getMachineId
 
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
+    from runtime_stats import RuntimeStatsCollector
 
 
 class RegionProviderType(Enum):
@@ -46,7 +47,10 @@ class GlobalConfig:
     rotary_channel_steppers_can_operate_in_parallel: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
+    runtime_stats: "RuntimeStatsCollector"
     def __init__(self):
+        from runtime_stats import RuntimeStatsCollector
+
         self.debug_level = 0
         self.should_write_camera_feeds = False
         self.log_buffer_size = 100
@@ -54,6 +58,7 @@ class GlobalConfig:
         self.disable_servos = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.disable_video_streams = ["classification_bottom"]
+        self.runtime_stats = RuntimeStatsCollector()
 
 
 def mkTimeouts() -> Timeouts:

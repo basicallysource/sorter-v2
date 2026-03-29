@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => {
 		server: {
 			proxy: {
 				'/bricklink': backendBaseUrl,
-				'/health': backendBaseUrl
+				'/health': backendBaseUrl,
+				'/sorting-profile': backendBaseUrl
 			}
 		}
 	};

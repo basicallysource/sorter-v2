@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from typing import Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -45,6 +45,7 @@ class DistributionLayout:
 
 
 VALID_BIN_SIZES = {"small", "medium", "big"}
+
 
 DEFAULT_BIN_LAYOUT = BinLayoutConfig(
     layers=[
@@ -117,8 +118,6 @@ def getBinLayout() -> BinLayoutConfig:
         layers.append(LayerConfig(sections=sections, enabled=enabled))
 
     return BinLayoutConfig(layers=layers)
-
-
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
     # reversed so that the config is setup the same as it is in real life

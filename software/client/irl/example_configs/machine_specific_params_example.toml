@@ -1,13 +1,6 @@
-# This file is for setting / tuning parameters that will likely vary between
-# machines. Set MACHINE_SPECIFIC_PARAMS_PATH env var to point to your copy.
-
-# --- Servo configuration ---
-# backend = "pca9685" (default) uses the PCA9685 I2C servo controller on the
-# SKR Pico distribution board. Requires open_angle/closed_angle.
-#
-# backend = "waveshare" uses Waveshare SC series serial bus servos (SC09, etc.)
-# with auto-calibration. Only servo bus IDs are needed — open/close positions
-# are found automatically by stepping to physical limits on first run.
+# Machine-specific parameters
+# Set MACHINE_SPECIFIC_PARAMS_PATH env var to point to your copy of this file.
+# This file is for parameters that vary between machines and local setups.
 
 [servo]
 # For PCA9685 (default):
@@ -26,6 +19,16 @@ closed_angle = 83
 # [[servo.channels]]
 # id = 2
 # invert = false
+
+# Each entry in sections is one layer's bin layout (bottom to top).
+# servo_open_angles / servo_closed_angles override the global [servo] defaults per layer index.
+[layers]
+sections = [
+    [["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"]],
+    [["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"]],
+]
+# servo_open_angles = {1 = 25}
+# servo_closed_angles = {1 = 110}
 
 # --- Chute positioning calibration ---
 # These values define where the first bin center sits after homing and how much
@@ -73,9 +76,9 @@ closed_angle = 83
 # c_channel_2 = 0
 # c_channel_3 = 2
 # carousel = 4
-# carousel = "http://127.0.0.1:18081/carousel.mjpg" # Android phone via scrcpy bridge
-# classification_top = "http://localhost:8080/video"   # Android phone via ADB
-# classification_bottom = 3                             # or a USB camera index
+# carousel = "http://127.0.0.1:18081/carousel.mjpg"
+# classification_top = "http://localhost:8080/video"
+# classification_bottom = 3
 
 # [camera_picture_settings.c_channel_2]
 # rotation = 0

@@ -395,8 +395,49 @@ def _broadcastIdentityUpdate() -> None:
         future.result(timeout=1.0)
     except Exception:
         pass
+class SortingProfileCategoryMeta(BaseModel):
+    name: str
 
 
+class SortingProfileFallbackMode(BaseModel):
+    rebrickable_categories: bool
+    by_color: bool
+
+
+class SortingProfileMetadataResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    created_at: str
+    updated_at: str
+    default_category_id: str
+    categories: Dict[str, SortingProfileCategoryMeta]
+    rules: List[Dict[str, Any]]
+    fallback_mode: SortingProfileFallbackMode
+
+
+@app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
+def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
+    if gc_ref is None:
+        raise HTTPException(status_code=500, detail="Global config not initialized")
+    with open(gc_ref.sorting_profile_path, "r") as f:
+        data = json.load(f)
+    return SortingProfileMetadataResponse(
+        id=data["id"],
+        name=data["name"],
+        description=data.get("description", ""),
+        created_at=data["created_at"],
+        updated_at=data["updated_at"],
+        default_category_id=data.get("default_category_id", "misc"),
+        categories={
+            k: SortingProfileCategoryMeta(**v)
+            for k, v in data.get("categories", {}).items()
+        },
+        rules=data.get("rules", []),
+        fallback_mode=SortingProfileFallbackMode(
+            **data.get("fallback_mode", {"rebrickable_categories": False, "by_color": False})
+        ),
+    )
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()

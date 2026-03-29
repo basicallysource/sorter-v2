@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 from .bin_layout import (
     getBinLayout,
     BinLayoutConfig,
+    LayerConfig,
+    DEFAULT_BIN_LAYOUT,
     DistributionLayout,
     mkLayoutFromConfig,
     layoutMatchesCategories,
@@ -29,6 +31,7 @@ from .bin_layout import (
 )
 from .parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
+    loadMachineConfig,
     loadMachineSpecificParams,
     loadStepperBindingOverrides,
     loadStepperCurrentOverrides,
@@ -776,10 +779,12 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     irl_interface = IRLInterface()
     machine_specific_params = loadMachineSpecificParams(gc)
+    machine_config = loadMachineConfig(gc, machine_specific_params)
     stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
-    stepper_current_overrides = loadStepperCurrentOverrides(gc, machine_specific_params)
+    stepper_current_overrides = machine_config.stepper_current_overrides
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
-    servo_open_angle, servo_closed_angle = loadServoPresetAngles(gc, machine_specific_params)
+    servo_open_angle = machine_config.servo_open_angle
+    servo_closed_angle = machine_config.servo_closed_angle
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
     mcu_ports = MCUBus.enumerate_buses()
     control_boards = discover_control_boards(
@@ -892,7 +897,24 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 f"Logical stepper '{logical_name}' (attr '{attr}') is unbound after applying stepper_bindings."
             )
 
-    irl_interface.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
+    bin_layout = config.bin_layout_config
+    if machine_config.layer_sections:
+        previous_layers = config.bin_layout_config.layers
+        bin_layout = BinLayoutConfig(
+            layers=[
+                LayerConfig(
+                    sections=sections,
+                    enabled=(
+                        previous_layers[index].enabled
+                        if index < len(previous_layers)
+                        else True
+                    ),
+                )
+                for index, sections in enumerate(machine_config.layer_sections)
+            ]
+        )
+
+    irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
     waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
@@ -908,6 +930,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
         irl_interface.distribution_layout
     )
+    for layer_index, servo in enumerate(irl_interface.servos):
+        open_angle = machine_config.servo_open_angle_overrides.get(
+            layer_index, servo_open_angle
+        )
+        closed_angle = machine_config.servo_closed_angle_overrides.get(
+            layer_index, servo_closed_angle
+        )
+        servo.set_preset_angles(open_angle, closed_angle)
     restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,

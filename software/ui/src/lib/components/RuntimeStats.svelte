@@ -63,6 +63,13 @@
 		return typeof value === 'number' ? `${value}` : '-';
 	}
 
+	function fmtDuration(value: unknown): string {
+		if (typeof value !== 'number') return '-';
+		if (value < 60) return `${value.toFixed(1)}s`;
+		if (value < 3600) return `${(value / 60).toFixed(1)}m`;
+		return `${(value / 3600).toFixed(1)}h`;
+	}
+
 	function fmtPpm(value: unknown): string {
 		return typeof value === 'number' ? value.toFixed(2) : '-';
 	}
@@ -75,24 +82,31 @@
 		return `${avg.toFixed(2)} / ${med.toFixed(2)} / ${p90.toFixed(2)}`;
 	}
 
-	function stateColor(state_name: string): string {
-		const s = state_name.toLowerCase();
-		if (s.includes('idle')) return '#6b7280';
-		if (s.includes('feeding')) return '#0ea5e9';
-		if (s.includes('detect')) return '#a855f7';
-		if (s.includes('rotat')) return '#3b82f6';
-		if (s.includes('snapp')) return '#f59e0b';
-		if (s.includes('position')) return '#f97316';
-		if (s.includes('ready')) return '#22c55e';
-		if (s.includes('send')) return '#ef4444';
-		if (s.includes('pulsing')) return '#22c55e';
-		if (s.includes('waiting_chute')) return '#ef4444';
-		if (s.includes('waiting_classification')) return '#a855f7';
-		if (s.includes('waiting_ch2')) return '#0ea5e9';
-		if (s.includes('waiting_ch3')) return '#3b82f6';
-		if (s.includes('waiting_stepper')) return '#ec4899';
-		if (s.includes('stable')) return '#f59e0b';
-		return '#14b8a6';
+	function machineGroup(machine_name: string): string {
+		if (machine_name.startsWith('feeder.')) return 'feeder';
+		if (machine_name.startsWith('classification.')) return 'classification';
+		if (machine_name.startsWith('distribution.')) return 'distribution';
+		return 'other';
+	}
+
+	function stateColor(machine_name: string, state_name: string): string {
+		const group_offsets: Record<string, number> = {
+			feeder: 0,
+			classification: 120,
+			distribution: 240,
+			other: 60
+		};
+		const base_offset = group_offsets[machineGroup(machine_name)] ?? group_offsets.other;
+		let hash = 0;
+		const key = `${machine_name}::${state_name}`;
+		for (let i = 0; i < key.length; i += 1) {
+			hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+		}
+		const slot = hash % 16;
+		const hue = (base_offset + slot * 23) % 360;
+		const sat = 58 + (slot % 3) * 4;
+		const light = slot % 2 === 0 ? 56 : 62;
+		return `hsl(${hue} ${sat}% ${light}%)`;
 	}
 </script>
 
@@ -180,8 +194,8 @@
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpmSummary(inter_piece_ppm)}</td>
 						</tr>
 						<tr class="dark:text-text-muted-dark text-text-muted">
-							<td class="pr-2">running time (s)</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpm(throughput.running_time_s)}</td>
+							<td class="pr-2">running time</td>
+							<td class="text-right tabular-nums whitespace-nowrap">{fmtDuration(throughput.running_time_s)}</td>
 						</tr>
 					</tbody>
 				</table>
@@ -248,7 +262,7 @@
 										<div
 											class="h-full"
 											title={`${state_name}: ${share.toFixed(1)}%`}
-											style="width: {share}%; background: {stateColor(state_name)};"
+											style="width: {share}%; background: {stateColor(machine_name, state_name)};"
 										></div>
 									{/each}
 								</div>

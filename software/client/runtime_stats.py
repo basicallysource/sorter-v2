@@ -541,6 +541,7 @@ class RuntimeStatsCollector:
                 0.0, time.monotonic() - self._feeder_blocker_combo_entered_at_monotonic
             )
 
+
         state_machines: dict[str, Any] = {}
         for machine, current in self._state_current.items():
             totals = dict(self._state_totals_s.get(machine, {}))

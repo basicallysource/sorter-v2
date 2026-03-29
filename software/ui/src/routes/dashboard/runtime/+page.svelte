@@ -2,12 +2,13 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { backendWsBaseUrl } from '$lib/backend';
+	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 	import { ArrowLeft } from 'lucide-svelte';
 
 	type MachineStateStats = {
 		current_state?: string;
 		state_share_pct?: Record<string, number>;
+		state_time_s?: Record<string, number>;
 	};
 
 	type TimelineEvent = {
@@ -16,10 +17,12 @@
 		to_state?: string | null;
 	};
 
-	type FeederSignalEvent = {
-		ts: number;
-		signal: string;
-		active: boolean;
+	type RuntimeStatsRecordItem = {
+		record_id: string;
+		run_id: string;
+		started_at: number;
+		ended_at: number;
+		total_pieces: number;
 	};
 
 	type ChartCtor = new (
@@ -33,8 +36,22 @@
 	};
 
 	const WINDOW_S = 180;
+	const OCCUPANCY_LANE_PREFERRED_ORDER = [
+		'feeder.ch1',
+		'feeder.ch2',
+		'feeder.ch3',
+		'classification.occupancy',
+		'distribution.occupancy'
+	];
+
 	const manager = getMachinesContext();
 	const machine_ctx = getMachineContext();
+
+	let loaded_runtime_stats = $state<Record<string, unknown> | null>(null);
+	let records = $state<RuntimeStatsRecordItem[]>([]);
+	let selected_record_id = $state<string>('live');
+	let selected_group = $state<string>('all');
+	let records_error = $state<string | null>(null);
 
 	let composition_canvas = $state<HTMLCanvasElement | null>(null);
 	let gantt_canvas = $state<HTMLCanvasElement | null>(null);
@@ -43,7 +60,7 @@
 	let chart_constructor: ChartCtor | null = null;
 
 	const runtime_stats = $derived(
-		(machine_ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>
+		(loaded_runtime_stats ?? machine_ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>
 	);
 	const state_machines = $derived(
 		(runtime_stats.state_machines ?? {}) as Record<string, MachineStateStats>
@@ -51,41 +68,8 @@
 	const timeline_recent = $derived(
 		(runtime_stats.timeline_recent ?? []) as TimelineEvent[]
 	);
-	const feeder_data = $derived((runtime_stats.feeder ?? {}) as Record<string, unknown>);
-	const feeder_signal_timeline = $derived(
-		(feeder_data.signal_timeline_recent ?? []) as FeederSignalEvent[]
-	);
-	const feeder_signals_current = $derived(
-		(feeder_data.signals_current ?? {}) as Record<string, boolean>
-	);
-	const feeder_signal_time = $derived(
-		(feeder_data.signal_time_s ?? {}) as Record<string, number>
-	);
-	const feeder_blocker_combo_time = $derived(
-		(feeder_data.blocker_combo_time_s ?? {}) as Record<string, number>
-	);
 	const now_s = $derived.by(() => Date.now() / 1000.0);
 	const window_start = $derived.by(() => now_s - WINDOW_S);
-
-	function stateColor(state_name: string): string {
-		const s = state_name.toLowerCase();
-		if (s.includes('idle')) return '#6b7280';
-		if (s.includes('feeding')) return '#0ea5e9';
-		if (s.includes('detect')) return '#a855f7';
-		if (s.includes('rotat')) return '#3b82f6';
-		if (s.includes('snapp')) return '#f59e0b';
-		if (s.includes('position')) return '#f97316';
-		if (s.includes('ready')) return '#22c55e';
-		if (s.includes('send')) return '#ef4444';
-		if (s.includes('pulsing')) return '#22c55e';
-		if (s.includes('waiting_chute')) return '#ef4444';
-		if (s.includes('waiting_classification')) return '#a855f7';
-		if (s.includes('waiting_ch2')) return '#0ea5e9';
-		if (s.includes('waiting_ch3')) return '#3b82f6';
-		if (s.includes('waiting_stepper')) return '#ec4899';
-		if (s.includes('stable')) return '#f59e0b';
-		return '#14b8a6';
-	}
 
 	function loadScript(src: string): Promise<void> {
 		return new Promise((resolve, reject) => {
@@ -103,6 +87,53 @@
 		});
 	}
 
+	function distinctColorForGroupState(group_name: string, state_name: string): string {
+		const group_offsets: Record<string, number> = {
+			feeder: 0,
+			classification: 120,
+			distribution: 240,
+			other: 60
+		};
+		const base_offset = group_offsets[group_name] ?? group_offsets.other;
+		let hash = 0;
+		for (let i = 0; i < state_name.length; i += 1) {
+			hash = (hash * 31 + state_name.charCodeAt(i)) >>> 0;
+		}
+		const slot = hash % 16;
+		const hue = (base_offset + slot * 23) % 360;
+		const sat = 58 + (slot % 3) * 4;
+		const light = slot % 2 === 0 ? 56 : 62;
+		return `hsl(${hue} ${sat}% ${light}%)`;
+	}
+
+	function machineGroup(machine_name: string): string {
+		if (machine_name.startsWith('feeder.')) return 'feeder';
+		if (machine_name.startsWith('classification.')) return 'classification';
+		if (machine_name.startsWith('distribution.')) return 'distribution';
+		return 'other';
+	}
+
+	function isOccupancyMachine(machine_name: string): boolean {
+		if (machine_name.startsWith('feeder.ch')) return true;
+		if (machine_name.endsWith('.occupancy')) return true;
+		return false;
+	}
+
+	function orderedOccupancyMachines(machine_names: string[]): string[] {
+		const unique = new Set(machine_names.filter(isOccupancyMachine));
+		const ordered: string[] = [];
+		for (const preferred of OCCUPANCY_LANE_PREFERRED_ORDER) {
+			if (unique.has(preferred)) {
+				ordered.push(preferred);
+				unique.delete(preferred);
+			}
+		}
+		for (const remaining of Array.from(unique).sort()) {
+			ordered.push(remaining);
+		}
+		return ordered;
+	}
+
 	function buildSegments(
 		machine_name: string,
 		events: TimelineEvent[],
@@ -111,28 +142,42 @@
 		start_ts: number
 	): { state: string; start: number; end: number; machine: string }[] {
 		const machine_events = events
-			.filter((e) => e.machine === machine_name && e.ts >= start_ts && e.ts <= now_ts)
+			.filter((event) => event.machine === machine_name && event.ts <= now_ts)
 			.sort((a, b) => a.ts - b.ts);
 		const out: { state: string; start: number; end: number; machine: string }[] = [];
 
-		if (machine_events.length > 0) {
-			for (let i = 0; i < machine_events.length; i += 1) {
-				const current = machine_events[i];
-				const next = machine_events[i + 1];
-				const seg_start = Math.max(start_ts, current.ts);
-				const seg_end = next ? Math.min(now_ts, next.ts) : now_ts;
-				if (seg_end <= seg_start) continue;
+		let state_at_start = current_state ?? 'unknown';
+		for (const event of machine_events) {
+			if (event.ts <= start_ts) {
+				state_at_start = event.to_state ?? state_at_start;
+				continue;
+			}
+			break;
+		}
+
+		let active_state = state_at_start;
+		let segment_start = start_ts;
+		for (const event of machine_events) {
+			if (event.ts <= start_ts) {
+				continue;
+			}
+			const segment_end = Math.min(now_ts, event.ts);
+			if (segment_end > segment_start) {
 				out.push({
-					state: current.to_state ?? current_state ?? 'unknown',
-					start: seg_start,
-					end: seg_end,
+					state: active_state,
+					start: segment_start,
+					end: segment_end,
 					machine: machine_name
 				});
 			}
-		} else if (current_state) {
+			active_state = event.to_state ?? active_state;
+			segment_start = event.ts;
+		}
+
+		if (now_ts > segment_start) {
 			out.push({
-				state: current_state,
-				start: start_ts,
+				state: active_state,
+				start: segment_start,
 				end: now_ts,
 				machine: machine_name
 			});
@@ -141,149 +186,126 @@
 		return out;
 	}
 
-	function feederSignalColor(signal_name: string): string {
-		const signal = signal_name.toLowerCase();
-		if (signal.includes('wait_chute')) return '#ef4444';
-		if (signal.includes('wait_classification')) return '#f59e0b';
-		if (signal.includes('wait_ch2_dropzone')) return '#06b6d4';
-		if (signal.includes('wait_ch3_dropzone')) return '#8b5cf6';
-		if (signal.includes('wait_stepper')) return '#ec4899';
-		if (signal.includes('pulse_sent')) return '#22c55e';
-		if (signal.includes('pulse_intent')) return '#3b82f6';
-		if (signal.includes('stepper_busy')) return '#f97316';
-		if (signal.includes('stable')) return '#6b7280';
-		return '#14b8a6';
+	async function loadRecords() {
+		records_error = null;
+		try {
+			const response = await fetch(`${backendHttpBaseUrl}/runtime-stats/records`);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}`);
+			}
+			const body = (await response.json()) as { records?: RuntimeStatsRecordItem[] };
+			records = Array.isArray(body.records) ? body.records : [];
+		} catch (error) {
+			records = [];
+			records_error = error instanceof Error ? error.message : 'failed loading records';
+		}
 	}
 
-	function buildSignalSegments(
-		signal_name: string,
-		events: FeederSignalEvent[],
-		current_active: boolean,
-		now_ts: number,
-		start_ts: number
-	): { signal: string; start: number; end: number }[] {
-		const signal_events = events
-			.filter((event) => event.signal === signal_name && event.ts <= now_ts)
-			.sort((a, b) => a.ts - b.ts);
-		const out: { signal: string; start: number; end: number }[] = [];
-
-		let active = false;
-		for (const event of signal_events) {
-			if (event.ts <= start_ts) {
-				active = event.active;
-				continue;
-			}
-			break;
+	async function selectRecord(record_id: string) {
+		selected_record_id = record_id;
+		if (record_id === 'live') {
+			loaded_runtime_stats = null;
+			return;
 		}
-
-		if (signal_events.length === 0) {
-			active = current_active;
-		}
-
-		let active_start = start_ts;
-		for (const event of signal_events) {
-			if (event.ts <= start_ts) {
-				continue;
+		records_error = null;
+		try {
+			const response = await fetch(
+				`${backendHttpBaseUrl}/runtime-stats/record/${encodeURIComponent(record_id)}`
+			);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}`);
 			}
-			if (event.active && !active) {
-				active = true;
-				active_start = event.ts;
-			} else if (!event.active && active) {
-				const end_ts = Math.min(now_ts, event.ts);
-				const start_clamped = Math.max(start_ts, active_start);
-				if (end_ts > start_clamped) {
-					out.push({
-						signal: signal_name,
-						start: start_clamped,
-						end: end_ts
-					});
-				}
-				active = false;
-			}
+			const body = (await response.json()) as { payload?: Record<string, unknown> };
+			loaded_runtime_stats = (body.payload ?? {}) as Record<string, unknown>;
+		} catch (error) {
+			records_error = error instanceof Error ? error.message : 'failed loading record';
+			loaded_runtime_stats = null;
+			selected_record_id = 'live';
 		}
-
-		if (active) {
-			const start_clamped = Math.max(start_ts, active_start);
-			if (now_ts > start_clamped) {
-				out.push({
-					signal: signal_name,
-					start: start_clamped,
-					end: now_ts
-				});
-			}
-		}
-
-		return out;
 	}
 
 	function updateCharts() {
 		if (!composition_chart || !gantt_chart) return;
-		const machine_names = Object.keys(state_machines);
-		const labels =
-			machine_names.length > 0 ? machine_names : ['feeder', 'classification', 'distribution'];
 
-		const all_states = new Set<string>();
-		for (const machine_name of labels) {
+		const occupancy_machines = orderedOccupancyMachines(Object.keys(state_machines));
+		const chart_machines =
+			occupancy_machines.length > 0 ? occupancy_machines : Object.keys(state_machines).sort();
+		const filtered_chart_machines =
+			selected_group === 'all'
+				? chart_machines
+				: chart_machines.filter((machine_name) => machineGroup(machine_name) === selected_group);
+		const machines_for_chart =
+			filtered_chart_machines.length > 0 ? filtered_chart_machines : chart_machines;
+
+		const dataset_map = new Map<
+			string,
+			{
+				label: string;
+				backgroundColor: string;
+				data: number[];
+			}
+		>();
+		for (let machine_idx = 0; machine_idx < machines_for_chart.length; machine_idx += 1) {
+			const machine_name = machines_for_chart[machine_idx];
+			const group_name = machineGroup(machine_name);
 			const shares = state_machines[machine_name]?.state_share_pct ?? {};
-			for (const state_name of Object.keys(shares)) {
-				all_states.add(state_name);
+			for (const [state_name, share] of Object.entries(shares)) {
+				const key = `${group_name}::${state_name}`;
+				let dataset = dataset_map.get(key);
+				if (!dataset) {
+					dataset = {
+						label: `${group_name}.${state_name}`,
+						backgroundColor: distinctColorForGroupState(group_name, state_name),
+						data: Array.from({ length: machines_for_chart.length }, () => 0)
+					};
+					dataset_map.set(key, dataset);
+				}
+				dataset.data[machine_idx] = share;
 			}
 		}
 
-		const composition_datasets = Array.from(all_states).map((state_name) => ({
-			label: state_name,
-			backgroundColor: stateColor(state_name),
-			data: labels.map((machine_name) => state_machines[machine_name]?.state_share_pct?.[state_name] ?? 0)
-		}));
+		const composition_datasets = Array.from(dataset_map.values()).sort((a, b) =>
+			a.label.localeCompare(b.label)
+		);
 
 		composition_chart.data = {
-			labels,
+			labels: machines_for_chart,
 			datasets: composition_datasets
 		};
 		composition_chart.update('none');
 
-		const feeder_labels = new Set<string>();
-		for (const signal_name of Object.keys(feeder_signals_current)) {
-			feeder_labels.add(signal_name);
-		}
-		for (const signal_name of Object.keys(feeder_signal_time)) {
-			feeder_labels.add(signal_name);
-		}
-		for (const event of feeder_signal_timeline) {
-			feeder_labels.add(event.signal);
-		}
-		const signal_labels = Array.from(feeder_labels).sort();
-
 		const segments: {
 			x: [number, number];
 			y: string;
-			signal: string;
+			state: string;
 			duration_s: number;
 		}[] = [];
-		for (const signal_name of signal_labels) {
-			const signal_segments = buildSignalSegments(
-				signal_name,
-				feeder_signal_timeline,
-				Boolean(feeder_signals_current[signal_name]),
+		for (const machine_name of machines_for_chart) {
+			const current_state = state_machines[machine_name]?.current_state;
+			const machine_segments = buildSegments(
+				machine_name,
+				timeline_recent,
+				current_state,
 				now_s,
 				window_start
 			);
-			for (const seg of signal_segments) {
+			for (const seg of machine_segments) {
 				segments.push({
 					x: [seg.start - window_start, seg.end - window_start],
-					y: seg.signal,
-					signal: seg.signal,
+					y: seg.machine,
+					state: seg.state,
 					duration_s: seg.end - seg.start
 				});
 			}
 		}
 
-		const segment_colors = segments.map((seg) => feederSignalColor(seg.signal));
-
+		const segment_colors = segments.map((seg) =>
+			distinctColorForGroupState(machineGroup(seg.y), seg.state)
+		);
 		gantt_chart.data = {
 			datasets: [
 				{
-					label: 'feeder signals',
+					label: 'occupancy',
 					data: segments,
 					backgroundColor: segment_colors,
 					borderWidth: 0
@@ -301,7 +323,7 @@
 			options.scales.x.max = WINDOW_S;
 		}
 		if (options.scales?.y) {
-			options.scales.y.labels = signal_labels;
+			options.scales.y.labels = machines_for_chart;
 		}
 		gantt_chart.update('none');
 	}
@@ -312,6 +334,7 @@
 		if (manager.connectedMachines.length === 0) {
 			manager.connect(`${backendWsBaseUrl}/ws`);
 		}
+		loadRecords();
 
 		loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js').then(() => {
 			if (disposed) {
@@ -335,8 +358,27 @@
 					responsive: true,
 					maintainAspectRatio: false,
 					animation: false,
+					layout: {
+						padding: {
+							right: 24
+						}
+					},
 					plugins: {
-						legend: { position: 'bottom' }
+						legend: {
+							position: 'right',
+							align: 'start',
+							fullSize: true,
+							labels: {
+								usePointStyle: true,
+								pointStyle: 'rect',
+								boxWidth: 10,
+								boxHeight: 10,
+								padding: 10,
+								font: {
+									size: 10
+								}
+							}
+						}
 					},
 					scales: {
 						x: { stacked: true, min: 0, max: 100, title: { display: true, text: '%' } },
@@ -361,8 +403,8 @@
 						legend: { display: false },
 						tooltip: {
 							callbacks: {
-								label: (ctx: { raw?: { duration_s?: number; signal?: string } }) => {
-									const state_name = (ctx.raw as { signal?: string } | undefined)?.signal ?? 'unknown';
+								label: (ctx: { raw?: { duration_s?: number; state?: string } }) => {
+									const state_name = (ctx.raw as { state?: string } | undefined)?.state ?? 'unknown';
 									const duration_s = ctx.raw?.duration_s ?? 0;
 									return `${state_name} ${duration_s.toFixed(2)}s`;
 								}
@@ -396,12 +438,30 @@
 		updateCharts();
 	});
 
-	const top_blocker_combos = $derived.by(() =>
-		Object.entries(feeder_blocker_combo_time)
-			.filter(([combo_name, duration_s]) => combo_name !== 'none' && duration_s > 0)
-			.sort((a, b) => b[1] - a[1])
-			.slice(0, 8)
-	);
+	const top_occupancy_states = $derived.by(() => {
+		const rows: [string, number][] = [];
+		const occupancy_machines = orderedOccupancyMachines(Object.keys(state_machines));
+		const chart_machines =
+			occupancy_machines.length > 0 ? occupancy_machines : Object.keys(state_machines).sort();
+		const filtered_chart_machines =
+			selected_group === 'all'
+				? chart_machines
+				: chart_machines.filter((machine_name) => machineGroup(machine_name) === selected_group);
+		const machines_for_chart =
+			filtered_chart_machines.length > 0 ? filtered_chart_machines : chart_machines;
+		for (const machine_name of machines_for_chart) {
+			const times = state_machines[machine_name]?.state_time_s ?? {};
+			for (const [state_name, seconds] of Object.entries(times)) {
+				rows.push([`${machine_name} :: ${state_name}`, seconds]);
+			}
+		}
+		return rows.sort((a, b) => b[1] - a[1]).slice(0, 12);
+	});
+
+	function fmtRecordLabel(record: RuntimeStatsRecordItem): string {
+		const date = new Date(record.started_at * 1000).toLocaleString();
+		return `${date} • ${record.total_pieces} pcs • ${record.run_id.slice(0, 8)}`;
+	}
 </script>
 
 <div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
@@ -416,10 +476,42 @@
 			</a>
 			<h1 class="dark:text-text-dark text-xl font-bold text-text">Runtime Dashboard</h1>
 		</div>
-		<MachineDropdown />
+		<div class="flex items-center gap-2">
+			<select
+				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				value={selected_group}
+				onchange={(event) => (selected_group = (event.currentTarget as HTMLSelectElement).value)}
+			>
+				<option value="all">All Subsystems</option>
+				<option value="feeder">Feeder</option>
+				<option value="classification">Classification</option>
+				<option value="distribution">Distribution</option>
+			</select>
+			<select
+				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				value={selected_record_id}
+				onchange={(event) => selectRecord((event.currentTarget as HTMLSelectElement).value)}
+			>
+				<option value="live">Live Runtime</option>
+				{#each records as record}
+					<option value={record.record_id}>{fmtRecordLabel(record)}</option>
+				{/each}
+			</select>
+			<button
+				class="dark:border-border-dark dark:text-text-dark border border-border px-2 py-1 text-xs text-text"
+				onclick={loadRecords}
+			>
+				Refresh
+			</button>
+			<MachineDropdown />
+		</div>
 	</div>
 
-	{#if !machine_ctx.machine}
+	{#if records_error}
+		<div class="dark:text-red-400 mb-3 text-xs text-red-600">Record load error: {records_error}</div>
+	{/if}
+
+	{#if !machine_ctx.machine && !loaded_runtime_stats}
 		<div class="dark:text-text-muted-dark py-12 text-center text-text-muted">
 			No machine selected.
 		</div>
@@ -427,18 +519,18 @@
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
 				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
-					State Composition (Last {WINDOW_S}s)
+					Occupancy Share By Subsystem
 				</div>
-				<div class="h-[340px]">
+				<div class="h-[460px]">
 					<canvas bind:this={composition_canvas}></canvas>
 				</div>
 			</div>
 
 			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
 				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
-					Feeder Signal Timeline (Last {WINDOW_S}s)
+					Occupancy Gantt (Last {WINDOW_S}s)
 				</div>
-				<div class="h-[340px]">
+				<div class="h-[380px]">
 					<canvas bind:this={gantt_canvas}></canvas>
 				</div>
 			</div>
@@ -446,16 +538,16 @@
 
 		<div class="dark:border-border-dark dark:bg-surface-dark mt-4 border border-border bg-surface p-3">
 			<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
-				Feeder Blocker Combos (Total Time)
+				Top Occupancy Blocks (Run Total)
 			</div>
-			{#if top_blocker_combos.length === 0}
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">No blocker combo time yet.</div>
+			{#if top_occupancy_states.length === 0}
+				<div class="dark:text-text-muted-dark text-xs text-text-muted">No occupancy data yet.</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
-					{#each top_blocker_combos as [combo_name, duration_s]}
+					{#each top_occupancy_states as [name, seconds]}
 						<div class="dark:text-text-muted-dark flex items-center justify-between text-text-muted">
-							<span class="truncate pr-2">{combo_name}</span>
-							<span class="tabular-nums">{duration_s.toFixed(2)}s</span>
+							<span class="truncate pr-2">{name}</span>
+							<span class="tabular-nums">{seconds.toFixed(2)}s</span>
 						</div>
 					{/each}
 				</div>

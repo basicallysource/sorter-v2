@@ -35,7 +35,7 @@ class SortingProfile:
         self.rules = []
         self.part_to_category = {}
         self.default_category_id = "misc"
-        self.fallback_mode = {"rebrickable_categories": False, "by_color": False}
+        self.fallback_mode = {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False}
 
 
 def mkSortingProfile(name: str, description: str = "") -> SortingProfile:
@@ -63,7 +63,12 @@ def loadSortingProfile(file_path: str) -> SortingProfile:
     sp.rules = data.get("rules", [])
     _migrateRules(sp.rules)
     sp.part_to_category = data.get("part_to_category", {})
-    sp.fallback_mode = data.get("fallback_mode", {"rebrickable_categories": False, "by_color": False})
+    fm = data.get("fallback_mode", {})
+    sp.fallback_mode = {
+        "rebrickable_categories": fm.get("rebrickable_categories", False),
+        "bricklink_categories": fm.get("bricklink_categories", False),
+        "by_color": fm.get("by_color", False),
+    }
     return sp
 
 
@@ -200,7 +205,7 @@ def _collectAncestorChecks(rules, rule_id):
     return None
 
 
-def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "all", parent_id: str | None = None) -> str | None:
+def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "all", parent_id: str | None = None, position: int | None = None) -> str | None:
     rule_id = str(uuid.uuid4())
     rule = {
         "id": rule_id,
@@ -214,9 +219,15 @@ def addRule(sp: SortingProfile, name: str, conditions: list, match_mode: str = "
         parent = _findRuleInList(sp.rules, parent_id)
         if parent is None:
             return None
-        parent["children"].append(rule)
+        if position is not None and 0 <= position <= len(parent["children"]):
+            parent["children"].insert(position, rule)
+        else:
+            parent["children"].append(rule)
     else:
-        sp.rules.append(rule)
+        if position is not None and 0 <= position <= len(sp.rules):
+            sp.rules.insert(position, rule)
+        else:
+            sp.rules.append(rule)
     return rule_id
 
 

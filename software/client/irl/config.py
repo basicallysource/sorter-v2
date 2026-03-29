@@ -219,19 +219,19 @@ class FeederConfig:
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
-            steps=50,
+            steps=100,
             microsteps_per_second=2000,
-            delay_between_ms=1500,
+            delay_between_ms=1000,
         )
         self.second_rotor_normal = RotorPulseConfig(
-            steps=500,
+            steps=1000,
             microsteps_per_second=5000,
             delay_between_ms=250,
         )
         self.second_rotor_precision = RotorPulseConfig(
-            steps=200,
+            steps=400,
             microsteps_per_second=2500,
-            delay_between_ms=350,
+            delay_between_ms=1000,
         )
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
@@ -239,9 +239,9 @@ class FeederConfig:
             delay_between_ms=250,
         )
         self.third_rotor_precision = RotorPulseConfig(
-            steps=100,
-            microsteps_per_second=2000,
-            delay_between_ms=500,
+            steps=300,
+            microsteps_per_second=3000,
+            delay_between_ms=1000,
         )
 
 
@@ -318,7 +318,6 @@ class IRLInterface:
                 getattr(self, attr).enabled = False
 
     def shutdown(self) -> None:
-        self.disableSteppers()
         for iface in self.interfaces.values():
             iface.shutdown()
 
@@ -750,8 +749,8 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=400, microsteps=16)
-    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
+    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
@@ -770,6 +769,8 @@ REQUIRED_STEPPER_NAMES = [
 ]
 HARDWARE_DISCOVERY_ATTEMPTS = 8
 HARDWARE_DISCOVERY_RETRY_DELAY_S = 0.75
+
+
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.

@@ -21,6 +21,7 @@ from telemetry import Telemetry
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
 from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
@@ -33,6 +34,7 @@ import asyncio
 import sys
 
 FRAME_BROADCAST_INTERVAL_MS = 100
+RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
@@ -66,7 +68,13 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
-            if command.tag != "frame" and command.tag != "heartbeat":
+            if command.tag == "known_object":
+                gc.runtime_stats.observeKnownObject(command.data.model_dump())
+            if (
+                command.tag != "frame"
+                and command.tag != "heartbeat"
+                and command.tag != "runtime_stats"
+            ):
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
                 broadcastEvent(command.model_dump()), api.server_loop
@@ -87,54 +95,85 @@ def main() -> None:
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
-    irl_config = mkIRLConfig()
-    
-    # Initialize ArUco tag configuration manager
-    aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
-    aruco_mgr = ArucoConfigManager(str(aruco_config_path))
-    setArucoManager(aruco_mgr)
-    
-    irl = mkIRLInterface(irl_config, gc)
+    startup_total_start = time.time()
 
-    gc.logger.info("Opening all layer servos...")
-    for servo in irl.servos:
-        try:
-            servo.open()
-        except Exception as e:
-            gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+    with gc.profiler.timer("startup.irl_config_ms"):
+        irl_config = mkIRLConfig()
+
+    # Initialize ArUco tag configuration manager
+    with gc.profiler.timer("startup.aruco_config_ms"):
+        aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
+        aruco_mgr = ArucoConfigManager(str(aruco_config_path))
+        setArucoManager(aruco_mgr)
+
+    with gc.profiler.timer("startup.irl_interface_ms"):
+        irl = mkIRLInterface(irl_config, gc)
+
+    if gc.disable_servos:
+        gc.logger.info("Servo control disabled via --disable servos")
+    else:
+        gc.logger.info("Opening all layer servos...")
+        with gc.profiler.timer("startup.servo_open_ms"):
+            for servo in irl.servos:
+                try:
+                    servo.open()
+                except Exception as e:
+                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
     gc.logger.info("Skipping automatic chute homing on backend startup.")
     # sensorlessHomeCarousel(gc, irl)
 
-    telemetry = Telemetry(gc)
-    vision = VisionManager(irl_config, gc, irl)
-    vision.setTelemetry(telemetry)
-    setVisionManager(vision)
-    controller = SorterController(
-        irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
-    )
-    setController(controller)
+    with gc.profiler.timer("startup.telemetry_init_ms"):
+        telemetry = Telemetry(gc)
+    with gc.profiler.timer("startup.vision_init_ms"):
+        vision = VisionManager(irl_config, gc, irl)
+        vision.setTelemetry(telemetry)
+        setVisionManager(vision)
+    with gc.profiler.timer("startup.controller_init_ms"):
+        controller = SorterController(
+            irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
+        )
+        setController(controller)
     gc.logger.info("client starting...")
 
-    vision.start()
-    if not vision.initFeederDetection():
-        gc.logger.warning("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py — continuing without feeder detection")
-    else:
-        calibrateFeederChannels(gc, irl, irl_config)
+    with gc.profiler.timer("startup.vision_start_ms"):
+        vision.start()
+    with gc.profiler.timer("startup.init_feeder_detection_ms"):
+        if not vision.initFeederDetection():
+            gc.logger.warning(
+                "Feeder channel polygons not found. "
+                "Run: uv run python scripts/polygon_editor.py — continuing without feeder detection"
+            )
+        else:
+            with gc.profiler.timer("startup.calibrate_feeder_ms"):
+                calibrateFeederChannels(gc, irl, irl_config)
 
-    if irl_config.camera_layout == "split_feeder":
-        # Classification cameras are optional in split_feeder mode
-        has_classification = (
-            vision._classification_top_capture is not None
-            or vision._classification_bottom_capture is not None
-        )
-        if has_classification and vision.usesClassificationBaseline():
-            if not vision.loadClassificationBaseline():
-                gc.logger.warning("Classification baseline not found — continuing without classification")
-    else:
-        if vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
-            gc.logger.warning("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py — continuing without classification")
-    controller.start()
+    with gc.profiler.timer("startup.load_classification_baseline_ms"):
+        if irl_config.camera_layout == "split_feeder":
+            # Classification cameras are optional in split_feeder mode.
+            has_classification = (
+                vision._classification_top_capture is not None
+                or vision._classification_bottom_capture is not None
+            )
+            if has_classification and vision.usesClassificationBaseline():
+                if not vision.loadClassificationBaseline():
+                    gc.logger.warning(
+                        "Classification baseline not found — continuing without classification"
+                    )
+        elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
+            gc.logger.warning(
+                "Classification baseline not found. "
+                "Run: uv run python scripts/calibrate_classification_baseline.py "
+                "— continuing without classification"
+            )
+    with gc.profiler.timer("startup.controller_start_ms"):
+        controller.start()
+
+    startup_total_ms = (time.time() - startup_total_start) * 1000
+    gc.logger.info(f"startup complete in {startup_total_ms:.0f}ms")
+    startup_report = gc.profiler.getReport()
+    if startup_report:
+        print(startup_report)
 
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()
@@ -146,6 +185,7 @@ def main() -> None:
 
     last_heartbeat = time.time()
     last_frame_broadcast = time.time()
+    last_runtime_stats_broadcast = time.time()
 
     try:
         while True:
@@ -185,6 +225,17 @@ def main() -> None:
                 with gc.profiler.timer("main.loop.record_frames_ms"):
                     vision.recordFrames()
                 last_frame_broadcast = current_time
+
+            if (
+                current_time - last_runtime_stats_broadcast
+                >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
+            ):
+                runtime_stats = RuntimeStatsEvent(
+                    tag="runtime_stats",
+                    data=RuntimeStatsData(payload=gc.runtime_stats.snapshot()),
+                )
+                main_to_server_queue.put(runtime_stats)
+                last_runtime_stats_broadcast = current_time
 
             with gc.profiler.timer("main.loop.controller_step_ms"):
                 controller.step()

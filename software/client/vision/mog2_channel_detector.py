@@ -4,14 +4,7 @@ import cv2
 import numpy as np
 
 from defs.channel import PolygonChannel, ChannelDetection
-
-HISTORY = 500
-VAR_THRESHOLD = 16.0
-LEARNING_RATE = 0.005
-BLUR_KERNEL = 5
-MIN_CONTOUR_AREA = 100
-MORPH_KERNEL = 5
-HEAT_GAIN = 3.0
+from .mog2_diff_configs import Mog2DiffConfig, DEFAULT_MOG2_DIFF_CONFIG
 
 CHANNEL_ID_MAP = {
     "second_channel": 2,
@@ -25,7 +18,7 @@ CHANNEL_COLORS = {
 
 
 class _ChannelMog2:
-    def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray):
+    def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray, cfg: Mog2DiffConfig):
         self.name = name
         self._channel_id = polygon_channel.channel_id
         self._radius1_angle_image = polygon_channel.radius1_angle_image
@@ -40,15 +33,18 @@ class _ChannelMog2:
         )
         self.polygon_channel = polygon_channel
         self.mask = mask
+        self._cfg = cfg
         self._current_shape = mask.shape[:2]
         self.mog2 = self._make_subtractor()
 
     def _make_subtractor(self):
-        return cv2.createBackgroundSubtractorMOG2(
-            history=HISTORY,
-            varThreshold=VAR_THRESHOLD,
+        subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=int(self._cfg.history),
+            varThreshold=float(self._cfg.var_threshold),
             detectShadows=False,
         )
+        subtractor.setNMixtures(int(self._cfg.n_mixtures))
+        return subtractor
 
     def ensure_shape(self, shape: tuple[int, int]) -> bool:
         if shape == self._current_shape:
@@ -102,12 +98,14 @@ class Mog2ChannelDetector:
         channel_inner_polygons: Dict[str, np.ndarray] | None,
         channel_zone_sections: Dict[str, Dict[str, set[int]]] | None,
         is_channel_rotating: Callable[[str], bool],
+        cfg: Mog2DiffConfig = DEFAULT_MOG2_DIFF_CONFIG,
     ):
         self._channels: Dict[str, _ChannelMog2] = {}
         self._combined_mask: np.ndarray | None = None
         self._last_fg: np.ndarray | None = None
         self._last_detections: List[ChannelDetection] = []
         self._is_channel_rotating = is_channel_rotating
+        self._cfg = cfg
 
         for key, polygon in channel_polygons.items():
             if len(polygon) < 3:
@@ -127,7 +125,7 @@ class Mog2ChannelDetector:
                 exit_sections=set((channel_zone_sections or {}).get(angle_key, {}).get("exit", set())),
                 inner_polygon=(channel_inner_polygons or {}).get(key),
             )
-            self._channels[key] = _ChannelMog2(key, pc, channel_masks[key])
+            self._channels[key] = _ChannelMog2(key, pc, channel_masks[key], cfg)
 
     def _ensure_shape(self, shape: tuple[int, int]) -> None:
         changed = False
@@ -138,27 +136,47 @@ class Mog2ChannelDetector:
             self._last_fg = None
             self._last_detections = []
 
-    def detect(self, gray: np.ndarray) -> List[ChannelDetection]:
-        self._ensure_shape(gray.shape[:2])
-        blur_k = BLUR_KERNEL | 1
-        morph_k = MORPH_KERNEL | 1
-        blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+    def _mog2InputFrame(self, frame: np.ndarray) -> np.ndarray:
+        mode = str(self._cfg.color_mode).lower()
+        if mode == "lab":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        if mode == "gray":
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        raise ValueError(f"Invalid mog2 color_mode: {self._cfg.color_mode}")
+
+    def detect(self, frame: np.ndarray) -> List[ChannelDetection]:
+        mog2_frame = self._mog2InputFrame(frame)
+        blur_k = int(self._cfg.blur_kernel) | 1
+        morph_k = int(self._cfg.morph_kernel) | 1
+        learning_rate = float(self._cfg.learning_rate)
+        min_contour_area = float(self._cfg.min_contour_area)
+        max_contour_area = int(self._cfg.max_contour_area)
+        fg_threshold = int(self._cfg.fg_threshold)
+        dilate_iterations = int(self._cfg.dilate_iterations)
+        blurred = cv2.GaussianBlur(mog2_frame, (blur_k, blur_k), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
 
         detections: List[ChannelDetection] = []
-        fg_combined = np.zeros(gray.shape[:2], dtype=np.uint8)
+        fg_combined = np.zeros(mog2_frame.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
-            lr = LEARNING_RATE if self._is_channel_rotating(ch.name) else 0.0
+            lr = learning_rate if self._is_channel_rotating(ch.name) else 0.0
             fg_raw = ch.mog2.apply(blurred, learningRate=lr)
             fg_masked = cv2.bitwise_and(fg_raw, ch.mask)
+            if fg_threshold > 0:
+                _, fg_masked = cv2.threshold(fg_masked, fg_threshold, 255, cv2.THRESH_BINARY)
             fg_clean = cv2.morphologyEx(fg_masked, cv2.MORPH_OPEN, kernel)
             fg_clean = cv2.morphologyEx(fg_clean, cv2.MORPH_CLOSE, kernel)
+            if dilate_iterations > 0:
+                fg_clean = cv2.dilate(fg_clean, kernel, iterations=dilate_iterations)
             fg_combined = cv2.bitwise_or(fg_combined, fg_clean)
 
             contours, _ = cv2.findContours(fg_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for contour in contours:
-                if cv2.contourArea(contour) < MIN_CONTOUR_AREA:
+                area = cv2.contourArea(contour)
+                if area < min_contour_area:
+                    continue
+                if max_contour_area > 0 and area > max_contour_area:
                     continue
                 x, y, w, h = cv2.boundingRect(contour)
                 detections.append(ChannelDetection(
@@ -194,7 +212,7 @@ class Mog2ChannelDetector:
 
             display = np.zeros(self._last_fg.shape[:2], dtype=np.uint8)
             display[hot] = np.clip(
-                self._last_fg[hot].astype(np.float32) * HEAT_GAIN, 0, 255
+                self._last_fg[hot].astype(np.float32) * float(self._cfg.heat_gain), 0, 255
             ).astype(np.uint8)
             heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
             show = hot & (display > 0)

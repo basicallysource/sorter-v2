@@ -83,14 +83,33 @@ class KnownObjectData(BaseModel):
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
     feeding_started_at: Optional[float] = None
+    carousel_detected_confirmed_at: Optional[float] = None
+    carousel_rotate_started_at: Optional[float] = None
+    carousel_rotated_at: Optional[float] = None
+    carousel_snapping_started_at: Optional[float] = None
+    carousel_snapping_completed_at: Optional[float] = None
+    carousel_next_baseline_captured_at: Optional[float] = None
+    carousel_next_ready_at: Optional[float] = None
     classified_at: Optional[float] = None
     distributing_at: Optional[float] = None
+    distribution_target_selected_at: Optional[float] = None
+    distribution_motion_started_at: Optional[float] = None
+    distribution_positioned_at: Optional[float] = None
     distributed_at: Optional[float] = None
 
 
 class KnownObjectEvent(BaseModel):
     tag: Literal["known_object"]
     data: KnownObjectData
+
+
+class RuntimeStatsData(BaseModel):
+    payload: dict
+
+
+class RuntimeStatsEvent(BaseModel):
+    tag: Literal["runtime_stats"]
+    data: RuntimeStatsData
 
 
 class PauseCommandData(BaseModel):
@@ -111,6 +130,6 @@ class ResumeCommandEvent(BaseModel):
     data: ResumeCommandData
 
 
-SocketEvent = Union[HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent]
-MainThreadToServerCommand = Union[HeartbeatEvent, FrameEvent, KnownObjectEvent]
+SocketEvent = Union[HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent, RuntimeStatsEvent]
+MainThreadToServerCommand = Union[HeartbeatEvent, FrameEvent, KnownObjectEvent, RuntimeStatsEvent]
 ServerToMainThreadEvent = Union[HeartbeatEvent, PauseCommandEvent, ResumeCommandEvent]

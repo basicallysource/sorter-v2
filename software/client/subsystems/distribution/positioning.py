@@ -35,16 +35,31 @@ class Positioning(BaseState):
         self._door_servo_index: int | None = None
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
+        self._piece = None
+        self._occupancy_state: str | None = None
+
+    def _setOccupancyState(self, state_name: str) -> None:
+        if self._occupancy_state == state_name:
+            return
+        prev_state = self._occupancy_state
+        self._occupancy_state = state_name
+        self.gc.runtime_stats.observeStateTransition(
+            "distribution.occupancy",
+            prev_state,
+            state_name,
+        )
 
     def step(self) -> Optional[DistributionState]:
         now = time.monotonic()
 
         if self._phase == "init":
+            self._setOccupancyState("positioning.select_target_bin")
             self._state_entered_at = now
             carousel = self.shared.carousel
             piece = carousel.getPieceAtIntermediate() if carousel else None
             if piece is None:
                 self.logger.warn("Positioning: no piece at intermediate")
+                self._setOccupancyState("positioning.wait_piece_at_intermediate")
                 return DistributionState.IDLE
 
             if piece.part_id is not None:
@@ -60,6 +75,7 @@ class Positioning(BaseState):
 
             piece.stage = PieceStage.distributing
             piece.distributing_at = time.time()
+            piece.distribution_target_selected_at = piece.distributing_at
             piece.category_id = category_id
             piece.destination_bin = (
                 address.layer_index,
@@ -67,29 +83,40 @@ class Positioning(BaseState):
                 address.bin_index,
             )
             piece.updated_at = time.time()
+            self._piece = piece
             self.event_queue.put(knownObjectToEvent(piece))
 
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
             self._selectDoor(address.layer_index)
-            self._door_servo_index = address.layer_index
+            if not self.gc.disable_servos:
+                self._door_servo_index = address.layer_index
             self._target_address = address
             self._startChuteMove()
             self._moving_started_at = now
             init_ms = (now - self._state_entered_at) * 1000
-            self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
+            if self.gc.disable_servos:
+                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for chute")
+            else:
+                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
             return None
 
         if self._phase == "moving":
+            self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
             servo_stopped = self.irl.servos[self._door_servo_index].stopped if self._door_servo_index is not None else True
             if not chute_stopped or not servo_stopped:
                 return None
             self.shared.chute_move_in_progress = False
+            if self._piece is not None and self._piece.distribution_positioned_at is None:
+                self._piece.distribution_positioned_at = time.time()
             move_ms = (now - self._moving_started_at) * 1000
             total_ms = (now - self._state_entered_at) * 1000
-            self.logger.info(f"Positioning: complete (servo+chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
+            if self.gc.disable_servos:
+                self.logger.info(f"Positioning: complete (chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
+            else:
+                self.logger.info(f"Positioning: complete (servo+chute={move_ms:.0f}ms, total={total_ms:.0f}ms)")
             return DistributionState.READY
 
         return None
@@ -97,6 +124,8 @@ class Positioning(BaseState):
     def _startChuteMove(self) -> None:
         assert self._target_address is not None
         self.shared.chute_move_in_progress = True
+        if self._piece is not None and self._piece.distribution_motion_started_at is None:
+            self._piece.distribution_motion_started_at = time.time()
         estimated_ms = self.chute.moveToBin(self._target_address)
         self.logger.info(
             f"Positioning: chute move started (est_ms={estimated_ms})"
@@ -110,9 +139,12 @@ class Positioning(BaseState):
         self._door_servo_index = None
         self._state_entered_at = 0.0
         self._moving_started_at = 0.0
+        self._piece = None
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
+        if self.gc.disable_servos:
+            return
         target_servo = self.irl.servos[target_layer_index]
         if not target_servo.isClosed():
             for i, servo in enumerate(self.irl.servos):
@@ -137,9 +169,9 @@ class Positioning(BaseState):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
                     if not self.chute.isBinReachable(address):
                         continue
-                    if b.category_id == category_id:
+                    if category_id in b.category_ids:
                         return address, False
-                    if b.category_id is None and first_unassigned is None:
+                    if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)
 
         if not has_active_layers:
@@ -148,7 +180,7 @@ class Positioning(BaseState):
 
         if first_unassigned is not None:
             address, b = first_unassigned
-            b.category_id = category_id
+            b.category_ids = [category_id]
             setBinCategories(extractCategories(self.layout))
             self.logger.info(
                 f"Positioning: assigned category {category_id} to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"

@@ -47,6 +47,10 @@ class ClassificationStateMachine(BaseSubsystem):
             ),
         }
         self.gc.profiler.enterState("classification", self.current_state.value)
+        if hasattr(self.gc, "runtime_stats"):
+            self.gc.runtime_stats.observeStateTransition(
+                "classification", None, self.current_state.value
+            )
 
     def step(self) -> None:
         self.gc.profiler.hit("classification.state_machine.step.calls")
@@ -55,14 +59,19 @@ class ClassificationStateMachine(BaseSubsystem):
         ):
             next_state = self.states_map[self.current_state].step()
         if next_state and next_state != self.current_state:
+            prev_state = self.current_state
             self.logger.info(
-                f"Classification: {self.current_state.value} -> {next_state.value}"
+                f"Classification: {prev_state.value} -> {next_state.value}"
             )
             self.gc.profiler.hit(
-                f"classification.state_machine.transition.{self.current_state.value}->{next_state.value}"
+                f"classification.state_machine.transition.{prev_state.value}->{next_state.value}"
             )
-            self.states_map[self.current_state].cleanup()
+            self.states_map[prev_state].cleanup()
             self.current_state = next_state
+            if hasattr(self.gc, "runtime_stats"):
+                self.gc.runtime_stats.observeStateTransition(
+                    "classification", prev_state.value, next_state.value
+                )
             self.gc.profiler.enterState("classification", self.current_state.value)
 
     def cleanup(self) -> None:

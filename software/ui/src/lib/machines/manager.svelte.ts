@@ -1,6 +1,12 @@
 import type { SocketEvent, CameraName, FrameData, KnownObjectData } from '$lib/api/events';
 import type { MachineState, MachineIdentity } from './types';
-import { isIdentityEvent, isFrameEvent, isHeartbeatEvent, isKnownObjectEvent } from './types';
+import {
+	isIdentityEvent,
+	isFrameEvent,
+	isHeartbeatEvent,
+	isKnownObjectEvent,
+	isRuntimeStatsEvent
+} from './types';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
@@ -135,6 +141,8 @@ export class MachineManager {
 				this.handleHeartbeat(machineId, event.data.timestamp);
 			} else if (isKnownObjectEvent(event)) {
 				this.handleKnownObject(machineId, event.data);
+			} else if (isRuntimeStatsEvent(event)) {
+				this.handleRuntimeStats(machineId, event.data.payload as Record<string, unknown>);
 			}
 		}
 	}
@@ -156,7 +164,8 @@ export class MachineManager {
 			status: 'connected',
 			frames: existing?.frames ?? new Map(),
 			lastHeartbeat: null,
-			recentObjects: existing?.recentObjects ?? []
+			recentObjects: existing?.recentObjects ?? [],
+			runtimeStats: existing?.runtimeStats ?? null
 		});
 		this.machines = updated;
 
@@ -214,6 +223,14 @@ export class MachineManager {
 
 		const updated = new Map(this.machines);
 		updated.set(machineId, { ...machine, recentObjects: updated_objects });
+		this.machines = updated;
+	}
+
+	private handleRuntimeStats(machineId: string, payload: Record<string, unknown>): void {
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, { ...machine, runtimeStats: payload });
 		this.machines = updated;
 	}
 

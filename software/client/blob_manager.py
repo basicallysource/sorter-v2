@@ -107,12 +107,12 @@ def setServoPosition(name: str, angle: int) -> None:
         saveData(data)
 
 
-def getBinCategories() -> list[list[list[str | None]]] | None:
+def getBinCategories() -> list[list[list[list[str]]]] | None:
     data = loadData()
     return data.get("bin_categories")
 
 
-def setBinCategories(categories: list[list[list[str | None]]]) -> None:
+def setBinCategories(categories: list[list[list[list[str]]]]) -> None:
     with _DATA_LOCK:
         data = loadData()
         data["bin_categories"] = categories

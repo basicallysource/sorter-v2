@@ -58,13 +58,31 @@ export interface KnownObjectData {
   bottom_image?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
+  feeding_started_at?: number | null;
+  carousel_detected_confirmed_at?: number | null;
+  carousel_rotate_started_at?: number | null;
+  carousel_rotated_at?: number | null;
+  carousel_snapping_started_at?: number | null;
+  carousel_snapping_completed_at?: number | null;
+  carousel_next_baseline_captured_at?: number | null;
+  carousel_next_ready_at?: number | null;
   classified_at?: number | null;
   distributing_at?: number | null;
+  distribution_target_selected_at?: number | null;
+  distribution_motion_started_at?: number | null;
+  distribution_positioned_at?: number | null;
   distributed_at?: number | null;
 }
 export interface KnownObjectEvent {
   tag: "known_object";
   data: KnownObjectData;
+}
+export interface RuntimeStatsData {
+  payload: Record<string, unknown>;
+}
+export interface RuntimeStatsEvent {
+  tag: "runtime_stats";
+  data: RuntimeStatsData;
 }
 export interface PauseCommandData {}
 export interface PauseCommandEvent {
@@ -77,4 +95,4 @@ export interface ResumeCommandEvent {
   data: ResumeCommandData;
 }
 
-export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent;
+export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent | RuntimeStatsEvent;

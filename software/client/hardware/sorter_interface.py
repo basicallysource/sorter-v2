@@ -525,9 +525,6 @@ class SorterInterface(MCUDevice):
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
 
     def shutdown(self):
-        # Disable all steppers and set all digital outputs to low
-        for stepper in self.steppers:
-            stepper.enabled = False
         for dout in self.digital_outputs:
             dout.value = False
 

@@ -142,7 +142,6 @@ def main() -> int:
     print(f"done. {len(frames)} frames + envelope in {BASELINE_DIR}")
 
     vision.stop()
-    irl.disableSteppers()
     return 0
 
 

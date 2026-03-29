@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Optional, List
+from typing import List
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -25,7 +25,7 @@ class BinSize(Enum):
 @dataclass
 class Bin:
     size: BinSize
-    category_id: Optional[str] = None
+    category_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -116,15 +116,12 @@ def getBinLayout() -> BinLayoutConfig:
         if not isinstance(enabled, bool):
             enabled = True
         layers.append(LayerConfig(sections=sections, enabled=enabled))
-
     return BinLayoutConfig(layers=layers)
+
+
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
-    # reversed so that the config is setup the same as it is in real life
-    # bottom most is bottom in real life
-    # but the top most layers are "first" for the rest of the code
-    reversedLayers = list(reversed(config.layers))
-    for layer_config in reversedLayers:
+    for layer_config in config.layers:
         sections = []
         for section_config in layer_config.sections:
             bins = []
@@ -140,24 +137,29 @@ def mkDefaultLayout() -> DistributionLayout:
     return mkLayoutFromConfig(DEFAULT_BIN_LAYOUT)
 
 
-def extractCategories(layout: DistributionLayout) -> list[list[list[str | None]]]:
+def extractCategories(layout: DistributionLayout) -> list[list[list[list[str]]]]:
     return [
-        [[b.category_id for b in section.bins] for section in layer.sections]
+        [[list(b.category_ids) for b in section.bins] for section in layer.sections]
         for layer in layout.layers
     ]
 
 
 def applyCategories(
-    layout: DistributionLayout, categories: list[list[list[str | None]]]
+    layout: DistributionLayout, categories: list[list[list[list[str]]]]
 ) -> None:
     for layer_idx, layer in enumerate(layout.layers):
         for section_idx, section in enumerate(layer.sections):
             for bin_idx, b in enumerate(section.bins):
-                b.category_id = categories[layer_idx][section_idx][bin_idx]
+                bin_category_ids = categories[layer_idx][section_idx][bin_idx]
+                if not isinstance(bin_category_ids, list):
+                    raise ValueError("bin categories must be list[str]")
+                if any(not isinstance(category_id, str) for category_id in bin_category_ids):
+                    raise ValueError("bin categories must be list[str]")
+                b.category_ids = list(bin_category_ids)
 
 
 def layoutMatchesCategories(
-    layout: DistributionLayout, categories: list[list[list[str | None]]]
+    layout: DistributionLayout, categories: list[list[list[list[str]]]]
 ) -> bool:
     if len(categories) != len(layout.layers):
         return False
@@ -167,4 +169,9 @@ def layoutMatchesCategories(
         for section_idx, section in enumerate(layer.sections):
             if len(categories[layer_idx][section_idx]) != len(section.bins):
                 return False
+            for bin_category_ids in categories[layer_idx][section_idx]:
+                if not isinstance(bin_category_ids, list):
+                    return False
+                if any(not isinstance(category_id, str) for category_id in bin_category_ids):
+                    return False
     return True

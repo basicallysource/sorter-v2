@@ -17,6 +17,7 @@ class PartsData:
     categories: dict[int, dict]
     bricklink_categories: dict[int, dict]
     colors: dict[int, dict]
+    rb_to_bl_color: dict[int, int]
     api_total_parts: int | None
 
     generation: int
@@ -26,6 +27,7 @@ class PartsData:
         self.categories = {}
         self.bricklink_categories = {}
         self.colors = {}
+        self.rb_to_bl_color = {}
         self.api_total_parts = None
         self.generation = 0
 
@@ -146,9 +148,20 @@ def reloadPartsData(conn, parts_data):
     parts_data.bricklink_categories = _loadBricklinkCategories(conn)
     parts_data.colors = _loadColors(conn)
     parts_data.parts = loadPartsDict(conn)
+    parts_data.rb_to_bl_color = _buildRbToBlColorMap(parts_data.colors)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
     parts_data.generation += 1
+
+
+def _buildRbToBlColorMap(colors):
+    mapping = {}
+    for rb_id, color in colors.items():
+        bl = color.get("external_ids", {}).get("BrickLink", {})
+        bl_ids = bl.get("ext_ids", [])
+        if bl_ids:
+            mapping[rb_id] = bl_ids[0]
+    return mapping
 
 
 def _loadCategories(conn):

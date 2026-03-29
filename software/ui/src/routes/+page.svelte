@@ -7,11 +7,16 @@
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import { Settings, Wrench, Pause, Play } from 'lucide-svelte';
 	import type { components } from '$lib/api/rest';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 
 	type StateResponse = components['schemas']['StateResponse'];
+
+	const SIDEBAR_MIN = 300;
+	const SIDEBAR_MAX = 900;
+	const SIDEBAR_DEFAULT = 420;
 
 	const manager = getMachinesContext();
 	const machine = getMachineContext();
@@ -19,6 +24,11 @@
 	let settings_open = $state(false);
 	let runtime_vars_open = $state(false);
 	let machine_state = $state<string>('initializing');
+	let sidebar_width = $state(SIDEBAR_DEFAULT);
+
+	function onSidebarResize(delta: number) {
+		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
+	}
 
 	async function fetchState() {
 		try {
@@ -116,11 +126,12 @@
 					</div>
 				</div>
 			{/if}
-			<div class="flex flex-shrink-0 gap-3">
-				<div class="w-72 min-w-64 max-w-80">
+			<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
+			<div class="flex flex-shrink-0 flex-col gap-3 min-h-0" style="width: {sidebar_width}px;">
+				<div class="min-h-0 flex-1">
 					<RecentObjects />
 				</div>
-				<div class="w-80 min-w-72 max-w-96">
+				<div class="min-h-0 flex-1 overflow-y-auto">
 					<RuntimeStats />
 				</div>
 			</div>

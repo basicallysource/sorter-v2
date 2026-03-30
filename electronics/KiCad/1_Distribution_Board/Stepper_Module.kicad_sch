@@ -3798,7 +3798,7 @@
 		)
 		(uuid "1466ce06-4d16-41c2-8c1e-a52e0e12c527")
 	)
-	(label "B1"
+	(label "B_1"
 		(at 232.41 148.59 0)
 		(effects
 			(font
@@ -3838,7 +3838,7 @@
 		)
 		(uuid "47d45f46-a3af-4fd1-822f-27b6589a4708")
 	)
-	(label "B2"
+	(label "B_2"
 		(at 232.41 151.13 0)
 		(effects
 			(font
@@ -3968,7 +3968,7 @@
 		)
 		(uuid "a947e3db-21ec-42ec-810e-dca7d6e35c22")
 	)
-	(label "A2"
+	(label "A_2"
 		(at 232.41 143.51 0)
 		(effects
 			(font
@@ -4048,7 +4048,7 @@
 		)
 		(uuid "dec299bf-d95f-4763-8ac9-aba0b248a3e7")
 	)
-	(label "A1"
+	(label "A_1"
 		(at 232.41 146.05 0)
 		(effects
 			(font
@@ -4322,15 +4322,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "J29")
+					(reference "J28")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "J39")
+					(reference "J36")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "J34")
+					(reference "J32")
 					(unit 1)
 				)
 			)
@@ -4391,7 +4391,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C566011"
+		(property "LCSC Part" "C131334"
 			(at 209.55 71.12 0)
 			(effects
 				(font
@@ -4419,15 +4419,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "J30")
+					(reference "J29")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "J40")
+					(reference "J37")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "J35")
+					(reference "J33")
 					(unit 1)
 				)
 			)
@@ -5216,7 +5216,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(property "Reference" "J26"
@@ -5292,15 +5292,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "J31")
+					(reference "J30")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "J41")
+					(reference "J38")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "J36")
+					(reference "J34")
 					(unit 1)
 				)
 			)
@@ -5561,15 +5561,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "P2")
+					(reference "P3")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "P6")
+					(reference "P9")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "P4")
+					(reference "P6")
 					(unit 1)
 				)
 			)
@@ -5584,7 +5584,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "5910b268-80bc-4f66-8d7a-6f21c58e69f5")
-		(property "Reference" "J27"
+		(property "Reference" "P2"
 			(at 247.65 146.0499 0)
 			(effects
 				(font
@@ -5665,19 +5665,19 @@
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/02dc68e7-469d-4169-b9e6-1742ced64b14"
-					(reference "J27")
+					(reference "P2")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "J32")
+					(reference "P5")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "J42")
+					(reference "P11")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "J37")
+					(reference "P8")
 					(unit 1)
 				)
 			)
@@ -6074,15 +6074,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "P3")
+					(reference "P4")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "P7")
+					(reference "P10")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "P5")
+					(reference "P7")
 					(unit 1)
 				)
 			)
@@ -6271,7 +6271,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
+		(property "Footprint" "EasyEDA:CAP-SMD_BD6.3-L6.6-W6.6-LS7.4-FD"
 			(at 170.18 33.02 0)
 			(effects
 				(font
@@ -6290,6 +6290,15 @@
 			)
 		)
 		(property "Description" "Polarized capacitor, US symbol"
+			(at 170.18 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2836442"
 			(at 170.18 33.02 0)
 			(effects
 				(font
@@ -7431,15 +7440,15 @@
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
-					(reference "J28")
+					(reference "J27")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
-					(reference "J38")
+					(reference "J35")
 					(unit 1)
 				)
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
-					(reference "J33")
+					(reference "J31")
 					(unit 1)
 				)
 			)

@@ -4425,17 +4425,6 @@
 		)
 		(uuid "7861b40c-0a5f-41e0-b3aa-a38456e862b9")
 	)
-	(text "FIX!!!"
-		(exclude_from_sim no)
-		(at 202.438 32.258 0)
-		(effects
-			(font
-				(size 5.08 5.08)
-				(color 255 0 255 1)
-			)
-		)
-		(uuid "ceefea77-9fb2-4644-945d-0e21a1343bb8")
-	)
 	(text "PCA9685 Address Resistors"
 		(exclude_from_sim no)
 		(at 115.316 18.034 0)
@@ -5369,7 +5358,7 @@
 	)
 	(wire
 		(pts
-			(xy 111.76 39.4071) (xy 115.57 39.4071)
+			(xy 111.76 39.4071) (xy 113.03 39.37)
 		)
 		(stroke
 			(width 0)
@@ -5419,7 +5408,7 @@
 	)
 	(wire
 		(pts
-			(xy 119.38 39.3655) (xy 123.19 39.3655)
+			(xy 119.38 39.3655) (xy 120.65 39.37)
 		)
 		(stroke
 			(width 0)
@@ -6249,6 +6238,16 @@
 	)
 	(wire
 		(pts
+			(xy 120.65 39.37) (xy 123.19 39.3655)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c8612ec3-9a49-489a-bf86-d7cbfc7e793a")
+	)
+	(wire
+		(pts
 			(xy 255.27 132.08) (xy 245.11 132.08)
 		)
 		(stroke
@@ -6386,6 +6385,16 @@
 			(type default)
 		)
 		(uuid "d6da8e11-6a24-4f92-8928-3ec598c1b365")
+	)
+	(wire
+		(pts
+			(xy 113.03 39.37) (xy 115.57 39.4071)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d7f08126-7c8a-4d80-ab00-913f9e28bf1c")
 	)
 	(wire
 		(pts
@@ -7652,72 +7661,6 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "#PWR075")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+6V")
-		(at 220.98 35.56 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "0c7675d7-923d-4e13-bfb5-24286c373626")
-		(property "Reference" "#PWR073"
-			(at 220.98 39.37 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+6.5V"
-			(at 220.98 30.48 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 220.98 35.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 220.98 35.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+6V\""
-			(at 220.98 35.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "5e0120b6-e582-4b1a-ac65-101c6dfdc9b0")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR073")
 					(unit 1)
 				)
 			)
@@ -9654,7 +9597,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C378928"
 			(at 203.2 48.26 0)
 			(effects
 				(font
@@ -9976,7 +9919,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C72554"
 			(at 237.49 45.72 0)
 			(effects
 				(font
@@ -13730,6 +13673,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+6V")
+		(at 220.98 35.56 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a1f4bb8c-728c-4225-8935-3797b4c1413c")
+		(property "Reference" "#PWR073"
+			(at 220.98 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+ServoV"
+			(at 220.98 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 220.98 35.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 220.98 35.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+6V\""
+			(at 220.98 35.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "beabe700-bf1f-41c9-866a-4b0b9bb8562f")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR073")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3V3")
 		(at 54.61 118.11 0)
 		(unit 1)
@@ -14076,71 +14085,6 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "#PWR057")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+6V")
-		(at 215.9 101.6 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "b0dcdc80-c521-45ab-979b-2b086a54a4ca")
-		(property "Reference" "#PWR071"
-			(at 215.9 105.41 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+6.5V"
-			(at 215.9 97.536 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 215.9 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 215.9 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+6V\""
-			(at 215.9 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "9a9391c5-ba9f-4583-9809-71609f040bea")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR071")
 					(unit 1)
 				)
 			)
@@ -15619,6 +15563,72 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "J16")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+6V")
+		(at 215.9 101.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "db94a8d3-5287-4fe9-b177-e7a6a85e459e")
+		(property "Reference" "#PWR071"
+			(at 215.9 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+ServoV"
+			(at 215.9 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 215.9 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 215.9 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+6V\""
+			(at 215.9 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "69b10083-1927-41b8-b270-fa8ca82b7a54")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR071")
 					(unit 1)
 				)
 			)

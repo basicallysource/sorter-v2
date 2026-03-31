@@ -53,6 +53,10 @@ public:
     int32_t getPosition() { return _absolute_position; }
     void setPosition(int32_t position) { _absolute_position = position; }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
+    void setStallPin(int pin);
+    void enableStallDetection(bool enable);
+    bool wasStalled() { return _stalled; }
+    void clearStall() { _stalled = false; }
 
 private:
     // Pins for the step generator
@@ -68,6 +72,9 @@ private:
     int32_t _mc_dir; // 1 = forward, -1 = reverse
     int32_t _mc_home_pin; // Home switch pin, -1 if not homing
     bool _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
+    int _stall_pin; // DIAG pin for stall detection, -1 if not wired
+    bool _stall_enabled; // Whether to check stall pin during motion
+    std::atomic<bool> _stalled; // Set by motion loop when stall detected
 
     // Internal state
     std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)

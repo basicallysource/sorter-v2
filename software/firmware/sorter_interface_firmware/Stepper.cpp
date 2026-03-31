@@ -30,6 +30,7 @@ Stepper::Stepper(int step_pin, int dir_pin)
       _accel(10000), _max_speed(2000), _min_speed(16),
     _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
       _mc_dir(1), _mc_home_pin(-1),
+    _stall_pin(-1), _stall_enabled(false), _stalled(false),
     _steps_moved(0), _steps_frac(0), _brake_distance(0),
     _current_speed(0), _current_speed_frac(0), _current_dir(1) {
 }
@@ -39,6 +40,20 @@ void Stepper::initialize() {
     gpio_set_dir(_step_pin, GPIO_OUT);
     gpio_init(_dir_pin);
     gpio_set_dir(_dir_pin, GPIO_OUT);
+    _state = STEPPER_STOPPED;
+    _mc_distance = -1;
+    _mc_speed = -1;
+    _mc_dir = 1;
+    _mc_home_pin = -1;
+    _stall_enabled = false;
+    _stalled = false;
+    _steps_moved = 0;
+    _steps_frac = 0;
+    _brake_distance = 0;
+    _current_speed = 0;
+    _current_speed_frac = 0;
+    _current_dir = 1;
+    _absolute_position = 0;
 }
 
 void Stepper::setSpeedLimits(uint32_t min_speed, uint32_t max_speed) {
@@ -113,6 +128,15 @@ void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
     moveAtSpeed(home_speed);
     _mc_home_pin = home_pin;
     _mc_home_pin_polarity = home_pin_polarity;
+}
+
+void Stepper::setStallPin(int pin) {
+    _stall_pin = pin;
+}
+
+void Stepper::enableStallDetection(bool enable) {
+    _stall_enabled = enable;
+    if (enable) _stalled = false;
 }
 
 /*! \brief Step generator tick
@@ -198,6 +222,15 @@ void Stepper::motion_update_tick() {
                     _current_speed = 0;
                     _absolute_position = 0;
                     _mc_home_pin = -1; // Homing done
+                    break;
+                }
+            }
+            // Check stall detection pin (DIAG from TMC2209)
+            if (_stall_enabled && _stall_pin >= 0) {
+                if (gpio_get(_stall_pin)) {
+                    _state = STEPPER_STOPPED;
+                    _current_speed = 0;
+                    _stalled = true;
                     break;
                 }
             }

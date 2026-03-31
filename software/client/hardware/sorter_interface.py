@@ -25,6 +25,8 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
     STEPPER_DRV_SET_CURRENT = 0x22
+    STEPPER_DRV_ENABLE_STALL_DETECTION = 0x23
+    STEPPER_DRV_GET_STALL_STATUS = 0x24
     STEPPER_DRV_READ_REGISTER = 0x28
     STEPPER_DRV_WRITE_REGISTER = 0x29
     # Digital I/O commands
@@ -226,6 +228,26 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: write_driver_register addr=0x{address:02X} value=0x{value:08X}")
         payload = struct.pack("<BI", address, value) # 1 byte for address, 4 bytes for value
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_WRITE_REGISTER, self._channel, payload)
+
+    def enableStallDetection(self, enable: bool):
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: enableStallDetection={enable}")
+        payload = struct.pack("<?", enable)
+        self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_ENABLE_STALL_DETECTION, self._channel, payload)
+
+    def getStallStatus(self) -> bool:
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_GET_STALL_STATUS, self._channel, b'')
+        stalled = bool(res.payload[0])
+        if stalled:
+            self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: STALL DETECTED")
+        return stalled
+
+    def configureStallGuard(self, sgthrs: int, tcoolthrs: int = 2000):
+        self.write_driver_register(0x14, tcoolthrs)  # TCOOLTHRS
+        self.write_driver_register(0x40, sgthrs)      # SGTHRS
+        self.enableStallDetection(True)
+
+    def readStallGuardResult(self) -> int:
+        return self.read_driver_register(0x41)  # SG_RESULT
 
     @property
     def steps_per_revolution(self):

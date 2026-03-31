@@ -47,6 +47,7 @@ const int TMC_UART_BAUDRATE = 400000;
 const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3};
 
 const int STEPPER_nEN_PINS[] = {0, 0, 0, 0};
+const int STEPPER_DIAG_PINS[] = {1, -1, -1, -1}; // GPIO per channel, -1 = not wired
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {9, 8, 13, 12};

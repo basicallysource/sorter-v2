@@ -60,6 +60,8 @@ void CMDH_stepper_drv_set_microsteps(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_current(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_read_register(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp);
 bool VAL_stepper_channel(uint8_t channel);
 
 const struct CommandTable stepperCmdTable = {
@@ -81,8 +83,8 @@ const struct CommandTable stepperDrvCmdTable = {
         {"SET_ENABLED", "?", "", 1, VAL_stepper_channel, CMDH_stepper_drv_set_enabled},
         {"SET_MICROSTEPS", "H", "", 2, VAL_stepper_channel, CMDH_stepper_drv_set_microsteps},
         {"SET_CURRENT", "BBB", "", 3, VAL_stepper_channel, CMDH_stepper_drv_set_current},
-        {NULL, NULL, NULL, 0, NULL, NULL},
-        {NULL, NULL, NULL, 0, NULL, NULL},
+        {"ENABLE_STALL_DETECTION", "?", "", 1, VAL_stepper_channel, CMDH_stepper_enable_stall_detection},
+        {"GET_STALL_STATUS", "", "?", 0, VAL_stepper_channel, CMDH_stepper_get_stall_status},
         {NULL, NULL, NULL, 0, NULL, NULL},
         {NULL, NULL, NULL, 0, NULL, NULL},
         {NULL, NULL, NULL, 0, NULL, NULL},
@@ -294,12 +296,25 @@ void initialize_hardware() {
         tmc_drivers[i].setCurrent(16, 4, 10);
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true);
+        // Clear any leftover StallGuard config and error flags from previous session
+        tmc_drivers[i].writeRegister(TMC2209_Register::TCOOLTHRS, 0);
+        tmc_drivers[i].writeRegister(TMC2209_Register::SGTHRS, 0);
+        tmc_drivers[i].writeRegister(TMC2209_Register::GSTAT, 0x07); // Write 1s to clear all flags
     }
     // Global enable for stepper drivers
     for (int i = 0; i < STEPPER_COUNT; i++) {
         gpio_init(STEPPER_nEN_PINS[i]);
         gpio_set_dir(STEPPER_nEN_PINS[i], GPIO_OUT);
         gpio_put(STEPPER_nEN_PINS[i], 0); // Enable stepper drivers
+    }
+    // Initialize DIAG pins for stall detection
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        if (STEPPER_DIAG_PINS[i] >= 0) {
+            gpio_init(STEPPER_DIAG_PINS[i]);
+            gpio_set_dir(STEPPER_DIAG_PINS[i], GPIO_IN);
+            gpio_pull_down(STEPPER_DIAG_PINS[i]);
+        }
+        steppers[i].setStallPin(STEPPER_DIAG_PINS[i]);
     }
     // Initialize digital inputs
     for (int i = 0; i < DIGITAL_INPUT_COUNT; i++) {
@@ -510,6 +525,24 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
     memcpy(&value, msg->payload + 1, sizeof(value));
     tmc_drivers[msg->channel].writeRegister(reg, value);
     resp->payload_length = 0;
+}
+
+void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
+    bool enable = msg->payload[0] != 0;
+    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
+        resp->command = msg->command | 0x80;
+        resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
+        return;
+    }
+    steppers[msg->channel].enableStallDetection(enable);
+    resp->payload_length = 0;
+}
+
+void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp) {
+    bool stalled = steppers[msg->channel].wasStalled();
+    resp->payload[0] = stalled ? 1 : 0;
+    resp->payload_length = 1;
+    if (stalled) steppers[msg->channel].clearStall();
 }
 
 void CMDH_servo_move_to(const BusMessage *msg, BusMessage *resp) {

@@ -24,7 +24,7 @@ All commands below should be run from `software/sorting_profile_builder/` using 
     }
   ],
   "categories": {"rule-id": {"name": "Gray Bricks"}, ...},  // auto-managed, mirrors rules
-  "part_to_category": {...}       // generated output, can be ignored when editing
+  "part_to_category": {...}       // generated output, must be regenerated after rule edits
 }
 ```
 
@@ -251,6 +251,50 @@ parent['children'].append(child_rule)
 data['categories'][child_id] = {"name": child_rule['name']}
 ```
 
+## Step 8: Generate profile (required after editing rules)
+
+After all rule edits are done, regenerate `part_to_category`. This is the same "Generate" action from the UI.
+
+```python
+from db import initDb, PartsData, reloadPartsData
+from sorting_profile import loadSortingProfile, saveSortingProfile
+from rule_engine import generateProfile
+
+PROFILE_PATH = 'profiles/cb3a66bc-36a8-493c-ada7-930efcc080f7.json'
+PROFILES_DIR = 'profiles'
+
+conn = initDb('parts.db')
+pd = PartsData()
+reloadPartsData(conn, pd)
+
+sp = loadSortingProfile(PROFILE_PATH)
+result = generateProfile(
+    sp,
+    pd.parts,
+    pd.categories,
+    pd.bricklink_categories,
+    fallback_mode=sp.fallback_mode,
+    parts_generation=pd.generation,
+    rb_to_bl_color=pd.rb_to_bl_color,
+)
+
+sp.part_to_category = result['part_to_category']
+sp.categories = {r['id']: {"name": r['name']} for r in sp.rules}
+
+for cat_id in result['stats']['per_category']:
+    if cat_id.startswith('rb_'):
+        rb_id = int(cat_id[3:])
+        rb_cat = pd.categories.get(rb_id)
+        sp.categories[cat_id] = {"name": rb_cat['name'] if rb_cat else cat_id}
+    elif cat_id.startswith('bl_'):
+        bl_id = int(cat_id[3:])
+        bl_cat = pd.bricklink_categories.get(bl_id)
+        sp.categories[cat_id] = {"name": bl_cat.get('category_name', cat_id) if bl_cat else cat_id}
+
+saveSortingProfile(PROFILES_DIR, sp)
+print(f"Generated {len(sp.part_to_category)} part mappings")
+```
+
 ## Verifying your changes
 
 After editing, test the profile to make sure rules match what you expect:
@@ -283,3 +327,4 @@ for r in sp.rules:
 - If the server is running, reload the page after editing the file. The server re-reads from disk.
 - Rule order matters — first match wins. Put specific rules (like "Red 1x bricks") before general ones (like "Red/Orange bricks").
 - Color-sensitive rules (with `color_id` conditions) are evaluated per-color. A part can match different color rules for different colors.
+- Always run generation after all rule edits are complete, otherwise `part_to_category` is stale.

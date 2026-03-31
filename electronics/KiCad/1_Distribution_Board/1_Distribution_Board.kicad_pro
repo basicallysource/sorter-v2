@@ -515,7 +515,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "1_Distribution_Board_Outputs/GerbersV0.3/",
+      "plot": "1_Distribution_Board_Outputs/GerbersV0.9/",
       "pos_files": "1_Distribution_Board_Outputs/Pick-Place/",
       "specctra_dsn": "",
       "step": "1_Distribution_Board.step",
@@ -669,6 +669,10 @@
     [
       "be0591dd-6b80-4d9a-a31b-18ff19c250bb",
       "Stepper Module3"
+    ],
+    [
+      "22523adc-9142-4362-af29-41502b0f3187",
+      "Stepper Module4"
     ]
   ],
   "text_variables": {}

@@ -1,8 +1,9 @@
-from typing import Optional, List, Dict, Tuple, Union, cast
+from typing import Optional, List, Dict, Tuple, Union, cast, Any
 from pathlib import Path
 import base64
 import time
 import threading
+from dataclasses import dataclass, field, replace
 import cv2
 import numpy as np
 
@@ -48,8 +49,23 @@ from .diff_configs import (
 
 TELEMETRY_INTERVAL_S = 30
 FRAME_ENCODE_INTERVAL_MS = 100
-AUXILIARY_DETECTION_LOOP_INTERVAL_S = 1.0
-AUXILIARY_SAMPLE_INTERVAL_S = 1.0
+AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.25
+OPENROUTER_MAX_CONCURRENCY = 10
+OPENROUTER_FAILURE_BACKOFF_S = 2.0
+OPENROUTER_BACKGROUND_RETRY_PADDING_S = 0.35
+
+
+@dataclass(frozen=True)
+class AuxiliaryTeacherCaptureRequest:
+    role: str
+    scope: DetectionScope
+    source: str
+    capture_reason: str
+    due_at: float
+    created_at: float
+    trigger_algorithm: str | None = None
+    trigger_metadata: dict[str, Any] = field(default_factory=dict)
+    frame_snapshot: np.ndarray | None = None
 
 
 class VisionManager:
@@ -153,6 +169,10 @@ class VisionManager:
         self._feeder_detection_algorithm: FeederDetectionAlgorithm = "mog2"
         self._feeder_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
         self._feeder_sample_collection_enabled: bool = False
+        self._feeder_sample_collection_enabled_by_role: Dict[str, bool] = {
+            "c_channel_2": False,
+            "c_channel_3": False,
+        }
         self._carousel_detection_algorithm: CarouselDetectionAlgorithm = "heatmap_diff"
         self._carousel_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
         self._carousel_sample_collection_enabled: bool = False
@@ -173,7 +193,11 @@ class VisionManager:
         self._carousel_gemini_detector: GeminiSamDetector | None = None
         self._aux_detection_stop = threading.Event()
         self._aux_detection_thread: threading.Thread | None = None
-        self._auxiliary_last_sample_at: Dict[str, float] = {}
+        self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
+        self._auxiliary_capture_lock = threading.Lock()
+        self._openrouter_request_lock = threading.Lock()
+        self._openrouter_next_allowed_at: float = 0.0
+        self._openrouter_semaphore = threading.BoundedSemaphore(OPENROUTER_MAX_CONCURRENCY)
 
         self._cached_frame_events: List[FrameEvent] = []
         self._cached_frame_events_lock = threading.Lock()
@@ -219,6 +243,8 @@ class VisionManager:
         self._started = False
         self._frame_encode_stop.set()
         self._aux_detection_stop.set()
+        with self._auxiliary_capture_lock:
+            self._auxiliary_capture_requests = []
         if self._frame_encode_thread:
             self._frame_encode_thread.join(timeout=2.0)
         if self._aux_detection_thread:
@@ -260,7 +286,17 @@ class VisionManager:
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._feeder_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
-        self._feeder_sample_collection_enabled = False if enabled is None else bool(enabled)
+        by_role = (
+            config.get("sample_collection_enabled_by_role")
+            if isinstance(config, dict) and isinstance(config.get("sample_collection_enabled_by_role"), dict)
+            else None
+        )
+        resolved_by_role: Dict[str, bool] = {}
+        for role in ("c_channel_2", "c_channel_3"):
+            role_value = by_role.get(role) if isinstance(by_role, dict) else enabled
+            resolved_by_role[role] = False if role_value is None else bool(role_value)
+        self._feeder_sample_collection_enabled_by_role = resolved_by_role
+        self._feeder_sample_collection_enabled = any(resolved_by_role.values())
 
     def _loadCarouselDetectionConfig(self) -> None:
         config = getCarouselDetectionConfig()
@@ -348,11 +384,26 @@ class VisionManager:
     def getFeederOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._feeder_openrouter_model)
 
-    def supportsFeederSampleCollection(self) -> bool:
-        return False
+    def supportsFeederSampleCollection(self, role: str | None = None) -> bool:
+        if self._camera_layout != "split_feeder":
+            return False
+        if role == "c_channel_2":
+            return self._c_channel_2_capture is not None
+        if role == "c_channel_3":
+            return self._c_channel_3_capture is not None
+        return self._c_channel_2_capture is not None or self._c_channel_3_capture is not None
 
-    def isFeederSampleCollectionEnabled(self) -> bool:
-        return False
+    def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
+        if role in {"c_channel_2", "c_channel_3"}:
+            return self.supportsFeederSampleCollection(role) and bool(
+                self._feeder_sample_collection_enabled_by_role.get(role)
+            )
+        if not self.supportsFeederSampleCollection():
+            return False
+        return any(
+            self.isFeederSampleCollectionEnabled(channel_role)
+            for channel_role in ("c_channel_2", "c_channel_3")
+        )
 
     def getCarouselDetectionAlgorithm(self) -> CarouselDetectionAlgorithm:
         return self._normalizeCarouselDetectionAlgorithm(self._carousel_detection_algorithm)
@@ -360,8 +411,11 @@ class VisionManager:
     def getCarouselOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._carousel_openrouter_model)
 
+    def supportsCarouselSampleCollection(self) -> bool:
+        return self._carousel_capture is not None
+
     def isCarouselSampleCollectionEnabled(self) -> bool:
-        return False
+        return self.supportsCarouselSampleCollection() and self._carousel_sample_collection_enabled
 
     def usesCarouselBaseline(self) -> bool:
         return self.usesDetectionBaseline("carousel")
@@ -399,8 +453,25 @@ class VisionManager:
             detector.setOpenRouterModel(normalized)
         return normalized
 
-    def setFeederSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._feeder_sample_collection_enabled = False
+    def setFeederSampleCollectionEnabled(self, enabled: bool, role: str | None = None) -> bool:
+        if role is not None and role not in {"c_channel_2", "c_channel_3"}:
+            raise ValueError(f"Unsupported feeder role '{role}'")
+        if role in {"c_channel_2", "c_channel_3"}:
+            self._feeder_sample_collection_enabled_by_role[role] = (
+                bool(enabled) if self.supportsFeederSampleCollection(role) else False
+            )
+            self._feeder_sample_collection_enabled = any(
+                self._feeder_sample_collection_enabled_by_role.values()
+            )
+            return self._feeder_sample_collection_enabled_by_role[role]
+        resolved_enabled = bool(enabled) if self.supportsFeederSampleCollection() else False
+        for channel_role in ("c_channel_2", "c_channel_3"):
+            self._feeder_sample_collection_enabled_by_role[channel_role] = (
+                resolved_enabled if self.supportsFeederSampleCollection(channel_role) else False
+            )
+        self._feeder_sample_collection_enabled = any(
+            self._feeder_sample_collection_enabled_by_role.values()
+        )
         return self._feeder_sample_collection_enabled
 
     def setCarouselDetectionAlgorithm(self, algorithm: CarouselDetectionAlgorithm) -> None:
@@ -418,7 +489,9 @@ class VisionManager:
         return normalized
 
     def setCarouselSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._carousel_sample_collection_enabled = False
+        self._carousel_sample_collection_enabled = (
+            bool(enabled) if self.supportsCarouselSampleCollection() else False
+        )
         return self._carousel_sample_collection_enabled
 
     def initFeederDetection(self) -> bool:
@@ -1170,7 +1243,7 @@ class VisionManager:
         model = self._openRouterModelForScope(request.scope)
         if request.scope == "classification":
             if self._gemini_sam_detector is None:
-                self._gemini_sam_detector = GeminiSamDetector(model)
+                self._gemini_sam_detector = GeminiSamDetector(model, zone="classification_chamber")
             else:
                 self._gemini_sam_detector.setOpenRouterModel(model)
             return self._gemini_sam_detector
@@ -1178,24 +1251,29 @@ class VisionManager:
         if request.scope == "feeder":
             detector = self._feeder_gemini_detectors.get(request.role)
             if detector is None:
-                detector = GeminiSamDetector(model)
+                detector = GeminiSamDetector(model, zone="c_channel")
                 self._feeder_gemini_detectors[request.role] = detector
             else:
                 detector.setOpenRouterModel(model)
             return detector
 
         if self._carousel_gemini_detector is None:
-            self._carousel_gemini_detector = GeminiSamDetector(model)
+            self._carousel_gemini_detector = GeminiSamDetector(model, zone="carousel")
         else:
             self._carousel_gemini_detector.setOpenRouterModel(model)
         return self._carousel_gemini_detector
 
-    def _runGeminiDetectionRequest(
+    def _openrouterRetryDelay(self) -> float:
+        with self._openrouter_request_lock:
+            retry_after = self._openrouter_next_allowed_at - time.time()
+        return max(OPENROUTER_BACKGROUND_RETRY_PADDING_S, retry_after + OPENROUTER_BACKGROUND_RETRY_PADDING_S)
+
+    def _runGeminiDetectionRequestWithThrottle(
         self,
         request: DetectionRequest,
-    ) -> ClassificationDetectionResult | None:
+    ) -> tuple[ClassificationDetectionResult | None, bool]:
         if request.frame is None:
-            return None
+            return None, False
 
         detector = self._geminiDetectorForRequest(request)
         crop = request.frame
@@ -1205,10 +1283,43 @@ class VisionManager:
             cropped = self._cropFrameToPolygonRegion(request.frame, request.zone_polygon)
             if cropped is not None:
                 crop, (offset_x, offset_y) = cropped
-        detection = detector.detect(crop, force=request.force)
+        background_request = bool(request.metadata.get("background"))
+        with self._openrouter_request_lock:
+            wait_s = max(0.0, self._openrouter_next_allowed_at - time.time())
+        if background_request and wait_s > 0.0:
+            return None, True
+        slot_acquired = self._openrouter_semaphore.acquire(blocking=not background_request)
+        if not slot_acquired:
+            return None, True
+        try:
+            if wait_s > 0.0:
+                self.gc.logger.info(
+                    "Waiting %.2fs before OpenRouter call for %s/%s",
+                    wait_s,
+                    request.scope,
+                    request.role,
+                )
+                time.sleep(wait_s)
+            detection = detector.detect(crop, force=request.force or background_request)
+            error_detail = detector._last_error if isinstance(detector._last_error, str) and detector._last_error else None
+            if error_detail:
+                with self._openrouter_request_lock:
+                    self._openrouter_next_allowed_at = max(
+                        self._openrouter_next_allowed_at,
+                        time.time() + OPENROUTER_FAILURE_BACKOFF_S,
+                    )
+        finally:
+            self._openrouter_semaphore.release()
         if offset_x == 0 and offset_y == 0:
-            return detection
-        return self._offsetDetectionResult(detection, offset_x, offset_y)
+            return detection, False
+        return self._offsetDetectionResult(detection, offset_x, offset_y), False
+
+    def _runGeminiDetectionRequest(
+        self,
+        request: DetectionRequest,
+    ) -> ClassificationDetectionResult | None:
+        detection, _ = self._runGeminiDetectionRequestWithThrottle(request)
+        return detection
 
     def _computeFeederGeminiDetection(
         self,
@@ -1312,21 +1423,24 @@ class VisionManager:
         self._carousel_dynamic_detection_cache = (frame.timestamp, detection)
         return detection
 
+    def _captureAuxiliarySampleFromFrame(self, role: str, frame_raw: np.ndarray) -> dict[str, np.ndarray | None]:
+        if role in {"c_channel_2", "c_channel_3"}:
+            crop, _ = self._feederRegionCrop(role, frame_raw)
+        elif role == "carousel":
+            crop, _ = self._carouselRegionCrop(frame_raw)
+        else:
+            crop = frame_raw.copy()
+        return {
+            "input_image": crop,
+            "frame": frame_raw.copy(),
+        }
+
     def _captureAuxiliarySample(self, role: str) -> dict[str, np.ndarray | None]:
         capture = self.getCaptureThreadForRole(role)
         frame = capture.latest_frame if capture is not None else None
         if frame is None:
             return {"input_image": None, "frame": None}
-        if role in {"c_channel_2", "c_channel_3"}:
-            crop, _ = self._feederRegionCrop(role, frame.raw)
-        elif role == "carousel":
-            crop, _ = self._carouselRegionCrop(frame.raw)
-        else:
-            crop = frame.raw.copy()
-        return {
-            "input_image": crop,
-            "frame": frame.raw.copy(),
-        }
+        return self._captureAuxiliarySampleFromFrame(role, frame.raw)
 
     def _sampleRoleScope(self, role: str) -> str:
         if role in {"c_channel_2", "c_channel_3"}:
@@ -1334,6 +1448,85 @@ class VisionManager:
         if role == "carousel":
             return "carousel"
         return "classification"
+
+    def _sampleCollectionEnabledForRole(self, role: str) -> bool:
+        if role in {"c_channel_2", "c_channel_3"}:
+            return self.isFeederSampleCollectionEnabled(role)
+        if role == "carousel":
+            return self.isCarouselSampleCollectionEnabled()
+        return False
+
+    def _queueAuxiliaryTeacherCapture(
+        self,
+        *,
+        role: str,
+        capture_reason: str,
+        due_at: float,
+        trigger_algorithm: str | None,
+        trigger_metadata: dict[str, Any] | None = None,
+        frame_snapshot: np.ndarray | None = None,
+    ) -> None:
+        if not self._sampleCollectionEnabledForRole(role):
+            return
+        request = AuxiliaryTeacherCaptureRequest(
+            role=role,
+            scope=cast(DetectionScope, self._sampleRoleScope(role)),
+            source="live_aux_teacher_capture",
+            capture_reason=capture_reason,
+            due_at=due_at,
+            created_at=time.time(),
+            trigger_algorithm=trigger_algorithm,
+            trigger_metadata=dict(trigger_metadata or {}),
+            frame_snapshot=frame_snapshot.copy() if isinstance(frame_snapshot, np.ndarray) else None,
+        )
+        with self._auxiliary_capture_lock:
+            self._auxiliary_capture_requests.append(request)
+
+    def scheduleFeederTeacherCaptureAfterMove(
+        self,
+        role: str,
+        *,
+        delay_s: float,
+        move_label: str,
+        pulse_degrees: float,
+    ) -> None:
+        if role not in {"c_channel_2", "c_channel_3"}:
+            return
+        self._queueAuxiliaryTeacherCapture(
+            role=role,
+            capture_reason="channel_move_complete",
+            due_at=time.time() + max(0.0, delay_s),
+            trigger_algorithm=self.getFeederDetectionAlgorithm(),
+            trigger_metadata={
+                "trigger_move_label": move_label,
+                "trigger_move_delay_ms": int(round(max(0.0, delay_s) * 1000.0)),
+                "trigger_pulse_degrees": float(pulse_degrees),
+            },
+        )
+
+    def scheduleCarouselTeacherCaptureOnClassicTrigger(
+        self,
+        *,
+        score: float | None,
+        hot_pixels: int | None,
+    ) -> None:
+        if self.getCarouselDetectionAlgorithm() == "gemini_sam":
+            return
+        frame_snapshot: np.ndarray | None = None
+        if self._carousel_capture is not None and self._carousel_capture.latest_frame is not None:
+            frame_snapshot = self._carousel_capture.latest_frame.raw.copy()
+        self._queueAuxiliaryTeacherCapture(
+            role="carousel",
+            capture_reason="carousel_classic_trigger",
+            due_at=time.time(),
+            trigger_algorithm=self.getCarouselDetectionAlgorithm(),
+            trigger_metadata={
+                "trigger_score": float(score) if isinstance(score, (int, float)) else None,
+                "trigger_hot_pixels": int(hot_pixels) if isinstance(hot_pixels, int) else None,
+                "trigger_used_frozen_frame": bool(frame_snapshot is not None),
+            },
+            frame_snapshot=frame_snapshot,
+        )
 
     def getFeederHeatmapDetections(self) -> list[ChannelDetection]:
         if self.getFeederDetectionAlgorithm() == "gemini_sam":
@@ -1823,8 +2016,123 @@ class VisionManager:
             result["_sample_capture"] = self._captureAuxiliarySample("carousel")
         return result
 
-    def _archiveAuxiliaryDetectionSample(self, role: str, payload: Dict[str, object]) -> None:
-        return None
+    def _processPendingAuxiliaryTeacherCaptures(self) -> None:
+        now = time.time()
+        ready: list[AuxiliaryTeacherCaptureRequest] = []
+        with self._auxiliary_capture_lock:
+            pending: list[AuxiliaryTeacherCaptureRequest] = []
+            for request in self._auxiliary_capture_requests:
+                if request.due_at <= now:
+                    ready.append(request)
+                else:
+                    pending.append(request)
+            self._auxiliary_capture_requests = pending
+        for request in ready:
+            self._executeAuxiliaryTeacherCapture(request)
+
+    def _executeAuxiliaryTeacherCapture(self, request: AuxiliaryTeacherCaptureRequest) -> None:
+        if not self._sampleCollectionEnabledForRole(request.role):
+            return
+
+        frame_raw: np.ndarray | None = (
+            request.frame_snapshot.copy()
+            if isinstance(request.frame_snapshot, np.ndarray)
+            else None
+        )
+        if frame_raw is None:
+            capture = self.getCaptureThreadForRole(request.role)
+            frame = capture.latest_frame if capture is not None else None
+            if frame is None:
+                self.gc.logger.info(
+                    f"Auxiliary teacher capture skipped for {request.role}: no live frame available"
+                )
+                return
+            frame_raw = frame.raw.copy()
+
+        sample_capture = self._captureAuxiliarySampleFromFrame(request.role, frame_raw)
+        input_image = sample_capture.get("input_image")
+        source_frame = sample_capture.get("frame")
+        if not isinstance(input_image, np.ndarray) or input_image.size == 0:
+            self.gc.logger.info(
+                f"Auxiliary teacher capture skipped for {request.role}: no cropped input image"
+            )
+            return
+
+        detection, rate_limited = self._runGeminiDetectionRequestWithThrottle(
+            DetectionRequest(
+                scope=request.scope,
+                role=request.role,
+                frame=input_image,
+                force=True,
+                metadata={"background": True, "capture_reason": request.capture_reason},
+            )
+        )
+        if rate_limited:
+            retry_delay = self._openrouterRetryDelay()
+            with self._auxiliary_capture_lock:
+                self._auxiliary_capture_requests.append(
+                    replace(request, due_at=time.time() + retry_delay)
+                )
+            self.gc.logger.info(
+                "Deferred auxiliary teacher capture for %s by %.2fs to respect OpenRouter rate limits",
+                request.role,
+                retry_delay,
+            )
+            return
+
+        message = "Gemini teacher capture found no piece."
+        if detection is not None and detection.bbox is not None:
+            message = "Gemini teacher capture found candidate pieces."
+        elif request.scope == "feeder":
+            detector = self._feeder_gemini_detectors.get(request.role)
+            if detector is not None and isinstance(detector._last_error, str) and detector._last_error:
+                message = f"Gemini teacher capture error: {detector._last_error}"
+        elif request.scope == "carousel":
+            detector = self._carousel_gemini_detector
+            if detector is not None and isinstance(detector._last_error, str) and detector._last_error:
+                message = f"Gemini teacher capture error: {detector._last_error}"
+
+        try:
+            from server.classification_training import getClassificationTrainingManager
+
+            getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
+                source=request.source,
+                source_role=request.role,
+                detection_scope=request.scope,
+                capture_reason=request.capture_reason,
+                detection_algorithm="gemini_sam",
+                detection_openrouter_model=self._openRouterModelForScope(request.scope),
+                detection_found=bool(detection is not None and detection.bbox is not None),
+                detection_bbox=(
+                    list(detection.bbox)
+                    if detection is not None and detection.bbox is not None
+                    else None
+                ),
+                detection_candidate_bboxes=(
+                    [list(candidate) for candidate in detection.bboxes]
+                    if detection is not None
+                    else []
+                ),
+                detection_bbox_count=len(detection.bboxes) if detection is not None else 0,
+                detection_score=self._detectionScoreValue(detection),
+                detection_message=message,
+                input_image=input_image,
+                source_frame=source_frame if isinstance(source_frame, np.ndarray) else None,
+                extra_metadata={
+                    "teacher_capture": True,
+                    "teacher_capture_requested_at": request.created_at,
+                    "teacher_capture_due_at": request.due_at,
+                    "teacher_capture_used_frozen_frame": bool(
+                        isinstance(request.frame_snapshot, np.ndarray)
+                    ),
+                    "trigger_algorithm": request.trigger_algorithm,
+                    **request.trigger_metadata,
+                },
+            )
+        except Exception as exc:
+            self.gc.logger.warning(
+                f"Failed to archive auxiliary teacher capture for {request.role}: {exc}"
+            )
 
     def _refreshAuxiliaryDetections(self) -> None:
         if self.getFeederDetectionAlgorithm() == "gemini_sam":
@@ -1847,40 +2155,11 @@ class VisionManager:
                     detection = self._computeCarouselGeminiDetection(frame, force_call=False)
                     self._carousel_dynamic_detection_cache = (frame.timestamp, detection)
 
-    def _maybeArchiveAuxiliarySnapshots(self) -> None:
-        now = time.time()
-        sample_candidates: list[tuple[str, Dict[str, object]]] = []
-
-        if self.isFeederSampleCollectionEnabled():
-            for role in ("c_channel_2", "c_channel_3"):
-                capture = self.getCaptureThreadForRole(role)
-                frame = capture.latest_frame if capture is not None else None
-                if frame is None:
-                    continue
-                payload = self._buildFeederDetectionPayload(role, frame, force=False)
-                if not bool(payload.get("found")):
-                    continue
-                sample_candidates.append((role, payload))
-
-        if self.isCarouselSampleCollectionEnabled() and self._carousel_capture is not None:
-            frame = self._carousel_capture.latest_frame
-            if frame is not None:
-                payload = self._buildCarouselDetectionPayload(frame, force=False)
-                if bool(payload.get("found")):
-                    sample_candidates.append(("carousel", payload))
-
-        for role, payload in sample_candidates:
-            last_saved = self._auxiliary_last_sample_at.get(role, 0.0)
-            if now - last_saved < AUXILIARY_SAMPLE_INTERVAL_S:
-                continue
-            self._archiveAuxiliaryDetectionSample(role, payload)
-            self._auxiliary_last_sample_at[role] = now
-
     def _auxiliaryDetectionLoop(self) -> None:
         while not self._aux_detection_stop.is_set():
             try:
                 self._refreshAuxiliaryDetections()
-                self._maybeArchiveAuxiliarySnapshots()
+                self._processPendingAuxiliaryTeacherCaptures()
             except Exception as exc:
                 self.gc.logger.warning(f"Auxiliary detection loop error: {exc}")
             self._aux_detection_stop.wait(AUXILIARY_DETECTION_LOOP_INTERVAL_S)

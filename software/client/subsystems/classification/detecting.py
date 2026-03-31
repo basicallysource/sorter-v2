@@ -103,6 +103,10 @@ class Detecting(BaseState):
                     f"Detecting: confirming detection "
                     f"(score={score:.1f}, hot_px={hot_px})"
                 )
+                self.vision.scheduleCarouselTeacherCaptureOnClassicTrigger(
+                    score=score,
+                    hot_pixels=hot_px,
+                )
                 self.shared.classification_ready = False
                 wait_ms = (now - self._ready_at) * 1000 if self._ready_at else 0
                 total_ms = (now - self._entered_at) * 1000 if self._entered_at else 0

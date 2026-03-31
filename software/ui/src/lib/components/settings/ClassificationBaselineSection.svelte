@@ -92,7 +92,7 @@
 	}
 
 	function configPath(): string {
-		if (scope === 'feeder') return '/api/feeder/detection-config';
+		if (scope === 'feeder') return `/api/feeder/detection-config?role=${encodeURIComponent(camera)}`;
 		if (scope === 'carousel') return '/api/carousel/detection-config';
 		return '/api/classification/detection-config';
 	}
@@ -123,10 +123,10 @@
 
 	function scopeDescription(): string {
 		if (scope === 'feeder') {
-			return `Compare detection methods on the live ${label} frame. Auxiliary sample archiving is currently disabled.`;
+			return `Compare detection methods on the live ${label} frame and optionally archive Gemini teacher captures after completed ${label} moves.`;
 		}
 		if (scope === 'carousel') {
-			return 'Compare carousel trigger methods on the live drop frame. Auxiliary sample archiving is currently disabled.';
+			return 'Compare carousel trigger methods on the live drop frame and optionally archive Gemini teacher captures when the classic trigger fires.';
 		}
 		return `Compare detection methods on the live ${label} frame and save chamber samples for later review and retesting.`;
 	}
@@ -290,8 +290,8 @@
 			openrouterModel,
 			value,
 			value
-				? 'Periodic positive-sample collection enabled.'
-				: 'Periodic positive-sample collection disabled.',
+				? 'Event-driven Gemini teacher sample collection enabled.'
+				: 'Event-driven Gemini teacher sample collection disabled.',
 			true
 		);
 	}
@@ -335,7 +335,7 @@
 					: null;
 			statusMsg = payload.message;
 			if (payload.saved_to_library) {
-				statusMsg = `${payload.message} Saved to Classification Samples.`;
+					statusMsg = `${payload.message} Saved to Samples.`;
 			} else if (payload.saved_sample_error) {
 				statusMsg = `${payload.message} Could not archive this test run: ${payload.saved_sample_error}`;
 			}
@@ -393,9 +393,18 @@
 
 	function sampleCollectionDescription(): string {
 		if (!sampleCollectionSupported) {
-			return 'Auxiliary sample archiving for C-channels and carousel is temporarily disabled.';
+			return 'Event-driven Gemini teacher sample collection is unavailable for the current camera setup.';
 		}
-		return 'Archive positive detections from this live view at most once per second for later filtering and retesting.';
+		if (scope === 'feeder') {
+			return `After each completed ${label} move, capture the scoped image, run Gemini on it, and save the result as a sample.`;
+		}
+		if (scope === 'carousel') {
+			if (algorithm === 'gemini_sam') {
+				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classical carousel triggers.';
+			}
+			return 'When the classic carousel trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
+		}
+		return 'Save live Gemini teacher captures from this scope for later filtering and retesting.';
 	}
 
 	function canCaptureBaseline(): boolean {
@@ -406,7 +415,8 @@
 		const machineKey =
 			(manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null) ??
 			'__local__';
-		const configKey = `${machineKey}:${scope}`;
+		const configKey =
+			scope === 'feeder' ? `${machineKey}:${scope}:${camera}` : `${machineKey}:${scope}`;
 		if (machineKey !== loadedMachineKey) {
 			loadedMachineKey = machineKey;
 		}

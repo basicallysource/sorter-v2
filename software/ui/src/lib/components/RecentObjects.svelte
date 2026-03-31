@@ -95,11 +95,7 @@
 	}
 
 	function isMinimized(obj: KnownObjectData): boolean {
-		return (
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail'
-		);
+		return obj.classification_status === 'unknown' || obj.classification_status === 'not_found';
 	}
 </script>
 

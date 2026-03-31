@@ -86,6 +86,7 @@ client/blob/
 
 # Persistent data
 client/data.json
+client/polygons.json
 client/aruco_config.json
 client/bin_layout.json
 client/every_part_bl_api_res.json
@@ -99,3 +100,9 @@ android-camera-app/.gradle/
 android-camera-app/build/
 android-camera-app/app/build/
 android-camera-app/local.properties
+
+# Model weight files (too large for git)
+*.pt
+
+# Model checkpoints directory
+client/models/checkpoints/

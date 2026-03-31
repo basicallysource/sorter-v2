@@ -19,10 +19,11 @@ class LocalDetectorModel:
     run_id: str
     label: str
     run_dir: Path
-    onnx_path: Path
+    model_path: Path
     imgsz: int
     created_at: float
     model_family: str
+    runtime: str
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -69,12 +70,47 @@ def _model_family(payload: dict[str, Any]) -> str:
     return "yolo"
 
 
+def _runtime(payload: dict[str, Any]) -> str:
+    runtime = payload.get("runtime")
+    if isinstance(runtime, str) and runtime.strip():
+        return runtime.strip()
+    training = payload.get("training")
+    if isinstance(training, dict):
+        runtime = training.get("runtime")
+        if isinstance(runtime, str) and runtime.strip():
+            return runtime.strip()
+    return "onnx"
+
+
+def _format_runtime_label(runtime: str) -> str:
+    normalized = runtime.strip().lower()
+    if normalized in {"onnx", "ncnn"}:
+        return normalized.upper()
+    return normalized.replace("_", " ").title()
+
+
 def _display_label(run_id: str, payload: dict[str, Any]) -> str:
     run_name = payload.get("run_name")
     family_label = _model_family(payload).replace("_", " ").title()
+    runtime_label = _format_runtime_label(_runtime(payload))
     if isinstance(run_name, str) and run_name.strip():
-        return f"Local Detector - {run_name.strip()} ({family_label})"
-    return f"Local Detector - {run_id} ({family_label})"
+        return f"Local Detector - {run_name.strip()} [{family_label} / {runtime_label}]"
+    return f"Local Detector - {run_id} [{family_label} / {runtime_label}]"
+
+
+def _resolve_artifact_path(
+    run_dir: Path,
+    configured_path: Any,
+    default_path: Path,
+    *,
+    expect_dir: bool = False,
+) -> Path | None:
+    path = Path(configured_path) if isinstance(configured_path, str) and configured_path else default_path
+    if not path.is_absolute():
+        path = (run_dir / path).resolve()
+    if expect_dir:
+        return path if path.exists() and path.is_dir() else None
+    return path if path.exists() and path.is_file() else None
 
 
 def list_local_detector_models() -> list[LocalDetectorModel]:
@@ -95,16 +131,28 @@ def list_local_detector_models() -> list[LocalDetectorModel]:
         if not isinstance(training, dict):
             continue
 
-        onnx_value = training.get("onnx_model")
-        onnx_path = Path(onnx_value) if isinstance(onnx_value, str) and onnx_value else (run_dir / "exports" / "best.onnx")
-        if not onnx_path.exists() or not onnx_path.is_file():
-            continue
-
         train_args = run_json.get("train_args")
         created_at = _safe_float(run_json.get("created_at"), default=run_dir.stat().st_mtime if run_dir.exists() else time.time())
         imgsz = _safe_int(train_args.get("imgsz") if isinstance(train_args, dict) else None, default=640)
         run_id = run_dir.name
         model_family = _model_family(run_json)
+        runtime = _runtime(run_json)
+
+        if runtime == "ncnn":
+            model_path = _resolve_artifact_path(
+                run_dir,
+                training.get("ncnn_model_dir"),
+                run_dir / "exports" / "best_ncnn_model",
+                expect_dir=True,
+            )
+        else:
+            model_path = _resolve_artifact_path(
+                run_dir,
+                training.get("onnx_model"),
+                run_dir / "exports" / "best.onnx",
+            )
+        if model_path is None:
+            continue
 
         models.append(
             LocalDetectorModel(
@@ -112,10 +160,11 @@ def list_local_detector_models() -> list[LocalDetectorModel]:
                 run_id=run_id,
                 label=_display_label(run_id, run_json),
                 run_dir=run_dir,
-                onnx_path=onnx_path,
+                model_path=model_path,
                 imgsz=imgsz,
                 created_at=created_at,
                 model_family=model_family,
+                runtime=runtime,
             )
         )
     return models

@@ -60,23 +60,13 @@ def getMachineId() -> str:
 
 
 def getMachineNickname() -> str | None:
-    data = loadData()
-    nickname = data.get("machine_nickname")
-    if not isinstance(nickname, str):
-        return None
-    nickname = nickname.strip()
-    return nickname or None
+    from toml_config import getMachineNickname as _get
+    return _get()
 
 
 def setMachineNickname(nickname: str | None) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        normalized = nickname.strip() if isinstance(nickname, str) else ""
-        if normalized:
-            data["machine_nickname"] = normalized
-        else:
-            data.pop("machine_nickname", None)
-        saveData(data)
+    from toml_config import setMachineNickname as _set
+    _set(nickname)
 
 
 def getStepperPosition(name: str) -> int:
@@ -119,124 +109,94 @@ def setBinCategories(categories: list[list[list[list[str]]]]) -> None:
         saveData(data)
 
 
-def getMcuPath() -> str | None:
-    data = loadData()
-    return data.get("mcu_path")
-
-
-def setMcuPath(path: str) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["mcu_path"] = path
-        saveData(data)
-
-
 def getCameraSetup() -> dict | None:
-    data = loadData()
-    return data.get("camera_setup")
+    from toml_config import getCameraSetup as _get
+    return _get()
 
 
 def setCameraSetup(setup: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["camera_setup"] = setup
-        saveData(data)
+    from toml_config import setCameraSetup as _set
+    _set(setup)
 
 
 def getChannelPolygons() -> dict | None:
-    data = loadData()
-    return data.get("channel_polygons")
+    from toml_config import getChannelPolygons as _get
+    return _get()
 
 
 def setChannelPolygons(polygons: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["channel_polygons"] = polygons
-        saveData(data)
+    from toml_config import setChannelPolygons as _set
+    _set(polygons)
 
 
 def getChuteCalibration() -> dict[str, float] | None:
-    data = loadData()
-    return data.get("chute_calibration")
+    from toml_config import getChuteCalibration as _get
+    return _get()
 
 
 def setChuteCalibration(calibration: dict[str, float]) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["chute_calibration"] = calibration
-        saveData(data)
+    from toml_config import setChuteCalibration as _set
+    _set(calibration)
 
 
 def getClassificationPolygons() -> dict | None:
-    data = loadData()
-    return data.get("classification_polygons")
+    from toml_config import getClassificationPolygons as _get
+    return _get()
 
 
 def setClassificationPolygons(polygons: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["classification_polygons"] = polygons
-        saveData(data)
+    from toml_config import setClassificationPolygons as _set
+    _set(polygons)
 
 
 def getClassificationDetectionConfig() -> dict | None:
-    data = loadData()
-    return data.get("classification_detection")
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("classification")
 
 
 def setClassificationDetectionConfig(config: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["classification_detection"] = config
-        saveData(data)
+    from toml_config import setDetectionConfig
+    setDetectionConfig("classification", config)
 
 
 def getFeederDetectionConfig() -> dict | None:
-    data = loadData()
-    return data.get("feeder_detection")
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("feeder")
 
 
 def setFeederDetectionConfig(config: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["feeder_detection"] = config
-        saveData(data)
+    from toml_config import setDetectionConfig
+    setDetectionConfig("feeder", config)
 
 
 def getCarouselDetectionConfig() -> dict | None:
-    data = loadData()
-    return data.get("carousel_detection")
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("carousel")
 
 
 def setCarouselDetectionConfig(config: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["carousel_detection"] = config
-        saveData(data)
+    from toml_config import setDetectionConfig
+    setDetectionConfig("carousel", config)
 
 
 def getClassificationTrainingConfig() -> dict | None:
-    data = loadData()
-    return data.get("classification_training")
+    from toml_config import getClassificationTrainingConfig as _get
+    return _get()
 
 
 def setClassificationTrainingConfig(config: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["classification_training"] = config
-        saveData(data)
+    from toml_config import setClassificationTrainingConfig as _set
+    _set(config)
 
 
 def getApiKeys() -> dict:
-    data = loadData()
-    return data.get("api_keys", {})
+    from toml_config import getApiKeys as _get
+    return _get()
 
 
 def setApiKeys(keys: dict) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["api_keys"] = keys
-        saveData(data)
+    from toml_config import setApiKeys as _set
+    _set(keys)
 
 
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]

@@ -31,6 +31,7 @@ SUPPORTED_OPENROUTER_MODELS = (
     "qwen/qwen3.5-flash-02-23",
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_API_TIMEOUT_S = 15.0
 
 
 def normalize_openrouter_model(model: str | None) -> str:
@@ -41,18 +42,38 @@ def normalize_openrouter_model(model: str | None) -> str:
     return DEFAULT_OPENROUTER_MODEL
 
 
-def _gemini_prompt(width: int, height: int) -> str:
+ZONE_PROMPTS: dict[str, tuple[str, str]] = {
+    "classification_chamber": (
+        "You are annotating an image from a sorting machine's classification chamber. "
+        "The camera looks down at a small tray where objects arrive for identification.",
+        "Ignore the tray surface, reflections, highlights, and shadows that are not part of an object.",
+    ),
+    "carousel": (
+        "You are annotating an image from a sorting machine's carousel drop zone. "
+        "The camera looks down at a rotating turntable with a black center disc where objects land after being sorted.",
+        "Ignore the turntable surface, the black disc, reflections, highlights, and shadows that are not part of an object.",
+    ),
+    "c_channel": (
+        "You are annotating an image from a sorting machine's feed channel (c-channel). "
+        "The camera looks down at a narrow channel through which objects slide toward the classification chamber.",
+        "Ignore the channel surface, reflections, highlights, and shadows that are not part of an object.",
+    ),
+}
+
+
+def _gemini_prompt(width: int, height: int, zone: str = "classification_chamber") -> str:
+    context, ignore_rules = ZONE_PROMPTS.get(zone, ZONE_PROMPTS["classification_chamber"])
     return (
-        "You are annotating a cropped tray image from a LEGO sorter classification chamber.\n\n"
-        "Detect every distinct loose LEGO piece visible in the tray crop.\n\n"
+        f"{context}\n\n"
+        "Detect every distinct small object (typically plastic parts such as LEGO bricks, but also any other "
+        "loose items like screws, small stones, or other debris) visible in the image.\n\n"
         "Rules:\n"
-        "- Detect each separate LEGO piece exactly once.\n"
-        "- Ignore tray walls, tray floor, reflections, highlights, screws, printed markers, and static hardware.\n"
-        "- Ignore shadows unless they are part of the piece body.\n"
-        "- Return tight boxes around the actual piece extents.\n"
-        "- If no pieces are visible, return an empty detections array.\n\n"
+        "- Detect each separate object exactly once.\n"
+        f"- {ignore_rules}\n"
+        "- Return tight bounding boxes around the actual object extents.\n"
+        "- If no objects are visible, return an empty detections array.\n\n"
         "Return ONLY valid JSON, no markdown:\n"
-        '{"detections":[{"description":"brief piece description",'
+        '{"detections":[{"description":"brief object description",'
         '"bbox":[y_min,x_min,y_max,x_max],"confidence":0.0-1.0}]}\n\n'
         f"Coordinates must use a 0-1000 normalized scale for this {width}x{height} image."
     )
@@ -62,7 +83,13 @@ def _extract_json(text: str) -> dict[str, Any]:
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise RuntimeError("Model response did not contain JSON.")
-    return json.loads(match.group())
+    raw = match.group()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Try fixing common issues: trailing commas before ] or }
+        cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
+        return json.loads(cleaned)
 
 
 def _call_openrouter(prompt: str, image_b64: str, *, model: str) -> dict[str, Any]:
@@ -87,8 +114,48 @@ def _call_openrouter(prompt: str, image_b64: str, *, model: str) -> dict[str, An
         ],
         temperature=0.1,
         max_tokens=3000,
+        timeout=OPENROUTER_API_TIMEOUT_S,
     )
     return _extract_json(response.choices[0].message.content.strip())
+
+
+def _parse_normalized_bbox(bbox: Any) -> tuple[float, float, float, float] | None:
+    if isinstance(bbox, (list, tuple)):
+        if len(bbox) < 4:
+            return None
+        try:
+            v0, v1, v2, v3 = [float(v) for v in bbox[:4]]
+        except (TypeError, ValueError):
+            return None
+        return v0, v1, v2, v3
+
+    if isinstance(bbox, str):
+        text = bbox.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        return _parse_normalized_bbox(parsed)
+
+    if isinstance(bbox, dict):
+        key_variants = (
+            ("y_min", "x_min", "y_max", "x_max"),
+            ("ymin", "xmin", "ymax", "xmax"),
+            ("top", "left", "bottom", "right"),
+            ("y1", "x1", "y2", "x2"),
+            ("min_y", "min_x", "max_y", "max_x"),
+        )
+        for keys in key_variants:
+            if not all(key in bbox for key in keys):
+                continue
+            try:
+                return tuple(float(bbox[key]) for key in keys)  # type: ignore[return-value]
+            except (TypeError, ValueError):
+                return None
+
+    return None
 
 
 def _get_detections(
@@ -97,9 +164,10 @@ def _get_detections(
     image_b64: str,
     *,
     openrouter_model: str,
+    zone: str = "classification_chamber",
 ) -> list[dict[str, Any]]:
     """Call the configured OpenRouter vision model and parse pixel-coordinate bboxes."""
-    prompt = _gemini_prompt(width, height)
+    prompt = _gemini_prompt(width, height, zone=zone)
 
     payload = _call_openrouter(prompt, image_b64, model=openrouter_model)
 
@@ -120,10 +188,10 @@ def _get_detections(
     result: list[dict[str, Any]] = []
     for det in raw_detections:
         bbox = det.get("bbox", [0, 0, 0, 0])
-        try:
-            v0, v1, v2, v3 = [float(v) for v in bbox[:4]]
-        except (TypeError, ValueError):
+        normalized_bbox = _parse_normalized_bbox(bbox)
+        if normalized_bbox is None:
             continue
+        v0, v1, v2, v3 = normalized_bbox
         # Gemini uses [y_min, x_min, y_max, x_max] in 0-1000 scale, even via OpenRouter.
         y1 = int(max(0.0, min(1000.0, v0)) * sy)
         x1 = int(max(0.0, min(1000.0, v1)) * sx)
@@ -139,17 +207,18 @@ def _get_detections(
     return result
 
 
-MIN_API_INTERVAL_S = 5.0  # minimum seconds between Gemini API calls
+MIN_API_INTERVAL_S = 1.0  # minimum seconds between Gemini API calls
 
 
 class GeminiSamDetector:
-    """Detects LEGO pieces in scoped frames using an OpenRouter vision model."""
+    """Detects objects in scoped frames using an OpenRouter vision model."""
 
-    def __init__(self, openrouter_model: str = DEFAULT_OPENROUTER_MODEL) -> None:
+    def __init__(self, openrouter_model: str = DEFAULT_OPENROUTER_MODEL, zone: str = "classification_chamber") -> None:
         self._last_call_time: float = 0.0
         self._last_result: ClassificationDetectionResult | None = None
         self._last_error: str | None = None
         self._openrouter_model: str = normalize_openrouter_model(openrouter_model)
+        self._zone: str = zone
 
     def setOpenRouterModel(self, model: str) -> None:
         normalized = normalize_openrouter_model(model)
@@ -185,6 +254,7 @@ class GeminiSamDetector:
                 h,
                 image_b64,
                 openrouter_model=self._openrouter_model,
+                zone=self._zone,
             )
         except Exception as exc:
             self._last_error = str(exc)

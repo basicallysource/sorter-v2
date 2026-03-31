@@ -88,6 +88,13 @@ def sample_from_metadata(metadata_path: Path) -> tuple[PreparedSample | None, st
     metadata = read_json(metadata_path)
     if metadata is None:
         return None, "invalid_metadata"
+    review = metadata.get("review")
+    if (
+        isinstance(review, dict)
+        and isinstance(review.get("status"), str)
+        and review.get("status") == "rejected"
+    ):
+        return None, "review_rejected"
     if metadata.get("source_role") != "classification_chamber":
         return None, "wrong_source_role"
     if metadata.get("detection_scope") != "classification":

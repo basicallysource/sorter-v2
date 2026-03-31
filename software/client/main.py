@@ -3,10 +3,13 @@ from pathlib import Path
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+from toml_config import migrateFromDataJson
+migrateFromDataJson()
+
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
-from server.api import (
-    app,
+from server.api import app
+from server.shared_state import (
     broadcastEvent,
     setGlobalConfig,
     setRuntimeVariables,
@@ -45,9 +48,9 @@ def runServer() -> None:
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:
-    import server.api as api
+    import server.shared_state as shared_state
 
-    while api.server_loop is None:
+    while shared_state.server_loop is None:
         time.sleep(0.01)
 
     while True:
@@ -77,7 +80,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             ):
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
-                broadcastEvent(command.model_dump()), api.server_loop
+                broadcastEvent(command.model_dump()), shared_state.server_loop
             )
             try:
                 future.result(timeout=1.0)

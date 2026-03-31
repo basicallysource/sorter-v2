@@ -24,6 +24,7 @@ GEMINI_OPENROUTER_MODEL = "google/gemini-3-flash-preview"
 GEMINI_GOOGLE_MODEL = "gemini-2.5-flash"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_DEVICE = "cpu"
+OPENROUTER_API_TIMEOUT_S = 30.0
 COLORS = [
     (0, 255, 0),
     (255, 0, 0),
@@ -51,6 +52,11 @@ def _parse_args() -> argparse.Namespace:
         "--device",
         default=DEFAULT_DEVICE,
         help="Torch device to use for SAM2",
+    )
+    parser.add_argument(
+        "--zone",
+        default="classification_chamber",
+        help="Detection zone: classification_chamber, carousel, c_channel",
     )
     return parser.parse_args()
 
@@ -113,29 +119,53 @@ def _google_gemini_request(prompt: str, image_b64: str) -> dict[str, Any]:
         raise RuntimeError(f"Google Gemini request failed: {exc.code} {detail}") from exc
 
 
-def _gemini_prompt(width: int, height: int) -> str:
-    return f"""You are annotating a cropped tray image from a LEGO sorter classification chamber.
+ZONE_PROMPTS: dict[str, tuple[str, str]] = {
+    "classification_chamber": (
+        "You are annotating an image from a sorting machine's classification chamber. "
+        "The camera looks down at a small tray where objects arrive for identification.",
+        "Ignore the tray surface, reflections, highlights, and shadows that are not part of an object.",
+    ),
+    "carousel": (
+        "You are annotating an image from a sorting machine's carousel drop zone. "
+        "The camera looks down at a rotating turntable with a black center disc where objects land after being sorted.",
+        "Ignore the turntable surface, the black disc, reflections, highlights, and shadows that are not part of an object.",
+    ),
+    "c_channel": (
+        "You are annotating an image from a sorting machine's feed channel (c-channel). "
+        "The camera looks down at a narrow channel through which objects slide toward the classification chamber.",
+        "Ignore the channel surface, reflections, highlights, and shadows that are not part of an object.",
+    ),
+}
 
-Detect every distinct loose LEGO piece visible in the tray crop.
 
-Rules:
-- Detect each separate LEGO piece exactly once.
-- Ignore tray walls, tray floor, reflections, highlights, screws, printed markers, and static hardware.
-- Ignore shadows unless they are part of the piece body.
-- Return tight boxes around the actual piece extents.
-- If no pieces are visible, return an empty detections array.
-
-Return ONLY valid JSON, no markdown:
-{{"detections":[{{"description":"brief piece description","bbox":[y_min,x_min,y_max,x_max],"confidence":0.0-1.0}}]}}
-
-Coordinates must use a 0-1000 normalized scale for this {width}x{height} image."""
+def _gemini_prompt(width: int, height: int, zone: str = "classification_chamber") -> str:
+    context, ignore_rules = ZONE_PROMPTS.get(zone, ZONE_PROMPTS["classification_chamber"])
+    return (
+        f"{context}\n\n"
+        "Detect every distinct small object (typically plastic parts such as LEGO bricks, but also any other "
+        "loose items like screws, small stones, or other debris) visible in the image.\n\n"
+        "Rules:\n"
+        "- Detect each separate object exactly once.\n"
+        f"- {ignore_rules}\n"
+        "- Return tight bounding boxes around the actual object extents.\n"
+        "- If no objects are visible, return an empty detections array.\n\n"
+        "Return ONLY valid JSON, no markdown:\n"
+        '{"detections":[{"description":"brief object description",'
+        '"bbox":[y_min,x_min,y_max,x_max],"confidence":0.0-1.0}]}\n\n'
+        f"Coordinates must use a 0-1000 normalized scale for this {width}x{height} image."
+    )
 
 
 def _extract_json(text: str) -> dict[str, Any]:
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise RuntimeError("Model response did not contain JSON.")
-    return json.loads(match.group())
+    raw = match.group()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
+        return json.loads(cleaned)
 
 
 def _extract_google_text(payload: dict[str, Any]) -> str:
@@ -150,51 +180,65 @@ def _extract_google_text(payload: dict[str, Any]) -> str:
     return text
 
 
-def _get_gemini_detections(width: int, height: int, image_b64: str) -> tuple[list[dict[str, Any]], str]:
-    prompt = _gemini_prompt(width, height)
-    payload: dict[str, Any]
-    model_label: str
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    if google_api_key:
+def _parse_normalized_bbox(bbox: Any) -> tuple[float, float, float, float] | None:
+    if isinstance(bbox, (list, tuple)):
+        if len(bbox) < 4:
+            return None
         try:
-            payload = _extract_json(_extract_google_text(_google_gemini_request(prompt, image_b64)))
-            model_label = GEMINI_GOOGLE_MODEL
-        except Exception:
-            client = _openrouter_client()
-            response = client.chat.completions.create(
-                model=GEMINI_OPENROUTER_MODEL,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                        ],
-                    }
-                ],
-                temperature=0.1,
-                max_tokens=3000,
-            )
-            payload = _extract_json(response.choices[0].message.content.strip())
-            model_label = GEMINI_OPENROUTER_MODEL
-    else:
-        client = _openrouter_client()
-        response = client.chat.completions.create(
-            model=GEMINI_OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                    ],
-                }
-            ],
-            temperature=0.1,
-            max_tokens=3000,
+            v0, v1, v2, v3 = [float(v) for v in bbox[:4]]
+        except (TypeError, ValueError):
+            return None
+        return v0, v1, v2, v3
+
+    if isinstance(bbox, str):
+        text = bbox.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        return _parse_normalized_bbox(parsed)
+
+    if isinstance(bbox, dict):
+        key_variants = (
+            ("y_min", "x_min", "y_max", "x_max"),
+            ("ymin", "xmin", "ymax", "xmax"),
+            ("top", "left", "bottom", "right"),
+            ("y1", "x1", "y2", "x2"),
+            ("min_y", "min_x", "max_y", "max_x"),
         )
-        payload = _extract_json(response.choices[0].message.content.strip())
-        model_label = GEMINI_OPENROUTER_MODEL
+        for keys in key_variants:
+            if not all(key in bbox for key in keys):
+                continue
+            try:
+                return tuple(float(bbox[key]) for key in keys)  # type: ignore[return-value]
+            except (TypeError, ValueError):
+                return None
+
+    return None
+
+
+def _get_gemini_detections(width: int, height: int, image_b64: str, zone: str = "classification_chamber") -> tuple[list[dict[str, Any]], str]:
+    prompt = _gemini_prompt(width, height, zone=zone)
+    client = _openrouter_client()
+    response = client.chat.completions.create(
+        model=GEMINI_OPENROUTER_MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                ],
+            }
+        ],
+        temperature=0.1,
+        max_tokens=3000,
+        timeout=OPENROUTER_API_TIMEOUT_S,
+    )
+    payload = _extract_json(response.choices[0].message.content.strip())
+    model_label = GEMINI_OPENROUTER_MODEL
 
     detections = payload.get("detections", [])
     sx = width / 1000.0
@@ -202,10 +246,10 @@ def _get_gemini_detections(width: int, height: int, image_b64: str) -> tuple[lis
     result: list[dict[str, Any]] = []
     for det in detections:
         bbox = det.get("bbox", [0, 0, 0, 0])
-        try:
-            y1_n, x1_n, y2_n, x2_n = [float(v) for v in bbox[:4]]
-        except (TypeError, ValueError):
+        normalized_bbox = _parse_normalized_bbox(bbox)
+        if normalized_bbox is None:
             continue
+        y1_n, x1_n, y2_n, x2_n = normalized_bbox
         x1 = int(max(0.0, min(1000.0, x1_n)) * sx)
         y1 = int(max(0.0, min(1000.0, y1_n)) * sy)
         x2 = int(max(0.0, min(1000.0, x2_n)) * sx)
@@ -222,7 +266,7 @@ def _get_gemini_detections(width: int, height: int, image_b64: str) -> tuple[lis
     return result, model_label
 
 
-def _get_gemini_detections_legacy(client: OpenAI, image_path: Path, width: int, height: int) -> list[dict[str, Any]]:
+def _get_gemini_detections_legacy(client: OpenAI, image_path: Path, width: int, height: int, zone: str = "classification_chamber") -> list[dict[str, Any]]:
     pil_img = Image.open(image_path).convert("RGB")
     img_b64 = _image_to_base64_jpeg(pil_img)
     response = client.chat.completions.create(
@@ -231,13 +275,14 @@ def _get_gemini_detections_legacy(client: OpenAI, image_path: Path, width: int, 
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": _gemini_prompt(width, height)},
+                    {"type": "text", "text": _gemini_prompt(width, height, zone=zone)},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
                 ],
             }
         ],
         temperature=0.1,
         max_tokens=3000,
+        timeout=OPENROUTER_API_TIMEOUT_S,
     )
     payload = _extract_json(response.choices[0].message.content.strip())
     return payload.get("detections", [])
@@ -324,7 +369,7 @@ def main() -> int:
     width, height = pil_img.size
 
     image_b64 = _image_to_base64_jpeg(pil_img)
-    detections, model_name = _get_gemini_detections(width, height, image_b64)
+    detections, model_name = _get_gemini_detections(width, height, image_b64, zone=args.zone)
 
     predictor = _load_predictor(checkpoint_path, args.device)
     masks: list[np.ndarray] = _segment(predictor, image_rgb, [det["bbox"] for det in detections]) if detections else []

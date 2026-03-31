@@ -10,6 +10,7 @@ from vision import VisionManager
 from defs.consts import LOOP_TICK_MS
 
 CH3_PRECISE_HOLDOVER_MS = 2000
+CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -33,6 +34,11 @@ class Feeding(BaseState):
         self._busy_until: dict[str, float] = {}
         self._ch3_last_precise_at: float = 0.0
         self._occupancy_state_by_resource: dict[str, str] = {}
+        self._last_ch2_activity_at: float = time.monotonic()
+        self._ch1_pulses_since_ch2_activity: int = 0
+        self._ch1_jam_recovery_cooldown_until: float = 0.0
+        self._ch1_jam_recovery_level: int = 0
+        self._last_ch1_jam_recovery_level_used: int = 0
 
     def _setOccupancyState(self, resource_name: str, state_name: str) -> None:
         prev_state = self._occupancy_state_by_resource.get(resource_name)
@@ -44,6 +50,86 @@ class Feeding(BaseState):
             prev_state,
             state_name,
         )
+
+    def _ch1RecoveryDegrees(self, cfg: "RotorPulseConfig", recovery_level: int) -> float:
+        _ = cfg
+        base_output_degrees = float(
+            self.irl_config.feeder_config.first_rotor_jam_backtrack_output_degrees
+        )
+        max_output_degrees = float(
+            self.irl_config.feeder_config.first_rotor_jam_max_output_degrees
+        )
+        output_degrees = min(max_output_degrees, base_output_degrees + recovery_level * 6.0)
+        return max(15.0, min(30.0, output_degrees))
+
+    def _ch1RecoveryCycles(self, recovery_level: int) -> int:
+        max_cycles = max(1, int(self.irl_config.feeder_config.first_rotor_jam_max_cycles))
+        return max(1, min(max_cycles, 1 + recovery_level))
+
+    def _runCh1JamRecovery(self, cfg: "RotorPulseConfig", now_mono: float) -> bool:
+        if self._isStepperBusy(self.irl.c_channel_1_rotor_stepper):
+            return False
+
+        recovery_level = min(self._ch1_jam_recovery_level, 4)
+        self._last_ch1_jam_recovery_level_used = recovery_level
+        recovery_degrees = self._ch1RecoveryDegrees(cfg, recovery_level)
+        recovery_cycles = self._ch1RecoveryCycles(recovery_level)
+        recovery_label = f"ch1_jam_recovery_l{recovery_level + 1}"
+        self.gc.logger.warning(
+            "Feeder: bulk bucket appears stuck before C-Channel 2; "
+            f"running ch1 jam recovery level {recovery_level + 1} "
+            f"({recovery_cycles}x {recovery_degrees:.1f}° back/forward)"
+        )
+
+        self.gc.profiler.hit("feeder.path.ch1_jam_recovery")
+        self.gc.runtime_stats.observePulse(recovery_label, "sent", now_mono)
+
+        motor_recovery_degrees = recovery_degrees * CHANNEL_OUTPUT_GEAR_RATIO
+        move_timeout_ms = max(2500, int(recovery_degrees * 90))
+        reverse_ok = True
+        forward_ok = True
+        for cycle_index in range(recovery_cycles):
+            reverse_ok = self.irl.c_channel_1_rotor_stepper.move_degrees_blocking(
+                -motor_recovery_degrees,
+                timeout_ms=move_timeout_ms,
+            )
+            if not reverse_ok:
+                self.gc.profiler.hit("feeder.jam_recovery.reverse_failed")
+                self.gc.logger.warning(
+                    f"Feeder: ch1 jam recovery reverse move failed on cycle {cycle_index + 1}/{recovery_cycles}"
+                )
+                break
+
+            forward_ok = self.irl.c_channel_1_rotor_stepper.move_degrees_blocking(
+                motor_recovery_degrees,
+                timeout_ms=move_timeout_ms,
+            )
+            if not forward_ok:
+                self.gc.profiler.hit("feeder.jam_recovery.forward_failed")
+                self.gc.logger.warning(
+                    f"Feeder: ch1 jam recovery forward move failed on cycle {cycle_index + 1}/{recovery_cycles}"
+                )
+                break
+
+        if reverse_ok and forward_ok:
+            self.gc.logger.info(
+                f"Feeder: ch1 jam recovery level {recovery_level + 1} completed"
+            )
+
+        now_after = time.monotonic()
+        self._busy_until[self.irl.c_channel_1_rotor_stepper._name] = max(
+            self._busy_until.get(self.irl.c_channel_1_rotor_stepper._name, 0.0),
+            now_after + max(0.25, cfg.delay_between_pulse_ms / 1000.0),
+        )
+        self._ch1_jam_recovery_cooldown_until = (
+            now_after + self.irl_config.feeder_config.first_rotor_jam_retry_cooldown_s
+        )
+        self._ch1_pulses_since_ch2_activity = 0
+        self._ch1_jam_recovery_level = min(
+            self._ch1_jam_recovery_level + 1,
+            max(0, int(self.irl_config.feeder_config.first_rotor_jam_max_cycles) - 1),
+        )
+        return reverse_ok and forward_ok
 
     def step(self) -> Optional[FeederState]:
         self._ensureExecutionThreadStarted()
@@ -71,6 +157,20 @@ class Feeding(BaseState):
         exec_ms = stepper.estimateMoveDegreesMs(pulse_degrees)
         if success:
             cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+            if label.startswith("ch2"):
+                self.vision.scheduleFeederTeacherCaptureAfterMove(
+                    "c_channel_2",
+                    delay_s=max(0.0, exec_ms) / 1000.0,
+                    move_label=label,
+                    pulse_degrees=float(pulse_degrees),
+                )
+            elif label.startswith("ch3"):
+                self.vision.scheduleFeederTeacherCaptureAfterMove(
+                    "c_channel_3",
+                    delay_s=max(0.0, exec_ms) / 1000.0,
+                    move_label=label,
+                    pulse_degrees=float(pulse_degrees),
+                )
         else:
             # Back off briefly after a rejected hardware move to avoid a hot retry loop.
             cooldown_ms = max(500, cfg.delay_between_pulse_ms)
@@ -107,6 +207,12 @@ class Feeding(BaseState):
                 elif ch3_action == ChannelAction.PULSE_NORMAL and self._ch3_last_precise_at > 0:
                     if (now - self._ch3_last_precise_at) * 1000 < CH3_PRECISE_HOLDOVER_MS:
                         ch3_action = ChannelAction.PULSE_PRECISE
+
+                ch2_active = analysis.ch2_dropzone_occupied or ch2_action != ChannelAction.IDLE
+                if ch2_active:
+                    self._last_ch2_activity_at = now
+                    self._ch1_pulses_since_ch2_activity = 0
+                    self._ch1_jam_recovery_level = 0
 
                 if ch2_action != self._last_ch2_action:
                     self.gc.logger.info(f"state change: ch2 {self._last_ch2_action.value} -> {ch2_action.value}")
@@ -221,17 +327,44 @@ class Feeding(BaseState):
                     self.gc.runtime_stats.observeBlockedReason("feeder", "ch2_blocked_by_ch3_dropzone")
 
                 # channel 1 — only pulse if ch2 dropzone is clear
+                ch1_jam_recovery_triggered = False
                 if not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
-                    pulse_intent = True
-                    if self._sendPulse("ch1", self.irl.c_channel_1_rotor_stepper, fc.first_rotor):
-                        pulse_sent = True
-                        self.gc.logger.info("Feeder: clear, pulsing 1st")
+                    no_recent_ch2_activity = (
+                        now - self._last_ch2_activity_at >= fc.first_rotor_jam_timeout_s
+                    )
+                    ch1_has_been_trying = (
+                        self._ch1_pulses_since_ch2_activity >= fc.first_rotor_jam_min_pulses
+                    )
+                    recovery_ready = now >= self._ch1_jam_recovery_cooldown_until
+                    if (
+                        no_recent_ch2_activity
+                        and ch1_has_been_trying
+                        and recovery_ready
+                        and not analysis.ch3_dropzone_occupied
+                    ):
+                        ch1_jam_recovery_triggered = self._runCh1JamRecovery(
+                            fc.first_rotor,
+                            now,
+                        )
+                        pulse_intent = True
+                        pulse_sent = pulse_sent or ch1_jam_recovery_triggered
+                    else:
+                        pulse_intent = True
+                        if self._sendPulse("ch1", self.irl.c_channel_1_rotor_stepper, fc.first_rotor):
+                            pulse_sent = True
+                            self._ch1_pulses_since_ch2_activity += 1
+                            self.gc.logger.info("Feeder: clear, pulsing 1st")
                 else:
                     prof.hit("feeder.skip.ch1_dropzone_occupied")
                     self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_blocked_by_ch2_dropzone")
 
-                if analysis.ch2_dropzone_occupied:
+                if ch1_jam_recovery_triggered:
+                    self._setOccupancyState(
+                        "feeder.ch1",
+                        f"feeding.recover_bulk_bucket_to_ch2_l{self._last_ch1_jam_recovery_level_used + 1}",
+                    )
+                elif analysis.ch2_dropzone_occupied:
                     self._setOccupancyState("feeder.ch1", "feeding.wait_ch2_dropzone_clear")
                 else:
                     self._setOccupancyState("feeder.ch1", "feeding.pulse_ch1_when_clear")

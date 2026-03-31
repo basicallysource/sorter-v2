@@ -42,7 +42,7 @@ from .parse_user_toml import (
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
 )
-from blob_manager import getBinCategories, getCameraSetup
+from blob_manager import getBinCategories
 
 
 def _servo_state_path() -> str | None:
@@ -215,6 +215,12 @@ class FeederConfig:
     second_rotor_precision: RotorPulseConfig
     third_rotor_normal: RotorPulseConfig
     third_rotor_precision: RotorPulseConfig
+    first_rotor_jam_timeout_s: float
+    first_rotor_jam_min_pulses: int
+    first_rotor_jam_retry_cooldown_s: float
+    first_rotor_jam_backtrack_output_degrees: float
+    first_rotor_jam_max_output_degrees: float
+    first_rotor_jam_max_cycles: int
 
     def __init__(self):
         self.first_rotor = RotorPulseConfig(
@@ -242,6 +248,12 @@ class FeederConfig:
             microsteps_per_second=3000,
             delay_between_ms=1000,
         )
+        self.first_rotor_jam_timeout_s = 10.0
+        self.first_rotor_jam_min_pulses = 6
+        self.first_rotor_jam_retry_cooldown_s = 8.0
+        self.first_rotor_jam_backtrack_output_degrees = 18.0
+        self.first_rotor_jam_max_output_degrees = 30.0
+        self.first_rotor_jam_max_cycles = 5
 
 
 class IRLConfig:
@@ -557,10 +569,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
     # Check for TOML camera layout override
-    from global_config import mkGlobalConfig as _mkGC
-    # We need a lightweight logger; borrow from GlobalConfig if available later.
-    # For now, camera layout is parsed in mkIRLInterface where gc is available.
-    # Here we just check the raw TOML for layout type.
     import os, tomllib
     camera_layout_type = "default"
     raw_toml: dict[str, object] = {}
@@ -572,6 +580,8 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             cameras_section = raw_toml.get("cameras", {})
             if isinstance(cameras_section, dict):
                 camera_layout_type = cameras_section.get("layout", "default")
+            if camera_layout_type not in ("default", "split_feeder"):
+                camera_layout_type = "default"
         except Exception:
             pass
 
@@ -604,14 +614,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
 
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
-        cameras_section = {}
-        if params_path and os.path.exists(params_path):
-            try:
-                with open(params_path, "rb") as f:
-                    raw_toml = tomllib.load(f)
-                cameras_section = raw_toml.get("cameras", {})
-            except Exception:
-                pass
+        cameras_section = raw_toml.get("cameras", {}) if isinstance(raw_toml, dict) else {}
 
         c_ch2_idx = cameras_section.get("c_channel_2")
         c_ch3_idx = cameras_section.get("c_channel_3")
@@ -706,24 +709,25 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("feeder"),
         )
     else:
-        # default: single feeder + classification cameras from camera_setup
-        camera_setup = getCameraSetup()
+        # default: single feeder + classification cameras from TOML [cameras]
+        cameras_section = raw_toml.get("cameras", {}) if isinstance(raw_toml, dict) else {}
 
-        if camera_setup is None:
+        feeder_camera_index = cameras_section.get("feeder")
+        classification_camera_bottom_index = cameras_section.get("classification_bottom")
+        classification_camera_top_index = cameras_section.get("classification_top")
+
+        if feeder_camera_index is None and classification_camera_top_index is None:
             raise RuntimeError(
-                "No camera setup found. Run client/scripts/camera_setup.py first."
+                "No camera setup found in TOML [cameras] section. "
+                "Run client/scripts/camera_setup.py or configure cameras in machine_params.toml."
             )
 
-        def resolveCamera(role: str) -> int:
-            if role not in camera_setup:
-                raise RuntimeError(
-                    f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
-                )
-            return camera_setup[role]
-
-        feeder_camera_index = resolveCamera("feeder")
-        classification_camera_bottom_index = resolveCamera("classification_bottom")
-        classification_camera_top_index = resolveCamera("classification_top")
+        if feeder_camera_index is None:
+            feeder_camera_index = -1
+        if classification_camera_bottom_index is None:
+            classification_camera_bottom_index = -1
+        if classification_camera_top_index is None:
+            classification_camera_top_index = -1
 
         irl_config.feeder_camera = mkCameraConfig(
             device_index=feeder_camera_index,

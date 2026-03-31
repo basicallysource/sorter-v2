@@ -1,4 +1,4 @@
-from typing import Callable, Optional, cast
+from typing import Any, Callable, Optional, cast
 import threading
 import io
 import requests
@@ -9,6 +9,7 @@ from global_config import GlobalConfig
 from .brickognize_types import BrickognizeResponse, BrickognizeItem, BrickognizeColor
 
 API_URL = "https://api.brickognize.com/predict/?predict_color=true"
+API_TIMEOUT_S = (3.0, 8.0)
 ANY_COLOR = "any_color"
 ANY_COLOR_NAME = "Any Color"
 FILTER_CATEGORIES = ["primo", "duplo"]
@@ -18,7 +19,18 @@ def classify(
     gc: GlobalConfig,
     top_image: Optional[np.ndarray],
     bottom_image: Optional[np.ndarray],
-    callback: Callable[[Optional[str], str, str, Optional[float], Optional[str], Optional[str]], None],
+    callback: Callable[
+        [
+            Optional[str],
+            str,
+            str,
+            Optional[float],
+            Optional[str],
+            Optional[str],
+            Optional[dict[str, Any]],
+        ],
+        None,
+    ],
 ) -> None:
     thread = threading.Thread(
         target=_doClassify,
@@ -32,7 +44,18 @@ def _doClassify(
     gc: GlobalConfig,
     top_image: Optional[np.ndarray],
     bottom_image: Optional[np.ndarray],
-    callback: Callable[[Optional[str], str, str, Optional[float], Optional[str], Optional[str]], None],
+    callback: Callable[
+        [
+            Optional[str],
+            str,
+            str,
+            Optional[float],
+            Optional[str],
+            Optional[str],
+            Optional[dict[str, Any]],
+        ],
+        None,
+    ],
 ) -> None:
     gc.logger.info("Brickognize: classifying piece")
     try:
@@ -50,6 +73,14 @@ def _doClassify(
         best_color = _pickBestColor(top_result, bottom_result)
         color_id = best_color["id"] if best_color else ANY_COLOR
         color_name = best_color["name"] if best_color else ANY_COLOR_NAME
+        result_payload: dict[str, Any] = {
+            "provider": "brickognize",
+            "top_result": top_result,
+            "bottom_result": bottom_result,
+            "best_item": best_item,
+            "best_view": best_view,
+            "best_color": best_color,
+        }
         if best_item:
             gc.logger.info(
                 f"Brickognize: {best_item['id']} ({best_item['name']}) "
@@ -62,13 +93,25 @@ def _doClassify(
                 best_item["score"],
                 best_item.get("img_url"),
                 best_view,
+                result_payload,
             )
         else:
             gc.logger.warn("Brickognize: no items found")
-            callback(None, color_id, color_name, None, None, None)
+            callback(None, color_id, color_name, None, None, None, result_payload)
     except Exception as e:
         gc.logger.error(f"Brickognize: classification failed: {e}")
-        callback(None, ANY_COLOR, ANY_COLOR_NAME, None, None, None)
+        callback(
+            None,
+            ANY_COLOR,
+            ANY_COLOR_NAME,
+            None,
+            None,
+            None,
+            {
+                "provider": "brickognize",
+                "error": str(e),
+            },
+        )
 
 
 def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
@@ -81,7 +124,12 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
     files = {"query_image": ("image.jpg", io.BytesIO(payload_bytes), "image/jpeg")}
     headers = {"accept": "application/json"}
 
-    response = requests.post(API_URL, headers=headers, files=files)
+    response = requests.post(
+        API_URL,
+        headers=headers,
+        files=files,
+        timeout=API_TIMEOUT_S,
+    )
     response.raise_for_status()
     result = cast(BrickognizeResponse, response.json())
 

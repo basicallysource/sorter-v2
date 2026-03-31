@@ -2,6 +2,7 @@ from typing import Optional, TYPE_CHECKING
 import time
 import base64
 import queue
+import threading
 import cv2
 import numpy as np
 from states.base_state import BaseState
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 SNAP_JPEG_QUALITY = 90
 SETTLE_MS = 1500
+CLASSIFICATION_TIMEOUT_S = 12.0
 
 
 class Snapping(BaseState):
@@ -163,7 +165,7 @@ class Snapping(BaseState):
                 sample_capture.get("top_zone") if sample_capture.get("top_zone") is not None else sample_capture.get("bottom_zone")
             )
 
-        def saveLiveSample(detection_found: bool, detection_message: str | None) -> None:
+        def saveLiveSample(detection_found: bool, detection_message: str | None) -> dict[str, object] | None:
             try:
                 saved = sample_manager.saveLiveClassificationCapture(
                     piece_uuid=piece.uuid,
@@ -184,8 +186,10 @@ class Snapping(BaseState):
                 self.logger.info(
                     f"Snapping: saved sample {saved['sample_id']} for piece {piece.uuid[:8]}"
                 )
+                return saved
             except Exception as exc:
                 self.logger.warning(f"Snapping: failed to save live sample: {exc}")
+                return None
 
         if not detection_found:
             message = "No object detected in classification frames."
@@ -255,7 +259,10 @@ class Snapping(BaseState):
         self.event_queue.put(knownObjectToEvent(piece))
 
         self.carousel.markPendingClassification(piece)
-        saveLiveSample(True, "Single candidate piece detected; sent crop to Brickognize.")
+        saved_live_sample = saveLiveSample(
+            True,
+            "Single candidate piece detected; sent crop to Brickognize.",
+        )
 
         def onResult(
             part_id: Optional[str],
@@ -264,16 +271,125 @@ class Snapping(BaseState):
             confidence: Optional[float] = None,
             brickognize_preview_url: Optional[str] = None,
             brickognize_source_view: Optional[str] = None,
+            brickognize_result: Optional[dict[str, object]] = None,
         ) -> None:
+            next_thumbnail = piece.thumbnail
             if brickognize_source_view == "bottom" and bottom_crop_b64 is not None:
-                piece.thumbnail = bottom_crop_b64
+                next_thumbnail = bottom_crop_b64
             elif brickognize_source_view == "top" and top_crop_b64 is not None:
-                piece.thumbnail = top_crop_b64
+                next_thumbnail = top_crop_b64
+            resolved = self.carousel.resolveClassification(
+                piece.uuid,
+                part_id,
+                color_id,
+                color_name,
+                confidence,
+            )
+            if not resolved:
+                self.logger.warning(
+                    "Snapping: ignoring late Brickognize result for "
+                    f"{piece.uuid[:8]} after fallback resolution"
+                )
+                return
+            piece.thumbnail = next_thumbnail
             piece.brickognize_preview_url = brickognize_preview_url
             piece.brickognize_source_view = brickognize_source_view
-            self.carousel.resolveClassification(piece.uuid, part_id, color_id, color_name, confidence)
+            saved_session_id = (
+                saved_live_sample.get("session_id")
+                if isinstance(saved_live_sample, dict)
+                and isinstance(saved_live_sample.get("session_id"), str)
+                else None
+            )
+            saved_sample_id = (
+                saved_live_sample.get("sample_id")
+                if isinstance(saved_live_sample, dict)
+                and isinstance(saved_live_sample.get("sample_id"), str)
+                else None
+            )
+            if saved_session_id and saved_sample_id:
+                try:
+                    sample_manager.attachLiveClassificationResult(
+                        saved_session_id,
+                        saved_sample_id,
+                        status="classified" if part_id else "unknown",
+                        part_id=part_id,
+                        color_id=color_id,
+                        color_name=color_name,
+                        confidence=confidence,
+                        preview_url=brickognize_preview_url,
+                        source_view=brickognize_source_view,
+                        top_crop=top_crop,
+                        bottom_crop=bottom_crop,
+                        result_payload=brickognize_result,
+                    )
+                except Exception as exc:
+                    self.logger.warning(
+                        f"Snapping: failed to attach classification result to sample {saved_sample_id}: {exc}"
+                    )
             self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
 
+        def onTimeout() -> None:
+            time.sleep(CLASSIFICATION_TIMEOUT_S)
+            resolved = self.carousel.resolveClassification(
+                piece.uuid,
+                None,
+                "any_color",
+                "Any Color",
+                None,
+            )
+            if not resolved:
+                return
+
+            self.gc.runtime_stats.observeBlockedReason(
+                "classification",
+                "brickognize_timeout",
+            )
+            self.logger.warning(
+                "Snapping: Brickognize timed out for "
+                f"{piece.uuid[:8]} after {CLASSIFICATION_TIMEOUT_S:.1f}s; "
+                "marking unknown so distribution can continue"
+            )
+            saved_session_id = (
+                saved_live_sample.get("session_id")
+                if isinstance(saved_live_sample, dict)
+                and isinstance(saved_live_sample.get("session_id"), str)
+                else None
+            )
+            saved_sample_id = (
+                saved_live_sample.get("sample_id")
+                if isinstance(saved_live_sample, dict)
+                and isinstance(saved_live_sample.get("sample_id"), str)
+                else None
+            )
+            if saved_session_id and saved_sample_id:
+                try:
+                    sample_manager.attachLiveClassificationResult(
+                        saved_session_id,
+                        saved_sample_id,
+                        status="unknown",
+                        part_id=None,
+                        color_id="any_color",
+                        color_name="Any Color",
+                        confidence=None,
+                        preview_url=None,
+                        source_view=None,
+                        top_crop=top_crop,
+                        bottom_crop=bottom_crop,
+                        result_payload={
+                            "provider": "brickognize",
+                            "error": (
+                                "Timed out while waiting for Brickognize classification "
+                                f"after {CLASSIFICATION_TIMEOUT_S:.1f}s."
+                            ),
+                        },
+                    )
+                except Exception as exc:
+                    self.logger.warning(
+                        "Snapping: failed to attach timeout classification result "
+                        f"to sample {saved_sample_id}: {exc}"
+                    )
+
+        threading.Thread(target=onTimeout, daemon=True).start()
         classify(self.gc, top_crop, bottom_crop, onResult)
 
     def cleanup(self) -> None:

@@ -98,8 +98,8 @@
 					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
 					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
 			}`}
-			title="Classification Samples"
-		>
+				title="Samples"
+			>
 			<Images size={24} />
 		</a>
 	</div>

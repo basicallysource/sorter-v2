@@ -118,6 +118,7 @@ class Snapping(BaseState):
         bottom_candidate_count = len(bottom_candidates)
         detection_bbox_count = max(top_candidate_count, bottom_candidate_count)
         detection_found = detection_bbox_count > 0
+        sample_capture = self.vision.getClassificationSampleFromFrames(top_frame, bottom_frame)
         preferred_camera = "top" if sample_capture.get("top_zone") is not None else "bottom"
         preferred_frame = top_frame if preferred_camera == "top" else bottom_frame
         preferred_detection_bbox = (
@@ -144,7 +145,6 @@ class Snapping(BaseState):
                 segmentation_map=bottom_frame.segmentation_map,
             )
 
-        sample_capture = self.vision.getClassificationSampleFromFrames(top_frame, bottom_frame)
         detection_algorithm = self.vision.getClassificationDetectionAlgorithm()
         detection_openrouter_model = (
             self.vision.getClassificationOpenRouterModel()

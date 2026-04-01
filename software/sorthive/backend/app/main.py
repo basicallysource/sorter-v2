@@ -1,0 +1,39 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from app.config import settings
+from app.errors import APIError, api_error_handler, http_exception_handler
+from app.routers import admin, auth, machines, review, samples, stats, upload
+
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="SortHive API", version="0.1.0")
+app.state.limiter = limiter
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.CORS_ORIGIN],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_exception_handler(APIError, api_error_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(machines.router)
+app.include_router(upload.router)
+app.include_router(samples.router)
+app.include_router(review.router)
+app.include_router(stats.router)
+
+
+@app.get("/api/health")
+def health():
+    return {"ok": True, "service": "sorthive-backend"}

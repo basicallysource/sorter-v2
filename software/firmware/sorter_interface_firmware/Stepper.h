@@ -65,9 +65,9 @@ private:
     std::atomic<StepperState> _state;
     std::atomic<int32_t> _mc_distance; // Always positive, direction in _move_dir
     std::atomic<int32_t> _mc_speed; // Always positive, direction in _move_dir
-    int32_t _mc_dir; // 1 = forward, -1 = reverse
-    int32_t _mc_home_pin; // Home switch pin, -1 if not homing
-    bool _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
+    std::atomic<int32_t> _mc_dir; // 1 = forward, -1 = reverse
+    std::atomic<int32_t> _mc_home_pin; // Home switch pin, -1 if not homing
+    std::atomic<bool> _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
 
     // Internal state
     std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)

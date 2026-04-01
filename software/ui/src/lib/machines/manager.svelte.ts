@@ -160,6 +160,7 @@ export class MachineManager {
 		updated.set(identity.machine_id, {
 			identity,
 			connection: ws,
+			url: url ?? existing?.url ?? null,
 			status: 'connected',
 			frames: existing?.frames ?? new Map(),
 			lastHeartbeat: null,

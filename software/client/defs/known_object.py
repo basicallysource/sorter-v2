@@ -17,6 +17,7 @@ class ClassificationStatus(str, Enum):
     classified = "classified"
     unknown = "unknown"
     not_found = "not_found"
+    multi_drop_fail = "multi_drop_fail"
 
 
 @dataclass
@@ -35,6 +36,8 @@ class KnownObject:
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    brickognize_preview_url: Optional[str] = None
+    brickognize_source_view: Optional[str] = None
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
     carousel_rotate_started_at: Optional[float] = None

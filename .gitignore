@@ -1,0 +1,13 @@
+.claude/
+.tmp-*
+
+# Local debug captures and ad-hoc review artifacts
+/c-channel-3-zone-editor.png
+/c2-debug.png
+/classification-*.png
+/classification-*.md
+/.playwright-mcp/
+/detail-requests.txt
+/samples-nav-requests.txt
+/sample-detail-blank.png
+/software/client/calibration_image_sample_data_20x128x128x3_float32.npy

@@ -64,26 +64,34 @@ class Carousel:
         )
 
     def resolveClassification(
-        self, uuid: str, part_id: Optional[str], color_id: str, color_name: str, confidence: Optional[float] = None
-    ) -> None:
-        if uuid in self.pending_classifications:
-            obj = self.pending_classifications[uuid]
-            obj.part_id = part_id
-            obj.color_id = color_id
-            obj.color_name = color_name
-            obj.confidence = confidence
-            obj.classification_status = (
-                ClassificationStatus.classified
-                if part_id
-                else ClassificationStatus.unknown
-            )
-            obj.classified_at = time.time()
-            obj.updated_at = time.time()
-            del self.pending_classifications[uuid]
-            self._log(
-                f"resolved {uuid[:8]} -> {part_id or 'unknown'} color={color_id}, {len(self.pending_classifications)} in flight"
-            )
-            self.event_queue.put(knownObjectToEvent(obj))
+        self,
+        uuid: str,
+        part_id: Optional[str],
+        color_id: str,
+        color_name: str,
+        confidence: Optional[float] = None,
+    ) -> bool:
+        if uuid not in self.pending_classifications:
+            return False
+
+        obj = self.pending_classifications[uuid]
+        obj.part_id = part_id
+        obj.color_id = color_id
+        obj.color_name = color_name
+        obj.confidence = confidence
+        obj.classification_status = (
+            ClassificationStatus.classified
+            if part_id
+            else ClassificationStatus.unknown
+        )
+        obj.classified_at = time.time()
+        obj.updated_at = time.time()
+        del self.pending_classifications[uuid]
+        self._log(
+            f"resolved {uuid[:8]} -> {part_id or 'unknown'} color={color_id}, {len(self.pending_classifications)} in flight"
+        )
+        self.event_queue.put(knownObjectToEvent(obj))
+        return True
 
     def hasPieceAtFeeder(self) -> bool:
         return self.platforms[FEEDER_POSITION] is not None

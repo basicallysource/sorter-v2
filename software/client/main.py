@@ -3,10 +3,13 @@ from pathlib import Path
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+from toml_config import migrateFromDataJson
+migrateFromDataJson()
+
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
-from server.api import (
-    app,
+from server.api import app
+from server.shared_state import (
     broadcastEvent,
     setGlobalConfig,
     setRuntimeVariables,
@@ -45,9 +48,9 @@ def runServer() -> None:
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:
-    import server.api as api
+    import server.shared_state as shared_state
 
-    while api.server_loop is None:
+    while shared_state.server_loop is None:
         time.sleep(0.01)
 
     while True:
@@ -77,7 +80,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             ):
                 gc.logger.info(f"broadcasting {command.tag} event")
             future = asyncio.run_coroutine_threadsafe(
-                broadcastEvent(command.model_dump()), api.server_loop
+                broadcastEvent(command.model_dump()), shared_state.server_loop
             )
             try:
                 future.result(timeout=1.0)
@@ -120,9 +123,7 @@ def main() -> None:
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
-    gc.logger.info("Homing chute to zero...")
-    with gc.profiler.timer("startup.chute_home_ms"):
-        irl.chute.home()
+    gc.logger.info("Skipping automatic chute homing on backend startup.")
     # sensorlessHomeCarousel(gc, irl)
 
     with gc.profiler.timer("startup.telemetry_init_ms"):
@@ -142,15 +143,32 @@ def main() -> None:
         vision.start()
     with gc.profiler.timer("startup.init_feeder_detection_ms"):
         if not vision.initFeederDetection():
-            gc.logger.error("Feeder channel polygons not found. Run: uv run python scripts/polygon_editor.py")
-            sys.exit(1)
-    with gc.profiler.timer("startup.calibrate_feeder_ms"):
-        calibrateFeederChannels(gc, irl, irl_config)
+            gc.logger.warning(
+                "Feeder channel polygons not found. "
+                "Run: uv run python scripts/polygon_editor.py — continuing without feeder detection"
+            )
+        else:
+            with gc.profiler.timer("startup.calibrate_feeder_ms"):
+                calibrateFeederChannels(gc, irl, irl_config)
 
     with gc.profiler.timer("startup.load_classification_baseline_ms"):
-        if not vision.loadClassificationBaseline():
-            gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
-            sys.exit(1)
+        if irl_config.camera_layout == "split_feeder":
+            # Classification cameras are optional in split_feeder mode.
+            has_classification = (
+                vision._classification_top_capture is not None
+                or vision._classification_bottom_capture is not None
+            )
+            if has_classification and vision.usesClassificationBaseline():
+                if not vision.loadClassificationBaseline():
+                    gc.logger.warning(
+                        "Classification baseline not found — continuing without classification"
+                    )
+        elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
+            gc.logger.warning(
+                "Classification baseline not found. "
+                "Run: uv run python scripts/calibrate_classification_baseline.py "
+                "— continuing without classification"
+            )
     with gc.profiler.timer("startup.controller_start_ms"):
         controller.start()
 

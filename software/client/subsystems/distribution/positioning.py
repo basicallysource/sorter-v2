@@ -157,8 +157,13 @@ class Positioning(BaseState):
         self, category_id: str
     ) -> tuple[Optional[BinAddress], bool]:
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
+        has_active_layers = False
 
         for layer_idx, layer in enumerate(self.layout.layers):
+            if not getattr(layer, "enabled", True):
+                continue
+
+            has_active_layers = True
             for section_idx, section in enumerate(layer.sections):
                 for bin_idx, b in enumerate(section.bins):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
@@ -168,6 +173,10 @@ class Positioning(BaseState):
                         return address, False
                     if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)
+
+        if not has_active_layers:
+            self.logger.warning("Positioning: no active storage layers configured")
+            return None, False
 
         if first_unassigned is not None:
             address, b = first_unassigned

@@ -7,6 +7,9 @@ class CameraName(str, Enum):
     feeder = "feeder"
     classification_bottom = "classification_bottom"
     classification_top = "classification_top"
+    c_channel_2 = "c_channel_2"
+    c_channel_3 = "c_channel_3"
+    carousel = "carousel"
 
 
 class PieceStage(str, Enum):
@@ -21,6 +24,7 @@ class ClassificationStatus(str, Enum):
     classified = "classified"
     unknown = "unknown"
     not_found = "not_found"
+    multi_drop_fail = "multi_drop_fail"
 
 
 class HeartbeatData(BaseModel):
@@ -77,6 +81,8 @@ class KnownObjectData(BaseModel):
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    brickognize_preview_url: Optional[str] = None
+    brickognize_source_view: Optional[str] = None
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
     carousel_rotate_started_at: Optional[float] = None

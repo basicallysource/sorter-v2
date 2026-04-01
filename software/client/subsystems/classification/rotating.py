@@ -57,7 +57,11 @@ class Rotating(BaseState):
         requires_distribution_ready = piece_at_intermediate is not None and (
             piece_at_intermediate.part_id is not None
             or piece_at_intermediate.classification_status
-            in (ClassificationStatus.unknown, ClassificationStatus.not_found)
+            in (
+                ClassificationStatus.unknown,
+                ClassificationStatus.not_found,
+                ClassificationStatus.multi_drop_fail,
+            )
         )
 
         if requires_distribution_ready and not self.shared.distribution_ready:
@@ -107,7 +111,7 @@ class Rotating(BaseState):
             ):
                 piece_at_feeder.carousel_rotate_started_at = self.start_time
             self.logger.info("Rotating: starting rotation")
-            self.stepper.move_degrees(-90.0)
+            self.stepper.move_degrees(90.0)
             self.command_sent = True
 
         if not self.stepper.stopped:

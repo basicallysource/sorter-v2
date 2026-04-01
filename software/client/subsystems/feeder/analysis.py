@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Tuple, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
@@ -13,6 +14,140 @@ from defs.consts import (
 from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
 
 
+@dataclass(frozen=True)
+class ChannelArcZones:
+    center: Tuple[float, float]
+    inner_radius: float
+    outer_radius: float
+    drop_start_angle: float
+    drop_end_angle: float
+    exit_start_angle: float
+    exit_end_angle: float
+
+
+def normalizeAngle(angle: float) -> float:
+    return (float(angle) % 360.0 + 360.0) % 360.0
+
+
+def positiveAngleSpan(start_angle: float, end_angle: float) -> float:
+    span = (normalizeAngle(end_angle) - normalizeAngle(start_angle) + 360.0) % 360.0
+    return span if span > 0.0 else 360.0
+
+
+def _angleWithinSpan(angle: float, start_angle: float, span: float) -> bool:
+    rel = (normalizeAngle(angle) - normalizeAngle(start_angle) + 360.0) % 360.0
+    return rel < span or abs(rel - span) < 1e-6
+
+
+def sectionsForAngleRange(
+    start_angle: float,
+    end_angle: float,
+    section_zero_angle: float,
+) -> set[int]:
+    span = positiveAngleSpan(start_angle, end_angle)
+    sections: set[int] = set()
+    for section in range(int(round(360.0 / CHANNEL_SECTION_DEG))):
+        mid_angle = normalizeAngle(section_zero_angle + (section + 0.5) * CHANNEL_SECTION_DEG)
+        if _angleWithinSpan(mid_angle, start_angle, span):
+            sections.add(section)
+    return sections
+
+
+def legacyChannelZoneSections(channel_id: int) -> tuple[set[int], set[int]]:
+    if channel_id == 3:
+        return set(CH3_DROPZONE_SECTIONS), set(CH3_PRECISE_SECTIONS)
+    return set(CH2_DROPZONE_SECTIONS), set(CH2_PRECISE_SECTIONS)
+
+
+def legacyChannelArcZones(channel_key: str, section_zero_angle: float) -> ChannelArcZones | None:
+    if channel_key == "third":
+        drop_sections = CH3_DROPZONE_SECTIONS
+        exit_sections = CH3_PRECISE_SECTIONS
+    elif channel_key == "second":
+        drop_sections = CH2_DROPZONE_SECTIONS
+        exit_sections = CH2_PRECISE_SECTIONS
+    else:
+        return None
+
+    return ChannelArcZones(
+        center=(0.0, 0.0),
+        inner_radius=0.0,
+        outer_radius=0.0,
+        drop_start_angle=normalizeAngle(section_zero_angle + drop_sections.start * CHANNEL_SECTION_DEG),
+        drop_end_angle=normalizeAngle(section_zero_angle + drop_sections.stop * CHANNEL_SECTION_DEG),
+        exit_start_angle=normalizeAngle(section_zero_angle + exit_sections.start * CHANNEL_SECTION_DEG),
+        exit_end_angle=normalizeAngle(section_zero_angle + exit_sections.stop * CHANNEL_SECTION_DEG),
+    )
+
+
+def parseSavedChannelArcZones(
+    channel_key: str,
+    channel_angles: Dict[str, float],
+    arc_params: Dict[str, Any] | None,
+) -> ChannelArcZones | None:
+    section_zero_angle = float(channel_angles.get(channel_key, 0.0))
+    raw = arc_params.get(channel_key) if isinstance(arc_params, dict) else None
+    if not isinstance(raw, dict):
+        return legacyChannelArcZones(channel_key, section_zero_angle)
+
+    center = raw.get("center")
+    inner_radius = raw.get("inner_radius")
+    outer_radius = raw.get("outer_radius")
+    if (
+        not isinstance(center, list)
+        or len(center) != 2
+        or not isinstance(center[0], (int, float))
+        or not isinstance(center[1], (int, float))
+        or not isinstance(inner_radius, (int, float))
+        or not isinstance(outer_radius, (int, float))
+    ):
+        return legacyChannelArcZones(channel_key, section_zero_angle)
+
+    def _zone(zone_key: str, legacy_sections: range) -> tuple[float, float]:
+        raw_zone = raw.get(zone_key)
+        if isinstance(raw_zone, dict):
+            start_angle = raw_zone.get("start_angle")
+            end_angle = raw_zone.get("end_angle")
+            if isinstance(start_angle, (int, float)) and isinstance(end_angle, (int, float)):
+                return normalizeAngle(float(start_angle)), normalizeAngle(float(end_angle))
+        return (
+            normalizeAngle(section_zero_angle + legacy_sections.start * CHANNEL_SECTION_DEG),
+            normalizeAngle(section_zero_angle + legacy_sections.stop * CHANNEL_SECTION_DEG),
+        )
+
+    if channel_key == "third":
+        legacy_drop = CH3_DROPZONE_SECTIONS
+        legacy_exit = CH3_PRECISE_SECTIONS
+    else:
+        legacy_drop = CH2_DROPZONE_SECTIONS
+        legacy_exit = CH2_PRECISE_SECTIONS
+
+    drop_start, drop_end = _zone("drop_zone", legacy_drop)
+    exit_start, exit_end = _zone("exit_zone", legacy_exit)
+    return ChannelArcZones(
+        center=(float(center[0]), float(center[1])),
+        inner_radius=float(inner_radius),
+        outer_radius=float(outer_radius),
+        drop_start_angle=drop_start,
+        drop_end_angle=drop_end,
+        exit_start_angle=exit_start,
+        exit_end_angle=exit_end,
+    )
+
+
+def zoneSectionsForChannel(
+    channel_id: int,
+    section_zero_angle: float,
+    zones: ChannelArcZones | None,
+) -> tuple[set[int], set[int]]:
+    if zones is None:
+        return legacyChannelZoneSections(channel_id)
+    return (
+        sectionsForAngleRange(zones.drop_start_angle, zones.drop_end_angle, section_zero_angle),
+        sectionsForAngleRange(zones.exit_start_angle, zones.exit_end_angle, section_zero_angle),
+    )
+
+
 class ChannelAction(Enum):
     IDLE = "idle"
     PULSE_NORMAL = "normal"
@@ -23,6 +158,7 @@ def computeChannelGeometry(
     saved_polygons: Dict[str, np.ndarray],
     channel_angles: Dict[str, float],
     channel_masks: Dict[str, np.ndarray],
+    channel_arc_params: Dict[str, Any] | None = None,
 ) -> ChannelGeometry:
     geometry = ChannelGeometry(second_channel=None, third_channel=None)
 
@@ -30,24 +166,32 @@ def computeChannelGeometry(
     if second_poly is not None and len(second_poly) >= 3:
         center = tuple(np.mean(second_poly, axis=0).tolist())
         r1_angle = channel_angles.get("second", 0.0)
+        second_zones = parseSavedChannelArcZones("second", channel_angles, channel_arc_params)
+        second_drop_sections, second_exit_sections = zoneSectionsForChannel(2, r1_angle, second_zones)
         geometry.second_channel = PolygonChannel(
             channel_id=2,
             polygon=second_poly,
             center=center,
             radius1_angle_image=r1_angle,
             mask=channel_masks["second_channel"],
+            dropzone_sections=second_drop_sections,
+            exit_sections=second_exit_sections,
         )
 
     third_poly = saved_polygons.get("third_channel")
     if third_poly is not None and len(third_poly) >= 3:
         center = tuple(np.mean(third_poly, axis=0).tolist())
         r1_angle = channel_angles.get("third", 0.0)
+        third_zones = parseSavedChannelArcZones("third", channel_angles, channel_arc_params)
+        third_drop_sections, third_exit_sections = zoneSectionsForChannel(3, r1_angle, third_zones)
         geometry.third_channel = PolygonChannel(
             channel_id=3,
             polygon=third_poly,
             center=center,
             radius1_angle_image=r1_angle,
             mask=channel_masks["third_channel"],
+            dropzone_sections=third_drop_sections,
+            exit_sections=third_exit_sections,
         )
 
     return geometry
@@ -107,16 +251,16 @@ def analyzeFeederChannels(
         sections = getBboxSections(det.bbox, det.channel)
 
         if det.channel_id == 3:
-            if sections & set(CH3_DROPZONE_SECTIONS):
+            if sections & det.channel.dropzone_sections:
                 result.ch3_dropzone_occupied = True
-            if sections & set(CH3_PRECISE_SECTIONS):
+            if sections & det.channel.exit_sections:
                 result.ch3_action = ChannelAction.PULSE_PRECISE
             elif result.ch3_action == ChannelAction.IDLE:
                 result.ch3_action = ChannelAction.PULSE_NORMAL
         elif det.channel_id == 2:
-            if sections & set(CH2_DROPZONE_SECTIONS):
+            if sections & det.channel.dropzone_sections:
                 result.ch2_dropzone_occupied = True
-            if sections & set(CH2_PRECISE_SECTIONS):
+            if sections & det.channel.exit_sections:
                 result.ch2_action = ChannelAction.PULSE_PRECISE
             elif result.ch2_action == ChannelAction.IDLE:
                 result.ch2_action = ChannelAction.PULSE_NORMAL

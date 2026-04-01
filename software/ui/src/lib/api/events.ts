@@ -5,9 +5,9 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
-export type CameraName = "feeder" | "classification_bottom" | "classification_top";
+export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
 export type PieceStage = "created" | "distributing" | "distributed";
-export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found";
+export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
 export interface FrameData {
   camera: CameraName;
@@ -56,6 +56,8 @@ export interface KnownObjectData {
   thumbnail?: string | null;
   top_image?: string | null;
   bottom_image?: string | null;
+  brickognize_preview_url?: string | null;
+  brickognize_source_view?: string | null;
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;
   carousel_rotate_started_at?: number | null;

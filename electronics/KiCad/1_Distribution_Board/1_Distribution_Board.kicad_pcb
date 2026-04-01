@@ -8903,6 +8903,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3a94623a-7599-4484-aacb-bc29bb445cd5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Q_*")
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/7c6d23a7-cd81-4a07-80ed-a90469c2e098")
 		(sheetname "/Hall_Switch_LED/")
@@ -11025,6 +11038,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "e50dee44-decc-436b-a45f-58388a741200")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5e003465-e42e-4790-9cc2-3b5a8c8e209c")
 			(effects
 				(font
 					(size 1 1)
@@ -13818,6 +13844,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "abe70466-ae18-4d34-8fa0-3a6338ecf332")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8acc9ce7-d202-41c4-a1eb-fd80341588ae")
 			(effects
 				(font
 					(size 1 1)
@@ -21035,6 +21074,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "cc9a7534-7c0e-41d4-b716-14b02e290380")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module2/")
@@ -22559,12 +22611,25 @@
 				)
 			)
 		)
-		(property "LCSC" "C33196"
+		(property "LCSC" "C123752"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "738aa9b2-af27-466e-aa11-d86e68b94d43")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "-90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b442ce59-38b1-484b-813f-b2ec3f1d9c6f")
 			(effects
 				(font
 					(size 1 1)
@@ -26400,6 +26465,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "54af09a9-f9de-4647-b4db-5c7a48622307")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module1/")
@@ -28052,6 +28130,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d1412b5c-83d2-4362-a485-d331e857bb5b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/22523adc-9142-4362-af29-41502b0f3187/81ca76e9-c20f-4b7c-97f5-4bfa1d1be0f7")
 		(sheetname "/Stepper Module4/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -29119,6 +29210,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "d677a4e0-8122-4134-8b62-2f993f84152e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b50051d9-56bb-4433-ae0c-f8ec38bf7f4f")
 			(effects
 				(font
 					(size 1 1)
@@ -42287,6 +42391,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "ddf3171b-7d57-4279-9ae3-b90acca92bf9")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Q_*")
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/770bd0e2-c918-4352-8286-7cef22626b41")
 		(sheetname "/Hall_Switch_LED/")
@@ -51920,6 +52037,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "70161fe1-3527-40b5-852e-2e4b8ec22919")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Q_*")
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/9a5a4d45-67b6-4f72-8f06-5a6dfc3ee93b")
 		(sheetname "/Hall_Switch_LED/")
@@ -52511,6 +52641,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "739f1333-f6b8-4546-9b2b-3eee13242574")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "babeb66d-f132-45ce-b5a8-6c34d0373ba8")
 			(effects
 				(font
 					(size 1 1)
@@ -54228,6 +54371,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "6f427665-56d7-469d-bef6-7b15bcebbe05")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "498702c2-272f-4b1f-bdc9-fb7474469b70")
 			(effects
 				(font
 					(size 1 1)
@@ -56132,6 +56288,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "56dea4f1-a22e-43c8-9fef-f39066977fad")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6bc59fbe-b89d-4322-9a63-2a12bb7c32ab")
 			(effects
 				(font
 					(size 1 1)

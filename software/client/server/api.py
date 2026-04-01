@@ -49,8 +49,6 @@ app.add_middleware(
 
 # Load persisted API keys into environment at import time (overrides env vars)
 _saved_api_keys = getApiKeys()
-if _saved_api_keys.get("google"):
-    os.environ["GOOGLE_API_KEY"] = _saved_api_keys["google"]
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 

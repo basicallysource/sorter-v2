@@ -40,9 +40,6 @@
 		bbox_count?: number;
 		zone_point_count?: number;
 		saved_to_library?: boolean;
-		saved_sample_id?: string | null;
-		saved_session_id?: string | null;
-		saved_detail_url?: string | null;
 		saved_sample_error?: string | null;
 	};
 
@@ -79,7 +76,6 @@
 	let availableAlgorithms = $state<DetectionAlgorithmOption[]>([]);
 	let openrouterModel = $state('google/gemini-3-flash-preview');
 	let availableOpenrouterModels = $state<OpenRouterModelOption[]>([]);
-	let savedSampleDetailUrl = $state<string | null>(null);
 	let sampleCollectionEnabled = $state(true);
 	let sampleCollectionSupported = $state(true);
 
@@ -143,7 +139,6 @@
 	function resetTransientState() {
 		errorMsg = null;
 		statusMsg = '';
-		savedSampleDetailUrl = null;
 		captureResult = null;
 		debugResult = null;
 		onDetectionHighlightChange?.([]);
@@ -323,25 +318,19 @@
 		testing = true;
 		errorMsg = null;
 		statusMsg = '';
-		savedSampleDetailUrl = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}${testPath()}`, { method: 'POST' });
 			if (!res.ok) throw new Error(await res.text());
 			const payload = (await res.json()) as DetectionDebugResult;
 			applyDebugResult(payload);
-			savedSampleDetailUrl =
-				typeof payload.saved_detail_url === 'string' && payload.saved_detail_url
-					? payload.saved_detail_url
-					: null;
 			statusMsg = payload.message;
 			if (payload.saved_to_library) {
-					statusMsg = `${payload.message} Saved to Samples.`;
+				statusMsg = `${payload.message} Archived locally for reference.`;
 			} else if (payload.saved_sample_error) {
 				statusMsg = `${payload.message} Could not archive this test run: ${payload.saved_sample_error}`;
 			}
 		} catch (e: any) {
 			applyDebugResult(null);
-			savedSampleDetailUrl = null;
 			errorMsg = e.message ?? 'Failed to test detection.';
 		} finally {
 			testing = false;
@@ -687,17 +676,7 @@
 				{/if}
 
 				{#if statusMsg}
-					<div class="grid gap-1">
-						<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
-						{#if savedSampleDetailUrl}
-							<a
-								href={savedSampleDetailUrl}
-								class="text-xs text-sky-600 transition-colors hover:text-sky-500 dark:text-sky-300"
-							>
-								Open saved sample
-							</a>
-						{/if}
-					</div>
+					<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
 				{/if}
 			</div>
 		</div>

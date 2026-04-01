@@ -1,8 +1,9 @@
 <script lang="ts">
-	import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
-	import RuntimeVarsSection from '$lib/components/settings/RuntimeVarsSection.svelte';
-	import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
+import RuntimeVarsSection from '$lib/components/settings/RuntimeVarsSection.svelte';
+import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
+import SortHiveSection from '$lib/components/settings/SortHiveSection.svelte';
+import SectionCard from '$lib/components/settings/SectionCard.svelte';
 </script>
 
 <div class="flex flex-col gap-6">
@@ -14,8 +15,15 @@
 	</SectionCard>
 
 	<SectionCard
-		title="API Keys"
-		description="Configure API keys for cloud-based detection and classification services."
+		title="SortHive"
+		description="Connect this sorter to SortHive for registration, uploads, and backfill of archived samples."
+	>
+		<SortHiveSection />
+	</SectionCard>
+
+	<SectionCard
+		title="OpenRouter"
+		description="Configure the OpenRouter key used for cloud-assisted detection."
 	>
 		<ApiKeysSection />
 	</SectionCard>

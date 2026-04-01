@@ -189,6 +189,16 @@ def setClassificationTrainingConfig(config: dict) -> None:
     _set(config)
 
 
+def getSortHiveConfig() -> dict | None:
+    from toml_config import getSortHiveConfig as _get
+    return _get()
+
+
+def setSortHiveConfig(config: dict) -> None:
+    from toml_config import setSortHiveConfig as _set
+    _set(config)
+
+
 def getApiKeys() -> dict:
     from toml_config import getApiKeys as _get
     return _get()

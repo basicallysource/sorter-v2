@@ -118,6 +118,14 @@ class Snapping(BaseState):
         bottom_candidate_count = len(bottom_candidates)
         detection_bbox_count = max(top_candidate_count, bottom_candidate_count)
         detection_found = detection_bbox_count > 0
+        preferred_camera = "top" if sample_capture.get("top_zone") is not None else "bottom"
+        preferred_frame = top_frame if preferred_camera == "top" else bottom_frame
+        preferred_detection_bbox = (
+            self.vision.getClassificationCombinedBbox(preferred_camera, force=True, frame=preferred_frame)
+            if preferred_frame is not None
+            else None
+        )
+        preferred_candidate_bboxes = top_candidates if preferred_camera == "top" else bottom_candidates
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(
@@ -174,6 +182,8 @@ class Snapping(BaseState):
                     detection_found=detection_found,
                     detection_algorithm=detection_algorithm,
                     detection_openrouter_model=detection_openrouter_model,
+                    detection_bbox=preferred_detection_bbox,
+                    detection_candidate_bboxes=preferred_candidate_bboxes,
                     detection_bbox_count=detection_bbox_count,
                     top_detection_bbox_count=top_candidate_count,
                     bottom_detection_bbox_count=bottom_candidate_count,

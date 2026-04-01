@@ -3,7 +3,7 @@
 	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Home, Images, Pause, Play, Settings } from 'lucide-svelte';
+	import { Home, Pause, Play, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -89,18 +89,6 @@
 			title="Settings"
 		>
 			<Settings size={24} />
-		</a>
-		<a
-			href="/classification-samples"
-			aria-current={page.url.pathname.startsWith('/classification-samples') ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname.startsWith('/classification-samples')
-					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
-					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
-			}`}
-				title="Samples"
-			>
-			<Images size={24} />
 		</a>
 	</div>
 </div>

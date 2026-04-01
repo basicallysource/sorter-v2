@@ -1,16 +1,15 @@
-"""Detection configuration, API keys, training library, and detection test/debug endpoints."""
+"""Detection configuration, API keys, and detection test/debug endpoints."""
 
 from __future__ import annotations
 
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from blob_manager import (
@@ -19,14 +18,15 @@ from blob_manager import (
     getCarouselDetectionConfig,
     getClassificationDetectionConfig,
     getFeederDetectionConfig,
+    getSortHiveConfig,
     setApiKeys,
     setCarouselDetectionConfig,
     setClassificationDetectionConfig,
     setFeederDetectionConfig,
+    setSortHiveConfig,
 )
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
-from server.local_detector_models import get_local_detector_model, local_detector_model_options
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -40,7 +40,7 @@ router = APIRouter()
 # Constants
 # ---------------------------------------------------------------------------
 
-SUPPORTED_API_KEY_PROVIDERS = ("google", "openrouter")
+SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
 
 # ---------------------------------------------------------------------------
 # Detection algorithm helper functions
@@ -154,17 +154,6 @@ def _openrouter_model_options() -> list[dict[str, str]]:
     ]
 
 
-def _available_retest_model_options() -> list[dict[str, str]]:
-    return [*local_detector_model_options(), *_openrouter_model_options()]
-
-
-def _normalize_retest_model_id(value: str | None) -> str:
-    local_model = get_local_detector_model(value)
-    if local_model is not None:
-        return local_model.id
-    return _normalize_openrouter_model(value)
-
-
 # ---------------------------------------------------------------------------
 # Bbox normalization helper
 # ---------------------------------------------------------------------------
@@ -204,24 +193,27 @@ class AuxiliaryDetectionConfigPayload(BaseModel):
     sample_collection_enabled: Optional[bool] = None
 
 
-class ClassificationSampleRetestPayload(BaseModel):
-    model_id: Optional[str] = None
-    openrouter_model: Optional[str] = None
-
-
-class ClassificationSamplePromoteRetestPayload(BaseModel):
-    retest_id: str
-
-
-class ClassificationSampleReviewPayload(BaseModel):
-    status: Optional[str] = None
-    box_corrections: Optional[List[Dict[str, Any]]] = None
-    added_boxes: Optional[List[Dict[str, Any]]] = None
-
-
 class ApiKeySavePayload(BaseModel):
     provider: str
     key: str
+
+
+class SortHiveConfigPayload(BaseModel):
+    url: str = ""
+    api_token: str = ""
+    enabled: bool = False
+
+
+class SortHiveRegisterPayload(BaseModel):
+    url: str
+    email: str
+    password: str
+    machine_name: str
+    machine_description: str = ""
+
+
+class SortHiveBackfillPayload(BaseModel):
+    session_ids: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -234,8 +226,8 @@ def _collect_classification_baseline_frames(
     sample_count: int = shared_state.CLASSIFICATION_BASELINE_SAMPLES,
     timeout_s: float = shared_state.CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S,
     interval_s: float = shared_state.CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S,
-) -> List[np.ndarray]:
-    frames: List[np.ndarray] = []
+) -> list[np.ndarray]:
+    frames: list[np.ndarray] = []
     deadline = time.monotonic() + timeout_s
     last_timestamp: float | None = None
     last_accept_at = 0.0
@@ -268,7 +260,7 @@ def _collect_classification_baseline_frames(
 def _write_classification_baseline_frames(
     baseline_dir: Path,
     prefix: str,
-    frames: List[np.ndarray],
+    frames: list[np.ndarray],
 ) -> Dict[str, Any]:
     for old_path in baseline_dir.glob(f"{prefix}_*.png"):
         old_path.unlink(missing_ok=True)
@@ -291,98 +283,6 @@ def _write_classification_baseline_frames(
 
 
 # ---------------------------------------------------------------------------
-# Training sample serialization helpers
-# ---------------------------------------------------------------------------
-
-
-def _classification_training_asset_url(session_id: str, rel_path: str | None) -> str | None:
-    if not isinstance(rel_path, str) or not rel_path:
-        return None
-    return f"/api/classification/training/sessions/{session_id}/file/{rel_path}"
-
-
-def _serialize_training_sample_summary(sample: Dict[str, Any]) -> Dict[str, Any]:
-    session_id = sample.get("session_id") if isinstance(sample.get("session_id"), str) else None
-    classification_result = (
-        sample.get("classification_result")
-        if isinstance(sample.get("classification_result"), dict)
-        else None
-    )
-    return {
-        **sample,
-        "input_image_url": _classification_training_asset_url(session_id, sample.get("input_image_rel")) if session_id else None,
-        "overlay_image_url": _classification_training_asset_url(session_id, sample.get("overlay_image_rel")) if session_id else None,
-        "top_frame_url": _classification_training_asset_url(session_id, sample.get("top_frame_rel")) if session_id else None,
-        "bottom_frame_url": _classification_training_asset_url(session_id, sample.get("bottom_frame_rel")) if session_id else None,
-        "classification_result": (
-            {
-                **classification_result,
-                "selected_crop_url": _classification_training_asset_url(session_id, classification_result.get("selected_crop_rel")),
-                "top_crop_url": _classification_training_asset_url(session_id, classification_result.get("top_crop_rel")),
-                "bottom_crop_url": _classification_training_asset_url(session_id, classification_result.get("bottom_crop_rel")),
-                "result_json_url": _classification_training_asset_url(session_id, classification_result.get("result_json_rel")),
-            }
-            if session_id and classification_result is not None
-            else classification_result
-        ),
-        "detail_url": (
-            f"/classification-samples/{session_id}/{sample.get('sample_id')}"
-            if session_id and isinstance(sample.get("sample_id"), str)
-            else None
-        ),
-    }
-
-
-def _serialize_training_sample_detail(sample: Dict[str, Any]) -> Dict[str, Any]:
-    session_id = sample.get("session_id") if isinstance(sample.get("session_id"), str) else None
-    distill_result = sample.get("distill_result") if isinstance(sample.get("distill_result"), dict) else None
-    retests = sample.get("retests") if isinstance(sample.get("retests"), list) else []
-    classification_result = (
-        sample.get("classification_result")
-        if isinstance(sample.get("classification_result"), dict)
-        else None
-    )
-    return {
-        **sample,
-        "input_image_url": _classification_training_asset_url(session_id, sample.get("input_image_rel")) if session_id else None,
-        "top_zone_url": _classification_training_asset_url(session_id, sample.get("top_zone_rel")) if session_id else None,
-        "bottom_zone_url": _classification_training_asset_url(session_id, sample.get("bottom_zone_rel")) if session_id else None,
-        "top_frame_url": _classification_training_asset_url(session_id, sample.get("top_frame_rel")) if session_id else None,
-        "bottom_frame_url": _classification_training_asset_url(session_id, sample.get("bottom_frame_rel")) if session_id else None,
-        "classification_result": (
-            {
-                **classification_result,
-                "selected_crop_url": _classification_training_asset_url(session_id, classification_result.get("selected_crop_rel")),
-                "top_crop_url": _classification_training_asset_url(session_id, classification_result.get("top_crop_rel")),
-                "bottom_crop_url": _classification_training_asset_url(session_id, classification_result.get("bottom_crop_rel")),
-                "result_json_url": _classification_training_asset_url(session_id, classification_result.get("result_json_rel")),
-            }
-            if session_id and classification_result is not None
-            else classification_result
-        ),
-        "distill_result": (
-            {
-                **distill_result,
-                "overlay_image_url": _classification_training_asset_url(session_id, distill_result.get("overlay_image_rel")),
-                "result_json_url": _classification_training_asset_url(session_id, distill_result.get("result_json_rel")),
-                "yolo_label_url": _classification_training_asset_url(session_id, distill_result.get("yolo_label_rel")),
-            }
-            if session_id and distill_result is not None
-            else distill_result
-        ),
-        "retests": [
-            {
-                **retest,
-                "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
-                "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
-            }
-            for retest in retests
-            if isinstance(retest, dict)
-        ],
-    }
-
-
-# ---------------------------------------------------------------------------
 # API keys endpoints
 # ---------------------------------------------------------------------------
 
@@ -392,9 +292,7 @@ def get_api_keys() -> Dict[str, Any]:
     saved = getApiKeys()
     masked: Dict[str, str | None] = {}
     for provider in SUPPORTED_API_KEY_PROVIDERS:
-        key = saved.get(provider) or os.environ.get(
-            "GOOGLE_API_KEY" if provider == "google" else "OPENROUTER_API_KEY", ""
-        )
+        key = saved.get(provider) or os.environ.get("OPENROUTER_API_KEY", "")
         if key:
             masked[provider] = key[:8] + "..." + key[-4:] if len(key) > 12 else "***"
         else:
@@ -406,12 +304,107 @@ def get_api_keys() -> Dict[str, Any]:
 def save_api_key(payload: ApiKeySavePayload) -> Dict[str, Any]:
     if payload.provider not in SUPPORTED_API_KEY_PROVIDERS:
         raise HTTPException(400, f"Unsupported provider '{payload.provider}'.")
-    saved = getApiKeys()
-    saved[payload.provider] = payload.key.strip()
+    saved = {"openrouter": payload.key.strip()}
     setApiKeys(saved)
-    env_var = "GOOGLE_API_KEY" if payload.provider == "google" else "OPENROUTER_API_KEY"
-    os.environ[env_var] = payload.key.strip()
+    os.environ["OPENROUTER_API_KEY"] = payload.key.strip()
     return {"ok": True, "message": f"API key for {payload.provider} saved and activated."}
+
+
+# ---------------------------------------------------------------------------
+# SortHive upload config
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/settings/sorthive")
+def get_sorthive_config() -> Dict[str, Any]:
+    config = getSortHiveConfig() or {}
+    url = config.get("url", "")
+    token = config.get("api_token", "")
+    enabled = bool(config.get("enabled", False))
+    machine_id = config.get("machine_id") if isinstance(config.get("machine_id"), str) else None
+    masked_token: str | None = None
+    if isinstance(token, str) and token:
+        masked_token = token[:8] + "..." + token[-4:] if len(token) > 12 else "***"
+    uploader_status = getClassificationTrainingManager().getSortHiveUploaderStatus()
+    return {
+        "ok": True,
+        "configured": bool(isinstance(url, str) and url and isinstance(token, str) and token),
+        "url": url,
+        "machine_id": machine_id,
+        "api_token_masked": masked_token,
+        "enabled": enabled,
+        "uploader": uploader_status,
+    }
+
+
+@router.post("/api/settings/sorthive")
+def save_sorthive_config(payload: SortHiveConfigPayload) -> Dict[str, Any]:
+    config = getSortHiveConfig() or {}
+    config["url"] = payload.url.strip().rstrip("/")
+    config["enabled"] = payload.enabled
+    if payload.api_token and not payload.api_token.endswith("..."):
+        config["api_token"] = payload.api_token.strip()
+    setSortHiveConfig(config)
+    getClassificationTrainingManager().reloadSortHiveUploader()
+    return {"ok": True, "message": "SortHive configuration saved."}
+
+
+@router.delete("/api/settings/sorthive")
+def clear_sorthive_config() -> Dict[str, Any]:
+    setSortHiveConfig({})
+    getClassificationTrainingManager().reloadSortHiveUploader()
+    return {"ok": True, "message": "SortHive upload target removed."}
+
+
+@router.post("/api/settings/sorthive/register")
+def sorthive_register(payload: SortHiveRegisterPayload) -> Dict[str, Any]:
+    import requests
+
+    base_url = payload.url.strip().rstrip("/")
+    try:
+        response = requests.post(
+            f"{base_url}/api/machine/register",
+            json={
+                "email": payload.email,
+                "password": payload.password,
+                "machine_name": payload.machine_name,
+                "machine_description": payload.machine_description,
+            },
+            timeout=15,
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Could not reach SortHive server: {exc}")
+
+    if not response.ok:
+        try:
+            body = response.json()
+            message = body.get("error", response.text)
+        except Exception:
+            message = response.text
+        raise HTTPException(response.status_code, f"SortHive registration failed: {message}")
+
+    data = response.json()
+    raw_token = data.get("raw_token", "")
+    machine_id = data.get("id", "")
+
+    config = getSortHiveConfig() or {}
+    config["url"] = base_url
+    config["api_token"] = raw_token
+    config["enabled"] = True
+    config["machine_id"] = str(machine_id)
+    setSortHiveConfig(config)
+    getClassificationTrainingManager().reloadSortHiveUploader()
+    return {
+        "ok": True,
+        "machine_id": str(machine_id),
+        "machine_name": data.get("name", payload.machine_name),
+        "token_prefix": data.get("token_prefix", raw_token[:8]),
+    }
+
+
+@router.post("/api/settings/sorthive/backfill")
+def sorthive_backfill(payload: SortHiveBackfillPayload = SortHiveBackfillPayload()) -> Dict[str, Any]:
+    return getClassificationTrainingManager().backfillToSortHive(session_ids=payload.session_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -794,381 +787,6 @@ def capture_carousel_detection_baseline() -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Classification training library CRUD
-# ---------------------------------------------------------------------------
-
-
-@router.get("/api/classification/training/library")
-def get_classification_training_library(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(36, ge=1, le=120),
-    search: str | None = None,
-    session_id: str | None = None,
-    detection_scope: str | None = None,
-    source_role: str | None = None,
-    capture_reason: str | None = None,
-    detection_algorithm: str | None = None,
-    classification_status: str | None = None,
-    has_classification_result: bool | None = None,
-    review_status: str | None = None,
-    sort_by: str = Query("captured_at"),
-    sort_dir: str = Query("desc"),
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    payload = manager.queryLibrary(
-        page=page,
-        page_size=page_size,
-        search=search,
-        session_id=session_id,
-        detection_scope=detection_scope,
-        source_role=source_role,
-        capture_reason=capture_reason,
-        detection_algorithm=detection_algorithm,
-        classification_status=classification_status,
-        has_classification_result=has_classification_result,
-        review_status=review_status,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-    )
-    return {
-        "ok": True,
-        "sessions": payload.get("sessions", []),
-        "pagination": payload.get("pagination", {}),
-        "facets": payload.get("facets", {}),
-        "query": payload.get("query", {}),
-        "worker_status": manager.getWorkerStatus(),
-        "samples": [
-            _serialize_training_sample_summary(sample)
-            for sample in payload.get("samples", [])
-            if isinstance(sample, dict)
-        ],
-    }
-
-
-@router.get("/api/classification/training/worker-status")
-def get_classification_training_worker_status() -> Dict[str, Any]:
-    return {
-        "ok": True,
-        "worker_status": getClassificationTrainingManager().getWorkerStatus(),
-    }
-
-
-@router.post("/api/classification/training/library/clear")
-def clear_classification_training_library(
-    distill_status: str = Query(...),
-    search: str | None = None,
-    session_id: str | None = None,
-    detection_scope: str | None = None,
-    source_role: str | None = None,
-    capture_reason: str | None = None,
-    detection_algorithm: str | None = None,
-    classification_status: str | None = None,
-    has_classification_result: bool | None = None,
-    review_status: str | None = None,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.clearLibrarySamples(
-            distill_status=distill_status,
-            search=search,
-            session_id=session_id,
-            detection_scope=detection_scope,
-            source_role=source_role,
-            capture_reason=capture_reason,
-            detection_algorithm=detection_algorithm,
-            classification_status=classification_status,
-            has_classification_result=has_classification_result,
-            review_status=review_status,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to clear classification samples: {exc}")
-    return result
-
-
-@router.post("/api/classification/training/library/retry")
-def retry_classification_training_library(
-    distill_status: str = Query(...),
-    search: str | None = None,
-    session_id: str | None = None,
-    detection_scope: str | None = None,
-    source_role: str | None = None,
-    capture_reason: str | None = None,
-    detection_algorithm: str | None = None,
-    classification_status: str | None = None,
-    has_classification_result: bool | None = None,
-    review_status: str | None = None,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.retryLibrarySamples(
-            distill_status=distill_status,
-            search=search,
-            session_id=session_id,
-            detection_scope=detection_scope,
-            source_role=source_role,
-            capture_reason=capture_reason,
-            detection_algorithm=detection_algorithm,
-            classification_status=classification_status,
-            has_classification_result=has_classification_result,
-            review_status=review_status,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to retry classification samples: {exc}")
-    return result
-
-
-@router.get("/api/classification/training/sessions/{session_id}/samples/{sample_id}")
-def get_classification_training_sample_detail(session_id: str, sample_id: str) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        payload = manager.getSampleDetail(session_id, sample_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load classification sample: {exc}")
-    session = payload.get("session", {}) if isinstance(payload, dict) else {}
-    sample = payload.get("sample", {}) if isinstance(payload, dict) else {}
-    if isinstance(sample, dict):
-        sample = _serialize_training_sample_detail(sample)
-    return {
-        "ok": True,
-        "session": session,
-        "sample": sample,
-        "available_retest_models": _available_retest_model_options(),
-        "available_openrouter_models": _openrouter_model_options(),
-    }
-
-
-@router.delete("/api/classification/training/sessions/{session_id}/samples/{sample_id}")
-def delete_classification_training_sample(session_id: str, sample_id: str) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.deleteSample(session_id, sample_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to delete classification sample: {exc}")
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "removed_session": bool(result.get("removed_session")),
-    }
-
-
-@router.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/review")
-def review_classification_training_sample(
-    session_id: str,
-    sample_id: str,
-    payload: ClassificationSampleReviewPayload,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        sample = manager.setSampleReview(
-            session_id, sample_id,
-            status=payload.status,
-            box_corrections=payload.box_corrections,
-            added_boxes=payload.added_boxes,
-        )
-    except ValueError as exc:
-        detail = str(exc)
-        if detail == "Unknown sample.":
-            raise HTTPException(status_code=404, detail=detail)
-        raise HTTPException(status_code=400, detail=detail)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to update classification sample review: {exc}")
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "sample": _serialize_training_sample_detail(sample),
-    }
-
-
-@router.get("/api/classification/training/verify-next")
-def get_next_unverified_sample() -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    sample = manager.getNextUnverifiedSample()
-    if sample is None:
-        return {"ok": True, "sample": None, "done": True}
-    session_id = sample.pop("_session_id", None)
-    return {
-        "ok": True,
-        "sample": _serialize_training_sample_detail(sample),
-        "session_id": session_id,
-        "done": False,
-    }
-
-
-@router.get("/api/classification/training/verify-stats")
-def get_verify_stats() -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    stats = manager.getVerifyStats()
-    return {"ok": True, **stats}
-
-
-@router.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retest")
-def retest_classification_training_sample(
-    session_id: str,
-    sample_id: str,
-    payload: ClassificationSampleRetestPayload,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    model = _normalize_retest_model_id(payload.model_id or payload.openrouter_model)
-    try:
-        result = manager.runSampleRetest(session_id, sample_id, model_id=model)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to retest classification sample: {exc}")
-    retest = result.get("retest", {}) if isinstance(result, dict) else {}
-    if isinstance(retest, dict):
-        retest = {
-            **retest,
-            "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
-            "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
-        }
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "retest": retest,
-    }
-
-
-@router.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retest-all")
-def retest_all_classification_training_sample(
-    session_id: str,
-    sample_id: str,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.runSampleRetests(
-            session_id,
-            sample_id,
-            model_ids=[option["id"] for option in _available_retest_model_options() if isinstance(option, dict) and isinstance(option.get("id"), str)],
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to retest classification sample across all models: {exc}")
-    retests = result.get("retests", []) if isinstance(result, dict) else []
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "completed_count": len(retests),
-        "retests": [
-            {
-                **retest,
-                "overlay_image_url": _classification_training_asset_url(session_id, retest.get("overlay_image_rel")),
-                "result_json_url": _classification_training_asset_url(session_id, retest.get("result_json_rel")),
-            }
-            for retest in retests
-            if isinstance(retest, dict)
-        ],
-    }
-
-
-@router.post("/api/classification/training/sessions/{session_id}/samples/{sample_id}/promote-retest")
-def promote_retest_to_ground_truth(
-    session_id: str,
-    sample_id: str,
-    payload: ClassificationSamplePromoteRetestPayload,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.promoteRetestToGroundTruth(
-            session_id, sample_id, retest_id=payload.retest_id,
-        )
-    except ValueError as exc:
-        detail = str(exc)
-        if detail in ("Unknown sample.", "Unknown retest."):
-            raise HTTPException(status_code=404, detail=detail)
-        raise HTTPException(status_code=400, detail=detail)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to promote retest to ground truth: {exc}")
-    sample = result.get("sample", {})
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "sample": _serialize_training_sample_detail(sample),
-    }
-
-
-@router.delete("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retests/{retest_id}")
-def delete_classification_training_sample_retest(
-    session_id: str,
-    sample_id: str,
-    retest_id: str,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.deleteSampleRetest(session_id, sample_id, retest_id=retest_id)
-    except ValueError as exc:
-        detail = str(exc)
-        if detail in ("Unknown sample.", "Unknown retest.", "Unknown sample session."):
-            raise HTTPException(status_code=404, detail=detail)
-        raise HTTPException(status_code=400, detail=detail)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to delete retest: {exc}")
-    sample = result.get("sample", {})
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "retest_id": retest_id,
-        "sample": _serialize_training_sample_detail(sample),
-    }
-
-
-@router.delete("/api/classification/training/sessions/{session_id}/samples/{sample_id}/retests")
-def clear_classification_training_sample_retests(
-    session_id: str,
-    sample_id: str,
-) -> Dict[str, Any]:
-    manager = getClassificationTrainingManager()
-    try:
-        result = manager.clearSampleRetests(session_id, sample_id)
-    except ValueError as exc:
-        detail = str(exc)
-        if detail in ("Unknown sample.", "Unknown sample session."):
-            raise HTTPException(status_code=404, detail=detail)
-        raise HTTPException(status_code=400, detail=detail)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to clear retests: {exc}")
-    sample = result.get("sample", {})
-    return {
-        "ok": True,
-        "session_id": session_id,
-        "sample_id": sample_id,
-        "sample": _serialize_training_sample_detail(sample),
-    }
-
-
-# ---------------------------------------------------------------------------
-# Training asset file endpoint
-# ---------------------------------------------------------------------------
-
-
-@router.get("/api/classification/training/sessions/{session_id}/file/{asset_path:path}")
-def get_classification_training_asset(session_id: str, asset_path: str) -> FileResponse:
-    manager = getClassificationTrainingManager()
-    try:
-        resolved = manager.resolveAssetPath(session_id, asset_path)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    return FileResponse(resolved)
-
-
-# ---------------------------------------------------------------------------
 # Detection debug/test endpoints
 # ---------------------------------------------------------------------------
 
@@ -1227,16 +845,7 @@ def debug_classification_detection(camera: str) -> Dict[str, Any]:
                 top_frame=sample_capture.get("top_frame"),
                 bottom_frame=sample_capture.get("bottom_frame"),
             )
-            saved_sample_id = saved.get("sample_id")
-            saved_session_id = saved.get("session_id")
             payload["saved_to_library"] = True
-            payload["saved_sample_id"] = saved_sample_id if isinstance(saved_sample_id, str) else None
-            payload["saved_session_id"] = saved_session_id if isinstance(saved_session_id, str) else None
-            payload["saved_detail_url"] = (
-                f"/classification-samples/{saved_session_id}/{saved_sample_id}"
-                if isinstance(saved_session_id, str) and isinstance(saved_sample_id, str)
-                else None
-            )
         except Exception as exc:
             payload["saved_to_library"] = False
             payload["saved_sample_error"] = str(exc)
@@ -1290,16 +899,7 @@ def _finalize_aux_detection_debug_payload(
                 input_image=sample_capture.get("input_image"),
                 source_frame=sample_capture.get("frame"),
             )
-            saved_sample_id = saved.get("sample_id")
-            saved_session_id = saved.get("session_id")
             payload["saved_to_library"] = True
-            payload["saved_sample_id"] = saved_sample_id if isinstance(saved_sample_id, str) else None
-            payload["saved_session_id"] = saved_session_id if isinstance(saved_session_id, str) else None
-            payload["saved_detail_url"] = (
-                f"/classification-samples/{saved_session_id}/{saved_sample_id}"
-                if isinstance(saved_session_id, str) and isinstance(saved_sample_id, str)
-                else None
-            )
         except Exception as exc:
             payload["saved_to_library"] = False
             payload["saved_sample_error"] = str(exc)

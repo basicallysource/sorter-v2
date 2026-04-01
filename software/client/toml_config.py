@@ -196,6 +196,28 @@ def setClassificationTrainingConfig(cfg: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# SortHive config
+# ---------------------------------------------------------------------------
+
+
+def getSortHiveConfig() -> dict[str, Any] | None:
+    """Read SortHive upload config from TOML [sorthive] section."""
+    config = _read_toml()
+    section = config.get("sorthive")
+    if not isinstance(section, dict):
+        return None
+    return dict(section)
+
+
+def setSortHiveConfig(cfg: dict[str, Any]) -> None:
+    """Write SortHive upload config to TOML [sorthive] section."""
+    def updater(config: dict[str, Any]) -> None:
+        config["sorthive"] = dict(cfg)
+
+    _update_toml(updater)
+
+
+# ---------------------------------------------------------------------------
 # API keys
 # ---------------------------------------------------------------------------
 

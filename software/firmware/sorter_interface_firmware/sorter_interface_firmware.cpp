@@ -535,6 +535,14 @@ void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp
         return;
     }
     steppers[msg->channel].enableStallDetection(enable);
+    // Toggle hardware ENN pin to reset DIAG latch when disabling stall detection
+    if (!enable && steppers[msg->channel].wasStalled()) {
+        int en_pin = STEPPER_nEN_PINS[msg->channel];
+        gpio_put(en_pin, 1);  // ENN high = disable
+        busy_wait_us(100);
+        gpio_put(en_pin, 0);  // ENN low = enable
+        steppers[msg->channel].clearStall();
+    }
     resp->payload_length = 0;
 }
 

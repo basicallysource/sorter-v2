@@ -189,6 +189,15 @@ void Stepper::stepgen_tick() {
  *  It updates the motion parameters (speed, acceleration, state transitions) of the stepper.
  */
 void Stepper::motion_update_tick() {
+    // Check stall detection pin (DIAG from TMC2209) in any moving state
+    if (_state != STEPPER_STOPPED && _stall_enabled && _stall_pin >= 0) {
+        if (gpio_get(_stall_pin)) {
+            _state = STEPPER_STOPPED;
+            _current_speed = 0;
+            _stalled = true;
+            return;
+        }
+    }
     switch (_state) {
         case STEPPER_STOPPED:
             // Nothing to do
@@ -222,15 +231,6 @@ void Stepper::motion_update_tick() {
                     _current_speed = 0;
                     _absolute_position = 0;
                     _mc_home_pin = -1; // Homing done
-                    break;
-                }
-            }
-            // Check stall detection pin (DIAG from TMC2209)
-            if (_stall_enabled && _stall_pin >= 0) {
-                if (gpio_get(_stall_pin)) {
-                    _state = STEPPER_STOPPED;
-                    _current_speed = 0;
-                    _stalled = true;
                     break;
                 }
             }

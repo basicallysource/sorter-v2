@@ -32,6 +32,15 @@
 		targets: SortHiveTarget[];
 	};
 
+	type LegacySortHiveConfig = {
+		configured?: boolean;
+		url?: string;
+		machine_id?: string | null;
+		api_token_masked?: string | null;
+		enabled?: boolean;
+		uploader?: UploaderStatus | null;
+	};
+
 	let config = $state<SortHiveConfig | null>(null);
 	let loading = $state(true);
 	let statusMsg = $state<string | null>(null);
@@ -59,6 +68,95 @@
 	let regMachineDescription = $state('');
 
 	const targets = $derived(config?.targets ?? []);
+
+	function emptyUploaderStatus(enabled: boolean): UploaderStatus {
+		return {
+			enabled,
+			server_reachable: false,
+			queue_size: 0,
+			uploaded: 0,
+			failed: 0,
+			requeued: 0,
+			last_error: null
+		};
+	}
+
+	function normalizeConfig(raw: unknown): SortHiveConfig {
+		if (!raw || typeof raw !== 'object') {
+			return { configured_count: 0, enabled_count: 0, targets: [] };
+		}
+
+		const data = raw as Record<string, unknown>;
+		if (Array.isArray(data.targets)) {
+			const normalizedTargets = data.targets.flatMap((entry, index) => {
+				if (!entry || typeof entry !== 'object') return [];
+				const target = entry as Record<string, unknown>;
+				const enabled = Boolean(target.enabled);
+				const uploaderRaw =
+					target.uploader && typeof target.uploader === 'object'
+						? (target.uploader as Partial<UploaderStatus>)
+						: null;
+				return [
+					{
+						id:
+							typeof target.id === 'string' && target.id.trim()
+								? target.id
+								: `target-${index + 1}`,
+						name:
+							typeof target.name === 'string' && target.name.trim()
+								? target.name
+								: typeof target.url === 'string'
+									? target.url
+									: `SortHive ${index + 1}`,
+						url: typeof target.url === 'string' ? target.url : '',
+						machine_id: typeof target.machine_id === 'string' ? target.machine_id : null,
+						api_token_masked:
+							typeof target.api_token_masked === 'string' ? target.api_token_masked : null,
+						enabled,
+						uploader: {
+							...emptyUploaderStatus(enabled),
+							...(uploaderRaw ?? {})
+						}
+					} satisfies SortHiveTarget
+				];
+			});
+
+			return {
+				configured_count: normalizedTargets.length,
+				enabled_count: normalizedTargets.filter((target) => target.enabled).length,
+				targets: normalizedTargets
+			};
+		}
+
+		const legacy = data as LegacySortHiveConfig;
+		const configured =
+			Boolean(legacy.configured) ||
+			(typeof legacy.url === 'string' && legacy.url.trim().length > 0);
+		if (!configured || typeof legacy.url !== 'string' || !legacy.url.trim()) {
+			return { configured_count: 0, enabled_count: 0, targets: [] };
+		}
+
+		const enabled = Boolean(legacy.enabled);
+		return {
+			configured_count: 1,
+			enabled_count: enabled ? 1 : 0,
+			targets: [
+				{
+					id: 'legacy-target',
+					name: legacy.url,
+					url: legacy.url,
+					machine_id: typeof legacy.machine_id === 'string' ? legacy.machine_id : null,
+					api_token_masked:
+						typeof legacy.api_token_masked === 'string' ? legacy.api_token_masked : null,
+					enabled,
+					uploader: {
+						...emptyUploaderStatus(enabled),
+						...(legacy.uploader ?? {})
+					}
+				}
+			]
+		};
+	}
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
@@ -98,7 +196,7 @@
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/sorthive`);
 			if (!res.ok) throw new Error(await res.text());
-			config = (await res.json()) as SortHiveConfig;
+			config = normalizeConfig(await res.json());
 
 			if (editingTargetId) {
 				resetTargetForm(getTarget(editingTargetId));

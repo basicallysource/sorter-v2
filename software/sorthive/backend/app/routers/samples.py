@@ -1,0 +1,216 @@
+import math
+from datetime import datetime, timezone
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
+from app.deps import get_current_user, get_db, verify_csrf
+from app.errors import APIError
+from app.models.sample import Sample
+from app.models.user import User
+from app.schemas.sample import (
+    SampleDetailResponse,
+    SampleListResponse,
+    SampleResponse,
+    SampleAnnotationsPayload,
+    SaveSampleAnnotationsRequest,
+    SaveSampleAnnotationsResponse,
+)
+from app.services.storage import delete_sample_files, get_file_path
+
+router = APIRouter(prefix="/api/samples", tags=["samples"])
+
+
+@router.get("/filter-options")
+def get_sample_filter_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    source_roles = [
+        value
+        for (value,) in (
+            db.query(Sample.source_role)
+            .filter(Sample.source_role.isnot(None))
+            .distinct()
+            .order_by(Sample.source_role.asc())
+            .all()
+        )
+        if isinstance(value, str) and value
+    ]
+    capture_reasons = [
+        value
+        for (value,) in (
+            db.query(Sample.capture_reason)
+            .filter(Sample.capture_reason.isnot(None))
+            .distinct()
+            .order_by(Sample.capture_reason.asc())
+            .all()
+        )
+        if isinstance(value, str) and value
+    ]
+    return {
+        "source_roles": source_roles,
+        "capture_reasons": capture_reasons,
+    }
+
+
+@router.get("", response_model=SampleListResponse)
+def list_samples(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(36, ge=1, le=100),
+    machine_id: UUID | None = None,
+    upload_session_id: UUID | None = None,
+    source_role: str | None = None,
+    capture_reason: str | None = None,
+    review_status: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(Sample)
+
+    if machine_id:
+        query = query.filter(Sample.machine_id == machine_id)
+    if upload_session_id:
+        query = query.filter(Sample.upload_session_id == upload_session_id)
+    if source_role:
+        query = query.filter(Sample.source_role == source_role)
+    if capture_reason:
+        query = query.filter(Sample.capture_reason == capture_reason)
+    if review_status:
+        query = query.filter(Sample.review_status == review_status)
+
+    query = query.order_by(Sample.uploaded_at.desc())
+
+    total = query.count()
+    pages = math.ceil(total / page_size) if total > 0 else 1
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return SampleListResponse(
+        items=[SampleResponse.model_validate(s) for s in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+@router.get("/{sample_id}", response_model=SampleDetailResponse)
+def get_sample(
+    sample_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    data = SampleDetailResponse.model_validate(sample)
+    data.has_full_frame = sample.full_frame_path is not None
+    data.has_overlay = sample.overlay_path is not None
+    return data
+
+
+@router.put("/{sample_id}/annotations", response_model=SaveSampleAnnotationsResponse)
+def save_sample_annotations(
+    sample_id: UUID,
+    data: SaveSampleAnnotationsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    payload = SampleAnnotationsPayload(
+        version=data.version,
+        updated_at=datetime.now(timezone.utc),
+        updated_by_display_name=current_user.display_name or current_user.email,
+        annotations=data.annotations,
+    )
+
+    extra_metadata = dict(sample.extra_metadata or {})
+    extra_metadata["manual_annotations"] = payload.model_dump(mode="json")
+    sample.extra_metadata = extra_metadata
+
+    db.add(sample)
+    db.commit()
+
+    return SaveSampleAnnotationsResponse(
+        ok=True,
+        annotation_count=len(data.annotations),
+        data=payload,
+    )
+
+
+@router.delete("/{sample_id}")
+def delete_sample(
+    sample_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    # Only owner of the machine or admin can delete
+    is_owner = sample.machine.owner_id == current_user.id
+    is_admin = current_user.role == "admin"
+    if not is_owner and not is_admin:
+        raise APIError(403, "Not authorized to delete this sample", "FORBIDDEN")
+
+    delete_sample_files(sample)
+
+    # Decrement session count
+    session = sample.upload_session
+    if session:
+        session.sample_count = max(0, session.sample_count - 1)
+
+    db.delete(sample)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/{sample_id}/assets/image")
+def get_sample_image(
+    sample_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    path = get_file_path(sample.image_path)
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/{sample_id}/assets/full-frame")
+def get_sample_full_frame(
+    sample_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample or not sample.full_frame_path:
+        raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
+
+    path = get_file_path(sample.full_frame_path)
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/{sample_id}/assets/overlay")
+def get_sample_overlay(
+    sample_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample or not sample.overlay_path:
+        raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
+
+    path = get_file_path(sample.overlay_path)
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})

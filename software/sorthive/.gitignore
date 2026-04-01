@@ -1,0 +1,38 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+!.env.prod.example
+backend/.env
+backend/.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.venv/
+backend/.venv/
+backend/.pytest_cache/
+backend/test.db
+
+# Local runtime data
+backend/data/
+
+# Node / Svelte
+node_modules/
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+
+# Logs
+*.log

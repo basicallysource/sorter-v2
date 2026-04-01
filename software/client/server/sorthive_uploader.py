@@ -191,13 +191,7 @@ class SortHiveUploader:
     def __init__(self) -> None:
         self._queue: queue.Queue[dict[str, Any] | None] = queue.Queue()
         self._lock = threading.Lock()
-        self._client: _SortHiveClient | None = None
-        self._enabled = False
-        self._uploaded = 0
-        self._failed = 0
-        self._requeued = 0
-        self._last_error: str | None = None
-        self._server_reachable = True
+        self._targets: dict[str, dict[str, Any]] = {}
         self._reload_config()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True, name="sorthive-uploader")
         self._worker.start()
@@ -210,29 +204,57 @@ class SortHiveUploader:
 
     def _reload_config(self) -> None:
         config = getSortHiveConfig()
-        if not isinstance(config, dict):
-            self._enabled = False
-            self._client = None
+        targets = config.get("targets") if isinstance(config, dict) else None
+        previous = self._targets
+        self._targets = {}
+
+        if not isinstance(targets, list):
             return
 
-        enabled = bool(config.get("enabled", False))
-        url = config.get("url", "")
-        token = config.get("api_token", "")
-        if not enabled or not isinstance(url, str) or not url or not isinstance(token, str) or not token:
-            self._enabled = False
-            self._client = None
-            return
+        for raw_target in targets:
+            if not isinstance(raw_target, dict):
+                continue
 
-        try:
-            self._client = _SortHiveClient(url, token)
-            self._enabled = True
-            self._server_reachable = True
-            log.info("SortHive uploader enabled: %s", url)
-        except Exception as exc:
-            log.warning("SortHive uploader disabled (client init failed): %s", exc)
-            self._enabled = False
-            self._client = None
-            self._last_error = str(exc)
+            target_id = raw_target.get("id")
+            url = raw_target.get("url")
+            token = raw_target.get("api_token")
+            if not isinstance(target_id, str) or not target_id:
+                continue
+            if not isinstance(url, str) or not url:
+                continue
+            if not isinstance(token, str) or not token:
+                continue
+
+            previous_state = previous.get(target_id, {})
+            enabled = bool(raw_target.get("enabled", False))
+            state: dict[str, Any] = {
+                "id": target_id,
+                "name": raw_target.get("name") if isinstance(raw_target.get("name"), str) else url,
+                "url": url,
+                "machine_id": raw_target.get("machine_id") if isinstance(raw_target.get("machine_id"), str) else None,
+                "enabled": enabled,
+                "client": None,
+                "server_reachable": bool(previous_state.get("server_reachable", True)),
+                "uploaded": int(previous_state.get("uploaded", 0)),
+                "failed": int(previous_state.get("failed", 0)),
+                "requeued": int(previous_state.get("requeued", 0)),
+                "queued": int(previous_state.get("queued", 0)),
+                "last_error": previous_state.get("last_error"),
+                "retry_after": float(previous_state.get("retry_after", 0.0)),
+                "backoff_s": float(previous_state.get("backoff_s", SERVER_DOWN_BACKOFF_S)),
+            }
+
+            if enabled:
+                try:
+                    state["client"] = _SortHiveClient(url, token)
+                    state["server_reachable"] = bool(previous_state.get("server_reachable", True))
+                    log.info("SortHive uploader enabled: %s (%s)", state["name"], url)
+                except Exception as exc:
+                    state["enabled"] = False
+                    state["last_error"] = str(exc)
+                    log.warning("SortHive uploader disabled for %s: %s", url, exc)
+
+            self._targets[target_id] = state
 
     def reload(self) -> dict[str, Any]:
         with self._lock:
@@ -242,14 +264,35 @@ class SortHiveUploader:
     def status(self) -> dict[str, Any]:
         with self._lock:
             return {
-                "enabled": self._enabled,
-                "server_reachable": self._server_reachable,
-                "queue_size": self._queue.qsize(),
-                "uploaded": self._uploaded,
-                "failed": self._failed,
-                "requeued": self._requeued,
-                "last_error": self._last_error,
+                "targets": [
+                    {
+                        "id": target["id"],
+                        "name": target["name"],
+                        "url": target["url"],
+                        "machine_id": target["machine_id"],
+                        "enabled": target["enabled"],
+                        "server_reachable": target["server_reachable"],
+                        "queue_size": target["queued"],
+                        "uploaded": target["uploaded"],
+                        "failed": target["failed"],
+                        "requeued": target["requeued"],
+                        "last_error": target["last_error"],
+                    }
+                    for target in self._targets.values()
+                ]
             }
+
+    def _resolve_target_ids_locked(self, requested_target_ids: list[str] | None = None) -> list[str]:
+        enabled_target_ids = [
+            target_id
+            for target_id, target in self._targets.items()
+            if target.get("enabled") and target.get("client") is not None
+        ]
+        if requested_target_ids is None:
+            return enabled_target_ids
+
+        requested = {target_id for target_id in requested_target_ids if isinstance(target_id, str)}
+        return [target_id for target_id in enabled_target_ids if target_id in requested]
 
     def enqueue(
         self,
@@ -261,27 +304,42 @@ class SortHiveUploader:
         image_path: str,
         full_frame_path: str | None = None,
         overlay_path: str | None = None,
+        target_ids: list[str] | None = None,
     ) -> None:
         with self._lock:
-            if not self._enabled:
+            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
+            if not resolved_target_ids:
                 return
-        self._queue.put(
-            {
-                "session_id": session_id,
-                "session_name": session_name,
-                "sample_id": sample_id,
-                "metadata": metadata,
-                "image_path": image_path,
-                "full_frame_path": full_frame_path,
-                "overlay_path": overlay_path,
-                "queued_at": time.time(),
-            }
-        )
+            for target_id in resolved_target_ids:
+                target = self._targets.get(target_id)
+                if target is not None:
+                    target["queued"] = int(target.get("queued", 0)) + 1
 
-    def backfill(self, training_root: Path, session_ids: list[str] | None = None) -> dict[str, Any]:
+        for target_id in resolved_target_ids:
+            self._queue.put(
+                {
+                    "target_id": target_id,
+                    "session_id": session_id,
+                    "session_name": session_name,
+                    "sample_id": sample_id,
+                    "metadata": metadata,
+                    "image_path": image_path,
+                    "full_frame_path": full_frame_path,
+                    "overlay_path": overlay_path,
+                    "queued_at": time.time(),
+                }
+            )
+
+    def backfill(
+        self,
+        training_root: Path,
+        session_ids: list[str] | None = None,
+        target_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
         with self._lock:
-            if not self._enabled:
-                return {"ok": False, "error": "SortHive uploader is not enabled."}
+            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
+            if not resolved_target_ids:
+                return {"ok": False, "error": "No enabled SortHive target is available."}
         if not training_root.exists():
             return {"ok": False, "error": "Training root does not exist."}
 
@@ -363,6 +421,7 @@ class SortHiveUploader:
                     image_path=str(image_path),
                     full_frame_path=str(full_frame_path) if full_frame_path is not None else None,
                     overlay_path=str(overlay_path) if overlay_path is not None else None,
+                    target_ids=resolved_target_ids,
                 )
                 queued += 1
 
@@ -373,51 +432,64 @@ class SortHiveUploader:
             "errors": errors,
             "samples_scanned": samples_scanned,
             "sessions_scanned": len(session_dirs),
+            "target_count": len(resolved_target_ids),
         }
 
     def _heartbeat_loop(self) -> None:
         while True:
             time.sleep(HEARTBEAT_INTERVAL_S)
             with self._lock:
-                if not self._enabled or self._client is None:
-                    continue
-                client = self._client
-            try:
-                reachable = client.heartbeat()
+                heartbeat_targets = [
+                    (target_id, target["name"], target["client"])
+                    for target_id, target in self._targets.items()
+                    if target.get("enabled") and target.get("client") is not None
+                ]
+
+            for target_id, target_name, client in heartbeat_targets:
+                try:
+                    reachable = client.heartbeat()
+                except Exception:
+                    reachable = False
+
                 with self._lock:
-                    was_down = not self._server_reachable
-                    self._server_reachable = reachable
+                    target = self._targets.get(target_id)
+                    if target is None:
+                        continue
+                    was_down = not bool(target.get("server_reachable", True))
+                    target["server_reachable"] = reachable
+                    if reachable:
+                        target["retry_after"] = 0.0
+                        target["backoff_s"] = SERVER_DOWN_BACKOFF_S
+
                 if reachable and was_down:
-                    log.info("SortHive server is back online")
+                    log.info("SortHive server is back online: %s", target_name)
                 elif not reachable and not was_down:
-                    log.warning("SortHive server is unreachable")
-            except Exception:
-                with self._lock:
-                    self._server_reachable = False
+                    log.warning("SortHive server is unreachable: %s", target_name)
 
     def _worker_loop(self) -> None:
-        down_backoff = SERVER_DOWN_BACKOFF_S
         while True:
             job = self._queue.get()
             if job is None:
                 return
-            with self._lock:
-                if not self._enabled or self._client is None:
-                    continue
-                reachable = self._server_reachable
-            if not reachable:
-                self._queue.put(job)
-                time.sleep(down_backoff)
-                down_backoff = min(down_backoff * 1.5, SERVER_DOWN_MAX_BACKOFF_S)
-                continue
-            down_backoff = SERVER_DOWN_BACKOFF_S
             self._process_job(job)
             time.sleep(UPLOAD_THROTTLE_S)
 
+    def _decrement_queue_locked(self, target_id: str) -> None:
+        target = self._targets.get(target_id)
+        if target is None:
+            return
+        target["queued"] = max(0, int(target.get("queued", 0)) - 1)
+
     def _process_job(self, job: dict[str, Any]) -> None:
+        target_id = job.get("target_id")
+        if not isinstance(target_id, str) or not target_id:
+            return
+
         image_path = Path(job["image_path"])
         if not image_path.exists():
             log.warning("SortHive upload skipped: image not found %s", image_path)
+            with self._lock:
+                self._decrement_queue_locked(target_id)
             return
 
         full_frame_path = None
@@ -453,10 +525,25 @@ class SortHiveUploader:
         }
         extra_metadata = {key: value for key, value in metadata.items() if key not in skip_keys and value is not None}
 
+        with self._lock:
+            target = self._targets.get(target_id)
+            if target is None:
+                return
+            if not target.get("enabled") or target.get("client") is None:
+                self._decrement_queue_locked(target_id)
+                return
+
+            retry_after = float(target.get("retry_after", 0.0))
+            if retry_after > time.time():
+                self._queue.put(job)
+                return
+
+            client = target["client"]
+            target_name = target["name"]
+
         for attempt in range(1, UPLOAD_MAX_RETRIES + 1):
             try:
-                assert self._client is not None
-                self._client.upload_sample(
+                client.upload_sample(
                     source_session_id=job["session_id"],
                     local_sample_id=job["sample_id"],
                     image_path=image_path,
@@ -476,27 +563,44 @@ class SortHiveUploader:
                     extra_metadata=extra_metadata or None,
                 )
                 with self._lock:
-                    self._uploaded += 1
-                    self._last_error = None
-                    self._server_reachable = True
+                    target = self._targets.get(target_id)
+                    if target is not None:
+                        target["uploaded"] = int(target.get("uploaded", 0)) + 1
+                        target["last_error"] = None
+                        target["server_reachable"] = True
+                        target["retry_after"] = 0.0
+                        target["backoff_s"] = SERVER_DOWN_BACKOFF_S
+                        self._decrement_queue_locked(target_id)
                 return
             except Exception as exc:
                 if _is_transient(exc):
                     with self._lock:
-                        self._server_reachable = False
-                        self._requeued += 1
-                        self._last_error = f"Server unreachable: {exc}"
+                        target = self._targets.get(target_id)
+                        if target is not None:
+                            target["server_reachable"] = False
+                            target["requeued"] = int(target.get("requeued", 0)) + 1
+                            target["last_error"] = f"Server unreachable: {exc}"
+                            backoff_s = min(
+                                max(float(target.get("backoff_s", SERVER_DOWN_BACKOFF_S)), SERVER_DOWN_BACKOFF_S) * 1.5,
+                                SERVER_DOWN_MAX_BACKOFF_S,
+                            )
+                            target["backoff_s"] = backoff_s
+                            target["retry_after"] = time.time() + backoff_s
                     self._queue.put(job)
                     return
                 if attempt < UPLOAD_MAX_RETRIES:
                     time.sleep(UPLOAD_RETRY_BASE_S * (2 ** (attempt - 1)))
                     continue
                 with self._lock:
-                    self._failed += 1
-                    self._last_error = str(exc)
+                    target = self._targets.get(target_id)
+                    if target is not None:
+                        target["failed"] = int(target.get("failed", 0)) + 1
+                        target["last_error"] = str(exc)
+                        self._decrement_queue_locked(target_id)
                 log.error(
-                    "SortHive upload failed after %d attempts: %s/%s: %s",
+                    "SortHive upload failed after %d attempts for %s: %s/%s: %s",
                     UPLOAD_MAX_RETRIES,
+                    target_name,
                     job["session_id"],
                     job["sample_id"],
                     exc,

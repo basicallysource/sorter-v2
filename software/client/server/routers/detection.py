@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -198,13 +199,16 @@ class ApiKeySavePayload(BaseModel):
     key: str
 
 
-class SortHiveConfigPayload(BaseModel):
+class SortHiveTargetPayload(BaseModel):
+    id: str | None = None
+    name: str = ""
     url: str = ""
     api_token: str = ""
     enabled: bool = False
 
 
 class SortHiveRegisterPayload(BaseModel):
+    target_name: str = ""
     url: str
     email: str
     password: str
@@ -214,6 +218,7 @@ class SortHiveRegisterPayload(BaseModel):
 
 class SortHiveBackfillPayload(BaseModel):
     session_ids: list[str] | None = None
+    target_ids: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -315,45 +320,123 @@ def save_api_key(payload: ApiKeySavePayload) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _load_sorthive_targets() -> list[dict[str, Any]]:
+    config = getSortHiveConfig() or {}
+    targets = config.get("targets")
+    if not isinstance(targets, list):
+        return []
+    return [dict(target) for target in targets if isinstance(target, dict)]
+
+
+def _save_sorthive_targets(targets: list[dict[str, Any]]) -> None:
+    setSortHiveConfig({"targets": targets})
+
+
+def _mask_sorthive_token(token: str | None) -> str | None:
+    if not isinstance(token, str) or not token:
+        return None
+    return token[:8] + "..." + token[-4:] if len(token) > 12 else "***"
+
+
+def _empty_sorthive_uploader_status(enabled: bool) -> Dict[str, Any]:
+    return {
+        "enabled": enabled,
+        "server_reachable": False,
+        "queue_size": 0,
+        "uploaded": 0,
+        "failed": 0,
+        "requeued": 0,
+        "last_error": None,
+    }
+
+
 @router.get("/api/settings/sorthive")
 def get_sorthive_config() -> Dict[str, Any]:
-    config = getSortHiveConfig() or {}
-    url = config.get("url", "")
-    token = config.get("api_token", "")
-    enabled = bool(config.get("enabled", False))
-    machine_id = config.get("machine_id") if isinstance(config.get("machine_id"), str) else None
-    masked_token: str | None = None
-    if isinstance(token, str) and token:
-        masked_token = token[:8] + "..." + token[-4:] if len(token) > 12 else "***"
     uploader_status = getClassificationTrainingManager().getSortHiveUploaderStatus()
+    uploader_targets = uploader_status.get("targets") if isinstance(uploader_status, dict) else []
+    uploader_by_id = {
+        item.get("id"): item
+        for item in uploader_targets
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    targets = _load_sorthive_targets()
+
     return {
         "ok": True,
-        "configured": bool(isinstance(url, str) and url and isinstance(token, str) and token),
-        "url": url,
-        "machine_id": machine_id,
-        "api_token_masked": masked_token,
-        "enabled": enabled,
-        "uploader": uploader_status,
+        "configured_count": len(targets),
+        "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
+        "targets": [
+            {
+                "id": target["id"],
+                "name": target.get("name") or target.get("url"),
+                "url": target.get("url", ""),
+                "machine_id": target.get("machine_id"),
+                "api_token_masked": _mask_sorthive_token(target.get("api_token")),
+                "enabled": bool(target.get("enabled", False)),
+                "uploader": (
+                    dict(uploader_by_id[target["id"]])
+                    if target["id"] in uploader_by_id
+                    else _empty_sorthive_uploader_status(bool(target.get("enabled", False)))
+                ),
+            }
+            for target in targets
+        ],
     }
 
 
 @router.post("/api/settings/sorthive")
-def save_sorthive_config(payload: SortHiveConfigPayload) -> Dict[str, Any]:
-    config = getSortHiveConfig() or {}
-    config["url"] = payload.url.strip().rstrip("/")
-    config["enabled"] = payload.enabled
+def save_sorthive_config(payload: SortHiveTargetPayload) -> Dict[str, Any]:
+    targets = _load_sorthive_targets()
+    target_id = payload.id.strip() if isinstance(payload.id, str) and payload.id.strip() else uuid4().hex[:12]
+    existing = next((target for target in targets if target.get("id") == target_id), None)
+
+    url = payload.url.strip().rstrip("/")
+    if not url:
+        raise HTTPException(400, "SortHive URL is required.")
+
+    api_token = ""
     if payload.api_token and not payload.api_token.endswith("..."):
-        config["api_token"] = payload.api_token.strip()
-    setSortHiveConfig(config)
+        api_token = payload.api_token.strip()
+    elif existing and isinstance(existing.get("api_token"), str):
+        api_token = existing["api_token"]
+
+    if not api_token:
+        raise HTTPException(400, "SortHive machine token is required.")
+
+    next_target = {
+        "id": target_id,
+        "name": payload.name.strip() or (existing.get("name") if existing else "") or url,
+        "url": url,
+        "api_token": api_token,
+        "machine_id": existing.get("machine_id") if existing else None,
+        "enabled": payload.enabled,
+    }
+
+    if existing is None:
+        targets.append(next_target)
+    else:
+        targets = [next_target if target.get("id") == target_id else target for target in targets]
+
+    _save_sorthive_targets(targets)
     getClassificationTrainingManager().reloadSortHiveUploader()
-    return {"ok": True, "message": "SortHive configuration saved."}
+    return {"ok": True, "message": "SortHive target saved.", "target_id": target_id}
 
 
 @router.delete("/api/settings/sorthive")
-def clear_sorthive_config() -> Dict[str, Any]:
-    setSortHiveConfig({})
+def clear_sorthive_config(target_id: str | None = Query(default=None)) -> Dict[str, Any]:
+    if not target_id:
+        _save_sorthive_targets([])
+        getClassificationTrainingManager().reloadSortHiveUploader()
+        return {"ok": True, "message": "All SortHive targets removed."}
+
+    targets = _load_sorthive_targets()
+    next_targets = [target for target in targets if target.get("id") != target_id]
+    if len(next_targets) == len(targets):
+        raise HTTPException(404, "SortHive target not found.")
+
+    _save_sorthive_targets(next_targets)
     getClassificationTrainingManager().reloadSortHiveUploader()
-    return {"ok": True, "message": "SortHive upload target removed."}
+    return {"ok": True, "message": "SortHive target removed."}
 
 
 @router.post("/api/settings/sorthive/register")
@@ -387,15 +470,25 @@ def sorthive_register(payload: SortHiveRegisterPayload) -> Dict[str, Any]:
     raw_token = data.get("raw_token", "")
     machine_id = data.get("id", "")
 
-    config = getSortHiveConfig() or {}
-    config["url"] = base_url
-    config["api_token"] = raw_token
-    config["enabled"] = True
-    config["machine_id"] = str(machine_id)
-    setSortHiveConfig(config)
+    targets = _load_sorthive_targets()
+    target_id = uuid4().hex[:12]
+    target_name = payload.target_name.strip() or base_url
+    targets.append(
+        {
+            "id": target_id,
+            "name": target_name,
+            "url": base_url,
+            "api_token": raw_token,
+            "enabled": True,
+            "machine_id": str(machine_id),
+        }
+    )
+    _save_sorthive_targets(targets)
     getClassificationTrainingManager().reloadSortHiveUploader()
     return {
         "ok": True,
+        "target_id": target_id,
+        "target_name": target_name,
         "machine_id": str(machine_id),
         "machine_name": data.get("name", payload.machine_name),
         "token_prefix": data.get("token_prefix", raw_token[:8]),
@@ -404,7 +497,10 @@ def sorthive_register(payload: SortHiveRegisterPayload) -> Dict[str, Any]:
 
 @router.post("/api/settings/sorthive/backfill")
 def sorthive_backfill(payload: SortHiveBackfillPayload = SortHiveBackfillPayload()) -> Dict[str, Any]:
-    return getClassificationTrainingManager().backfillToSortHive(session_ids=payload.session_ids)
+    return getClassificationTrainingManager().backfillToSortHive(
+        session_ids=payload.session_ids,
+        target_ids=payload.target_ids,
+    )
 
 
 # ---------------------------------------------------------------------------

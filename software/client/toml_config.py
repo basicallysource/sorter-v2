@@ -17,6 +17,7 @@ import threading
 import tomllib
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from server.config_helpers import write_machine_params_config
 
@@ -200,19 +201,74 @@ def setClassificationTrainingConfig(cfg: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _default_sorthive_target_name(url: str, index: int) -> str:
+    hostname = urlparse(url).hostname
+    if isinstance(hostname, str) and hostname.strip():
+        return hostname.strip()
+    return f"SortHive {index + 1}"
+
+
+def _normalize_sorthive_target(raw: Any, index: int) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+
+    url = raw.get("url")
+    api_token = raw.get("api_token")
+    if not isinstance(url, str) or not url.strip():
+        return None
+    if not isinstance(api_token, str) or not api_token.strip():
+        return None
+
+    target_id = raw.get("id")
+    name = raw.get("name")
+    machine_id = raw.get("machine_id")
+
+    target = {
+        "id": target_id.strip() if isinstance(target_id, str) and target_id.strip() else f"target-{index + 1}",
+        "name": name.strip() if isinstance(name, str) and name.strip() else _default_sorthive_target_name(url, index),
+        "url": url.strip().rstrip("/"),
+        "api_token": api_token.strip(),
+        "enabled": bool(raw.get("enabled", True)),
+    }
+    if isinstance(machine_id, str) and machine_id.strip():
+        target["machine_id"] = machine_id.strip()
+    return target
+
+
 def getSortHiveConfig() -> dict[str, Any] | None:
     """Read SortHive upload config from TOML [sorthive] section."""
     config = _read_toml()
     section = config.get("sorthive")
     if not isinstance(section, dict):
         return None
-    return dict(section)
+
+    raw_targets = section.get("targets")
+    normalized_targets: list[dict[str, Any]] = []
+    if isinstance(raw_targets, list):
+        for index, item in enumerate(raw_targets):
+            target = _normalize_sorthive_target(item, index)
+            if target is not None:
+                normalized_targets.append(target)
+    else:
+        legacy_target = _normalize_sorthive_target(section, 0)
+        if legacy_target is not None:
+            normalized_targets = [legacy_target]
+
+    return {"targets": normalized_targets}
 
 
 def setSortHiveConfig(cfg: dict[str, Any]) -> None:
     """Write SortHive upload config to TOML [sorthive] section."""
+    raw_targets = cfg.get("targets") if isinstance(cfg, dict) else None
+    normalized_targets: list[dict[str, Any]] = []
+    if isinstance(raw_targets, list):
+        for index, item in enumerate(raw_targets):
+            target = _normalize_sorthive_target(item, index)
+            if target is not None:
+                normalized_targets.append(target)
+
     def updater(config: dict[str, Any]) -> None:
-        config["sorthive"] = dict(cfg)
+        config["sorthive"] = {"targets": normalized_targets}
 
     _update_toml(updater)
 

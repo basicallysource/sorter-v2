@@ -512,8 +512,12 @@ class ClassificationTrainingManager:
     def reloadSortHiveUploader(self) -> dict[str, Any]:
         return self._sorthive.reload()
 
-    def backfillToSortHive(self, session_ids: list[str] | None = None) -> dict[str, Any]:
-        return self._sorthive.backfill(TRAINING_ROOT, session_ids=session_ids)
+    def backfillToSortHive(
+        self,
+        session_ids: list[str] | None = None,
+        target_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return self._sorthive.backfill(TRAINING_ROOT, session_ids=session_ids, target_ids=target_ids)
 
     def resolveSessionDir(self, session_id: str) -> Path:
         session_dir = (TRAINING_ROOT / session_id).resolve()

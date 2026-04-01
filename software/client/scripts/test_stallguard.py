@@ -196,19 +196,6 @@ def modeStall(args):
                 carousel.enableStallDetection(False)
                 carousel.write_driver_register(TMC_REG_TCOOLTHRS, 0)
                 carousel.write_driver_register(TMC_REG_SGTHRS, 0)
-                # 1. Back off slowly to release tension
-                # print("Backing off...")
-                # carousel.move_degrees(10)
-                # while not carousel.stopped:
-                #     time.sleep(0.01)
-                # # 2. Standstill at run current for AT#1 (>130ms)
-                # time.sleep(0.3)
-                # # 3. Short move for AT#2 re-tune
-                # print("Re-tuning StealthChop...")
-                # carousel.move_degrees(-45)
-                # while not carousel.stopped:
-                #     time.sleep(0.01)
-                # time.sleep(0.2)
                 break
             time.sleep(0.05)
     except KeyboardInterrupt:

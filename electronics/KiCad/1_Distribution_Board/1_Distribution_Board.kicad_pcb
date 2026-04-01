@@ -361,6 +361,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c2d807ba-c861-404b-9fd8-d44eff28d152")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/81ca76e9-c20f-4b7c-97f5-4bfa1d1be0f7")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -1499,6 +1512,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f37f2361-851d-4f59-a13e-a63b754be45c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -2629,6 +2655,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "e7007e12-7d7c-4080-9480-8d99d03f2c68")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7836996d-a7ed-4a9b-a547-f4cf50364304")
 			(effects
 				(font
 					(size 1 1)
@@ -3823,6 +3862,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "e280330c-29fa-4b05-b3d4-cfd6fc4c153d")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "0b4f1809-e5e8-4f3f-94bb-9de613990f56")
 			(effects
 				(font
 					(size 1 1)
@@ -5317,6 +5369,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "adb0e998-b6ac-4859-92ca-ecda36c749ba")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -5642,6 +5707,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "17f48f29-51b6-42f0-ae94-2862377345de")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a03f3e72-0d61-4057-a83b-5b4bd4f2e548")
 			(effects
 				(font
 					(size 1 1)
@@ -7336,6 +7414,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6c7166e5-e5a9-41a4-aa44-e77e17d7a90d")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/f99de4a7-847c-489c-b67f-560cb14b8ec4")
 		(sheetname "/Stepper Module3/")
@@ -8412,6 +8503,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "d9eb5c38-a32d-4e7b-81ed-fea69fa97eaf")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "54804292-14fe-47b3-96f2-a20304bfe60b")
 			(effects
 				(font
 					(size 1 1)
@@ -9590,6 +9694,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "bd4707d8-0fe7-42e7-8863-a1c5313bfcc7")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8fe9e89b-900a-4977-9f2a-580ea75c0cf6")
 			(effects
 				(font
 					(size 1 1)
@@ -12032,6 +12149,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "1b447a7f-99ba-4f32-88e3-e1b15646d507")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/81ca76e9-c20f-4b7c-97f5-4bfa1d1be0f7")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -12290,6 +12420,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "ad82a059-2828-48c0-984e-40d537c9de6e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "121c3786-c060-43f7-b130-ccea22ab2ea0")
 			(effects
 				(font
 					(size 1 1)
@@ -18118,6 +18261,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "11d82dea-1ad8-471d-8bda-2c10f10cdd37")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/22523adc-9142-4362-af29-41502b0f3187/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module4/")
@@ -18625,6 +18781,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "9129f19c-0f2e-43fc-a679-688be0a1f265")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "-90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "83d51b9a-f4b3-4604-b321-1609cb26e465")
 			(effects
 				(font
 					(size 1 1)
@@ -19399,6 +19568,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "907fabea-d285-42f0-91d4-fdce94324063")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7da39367-4ad8-44b6-a9c4-f1bb5a7a431d")
 			(effects
 				(font
 					(size 1 1)
@@ -22334,6 +22516,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5b010ee0-f902-4be0-81f9-d41928815125")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module3/")
@@ -23754,6 +23949,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "d1ff6ad5-06ea-4b82-8ec6-98d545705d17")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8bbf7992-e7c7-431f-8747-bbcdb6bf7e90")
 			(effects
 				(font
 					(size 1 1)
@@ -27858,6 +28066,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "1c37fbdd-2bb2-4712-89f0-f20874d9b545")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f7f92b69-1f86-4043-8196-be0f4453f32e")
 			(effects
 				(font
 					(size 1 1)
@@ -38328,6 +38549,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "cb5c1213-7b75-4df4-8e5e-2d92537678a5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/f99de4a7-847c-489c-b67f-560cb14b8ec4")
 		(sheetname "/Stepper Module2/")
@@ -38569,6 +38803,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "1d229ff2-f0b7-4f92-9657-b827b04056df")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f6a2f025-5d2e-400b-a706-eaf399e1b2bb")
 			(effects
 				(font
 					(size 1 1)
@@ -38835,6 +39082,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "81aad0ff-1f8d-4118-b019-20170e9892cb")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "05110e75-73c1-44e6-acbd-3f329d150e04")
 			(effects
 				(font
 					(size 1 1)
@@ -41533,6 +41793,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "49ba9a54-5607-46b6-8fcd-6ad92d09be82")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8316f1ff-832a-4ab6-a64d-21f1d75b695c")
 			(effects
 				(font
 					(size 1 1)
@@ -44589,6 +44862,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8c9fef3c-261c-41fb-8ee8-ae5d3c15bccb")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/5910b268-80bc-4f66-8d7a-6f21c58e69f5")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -46534,6 +46820,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f3697a8e-c552-4ad1-af09-b7b00f043f72")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/5910b268-80bc-4f66-8d7a-6f21c58e69f5")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -46858,6 +47157,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "633f0b4a-bdaf-49f9-960c-989e3e8ad04a")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4769dd5d-ac25-4d2b-a0f3-05639f8ebc62")
 			(effects
 				(font
 					(size 1 1)
@@ -47510,6 +47822,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c3f17426-6091-489c-94d3-55d5bc468bed")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "e2794a8f-d4ae-4ae0-97d2-4611ac673b72")
 			(effects
 				(font
 					(size 1 1)
@@ -50297,6 +50622,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "dce6af4d-165e-465b-9bed-0fad34a02ba6")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/f99de4a7-847c-489c-b67f-560cb14b8ec4")
 		(sheetname "/Stepper Module1/")
@@ -50539,6 +50877,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "0061561f-bc05-4d93-8d24-4b92a75e1ed8")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "557bbdf6-c444-4d5d-afb0-e590ab71a76d")
 			(effects
 				(font
 					(size 1 1)
@@ -52310,6 +52661,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "abde4ff7-ddb2-49c7-b5b3-5641fd31fc70")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3bb23432-5711-40a8-9d55-7d727fa0a107")
 			(effects
 				(font
 					(size 1 1)
@@ -58452,6 +58816,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b4487d75-f148-41e2-9455-0c5f732e3bd7")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module1/")
@@ -58705,6 +59082,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "43ef3b5d-cfda-4966-b558-3d42cc1c0cbb")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d350e649-008c-4594-a537-136816ddc911")
 			(effects
 				(font
 					(size 1 1)
@@ -62472,6 +62862,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "32900ca5-cabe-4afd-b226-c13b1c15616b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/0f97a124-a39a-4c01-ae86-52de00438a2d")
 		(sheetname "/Stepper Module1/")
@@ -63117,6 +63520,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "316d2577-0f61-4372-a97c-72cdad082b32")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "50ec9ac8-81ce-4822-a579-d2f641c2fe20")
 			(effects
 				(font
 					(size 1 1)
@@ -64075,6 +64491,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "baa268d2-672c-4616-af04-ec9ee2f8c734")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module2/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -64400,6 +64829,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c053313b-c09b-4f95-bab4-6069c1b43c41")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a65884bf-0406-4c8d-b292-cb3f2e67dd68")
 			(effects
 				(font
 					(size 1 1)

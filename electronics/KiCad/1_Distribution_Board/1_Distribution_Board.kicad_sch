@@ -6909,7 +6909,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCPCB" "C144153"
+		(property "LCSC" "C144153"
 			(at 195.58 34.29 90)
 			(effects
 				(font

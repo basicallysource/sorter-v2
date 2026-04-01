@@ -3,9 +3,11 @@
 
 ## removing kicad backupts
 *-backups/
+*backups/
 
 ##removing kicad outputs
 *-outputs/
+*_outputs/
 
 ## removing kicad locks
 *.lck

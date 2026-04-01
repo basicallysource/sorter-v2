@@ -6432,7 +6432,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b6060959-de32-4577-8e2a-6145a0241468")
 		(property "Reference" "R13"

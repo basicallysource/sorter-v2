@@ -171,7 +171,7 @@
 	// ── External API: register actions ──
 	$effect(() => {
 		if (!externalApi) return;
-		externalApi.save = () => void saveAnnotations();
+		externalApi.save = saveAnnotations;
 		externalApi.deleteSelected = deleteSelected;
 		externalApi.undo = () => annotator?.undo();
 		externalApi.redo = () => annotator?.redo();
@@ -561,7 +561,7 @@
 	}
 
 	async function saveAnnotations() {
-		if (saving) return;
+		if (saving) return false;
 
 		saving = true;
 		try {
@@ -577,8 +577,10 @@
 				`Saved ${response.annotation_count} annotation${response.annotation_count === 1 ? '' : 's'}.`,
 				'success'
 			);
+			return true;
 		} catch {
 			setFeedback('Saving annotations failed. Please try again.', 'danger');
+			return false;
 		} finally {
 			saving = false;
 		}

@@ -22,7 +22,7 @@ export class AnnotatorApi {
 	activeTool = $state<'rectangle' | 'polygon'>('rectangle');
 
 	// ── Actions (set by annotator, called by parent) ──
-	save: () => void = () => {};
+	save: () => Promise<boolean> = async () => false;
 	deleteSelected: () => void = () => {};
 	undo: () => void = () => {};
 	redo: () => void = () => {};

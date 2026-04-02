@@ -241,6 +241,76 @@ class TestSampleAnnotations:
         assert saved["updated_by_display_name"] == "Member User"
 
 
+class TestSampleClassification:
+    def test_save_manual_classification(
+        self,
+        client: TestClient,
+        test_user: dict,
+        auth_headers: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(
+            client,
+            machine_token,
+            "sess-class",
+            "s1",
+            source_role="classification_chamber",
+            capture_reason="live_classification",
+        )
+        sample_id = sample["id"]
+
+        resp = client.put(
+            f"/api/samples/{sample_id}/classification",
+            headers=auth_headers,
+            json={
+                "part_id": "3001",
+                "item_name": "Brick 2 x 4",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        payload = resp.json()
+        assert payload["ok"] is True
+        assert payload["cleared"] is False
+        assert payload["data"]["part_id"] == "3001"
+        assert payload["data"]["item_name"] == "Brick 2 x 4"
+
+        detail = client.get(f"/api/samples/{sample_id}", headers=auth_headers)
+        assert detail.status_code == 200, detail.text
+        saved = detail.json()["extra_metadata"]["manual_classification"]
+        assert saved["version"] == "sorthive-classification-v1"
+        assert saved["part_id"] == "3001"
+        assert saved["updated_by_display_name"] == "Member User"
+
+    def test_save_manual_classification_rejects_non_classification_sample(
+        self,
+        client: TestClient,
+        test_user: dict,
+        auth_headers: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(
+            client,
+            machine_token,
+            "sess-non-class",
+            "s1",
+            source_role="c_channel_2",
+            capture_reason="channel_move_complete",
+        )
+        sample_id = sample["id"]
+
+        resp = client.put(
+            f"/api/samples/{sample_id}/classification",
+            headers=auth_headers,
+            json={
+                "part_id": "3001",
+            },
+        )
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["code"] == "UNSUPPORTED_SAMPLE_TYPE"
+
+
 class TestDeleteSample:
     def test_delete_own_sample(
         self,

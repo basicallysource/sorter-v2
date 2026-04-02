@@ -77,24 +77,24 @@
 
 <div class="flex flex-col gap-6">
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Connection</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Connection</h3>
 		<div class="mb-3 flex flex-col gap-2 sm:flex-row">
 			<input
 				type="text"
 				bind:value={url}
 				placeholder="ws://host:port/ws"
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 			<button
 				onclick={handleConnect}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
 			>
 				Connect
 			</button>
 		</div>
 
 		{#if manager.machines.size > 0}
-			<div class="dark:text-text-muted-dark mb-2 text-xs text-text-muted">
+			<div class="mb-2 text-xs text-text-muted">
 				Connected Machines ({manager.machines.size})
 			</div>
 			<div class="flex flex-col gap-1">
@@ -112,7 +112,7 @@
 						class={`flex items-center justify-between border px-2 py-1.5 ${
 							manager.selectedMachineId === id
 								? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/10'
-								: 'dark:border-border-dark dark:bg-bg-dark border-border bg-bg'
+								: 'border-border bg-bg'
 						}`}
 					>
 						<div class="flex items-center gap-2">
@@ -121,7 +121,7 @@
 									? 'bg-green-500'
 									: 'bg-red-500'}"
 							></span>
-							<span class="dark:text-text-dark text-sm text-text">
+							<span class="text-sm text-text">
 								{m.identity?.nickname ?? id.slice(0, 8)}
 							</span>
 						</div>
@@ -130,7 +130,7 @@
 								event.stopPropagation();
 								manager.disconnect(id);
 							}}
-							class="dark:text-text-muted-dark text-xs text-text-muted hover:text-red-500 dark:hover:text-red-400"
+							class="text-xs text-text-muted hover:text-red-500 dark:hover:text-red-400"
 						>
 							Disconnect
 						</button>
@@ -138,59 +138,59 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">No machines connected</div>
+			<div class="text-sm text-text-muted">No machines connected</div>
 		{/if}
 	</div>
 
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Machine Name</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Machine Name</h3>
 		{#if manager.selectedMachine}
 			<div class="flex flex-col gap-3">
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-xs text-text-muted">
 					Selected machine:
-					<span class="dark:text-text-dark font-medium text-text">{selectedMachineLabel()}</span>
+					<span class="font-medium text-text">{selectedMachineLabel()}</span>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<input
 						type="text"
 						bind:value={nicknameDraft}
 						placeholder="e.g. Bench Sorter"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 					<button
 						onclick={saveMachineName}
 						disabled={nameSaving ||
 							normalizedNickname(nicknameDraft) ===
 								(manager.selectedMachine.identity?.nickname ?? '')}
-						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{nameSaving ? 'Saving...' : 'Save Name'}
 					</button>
 				</div>
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-xs text-text-muted">
 					Leave it blank to fall back to the machine ID.
 				</div>
 				{#if nameError}
 					<div class="text-sm text-red-600 dark:text-red-400">{nameError}</div>
 				{:else if nameStatus}
-					<div class="dark:text-text-muted-dark text-sm text-text-muted">{nameStatus}</div>
+					<div class="text-sm text-text-muted">{nameStatus}</div>
 				{/if}
 			</div>
 		{:else}
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">
+			<div class="text-sm text-text-muted">
 				Connect to a machine to give it a friendly name.
 			</div>
 		{/if}
 	</div>
 
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Theme</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Theme</h3>
 		<div class="grid grid-cols-2 gap-2">
 			<button
 				onclick={() => settings.setTheme('light')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'light'
 					? 'border-blue-500 bg-blue-500/20 text-blue-500'
-					: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border-border bg-bg text-text hover:bg-surface'}"
+					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Light
 			</button>
@@ -198,7 +198,7 @@
 				onclick={() => settings.setTheme('dark')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'dark'
 					? 'border-blue-500 bg-blue-500/20 text-blue-500'
-					: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border-border bg-bg text-text hover:bg-surface'}"
+					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Dark
 			</button>

@@ -214,20 +214,20 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="dark:text-text-muted-dark text-sm text-text-muted">
+	<div class="text-sm text-text-muted">
 		These values define how the chute maps section/bin addresses to real angles after homing.
 	</div>
 
-			<div class="dark:border-border-dark dark:bg-bg-dark grid grid-cols-1 gap-3 border border-border bg-bg px-3 py-3 sm:grid-cols-2 xl:grid-cols-4">
+			<div class="grid grid-cols-1 gap-3 border border-border bg-bg px-3 py-3 sm:grid-cols-2 xl:grid-cols-4">
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">Endstop</div>
+			<div class="text-xs text-text-muted">Endstop</div>
 			<div
 				class={`inline-flex w-fit rounded px-2 py-1 text-sm font-medium ${
 					endstopTriggered === true
 						? 'bg-green-500/15 text-green-700 dark:text-green-300'
 						: endstopTriggered === false
-							? 'bg-surface text-text dark:bg-surface-dark dark:text-text-dark'
-							: 'bg-surface text-text-muted dark:bg-surface-dark dark:text-text-muted-dark'
+							? 'bg-surface text-text'
+							: 'bg-surface text-text-muted'
 				}`}
 			>
 				{endstopTriggered === true
@@ -238,33 +238,33 @@
 							? 'Unknown'
 							: 'Unavailable'}
 			</div>
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">
+			<div class="text-xs text-text-muted">
 				Raw pin: {rawEndstopHigh === null ? '--' : rawEndstopHigh ? 'High' : 'Low'}
 			</div>
 			{#if homePinChannel !== null}
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-xs text-text-muted">
 					Using input channel {homePinChannel}
 				</div>
 			{/if}
 		</div>
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">Current Chute Angle</div>
-			<div class="dark:text-text-dark text-sm font-medium text-text">
+			<div class="text-xs text-text-muted">Current Chute Angle</div>
+			<div class="text-sm font-medium text-text">
 				{formatNumber(currentAngle)}°
 			</div>
 		</div>
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">Stepper Position</div>
-			<div class="dark:text-text-dark text-sm font-medium text-text">
+			<div class="text-xs text-text-muted">Stepper Position</div>
+			<div class="text-sm font-medium text-text">
 				{formatNumber(stepperPositionDegrees)}°
 			</div>
 		</div>
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">Stepper State</div>
-			<div class="dark:text-text-dark text-sm font-medium text-text">
+			<div class="text-xs text-text-muted">Stepper State</div>
+			<div class="text-sm font-medium text-text">
 				{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}{#if stepperMicrosteps !== null}
 					{' '}
-					<span class="dark:text-text-muted-dark ml-1 text-xs font-normal text-text-muted">
+					<span class="ml-1 text-xs font-normal text-text-muted">
 						({stepperMicrosteps} usteps)
 					</span>
 				{/if}
@@ -272,10 +272,10 @@
 		</div>
 	</div>
 
-	<div class="dark:border-border-dark dark:bg-bg-dark flex flex-col gap-3 border border-border bg-bg px-3 py-3">
+	<div class="flex flex-col gap-3 border border-border bg-bg px-3 py-3">
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-dark text-sm font-medium text-text">Calibration Step 1</div>
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">
+			<div class="text-sm font-medium text-text">Calibration Step 1</div>
+			<div class="text-sm text-text-muted">
 				Slowly home the chute until the endstop triggers, then zero the chute position from that reference.
 			</div>
 		</div>
@@ -283,7 +283,7 @@
 			<button
 				onclick={findEndstop}
 				disabled={loading || saving || calibrating || canceling}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{calibrating ? 'Finding Endstop...' : 'Step 1: Find Endstop'}
 			</button>
@@ -294,21 +294,21 @@
 			>
 				{canceling ? 'Canceling...' : 'Cancel Homing'}
 			</button>
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">
+			<div class="text-xs text-text-muted">
 				This moves the chute hardware. Cancel stops all steppers for safety.
 			</div>
 		</div>
 	</div>
 
 	{#if digitalInputs.length > 0}
-		<div class="dark:border-border-dark dark:bg-bg-dark flex flex-col gap-2 border border-border bg-bg px-3 py-3">
-			<div class="dark:text-text-dark text-sm font-medium text-text">Distributor Inputs</div>
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">
+		<div class="flex flex-col gap-2 border border-border bg-bg px-3 py-3">
+			<div class="text-sm font-medium text-text">Distributor Inputs</div>
+			<div class="text-xs text-text-muted">
 				Live raw digital inputs from the distributor board for endstop debugging.
 			</div>
 			<div class="flex flex-wrap gap-2">
 				{#each digitalInputs as input}
-					<div class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark rounded border border-border bg-surface px-2 py-1 text-xs text-text">
+					<div class="rounded border border-border bg-surface px-2 py-1 text-xs text-text">
 						IN{input.channel}: {input.raw_high ? 'High' : 'Low'}
 					</div>
 				{/each}
@@ -317,7 +317,7 @@
 	{/if}
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			First Bin Center (deg)
 			<input
 				type="number"
@@ -326,10 +326,10 @@
 				step="0.1"
 				bind:value={firstBinCenter}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 		</label>
-		<label class="dark:text-text-dark flex items-center gap-2 text-xs text-text sm:self-end sm:pb-2">
+		<label class="flex items-center gap-2 text-xs text-text sm:self-end sm:pb-2">
 			<input
 				type="checkbox"
 				checked={endstopActiveHigh}
@@ -338,7 +338,7 @@
 			/>
 			Endstop active high
 		</label>
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Pillar Width (deg)
 			<input
 				type="number"
@@ -347,7 +347,7 @@
 				step="0.1"
 				bind:value={pillarWidthDeg}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 		</label>
 	</div>
@@ -356,14 +356,14 @@
 		<button
 			onclick={saveSettings}
 			disabled={loading || saving || calibrating || canceling}
-			class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+			class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{saving ? 'Saving...' : 'Save Chute Settings'}
 		</button>
 		<button
 			onclick={loadSettings}
 			disabled={loading || saving || calibrating || canceling}
-			class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+			class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{loading ? 'Loading...' : 'Reload'}
 		</button>
@@ -372,6 +372,6 @@
 	{#if errorMsg}
 		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 </div>

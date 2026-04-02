@@ -35,6 +35,11 @@
 		role="separator"
 		aria-orientation="vertical"
 	>
+		<div class="flex flex-col items-center gap-[3px] opacity-40">
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+		</div>
 	</div>
 {:else}
 	<div
@@ -46,5 +51,10 @@
 		role="separator"
 		aria-orientation="horizontal"
 	>
+		<div class="flex items-center gap-[3px] opacity-40">
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+			<div class="h-1 w-1 rounded-full bg-text-muted"></div>
+		</div>
 	</div>
 {/if}

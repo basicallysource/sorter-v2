@@ -12,12 +12,12 @@
 	} = $props();
 </script>
 
-<section class="dark:border-border-dark overflow-hidden border border-border">
+<section class="overflow-hidden border border-border">
 	{#if title}
-		<div class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface px-4 py-3">
-			<h2 class="dark:text-text-dark text-base font-semibold text-text">{title}</h2>
+		<div class="border-b border-border bg-surface px-4 py-3">
+			<h2 class="text-base font-semibold text-text">{title}</h2>
 			{#if description}
-				<p class="dark:text-text-muted-dark mt-1 text-sm text-text-muted">{description}</p>
+				<p class="mt-1 text-sm text-text-muted">{description}</p>
 			{/if}
 		</div>
 	{/if}

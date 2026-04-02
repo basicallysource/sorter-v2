@@ -463,12 +463,12 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex flex-wrap items-end gap-3">
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Backend
 			<select
 				bind:value={backend}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-40 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 block w-40 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			>
 				<option value="pca9685">PCA9685</option>
 				<option value="waveshare">Waveshare SC</option>
@@ -476,7 +476,7 @@
 		</label>
 
 		{#if backend === 'pca9685'}
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Open Angle
 				<input
 					type="number"
@@ -485,10 +485,10 @@
 					step="1"
 					bind:value={openAngle}
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Closed Angle
 				<input
 					type="number"
@@ -497,18 +497,18 @@
 					step="1"
 					bind:value={closedAngle}
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
 		{:else}
-			<label class="dark:text-text-dark min-w-0 flex-1 text-xs text-text">
+			<label class="min-w-0 flex-1 text-xs text-text">
 				Port
 				<input
 					type="text"
 					bind:value={port}
 					placeholder="Auto-detect"
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
 		{/if}
@@ -517,14 +517,14 @@
 			<button
 				onclick={saveSettings}
 				disabled={loading || saving || layers.length === 0}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{saving ? 'Saving...' : 'Save'}
 			</button>
 			<button
 				onclick={loadSettings}
 				disabled={loading || saving}
-				class="dark:text-text-muted-dark cursor-pointer text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-text-dark"
+				class="cursor-pointer text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{loading ? 'Loading...' : 'Reload'}
 			</button>
@@ -534,7 +534,7 @@
 	{#if errorMsg}
 		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 
 	{#if servoIssues.length > 0}
@@ -558,30 +558,30 @@
 	{/if}
 
 	{#if layers.length === 0 && !loading}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">
+		<div class="text-sm text-text-muted">
 			No storage layers found.
 		</div>
 	{:else}
-		<div class="dark:border-border-dark overflow-hidden border border-border">
+		<div class="overflow-hidden border border-border">
 			<table class="w-full text-sm">
 				<thead>
-					<tr class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface text-left text-xs">
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Layer</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Active</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Bins</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Invert</th>
+					<tr class="border-b border-border bg-surface text-left text-xs">
+						<th class="px-3 py-2 font-medium text-text-muted">Layer</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Active</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Bins</th>
+						<th class="px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Invert</th>
 						{#if backend === 'waveshare'}
-							<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Position</th>
+							<th class="px-3 py-2 font-medium text-text-muted">Position</th>
 						{/if}
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">State</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 text-right font-medium text-text-muted">Actions</th>
+						<th class="px-3 py-2 font-medium text-text-muted">State</th>
+						<th class="px-3 py-2 text-right font-medium text-text-muted">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each layers as layer, index}
-						<tr class="dark:border-border-dark dark:bg-bg-dark border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
-							<td class="dark:text-text-dark px-3 py-2 font-medium text-text">{layer.index}</td>
+						<tr class="border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
+							<td class="px-3 py-2 font-medium text-text">{layer.index}</td>
 							<td class="px-3 py-2">
 								<input
 									type="checkbox"
@@ -596,7 +596,7 @@
 									value={layer.binCount}
 									onchange={(event) => updateLayerCount(index, event.currentTarget.value)}
 									disabled={loading || saving}
-									class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+									class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 								>
 									{#each allowedCounts as count}
 										<option value={String(count)}>{count}</option>
@@ -609,7 +609,7 @@
 										value={layer.servoId}
 										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
 										disabled={loading || saving}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
 										{#each waveshareServoChoices() as servoId}
 											<option value={String(servoId)}>{servoId}</option>
@@ -620,7 +620,7 @@
 										value={layer.servoId}
 										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
 										disabled={loading || saving}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
 										{#each pcaChannelChoices() as channel}
 											<option value={String(channel)}>{channel}</option>
@@ -637,12 +637,12 @@
 								/>
 							</td>
 							{#if backend === 'waveshare'}
-								<td class="dark:text-text-muted-dark px-3 py-2 font-mono text-xs text-text-muted">
+								<td class="px-3 py-2 font-mono text-xs text-text-muted">
 									{#if layerIsOffline(layer)}
 										<span class="text-red-600 dark:text-red-400">Offline</span>
 									{:else}
 										{formatTelemetryValue(layer.telemetry.position)}
-										<span class="dark:text-text-muted-dark/50 text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
+										<span class="text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
 										{#if layer.telemetry.error}
 											<span class="ml-1 text-red-500" title={layer.telemetry.error}>!</span>
 										{/if}
@@ -667,12 +667,12 @@
 										Offline
 									</span>
 								{:else if layer.liveOpen !== null}
-									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-green-600 dark:text-green-400' : 'dark:text-text-muted-dark text-text-muted'}">
-										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-green-500' : 'dark:bg-border-dark bg-border'}"></span>
+									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-green-600 dark:text-green-400' : 'text-text-muted'}">
+										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-green-500' : 'bg-border'}"></span>
 										{layer.liveOpen ? 'Open' : 'Closed'}
 									</span>
 								{:else}
-									<span class="dark:text-text-muted-dark text-xs text-text-muted">--</span>
+									<span class="text-xs text-text-muted">--</span>
 								{/if}
 							</td>
 							<td class="px-3 py-2 text-right">
@@ -680,7 +680,7 @@
 									<button
 										onclick={() => toggleLayerServo(index)}
 										disabled={loading || saving || layer.testing || layerIsOffline(layer)}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+										class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 									>
 										{#if layer.testing}
 											...
@@ -696,7 +696,7 @@
 										<button
 											onclick={() => calibrateLayerServo(index)}
 											disabled={loading || saving || layer.calibrating || layerIsOffline(layer)}
-											class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+											class="cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											{layer.calibrating ? '...' : 'Cal'}
 										</button>

@@ -15,3 +15,8 @@
 	--color-text: #fafafa;
 	--color-text-muted: #a3a3a3;
 }
+
+*:focus-visible {
+	outline: 2px solid var(--color-text-muted);
+	outline-offset: 2px;
+}

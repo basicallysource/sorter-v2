@@ -73,7 +73,7 @@
 	});
 </script>
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
+<div class="min-h-screen bg-bg p-6">
 	<AppHeader />
 
 	{#if machine.machine}
@@ -152,7 +152,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="dark:text-text-muted-dark py-12 text-center text-text-muted">
+		<div class="py-12 text-center text-text-muted">
 			No machine selected. Connect to a machine in Settings.
 		</div>
 	{/if}

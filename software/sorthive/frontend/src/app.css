@@ -8,4 +8,24 @@
 	--color-border: #e5e7eb;
 	--color-text: #111827;
 	--color-text-muted: #6b7280;
+	--color-primary-light: #eff6ff;
+	--color-danger: #dc2626;
+	--color-success: #16a34a;
+	--color-warning: #d97706;
+}
+
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a, button, select, input {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: ease;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }

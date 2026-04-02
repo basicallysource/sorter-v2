@@ -20,6 +20,6 @@
 	};
 </script>
 
-<span class="inline-block border px-1.5 py-0.5 text-[10px] font-medium {colors[color]}">
+<span class="inline-block border px-1.5 py-0.5 text-xs font-medium {colors[color]}">
 	{@render children()}
 </span>

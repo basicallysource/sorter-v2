@@ -631,9 +631,9 @@
 							type="button"
 							onclick={() => void submitReview('accept')}
 							disabled={loading || submitting}
-							class="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center shadow-sm transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-center shadow-sm transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-xl font-bold text-emerald-700">↑</div>
+							<div class="text-2xl font-bold text-emerald-700">↑</div>
 							<div class="mt-0.5 font-medium text-emerald-900">Accept</div>
 						</button>
 						<div></div>
@@ -651,9 +651,9 @@
 							type="button"
 							onclick={() => void submitReview('reject')}
 							disabled={loading || submitting}
-							class="rounded-lg border border-red-200 bg-red-50 px-2 py-2 text-center shadow-sm transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-center shadow-sm transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-xl font-bold text-red-700">↓</div>
+							<div class="text-2xl font-bold text-red-700">↓</div>
 							<div class="mt-0.5 font-medium text-red-900">Reject</div>
 						</button>
 						<button
@@ -670,6 +670,9 @@
 					<p class="text-center text-[11px] text-gray-500">
 						Green means keep it, red means reject it, and gray moves through the queue.
 					</p>
+					{#if reviewHistory.length > 0}
+						<p class="mt-2 text-center text-xs text-gray-400">{reviewHistory.length} reviewed this session</p>
+					{/if}
 				</div>
 			</div>
 

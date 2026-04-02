@@ -381,10 +381,10 @@
 
 <div class="grid gap-4">
 	{#if loading}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">Loading SortHive configuration...</div>
+		<div class="text-sm text-text-muted">Loading SortHive configuration...</div>
 	{:else if config}
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">
+			<div class="text-sm text-text-muted">
 				{#if targets.length > 0}
 					{config.enabled_count} of {config.configured_count} SortHive target{config.configured_count === 1 ? '' : 's'} enabled.
 				{:else}
@@ -395,7 +395,7 @@
 				<button
 					type="button"
 					onclick={openRegisterForm}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 				>
 					<Plus size={12} />
 					Register Machine
@@ -403,7 +403,7 @@
 				<button
 					type="button"
 					onclick={() => openTargetEditor(null)}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 				>
 					<Cloud size={12} />
 					Add Existing Token
@@ -411,7 +411,7 @@
 				<button
 					type="button"
 					onclick={() => void loadConfig()}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 					title="Refresh targets"
 				>
 					<RefreshCw size={12} />
@@ -421,20 +421,20 @@
 		</div>
 
 		{#if targets.length === 0}
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface px-3 py-3">
-				<div class="dark:text-text-muted-dark text-sm text-text-muted">
+			<div class="border border-border bg-surface px-3 py-3">
+				<div class="text-sm text-text-muted">
 					Add one SortHive target for local testing, production, or both. Each target keeps its own token, status, and backfill queue.
 				</div>
 			</div>
 		{:else}
 			<div class="grid gap-4">
 				{#each targets as target (target.id)}
-					<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface px-3 py-3">
+					<div class="border border-border bg-surface px-3 py-3">
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div class="min-w-0">
 								<div class="flex items-center gap-2">
-									<Cloud size={14} class="dark:text-text-muted-dark text-text-muted" />
-									<span class="dark:text-text-dark text-sm font-medium text-text">{target.name}</span>
+									<Cloud size={14} class="text-text-muted" />
+									<span class="text-sm font-medium text-text">{target.name}</span>
 								</div>
 								<div class={`mt-1 text-xs ${statusToneClass(target)}`}>{statusLabel(target)}</div>
 							</div>
@@ -443,7 +443,7 @@
 								<button
 									type="button"
 									onclick={() => openTargetEditor(target)}
-									class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 								>
 									<Pencil size={12} />
 									Edit
@@ -452,7 +452,7 @@
 									type="button"
 									onclick={() => void handleBackfill(target)}
 									disabled={backfillingTargetId === target.id || !target.enabled}
-									class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<Upload size={12} />
 									{backfillingTargetId === target.id ? 'Queueing...' : 'Queue Backfill'}
@@ -460,7 +460,7 @@
 								<button
 									type="button"
 									onclick={() => void handleToggleEnabled(target)}
-									class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 								>
 									{target.enabled ? 'Disable Upload' : 'Enable Upload'}
 								</button>
@@ -477,12 +477,12 @@
 						</div>
 
 						<div class="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
-							<span class="dark:text-text-muted-dark text-text-muted">Server</span>
-							<span class="dark:text-text-dark font-mono text-text">{target.url}</span>
-							<span class="dark:text-text-muted-dark text-text-muted">Machine ID</span>
-							<span class="dark:text-text-dark font-mono text-text">{target.machine_id ?? '—'}</span>
-							<span class="dark:text-text-muted-dark text-text-muted">Token</span>
-							<span class="dark:text-text-dark font-mono text-text">{target.api_token_masked ?? '—'}</span>
+							<span class="text-text-muted">Server</span>
+							<span class="font-mono text-text">{target.url}</span>
+							<span class="text-text-muted">Machine ID</span>
+							<span class="font-mono text-text">{target.machine_id ?? '—'}</span>
+							<span class="text-text-muted">Token</span>
+							<span class="font-mono text-text">{target.api_token_masked ?? '—'}</span>
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
@@ -491,27 +491,27 @@
 							</div>
 						{/if}
 
-						<div class="dark:border-border-dark mt-4 border-t border-border pt-4">
+						<div class="mt-4 border-t border-border pt-4">
 							<div class="flex items-center gap-2">
-								<Upload size={14} class="dark:text-text-muted-dark text-text-muted" />
-								<span class="dark:text-text-dark text-sm font-medium text-text">Status</span>
+								<Upload size={14} class="text-text-muted" />
+								<span class="text-sm font-medium text-text">Status</span>
 							</div>
 							<div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
 								<div>
-									<div class="dark:text-text-dark text-lg font-semibold text-text">{target.uploader.uploaded}</div>
-									<div class="dark:text-text-muted-dark text-text-muted">Uploaded</div>
+									<div class="text-lg font-semibold text-text">{target.uploader.uploaded}</div>
+									<div class="text-text-muted">Uploaded</div>
 								</div>
 								<div>
-									<div class="dark:text-text-dark text-lg font-semibold text-text">{target.uploader.queue_size}</div>
-									<div class="dark:text-text-muted-dark text-text-muted">Queued</div>
+									<div class="text-lg font-semibold text-text">{target.uploader.queue_size}</div>
+									<div class="text-text-muted">Queued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.requeued > 0 ? 'text-amber-500' : 'dark:text-text-dark text-text'}">{target.uploader.requeued}</div>
-									<div class="dark:text-text-muted-dark text-text-muted">Requeued</div>
+									<div class="text-lg font-semibold {target.uploader.requeued > 0 ? 'text-amber-500' : 'text-text'}">{target.uploader.requeued}</div>
+									<div class="text-text-muted">Requeued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-red-500' : 'dark:text-text-dark text-text'}">{target.uploader.failed}</div>
-									<div class="dark:text-text-muted-dark text-text-muted">Failed</div>
+									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-red-500' : 'text-text'}">{target.uploader.failed}</div>
+									<div class="text-text-muted">Failed</div>
 								</div>
 							</div>
 							{#if target.uploader.last_error}
@@ -524,29 +524,29 @@
 		{/if}
 
 		{#if editingTargetId}
-			<div class="dark:border-border-dark dark:bg-surface-dark grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="dark:text-text-dark text-sm font-medium text-text">
+			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
+				<div class="text-sm font-medium text-text">
 					{editingTargetId === 'new' ? 'Add SortHive Target' : `Edit ${getTarget(editingTargetId)?.name ?? 'SortHive Target'}`}
 				</div>
 				<input
 					bind:value={targetName}
 					type="text"
 					placeholder="Target name (for example Local or Live)"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={targetUrl}
 					type="url"
 					placeholder="https://sorthive.example.com"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={targetToken}
 					type="password"
 					placeholder={editingTargetId === 'new' ? 'Machine API token' : 'Leave empty to keep current token'}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
 				/>
-				<label class="flex items-center gap-2 text-xs text-text-muted dark:text-text-muted-dark">
+				<label class="flex items-center gap-2 text-xs text-text-muted">
 					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 rounded border-border" />
 					Enable uploads for this target immediately
 				</label>
@@ -554,7 +554,7 @@
 					<button
 						type="button"
 						onclick={closeForms}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 					>
 						Cancel
 					</button>
@@ -562,7 +562,7 @@
 						type="button"
 						onclick={() => void handleSaveTarget()}
 						disabled={savingTarget || !targetUrl.trim() || (editingTargetId === 'new' && !targetToken.trim())}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{savingTarget ? 'Saving...' : 'Save'}
 					</button>
@@ -571,49 +571,49 @@
 		{/if}
 
 		{#if showRegisterForm}
-			<div class="dark:border-border-dark dark:bg-surface-dark grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="dark:text-text-dark text-sm font-medium text-text">Register a New SortHive Machine</div>
+			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
+				<div class="text-sm font-medium text-text">Register a New SortHive Machine</div>
 				<input
 					bind:value={regTargetName}
 					type="text"
 					placeholder="Target name (for example Local or Live)"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regUrl}
 					type="url"
 					placeholder="https://sorthive.example.com"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regEmail}
 					type="email"
 					placeholder="Account email"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regPassword}
 					type="password"
 					placeholder="Account password"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regMachineName}
 					type="text"
 					placeholder="Machine name"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regMachineDescription}
 					type="text"
 					placeholder="Machine description (optional)"
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<div class="flex justify-end gap-2">
 					<button
 						type="button"
 						onclick={closeForms}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 					>
 						Cancel
 					</button>
@@ -621,7 +621,7 @@
 						type="button"
 						onclick={() => void handleRegister()}
 						disabled={registering || !regUrl.trim() || !regEmail.trim() || !regPassword.trim() || !regMachineName.trim()}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{registering ? 'Registering...' : 'Register'}
 					</button>
@@ -636,6 +636,6 @@
 		</div>
 	{/if}
 	{#if statusMsg}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 </div>

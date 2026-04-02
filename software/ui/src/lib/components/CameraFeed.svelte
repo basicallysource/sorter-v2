@@ -39,16 +39,16 @@
 </script>
 
 <div
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full flex-col border border-border bg-bg"
+	class="flex h-full flex-col border border-border bg-bg"
 >
 	<div
-		class="dark:bg-surface-dark flex flex-shrink-0 items-center justify-between bg-surface px-2 py-1 text-xs"
+		class="flex flex-shrink-0 items-center justify-between bg-surface px-3 py-2 text-sm"
 	>
-		<span class="dark:text-text-muted-dark text-text-muted">{display_label}</span>
+		<span class="text-text-muted">{display_label}</span>
 		{#if frame}
 			<button
 				onclick={() => (show_annotated = !show_annotated)}
-				class="dark:hover:bg-border-dark dark:text-text-dark p-1 text-text transition-colors hover:bg-border"
+				class="p-1 text-text transition-colors hover:bg-border"
 				title={show_annotated ? 'Show raw' : 'Show annotations'}
 			>
 				{#if show_annotated}
@@ -59,14 +59,14 @@
 			</button>
 		{/if}
 	</div>
-	<div class="dark:bg-surface-dark relative flex-1 overflow-hidden bg-surface">
+	<div class="relative flex-1 overflow-hidden bg-surface">
 		{#if image_src()}
 			<img src={image_src()} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />
 		{:else if mjpeg_src}
 			<img src={mjpeg_src} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />
 		{:else}
 			<div
-				class="dark:text-text-muted-dark flex h-full items-center justify-center text-text-muted"
+				class="flex h-full items-center justify-center text-text-muted"
 			>
 				No frame
 			</div>

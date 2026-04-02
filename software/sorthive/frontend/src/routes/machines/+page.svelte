@@ -135,11 +135,19 @@
 		}
 	}
 
+	let openMenuId = $state<string | null>(null);
+
+	function toggleMenu(machineId: string) {
+		openMenuId = openMenuId === machineId ? null : machineId;
+	}
+
 	async function copyToken() {
 		await navigator.clipboard.writeText(tokenDisplay);
 		tokenCopied = true;
 	}
 </script>
+
+<svelte:window onclick={() => { openMenuId = null; }} />
 
 <svelte:head>
 	<title>Machines - SortHive</title>
@@ -184,31 +192,47 @@
 							{/if}
 						</div>
 					</div>
-					<div class="flex gap-2">
+					<div class="flex items-center gap-2">
 						<button
 							onclick={() => openEdit(machine)}
-							class="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+							class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
 						>
 							Edit
 						</button>
-						<button
-							onclick={() => handleRotateToken(machine)}
-							class="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-						>
-							Rotate Token
-						</button>
-						<button
-							onclick={() => openPurge(machine)}
-							class="rounded border border-yellow-300 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-50"
-						>
-							Purge Data
-						</button>
-						<button
-							onclick={() => openDelete(machine)}
-							class="rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-						>
-							Delete
-						</button>
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div class="relative" onclick={(e) => e.stopPropagation()}>
+							<button
+								onclick={() => toggleMenu(machine.id)}
+								class="rounded-lg border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50"
+								title="More actions"
+							>
+								<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+									<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+								</svg>
+							</button>
+							{#if openMenuId === machine.id}
+								<div class="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+									<button
+										onclick={() => { handleRotateToken(machine); openMenuId = null; }}
+										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+									>
+										Rotate Token
+									</button>
+									<button
+										onclick={() => { openPurge(machine); openMenuId = null; }}
+										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50"
+									>
+										Purge Data
+									</button>
+									<button
+										onclick={() => { openDelete(machine); openMenuId = null; }}
+										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+									>
+										Delete
+									</button>
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>

@@ -701,26 +701,26 @@
 </script>
 
 <aside
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
+	class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
 >
 	<div
-		class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface px-4 py-3"
+		class="border-b border-border bg-surface px-4 py-3"
 	>
 		<div class="flex items-start justify-between gap-3">
 			<div class="flex items-start gap-3">
 				<div
-					class="dark:bg-bg-dark dark:text-text-dark flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
+					class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
 				>
 					<SlidersHorizontal size={16} />
 				</div>
 				<div class="min-w-0">
-					<div class="dark:text-text-dark text-sm font-semibold text-text">Picture Settings</div>
+					<div class="text-sm font-semibold text-text">Picture Settings</div>
 				</div>
 			</div>
 			{#if onClose}
 				<button
 					onclick={closeSidebar}
-					class="dark:text-text-muted-dark dark:hover:bg-bg-dark dark:hover:text-text-dark inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+					class="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
 					aria-label="Close picture settings"
 				>
 					<X size={15} />
@@ -732,7 +732,7 @@
 	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
 		{#if !hasCamera}
 			<div
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+				class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
 			>
 				Assign a camera to preview these changes live.
 			</div>
@@ -747,7 +747,7 @@
 		{/if}
 
 		{#if loading}
-			<div class="dark:text-text-muted-dark py-10 text-center text-sm text-text-muted">
+			<div class="py-10 text-center text-sm text-text-muted">
 				Loading picture settings...
 			</div>
 		{:else}
@@ -757,32 +757,32 @@
 						<div class="flex items-start gap-3">
 							<svg viewBox="0 0 40 60" width="36" height="54" class="shrink-0 rounded-sm border border-black/10 dark:border-white/10">
 								<!-- Row 1: white, black, white, dark navy -->
-								<rect x="0"  y="0"  width="10" height="10" fill="#f0f0f0"/>
-								<rect x="10" y="0"  width="10" height="10" fill="#111111"/>
-								<rect x="20" y="0"  width="10" height="10" fill="#e0eef8"/>
-								<rect x="30" y="0"  width="10" height="10" fill="#0a0a2a"/>
+								<rect x="0" y="0" width="10" height="10" fill="#f0f0f0"/>
+								<rect x="10" y="0" width="10" height="10" fill="#111111"/>
+								<rect x="20" y="0" width="10" height="10" fill="#e0eef8"/>
+								<rect x="30" y="0" width="10" height="10" fill="#0a0a2a"/>
 								<!-- Rows 2-3: blue (2x2), red (2x2) -->
-								<rect x="0"  y="10" width="20" height="20" fill="#1a8cff"/>
+								<rect x="0" y="10" width="20" height="20" fill="#1a8cff"/>
 								<rect x="20" y="10" width="20" height="20" fill="#e02020"/>
 								<!-- Rows 4-5: green (2x2), yellow (2x2) -->
-								<rect x="0"  y="30" width="20" height="20" fill="#16a34a"/>
+								<rect x="0" y="30" width="20" height="20" fill="#16a34a"/>
 								<rect x="20" y="30" width="20" height="20" fill="#eab308"/>
 								<!-- Row 6: dark navy, white, dark gray, white -->
-								<rect x="0"  y="50" width="10" height="10" fill="#0a0a2a"/>
+								<rect x="0" y="50" width="10" height="10" fill="#0a0a2a"/>
 								<rect x="10" y="50" width="10" height="10" fill="#f0f0f0"/>
 								<rect x="20" y="50" width="10" height="10" fill="#222222"/>
 								<rect x="30" y="50" width="10" height="10" fill="#e0eef8"/>
 								<!-- Grid lines -->
-								<line x1="10" y1="0"  x2="10" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="20" y1="0"  x2="20" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="30" y1="0"  x2="30" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="10" x2="40" y2="10" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="20" x2="40" y2="20" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="30" x2="40" y2="30" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="40" x2="40" y2="40" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="10" y1="0" x2="10" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="20" y1="0" x2="20" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="30" y1="0" x2="30" y2="60" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0" y1="10" x2="40" y2="10" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0" y1="20" x2="40" y2="20" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0" y1="30" x2="40" y2="30" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0" y1="40" x2="40" y2="40" stroke="#00000018" stroke-width="0.5"/>
+								<line x1="0" y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5"/>
 							</svg>
-							<p class="dark:text-text-muted-dark text-xs leading-4 text-text-muted">
+							<p class="text-xs leading-4 text-text-muted">
 								Place the color calibration plate fully in view, then calibrate.
 							</p>
 						</div>
@@ -797,27 +797,27 @@
 
 						{#if calibrationResult}
 								<div class="grid grid-cols-2 gap-1.5 text-[11px]">
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">Score</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-text-muted">Score</div>
+										<div class="font-mono text-[13px] text-text">
 											{calibrationResult.score.toFixed(1)}
 										</div>
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">Ref Error</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-text-muted">Ref Error</div>
+										<div class="font-mono text-[13px] text-text">
 											{calibrationResult.reference_color_error_mean.toFixed(1)}
 										</div>
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">White / Black</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-text-muted">White / Black</div>
+										<div class="font-mono text-[13px] text-text">
 											{calibrationResult.white_luma_mean.toFixed(1)} / {calibrationResult.black_luma_mean.toFixed(1)}
 										</div>
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">WB Cast</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-text-muted">WB Cast</div>
+										<div class="font-mono text-[13px] text-text">
 											{calibrationResult.white_balance_cast.toFixed(3)}
 										</div>
 									</div>
@@ -825,19 +825,19 @@
 
 								{#if calibrationTileEntries(calibrationResult).length > 0}
 									<div class="grid gap-2">
-										<div class="dark:text-text-muted-dark text-[11px] uppercase tracking-[0.14em] text-text-muted">
+										<div class="text-[11px] uppercase tracking-[0.14em] text-text-muted">
 											Live Tile Levels
 										</div>
 										<div class="grid grid-cols-2 gap-1.5">
 											{#each calibrationTileEntries(calibrationResult) as tile}
-												<div class="dark:border-border-dark dark:bg-bg-dark grid gap-1 border border-border bg-bg px-2.5 py-2">
+												<div class="grid gap-1 border border-border bg-bg px-2.5 py-2">
 													<div class="flex items-center justify-between gap-2 text-[10px]">
 														<div class="flex items-center gap-2">
 															<span
 																class="inline-block h-3 w-3 rounded-[2px] border border-black/15"
 																style={`background:${tile.swatch}`}
 															></span>
-															<span class="dark:text-text-dark font-medium text-text">{tile.label}</span>
+															<span class="font-medium text-text">{tile.label}</span>
 														</div>
 														<span
 															class:text-emerald-700={tile.matchTone === 'good'}
@@ -852,18 +852,18 @@
 														</span>
 													</div>
 													<div class="flex items-center justify-between gap-2 text-[10px]">
-														<span class="dark:text-text-muted-dark text-text-muted">
+														<span class="text-text-muted">
 															dE {tile.reference_error.toFixed(1)}
 														</span>
-														<span class="dark:text-text-muted-dark text-text-muted">
+														<span class="text-text-muted">
 															L {tile.luma.toFixed(0)} / S {tile.saturation.toFixed(0)}
 														</span>
 													</div>
 													<div class="flex items-center justify-between gap-2 text-[10px]">
-														<span class="dark:text-text-muted-dark text-text-muted">
+														<span class="text-text-muted">
 															C {(tile.clip_fraction * 100).toFixed(0)}
 														</span>
-														<span class="dark:text-text-muted-dark text-text-muted">
+														<span class="text-text-muted">
 															Sh {(tile.shadow_fraction * 100).toFixed(0)}
 														</span>
 													</div>
@@ -877,21 +877,21 @@
 							{#if calibrating || calibrationMessage}
 								<div class="flex flex-col gap-2">
 									<div class="flex items-center justify-between gap-3 text-xs">
-										<span class="dark:text-text-dark font-medium text-text">
+										<span class="font-medium text-text">
 											{calibrationStageLabel(calibrationStage)}
 										</span>
-										<span class="dark:text-text-muted-dark font-mono text-text-muted">
+										<span class="font-mono text-text-muted">
 											{Math.round(calibrationProgress * 100)}%
 										</span>
 									</div>
-									<div class="dark:bg-bg-dark h-2 overflow-hidden rounded-full bg-bg">
+									<div class="h-2 overflow-hidden rounded-full bg-bg">
 										<div
 											class="h-full bg-sky-500 transition-[width] duration-300"
 											style={`width: ${Math.max(4, Math.min(100, calibrationProgress * 100))}%`}
 										></div>
 									</div>
 									{#if calibrationMessage}
-										<div class="dark:text-text-muted-dark text-xs text-text-muted">
+										<div class="text-xs text-text-muted">
 											{calibrationMessage}
 										</div>
 									{/if}
@@ -902,10 +902,10 @@
 					{#if deviceProvider === 'android-camera-app' && deviceSupported}
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">Processing Mode</span>
+								<span class="font-medium text-text">Processing Mode</span>
 							</div>
 							<select
-								class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
 								value={draftAndroidSettings.processing_mode}
 								onchange={(event) => updateAndroidProcessingMode(event.currentTarget.value)}
 							>
@@ -913,7 +913,7 @@
 									<option value={mode}>{processingModeLabel(mode)}</option>
 								{/each}
 							</select>
-							<div class="dark:text-text-muted-dark text-xs text-text-muted">
+							<div class="text-xs text-text-muted">
 								{#if draftAndroidSettings.processing_mode === 'standard'}
 									Uses the phone's normal live camera pipeline.
 								{:else if androidCapabilities.image_analysis_supported_modes.includes(draftAndroidSettings.processing_mode)}
@@ -926,8 +926,8 @@
 
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">Exposure Compensation</span>
-								<span class="dark:text-text-muted-dark font-mono text-xs text-text-muted">
+								<span class="font-medium text-text">Exposure Compensation</span>
+								<span class="font-mono text-xs text-text-muted">
 									{draftAndroidSettings.exposure_compensation}
 								</span>
 							</div>
@@ -943,10 +943,10 @@
 
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">White Balance</span>
+								<span class="font-medium text-text">White Balance</span>
 							</div>
 							<select
-								class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
 								value={draftAndroidSettings.white_balance_mode}
 								onchange={(event) => updateAndroidWhiteBalance(event.currentTarget.value)}
 							>
@@ -959,7 +959,7 @@
 						<div class="grid gap-2 sm:grid-cols-2">
 							{#if androidCapabilities.supports_ae_lock}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -973,7 +973,7 @@
 
 							{#if androidCapabilities.supports_awb_lock}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -988,7 +988,7 @@
 					{:else if deviceProvider === 'usb-opencv' && deviceSupported && usbControls.length > 0}
 						<button
 							onclick={() => (manualSettingsOpen = !manualSettingsOpen)}
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+							class="flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
 						>
 							<span>Manual Settings</span>
 							<ChevronDown
@@ -1001,7 +1001,7 @@
 						{#each usbControls as control (control.key)}
 							{#if control.kind === 'boolean'}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -1013,8 +1013,8 @@
 							{:else}
 								<label class="flex flex-col gap-2">
 									<div class="flex items-center justify-between gap-3 text-sm">
-										<span class="dark:text-text-dark font-medium text-text">{control.label}</span>
-										<span class="dark:text-text-muted-dark font-mono text-xs text-text-muted">
+										<span class="font-medium text-text">{control.label}</span>
+										<span class="font-mono text-xs text-text-muted">
 											{formatUsbValue(control)}
 										</span>
 									</div>
@@ -1029,7 +1029,7 @@
 										oninput={(event) => updateUsbNumeric(control, Number(event.currentTarget.value))}
 									/>
 									{#if control.help}
-										<div class="dark:text-text-muted-dark text-xs text-text-muted">
+										<div class="text-xs text-text-muted">
 											{control.help}
 										</div>
 									{/if}
@@ -1039,16 +1039,16 @@
 						{/if}
 					{:else}
 						<div
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+							class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
 						>
 							{deviceMessage || 'This source does not currently expose adjustable real camera controls.'}
 						</div>
 					{/if}
 				</div>
 
-				<div class="dark:border-border-dark flex items-center gap-3 border-t border-border pt-3">
+				<div class="flex items-center gap-3 border-t border-border pt-3">
 					<select
-						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1.5 text-xs text-text"
+						class="border border-border bg-surface px-2 py-1.5 text-xs text-text"
 						value={String(draftSettings.rotation)}
 						onchange={(event) => updateRotation(Number(event.currentTarget.value))}
 					>
@@ -1057,7 +1057,7 @@
 						<option value="180">180deg</option>
 						<option value="270">270deg</option>
 					</select>
-					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
+					<label class="flex items-center gap-1.5 text-xs text-text">
 						<input
 							type="checkbox"
 							checked={draftSettings.flip_horizontal}
@@ -1066,7 +1066,7 @@
 						/>
 						<span>Flip H</span>
 					</label>
-					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
+					<label class="flex items-center gap-1.5 text-xs text-text">
 						<input
 							type="checkbox"
 							checked={draftSettings.flip_vertical}
@@ -1078,9 +1078,9 @@
 				</div>
 			</div>
 
-			<div class="dark:border-border-dark mt-auto flex flex-col gap-2 border-t border-border pt-3">
+			<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
 				{#if status}
-					<div class="dark:text-text-muted-dark text-xs text-text-muted">{status}</div>
+					<div class="text-xs text-text-muted">{status}</div>
 				{/if}
 
 				<div class="flex items-center gap-2">
@@ -1089,7 +1089,7 @@
 						disabled={saving || calibrating || !hasUnsavedChanges()}
 						title="Revert changes"
 						aria-label="Revert changes"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Undo2 size={15} />
 					</button>
@@ -1098,7 +1098,7 @@
 						disabled={saving || calibrating}
 						title="Reset to defaults"
 						aria-label="Reset to defaults"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RotateCcw size={15} />
 					</button>

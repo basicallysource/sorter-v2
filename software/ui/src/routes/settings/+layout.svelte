@@ -82,7 +82,7 @@
 
 <svelte:window onkeydown={handleSettingsHotkey} />
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-4 sm:p-6">
+<div class="min-h-screen bg-bg p-4 sm:p-6">
 	<AppHeader />
 
 	{#if hotkeyStatusMsg || hotkeyErrorMsg}
@@ -106,8 +106,8 @@
 						href={item.href}
 						aria-current={active ? 'page' : undefined}
 						class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-							? 'dark:bg-surface-dark dark:text-text-dark bg-surface font-medium text-text'
-							: 'dark:text-text-muted-dark dark:hover:bg-surface-dark text-text-muted hover:bg-surface'}"
+							? 'bg-surface font-medium text-text'
+							: 'text-text-muted hover:bg-surface'}"
 					>
 						<item.icon size={16} />
 						{item.label}

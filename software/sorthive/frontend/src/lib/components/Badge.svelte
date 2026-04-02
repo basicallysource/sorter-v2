@@ -13,8 +13,12 @@
 		info: 'bg-blue-100 text-blue-800',
 		neutral: 'bg-gray-100 text-gray-800'
 	};
+
+	function formatText(value: string): string {
+		return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+	}
 </script>
 
 <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {colors[variant]}">
-	{text}
+	{formatText(text)}
 </span>

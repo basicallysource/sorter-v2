@@ -111,16 +111,16 @@
 </script>
 
 <div
-	class="dark:border-border-dark dark:bg-surface-dark flex h-full flex-col border border-border bg-surface"
+	class="flex h-full flex-col border border-border bg-surface"
 >
 	<div
-		class="dark:bg-surface-dark dark:text-text-dark dark:border-border-dark flex items-center justify-between border-b border-border px-2 py-1 text-sm font-medium text-text"
+		class="flex items-center justify-between border-b border-border px-3 py-2 text-sm font-medium text-text"
 	>
 		<span>Runtime Stats</span>
 		<div class="flex items-center gap-2">
 			<button
 				onclick={copyStats}
-				class="dark:text-text-muted-dark dark:hover:text-text-dark text-text-muted transition-colors"
+				class="text-text-muted transition-colors"
 				title="Copy as JSON"
 			>
 				{#if just_copied}
@@ -131,7 +131,7 @@
 			</button>
 			<a
 				href="/dashboard/runtime"
-				class="dark:text-text-muted-dark dark:hover:text-text-dark flex items-center gap-1 text-[11px] font-normal text-text-muted transition-colors"
+				class="flex items-center gap-1 text-[11px] font-normal text-text-muted transition-colors"
 				title="Dashboard"
 			>
 				<LayoutDashboard size={12} />
@@ -141,40 +141,40 @@
 	</div>
 	<div class="flex-1 overflow-y-auto p-2 text-xs font-mono">
 		{#if !ctx.machine || !ctx.machine.runtimeStats}
-			<div class="dark:text-text-muted-dark text-text-muted">No runtime stats yet</div>
+			<div class="text-text-muted">No runtime stats yet</div>
 		{:else}
 			{#if updated_at}
-				<div class="dark:text-text-muted-dark mb-2 text-[10px] text-text-muted">
+				<div class="mb-2 text-[10px] text-text-muted">
 					Updated {new Date(updated_at * 1000).toLocaleTimeString()}
 				</div>
 			{/if}
 
 			<!-- Counts -->
 			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Counts</div>
+				<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Counts</div>
 				<table class="w-full">
 					<tbody>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Seen</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.pieces_seen)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Classified</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.classified)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Unknown</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.unknown)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Not found</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.not_found)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Multi drop fail</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.multi_drop_fail)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-3">Distributed</td>
 							<td class="text-right tabular-nums">{fmtCount(counts.distributed)}</td>
 						</tr>
@@ -182,22 +182,22 @@
 				</table>
 			</div>
 
-			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+			<div class="mb-3 border-t border-border pt-3">
+				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
 					<span>Throughput</span>
-					<span class="dark:text-text-muted-dark text-[9px] font-normal normal-case tracking-normal text-text-muted">ppm</span>
+					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">ppm</span>
 				</div>
 				<table class="w-full">
 					<tbody>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">overall (running)</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpm(throughput.overall_ppm)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">inter-piece avg / med / p90</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpmSummary(inter_piece_ppm)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">running time</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtDuration(throughput.running_time_s)}</td>
 						</tr>
@@ -206,22 +206,22 @@
 			</div>
 
 			<!-- Timings -->
-			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+			<div class="mb-3 border-t border-border pt-3">
+				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
 					<span>Carousel</span>
-					<span class="dark:text-text-muted-dark text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">found→rotated</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.found_to_rotated_s)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">found→next rdy</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.found_to_next_ready_s)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">snap window</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.snap_window_s)}</td>
 						</tr>
@@ -229,18 +229,18 @@
 				</table>
 			</div>
 
-			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+			<div class="mb-3 border-t border-border pt-3">
+				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
 					<span>Distribution</span>
-					<span class="dark:text-text-muted-dark text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">target→positioned</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.target_selected_to_positioned_s)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">motion→positioned</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.motion_started_to_positioned_s)}</td>
 						</tr>
@@ -249,16 +249,16 @@
 			</div>
 
 			<!-- State Machines -->
-			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">States</div>
+			<div class="mb-3 border-t border-border pt-3">
+				<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">States</div>
 				{#if Object.keys(state_machines).length === 0}
-					<div class="dark:text-text-muted-dark text-text-muted">-</div>
+					<div class="text-text-muted">-</div>
 				{:else}
 					{#each Object.entries(state_machines) as [machine_name, machine_data]}
 						<div class="mb-1.5">
-							<div class="dark:text-text-dark flex items-baseline justify-between text-text">
+							<div class="flex items-baseline justify-between text-text">
 								<span>{machine_name}</span>
-								<span class="dark:text-text-muted-dark text-[10px] text-text-muted">{machine_data.current_state ?? '-'}</span>
+								<span class="text-[10px] text-text-muted">{machine_data.current_state ?? '-'}</span>
 							</div>
 							{#if machine_data.state_share_pct}
 								<div class="mt-0.5 flex h-1.5 overflow-hidden rounded-sm">
@@ -277,22 +277,22 @@
 			</div>
 
 			<!-- C-Channels -->
-			<div class="mb-3">
-				<div class="dark:text-text-dark mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+			<div class="mb-3 border-t border-border pt-3">
+				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
 					<span>C-Channels</span>
-					<span class="dark:text-text-muted-dark text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">ch2 clr→ch1 pulse</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch2_clear_to_ch1_pulse_s)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">ch3 clr→ch2 pulse</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch3_clear_to_ch2_pulse_s)}</td>
 						</tr>
-						<tr class="dark:text-text-muted-dark text-text-muted">
+						<tr class="text-text-muted">
 							<td class="pr-2">ch3 precise held</td>
 							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch3_precise_held_s)}</td>
 						</tr>
@@ -302,11 +302,11 @@
 
 			<!-- Pulse Counts -->
 			{#if Object.keys(pulse_counts).length > 0}
-				<div class="mb-3">
-					<div class="dark:text-text-dark mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Pulses</div>
+				<div class="mb-3 border-t border-border pt-3">
+					<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Pulses</div>
 					<table class="w-full">
 						<thead>
-							<tr class="dark:text-text-muted-dark text-[10px] text-text-muted">
+							<tr class="text-[10px] text-text-muted">
 								<th class="text-left font-normal"></th>
 								<th class="text-right font-normal">sent</th>
 								<th class="text-right font-normal">busy</th>
@@ -315,7 +315,7 @@
 						</thead>
 						<tbody>
 							{#each Object.entries(pulse_counts) as [label, c]}
-								<tr class="dark:text-text-muted-dark text-text-muted">
+								<tr class="text-text-muted">
 									<td class="pr-2">{label}</td>
 									<td class="text-right tabular-nums">{c.sent ?? 0}</td>
 									<td class="text-right tabular-nums">{c.busy_skip ?? 0}</td>
@@ -329,12 +329,12 @@
 
 			<!-- Blocked Reasons -->
 			{#if Object.keys(blocked_reasons).length > 0}
-				<div>
-					<div class="dark:text-text-dark mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Blocked</div>
+				<div class="border-t border-border pt-3">
+					<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Blocked</div>
 					<table class="w-full">
 						<tbody>
 							{#each Object.entries(blocked_reasons) as [reason, count]}
-								<tr class="dark:text-text-muted-dark text-text-muted">
+								<tr class="text-text-muted">
 									<td class="pr-3">{reason}</td>
 									<td class="text-right tabular-nums">{count}</td>
 								</tr>

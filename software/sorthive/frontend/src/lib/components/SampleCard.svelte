@@ -28,7 +28,7 @@
 </script>
 
 <a
-	class="group block cursor-pointer overflow-hidden rounded-lg border border-gray-200 border-t-2 {statusBorder[sample.review_status] ?? 'border-t-gray-200'} bg-white text-left shadow-sm transition hover:shadow-md"
+	class="group block cursor-pointer overflow-hidden border border-gray-200 border-t-2 {statusBorder[sample.review_status] ?? 'border-t-gray-200'} bg-white text-left shadow-sm transition hover:shadow-md"
 	{href}
 >
 	<div class="aspect-square overflow-hidden bg-gray-100">

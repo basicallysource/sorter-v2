@@ -95,7 +95,7 @@
 {#if auth.user}
 	<div class="max-w-lg space-y-6">
 		<!-- Profile Section -->
-		<div class="rounded-lg border border-gray-200 bg-white p-6">
+		<div class="border border-gray-200 bg-white p-6">
 			<h2 class="mb-4 font-semibold text-gray-900">Profile</h2>
 			<dl class="space-y-3 text-sm">
 				<div>
@@ -106,17 +106,17 @@
 								<input
 									type="text"
 									bind:value={displayName}
-									class="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+									class="flex-1 border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 								/>
 								<button
 									onclick={handleSaveName}
-									class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+									class="bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
 								>
 									Save
 								</button>
 								<button
 									onclick={() => { editingName = false; displayName = auth.user?.display_name ?? ''; }}
-									class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+									class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
 								>
 									Cancel
 								</button>
@@ -168,7 +168,7 @@
 		</div>
 
 		<!-- Password Section -->
-		<div id="password" class="rounded-lg border border-gray-200 bg-white p-6">
+		<div id="password" class="border border-gray-200 bg-white p-6">
 			<h2 class="mb-4 font-semibold text-gray-900">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
 			{#if !auth.user.has_password}
 				<p class="mb-4 text-sm text-gray-600">
@@ -187,7 +187,7 @@
 							type="password"
 							bind:value={currentPassword}
 							required
-							class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 						/>
 					</div>
 				{/if}
@@ -199,7 +199,7 @@
 						bind:value={newPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 					/>
 				</div>
 				<div>
@@ -210,20 +210,20 @@
 						bind:value={confirmPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 					/>
 				</div>
 
 				{#if passwordError}
-					<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{passwordError}</div>
+					<div class="bg-red-50 p-3 text-sm text-red-700">{passwordError}</div>
 				{/if}
 				{#if passwordSaved}
-					<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700">Password changed successfully!</div>
+					<div class="bg-green-50 p-3 text-sm text-green-700">Password changed successfully!</div>
 				{/if}
 
 				<button
 					type="submit"
-					class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 				>
 					{auth.user.has_password ? 'Change Password' : 'Set Password'}
 				</button>
@@ -231,14 +231,14 @@
 		</div>
 
 		<!-- Danger Zone -->
-		<div class="rounded-lg border border-red-200 bg-white p-6">
+		<div class="border border-red-200 bg-white p-6">
 			<h2 class="mb-4 font-semibold text-red-900">Danger Zone</h2>
 			<p class="mb-4 text-sm text-gray-600">
 				Deleting your account will permanently remove all your machines, samples, and reviews.
 			</p>
 			<button
 				onclick={() => { showDeleteModal = true; }}
-				class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+				class="border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
 			>
 				Delete Account
 			</button>
@@ -249,7 +249,7 @@
 <Modal open={showDeleteModal} title="Delete Account" onclose={() => { showDeleteModal = false; }}>
 	<div class="space-y-4">
 		{#if deleteError}
-			<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+			<div class="bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
 		{/if}
 		<p class="text-sm text-gray-600">
 			This will delete all your machines, samples, and data permanently. This action cannot be undone.
@@ -257,13 +257,13 @@
 		<div class="flex gap-2 justify-end">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 			>
 				Cancel
 			</button>
 			<button
 				onclick={handleDelete}
-				class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+				class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
 			>
 				Delete My Account
 			</button>

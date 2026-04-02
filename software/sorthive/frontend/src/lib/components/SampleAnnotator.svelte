@@ -591,7 +591,7 @@
 	<!-- Canvas-only mode: external controls are rendered by the parent -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="overflow-hidden rounded-lg border border-gray-200 bg-slate-950/95"
+		class="overflow-hidden border border-gray-200 bg-slate-950/95"
 		onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 	>
 		<div class="flex min-h-[50vh] items-center justify-center p-2">
@@ -606,32 +606,32 @@
 	</div>
 {:else}
 	<!-- Self-contained mode: toolbar + canvas -->
-	<div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+	<div class="space-y-4 border border-gray-200 bg-white p-4 shadow-sm">
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+			<div class="inline-flex border border-gray-200 bg-gray-50 p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
 				>Rectangle</button>
 				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
-				class="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
 			>{saving ? 'Saving...' : 'Save'}</button>
 			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
-				class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-red-50'}"
+				class="border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-red-50'}"
 			>Delete Selected</button>
-			<button type="button" onclick={() => annotator?.undo()} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Undo</button>
-			<button type="button" onclick={() => annotator?.redo()} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Redo</button>
-			<button type="button" onclick={restoreBaseline} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Revert</button>
+			<button type="button" onclick={() => annotator?.undo()} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Undo</button>
+			<button type="button" onclick={() => annotator?.redo()} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Redo</button>
+			<button type="button" onclick={restoreBaseline} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Revert</button>
 			{#if seedBoxes.length > 0}
-				<button type="button" onclick={loadSorterBoxes} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Load Sorter Boxes</button>
+				<button type="button" onclick={loadSorterBoxes} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Load Sorter Boxes</button>
 			{/if}
-			<button type="button" onclick={clearAll} class="rounded-lg border border-orange-200 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50">Clear</button>
+			<button type="button" onclick={clearAll} class="border border-orange-200 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50">Clear</button>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
 			<span>{annotationStats.total} annotations</span>
 			<span>{annotationStats.seeded} seeded</span>
 			<span>{annotationStats.manual} manual</span>
@@ -643,19 +643,19 @@
 			</span>
 		</div>
 
-		<div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+		<div class="border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 
 		{#if feedback}
-			<p class="rounded-lg px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-700'}">
+			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-700'}">
 				{feedback}
 			</p>
 		{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="overflow-auto rounded-xl border border-gray-200 bg-slate-950/95 p-4"
+			class="overflow-auto border border-gray-200 bg-slate-950/95 p-4"
 			onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 		>
 			<div class="flex min-h-[28rem] items-center justify-center">

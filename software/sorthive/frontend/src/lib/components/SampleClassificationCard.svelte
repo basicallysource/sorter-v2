@@ -212,22 +212,22 @@
 </script>
 
 {#if isClassificationSample}
-	<div class="rounded-lg border border-gray-200 bg-white">
+	<div class="border border-gray-200 bg-white">
 		<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Classification</h2>
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}
-				<span class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+				<span class="bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
 					Manual override
 				</span>
 			{:else if autoClassification}
-				<span class="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+				<span class="bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">
 					{autoClassification.provider ?? 'Auto'}
 				</span>
 			{/if}
 		</div>
 
 		<div class="space-y-3 p-3">
-			<div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
+			<div class="border border-gray-200 bg-gray-50 px-3 py-3">
 				<div class="text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
 					Current Label
 				</div>
@@ -243,7 +243,7 @@
 			</div>
 
 			{#if autoClassification}
-				<div class="rounded-lg border border-gray-200 px-3 py-3">
+				<div class="border border-gray-200 px-3 py-3">
 					<div class="text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
 						Auto Result
 					</div>
@@ -278,7 +278,7 @@
 						{/if}
 					</div>
 					{#if autoClassification.error}
-						<p class="mt-2 rounded bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+						<p class="mt-2 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
 							{autoClassification.error}
 						</p>
 					{/if}
@@ -299,7 +299,7 @@
 						bind:value={formPartId}
 						type="text"
 						placeholder={autoClassification?.part_id ?? 'e.g. 3001'}
-						class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 					/>
 				</div>
 				<div>
@@ -311,14 +311,14 @@
 						bind:value={formItemName}
 						type="text"
 						placeholder={autoClassification?.item_name ?? 'Optional human-readable name'}
-						class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 					/>
 				</div>
 			</div>
 
 			{#if feedback}
 				<p
-					class="rounded px-3 py-2 text-[11px] {feedbackTone === 'danger'
+					class="px-3 py-2 text-[11px] {feedbackTone === 'danger'
 						? 'bg-red-50 text-red-700'
 						: feedbackTone === 'success'
 							? 'bg-emerald-50 text-emerald-700'
@@ -333,7 +333,7 @@
 					type="button"
 					onclick={resetForm}
 					disabled={saving || !isDirty}
-					class="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+					class="flex-1 border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
 				>
 					Reset
 				</button>
@@ -341,7 +341,7 @@
 					type="button"
 					onclick={clearForm}
 					disabled={saving || (!formPartId && !formItemName)}
-					class="flex-1 rounded-lg border border-orange-200 px-3 py-2 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
+					class="flex-1 border border-orange-200 px-3 py-2 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
 				>
 					Clear
 				</button>
@@ -349,7 +349,7 @@
 					type="button"
 					onclick={saveClassification}
 					disabled={saving || !isDirty}
-					class="flex-1 rounded-lg px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
 				>
 					{saving ? 'Saving...' : 'Save'}
 				</button>

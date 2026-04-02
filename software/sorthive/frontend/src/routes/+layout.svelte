@@ -47,26 +47,26 @@
 					<div class="flex gap-1">
 						<a
 							href="/"
-							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Dashboard
 						</a>
 						<a
 							href="/machines"
-							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Machines
 						</a>
 						<a
 							href="/samples"
-							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Samples
 						</a>
 						{#if auth.isReviewer}
 							<a
 								href="/review"
-								class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/review' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+								class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/review' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 							>
 								Review
 							</a>
@@ -76,7 +76,7 @@
 				<div class="relative">
 					<button
 						onclick={() => { dropdownOpen = !dropdownOpen; }}
-						class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
 					>
 						<span>{auth.user?.display_name ?? auth.user?.email}</span>
 						<svg class="h-4 w-4 transition-transform {dropdownOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,7 +91,7 @@
 							onclick={() => { dropdownOpen = false; }}
 							onkeydown={() => {}}
 						></div>
-						<div class="absolute right-0 z-50 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+						<div class="absolute right-0 z-50 mt-1 w-56 border border-gray-200 bg-white py-1 shadow-lg">
 							<div class="border-b border-gray-100 px-4 py-2">
 								<p class="text-sm font-medium text-gray-900">{auth.user?.display_name}</p>
 								<p class="text-xs text-gray-500">{auth.user?.email}</p>

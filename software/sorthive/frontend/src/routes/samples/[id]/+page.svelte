@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { api, type SampleDetail, type SampleReview, type SavedSampleAnnotation } from '$lib/api';
+	import {
+		api,
+		type SampleClassificationPayload,
+		type SampleDetail,
+		type SampleReview,
+		type SavedSampleAnnotation
+	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SampleAnnotator, { type SeedBox } from '$lib/components/SampleAnnotator.svelte';
+	import SampleClassificationCard from '$lib/components/SampleClassificationCard.svelte';
 	import { AnnotatorApi } from '$lib/components/annotator-api.svelte';
 	import { auth } from '$lib/auth.svelte';
 
@@ -187,7 +194,7 @@
 			'piece_uuid', 'run_id', 'detection_openrouter_model',
 			'top_detection_bbox_count', 'bottom_detection_bbox_count',
 			'detection_candidate_bboxes', 'detection_bbox', 'manual_annotations',
-			'source', 'distill_result', 'classification_result',
+			'source', 'distill_result', 'classification_result', 'manual_classification'
 		]);
 		return Object.keys(extra).filter(k => !skip.has(k)).sort();
 	});
@@ -223,6 +230,20 @@
 		} catch {
 			// ignore
 		}
+	}
+
+	function handleClassificationSaved(payload: SampleClassificationPayload | null) {
+		if (!sample) return;
+		const nextExtra = { ...(sample.extra_metadata ?? {}) };
+		if (payload) {
+			nextExtra.manual_classification = payload;
+		} else {
+			delete nextExtra.manual_classification;
+		}
+		sample = {
+			...sample,
+			extra_metadata: nextExtra
+		};
 	}
 
 	function onImageLoad(e: Event) {
@@ -540,6 +561,14 @@
 					</div>
 				</div>
 			{/if}
+
+			<SampleClassificationCard
+				sampleId={sample.id}
+				sourceRole={sample.source_role}
+				captureReason={sample.capture_reason}
+				extraMetadata={sample.extra_metadata}
+				onSaved={handleClassificationSaved}
+			/>
 
 			<!-- Sample details card -->
 			<div class="rounded-lg border border-gray-200 bg-white">

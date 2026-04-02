@@ -85,6 +85,22 @@ export interface SaveSampleAnnotationsResponse {
 	data: SampleAnnotationsPayload;
 }
 
+export interface SampleClassificationPayload {
+	version: 'sorthive-classification-v1';
+	updated_at: string | null;
+	updated_by_display_name: string | null;
+	part_id: string | null;
+	item_name: string | null;
+	color_id: string | null;
+	color_name: string | null;
+}
+
+export interface SaveSampleClassificationResponse {
+	ok: boolean;
+	cleared: boolean;
+	data: SampleClassificationPayload | null;
+}
+
 export interface SampleReview {
 	id: string;
 	sample_id: string;
@@ -297,6 +313,17 @@ export const api = {
 			version: data.version ?? 'sorthive-annotorious-v1',
 			annotations: data.annotations
 		});
+	},
+	saveSampleClassification(
+		id: string,
+		data: {
+			part_id?: string | null;
+			item_name?: string | null;
+			color_id?: string | null;
+			color_name?: string | null;
+		}
+	) {
+		return request<SaveSampleClassificationResponse>('PUT', `/api/samples/${id}/classification`, data);
 	},
 	deleteSample(id: string) {
 		return request<void>('DELETE', `/api/samples/${id}`);

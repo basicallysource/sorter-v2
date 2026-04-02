@@ -43,7 +43,7 @@
 </svelte:head>
 
 <div class="flex min-h-[80vh] items-center justify-center">
-	<div class="w-full max-w-sm">
+	<div class="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
 		<h1 class="mb-6 text-center text-2xl font-bold text-gray-900">Sign in to SortHive</h1>
 
 		{#if currentError()}

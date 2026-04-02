@@ -186,13 +186,13 @@
 							typeof value?.id === 'string' &&
 							typeof value?.label === 'string' &&
 							typeof value?.needs_baseline === 'boolean'
-				  )
+				 )
 				: [];
 			availableOpenrouterModels = Array.isArray(payload?.available_openrouter_models)
 				? payload.available_openrouter_models.filter(
 						(value: any): value is OpenRouterModelOption =>
 							typeof value?.id === 'string' && typeof value?.label === 'string'
-				  )
+				 )
 				: [];
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load detection settings.';
@@ -426,21 +426,21 @@
 </script>
 
 <aside
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
+	class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
 >
 	<div
-		class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface px-4 py-3"
+		class="border-b border-border bg-surface px-4 py-3"
 	>
 		<div class="flex items-start justify-between gap-3">
 			<div class="flex items-start gap-3">
 				<div
-					class="dark:bg-bg-dark dark:text-text-dark flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
+					class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
 				>
 					<Bug size={16} />
 				</div>
 				<div class="min-w-0">
-					<div class="dark:text-text-dark text-sm font-semibold text-text">{scopeTitle()}</div>
-					<div class="dark:text-text-muted-dark mt-0.5 text-xs text-text-muted">
+					<div class="text-sm font-semibold text-text">{scopeTitle()}</div>
+					<div class="mt-0.5 text-xs text-text-muted">
 						{scopeDescription()}
 					</div>
 				</div>
@@ -448,7 +448,7 @@
 			{#if onClose}
 				<button
 					onclick={closeSidebar}
-					class="dark:text-text-muted-dark dark:hover:bg-bg-dark dark:hover:text-text-dark inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
+					class="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
 					aria-label="Close detection debug"
 				>
 					<X size={15} />
@@ -460,7 +460,7 @@
 	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
 		{#if !hasCamera}
 			<div
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+				class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
 			>
 				Assign a camera to {label} before testing detection on the live feed.
 			</div>
@@ -473,14 +473,14 @@
 		{/if}
 
 		<div class="grid grid-cols-1 gap-3">
-			<div class="dark:border-border-dark dark:bg-surface-dark grid gap-3 border border-border bg-surface px-3 py-3">
-				<label class="dark:text-text-dark text-xs text-text">
+			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
+				<label class="text-xs text-text">
 					Detection Method
 					<select
 						value={algorithm}
 						onchange={(event) => void saveAlgorithm(event.currentTarget.value)}
 						disabled={loadingConfig || savingConfig || capturing || testing}
-						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark mt-1 w-full border border-border bg-surface px-2 py-2 text-sm text-text"
+						class="mt-1 w-full border border-border bg-surface px-2 py-2 text-sm text-text"
 					>
 						{#each availableAlgorithms as option}
 							<option value={option.id}>{option.label}</option>
@@ -489,26 +489,26 @@
 				</label>
 
 				{#if algorithm === 'gemini_sam'}
-					<label class="dark:text-text-dark text-xs text-text">
+					<label class="text-xs text-text">
 						OpenRouter Model
 						<select
 							value={openrouterModel}
 							onchange={(event) => void saveOpenRouterModel(event.currentTarget.value)}
 							disabled={loadingConfig || savingConfig || capturing || testing}
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark mt-1 w-full border border-border bg-surface px-2 py-2 text-sm text-text"
+							class="mt-1 w-full border border-border bg-surface px-2 py-2 text-sm text-text"
 						>
 							{#each availableOpenrouterModels as option}
 								<option value={option.id}>{option.label}</option>
 							{/each}
 						</select>
-						<div class="dark:text-text-muted-dark mt-1 text-[11px] text-text-muted">
+						<div class="mt-1 text-[11px] text-text-muted">
 							{openRouterModelShortLabel(openrouterModel)}
 						</div>
 					</label>
 				{/if}
 
 				{#if showSampleCollectionToggle()}
-					<label class="dark:border-border-dark dark:bg-bg-dark flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-xs text-text">
+					<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-xs text-text">
 						<input
 							type="checkbox"
 							checked={sampleCollectionEnabled}
@@ -523,21 +523,21 @@
 							class="mt-0.5 h-4 w-4 accent-sky-500"
 						/>
 						<span class="min-w-0">
-							<span class="dark:text-text-dark block text-sm font-medium text-text">
+							<span class="block text-sm font-medium text-text">
 								Collect Positive Samples
 							</span>
-							<span class="dark:text-text-muted-dark mt-0.5 block text-[11px] text-text-muted">
+							<span class="mt-0.5 block text-[11px] text-text-muted">
 								{sampleCollectionDescription()}
 							</span>
 						</span>
 					</label>
 				{:else if scope !== 'classification'}
-					<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-3 py-2.5 text-[11px] text-text-muted dark:text-text-muted-dark">
+					<div class="border border-border bg-bg px-3 py-2.5 text-[11px] text-text-muted">
 						{sampleCollectionDescription()}
 					</div>
 				{/if}
 
-				<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-3 py-2 text-xs leading-5 text-text-muted dark:text-text-muted-dark">
+				<div class="border border-border bg-bg px-3 py-2 text-xs leading-5 text-text-muted">
 					{algorithmSummary()}
 				</div>
 
@@ -557,7 +557,7 @@
 							type="button"
 							onclick={captureBaseline}
 							disabled={capturing || savingConfig || loadingConfig || testing}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<Camera size={15} />
 							<span>{capturing ? 'Capturing...' : baselineButtonLabel()}</span>
@@ -567,29 +567,29 @@
 
 				{#if debugResult}
 					<div class="grid grid-cols-2 gap-1.5 text-[11px]">
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">Result</div>
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">Result</div>
 							<div class={resultToneClass(debugResult.found)}>
 								{resultFoundLabel(debugResult.found)}
 							</div>
 						</div>
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">Algorithm</div>
-							<div class="dark:text-text-dark font-mono text-[13px] text-text">
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">Algorithm</div>
+							<div class="font-mono text-[13px] text-text">
 								{algorithmShortLabel(debugResult.algorithm)}
 							</div>
 						</div>
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">Best Box</div>
-							<div class="dark:text-text-dark font-mono text-[13px] text-text">
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">Best Box</div>
+							<div class="font-mono text-[13px] text-text">
 								{bboxSummary(debugResult.bbox)}
 							</div>
 						</div>
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">
 								{debugResult.score === undefined || debugResult.score === null ? 'Zone Pts' : 'Score'}
 							</div>
-							<div class="dark:text-text-dark font-mono text-[13px] text-text">
+							<div class="font-mono text-[13px] text-text">
 								{#if debugResult.score !== undefined && debugResult.score !== null}
 									{debugResult.score.toFixed(1)}
 								{:else}
@@ -597,9 +597,9 @@
 								{/if}
 							</div>
 						</div>
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">Frame</div>
-							<div class="dark:text-text-dark font-mono text-[13px] text-text">
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">Frame</div>
+							<div class="font-mono text-[13px] text-text">
 								{#if debugResult.frame_resolution}
 									{debugResult.frame_resolution[0]} x {debugResult.frame_resolution[1]}
 								{:else}
@@ -607,11 +607,11 @@
 								{/if}
 							</div>
 						</div>
-						<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-							<div class="dark:text-text-muted-dark text-text-muted">
+						<div class="border border-border bg-bg px-2.5 py-2">
+							<div class="text-text-muted">
 								{debugResult.bbox_count === undefined ? 'Zone Box' : 'Candidates'}
 							</div>
-							<div class="dark:text-text-dark font-mono text-[13px] text-text">
+							<div class="font-mono text-[13px] text-text">
 								{#if debugResult.bbox_count !== undefined}
 									{debugResult.bbox_count}
 								{:else}
@@ -622,15 +622,15 @@
 					</div>
 
 					{#if debugResult.candidate_bboxes && debugResult.candidate_bboxes.length > 0}
-						<div class="dark:border-border-dark dark:bg-bg-dark grid gap-2 border border-border bg-bg px-3 py-3">
-							<div class="dark:text-text-muted-dark text-[11px] uppercase tracking-[0.14em] text-text-muted">
+						<div class="grid gap-2 border border-border bg-bg px-3 py-3">
+							<div class="text-[11px] uppercase tracking-[0.14em] text-text-muted">
 								Candidate Boxes
 							</div>
 							<div class="grid grid-cols-2 gap-1.5 text-[11px]">
 								{#each debugResult.candidate_bboxes.slice(0, 6) as bbox, index}
-									<div class="dark:border-border-dark grid gap-2 border border-border px-2.5 py-2">
+									<div class="grid gap-2 border border-border px-2.5 py-2">
 										{#if debugResult.candidate_previews?.[index]}
-											<div class="dark:border-border-dark dark:bg-surface-dark flex aspect-square items-center justify-center overflow-hidden border border-border bg-surface">
+											<div class="flex aspect-square items-center justify-center overflow-hidden border border-border bg-surface">
 												<img
 													src={`data:image/jpeg;base64,${debugResult.candidate_previews[index]}`}
 													alt={`Candidate ${index + 1}`}
@@ -638,8 +638,8 @@
 												/>
 											</div>
 										{/if}
-										<div class="dark:text-text-dark font-medium text-text">#{index + 1}</div>
-										<div class="dark:text-text-muted-dark font-mono text-text-muted">
+										<div class="font-medium text-text">#{index + 1}</div>
+										<div class="font-mono text-text-muted">
 											{bboxSummary(bbox)}
 										</div>
 									</div>
@@ -650,15 +650,15 @@
 				{/if}
 
 				{#if captureResult}
-					<div class="dark:border-border-dark dark:bg-bg-dark grid grid-cols-1 gap-2 border border-border bg-bg px-3 py-3">
-						<div class="dark:text-text-muted-dark text-[11px] uppercase tracking-[0.14em] text-text-muted">
+					<div class="grid grid-cols-1 gap-2 border border-border bg-bg px-3 py-3">
+						<div class="text-[11px] uppercase tracking-[0.14em] text-text-muted">
 							Baseline Capture
 						</div>
 						<div class="grid grid-cols-2 gap-2 text-xs">
 							{#each Object.entries(captureResult) as [name, cameraResult]}
-								<div class="dark:border-border-dark border border-border px-2.5 py-2">
-									<div class="dark:text-text-dark font-medium capitalize text-text">{name}</div>
-									<div class="dark:text-text-muted-dark mt-1 text-text-muted">
+								<div class="border border-border px-2.5 py-2">
+									<div class="font-medium capitalize text-text">{name}</div>
+									<div class="mt-1 text-text-muted">
 										{#if !cameraResult.available}
 											Not configured
 										{:else if cameraResult.error}
@@ -676,7 +676,7 @@
 				{/if}
 
 				{#if statusMsg}
-					<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+					<div class="text-sm text-text-muted">{statusMsg}</div>
 				{/if}
 			</div>
 		</div>

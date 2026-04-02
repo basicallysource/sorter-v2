@@ -32,7 +32,7 @@
 	<button
 		type="button"
 		onclick={toggleDropdown}
-		class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
+		class="flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
 	>
 		{#if selected}
 			<span
@@ -45,14 +45,14 @@
 			</span>
 		{:else}
 			<span class="h-2 w-2 rounded-full bg-gray-500"></span>
-			<span class="dark:text-text-muted-dark text-text-muted">No machine</span>
+			<span class="text-text-muted">No machine</span>
 		{/if}
 		<ChevronDown size={14} class="opacity-60" />
 	</button>
 
 	{#if dropdown_open && machines.length > 0}
 		<div
-			class="dark:border-border-dark dark:bg-surface-dark absolute top-full right-0 z-50 mt-1 min-w-48 border border-border bg-surface shadow-lg"
+			class="absolute top-full right-0 z-50 mt-1 min-w-48 border border-border bg-surface shadow-lg"
 		>
 			{#each machines as [id, m]}
 				<button
@@ -61,7 +61,7 @@
 					class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors {id ===
 					manager.selectedMachineId
 						? 'bg-blue-500/20 text-blue-500'
-						: 'dark:text-text-dark dark:hover:bg-bg-dark text-text hover:bg-bg'}"
+						: 'text-text hover:bg-bg'}"
 				>
 					<span
 						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-green-500' : 'bg-red-500'}"

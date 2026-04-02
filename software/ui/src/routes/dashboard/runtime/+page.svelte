@@ -464,21 +464,21 @@
 	}
 </script>
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
+<div class="min-h-screen bg-bg p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<a
 				href="/"
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
+				class="p-2 text-text transition-colors hover:bg-surface"
 				title="Back"
 			>
 				<ArrowLeft size={20} />
 			</a>
-			<h1 class="dark:text-text-dark text-xl font-bold text-text">Runtime Dashboard</h1>
+			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
 		</div>
 		<div class="flex items-center gap-2">
 			<select
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_group}
 				onchange={(event) => (selected_group = (event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -488,7 +488,7 @@
 				<option value="distribution">Distribution</option>
 			</select>
 			<select
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_record_id}
 				onchange={(event) => selectRecord((event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -498,7 +498,7 @@
 				{/each}
 			</select>
 			<button
-				class="dark:border-border-dark dark:text-text-dark border border-border px-2 py-1 text-xs text-text"
+				class="border border-border px-2 py-1 text-xs text-text"
 				onclick={loadRecords}
 			>
 				Refresh
@@ -512,13 +512,13 @@
 	{/if}
 
 	{#if !machine_ctx.machine && !loaded_runtime_stats}
-		<div class="dark:text-text-muted-dark py-12 text-center text-text-muted">
+		<div class="py-12 text-center text-text-muted">
 			No machine selected.
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
-				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+			<div class="border border-border bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-text">
 					Occupancy Share By Subsystem
 				</div>
 				<div class="h-[460px]">
@@ -526,8 +526,8 @@
 				</div>
 			</div>
 
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
-				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+			<div class="border border-border bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-text">
 					Occupancy Gantt (Last {WINDOW_S}s)
 				</div>
 				<div class="h-[380px]">
@@ -536,16 +536,16 @@
 			</div>
 		</div>
 
-		<div class="dark:border-border-dark dark:bg-surface-dark mt-4 border border-border bg-surface p-3">
-			<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+		<div class="mt-4 border border-border bg-surface p-3">
+			<div class="mb-2 text-sm font-medium text-text">
 				Top Occupancy Blocks (Run Total)
 			</div>
 			{#if top_occupancy_states.length === 0}
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">No occupancy data yet.</div>
+				<div class="text-xs text-text-muted">No occupancy data yet.</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
 					{#each top_occupancy_states as [name, seconds]}
-						<div class="dark:text-text-muted-dark flex items-center justify-between text-text-muted">
+						<div class="flex items-center justify-between text-text-muted">
 							<span class="truncate pr-2">{name}</span>
 							<span class="tabular-nums">{seconds.toFixed(2)}s</span>
 						</div>

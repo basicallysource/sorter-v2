@@ -523,20 +523,20 @@
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <aside
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full min-w-0 flex-col border border-border bg-bg"
+	class="flex h-full min-w-0 flex-col border border-border bg-bg"
 >
 	<!-- Header -->
-	<div class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface px-4 py-3">
+	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start gap-3">
 			<div
-				class="dark:bg-bg-dark dark:text-text-dark flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text"
 			>
 				<Cog size={16} />
 			</div>
 			<div class="min-w-0">
-				<div class="dark:text-text-dark text-sm font-semibold text-text">{displayLabel}</div>
+				<div class="text-sm font-semibold text-text">{displayLabel}</div>
 				<div
-					class="dark:text-text-muted-dark mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
+					class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
 				>
 					<span
 						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
@@ -550,7 +550,7 @@
 					<div
 						class="mt-1 text-xs {endstopTriggered
 							? 'text-green-600 dark:text-green-400'
-							: 'dark:text-text-muted-dark text-text-muted'}"
+							: 'text-text-muted'}"
 					>
 						Endstop: {endstopTriggered ? 'Triggered' : 'Not Triggered'}
 					</div>
@@ -563,9 +563,9 @@
 	<div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
 		<!-- Controls -->
 		<div class="flex flex-col gap-1">
-			<div class="dark:text-text-dark text-sm font-medium text-text">Controls</div>
+			<div class="text-sm font-medium text-text">Controls</div>
 			{#if keyboardShortcuts}
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-xs text-text-muted">
 					Arrow keys also jog this stepper.
 				</div>
 			{/if}
@@ -575,7 +575,7 @@
 			<button
 				onclick={() => pulse('ccw')}
 				disabled={Boolean(pulsing[`${stepperKey}:ccw`]) || homing || canceling}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<ChevronLeft size={16} />
 				CCW
@@ -591,7 +591,7 @@
 			<button
 				onclick={() => pulse('cw')}
 				disabled={Boolean(pulsing[`${stepperKey}:cw`]) || homing || canceling}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				CW
 				<ChevronRight size={16} />
@@ -603,16 +603,16 @@
 			<button
 				onclick={() => (pulseMode = 'duration')}
 				class="flex-1 cursor-pointer border px-2 py-1 text-xs transition-colors {pulseMode === 'duration'
-					? 'dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border-border bg-surface font-medium text-text'
-					: 'dark:border-border-dark/50 dark:text-text-muted-dark border-border/50 bg-transparent text-text-muted hover:bg-surface dark:hover:bg-surface-dark'}"
+					? 'border-border bg-surface font-medium text-text'
+					: 'border-border/50 bg-transparent text-text-muted hover:bg-surface'}"
 			>
 				Duration
 			</button>
 			<button
 				onclick={() => (pulseMode = 'degrees')}
 				class="flex-1 cursor-pointer border px-2 py-1 text-xs transition-colors {pulseMode === 'degrees'
-					? 'dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border-border bg-surface font-medium text-text'
-					: 'dark:border-border-dark/50 dark:text-text-muted-dark border-border/50 bg-transparent text-text-muted hover:bg-surface dark:hover:bg-surface-dark'}"
+					? 'border-border bg-surface font-medium text-text'
+					: 'border-border/50 bg-transparent text-text-muted hover:bg-surface'}"
 			>
 				Degrees
 			</button>
@@ -620,7 +620,7 @@
 
 		<div class="grid grid-cols-2 gap-3">
 			{#if pulseMode === 'duration'}
-				<label class="dark:text-text-dark text-xs text-text">
+				<label class="text-xs text-text">
 					Duration (s)
 					<input
 						type="number"
@@ -628,11 +628,11 @@
 						max="5"
 						step="0.05"
 						bind:value={pulseDuration}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 				</label>
 			{:else}
-				<label class="dark:text-text-dark text-xs text-text">
+				<label class="text-xs text-text">
 					Degrees (output)
 					<input
 						type="number"
@@ -640,34 +640,34 @@
 						max="3600"
 						step="1"
 						bind:value={pulseDegrees}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 				</label>
 			{/if}
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Speed
 				<input
 					type="number"
 					min="1"
 					step="50"
 					bind:value={pulseSpeed}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
 		</div>
 		{#if pulseMode === 'degrees' && gearRatio !== 1}
-			<div class="dark:text-text-muted-dark text-xs text-text-muted">
+			<div class="text-xs text-text-muted">
 				Ratio {gearRatio.toFixed(2)}:1 — {pulseDegrees}° output = {(pulseDegrees * gearRatio).toFixed(1)}° motor
 			</div>
 		{/if}
 
 		<!-- Homing (only if endstop) -->
 		{#if hasEndstop}
-			<div class="dark:border-border-dark border-t border-border pt-4"></div>
+			<div class="border-t border-border pt-4"></div>
 
 			<div class="flex flex-col gap-1">
-				<div class="dark:text-text-dark text-sm font-medium text-text">Homing</div>
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-sm font-medium text-text">Homing</div>
+				<div class="text-xs text-text-muted">
 					Find the endstop slowly, or cancel and stop all steppers if the wrong motor moves.
 				</div>
 			</div>
@@ -676,7 +676,7 @@
 				<button
 					onclick={homeToEndstop}
 					disabled={loading || saving || homing || canceling}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<Home size={14} />
 					{homing ? 'Homing...' : 'Home to Endstop'}
@@ -692,12 +692,12 @@
 					<button
 						onclick={calibrate}
 						disabled={endstopTriggered !== true || homing || calibrating || canceling}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{calibrating ? 'Calibrating...' : 'Calibrate Full Rotation'}
 					</button>
 					{#if calibrateResult}
-						<div class="dark:text-text-muted-dark text-xs text-text-muted">
+						<div class="text-xs text-text-muted">
 							Result: {calibrateResult.steps_per_revolution} steps/rev
 						</div>
 					{/if}
@@ -706,7 +706,7 @@
 		{/if}
 
 		<!-- Driver Settings (collapsible) -->
-		<div class="dark:border-border-dark border-t border-border pt-4"></div>
+		<div class="border-t border-border pt-4"></div>
 
 		<button
 			onclick={() => {
@@ -715,10 +715,10 @@
 			}}
 			class="flex w-full cursor-pointer items-center justify-between"
 		>
-			<div class="dark:text-text-dark text-sm font-medium text-text">Driver Settings</div>
+			<div class="text-sm font-medium text-text">Driver Settings</div>
 			<ChevronDown
 				size={16}
-				class="dark:text-text-muted-dark text-text-muted transition-transform {driverSettingsOpen
+				class="text-text-muted transition-transform {driverSettingsOpen
 					? 'rotate-180'
 					: ''}"
 			/>
@@ -726,26 +726,26 @@
 
 		{#if driverSettingsOpen}
 			{#if tmcLoading}
-				<div class="dark:text-text-muted-dark text-sm text-text-muted">
+				<div class="text-sm text-text-muted">
 					Loading driver state...
 				</div>
 			{:else}
 				<div class="flex flex-col gap-3">
-					<label class="dark:text-text-dark flex flex-col gap-1 text-xs text-text">
+					<label class="flex flex-col gap-1 text-xs text-text">
 						Run Current (IRUN): {tmcIrun}
 						<input type="range" min="0" max="31" bind:value={tmcIrun} class="w-full" />
 					</label>
 
-					<label class="dark:text-text-dark flex flex-col gap-1 text-xs text-text">
+					<label class="flex flex-col gap-1 text-xs text-text">
 						Hold Current (IHOLD): {tmcIhold}
 						<input type="range" min="0" max="31" bind:value={tmcIhold} class="w-full" />
 					</label>
 
-					<label class="dark:text-text-dark flex flex-col gap-1 text-xs text-text">
+					<label class="flex flex-col gap-1 text-xs text-text">
 						Microstepping
 						<select
 							bind:value={tmcMicrosteps}
-							class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark border border-border bg-bg px-2 py-1.5 text-sm text-text"
+							class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 						>
 							{#each [1, 2, 4, 8, 16, 32, 64, 128, 256] as ms}
 								<option value={ms}>1/{ms}</option>
@@ -753,18 +753,18 @@
 						</select>
 					</label>
 
-					<label class="dark:text-text-dark flex items-center gap-2 text-sm text-text">
+					<label class="flex items-center gap-2 text-sm text-text">
 						<input type="checkbox" bind:checked={tmcStealthchop} />
 						StealthChop
 					</label>
 
-					<label class="dark:text-text-dark flex items-center gap-2 text-sm text-text">
+					<label class="flex items-center gap-2 text-sm text-text">
 						<input type="checkbox" bind:checked={tmcCoolstep} />
 						CoolStep
 					</label>
 
 					{#if hasEndstop}
-						<label class="dark:text-text-dark flex items-center gap-2 text-sm text-text">
+						<label class="flex items-center gap-2 text-sm text-text">
 							<input
 								type="checkbox"
 								checked={stepperDirectionInverted}
@@ -778,7 +778,7 @@
 					<button
 						onclick={saveTmcSettings}
 						disabled={tmcSaving}
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{tmcSaving ? 'Applying...' : 'Apply Driver Settings'}
 					</button>
@@ -786,7 +786,7 @@
 					{#if tmcDrvStatus}
 						<div class="flex flex-col gap-1">
 							<div
-								class="dark:text-text-muted-dark text-xs uppercase tracking-[0.18em] text-text-muted"
+								class="text-xs uppercase tracking-[0.18em] text-text-muted"
 							>
 								DRV_STATUS
 							</div>
@@ -794,55 +794,55 @@
 								<div
 									class={tmcDrvStatus.ot
 										? 'font-semibold text-red-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									Overtemp: {tmcDrvStatus.ot ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.otpw
 										? 'font-semibold text-yellow-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									OT Pre-warn: {tmcDrvStatus.otpw ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.s2ga
 										? 'font-semibold text-red-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									Short A: {tmcDrvStatus.s2ga ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.s2gb
 										? 'font-semibold text-red-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									Short B: {tmcDrvStatus.s2gb ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.ola
 										? 'font-semibold text-yellow-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									Open A: {tmcDrvStatus.ola ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.olb
 										? 'font-semibold text-yellow-500'
-										: 'dark:text-text-muted-dark text-text-muted'}
+										: 'text-text-muted'}
 								>
 									Open B: {tmcDrvStatus.olb ? 'YES' : 'No'}
 								</div>
-								<div class="dark:text-text-muted-dark text-text-muted">
+								<div class="text-text-muted">
 									StealthChop: {tmcDrvStatus.stealth ? 'Active' : 'Off'}
 								</div>
-								<div class="dark:text-text-muted-dark text-text-muted">
+								<div class="text-text-muted">
 									Standstill: {tmcDrvStatus.stst ? 'Yes' : 'No'}
 								</div>
-								<div class="dark:text-text-muted-dark text-text-muted">
+								<div class="text-text-muted">
 									CS Actual: {tmcDrvStatus.cs_actual}
 								</div>
-								<div class="dark:text-text-muted-dark text-text-muted">
+								<div class="text-text-muted">
 									SG Result: {tmcDrvStatus.sg_result}
 								</div>
 								<div
@@ -850,7 +850,7 @@
 										? 'font-semibold text-red-500'
 										: tmcDrvStatus.otpw
 											? 'font-semibold text-yellow-500'
-											: 'dark:text-text-muted-dark text-text-muted'}"
+											: 'text-text-muted'}"
 								>
 									Temp: {tmcDrvStatus.ot
 										? '>157°C SHUTDOWN'
@@ -873,27 +873,27 @@
 
 		<!-- Endstop Settings (collapsible, only if endstop) -->
 		{#if hasEndstop}
-			<div class="dark:border-border-dark border-t border-border pt-4"></div>
+			<div class="border-t border-border pt-4"></div>
 
 			<button
 				onclick={() => (endstopSettingsOpen = !endstopSettingsOpen)}
 				class="flex w-full cursor-pointer items-center justify-between"
 			>
-				<div class="dark:text-text-dark text-sm font-medium text-text">Endstop Settings</div>
+				<div class="text-sm font-medium text-text">Endstop Settings</div>
 				<ChevronDown
 					size={16}
-					class="dark:text-text-muted-dark text-text-muted transition-transform {endstopSettingsOpen
+					class="text-text-muted transition-transform {endstopSettingsOpen
 						? 'rotate-180'
 						: ''}"
 				/>
 			</button>
 
 			{#if endstopSettingsOpen}
-				<div class="dark:text-text-muted-dark text-sm text-text-muted">
+				<div class="text-sm text-text-muted">
 					Flip this if the endstop reads backwards.
 				</div>
 
-				<label class="dark:text-text-dark flex items-center gap-2 text-sm text-text">
+				<label class="flex items-center gap-2 text-sm text-text">
 					<input
 						type="checkbox"
 						checked={endstopActiveHigh}
@@ -906,7 +906,7 @@
 				<button
 					onclick={saveEndstopSettings}
 					disabled={loading || saving || homing || canceling}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+					class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{saving ? 'Saving...' : 'Save Endstop Settings'}
 				</button>
@@ -918,7 +918,7 @@
 			{#if errorMsg}
 				<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
 			{:else if statusMsg}
-				<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+				<div class="text-sm text-text-muted">{statusMsg}</div>
 			{:else if homing}
 				<div class="text-sm text-blue-500">Homing to endstop...</div>
 			{:else if calibrating}

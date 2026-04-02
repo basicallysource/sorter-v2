@@ -44,29 +44,29 @@
 			<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 				<div class="flex items-center gap-6">
 					<a href="/" class="text-lg font-bold text-gray-900">SortHive</a>
-					<div class="flex gap-4">
+					<div class="flex gap-1">
 						<a
 							href="/"
-							class="text-sm font-medium {page.url.pathname === '/' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}"
+							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Dashboard
 						</a>
 						<a
 							href="/machines"
-							class="text-sm font-medium {page.url.pathname === '/machines' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}"
+							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Machines
 						</a>
 						<a
 							href="/samples"
-							class="text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}"
+							class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>
 							Samples
 						</a>
 						{#if auth.isReviewer}
 							<a
 								href="/review"
-								class="text-sm font-medium {page.url.pathname === '/review' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}"
+								class="rounded-md px-3 py-1.5 text-sm font-medium {page.url.pathname === '/review' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 							>
 								Review
 							</a>

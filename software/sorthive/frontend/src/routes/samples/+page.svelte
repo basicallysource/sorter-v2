@@ -127,7 +127,7 @@
 <h1 class="mb-6 text-2xl font-bold text-gray-900">Samples</h1>
 
 <!-- Filters -->
-<div class="mb-6 flex flex-wrap items-center gap-3">
+<div class="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
 	<select
 		value={filterMachine}
 		onchange={(event) => updateMachineFilter((event.currentTarget as HTMLSelectElement).value)}
@@ -194,24 +194,38 @@
 
 	<!-- Pagination -->
 	{#if data.pages > 1}
-		<div class="flex items-center justify-center gap-2">
-			<button
-				onclick={() => goToPage(currentPage - 1)}
-				disabled={currentPage <= 1}
-				class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
-			>
-				Previous
-			</button>
-			<span class="text-sm text-gray-600">
-				Page {data.page} of {data.pages}
-			</span>
-			<button
-				onclick={() => goToPage(currentPage + 1)}
-				disabled={currentPage >= data.pages}
-				class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
-			>
-				Next
-			</button>
+		<div class="flex flex-col items-center gap-3">
+			<p class="text-sm text-gray-500">
+				Showing {(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total} samples
+			</p>
+			<div class="flex items-center gap-1">
+				<button
+					onclick={() => goToPage(currentPage - 1)}
+					disabled={currentPage <= 1}
+					class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				>
+					Previous
+				</button>
+				{#each Array.from({ length: data.pages }, (_, i) => i + 1) as p}
+					{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
+						<button
+							onclick={() => goToPage(p)}
+							class="min-w-[36px] rounded-md px-3 py-1.5 text-sm font-medium {p === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}"
+						>
+							{p}
+						</button>
+					{:else if p === 2 || p === data.pages - 1}
+						<span class="px-1 text-gray-400">...</span>
+					{/if}
+				{/each}
+				<button
+					onclick={() => goToPage(currentPage + 1)}
+					disabled={currentPage >= data.pages}
+					class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				>
+					Next
+				</button>
+			</div>
 		</div>
 	{/if}
 {/if}

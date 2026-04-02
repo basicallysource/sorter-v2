@@ -100,16 +100,16 @@
 </script>
 
 <div
-	class="dark:border-border-dark dark:bg-surface-dark flex h-full flex-col border border-border bg-surface"
+	class="flex h-full flex-col border border-border bg-surface"
 >
 	<div
-		class="dark:bg-surface-dark dark:text-text-dark dark:border-border-dark border-b border-border px-2 py-1 text-sm font-medium text-text"
+		class="border-b border-border px-3 py-2 text-sm font-medium text-text"
 	>
 		Recent Pieces
 	</div>
 	<div class="flex-1 overflow-y-auto">
 		{#if objects.length === 0}
-			<div class="dark:text-text-muted-dark p-3 text-center text-sm text-text-muted">
+			<div class="p-3 text-center text-sm text-text-muted">
 				No pieces yet
 			</div>
 		{:else}
@@ -125,7 +125,7 @@
 						<button
 							type="button"
 							onclick={() => toggleExpand(obj.uuid)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
+							class="flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
 						>
 							{#if obj.classification_status === 'not_found' || obj.classification_status === 'multi_drop_fail'}
 								<TriangleAlert
@@ -139,17 +139,17 @@
 							{:else}
 								<CircleHelp
 									size={14}
-									class="dark:text-text-muted-dark flex-shrink-0 text-text-muted"
+									class="flex-shrink-0 text-text-muted"
 								/>
 							{/if}
-							<span class="dark:text-text-muted-dark truncate text-text-muted">
+							<span class="truncate text-text-muted">
 								{obj.classification_status === 'not_found'
 									? 'Not found'
 									: obj.classification_status === 'multi_drop_fail'
 										? 'Multi drop fail'
 										: 'Unknown'}
 							</span>
-							<span class="dark:text-text-dark truncate font-mono text-text">
+							<span class="truncate font-mono text-text">
 								{obj.uuid.slice(0, 8)}
 							</span>
 							{#if obj.stage === 'distributing' || obj.stage === 'distributed'}
@@ -160,7 +160,7 @@
 						<button
 							type="button"
 							onclick={() => toggleExpand(obj.uuid)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
+							class="w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
 						>
 							<div class="flex gap-2">
 								{#if obj.thumbnail}
@@ -183,27 +183,27 @@
 									/>
 								{:else}
 									<div
-										class="dark:bg-surface-dark dark:text-text-muted-dark flex h-12 w-12 flex-shrink-0 items-center justify-center bg-surface"
+										class="flex h-12 w-12 flex-shrink-0 items-center justify-center bg-surface"
 									>
 										<Spinner />
 									</div>
 								{/if}
 								<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
-									<span class="dark:text-text-dark truncate font-mono text-text">
+									<span class="truncate font-mono text-text">
 										{obj.part_id ?? obj.uuid.slice(0, 8)}
 									</span>
 									{#if bl_data?.name}
-										<div class="dark:text-text-muted-dark truncate text-text-muted">
+										<div class="truncate text-text-muted">
 											{bl_data.name}
 										</div>
 									{/if}
 									{#if obj.color_name && obj.color_name !== 'Any Color'}
-										<div class="dark:text-text-muted-dark truncate text-text-muted">
+										<div class="truncate text-text-muted">
 											{obj.color_name}
 										</div>
 									{/if}
 									{#if category_name}
-										<div class="dark:text-text-muted-dark truncate text-text-muted">
+										<div class="truncate text-text-muted">
 											{category_name}
 										</div>
 									{/if}
@@ -224,10 +224,10 @@
 							</div>
 
 							{#if is_expanded && (obj.thumbnail || preview_url)}
-								<div class="dark:border-border-dark mt-2 grid gap-2 border-t border-border pt-2 sm:grid-cols-2">
+								<div class="mt-2 grid gap-2 border-t border-border pt-2 sm:grid-cols-2">
 									{#if obj.thumbnail}
 										<div>
-											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+											<div class="mb-1 text-xs text-text-muted">
 												Local Crop{#if obj.brickognize_source_view} ({obj.brickognize_source_view}){/if}
 											</div>
 											<img
@@ -239,7 +239,7 @@
 									{/if}
 									{#if preview_url}
 										<div>
-											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+											<div class="mb-1 text-xs text-text-muted">
 												Brickognize Match
 											</div>
 											<img
@@ -253,10 +253,10 @@
 							{/if}
 
 							{#if is_expanded && (obj.top_image || obj.bottom_image)}
-								<div class="dark:border-border-dark mt-2 flex gap-2 border-t border-border pt-2">
+								<div class="mt-2 flex gap-2 border-t border-border pt-2">
 									{#if obj.top_image}
 										<div class="flex-1">
-											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">Top</div>
+											<div class="mb-1 text-xs text-text-muted">Top</div>
 											<img
 												src={`data:image/jpeg;base64,${obj.top_image}`}
 												alt="top view"
@@ -266,7 +266,7 @@
 									{/if}
 									{#if obj.bottom_image}
 										<div class="flex-1">
-											<div class="dark:text-text-muted-dark mb-1 text-xs text-text-muted">
+											<div class="mb-1 text-xs text-text-muted">
 												Bottom
 											</div>
 											<img

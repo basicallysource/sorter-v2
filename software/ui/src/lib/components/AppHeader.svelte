@@ -45,10 +45,10 @@
 	});
 </script>
 
-<div class="mb-4 flex items-center justify-between">
+<div class="mb-4 flex items-center justify-between border-b border-border pb-4">
 	<a
 		href="/"
-		class="dark:text-text-dark flex items-center gap-2 text-text transition-colors"
+		class="flex items-center gap-2 text-text transition-colors"
 		title="Dashboard"
 	>
 		<h1 class="text-2xl font-bold">Sorter</h1>
@@ -57,7 +57,7 @@
 		<MachineDropdown />
 		<button
 			onclick={togglePauseResume}
-			class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
+			class="p-2 text-text transition-colors hover:bg-surface"
 			title={machineState === 'paused' ? 'Resume' : 'Pause'}
 		>
 			{#if machineState === 'paused'}
@@ -71,8 +71,8 @@
 			aria-current={page.url.pathname === '/' ? 'page' : undefined}
 			class={`p-2 transition-colors ${
 				page.url.pathname === '/'
-					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
-					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
+					? 'bg-surface text-text'
+					: 'text-text hover:bg-surface'
 			}`}
 			title="Home"
 		>
@@ -83,8 +83,8 @@
 			aria-current={page.url.pathname.startsWith('/settings') ? 'page' : undefined}
 			class={`p-2 transition-colors ${
 				page.url.pathname.startsWith('/settings')
-					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
-					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
+					? 'bg-surface text-text'
+					: 'text-text hover:bg-surface'
 			}`}
 			title="Settings"
 		>

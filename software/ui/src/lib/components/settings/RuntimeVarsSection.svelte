@@ -69,28 +69,28 @@
 </script>
 
 {#if loading}
-	<div class="dark:text-text-muted-dark py-8 text-center text-text-muted">Loading...</div>
+	<div class="py-8 text-center text-text-muted">Loading...</div>
 {:else if error}
 	<div class="py-8 text-center text-red-500">{error}</div>
 {:else if Object.keys(definitions).length === 0}
-	<div class="dark:text-text-muted-dark py-8 text-center text-text-muted">
+	<div class="py-8 text-center text-text-muted">
 		No runtime variables are exposed by the current backend.
 	</div>
 {:else}
 	<div class="flex flex-col gap-3">
 		{#each Object.entries(definitions) as [key, def]}
 			<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-				<label for={`runtime-var-${key}`} class="dark:text-text-dark text-sm text-text capitalize">
+				<label for={`runtime-var-${key}`} class="text-sm text-text capitalize">
 					{formatLabel(key)}
 					{#if def.unit}
-						<span class="dark:text-text-muted-dark text-text-muted">({def.unit})</span>
+						<span class="text-text-muted">({def.unit})</span>
 					{/if}
 				</label>
 				<input
 					id={`runtime-var-${key}`}
 					type="text"
 					bind:value={values[key]}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark w-full border border-border bg-bg px-2 py-1 text-right text-sm text-text sm:w-24"
+					class="w-full border border-border bg-bg px-2 py-1 text-right text-sm text-text sm:w-24"
 				/>
 			</div>
 		{/each}
@@ -99,7 +99,7 @@
 		<button
 			onclick={saveVariables}
 			disabled={loading}
-			class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-4 py-2 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+			class="cursor-pointer border border-border bg-surface px-4 py-2 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			Apply Changes
 		</button>

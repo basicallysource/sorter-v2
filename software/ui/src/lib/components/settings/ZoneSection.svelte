@@ -95,14 +95,14 @@
 				start: Point;
 				origPts: number[][];
 				origSec0: Point | null;
-		  }
+		 }
 		| {
 				kind: 'arc-shape' | 'arc-center';
 				channel: ArcChannel;
 				start: Point;
 				orig: ArcParams;
 				origSec0: Point | null;
-		  }
+		 }
 		| {
 				kind:
 					| 'arc-inner'
@@ -113,11 +113,11 @@
 					| 'arc-exit-end';
 				channel: ArcChannel;
 				orig: ArcParams;
-		  }
+		 }
 		| {
 				kind: 'section-zero';
 				channel: ArcChannel;
-		  };
+		 };
 
 	const ARC_CHANNELS: ArcChannel[] = ['second', 'third'];
 	const FEEDER_CHANNELS: Channel[] = ['second', 'third', 'carousel'];
@@ -1853,7 +1853,7 @@
 <div class="flex flex-col">
 	<!-- Card header -->
 	<div
-		class="dark:border-border-dark dark:bg-surface-dark -mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-3"
+		class="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-3"
 	>
 		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 			{#if channels.length > 1}
@@ -1863,32 +1863,29 @@
 						channel === 'class_top' &&
 						channels.some((item) => item === 'second' || item === 'third' || item === 'carousel')}
 					{#if isSep}
-						<div class="dark:bg-border-dark h-6 w-px bg-border"></div>
+						<div class="h-6 w-px bg-border"></div>
 					{/if}
 					<button
 						onclick={() => selectChannel(channel)}
 						class="border px-3 py-1.5 text-xs font-medium transition-colors"
 						style:border-color={active ? CHANNEL_COLORS[channel] : undefined}
 						class:bg-surface={active}
-						class:dark:bg-surface-dark={active}
 						class:bg-bg={!active}
-						class:dark:bg-bg-dark={!active}
 						class:text-text={true}
-						class:dark:text-text-dark={true}
 					>
 						{CHANNEL_LABELS[channel]}
 					</button>
 				{/each}
 			{:else}
-				<h2 class="dark:text-text-dark text-base font-semibold text-text">
+				<h2 class="text-base font-semibold text-text">
 					{CHANNEL_LABELS[currentChannel]}
 				</h2>
 			{/if}
 
 			<div
-				class="dark:bg-bg-dark dark:text-text-muted-dark min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
+				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
 			>
-				<span class="dark:text-text-dark font-medium text-text">Source:</span>
+				<span class="font-medium text-text">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
 			</div>
 
@@ -1897,7 +1894,7 @@
 					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
 						statusMsg.startsWith('Error:')
 							? 'border-red-400 bg-red-50 text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400'
-							: 'dark:bg-bg-dark dark:text-text-muted-dark border-border bg-bg text-text-muted'
+							: 'border-border bg-bg text-text-muted'
 					}`}
 				>
 					<span class="truncate">{statusMsg}</span>
@@ -1909,7 +1906,7 @@
 			<button
 				onclick={openCameraPicker}
 				disabled={editingZone}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<Camera size={15} />
 				<span>Change Camera</span>
@@ -1921,7 +1918,7 @@
 				class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 					activeSidebar === 'picture'
 						? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-						: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 border-border bg-bg text-text hover:bg-bg/80'
+						: 'border-border bg-bg text-text hover:bg-bg/80'
 				}`}
 			>
 				<SlidersHorizontal size={15} />
@@ -1935,7 +1932,7 @@
 					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 						activeSidebar === 'classification'
 							? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
-							: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 border-border bg-bg text-text hover:bg-bg/80'
+							: 'border-border bg-bg text-text hover:bg-bg/80'
 					}`}
 				>
 					<Bug size={15} />
@@ -1946,14 +1943,14 @@
 			{#if editingZone}
 				<button
 					onclick={resetCurrentChannel}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
 				>
 					<RotateCcw size={15} />
 					<span>Reset</span>
 				</button>
 				<button
 					onclick={cancelEditing}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
 				>
 					<X size={15} />
 					<span>Cancel</span>
@@ -1980,7 +1977,7 @@
 	</div>
 
 	<!-- Help text -->
-	<div class="dark:text-text-muted-dark -mx-4 px-4 py-2 text-xs text-text-muted">
+	<div class="-mx-4 px-4 py-2 text-xs text-text-muted">
 		Use the assigned camera as the main view, tune picture settings from the sidebar, and only
 		unlock zone editing when you want to change the mask.
 	</div>
@@ -2153,7 +2150,7 @@
 				{/if}
 
 				{#if cameraLoading}
-					<div class="dark:text-text-muted-dark py-8 text-center text-sm text-text-muted">
+					<div class="py-8 text-center text-sm text-text-muted">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -2181,7 +2178,7 @@
 								>
 									{#if cam.preview_available === false}
 										<div
-											class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
+											class="flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
 										>
 											No preview
 										</div>
@@ -2272,7 +2269,7 @@
 						</div>
 					{:else}
 						<div
-							class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
+							class="border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
 						>
 							No cameras detected. Click Refresh to scan again.
 						</div>
@@ -2280,12 +2277,12 @@
 				{/if}
 
 				<div
-					class="dark:border-border-dark flex items-center justify-between border-t border-border pt-3"
+					class="flex items-center justify-between border-t border-border pt-3"
 				>
 					<button
 						onclick={refreshCameras}
 						disabled={cameraLoading}
-						class="dark:text-text-muted-dark dark:hover:text-text-dark inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RefreshCw size={13} />
 						<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>

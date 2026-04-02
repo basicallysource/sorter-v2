@@ -157,14 +157,14 @@
 	<h1 class="text-2xl font-bold text-gray-900">Machines</h1>
 	<button
 		onclick={() => { showAddModal = true; }}
-		class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+		class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 	>
 		Add Machine
 	</button>
 </div>
 
 {#if error}
-	<div class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+	<div class="mb-4 bg-red-50 p-3 text-sm text-red-700">{error}</div>
 {/if}
 
 {#if loading}
@@ -174,7 +174,7 @@
 {:else}
 	<div class="space-y-4">
 		{#each machines as machine (machine.id)}
-			<div class="rounded-lg border border-gray-200 bg-white p-4">
+			<div class="border border-gray-200 bg-white p-4">
 				<div class="flex items-start justify-between">
 					<div>
 						<h3 class="font-semibold text-gray-900">{machine.name}</h3>
@@ -195,7 +195,7 @@
 					<div class="flex items-center gap-2">
 						<button
 							onclick={() => openEdit(machine)}
-							class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+							class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
 						>
 							Edit
 						</button>
@@ -203,7 +203,7 @@
 						<div class="relative" onclick={(e) => e.stopPropagation()}>
 							<button
 								onclick={() => toggleMenu(machine.id)}
-								class="rounded-lg border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50"
+								class="border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50"
 								title="More actions"
 							>
 								<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -211,7 +211,7 @@
 								</svg>
 							</button>
 							{#if openMenuId === machine.id}
-								<div class="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+								<div class="absolute right-0 z-10 mt-1 w-44 border border-gray-200 bg-white py-1 shadow-lg">
 									<button
 										onclick={() => { handleRotateToken(machine); openMenuId = null; }}
 										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -250,7 +250,7 @@
 				type="text"
 				bind:value={newName}
 				required
-				class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 			/>
 		</div>
 		<div>
@@ -259,13 +259,13 @@
 				id="machineDesc"
 				type="text"
 				bind:value={newDescription}
-				class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
 			disabled={addSubmitting}
-			class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+			class="w-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
 		>
 			{addSubmitting ? 'Creating...' : 'Create Machine'}
 		</button>
@@ -275,14 +275,14 @@
 <!-- Token Display Modal -->
 <Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
 	<div class="space-y-4">
-		<div class="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">
+		<div class="bg-yellow-50 p-3 text-sm text-yellow-800">
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">
-			<code class="flex-1 overflow-x-auto rounded bg-gray-100 p-2 text-xs break-all">{tokenDisplay}</code>
+			<code class="flex-1 overflow-x-auto bg-gray-100 p-2 text-xs break-all">{tokenDisplay}</code>
 			<button
 				onclick={copyToken}
-				class="shrink-0 rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+				class="shrink-0 border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
 			>
 				{tokenCopied ? 'Copied!' : 'Copy'}
 			</button>
@@ -300,12 +300,12 @@
 				type="text"
 				bind:value={editName}
 				required
-				class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
-			class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+			class="w-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 		>
 			Save
 		</button>
@@ -321,13 +321,13 @@
 		<div class="flex gap-2 justify-end">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 			>
 				Cancel
 			</button>
 			<button
 				onclick={handleDelete}
-				class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+				class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
 			>
 				Delete
 			</button>
@@ -339,11 +339,11 @@
 <Modal open={showPurgeModal} title="Purge Machine Data" onclose={() => { showPurgeModal = false; }}>
 	<div class="space-y-4">
 		{#if purgeResult}
-			<div class="rounded-lg bg-green-50 p-3 text-sm text-green-700">{purgeResult}</div>
+			<div class="bg-green-50 p-3 text-sm text-green-700">{purgeResult}</div>
 			<div class="flex justify-end">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 				>
 					Close
 				</button>
@@ -355,14 +355,14 @@
 			<div class="flex gap-2 justify-end">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handlePurge}
 					disabled={purging}
-					class="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
+					class="bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
 				>
 					{purging ? 'Purging...' : 'Purge All Data'}
 				</button>

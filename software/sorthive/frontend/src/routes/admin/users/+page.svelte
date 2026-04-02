@@ -94,7 +94,7 @@
 </div>
 
 {#if error}
-	<div class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+	<div class="mb-4 bg-red-50 p-3 text-sm text-red-700">{error}</div>
 {/if}
 
 {#if loading}
@@ -102,7 +102,7 @@
 		<Spinner />
 	</div>
 {:else}
-	<div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+	<div class="overflow-hidden border border-gray-200 bg-white">
 		<table class="min-w-full divide-y divide-gray-200">
 			<thead class="bg-gray-50">
 				<tr>
@@ -171,7 +171,7 @@
 			</p>
 			<div class="space-y-2">
 				{#each ['member', 'reviewer', 'admin'] as role}
-					<label class="flex items-center gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-50 {selectedRole === role ? 'border-blue-500 bg-blue-50' : ''}">
+					<label class="flex items-center gap-3 border border-gray-200 p-3 cursor-pointer hover:bg-gray-50 {selectedRole === role ? 'border-blue-500 bg-blue-50' : ''}">
 						<input type="radio" bind:group={selectedRole} value={role} class="text-blue-600" />
 						<div>
 							<p class="text-sm font-medium text-gray-900 capitalize">{role}</p>
@@ -191,13 +191,13 @@
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { editingUser = null; }}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={saveRole}
-					class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 				>
 					Save Role
 				</button>
@@ -211,7 +211,7 @@
 	{#if deletingUser}
 		<div class="space-y-4">
 			{#if deleteError}
-				<div class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+				<div class="bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
 			{/if}
 			<p class="text-sm text-gray-600">
 				This will permanently delete <strong>{deletingUser.display_name || deletingUser.email}</strong> and all their machines, samples, and reviews.
@@ -219,13 +219,13 @@
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { deletingUser = null; deleteError = null; }}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handleDeleteUser}
-					class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+					class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
 				>
 					Delete User
 				</button>

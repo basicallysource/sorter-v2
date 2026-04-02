@@ -127,11 +127,11 @@
 <h1 class="mb-6 text-2xl font-bold text-gray-900">Samples</h1>
 
 <!-- Filters -->
-<div class="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+<div class="mb-6 flex flex-wrap items-center gap-3 border border-gray-200 bg-white p-3">
 	<select
 		value={filterMachine}
 		onchange={(event) => updateMachineFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 	>
 		<option value="">All Machines</option>
 		{#each machines as machine (machine.id)}
@@ -141,7 +141,7 @@
 	<select
 		value={filterStatus}
 		onchange={(event) => updateStatusFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 	>
 		<option value="">All Statuses</option>
 		<option value="unreviewed">Unreviewed</option>
@@ -153,7 +153,7 @@
 	<select
 		value={filterSourceRole}
 		onchange={(event) => updateSourceRoleFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 	>
 		<option value="">All Sources</option>
 		{#each filterOptions.source_roles as sourceRole (sourceRole)}
@@ -163,7 +163,7 @@
 	<select
 		value={filterCaptureReason}
 		onchange={(event) => updateCaptureReasonFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
 	>
 		<option value="">All Capture Reasons</option>
 		{#each filterOptions.capture_reasons as captureReason (captureReason)}
@@ -174,7 +174,7 @@
 		<button
 			type="button"
 			onclick={clearFilters}
-			class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+			class="border border-gray-300 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
 		>
 			Clear Filters
 		</button>
@@ -202,7 +202,7 @@
 				<button
 					onclick={() => goToPage(currentPage - 1)}
 					disabled={currentPage <= 1}
-					class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+					class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
 				>
 					Previous
 				</button>
@@ -210,7 +210,7 @@
 					{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
 						<button
 							onclick={() => goToPage(p)}
-							class="min-w-[36px] rounded-md px-3 py-1.5 text-sm font-medium {p === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}"
+							class="min-w-[36px] px-3 py-1.5 text-sm font-medium {p === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}"
 						>
 							{p}
 						</button>
@@ -221,7 +221,7 @@
 				<button
 					onclick={() => goToPage(currentPage + 1)}
 					disabled={currentPage >= data.pages}
-					class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+					class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
 				>
 					Next
 				</button>

@@ -301,17 +301,17 @@
 		<!-- Left: Image area -->
 		<div class="min-w-0 space-y-3">
 			<!-- View toggle toolbar (above image) -->
-			<div class="flex items-center gap-1 rounded-lg bg-gray-50 p-1">
+			<div class="flex items-center gap-1 bg-gray-50 p-1">
 				<button
 					onclick={() => setView('image')}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 				>
 					Image
 				</button>
 				{#if sample.has_full_frame}
 					<button
 						onclick={() => setView('full_frame')}
-						class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					>
 						Full Frame
 					</button>
@@ -319,14 +319,14 @@
 				{#if sample.has_overlay}
 					<button
 						onclick={() => setView('overlay')}
-						class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 					>
 						Overlay
 					</button>
 				{/if}
 				<button
 					onclick={() => setView('annotate')}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 				>
 					Annotate
 				</button>
@@ -334,7 +334,7 @@
 				{#if activeView === 'image' && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
 						<label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 rounded border-gray-300 text-blue-600" />
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-blue-600" />
 							Boxes
 						</label>
 					</div>
@@ -343,7 +343,7 @@
 
 			<!-- Image viewer -->
 			{#if activeView !== 'annotate'}
-				<div class="overflow-hidden rounded-lg border border-gray-200 bg-gray-950">
+				<div class="overflow-hidden border border-gray-200 bg-gray-950">
 					<div class="relative">
 						{#if activeView === 'image'}
 							<img
@@ -416,7 +416,7 @@
 
 			<!-- Inline detection message (below image, only when relevant) -->
 			{#if detectionMessage && activeView !== 'annotate'}
-				<div class="rounded-md bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
+				<div class="bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
 					{detectionMessage}
 				</div>
 			{/if}
@@ -426,7 +426,7 @@
 		<div class="space-y-3">
 			<!-- Annotator controls (only in annotate mode) -->
 			{#if activeView === 'annotate'}
-				<div class="rounded-lg border border-gray-200 bg-white">
+				<div class="border border-gray-200 bg-white">
 					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Annotator</h2>
 						<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-amber-600' : annotatorApi.hasSavedBaseline ? 'text-emerald-600' : 'text-gray-400'}">
@@ -436,24 +436,24 @@
 					<div class="space-y-3 p-3">
 						<!-- Actions -->
 						<div class="grid grid-cols-4 gap-1.5">
-							<button onclick={annotatorApi.undo} class="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Undo">
+							<button onclick={annotatorApi.undo} class="flex flex-col items-center gap-1 border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Undo">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a4 4 0 014 4v0a4 4 0 01-4 4H3m0-8l4-4m-4 4l4 4" /></svg>
 								<span class="text-[10px]">Undo</span>
 							</button>
-							<button onclick={annotatorApi.redo} class="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Redo">
+							<button onclick={annotatorApi.redo} class="flex flex-col items-center gap-1 border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Redo">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a4 4 0 00-4 4v0a4 4 0 004 4h10m0-8l-4-4m4 4l-4 4" /></svg>
 								<span class="text-[10px]">Redo</span>
 							</button>
 							<button
 								onclick={annotatorApi.deleteSelected}
 								disabled={annotatorApi.selectedCount === 0}
-								class="flex flex-col items-center gap-1 rounded-lg border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300 {annotatorApi.selectedCount === 0 ? '' : 'border-red-200 text-red-500 hover:bg-red-50'}"
+								class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300 {annotatorApi.selectedCount === 0 ? '' : 'border-red-200 text-red-500 hover:bg-red-50'}"
 								title="Delete selected"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 								<span class="text-[10px]">Delete</span>
 							</button>
-							<button onclick={annotatorApi.clearAll} class="flex flex-col items-center gap-1 rounded-lg border border-orange-200 px-1 py-2 text-orange-500 transition-colors hover:bg-orange-50" title="Clear all">
+							<button onclick={annotatorApi.clearAll} class="flex flex-col items-center gap-1 border border-orange-200 px-1 py-2 text-orange-500 transition-colors hover:bg-orange-50" title="Clear all">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								<span class="text-[10px]">Clear</span>
 							</button>
@@ -461,12 +461,12 @@
 
 						<!-- Revert / Sorter Boxes -->
 						<div class="flex gap-1.5">
-							<button onclick={annotatorApi.revert} class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Discard changes and restore last saved state">
+							<button onclick={annotatorApi.revert} class="flex flex-1 items-center justify-center gap-1.5 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Discard changes and restore last saved state">
 								<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								Cancel
 							</button>
 							{#if annotatorApi.hasSeedBoxes}
-								<button onclick={annotatorApi.loadSorterBoxes} class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Reset to original machine detections">
+								<button onclick={annotatorApi.loadSorterBoxes} class="flex flex-1 items-center justify-center gap-1.5 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Reset to original machine detections">
 									<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" /></svg>
 									Reset
 								</button>
@@ -475,15 +475,15 @@
 
 						<!-- Stats -->
 						<div class="grid grid-cols-3 gap-1 text-center">
-							<div class="rounded bg-gray-50 px-1 py-1.5">
+							<div class="bg-gray-50 px-1 py-1.5">
 								<div class="text-sm font-semibold text-gray-900">{annotatorApi.totalAnnotations}</div>
 								<div class="text-[10px] text-gray-400">Total</div>
 							</div>
-							<div class="rounded bg-gray-50 px-1 py-1.5">
+							<div class="bg-gray-50 px-1 py-1.5">
 								<div class="text-sm font-semibold text-gray-900">{annotatorApi.seededCount}</div>
 								<div class="text-[10px] text-gray-400">Seeded</div>
 							</div>
-							<div class="rounded bg-gray-50 px-1 py-1.5">
+							<div class="bg-gray-50 px-1 py-1.5">
 								<div class="text-sm font-semibold text-gray-900">{annotatorApi.manualCount}</div>
 								<div class="text-[10px] text-gray-400">Manual</div>
 							</div>
@@ -491,7 +491,7 @@
 
 						<!-- Feedback -->
 						{#if annotatorApi.feedback}
-							<p class="rounded px-2 py-1.5 text-[11px] {annotatorApi.feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : annotatorApi.feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-600'}">
+							<p class="px-2 py-1.5 text-[11px] {annotatorApi.feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : annotatorApi.feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-600'}">
 								{annotatorApi.feedback}
 							</p>
 						{/if}
@@ -500,7 +500,7 @@
 						<button
 							onclick={annotatorApi.save}
 							disabled={annotatorApi.saving || !annotatorApi.isDirty}
-							class="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+							class="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
 						>
 							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
 							{annotatorApi.saving ? 'Saving...' : 'Save Annotations'}
@@ -511,7 +511,7 @@
 
 			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
-				<div class="rounded-lg border border-gray-200 bg-white">
+				<div class="border border-gray-200 bg-white">
 					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Detection</h2>
 						{#if detectionFound !== undefined}
@@ -571,7 +571,7 @@
 			/>
 
 			<!-- Sample details card -->
-			<div class="rounded-lg border border-gray-200 bg-white">
+			<div class="border border-gray-200 bg-white">
 				<div class="border-b border-gray-100 px-4 py-2.5">
 					<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Details</h2>
 				</div>
@@ -621,7 +621,7 @@
 
 			<!-- IDs card (collapsed look) -->
 			{#if pieceUuid || runId}
-				<div class="rounded-lg border border-gray-200 bg-white">
+				<div class="border border-gray-200 bg-white">
 					<div class="border-b border-gray-100 px-4 py-2.5">
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">IDs</h2>
 					</div>
@@ -648,7 +648,7 @@
 
 			<!-- Extra Metadata -->
 			{#if extraKeys.length > 0}
-				<div class="rounded-lg border border-gray-200 bg-white">
+				<div class="border border-gray-200 bg-white">
 					<button
 						onclick={() => { showExpandedMeta = !showExpandedMeta; }}
 						class="flex w-full items-center justify-between px-4 py-2.5"
@@ -672,7 +672,7 @@
 			{/if}
 
 			<!-- Review History -->
-			<div class="rounded-lg border border-gray-200 bg-white">
+			<div class="border border-gray-200 bg-white">
 				<div class="border-b border-gray-100 px-4 py-2.5">
 					<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Reviews</h2>
 				</div>
@@ -686,7 +686,7 @@
 							<div class="px-4 py-2.5">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
-										<div class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {review.decision === 'accept' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+										<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
 											{review.decision === 'accept' ? '✓' : '✗'}
 										</div>
 										<span class="text-xs font-medium text-gray-900">{review.reviewer_display_name ?? 'Unknown'}</span>
@@ -707,7 +707,7 @@
 				<div class="pt-1">
 					<button
 						onclick={() => { showDeleteModal = true; }}
-						class="w-full rounded-lg px-3 py-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+						class="w-full px-3 py-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
 					>
 						Delete sample
 					</button>
@@ -722,13 +722,13 @@
 			<div class="flex gap-2 justify-end">
 				<button
 					onclick={() => { showDeleteModal = false; }}
-					class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handleDelete}
-					class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+					class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
 				>
 					Delete
 				</button>

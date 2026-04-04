@@ -16,6 +16,7 @@ from blob_manager import (
     getApiKeys,
     getMachineId,
     getMachineNickname,
+    getSortingProfileSyncState,
     setMachineNickname,
 )
 from runtime_variables import VARIABLE_DEFS
@@ -61,12 +62,14 @@ from server.routers.steppers import router as steppers_router
 from server.routers.cameras import router as cameras_router
 from server.routers.detection import router as detection_router
 from server.routers.aruco import router as aruco_router
+from server.routers.sorting_profiles import router as sorting_profiles_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
 app.include_router(cameras_router)
 app.include_router(detection_router)
 app.include_router(aruco_router)
+app.include_router(sorting_profiles_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -153,6 +156,7 @@ class SortingProfileCategoryMeta(BaseModel):
 
 class SortingProfileFallbackMode(BaseModel):
     rebrickable_categories: bool
+    bricklink_categories: bool = False
     by_color: bool
 
 
@@ -166,6 +170,7 @@ class SortingProfileMetadataResponse(BaseModel):
     categories: Dict[str, SortingProfileCategoryMeta]
     rules: List[Dict[str, Any]]
     fallback_mode: SortingProfileFallbackMode
+    sync_state: Dict[str, Any] | None = None
 
 
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
@@ -175,11 +180,11 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
         data = json.load(f)
     return SortingProfileMetadataResponse(
-        id=data["id"],
-        name=data["name"],
+        id=data.get("id", ""),
+        name=data.get("name", os.path.basename(shared_state.gc_ref.sorting_profile_path)),
         description=data.get("description", ""),
-        created_at=data["created_at"],
-        updated_at=data["updated_at"],
+        created_at=data.get("created_at", ""),
+        updated_at=data.get("updated_at", ""),
         default_category_id=data.get("default_category_id", "misc"),
         categories={
             k: SortingProfileCategoryMeta(**v)
@@ -187,8 +192,12 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
         },
         rules=data.get("rules", []),
         fallback_mode=SortingProfileFallbackMode(
-            **data.get("fallback_mode", {"rebrickable_categories": False, "by_color": False})
+            **data.get(
+                "fallback_mode",
+                {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
+            )
         ),
+        sync_state=getSortingProfileSyncState(),
     )
 
 

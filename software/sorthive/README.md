@@ -21,6 +21,14 @@ make seed-admin
 make dev
 ```
 
+If you run the built frontend directly instead of `pnpm dev`, set `PUBLIC_API_BASE_URL` for the frontend process, for example:
+
+```bash
+PUBLIC_API_BASE_URL=http://localhost:8001 node build
+```
+
+Without that, a standalone frontend process on another port cannot reach the backend `/api` routes by itself.
+
 ## Configuration
 
 Copy `.env.example` to `backend/.env` and adjust values as needed.

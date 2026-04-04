@@ -58,6 +58,12 @@
 							Machines
 						</a>
 						<a
+							href="/profiles"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/profiles') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+						>
+							Profiles
+						</a>
+						<a
 							href="/samples"
 							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
 						>

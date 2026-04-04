@@ -941,7 +941,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         closed_angle = machine_config.servo_closed_angle_overrides.get(
             layer_index, servo_closed_angle
         )
-        servo.set_preset_angles(open_angle, closed_angle)
+        if hasattr(servo, "set_preset_angles"):
+            servo.set_preset_angles(open_angle, closed_angle)
     restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,

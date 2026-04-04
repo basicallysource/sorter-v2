@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/public';
+
 export interface ApiError {
 	ok: false;
 	error: string;
@@ -11,6 +13,8 @@ export interface User {
 	github_login: string | null;
 	avatar_url: string | null;
 	has_password: boolean;
+	openrouter_configured: boolean;
+	preferred_ai_model: string | null;
 	role: 'member' | 'reviewer' | 'admin';
 	is_active: boolean;
 	created_at: string;
@@ -139,6 +143,167 @@ export interface AuthOptions {
 	github_enabled: boolean;
 }
 
+export interface ProfileOwner {
+	id: string;
+	display_name: string | null;
+	github_login: string | null;
+	avatar_url: string | null;
+}
+
+export interface SortingProfileCondition {
+	id: string;
+	field: string;
+	op: string;
+	value: unknown;
+}
+
+export interface SortingProfileRule {
+	id: string;
+	name: string;
+	match_mode: 'all' | 'any' | string;
+	conditions: SortingProfileCondition[];
+	children: SortingProfileRule[];
+	disabled: boolean;
+}
+
+export interface SortingProfileFallbackMode {
+	rebrickable_categories: boolean;
+	bricklink_categories: boolean;
+	by_color: boolean;
+}
+
+export interface SortingProfileVersionSummary {
+	id: string;
+	version_number: number;
+	label: string | null;
+	change_note: string | null;
+	is_published: boolean;
+	compiled_hash: string;
+	compiled_part_count: number;
+	coverage_ratio: number | null;
+	created_at: string;
+}
+
+export interface SortingProfileForkSource {
+	profile_id: string;
+	profile_name: string;
+	version_number: number | null;
+}
+
+export interface SortingProfileSummary {
+	id: string;
+	name: string;
+	description: string | null;
+	visibility: 'private' | 'unlisted' | 'public';
+	tags: string[];
+	latest_version_number: number;
+	latest_published_version_number: number | null;
+	library_count: number;
+	fork_count: number;
+	created_at: string;
+	updated_at: string;
+	owner: ProfileOwner;
+	source: SortingProfileForkSource | null;
+	saved_in_library: boolean;
+	is_owner: boolean;
+	latest_version: SortingProfileVersionSummary | null;
+	latest_published_version: SortingProfileVersionSummary | null;
+}
+
+export interface SortingProfileVersion extends SortingProfileVersionSummary {
+	name: string;
+	description: string | null;
+	default_category_id: string;
+	rules: SortingProfileRule[];
+	fallback_mode: SortingProfileFallbackMode;
+	compiled_stats: Record<string, unknown> | null;
+	categories: Record<string, { name: string }>;
+}
+
+export interface SortingProfileDetail extends SortingProfileSummary {
+	versions: SortingProfileVersionSummary[];
+	current_version: SortingProfileVersion | null;
+}
+
+export interface AiToolTraceItem {
+	tool: string;
+	input: Record<string, unknown>;
+	output_summary: string;
+}
+
+export interface SortingProfileAiMessage {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	model: string | null;
+	version_id: string | null;
+	applied_version_id: string | null;
+	selected_rule_id: string | null;
+	usage: Record<string, unknown> | null;
+	proposal: Record<string, unknown> | null;
+	tool_trace: AiToolTraceItem[];
+	applied_at: string | null;
+	created_at: string;
+}
+
+export interface ProfileCatalogStatus {
+	running: boolean;
+	last_message: string;
+	pages_fetched: number;
+	sync_type: string | null;
+	progress_current: number | null;
+	progress_total: number | null;
+	cached_parts: number;
+	cached_categories: number;
+	cached_bricklink_categories: number;
+	cached_colors: number;
+	api_total: number | null;
+	error: string | null;
+}
+
+export interface ProfileCatalogSearchResult {
+	part_num: string;
+	name: string;
+	part_cat_id: number | null;
+	year_from: number | null;
+	year_to: number | null;
+	part_img_url: string | null;
+	part_url: string | null;
+	external_ids: Record<string, unknown>;
+	_category_name: string;
+	_bl_name: string | null;
+	_bl_category_name: string | null;
+}
+
+export interface MachineProfileAssignment {
+	machine_id: string;
+	profile: SortingProfileSummary | null;
+	desired_version: SortingProfileVersionSummary | null;
+	active_version: SortingProfileVersionSummary | null;
+	artifact_hash: string | null;
+	last_error: string | null;
+	last_synced_at: string | null;
+	last_activated_at: string | null;
+}
+
+function getApiBaseUrl(): string {
+	const explicit = (env.PUBLIC_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
+	if (explicit) return explicit;
+	if (typeof window !== 'undefined') {
+		const host = window.location.hostname;
+		if ((host === 'localhost' || host === '127.0.0.1') && window.location.port !== '8001') {
+			return `${window.location.protocol}//${host}:8001`;
+		}
+	}
+	return '';
+}
+
+function resolveApiPath(path: string): string {
+	if (/^https?:\/\//.test(path)) return path;
+	const base = getApiBaseUrl();
+	return `${base}${path}`;
+}
+
 function getCsrfToken(): string | null {
 	const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
 	return match ? decodeURIComponent(match[1]) : null;
@@ -169,7 +334,7 @@ function buildHeaders(method: string, body?: unknown): Record<string, string> {
 }
 
 async function doFetch(method: string, path: string, body?: unknown): Promise<Response> {
-	return fetch(path, {
+	return fetch(resolveApiPath(path), {
 		method,
 		headers: buildHeaders(method, body),
 		credentials: 'include',
@@ -256,8 +421,8 @@ export const api = {
 		return request<AuthOptions>('GET', '/api/auth/options');
 	},
 	githubLoginUrl(next?: string) {
-		if (!next) return '/api/auth/github';
-		return `/api/auth/github?${new URLSearchParams({ next }).toString()}`;
+		if (!next) return resolveApiPath('/api/auth/github');
+		return resolveApiPath(`/api/auth/github?${new URLSearchParams({ next }).toString()}`);
 	},
 	deleteAccount() {
 		return request<void>('DELETE', '/api/auth/me');
@@ -329,13 +494,13 @@ export const api = {
 		return request<void>('DELETE', `/api/samples/${id}`);
 	},
 	sampleImageUrl(id: string) {
-		return `/api/samples/${id}/assets/image`;
+		return resolveApiPath(`/api/samples/${id}/assets/image`);
 	},
 	sampleFullFrameUrl(id: string) {
-		return `/api/samples/${id}/assets/full-frame`;
+		return resolveApiPath(`/api/samples/${id}/assets/full-frame`);
 	},
 	sampleOverlayUrl(id: string) {
-		return `/api/samples/${id}/assets/overlay`;
+		return resolveApiPath(`/api/samples/${id}/assets/overlay`);
 	},
 
 	// Review
@@ -349,8 +514,188 @@ export const api = {
 		return request<{ reviews: SampleReview[]; sample_id: string; review_status: string }>('GET', `/api/review/samples/${sampleId}/history`);
 	},
 
-	updateProfile(data: { display_name?: string; current_password?: string; new_password?: string }) {
+	updateProfile(data: {
+		display_name?: string;
+		current_password?: string;
+		new_password?: string;
+		openrouter_api_key?: string | null;
+		clear_openrouter_api_key?: boolean;
+		preferred_ai_model?: string | null;
+	}) {
 		return request<User>('PATCH', '/api/auth/me', data);
+	},
+
+	// Profile Catalog
+	getProfileCatalogStatus() {
+		return request<ProfileCatalogStatus>('GET', '/api/profile-catalog/status');
+	},
+	startProfileCatalogSync(syncType: 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices') {
+		return request<{ started: boolean }>('POST', `/api/profile-catalog/sync/${syncType}`);
+	},
+	stopProfileCatalogSync() {
+		return request<{ stopped: boolean }>('POST', '/api/profile-catalog/stop');
+	},
+	searchProfileCatalogParts(params: { q?: string; cat_id?: number; limit?: number; offset?: number } = {}) {
+		const searchParams = new URLSearchParams();
+		for (const [key, val] of Object.entries(params)) {
+			if (val !== undefined && val !== null && val !== '') {
+				searchParams.set(key, String(val));
+			}
+		}
+		const qs = searchParams.toString();
+		return request<{ results: ProfileCatalogSearchResult[]; total: number; offset: number; limit: number }>(
+			'GET',
+			`/api/profile-catalog/search-parts${qs ? '?' + qs : ''}`
+		);
+	},
+
+	// Sorting Profiles
+	getProfiles(params: { scope?: 'discover' | 'mine' | 'library'; q?: string } = {}) {
+		const searchParams = new URLSearchParams();
+		if (params.scope) searchParams.set('scope', params.scope);
+		if (params.q) searchParams.set('q', params.q);
+		const qs = searchParams.toString();
+		return request<SortingProfileSummary[]>('GET', `/api/profiles${qs ? '?' + qs : ''}`);
+	},
+	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
+		return request<SortingProfileDetail>('POST', '/api/profiles', data);
+	},
+	getSortingProfile(id: string, versionId?: string) {
+		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
+		return request<SortingProfileDetail>('GET', `/api/profiles/${id}${qs}`);
+	},
+	updateSortingProfile(id: string, data: { name?: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
+		return request<SortingProfileDetail>('PATCH', `/api/profiles/${id}`, data);
+	},
+	deleteSortingProfile(id: string) {
+		return request<void>('DELETE', `/api/profiles/${id}`);
+	},
+	saveSortingProfileVersion(id: string, data: {
+		name: string;
+		description?: string | null;
+		default_category_id?: string;
+		rules: SortingProfileRule[];
+		fallback_mode: SortingProfileFallbackMode;
+		change_note?: string | null;
+		label?: string | null;
+		publish?: boolean;
+	}) {
+		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
+	},
+	publishSortingProfileVersion(profileId: string, versionId: string) {
+		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/versions/${versionId}/publish`);
+	},
+	getSortingProfileArtifact(profileId: string, versionId: string) {
+		return request<{ artifact: Record<string, unknown> }>('GET', `/api/profiles/${profileId}/versions/${versionId}/artifact`);
+	},
+	saveSortingProfileToLibrary(id: string) {
+		return request<{ ok: boolean }>('POST', `/api/profiles/${id}/library`);
+	},
+	removeSortingProfileFromLibrary(id: string) {
+		return request<{ ok: boolean }>('DELETE', `/api/profiles/${id}/library`);
+	},
+	forkSortingProfile(id: string, data: { name?: string | null; description?: string | null; add_to_library?: boolean }, versionId?: string) {
+		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
+		return request<SortingProfileDetail>('POST', `/api/profiles/${id}/fork${qs}`, data);
+	},
+	previewSortingProfile(data: {
+		name?: string;
+		description?: string | null;
+		default_category_id?: string;
+		rules: SortingProfileRule[];
+		fallback_mode: SortingProfileFallbackMode;
+	}) {
+		return request<Record<string, unknown>>('POST', '/api/profiles/preview', data);
+	},
+	previewSortingRule(data: {
+		name?: string;
+		description?: string | null;
+		default_category_id?: string;
+		rules: SortingProfileRule[];
+		fallback_mode: SortingProfileFallbackMode;
+	}, params: { rule_id?: string; q?: string; offset?: number; limit?: number; standalone?: boolean } = {}) {
+		const searchParams = new URLSearchParams();
+		for (const [key, val] of Object.entries(params)) {
+			if (val !== undefined && val !== null && val !== '') {
+				searchParams.set(key, String(val));
+			}
+		}
+		const qs = searchParams.toString();
+		return request<Record<string, unknown>>('POST', `/api/profiles/preview-rule${qs ? '?' + qs : ''}`, data);
+	},
+	getSortingProfileAiMessages(profileId: string) {
+		return request<SortingProfileAiMessage[]>('GET', `/api/profiles/${profileId}/ai/messages`);
+	},
+	createSortingProfileAiMessage(profileId: string, data: { message: string; version_id?: string | null; selected_rule_id?: string | null }) {
+		return request<SortingProfileAiMessage>('POST', `/api/profiles/${profileId}/ai/messages`, data);
+	},
+	async streamSortingProfileAiMessage(
+		profileId: string,
+		data: { message: string; version_id?: string | null; selected_rule_id?: string | null },
+		onEvent: (event: { type: string; [key: string]: unknown }) => void
+	): Promise<SortingProfileAiMessage> {
+		const res = await fetch(resolveApiPath(`/api/profiles/${profileId}/ai/messages/stream`), {
+			method: 'POST',
+			headers: buildHeaders('POST', data),
+			credentials: 'include',
+			body: JSON.stringify(data)
+		});
+		if (!res.ok) {
+			let errorData;
+			try { errorData = await res.json(); } catch { errorData = { error: `HTTP ${res.status}` }; }
+			throw errorData;
+		}
+		const reader = res.body!.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let finalMessage: SortingProfileAiMessage | null = null;
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+
+			const lines = buffer.split('\n');
+			buffer = lines.pop() ?? '';
+
+			for (const line of lines) {
+				if (!line.startsWith('data: ')) continue;
+				const jsonStr = line.slice(6).trim();
+				if (!jsonStr) continue;
+				try {
+					const event = JSON.parse(jsonStr);
+					if (event.type === 'complete' && event.message) {
+						finalMessage = event.message as SortingProfileAiMessage;
+					} else if (event.type === 'error') {
+						throw { error: event.error || 'AI request failed', code: 'AI_ERROR' };
+					} else {
+						onEvent(event);
+					}
+				} catch (e) {
+					if (e && typeof e === 'object' && 'error' in e) throw e;
+				}
+			}
+		}
+
+		if (!finalMessage) throw { error: 'AI did not return a response', code: 'AI_NO_RESPONSE' };
+		return finalMessage;
+	},
+	applySortingProfileAiMessage(profileId: string, messageId: string, data: { label?: string | null; change_note?: string | null; publish?: boolean }) {
+		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/ai/messages/${messageId}/apply`, data);
+	},
+
+	// Machine Profile Assignments
+	getMachineProfileAssignment(machineId: string) {
+		return request<MachineProfileAssignment | null>('GET', `/api/machines/${machineId}/profile-assignment`);
+	},
+	assignMachineProfile(machineId: string, profileId: string, versionId: string) {
+		return request<MachineProfileAssignment>('PUT', `/api/machines/${machineId}/profile-assignment`, {
+			profile_id: profileId,
+			version_id: versionId
+		});
+	},
+	clearMachineProfileAssignment(machineId: string) {
+		return request<void>('DELETE', `/api/machines/${machineId}/profile-assignment`);
 	},
 
 	// Admin

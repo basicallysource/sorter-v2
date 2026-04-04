@@ -17,7 +17,7 @@ class JsonSortingProfile(SortingProfile):
         self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
         self.default_category_id = MISC_CATEGORY
-        self._loadData()
+        self.reload()
 
     def _loadData(self) -> None:
         with open(self._sorting_profile_path, "r") as f:
@@ -28,9 +28,13 @@ class JsonSortingProfile(SortingProfile):
 
     def _loadRuntimeSortingProfile(self, data: dict) -> None:
         self.default_category_id = str(data.get("default_category_id", MISC_CATEGORY))
+        self.part_to_category = {}
         part_to_category = data.get("part_to_category", {})
         for part_id, category_id in part_to_category.items():
             self.part_to_category[str(part_id)] = str(category_id)
+
+    def reload(self) -> None:
+        self._loadData()
 
     def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
         color_key = f"{color_id}-{part_id}"

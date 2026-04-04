@@ -34,9 +34,25 @@
 		calibrating: boolean;
 	};
 
+	type BusServo = {
+		id: number;
+		model: number | null;
+		model_name: string | null;
+		position: number | null;
+		load: number | null;
+		min_limit: number | null;
+		max_limit: number | null;
+		voltage: number | null;
+		temperature: number | null;
+		current: number | null;
+		pid: { p: number; d: number; i: number } | null;
+		error?: string;
+	};
+
 	const manager = getMachinesContext();
 
 	let loadedMachineKey = $state('');
+	let loaded = $state(false);
 	let loading = $state(false);
 	let saving = $state(false);
 	let errorMsg = $state<string | null>(null);
@@ -50,6 +66,20 @@
 	let port = $state('');
 	let layers = $state<LayerDraft[]>([]);
 	let liveFeedbackRequestInFlight = false;
+
+	// Waveshare servo bus management
+	let busServos = $state<BusServo[]>([]);
+	let busScanning = $state(false);
+	let busSuggestedNextId = $state<number | null>(null);
+	let busError = $state<string | null>(null);
+	let busStatusMsg = $state('');
+	let changingIdFor = $state<number | null>(null);
+	let newIdInputs = $state<Record<number, string>>({});
+
+	// Waveshare port discovery
+	type WavesharePort = { device: string; product: string; serial: string | null };
+	let availablePorts = $state<WavesharePort[]>([]);
+	let portsLoaded = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -205,7 +235,9 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config`);
 			if (!res.ok) throw new Error(await res.text());
 			applySettings(await res.json());
+			loaded = true;
 			void loadLiveFeedback();
+			void loadAvailablePorts();
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load storage layer settings';
 		} finally {
@@ -303,10 +335,20 @@
 			if (!servoRes.ok) throw new Error(await servoRes.text());
 			const servoPayload = await servoRes.json();
 
+			// If a restart is required, clear stale issues — they reflect the old config
+			if (servoPayload?.restart_required) {
+				servoIssues = [];
+			}
+
 			applySettings({
 				storage_layers: storagePayload?.settings ?? storagePayload?.storage_layers,
 				servo: servoPayload?.settings
 			});
+
+			if (servoPayload?.restart_required) {
+				servoIssues = [];
+			}
+
 			void loadLiveFeedback();
 
 			statusMsg = [storagePayload?.message, servoPayload?.message].filter(Boolean).join(' ');
@@ -369,6 +411,86 @@
 			);
 			errorMsg = e.message ?? `Failed to calibrate layer ${index + 1} servo`;
 		}
+	}
+
+	async function scanBusServos() {
+		busScanning = true;
+		busError = null;
+		busStatusMsg = '';
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			if (!res.ok) throw new Error(await res.text());
+			const payload = await res.json();
+			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+
+			// Pre-fill new ID inputs: for ID 1 servos, suggest the next available ID
+			const inputs: Record<number, string> = {};
+			for (const servo of busServos) {
+				if (servo.id === 1 && busSuggestedNextId !== null) {
+					inputs[servo.id] = String(busSuggestedNextId);
+				}
+			}
+			newIdInputs = inputs;
+		} catch (e: any) {
+			busError = e.message ?? 'Failed to scan bus';
+		} finally {
+			busScanning = false;
+		}
+	}
+
+	async function loadAvailablePorts() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/ports`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
+			portsLoaded = true;
+		} catch {
+			// silent — keep text input as fallback
+		}
+	}
+
+	async function changeServoId(oldId: number) {
+		const rawNewId = newIdInputs[oldId];
+		const newId = Number(rawNewId);
+		if (!Number.isInteger(newId) || newId < 1 || newId > 253) {
+			busError = 'New ID must be between 1 and 253.';
+			return;
+		}
+		if (newId === oldId) {
+			busError = 'New ID is the same as the current ID.';
+			return;
+		}
+
+		changingIdFor = oldId;
+		busError = null;
+		busStatusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${oldId}/set-id`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ new_id: newId })
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const payload = await res.json();
+			busStatusMsg = payload?.message ?? `ID changed from ${oldId} to ${newId}.`;
+			// Refresh the servo list
+			await scanBusServos();
+		} catch (e: any) {
+			busError = e.message ?? `Failed to change servo ID from ${oldId} to ${newId}`;
+		} finally {
+			changingIdFor = null;
+		}
+	}
+
+	function modelLabel(servo: BusServo): string {
+		if (servo.model_name) return servo.model_name;
+		if (servo.model !== null) return `SC?? (${servo.model})`;
+		return '--';
 	}
 
 	function updateLayerCount(index: number, value: string) {
@@ -462,6 +584,9 @@
 </script>
 
 <div class="flex flex-col gap-4">
+	{#if !loaded}
+		<div class="text-sm text-text-muted">{loading ? 'Loading...' : ''}</div>
+	{:else}
 	<div class="flex flex-wrap items-end gap-3">
 		<label class="text-xs text-text">
 			Backend
@@ -503,13 +628,26 @@
 		{:else}
 			<label class="min-w-0 flex-1 text-xs text-text">
 				Port
-				<input
-					type="text"
-					bind:value={port}
-					placeholder="Auto-detect"
-					disabled={loading || saving}
-					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
+				{#if portsLoaded && availablePorts.length > 0}
+					<select
+						bind:value={port}
+						disabled={loading || saving}
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					>
+						<option value="">Auto-detect</option>
+						{#each availablePorts as p}
+							<option value={p.device}>{p.device} — {p.product}</option>
+						{/each}
+					</select>
+				{:else}
+					<input
+						type="text"
+						bind:value={port}
+						placeholder="Auto-detect"
+						disabled={loading || saving}
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				{/if}
 			</label>
 		{/if}
 
@@ -708,5 +846,105 @@
 				</tbody>
 			</table>
 		</div>
+	{/if}
+
+	{#if backend === 'waveshare'}
+		<div class="mt-6 flex flex-col gap-3">
+			<div class="flex items-center gap-3">
+				<h3 class="text-sm font-medium text-text">Waveshare Servos on Bus</h3>
+				<button
+					onclick={scanBusServos}
+					disabled={busScanning}
+					class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{busScanning ? 'Scanning...' : 'Scan Bus'}
+				</button>
+			</div>
+
+			{#if busError}
+				<div class="text-sm text-red-600 dark:text-red-400">{busError}</div>
+			{:else if busStatusMsg}
+				<div class="text-sm text-text-muted">{busStatusMsg}</div>
+			{/if}
+
+			{#if busServos.length > 0}
+				<div class="overflow-hidden border border-border">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border bg-surface text-left text-xs">
+								<th class="px-3 py-2 font-medium text-text-muted">ID</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Model</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Position</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Limits</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Temp</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Voltage</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Load</th>
+								<th class="px-3 py-2 font-medium text-text-muted">PID</th>
+								<th class="px-3 py-2 text-right font-medium text-text-muted">Change ID</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each busServos as servo}
+								<tr class="border-b border-border bg-bg last:border-b-0 {servo.id === 1 ? 'bg-amber-50 dark:bg-amber-950/20' : ''}">
+									<td class="px-3 py-2 font-medium text-text">
+										{servo.id}
+										{#if servo.id === 1}
+											<span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title="Factory default ID — assign a unique ID before use">Factory</span>
+										{/if}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">{modelLabel(servo)}</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">{servo.position ?? '--'}</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.min_limit ?? '--'} – {servo.max_limit ?? '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.temperature !== null && servo.temperature !== undefined ? `${servo.temperature}°C` : '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.voltage !== null && servo.voltage !== undefined ? `${servo.voltage}V` : '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.load ?? '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{#if servo.pid}
+											{servo.pid.p}/{servo.pid.d}/{servo.pid.i}
+										{:else}
+											--
+										{/if}
+									</td>
+									<td class="px-3 py-2 text-right">
+										<div class="flex items-center justify-end gap-1.5">
+											<input
+												type="number"
+												min="1"
+												max="253"
+												value={newIdInputs[servo.id] ?? ''}
+												oninput={(e) => {
+													newIdInputs = { ...newIdInputs, [servo.id]: e.currentTarget.value };
+												}}
+												placeholder={servo.id === 1 && busSuggestedNextId ? String(busSuggestedNextId) : 'New ID'}
+												disabled={changingIdFor !== null}
+												class="w-20 border border-border bg-surface px-1.5 py-1 text-xs text-text"
+											/>
+											<button
+												onclick={() => changeServoId(servo.id)}
+												disabled={changingIdFor !== null || !newIdInputs[servo.id]}
+												class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+											>
+												{changingIdFor === servo.id ? '...' : 'Set'}
+											</button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else if !busScanning}
+				<div class="text-xs text-text-muted">Press "Scan Bus" to detect connected servos.</div>
+			{/if}
+		</div>
+	{/if}
 	{/if}
 </div>

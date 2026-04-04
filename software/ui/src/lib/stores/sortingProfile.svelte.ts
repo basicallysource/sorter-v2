@@ -20,7 +20,23 @@ export interface SortingProfileRule {
 
 export interface SortingProfileFallbackMode {
 	rebrickable_categories: boolean;
+	bricklink_categories?: boolean;
 	by_color: boolean;
+}
+
+export interface SortingProfileSyncState {
+	target_id?: string | null;
+	target_name?: string | null;
+	target_url?: string | null;
+	profile_id?: string | null;
+	profile_name?: string | null;
+	version_id?: string | null;
+	version_number?: number | null;
+	version_label?: string | null;
+	artifact_hash?: string | null;
+	applied_at?: string | null;
+	activated_at?: string | null;
+	last_error?: string | null;
 }
 
 export interface SortingProfileMetadata {
@@ -33,15 +49,22 @@ export interface SortingProfileMetadata {
 	categories: Record<string, SortingProfileCategory>;
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
+	sync_state?: SortingProfileSyncState | null;
 }
 
 let cached = $state<SortingProfileMetadata | null>(null);
 let in_flight: Promise<SortingProfileMetadata> | null = null;
+let cachedBaseUrl = '';
 
-async function load(): Promise<SortingProfileMetadata> {
-	if (cached) return cached;
+async function load(baseUrl = ''): Promise<SortingProfileMetadata> {
+	if (cached && cachedBaseUrl === baseUrl) return cached;
+	if (cachedBaseUrl !== baseUrl) {
+		cached = null;
+		in_flight = null;
+	}
 	if (in_flight) return in_flight;
-	in_flight = fetch('/sorting-profile/metadata')
+	cachedBaseUrl = baseUrl;
+	in_flight = fetch(`${baseUrl}/sorting-profile/metadata`)
 		.then((res) => {
 			if (!res.ok) throw new Error(`Failed to load sorting profile metadata: ${res.status}`);
 			return res.json();
@@ -54,8 +77,15 @@ async function load(): Promise<SortingProfileMetadata> {
 		.catch((err) => {
 			in_flight = null;
 			throw err;
-		});
+	});
 	return in_flight;
+}
+
+async function reload(baseUrl = ''): Promise<SortingProfileMetadata> {
+	cached = null;
+	in_flight = null;
+	cachedBaseUrl = baseUrl;
+	return load(baseUrl);
 }
 
 function getCategoryName(category_id: string): string | null {
@@ -68,5 +98,6 @@ export const sortingProfileStore = {
 		return cached;
 	},
 	load,
+	reload,
 	getCategoryName
 };

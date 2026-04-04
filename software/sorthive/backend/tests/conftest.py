@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 os.environ["DATABASE_URL"] = "sqlite:///test.db"
 os.environ["JWT_SECRET"] = "test-secret-key-not-for-production"
+os.environ["SORTING_PROFILE_PARTS_DB_PATH"] = "test-profile-parts.db"
+os.environ["SORTING_PROFILE_BRICKSTORE_DB_PATH"] = "test-brickstore.db"
 
 from app.deps import get_db  # noqa: E402
 from app.main import app  # noqa: E402

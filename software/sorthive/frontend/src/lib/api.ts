@@ -195,6 +195,7 @@ export interface SortingProfileSummary {
 	name: string;
 	description: string | null;
 	visibility: 'private' | 'unlisted' | 'public';
+	profile_type: string;
 	tags: string[];
 	latest_version_number: number;
 	latest_published_version_number: number | null;
@@ -218,6 +219,7 @@ export interface SortingProfileVersion extends SortingProfileVersionSummary {
 	fallback_mode: SortingProfileFallbackMode;
 	compiled_stats: Record<string, unknown> | null;
 	categories: Record<string, { name: string }>;
+	set_config: { sets: string[]; include_spares: boolean } | null;
 }
 
 export interface SortingProfileDetail extends SortingProfileSummary {
@@ -557,7 +559,7 @@ export const api = {
 		const qs = searchParams.toString();
 		return request<SortingProfileSummary[]>('GET', `/api/profiles${qs ? '?' + qs : ''}`);
 	},
-	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
+	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[]; profile_type?: string }) {
 		return request<SortingProfileDetail>('POST', '/api/profiles', data);
 	},
 	getSortingProfile(id: string, versionId?: string) {
@@ -579,6 +581,7 @@ export const api = {
 		change_note?: string | null;
 		label?: string | null;
 		publish?: boolean;
+		set_config?: { sets: string[]; include_spares: boolean } | null;
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
@@ -696,6 +699,17 @@ export const api = {
 	},
 	clearMachineProfileAssignment(machineId: string) {
 		return request<void>('DELETE', `/api/machines/${machineId}/profile-assignment`);
+	},
+
+	// Sets
+	searchSets(query: string) {
+		return request<{ results: Array<{ set_num: string; name: string; year: number; num_parts: number; set_img_url: string | null }> }>('GET', `/api/sets/search?q=${encodeURIComponent(query)}`);
+	},
+	getSetDetail(setNum: string) {
+		return request<{ set: Record<string, unknown>; inventory: Array<Record<string, unknown>> }>('GET', `/api/sets/${encodeURIComponent(setNum)}`);
+	},
+	getMachineSetProgress(machineId: string) {
+		return request<{ progress: Array<{ set_num: string; part_num: string; color_id: number; quantity_needed: number; quantity_found: number; updated_at: string | null }>; assignment_id: string | null }>('GET', `/api/machines/${machineId}/set-progress`);
 	},
 
 	// Admin

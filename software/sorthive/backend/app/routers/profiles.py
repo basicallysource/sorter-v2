@@ -150,6 +150,7 @@ def create_profile(
     _csrf: None = Depends(verify_csrf),
 ):
     visibility = _normalize_visibility(payload.visibility)
+    profile_type = payload.profile_type if payload.profile_type in ("rule", "set") else "rule"
     profile = SortingProfile(
         owner_id=current_user.id,
         name=payload.name.strip() or "Untitled Profile",
@@ -157,6 +158,7 @@ def create_profile(
         visibility=visibility,
         tags=_sanitize_tags(payload.tags),
         latest_version_number=0,
+        profile_type=profile_type,
     )
     db.add(profile)
     db.flush()
@@ -946,7 +948,16 @@ def _create_version(
     current_user: User,
     payload: SortingProfileVersionCreateRequest,
 ) -> SortingProfileVersion:
-    compiled = get_profile_catalog_service().compile_document(payload.model_dump())
+    catalog = get_profile_catalog_service()
+    if profile.profile_type == "set" and payload.set_config:
+        compiled = catalog.compile_set_profile(
+            set_config=payload.set_config.model_dump(),
+            profile_id=str(profile.id),
+            name=payload.name.strip() or profile.name,
+            description=(payload.description or "").strip() or "",
+        )
+    else:
+        compiled = catalog.compile_document(payload.model_dump())
     next_version_number = int(profile.latest_version_number or 0) + 1
     version = SortingProfileVersion(
         profile_id=profile.id,
@@ -965,6 +976,7 @@ def _create_version(
         compiled_part_count=compiled["compiled_part_count"],
         coverage_ratio=compiled["coverage_ratio"],
         is_published=bool(payload.publish),
+        set_config_json=payload.set_config.model_dump() if payload.set_config else None,
     )
     db.add(version)
     profile.latest_version_number = next_version_number
@@ -1088,6 +1100,7 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "fallback_mode": version.fallback_mode_json or {},
             "compiled_stats": version.compiled_stats_json,
             "categories": (version.compiled_artifact_json or {}).get("categories", {}),
+            "set_config": version.set_config_json,
         }
     )
     return SortingProfileVersionResponse(**payload)

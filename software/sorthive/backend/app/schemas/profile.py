@@ -62,6 +62,7 @@ class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
     fallback_mode: SortingProfileFallbackModeResponse
     compiled_stats: dict[str, Any] | None = None
     categories: dict[str, dict[str, str]] = Field(default_factory=dict)
+    set_config: SetProfileConfig | None = None
 
 
 class SortingProfileSummaryResponse(BaseModel):
@@ -69,6 +70,7 @@ class SortingProfileSummaryResponse(BaseModel):
     name: str
     description: str | None
     visibility: str
+    profile_type: str = "rule"
     tags: list[str] = Field(default_factory=list)
     latest_version_number: int
     latest_published_version_number: int | None
@@ -89,11 +91,17 @@ class SortingProfileDetailResponse(SortingProfileSummaryResponse):
     current_version: SortingProfileVersionResponse | None = None
 
 
+class SetProfileConfig(BaseModel):
+    sets: list[str]
+    include_spares: bool = False
+
+
 class SortingProfileCreateRequest(BaseModel):
     name: str
     description: str | None = None
     visibility: str = "private"
     tags: list[str] = Field(default_factory=list)
+    profile_type: str = "rule"
 
 
 class SortingProfileUpdateRequest(BaseModel):
@@ -112,6 +120,7 @@ class SortingProfileVersionCreateRequest(BaseModel):
     change_note: str | None = None
     label: str | None = None
     publish: bool = False
+    set_config: SetProfileConfig | None = None
 
 
 class SortingProfilePreviewRequest(BaseModel):

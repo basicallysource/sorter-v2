@@ -221,6 +221,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             }
         )
 
+    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
+    if tracker is not None:
+        await websocket.send_json(
+            {
+                "tag": "set_progress",
+                "data": tracker.get_snapshot(),
+            }
+        )
+
     try:
         while True:
             await websocket.receive_text()
@@ -341,6 +350,24 @@ def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
     if not isinstance(runtime_stats, dict):
         raise HTTPException(status_code=404, detail="runtime_stats_final missing")
     return RuntimeStatsResponse(payload=runtime_stats)
+
+
+# ---------------------------------------------------------------------------
+# Set Progress
+# ---------------------------------------------------------------------------
+
+
+class SetProgressResponse(BaseModel):
+    is_set_based: bool
+    progress: Dict[str, Any] | None = None
+
+
+@app.get("/api/set-progress", response_model=SetProgressResponse)
+def getSetProgress() -> SetProgressResponse:
+    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
+    if tracker is None:
+        return SetProgressResponse(is_set_based=False)
+    return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
 
 
 # ---------------------------------------------------------------------------

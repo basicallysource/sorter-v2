@@ -3,7 +3,7 @@
 	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Grid3x3, Home, Layers3, Pause, Play, Settings } from 'lucide-svelte';
+	import { Grid3x3, Home, Layers3, Package, Pause, Play, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -89,6 +89,18 @@
 			title="Bin Grid"
 		>
 			<Grid3x3 size={24} />
+		</a>
+		<a
+			href="/dashboard/sets"
+			aria-current={page.url.pathname.startsWith('/dashboard/sets') ? 'page' : undefined}
+			class={`p-2 transition-colors ${
+				page.url.pathname.startsWith('/dashboard/sets')
+					? 'bg-surface text-text'
+					: 'text-text hover:bg-surface'
+			}`}
+			title="Set Progress"
+		>
+			<Package size={24} />
 		</a>
 		<a
 			href="/profiles"

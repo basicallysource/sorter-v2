@@ -57,6 +57,9 @@ class Sending(BaseState):
             self.piece.updated_at = time.time()
             self.event_queue.put(knownObjectToEvent(self.piece))
             self.gc.run_recorder.recordPiece(self.piece)
+            tracker = getattr(self.gc, 'set_progress_tracker', None)
+            if tracker is not None:
+                tracker.record(self.piece.part_id, self.piece.color_id, self.piece.category_id)
         self.shared.distribution_ready = True
         return DistributionState.IDLE
 

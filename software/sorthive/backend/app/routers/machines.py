@@ -181,3 +181,88 @@ def register_machine(
     data_dict = MachineResponse.model_validate(machine).model_dump()
     data_dict["raw_token"] = raw_token
     return MachineWithTokenResponse(**data_dict)
+
+
+@router.get("/machines/{machine_id}/set-progress")
+def get_machine_set_progress(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get set-based sorting progress for a machine."""
+    from app.models.machine_set_progress import MachineSetProgress
+    from app.models.machine_profile_assignment import MachineProfileAssignment
+
+    machine = db.query(Machine).filter(Machine.id == machine_id, Machine.owner_id == current_user.id).first()
+    if not machine:
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+
+    assignment = db.query(MachineProfileAssignment).filter(
+        MachineProfileAssignment.machine_id == machine_id
+    ).first()
+    if not assignment:
+        return {"progress": [], "assignment_id": None}
+
+    rows = db.query(MachineSetProgress).filter(
+        MachineSetProgress.assignment_id == assignment.id
+    ).all()
+
+    progress = []
+    for row in rows:
+        progress.append({
+            "set_num": row.set_num,
+            "part_num": row.part_num,
+            "color_id": row.color_id,
+            "quantity_needed": row.quantity_needed,
+            "quantity_found": row.quantity_found,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        })
+
+    return {"progress": progress, "assignment_id": str(assignment.id)}
+
+
+@router.post("/machine/set-progress")
+def report_machine_set_progress(
+    payload: dict,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+):
+    """Machine reports its set progress snapshot. Authenticated via machine token."""
+    from app.models.machine_set_progress import MachineSetProgress
+    from app.models.machine_profile_assignment import MachineProfileAssignment
+    from datetime import datetime, timezone
+
+    assignment = db.query(MachineProfileAssignment).filter(
+        MachineProfileAssignment.machine_id == machine.id
+    ).first()
+    if not assignment:
+        raise APIError(404, "No profile assignment found", "NO_ASSIGNMENT")
+
+    items = payload.get("items", [])
+    for item in items:
+        existing = db.query(MachineSetProgress).filter(
+            MachineSetProgress.assignment_id == assignment.id,
+            MachineSetProgress.set_num == item["set_num"],
+            MachineSetProgress.part_num == item["part_num"],
+            MachineSetProgress.color_id == item["color_id"],
+        ).first()
+
+        if existing:
+            existing.quantity_found = item.get("quantity_found", 0)
+            existing.quantity_needed = item.get("quantity_needed", existing.quantity_needed)
+            existing.updated_at = datetime.now(timezone.utc)
+        else:
+            row = MachineSetProgress(
+                machine_id=machine.id,
+                assignment_id=assignment.id,
+                set_num=item["set_num"],
+                part_num=item["part_num"],
+                color_id=item["color_id"],
+                quantity_needed=item.get("quantity_needed", 1),
+                quantity_found=item.get("quantity_found", 0),
+                updated_at=datetime.now(timezone.utc),
+            )
+            db.add(row)
+
+    db.commit()
+    return {"ok": True, "updated": len(items)}

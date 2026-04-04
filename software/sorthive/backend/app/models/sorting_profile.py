@@ -17,6 +17,7 @@ class SortingProfile(Base):
     source_version_number = Column(Integer, nullable=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    profile_type = Column(String, nullable=False, server_default="rule")
     visibility = Column(String, nullable=False, default="private")
     tags = Column(JSON_VARIANT, nullable=True)
     latest_version_number = Column(Integer, nullable=False, default=0)

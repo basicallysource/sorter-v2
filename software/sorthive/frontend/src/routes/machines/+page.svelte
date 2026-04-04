@@ -10,6 +10,7 @@
 
 	let accessibleProfiles = $state<SortingProfileSummary[]>([]);
 	let assignments = $state<Record<string, MachineProfileAssignment | null>>({});
+	let setProgress = $state<Record<string, { total_needed: number; total_found: number } | null>>({});
 
 	let showAddModal = $state(false);
 	let newName = $state('');
@@ -70,6 +71,25 @@
 				})
 			);
 			assignments = nextAssignments;
+
+			// Fetch set progress for machines with set-based profiles
+			const nextSetProgress: Record<string, { total_needed: number; total_found: number } | null> = {};
+			await Promise.all(
+				machineList.map(async (machine) => {
+					const a = nextAssignments[machine.id];
+					if (a?.profile?.profile_type === 'set') {
+						try {
+							const result = await api.getMachineSetProgress(machine.id);
+							const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
+							const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
+							nextSetProgress[machine.id] = { total_needed, total_found };
+						} catch {
+							nextSetProgress[machine.id] = null;
+						}
+					}
+				})
+			);
+			setProgress = nextSetProgress;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to load machines';
 		} finally {
@@ -362,6 +382,19 @@ async function loadAssignmentProfile(profileId: string) {
 								</div>
 								{#if assignment.last_error}
 									<div class="mt-2 text-xs text-red-600">{assignment.last_error}</div>
+								{/if}
+								{#if assignment.profile?.profile_type === 'set' && setProgress[machine.id]}
+									{@const sp = setProgress[machine.id]!}
+									{@const pct = sp.total_needed > 0 ? Math.round((sp.total_found / sp.total_needed) * 100) : 0}
+									<div class="mt-2">
+										<div class="flex items-center justify-between text-xs text-gray-600">
+											<span>Set progress: {sp.total_found}/{sp.total_needed} parts</span>
+											<span class="font-medium">{pct}%</span>
+										</div>
+										<div class="mt-1 h-1.5 w-full bg-gray-200">
+											<div class="h-full bg-green-500 transition-all" style="width: {pct}%"></div>
+										</div>
+									</div>
 								{/if}
 							{:else}
 								<div class="font-medium text-gray-900">No sorting profile assigned</div>

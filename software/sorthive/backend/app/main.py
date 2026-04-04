@@ -6,7 +6,7 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.errors import APIError, api_error_handler, http_exception_handler
-from app.routers import admin, auth, machines, profiles, review, samples, stats, upload
+from app.routers import admin, auth, machines, profiles, review, samples, sets, stats, upload
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -32,6 +32,7 @@ app.include_router(profiles.router)
 app.include_router(upload.router)
 app.include_router(samples.router)
 app.include_router(review.router)
+app.include_router(sets.router)
 app.include_router(stats.router)
 
 

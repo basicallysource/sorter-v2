@@ -17,6 +17,7 @@ from app.services.profile_builder_compat import (
     builder_rule_engine,
     builder_sorting_profile,
 )
+from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory
 
 
 def _ensure_parent_dir(path: str) -> None:
@@ -147,6 +148,98 @@ class ProfileCatalogService:
             ancestor_checks=ancestor_checks,
             parts_generation=self._parts_data.generation,
         )
+
+
+    def compile_set_profile(
+        self,
+        set_config: dict[str, Any],
+        profile_id: str,
+        name: str,
+        description: str = "",
+    ) -> dict[str, Any]:
+        set_nums = set_config.get("sets", [])
+        include_spares = bool(set_config.get("include_spares", False))
+
+        # Ensure all set inventories are cached
+        for set_num in set_nums:
+            cached = get_cached_set(self._conn, set_num)
+            if cached is None:
+                fetch_set_inventory(self._conn, self._config.rebrickable_api_key, set_num)
+
+        # Build part_to_category mapping and categories metadata
+        part_to_category: dict[str, str] = {}
+        categories: dict[str, dict[str, Any]] = {}
+        set_inventories: dict[str, list[dict[str, Any]]] = {}
+
+        for set_num in set_nums:
+            set_info = get_cached_set(self._conn, set_num)
+            inventory = get_cached_inventory(self._conn, set_num)
+            category_id = f"set_{set_num}"
+
+            categories[category_id] = {
+                "name": set_info["name"] if set_info else set_num,
+                "set_num": set_num,
+                "set_img_url": set_info.get("set_img_url", "") if set_info else "",
+                "num_parts": str(set_info.get("num_parts", "")) if set_info else "",
+                "year": str(set_info.get("year", "")) if set_info else "",
+            }
+
+            inv_list = []
+            for part in inventory:
+                if not include_spares and part.get("is_spare"):
+                    continue
+                key = f"{part['color_id']}-{part['part_num']}"
+                # First set in list wins conflicts
+                if key not in part_to_category:
+                    part_to_category[key] = category_id
+                inv_list.append({
+                    "part_num": part["part_num"],
+                    "color_id": part["color_id"],
+                    "quantity": part["quantity"],
+                    "is_spare": part.get("is_spare", False),
+                    "element_id": part.get("element_id"),
+                })
+            set_inventories[set_num] = inv_list
+
+        # Add misc category for unclaimed parts
+        categories["misc"] = {"name": "Miscellaneous"}
+
+        artifact: dict[str, Any] = {
+            "schema_version": 1,
+            "id": profile_id,
+            "name": name,
+            "description": description,
+            "default_category_id": "misc",
+            "profile_type": "set",
+            "categories": categories,
+            "part_to_category": part_to_category,
+            "set_inventories": set_inventories,
+            "set_config": {
+                "sets": set_nums,
+                "include_spares": include_spares,
+            },
+            "stats": {
+                "total_parts": len(part_to_category),
+                "matched": len(part_to_category),
+                "per_category": {
+                    cat_id: sum(1 for v in part_to_category.values() if v == cat_id)
+                    for cat_id in categories
+                    if cat_id != "misc"
+                },
+            },
+        }
+        artifact_hash = hashlib.sha256(
+            json.dumps(artifact, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        artifact["artifact_hash"] = artifact_hash
+
+        return {
+            "artifact": artifact,
+            "stats": artifact["stats"],
+            "artifact_hash": artifact_hash,
+            "compiled_part_count": len(part_to_category),
+            "coverage_ratio": 1.0,
+        }
 
 
 def normalize_profile_document(document: dict[str, Any]) -> SimpleNamespace:

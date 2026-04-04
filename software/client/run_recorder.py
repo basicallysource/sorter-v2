@@ -81,6 +81,11 @@ class RunRecorder:
         if hasattr(self.gc, "runtime_stats"):
             record["runtime_stats_final"] = self.gc.runtime_stats.snapshot()
 
+        tracker = getattr(self.gc, "set_progress_tracker", None)
+        if tracker is not None:
+            record["set_progress"] = tracker.get_snapshot()
+            tracker.save()
+
         RECORDS_DIR.mkdir(parents=True, exist_ok=True)
         dt_str = datetime.fromtimestamp(self.started_at).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"{dt_str}_{self.run_id}.json"

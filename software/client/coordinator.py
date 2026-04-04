@@ -33,6 +33,15 @@ class Coordinator:
         self.event_queue = event_queue
         self.shared = SharedVariables()
         self.sorting_profile = mkSortingProfile(gc)
+
+        gc.set_progress_tracker = None
+        if self.sorting_profile.is_set_based and self.sorting_profile.set_inventories:
+            from set_progress import SetProgressTracker
+            gc.set_progress_tracker = SetProgressTracker(
+                self.sorting_profile.set_inventories,
+                self.sorting_profile.artifact_hash,
+            )
+
         self.distribution_layout = irl.distribution_layout
 
         self.carousel = Carousel(gc.logger, event_queue)

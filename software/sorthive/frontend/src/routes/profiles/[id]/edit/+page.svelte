@@ -49,6 +49,14 @@
 	let rulePreviewExpanded = $state(false);
 	let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+	// Right panel tab
+	let rightTab = $state<'chat' | 'versions'>('chat');
+	let restoringVersionId = $state<string | null>(null);
+
+	// Version preview
+	let previewVersion = $state<import('$lib/api').SortingProfileVersion | null>(null);
+	let previewLoading = $state(false);
+
 	// AI state
 	let aiMessages = $state<SortingProfileAiMessage[]>([]);
 	let aiMessage = $state('');
@@ -413,16 +421,97 @@
 		}
 	}
 
+	async function restoreVersion(versionId: string) {
+		if (!profile) return;
+		restoringVersionId = versionId;
+		error = null;
+		try {
+			const oldDetail = await api.getSortingProfile(profile.id, versionId);
+			const oldVersion = oldDetail.current_version;
+			if (!oldVersion) throw new Error('Version not found');
+			await api.saveSortingProfileVersion(profile.id, {
+				name: oldVersion.name,
+				description: oldVersion.description ?? null,
+				default_category_id: oldVersion.default_category_id,
+				rules: oldVersion.rules,
+				fallback_mode: oldVersion.fallback_mode,
+				change_note: `Restored from v${oldVersion.version_number}`
+			});
+			lastLoadedProfileId = '';
+			await loadProfile();
+			rightTab = 'chat';
+		} catch (e: any) {
+			error = e.error || e.message || 'Failed to restore version';
+		} finally {
+			restoringVersionId = null;
+		}
+	}
+
+	async function viewVersion(versionId: string) {
+		if (!profile) return;
+		previewLoading = true;
+		try {
+			const detail = await api.getSortingProfile(profile.id, versionId);
+			previewVersion = detail.current_version;
+		} catch (e: any) {
+			error = e.error || 'Failed to load version';
+		} finally {
+			previewLoading = false;
+		}
+	}
+
+	function exitPreview() {
+		previewVersion = null;
+	}
+
+	async function forkFromVersion(versionId: string) {
+		if (!profile) return;
+		error = null;
+		try {
+			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true }, versionId);
+			window.location.href = `/profiles/${fork.id}/edit`;
+		} catch (e: any) {
+			error = e.error || 'Failed to fork';
+		}
+	}
+
+	const displayRules = $derived(previewVersion ? previewVersion.rules : workingRules);
+	const isPreview = $derived(previewVersion !== null);
+
+	function formatDate(iso: string): string {
+		const d = new Date(iso);
+		return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+			+ ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+	}
+
 	// --- AI ---
 	async function sendAiMessage() {
 		if (!profile || !aiMessage.trim()) return;
+		const userMsg = aiMessage.trim();
+		aiMessage = '';
+
+		// Show user message immediately
+		const tempUserMsg: SortingProfileAiMessage = {
+			id: crypto.randomUUID(),
+			role: 'user',
+			content: userMsg,
+			model: null,
+			version_id: profile.current_version?.id ?? null,
+			applied_version_id: null,
+			selected_rule_id: selectedRuleId,
+			usage: null,
+			proposal: null,
+			tool_trace: [],
+			applied_at: null,
+			created_at: new Date().toISOString()
+		};
+		aiMessages = [...aiMessages, tempUserMsg];
+
 		aiBusy = true;
 		aiProgress = [];
 		error = null;
-		const userMsg = aiMessage.trim();
-		aiMessage = '';
 		try {
-			let response: import('$lib/api').SortingProfileAiMessage;
+			let response: SortingProfileAiMessage;
 			try {
 				// Try streaming endpoint for live progress
 				response = await api.streamSortingProfileAiMessage(
@@ -588,23 +677,49 @@
 			<div class="border-b border-gray-200 px-4 py-2">
 				<h2 class="text-sm font-semibold text-gray-900">Rules</h2>
 			</div>
+			{#if isPreview}
+				<div class="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
+					<span class="text-xs font-medium text-amber-700">
+						Viewing v{previewVersion?.version_number}
+						{#if previewVersion?.change_note}
+							— {previewVersion.change_note}
+						{/if}
+					</span>
+					<div class="flex gap-2">
+						<button onclick={() => { if (previewVersion) void restoreVersion(previewVersion.id); }}
+							disabled={restoringVersionId !== null}
+							class="bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+							{restoringVersionId ? 'Restoring...' : 'Restore'}
+						</button>
+						<button onclick={exitPreview}
+							class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+							Back
+						</button>
+					</div>
+				</div>
+			{/if}
 			<div class="flex-1 overflow-y-auto">
-				{#if workingRules.length === 0}
+				{#if previewLoading}
+					<div class="flex items-center justify-center p-8"><Spinner /></div>
+				{:else if displayRules.length === 0}
 					<div class="p-4 text-center text-sm text-gray-400">
 						No rules yet. Use the AI chat to generate categories, or add one manually.
 					</div>
 				{:else}
-					{#each workingRules as rule (rule.id)}
+					{#each displayRules as rule (rule.id)}
 						{@render accordionNode(rule, 0)}
 					{/each}
 				{/if}
 			</div>
+			{#if !isPreview}
 			<div class="border-t border-gray-200 px-3 py-2">
 				<button onclick={() => addRule()}
 					class="w-full border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700">
 					+ Add Category
 				</button>
 			</div>
+			{/if}
+			{#if !isPreview}
 			<!-- Fallback -->
 			<div class="border-t border-gray-200 px-3 py-2">
 				<div class="flex flex-wrap items-center gap-4 text-xs text-gray-600">
@@ -626,20 +741,81 @@
 					</label>
 				</div>
 			</div>
+			{/if}
 		</div>
 
-		<!-- RIGHT: AI Chat -->
+		<!-- RIGHT: Chat / Versions -->
 		<div class="flex min-h-0 flex-col border border-gray-200 bg-white">
-			<div class="border-b border-gray-200 px-4 py-2">
-				<div class="flex items-center justify-between">
-					<h2 class="text-sm font-semibold text-gray-900">AI Assistant</h2>
-					{#if selectedRule}
-						<span class="text-xs text-gray-400">Context: {selectedRule.name}</span>
-					{/if}
-				</div>
+			<div class="flex border-b border-gray-200">
+				<button onclick={() => { rightTab = 'chat'; }}
+					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
+						{rightTab === 'chat' ? 'border-b-2 border-b-blue-500 text-blue-700' : 'text-gray-500 hover:text-gray-700'}">
+					AI Chat
+				</button>
+				<button onclick={() => { rightTab = 'versions'; }}
+					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
+						{rightTab === 'versions' ? 'border-b-2 border-b-blue-500 text-blue-700' : 'text-gray-500 hover:text-gray-700'}">
+					Versions
+					<span class="ml-1 text-xs font-normal text-gray-400">· {profile.versions.length}</span>
+				</button>
 			</div>
 
-			{#if !hasOpenRouter}
+			{#if rightTab === 'versions'}
+				<!-- Version History -->
+				<div class="flex-1 overflow-y-auto">
+					{#if profile.versions.length === 0}
+						<div class="p-6 text-center text-sm text-gray-400">No versions yet.</div>
+					{:else}
+						<div class="divide-y divide-gray-100">
+							{#each [...profile.versions].reverse() as version (version.id)}
+								{@const isCurrent = version.id === profile.current_version?.id}
+								<div class="px-4 py-3 {isCurrent ? 'border-l-2 border-l-blue-500 bg-blue-50' : ''}">
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-2">
+											<span class="text-sm font-semibold text-gray-800">v{version.version_number}</span>
+											{#if isCurrent}
+												<span class="bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-700">current</span>
+											{/if}
+											{#if version.is_published}
+												<span class="bg-green-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-700">published</span>
+											{/if}
+										</div>
+										<span class="text-xs text-gray-400">{formatDate(version.created_at)}</span>
+									</div>
+									{#if version.change_note}
+										<p class="mt-1 text-xs text-gray-600">{version.change_note}</p>
+									{/if}
+									<div class="mt-1 flex items-center gap-3 text-xs text-gray-400">
+										<span>{version.compiled_part_count} parts</span>
+										{#if version.label}
+											<span>{version.label}</span>
+										{/if}
+									</div>
+									<div class="mt-2 flex gap-2">
+										<button onclick={() => { if (isCurrent) exitPreview(); else void viewVersion(version.id); }}
+											disabled={previewLoading}
+											class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+											View
+										</button>
+										{#if !isCurrent}
+											<button onclick={() => void restoreVersion(version.id)}
+												disabled={restoringVersionId !== null}
+												class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+												{restoringVersionId === version.id ? 'Restoring...' : 'Restore'}
+											</button>
+										{/if}
+										<button onclick={() => void forkFromVersion(version.id)}
+											class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+											Fork
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+			{:else if !hasOpenRouter}
 				<div class="flex flex-1 flex-col items-center justify-center p-6 text-center">
 					<svg class="mb-3 h-8 w-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />

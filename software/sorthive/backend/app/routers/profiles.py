@@ -589,12 +589,16 @@ def apply_profile_ai_message(
         )
         user_text = user_msg.content if user_msg else ""
         try:
+            from app.services.profile_ai import get_user_openrouter_key
+            api_key = get_user_openrouter_key(current_user)
             change_note = generate_change_note(
-                api_key=current_user.openrouter_api_key,
+                api_key=api_key,
                 user_message=user_text,
                 proposal=message.proposal_json,
             )
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Change note generation failed: %s", exc)
             change_note = f"Applied AI proposal from {message.created_at.date().isoformat()}"
 
     version = _create_version(

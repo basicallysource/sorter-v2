@@ -116,6 +116,8 @@ CATALOG_TOOLS = [
     },
 ]
 
+PROPOSAL_RESPONSE_FORMAT = {"type": "json_object"}
+
 
 @dataclass
 class AiToolTraceEntry:
@@ -134,7 +136,7 @@ class AiProgressEvent:
 @dataclass
 class AiProposalResult:
     content: str
-    proposal: dict[str, Any]
+    proposal: dict[str, Any] | None
     model: str
     usage: dict[str, Any] | None
     tool_trace: list[AiToolTraceEntry]
@@ -157,6 +159,8 @@ def generate_profile_ai_proposal(
 ) -> AiProposalResult:
     api_key = get_user_openrouter_key(user)
     model = user.preferred_ai_model or settings.DEFAULT_AI_MODEL
+    has_parts = bool(catalog.parts_data.parts)
+    tools = CATALOG_TOOLS if has_parts else None
 
     system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
     messages: list[dict[str, Any]] = [
@@ -175,7 +179,7 @@ def generate_profile_ai_proposal(
             messages=messages,
             temperature=0.2,
             max_tokens=8192,
-            tools=CATALOG_TOOLS,
+            tools=tools,
         )
         final_model = response.model
         _accumulate_usage(total_usage, response.usage)
@@ -209,8 +213,11 @@ def generate_profile_ai_proposal(
         raise APIError(502, "AI used too many tool calls without producing a result", "AI_TOO_MANY_ROUNDS")
 
     proposal = _parse_proposal_payload(response)
-    _validate_proposal(proposal)
-    assistant_content = proposal.get("summary") if isinstance(proposal.get("summary"), str) else response.content
+    if proposal is not None:
+        _validate_proposal(proposal)
+    assistant_content = (
+        proposal.get("summary") if proposal and isinstance(proposal.get("summary"), str) else response.content
+    )
     return AiProposalResult(
         content=assistant_content,
         proposal=proposal,
@@ -231,6 +238,8 @@ def generate_profile_ai_proposal_streaming(
     """Like generate_profile_ai_proposal but yields progress events during tool use."""
     api_key = get_user_openrouter_key(user)
     model = user.preferred_ai_model or settings.DEFAULT_AI_MODEL
+    has_parts = bool(catalog.parts_data.parts)
+    tools = CATALOG_TOOLS if has_parts else None
 
     system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
     messages: list[dict[str, Any]] = [
@@ -251,7 +260,7 @@ def generate_profile_ai_proposal_streaming(
             messages=messages,
             temperature=0.2,
             max_tokens=8192,
-            tools=CATALOG_TOOLS,
+            tools=tools,
         )
         final_model = response.model
         _accumulate_usage(total_usage, response.usage)
@@ -295,8 +304,11 @@ def generate_profile_ai_proposal_streaming(
     yield AiProgressEvent(type="generating", data={})
 
     proposal = _parse_proposal_payload(response)
-    _validate_proposal(proposal)
-    assistant_content = proposal.get("summary") if isinstance(proposal.get("summary"), str) else response.content
+    if proposal is not None:
+        _validate_proposal(proposal)
+    assistant_content = (
+        proposal.get("summary") if proposal and isinstance(proposal.get("summary"), str) else response.content
+    )
     yield AiProposalResult(
         content=assistant_content,
         proposal=proposal,
@@ -464,7 +476,8 @@ def _insert_existing_rule(profile_like: SimpleNamespace, rule: dict[str, Any], p
         profile_like.rules.append(rule)
 
 
-def _parse_proposal_payload(response: OpenRouterResponse) -> dict[str, Any]:
+def _parse_proposal_payload(response: OpenRouterResponse) -> dict[str, Any] | None:
+    """Parse the AI response as a JSON proposal. Returns None for text-only responses."""
     if response.finish_reason == "length":
         raise APIError(502, "AI response was truncated (too long). Try a simpler request.", "AI_RESPONSE_TRUNCATED")
     content = response.content.strip()
@@ -484,7 +497,8 @@ def _parse_proposal_payload(response: OpenRouterResponse) -> dict[str, Any]:
     # Find the outermost balanced JSON object by tracking brace depth
     start = content.find("{")
     if start == -1:
-        raise APIError(502, "AI response did not contain valid JSON", "AI_INVALID_JSON")
+        # No JSON found — this is a text-only response (e.g. answering a question)
+        return None
 
     depth = 0
     in_string = False
@@ -573,20 +587,26 @@ def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any
         color_list = ", ".join(f"{cid}: {c['name']}" for cid, c in sorted(colors.items()))
         catalog_section += f"\nColors:\n{color_list}\n"
 
-    tool_section = """
+    has_parts = bool(catalog.parts_data.parts)
+
+    if has_parts:
+        tool_section = """
 You have a tool to search the LEGO parts catalog:
 - **search_parts**: Search parts by name, number, or keyword. Returns matching parts with category, year range, and BrickLink info.
 
 Only use this tool when you need to look up specific parts or verify part numbers. For most requests, the category and color lists above are sufficient."""
+    else:
+        tool_section = """
+Note: The parts catalog has not been synced yet, so no parts data is available for search. Use your built-in knowledge of LEGO categories, part types, and naming conventions to create rules. Do NOT use the search_parts tool — it will return no results."""
 
     return f"""You help users create LEGO sorting profiles.
 
 Profiles contain top-level categories and nested child rules. Child rules refine matching, but final parts still map to their top-level parent category.
 {tool_section}
 
-When you are ready, return strict JSON only with this shape:
+You MUST always respond with JSON matching this schema:
 {{
-  "summary": "short human summary of what you changed",
+  "summary": "human-readable message to the user",
   "proposals": [
     {{
       "action": "edit" | "create" | "move" | "delete",
@@ -600,7 +620,8 @@ When you are ready, return strict JSON only with this shape:
   ]
 }}
 
-For delete actions, only target_rule_id is required (no name, conditions, or match_mode needed).
+- If no rule changes are needed (e.g. the user asks a question), set proposals to an empty array [] and put your answer in summary.
+- For delete actions, only target_rule_id is required (no name, conditions, or match_mode needed).
 
 Current rules:
 {json.dumps(payload_rules, indent=2)}
@@ -618,8 +639,7 @@ Guidelines:
 - Keep proposals small and actionable.
 - If the user asks to split a category into multiple child rules, return multiple proposals.
 - Prefer 'contains' over complex regex unless the user explicitly asks for regex.
-- Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks").
-- Your final message must be ONLY the JSON object. No markdown fences, no extra text."""
+- Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks")."""
 
 
 def generate_change_note(
@@ -630,12 +650,19 @@ def generate_change_note(
 ) -> str:
     """Use Haiku to generate a concise change note from the user request and AI proposal."""
     summary = proposal.get("summary", "")
-    actions = []
+
+    # Build a detailed description of what changed
+    change_details: list[str] = []
     for p in proposal.get("proposals", []):
         action = p.get("action", "?")
         name = p.get("name", "rule")
-        actions.append(f"{action} \"{name}\"")
-    actions_str = ", ".join(actions) if actions else "no actions"
+        conditions = p.get("conditions") or []
+        cond_strs = [f"{c.get('field')} {c.get('op')} {c.get('value')}" for c in conditions]
+        detail = f"{action} \"{name}\""
+        if cond_strs:
+            detail += f" ({', '.join(cond_strs[:3])})"
+        change_details.append(detail)
+    changes_str = "\n".join(f"- {d}" for d in change_details) if change_details else "no changes"
 
     resp = run_openrouter_chat(
         api_key=api_key,
@@ -644,18 +671,21 @@ def generate_change_note(
             {
                 "role": "system",
                 "content": (
-                    "Generate a short git-commit-style change note (max 80 chars) for a LEGO sorting profile update. "
-                    "Be concise and descriptive. Return ONLY the change note text, nothing else. "
+                    "Generate a short change note (1 sentence, max 100 chars) for a LEGO sorting profile version. "
+                    "Describe WHAT changed, not who requested it. "
+                    "Examples: 'Add Technic sub-categories for gears, beams and axles', "
+                    "'Remove duplicate plate rules', 'Split Bricks into basic and decorative'. "
+                    "Return ONLY the change note, no quotes, no prefix. "
                     "Write in the same language as the user message."
                 ),
             },
             {
                 "role": "user",
-                "content": f"User request: {user_message}\nAI summary: {summary}\nActions: {actions_str}",
+                "content": f"User request: {user_message}\nAI summary: {summary}\nChanges:\n{changes_str}",
             },
         ],
         temperature=0.0,
-        max_tokens=100,
+        max_tokens=120,
     )
     return resp.content.strip().strip('"')
 

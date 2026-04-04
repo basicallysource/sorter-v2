@@ -19,16 +19,16 @@
 	};
 
 	const statusBorder: Record<string, string> = {
-		accepted: 'border-t-green-400',
-		rejected: 'border-t-red-400',
-		in_review: 'border-t-blue-400',
-		conflict: 'border-t-yellow-400',
-		unreviewed: 'border-t-gray-200'
+		accepted: 'border-t-[#00852B]',
+		rejected: 'border-t-[#D01012]',
+		in_review: 'border-t-[#0055BF]',
+		conflict: 'border-t-[#FFD500]',
+		unreviewed: 'border-t-[#E2E0DB]'
 	};
 </script>
 
 <a
-	class="group block cursor-pointer overflow-hidden border border-gray-200 border-t-2 {statusBorder[sample.review_status] ?? 'border-t-gray-200'} bg-white text-left shadow-sm transition hover:shadow-md"
+	class="group block cursor-pointer overflow-hidden border border-[#E2E0DB] border-t-2 {statusBorder[sample.review_status] ?? 'border-t-[#E2E0DB]'} bg-white text-left transition hover:border-[#7A7770]"
 	{href}
 >
 	<div class="aspect-square overflow-hidden bg-gray-100">

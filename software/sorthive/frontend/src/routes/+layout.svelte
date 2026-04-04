@@ -40,39 +40,39 @@
 	</div>
 {:else}
 	{#if auth.isAuthenticated}
-		<nav class="border-b border-gray-200 bg-white">
+		<nav class="border-b border-[#E2E0DB] bg-white">
 			<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 				<div class="flex items-center gap-6">
-					<a href="/" class="text-lg font-bold text-gray-900">SortHive</a>
+					<a href="/" class="text-lg font-bold tracking-tight text-[#1A1A1A]">SortHive</a>
 					<div class="flex gap-1">
 						<a
 							href="/"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 						>
 							Dashboard
 						</a>
 						<a
 							href="/machines"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 						>
 							Machines
 						</a>
 						<a
 							href="/profiles"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/profiles') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/profiles') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 						>
 							Profiles
 						</a>
 						<a
 							href="/samples"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 						>
 							Samples
 						</a>
 						{#if auth.isReviewer}
 							<a
 								href="/review"
-								class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/review' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+								class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/review' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 							>
 								Review
 							</a>
@@ -82,7 +82,7 @@
 				<div class="relative">
 					<button
 						onclick={() => { dropdownOpen = !dropdownOpen; }}
-						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+						class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 					>
 						<span>{auth.user?.display_name ?? auth.user?.email}</span>
 						<svg class="h-4 w-4 transition-transform {dropdownOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -97,54 +97,54 @@
 							onclick={() => { dropdownOpen = false; }}
 							onkeydown={() => {}}
 						></div>
-						<div class="absolute right-0 z-50 mt-1 w-56 border border-gray-200 bg-white py-1 shadow-lg">
-							<div class="border-b border-gray-100 px-4 py-2">
-								<p class="text-sm font-medium text-gray-900">{auth.user?.display_name}</p>
-								<p class="text-xs text-gray-500">{auth.user?.email}</p>
+						<div class="absolute right-0 z-50 mt-1 w-56 border border-[#E2E0DB] bg-white py-1">
+							<div class="border-b border-[#E2E0DB] px-4 py-2">
+								<p class="text-sm font-medium text-[#1A1A1A]">{auth.user?.display_name}</p>
+								<p class="text-xs text-[#7A7770]">{auth.user?.email}</p>
 							</div>
 
 							<a
 								href="/settings"
-								class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+								class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]"
 								onclick={() => { dropdownOpen = false; }}
 							>
-								<svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<svg class="h-4 w-4 text-[#7A7770]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 								</svg>
 								Profile & Settings
 							</a>
 							<a
 								href="/settings#password"
-								class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+								class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]"
 								onclick={() => { dropdownOpen = false; }}
 							>
-								<svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<svg class="h-4 w-4 text-[#7A7770]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
 								</svg>
 								Change Password
 							</a>
 
 							{#if auth.isAdmin}
-								<div class="border-t border-gray-100 my-1"></div>
+								<div class="border-t border-[#E2E0DB] my-1"></div>
 								<div class="px-4 py-1">
-									<p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Admin</p>
+									<p class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Admin</p>
 								</div>
 								<a
 									href="/admin/users"
-									class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+									class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]"
 									onclick={() => { dropdownOpen = false; }}
 								>
-									<svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg class="h-4 w-4 text-[#7A7770]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
 									</svg>
 									Manage Users
 								</a>
 							{/if}
 
-							<div class="border-t border-gray-100 my-1"></div>
+							<div class="border-t border-[#E2E0DB] my-1"></div>
 							<button
 								onclick={handleLogout}
-								class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+								class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

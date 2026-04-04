@@ -549,7 +549,7 @@
 				{#if hasEndstop && endstopTriggered !== null}
 					<div
 						class="mt-1 text-xs {endstopTriggered
-							? 'text-green-600 dark:text-green-400'
+							? 'text-[#00852B] dark:text-green-400'
 							: 'text-text-muted'}"
 					>
 						Endstop: {endstopTriggered ? 'Triggered' : 'Not Triggered'}
@@ -583,7 +583,7 @@
 			<button
 				onclick={stopStepper}
 				disabled={stopping || homing || canceling}
-				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-red-500 bg-red-500/10 px-3 text-sm text-red-600 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
+				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-[#D01012] bg-[#D01012]/10 px-3 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
 			>
 				<Square size={14} />
 				Stop
@@ -684,7 +684,7 @@
 				<button
 					onclick={cancelHoming}
 					disabled={!homing || canceling}
-					class="cursor-pointer border border-red-500 bg-red-500/20 px-3 py-2 text-sm text-red-600 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
+					class="cursor-pointer border border-[#D01012] bg-[#D01012]/20 px-3 py-2 text-sm text-[#D01012] hover:bg-[#D01012]/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
 				>
 					{canceling ? 'Canceling...' : 'Cancel Homing'}
 				</button>
@@ -793,7 +793,7 @@
 							<div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
 								<div
 									class={tmcDrvStatus.ot
-										? 'font-semibold text-red-500'
+										? 'font-semibold text-[#D01012]'
 										: 'text-text-muted'}
 								>
 									Overtemp: {tmcDrvStatus.ot ? 'YES' : 'No'}
@@ -807,14 +807,14 @@
 								</div>
 								<div
 									class={tmcDrvStatus.s2ga
-										? 'font-semibold text-red-500'
+										? 'font-semibold text-[#D01012]'
 										: 'text-text-muted'}
 								>
 									Short A: {tmcDrvStatus.s2ga ? 'YES' : 'No'}
 								</div>
 								<div
 									class={tmcDrvStatus.s2gb
-										? 'font-semibold text-red-500'
+										? 'font-semibold text-[#D01012]'
 										: 'text-text-muted'}
 								>
 									Short B: {tmcDrvStatus.s2gb ? 'YES' : 'No'}
@@ -847,7 +847,7 @@
 								</div>
 								<div
 									class="col-span-2 {tmcDrvStatus.ot
-										? 'font-semibold text-red-500'
+										? 'font-semibold text-[#D01012]'
 										: tmcDrvStatus.otpw
 											? 'font-semibold text-yellow-500'
 											: 'text-text-muted'}"
@@ -916,13 +916,13 @@
 		<!-- Status / Error footer -->
 		<div class="mt-auto">
 			{#if errorMsg}
-				<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
+				<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
 			{:else if statusMsg}
 				<div class="text-sm text-text-muted">{statusMsg}</div>
 			{:else if homing}
-				<div class="text-sm text-blue-500">Homing to endstop...</div>
+				<div class="text-sm text-[#D01012]">Homing to endstop...</div>
 			{:else if calibrating}
-				<div class="text-sm text-blue-500">Calibrating full rotation...</div>
+				<div class="text-sm text-[#D01012]">Calibrating full rotation...</div>
 			{/if}
 		</div>
 	</div>

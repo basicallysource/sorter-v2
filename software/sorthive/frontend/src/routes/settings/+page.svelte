@@ -166,11 +166,11 @@
 								<input
 									type="text"
 									bind:value={displayName}
-									class="flex-1 border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+									class="flex-1 border border-gray-300 px-3 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 								/>
 								<button
 									onclick={handleSaveName}
-									class="bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+									class="bg-[#D01012] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#B00E10]"
 								>
 									Save
 								</button>
@@ -189,7 +189,7 @@
 								<span class="font-medium text-gray-900">{auth.user.display_name}</span>
 								<button
 									onclick={() => { editingName = true; displayName = auth.user?.display_name ?? ''; }}
-									class="text-xs text-blue-600 hover:text-blue-800"
+									class="text-xs text-[#D01012] hover:text-[#B00E10]"
 								>
 									Edit
 								</button>
@@ -247,7 +247,7 @@
 							type="password"
 							bind:value={currentPassword}
 							required
-							class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						/>
 					</div>
 				{/if}
@@ -259,7 +259,7 @@
 						bind:value={newPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 				<div>
@@ -270,7 +270,7 @@
 						bind:value={confirmPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 
@@ -283,7 +283,7 @@
 
 				<button
 					type="submit"
-					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 				>
 					{auth.user.has_password ? 'Change Password' : 'Set Password'}
 				</button>
@@ -296,7 +296,7 @@
 			<p class="mb-4 text-sm text-gray-600">
 				SortHive uses your personal OpenRouter key on the server side for profile-generation prompts, rule suggestions, and assisted edits.
 			</p>
-			<div class="mb-4 rounded bg-gray-50 p-3 text-sm text-gray-600">
+			<div class="mb-4 bg-gray-50 p-3 text-sm text-gray-600">
 				OpenRouter key:
 				<span class="font-medium text-gray-900">
 					{auth.user.openrouter_configured ? 'configured' : 'not configured'}
@@ -313,7 +313,7 @@
 						type="password"
 						bind:value={openrouterApiKey}
 						placeholder={auth.user.openrouter_configured ? 'Leave blank to keep current key' : 'sk-or-v1-...'}
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 					<p class="mt-1 text-xs text-gray-500">
 						The key is stored encrypted and only used by SortHive when you ask for AI help.
@@ -325,7 +325,7 @@
 					<select
 						id="preferred-model"
 						bind:value={preferredAiModel}
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					>
 						{#each aiModelOptions as model}
 							<option value={model}>{model}</option>
@@ -344,7 +344,7 @@
 					<button
 						type="submit"
 						disabled={aiSaving}
-						class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+						class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 					>
 						{aiSaving ? 'Saving...' : 'Save AI Settings'}
 					</button>

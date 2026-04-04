@@ -606,7 +606,7 @@
 	</div>
 {:else}
 	<!-- Self-contained mode: toolbar + canvas -->
-	<div class="space-y-4 border border-gray-200 bg-white p-4 shadow-sm">
+	<div class="space-y-4 border border-gray-200 bg-white p-4">
 		<div class="flex flex-wrap items-center gap-2">
 			<div class="inline-flex border border-gray-200 bg-gray-50 p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
@@ -617,7 +617,7 @@
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
-				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {saving || !isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 			>{saving ? 'Saving...' : 'Save'}</button>
 			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
 				class="border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-red-50'}"
@@ -643,7 +643,7 @@
 			</span>
 		</div>
 
-		<div class="border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+		<div class="border border-[#0055BF]/10 bg-sky-50 px-3 py-2 text-xs text-[#0055BF]">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 

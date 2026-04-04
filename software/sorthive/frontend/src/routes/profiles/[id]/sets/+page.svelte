@@ -115,7 +115,7 @@
 	{#if loading}
 		<div class="py-12 text-center text-gray-500">Loading...</div>
 	{:else if error}
-		<div class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+		<div class="mb-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
 	{:else}
 		<div class="space-y-5">
 			<!-- Search -->
@@ -127,7 +127,7 @@
 					bind:value={setQuery}
 					oninput={handleSearchInput}
 					placeholder="Search by name or set number..."
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				/>
 
 				{#if searching}
@@ -190,7 +190,7 @@
 			<button
 				onclick={handleSave}
 				disabled={saving || selectedSets.length === 0}
-				class="w-full bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+				class="w-full bg-[#D01012] px-4 py-3 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 			>
 				{saving ? 'Compiling...' : 'Save & Compile'}
 			</button>

@@ -92,7 +92,7 @@
 	</div>
 
 	{#if error}
-		<div class="mb-3 text-xs text-red-600">{error}</div>
+		<div class="mb-3 text-xs text-[#D01012]">{error}</div>
 	{/if}
 
 	{#if !is_set_based}
@@ -110,7 +110,7 @@
 			</div>
 			<div class="h-3 w-full bg-bg">
 				<div
-					class="h-full bg-blue-500 transition-all"
+					class="h-full bg-[#D01012] transition-all"
 					style="width: {progress.overall_pct}%"
 				></div>
 			</div>
@@ -142,14 +142,14 @@
 							</div>
 							<div class="mt-1.5 h-2 w-full bg-bg">
 								<div
-									class="h-full transition-all {set_progress.pct >= 100 ? 'bg-green-500' : 'bg-blue-500'}"
+									class="h-full transition-all {set_progress.pct >= 100 ? 'bg-[#00852B]' : 'bg-[#D01012]'}"
 									style="width: {Math.min(set_progress.pct, 100)}%"
 								></div>
 							</div>
 							{#if missing_parts.length > 0}
 								<div class="mt-1 text-xs text-text-muted">{missing_parts.length} parts still missing</div>
 							{:else}
-								<div class="mt-1 text-xs text-green-600">Complete!</div>
+								<div class="mt-1 text-xs text-[#00852B]">Complete!</div>
 							{/if}
 						</div>
 					</button>

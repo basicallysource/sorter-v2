@@ -183,7 +183,7 @@
 						</h3>
 						<div class="flex items-center gap-2">
 							{#if activeLayer === layer.layer_index}
-								<span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span>
+								<span class="text-xs font-medium text-[#00852B] dark:text-emerald-400">Active</span>
 							{/if}
 							{#if !layer.enabled}
 								<span class="text-xs text-text-muted">Disabled</span>
@@ -210,7 +210,7 @@
 												disabled={!!movingTo || !layer.enabled}
 												class="group relative flex min-h-[4rem] flex-1 flex-col items-center justify-center border transition-colors
 													{isCurrent
-														? 'border-emerald-500 bg-emerald-100 text-emerald-800 dark:border-emerald-400 dark:bg-emerald-900/40 dark:text-emerald-300'
+														? 'border-[#00852B] bg-[#00852B]/10 text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/20 dark:text-emerald-300'
 														: layer.enabled
 															? 'border-border bg-bg text-text hover:bg-surface'
 															: 'border-border bg-bg text-text-muted opacity-50 cursor-not-allowed'}
@@ -224,7 +224,7 @@
 													<span class="text-[10px] text-text-muted">{bin.angle}&deg;</span>
 												{/if}
 												{#if isCurrent}
-													<div class="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 dark:bg-emerald-400"></div>
+													<div class="absolute -top-1 -right-1 h-2 w-2 bg-[#00852B] dark:bg-[#00852B]"></div>
 												{/if}
 												{#if layer.enabled}
 													<div class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">

@@ -71,7 +71,7 @@
 {#if loading}
 	<div class="py-8 text-center text-text-muted">Loading...</div>
 {:else if error}
-	<div class="py-8 text-center text-red-500">{error}</div>
+	<div class="py-8 text-center text-[#D01012]">{error}</div>
 {:else if Object.keys(definitions).length === 0}
 	<div class="py-8 text-center text-text-muted">
 		No runtime variables are exposed by the current backend.

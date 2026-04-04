@@ -148,7 +148,7 @@
 								{#if String(user.id) !== String(auth.user?.id)}
 									<button
 										onclick={() => { deletingUser = user; }}
-										class="text-xs font-medium text-red-600 hover:text-red-800"
+										class="text-xs font-medium text-[#9B1D20] hover:text-[#9B1D20]"
 									>
 										Delete
 									</button>
@@ -171,8 +171,8 @@
 			</p>
 			<div class="space-y-2">
 				{#each ['member', 'reviewer', 'admin'] as role}
-					<label class="flex items-center gap-3 border border-gray-200 p-3 cursor-pointer hover:bg-gray-50 {selectedRole === role ? 'border-blue-500 bg-blue-50' : ''}">
-						<input type="radio" bind:group={selectedRole} value={role} class="text-blue-600" />
+					<label class="flex items-center gap-3 border border-gray-200 p-3 cursor-pointer hover:bg-gray-50 {selectedRole === role ? 'border-[#D01012] bg-[#FEF2F2]' : ''}">
+						<input type="radio" bind:group={selectedRole} value={role} class="text-[#D01012]" />
 						<div>
 							<p class="text-sm font-medium text-gray-900 capitalize">{role}</p>
 							<p class="text-xs text-gray-500">
@@ -197,7 +197,7 @@
 				</button>
 				<button
 					onclick={saveRole}
-					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 				>
 					Save Role
 				</button>

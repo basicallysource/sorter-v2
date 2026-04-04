@@ -224,7 +224,7 @@
 			<div
 				class={`inline-flex w-fit rounded px-2 py-1 text-sm font-medium ${
 					endstopTriggered === true
-						? 'bg-green-500/15 text-green-700 dark:text-green-300'
+						? 'bg-[#00852B]/15 text-[#00852B] dark:text-green-300'
 						: endstopTriggered === false
 							? 'bg-surface text-text'
 							: 'bg-surface text-text-muted'
@@ -290,7 +290,7 @@
 			<button
 				onclick={cancelFindEndstop}
 				disabled={!calibrating || canceling}
-				class="w-full cursor-pointer border border-red-500 bg-red-500/20 px-3 py-1.5 text-sm text-red-600 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:text-red-400"
+				class="w-full cursor-pointer border border-[#D01012] bg-[#D01012]/20 px-3 py-1.5 text-sm text-[#D01012] hover:bg-[#D01012]/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:text-red-400"
 			>
 				{canceling ? 'Canceling...' : 'Cancel Homing'}
 			</button>
@@ -370,7 +370,7 @@
 	</div>
 
 	{#if errorMsg}
-		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
 		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}

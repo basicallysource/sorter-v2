@@ -370,7 +370,7 @@
 
 	function statusToneClass(target: SortHiveTarget): string {
 		if (!target.enabled) return 'text-amber-600 dark:text-amber-400';
-		if (target.uploader.server_reachable) return 'text-emerald-600 dark:text-emerald-400';
+		if (target.uploader.server_reachable) return 'text-[#00852B] dark:text-emerald-400';
 		return 'text-amber-600 dark:text-amber-400';
 	}
 
@@ -468,7 +468,7 @@
 									type="button"
 									onclick={() => void handleRemoveTarget(target)}
 									disabled={removingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-red-700 bg-red-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-500"
+									class="inline-flex items-center gap-1.5 border border-[#D01012] bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#D01012]/80 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#D01012] dark:bg-[#D01012] dark:hover:bg-[#D01012]/80"
 								>
 									<Trash2 size={12} />
 									{removingTargetId === target.id ? 'Removing...' : 'Remove'}
@@ -486,7 +486,7 @@
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
-							<div class="mt-3 rounded border border-emerald-600 bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-200">
+							<div class="mt-3 border border-[#00852B] bg-[#00852B]/10 px-3 py-2 text-sm font-medium text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/10 dark:text-emerald-200">
 								{backfillResult}
 							</div>
 						{/if}
@@ -510,7 +510,7 @@
 									<div class="text-text-muted">Requeued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-red-500' : 'text-text'}">{target.uploader.failed}</div>
+									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-[#D01012]' : 'text-text'}">{target.uploader.failed}</div>
 									<div class="text-text-muted">Failed</div>
 								</div>
 							</div>
@@ -631,7 +631,7 @@
 	{/if}
 
 	{#if errorMsg}
-		<div class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400">
+		<div class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400">
 			{errorMsg}
 		</div>
 	{/if}

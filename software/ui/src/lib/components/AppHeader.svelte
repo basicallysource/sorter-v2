@@ -51,7 +51,7 @@
 		class="flex items-center gap-2 text-text transition-colors"
 		title="Dashboard"
 	>
-		<h1 class="text-2xl font-bold">Sorter</h1>
+		<h1 class="text-xl font-bold font-mono uppercase tracking-tight">Sorter</h1>
 	</a>
 	<div class="flex items-center gap-2">
 		<MachineDropdown />

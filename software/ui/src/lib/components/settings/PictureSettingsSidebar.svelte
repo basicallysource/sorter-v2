@@ -740,7 +740,7 @@
 
 		{#if error}
 			<div
-				class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
+				class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400"
 			>
 				{error}
 			</div>
@@ -840,7 +840,7 @@
 															<span class="font-medium text-text">{tile.label}</span>
 														</div>
 														<span
-															class:text-emerald-700={tile.matchTone === 'good'}
+															class:text-[#00852B]={tile.matchTone === 'good'}
 															class:text-amber-700={tile.matchTone === 'okay'}
 															class:text-rose-700={tile.matchTone === 'weak'}
 															class:dark:text-emerald-300={tile.matchTone === 'good'}
@@ -1105,7 +1105,7 @@
 					<button
 						onclick={saveSettings}
 						disabled={saving || calibrating || !hasUnsavedChanges()}
-						class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-2 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
 					>
 						<Save size={15} />
 						<span>{saving ? 'Saving...' : 'Save'}</span>

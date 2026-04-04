@@ -133,12 +133,12 @@
 	<div class="space-y-6">
 		<!-- Header -->
 		<div>
-			<a href="/profiles" class="text-sm text-blue-600 hover:text-blue-800">&larr; Profiles</a>
+			<a href="/profiles" class="text-sm text-[#D01012] hover:text-[#B00E10]">&larr; Profiles</a>
 			<h1 class="mt-2 text-2xl font-bold text-gray-900">{profile.name}</h1>
 			{#if profile.description}<p class="mt-1 text-sm text-gray-500">{profile.description}</p>{/if}
 			<div class="mt-3 flex flex-wrap items-center gap-2">
 				{#each profile.tags as tag}
-					<span class="border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{tag}</span>
+					<span class="border border-[#D01012]/20 bg-[#FEF2F2] px-2 py-0.5 text-xs font-medium text-[#D01012]">{tag}</span>
 				{/each}
 				{#if profile.is_owner}
 					<span class="border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600">{profile.visibility}</span>
@@ -153,9 +153,9 @@
 		<!-- Stats Bar -->
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
 			{#each stats as s}
-				<div class="border border-gray-200 border-l-4 border-l-blue-500 bg-white p-4">
+				<div class="border border-gray-200 bg-white p-4">
 					<div class="text-lg font-semibold text-gray-900">{s.value}</div>
-					<div class="text-xs text-gray-500">{s.label}</div>
+					<div class="flex items-center gap-2 text-xs font-medium text-[#0055BF]"><span class="inline-block h-2.5 w-2.5 bg-[#0055BF]"></span>{s.label}</div>
 				</div>
 			{/each}
 		</div>
@@ -166,7 +166,7 @@
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
 			{#if profile.is_owner}
-				<a href="/profiles/{profile.id}/edit" class="inline-block bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Edit Profile</a>
+				<a href="/profiles/{profile.id}/edit" class="inline-block bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Edit Profile</a>
 			{:else}
 				<button onclick={() => void toggleLibrary()} disabled={libraryBusy} class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
 					{libraryBusy ? 'Updating...' : profile.saved_in_library ? 'In Library \u2713' : 'Save to Library'}
@@ -190,7 +190,7 @@
 					{#each sortedCategories as cat}
 						<div class="flex items-center gap-3">
 							<div class="w-40 truncate text-sm text-gray-700">{cat.name}{#if cat.isFallback} <span class="text-xs text-gray-400">(fallback)</span>{/if}</div>
-							<div class="flex-1"><div class="h-5 bg-blue-100" style="width: {cat.pct}%"><div class="h-full bg-blue-500" style="width: 100%"></div></div></div>
+							<div class="flex-1"><div class="h-5 bg-[#FEF2F2]" style="width: {cat.pct}%"><div class="h-full bg-[#0055BF]" style="width: 100%"></div></div></div>
 							<div class="w-20 text-right text-sm text-gray-500">{cat.parts} parts</div>
 						</div>
 					{/each}
@@ -233,32 +233,32 @@
 				<div class="space-y-4">
 					<div>
 						<label for="s-name" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
-						<input id="s-name" type="text" bind:value={settingsName} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+						<input id="s-name" type="text" bind:value={settingsName} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 					</div>
 					<div>
 						<label for="s-desc" class="mb-1 block text-sm font-medium text-gray-700">Description</label>
-						<textarea id="s-desc" rows="3" bind:value={settingsDescription} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+						<textarea id="s-desc" rows="3" bind:value={settingsDescription} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"></textarea>
 					</div>
 					<div>
 						<label for="s-vis" class="mb-1 block text-sm font-medium text-gray-700">Visibility</label>
-						<select id="s-vis" bind:value={settingsVisibility} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+						<select id="s-vis" bind:value={settingsVisibility} class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]">
 							<option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option>
 						</select>
 					</div>
 					<div>
 						<label for="s-tags" class="mb-1 block text-sm font-medium text-gray-700">Tags</label>
-						<input id="s-tags" type="text" bind:value={settingsTags} placeholder="starter, workshop, plates" class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+						<input id="s-tags" type="text" bind:value={settingsTags} placeholder="starter, workshop, plates" class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 						{#if parsedTags.length > 0}
 							<div class="mt-2 flex flex-wrap gap-1">
 								{#each parsedTags as tag}
-									<span class="inline-flex items-center gap-1 border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-										{tag}<button onclick={() => removeTag(tag)} class="text-blue-400 hover:text-blue-700" aria-label="Remove tag {tag}">&times;</button>
+									<span class="inline-flex items-center gap-1 border border-[#D01012]/20 bg-[#FEF2F2] px-2 py-0.5 text-xs font-medium text-[#D01012]">
+										{tag}<button onclick={() => removeTag(tag)} class="text-[#D01012]/60 hover:text-[#D01012]" aria-label="Remove tag {tag}">&times;</button>
 									</span>
 								{/each}
 							</div>
 						{/if}
 					</div>
-					<button onclick={() => void saveSettings()} disabled={savingSettings} class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+					<button onclick={() => void saveSettings()} disabled={savingSettings} class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 						{savingSettings ? 'Saving...' : 'Save Changes'}
 					</button>
 				</div>

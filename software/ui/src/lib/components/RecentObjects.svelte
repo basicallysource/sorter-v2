@@ -132,7 +132,7 @@
 									size={14}
 									class={`flex-shrink-0 ${
 										obj.classification_status === 'multi_drop_fail'
-											? 'text-red-500 dark:text-red-400'
+											? 'text-[#D01012] dark:text-red-400'
 											: 'text-yellow-500'
 									}`}
 								/>

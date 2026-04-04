@@ -1,19 +1,25 @@
 @import 'tailwindcss';
 
 @theme {
-	--color-bg: #ffffff;
-	--color-surface: #f5f5f5;
-	--color-border: #e5e5e5;
-	--color-text: #171717;
-	--color-text-muted: #737373;
+	--color-bg: #F7F6F3;
+	--color-surface: #FFFFFF;
+	--color-border: #E2E0DB;
+	--color-text: #1A1A1A;
+	--color-text-muted: #7A7770;
+	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', monospace;
 }
 
 .dark {
-	--color-bg: #0a0a0a;
-	--color-surface: #171717;
-	--color-border: #262626;
-	--color-text: #fafafa;
-	--color-text-muted: #a3a3a3;
+	--color-bg: #0D0D0C;
+	--color-surface: #1A1918;
+	--color-border: #2A2926;
+	--color-text: #F5F4F1;
+	--color-text-muted: #9A9890;
+}
+
+body {
+	font-family: 'IBM Plex Sans', system-ui, sans-serif;
 }
 
 *:focus-visible {

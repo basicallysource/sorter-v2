@@ -1893,7 +1893,7 @@
 				<div
 					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
 						statusMsg.startsWith('Error:')
-							? 'border-red-400 bg-red-50 text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400'
+							? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
 							: 'border-border bg-bg text-text-muted'
 					}`}
 				>
@@ -1958,7 +1958,7 @@
 				<button
 					onclick={saveAll}
 					disabled={saving}
-					class="inline-flex cursor-pointer items-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+					class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-1.5 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
 				>
 					<Check size={15} />
 					<span>{saving ? 'Saving...' : 'Save Zone'}</span>
@@ -1967,7 +1967,7 @@
 				<button
 					onclick={beginEditing}
 					disabled={currentAssignment() === null}
-					class="inline-flex cursor-pointer items-center gap-2 border border-blue-500 bg-blue-500/15 px-3 py-1.5 text-sm text-blue-700 transition-colors hover:bg-blue-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-300"
+					class="inline-flex cursor-pointer items-center gap-2 border border-[#D01012] bg-[#D01012]/15 px-3 py-1.5 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
 				>
 					<Pencil size={15} />
 					<span>Edit Zone</span>
@@ -2143,7 +2143,7 @@
 			<div class="flex flex-col gap-4">
 				{#if cameraError}
 					<div
-						class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
+						class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400"
 					>
 						{cameraError}
 					</div>
@@ -2171,10 +2171,10 @@
 									onclick={() => selectCamera(role, cam.index)}
 									disabled={usedByOther || cameraSaving}
 									class="group relative overflow-hidden text-left transition-all {isSelected
-										? 'ring-2 ring-blue-500'
+										? 'ring-2 ring-[#D01012]'
 										: usedByOther
 											? 'cursor-not-allowed opacity-40'
-											: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+											: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
 								>
 									{#if cam.preview_available === false}
 										<div
@@ -2204,7 +2204,7 @@
 									</div>
 									{#if isSelected}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
 										>
 											Active
 										</div>
@@ -2231,10 +2231,10 @@
 										onclick={() => saveCameraRole(role, cam.source)}
 										disabled={usedByOther || cameraSaving}
 										class="group relative overflow-hidden text-left transition-all {isSelected
-											? 'ring-2 ring-blue-500'
+											? 'ring-2 ring-[#D01012]'
 											: usedByOther
 												? 'cursor-not-allowed opacity-40'
-												: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+												: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
 									>
 										<img
 											src={discoveredPreviewUrl(cam)}
@@ -2252,7 +2252,7 @@
 										</div>
 										{#if isSelected}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
 											>
 												Active
 											</div>
@@ -2291,7 +2291,7 @@
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}
 							disabled={cameraSaving}
-							class="cursor-pointer text-xs text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+							class="cursor-pointer text-xs text-[#D01012] transition-colors hover:text-[#D01012]/80 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
 						>
 							Remove current camera
 						</button>

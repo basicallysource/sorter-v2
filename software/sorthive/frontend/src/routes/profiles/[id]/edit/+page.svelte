@@ -631,22 +631,22 @@
 		</div>
 		<div class="relative">
 			<button onclick={openSavePopover} disabled={savingVersion}
-				class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+				class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 				Save
 			</button>
 			{#if showSavePopover}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fixed inset-0 z-40" onclick={closeSavePopover} onkeydown={(e) => { if (e.key === 'Escape') closeSavePopover(); }}></div>
-				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-gray-200 bg-white p-4 shadow-lg">
+				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-gray-200 bg-white p-4">
 					<h3 class="mb-2 text-sm font-semibold text-gray-900">Save New Version</h3>
 					<label class="mb-1 block text-xs text-gray-500" for="save-note">What changed? (optional)</label>
 					<input id="save-note" type="text" bind:value={changeNote} placeholder="e.g. Added gear categories"
-						class="mb-3 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="mb-3 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						onkeydown={(e) => { if (e.key === 'Enter') void saveVersion(); }} />
 					<div class="flex justify-end gap-2">
 						<button onclick={closeSavePopover} class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
 						<button onclick={() => void saveVersion()} disabled={savingVersion}
-							class="bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+							class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 							{savingVersion ? 'Saving...' : 'Save'}
 						</button>
 					</div>
@@ -688,7 +688,7 @@
 					<div class="flex gap-2">
 						<button onclick={() => { if (previewVersion) void restoreVersion(previewVersion.id); }}
 							disabled={restoringVersionId !== null}
-							class="bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+							class="bg-[#D01012] px-2 py-1 text-xs font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 							{restoringVersionId ? 'Restoring...' : 'Restore'}
 						</button>
 						<button onclick={exitPreview}
@@ -749,12 +749,12 @@
 			<div class="flex border-b border-gray-200">
 				<button onclick={() => { rightTab = 'chat'; }}
 					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-						{rightTab === 'chat' ? 'border-b-2 border-b-blue-500 text-blue-700' : 'text-gray-500 hover:text-gray-700'}">
+						{rightTab === 'chat' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-gray-500 hover:text-gray-700'}">
 					AI Chat
 				</button>
 				<button onclick={() => { rightTab = 'versions'; }}
 					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-						{rightTab === 'versions' ? 'border-b-2 border-b-blue-500 text-blue-700' : 'text-gray-500 hover:text-gray-700'}">
+						{rightTab === 'versions' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-gray-500 hover:text-gray-700'}">
 					Versions
 					<span class="ml-1 text-xs font-normal text-gray-400">· {profile.versions.length}</span>
 				</button>
@@ -769,12 +769,15 @@
 						<div class="divide-y divide-gray-100">
 							{#each [...profile.versions].reverse() as version (version.id)}
 								{@const isCurrent = version.id === profile.current_version?.id}
-								<div class="px-4 py-3 {isCurrent ? 'border-l-2 border-l-blue-500 bg-blue-50' : ''}">
+								<div class="px-4 py-3 {isCurrent ? 'bg-[#FEF2F2]' : ''}">
 									<div class="flex items-center justify-between">
 										<div class="flex items-center gap-2">
-											<span class="text-sm font-semibold text-gray-800">v{version.version_number}</span>
 											{#if isCurrent}
-												<span class="bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-700">current</span>
+												<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
+											{/if}
+											<span class="text-sm font-semibold {isCurrent ? 'text-[#D01012]' : 'text-gray-800'}">v{version.version_number}</span>
+											{#if isCurrent}
+												<span class="bg-[#FEF2F2] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#D01012]">current</span>
 											{/if}
 											{#if version.is_published}
 												<span class="bg-green-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-700">published</span>
@@ -821,7 +824,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
 					</svg>
 					<p class="mb-2 text-sm text-gray-500">AI Assistant requires an OpenRouter API key</p>
-					<a href="/settings" class="text-sm font-medium text-blue-600 hover:text-blue-800">Configure in Settings</a>
+					<a href="/settings" class="text-sm font-medium text-[#D01012] hover:text-[#B00E10]">Configure in Settings</a>
 				</div>
 			{:else}
 				<!-- Chat messages -->
@@ -844,7 +847,7 @@
 						<div class="space-y-4">
 							{#each aiMessages as msg (msg.id)}
 								<div class="{msg.role === 'user' ? 'ml-8' : 'mr-8'}">
-									<div class="mb-1 text-xs font-medium {msg.role === 'user' ? 'text-right text-blue-600' : 'text-green-600'}">
+									<div class="mb-1 text-xs font-medium {msg.role === 'user' ? 'text-right text-[#D01012]' : 'text-green-600'}">
 										{msg.role === 'user' ? 'You' : 'AI'}
 									</div>
 									{#if msg.role === 'assistant'}
@@ -886,7 +889,7 @@
 										</div>
 									{:else}
 										<!-- User message -->
-										<div class="border border-blue-200 bg-blue-50 p-3 text-sm text-gray-700">
+										<div class="border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-gray-700">
 											<div class="whitespace-pre-wrap">{msg.content}</div>
 										</div>
 									{/if}
@@ -970,11 +973,11 @@
 							placeholder={isNewProfile && workingRules.length === 0
 								? 'e.g. Sort Technic parts by function: gears, beams, connectors...'
 								: 'Ask AI to suggest changes...'}
-							class="min-w-0 flex-1 border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="min-w-0 flex-1 border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 							onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendAiMessage(); } }}
 							disabled={aiBusy} />
 						<button onclick={() => void sendAiMessage()} disabled={aiBusy || !aiMessage.trim()}
-							class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+							class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 							{aiBusy ? '...' : 'Send'}
 						</button>
 					</div>
@@ -992,7 +995,7 @@
 					Unsaved changes
 				</div>
 				<button onclick={openSavePopover} disabled={savingVersion}
-					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 					Save
 				</button>
 			</div>
@@ -1014,7 +1017,7 @@
 			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleNode(rule.id); selectRule(rule.id); } }}
 			role="button" tabindex="0"
 			class="group flex w-full cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-2 text-left transition-colors hover:bg-gray-50
-				{isOpen ? 'bg-blue-50' : ''}">
+				{isOpen ? 'bg-[#FEF2F2]' : ''}">
 			<!-- Chevron -->
 			<svg class="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform {isOpen ? 'rotate-90' : ''}" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
@@ -1051,10 +1054,10 @@
 				<div class="mb-3 flex items-center gap-2">
 					<input type="text" value={rule.name}
 						oninput={(e) => updateRule(rule.id, { name: (e.currentTarget as HTMLInputElement).value })}
-						class="min-w-0 flex-1 border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+						class="min-w-0 flex-1 border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 					<select value={rule.match_mode}
 						onchange={(e) => updateRule(rule.id, { match_mode: (e.currentTarget as HTMLSelectElement).value })}
-						class="border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-blue-500 focus:outline-none">
+						class="border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-[#D01012] focus:outline-none">
 						<option value="all">Match ALL</option>
 						<option value="any">Match ANY</option>
 					</select>
@@ -1076,21 +1079,21 @@
 										const ops = opOptionsByField[field] ?? ['eq'];
 										updateCondition(rule.id, cond.id, { field, op: ops[0] });
 									}}
-									class="w-36 border border-gray-300 px-1.5 py-1 text-xs focus:border-blue-500 focus:outline-none">
+									class="w-36 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
 									{#each fieldOptions as f}
 										<option value={f}>{f}</option>
 									{/each}
 								</select>
 								<select value={cond.op}
 									onchange={(e) => updateCondition(rule.id, cond.id, { op: (e.currentTarget as HTMLSelectElement).value })}
-									class="w-20 border border-gray-300 px-1.5 py-1 text-xs focus:border-blue-500 focus:outline-none">
+									class="w-20 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
 									{#each opOptionsByField[cond.field] ?? ['eq'] as op}
 										<option value={op}>{opLabels[op] ?? op}</option>
 									{/each}
 								</select>
 								<input type="text" value={formatConditionValue(cond.value)}
 									oninput={(e) => updateCondition(rule.id, cond.id, { value: parseConditionValue((e.currentTarget as HTMLInputElement).value) })}
-									class="min-w-0 flex-1 border border-gray-300 px-1.5 py-1 text-xs focus:border-blue-500 focus:outline-none"
+									class="min-w-0 flex-1 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none"
 									placeholder="value" />
 								<button onclick={() => deleteCondition(rule.id, cond.id)}
 									class="shrink-0 p-1 text-gray-400 hover:text-red-500" aria-label="Remove condition">
@@ -1103,7 +1106,7 @@
 					</div>
 				{/if}
 				<button onclick={() => addCondition(rule.id)}
-					class="mb-3 text-xs font-medium text-blue-600 hover:text-blue-800">+ Add condition</button>
+					class="mb-3 text-xs font-medium text-[#D01012] hover:text-[#B00E10]">+ Add condition</button>
 
 				<!-- Children (recursive) -->
 				{#if hasChildren}
@@ -1117,7 +1120,7 @@
 				<!-- Actions row -->
 				<div class="flex items-center gap-2 border-t border-gray-100 pt-2">
 					<button onclick={() => addRule(rule.id)}
-						class="text-xs font-medium text-blue-600 hover:text-blue-800">+ Add child</button>
+						class="text-xs font-medium text-[#D01012] hover:text-[#B00E10]">+ Add child</button>
 					<div class="flex-1"></div>
 					<button onclick={() => moveRule(rule.id, -1)}
 						class="p-1 text-gray-400 hover:text-gray-600" aria-label="Move up" title="Move up">
@@ -1155,7 +1158,7 @@
 								{/each}
 							</div>
 							{#if !rulePreviewExpanded && rulePreview.total > 5}
-								<button onclick={loadMorePreview} class="mt-1 text-xs text-blue-600 hover:text-blue-800">
+								<button onclick={loadMorePreview} class="mt-1 text-xs text-[#D01012] hover:text-[#B00E10]">
 									Show more ({rulePreview.total} total)
 								</button>
 							{/if}

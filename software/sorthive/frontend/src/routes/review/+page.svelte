@@ -408,7 +408,7 @@
 {#if loading}
 	<Spinner />
 {:else if empty}
-	<div class="border border-gray-200 bg-white p-10 text-center shadow-sm">
+	<div class="border border-gray-200 bg-white p-10 text-center">
 		<p class="text-lg font-medium text-gray-700">No more samples to review.</p>
 		<p class="mt-2 text-sm text-gray-500">Come back later when the queue has fresh uploads again.</p>
 	</div>
@@ -429,14 +429,14 @@
 					onclick={() => {
 						annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-gray-500 hover:text-gray-700' : 'bg-white text-gray-900 shadow-sm'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-gray-500 hover:text-gray-700' : 'bg-white text-gray-900'}"
 				>
 					Review
 				</button>
 				<button
 					type="button"
 					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
 				>
 					Annotate
 				</button>
@@ -444,7 +444,7 @@
 				{#if !annotateMode && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
 						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500 select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-blue-600" />
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-[#0055BF]" />
 							Boxes
 						</label>
 					</div>
@@ -465,7 +465,7 @@
 					externalApi={annotatorApi}
 				/>
 			{:else}
-				<div class="overflow-hidden border border-gray-200 bg-gray-950 shadow-sm">
+				<div class="overflow-hidden border border-gray-200 bg-gray-950">
 					<div class="relative">
 						<img
 							src={api.sampleImageUrl(sample.id)}
@@ -510,7 +510,7 @@
 		</div>
 
 		<div class="space-y-4">
-			<div class="border border-gray-200 bg-white p-4 shadow-sm">
+			<div class="border border-gray-200 bg-white p-4">
 				<div class="flex flex-wrap items-center gap-2">
 					<Badge text={sample.review_status} variant="info" />
 					{#if currentDecision}
@@ -590,21 +590,21 @@
 				onSaved={handleClassificationSaved}
 			/>
 
-			<div class="border border-gray-200 bg-white p-4 shadow-sm">
+			<div class="border border-gray-200 bg-white p-4">
 				<div class="space-y-2 text-xs">
 					<div class="flex items-center justify-center gap-2">
 						<button
 							type="button"
 							onclick={toggleAnnotateMode}
 							disabled={loading || submitting}
-							class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-blue-300 bg-blue-100' : 'border-blue-200 bg-blue-50 hover:bg-blue-100'}"
+							class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-[#0055BF]/30 bg-[#0055BF]/10' : 'border-[#0055BF]/20 bg-sky-50 hover:bg-sky-100'}"
 						>
-							<div class="border border-blue-300 bg-white px-2 py-1 text-[11px] font-bold text-blue-700 shadow-sm">
+							<div class="border border-[#0055BF]/30 bg-white px-2 py-1 text-[11px] font-bold text-[#0055BF]">
 								D
 							</div>
 							<div>
-								<div class="font-medium text-blue-900">Annotate</div>
-								<div class="text-[11px] text-blue-700">Toggle edit mode</div>
+								<div class="font-medium text-[#0055BF]">Annotate</div>
+								<div class="text-[11px] text-[#0055BF]">Toggle edit mode</div>
 							</div>
 						</button>
 						<button
@@ -615,7 +615,7 @@
 							disabled={!annotateMode || loading || submitting}
 							class="inline-flex items-center gap-2 border border-gray-200 bg-gray-50 px-2.5 py-2 text-left transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="border border-gray-300 bg-white px-2 py-1 text-[11px] font-bold text-gray-700 shadow-sm">
+							<div class="border border-gray-300 bg-white px-2 py-1 text-[11px] font-bold text-gray-700">
 								Esc
 							</div>
 							<div>
@@ -631,7 +631,7 @@
 							type="button"
 							onclick={() => void submitReview('accept')}
 							disabled={loading || submitting}
-							class="border border-emerald-200 bg-emerald-50 px-3 py-3 text-center shadow-sm transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-emerald-200 bg-emerald-50 px-3 py-3 text-center transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<div class="text-2xl font-bold text-emerald-700">↑</div>
 							<div class="mt-0.5 font-medium text-emerald-900">Accept</div>
@@ -642,7 +642,7 @@
 							type="button"
 							onclick={() => void goBack()}
 							disabled={reviewHistory.length === 0 || loading || submitting}
-							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center shadow-sm transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<div class="text-xl font-bold text-gray-700">←</div>
 							<div class="mt-0.5 font-medium text-gray-900">Back</div>
@@ -651,7 +651,7 @@
 							type="button"
 							onclick={() => void submitReview('reject')}
 							disabled={loading || submitting}
-							class="border border-red-200 bg-red-50 px-3 py-3 text-center shadow-sm transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-red-200 bg-red-50 px-3 py-3 text-center transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<div class="text-2xl font-bold text-red-700">↓</div>
 							<div class="mt-0.5 font-medium text-red-900">Reject</div>
@@ -660,7 +660,7 @@
 							type="button"
 							onclick={skip}
 							disabled={loading || submitting}
-							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center shadow-sm transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<div class="text-xl font-bold text-gray-700">→</div>
 							<div class="mt-0.5 font-medium text-gray-900">Skip</div>
@@ -676,7 +676,7 @@
 				</div>
 			</div>
 
-			<div class="border border-amber-200 bg-amber-50 p-4 shadow-sm">
+			<div class="border border-amber-200 bg-amber-50 p-4">
 				<h2 class="text-sm font-semibold text-amber-900">What Counts As Good Training Data</h2>
 				<div class="mt-3 space-y-3 text-sm text-amber-900">
 					<p>
@@ -688,8 +688,8 @@
 							All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
 						</p>
 					</div>
-					<div class="border border-blue-200 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-blue-700 uppercase">Annotate First</div>
+					<div class="border border-[#0055BF]/20 bg-white px-3 py-3">
+						<div class="text-xs font-semibold tracking-wide text-[#0055BF] uppercase">Annotate First</div>
 						<p class="mt-1 text-sm text-gray-700">
 							If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
 						</p>
@@ -704,7 +704,7 @@
 			</div>
 
 			{#if annotateMode}
-				<div class="border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="border border-gray-200 bg-white p-4">
 					<div class="mb-3 flex items-center justify-between">
 						<h2 class="text-sm font-semibold text-gray-900">Annotator</h2>
 						<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-amber-600' : annotatorApi.hasSavedBaseline ? 'text-emerald-600' : 'text-gray-400'}">
@@ -796,7 +796,7 @@
 						type="button"
 						onclick={annotatorApi.save}
 						disabled={annotatorApi.saving || !annotatorApi.isDirty}
-						class="mt-3 flex w-full items-center justify-center px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+						class="mt-3 flex w-full items-center justify-center px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 					>
 						{annotatorApi.saving ? 'Saving...' : 'Save Annotations'}
 					</button>

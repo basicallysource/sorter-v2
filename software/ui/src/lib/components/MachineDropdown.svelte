@@ -37,8 +37,8 @@
 		{#if selected}
 			<span
 				class="h-2 w-2 rounded-full {selected.status === 'connected'
-					? 'bg-green-500'
-					: 'bg-red-500'}"
+					? 'bg-[#00852B]'
+					: 'bg-[#D01012]'}"
 			></span>
 			<span class="max-w-32 truncate">
 				{selected.identity?.nickname ?? selected.identity?.machine_id.slice(0, 8) ?? 'Unknown'}
@@ -60,11 +60,11 @@
 					onclick={() => selectMachine(id)}
 					class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors {id ===
 					manager.selectedMachineId
-						? 'bg-blue-500/20 text-blue-500'
+						? 'bg-[#D01012]/20 text-[#D01012]'
 						: 'text-text hover:bg-bg'}"
 				>
 					<span
-						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-green-500' : 'bg-red-500'}"
+						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-[#00852B]' : 'bg-[#D01012]'}"
 					></span>
 					<span class="truncate">
 						{m.identity?.nickname ?? id.slice(0, 8)}

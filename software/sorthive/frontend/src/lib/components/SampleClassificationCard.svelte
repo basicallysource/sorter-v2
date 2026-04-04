@@ -216,7 +216,7 @@
 		<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Classification</h2>
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}
-				<span class="bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+				<span class="bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#D01012]">
 					Manual override
 				</span>
 			{:else if autoClassification}
@@ -299,7 +299,7 @@
 						bind:value={formPartId}
 						type="text"
 						placeholder={autoClassification?.part_id ?? 'e.g. 3001'}
-						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 				<div>
@@ -311,7 +311,7 @@
 						bind:value={formItemName}
 						type="text"
 						placeholder={autoClassification?.item_name ?? 'Optional human-readable name'}
-						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 			</div>
@@ -349,7 +349,7 @@
 					type="button"
 					onclick={saveClassification}
 					disabled={saving || !isDirty}
-					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {saving || !isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 				>
 					{saving ? 'Saving...' : 'Save'}
 				</button>

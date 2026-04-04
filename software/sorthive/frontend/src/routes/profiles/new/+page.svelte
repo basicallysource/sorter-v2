@@ -125,7 +125,7 @@
 	</p>
 
 	{#if error}
-		<div class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+		<div class="mb-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
 	{/if}
 
 	<form onsubmit={handleCreate} class="space-y-5">
@@ -136,7 +136,7 @@
 				<button
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'rule'
-						? 'border-blue-500 bg-blue-50 text-blue-700'
+						? 'border-[#D01012] bg-[#FEF2F2] text-[#D01012]'
 						: 'border-gray-300 text-gray-600 hover:bg-gray-50'}"
 					onclick={() => (profileType = 'rule')}
 				>
@@ -146,7 +146,7 @@
 				<button
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'set'
-						? 'border-blue-500 bg-blue-50 text-blue-700'
+						? 'border-[#D01012] bg-[#FEF2F2] text-[#D01012]'
 						: 'border-gray-300 text-gray-600 hover:bg-gray-50'}"
 					onclick={() => (profileType = 'set')}
 				>
@@ -166,7 +166,7 @@
 				bind:value={name}
 				required
 				placeholder={profileType === 'set' ? 'e.g. UCS Collection Sort' : 'e.g. My Technic Sorter'}
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 			/>
 		</div>
 
@@ -193,7 +193,7 @@
 					min="1"
 					max="100"
 					placeholder="e.g. 12"
-					class="w-32 border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-32 border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				/>
 			</div>
 		{:else}
@@ -208,7 +208,7 @@
 					bind:value={setQuery}
 					oninput={handleSearchInput}
 					placeholder="Search by name or set number..."
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				/>
 
 				{#if searching}
@@ -283,7 +283,7 @@
 		<button
 			type="submit"
 			disabled={creating || !name.trim() || (profileType === 'set' && selectedSets.length === 0)}
-			class="w-full bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+			class="w-full bg-[#D01012] px-4 py-3 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 		>
 			{#if creating}
 				<span class="flex items-center justify-center gap-2">

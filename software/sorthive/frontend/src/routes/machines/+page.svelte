@@ -323,7 +323,7 @@ async function loadAssignmentProfile(profileId: string) {
 	</div>
 	<button
 		onclick={() => { showAddModal = true; }}
-		class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+		class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 	>
 		Add Machine
 	</button>
@@ -361,7 +361,7 @@ async function loadAssignmentProfile(profileId: string) {
 							</div>
 						</div>
 
-						<div class="rounded bg-gray-50 p-3 text-sm">
+						<div class="bg-gray-50 p-3 text-sm">
 							{#if assignment?.profile && assignment.desired_version}
 								<div class="font-medium text-gray-900">
 									Desired profile: {assignment.profile.name} v{assignment.desired_version.version_number}
@@ -439,7 +439,7 @@ async function loadAssignmentProfile(profileId: string) {
 								</svg>
 							</button>
 							{#if openMenuId === machine.id}
-								<div class="absolute right-0 z-10 mt-1 w-44 border border-gray-200 bg-white py-1 shadow-lg">
+								<div class="absolute right-0 z-10 mt-1 w-44 border border-gray-200 bg-white py-1">
 									<button
 										onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
 										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -454,7 +454,7 @@ async function loadAssignmentProfile(profileId: string) {
 									</button>
 									<button
 										onclick={() => { openDelete(machine); openMenuId = null; }}
-										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]"
 									>
 										Delete
 									</button>
@@ -477,7 +477,7 @@ async function loadAssignmentProfile(profileId: string) {
 				type="text"
 				bind:value={newName}
 				required
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<div>
@@ -486,13 +486,13 @@ async function loadAssignmentProfile(profileId: string) {
 				id="machineDesc"
 				type="text"
 				bind:value={newDescription}
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
 			disabled={addSubmitting}
-			class="w-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+			class="w-full bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 		>
 			{addSubmitting ? 'Creating...' : 'Create Machine'}
 		</button>
@@ -525,12 +525,12 @@ async function loadAssignmentProfile(profileId: string) {
 				type="text"
 				bind:value={editName}
 				required
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
-			class="w-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+			class="w-full bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 		>
 			Save
 		</button>
@@ -621,7 +621,7 @@ async function loadAssignmentProfile(profileId: string) {
 					id="assignment-profile"
 					bind:value={assignmentProfileId}
 					onchange={(event) => void handleAssignmentProfileChange((event.currentTarget as HTMLSelectElement).value)}
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				>
 					<option value="">Select a profile</option>
 					{#each accessibleProfiles as profile}
@@ -639,7 +639,7 @@ async function loadAssignmentProfile(profileId: string) {
 					id="assignment-version"
 					bind:value={assignmentVersionId}
 					disabled={!assignmentProfileDetail}
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] disabled:bg-gray-50"
 				>
 					<option value="">Select a version</option>
 					{#each visibleVersions(assignmentProfileDetail) as version}
@@ -653,7 +653,7 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 
 			{#if assignmentProfileDetail}
-				<div class="rounded bg-gray-50 p-3 text-sm text-gray-600">
+				<div class="bg-gray-50 p-3 text-sm text-gray-600">
 					<div class="font-medium text-gray-900">{assignmentProfileDetail.name}</div>
 					{#if assignmentProfileDetail.description}
 						<p class="mt-1">{assignmentProfileDetail.description}</p>
@@ -677,7 +677,7 @@ async function loadAssignmentProfile(profileId: string) {
 				<button
 					onclick={() => void handleSaveAssignment()}
 					disabled={assignmentSaving || !assignmentProfileId || !assignmentVersionId}
-					class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 				>
 					{assignmentSaving ? 'Saving...' : 'Save Assignment'}
 				</button>

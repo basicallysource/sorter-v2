@@ -508,7 +508,7 @@
 	</div>
 
 	{#if records_error}
-		<div class="dark:text-red-400 mb-3 text-xs text-red-600">Record load error: {records_error}</div>
+		<div class="dark:text-red-400 mb-3 text-xs text-[#D01012]">Record load error: {records_error}</div>
 	{/if}
 
 	{#if !machine_ctx.machine && !loaded_runtime_stats}

@@ -670,7 +670,7 @@
 	</div>
 
 	{#if errorMsg}
-		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
 		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
@@ -777,12 +777,12 @@
 							{#if backend === 'waveshare'}
 								<td class="px-3 py-2 font-mono text-xs text-text-muted">
 									{#if layerIsOffline(layer)}
-										<span class="text-red-600 dark:text-red-400">Offline</span>
+										<span class="text-[#D01012] dark:text-red-400">Offline</span>
 									{:else}
 										{formatTelemetryValue(layer.telemetry.position)}
 										<span class="text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
 										{#if layer.telemetry.error}
-											<span class="ml-1 text-red-500" title={layer.telemetry.error}>!</span>
+											<span class="ml-1 text-[#D01012]" title={layer.telemetry.error}>!</span>
 										{/if}
 									{/if}
 								</td>
@@ -798,15 +798,15 @@
 									</span>
 								{:else if layerIsOffline(layer)}
 									<span
-										class="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
+										class="inline-flex items-center gap-1 text-xs text-[#D01012] dark:text-red-400"
 										title={layer.telemetry.error ?? 'Servo offline'}
 									>
-										<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+										<span class="h-1.5 w-1.5 rounded-full bg-[#D01012]"></span>
 										Offline
 									</span>
 								{:else if layer.liveOpen !== null}
-									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-green-600 dark:text-green-400' : 'text-text-muted'}">
-										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-green-500' : 'bg-border'}"></span>
+									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-[#00852B] dark:text-green-400' : 'text-text-muted'}">
+										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-[#00852B]' : 'bg-border'}"></span>
 										{layer.liveOpen ? 'Open' : 'Closed'}
 									</span>
 								{:else}
@@ -862,7 +862,7 @@
 			</div>
 
 			{#if busError}
-				<div class="text-sm text-red-600 dark:text-red-400">{busError}</div>
+				<div class="text-sm text-[#D01012] dark:text-red-400">{busError}</div>
 			{:else if busStatusMsg}
 				<div class="text-sm text-text-muted">{busStatusMsg}</div>
 			{/if}

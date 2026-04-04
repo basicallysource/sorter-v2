@@ -304,14 +304,14 @@
 			<div class="flex items-center gap-1 bg-gray-50 p-1">
 				<button
 					onclick={() => setView('image')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
 				>
 					Image
 				</button>
 				{#if sample.has_full_frame}
 					<button
 						onclick={() => setView('full_frame')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
 					>
 						Full Frame
 					</button>
@@ -319,14 +319,14 @@
 				{#if sample.has_overlay}
 					<button
 						onclick={() => setView('overlay')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
 					>
 						Overlay
 					</button>
 				{/if}
 				<button
 					onclick={() => setView('annotate')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
 				>
 					Annotate
 				</button>
@@ -334,7 +334,7 @@
 				{#if activeView === 'image' && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
 						<label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-blue-600" />
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-[#D01012]" />
 							Boxes
 						</label>
 					</div>
@@ -500,7 +500,7 @@
 						<button
 							onclick={annotatorApi.save}
 							disabled={annotatorApi.saving || !annotatorApi.isDirty}
-							class="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+							class="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 						>
 							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
 							{annotatorApi.saving ? 'Saving...' : 'Save Annotations'}

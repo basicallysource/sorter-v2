@@ -111,15 +111,15 @@
 						tabindex="0"
 						class={`flex items-center justify-between border px-2 py-1.5 ${
 							manager.selectedMachineId === id
-								? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/10'
+								? 'border-[#D01012] bg-[#D01012]/10 dark:bg-[#D01012]/10'
 								: 'border-border bg-bg'
 						}`}
 					>
 						<div class="flex items-center gap-2">
 							<span
 								class="h-2 w-2 rounded-full {m.status === 'connected'
-									? 'bg-green-500'
-									: 'bg-red-500'}"
+									? 'bg-[#00852B]'
+									: 'bg-[#D01012]'}"
 							></span>
 							<span class="text-sm text-text">
 								{m.identity?.nickname ?? id.slice(0, 8)}
@@ -130,7 +130,7 @@
 								event.stopPropagation();
 								manager.disconnect(id);
 							}}
-							class="text-xs text-text-muted hover:text-red-500 dark:hover:text-red-400"
+							class="text-xs text-text-muted hover:text-[#D01012] dark:hover:text-red-400"
 						>
 							Disconnect
 						</button>
@@ -171,7 +171,7 @@
 					Leave it blank to fall back to the machine ID.
 				</div>
 				{#if nameError}
-					<div class="text-sm text-red-600 dark:text-red-400">{nameError}</div>
+					<div class="text-sm text-[#D01012] dark:text-red-400">{nameError}</div>
 				{:else if nameStatus}
 					<div class="text-sm text-text-muted">{nameStatus}</div>
 				{/if}
@@ -189,7 +189,7 @@
 			<button
 				onclick={() => settings.setTheme('light')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'light'
-					? 'border-blue-500 bg-blue-500/20 text-blue-500'
+					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
 					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Light
@@ -197,7 +197,7 @@
 			<button
 				onclick={() => settings.setTheme('dark')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'dark'
-					? 'border-blue-500 bg-blue-500/20 text-blue-500'
+					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
 					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Dark

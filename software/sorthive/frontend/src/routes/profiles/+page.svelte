@@ -110,7 +110,7 @@
 	</div>
 	<a
 		href="/profiles/new"
-		class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+		class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 	>
 		New Profile
 	</a>
@@ -121,7 +121,7 @@
 		{#each (Object.keys(scopeLabels) as ProfileScope[]) as key}
 			<button
 				onclick={() => setScope(key)}
-				class="px-3 py-1.5 text-sm font-medium {scope === key ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}"
+				class="px-3 py-1.5 text-sm font-medium {scope === key ? 'bg-[#FEF2F2] text-[#D01012]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}"
 			>
 				{scopeLabels[key]}
 			</button>
@@ -138,7 +138,7 @@
 			type="search"
 			bind:value={search}
 			placeholder="Search profiles"
-			class="w-64 border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+			class="w-64 border border-gray-300 bg-white px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 		/>
 		<button
 			type="submit"
@@ -161,11 +161,17 @@
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 		{#each profiles as profile (profile.id)}
 			<a href={profile.is_owner ? `/profiles/${profile.id}/edit` : `/profiles/${profile.id}`}
-				class="group border border-gray-200 border-l-4 bg-white p-4 transition-colors hover:border-gray-300 hover:bg-gray-50
-					{profile.visibility === 'public' ? 'border-l-blue-500' : 'border-l-gray-300'}">
+				class="group border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 hover:bg-gray-50">
 				<div class="mb-2 flex items-start justify-between gap-2">
 					<div class="min-w-0">
-						<h2 class="truncate text-sm font-semibold text-gray-900">{profile.name}</h2>
+						<h2 class="flex items-center gap-2 truncate text-sm font-semibold {profile.visibility === 'public' ? 'text-[#0055BF]' : 'text-gray-900'}">
+							{#if profile.visibility === 'public'}
+								<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#0055BF]"></span>
+							{:else}
+								<span class="inline-block h-2.5 w-2.5 shrink-0 bg-gray-300"></span>
+							{/if}
+							{profile.name}
+						</h2>
 						{#if profile.description}
 							<p class="mt-0.5 truncate text-xs text-gray-500">{profile.description}</p>
 						{/if}

@@ -354,8 +354,11 @@
 	{:else}
 		<!-- Active Profile Section -->
 		{@const updateInfo = findLatestAvailableVersion()}
-		<div class="mb-6 border-l-4 border-l-blue-500 border border-border bg-surface p-4">
-			<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Active Profile</div>
+		<div class="mb-6 border border-border bg-surface p-4">
+			<div class="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#D01012]">
+				<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
+				Active Profile
+			</div>
 			{#if library.local_profile.name || library.sync_state?.profile_name}
 				<div class="mt-2 text-lg font-semibold text-text">
 					{String(library.local_profile.name ?? library.sync_state?.profile_name ?? 'Unknown')}
@@ -398,7 +401,7 @@
 					{/if}
 					<div>
 						{#if library.sync_state?.last_error}
-							<span class="text-red-600">{library.sync_state.last_error}</span>
+							<span class="text-[#D01012]">{library.sync_state.last_error}</span>
 						{:else if updateInfo}
 							<span class="text-amber-600">
 								Update available: v{updateInfo.version_number}
@@ -407,7 +410,7 @@
 								{/if}
 							</span>
 						{:else if library.sync_state?.version_number}
-							<span class="text-emerald-600">In sync</span>
+							<span class="text-[#00852B]">In sync</span>
 						{:else}
 							<span class="text-text-muted">No sync state</span>
 						{/if}
@@ -437,7 +440,7 @@
 					</div>
 
 					{#if target.error}
-						<div class="mb-3 border border-red-500 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+						<div class="mb-3 border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:text-red-400">
 							{target.error}
 						</div>
 					{/if}
@@ -453,10 +456,15 @@
 								{@const detail = detailCache[key]}
 								{@const update = profileHasUpdate(profile)}
 								{@const isActive = library.sync_state?.profile_id === profile.id}
-								<div class="border border-border bg-surface p-4 {isActive ? 'border-l-4 border-l-blue-500' : ''}">
+								<div class="border border-border bg-surface p-4">
 									<div class="flex flex-wrap items-start justify-between gap-2">
 										<div>
-											<h4 class="text-sm font-semibold text-text">{profile.name}</h4>
+											<h4 class="flex items-center gap-2 text-sm font-semibold {isActive ? 'text-[#D01012]' : 'text-text'}">
+												{#if isActive}
+													<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
+												{/if}
+												{profile.name}
+											</h4>
 											{#if update}
 												<div class="mt-1 text-sm text-amber-600">
 													v{update.latest} available (you're on v{update.current})

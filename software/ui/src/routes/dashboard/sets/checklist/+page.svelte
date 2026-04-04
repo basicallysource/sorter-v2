@@ -77,7 +77,7 @@
 	{#if loading}
 		<div class="py-12 text-center text-text-muted">Loading...</div>
 	{:else if error}
-		<div class="text-sm text-red-600">{error}</div>
+		<div class="text-sm text-[#D01012]">{error}</div>
 	{:else}
 		{#each sets as set_progress, idx}
 			<div class={idx > 0 ? 'print-break' : ''}>
@@ -106,10 +106,10 @@
 								<td class="py-1">{part.color_id}</td>
 								<td class="py-1 text-right tabular-nums">{part.quantity_needed}</td>
 								<td class="py-1 text-right tabular-nums">{part.quantity_found}</td>
-								<td class="py-1 text-right tabular-nums {missing > 0 ? 'text-red-500' : ''}">{missing}</td>
+								<td class="py-1 text-right tabular-nums {missing > 0 ? 'text-[#D01012]' : ''}">{missing}</td>
 								<td class="py-1 text-center">
 									{#if missing <= 0}
-										<span class="text-green-600">OK</span>
+										<span class="text-[#00852B]">OK</span>
 									{:else}
 										<span class="text-text-muted">---</span>
 									{/if}

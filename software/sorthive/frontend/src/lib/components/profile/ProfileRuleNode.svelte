@@ -128,13 +128,13 @@
 					value={rule.name}
 					oninput={(event) =>
 						onUpdateRule(rule.id, { name: (event.currentTarget as HTMLInputElement).value })}
-					class="min-w-[14rem] flex-1 border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="min-w-[14rem] flex-1 border border-gray-300 px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				/>
 				<select
 					value={rule.match_mode}
 					onchange={(event) =>
 						onUpdateRule(rule.id, { match_mode: (event.currentTarget as HTMLSelectElement).value })}
-					class="border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					class="border border-gray-300 px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				>
 					<option value="all">All</option>
 					<option value="any">Any</option>
@@ -155,7 +155,7 @@
 			<button
 				type="button"
 				onclick={() => onSelect(rule.id)}
-				class="border border-gray-300 px-2 py-1 text-xs font-medium {selectedRuleId === rule.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}"
+				class="border border-gray-300 px-2 py-1 text-xs font-medium {selectedRuleId === rule.id ? 'bg-[#FEF2F2] text-[#D01012]' : 'text-gray-700 hover:bg-gray-50'}"
 			>
 				{selectedRuleId === rule.id ? 'Selected' : 'Select'}
 			</button>
@@ -192,7 +192,7 @@
 		</div>
 	</div>
 
-	<div class="space-y-2 rounded bg-gray-50 p-3">
+	<div class="space-y-2 bg-gray-50 p-3">
 		<div class="flex items-center justify-between">
 			<h4 class="text-sm font-medium text-gray-900">Conditions</h4>
 			<button
@@ -213,7 +213,7 @@
 							value={condition.field}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { field: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						>
 							{#each fieldOptions as field}
 								<option value={field}>{field}</option>
@@ -223,7 +223,7 @@
 							value={condition.op}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { op: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						>
 							{#each (opOptionsByField[condition.field] ?? ['eq', 'neq', 'in', 'contains', 'regex', 'gte', 'lte']) as op}
 								<option value={op}>{op}</option>
@@ -234,7 +234,7 @@
 							value={formatConditionValue(condition.value)}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { value: parseConditionValue((event.currentTarget as HTMLInputElement).value) })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						/>
 						<button
 							type="button"

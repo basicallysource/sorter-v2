@@ -131,7 +131,7 @@
 	<select
 		value={filterMachine}
 		onchange={(event) => updateMachineFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none"
 	>
 		<option value="">All Machines</option>
 		{#each machines as machine (machine.id)}
@@ -141,7 +141,7 @@
 	<select
 		value={filterStatus}
 		onchange={(event) => updateStatusFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none"
 	>
 		<option value="">All Statuses</option>
 		<option value="unreviewed">Unreviewed</option>
@@ -153,7 +153,7 @@
 	<select
 		value={filterSourceRole}
 		onchange={(event) => updateSourceRoleFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none"
 	>
 		<option value="">All Sources</option>
 		{#each filterOptions.source_roles as sourceRole (sourceRole)}
@@ -163,7 +163,7 @@
 	<select
 		value={filterCaptureReason}
 		onchange={(event) => updateCaptureReasonFilter((event.currentTarget as HTMLSelectElement).value)}
-		class="border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+		class="border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none"
 	>
 		<option value="">All Capture Reasons</option>
 		{#each filterOptions.capture_reasons as captureReason (captureReason)}
@@ -210,7 +210,7 @@
 					{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
 						<button
 							onclick={() => goToPage(p)}
-							class="min-w-[36px] px-3 py-1.5 text-sm font-medium {p === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}"
+							class="min-w-[36px] px-3 py-1.5 text-sm font-medium {p === currentPage ? 'bg-[#D01012] text-white' : 'text-gray-700 hover:bg-gray-50'}"
 						>
 							{p}
 						</button>

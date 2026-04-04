@@ -1,3 +1,6 @@
+import base64
+import hashlib
+
 from pydantic_settings import BaseSettings
 
 
@@ -15,6 +18,13 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str | None = None
     GITHUB_REDIRECT_URI: str | None = None
     GITHUB_OAUTH_STATE_EXPIRE_MINUTES: int = 10
+    REBRICKABLE_API_KEY: str = ""
+    BL_AFFILIATE_API_KEY: str = ""
+    SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
+    SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
+    SECRET_ENCRYPTION_KEY: str | None = None
 
     @property
     def public_app_url(self) -> str:
@@ -29,6 +39,13 @@ class Settings(BaseSettings):
     @property
     def github_oauth_enabled(self) -> bool:
         return bool(self.GITHUB_CLIENT_ID and self.GITHUB_CLIENT_SECRET)
+
+    @property
+    def secret_encryption_key(self) -> str:
+        if self.SECRET_ENCRYPTION_KEY:
+            return self.SECRET_ENCRYPTION_KEY
+        derived = base64.urlsafe_b64encode(hashlib.sha256(self.JWT_SECRET.encode()).digest())
+        return derived.decode()
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -3,7 +3,7 @@
 	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Home, Pause, Play, Settings } from 'lucide-svelte';
+	import { Grid3x3, Home, Layers3, Pause, Play, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -77,6 +77,30 @@
 			title="Home"
 		>
 			<Home size={24} />
+		</a>
+		<a
+			href="/bins"
+			aria-current={page.url.pathname === '/bins' ? 'page' : undefined}
+			class={`p-2 transition-colors ${
+				page.url.pathname === '/bins'
+					? 'bg-surface text-text'
+					: 'text-text hover:bg-surface'
+			}`}
+			title="Bin Grid"
+		>
+			<Grid3x3 size={24} />
+		</a>
+		<a
+			href="/profiles"
+			aria-current={page.url.pathname === '/profiles' ? 'page' : undefined}
+			class={`p-2 transition-colors ${
+				page.url.pathname === '/profiles'
+					? 'bg-surface text-text'
+					: 'text-text hover:bg-surface'
+			}`}
+			title="Sorting Profiles"
+		>
+			<Layers3 size={24} />
 		</a>
 		<a
 			href="/settings"

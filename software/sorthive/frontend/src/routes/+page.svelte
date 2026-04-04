@@ -67,6 +67,12 @@
 
 	<div class="flex gap-4">
 		<a
+			href="/profiles"
+			class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+		>
+			Open Profiles
+		</a>
+		<a
 			href="/machines"
 			class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 		>
@@ -80,7 +86,7 @@
 		</a>
 		<a
 			href="/review"
-			class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+			class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 		>
 			Start Reviewing
 		</a>

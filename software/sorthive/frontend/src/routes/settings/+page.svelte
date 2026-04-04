@@ -21,6 +21,21 @@
 	let passwordError = $state<string | null>(null);
 	let passwordSaved = $state(false);
 
+	// AI / OpenRouter
+	let openrouterApiKey = $state('');
+	let preferredAiModel = $state(auth.user?.preferred_ai_model ?? 'anthropic/claude-sonnet-4.6');
+	let aiError = $state<string | null>(null);
+	let aiSaved = $state(false);
+	let aiSaving = $state(false);
+
+	const aiModelOptions = [
+		'anthropic/claude-sonnet-4.6',
+		'anthropic/claude-3.7-sonnet',
+		'openai/gpt-5.4',
+		'google/gemini-3.1-pro-preview',
+		'google/gemini-3-flash-preview'
+	];
+
 	async function handleSaveName() {
 		nameError = null;
 		nameSaved = false;
@@ -68,6 +83,51 @@
 	async function handleLogout() {
 		await auth.logout();
 		goto('/login');
+	}
+
+	async function handleSaveAiSettings() {
+		aiError = null;
+		aiSaved = false;
+		aiSaving = true;
+		try {
+			const updated = await api.updateProfile({
+				openrouter_api_key: openrouterApiKey.trim() || undefined,
+				preferred_ai_model: preferredAiModel.trim() || null
+			});
+			if (auth.user) {
+				auth.user.openrouter_configured = updated.openrouter_configured;
+				auth.user.preferred_ai_model = updated.preferred_ai_model;
+			}
+			openrouterApiKey = '';
+			aiSaved = true;
+			setTimeout(() => { aiSaved = false; }, 3000);
+		} catch (e: any) {
+			aiError = e.error || 'Failed to save AI settings';
+		} finally {
+			aiSaving = false;
+		}
+	}
+
+	async function handleClearAiKey() {
+		aiError = null;
+		aiSaved = false;
+		aiSaving = true;
+		try {
+			const updated = await api.updateProfile({
+				clear_openrouter_api_key: true
+			});
+			if (auth.user) {
+				auth.user.openrouter_configured = updated.openrouter_configured;
+				auth.user.preferred_ai_model = updated.preferred_ai_model;
+			}
+			openrouterApiKey = '';
+			aiSaved = true;
+			setTimeout(() => { aiSaved = false; }, 3000);
+		} catch (e: any) {
+			aiError = e.error || 'Failed to clear OpenRouter key';
+		} finally {
+			aiSaving = false;
+		}
 	}
 
 	async function handleDelete() {
@@ -227,6 +287,78 @@
 				>
 					{auth.user.has_password ? 'Change Password' : 'Set Password'}
 				</button>
+			</form>
+		</div>
+
+		<!-- AI Section -->
+		<div class="border border-gray-200 bg-white p-6">
+			<h2 class="mb-4 font-semibold text-gray-900">AI Assistant</h2>
+			<p class="mb-4 text-sm text-gray-600">
+				SortHive uses your personal OpenRouter key on the server side for profile-generation prompts, rule suggestions, and assisted edits.
+			</p>
+			<div class="mb-4 rounded bg-gray-50 p-3 text-sm text-gray-600">
+				OpenRouter key:
+				<span class="font-medium text-gray-900">
+					{auth.user.openrouter_configured ? 'configured' : 'not configured'}
+				</span>
+			</div>
+			<form
+				class="space-y-4"
+				onsubmit={(e) => { e.preventDefault(); handleSaveAiSettings(); }}
+			>
+				<div>
+					<label for="openrouter-key" class="block text-sm text-gray-600">OpenRouter API Key</label>
+					<input
+						id="openrouter-key"
+						type="password"
+						bind:value={openrouterApiKey}
+						placeholder={auth.user.openrouter_configured ? 'Leave blank to keep current key' : 'sk-or-v1-...'}
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					/>
+					<p class="mt-1 text-xs text-gray-500">
+						The key is stored encrypted and only used by SortHive when you ask for AI help.
+					</p>
+				</div>
+
+				<div>
+					<label for="preferred-model" class="block text-sm text-gray-600">Preferred Model</label>
+					<select
+						id="preferred-model"
+						bind:value={preferredAiModel}
+						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+					>
+						{#each aiModelOptions as model}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+				</div>
+
+				{#if aiError}
+					<div class="bg-red-50 p-3 text-sm text-red-700">{aiError}</div>
+				{/if}
+				{#if aiSaved}
+					<div class="bg-green-50 p-3 text-sm text-green-700">AI settings saved.</div>
+				{/if}
+
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="submit"
+						disabled={aiSaving}
+						class="bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+					>
+						{aiSaving ? 'Saving...' : 'Save AI Settings'}
+					</button>
+					{#if auth.user.openrouter_configured}
+						<button
+							type="button"
+							onclick={handleClearAiKey}
+							disabled={aiSaving}
+							class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+						>
+							Remove Key
+						</button>
+					{/if}
+				</div>
 			</form>
 		</div>
 

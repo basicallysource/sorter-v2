@@ -199,6 +199,16 @@ def setSortHiveConfig(config: dict) -> None:
     _set(config)
 
 
+def getSortingProfileSyncState() -> dict | None:
+    from toml_config import getSortingProfileSyncState as _get
+    return _get()
+
+
+def setSortingProfileSyncState(state: dict) -> None:
+    from toml_config import setSortingProfileSyncState as _set
+    _set(state)
+
+
 def getApiKeys() -> dict:
     from toml_config import getApiKeys as _get
     return _get()

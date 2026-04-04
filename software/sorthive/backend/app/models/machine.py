@@ -25,6 +25,12 @@ class Machine(Base):
     owner = relationship("User", back_populates="machines")
     upload_sessions = relationship("UploadSession", back_populates="machine", cascade="all, delete-orphan")
     samples = relationship("Sample", back_populates="machine", cascade="all, delete-orphan")
+    profile_assignment = relationship(
+        "MachineProfileAssignment",
+        back_populates="machine",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
     __table_args__ = (
         Index("ix_machines_owner_id", "owner_id"),

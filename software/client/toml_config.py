@@ -273,6 +273,32 @@ def setSortHiveConfig(cfg: dict[str, Any]) -> None:
     _update_toml(updater)
 
 
+def getSortingProfileSyncState() -> dict[str, Any] | None:
+    """Read persisted SortHive sorting-profile sync metadata."""
+    config = _read_toml()
+    section = config.get("sorting_profile_sync")
+    if not isinstance(section, dict):
+        return None
+    return dict(section)
+
+
+def setSortingProfileSyncState(state: dict[str, Any]) -> None:
+    """Write persisted SortHive sorting-profile sync metadata."""
+
+    def updater(config: dict[str, Any]) -> None:
+        normalized = {
+            key: value
+            for key, value in dict(state).items()
+            if isinstance(key, str) and value is not None
+        }
+        if normalized:
+            config["sorting_profile_sync"] = normalized
+        else:
+            config.pop("sorting_profile_sync", None)
+
+    _update_toml(updater)
+
+
 # ---------------------------------------------------------------------------
 # API keys
 # ---------------------------------------------------------------------------

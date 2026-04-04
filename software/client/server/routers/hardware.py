@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from irl.bin_layout import getBinLayout
+from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
@@ -53,9 +54,19 @@ class CarouselHardwareSettingsPayload(BaseModel):
     stepper_direction_inverted: bool = False
 
 
+class ServoSetIdPayload(BaseModel):
+    new_id: int
+
+
 class ServoLayerPreviewPayload(BaseModel):
     invert: bool = False
     is_open: bool = False
+
+
+class MoveToBinPayload(BaseModel):
+    layer_index: int
+    section_index: int
+    bin_index: int
 
 
 class StorageLayerPayload(BaseModel):
@@ -882,6 +893,220 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
     }
 
 
+# VIDs of known non-servo MCU boards (exclude from servo port candidates)
+_MCU_VIDS = {0x2E8A}  # Raspberry Pi Pico
+
+
+@router.get("/api/hardware-config/waveshare/ports")
+def get_waveshare_ports() -> Dict[str, Any]:
+    """Discover serial ports that have a Waveshare servo bus by probing."""
+    import serial.tools.list_ports
+    from hardware.waveshare_servo import ScServoBus
+
+    # Also exclude ports already used by MCU boards in the running controller
+    mcu_ports: set[str] = set()
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+        interfaces = getattr(shared_state.controller_ref.irl, "interfaces", {})
+        if isinstance(interfaces, dict):
+            for iface in interfaces.values():
+                iface_port = getattr(iface, "port", None)
+                if isinstance(iface_port, str):
+                    mcu_ports.add(iface_port)
+
+    # Check if the live controller already has a working bus — include its port directly
+    live_bus = None
+    live_port_device = None
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+        for servo_obj in getattr(shared_state.controller_ref.irl, "servos", []):
+            candidate_bus = getattr(servo_obj, "_bus", None)
+            if candidate_bus is not None and hasattr(candidate_bus, "scan"):
+                live_bus = candidate_bus
+                live_port_device = getattr(getattr(candidate_bus, "_serial", None), "port", None)
+                break
+
+    candidates = []
+    for p in serial.tools.list_ports.comports():
+        if p.vid is None:
+            continue  # skip non-USB ports (bluetooth, debug, etc.)
+        if p.vid in _MCU_VIDS:
+            continue
+        if p.device in mcu_ports:
+            continue
+        candidates.append(p)
+
+    ports = []
+    for p in candidates:
+        servo_count = 0
+        if live_port_device and p.device == live_port_device and live_bus is not None:
+            # Port is already open by the controller — probe via the live bus
+            try:
+                found = live_bus.scan(1, 10)
+                servo_count = len(found)
+            except Exception:
+                pass
+        else:
+            try:
+                bus = ScServoBus(p.device, timeout=0.01)
+                try:
+                    found = bus.scan(1, 10)
+                    servo_count = len(found)
+                finally:
+                    bus.close()
+            except Exception:
+                continue  # can't open → not a usable servo port
+
+        if servo_count > 0:
+            ports.append({
+                "device": p.device,
+                "product": p.product or "Waveshare Servo Board",
+                "serial": p.serial_number,
+                "servo_count": servo_count,
+                "confirmed": True,
+            })
+
+    return {"ok": True, "ports": ports}
+
+
+def _get_waveshare_bus():
+    """Return a live ScServoBus from the running controller, or open one from config."""
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+        for servo_obj in getattr(shared_state.controller_ref.irl, "servos", []):
+            bus = getattr(servo_obj, "_bus", None)
+            if bus is not None and hasattr(bus, "scan"):
+                return bus, False  # (bus, should_close)
+
+    _, config = _read_machine_params_config()
+    servo = config.get("servo", {})
+    port = servo.get("port") if isinstance(servo, dict) else None
+    if not isinstance(port, str) or not port.strip():
+        return None, False
+
+    from hardware.waveshare_servo import ScServoBus
+    return ScServoBus(port.strip(), timeout=0.02), True
+
+
+def _read_highest_seen_servo_id() -> int:
+    """Read the highest servo ID ever seen from the machine config."""
+    _, config = _read_machine_params_config()
+    servo = config.get("servo", {})
+    if isinstance(servo, dict):
+        val = servo.get("highest_seen_id")
+        if isinstance(val, int) and not isinstance(val, bool) and val >= 1:
+            return val
+    return 0
+
+
+def _update_highest_seen_servo_id(found_ids: list[int]) -> int:
+    """Persist the highest ever seen servo ID (excluding factory ID 1)."""
+    if not found_ids:
+        return _read_highest_seen_servo_id()
+
+    max_found = max(sid for sid in found_ids if sid > 1) if any(sid > 1 for sid in found_ids) else 0
+    current_highest = _read_highest_seen_servo_id()
+    new_highest = max(current_highest, max_found)
+
+    if new_highest > current_highest:
+        params_path, config = _read_machine_params_config()
+        servo = config.get("servo", {})
+        if not isinstance(servo, dict):
+            servo = {}
+        servo["highest_seen_id"] = new_highest
+        config["servo"] = servo
+        try:
+            _write_machine_params_config(params_path, config)
+        except Exception:
+            pass
+
+    return new_highest
+
+
+@router.get("/api/hardware-config/waveshare/servos")
+def get_waveshare_servos() -> Dict[str, Any]:
+    """Scan the bus and return info for every detected servo."""
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available. Configure a port or start the backend.")
+
+    try:
+        found_ids = bus.scan(1, 32)
+        servos = []
+        for sid in found_ids:
+            info = bus.read_servo_info(sid)
+            if info is not None:
+                servos.append(info)
+            else:
+                servos.append({"id": sid, "error": "Could not read servo info"})
+
+        # Track highest ID ever seen and suggest next
+        highest_ever = _update_highest_seen_servo_id(found_ids)
+        used_ids = set(found_ids)
+        next_id = max(highest_ever, 1) + 1
+        while next_id in used_ids and next_id <= 253:
+            next_id += 1
+        suggested_next_id = next_id if next_id <= 253 else None
+
+        return {
+            "ok": True,
+            "servos": servos,
+            "highest_seen_id": highest_ever,
+            "suggested_next_id": suggested_next_id,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bus scan failed: {e}")
+    finally:
+        if should_close:
+            bus.close()
+
+
+@router.post("/api/hardware-config/waveshare/servos/{servo_id}/set-id")
+def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[str, Any]:
+    """Change a servo's ID on the bus."""
+    new_id = payload.new_id
+    if new_id < 1 or new_id > 253:
+        raise HTTPException(status_code=400, detail="New ID must be between 1 and 253.")
+    if new_id == servo_id:
+        raise HTTPException(status_code=400, detail="New ID is the same as the current ID.")
+
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available.")
+
+    try:
+        if not bus.ping(servo_id):
+            raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
+        if bus.ping(new_id):
+            raise HTTPException(status_code=409, detail=f"A servo with ID {new_id} already exists on the bus.")
+
+        if not bus.set_id(servo_id, new_id):
+            raise HTTPException(status_code=500, detail="set_id command failed.")
+
+        time.sleep(0.05)
+        if not bus.ping(new_id):
+            raise HTTPException(
+                status_code=500,
+                detail=f"ID change sent but servo does not respond at new ID {new_id}. Power-cycle may be needed.",
+            )
+
+        # Track the new ID as potentially the highest ever seen
+        _update_highest_seen_servo_id([new_id])
+
+        info = bus.read_servo_info(new_id)
+        return {
+            "ok": True,
+            "old_id": servo_id,
+            "new_id": new_id,
+            "servo": info,
+            "message": f"Servo ID changed from {servo_id} to {new_id}.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to change servo ID: {e}")
+    finally:
+        if should_close:
+            bus.close()
+
+
 @router.get("/api/hardware-config/chute")
 def get_chute_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
@@ -1323,4 +1548,148 @@ def save_storage_layer_hardware_config(
                 else "Storage layer layout saved. Restart backend to apply layer changes."
             )
         ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Bin grid – layout + move-to-bin
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/bins/layout")
+def get_bins_layout() -> Dict[str, Any]:
+    """Return the full bin grid: layers → sections → bins, with chute angles."""
+    _, layout_config = _read_bin_layout_config()
+    _, config = _read_machine_params_config()
+    chute_cfg = _chute_settings_from_config(config)
+    first_bin_center = float(chute_cfg.get("first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER))
+    pillar_width_deg = float(chute_cfg.get("pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG))
+    usable_per_section = 60.0 - pillar_width_deg
+
+    layers_out = []
+    for layer_idx, layer in enumerate(layout_config.layers):
+        sections = layer.sections
+        bins_flat = []
+        global_bin = 0
+        for section_idx, section_bins in enumerate(sections):
+            num_bins = len(section_bins)
+            bin_width = usable_per_section / num_bins if num_bins else 0
+            for bin_idx, bin_size in enumerate(section_bins):
+                angle = first_bin_center + section_idx * 60 + bin_idx * bin_width
+                bins_flat.append({
+                    "section_index": section_idx,
+                    "bin_index": bin_idx,
+                    "global_index": global_bin,
+                    "size": bin_size,
+                    "angle": round(angle, 2),
+                })
+                global_bin += 1
+        layers_out.append({
+            "layer_index": layer_idx,
+            "enabled": layer.enabled,
+            "section_count": len(sections),
+            "bin_count": global_bin,
+            "bins": bins_flat,
+        })
+
+    # Overlay category assignments from live layout if available
+    current_angle = None
+    active_layer = None
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+        if chute is not None:
+            try:
+                current_angle = round(float(chute.current_angle), 2)
+            except Exception:
+                pass
+        servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+        for i, servo in enumerate(servos):
+            try:
+                if hasattr(servo, "isOpen") and servo.isOpen():
+                    active_layer = i
+                    break
+            except Exception:
+                pass
+
+        # Read category assignments from the live distribution layout
+        dist_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
+        if dist_layout is not None:
+            runtime_layers = list(getattr(dist_layout, "layers", []))
+            for layer_out in layers_out:
+                li = layer_out["layer_index"]
+                if li < len(runtime_layers):
+                    rt_layer = runtime_layers[li]
+                    rt_sections = list(rt_layer.sections)
+                    for bin_out in layer_out["bins"]:
+                        si = bin_out["section_index"]
+                        bi = bin_out["bin_index"]
+                        if si < len(rt_sections) and bi < len(rt_sections[si].bins):
+                            bin_out["category_ids"] = list(rt_sections[si].bins[bi].category_ids)
+
+    # Ensure every bin has category_ids even if live layout wasn't available
+    for layer_out in layers_out:
+        for bin_out in layer_out["bins"]:
+            bin_out.setdefault("category_ids", [])
+
+    return {
+        "ok": True,
+        "layers": layers_out,
+        "current_angle": current_angle,
+        "active_layer": active_layer,
+    }
+
+
+@router.post("/api/bins/move-to")
+def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
+    """Move chute to a specific bin and open the correct layer servo."""
+    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
+
+    irl = shared_state.controller_ref.irl
+    chute = getattr(irl, "chute", None)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+
+    servos = list(getattr(irl, "servos", []))
+    if payload.layer_index < 0 or payload.layer_index >= len(servos):
+        raise HTTPException(status_code=400, detail=f"Invalid layer index {payload.layer_index}.")
+
+    address = BinAddress(
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+    )
+
+    target_angle = chute.getAngleForBin(address)
+    if target_angle is None:
+        raise HTTPException(status_code=400, detail="Bin is unreachable (angle out of range).")
+
+    # Close all servos first, then open the target layer
+    for i, servo in enumerate(servos):
+        try:
+            if hasattr(servo, "isOpen") and servo.isOpen():
+                servo.close()
+        except Exception:
+            pass
+
+    try:
+        estimated_ms = chute.moveToBin(address)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
+
+    # Open the target layer servo
+    target_servo = servos[payload.layer_index]
+    try:
+        if hasattr(target_servo, "open"):
+            target_servo.open()
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "target_angle": round(target_angle, 2),
+        "estimated_ms": estimated_ms,
+        "layer_index": payload.layer_index,
+        "section_index": payload.section_index,
+        "bin_index": payload.bin_index,
     }

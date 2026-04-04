@@ -20,7 +20,7 @@
 
 	const scope = $derived.by(() => {
 		const raw = page.url.searchParams.get('scope');
-		return raw === 'library' || raw === 'mine' ? raw : 'discover';
+		return raw === 'library' || raw === 'discover' ? raw : 'mine';
 	});
 
 	const emptyState = $derived.by(() => {
@@ -158,91 +158,62 @@
 {:else if profiles.length === 0}
 	<div class="border border-gray-200 bg-white p-6 text-sm text-gray-500">{emptyState}</div>
 {:else}
-	<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 		{#each profiles as profile (profile.id)}
-			<div class="border border-gray-200 bg-white p-4">
-				<div class="mb-3 flex items-start justify-between gap-3">
-					<div>
-						<div class="mb-1 flex flex-wrap items-center gap-2">
-							<h2 class="text-lg font-semibold text-gray-900">{profile.name}</h2>
-							<span class="bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-								{profile.visibility}
-							</span>
-							{#if profile.source}
-								<span class="bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-									Fork
-								</span>
-							{/if}
-						</div>
-						<p class="text-sm text-gray-500">
-							by {profile.owner.display_name ?? profile.owner.github_login ?? 'Unknown'}
-						</p>
+			<a href={profile.is_owner ? `/profiles/${profile.id}/edit` : `/profiles/${profile.id}`}
+				class="group border border-gray-200 border-l-4 bg-white p-4 transition-colors hover:border-gray-300 hover:bg-gray-50
+					{profile.visibility === 'public' ? 'border-l-blue-500' : 'border-l-gray-300'}">
+				<div class="mb-2 flex items-start justify-between gap-2">
+					<div class="min-w-0">
+						<h2 class="truncate text-sm font-semibold text-gray-900">{profile.name}</h2>
+						{#if profile.description}
+							<p class="mt-0.5 truncate text-xs text-gray-500">{profile.description}</p>
+						{/if}
 					</div>
-					<div class="text-right text-xs text-gray-500">
-						<div>{latestLabel(profile)}</div>
-						<div>{profile.library_count} saves</div>
-					</div>
+					{#if profile.source}
+						<span class="shrink-0 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">Fork</span>
+					{/if}
 				</div>
 
-				{#if profile.description}
-					<p class="mb-3 text-sm text-gray-600">{profile.description}</p>
-				{/if}
+				<div class="flex items-center gap-3 text-xs text-gray-400">
+					<span>v{profile.latest_version_number}</span>
+					<span class="text-gray-200">|</span>
+					<span>{profile.latest_version?.compiled_part_count ?? 0} parts</span>
+					{#if profile.fork_count > 0}
+						<span class="text-gray-200">|</span>
+						<span>{profile.fork_count} forks</span>
+					{/if}
+					{#if !profile.is_owner}
+						<span class="text-gray-200">|</span>
+						<span>by {profile.owner.display_name ?? profile.owner.github_login ?? '?'}</span>
+					{/if}
+				</div>
 
 				{#if profile.tags.length > 0}
-					<div class="mb-3 flex flex-wrap gap-1.5">
+					<div class="mt-2 flex flex-wrap gap-1">
 						{#each profile.tags as tag}
-							<span class="bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{tag}</span>
+							<span class="bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{tag}</span>
 						{/each}
 					</div>
 				{/if}
 
-				<div class="mb-4 grid grid-cols-3 gap-2 text-center text-xs">
-					<div class="bg-gray-50 p-2">
-						<div class="text-lg font-semibold text-gray-900">{profile.latest_version_number}</div>
-						<div class="text-gray-500">Versions</div>
-					</div>
-					<div class="bg-gray-50 p-2">
-						<div class="text-lg font-semibold text-gray-900">{profile.fork_count}</div>
-						<div class="text-gray-500">Forks</div>
-					</div>
-					<div class="bg-gray-50 p-2">
-						<div class="text-lg font-semibold text-gray-900">{profile.latest_version?.compiled_part_count ?? 0}</div>
-						<div class="text-gray-500">Mapped Parts</div>
-					</div>
-				</div>
-
-				<div class="flex flex-wrap gap-2">
-					<a
-						href={`/profiles/${profile.id}`}
-						class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-					>
-						View
-					</a>
-					{#if profile.is_owner}
-						<a
-							href={`/profiles/${profile.id}/edit`}
-							class="bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-						>
-							Edit
-						</a>
-					{:else}
+				{#if !profile.is_owner}
+					<div class="mt-3 flex gap-2">
 						<button
-							onclick={() => void toggleLibrary(profile)}
+							onclick={(e) => { e.preventDefault(); e.stopPropagation(); void toggleLibrary(profile); }}
 							disabled={busyProfileId === profile.id}
-							class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-						>
-							{profile.saved_in_library ? 'Remove from Library' : 'Save to Library'}
+							class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+							{profile.saved_in_library ? 'Unsave' : 'Save'}
 						</button>
 						<button
-							onclick={() => void forkProfile(profile)}
+							onclick={(e) => { e.preventDefault(); e.stopPropagation(); void forkProfile(profile); }}
 							disabled={busyProfileId === profile.id}
-							class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-						>
+							class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
 							Fork
 						</button>
-					{/if}
-				</div>
-			</div>
+					</div>
+				{/if}
+			</a>
 		{/each}
 	</div>
 {/if}

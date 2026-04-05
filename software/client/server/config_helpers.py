@@ -16,20 +16,24 @@ from fastapi import HTTPException
 from irl.bin_layout import getBinLayout
 
 
+def _default_client_config_path(filename: str) -> str:
+    return str(Path(__file__).resolve().parent.parent / filename)
+
+
 def machine_params_path() -> str:
-    """Return the MACHINE_SPECIFIC_PARAMS_PATH or raise 500."""
+    """Return the machine params path from env, or the repo-local default."""
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path:
-        raise HTTPException(status_code=500, detail="MACHINE_SPECIFIC_PARAMS_PATH not set")
-    return params_path
+    if params_path:
+        return params_path
+    return _default_client_config_path("machine_params.toml")
 
 
 def bin_layout_path() -> str:
-    """Return the BIN_LAYOUT_PATH or raise 500."""
+    """Return the bin layout path from env, or the repo-local default."""
     layout_path = os.getenv("BIN_LAYOUT_PATH")
-    if not layout_path:
-        raise HTTPException(status_code=500, detail="BIN_LAYOUT_PATH not set")
-    return layout_path
+    if layout_path:
+        return layout_path
+    return _default_client_config_path("bin_layout.json")
 
 
 def read_machine_params_config(

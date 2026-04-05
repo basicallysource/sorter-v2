@@ -3,7 +3,8 @@ import os
 import time
 
 from global_config import GlobalConfig
-from hardware.bus import MCUBus
+from hardware.bus import MCUBus, MCUBusError
+from hardware.cobs import DecodeError
 from hardware.sorter_interface import SorterInterface
 from machine_platform import (
     build_machine_profile,
@@ -43,6 +44,38 @@ from .parse_user_toml import (
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories
+
+HARDWARE_INIT_COMMAND_ATTEMPTS = 4
+HARDWARE_INIT_RETRY_DELAY_S = 0.2
+
+
+def _run_stepper_init_command_with_retry(
+    gc: GlobalConfig,
+    stepper_name: str,
+    description: str,
+    command,
+    *,
+    attempts: int = HARDWARE_INIT_COMMAND_ATTEMPTS,
+    retry_delay_s: float = HARDWARE_INIT_RETRY_DELAY_S,
+) -> bool:
+    for attempt in range(1, attempts + 1):
+        try:
+            command()
+            return True
+        except (MCUBusError, OSError, DecodeError) as exc:
+            if attempt == attempts:
+                gc.logger.warning(
+                    f"Failed to apply {description} for stepper '{stepper_name}' after "
+                    f"{attempts} attempts: {exc}. Continuing."
+                )
+                return False
+            gc.logger.warning(
+                f"Failed to apply {description} for stepper '{stepper_name}' on "
+                f"attempt {attempt}/{attempts}: {exc}. Retrying in {retry_delay_s:.2f}s..."
+            )
+            time.sleep(retry_delay_s)
+
+    return False
 
 
 def _servo_state_path() -> str | None:
@@ -869,8 +902,18 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
         if stepper_config is not None:
-            stepper.set_microsteps(stepper_config.microsteps)
-            stepper.set_speed_limits(16, stepper_config.default_steps_per_second)
+            _run_stepper_init_command_with_retry(
+                gc,
+                attr_base,
+                f"microsteps={stepper_config.microsteps}",
+                lambda: stepper.set_microsteps(stepper_config.microsteps),
+            )
+            _run_stepper_init_command_with_retry(
+                gc,
+                attr_base,
+                f"speed limits min=16 max={stepper_config.default_steps_per_second}",
+                lambda: stepper.set_speed_limits(16, stepper_config.default_steps_per_second),
+            )
             gc.logger.info(
                 f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
             )

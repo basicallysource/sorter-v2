@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
 	import {
 		api,
 		type AiToolTraceItem,
@@ -402,20 +403,32 @@
 
 	function customPartColorOptions(part: CustomSetPart): Array<{ value: number; label: string }> {
 		const normalized = normalizeCustomColorId(part.color_id);
-		if ((part.part_source ?? 'rebrickable') === 'bricklink') {
-			const options = [{ value: ANY_COLOR_ID, label: 'Any color' }];
-			if (normalized !== ANY_COLOR_ID) {
-				options.push({
-					value: normalized,
-					label: part.color_name ?? `BrickLink color ${normalized}`
-				});
-			}
-			return options;
-		}
-		return [
-			{ value: ANY_COLOR_ID, label: 'Any color' },
-			...catalogColors.map((color) => ({ value: color.id, label: color.name }))
-		];
+		const options =
+			(part.part_source ?? 'rebrickable') === 'bricklink'
+				? [
+					{ value: ANY_COLOR_ID, label: 'Any color' },
+					...(normalized !== ANY_COLOR_ID
+						? [{
+							value: normalized,
+							label: part.color_name ?? `BrickLink color ${normalized}`
+						}]
+						: [])
+				]
+				: [
+					{ value: ANY_COLOR_ID, label: 'Any color' },
+					...catalogColors
+						.filter((color) => color.id !== ANY_COLOR_ID)
+						.map((color) => ({ value: color.id, label: color.name }))
+				];
+
+		// The catalog includes an "unknown" sentinel with id -1, which would duplicate
+		// our explicit "Any color" option and crash the keyed <option> loop.
+		const seen = new Set<number>();
+		return options.filter((option) => {
+			if (seen.has(option.value)) return false;
+			seen.add(option.value);
+			return true;
+		});
 	}
 
 	function mergeCustomSetParts(existing: CustomSetPart[], imported: CustomSetPart[]): CustomSetPart[] {
@@ -460,9 +473,9 @@
 	}
 
 	function withRules(mutator: (rules: SortingProfileRule[]) => void) {
-		const nextRules = $state.snapshot(workingRules) as SortingProfileRule[];
+		const nextRules = structuredClone($state.snapshot(workingRules)) as SortingProfileRule[];
 		mutator(nextRules);
-		workingRules = nextRules;
+		workingRules = normalizeRuleTree(nextRules);
 	}
 
 	function makeRule(name = 'New Category'): SortingProfileRule {
@@ -575,7 +588,7 @@
 		try {
 			const csvContent = await file.text();
 			const result = await api.importProfileCatalogBricklinkCsv(csvContent, file.name);
-			applyBrickLinkCsvImport(ruleId, result);
+			await applyBrickLinkCsvImport(ruleId, result);
 		} catch (e: any) {
 			customSetImportStatus = {
 				...customSetImportStatus,
@@ -589,9 +602,11 @@
 		}
 	}
 
-	function applyBrickLinkCsvImport(ruleId: string, result: BrickLinkCsvImportResult) {
+	async function applyBrickLinkCsvImport(ruleId: string, result: BrickLinkCsvImportResult) {
+		let importedLineItems = 0;
+		let updated = false;
 		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
+			updated = updateRuleList(rules, ruleId, (rule) => {
 				const existingParts = rule.custom_parts ?? [];
 				rule.custom_parts = mergeCustomSetParts(existingParts, result.parts);
 				if (
@@ -601,8 +616,23 @@
 					rule.name = result.suggested_name;
 				}
 				syncCustomSetRule(rule);
+				importedLineItems = rule.custom_parts?.length ?? 0;
 			});
 		});
+		if (!updated) {
+			customSetImportStatus = {
+				...customSetImportStatus,
+				[ruleId]: {
+					tone: 'error',
+					text: 'Imported the CSV, but could not apply it to this custom set. Please try again.'
+				}
+			};
+			return;
+		}
+		selectedRuleId = ruleId;
+		expandedNodes = new Set([...expandedNodes, ruleId]);
+		addingPartForRule = null;
+		await tick();
 
 		const warningText =
 			result.warning_count > 0
@@ -612,7 +642,7 @@
 			...customSetImportStatus,
 			[ruleId]: {
 				tone: 'success',
-				text: `Imported ${result.imported_unique_parts} unique parts from BrickLink CSV.${warningText}`
+				text: `Imported ${result.imported_unique_parts} unique parts from BrickLink CSV into ${importedLineItems} line items.${warningText}`
 			}
 		};
 	}
@@ -760,6 +790,10 @@
 
 	function selectRule(ruleId: string) {
 		selectedRuleId = ruleId;
+	}
+
+	function liveRuleForRender(rule: SortingProfileRule): SortingProfileRule {
+		return findRule(displayRules, rule.id) ?? rule;
 	}
 
 	function profileDocument() {
@@ -1873,7 +1907,8 @@
 />
 
 <!-- Accordion Node Snippet -->
-{#snippet accordionNode(rule: SortingProfileRule, depth: number)}
+{#snippet accordionNode(inputRule: SortingProfileRule, depth: number)}
+	{@const rule = liveRuleForRender(inputRule)}
 	{@const isOpen = expandedNodes.has(rule.id)}
 	{@const hasChildren = rule.children.length > 0}
 	{@const partCount = getPartCount(rule.id)}

@@ -278,7 +278,7 @@
 						{/if}
 					</div>
 					{#if autoClassification.error}
-						<p class="mt-2 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+						<p class="mt-2 bg-[#FEF2F2] px-2 py-1.5 text-[11px] text-[#D01012]">
 							{autoClassification.error}
 						</p>
 					{/if}
@@ -319,10 +319,10 @@
 			{#if feedback}
 				<p
 					class="px-3 py-2 text-[11px] {feedbackTone === 'danger'
-						? 'bg-red-50 text-red-700'
+						? 'bg-[#D01012]/8 text-[#D01012]'
 						: feedbackTone === 'success'
-							? 'bg-emerald-50 text-emerald-700'
-							: 'bg-gray-50 text-gray-600'}"
+							? 'bg-[#00852B]/10 text-[#00852B]'
+							: 'bg-[#F7F6F3] text-[#7A7770]'}"
 				>
 					{feedback}
 				</p>
@@ -341,7 +341,7 @@
 					type="button"
 					onclick={clearForm}
 					disabled={saving || (!formPartId && !formItemName)}
-					class="flex-1 border border-orange-200 px-3 py-2 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
+					class="flex-1 border border-[#FFD500]/30 px-3 py-2 text-xs font-medium text-[#A16207] transition-colors hover:bg-[#FFFBEB] disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#E2E0DB]"
 				>
 					Clear
 				</button>

@@ -185,7 +185,7 @@
 			<button
 				type="button"
 				onclick={() => onDeleteRule(rule.id)}
-				class="border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+				class="border border-[#D01012]/30 px-2 py-1 text-xs font-medium text-[#D01012] hover:bg-[#FEF2F2]"
 			>
 				Delete
 			</button>
@@ -239,7 +239,7 @@
 						<button
 							type="button"
 							onclick={() => onDeleteCondition(rule.id, condition.id)}
-							class="border border-red-300 bg-white px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+							class="border border-[#D01012]/30 bg-white px-2 py-1.5 text-xs font-medium text-[#D01012] hover:bg-[#FEF2F2]"
 						>
 							Remove
 						</button>

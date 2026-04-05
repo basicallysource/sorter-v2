@@ -620,7 +620,7 @@
 				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {saving || !isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 			>{saving ? 'Saving...' : 'Save'}</button>
 			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
-				class="border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-red-50'}"
+				class="border border-[#D01012]/20 px-3 py-1.5 text-xs font-medium text-[#D01012] transition-colors disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#7A7770] {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-[#FEF2F2]'}"
 			>Delete Selected</button>
 			<button type="button" onclick={() => annotator?.undo()} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Undo</button>
 			<button type="button" onclick={() => annotator?.redo()} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Redo</button>
@@ -628,7 +628,7 @@
 			{#if seedBoxes.length > 0}
 				<button type="button" onclick={loadSorterBoxes} class="border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Load Sorter Boxes</button>
 			{/if}
-			<button type="button" onclick={clearAll} class="border border-orange-200 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50">Clear</button>
+			<button type="button" onclick={clearAll} class="border border-[#FFD500]/30 px-3 py-1.5 text-xs font-medium text-[#A16207] hover:bg-[#FFFBEB]">Clear</button>
 		</div>
 
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
@@ -638,17 +638,17 @@
 			<span>{annotationStats.rectangles} rectangles</span>
 			<span>{annotationStats.polygons} polygons</span>
 			<span>{selectedAnnotationIds.length} selected</span>
-			<span class="ml-auto font-medium {isDirty ? 'text-amber-700' : 'text-emerald-700'}">
+			<span class="ml-auto font-medium {isDirty ? 'text-[#A16207]' : 'text-[#00852B]'}">
 				{#if isDirty}Unsaved changes{:else if hasSavedBaseline}Saved{:else}Not saved yet{/if}
 			</span>
 		</div>
 
-		<div class="border border-[#0055BF]/10 bg-sky-50 px-3 py-2 text-xs text-[#0055BF]">
+		<div class="border border-[#0055BF]/10 bg-[#F0F7FF] px-3 py-2 text-xs text-[#0055BF]">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 
 		{#if feedback}
-			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-700'}">
+			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-[#D01012]/8 text-[#D01012]' : feedbackTone === 'success' ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#F7F6F3] text-[#7A7770]'}">
 				{feedback}
 			</p>
 		{/if}

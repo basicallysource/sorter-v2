@@ -1,63 +1,55 @@
 <script lang="ts">
-	import { api } from '$lib/api';
+	import { api, type SortingProfileRule } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import SetSearch from '$lib/components/profile/SetSearch.svelte';
 
 	type SetResult = {
 		set_num: string;
 		name: string;
 		year: number;
 		num_parts: number;
-		set_img_url: string | null;
+		img_url: string | null;
 	};
 
 	let name = $state('');
-	let binCount = $state<number | undefined>(undefined);
 	let profileType = $state<'rule' | 'set'>('rule');
 	let creating = $state(false);
 	let error = $state<string | null>(null);
 
-	// Set search state
-	let setQuery = $state('');
-	let searchResults = $state<SetResult[]>([]);
-	let searching = $state(false);
 	let selectedSets = $state<SetResult[]>([]);
 	let includeSpares = $state(false);
-	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	const hasOpenRouter = $derived(Boolean(auth.user?.openrouter_configured));
-
-	function handleSearchInput() {
-		if (searchTimeout) clearTimeout(searchTimeout);
-		if (setQuery.trim().length < 2) {
-			searchResults = [];
-			return;
-		}
-		searching = true;
-		searchTimeout = setTimeout(async () => {
-			try {
-				const result = await api.searchSets(setQuery.trim());
-				searchResults = result.results.filter(
-					(r) => !selectedSets.some((s) => s.set_num === r.set_num)
-				);
-			} catch {
-				searchResults = [];
-			} finally {
-				searching = false;
-			}
-		}, 400);
-	}
 
 	function addSet(set: SetResult) {
 		if (!selectedSets.some((s) => s.set_num === set.set_num)) {
 			selectedSets = [...selectedSets, set];
-			searchResults = searchResults.filter((r) => r.set_num !== set.set_num);
 		}
 	}
 
 	function removeSet(set_num: string) {
 		selectedSets = selectedSets.filter((s) => s.set_num !== set_num);
+	}
+
+	function makeSetRule(set: SetResult): SortingProfileRule {
+		return {
+			id: crypto.randomUUID(),
+			rule_type: 'set',
+			name: set.name,
+			match_mode: 'all',
+			conditions: [],
+			children: [],
+			disabled: false,
+			set_num: set.set_num,
+			include_spares: includeSpares,
+			set_meta: {
+				name: set.name,
+				year: set.year,
+				num_parts: set.num_parts,
+				img_url: set.img_url
+			}
+		};
 	}
 
 	async function handleCreate(e: Event) {
@@ -73,31 +65,22 @@
 		try {
 			const profile = await api.createSortingProfile({
 				name: name.trim(),
-				visibility: 'private',
-				profile_type: profileType,
+				visibility: 'private'
 			});
 
 			if (profileType === 'set') {
-				// Create a version with the set config
 				await api.saveSortingProfileVersion(profile.id, {
 					name: profile.name,
 					description: profile.description,
 					default_category_id: 'misc',
-					rules: [],
+					rules: selectedSets.map((set) => makeSetRule(set)),
 					fallback_mode: { rebrickable_categories: false, bricklink_categories: false, by_color: false },
-					change_note: 'Initial set configuration',
-					publish: true,
-					set_config: {
-						sets: selectedSets.map((s) => s.set_num),
-						include_spares: includeSpares,
-					},
+					change_note: 'Initial set rules',
+					publish: true
 				});
-				goto(`/profiles/${profile.id}`);
+				goto(`/profiles/${profile.id}/edit`);
 			} else {
-				const params = new URLSearchParams();
-				if (binCount && binCount > 0) params.set('bins', String(binCount));
-				params.set('new', '1');
-				goto(`/profiles/${profile.id}/edit?${params.toString()}`);
+				goto(`/profiles/${profile.id}/edit?new=1`);
 			}
 		} catch (e: any) {
 			error = e.error || 'Failed to create profile';
@@ -125,13 +108,13 @@
 	</p>
 
 	{#if error}
-		<div class="mb-4 border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+		<div class="mb-4 border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-[#D01012]">{error}</div>
 	{/if}
 
 	<form onsubmit={handleCreate} class="space-y-5">
 		<!-- Profile Type Toggle -->
 		<div>
-			<label class="mb-2 block text-sm font-medium text-gray-700">Profile Type</label>
+			<div class="mb-2 text-sm font-medium text-gray-700">Profile Type</div>
 			<div class="flex gap-2">
 				<button
 					type="button"
@@ -172,83 +155,30 @@
 
 		{#if profileType === 'rule'}
 			{#if !hasOpenRouter}
-				<div class="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+				<div class="border border-[#FFD500]/30 bg-[#FFFBEB] p-4 text-sm text-[#A16207]">
 					<strong>AI Assistant requires an OpenRouter API key.</strong>
 					You can still create a profile and edit rules manually, or
-					<a href="/settings" class="font-medium underline hover:text-amber-900">configure your API key</a> first.
+					<a href="/settings" class="font-medium underline hover:text-[#A16207]">configure your API key</a> first.
 				</div>
 			{/if}
-
-			<div>
-				<label for="bin-count" class="mb-1 block text-sm font-medium text-gray-700">
-					How many sorting bins do you have?
-				</label>
-				<p class="mb-1 text-xs text-gray-400">
-					Optional. Helps the AI suggest the right number of categories.
-				</p>
-				<input
-					id="bin-count"
-					type="number"
-					bind:value={binCount}
-					min="1"
-					max="100"
-					placeholder="e.g. 12"
-					class="w-32 border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
-				/>
-			</div>
 		{:else}
-			<!-- Set Search -->
 			<div>
-				<label for="set-search" class="mb-1 block text-sm font-medium text-gray-700">
-					Search for LEGO Sets
-				</label>
-				<input
-					id="set-search"
-					type="text"
-					bind:value={setQuery}
-					oninput={handleSearchInput}
-					placeholder="Search by name or set number..."
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
-				/>
-
-				{#if searching}
-					<div class="mt-1 text-xs text-gray-400">Searching...</div>
-				{/if}
-
-				{#if searchResults.length > 0}
-					<div class="mt-1 max-h-48 overflow-y-auto border border-gray-200 bg-white">
-						{#each searchResults as result}
-							<button
-								type="button"
-								class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50"
-								onclick={() => addSet(result)}
-							>
-								{#if result.set_img_url}
-									<img src={result.set_img_url} alt="" class="h-8 w-8 object-contain" />
-								{:else}
-									<div class="flex h-8 w-8 items-center justify-center bg-gray-100 text-xs text-gray-400">?</div>
-								{/if}
-								<div class="min-w-0 flex-1">
-									<div class="truncate font-medium">{result.name}</div>
-									<div class="text-xs text-gray-500">{result.set_num} &middot; {result.year} &middot; {result.num_parts} parts</div>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{/if}
+				<div class="mb-1 text-sm font-medium text-gray-700">
+					Add LEGO Sets
+				</div>
+				<SetSearch onSelect={addSet} />
 			</div>
 
-			<!-- Selected Sets -->
 			{#if selectedSets.length > 0}
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">
+					<div class="mb-1 text-sm font-medium text-gray-700">
 						Selected Sets ({selectedSets.length})
-					</label>
+					</div>
 					<div class="space-y-1">
 						{#each selectedSets as set}
 							<div class="flex items-center gap-3 border border-gray-200 bg-gray-50 px-3 py-2">
-								{#if set.set_img_url}
-									<img src={set.set_img_url} alt="" class="h-8 w-8 object-contain" />
+								{#if set.img_url}
+									<img src={set.img_url} alt="" class="h-8 w-8 object-contain" />
 								{:else}
 									<div class="flex h-8 w-8 items-center justify-center bg-gray-100 text-xs text-gray-400">?</div>
 								{/if}
@@ -258,7 +188,7 @@
 								</div>
 								<button
 									type="button"
-									class="text-xs text-red-500 hover:text-red-700"
+									class="text-xs text-[#D01012] hover:text-[#B00E10]"
 									onclick={() => removeSet(set.set_num)}
 								>
 									Remove
@@ -294,7 +224,7 @@
 					Creating...
 				</span>
 			{:else if profileType === 'set'}
-				Create Set Profile
+				Create Profile & Open Set Editor
 			{:else}
 				Create Profile & Open Editor
 			{/if}

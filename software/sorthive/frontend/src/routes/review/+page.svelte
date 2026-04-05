@@ -414,11 +414,11 @@
 	</div>
 {:else if sample}
 	{#if error}
-		<div class="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+		<div class="mb-4 bg-[#D01012]/8 px-4 py-3 text-sm text-[#D01012]">{error}</div>
 	{/if}
 
 	{#if feedback}
-		<div class="mb-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{feedback}</div>
+		<div class="mb-4 bg-[#00852B]/10 px-4 py-3 text-sm text-[#00852B]">{feedback}</div>
 	{/if}
 
 	<div class="grid gap-5 lg:grid-cols-[1fr_360px]">
@@ -573,7 +573,7 @@
 					{#if detectionFound !== null}
 						<div class="flex items-center justify-between gap-3">
 							<span class="text-gray-500">Found</span>
-							<span class={detectionFound ? 'font-medium text-emerald-600' : 'font-medium text-red-600'}>
+							<span class={detectionFound ? 'font-medium text-[#00852B]' : 'font-medium text-[#D01012]'}>
 								{detectionFound ? 'Yes' : 'No'}
 							</span>
 						</div>
@@ -597,7 +597,7 @@
 							type="button"
 							onclick={toggleAnnotateMode}
 							disabled={loading || submitting}
-							class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-[#0055BF]/30 bg-[#0055BF]/10' : 'border-[#0055BF]/20 bg-sky-50 hover:bg-sky-100'}"
+							class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-[#0055BF]/30 bg-[#0055BF]/10' : 'border-[#0055BF]/20 bg-[#F0F7FF] hover:bg-[#0055BF]/15'}"
 						>
 							<div class="border border-[#0055BF]/30 bg-white px-2 py-1 text-[11px] font-bold text-[#0055BF]">
 								D
@@ -631,10 +631,10 @@
 							type="button"
 							onclick={() => void submitReview('accept')}
 							disabled={loading || submitting}
-							class="border border-emerald-200 bg-emerald-50 px-3 py-3 text-center transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-[#00852B]/20 bg-[#F0F9F5] px-3 py-3 text-center transition-colors hover:bg-[#00852B]/15 disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-2xl font-bold text-emerald-700">↑</div>
-							<div class="mt-0.5 font-medium text-emerald-900">Accept</div>
+							<div class="text-2xl font-bold text-[#00852B]">↑</div>
+							<div class="mt-0.5 font-medium text-[#00852B]">Accept</div>
 						</button>
 						<div></div>
 
@@ -651,10 +651,10 @@
 							type="button"
 							onclick={() => void submitReview('reject')}
 							disabled={loading || submitting}
-							class="border border-red-200 bg-red-50 px-3 py-3 text-center transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-[#D01012]/20 bg-[#FEF2F2] px-3 py-3 text-center transition-colors hover:bg-[#D01012]/10 disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-2xl font-bold text-red-700">↓</div>
-							<div class="mt-0.5 font-medium text-red-900">Reject</div>
+							<div class="text-2xl font-bold text-[#D01012]">↓</div>
+							<div class="mt-0.5 font-medium text-[#D01012]">Reject</div>
 						</button>
 						<button
 							type="button"
@@ -676,14 +676,14 @@
 				</div>
 			</div>
 
-			<div class="border border-amber-200 bg-amber-50 p-4">
-				<h2 class="text-sm font-semibold text-amber-900">What Counts As Good Training Data</h2>
-				<div class="mt-3 space-y-3 text-sm text-amber-900">
+			<div class="bg-[#FFD500]/12 p-4">
+				<h2 class="text-sm font-semibold text-[#A16207]">What Counts As Good Training Data</h2>
+				<div class="mt-3 space-y-3 text-sm text-[#A16207]">
 					<p>
 						Accept only images where every visible LEGO part is covered by a box or corrected annotation.
 					</p>
-					<div class="border border-emerald-200 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-emerald-700 uppercase">Accept</div>
+					<div class="border border-[#00852B]/20 bg-white px-3 py-3">
+						<div class="text-xs font-semibold tracking-wide text-[#00852B] uppercase">Accept</div>
 						<p class="mt-1 text-sm text-gray-700">
 							All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
 						</p>
@@ -694,8 +694,8 @@
 							If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
 						</p>
 					</div>
-					<div class="border border-red-200 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-red-700 uppercase">Reject</div>
+					<div class="border border-[#D01012]/20 bg-white px-3 py-3">
+						<div class="text-xs font-semibold tracking-wide text-[#D01012] uppercase">Reject</div>
 						<p class="mt-1 text-sm text-gray-700">
 							Reject images that stay incomplete or unreliable, for example when visible parts cannot be marked cleanly enough for training.
 						</p>
@@ -707,7 +707,7 @@
 				<div class="border border-gray-200 bg-white p-4">
 					<div class="mb-3 flex items-center justify-between">
 						<h2 class="text-sm font-semibold text-gray-900">Annotator</h2>
-						<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-amber-600' : annotatorApi.hasSavedBaseline ? 'text-emerald-600' : 'text-gray-400'}">
+						<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
 							{#if annotatorApi.isDirty}
 								Unsaved
 							{:else if annotatorApi.hasSavedBaseline}
@@ -724,11 +724,11 @@
 						<button
 							onclick={annotatorApi.deleteSelected}
 							disabled={annotatorApi.selectedCount === 0}
-							class="border border-red-200 px-2 py-2 text-[11px] text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
+							class="border border-[#D01012]/20 px-2 py-2 text-[11px] text-[#D01012] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#E2E0DB]"
 						>
 							Delete
 						</button>
-						<button onclick={annotatorApi.clearAll} class="border border-orange-200 px-2 py-2 text-[11px] text-orange-600 hover:bg-orange-50">Clear</button>
+						<button onclick={annotatorApi.clearAll} class="border border-[#FFD500]/30 px-2 py-2 text-[11px] text-[#A16207] hover:bg-[#FFFBEB]">Clear</button>
 					</div>
 
 					<div class="mt-3 inline-flex border border-gray-200 bg-gray-50 p-1">
@@ -787,7 +787,7 @@
 					</div>
 
 					{#if annotatorApi.feedback}
-						<p class="mt-3 px-3 py-2 text-xs {annotatorApi.feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : annotatorApi.feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-600'}">
+						<p class="mt-3 px-3 py-2 text-xs {annotatorApi.feedbackTone === 'danger' ? 'bg-[#D01012]/8 text-[#D01012]' : annotatorApi.feedbackTone === 'success' ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#F7F6F3] text-[#7A7770]'}">
 							{annotatorApi.feedback}
 						</p>
 					{/if}

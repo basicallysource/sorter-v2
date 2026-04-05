@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { api, type SortingProfileDetail } from '$lib/api';
+	import { api, type SortingProfileDetail, type SortingProfileSetProgressResponse } from '$lib/api';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 
@@ -18,10 +18,14 @@
 	let forking = $state(false);
 	let showDeleteModal = $state(false);
 	let deletingProfile = $state(false);
+	let setProgress = $state<SortingProfileSetProgressResponse | null>(null);
+	let setProgressLoading = $state(false);
+	let setProgressError = $state<string | null>(null);
 
 	const profileId = $derived(page.params.id ?? '');
 	const cv = $derived(profile?.current_version ?? null);
 	const catCount = $derived(cv?.categories ? Object.keys(cv.categories).length : 0);
+	const machineProgress = $derived(setProgress?.machines ?? []);
 
 	const stats = $derived.by(() => {
 		if (!profile || !cv) return [];
@@ -51,6 +55,19 @@
 
 	$effect(() => { if (profileId) void loadProfile(); });
 
+	$effect(() => {
+		if (!profileId || profile?.profile_type !== 'set') {
+			setProgress = null;
+			setProgressError = null;
+			return;
+		}
+		void loadSetProgress();
+		const intervalId = setInterval(() => {
+			void loadSetProgress();
+		}, 10000);
+		return () => clearInterval(intervalId);
+	});
+
 	async function loadProfile() {
 		loading = true; error = null;
 		try {
@@ -59,6 +76,19 @@
 			settingsVisibility = d.visibility; settingsTags = d.tags.join(', ');
 		} catch (e: any) { error = e.error || 'Failed to load profile'; }
 		finally { loading = false; }
+	}
+
+	async function loadSetProgress() {
+		if (!profileId) return;
+		setProgressLoading = true;
+		try {
+			setProgress = await api.getSortingProfileSetProgress(profileId);
+			setProgressError = null;
+		} catch (e: any) {
+			setProgressError = e.error || 'Failed to load set progress';
+		} finally {
+			setProgressLoading = false;
+		}
 	}
 
 	async function saveSettings() {
@@ -120,6 +150,11 @@
 		return v == null ? 'n/a' : `${(v * 100).toFixed(1)}%`;
 	}
 
+	function percent(found: number, needed: number): number {
+		if (needed <= 0) return 0;
+		return Math.round((found / needed) * 100);
+	}
+
 	function removeTag(tag: string) { settingsTags = parsedTags.filter((t) => t !== tag).join(', '); }
 </script>
 
@@ -128,7 +163,7 @@
 {#if loading}
 	<Spinner />
 {:else if !profile}
-	<div class="border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error ?? 'Profile not found.'}</div>
+	<div class="border border-[#D01012]/20 bg-[#FEF2F2] p-4 text-sm text-[#D01012]">{error ?? 'Profile not found.'}</div>
 {:else}
 	<div class="space-y-6">
 		<!-- Header -->
@@ -160,8 +195,8 @@
 			{/each}
 		</div>
 
-		{#if error}<div class="border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>{/if}
-		{#if success}<div class="border border-green-200 bg-green-50 p-3 text-sm text-green-700">{success}</div>{/if}
+		{#if error}<div class="border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-[#D01012]">{error}</div>{/if}
+		{#if success}<div class="border border-[#00852B]/20 bg-[#F0F9F5] p-3 text-sm text-[#00852B]">{success}</div>{/if}
 
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
@@ -198,6 +233,94 @@
 			</div>
 		{/if}
 
+		{#if profile.profile_type === 'set'}
+			<div class="border border-gray-200 bg-white p-6">
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h2 class="text-lg font-semibold text-gray-900">Machine Progress</h2>
+						<p class="mt-1 text-sm text-gray-500">
+							Progress synced back from your assigned machines for this set-based profile.
+						</p>
+					</div>
+					<a href="/machines" class="text-sm font-medium text-[#D01012] hover:text-[#B00E10]">Manage Machines</a>
+				</div>
+
+				{#if setProgressError}
+					<div class="mt-4 border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-[#D01012]">{setProgressError}</div>
+				{:else if setProgressLoading && !setProgress}
+					<div class="mt-4 text-sm text-gray-500">Loading progress...</div>
+				{:else if machineProgress.length === 0}
+					<div class="mt-4 border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+						No machines you own are currently reporting progress for this profile.
+					</div>
+				{:else}
+					<div class="mt-5 space-y-4">
+						{#each machineProgress as machine}
+							<div class="border border-gray-200 p-4">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div>
+										<div class="text-sm font-semibold text-gray-900">{machine.machine_name}</div>
+										<div class="mt-1 text-xs text-gray-500">
+											Desired v{machine.desired_version_number ?? 'n/a'}
+											{#if machine.active_version_number}
+												· Active v{machine.active_version_number}
+											{:else}
+												· Waiting for activation
+											{/if}
+										</div>
+										{#if machine.updated_at}
+											<div class="mt-1 text-xs text-gray-400">
+												Last progress update {timeAgo(machine.updated_at)}
+											</div>
+										{/if}
+									</div>
+									<div class="min-w-[9rem] text-right">
+										<div class="text-lg font-semibold text-gray-900">
+											{machine.overall_found}/{machine.overall_needed}
+										</div>
+										<div class="text-xs text-gray-500">{machine.overall_pct}% complete</div>
+									</div>
+								</div>
+
+								<div class="mt-3 h-2 w-full bg-gray-100">
+									<div
+										class="h-full bg-[#00852B] transition-all"
+										style="width: {Math.min(machine.overall_pct, 100)}%"
+									></div>
+								</div>
+
+								{#if machine.sets.length > 0}
+									<div class="mt-4 space-y-2">
+										{#each machine.sets as set}
+											<div class="rounded border border-gray-100 bg-gray-50 p-3">
+												<div class="flex items-center justify-between gap-3">
+													<div class="min-w-0">
+														<div class="truncate text-sm font-medium text-gray-800">{set.name}</div>
+														{#if set.name !== set.set_num}
+															<div class="truncate text-xs text-gray-400">{set.set_num}</div>
+														{/if}
+													</div>
+													<div class="text-right text-xs text-gray-500">
+														{set.total_found}/{set.total_needed} ({set.pct}%)
+													</div>
+												</div>
+												<div class="mt-2 h-1.5 w-full bg-white">
+													<div
+														class="h-full bg-[#0055BF] transition-all"
+														style="width: {Math.min(percent(set.total_found, set.total_needed), 100)}%"
+													></div>
+												</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Version History -->
 		{#if profile.versions.length > 0}
 			<div class="border border-gray-200 bg-white p-6">
@@ -209,7 +332,7 @@
 								<div>
 									<div class="flex flex-wrap items-center gap-2">
 										<span class="text-sm font-semibold text-gray-900">v{v.version_number}</span>
-										{#if v.is_published}<span class="border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">Published</span>{/if}
+										{#if v.is_published}<span class="border border-[#00852B]/20 bg-[#F0F9F5] px-2 py-0.5 text-xs font-medium text-[#00852B]">Published</span>{/if}
 										{#if v.label}<span class="border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600">{v.label}</span>{/if}
 									</div>
 									{#if v.change_note}<p class="mt-1 text-sm text-gray-600">{v.change_note}</p>{/if}
@@ -263,8 +386,8 @@
 					</button>
 				</div>
 				<div class="mt-6 border-t border-gray-200 pt-6">
-					<h3 class="mb-3 text-sm font-semibold text-red-700">Danger Zone</h3>
-					<button onclick={() => { showDeleteModal = true; }} class="border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Delete this Profile</button>
+					<h3 class="mb-3 text-sm font-semibold text-[#D01012]">Danger Zone</h3>
+					<button onclick={() => { showDeleteModal = true; }} class="border border-[#D01012]/30 px-4 py-2 text-sm font-medium text-[#D01012] hover:bg-[#FEF2F2]">Delete this Profile</button>
 				</div>
 			</div>
 		{/if}
@@ -276,7 +399,7 @@
 		<p class="text-sm text-gray-600">This removes the profile, all versions, AI messages, and machine assignments that point at it. This cannot be undone.</p>
 		<div class="flex justify-end gap-2">
 			<button onclick={() => { showDeleteModal = false; }} class="border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-			<button onclick={() => void deleteProfile()} disabled={deletingProfile} class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">{deletingProfile ? 'Deleting...' : 'Delete Profile'}</button>
+			<button onclick={() => void deleteProfile()} disabled={deletingProfile} class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">{deletingProfile ? 'Deleting...' : 'Delete Profile'}</button>
 		</div>
 	</div>
 </Modal>

@@ -429,7 +429,7 @@
 				<div class="border border-gray-200 bg-white">
 					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Annotator</h2>
-						<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-amber-600' : annotatorApi.hasSavedBaseline ? 'text-emerald-600' : 'text-gray-400'}">
+						<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
 							{#if annotatorApi.isDirty}Unsaved{:else if annotatorApi.hasSavedBaseline}Saved{:else}Not saved{/if}
 						</span>
 					</div>
@@ -447,13 +447,13 @@
 							<button
 								onclick={annotatorApi.deleteSelected}
 								disabled={annotatorApi.selectedCount === 0}
-								class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300 {annotatorApi.selectedCount === 0 ? '' : 'border-red-200 text-red-500 hover:bg-red-50'}"
+								class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-[#E2E0DB] {annotatorApi.selectedCount === 0 ? '' : 'border-[#D01012]/20 text-[#D01012] hover:bg-[#FEF2F2]'}"
 								title="Delete selected"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 								<span class="text-[10px]">Delete</span>
 							</button>
-							<button onclick={annotatorApi.clearAll} class="flex flex-col items-center gap-1 border border-orange-200 px-1 py-2 text-orange-500 transition-colors hover:bg-orange-50" title="Clear all">
+							<button onclick={annotatorApi.clearAll} class="flex flex-col items-center gap-1 border border-[#FFD500]/30 px-1 py-2 text-[#A16207] transition-colors hover:bg-[#FFFBEB]" title="Clear all">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								<span class="text-[10px]">Clear</span>
 							</button>
@@ -491,7 +491,7 @@
 
 						<!-- Feedback -->
 						{#if annotatorApi.feedback}
-							<p class="px-2 py-1.5 text-[11px] {annotatorApi.feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : annotatorApi.feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-600'}">
+							<p class="px-2 py-1.5 text-[11px] {annotatorApi.feedbackTone === 'danger' ? 'bg-[#D01012]/8 text-[#D01012]' : annotatorApi.feedbackTone === 'success' ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#F7F6F3] text-[#7A7770]'}">
 								{annotatorApi.feedback}
 							</p>
 						{/if}
@@ -516,13 +516,13 @@
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Detection</h2>
 						{#if detectionFound !== undefined}
 							{#if detectionFound}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-green-600">
-									<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#00852B]">
+									<span class="h-1.5 w-1.5 rounded-full bg-[#00852B]"></span>
 									Found
 								</span>
 							{:else}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-red-500">
-									<span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
+								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#D01012]">
+									<span class="h-1.5 w-1.5 rounded-full bg-[#D01012]"></span>
 									Not found
 								</span>
 							{/if}
@@ -686,7 +686,7 @@
 							<div class="px-4 py-2.5">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
-										<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+										<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-[#F0F9F5] text-[#00852B]' : 'bg-[#FEF2F2] text-[#D01012]'}">
 											{review.decision === 'accept' ? '✓' : '✗'}
 										</div>
 										<span class="text-xs font-medium text-gray-900">{review.reviewer_display_name ?? 'Unknown'}</span>
@@ -707,7 +707,7 @@
 				<div class="pt-1">
 					<button
 						onclick={() => { showDeleteModal = true; }}
-						class="w-full px-3 py-2 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+						class="w-full px-3 py-2 text-xs text-gray-400 hover:text-[#D01012] hover:bg-[#FEF2F2] transition-colors"
 					>
 						Delete sample
 					</button>
@@ -728,7 +728,7 @@
 				</button>
 				<button
 					onclick={handleDelete}
-					class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 				>
 					Delete
 				</button>

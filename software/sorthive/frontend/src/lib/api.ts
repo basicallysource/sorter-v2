@@ -25,6 +25,8 @@ export interface Machine {
 	name: string;
 	description: string | null;
 	token_prefix: string;
+	last_seen_ip: string | null;
+	local_ui_port: string | null;
 	last_seen_at: string | null;
 	is_active: boolean;
 	created_at: string;
@@ -32,6 +34,16 @@ export interface Machine {
 
 export interface MachineWithToken extends Machine {
 	raw_token: string;
+}
+
+export interface MachineStats {
+	total_samples: number;
+	accepted_samples: number;
+	first_capture: string | null;
+	last_capture: string | null;
+	total_sessions: number;
+	parts_found: number;
+	parts_needed: number;
 }
 
 export interface Sample {
@@ -157,19 +169,52 @@ export interface SortingProfileCondition {
 	value: unknown;
 }
 
+export interface CustomSetPart {
+	part_num: string;
+	color_id: number;
+	quantity: number;
+	part_name?: string | null;
+	color_name?: string | null;
+	img_url?: string | null;
+	part_source?: 'rebrickable' | 'bricklink';
+}
+
 export interface SortingProfileRule {
 	id: string;
+	rule_type?: 'filter' | 'set';
 	name: string;
 	match_mode: 'all' | 'any' | string;
 	conditions: SortingProfileCondition[];
 	children: SortingProfileRule[];
 	disabled: boolean;
+	// Set-specific fields
+	set_source?: 'rebrickable' | 'custom';
+	set_num?: string;
+	include_spares?: boolean;
+	set_meta?: {
+		name: string;
+		year: number | null;
+		num_parts: number | null;
+		img_url: string | null;
+	};
+	custom_parts?: CustomSetPart[];
 }
 
 export interface SortingProfileFallbackMode {
 	rebrickable_categories: boolean;
 	bricklink_categories: boolean;
 	by_color: boolean;
+}
+
+export interface RuleSummary {
+	name: string;
+	rule_type: string;
+	set_source: string | null;
+	set_num: string | null;
+	set_meta: { name?: string; year?: number | null; num_parts?: number | null; img_url?: string } | null;
+	disabled: boolean;
+	condition_count: number;
+	child_count: number;
 }
 
 export interface SortingProfileVersionSummary {
@@ -182,6 +227,7 @@ export interface SortingProfileVersionSummary {
 	compiled_part_count: number;
 	coverage_ratio: number | null;
 	created_at: string;
+	rules_summary: RuleSummary[];
 }
 
 export interface SortingProfileForkSource {
@@ -219,7 +265,6 @@ export interface SortingProfileVersion extends SortingProfileVersionSummary {
 	fallback_mode: SortingProfileFallbackMode;
 	compiled_stats: Record<string, unknown> | null;
 	categories: Record<string, { name: string }>;
-	set_config: { sets: string[]; include_spares: boolean } | null;
 }
 
 export interface SortingProfileDetail extends SortingProfileSummary {
@@ -227,10 +272,42 @@ export interface SortingProfileDetail extends SortingProfileSummary {
 	current_version: SortingProfileVersion | null;
 }
 
+export interface SortingProfileSetProgressSet {
+	set_num: string;
+	name: string;
+	total_needed: number;
+	total_found: number;
+	pct: number;
+	updated_at: string | null;
+}
+
+export interface SortingProfileSetProgressMachine {
+	machine_id: string;
+	machine_name: string;
+	assignment_id: string;
+	desired_version_id: string | null;
+	active_version_id: string | null;
+	desired_version_number: number | null;
+	active_version_number: number | null;
+	last_synced_at: string | null;
+	last_activated_at: string | null;
+	overall_needed: number;
+	overall_found: number;
+	overall_pct: number;
+	updated_at: string | null;
+	sets: SortingProfileSetProgressSet[];
+}
+
+export interface SortingProfileSetProgressResponse {
+	profile_id: string;
+	machines: SortingProfileSetProgressMachine[];
+}
+
 export interface AiToolTraceItem {
 	tool: string;
 	input: Record<string, unknown>;
 	output_summary: string;
+	output?: Record<string, unknown> | null;
 }
 
 export interface SortingProfileAiMessage {
@@ -261,6 +338,13 @@ export interface ProfileCatalogStatus {
 	cached_colors: number;
 	api_total: number | null;
 	error: string | null;
+	auto_sync_enabled: boolean;
+	auto_sync_running: boolean;
+	auto_sync_loop_running: boolean;
+	auto_sync_plan: string[];
+	auto_sync_last_checked_at: string | null;
+	auto_sync_last_started_at: string | null;
+	last_synced_at: Record<string, string | null>;
 }
 
 export interface ProfileCatalogSearchResult {
@@ -275,6 +359,22 @@ export interface ProfileCatalogSearchResult {
 	_category_name: string;
 	_bl_name: string | null;
 	_bl_category_name: string | null;
+}
+
+export interface ProfileCatalogColor {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+}
+
+export interface BrickLinkCsvImportResult {
+	parts: CustomSetPart[];
+	imported_rows: number;
+	imported_unique_parts: number;
+	warning_count: number;
+	warnings: string[];
+	suggested_name: string | null;
 }
 
 export interface MachineProfileAssignment {
@@ -434,6 +534,9 @@ export const api = {
 	getMachines() {
 		return request<Machine[]>('GET', '/api/machines');
 	},
+	getMachineStats() {
+		return request<Record<string, MachineStats>>('GET', '/api/machines/stats');
+	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });
 	},
@@ -537,6 +640,15 @@ export const api = {
 	stopProfileCatalogSync() {
 		return request<{ stopped: boolean }>('POST', '/api/profile-catalog/stop');
 	},
+	getProfileCatalogColors() {
+		return request<{ results: ProfileCatalogColor[] }>('GET', '/api/profile-catalog/colors');
+	},
+	importProfileCatalogBricklinkCsv(csv_content: string, filename?: string) {
+		return request<BrickLinkCsvImportResult>('POST', '/api/profile-catalog/import-bricklink-csv', {
+			csv_content,
+			filename
+		});
+	},
 	searchProfileCatalogParts(params: { q?: string; cat_id?: number; limit?: number; offset?: number } = {}) {
 		const searchParams = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
@@ -551,6 +663,16 @@ export const api = {
 		);
 	},
 
+	searchProfileCatalogSets(query: string, params: { min_year?: number; max_year?: number } = {}) {
+		const searchParams = new URLSearchParams({ q: query });
+		if (params.min_year !== undefined) searchParams.set('min_year', String(params.min_year));
+		if (params.max_year !== undefined) searchParams.set('max_year', String(params.max_year));
+		return request<{ results: Array<{ set_num: string; name: string; year: number; num_parts: number; img_url: string | null }> }>(
+			'GET',
+			`/api/profile-catalog/search-sets?${searchParams.toString()}`
+		);
+	},
+
 	// Sorting Profiles
 	getProfiles(params: { scope?: 'discover' | 'mine' | 'library'; q?: string } = {}) {
 		const searchParams = new URLSearchParams();
@@ -559,18 +681,24 @@ export const api = {
 		const qs = searchParams.toString();
 		return request<SortingProfileSummary[]>('GET', `/api/profiles${qs ? '?' + qs : ''}`);
 	},
-	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[]; profile_type?: string }) {
+	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
 		return request<SortingProfileDetail>('POST', '/api/profiles', data);
 	},
 	getSortingProfile(id: string, versionId?: string) {
 		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
 		return request<SortingProfileDetail>('GET', `/api/profiles/${id}${qs}`);
 	},
+	getSortingProfileSetProgress(id: string) {
+		return request<SortingProfileSetProgressResponse>('GET', `/api/profiles/${id}/set-progress`);
+	},
 	updateSortingProfile(id: string, data: { name?: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
 		return request<SortingProfileDetail>('PATCH', `/api/profiles/${id}`, data);
 	},
 	deleteSortingProfile(id: string) {
 		return request<void>('DELETE', `/api/profiles/${id}`);
+	},
+	suggestChangeNote(id: string, data: { old_rules: SortingProfileRule[]; new_rules: SortingProfileRule[] }) {
+		return request<{ change_note: string }>('POST', `/api/profiles/${id}/suggest-change-note`, data);
 	},
 	saveSortingProfileVersion(id: string, data: {
 		name: string;
@@ -581,7 +709,6 @@ export const api = {
 		change_note?: string | null;
 		label?: string | null;
 		publish?: boolean;
-		set_config?: { sets: string[]; include_spares: boolean } | null;
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
@@ -701,15 +828,8 @@ export const api = {
 		return request<void>('DELETE', `/api/machines/${machineId}/profile-assignment`);
 	},
 
-	// Sets
-	searchSets(query: string) {
-		return request<{ results: Array<{ set_num: string; name: string; year: number; num_parts: number; set_img_url: string | null }> }>('GET', `/api/sets/search?q=${encodeURIComponent(query)}`);
-	},
-	getSetDetail(setNum: string) {
-		return request<{ set: Record<string, unknown>; inventory: Array<Record<string, unknown>> }>('GET', `/api/sets/${encodeURIComponent(setNum)}`);
-	},
 	getMachineSetProgress(machineId: string) {
-		return request<{ progress: Array<{ set_num: string; part_num: string; color_id: number; quantity_needed: number; quantity_found: number; updated_at: string | null }>; assignment_id: string | null }>('GET', `/api/machines/${machineId}/set-progress`);
+		return request<{ progress: Array<{ set_num: string; set_name?: string; part_num: string; color_id: number; quantity_needed: number; quantity_found: number; updated_at: string | null }>; assignment_id: string | null }>('GET', `/api/machines/${machineId}/set-progress`);
 	},
 
 	// Admin

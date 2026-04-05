@@ -94,7 +94,7 @@
 </div>
 
 {#if error}
-	<div class="mb-4 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+	<div class="mb-4 bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{error}</div>
 {/if}
 
 {#if loading}
@@ -140,7 +140,7 @@
 							<div class="flex items-center justify-end gap-2">
 								<button
 									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-yellow-600 hover:text-yellow-800' : 'text-green-600 hover:text-green-800'}"
+									class="text-xs font-medium {user.is_active ? 'text-[#A16207] hover:text-[#A16207]' : 'text-[#00852B] hover:text-[#00852B]'}"
 									title={user.is_active ? 'Deactivate' : 'Activate'}
 								>
 									{user.is_active ? 'Deactivate' : 'Activate'}
@@ -211,7 +211,7 @@
 	{#if deletingUser}
 		<div class="space-y-4">
 			{#if deleteError}
-				<div class="bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+				<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{deleteError}</div>
 			{/if}
 			<p class="text-sm text-gray-600">
 				This will permanently delete <strong>{deletingUser.display_name || deletingUser.email}</strong> and all their machines, samples, and reviews.
@@ -225,7 +225,7 @@
 				</button>
 				<button
 					onclick={handleDeleteUser}
-					class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 				>
 					Delete User
 				</button>

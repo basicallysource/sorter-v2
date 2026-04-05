@@ -182,7 +182,7 @@
 								</button>
 							</div>
 							{#if nameError}
-								<p class="mt-1 text-xs text-red-600">{nameError}</p>
+								<p class="mt-1 text-xs text-[#D01012]">{nameError}</p>
 							{/if}
 						{:else}
 							<div class="flex items-center gap-2">
@@ -194,7 +194,7 @@
 									Edit
 								</button>
 								{#if nameSaved}
-									<span class="text-xs text-green-600">Saved!</span>
+									<span class="text-xs text-[#00852B]">Saved!</span>
 								{/if}
 							</div>
 						{/if}
@@ -275,10 +275,10 @@
 				</div>
 
 				{#if passwordError}
-					<div class="bg-red-50 p-3 text-sm text-red-700">{passwordError}</div>
+					<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{passwordError}</div>
 				{/if}
 				{#if passwordSaved}
-					<div class="bg-green-50 p-3 text-sm text-green-700">Password changed successfully!</div>
+					<div class="bg-[#00852B]/10 p-3 text-sm text-[#00852B]">Password changed successfully!</div>
 				{/if}
 
 				<button
@@ -334,10 +334,10 @@
 				</div>
 
 				{#if aiError}
-					<div class="bg-red-50 p-3 text-sm text-red-700">{aiError}</div>
+					<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{aiError}</div>
 				{/if}
 				{#if aiSaved}
-					<div class="bg-green-50 p-3 text-sm text-green-700">AI settings saved.</div>
+					<div class="bg-[#00852B]/10 p-3 text-sm text-[#00852B]">AI settings saved.</div>
 				{/if}
 
 				<div class="flex flex-wrap gap-2">
@@ -363,14 +363,14 @@
 		</div>
 
 		<!-- Danger Zone -->
-		<div class="border border-red-200 bg-white p-6">
-			<h2 class="mb-4 font-semibold text-red-900">Danger Zone</h2>
+		<div class="border border-[#D01012]/20 bg-white p-6">
+			<h2 class="mb-4 font-semibold text-[#D01012]">Danger Zone</h2>
 			<p class="mb-4 text-sm text-gray-600">
 				Deleting your account will permanently remove all your machines, samples, and reviews.
 			</p>
 			<button
 				onclick={() => { showDeleteModal = true; }}
-				class="border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+				class="border border-[#D01012]/30 px-4 py-2 text-sm font-medium text-[#D01012] hover:bg-[#FEF2F2]"
 			>
 				Delete Account
 			</button>
@@ -381,7 +381,7 @@
 <Modal open={showDeleteModal} title="Delete Account" onclose={() => { showDeleteModal = false; }}>
 	<div class="space-y-4">
 		{#if deleteError}
-			<div class="bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+			<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{deleteError}</div>
 		{/if}
 		<p class="text-sm text-gray-600">
 			This will delete all your machines, samples, and data permanently. This action cannot be undone.
@@ -395,7 +395,7 @@
 			</button>
 			<button
 				onclick={handleDelete}
-				class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+				class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 			>
 				Delete My Account
 			</button>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { api, type Machine, type MachineProfileAssignment, type MachineWithToken, type SortingProfileDetail, type SortingProfileSummary } from '$lib/api';
+	import { api, type Machine, type MachineProfileAssignment, type MachineStats, type MachineWithToken, type SortingProfileDetail, type SortingProfileSummary } from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -11,6 +11,7 @@
 	let accessibleProfiles = $state<SortingProfileSummary[]>([]);
 	let assignments = $state<Record<string, MachineProfileAssignment | null>>({});
 	let setProgress = $state<Record<string, { total_needed: number; total_found: number } | null>>({});
+	let machineStats = $state<Record<string, MachineStats>>({});
 
 	let showAddModal = $state(false);
 	let newName = $state('');
@@ -48,17 +49,37 @@
 		void loadMachines();
 	});
 
+	async function loadSetProgressForAssignment(machineId: string, assignment: MachineProfileAssignment | null) {
+		if (assignment?.profile?.profile_type !== 'set') {
+			setProgress = { ...setProgress, [machineId]: null };
+			return;
+		}
+		try {
+			const result = await api.getMachineSetProgress(machineId);
+			const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
+			const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
+			setProgress = {
+				...setProgress,
+				[machineId]: { total_needed, total_found }
+			};
+		} catch {
+			setProgress = { ...setProgress, [machineId]: null };
+		}
+	}
+
 	async function loadMachines() {
 		loading = true;
 		error = null;
 		try {
-			const [machineList, mine, library] = await Promise.all([
+			const [machineList, mine, library, stats] = await Promise.all([
 				api.getMachines(),
 				api.getProfiles({ scope: 'mine' }),
-				api.getProfiles({ scope: 'library' })
+				api.getProfiles({ scope: 'library' }),
+				api.getMachineStats()
 			]);
 			machines = machineList;
 			accessibleProfiles = dedupeProfiles([...mine, ...library]);
+			machineStats = stats;
 
 			const nextAssignments: Record<string, MachineProfileAssignment | null> = {};
 			await Promise.all(
@@ -76,16 +97,18 @@
 			const nextSetProgress: Record<string, { total_needed: number; total_found: number } | null> = {};
 			await Promise.all(
 				machineList.map(async (machine) => {
-					const a = nextAssignments[machine.id];
-					if (a?.profile?.profile_type === 'set') {
-						try {
-							const result = await api.getMachineSetProgress(machine.id);
-							const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
-							const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
-							nextSetProgress[machine.id] = { total_needed, total_found };
-						} catch {
-							nextSetProgress[machine.id] = null;
-						}
+					const assignment = nextAssignments[machine.id];
+					if (assignment?.profile?.profile_type !== 'set') {
+						nextSetProgress[machine.id] = null;
+						return;
+					}
+					try {
+						const result = await api.getMachineSetProgress(machine.id);
+						const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
+						const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
+						nextSetProgress[machine.id] = { total_needed, total_found };
+					} catch {
+						nextSetProgress[machine.id] = null;
 					}
 				})
 			);
@@ -201,6 +224,24 @@ async function handleDelete() {
 		openMenuId = openMenuId === machineId ? null : machineId;
 	}
 
+	function formatUptime(createdAt: string): string {
+		const diff = Date.now() - new Date(createdAt).getTime();
+		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+		if (days < 1) return 'Today';
+		if (days === 1) return '1 day';
+		if (days < 30) return `${days} days`;
+		const months = Math.floor(days / 30);
+		if (months === 1) return '1 month';
+		if (months < 12) return `${months} months`;
+		const years = Math.floor(months / 12);
+		return years === 1 ? '1 year' : `${years} years`;
+	}
+
+	function formatNumber(n: number): string {
+		if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+		return n.toString();
+	}
+
 	async function copyToken() {
 		await navigator.clipboard.writeText(tokenDisplay);
 		tokenCopied = true;
@@ -275,14 +316,16 @@ async function loadAssignmentProfile(profileId: string) {
 		assignmentSaving = true;
 		error = null;
 		try {
+			const nextAssignment = await api.assignMachineProfile(
+				assignmentMachine.id,
+				assignmentProfileId,
+				assignmentVersionId
+			);
 			assignments = {
 				...assignments,
-				[assignmentMachine.id]: await api.assignMachineProfile(
-					assignmentMachine.id,
-					assignmentProfileId,
-					assignmentVersionId
-				)
+				[assignmentMachine.id]: nextAssignment
 			};
+			await loadSetProgressForAssignment(assignmentMachine.id, nextAssignment);
 			showAssignModal = false;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to assign profile';
@@ -297,6 +340,7 @@ async function loadAssignmentProfile(profileId: string) {
 		try {
 			await api.clearMachineProfileAssignment(machine.id);
 			assignments = { ...assignments, [machine.id]: null };
+			setProgress = { ...setProgress, [machine.id]: null };
 			if (assignmentMachine?.id === machine.id) {
 				showAssignModal = false;
 			}
@@ -330,7 +374,7 @@ async function loadAssignmentProfile(profileId: string) {
 </div>
 
 {#if error}
-	<div class="mb-4 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+	<div class="mb-4 bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{error}</div>
 {/if}
 
 {#if loading}
@@ -338,129 +382,130 @@ async function loadAssignmentProfile(profileId: string) {
 {:else if machines.length === 0}
 	<p class="text-gray-500">No machines yet. Add one to get started.</p>
 {:else}
-	<div class="space-y-4">
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 		{#each machines as machine (machine.id)}
 			{@const assignment = assignments[machine.id]}
-			<div class="border border-gray-200 bg-white p-4">
-				<div class="flex flex-wrap items-start justify-between gap-4">
-					<div class="space-y-3">
-						<div>
-							<h3 class="font-semibold text-gray-900">{machine.name}</h3>
-							{#if machine.description}
-								<p class="mt-1 text-sm text-gray-500">{machine.description}</p>
-							{/if}
-							<div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-								<span>Token: {machine.token_prefix}...</span>
-								<Badge
-									text={machine.is_active ? 'Active' : 'Inactive'}
-									variant={machine.is_active ? 'success' : 'neutral'}
-								/>
-								{#if machine.last_seen_at}
-									<span>Last seen: {new Date(machine.last_seen_at).toLocaleString()}</span>
-								{/if}
-							</div>
+			{@const stats = machineStats[machine.id]}
+			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
+			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
+			<div class="flex flex-col border border-[#E2E0DB] bg-white transition-colors hover:border-[#7A7770]">
+				<!-- Header -->
+				<div class="flex items-start gap-3 px-4 pt-4 pb-3">
+					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#E2E0DB]/60 text-[#7A7770]'}">
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+							<path stroke-linecap="square" stroke-linejoin="miter" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+						</svg>
+					</div>
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center gap-2">
+							<h3 class="truncate text-sm font-semibold text-[#1A1A1A]">{machine.name}</h3>
+							<span class="shrink-0 text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
+								{isOnline ? 'Online' : 'Offline'}
+							</span>
 						</div>
+						{#if machine.description}
+							<p class="mt-0.5 truncate text-xs text-[#7A7770]">{machine.description}</p>
+						{/if}
+					</div>
+					<div class="flex shrink-0 items-center gap-0.5">
+						{#if machine.last_seen_ip}
+							<a href="http://{machine.last_seen_ip}:{machine.local_ui_port || '8000'}"
+								target="_blank" rel="noopener noreferrer"
+								class="-mt-1 p-1.5 text-[#7A7770] hover:text-[#D01012]" title="Open local UI">
+								<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5zm7.25-.75a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0V6.31l-5.97 5.97a.75.75 0 01-1.06-1.06l5.97-5.97H12.25a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
+								</svg>
+							</a>
+						{/if}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div class="relative" onclick={(event) => event.stopPropagation()}>
+						<button onclick={() => toggleMenu(machine.id)}
+							class="-mr-1 -mt-1 p-1.5 text-[#7A7770] hover:text-[#1A1A1A]" title="More actions">
+							<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+								<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+							</svg>
+						</button>
+						{#if openMenuId === machine.id}
+							<div class="absolute right-0 z-10 mt-1 w-48 border border-[#E2E0DB] bg-white py-1 shadow-sm">
+								<button onclick={() => openEdit(machine)} class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Edit</button>
+								<button onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">
+									Rotate Token
+								</button>
+								<div class="my-1 border-b border-[#E2E0DB]"></div>
+								<button onclick={() => { openPurge(machine); openMenuId = null; }}
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#A16207] hover:bg-[#FFFBEB]">
+									Purge Data
+								</button>
+								<button onclick={() => { openDelete(machine); openMenuId = null; }}
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]">
+									Delete Machine
+								</button>
+							</div>
+						{/if}
+					</div>
+					</div>
+				</div>
 
-						<div class="bg-gray-50 p-3 text-sm">
-							{#if assignment?.profile && assignment.desired_version}
-								<div class="font-medium text-gray-900">
-									Desired profile: {assignment.profile.name} v{assignment.desired_version.version_number}
-								</div>
-								<div class="mt-1 text-gray-600">
-									{#if assignment.active_version}
-										Active on machine: v{assignment.active_version.version_number}
-									{:else}
-										Not active on the machine yet
-									{/if}
-								</div>
-								<div class="mt-1 text-xs text-gray-500">
-									{#if assignment.last_activated_at}
-										Last activated: {new Date(assignment.last_activated_at).toLocaleString()}
-									{:else if assignment.last_synced_at}
-										Last synced: {new Date(assignment.last_synced_at).toLocaleString()}
-									{/if}
-								</div>
-								{#if assignment.last_error}
-									<div class="mt-2 text-xs text-red-600">{assignment.last_error}</div>
-								{/if}
-								{#if assignment.profile?.profile_type === 'set' && setProgress[machine.id]}
-									{@const sp = setProgress[machine.id]!}
-									{@const pct = sp.total_needed > 0 ? Math.round((sp.total_found / sp.total_needed) * 100) : 0}
-									<div class="mt-2">
-										<div class="flex items-center justify-between text-xs text-gray-600">
-											<span>Set progress: {sp.total_found}/{sp.total_needed} parts</span>
-											<span class="font-medium">{pct}%</span>
-										</div>
-										<div class="mt-1 h-1.5 w-full bg-gray-200">
-											<div class="h-full bg-green-500 transition-all" style="width: {pct}%"></div>
-										</div>
-									</div>
-								{/if}
+				<!-- Stats grid -->
+				<div class="grid grid-cols-3 gap-px border-t border-[#E2E0DB] bg-[#E2E0DB]">
+					<div class="flex flex-col items-center bg-white py-3">
+						<span class="text-lg font-bold text-[#1A1A1A]">{stats ? formatNumber(stats.total_samples) : '—'}</span>
+						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Samples</span>
+					</div>
+					<div class="flex flex-col items-center bg-white py-3">
+						<span class="text-lg font-bold {acceptRate !== null && acceptRate >= 80 ? 'text-[#00852B]' : acceptRate !== null ? 'text-[#1A1A1A]' : 'text-[#1A1A1A]'}">
+							{acceptRate !== null ? `${acceptRate}%` : '—'}
+						</span>
+						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Accepted</span>
+					</div>
+					<div class="flex flex-col items-center bg-white py-3">
+						<span class="text-lg font-bold text-[#1A1A1A]">{stats ? formatNumber(stats.total_sessions) : '—'}</span>
+						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Sessions</span>
+					</div>
+				</div>
+
+				<!-- Set progress bar (if set-based profile) -->
+				{#if stats && stats.parts_needed > 0}
+					{@const pct = Math.round((stats.parts_found / stats.parts_needed) * 100)}
+					<div class="border-t border-[#E2E0DB] px-4 py-2.5">
+						<div class="mb-1.5 flex items-center justify-between text-xs">
+							<span class="font-medium text-[#1A1A1A]">Parts Found</span>
+							<span class="font-mono text-[#7A7770]">{stats.parts_found}/{stats.parts_needed}</span>
+						</div>
+						<div class="h-2 w-full bg-[#E2E0DB]">
+							<div class="h-full bg-[#00852B] transition-all" style="width: {pct}%"></div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Profile assignment -->
+				{#if assignment?.profile && assignment.desired_version}
+					<div class="mt-auto border-t border-[#E2E0DB] px-4 py-2.5">
+						<div class="flex items-center gap-2 text-xs">
+							<svg class="h-3.5 w-3.5 shrink-0 text-[#7A7770]" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
+							</svg>
+							<a href="/profiles/{assignment.profile.id}" class="truncate font-medium text-[#1A1A1A] hover:text-[#D01012] hover:underline">{assignment.profile.name}</a>
+							<span class="shrink-0 text-[#7A7770]">v{assignment.desired_version.version_number}</span>
+							{#if assignment.active_version}
+								<Badge text="Synced" variant="success" />
 							{:else}
-								<div class="font-medium text-gray-900">No sorting profile assigned</div>
-								<div class="mt-1 text-gray-600">
-									Choose any profile from your library or your own drafts, then the machine can pull that version.
-								</div>
+								<Badge text="Pending" variant="neutral" />
 							{/if}
 						</div>
 					</div>
+				{/if}
 
-					<div class="flex flex-wrap items-center gap-2">
-						<button
-							onclick={() => void openAssignModal(machine)}
-							class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-						>
-							{assignment ? 'Change Profile' : 'Assign Profile'}
-						</button>
-						{#if assignment}
-							<button
-								onclick={() => void handleClearAssignment(machine)}
-								disabled={assignmentClearing}
-								class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-							>
-								Clear Profile
-							</button>
+				<!-- Footer -->
+				<div class="mt-auto border-t border-[#E2E0DB] bg-[#FAFAF8] px-4 py-2">
+					<div class="flex items-center justify-between text-[10px] text-[#7A7770]">
+						<span>Registered {formatUptime(machine.created_at)} ago</span>
+						{#if machine.last_seen_at}
+							<span>{isOnline ? 'Online now' : `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span>
+						{:else}
+							<span>Never connected</span>
 						{/if}
-						<button
-							onclick={() => openEdit(machine)}
-							class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-						>
-							Edit
-						</button>
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<div class="relative" onclick={(event) => event.stopPropagation()}>
-							<button
-								onclick={() => toggleMenu(machine.id)}
-								class="border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50"
-								title="More actions"
-							>
-								<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-									<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-								</svg>
-							</button>
-							{#if openMenuId === machine.id}
-								<div class="absolute right-0 z-10 mt-1 w-44 border border-gray-200 bg-white py-1">
-									<button
-										onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
-										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-									>
-										Rotate Token
-									</button>
-									<button
-										onclick={() => { openPurge(machine); openMenuId = null; }}
-										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50"
-									>
-										Purge Data
-									</button>
-									<button
-										onclick={() => { openDelete(machine); openMenuId = null; }}
-										class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]"
-									>
-										Delete
-									</button>
-								</div>
-							{/if}
-						</div>
 					</div>
 				</div>
 			</div>
@@ -501,7 +546,7 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
 	<div class="space-y-4">
-		<div class="bg-yellow-50 p-3 text-sm text-yellow-800">
+		<div class="bg-[#FFD500]/12 p-3 text-sm text-[#A16207]">
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">
@@ -551,7 +596,7 @@ async function loadAssignmentProfile(profileId: string) {
 			</button>
 			<button
 				onclick={handleDelete}
-				class="bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+				class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
 			>
 				Delete
 			</button>
@@ -562,7 +607,7 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showPurgeModal} title="Purge Machine Data" onclose={() => { showPurgeModal = false; }}>
 	<div class="space-y-4">
 		{#if purgeResult}
-			<div class="bg-green-50 p-3 text-sm text-green-700">{purgeResult}</div>
+			<div class="bg-[#00852B]/10 p-3 text-sm text-[#00852B]">{purgeResult}</div>
 			<div class="flex justify-end">
 				<button
 					onclick={() => { showPurgeModal = false; }}
@@ -585,7 +630,7 @@ async function loadAssignmentProfile(profileId: string) {
 				<button
 					onclick={handlePurge}
 					disabled={purging}
-					class="bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
+					class="bg-[#A16207] px-4 py-2 text-sm font-medium text-white hover:bg-[#854D0E] disabled:opacity-50"
 				>
 					{purging ? 'Purging...' : 'Purge All Data'}
 				</button>

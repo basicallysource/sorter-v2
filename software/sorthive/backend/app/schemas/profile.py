@@ -81,7 +81,7 @@ class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
     rules: list[SortingProfileRuleResponse]
     fallback_mode: SortingProfileFallbackModeResponse
     compiled_stats: dict[str, Any] | None = None
-    categories: dict[str, dict[str, str]] = Field(default_factory=dict)
+    categories: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class SortingProfileSummaryResponse(BaseModel):

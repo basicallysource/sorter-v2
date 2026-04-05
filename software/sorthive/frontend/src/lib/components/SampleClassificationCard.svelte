@@ -212,68 +212,68 @@
 </script>
 
 {#if isClassificationSample}
-	<div class="border border-gray-200 bg-white">
-		<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Classification</h2>
+	<div class="border border-[#E2E0DB] bg-white">
+		<div class="flex items-center justify-between border-b border-[#E2E0DB] px-4 py-2.5">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Classification</h2>
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}
 				<span class="bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#D01012]">
 					Manual override
 				</span>
 			{:else if autoClassification}
-				<span class="bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+				<span class="bg-[#F7F6F3] px-2 py-0.5 text-[11px] font-medium text-[#7A7770]">
 					{autoClassification.provider ?? 'Auto'}
 				</span>
 			{/if}
 		</div>
 
 		<div class="space-y-3 p-3">
-			<div class="border border-gray-200 bg-gray-50 px-3 py-3">
-				<div class="text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
+			<div class="border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-3">
+				<div class="text-[11px] font-semibold tracking-wide text-[#7A7770] uppercase">
 					Current Label
 				</div>
-				<div class="mt-1 text-sm font-semibold text-gray-900">
+				<div class="mt-1 text-sm font-semibold text-[#1A1A1A]">
 					{effectivePartId ?? 'Unknown part'}
 				</div>
 				{#if effectiveItemName}
-					<div class="mt-0.5 text-xs text-gray-600">{effectiveItemName}</div>
+					<div class="mt-0.5 text-xs text-[#7A7770]">{effectiveItemName}</div>
 				{/if}
 				{#if effectiveColorName}
-					<div class="mt-1 text-[11px] text-gray-500">Color: {effectiveColorName}</div>
+					<div class="mt-1 text-[11px] text-[#7A7770]">Color: {effectiveColorName}</div>
 				{/if}
 			</div>
 
 			{#if autoClassification}
-				<div class="border border-gray-200 px-3 py-3">
-					<div class="text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
+				<div class="border border-[#E2E0DB] px-3 py-3">
+					<div class="text-[11px] font-semibold tracking-wide text-[#7A7770] uppercase">
 						Auto Result
 					</div>
-					<div class="mt-1 text-sm font-medium text-gray-900">
+					<div class="mt-1 text-sm font-medium text-[#1A1A1A]">
 						{autoClassification.part_id ?? 'Unknown part'}
 					</div>
 					{#if autoClassification.item_name}
-						<div class="mt-0.5 text-xs text-gray-600">{autoClassification.item_name}</div>
+						<div class="mt-0.5 text-xs text-[#7A7770]">{autoClassification.item_name}</div>
 					{/if}
-					<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
+					<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[#7A7770]">
 						<div>
-							<div class="font-medium text-gray-400">Status</div>
-							<div class="mt-0.5 text-gray-700 capitalize">{formatStatus(autoClassification.status)}</div>
+							<div class="font-medium text-[#7A7770]">Status</div>
+							<div class="mt-0.5 text-[#1A1A1A] capitalize">{formatStatus(autoClassification.status)}</div>
 						</div>
 						{#if autoClassification.confidence != null}
 							<div>
-								<div class="font-medium text-gray-400">Confidence</div>
-								<div class="mt-0.5 text-gray-700">{Math.round(autoClassification.confidence * 100)}%</div>
+								<div class="font-medium text-[#7A7770]">Confidence</div>
+								<div class="mt-0.5 text-[#1A1A1A]">{Math.round(autoClassification.confidence * 100)}%</div>
 							</div>
 						{/if}
 						{#if autoClassification.color_name}
 							<div>
-								<div class="font-medium text-gray-400">Color</div>
-								<div class="mt-0.5 text-gray-700">{autoClassification.color_name}</div>
+								<div class="font-medium text-[#7A7770]">Color</div>
+								<div class="mt-0.5 text-[#1A1A1A]">{autoClassification.color_name}</div>
 							</div>
 						{/if}
 						{#if autoClassification.source_view}
 							<div>
-								<div class="font-medium text-gray-400">View</div>
-								<div class="mt-0.5 text-gray-700 capitalize">{autoClassification.source_view}</div>
+								<div class="font-medium text-[#7A7770]">View</div>
+								<div class="mt-0.5 text-[#1A1A1A] capitalize">{autoClassification.source_view}</div>
 							</div>
 						{/if}
 					</div>
@@ -284,14 +284,14 @@
 					{/if}
 				</div>
 			{:else}
-				<p class="text-xs text-gray-500">
+				<p class="text-xs text-[#7A7770]">
 					No classification result has been uploaded for this sample yet.
 				</p>
 			{/if}
 
 			<div class="space-y-2">
 				<div>
-					<label for={`classification-part-${sampleId}`} class="mb-1 block text-[11px] font-medium text-gray-500">
+					<label for={`classification-part-${sampleId}`} class="mb-1 block text-[11px] font-medium text-[#7A7770]">
 						Part ID
 					</label>
 					<input
@@ -299,11 +299,11 @@
 						bind:value={formPartId}
 						type="text"
 						placeholder={autoClassification?.part_id ?? 'e.g. 3001'}
-						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="w-full border border-[#E2E0DB] px-3 py-2 text-sm text-[#1A1A1A] placeholder:text-[#7A7770] focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 				<div>
-					<label for={`classification-name-${sampleId}`} class="mb-1 block text-[11px] font-medium text-gray-500">
+					<label for={`classification-name-${sampleId}`} class="mb-1 block text-[11px] font-medium text-[#7A7770]">
 						Name
 					</label>
 					<input
@@ -311,7 +311,7 @@
 						bind:value={formItemName}
 						type="text"
 						placeholder={autoClassification?.item_name ?? 'Optional human-readable name'}
-						class="w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="w-full border border-[#E2E0DB] px-3 py-2 text-sm text-[#1A1A1A] placeholder:text-[#7A7770] focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 			</div>
@@ -333,7 +333,7 @@
 					type="button"
 					onclick={resetForm}
 					disabled={saving || !isDirty}
-					class="flex-1 border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+					class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:text-[#E2E0DB]"
 				>
 					Reset
 				</button>

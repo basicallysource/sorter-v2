@@ -82,8 +82,9 @@
 
 <svelte:window onkeydown={handleSettingsHotkey} />
 
-<div class="min-h-screen bg-bg p-4 sm:p-6">
+<div class="min-h-screen bg-bg">
 	<AppHeader />
+	<div class="p-4 sm:p-6">
 
 	{#if hotkeyStatusMsg || hotkeyErrorMsg}
 		<div
@@ -119,5 +120,6 @@
 		<div class="min-w-0 flex-1">
 			{@render children()}
 		</div>
+	</div>
 	</div>
 </div>

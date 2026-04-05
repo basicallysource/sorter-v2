@@ -137,8 +137,9 @@
 	});
 </script>
 
-<div class="min-h-screen bg-bg p-4 sm:p-6">
+<div class="min-h-screen bg-bg">
 	<AppHeader />
+	<div class="p-4 sm:p-6">
 
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
@@ -146,19 +147,19 @@
 			<button
 				onclick={homeChute}
 				disabled={homing || !!movingTo}
-				class="flex items-center gap-1.5 border border-border px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
+				class="flex items-center gap-1.5 border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
 				title="Home chute (find endstop)"
 			>
 				<Home size={14} />
 				{homing ? 'Homing...' : 'Home Chute'}
 			</button>
 		</div>
-		<div class="flex items-center gap-4 text-sm text-text-muted">
+		<div class="flex items-center gap-4 text-sm text-[#7A7770]">
 			{#if profileName}
-				<span>Profile: <span class="text-text">{profileName}</span></span>
+				<span>Profile: <span class="font-medium text-[#1A1A1A]">{profileName}</span></span>
 			{/if}
 			{#if currentAngle !== null}
-				<span>Chute: {currentAngle}&deg;</span>
+				<span>Chute: <span class="font-mono text-[#1A1A1A]">{currentAngle}&deg;</span></span>
 			{/if}
 		</div>
 	</div>
@@ -167,79 +168,80 @@
 	<StatusBanner message={error ?? ''} variant="error" />
 
 	{#if loading}
-		<p class="text-text-muted">Loading bin layout...</p>
+		<p class="text-[#7A7770]">Loading bin layout...</p>
 	{:else if layers.length === 0}
-		<p class="text-text-muted">No storage layers configured.</p>
+		<p class="text-[#7A7770]">No storage layers configured.</p>
 	{:else}
 		<div class="flex flex-col gap-6">
 			{#each layers as layer}
-				<div class="border border-border">
-					<div class="flex items-center justify-between border-b border-border bg-surface px-4 py-2">
-						<h3 class="text-sm font-semibold text-text">
+				{@const isActive = activeLayer === layer.layer_index}
+				<div class="border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
+					<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-[#F7F6F3] px-4 py-2.5">
+						<h3 class="text-sm font-semibold text-[#1A1A1A]">
 							Layer {layer.layer_index + 1}
-							<span class="ml-2 text-xs font-normal text-text-muted">
+							<span class="ml-2 text-xs font-normal text-[#7A7770]">
 								{layer.bin_count} bins
 							</span>
 						</h3>
-						<div class="flex items-center gap-2">
-							{#if activeLayer === layer.layer_index}
-								<span class="text-xs font-medium text-[#00852B] dark:text-emerald-400">Active</span>
+						<div class="flex items-center gap-3">
+							{#if isActive}
+								<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#00852B]">
+									<span class="inline-block h-2 w-2 bg-[#00852B]"></span>
+									Active
+								</span>
 							{/if}
 							{#if !layer.enabled}
-								<span class="text-xs text-text-muted">Disabled</span>
+								<span class="text-xs font-medium text-[#7A7770]">Disabled</span>
 							{/if}
 						</div>
 					</div>
-					<div class="flex flex-col gap-2 p-3">
+					<div class="flex flex-col gap-px bg-[#E2E0DB] p-px">
 						{#each [0, 1] as rowIdx}
-							<div class="flex gap-1">
-								{#each [0, 1, 2] as colIdx}
-									{@const sectionIdx = rowIdx * 3 + colIdx}
-									{@const sectionBins = binsForSection(layer, sectionIdx)}
-									{#if sectionBins.length > 0}
-										{#if colIdx > 0}
-											<div class="w-1 flex-shrink-0 bg-border"></div>
+							{@const rowSections = [0, 1, 2].map(c => binsForSection(layer, rowIdx * 3 + c)).filter(s => s.length > 0)}
+							{#if rowSections.flat().length > 0}
+								<div class="flex gap-px">
+									{#each rowSections as sectionBins, sIdx}
+										{#if sIdx > 0}
+											<div class="w-1 bg-[#E2E0DB]"></div>
 										{/if}
 										{#each sectionBins as bin}
 											{@const key = `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
-											{@const isCurrent = isCurrentBin(bin) && activeLayer === layer.layer_index}
+											{@const isCurrent = isCurrentBin(bin) && isActive}
 											{@const isMoving = movingTo === key}
 											{@const catLabel = categoryLabel(bin.category_ids)}
 											<button
 												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
 												disabled={!!movingTo || !layer.enabled}
-												class="group relative flex min-h-[4rem] flex-1 flex-col items-center justify-center border transition-colors
+												class="group relative flex min-h-[4.5rem] flex-1 flex-col items-center justify-center bg-white px-1 py-2 transition-colors
 													{isCurrent
-														? 'border-[#00852B] bg-[#00852B]/10 text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/20 dark:text-emerald-300'
+														? 'bg-[#00852B]/8 ring-2 ring-inset ring-[#00852B]'
 														: layer.enabled
-															? 'border-border bg-bg text-text hover:bg-surface'
-															: 'border-border bg-bg text-text-muted opacity-50 cursor-not-allowed'}
+															? 'hover:bg-[#F7F6F3]'
+															: 'cursor-not-allowed'}
 													{isMoving ? 'animate-pulse' : ''}"
-												title="Layer {layer.layer_index + 1}, Section {bin.section_index + 1}, Bin {bin.bin_index + 1} ({bin.angle}\u00b0){catLabel ? ` — ${catLabel}` : ''}"
+												title="Bin {bin.global_index + 1} ({bin.angle}\u00b0){catLabel ? ` — ${catLabel}` : ''}"
 											>
-												<span class="text-xs font-medium">{bin.global_index + 1}</span>
+												<span class="text-sm font-bold {isCurrent ? 'text-[#00852B]' : 'text-[#1A1A1A]'}">{bin.global_index + 1}</span>
 												{#if catLabel}
-													<span class="max-w-full truncate px-1 text-[10px] text-text-muted">{catLabel}</span>
+													<span class="mt-0.5 max-w-full truncate text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-[#7A7770]'}">{catLabel}</span>
 												{:else}
-													<span class="text-[10px] text-text-muted">{bin.angle}&deg;</span>
+													<span class="mt-0.5 font-mono text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-[#7A7770]'}">{bin.angle}&deg;</span>
 												{/if}
-												{#if isCurrent}
-													<div class="absolute -top-1 -right-1 h-2 w-2 bg-[#00852B] dark:bg-[#00852B]"></div>
-												{/if}
-												{#if layer.enabled}
+												{#if layer.enabled && !isCurrent}
 													<div class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-														<ArrowRight size={14} class="text-text-muted" />
+														<ArrowRight size={14} class="text-[#7A7770]" />
 													</div>
 												{/if}
 											</button>
 										{/each}
-									{/if}
-								{/each}
-							</div>
+									{/each}
+								</div>
+							{/if}
 						{/each}
 					</div>
 				</div>
 			{/each}
 		</div>
 	{/if}
+	</div>
 </div>

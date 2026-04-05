@@ -18,6 +18,11 @@ from defs.events import (
     ResumeCommandEvent,
 )
 from defs.sorter_controller import SorterLifecycle
+from irl.parse_user_toml import (
+    DEFAULT_STEPPER_IHOLD,
+    DEFAULT_STEPPER_IHOLD_DELAY,
+    DEFAULT_STEPPER_IRUN,
+)
 from server import shared_state
 
 router = APIRouter()
@@ -197,6 +202,80 @@ def _parse_drv_status(raw: int) -> Dict[str, Any]:
 
 # Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
 _stepper_current_cache: Dict[str, Dict[str, int]] = {}
+
+
+def _current_payload_from_persisted_config(name: str) -> Dict[str, int]:
+    result = {
+        "irun": DEFAULT_STEPPER_IRUN,
+        "ihold": DEFAULT_STEPPER_IHOLD,
+        "ihold_delay": DEFAULT_STEPPER_IHOLD_DELAY,
+    }
+    try:
+        _, config = _read_machine_params_config()
+    except Exception:
+        return result
+
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(name, name)
+    overrides = config.get("stepper_current_overrides", {})
+    entry = overrides.get(toml_name, {}) if isinstance(overrides, dict) else {}
+    if not isinstance(entry, dict):
+        return result
+
+    for key, upper_bound in (("irun", 31), ("ihold", 31), ("ihold_delay", 15)):
+        value = entry.get(key)
+        if isinstance(value, int) and 0 <= value <= upper_bound:
+            result[key] = value
+    return result
+
+
+def _current_payload_from_stepper(stepper: Any) -> Dict[str, int] | None:
+    payload = getattr(stepper, "last_set_current", None)
+    if not isinstance(payload, dict):
+        return None
+
+    irun = payload.get("irun")
+    ihold = payload.get("ihold")
+    ihold_delay = payload.get("ihold_delay")
+    if not isinstance(irun, int) or not isinstance(ihold, int) or not isinstance(ihold_delay, int):
+        return None
+    if not (0 <= irun <= 31 and 0 <= ihold <= 31 and 0 <= ihold_delay <= 15):
+        return None
+
+    return {
+        "irun": irun,
+        "ihold": ihold,
+        "ihold_delay": ihold_delay,
+    }
+
+
+def _desired_stepper_current_payload(name: str, stepper: Any) -> Dict[str, int]:
+    cached = _stepper_current_cache.get(name)
+    if isinstance(cached, dict):
+        irun = cached.get("irun")
+        ihold = cached.get("ihold")
+        ihold_delay = cached.get("ihold_delay", DEFAULT_STEPPER_IHOLD_DELAY)
+        if (
+            isinstance(irun, int)
+            and isinstance(ihold, int)
+            and isinstance(ihold_delay, int)
+            and 0 <= irun <= 31
+            and 0 <= ihold <= 31
+            and 0 <= ihold_delay <= 15
+        ):
+            return {
+                "irun": irun,
+                "ihold": ihold,
+                "ihold_delay": ihold_delay,
+            }
+
+    stepper_payload = _current_payload_from_stepper(stepper)
+    if stepper_payload is not None:
+        _stepper_current_cache[name] = dict(stepper_payload)
+        return stepper_payload
+
+    persisted = _current_payload_from_persisted_config(name)
+    _stepper_current_cache[name] = dict(persisted)
+    return persisted
 
 
 def _parse_ihold_irun(raw: int) -> Dict[str, int]:
@@ -415,36 +494,14 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
 
     gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
-    ihold_irun_raw = _safe_read_register(stepper, TMC_REG_IHOLD_IRUN)
     chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
     coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
     drv_status_raw = _safe_read_register(stepper, TMC_REG_DRV_STATUS)
 
     result: Dict[str, Any] = {}
-
-    if name in _stepper_current_cache:
-        result["irun"] = _stepper_current_cache[name].get("irun")
-        result["ihold"] = _stepper_current_cache[name].get("ihold")
-    elif ihold_irun_raw is not None:
-        parsed = _parse_ihold_irun(ihold_irun_raw)
-        result["irun"] = parsed["irun"]
-        result["ihold"] = parsed["ihold"]
-    else:
-        # Fall back to persisted config
-        try:
-            _, config = _read_machine_params_config()
-            toml_name = _STEPPER_API_TO_TOML_NAME.get(name, name)
-            overrides = config.get("stepper_current_overrides", {})
-            entry = overrides.get(toml_name, {}) if isinstance(overrides, dict) else {}
-            if isinstance(entry, dict) and ("irun" in entry or "ihold" in entry):
-                result["irun"] = entry.get("irun")
-                result["ihold"] = entry.get("ihold")
-            else:
-                result["irun"] = None
-                result["ihold"] = None
-        except Exception:
-            result["irun"] = None
-            result["ihold"] = None
+    current_payload = _desired_stepper_current_payload(name, stepper)
+    result["irun"] = current_payload["irun"]
+    result["ihold"] = current_payload["ihold"]
 
     if chopconf_raw is not None:
         result["microsteps"] = _parse_chopconf_mres(chopconf_raw)
@@ -474,11 +531,7 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
 
     if body.irun is not None or body.ihold is not None:
-        ihold_irun_raw = _safe_read_register(stepper, TMC_REG_IHOLD_IRUN)
-        if ihold_irun_raw is not None:
-            current = _parse_ihold_irun(ihold_irun_raw)
-        else:
-            current = {"irun": 16, "ihold": 8, "ihold_delay": 1}
+        current = _desired_stepper_current_payload(name, stepper)
         irun = body.irun if body.irun is not None else current["irun"]
         ihold = body.ihold if body.ihold is not None else current["ihold"]
         if not (0 <= irun <= 31):
@@ -486,7 +539,11 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
         if not (0 <= ihold <= 31):
             raise HTTPException(status_code=400, detail="ihold must be 0-31")
         stepper.set_current(irun, ihold, current["ihold_delay"])
-        _stepper_current_cache[name] = {"irun": irun, "ihold": ihold}
+        _stepper_current_cache[name] = {
+            "irun": irun,
+            "ihold": ihold,
+            "ihold_delay": current["ihold_delay"],
+        }
         _persist_stepper_current(name, irun, ihold)
 
     if body.microsteps is not None:

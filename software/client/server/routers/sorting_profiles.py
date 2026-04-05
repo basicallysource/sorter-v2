@@ -209,6 +209,19 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized.")
 
+    assignment_response = session.put(
+        f"{base_url}/api/machine/profile-assignment",
+        json={
+            "profile_id": payload.profile_id,
+            "version_id": payload.version_id,
+        },
+        timeout=20,
+    )
+    if not assignment_response.ok:
+        body = _safe_json(assignment_response)
+        message = body.get("error") or body.get("detail") or f"HTTP {assignment_response.status_code}"
+        raise HTTPException(status_code=assignment_response.status_code, detail=str(message))
+
     artifact_response = session.get(
         f"{base_url}/api/machine/profiles/versions/{payload.version_id}/artifact",
         timeout=30,

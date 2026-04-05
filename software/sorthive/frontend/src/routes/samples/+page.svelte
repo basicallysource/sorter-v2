@@ -140,7 +140,7 @@
 
 <div class="mb-6 flex items-center justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">Samples</h1>
+		<h1 class="text-2xl font-bold text-[#1A1A1A]">Samples</h1>
 		<p class="mt-1 text-sm text-[#7A7770]">
 			Browse and review training samples captured by your machines.
 		</p>

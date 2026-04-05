@@ -398,9 +398,9 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">Review Queue</h1>
-		<p class="mt-1 text-sm text-gray-500">
-			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-[11px] font-semibold text-gray-700">D</kbd> toggles annotation.
+		<h1 class="text-2xl font-bold text-[#1A1A1A]">Review Queue</h1>
+		<p class="mt-1 text-sm text-[#7A7770]">
+			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-[#E2E0DB] bg-[#F7F6F3] px-1.5 py-0.5 text-[11px] font-semibold text-[#1A1A1A]">D</kbd> toggles annotation.
 		</p>
 	</div>
 </div>
@@ -408,9 +408,9 @@
 {#if loading}
 	<Spinner />
 {:else if empty}
-	<div class="border border-gray-200 bg-white p-10 text-center">
-		<p class="text-lg font-medium text-gray-700">No more samples to review.</p>
-		<p class="mt-2 text-sm text-gray-500">Come back later when the queue has fresh uploads again.</p>
+	<div class="border border-[#E2E0DB] bg-white p-10 text-center">
+		<p class="text-lg font-medium text-[#1A1A1A]">No more samples to review.</p>
+		<p class="mt-2 text-sm text-[#7A7770]">Come back later when the queue has fresh uploads again.</p>
 	</div>
 {:else if sample}
 	{#if error}
@@ -423,28 +423,28 @@
 
 	<div class="grid gap-5 lg:grid-cols-[1fr_360px]">
 		<div class="min-w-0 space-y-3">
-			<div class="flex flex-wrap items-center gap-2 bg-gray-50 p-1">
+			<div class="flex flex-wrap items-center gap-2 bg-[#F7F6F3] p-1">
 				<button
 					type="button"
 					onclick={() => {
 						annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-gray-500 hover:text-gray-700' : 'bg-white text-gray-900'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-[#7A7770] hover:text-[#1A1A1A]' : 'bg-white text-[#1A1A1A]'}"
 				>
 					Review
 				</button>
 				<button
 					type="button"
 					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
 				>
 					Annotate
 				</button>
 
 				{#if !annotateMode && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500 select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-[#0055BF]" />
+						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-[#7A7770] select-none">
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-[#E2E0DB] text-[#0055BF]" />
 							Boxes
 						</label>
 					</div>
@@ -465,7 +465,7 @@
 					externalApi={annotatorApi}
 				/>
 			{:else}
-				<div class="overflow-hidden border border-gray-200 bg-gray-950">
+				<div class="overflow-hidden border border-[#E2E0DB] bg-gray-950">
 					<div class="relative">
 						<img
 							src={api.sampleImageUrl(sample.id)}
@@ -510,7 +510,7 @@
 		</div>
 
 		<div class="space-y-4">
-			<div class="border border-gray-200 bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-white p-4">
 				<div class="flex flex-wrap items-center gap-2">
 					<Badge text={sample.review_status} variant="info" />
 					{#if currentDecision}
@@ -523,56 +523,56 @@
 
 				<div class="mt-3 space-y-2 text-sm">
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-gray-500">Sample</span>
-						<span class="font-medium text-gray-900" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
+						<span class="text-[#7A7770]">Sample</span>
+						<span class="font-medium text-[#1A1A1A]" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-gray-500">Captured</span>
-						<span class="text-right text-gray-900">{formatDate(sample.captured_at)}</span>
+						<span class="text-[#7A7770]">Captured</span>
+						<span class="text-right text-[#1A1A1A]">{formatDate(sample.captured_at)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-gray-500">Uploaded</span>
-						<span class="text-right text-gray-900">{formatDate(sample.uploaded_at)}</span>
+						<span class="text-[#7A7770]">Uploaded</span>
+						<span class="text-right text-[#1A1A1A]">{formatDate(sample.uploaded_at)}</span>
 					</div>
 					{#if sample.capture_reason}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Reason</span>
-							<span class="text-right text-gray-900">{sample.capture_reason}</span>
+							<span class="text-[#7A7770]">Reason</span>
+							<span class="text-right text-[#1A1A1A]">{sample.capture_reason}</span>
 						</div>
 					{/if}
 					{#if camera}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Camera</span>
-							<span class="text-right text-gray-900">{camera}</span>
+							<span class="text-[#7A7770]">Camera</span>
+							<span class="text-right text-[#1A1A1A]">{camera}</span>
 						</div>
 					{/if}
 					{#if detectionScope}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Scope</span>
-							<span class="text-right text-gray-900">{detectionScope}</span>
+							<span class="text-[#7A7770]">Scope</span>
+							<span class="text-right text-[#1A1A1A]">{detectionScope}</span>
 						</div>
 					{/if}
 					{#if sample.detection_algorithm}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Detection</span>
-							<span class="text-right text-gray-900">{sample.detection_algorithm}</span>
+							<span class="text-[#7A7770]">Detection</span>
+							<span class="text-right text-[#1A1A1A]">{sample.detection_algorithm}</span>
 						</div>
 					{/if}
 					{#if sample.detection_score != null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Score</span>
-							<span class="text-right text-gray-900">{sample.detection_score.toFixed(2)}</span>
+							<span class="text-[#7A7770]">Score</span>
+							<span class="text-right text-[#1A1A1A]">{sample.detection_score.toFixed(2)}</span>
 						</div>
 					{/if}
 					{#if proposalBoxes.length > 0}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Proposals</span>
-							<span class="text-right font-medium text-gray-900">{proposalBoxes.length}</span>
+							<span class="text-[#7A7770]">Proposals</span>
+							<span class="text-right font-medium text-[#1A1A1A]">{proposalBoxes.length}</span>
 						</div>
 					{/if}
 					{#if detectionFound !== null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-gray-500">Found</span>
+							<span class="text-[#7A7770]">Found</span>
 							<span class={detectionFound ? 'font-medium text-[#00852B]' : 'font-medium text-[#D01012]'}>
 								{detectionFound ? 'Yes' : 'No'}
 							</span>
@@ -590,7 +590,7 @@
 				onSaved={handleClassificationSaved}
 			/>
 
-			<div class="border border-gray-200 bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-white p-4">
 				<div class="space-y-2 text-xs">
 					<div class="flex items-center justify-center gap-2">
 						<button
@@ -613,14 +613,14 @@
 								annotateMode = false;
 							}}
 							disabled={!annotateMode || loading || submitting}
-							class="inline-flex items-center gap-2 border border-gray-200 bg-gray-50 px-2.5 py-2 text-left transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="inline-flex items-center gap-2 border border-[#E2E0DB] bg-[#F7F6F3] px-2.5 py-2 text-left transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="border border-gray-300 bg-white px-2 py-1 text-[11px] font-bold text-gray-700">
+							<div class="border border-[#E2E0DB] bg-white px-2 py-1 text-[11px] font-bold text-[#1A1A1A]">
 								Esc
 							</div>
 							<div>
-								<div class="font-medium text-gray-900">Close</div>
-								<div class="text-[11px] text-gray-600">Exit annotate</div>
+								<div class="font-medium text-[#1A1A1A]">Close</div>
+								<div class="text-[11px] text-[#7A7770]">Exit annotate</div>
 							</div>
 						</button>
 					</div>
@@ -642,10 +642,10 @@
 							type="button"
 							onclick={() => void goBack()}
 							disabled={reviewHistory.length === 0 || loading || submitting}
-							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-[#E2E0DB] bg-[#F7F6F3] px-2 py-2 text-center transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-xl font-bold text-gray-700">←</div>
-							<div class="mt-0.5 font-medium text-gray-900">Back</div>
+							<div class="text-xl font-bold text-[#1A1A1A]">←</div>
+							<div class="mt-0.5 font-medium text-[#1A1A1A]">Back</div>
 						</button>
 						<button
 							type="button"
@@ -660,18 +660,18 @@
 							type="button"
 							onclick={skip}
 							disabled={loading || submitting}
-							class="border border-gray-200 bg-gray-50 px-2 py-2 text-center transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-[#E2E0DB] bg-[#F7F6F3] px-2 py-2 text-center transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 						>
-							<div class="text-xl font-bold text-gray-700">→</div>
-							<div class="mt-0.5 font-medium text-gray-900">Skip</div>
+							<div class="text-xl font-bold text-[#1A1A1A]">→</div>
+							<div class="mt-0.5 font-medium text-[#1A1A1A]">Skip</div>
 						</button>
 					</div>
 
-					<p class="text-center text-[11px] text-gray-500">
+					<p class="text-center text-[11px] text-[#7A7770]">
 						Green means keep it, red means reject it, and gray moves through the queue.
 					</p>
 					{#if reviewHistory.length > 0}
-						<p class="mt-2 text-center text-xs text-gray-400">{reviewHistory.length} reviewed this session</p>
+						<p class="mt-2 text-center text-xs text-[#7A7770]">{reviewHistory.length} reviewed this session</p>
 					{/if}
 				</div>
 			</div>
@@ -684,19 +684,19 @@
 					</p>
 					<div class="border border-[#00852B]/20 bg-white px-3 py-3">
 						<div class="text-xs font-semibold tracking-wide text-[#00852B] uppercase">Accept</div>
-						<p class="mt-1 text-sm text-gray-700">
+						<p class="mt-1 text-sm text-[#1A1A1A]">
 							All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
 						</p>
 					</div>
 					<div class="border border-[#0055BF]/20 bg-white px-3 py-3">
 						<div class="text-xs font-semibold tracking-wide text-[#0055BF] uppercase">Annotate First</div>
-						<p class="mt-1 text-sm text-gray-700">
+						<p class="mt-1 text-sm text-[#1A1A1A]">
 							If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
 						</p>
 					</div>
 					<div class="border border-[#D01012]/20 bg-white px-3 py-3">
 						<div class="text-xs font-semibold tracking-wide text-[#D01012] uppercase">Reject</div>
-						<p class="mt-1 text-sm text-gray-700">
+						<p class="mt-1 text-sm text-[#1A1A1A]">
 							Reject images that stay incomplete or unreliable, for example when visible parts cannot be marked cleanly enough for training.
 						</p>
 					</div>
@@ -704,9 +704,9 @@
 			</div>
 
 			{#if annotateMode}
-				<div class="border border-gray-200 bg-white p-4">
+				<div class="border border-[#E2E0DB] bg-white p-4">
 					<div class="mb-3 flex items-center justify-between">
-						<h2 class="text-sm font-semibold text-gray-900">Annotator</h2>
+						<h2 class="text-sm font-semibold text-[#1A1A1A]">Annotator</h2>
 						<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
 							{#if annotatorApi.isDirty}
 								Unsaved
@@ -719,8 +719,8 @@
 					</div>
 
 					<div class="grid grid-cols-4 gap-1.5">
-						<button onclick={annotatorApi.undo} class="border border-gray-200 px-2 py-2 text-[11px] text-gray-600 hover:bg-gray-50">Undo</button>
-						<button onclick={annotatorApi.redo} class="border border-gray-200 px-2 py-2 text-[11px] text-gray-600 hover:bg-gray-50">Redo</button>
+						<button onclick={annotatorApi.undo} class="border border-[#E2E0DB] px-2 py-2 text-[11px] text-[#7A7770] hover:bg-[#F7F6F3]">Undo</button>
+						<button onclick={annotatorApi.redo} class="border border-[#E2E0DB] px-2 py-2 text-[11px] text-[#7A7770] hover:bg-[#F7F6F3]">Redo</button>
 						<button
 							onclick={annotatorApi.deleteSelected}
 							disabled={annotatorApi.selectedCount === 0}
@@ -731,13 +731,13 @@
 						<button onclick={annotatorApi.clearAll} class="border border-[#FFD500]/30 px-2 py-2 text-[11px] text-[#A16207] hover:bg-[#FFFBEB]">Clear</button>
 					</div>
 
-					<div class="mt-3 inline-flex border border-gray-200 bg-gray-50 p-1">
+					<div class="mt-3 inline-flex border border-[#E2E0DB] bg-[#F7F6F3] p-1">
 						<button
 							type="button"
 							onclick={() => {
 								annotatorApi.activeTool = 'rectangle';
 							}}
-							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
 						>
 							Rectangle
 						</button>
@@ -746,24 +746,24 @@
 							onclick={() => {
 								annotatorApi.activeTool = 'polygon';
 							}}
-							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
 						>
 							Polygon
 						</button>
 					</div>
 
 					<div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-						<div class="bg-gray-50 px-2 py-2">
-							<div class="text-sm font-semibold text-gray-900">{annotatorApi.totalAnnotations}</div>
-							<div class="text-gray-400">Total</div>
+						<div class="bg-[#F7F6F3] px-2 py-2">
+							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.totalAnnotations}</div>
+							<div class="text-[#7A7770]">Total</div>
 						</div>
-						<div class="bg-gray-50 px-2 py-2">
-							<div class="text-sm font-semibold text-gray-900">{annotatorApi.seededCount}</div>
-							<div class="text-gray-400">Seeded</div>
+						<div class="bg-[#F7F6F3] px-2 py-2">
+							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.seededCount}</div>
+							<div class="text-[#7A7770]">Seeded</div>
 						</div>
-						<div class="bg-gray-50 px-2 py-2">
-							<div class="text-sm font-semibold text-gray-900">{annotatorApi.manualCount}</div>
-							<div class="text-gray-400">Manual</div>
+						<div class="bg-[#F7F6F3] px-2 py-2">
+							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.manualCount}</div>
+							<div class="text-[#7A7770]">Manual</div>
 						</div>
 					</div>
 
@@ -771,7 +771,7 @@
 						<button
 							type="button"
 							onclick={annotatorApi.revert}
-							class="flex-1 border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+							class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]"
 						>
 							Revert
 						</button>
@@ -779,7 +779,7 @@
 							<button
 								type="button"
 								onclick={annotatorApi.loadSorterBoxes}
-								class="flex-1 border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+								class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]"
 							>
 								Reset
 							</button>

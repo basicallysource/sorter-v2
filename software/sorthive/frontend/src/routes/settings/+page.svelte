@@ -150,23 +150,23 @@
 	<title>Settings - SortHive</title>
 </svelte:head>
 
-<h1 class="mb-6 text-2xl font-bold text-gray-900">Account Settings</h1>
+<h1 class="mb-6 text-2xl font-bold text-[#1A1A1A]">Account Settings</h1>
 
 {#if auth.user}
 	<div class="max-w-lg space-y-6">
 		<!-- Profile Section -->
-		<div class="border border-gray-200 bg-white p-6">
-			<h2 class="mb-4 font-semibold text-gray-900">Profile</h2>
+		<div class="border border-[#E2E0DB] bg-white p-6">
+			<h2 class="mb-4 font-semibold text-[#1A1A1A]">Profile</h2>
 			<dl class="space-y-3 text-sm">
 				<div>
-					<dt class="text-gray-500">Display Name</dt>
+					<dt class="text-[#7A7770]">Display Name</dt>
 					<dd>
 						{#if editingName}
 							<div class="mt-1 flex gap-2">
 								<input
 									type="text"
 									bind:value={displayName}
-									class="flex-1 border border-gray-300 px-3 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+									class="flex-1 border border-[#E2E0DB] px-3 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 								/>
 								<button
 									onclick={handleSaveName}
@@ -176,7 +176,7 @@
 								</button>
 								<button
 									onclick={() => { editingName = false; displayName = auth.user?.display_name ?? ''; }}
-									class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+									class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 								>
 									Cancel
 								</button>
@@ -186,7 +186,7 @@
 							{/if}
 						{:else}
 							<div class="flex items-center gap-2">
-								<span class="font-medium text-gray-900">{auth.user.display_name}</span>
+								<span class="font-medium text-[#1A1A1A]">{auth.user.display_name}</span>
 								<button
 									onclick={() => { editingName = true; displayName = auth.user?.display_name ?? ''; }}
 									class="text-xs text-[#D01012] hover:text-[#B00E10]"
@@ -201,37 +201,37 @@
 					</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Email</dt>
-					<dd class="font-medium text-gray-900">{auth.user.email}</dd>
+					<dt class="text-[#7A7770]">Email</dt>
+					<dd class="font-medium text-[#1A1A1A]">{auth.user.email}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">GitHub</dt>
-					<dd class="font-medium text-gray-900">
+					<dt class="text-[#7A7770]">GitHub</dt>
+					<dd class="font-medium text-[#1A1A1A]">
 						{#if auth.user.github_login}
 							@{auth.user.github_login}
 						{:else}
-							<span class="text-gray-400">Not connected</span>
+							<span class="text-[#7A7770]">Not connected</span>
 						{/if}
 					</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Role</dt>
+					<dt class="text-[#7A7770]">Role</dt>
 					<dd>
 						<Badge text={auth.user.role} variant={roleVariant[auth.user.role] ?? 'neutral'} />
 					</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Member since</dt>
-					<dd class="font-medium text-gray-900">{new Date(auth.user.created_at).toLocaleDateString()}</dd>
+					<dt class="text-[#7A7770]">Member since</dt>
+					<dd class="font-medium text-[#1A1A1A]">{new Date(auth.user.created_at).toLocaleDateString()}</dd>
 				</div>
 			</dl>
 		</div>
 
 		<!-- Password Section -->
-		<div id="password" class="border border-gray-200 bg-white p-6">
-			<h2 class="mb-4 font-semibold text-gray-900">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
+		<div id="password" class="border border-[#E2E0DB] bg-white p-6">
+			<h2 class="mb-4 font-semibold text-[#1A1A1A]">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
 			{#if !auth.user.has_password}
-				<p class="mb-4 text-sm text-gray-600">
+				<p class="mb-4 text-sm text-[#7A7770]">
 					This account currently uses GitHub sign-in only. Set a password if you also want to sign in with email and password.
 				</p>
 			{/if}
@@ -241,36 +241,36 @@
 			>
 				{#if auth.user.has_password}
 					<div>
-						<label for="current-password" class="block text-sm text-gray-600">Current Password</label>
+						<label for="current-password" class="block text-sm text-[#7A7770]">Current Password</label>
 						<input
 							id="current-password"
 							type="password"
 							bind:value={currentPassword}
 							required
-							class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+							class="mt-1 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						/>
 					</div>
 				{/if}
 				<div>
-					<label for="new-password" class="block text-sm text-gray-600">{auth.user.has_password ? 'New Password' : 'Password'}</label>
+					<label for="new-password" class="block text-sm text-[#7A7770]">{auth.user.has_password ? 'New Password' : 'Password'}</label>
 					<input
 						id="new-password"
 						type="password"
 						bind:value={newPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="mt-1 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 				<div>
-					<label for="confirm-password" class="block text-sm text-gray-600">Confirm Password</label>
+					<label for="confirm-password" class="block text-sm text-[#7A7770]">Confirm Password</label>
 					<input
 						id="confirm-password"
 						type="password"
 						bind:value={confirmPassword}
 						required
 						minlength="8"
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="mt-1 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
 				</div>
 
@@ -291,14 +291,14 @@
 		</div>
 
 		<!-- AI Section -->
-		<div class="border border-gray-200 bg-white p-6">
-			<h2 class="mb-4 font-semibold text-gray-900">AI Assistant</h2>
-			<p class="mb-4 text-sm text-gray-600">
+		<div class="border border-[#E2E0DB] bg-white p-6">
+			<h2 class="mb-4 font-semibold text-[#1A1A1A]">AI Assistant</h2>
+			<p class="mb-4 text-sm text-[#7A7770]">
 				SortHive uses your personal OpenRouter key on the server side for profile-generation prompts, rule suggestions, and assisted edits.
 			</p>
-			<div class="mb-4 bg-gray-50 p-3 text-sm text-gray-600">
+			<div class="mb-4 bg-[#F7F6F3] p-3 text-sm text-[#7A7770]">
 				OpenRouter key:
-				<span class="font-medium text-gray-900">
+				<span class="font-medium text-[#1A1A1A]">
 					{auth.user.openrouter_configured ? 'configured' : 'not configured'}
 				</span>
 			</div>
@@ -307,25 +307,25 @@
 				onsubmit={(e) => { e.preventDefault(); handleSaveAiSettings(); }}
 			>
 				<div>
-					<label for="openrouter-key" class="block text-sm text-gray-600">OpenRouter API Key</label>
+					<label for="openrouter-key" class="block text-sm text-[#7A7770]">OpenRouter API Key</label>
 					<input
 						id="openrouter-key"
 						type="password"
 						bind:value={openrouterApiKey}
 						placeholder={auth.user.openrouter_configured ? 'Leave blank to keep current key' : 'sk-or-v1-...'}
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="mt-1 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					/>
-					<p class="mt-1 text-xs text-gray-500">
+					<p class="mt-1 text-xs text-[#7A7770]">
 						The key is stored encrypted and only used by SortHive when you ask for AI help.
 					</p>
 				</div>
 
 				<div>
-					<label for="preferred-model" class="block text-sm text-gray-600">Preferred Model</label>
+					<label for="preferred-model" class="block text-sm text-[#7A7770]">Preferred Model</label>
 					<select
 						id="preferred-model"
 						bind:value={preferredAiModel}
-						class="mt-1 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="mt-1 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 					>
 						{#each aiModelOptions as model}
 							<option value={model}>{model}</option>
@@ -353,7 +353,7 @@
 							type="button"
 							onclick={handleClearAiKey}
 							disabled={aiSaving}
-							class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+							class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
 						>
 							Remove Key
 						</button>
@@ -365,7 +365,7 @@
 		<!-- Danger Zone -->
 		<div class="border border-[#D01012]/20 bg-white p-6">
 			<h2 class="mb-4 font-semibold text-[#D01012]">Danger Zone</h2>
-			<p class="mb-4 text-sm text-gray-600">
+			<p class="mb-4 text-sm text-[#7A7770]">
 				Deleting your account will permanently remove all your machines, samples, and reviews.
 			</p>
 			<button
@@ -383,13 +383,13 @@
 		{#if deleteError}
 			<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{deleteError}</div>
 		{/if}
-		<p class="text-sm text-gray-600">
+		<p class="text-sm text-[#7A7770]">
 			This will delete all your machines, samples, and data permanently. This action cannot be undone.
 		</p>
 		<div class="flex gap-2 justify-end">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 			>
 				Cancel
 			</button>

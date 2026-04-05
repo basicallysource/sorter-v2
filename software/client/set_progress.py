@@ -25,25 +25,20 @@ class SetProgressTracker:
         for raw_category_id, inventory_data in set_inventories.items():
             category_id, set_info, parts = self._normalize_inventory(raw_category_id, inventory_data)
             total_needed = 0
+            merged_entries: dict[tuple[str, str], dict[str, Any]] = {}
             for part in parts:
-                key = f"{part['color_id']}-{part['part_num']}"
-                entry = {
-                    "category_id": category_id,
-                    "set_num": set_info["set_num"],
-                    "name": set_info["name"],
-                    "img_url": set_info["img_url"],
-                    "year": set_info["year"],
-                    "num_parts": set_info["num_parts"],
-                    "part_num": str(part["part_num"]),
-                    "color_id": str(part["color_id"]),
-                    "part_name": part.get("part_name"),
-                    "color_name": part.get("color_name"),
-                    "quantity_needed": int(part["quantity"]),
-                    "quantity_found": 0,
-                }
+                entry = self._merge_part_entry(
+                    merged_entries,
+                    category_id=category_id,
+                    set_info=set_info,
+                    part=part,
+                )
+                total_needed += int(part["quantity"])
+
+            for entry in merged_entries.values():
+                key = f"{entry['color_id']}-{entry['part_num']}"
                 self._part_lookup.setdefault(key, []).append(entry)
                 self._set_parts.setdefault(category_id, []).append(entry)
-                total_needed += entry["quantity_needed"]
             self._set_info[category_id] = {
                 **set_info,
                 "total_needed": total_needed,
@@ -86,6 +81,43 @@ class SetProgressTracker:
             },
             parts,
         )
+
+    def _merge_part_entry(
+        self,
+        entries: dict[tuple[str, str], dict[str, Any]],
+        *,
+        category_id: str,
+        set_info: dict[str, Any],
+        part: dict[str, Any],
+    ) -> dict[str, Any]:
+        part_num = str(part["part_num"])
+        color_id = str(part["color_id"])
+        key = (part_num, color_id)
+        entry = entries.get(key)
+        if entry is None:
+            entry = {
+                "category_id": category_id,
+                "set_num": set_info["set_num"],
+                "name": set_info["name"],
+                "img_url": set_info["img_url"],
+                "year": set_info["year"],
+                "num_parts": set_info["num_parts"],
+                "part_num": part_num,
+                "color_id": color_id,
+                "part_name": part.get("part_name"),
+                "color_name": part.get("color_name"),
+                "quantity_needed": 0,
+                "quantity_found": 0,
+            }
+            entries[key] = entry
+        else:
+            if not entry.get("part_name") and part.get("part_name"):
+                entry["part_name"] = part.get("part_name")
+            if not entry.get("color_name") and part.get("color_name"):
+                entry["color_name"] = part.get("color_name")
+
+        entry["quantity_needed"] += int(part["quantity"])
+        return entry
 
     def record(self, part_id: str, color_id: str, category_id: str) -> None:
         """Record a sorted piece when it belongs to one of the tracked set rules."""

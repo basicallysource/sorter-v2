@@ -37,6 +37,7 @@ class Positioning(BaseState):
         self._moving_started_at: float = 0.0
         self._piece = None
         self._occupancy_state: str | None = None
+        self._blocked_layers: set[int] = set()
 
     def _setOccupancyState(self, state_name: str) -> None:
         if self._occupancy_state == state_name:
@@ -73,6 +74,15 @@ class Positioning(BaseState):
                 )
                 return DistributionState.IDLE
 
+            self.logger.info(
+                f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
+            )
+            if not self._selectDoor(address.layer_index):
+                self.logger.warning(
+                    f"Positioning: layer {address.layer_index} is unavailable for distribution, retrying with remaining layers"
+                )
+                return DistributionState.IDLE
+
             piece.stage = PieceStage.distributing
             piece.distributing_at = time.time()
             piece.distribution_target_selected_at = piece.distributing_at
@@ -86,10 +96,6 @@ class Positioning(BaseState):
             self._piece = piece
             self.event_queue.put(knownObjectToEvent(piece))
 
-            self.logger.info(
-                f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
-            )
-            self._selectDoor(address.layer_index)
             if not self.gc.disable_servos:
                 self._door_servo_index = address.layer_index
             self._target_address = address
@@ -105,7 +111,7 @@ class Positioning(BaseState):
         if self._phase == "moving":
             self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
-            servo_stopped = self.irl.servos[self._door_servo_index].stopped if self._door_servo_index is not None else True
+            servo_stopped = self._isDoorServoStopped()
             if not chute_stopped or not servo_stopped:
                 return None
             self.shared.chute_move_in_progress = False
@@ -142,28 +148,93 @@ class Positioning(BaseState):
         self._piece = None
         self.shared.chute_move_in_progress = False
 
-    def _selectDoor(self, target_layer_index: int) -> None:
+    def _isLayerUsable(self, layer_index: int) -> bool:
         if self.gc.disable_servos:
-            return
-        target_servo = self.irl.servos[target_layer_index]
-        if not target_servo.isClosed():
-            for i, servo in enumerate(self.irl.servos):
-                if i != target_layer_index and servo.isClosed():
-                    servo.open()
+            return True
+        if layer_index in self._blocked_layers:
+            return False
+        if layer_index >= len(self.irl.servos):
+            self._markLayerUnavailable(layer_index, "no servo configured for this layer")
+            return False
+        if not bool(getattr(self.irl.servos[layer_index], "available", True)):
+            self._markLayerUnavailable(layer_index, "its servo backend is offline")
+            return False
+        return True
 
-        target_servo.close()
+    def _markLayerUnavailable(self, layer_index: int, reason: str) -> None:
+        if layer_index in self._blocked_layers:
+            return
+        self._blocked_layers.add(layer_index)
+        self.logger.warning(
+            f"Positioning: disabling layer {layer_index} for this run because {reason}"
+        )
+
+    def _isDoorServoStopped(self) -> bool:
+        if self._door_servo_index is None:
+            return True
+        try:
+            return self.irl.servos[self._door_servo_index].stopped
+        except Exception as exc:
+            self._markLayerUnavailable(
+                self._door_servo_index,
+                f"servo stop check failed: {exc}",
+            )
+            return True
+
+    def _selectDoor(self, target_layer_index: int) -> bool:
+        if self.gc.disable_servos:
+            return True
+        if not self._isLayerUsable(target_layer_index):
+            self._markLayerUnavailable(target_layer_index, "the target servo is unavailable")
+            return False
+
+        target_servo = self.irl.servos[target_layer_index]
+        try:
+            target_is_closed = target_servo.isClosed()
+        except Exception as exc:
+            self._markLayerUnavailable(
+                target_layer_index,
+                f"target servo status check failed: {exc}",
+            )
+            return False
+
+        if not target_is_closed:
+            for i, servo in enumerate(self.irl.servos):
+                if i == target_layer_index or not self._isLayerUsable(i):
+                    continue
+                try:
+                    if servo.isClosed():
+                        servo.open()
+                except Exception as exc:
+                    self._markLayerUnavailable(
+                        i,
+                        f"opening parked servo failed: {exc}",
+                    )
+
+        try:
+            target_servo.close()
+        except Exception as exc:
+            self._markLayerUnavailable(
+                target_layer_index,
+                f"closing target servo failed: {exc}",
+            )
+            return False
+
+        return True
 
     def _findOrAssignBinForCategory(
         self, category_id: str
     ) -> tuple[Optional[BinAddress], bool]:
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
-        has_active_layers = False
+        has_usable_layers = False
 
         for layer_idx, layer in enumerate(self.layout.layers):
             if not getattr(layer, "enabled", True):
                 continue
+            if not self._isLayerUsable(layer_idx):
+                continue
 
-            has_active_layers = True
+            has_usable_layers = True
             for section_idx, section in enumerate(layer.sections):
                 for bin_idx, b in enumerate(section.bins):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
@@ -174,8 +245,8 @@ class Positioning(BaseState):
                     if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)
 
-        if not has_active_layers:
-            self.logger.warning("Positioning: no active storage layers configured")
+        if not has_usable_layers:
+            self.logger.warning("Positioning: no usable storage layers configured")
             return None, False
 
         if first_unassigned is not None:

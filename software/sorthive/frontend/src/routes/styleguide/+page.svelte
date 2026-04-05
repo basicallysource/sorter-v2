@@ -285,7 +285,7 @@
 				<div class="mx-auto w-full max-w-lg bg-white p-6">
 					<div class="mb-4 flex items-center justify-between">
 						<h3 class="text-lg font-semibold text-[#1A1A1A]">Confirm Action</h3>
-						<button class="p-1 text-gray-400 hover:text-gray-600">
+						<button class="p-1 text-[#7A7770] hover:text-[#7A7770]">
 							<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
 							</svg>
@@ -323,7 +323,7 @@
 					</div>
 				</div>
 				<div class="relative">
-					<button class="border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50">
+					<button class="border border-[#E2E0DB] p-1.5 text-[#7A7770] hover:bg-[#F7F6F3]">
 						<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
 						</svg>
@@ -371,7 +371,7 @@
 				</button>
 				<span class="text-xs text-[#7A7770]">Close</span>
 				<div class="mx-2 h-6 border-l border-[#E2E0DB]"></div>
-				<button class="border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50" title="More">
+				<button class="border border-[#E2E0DB] p-1.5 text-[#7A7770] hover:bg-[#F7F6F3]" title="More">
 					<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 						<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
 					</svg>
@@ -426,21 +426,21 @@
 		<h2 class="text-lg font-semibold tracking-tight">Set Rule Card</h2>
 		<div class="border border-[#E2E0DB] bg-white p-6">
 			<p class="mb-3 text-xs font-medium uppercase tracking-wider text-[#7A7770]">Collapsed (in rule list)</p>
-			<div class="mb-6 flex cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-2 hover:bg-gray-50">
+			<div class="mb-6 flex cursor-pointer items-center gap-2 border-b border-[#E2E0DB] px-3 py-2 hover:bg-[#F7F6F3]">
 				<img src="https://cdn.rebrickable.com/media/sets/21242-1/120155.jpg" alt="The End Arena" class="h-16 w-16 shrink-0 object-contain" />
 				<div class="min-w-0 flex-1">
-					<span class="text-sm font-medium text-gray-800">The End Arena</span>
-					<div class="mt-0.5 text-xs text-gray-400">21242-1 · 2023 · 252 parts</div>
+					<span class="text-sm font-medium text-[#1A1A1A]">The End Arena</span>
+					<div class="mt-0.5 text-xs text-[#7A7770]">21242-1 · 2023 · 252 parts</div>
 				</div>
-				<span class="bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">252</span>
+				<span class="bg-[#F7F6F3] px-1.5 py-0.5 text-xs font-medium text-[#7A7770]">252</span>
 			</div>
 			<p class="mb-3 text-xs font-medium uppercase tracking-wider text-[#7A7770]">Expanded (editor view)</p>
-			<div class="border border-gray-200 bg-white px-3 py-3">
+			<div class="border border-[#E2E0DB] bg-white px-3 py-3">
 				<div class="mb-3 flex gap-4">
 					<img src="https://cdn.rebrickable.com/media/sets/21242-1/120155.jpg" alt="The End Arena" class="h-32 w-32 shrink-0 object-contain" />
 					<div class="min-w-0 flex-1">
-						<input type="text" value="The End Arena" class="mb-1 w-full border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
-						<div class="mb-2 text-xs text-gray-400">21242-1 · 2023 · 252 parts</div>
+						<input type="text" value="The End Arena" class="mb-1 w-full border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+						<div class="mb-2 text-xs text-[#7A7770]">21242-1 · 2023 · 252 parts</div>
 						<a href="#" class="inline-flex items-center gap-1 text-xs text-[#D01012] hover:underline">
 							View on Rebrickable
 							<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -450,11 +450,11 @@
 					</div>
 				</div>
 				<div class="flex items-center gap-4">
-					<label class="flex items-center gap-1.5 text-xs text-gray-600">
+					<label class="flex items-center gap-1.5 text-xs text-[#7A7770]">
 						<input type="checkbox" class="h-4 w-4 accent-[#D01012]" />
 						Include spare parts
 					</label>
-					<label class="flex items-center gap-1 text-xs text-gray-500">
+					<label class="flex items-center gap-1 text-xs text-[#7A7770]">
 						<input type="checkbox" class="h-4 w-4 accent-[#D01012]" />
 						Disabled
 					</label>
@@ -473,7 +473,7 @@
 						<span>Set Progress</span>
 						<span>73%</span>
 					</div>
-					<div class="h-1.5 w-full bg-gray-200">
+					<div class="h-1.5 w-full bg-[#E2E0DB]">
 						<div class="h-full bg-[#00852B] transition-all" style="width: 73%"></div>
 					</div>
 				</div>
@@ -482,7 +482,7 @@
 						<span>Category Coverage</span>
 						<span>45%</span>
 					</div>
-					<div class="h-1.5 w-full bg-gray-200">
+					<div class="h-1.5 w-full bg-[#E2E0DB]">
 						<div class="h-full bg-[#0055BF] transition-all" style="width: 45%"></div>
 					</div>
 				</div>
@@ -491,12 +491,12 @@
 						<span>Warning Zone</span>
 						<span>12%</span>
 					</div>
-					<div class="h-1.5 w-full bg-gray-200">
+					<div class="h-1.5 w-full bg-[#E2E0DB]">
 						<div class="h-full bg-[#FFD500] transition-all" style="width: 12%"></div>
 					</div>
 				</div>
 			</div>
-			<p class="mt-3 text-xs text-[#7A7770]">Track: h-1.5 bg-gray-200 · Fill: h-full transition-all · Colors: success/info/warning</p>
+			<p class="mt-3 text-xs text-[#7A7770]">Track: h-1.5 bg-[#E2E0DB] · Fill: h-full transition-all · Colors: success/info/warning</p>
 		</div>
 	</section>
 
@@ -510,11 +510,11 @@
 					<span class="text-xs text-[#7A7770]">Page Spinner</span>
 				</div>
 				<div class="flex flex-col items-center gap-2">
-					<div class="h-4 w-4 animate-spin border-2 border-gray-200 border-t-gray-500" style="border-radius: 50%"></div>
+					<div class="h-4 w-4 animate-spin border-2 border-[#E2E0DB] border-t-[#7A7770]" style="border-radius: 50%"></div>
 					<span class="text-xs text-[#7A7770]">Inline Spinner</span>
 				</div>
 				<div class="flex flex-col items-center gap-2">
-					<div class="py-4 text-center text-xs text-gray-400">Searching...</div>
+					<div class="py-4 text-center text-xs text-[#7A7770]">Searching...</div>
 					<span class="text-xs text-[#7A7770]">Text Loading</span>
 				</div>
 			</div>
@@ -525,34 +525,34 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Search with Inline Results</h2>
 		<div class="border border-[#E2E0DB] bg-white p-6">
-			<div class="max-w-md border border-gray-200 bg-white p-3">
+			<div class="max-w-md border border-[#E2E0DB] bg-white p-3">
 				<div class="mb-2 flex items-center justify-between">
-					<h3 class="text-sm font-semibold text-gray-900">Add LEGO Set</h3>
-					<button class="p-1 text-gray-400 hover:text-gray-600">
+					<h3 class="text-sm font-semibold text-[#1A1A1A]">Add LEGO Set</h3>
+					<button class="p-1 text-[#7A7770] hover:text-[#7A7770]">
 						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
 						</svg>
 					</button>
 				</div>
-				<input type="text" value="Minecraft" readonly class="mb-2 w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+				<input type="text" value="Minecraft" readonly class="mb-2 w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 				<div class="mb-2 flex items-center gap-2">
-					<input type="number" placeholder="From year" class="w-24 border border-gray-300 px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
-					<span class="text-xs text-gray-400">&ndash;</span>
-					<input type="number" placeholder="To year" class="w-24 border border-gray-300 px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+					<input type="number" placeholder="From year" class="w-24 border border-[#E2E0DB] px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+					<span class="text-xs text-[#7A7770]">&ndash;</span>
+					<input type="number" placeholder="To year" class="w-24 border border-[#E2E0DB] px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 				</div>
 				<div class="max-h-40 space-y-1 overflow-y-auto">
-					<button class="flex w-full items-center gap-3 border border-gray-100 p-2 text-left hover:bg-gray-50">
-						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-gray-100 text-xs text-gray-400">IMG</div>
+					<button class="flex w-full items-center gap-3 border border-[#E2E0DB] p-2 text-left hover:bg-[#F7F6F3]">
+						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-[#F7F6F3] text-xs text-[#7A7770]">IMG</div>
 						<div class="min-w-0 flex-1">
-							<div class="truncate text-sm font-medium text-gray-800">The Panda Haven</div>
-							<div class="text-xs text-gray-400">21245-1 · 2023 · 553 parts</div>
+							<div class="truncate text-sm font-medium text-[#1A1A1A]">The Panda Haven</div>
+							<div class="text-xs text-[#7A7770]">21245-1 · 2023 · 553 parts</div>
 						</div>
 					</button>
-					<button class="flex w-full items-center gap-3 border border-gray-100 p-2 text-left hover:bg-gray-50">
-						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-gray-100 text-xs text-gray-400">IMG</div>
+					<button class="flex w-full items-center gap-3 border border-[#E2E0DB] p-2 text-left hover:bg-[#F7F6F3]">
+						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-[#F7F6F3] text-xs text-[#7A7770]">IMG</div>
 						<div class="min-w-0 flex-1">
-							<div class="truncate text-sm font-medium text-gray-800">The End Arena</div>
-							<div class="text-xs text-gray-400">21242-1 · 2023 · 252 parts</div>
+							<div class="truncate text-sm font-medium text-[#1A1A1A]">The End Arena</div>
+							<div class="text-xs text-[#7A7770]">21242-1 · 2023 · 252 parts</div>
 						</div>
 					</button>
 				</div>
@@ -565,23 +565,23 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Data Table</h2>
 		<div class="border border-[#E2E0DB] bg-white">
-			<table class="min-w-full divide-y divide-gray-200">
-				<thead class="bg-gray-50">
+			<table class="min-w-full divide-y divide-[#E2E0DB]">
+				<thead class="bg-[#F7F6F3]">
 					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
-						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Role</th>
-						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-						<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Name</th>
+						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Role</th>
+						<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Status</th>
+						<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-[#7A7770]">Actions</th>
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-gray-200">
-					<tr class="hover:bg-gray-50">
+				<tbody class="divide-y divide-[#E2E0DB]">
+					<tr class="hover:bg-[#F7F6F3]">
 						<td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#1A1A1A]">Marc Neuhaus</td>
 						<td class="whitespace-nowrap px-6 py-4 text-sm text-[#7A7770]">Admin</td>
 						<td class="whitespace-nowrap px-6 py-4"><span class="border border-[#00852B]/30 bg-[#00852B]/10 px-2.5 py-0.5 text-xs font-medium text-[#00852B]">Active</span></td>
 						<td class="whitespace-nowrap px-6 py-4 text-right text-sm text-[#D01012]">Edit</td>
 					</tr>
-					<tr class="opacity-50 hover:bg-gray-50">
+					<tr class="opacity-50 hover:bg-[#F7F6F3]">
 						<td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#1A1A1A]">Guest User</td>
 						<td class="whitespace-nowrap px-6 py-4 text-sm text-[#7A7770]">Member</td>
 						<td class="whitespace-nowrap px-6 py-4"><span class="border border-[#E2E0DB] bg-[#F7F6F3] px-2.5 py-0.5 text-xs font-medium text-[#7A7770]">Inactive</span></td>
@@ -590,7 +590,7 @@
 				</tbody>
 			</table>
 		</div>
-		<p class="text-xs text-[#7A7770]">Header: bg-gray-50 uppercase · Rows: divide-y hover:bg-gray-50 · Inactive: opacity-50</p>
+		<p class="text-xs text-[#7A7770]">Header: bg-[#F7F6F3] uppercase · Rows: divide-y hover:bg-[#F7F6F3] · Inactive: opacity-50</p>
 	</section>
 
 	<!-- ─── Pagination ─── -->
@@ -598,13 +598,13 @@
 		<h2 class="text-lg font-semibold tracking-tight">Pagination</h2>
 		<div class="border border-[#E2E0DB] bg-white p-6">
 			<div class="flex items-center gap-1">
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>Previous</button>
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium bg-[#D01012] text-white">1</button>
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">2</button>
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">3</button>
-				<span class="px-1 text-gray-400">...</span>
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">12</button>
-				<button class="border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Next</button>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50" disabled>Previous</button>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium bg-[#D01012] text-white">1</button>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">2</button>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">3</button>
+				<span class="px-1 text-[#7A7770]">...</span>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">12</button>
+				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Next</button>
 			</div>
 			<p class="mt-3 text-xs text-[#7A7770]">Active page: bg-[#D01012] text-white · Disabled: disabled:opacity-50 · Ellipsis for large page counts</p>
 		</div>
@@ -616,11 +616,11 @@
 		<div class="border border-[#E2E0DB] bg-white p-6">
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="border border-[#E2E0DB] p-8 text-center">
-					<p class="text-sm text-gray-500">No machines yet. Add one to get started.</p>
+					<p class="text-sm text-[#7A7770]">No machines yet. Add one to get started.</p>
 					<button class="mt-3 bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Add Machine</button>
 				</div>
 				<div class="border border-[#E2E0DB] p-8 text-center">
-					<p class="text-sm text-gray-500">No results found for your search.</p>
+					<p class="text-sm text-[#7A7770]">No results found for your search.</p>
 					<button class="mt-3 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Clear Filters</button>
 				</div>
 			</div>
@@ -635,7 +635,7 @@
 				<!-- User message -->
 				<div class="ml-8">
 					<div class="mb-1 text-right text-xs font-medium text-[#D01012]">You</div>
-					<div class="border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-gray-700">
+					<div class="border border-[#D01012]/20 bg-[#FEF2F2] p-3 text-sm text-[#1A1A1A]">
 						Add all Minecraft sets from 2023
 					</div>
 				</div>
@@ -679,9 +679,9 @@
 		<div class="border border-[#E2E0DB] bg-white p-6">
 			<div class="relative inline-block">
 				<button class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Save Version</button>
-				<div class="absolute left-0 top-full z-50 mt-2 w-72 border border-gray-200 bg-white p-4">
+				<div class="absolute left-0 top-full z-50 mt-2 w-72 border border-[#E2E0DB] bg-white p-4">
 					<h3 class="mb-2 text-sm font-semibold">Save New Version</h3>
-					<input type="text" placeholder="Change note (optional)" class="mb-3 w-full border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+					<input type="text" placeholder="Change note (optional)" class="mb-3 w-full border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 					<div class="flex justify-end gap-2">
 						<button class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
 						<button class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10]">Save</button>
@@ -696,9 +696,9 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Unsaved Changes Bar</h2>
 		<div class="border border-[#E2E0DB] bg-white p-6">
-			<div class="border-t border-gray-200 bg-white px-4 py-3">
+			<div class="border-t border-[#E2E0DB] bg-white px-4 py-3">
 				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-2 text-sm text-gray-600">
+					<div class="flex items-center gap-2 text-sm text-[#7A7770]">
 						<span class="inline-block h-2 w-2 bg-[#FFD500]"></span>
 						Unsaved changes
 					</div>
@@ -719,7 +719,7 @@
 			<div class="flex max-w-lg gap-4">
 				<div class="flex-1">
 					<label class="mb-1 block text-sm font-medium">Machine</label>
-					<select class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]">
+					<select class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]">
 						<option>All Machines</option>
 						<option>Sorter Alpha</option>
 						<option>Sorter Beta</option>
@@ -727,7 +727,7 @@
 				</div>
 				<div class="flex-1">
 					<label class="mb-1 block text-sm font-medium">AI Model</label>
-					<select class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]">
+					<select class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]">
 						<option>Claude Sonnet 4</option>
 						<option>GPT-4o</option>
 						<option>Gemini Pro</option>

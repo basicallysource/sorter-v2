@@ -4,7 +4,7 @@
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Grid3x3, Home, Layers3, Package, Pause, Play, Settings } from 'lucide-svelte';
+	import { Pause, Play } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -46,87 +46,51 @@
 	});
 </script>
 
-<div class="mb-4 flex items-center justify-between border-b border-border pb-4">
-	<a
-		href="/"
-		class="flex items-center gap-2 text-text transition-colors"
-		title="Dashboard"
-	>
-		<h1 class="text-xl font-bold font-mono uppercase tracking-tight">Sorter</h1>
-	</a>
-	<div class="flex items-center gap-2">
-		<MachineDropdown />
-		<ThemeToggle />
-		<button
-			onclick={togglePauseResume}
-			class="p-2 text-text transition-colors hover:bg-surface"
-			title={machineState === 'paused' ? 'Resume' : 'Pause'}
-		>
-			{#if machineState === 'paused'}
-				<Play size={24} />
-			{:else}
-				<Pause size={24} />
-			{/if}
-		</button>
-		<a
-			href="/"
-			aria-current={page.url.pathname === '/' ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname === '/'
-					? 'bg-surface text-text'
-					: 'text-text hover:bg-surface'
-			}`}
-			title="Home"
-		>
-			<Home size={24} />
-		</a>
-		<a
-			href="/bins"
-			aria-current={page.url.pathname === '/bins' ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname === '/bins'
-					? 'bg-surface text-text'
-					: 'text-text hover:bg-surface'
-			}`}
-			title="Bin Grid"
-		>
-			<Grid3x3 size={24} />
-		</a>
-		<a
-			href="/dashboard/sets"
-			aria-current={page.url.pathname.startsWith('/dashboard/sets') ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname.startsWith('/dashboard/sets')
-					? 'bg-surface text-text'
-					: 'text-text hover:bg-surface'
-			}`}
-			title="Set Progress"
-		>
-			<Package size={24} />
-		</a>
-		<a
-			href="/profiles"
-			aria-current={page.url.pathname === '/profiles' ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname === '/profiles'
-					? 'bg-surface text-text'
-					: 'text-text hover:bg-surface'
-			}`}
-			title="Sorting Profiles"
-		>
-			<Layers3 size={24} />
-		</a>
-		<a
-			href="/settings"
-			aria-current={page.url.pathname.startsWith('/settings') ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname.startsWith('/settings')
-					? 'bg-surface text-text'
-					: 'text-text hover:bg-surface'
-			}`}
-			title="Settings"
-		>
-			<Settings size={24} />
-		</a>
+<nav class="border-b border-border bg-surface">
+	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
+		<div class="flex items-center gap-6">
+			<a href="/" class="text-xl font-bold font-mono uppercase tracking-tight text-text">Sorter</a>
+			<div class="flex gap-1">
+				<a
+					href="/"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Dashboard
+				</a>
+				<a
+					href="/bins"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Bins
+				</a>
+				<a
+					href="/profiles"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/profiles' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Profiles
+				</a>
+				<a
+					href="/settings"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/settings') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Settings
+				</a>
+			</div>
+		</div>
+		<div class="flex items-center gap-2">
+			<MachineDropdown />
+			<ThemeToggle />
+			<button
+				onclick={togglePauseResume}
+				class="p-2 text-text transition-colors hover:bg-bg"
+				title={machineState === 'paused' ? 'Resume' : 'Pause'}
+			>
+				{#if machineState === 'paused'}
+					<Play size={20} />
+				{:else}
+					<Pause size={20} />
+				{/if}
+			</button>
+		</div>
 	</div>
-</div>
+</nav>

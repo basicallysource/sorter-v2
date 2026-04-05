@@ -1376,7 +1376,7 @@
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<a href="/profiles/{profile.id}" class="text-gray-400 hover:text-gray-600" title="Back to profile">
+			<a href="/profiles/{profile.id}" class="text-[#7A7770] hover:text-[#1A1A1A]" title="Back to profile">
 				<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
 				</svg>
@@ -1395,9 +1395,9 @@
 						}
 					}}
 					onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-					class="border-0 bg-transparent text-xl font-bold text-gray-900 outline-none focus:border-b-2 focus:border-[#D01012] w-full"
+					class="border-0 bg-transparent text-xl font-bold text-[#1A1A1A] outline-none focus:border-b-2 focus:border-[#D01012] w-full"
 				/>
-				<span class="text-xs text-gray-500">v{profile.current_version.version_number}</span>
+				<span class="text-xs text-[#7A7770]">v{profile.current_version.version_number}</span>
 			</div>
 		</div>
 		<div class="relative">
@@ -1408,12 +1408,12 @@
 			{#if showSavePopover}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fixed inset-0 z-40" onclick={closeSavePopover} onkeydown={(e) => { if (e.key === 'Escape') closeSavePopover(); }}></div>
-				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-gray-200 bg-white p-4">
-					<h3 class="mb-2 text-sm font-semibold text-gray-900">Save New Version</h3>
-					<label class="mb-1 block text-xs text-gray-500" for="save-note">What changed? (optional)</label>
+				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-[#E2E0DB] bg-white p-4">
+					<h3 class="mb-2 text-sm font-semibold text-[#1A1A1A]">Save New Version</h3>
+					<label class="mb-1 block text-xs text-[#7A7770]" for="save-note">What changed? (optional)</label>
 					<div class="relative mb-3">
 						<input id="save-note" type="text" bind:value={changeNote} placeholder={suggestingNote ? 'Generating...' : 'e.g. Added gear categories'}
-							class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] {suggestingNote ? 'pr-8' : ''}"
+							class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] {suggestingNote ? 'pr-8' : ''}"
 							onkeydown={(e) => { if (e.key === 'Enter') void saveVersion(); }} />
 						{#if suggestingNote}
 							<div class="absolute right-2.5 top-1/2 -translate-y-1/2">
@@ -1422,7 +1422,7 @@
 						{/if}
 					</div>
 					<div class="flex justify-end gap-2">
-						<button onclick={closeSavePopover} class="border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+						<button onclick={closeSavePopover} class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
 						<button onclick={() => void saveVersion()} disabled={savingVersion}
 							class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10] disabled:opacity-50">
 							{savingVersion ? 'Saving...' : 'Save'}
@@ -1451,9 +1451,9 @@
 	<div class="grid min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style="height: calc(100vh - 200px);">
 
 		<!-- LEFT: Rules (accordion) -->
-		<div class="flex min-h-0 min-w-0 flex-col border border-gray-200 bg-white">
-			<div class="flex items-center justify-between border-b border-gray-200 px-4 py-2">
-				<h2 class="text-sm font-semibold text-gray-900">Rules</h2>
+		<div class="flex min-h-0 min-w-0 flex-col border border-[#E2E0DB] bg-white">
+			<div class="flex items-center justify-between border-b border-[#E2E0DB] px-4 py-2">
+				<h2 class="text-sm font-semibold text-[#1A1A1A]">Rules</h2>
 				{#if !isPreview}
 					<div class="flex items-center gap-1.5">
 						<button onclick={() => addRule()}
@@ -1486,7 +1486,7 @@
 							{restoringVersionId ? 'Restoring...' : 'Restore'}
 						</button>
 						<button onclick={exitPreview}
-							class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+							class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]">
 							Back
 						</button>
 					</div>
@@ -1496,7 +1496,7 @@
 				{#if previewLoading}
 					<div class="flex items-center justify-center p-8"><Spinner /></div>
 				{:else if displayRules.length === 0}
-					<div class="p-4 text-center text-sm text-gray-400">
+					<div class="p-4 text-center text-sm text-[#7A7770]">
 						No rules yet. Use chat to generate categories, or add one manually.
 					</div>
 				{:else}
@@ -1506,7 +1506,7 @@
 				{/if}
 			</div>
 			{#if !isPreview && showSetSearch}
-			<div class="border-t border-gray-200 px-3 py-2">
+			<div class="border-t border-[#E2E0DB] px-3 py-2">
 				<SetSearch onSelect={addSetRule} onCancel={() => { showSetSearch = false; }} />
 			</div>
 			{/if}
@@ -1514,18 +1514,18 @@
 		</div>
 
 		<!-- RIGHT: Chat / Versions -->
-		<div class="flex min-h-0 min-w-0 flex-col overflow-hidden border border-gray-200 bg-white">
-			<div class="flex border-b border-gray-200">
+		<div class="flex min-h-0 min-w-0 flex-col overflow-hidden border border-[#E2E0DB] bg-white">
+			<div class="flex border-b border-[#E2E0DB]">
 				<button onclick={() => { rightTab = 'chat'; }}
 					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-						{rightTab === 'chat' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-gray-500 hover:text-gray-700'}">
+						{rightTab === 'chat' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}">
 					Chat
 				</button>
 				<button onclick={() => { rightTab = 'versions'; }}
 					class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-						{rightTab === 'versions' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-gray-500 hover:text-gray-700'}">
+						{rightTab === 'versions' ? 'border-b-2 border-b-[#D01012] text-[#D01012]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}">
 					Versions
-					<span class="ml-1 text-xs font-normal text-gray-400">· {profile.versions.length}</span>
+					<span class="ml-1 text-xs font-normal text-[#7A7770]">· {profile.versions.length}</span>
 				</button>
 			</div>
 
@@ -1533,18 +1533,18 @@
 				<!-- Version History -->
 				<div class="flex-1 overflow-y-auto">
 					{#if profile.versions.length === 0}
-						<div class="p-6 text-center text-sm text-gray-400">No versions yet.</div>
+						<div class="p-6 text-center text-sm text-[#7A7770]">No versions yet.</div>
 					{:else}
-						<div class="divide-y divide-gray-100">
+						<div class="divide-y divide-[#E2E0DB]">
 							{#each [...profile.versions].reverse() as version (version.id)}
 								{@const isCurrent = version.id === profile.current_version?.id}
-								<div class="px-4 py-3 {isCurrent ? 'bg-[#FEF2F2]' : ''}">
+								<div class="px-4 py-3 {isCurrent ? 'bg-[#D01012]/8' : ''}">
 									<div class="flex items-center justify-between">
 										<div class="flex items-center gap-2">
 											{#if isCurrent}
 												<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
 											{/if}
-											<span class="text-sm font-semibold {isCurrent ? 'text-[#D01012]' : 'text-gray-800'}">v{version.version_number}</span>
+											<span class="text-sm font-semibold {isCurrent ? 'text-[#D01012]' : 'text-[#1A1A1A]'}">v{version.version_number}</span>
 											{#if isCurrent}
 												<span class="bg-[#D01012]/8 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#D01012]">current</span>
 											{/if}
@@ -1552,12 +1552,12 @@
 												<span class="bg-[#00852B]/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#00852B]">published</span>
 											{/if}
 										</div>
-										<span class="text-xs text-gray-400">{formatDate(version.created_at)}</span>
+										<span class="text-xs text-[#7A7770]">{formatDate(version.created_at)}</span>
 									</div>
 									{#if version.change_note}
-										<p class="mt-1 text-xs text-gray-600">{version.change_note}</p>
+										<p class="mt-1 text-xs text-[#7A7770]">{version.change_note}</p>
 									{/if}
-									<div class="mt-1 flex items-center gap-3 text-xs text-gray-400">
+									<div class="mt-1 flex items-center gap-3 text-xs text-[#7A7770]">
 										<span>{version.compiled_part_count} parts</span>
 										{#if version.label}
 											<span>{version.label}</span>
@@ -1566,18 +1566,18 @@
 									<div class="mt-2 flex gap-2">
 										<button onclick={() => { if (isCurrent) exitPreview(); else void viewVersion(version.id); }}
 											disabled={previewLoading}
-											class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+											class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3] disabled:opacity-50">
 											View
 										</button>
 										{#if !isCurrent}
 											<button onclick={() => void restoreVersion(version.id)}
 												disabled={restoringVersionId !== null}
-												class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+												class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3] disabled:opacity-50">
 												{restoringVersionId === version.id ? 'Restoring...' : 'Restore'}
 											</button>
 										{/if}
 										<button onclick={() => void forkFromVersion(version.id)}
-											class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+											class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]">
 											Fork
 										</button>
 									</div>
@@ -1589,10 +1589,10 @@
 
 			{:else if !hasOpenRouter}
 				<div class="flex flex-1 flex-col items-center justify-center p-6 text-center">
-					<svg class="mb-3 h-8 w-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<svg class="mb-3 h-8 w-8 text-[#7A7770]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
 					</svg>
-					<p class="mb-2 text-sm text-gray-500">OpenRouter API key required for chat</p>
+					<p class="mb-2 text-sm text-[#7A7770]">OpenRouter API key required for chat</p>
 					<a href="/settings" class="text-sm font-medium text-[#D01012] hover:text-[#B00E10]">Configure in Settings</a>
 				</div>
 			{:else}
@@ -1600,11 +1600,11 @@
 				<div bind:this={chatContainer} class="flex-1 overflow-y-auto p-4">
 					{#if aiMessages.length === 0}
 						<div class="flex h-full flex-col items-center justify-center text-center">
-							<svg class="mb-3 h-8 w-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+							<svg class="mb-3 h-8 w-8 text-[#7A7770]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
 							</svg>
-							<p class="mb-1 text-sm font-medium text-gray-700">Describe what you want to sort</p>
-								<p class="text-xs text-gray-400">Use chat to create categories, add rules, and refine your sorting logic.</p>
+							<p class="mb-1 text-sm font-medium text-[#1A1A1A]">Describe what you want to sort</p>
+								<p class="text-xs text-[#7A7770]">Use chat to create categories, add rules, and refine your sorting logic.</p>
 						</div>
 					{:else}
 						<div class="space-y-4 min-w-0">
@@ -1637,7 +1637,7 @@
 																			{#if resultView.layout === 'media-grid'}
 																				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 																					{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																						<div class="overflow-hidden rounded border border-[#00852B]/15 bg-white/80">
+																						<div class="overflow-hidden border border-[#00852B]/15 bg-white/80">
 																							<div class="relative aspect-[4/3] border-b border-[#00852B]/10 bg-[#00852B]/5">
 																								{#if item.imageUrl}
 																									<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
@@ -1659,7 +1659,7 @@
 																			{:else}
 																				<div class="mt-2 space-y-1.5">
 																					{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																						<div class="flex items-start gap-2 rounded border border-[#00852B]/15 bg-white/70 px-2 py-1.5">
+																						<div class="flex items-start gap-2 border border-[#00852B]/15 bg-white/70 px-2 py-1.5">
 																							<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6B42]"></div>
 																							<div class="min-w-0">
 																								<div class="truncate font-medium text-[#00852B]">{item.primary}</div>
@@ -1705,7 +1705,7 @@
 											{#if msg.applied_at && msg.proposal}
 												{@const actions = proposalActionSummaries(msg.proposal)}
 												{#if actions.length}
-													<div class="mt-2 space-y-0.5 border-t border-gray-100 pt-2">
+													<div class="mt-2 space-y-0.5 border-t border-[#E2E0DB] pt-2">
 														{#each actions as action}
 															<div class="flex items-center gap-1.5 text-xs text-[#00852B]">
 																<svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -1762,7 +1762,7 @@
 																			{#if resultView.layout === 'media-grid'}
 																				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 																					{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																						<div class="overflow-hidden rounded border {card.status === 'active' ? 'border-[#E7D7AA] bg-white/70' : 'border-[#00852B]/15 bg-white/80'}">
+																						<div class="overflow-hidden border {card.status === 'active' ? 'border-[#E7D7AA] bg-white/70' : 'border-[#00852B]/15 bg-white/80'}">
 																							<div class="relative aspect-[4/3] border-b {card.status === 'active' ? 'border-[#F0E2BD] bg-[#FFFDF5]' : 'border-[#00852B]/10 bg-[#00852B]/5'}">
 																								{#if item.imageUrl}
 																									<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
@@ -1784,7 +1784,7 @@
 																			{:else}
 																				<div class="mt-2 space-y-1.5">
 																					{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																						<div class="flex items-start gap-2 rounded border px-2 py-1.5 {card.status === 'active' ? 'border-[#E7D7AA] bg-white/60' : 'border-[#00852B]/15 bg-white/70'}">
+																						<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-[#E7D7AA] bg-white/60' : 'border-[#00852B]/15 bg-white/70'}">
 																							<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full {card.status === 'active' ? 'bg-[#8A6D1F]' : 'bg-[#2F6B42]'}"></div>
 																							<div class="min-w-0">
 																								<div class="truncate font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-[#00852B]'}">{item.primary}</div>
@@ -1827,13 +1827,13 @@
 				</div>
 
 				<!-- Chat input -->
-				<div class="border-t border-gray-200 p-3">
+				<div class="border-t border-[#E2E0DB] p-3">
 					<div class="flex gap-2">
 						<input type="text" bind:value={aiMessage}
 							placeholder={isNewProfile && workingRules.length === 0
 								? 'e.g. Sort Technic parts by function: gears, beams, connectors...'
 									: 'Describe a change...'}
-							class="min-w-0 flex-1 border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+							class="min-w-0 flex-1 border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 							onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendAiMessage(); } }}
 							disabled={aiBusy} />
 						<button onclick={() => void sendAiMessage()} disabled={aiBusy || !aiMessage.trim()}
@@ -1848,9 +1848,9 @@
 
 	<!-- Sticky bottom bar -->
 	{#if hasUnsavedChanges}
-		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white px-4 py-3">
+		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-[#E2E0DB] bg-white px-4 py-3">
 			<div class="mx-auto flex max-w-7xl items-center justify-between">
-				<div class="flex items-center gap-2 text-sm text-gray-600">
+				<div class="flex items-center gap-2 text-sm text-[#7A7770]">
 					<span class="inline-block h-2 w-2 bg-[#FFD500]"></span>
 					Unsaved changes
 				</div>
@@ -1878,32 +1878,32 @@
 	{@const hasChildren = rule.children.length > 0}
 	{@const partCount = getPartCount(rule.id)}
 
-	<div class="{depth > 0 ? 'ml-4 border-l border-gray-200' : ''}">
+	<div class="{depth > 0 ? 'ml-4 border-l border-[#E2E0DB]' : ''}">
 		<!-- Collapsed header -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div onclick={() => { toggleNode(rule.id); selectRule(rule.id); }}
 			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleNode(rule.id); selectRule(rule.id); } }}
 			role="button" tabindex="0"
-			class="group flex w-full cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-2 text-left transition-colors hover:bg-gray-50
-				{isOpen ? 'bg-[#FEF2F2]' : ''}">
+			class="group flex w-full cursor-pointer items-center gap-2 border-b border-[#E2E0DB] px-3 py-2 text-left transition-colors hover:bg-[#F7F6F3]
+				{isOpen ? 'bg-[#D01012]/8' : ''}">
 			<!-- Chevron / Set image -->
 			{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
 				<img src={rule.set_meta.img_url} alt={rule.name} class="h-16 w-16 shrink-0 object-contain" />
 			{:else}
-				<svg class="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform {isOpen ? 'rotate-90' : ''}" viewBox="0 0 20 20" fill="currentColor">
+				<svg class="h-3.5 w-3.5 shrink-0 text-[#7A7770] transition-transform {isOpen ? 'rotate-90' : ''}" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
 				</svg>
 			{/if}
 			<!-- Name + summary -->
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-2">
-					<span class="truncate text-sm font-medium {rule.disabled ? 'text-gray-400 line-through' : 'text-gray-800'}">{rule.name}</span>
+					<span class="truncate text-sm font-medium {rule.disabled ? 'text-[#7A7770] line-through' : 'text-[#1A1A1A]'}">{rule.name}</span>
 					{#if rule.disabled}
-						<span class="shrink-0 text-[10px] uppercase tracking-wide text-gray-400">off</span>
+						<span class="shrink-0 text-[10px] uppercase tracking-wide text-[#7A7770]">off</span>
 					{/if}
 				</div>
 				{#if !isOpen}
-					<div class="mt-0.5 truncate text-xs text-gray-400">
+					<div class="mt-0.5 truncate text-xs text-[#7A7770]">
 						{conditionSummary(rule)}
 					</div>
 				{/if}
@@ -1913,13 +1913,13 @@
 				{#if !isPreview}
 					<!-- Hover-only actions (left of permanent items) -->
 					<button onclick={(e) => { e.stopPropagation(); moveRule(rule.id, -1); }}
-						class="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Move up" title="Move up">
+						class="p-1 text-[#7A7770] hover:text-[#1A1A1A] opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Move up" title="Move up">
 						<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
 						</svg>
 					</button>
 					<button onclick={(e) => { e.stopPropagation(); moveRule(rule.id, 1); }}
-						class="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Move down" title="Move down">
+						class="p-1 text-[#7A7770] hover:text-[#1A1A1A] opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Move down" title="Move down">
 						<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
 						</svg>
@@ -1933,7 +1933,7 @@
 				{/if}
 				<!-- Permanent items (always visible, right edge) -->
 				{#if hasChildren}
-					<span class="text-xs text-gray-400">{rule.children.length} sub</span>
+					<span class="text-xs text-[#7A7770]">{rule.children.length} sub</span>
 				{/if}
 				{#if !isPreview}
 					<!-- Toggle switch -->
@@ -1952,21 +1952,21 @@
 		{#if isOpen}
 			{#if rule.rule_type === 'set'}
 				<!-- Set rule editor -->
-				<div class="border-b border-gray-200 bg-white px-3 py-3">
+				<div class="border-b border-[#E2E0DB] bg-white px-3 py-3">
 					{#if isCustomSetRule(rule)}
 						<div class="mb-3">
 							<input
 								type="text"
 								value={rule.name}
 								oninput={(e) => updateCustomSetName(rule.id, (e.currentTarget as HTMLInputElement).value)}
-								class="mb-1 w-full border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+								class="mb-1 w-full border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 							/>
-							<div class="text-xs text-gray-400">
+							<div class="text-xs text-[#7A7770]">
 								Custom set · {customSetPartsLabel(rule)}
 							</div>
 						</div>
 						{#if catalogColorsLoading}
-							<div class="mb-3 text-xs text-gray-400">Loading colors...</div>
+							<div class="mb-3 text-xs text-[#7A7770]">Loading colors...</div>
 						{/if}
 						<!-- Action buttons above parts -->
 						<div class="mb-3 flex items-center gap-2">
@@ -1984,15 +1984,15 @@
 							</button>
 						</div>
 						{#if customSetImportStatus[rule.id]}
-							<div class="mb-3 rounded border px-3 py-2 text-xs {customSetImportStatus[rule.id].tone === 'error'
-								? 'border-[#F4C7C7] bg-[#FEF2F2] text-[#9B1D20]'
+							<div class="mb-3 border px-3 py-2 text-xs {customSetImportStatus[rule.id].tone === 'error'
+								? 'border-[#F4C7C7] bg-[#D01012]/8 text-[#9B1D20]'
 								: 'border-[#CDE5D5] bg-[#F2FAF5] text-[#2F6B42]'}">
 								{customSetImportStatus[rule.id].text}
 							</div>
 						{/if}
 						<div class="space-y-2">
 							{#if (rule.custom_parts?.length ?? 0) === 0}
-								<div class="border border-dashed border-gray-200 px-3 py-4 text-center text-xs text-gray-400">
+								<div class="border border-dashed border-[#E2E0DB] px-3 py-4 text-center text-xs text-[#7A7770]">
 									No parts yet. Add the items you want this custom set to collect.
 								</div>
 							{:else}
@@ -2000,17 +2000,17 @@
 									{@const normalizedPartColorId = normalizeCustomColorId(part.color_id)}
 									{@const partColorLabel = part.color_name ?? colorLabel(normalizedPartColorId)}
 									{@const availableColorOptions = customPartColorOptions(part)}
-									<div class="flex items-start gap-3 border border-gray-100 p-2">
+									<div class="flex items-start gap-3 border border-[#E2E0DB] p-2">
 										{#if part.img_url}
 											<img src={part.img_url} alt={part.part_name ?? part.part_num} class="h-14 w-14 shrink-0 object-contain" />
 										{:else}
-											<div class="flex h-14 w-14 shrink-0 items-center justify-center bg-gray-100 text-[10px] uppercase tracking-wide text-gray-400">Part</div>
+											<div class="flex h-14 w-14 shrink-0 items-center justify-center bg-[#F7F6F3] text-[10px] uppercase tracking-wide text-[#7A7770]">Part</div>
 										{/if}
 										<div class="min-w-0 flex-1">
-											<div class="truncate text-sm font-medium text-gray-800">
+											<div class="truncate text-sm font-medium text-[#1A1A1A]">
 												{part.part_name ?? part.part_num}
 											</div>
-											<div class="truncate text-xs text-gray-400">
+											<div class="truncate text-xs text-[#7A7770]">
 												{part.part_num}
 												{#if partColorLabel}
 													· {partColorLabel}
@@ -2028,7 +2028,7 @@
 															color_name: customPartColorLabel(part, nextColorId)
 														});
 													}}
-													class="min-w-0 border border-gray-300 px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none"
+													class="min-w-0 border border-[#E2E0DB] px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none"
 												>
 													{#each availableColorOptions as option (`${part.part_num}-${option.value}`)}
 														<option value={option.value} selected={option.value === normalizedPartColorId}>{option.label}</option>
@@ -2041,14 +2041,14 @@
 													oninput={(e) => updateCustomSetPart(rule.id, index, {
 														quantity: Math.max(1, Number((e.currentTarget as HTMLInputElement).value) || 1)
 													})}
-													class="border border-gray-300 px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none"
+													class="border border-[#E2E0DB] px-2 py-1 text-xs focus:border-[#D01012] focus:outline-none"
 												/>
-												<div class="flex items-center text-xs text-gray-400">
+												<div class="flex items-center text-xs text-[#7A7770]">
 													{part.quantity === 1 ? '1 part' : `${part.quantity} parts`}
 												</div>
 												<button
 													onclick={() => removeCustomSetPart(rule.id, index)}
-													class="px-2 py-1 text-xs text-gray-400 hover:text-[#D01012]"
+													class="px-2 py-1 text-xs text-[#D01012] hover:text-[#B00E10]"
 												>
 													Remove
 												</button>
@@ -2076,8 +2076,8 @@
 							<div class="min-w-0 flex-1">
 								<input type="text" value={rule.name}
 									oninput={(e) => updateRule(rule.id, { name: (e.currentTarget as HTMLInputElement).value })}
-									class="mb-1 w-full border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
-								<div class="mb-2 text-xs text-gray-400">
+									class="mb-1 w-full border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+								<div class="mb-2 text-xs text-[#7A7770]">
 									{rule.set_num} · {rule.set_meta?.year ?? '?'} · {rule.set_meta?.num_parts ?? '?'} parts
 								</div>
 								{#if rule.set_num}
@@ -2093,9 +2093,14 @@
 							</div>
 						</div>
 						<div class="mb-3 flex items-center gap-4">
-							<label class="flex items-center gap-1.5 text-xs text-gray-600">
-								<input type="checkbox" checked={rule.include_spares ?? false}
-									onchange={(e) => updateRule(rule.id, { include_spares: (e.currentTarget as HTMLInputElement).checked } as any)} />
+							<label class="flex items-center gap-2 text-xs text-[#7A7770]">
+								<button onclick={() => updateRule(rule.id, { include_spares: !(rule.include_spares ?? false) } as any)}
+									class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors {rule.include_spares ? 'bg-[#00852B]' : 'bg-gray-300'}"
+									role="switch"
+									aria-checked={rule.include_spares ?? false}
+									type="button">
+									<span class="inline-block h-3 w-3 rounded-full bg-white shadow transition-transform {rule.include_spares ? 'translate-x-3.5' : 'translate-x-0.5'}"></span>
+								</button>
 								Include spare parts
 							</label>
 						</div>
@@ -2117,9 +2122,9 @@
 					{/if}
 					{#if !isCustomSetRule(rule)}
 						<!-- Change set action for rebrickable sets -->
-						<div class="flex items-center gap-2 border-t border-gray-100 pt-2">
+						<div class="flex items-center gap-2 border-t border-[#E2E0DB] pt-2">
 							<button onclick={() => { changingSetForRule = changingSetForRule === rule.id ? null : rule.id; }}
-								class="text-xs text-gray-500 hover:text-[#D01012]">
+								class="text-xs text-[#D01012] hover:text-[#B00E10]">
 								Change Set
 							</button>
 						</div>
@@ -2127,15 +2132,15 @@
 				</div>
 			{:else}
 				<!-- Filter rule editor -->
-				<div class="border-b border-gray-200 bg-white px-3 py-3">
+				<div class="border-b border-[#E2E0DB] bg-white px-3 py-3">
 					<!-- Name + match mode row -->
 					<div class="mb-3 flex items-center gap-2">
 						<input type="text" value={rule.name}
 							oninput={(e) => updateRule(rule.id, { name: (e.currentTarget as HTMLInputElement).value })}
-							class="min-w-0 flex-1 border border-gray-300 px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+							class="min-w-0 flex-1 border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 						<select value={rule.match_mode}
 							onchange={(e) => updateRule(rule.id, { match_mode: (e.currentTarget as HTMLSelectElement).value })}
-							class="border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-[#D01012] focus:outline-none">
+							class="border border-[#E2E0DB] px-2 py-1 text-xs text-[#7A7770] focus:border-[#D01012] focus:outline-none">
 							<option value="all">Match ALL</option>
 							<option value="any">Match ANY</option>
 						</select>
@@ -2152,24 +2157,24 @@
 											const ops = opOptionsByField[field] ?? ['eq'];
 											updateCondition(rule.id, cond.id, { field, op: ops[0] });
 										}}
-										class="w-36 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
+										class="w-36 border border-[#E2E0DB] px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
 										{#each fieldOptions as f}
 											<option value={f}>{f}</option>
 										{/each}
 									</select>
 									<select value={cond.op}
 										onchange={(e) => updateCondition(rule.id, cond.id, { op: (e.currentTarget as HTMLSelectElement).value })}
-										class="w-20 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
+										class="w-20 border border-[#E2E0DB] px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none">
 										{#each opOptionsByField[cond.field] ?? ['eq'] as op}
 											<option value={op}>{opLabels[op] ?? op}</option>
 										{/each}
 									</select>
 									<input type="text" value={formatConditionValue(cond.value)}
 										oninput={(e) => updateCondition(rule.id, cond.id, { value: parseConditionValue((e.currentTarget as HTMLInputElement).value) })}
-										class="min-w-0 flex-1 border border-gray-300 px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none"
+										class="min-w-0 flex-1 border border-[#E2E0DB] px-1.5 py-1 text-xs focus:border-[#D01012] focus:outline-none"
 										placeholder="value" />
 									<button onclick={() => deleteCondition(rule.id, cond.id)}
-										class="shrink-0 p-1 text-gray-400 hover:text-[#D01012]" aria-label="Remove condition">
+										class="shrink-0 p-1 text-[#7A7770] hover:text-[#D01012]" aria-label="Remove condition">
 										<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 											<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
 										</svg>
@@ -2191,24 +2196,24 @@
 					{/if}
 
 					<!-- Actions row -->
-					<div class="flex items-center gap-2 border-t border-gray-100 pt-2">
+					<div class="flex items-center gap-2 border-t border-[#E2E0DB] pt-2">
 						<button onclick={() => addRule(rule.id)}
 							class="text-xs font-medium text-[#D01012] hover:text-[#B00E10]">+ Add child</button>
 					</div>
 
 					<!-- Preview -->
 					{#if selectedRuleId === rule.id && rulePreview}
-						<div class="mt-2 border-t border-gray-100 pt-2">
-							<div class="mb-1 flex items-center justify-between text-xs text-gray-500">
+						<div class="mt-2 border-t border-[#E2E0DB] pt-2">
+							<div class="mb-1 flex items-center justify-between text-xs text-[#7A7770]">
 								<span>{rulePreview.total} matching parts</span>
 								{#if rulePreviewLoading}
-									<span class="text-gray-400">Loading...</span>
+									<span class="text-[#7A7770]">Loading...</span>
 								{/if}
 							</div>
 							{#if rulePreview.sample.length > 0}
 								<div class="space-y-0.5">
 									{#each rulePreview.sample as part}
-										<div class="truncate text-xs text-gray-500">{part.part_num} — {part.name}</div>
+										<div class="truncate text-xs text-[#7A7770]">{part.part_num} — {part.name}</div>
 									{/each}
 								</div>
 								{#if !rulePreviewExpanded && rulePreview.total > 5}

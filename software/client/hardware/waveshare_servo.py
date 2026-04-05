@@ -489,6 +489,10 @@ class WaveshareServoMotor:
             return True
         return False
 
+    @property
+    def available(self) -> bool:
+        return True
+
     def open(self, open_angle: int | None = None) -> None:
         if not self._enabled:
             self.enabled = True

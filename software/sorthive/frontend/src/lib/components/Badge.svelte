@@ -7,11 +7,11 @@
 	let { text, variant = 'neutral' }: Props = $props();
 
 	const colors: Record<string, string> = {
-		success: 'bg-[#00852B]/10 text-[#00852B]',
-		warning: 'bg-[#FFD500]/15 text-[#A16207]',
-		danger: 'bg-[#D01012]/8 text-[#D01012]',
-		info: 'bg-[#0055BF]/8 text-[#0055BF]',
-		neutral: 'bg-[#F7F6F3] text-[#1A1A1A]'
+		success: 'border border-[#00852B]/30 bg-[#00852B]/10 text-[#00852B]',
+		warning: 'border border-[#FFD500]/30 bg-[#FFD500]/15 text-[#A16207]',
+		danger: 'border border-[#D01012]/30 bg-[#D01012]/8 text-[#D01012]',
+		info: 'border border-[#0055BF]/30 bg-[#0055BF]/8 text-[#0055BF]',
+		neutral: 'border border-[#E2E0DB] bg-[#F7F6F3] text-[#7A7770]'
 	};
 
 	function formatText(value: string): string {

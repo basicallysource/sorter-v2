@@ -91,6 +91,7 @@ class StepperMotor:
         self._hardware_name = self._name
         self._direction_inverted = False
         self._current_position_steps = 0
+        self._last_set_current: dict[str, int] | None = None
         self._gc = gc
 
     def _logical_to_physical_steps(self, value: int) -> int:
@@ -237,6 +238,11 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_current irun={irun} ihold={ihold} ihold_delay={ihold_delay}")
         payload = struct.pack("<BBB", irun, ihold, ihold_delay) # 3 bytes, three little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_CURRENT, self._channel, payload)
+        self._last_set_current = {
+            "irun": int(irun),
+            "ihold": int(ihold),
+            "ihold_delay": int(ihold_delay),
+        }
 
     def read_driver_register(self, address: int) -> int:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X}")
@@ -264,6 +270,12 @@ class StepperMotor:
     @property
     def channel(self):
         return self._channel
+
+    @property
+    def last_set_current(self) -> dict[str, int] | None:
+        if self._last_set_current is None:
+            return None
+        return dict(self._last_set_current)
 
     @property
     def current_position_steps(self) -> int:
@@ -410,6 +422,10 @@ class ServoMotor:
         """Check if the servo is stopped."""
         res = self._dev.send_command(InterfaceCommandCode.SERVO_IS_STOPPED, self._channel, b'')
         return bool(res.payload[0])
+
+    @property
+    def available(self) -> bool:
+        return True
 
     def open(self, open_angle: int | None = None) -> None:
         """Move servo to open position."""

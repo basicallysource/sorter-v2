@@ -29,6 +29,8 @@ class MachineResponse(BaseModel):
     name: str
     description: str | None
     hardware_info: dict | None
+    last_seen_ip: str | None
+    local_ui_port: str | None
     last_seen_at: datetime | None
     is_active: bool
     created_at: datetime

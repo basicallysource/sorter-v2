@@ -51,7 +51,7 @@ class SorterController:
         self.gc.run_recorder.markPaused()
 
     def reloadSortingProfile(self) -> None:
-        self.coordinator.sorting_profile.reload()
+        self.coordinator.reload_sorting_profile()
 
     def step(self) -> None:
         if self.state == SorterLifecycle.RUNNING:

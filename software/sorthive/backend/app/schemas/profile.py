@@ -23,11 +23,18 @@ class SortingProfileConditionResponse(BaseModel):
 
 class SortingProfileRuleResponse(BaseModel):
     id: str
+    rule_type: str = "filter"
     name: str
     match_mode: str = "all"
     conditions: list[SortingProfileConditionResponse] = Field(default_factory=list)
     children: list["SortingProfileRuleResponse"] = Field(default_factory=list)
     disabled: bool = False
+    # Set-specific fields (only used when rule_type == "set")
+    set_source: str | None = None
+    set_num: str | None = None
+    include_spares: bool = False
+    set_meta: dict[str, Any] | None = None
+    custom_parts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class SortingProfileFallbackModeResponse(BaseModel):
@@ -42,6 +49,18 @@ class SortingProfileForkSourceResponse(BaseModel):
     version_number: int | None = None
 
 
+class SortingProfileRuleSummaryResponse(BaseModel):
+    """Compact rule representation for profile list cards."""
+    name: str
+    rule_type: str = "filter"
+    set_source: str | None = None
+    set_num: str | None = None
+    set_meta: dict[str, Any] | None = None
+    disabled: bool = False
+    condition_count: int = 0
+    child_count: int = 0
+
+
 class SortingProfileVersionSummaryResponse(BaseModel):
     id: UUID
     version_number: int
@@ -52,6 +71,7 @@ class SortingProfileVersionSummaryResponse(BaseModel):
     compiled_part_count: int
     coverage_ratio: float | None
     created_at: datetime
+    rules_summary: list[SortingProfileRuleSummaryResponse] = Field(default_factory=list)
 
 
 class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
@@ -62,7 +82,6 @@ class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
     fallback_mode: SortingProfileFallbackModeResponse
     compiled_stats: dict[str, Any] | None = None
     categories: dict[str, dict[str, str]] = Field(default_factory=dict)
-    set_config: SetProfileConfig | None = None
 
 
 class SortingProfileSummaryResponse(BaseModel):
@@ -91,17 +110,11 @@ class SortingProfileDetailResponse(SortingProfileSummaryResponse):
     current_version: SortingProfileVersionResponse | None = None
 
 
-class SetProfileConfig(BaseModel):
-    sets: list[str]
-    include_spares: bool = False
-
-
 class SortingProfileCreateRequest(BaseModel):
     name: str
     description: str | None = None
     visibility: str = "private"
     tags: list[str] = Field(default_factory=list)
-    profile_type: str = "rule"
 
 
 class SortingProfileUpdateRequest(BaseModel):
@@ -120,7 +133,15 @@ class SortingProfileVersionCreateRequest(BaseModel):
     change_note: str | None = None
     label: str | None = None
     publish: bool = False
-    set_config: SetProfileConfig | None = None
+
+
+class SortingProfileChangeNoteSuggestRequest(BaseModel):
+    old_rules: list[dict[str, Any]] = Field(default_factory=list)
+    new_rules: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class SortingProfileChangeNoteSuggestResponse(BaseModel):
+    change_note: str
 
 
 class SortingProfilePreviewRequest(BaseModel):
@@ -149,10 +170,16 @@ class SortingProfileAiApplyRequest(BaseModel):
     publish: bool = False
 
 
+class SortingProfileBricklinkCsvImportRequest(BaseModel):
+    csv_content: str
+    filename: str | None = None
+
+
 class AiToolTraceItem(BaseModel):
     tool: str
     input: dict[str, Any]
     output_summary: str
+    output: dict[str, Any] | None = None
 
 
 class SortingProfileAiMessageResponse(BaseModel):
@@ -176,6 +203,37 @@ class SortingProfileCatalogSyncResponse(BaseModel):
 
 class SortingProfileArtifactResponse(BaseModel):
     artifact: dict[str, Any]
+
+
+class SortingProfileSetProgressSetResponse(BaseModel):
+    set_num: str
+    name: str
+    total_needed: int
+    total_found: int
+    pct: float
+    updated_at: datetime | None = None
+
+
+class SortingProfileSetProgressMachineResponse(BaseModel):
+    machine_id: UUID
+    machine_name: str
+    assignment_id: UUID
+    desired_version_id: UUID | None = None
+    active_version_id: UUID | None = None
+    desired_version_number: int | None = None
+    active_version_number: int | None = None
+    last_synced_at: datetime | None = None
+    last_activated_at: datetime | None = None
+    overall_needed: int
+    overall_found: int
+    overall_pct: float
+    updated_at: datetime | None = None
+    sets: list[SortingProfileSetProgressSetResponse] = Field(default_factory=list)
+
+
+class SortingProfileSetProgressResponse(BaseModel):
+    profile_id: UUID
+    machines: list[SortingProfileSetProgressMachineResponse] = Field(default_factory=list)
 
 
 class MachineProfileAssignmentResponse(BaseModel):

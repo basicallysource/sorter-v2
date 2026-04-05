@@ -79,42 +79,81 @@ FIELD_OPS = {
 }
 
 MAX_TOOL_ROUNDS = 5
+CUSTOM_SET_INTENT_RE = re.compile(
+    r"\b(custom\s+(set|kit|bundle|order|pack)|custom\s+kit[s]?|customer\s+order|not\s+a?\s*real\s+set|parts?\s+bundle|parts?\s+kit)\b",
+    re.IGNORECASE,
+)
 
 
 # --- Tool definitions for the LLM ---
 
-CATALOG_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "search_parts",
-            "description": (
-                "Search the LEGO parts catalog by name, part number, or keyword. "
-                "Returns matching parts with their category, BrickLink info, and year range. "
-                "Only use this when you need to look up specific parts or verify part numbers. "
-                "Category and color lists are already in your context."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search term — part name, number, or keyword (e.g. 'technic beam', '32063', 'gear 20 tooth')",
-                    },
-                    "category_id": {
-                        "type": "integer",
-                        "description": "Optional Rebrickable category ID to filter results",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Max results to return (default 20, max 50)",
-                    },
+_SEARCH_PARTS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_parts",
+        "description": (
+            "Search the LEGO parts catalog by name, part number, or keyword. "
+            "Returns matching parts with their category, BrickLink info, and year range. "
+            "Only use this when you need to look up specific parts or verify part numbers. "
+            "Category and color lists are already in your context."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search term — part name, number, or keyword (e.g. 'technic beam', '32063', 'gear 20 tooth')",
                 },
-                "required": ["query"],
+                "category_id": {
+                    "type": "integer",
+                    "description": "Optional Rebrickable category ID to filter results",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results to return (default 20, max 50)",
+                },
             },
+            "required": ["query"],
         },
     },
-]
+}
+
+_SEARCH_SETS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_sets",
+        "description": (
+            "Search for LEGO sets by name, theme, or set number. "
+            "Returns set name, number, year, part count, and image URL. "
+            "Use this when the user wants to sort parts from specific LEGO sets. "
+            "Use min_year/max_year to filter by release year. "
+            "Results exclude books and non-brick items by default."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search term — set name, number, or theme (e.g. 'Space Shuttle', '10283', 'Minecraft')",
+                },
+                "min_year": {
+                    "type": "integer",
+                    "description": "Minimum release year (e.g. 2020)",
+                },
+                "max_year": {
+                    "type": "integer",
+                    "description": "Maximum release year (e.g. 2023)",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+# search_sets is always available (only needs Rebrickable API key);
+# search_parts requires synced parts data
+CATALOG_TOOLS = [_SEARCH_PARTS_TOOL, _SEARCH_SETS_TOOL]
+SET_ONLY_TOOLS = [_SEARCH_SETS_TOOL]
 
 PROPOSAL_RESPONSE_FORMAT = {"type": "json_object"}
 
@@ -124,6 +163,7 @@ class AiToolTraceEntry:
     tool: str
     input: dict[str, Any]
     output_summary: str
+    output: dict[str, Any] | None = None
 
 
 @dataclass
@@ -149,28 +189,62 @@ def get_user_openrouter_key(user: User) -> str:
     raise APIError(400, "No OpenRouter key configured for this account", "OPENROUTER_KEY_MISSING")
 
 
+def _looks_like_custom_set_request(message: str) -> bool:
+    return bool(CUSTOM_SET_INTENT_RE.search(message or ""))
+
+
+def _custom_set_intent_note() -> str:
+    return (
+        "The user's request is about a custom part bundle or kit, not an official LEGO set. "
+        "Prefer search_parts and create_custom_set. "
+        "Do not use search_sets unless the user explicitly asks for real LEGO sets."
+    )
+
+
+def _custom_set_catalog_unavailable_result(model: str) -> AiProposalResult:
+    return AiProposalResult(
+        content=(
+            "Custom kits use individual part numbers and quantities. "
+            "The parts catalog is not synced on this SortHive instance yet, so I can't build a precise custom kit from chat right now.\n\n"
+            "You can either sync the parts catalog first, or add a Custom Set manually and search for parts there."
+        ),
+        proposal=None,
+        model=model,
+        usage=None,
+        tool_trace=[],
+    )
+
+
 def generate_profile_ai_proposal(
     *,
     user: User,
     catalog: ProfileCatalogService,
     document: dict[str, Any],
     message: str,
+    conversation_history: list[dict[str, str]] | None = None,
     selected_rule_id: str | None = None,
 ) -> AiProposalResult:
-    api_key = get_user_openrouter_key(user)
     model = user.preferred_ai_model or settings.DEFAULT_AI_MODEL
     has_parts = bool(catalog.parts_data.parts)
-    tools = CATALOG_TOOLS if has_parts else None
+    custom_set_request = _looks_like_custom_set_request(message)
+    if custom_set_request and not has_parts:
+        return _custom_set_catalog_unavailable_result(model)
+
+    api_key = get_user_openrouter_key(user)
+    tools = CATALOG_TOOLS if has_parts else SET_ONLY_TOOLS
 
     system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message},
-    ]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    if custom_set_request:
+        messages.append({"role": "system", "content": _custom_set_intent_note()})
+    messages.extend(_normalize_conversation_history(conversation_history))
+    messages.append({"role": "user", "content": message})
 
     total_usage: dict[str, int] = {}
     final_model = model
     tool_trace: list[AiToolTraceEntry] = []
+    set_search_observations: list[dict[str, Any]] = []
+    part_search_observations: list[dict[str, Any]] = []
 
     for _round in range(MAX_TOOL_ROUNDS + 1):
         response = run_openrouter_chat(
@@ -203,7 +277,25 @@ def generate_profile_ai_proposal(
         for tc in response.tool_calls:
             result = _execute_tool(catalog, tc.name, tc.arguments)
             summary = _summarize_tool_result(tc.name, tc.arguments, result)
-            tool_trace.append(AiToolTraceEntry(tool=tc.name, input=tc.arguments, output_summary=summary))
+            output = _parse_tool_output(result)
+            tool_trace.append(
+                AiToolTraceEntry(
+                    tool=tc.name,
+                    input=tc.arguments,
+                    output_summary=summary,
+                    output=output,
+                )
+            )
+            if tc.name == "search_sets":
+                set_search_observations.append({
+                    "input": tc.arguments,
+                    "sets": _extract_search_sets_results(result),
+                })
+            if tc.name == "search_parts":
+                part_search_observations.append({
+                    "input": tc.arguments,
+                    "parts": _extract_search_parts_results(result),
+                })
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
@@ -212,11 +304,10 @@ def generate_profile_ai_proposal(
     else:
         raise APIError(502, "AI used too many tool calls without producing a result", "AI_TOO_MANY_ROUNDS")
 
-    proposal = _parse_proposal_payload(response)
-    if proposal is not None:
-        _validate_proposal(proposal)
-    assistant_content = (
-        proposal.get("summary") if proposal and isinstance(proposal.get("summary"), str) else response.content
+    assistant_content, proposal = _finalize_ai_response(
+        response=response,
+        set_search_observations=set_search_observations,
+        part_search_observations=part_search_observations,
     )
     return AiProposalResult(
         content=assistant_content,
@@ -233,23 +324,32 @@ def generate_profile_ai_proposal_streaming(
     catalog: ProfileCatalogService,
     document: dict[str, Any],
     message: str,
+    conversation_history: list[dict[str, str]] | None = None,
     selected_rule_id: str | None = None,
 ) -> Generator[AiProgressEvent | AiProposalResult, None, None]:
     """Like generate_profile_ai_proposal but yields progress events during tool use."""
-    api_key = get_user_openrouter_key(user)
     model = user.preferred_ai_model or settings.DEFAULT_AI_MODEL
     has_parts = bool(catalog.parts_data.parts)
-    tools = CATALOG_TOOLS if has_parts else None
+    custom_set_request = _looks_like_custom_set_request(message)
+    if custom_set_request and not has_parts:
+        yield _custom_set_catalog_unavailable_result(model)
+        return
+
+    api_key = get_user_openrouter_key(user)
+    tools = CATALOG_TOOLS if has_parts else SET_ONLY_TOOLS
 
     system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message},
-    ]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    if custom_set_request:
+        messages.append({"role": "system", "content": _custom_set_intent_note()})
+    messages.extend(_normalize_conversation_history(conversation_history))
+    messages.append({"role": "user", "content": message})
 
     total_usage: dict[str, int] = {}
     final_model = model
     tool_trace: list[AiToolTraceEntry] = []
+    set_search_observations: list[dict[str, Any]] = []
+    part_search_observations: list[dict[str, Any]] = []
 
     for _round in range(MAX_TOOL_ROUNDS + 1):
         yield AiProgressEvent(type="thinking", data={"round": _round + 1})
@@ -284,13 +384,30 @@ def generate_profile_ai_proposal_streaming(
 
             result = _execute_tool(catalog, tc.name, tc.arguments)
             summary = _summarize_tool_result(tc.name, tc.arguments, result)
-            trace_entry = AiToolTraceEntry(tool=tc.name, input=tc.arguments, output_summary=summary)
+            output = _parse_tool_output(result)
+            trace_entry = AiToolTraceEntry(
+                tool=tc.name,
+                input=tc.arguments,
+                output_summary=summary,
+                output=output,
+            )
             tool_trace.append(trace_entry)
+            if tc.name == "search_sets":
+                set_search_observations.append({
+                    "input": tc.arguments,
+                    "sets": _extract_search_sets_results(result),
+                })
+            if tc.name == "search_parts":
+                part_search_observations.append({
+                    "input": tc.arguments,
+                    "parts": _extract_search_parts_results(result),
+                })
 
             yield AiProgressEvent(type="tool_result", data={
                 "tool": tc.name,
                 "input": tc.arguments,
                 "output_summary": summary,
+                "output": output,
             })
 
             messages.append({
@@ -303,11 +420,10 @@ def generate_profile_ai_proposal_streaming(
 
     yield AiProgressEvent(type="generating", data={})
 
-    proposal = _parse_proposal_payload(response)
-    if proposal is not None:
-        _validate_proposal(proposal)
-    assistant_content = (
-        proposal.get("summary") if proposal and isinstance(proposal.get("summary"), str) else response.content
+    assistant_content, proposal = _finalize_ai_response(
+        response=response,
+        set_search_observations=set_search_observations,
+        part_search_observations=part_search_observations,
     )
     yield AiProposalResult(
         content=assistant_content,
@@ -335,22 +451,268 @@ def _summarize_tool_result(tool_name: str, args: dict[str, Any], raw_result: str
     if tool_name == "search_parts":
         query = args.get("query", "")
         total = data.get("total", 0)
-        showing = data.get("showing", 0)
         parts = data.get("parts", [])
         if total == 0:
             return f'No parts found for "{query}"'
-        names = [p.get("name", p.get("part_num", "?")) for p in parts[:5]]
-        sample = ", ".join(names)
-        if total > showing:
-            return f'Found {total} parts for "{query}" (showing {showing}): {sample}, ...'
-        return f'Found {total} parts for "{query}": {sample}'
+        lines = [f'Found {total} parts for "{query}":', ""]
+        shown = min(len(parts), 5)
+        for part in parts[:shown]:
+            name = part.get("name", "?")
+            part_num = part.get("part_num", "?")
+            lines.append(f"- {name} ({part_num})")
+        if total > shown:
+            lines.append(f"- ...and {total - shown} more")
+        return "\n".join(lines)
+
+    if tool_name == "search_sets":
+        query = args.get("query", "")
+        sets = data.get("sets", [])
+        total = data.get("total", 0)
+        if total == 0:
+            return f'No sets found for "{query}"'
+        lines = [f'Found {total} sets for "{query}":', ""]
+        shown = min(len(sets), 5)
+        for lego_set in sets[:5]:
+            lines.append(f'- {lego_set.get("name", "?")} ({lego_set.get("set_num", "?")})')
+        if total > shown:
+            lines.append(f"- ...and {total - shown} more")
+        return "\n".join(lines)
 
     return raw_result[:200]
+
+
+def _normalize_conversation_history(
+    conversation_history: list[dict[str, str]] | None,
+) -> list[dict[str, str]]:
+    if not conversation_history:
+        return []
+
+    normalized: list[dict[str, str]] = []
+    for item in conversation_history:
+        role = item.get("role")
+        content = item.get("content")
+        if role not in {"user", "assistant"}:
+            continue
+        if not isinstance(content, str):
+            continue
+        stripped = content.strip()
+        if not stripped:
+            continue
+        normalized.append({"role": role, "content": stripped})
+    return normalized
+
+
+def _parse_tool_output(raw_result: str) -> dict[str, Any] | None:
+    try:
+        data = json.loads(raw_result)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _extract_search_sets_results(raw_result: str) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(raw_result)
+    except json.JSONDecodeError:
+        return []
+
+    sets = data.get("sets")
+    if not isinstance(sets, list):
+        return []
+    return [lego_set for lego_set in sets if isinstance(lego_set, dict)]
+
+
+def _extract_search_parts_results(raw_result: str) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(raw_result)
+    except json.JSONDecodeError:
+        return []
+
+    parts = data.get("parts")
+    if not isinstance(parts, list):
+        return []
+    return [part for part in parts if isinstance(part, dict)]
+
+
+def _format_search_sets_attempt(args: dict[str, Any]) -> str:
+    query = str(args.get("query") or "").strip() or "that query"
+    min_year = args.get("min_year")
+    max_year = args.get("max_year")
+    if min_year is not None and max_year is not None and min_year == max_year:
+        return f'"{query}" from {min_year}'
+    if min_year is not None and max_year is not None:
+        return f'"{query}" from {min_year} to {max_year}'
+    if min_year is not None:
+        return f'"{query}" from {min_year} or newer'
+    if max_year is not None:
+        return f'"{query}" up to {max_year}'
+    return f'"{query}"'
+
+
+def _ground_create_set_proposals(
+    proposal: dict[str, Any],
+    set_search_observations: list[dict[str, Any]],
+) -> None:
+    catalog_sets: dict[str, dict[str, Any]] = {}
+    for observation in set_search_observations:
+        for lego_set in observation.get("sets", []):
+            set_num = str(lego_set.get("set_num") or "")
+            if set_num:
+                catalog_sets[set_num] = lego_set
+
+    for item in proposal.get("proposals", []):
+        if item.get("action") != "create_set":
+            continue
+        set_num = str(item.get("set_num") or "")
+        matched_set = catalog_sets.get(set_num)
+        if matched_set is None:
+            raise APIError(
+                502,
+                f"AI create_set proposal referenced '{set_num}', which was not returned by search_sets",
+                "AI_SET_NOT_FROM_SEARCH",
+            )
+        item["name"] = matched_set.get("name") or item.get("name") or set_num
+        item["set_meta"] = {
+            "name": matched_set.get("name") or item.get("name") or set_num,
+            "year": matched_set.get("year"),
+            "num_parts": matched_set.get("num_parts"),
+            "img_url": matched_set.get("img_url") or matched_set.get("set_img_url"),
+        }
+
+
+def _ground_custom_set_proposals(
+    proposal: dict[str, Any],
+    part_search_observations: list[dict[str, Any]],
+) -> None:
+    catalog_parts: dict[str, dict[str, Any]] = {}
+    for observation in part_search_observations:
+        for part in observation.get("parts", []):
+            part_num = str(part.get("part_num") or "")
+            if part_num:
+                catalog_parts[part_num] = part
+
+    for item in proposal.get("proposals", []):
+        if item.get("action") != "create_custom_set":
+            continue
+        custom_parts = item.get("custom_parts")
+        if not isinstance(custom_parts, list) or not custom_parts:
+            raise APIError(502, "AI create_custom_set proposal missing custom_parts", "AI_CUSTOM_SET_PARTS_MISSING")
+
+        normalized_parts: list[dict[str, Any]] = []
+        total_quantity = 0
+        for raw_part in custom_parts:
+            if not isinstance(raw_part, dict):
+                raise APIError(502, "AI custom set part entry is invalid", "AI_CUSTOM_SET_PARTS_INVALID")
+            part_num = str(raw_part.get("part_num") or "").strip()
+            matched_part = catalog_parts.get(part_num)
+            if matched_part is None:
+                raise APIError(
+                    502,
+                    f"AI custom set proposal referenced '{part_num}', which was not returned by search_parts",
+                    "AI_CUSTOM_SET_PART_NOT_FROM_SEARCH",
+                )
+            try:
+                quantity = int(raw_part.get("quantity") or 0)
+            except (TypeError, ValueError) as exc:
+                raise APIError(502, "AI custom set quantity is invalid", "AI_CUSTOM_SET_QUANTITY_INVALID") from exc
+            if quantity <= 0:
+                raise APIError(502, "AI custom set quantity must be positive", "AI_CUSTOM_SET_QUANTITY_INVALID")
+
+            raw_color_id = raw_part.get("color_id", -1)
+            if raw_color_id in (None, "", "any", "any_color"):
+                color_id = -1
+            else:
+                try:
+                    color_id = int(raw_color_id)
+                except (TypeError, ValueError) as exc:
+                    raise APIError(502, "AI custom set color_id is invalid", "AI_CUSTOM_SET_COLOR_INVALID") from exc
+
+            color_name = raw_part.get("color_name") or ("Any color" if color_id == -1 else None)
+            normalized_parts.append(
+                {
+                    "part_num": part_num,
+                    "part_name": matched_part.get("name") or raw_part.get("part_name") or part_num,
+                    "img_url": matched_part.get("img_url") or raw_part.get("img_url"),
+                    "color_id": color_id,
+                    "color_name": color_name,
+                    "quantity": quantity,
+                }
+            )
+            total_quantity += quantity
+
+        item["custom_parts"] = normalized_parts
+        item["name"] = item.get("name") or "Custom Set"
+        item["set_meta"] = {
+            "name": item["name"],
+            "year": None,
+            "num_parts": total_quantity,
+            "img_url": None,
+        }
+
+
+def _ground_set_search_summary(
+    summary: str,
+    proposal: dict[str, Any] | None,
+    set_search_observations: list[dict[str, Any]],
+) -> str:
+    if proposal is not None:
+        return summary
+    if not set_search_observations:
+        return summary
+    if any(observation.get("sets") for observation in set_search_observations):
+        return summary
+
+    attempts: list[str] = []
+    seen_attempts: set[str] = set()
+    for observation in set_search_observations:
+        attempt = _format_search_sets_attempt(observation.get("input", {}))
+        if attempt in seen_attempts:
+            continue
+        seen_attempts.add(attempt)
+        attempts.append(attempt)
+
+    if not attempts:
+        return summary
+
+    lines = ["I couldn't find matching LEGO sets in the catalog for:", ""]
+    lines.extend(f"- {attempt}" for attempt in attempts)
+    lines.extend([
+        "",
+        "Please try a different theme name, a specific set number, or a simpler query.",
+    ])
+    return "\n".join(lines)
+
+
+def _finalize_ai_response(
+    *,
+    response: OpenRouterResponse,
+    set_search_observations: list[dict[str, Any]],
+    part_search_observations: list[dict[str, Any]],
+) -> tuple[str, dict[str, Any] | None]:
+    parsed_payload = _parse_proposal_payload(response)
+    summary = (
+        parsed_payload.get("summary")
+        if isinstance(parsed_payload, dict) and isinstance(parsed_payload.get("summary"), str)
+        else response.content
+    )
+
+    proposal = parsed_payload
+    if proposal is not None:
+        _validate_proposal(proposal)
+        _ground_create_set_proposals(proposal, set_search_observations)
+        _ground_custom_set_proposals(proposal, part_search_observations)
+        if not proposal.get("proposals"):
+            proposal = None
+
+    summary = _ground_set_search_summary(summary, proposal, set_search_observations)
+    return summary, proposal
 
 
 def _execute_tool(catalog: ProfileCatalogService, name: str, arguments: dict[str, Any]) -> str:
     if name == "search_parts":
         return _tool_search_parts(catalog, arguments)
+    if name == "search_sets":
+        return _tool_search_sets(catalog, arguments)
     return json.dumps({"error": f"Unknown tool '{name}'"})
 
 
@@ -371,6 +733,7 @@ def _tool_search_parts(catalog: ProfileCatalogService, args: dict[str, Any]) -> 
             "category": p.get("_category_name", ""),
             "category_id": p.get("part_cat_id"),
             "years": f"{p.get('year_from', '?')}-{p.get('year_to', '?')}",
+            "img_url": p.get("part_img_url"),
         }
         if p.get("_bl_name"):
             entry["bl_name"] = p["_bl_name"]
@@ -380,6 +743,19 @@ def _tool_search_parts(catalog: ProfileCatalogService, args: dict[str, Any]) -> 
 
     return json.dumps({"total": total, "showing": len(compact), "parts": compact})
 
+
+def _tool_search_sets(catalog: ProfileCatalogService, args: dict[str, Any]) -> str:
+    query = str(args.get("query") or "")
+    if not query:
+        return json.dumps({"error": "query is required"})
+    min_year = args.get("min_year")
+    max_year = args.get("max_year")
+    results = catalog.search_sets(
+        query,
+        min_year=int(min_year) if min_year is not None else None,
+        max_year=int(max_year) if max_year is not None else None,
+    )
+    return json.dumps({"total": len(results), "sets": results})
 
 
 def apply_profile_ai_proposal(
@@ -410,6 +786,56 @@ def apply_profile_ai_proposal(
             )
             if created_rule_id is None:
                 raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
+            continue
+
+        if action == "create_set":
+            set_num = item.get("set_num", "")
+            set_name = item.get("name") or set_num
+            include_spares = bool(item.get("include_spares", False))
+            set_meta = item.get("set_meta")
+            new_rule = {
+                "id": str(uuid.uuid4()),
+                "rule_type": "set",
+                "set_source": "rebrickable",
+                "name": set_name,
+                "set_num": set_num,
+                "include_spares": include_spares,
+                "set_meta": set_meta,
+                "match_mode": "all",
+                "conditions": [],
+                "children": [],
+                "disabled": False,
+            }
+            # Set rules must always be top-level (they have no conditions,
+            # so nesting them as children would act as always-true subchecks).
+            if position is not None and 0 <= position <= len(profile_like.rules):
+                profile_like.rules.insert(position, new_rule)
+            else:
+                profile_like.rules.append(new_rule)
+            continue
+
+        if action == "create_custom_set":
+            set_name = item.get("name") or "Custom Set"
+            set_meta = item.get("set_meta")
+            custom_parts = item.get("custom_parts") if isinstance(item.get("custom_parts"), list) else []
+            new_rule = {
+                "id": str(uuid.uuid4()),
+                "rule_type": "set",
+                "set_source": "custom",
+                "name": set_name,
+                "set_num": f"custom:{uuid.uuid4()}",
+                "include_spares": False,
+                "set_meta": set_meta,
+                "custom_parts": custom_parts,
+                "match_mode": "all",
+                "conditions": [],
+                "children": [],
+                "disabled": False,
+            }
+            if position is not None and 0 <= position <= len(profile_like.rules):
+                profile_like.rules.insert(position, new_rule)
+            else:
+                profile_like.rules.append(new_rule)
             continue
 
         if not target_rule_id:
@@ -533,14 +959,18 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
     if not isinstance(proposal, dict):
         raise APIError(502, "AI proposal must be a JSON object", "AI_INVALID_JSON")
     proposals = proposal.get("proposals")
-    if not isinstance(proposals, list) or not proposals:
+    if not isinstance(proposals, list):
         raise APIError(502, "AI proposal did not contain any operations", "AI_NO_PROPOSALS")
+    if not proposals:
+        # Empty proposals with a summary is a valid conversational response
+        # (e.g. the AI asks a clarifying question). Treat as no-op.
+        return
 
     for index, item in enumerate(proposals):
         if not isinstance(item, dict):
             raise APIError(502, f"AI proposal {index + 1} is invalid", "AI_INVALID_JSON")
         action = item.get("action")
-        if action not in {"edit", "create", "move", "delete"}:
+        if action not in {"edit", "create", "create_set", "create_custom_set", "move", "delete"}:
             raise APIError(502, f"AI proposal action '{action}' is invalid", "AI_ACTION_INVALID")
         if action in {"edit", "create"}:
             if item.get("match_mode") not in {"all", "any"}:
@@ -557,6 +987,13 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
                     raise APIError(502, f"AI proposal used unknown field '{field}'", "AI_FIELD_INVALID")
                 if op not in VALID_OPS or op not in FIELD_OPS.get(field, VALID_OPS):
                     raise APIError(502, f"AI proposal used invalid operator '{op}' for '{field}'", "AI_OPERATOR_INVALID")
+        if action == "create_set":
+            if not item.get("set_num"):
+                raise APIError(502, "AI create_set proposal missing set_num", "AI_SET_NUM_MISSING")
+        if action == "create_custom_set":
+            custom_parts = item.get("custom_parts")
+            if not isinstance(custom_parts, list) or not custom_parts:
+                raise APIError(502, "AI create_custom_set proposal missing custom_parts", "AI_CUSTOM_SET_PARTS_MISSING")
 
 
 def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any], selected_rule_id: str | None) -> str:
@@ -591,13 +1028,18 @@ def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any
 
     if has_parts:
         tool_section = """
-You have a tool to search the LEGO parts catalog:
+You have tools to search the LEGO parts catalog and LEGO sets:
 - **search_parts**: Search parts by name, number, or keyword. Returns matching parts with category, year range, and BrickLink info.
+- **search_sets**: Search for LEGO sets by name, theme, or number. Returns set name, number, year, part count, and image.
 
-Only use this tool when you need to look up specific parts or verify part numbers. For most requests, the category and color lists above are sufficient."""
+Only use search_parts when you need to look up specific parts or verify part numbers. For most requests, the category and color lists above are sufficient.
+Use search_sets when the user wants to sort parts from specific official LEGO sets.
+Use search_parts when the user wants a custom kit, bundle, customer order, or any non-official set made from individual parts."""
     else:
         tool_section = """
-Note: The parts catalog has not been synced yet, so no parts data is available for search. Use your built-in knowledge of LEGO categories, part types, and naming conventions to create rules. Do NOT use the search_parts tool — it will return no results."""
+Note: The parts catalog has not been synced yet, so no parts data is available for search. Use your built-in knowledge of LEGO categories, part types, and naming conventions to create rules. Do NOT use the search_parts tool — it will return no results.
+You can still use search_sets to look up official LEGO sets by name, theme, or number.
+Do NOT try to create precise custom kits from chat without a synced parts catalog. Instead, explain that the parts catalog must be synced first or that the user can add a Custom Set manually in the editor."""
 
     return f"""You help users create LEGO sorting profiles.
 
@@ -609,19 +1051,25 @@ You MUST always respond with JSON matching this schema:
   "summary": "human-readable message to the user",
   "proposals": [
     {{
-      "action": "edit" | "create" | "move" | "delete",
+      "action": "edit" | "create" | "create_set" | "create_custom_set" | "move" | "delete",
       "target_rule_id": "existing-rule-id-or-null",
       "parent_id": "parent-rule-id-or-null",
       "position": 0,
       "name": "Rule name",
       "match_mode": "all" | "any",
-      "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}]
+      "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}],
+      "set_num": "10283-1",
+      "set_meta": {{"name": "Set Name", "year": 2021, "num_parts": 2354, "img_url": "https://..."}},
+      "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}]
     }}
   ]
 }}
 
 - If no rule changes are needed (e.g. the user asks a question), set proposals to an empty array [] and put your answer in summary.
 - For delete actions, only target_rule_id is required (no name, conditions, or match_mode needed).
+- For "create_set" action: you MUST first call search_sets to find the set, then provide set_num (Rebrickable set number like "10283-1"), name, and set_meta with {{name, year, num_parts, img_url}} from the search_sets results. Do NOT include conditions or match_mode for set rules. Set rules are always top-level — do not nest them as children.
+- For "create_custom_set" action: you MUST first call search_parts to verify each distinct part you want to include, then provide name and custom_parts. Each custom_parts entry must include {{part_num, color_id, quantity}} and may include color_name. Use Rebrickable part numbers from search_parts. If the user did not specify a color, use color_id -1 and color_name "Any color". Do NOT include conditions or match_mode for custom set rules. Custom set rules are always top-level.
+- For "create" and "edit" actions: provide name, match_mode, and conditions. Do NOT use create_set fields (set_num, set_meta).
 
 Current rules:
 {json.dumps(payload_rules, indent=2)}
@@ -634,12 +1082,21 @@ Allowed operators by field:
 {field_ops_json}
 {catalog_section}
 Guidelines:
+- Distinguish carefully between official LEGO sets and custom sets. "Custom set", "custom kit", "bundle", "customer order", or "not a real set" means create_custom_set, not create_set.
 - For edits and creates, always return COMPLETE conditions, not partial diffs.
 - Use category_name or name matching if you are unsure about numeric IDs.
 - Keep proposals small and actionable.
 - If the user asks to split a category into multiple child rules, return multiple proposals.
 - Prefer 'contains' over complex regex unless the user explicitly asks for regex.
-- Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks")."""
+- Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks").
+- When the user wants to add a LEGO set, use search_sets to find the correct set_num, then use action "create_set" with set_num and set_meta from the search results. Never use action "create" for sets.
+- When the user wants a custom bundle, customer order, kit, or non-official set made from specific parts and quantities, use action "create_custom_set". Search the parts first, then build one custom_parts entry per requested part.
+- Treat search_sets results as the source of truth for set existence and metadata. Never list, recommend, compare, or create specific LEGO sets unless they appeared in search_sets output.
+- Treat search_parts results as the source of truth for custom set part numbers. Never invent specific part numbers that were not returned by search_parts in this turn.
+- If search_sets returns no results, say that clearly and do not fall back to your built-in knowledge for specific set names.
+- Put release years into min_year and max_year instead of embedding them in the query text. For example, for "Creator sets from 2024", use query "Creator" with min_year 2024 and max_year 2024.
+- IMPORTANT: A single search_sets call returns ALL information needed to create set rules (set_num, name, year, num_parts, img_url). Do NOT search for individual set numbers after getting initial results — that is wasteful and slow. Create multiple create_set proposals directly from the search results.
+- If the user wants multiple sets (e.g. "add all Minecraft sets"), call search_sets ONCE with the theme name, then create one create_set proposal per result. Never iterate through set numbers one by one."""
 
 
 def generate_change_note(
@@ -666,7 +1123,7 @@ def generate_change_note(
 
     resp = run_openrouter_chat(
         api_key=api_key,
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         messages=[
             {
                 "role": "system",
@@ -682,6 +1139,78 @@ def generate_change_note(
             {
                 "role": "user",
                 "content": f"User request: {user_message}\nAI summary: {summary}\nChanges:\n{changes_str}",
+            },
+        ],
+        temperature=0.0,
+        max_tokens=120,
+    )
+    return resp.content.strip().strip('"')
+
+
+def generate_change_note_from_diff(
+    *,
+    api_key: str,
+    old_rules: list[dict[str, Any]],
+    new_rules: list[dict[str, Any]],
+) -> str:
+    """Use Haiku to generate a concise change note by comparing old and new rule trees."""
+
+    def _rule_names(rules: list[dict[str, Any]]) -> set[str]:
+        names: set[str] = set()
+        for r in rules:
+            names.add(r.get("name", "?"))
+            names |= _rule_names(r.get("children", []))
+        return names
+
+    def _rule_summary(rules: list[dict[str, Any]]) -> list[str]:
+        out: list[str] = []
+        for r in rules:
+            rt = r.get("rule_type", "category")
+            name = r.get("name", "?")
+            disabled = r.get("disabled", False)
+            children = r.get("children", [])
+            conditions = r.get("conditions", [])
+            parts = f", {len(conditions)} conditions" if conditions else ""
+            kids = f", {len(children)} children" if children else ""
+            state = " [disabled]" if disabled else ""
+            out.append(f"{rt}: \"{name}\"{parts}{kids}{state}")
+            out.extend(f"  > {s}" for s in _rule_summary(children))
+        return out
+
+    old_summary = "\n".join(_rule_summary(old_rules)) or "(empty)"
+    new_summary = "\n".join(_rule_summary(new_rules)) or "(empty)"
+
+    old_names = _rule_names(old_rules)
+    new_names = _rule_names(new_rules)
+    added = new_names - old_names
+    removed = old_names - new_names
+
+    diff_hints: list[str] = []
+    if added:
+        diff_hints.append(f"Added: {', '.join(sorted(added))}")
+    if removed:
+        diff_hints.append(f"Removed: {', '.join(sorted(removed))}")
+    if not added and not removed:
+        diff_hints.append("Rules were modified (renamed, reordered, or conditions changed)")
+    diff_str = "\n".join(diff_hints)
+
+    resp = run_openrouter_chat(
+        api_key=api_key,
+        model="anthropic/claude-haiku-4-5",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Generate a short change note (1 sentence, max 100 chars) for a LEGO sorting profile version. "
+                    "Describe WHAT changed, not who did it. "
+                    "Examples: 'Add Technic sub-categories for gears, beams and axles', "
+                    "'Remove duplicate plate rules', 'Split Bricks into basic and decorative'. "
+                    "Return ONLY the change note, no quotes, no prefix."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"BEFORE:\n{old_summary}\n\nAFTER:\n{new_summary}\n\nDIFF:\n{diff_str}",
             },
         ],
         temperature=0.0,

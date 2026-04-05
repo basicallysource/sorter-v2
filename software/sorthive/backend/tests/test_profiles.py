@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from types import SimpleNamespace
+from uuid import UUID
 
 import app.routers.profiles as profiles_router
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models.machine_profile_assignment import MachineProfileAssignment
+from app.models.machine_set_progress import MachineSetProgress
+from app.models.sorting_profile_ai_message import SortingProfileAiMessage
 from app.models.user import User
+from app.services.profile_ai import AiProposalResult
 from tests.conftest import _auth_headers, _login_user, _register_user
 
 
@@ -28,6 +35,116 @@ def _sample_rule(rule_id: str, name: str, field: str = "part_num", op: str = "co
         "children": [],
         "disabled": False,
     }
+
+
+def _set_rule(rule_id: str, name: str, set_num: str) -> dict:
+    return {
+        "id": rule_id,
+        "rule_type": "set",
+        "name": name,
+        "match_mode": "all",
+        "conditions": [],
+        "children": [],
+        "disabled": False,
+        "set_num": set_num,
+        "include_spares": False,
+        "set_meta": {"name": name},
+    }
+
+
+class _DummyCatalogService:
+    def __init__(self, part_defs_by_set: dict[str, list[tuple[str, int, int]]]) -> None:
+        self._part_defs_by_set = part_defs_by_set
+
+    def compile_document(self, document: dict[str, object]) -> dict[str, object]:
+        rules = document.get("rules") if isinstance(document, dict) else []
+        fallback_mode = document.get("fallback_mode") if isinstance(document, dict) else {}
+        if not isinstance(rules, list):
+            rules = []
+        if not isinstance(fallback_mode, dict):
+            fallback_mode = {}
+
+        categories: dict[str, dict[str, str]] = {}
+        part_to_category: dict[str, str] = {}
+        set_inventories: dict[str, dict[str, object]] = {}
+
+        for raw_rule in rules:
+            if not isinstance(raw_rule, dict):
+                continue
+            rule_id = str(raw_rule.get("id") or "")
+            if not rule_id:
+                continue
+            rule_name = str(raw_rule.get("name") or rule_id)
+            categories[rule_id] = {"name": rule_name}
+            if raw_rule.get("rule_type") != "set":
+                continue
+
+            set_num = str(raw_rule.get("set_num") or f"custom:{rule_id}")
+            if raw_rule.get("set_source") == "custom" or raw_rule.get("custom_parts"):
+                raw_custom_parts = raw_rule.get("custom_parts")
+                if not isinstance(raw_custom_parts, list):
+                    raw_custom_parts = []
+                parts = [
+                    {
+                        "part_num": str(part.get("part_num") or ""),
+                        "color_id": int(part.get("color_id") if part.get("color_id") is not None else -1),
+                        "quantity": int(part.get("quantity") or 0),
+                        "part_name": part.get("part_name"),
+                        "color_name": part.get("color_name"),
+                    }
+                    for part in raw_custom_parts
+                    if isinstance(part, dict) and part.get("part_num")
+                ]
+            else:
+                if not set_num:
+                    continue
+                part_defs = self._part_defs_by_set.get(set_num, [])
+                parts = [
+                    {"part_num": part_num, "color_id": color_id, "quantity": quantity}
+                    for part_num, color_id, quantity in part_defs
+                ]
+            set_inventories[rule_id] = {
+                "rule_id": rule_id,
+                "set_num": set_num,
+                "name": str(raw_rule.get("name") or set_num),
+                "set_source": raw_rule.get("set_source") or ("custom" if raw_rule.get("custom_parts") else "rebrickable"),
+                "parts": parts,
+            }
+            for part in parts:
+                color_key = "any_color" if int(part["color_id"]) == -1 else str(part["color_id"])
+                key = f"{color_key}-{part['part_num']}"
+                part_to_category.setdefault(key, rule_id)
+
+        artifact: dict[str, object] = {
+            "schema_version": 1,
+            "id": str(document.get("id") or ""),
+            "name": str(document.get("name") or "Test Profile"),
+            "description": document.get("description"),
+            "profile_type": "set" if set_inventories else "rule",
+            "default_category_id": str(document.get("default_category_id") or "misc"),
+            "fallback_mode": fallback_mode,
+            "rules": rules,
+            "categories": categories,
+            "part_to_category": part_to_category,
+            "stats": {
+                "total_parts": len(part_to_category),
+                "matched": len(part_to_category),
+                "unmatched": 0,
+                "per_category": {},
+            },
+        }
+        if set_inventories:
+            artifact["set_inventories"] = set_inventories
+
+        artifact_hash = hashlib.sha256(json.dumps(artifact, sort_keys=True, default=str).encode()).hexdigest()
+        artifact["artifact_hash"] = artifact_hash
+        return {
+            "artifact": artifact,
+            "artifact_hash": artifact_hash,
+            "stats": artifact["stats"],
+            "compiled_part_count": len(part_to_category),
+            "coverage_ratio": 1.0 if part_to_category else None,
+        }
 
 
 def _create_profile(client: TestClient, auth_headers: dict[str, str], **overrides: object) -> dict:
@@ -106,6 +223,62 @@ class TestProfileSettings:
         )
         assert clear_response.status_code == 200, clear_response.text
         assert clear_response.json()["openrouter_configured"] is False
+
+    def test_create_version_accepts_custom_set_rules(
+        self, client: TestClient, auth_headers: dict[str, str], monkeypatch: object
+    ) -> None:
+        monkeypatch.setattr(
+            profiles_router,
+            "get_profile_catalog_service",
+            lambda: _DummyCatalogService({}),
+        )
+
+        profile = _create_profile(client, auth_headers, name="Custom Orders")
+        version = _create_version(
+            client,
+            auth_headers,
+            profile["id"],
+            name="Custom Orders",
+            rules=[
+                {
+                    "id": "custom-order",
+                    "rule_type": "set",
+                    "set_source": "custom",
+                    "name": "Customer Order",
+                    "set_num": "custom:order-1",
+                    "include_spares": False,
+                    "set_meta": {"name": "Customer Order", "year": None, "num_parts": 30, "img_url": None},
+                    "custom_parts": [
+                        {
+                            "part_num": "2780",
+                            "part_name": "Pin",
+                            "color_id": -1,
+                            "color_name": "Any color",
+                            "quantity": 20,
+                        },
+                        {
+                            "part_num": "32054",
+                            "part_name": "Axle",
+                            "color_id": 5,
+                            "color_name": "Red",
+                            "quantity": 10,
+                        },
+                    ],
+                    "match_mode": "all",
+                    "conditions": [],
+                    "children": [],
+                    "disabled": False,
+                }
+            ],
+        )
+
+        assert version["rules_summary"][0]["set_source"] == "custom"
+
+        detail_response = client.get(f"/api/profiles/{profile['id']}", headers=auth_headers)
+        assert detail_response.status_code == 200, detail_response.text
+        current_rule = detail_response.json()["current_version"]["rules"][0]
+        assert current_rule["set_source"] == "custom"
+        assert current_rule["custom_parts"][0]["part_num"] == "2780"
 
 
 class TestPublicProfiles:
@@ -263,7 +436,347 @@ class TestCommunityAndMachineFlows:
         assert activated_assignment["artifact_hash"] == artifact["artifact_hash"]
 
 
+class TestSetProgressHardening:
+    def test_reassigning_machine_clears_activation_state_and_stale_progress(
+        self, client: TestClient, auth_headers: dict[str, str], db: Session, test_user: dict, monkeypatch: object
+    ) -> None:
+        monkeypatch.setattr(
+            profiles_router,
+            "get_profile_catalog_service",
+            lambda: _DummyCatalogService(
+                {
+                    "11111-1": [("3001", 5, 2)],
+                    "22222-1": [("3002", 7, 1)],
+                }
+            ),
+        )
+
+        machine_response = client.post(
+            "/api/machines",
+            json={"name": "Set Tracker", "description": "Tracks set progress"},
+            headers=auth_headers,
+        )
+        assert machine_response.status_code in (200, 201), machine_response.text
+        machine = machine_response.json()
+        machine_headers = {"Authorization": f"Bearer {machine['raw_token']}"}
+
+        profile_a = _create_profile(client, auth_headers, name="Set Profile A")
+        version_a = _create_version(
+            client,
+            auth_headers,
+            profile_a["id"],
+            name="Set Profile A",
+            rules=[_set_rule("set-a", "Set A", "11111-1")],
+        )
+
+        profile_b = _create_profile(client, auth_headers, name="Set Profile B")
+        version_b = _create_version(
+            client,
+            auth_headers,
+            profile_b["id"],
+            name="Set Profile B",
+            rules=[_set_rule("set-b", "Set B", "22222-1")],
+        )
+
+        assignment_response = client.put(
+            f"/api/machines/{machine['id']}/profile-assignment",
+            json={"profile_id": profile_a["id"], "version_id": version_a["id"]},
+            headers=auth_headers,
+        )
+        assert assignment_response.status_code == 200, assignment_response.text
+
+        activation_response = client.post(
+            "/api/machine/profile-activation",
+            json={"version_id": version_a["id"], "artifact_hash": version_a["compiled_hash"]},
+            headers=machine_headers,
+        )
+        assert activation_response.status_code == 200, activation_response.text
+
+        progress_response = client.post(
+            "/api/machine/set-progress",
+            json={
+                "version_id": version_a["id"],
+                "artifact_hash": version_a["compiled_hash"],
+                "items": [
+                    {
+                        "set_num": "11111-1",
+                        "part_num": "3001",
+                        "color_id": 5,
+                        "quantity_needed": 999,
+                        "quantity_found": 1,
+                    }
+                ],
+            },
+            headers=machine_headers,
+        )
+        assert progress_response.status_code == 200, progress_response.text
+
+        reassign_response = client.put(
+            f"/api/machines/{machine['id']}/profile-assignment",
+            json={"profile_id": profile_b["id"], "version_id": version_b["id"]},
+            headers=auth_headers,
+        )
+        assert reassign_response.status_code == 200, reassign_response.text
+        reassign_data = reassign_response.json()
+        assert reassign_data["desired_version"]["id"] == version_b["id"]
+        assert reassign_data["active_version"] is None
+        assert reassign_data["artifact_hash"] is None
+        assert reassign_data["last_synced_at"] is None
+        assert reassign_data["last_activated_at"] is None
+
+        assignment = db.query(MachineProfileAssignment).filter(
+            MachineProfileAssignment.machine_id == UUID(machine["id"])
+        ).first()
+        assert assignment is not None
+        assert assignment.active_version_id is None
+        assert assignment.artifact_hash is None
+        assert assignment.last_synced_at is None
+        assert assignment.last_activated_at is None
+        assert db.query(MachineSetProgress).filter(MachineSetProgress.assignment_id == assignment.id).count() == 0
+
+        profile_progress_response = client.get(
+            f"/api/profiles/{profile_b['id']}/set-progress",
+            headers=auth_headers,
+        )
+        assert profile_progress_response.status_code == 200, profile_progress_response.text
+        machines = profile_progress_response.json()["machines"]
+        assert len(machines) == 1
+        assert machines[0]["overall_found"] == 0
+        assert [item["set_num"] for item in machines[0]["sets"]] == ["22222-1"]
+
+    def test_set_progress_requires_full_snapshot_for_assigned_artifact(
+        self, client: TestClient, auth_headers: dict[str, str], db: Session, test_user: dict, monkeypatch: object
+    ) -> None:
+        monkeypatch.setattr(
+            profiles_router,
+            "get_profile_catalog_service",
+            lambda: _DummyCatalogService(
+                {
+                    "33333-1": [("3001", 5, 2), ("3002", 7, 1)],
+                }
+            ),
+        )
+
+        machine_response = client.post(
+            "/api/machines",
+            json={"name": "Strict Tracker", "description": "Validates snapshots"},
+            headers=auth_headers,
+        )
+        assert machine_response.status_code in (200, 201), machine_response.text
+        machine = machine_response.json()
+        machine_headers = {"Authorization": f"Bearer {machine['raw_token']}"}
+
+        profile = _create_profile(client, auth_headers, name="Strict Set Profile")
+        version = _create_version(
+            client,
+            auth_headers,
+            profile["id"],
+            name="Strict Set Profile",
+            rules=[_set_rule("set-strict", "Strict Set", "33333-1")],
+        )
+
+        assignment_response = client.put(
+            f"/api/machines/{machine['id']}/profile-assignment",
+            json={"profile_id": profile["id"], "version_id": version["id"]},
+            headers=auth_headers,
+        )
+        assert assignment_response.status_code == 200, assignment_response.text
+
+        incomplete_response = client.post(
+            "/api/machine/set-progress",
+            json={
+                "version_id": version["id"],
+                "artifact_hash": version["compiled_hash"],
+                "items": [
+                    {
+                        "set_num": "33333-1",
+                        "part_num": "3001",
+                        "color_id": 5,
+                        "quantity_needed": 2,
+                        "quantity_found": 1,
+                    }
+                ],
+            },
+            headers=machine_headers,
+        )
+        assert incomplete_response.status_code == 400, incomplete_response.text
+        assert incomplete_response.json()["code"] == "SET_PROGRESS_SNAPSHOT_INCOMPLETE"
+
+        unknown_item_response = client.post(
+            "/api/machine/set-progress",
+            json={
+                "version_id": version["id"],
+                "artifact_hash": version["compiled_hash"],
+                "items": [
+                    {
+                        "set_num": "33333-1",
+                        "part_num": "3001",
+                        "color_id": 5,
+                        "quantity_needed": 2,
+                        "quantity_found": 1,
+                    },
+                    {
+                        "set_num": "33333-1",
+                        "part_num": "9999",
+                        "color_id": 5,
+                        "quantity_needed": 1,
+                        "quantity_found": 1,
+                    },
+                ],
+            },
+            headers=machine_headers,
+        )
+        assert unknown_item_response.status_code == 400, unknown_item_response.text
+        assert unknown_item_response.json()["code"] == "SET_PROGRESS_ITEM_UNKNOWN"
+
+        valid_response = client.post(
+            "/api/machine/set-progress",
+            json={
+                "version_id": version["id"],
+                "artifact_hash": version["compiled_hash"],
+                "items": [
+                    {
+                        "set_num": "33333-1",
+                        "part_num": "3001",
+                        "color_id": 5,
+                        "quantity_needed": 999,
+                        "quantity_found": 1,
+                    },
+                    {
+                        "set_num": "33333-1",
+                        "part_num": "3002",
+                        "color_id": 7,
+                        "quantity_needed": 999,
+                        "quantity_found": 1,
+                    },
+                ],
+            },
+            headers=machine_headers,
+        )
+        assert valid_response.status_code == 200, valid_response.text
+        assert db.query(MachineSetProgress).count() == 2
+
+
 class TestProfileAi:
+    def test_ai_message_includes_previous_conversation_context(
+        self, client: TestClient, auth_headers: dict[str, str], test_user: dict, db: Session, monkeypatch: object
+    ) -> None:
+        profile = _create_profile(client, auth_headers, visibility="private", name="AI Context Profile")
+        profile_id = profile["id"]
+        version_id = profile["current_version"]["id"]
+
+        user = db.query(User).filter(User.email == "member@test.com").first()
+        assert user is not None
+
+        db.add(
+            SortingProfileAiMessage(
+                profile_id=UUID(profile_id),
+                user_id=user.id,
+                version_id=UUID(version_id),
+                role="user",
+                content="What Creator sets were there in 2024?",
+            )
+        )
+        db.add(
+            SortingProfileAiMessage(
+                profile_id=UUID(profile_id),
+                user_id=user.id,
+                version_id=UUID(version_id),
+                role="assistant",
+                content="In 2024 there were 20 Creator sets. I showed the full list.",
+            )
+        )
+        db.commit()
+
+        captured: dict[str, object] = {}
+
+        def fake_generate(**kwargs: object) -> SimpleNamespace:
+            captured.update(kwargs)
+            return SimpleNamespace(
+                content="I can add those sets.",
+                model="anthropic/claude-sonnet-4.6",
+                usage=None,
+                tool_trace=[],
+                proposal=None,
+            )
+
+        monkeypatch.setattr(profiles_router, "generate_profile_ai_proposal", fake_generate)
+
+        ai_response = client.post(
+            f"/api/profiles/{profile_id}/ai/messages",
+            json={
+                "message": "Then let's add those too.",
+                "version_id": version_id,
+            },
+            headers=auth_headers,
+        )
+        assert ai_response.status_code == 200, ai_response.text
+
+        assert captured["conversation_history"] == [
+            {"role": "user", "content": "What Creator sets were there in 2024?"},
+            {"role": "assistant", "content": "In 2024 there were 20 Creator sets. I showed the full list."},
+        ]
+
+    def test_ai_stream_includes_previous_conversation_context(
+        self, client: TestClient, auth_headers: dict[str, str], test_user: dict, db: Session, monkeypatch: object
+    ) -> None:
+        profile = _create_profile(client, auth_headers, visibility="private", name="AI Stream Context Profile")
+        profile_id = profile["id"]
+        version_id = profile["current_version"]["id"]
+
+        user = db.query(User).filter(User.email == "member@test.com").first()
+        assert user is not None
+
+        db.add(
+            SortingProfileAiMessage(
+                profile_id=UUID(profile_id),
+                user_id=user.id,
+                version_id=UUID(version_id),
+                role="user",
+                content="Add the Minecraft sets from 2024.",
+            )
+        )
+        db.add(
+            SortingProfileAiMessage(
+                profile_id=UUID(profile_id),
+                user_id=user.id,
+                version_id=UUID(version_id),
+                role="assistant",
+                content="I found 12 and can add them once you confirm.",
+            )
+        )
+        db.commit()
+
+        captured: dict[str, object] = {}
+
+        def fake_generate_streaming(**kwargs: object):
+            captured.update(kwargs)
+            yield AiProposalResult(
+                content="I can add those 12 sets now.",
+                proposal=None,
+                model="anthropic/claude-sonnet-4.6",
+                usage=None,
+                tool_trace=[],
+            )
+
+        monkeypatch.setattr(profiles_router, "generate_profile_ai_proposal_streaming", fake_generate_streaming)
+
+        response = client.post(
+            f"/api/profiles/{profile_id}/ai/messages/stream",
+            json={
+                "message": "Please go ahead.",
+                "version_id": version_id,
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text
+        assert "I can add those 12 sets now." in response.text
+
+        assert captured["conversation_history"] == [
+            {"role": "user", "content": "Add the Minecraft sets from 2024."},
+            {"role": "assistant", "content": "I found 12 and can add them once you confirm."},
+        ]
+
     def test_ai_message_and_apply_create_new_version(
         self, client: TestClient, auth_headers: dict[str, str], test_user: dict, monkeypatch: object
     ) -> None:
@@ -278,6 +791,7 @@ class TestProfileAi:
                 content="I grouped classic bricks into a single category.",
                 model="anthropic/claude-sonnet-4.6",
                 usage={"input_tokens": 10, "output_tokens": 20},
+                tool_trace=[],
                 proposal={
                     "summary": "Create a brick category",
                     "proposals": [

@@ -124,6 +124,12 @@ def _reload_runtime_profile() -> bool:
     if controller is None or not hasattr(controller, "reloadSortingProfile"):
         return False
     controller.reloadSortingProfile()
+    try:
+        from server.set_progress_sync import getSetProgressSyncWorker
+
+        getSetProgressSyncWorker().notify()
+    except Exception:
+        pass
     return True
 
 
@@ -260,6 +266,12 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         sync_state["last_error"] = activation_error
 
     setSortingProfileSyncState(sync_state)
+    try:
+        from server.set_progress_sync import getSetProgressSyncWorker
+
+        getSetProgressSyncWorker().notify()
+    except Exception:
+        pass
 
     return {
         "ok": True,

@@ -37,6 +37,8 @@ export interface SortingProfileSyncState {
 	applied_at?: string | null;
 	activated_at?: string | null;
 	last_error?: string | null;
+	progress_last_synced_at?: string | null;
+	progress_last_error?: string | null;
 }
 
 export interface SortingProfileMetadata {

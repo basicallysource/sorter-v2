@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
+	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
 
 	type MachineStateStats = {
@@ -58,6 +60,85 @@
 	let composition_chart: InstanceType<ChartCtor> | null = null;
 	let gantt_chart: InstanceType<ChartCtor> | null = null;
 	let chart_constructor: ChartCtor | null = null;
+
+	function cssVar(name: string, fallback: string): string {
+		if (typeof document === 'undefined') return fallback;
+		const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+		return value || fallback;
+	}
+
+	function chartPalette() {
+		return {
+			text: cssVar('--color-text', '#1A1A1A'),
+			textMuted: cssVar('--color-text-muted', '#7A7770'),
+			border: cssVar('--color-border', '#E2E0DB'),
+			surface: cssVar('--color-surface', '#FFFFFF'),
+			background: cssVar('--color-bg', '#F7F6F3')
+		};
+	}
+
+	function applyChartTheme() {
+		if (!composition_chart || !gantt_chart) return;
+		const palette = chartPalette();
+		const grid_color = `${palette.border}CC`;
+
+		const composition_options = composition_chart.options as {
+			plugins?: { legend?: { labels?: Record<string, unknown> } };
+			scales?: {
+				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+			};
+		};
+		composition_options.plugins ??= {};
+		composition_options.plugins.legend ??= {};
+		composition_options.plugins.legend.labels ??= {};
+		composition_options.plugins.legend.labels.color = palette.text;
+		composition_options.scales ??= {};
+		composition_options.scales.x ??= {};
+		composition_options.scales.y ??= {};
+		composition_options.scales.x.ticks ??= {};
+		composition_options.scales.x.title ??= {};
+		composition_options.scales.x.grid ??= {};
+		composition_options.scales.y.ticks ??= {};
+		composition_options.scales.y.title ??= {};
+		composition_options.scales.y.grid ??= {};
+		composition_options.scales.x.ticks.color = palette.textMuted;
+		composition_options.scales.x.title.color = palette.text;
+		composition_options.scales.x.grid.color = grid_color;
+		composition_options.scales.y.ticks.color = palette.textMuted;
+		composition_options.scales.y.title.color = palette.text;
+		composition_options.scales.y.grid.color = grid_color;
+
+		const gantt_options = gantt_chart.options as {
+			plugins?: { tooltip?: Record<string, unknown> };
+			scales?: {
+				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+			};
+		};
+		gantt_options.plugins ??= {};
+		gantt_options.plugins.tooltip ??= {};
+		gantt_options.plugins.tooltip.backgroundColor = palette.surface;
+		gantt_options.plugins.tooltip.titleColor = palette.text;
+		gantt_options.plugins.tooltip.bodyColor = palette.text;
+		gantt_options.plugins.tooltip.borderColor = palette.border;
+		gantt_options.plugins.tooltip.borderWidth = 1;
+		gantt_options.scales ??= {};
+		gantt_options.scales.x ??= {};
+		gantt_options.scales.y ??= {};
+		gantt_options.scales.x.ticks ??= {};
+		gantt_options.scales.x.title ??= {};
+		gantt_options.scales.x.grid ??= {};
+		gantt_options.scales.y.ticks ??= {};
+		gantt_options.scales.y.title ??= {};
+		gantt_options.scales.y.grid ??= {};
+		gantt_options.scales.x.ticks.color = palette.textMuted;
+		gantt_options.scales.x.title.color = palette.text;
+		gantt_options.scales.x.grid.color = grid_color;
+		gantt_options.scales.y.ticks.color = palette.textMuted;
+		gantt_options.scales.y.title.color = palette.text;
+		gantt_options.scales.y.grid.color = grid_color;
+	}
 
 	const runtime_stats = $derived(
 		(loaded_runtime_stats ?? machine_ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>
@@ -418,6 +499,7 @@
 				}
 			});
 			initialized = true;
+			applyChartTheme();
 			updateCharts();
 		});
 
@@ -436,6 +518,14 @@
 		runtime_stats;
 		if (!chart_constructor) return;
 		updateCharts();
+	});
+
+	$effect(() => {
+		$settings.theme;
+		if (!chart_constructor || !composition_chart || !gantt_chart) return;
+		applyChartTheme();
+		composition_chart.update('none');
+		gantt_chart.update('none');
 	});
 
 	const top_occupancy_states = $derived.by(() => {
@@ -477,6 +567,7 @@
 			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
 		</div>
 		<div class="flex items-center gap-2">
+			<ThemeToggle />
 			<select
 				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_group}

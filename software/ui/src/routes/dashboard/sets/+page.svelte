@@ -7,13 +7,18 @@
 
 	type SetPart = {
 		part_num: string;
-		color_id: number;
+		color_id: string | number;
+		part_name?: string | null;
+		color_name?: string | null;
 		quantity_needed: number;
 		quantity_found: number;
 	};
 
 	type SetProgress = {
+		id: string;
 		set_num: string;
+		name: string;
+		img_url: string | null;
 		total_needed: number;
 		total_found: number;
 		pct: number;
@@ -40,10 +45,10 @@
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
 	}
 
-	function toggleExpand(set_num: string) {
+	function toggleExpand(setId: string) {
 		const next = new Set(expanded_sets);
-		if (next.has(set_num)) next.delete(set_num);
-		else next.add(set_num);
+		if (next.has(setId)) next.delete(setId);
+		else next.add(setId);
 		expanded_sets = next;
 	}
 
@@ -69,6 +74,10 @@
 
 	const progress = $derived(data?.progress);
 	const is_set_based = $derived(data?.is_set_based ?? false);
+
+	function colorLabel(part: SetPart): string {
+		return part.color_name ?? (String(part.color_id) === '-1' ? 'Any color' : String(part.color_id));
+	}
 </script>
 
 <div class="min-h-screen bg-bg p-6">
@@ -118,13 +127,13 @@
 
 		<!-- Per-set cards -->
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-			{#each progress.sets as set_progress}
-				{@const is_expanded = expanded_sets.has(set_progress.set_num)}
+			{#each progress.sets as set_progress (set_progress.id)}
+				{@const is_expanded = expanded_sets.has(set_progress.id)}
 				{@const missing_parts = set_progress.parts.filter(p => p.quantity_found < p.quantity_needed)}
 				<div class="border border-border bg-surface">
 					<button
 						class="flex w-full items-center gap-3 p-4 text-left hover:bg-bg/50"
-						onclick={() => toggleExpand(set_progress.set_num)}
+						onclick={() => toggleExpand(set_progress.id)}
 					>
 						<div class="flex-shrink-0 text-text-muted">
 							{#if is_expanded}
@@ -135,7 +144,14 @@
 						</div>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-baseline justify-between gap-2">
-								<span class="truncate text-sm font-medium text-text">{set_progress.set_num}</span>
+								<div class="min-w-0">
+									<div class="truncate text-sm font-medium text-text">
+										{set_progress.name || set_progress.set_num}
+									</div>
+									{#if set_progress.name && set_progress.name !== set_progress.set_num}
+										<div class="truncate text-xs text-text-muted">{set_progress.set_num}</div>
+									{/if}
+								</div>
 								<span class="flex-shrink-0 text-xs tabular-nums text-text-muted">
 									{set_progress.total_found}/{set_progress.total_needed} ({set_progress.pct}%)
 								</span>
@@ -168,8 +184,13 @@
 								<tbody>
 									{#each missing_parts as part}
 										<tr class="border-t border-border/50 text-text">
-											<td class="py-0.5">{part.part_num}</td>
-											<td class="py-0.5">{part.color_id}</td>
+											<td class="py-0.5">
+												<div>{part.part_num}</div>
+												{#if part.part_name}
+													<div class="text-[11px] text-text-muted">{part.part_name}</div>
+												{/if}
+											</td>
+											<td class="py-0.5">{colorLabel(part)}</td>
 											<td class="py-0.5 text-right tabular-nums">{part.quantity_found}</td>
 											<td class="py-0.5 text-right tabular-nums">{part.quantity_needed}</td>
 										</tr>

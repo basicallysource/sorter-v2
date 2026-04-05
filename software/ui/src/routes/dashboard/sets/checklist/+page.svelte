@@ -6,13 +6,17 @@
 
 	type SetPart = {
 		part_num: string;
-		color_id: number;
+		color_id: string | number;
+		part_name?: string | null;
+		color_name?: string | null;
 		quantity_needed: number;
 		quantity_found: number;
 	};
 
 	type SetProgress = {
+		id: string;
 		set_num: string;
+		name: string;
 		total_needed: number;
 		total_found: number;
 		pct: number;
@@ -45,6 +49,10 @@
 	onMount(() => {
 		fetchProgress();
 	});
+
+	function colorLabel(part: SetPart): string {
+		return part.color_name ?? (String(part.color_id) === '-1' ? 'Any color' : String(part.color_id));
+	}
 </script>
 
 <svelte:head>
@@ -79,10 +87,15 @@
 	{:else if error}
 		<div class="text-sm text-[#D01012]">{error}</div>
 	{:else}
-		{#each sets as set_progress, idx}
+		{#each sets as set_progress, idx (set_progress.id)}
 			<div class={idx > 0 ? 'print-break' : ''}>
 				<div class="mb-3 mt-6 flex items-baseline justify-between border-b border-border pb-2">
-					<h2 class="text-lg font-bold text-text">{set_progress.set_num}</h2>
+					<div>
+						<h2 class="text-lg font-bold text-text">{set_progress.name || set_progress.set_num}</h2>
+						{#if set_progress.name && set_progress.name !== set_progress.set_num}
+							<div class="text-xs text-text-muted">{set_progress.set_num}</div>
+						{/if}
+					</div>
 					<span class="text-sm text-text-muted">
 						{set_progress.total_found}/{set_progress.total_needed} ({set_progress.pct}%)
 					</span>
@@ -98,14 +111,19 @@
 							<th class="pb-1 text-center font-medium">Status</th>
 						</tr>
 					</thead>
-					<tbody>
-						{#each set_progress.parts as part}
-							{@const missing = part.quantity_needed - part.quantity_found}
-							<tr class="border-b border-border/50 text-text">
-								<td class="py-1">{part.part_num}</td>
-								<td class="py-1">{part.color_id}</td>
-								<td class="py-1 text-right tabular-nums">{part.quantity_needed}</td>
-								<td class="py-1 text-right tabular-nums">{part.quantity_found}</td>
+						<tbody>
+							{#each set_progress.parts as part}
+								{@const missing = part.quantity_needed - part.quantity_found}
+								<tr class="border-b border-border/50 text-text">
+									<td class="py-1">
+										<div>{part.part_num}</div>
+										{#if part.part_name}
+											<div class="text-xs text-text-muted">{part.part_name}</div>
+										{/if}
+									</td>
+									<td class="py-1">{colorLabel(part)}</td>
+									<td class="py-1 text-right tabular-nums">{part.quantity_needed}</td>
+									<td class="py-1 text-right tabular-nums">{part.quantity_found}</td>
 								<td class="py-1 text-right tabular-nums {missing > 0 ? 'text-[#D01012]' : ''}">{missing}</td>
 								<td class="py-1 text-center">
 									{#if missing <= 0}

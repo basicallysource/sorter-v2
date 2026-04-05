@@ -47,6 +47,8 @@
 		applied_at?: string | null;
 		activated_at?: string | null;
 		last_error?: string | null;
+		progress_last_synced_at?: string | null;
+		progress_last_error?: string | null;
 	};
 
 	type LocalProfileStatus = {
@@ -415,6 +417,17 @@
 							<span class="text-text-muted">No sync state</span>
 						{/if}
 					</div>
+					{#if library.sync_state?.progress_last_error}
+						<div>
+							<span class="text-[#D01012]">
+								Set progress sync failed: {library.sync_state.progress_last_error}
+							</span>
+						</div>
+					{:else if library.sync_state?.progress_last_synced_at}
+						<div>
+							Set progress synced {formatRelativeTime(library.sync_state.progress_last_synced_at) ?? 'just now'}
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<div class="mt-2 text-sm text-text-muted">

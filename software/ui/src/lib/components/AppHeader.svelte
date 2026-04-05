@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { Grid3x3, Home, Layers3, Package, Pause, Play, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -55,6 +56,7 @@
 	</a>
 	<div class="flex items-center gap-2">
 		<MachineDropdown />
+		<ThemeToggle />
 		<button
 			onclick={togglePauseResume}
 			class="p-2 text-text transition-colors hover:bg-surface"

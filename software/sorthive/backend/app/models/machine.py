@@ -18,6 +18,8 @@ class Machine(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     hardware_info = Column(JSON_VARIANT, nullable=True)
+    last_seen_ip = Column(String, nullable=True)
+    local_ui_port = Column(String, nullable=True, default="8000")
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

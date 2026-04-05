@@ -28,10 +28,14 @@ from app.schemas.profile import (
     SortingProfileAiMessageResponse,
     SortingProfileAiRequest,
     SortingProfileArtifactResponse,
+    SortingProfileBricklinkCsvImportRequest,
+    SortingProfileChangeNoteSuggestRequest,
+    SortingProfileChangeNoteSuggestResponse,
     SortingProfileCreateRequest,
     SortingProfileDetailResponse,
     SortingProfileForkRequest,
     SortingProfilePreviewRequest,
+    SortingProfileSetProgressResponse,
     SortingProfileSummaryResponse,
     SortingProfileUpdateRequest,
     SortingProfileVersionCreateRequest,
@@ -43,14 +47,18 @@ from app.services.profile_ai import (
     AiProposalResult,
     apply_profile_ai_proposal,
     generate_change_note,
+    generate_change_note_from_diff,
     generate_profile_ai_proposal,
     generate_profile_ai_proposal_streaming,
 )
-from app.services.profile_catalog import get_profile_catalog_service
+from app.services.secrets import decrypt_secret
+from app.services.machine_set_progress import summarize_machine_set_progress
+from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
 
 router = APIRouter(prefix="/api", tags=["profiles"])
 
-CATALOG_SYNC_TYPES = {"categories", "colors", "parts", "brickstore", "prices"}
+CATALOG_SYNC_TYPES = set(PROFILE_CATALOG_SYNC_TYPES)
+AI_CONVERSATION_HISTORY_LIMIT = 12
 
 
 @router.get("/profile-catalog/status")
@@ -96,6 +104,39 @@ def search_profile_catalog_parts(
     _current_user: User = Depends(get_current_user),
 ):
     return get_profile_catalog_service().search_parts(q, cat_id, limit, offset)
+
+
+@router.get("/profile-catalog/search-sets")
+def search_profile_catalog_sets(
+    q: str = "",
+    min_year: int | None = None,
+    max_year: int | None = None,
+    _current_user: User = Depends(get_current_user),
+):
+    if not q.strip():
+        return {"results": []}
+    return {"results": get_profile_catalog_service().search_sets(
+        q.strip(), min_year=min_year, max_year=max_year,
+    )}
+
+
+@router.get("/profile-catalog/colors")
+def list_profile_catalog_colors(
+    _current_user: User = Depends(get_current_user),
+):
+    return {"results": get_profile_catalog_service().list_colors()}
+
+
+@router.post("/profile-catalog/import-bricklink-csv")
+def import_profile_catalog_bricklink_csv(
+    payload: SortingProfileBricklinkCsvImportRequest,
+    _current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    return get_profile_catalog_service().import_bricklink_csv(
+        payload.csv_content,
+        filename=payload.filename,
+    )
 
 
 @router.post("/profiles/preview")
@@ -150,7 +191,6 @@ def create_profile(
     _csrf: None = Depends(verify_csrf),
 ):
     visibility = _normalize_visibility(payload.visibility)
-    profile_type = payload.profile_type if payload.profile_type in ("rule", "set") else "rule"
     profile = SortingProfile(
         owner_id=current_user.id,
         name=payload.name.strip() or "Untitled Profile",
@@ -158,7 +198,7 @@ def create_profile(
         visibility=visibility,
         tags=_sanitize_tags(payload.tags),
         latest_version_number=0,
-        profile_type=profile_type,
+        profile_type="rule",
     )
     db.add(profile)
     db.flush()
@@ -194,6 +234,65 @@ def get_profile(
     saved_profile_ids = _saved_profile_ids(db, current_user.id)
     current_version = _resolve_visible_version(profile, current_user, version_id)
     return _serialize_profile_detail(db, profile, current_user, saved_profile_ids, current_version=current_version)
+
+
+@router.get("/profiles/{profile_id}/set-progress", response_model=SortingProfileSetProgressResponse)
+def get_profile_set_progress(
+    profile_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.models.machine_set_progress import MachineSetProgress
+
+    profile = _get_profile_or_404(db, profile_id)
+    _require_profile_view_access(profile, current_user)
+
+    assignments = (
+        db.query(MachineProfileAssignment)
+        .join(Machine, Machine.id == MachineProfileAssignment.machine_id)
+        .filter(
+            MachineProfileAssignment.profile_id == profile.id,
+            Machine.owner_id == current_user.id,
+        )
+        .all()
+    )
+
+    machines: list[dict[str, Any]] = []
+    for assignment in assignments:
+        version = assignment.active_version or assignment.desired_version
+        artifact = version.compiled_artifact_json if version is not None else {}
+        rows = (
+            db.query(MachineSetProgress)
+            .filter(MachineSetProgress.assignment_id == assignment.id)
+            .all()
+        )
+        summary = summarize_machine_set_progress(artifact, rows)
+        if not summary["sets"] and _profile_type_for_version(version) != "set":
+            continue
+        machines.append(
+            {
+                "machine_id": assignment.machine_id,
+                "machine_name": assignment.machine.name if assignment.machine is not None else "Machine",
+                "assignment_id": assignment.id,
+                "desired_version_id": assignment.desired_version_id,
+                "active_version_id": assignment.active_version_id,
+                "desired_version_number": assignment.desired_version.version_number if assignment.desired_version else None,
+                "active_version_number": assignment.active_version.version_number if assignment.active_version else None,
+                "last_synced_at": assignment.last_synced_at,
+                "last_activated_at": assignment.last_activated_at,
+                "overall_needed": summary["overall_needed"],
+                "overall_found": summary["overall_found"],
+                "overall_pct": summary["overall_pct"],
+                "updated_at": summary["updated_at"],
+                "sets": summary["sets"],
+            }
+        )
+
+    machines.sort(key=lambda item: item["machine_name"].lower())
+    return {
+        "profile_id": profile.id,
+        "machines": machines,
+    }
 
 
 @router.patch("/profiles/{profile_id}", response_model=SortingProfileDetailResponse)
@@ -337,6 +436,34 @@ def fork_profile(
     return _serialize_profile_detail(db, fork, current_user, saved_profile_ids, current_version=version)
 
 
+@router.post("/profiles/{profile_id}/suggest-change-note", response_model=SortingProfileChangeNoteSuggestResponse)
+def suggest_change_note(
+    profile_id: UUID,
+    payload: SortingProfileChangeNoteSuggestRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    import logging
+    logger = logging.getLogger(__name__)
+    profile = _get_profile_or_404(db, profile_id)
+    _require_profile_edit_access(profile, current_user)
+    api_key = decrypt_secret(current_user.openrouter_api_key_encrypted)
+    if not api_key:
+        raise APIError(400, "OpenRouter API key required", "OPENROUTER_KEY_MISSING")
+    try:
+        note = generate_change_note_from_diff(
+            api_key=api_key,
+            old_rules=payload.old_rules,
+            new_rules=payload.new_rules,
+        )
+    except APIError:
+        raise
+    except Exception:
+        logger.exception("Failed to generate change note suggestion")
+        raise APIError(500, "Failed to generate change note", "CHANGE_NOTE_ERROR")
+    return {"change_note": note}
+
+
 @router.post("/profiles/{profile_id}/versions", response_model=SortingProfileVersionResponse)
 def create_profile_version(
     profile_id: UUID,
@@ -423,6 +550,11 @@ def create_profile_ai_message(
     version = _resolve_visible_version(profile, current_user, payload.version_id)
     if version is None:
         raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
+    conversation_history = _load_profile_ai_conversation(
+        db,
+        profile_id=profile.id,
+        user_id=current_user.id,
+    )
 
     user_message = SortingProfileAiMessage(
         profile_id=profile.id,
@@ -440,12 +572,13 @@ def create_profile_ai_message(
         catalog=get_profile_catalog_service(),
         document=_document_from_version(version),
         message=payload.message,
+        conversation_history=conversation_history,
         selected_rule_id=payload.selected_rule_id,
     )
     usage_with_trace = proposal_result.usage or {}
     if proposal_result.tool_trace:
         usage_with_trace["tool_trace"] = [
-            {"tool": t.tool, "input": t.input, "output_summary": t.output_summary}
+            {"tool": t.tool, "input": t.input, "output_summary": t.output_summary, "output": t.output}
             for t in proposal_result.tool_trace
         ]
     assistant_message = SortingProfileAiMessage(
@@ -479,6 +612,11 @@ def create_profile_ai_message_stream(
     version = _resolve_visible_version(profile, current_user, payload.version_id)
     if version is None:
         raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
+    conversation_history = _load_profile_ai_conversation(
+        db,
+        profile_id=profile.id,
+        user_id=current_user.id,
+    )
 
     user_message = SortingProfileAiMessage(
         profile_id=profile.id,
@@ -499,6 +637,7 @@ def create_profile_ai_message_stream(
                 catalog=get_profile_catalog_service(),
                 document=_document_from_version(version),
                 message=payload.message,
+                conversation_history=conversation_history,
                 selected_rule_id=payload.selected_rule_id,
             ):
                 if isinstance(event, AiProgressEvent):
@@ -513,7 +652,7 @@ def create_profile_ai_message_stream(
             usage_with_trace = proposal_result.usage or {}
             if proposal_result.tool_trace:
                 usage_with_trace["tool_trace"] = [
-                    {"tool": t.tool, "input": t.input, "output_summary": t.output_summary}
+                    {"tool": t.tool, "input": t.input, "output_summary": t.output_summary, "output": t.output}
                     for t in proposal_result.tool_trace
                 ]
             assistant_message = SortingProfileAiMessage(
@@ -633,6 +772,8 @@ def assign_machine_profile(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
+    from app.models.machine_set_progress import MachineSetProgress
+
     machine = (
         db.query(Machine)
         .filter(Machine.id == machine_id, Machine.owner_id == current_user.id)
@@ -657,10 +798,22 @@ def assign_machine_profile(
         )
         db.add(assignment)
     else:
+        assignment_changed = (
+            assignment.profile_id != profile.id
+            or assignment.desired_version_id != version.id
+        )
         assignment.profile_id = profile.id
         assignment.desired_version_id = version.id
         assignment.assigned_by_id = current_user.id
         assignment.last_error = None
+        if assignment_changed:
+            assignment.active_version_id = None
+            assignment.artifact_hash = None
+            assignment.last_synced_at = None
+            assignment.last_activated_at = None
+            db.query(MachineSetProgress).filter(
+                MachineSetProgress.assignment_id == assignment.id
+            ).delete(synchronize_session=False)
 
     db.commit()
     db.refresh(assignment)
@@ -949,15 +1102,7 @@ def _create_version(
     payload: SortingProfileVersionCreateRequest,
 ) -> SortingProfileVersion:
     catalog = get_profile_catalog_service()
-    if profile.profile_type == "set" and payload.set_config:
-        compiled = catalog.compile_set_profile(
-            set_config=payload.set_config.model_dump(),
-            profile_id=str(profile.id),
-            name=payload.name.strip() or profile.name,
-            description=(payload.description or "").strip() or "",
-        )
-    else:
-        compiled = catalog.compile_document(payload.model_dump())
+    compiled = catalog.compile_document(payload.model_dump())
     next_version_number = int(profile.latest_version_number or 0) + 1
     version = SortingProfileVersion(
         profile_id=profile.id,
@@ -976,12 +1121,12 @@ def _create_version(
         compiled_part_count=compiled["compiled_part_count"],
         coverage_ratio=compiled["coverage_ratio"],
         is_published=bool(payload.publish),
-        set_config_json=payload.set_config.model_dump() if payload.set_config else None,
     )
     db.add(version)
     profile.latest_version_number = next_version_number
     if payload.publish:
         profile.latest_published_version_number = next_version_number
+    profile.profile_type = _profile_type_from_artifact(compiled["artifact"])
     profile.name = payload.name.strip() or profile.name
     profile.description = (payload.description or "").strip() or None
     profile.updated_at = datetime.now(timezone.utc)
@@ -1000,15 +1145,51 @@ def _document_from_version(version: SortingProfileVersion) -> dict:
     }
 
 
+def _rules_include_set_rules(rules: list | None) -> bool:
+    for rule in rules or []:
+        data = rule.model_dump() if hasattr(rule, "model_dump") else rule
+        if not isinstance(data, dict):
+            continue
+        if data.get("rule_type") == "set":
+            return True
+        if _rules_include_set_rules(data.get("children")):
+            return True
+    return False
+
+
+def _profile_type_from_artifact(artifact: dict | None) -> str:
+    if not isinstance(artifact, dict):
+        return "rule"
+    if artifact.get("profile_type") == "set":
+        return "set"
+    if artifact.get("set_inventories"):
+        return "set"
+    return "rule"
+
+
+def _profile_type_for_version(version: SortingProfileVersion | None) -> str:
+    if version is None:
+        return "rule"
+    artifact_type = _profile_type_from_artifact(version.compiled_artifact_json)
+    if artifact_type == "set":
+        return "set"
+    if _rules_include_set_rules(version.rules_json):
+        return "set"
+    return "rule"
+
+
 def _serialize_profile_summary(
     db: Session,
     profile: SortingProfile,
     current_user: User,
     saved_profile_ids: set[UUID],
+    *,
+    effective_version: SortingProfileVersion | None = None,
 ) -> SortingProfileSummaryResponse:
     versions = _visible_versions_for_user(profile, current_user)
     latest_version = versions[0] if versions else None
     latest_published = next((version for version in versions if version.is_published), None)
+    profile_type = _profile_type_for_version(effective_version or latest_version)
     source = None
     if profile.source_profile_id:
         source_profile = db.query(SortingProfile).filter(SortingProfile.id == profile.source_profile_id).first()
@@ -1024,6 +1205,7 @@ def _serialize_profile_summary(
         name=profile.name,
         description=profile.description,
         visibility=profile.visibility,
+        profile_type=profile_type,
         tags=list(profile.tags or []),
         latest_version_number=int(profile.latest_version_number or 0),
         latest_published_version_number=profile.latest_published_version_number,
@@ -1071,6 +1253,18 @@ def _visible_versions_for_user(profile: SortingProfile, current_user: User) -> l
 def _serialize_version_summary(version: SortingProfileVersion | None) -> SortingProfileVersionSummaryResponse | None:
     if version is None:
         return None
+    rules_summary = []
+    for rule in (version.rules_json or []):
+        rules_summary.append({
+            "name": rule.get("name", "Untitled"),
+            "rule_type": rule.get("rule_type", "filter"),
+            "set_source": rule.get("set_source"),
+            "set_num": rule.get("set_num"),
+            "set_meta": rule.get("set_meta"),
+            "disabled": rule.get("disabled", False),
+            "condition_count": len(rule.get("conditions", [])),
+            "child_count": len(rule.get("children", [])),
+        })
     return SortingProfileVersionSummaryResponse(
         id=version.id,
         version_number=version.version_number,
@@ -1081,6 +1275,7 @@ def _serialize_version_summary(version: SortingProfileVersion | None) -> Sorting
         compiled_part_count=version.compiled_part_count,
         coverage_ratio=version.coverage_ratio,
         created_at=version.created_at,
+        rules_summary=rules_summary,
     )
 
 
@@ -1100,7 +1295,6 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "fallback_mode": version.fallback_mode_json or {},
             "compiled_stats": version.compiled_stats_json,
             "categories": (version.compiled_artifact_json or {}).get("categories", {}),
-            "set_config": version.set_config_json,
         }
     )
     return SortingProfileVersionResponse(**payload)
@@ -1127,6 +1321,36 @@ def _serialize_ai_message(message: SortingProfileAiMessage) -> SortingProfileAiM
     )
 
 
+def _load_profile_ai_conversation(
+    db: Session,
+    *,
+    profile_id: UUID,
+    user_id: UUID,
+    limit: int = AI_CONVERSATION_HISTORY_LIMIT,
+) -> list[dict[str, str]]:
+    messages = (
+        db.query(SortingProfileAiMessage)
+        .filter(
+            SortingProfileAiMessage.profile_id == profile_id,
+            SortingProfileAiMessage.user_id == user_id,
+            SortingProfileAiMessage.role.in_(("user", "assistant")),
+        )
+        .order_by(SortingProfileAiMessage.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    conversation: list[dict[str, str]] = []
+    for message in reversed(messages):
+        if not message.content or not message.content.strip():
+            continue
+        conversation.append({
+            "role": message.role,
+            "content": message.content.strip(),
+        })
+    return conversation
+
+
 def _serialize_machine_assignment(
     db: Session,
     assignment: MachineProfileAssignment | None,
@@ -1137,7 +1361,13 @@ def _serialize_machine_assignment(
         return None
     return MachineProfileAssignmentResponse(
         machine_id=assignment.machine_id,
-        profile=_serialize_profile_summary(db, assignment.profile, current_user, saved_profile_ids),
+        profile=_serialize_profile_summary(
+            db,
+            assignment.profile,
+            current_user,
+            saved_profile_ids,
+            effective_version=assignment.desired_version or assignment.active_version,
+        ),
         desired_version=_serialize_version_summary(assignment.desired_version),
         active_version=_serialize_version_summary(assignment.active_version),
         artifact_hash=assignment.artifact_hash,

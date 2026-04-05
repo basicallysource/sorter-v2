@@ -24,7 +24,6 @@ class SortingProfileVersion(Base):
     fallback_mode_json = Column(JSON_VARIANT, nullable=False)
     compiled_artifact_json = Column(JSON_VARIANT, nullable=False)
     compiled_stats_json = Column(JSON_VARIANT, nullable=True)
-    set_config_json = Column(JSON_VARIANT, nullable=True)
     compiled_hash = Column(String, nullable=False)
     compiled_part_count = Column(Integer, nullable=False, default=0)
     coverage_ratio = Column(Float, nullable=True)

@@ -22,6 +22,7 @@ from blob_manager import (
 from runtime_variables import VARIABLE_DEFS
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
+from server.set_progress_sync import getSetProgressSyncWorker
 
 from server.shared_state import (
     active_connections,
@@ -79,10 +80,12 @@ app.include_router(sorting_profiles_router)
 @app.on_event("startup")
 async def onStartup() -> None:
     shared_state.server_loop = asyncio.get_running_loop()
+    getSetProgressSyncWorker().start()
 
 
 @app.on_event("shutdown")
 async def onShutdown() -> None:
+    getSetProgressSyncWorker().stop()
     shutdownCameraDiscovery()
 
 

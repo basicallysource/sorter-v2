@@ -333,8 +333,8 @@ def _partKey(part, color_id, rb_to_bl_color=None):
     return f"any_color-{part_id}"
 
 
-def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0, rb_to_bl_color=None):
-    cache_key = _cacheKey(parts_generation, sp.rules, sp.default_category_id, fallback_mode or getattr(sp, "fallback_mode", None) or {})
+def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallback_mode=None, parts_generation=0, rb_to_bl_color=None, set_mappings=None):
+    cache_key = _cacheKey(parts_generation, sp.rules, sp.default_category_id, fallback_mode or getattr(sp, "fallback_mode", None) or {}, set_mappings or {})
     cached = _cacheGet(cache_key)
     if cached:
         return cached
@@ -350,27 +350,52 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
     use_bl_cats = fb.get("bricklink_categories", False)
     use_by_color = fb.get("by_color", False)
 
-    flat = []
+    # Build ordered list mixing filter rules and set rules in document order
+    ordered_entries: list[dict] = []
     for rule in sp.rules:
-        flat.extend(_flattenRules([rule]))
+        if rule.get("disabled"):
+            continue
+        if rule.get("rule_type") == "set":
+            # Only include set rules when set_mappings is provided by the caller
+            if set_mappings:
+                ordered_entries.append({"type": "set", "rule_id": rule["id"]})
+        else:
+            for entry in _flattenRules([rule]):
+                ordered_entries.append({"type": "filter", "entry": entry})
 
-    # pre-compute per-rule: part conditions vs color conditions
+    # pre-compute per-entry: part conditions vs color conditions (filter only)
     rule_info: list[dict] = []
-    for entry in flat:
-        all_conds = _allConditions(entry["checks"])
-        _, color_conds = _splitConditions(all_conds)
-        rule_colors = _extractColorValues(color_conds) if color_conds else None
-        # build checks that only contain non-color conditions for part matching
-        part_checks = []
-        for check in entry["checks"]:
-            pc, _ = _splitConditions(check["conditions"])
-            part_checks.append({"conditions": pc, "match_mode": check["match_mode"], "children": check.get("children")})
-        rule_info.append({
-            "entry": entry,
-            "has_conditions": bool(all_conds),
-            "part_checks": part_checks,
-            "rule_colors": rule_colors,
-        })
+    for oe in ordered_entries:
+        if oe["type"] == "set":
+            rule_info.append({"type": "set", "rule_id": oe["rule_id"]})
+        else:
+            entry = oe["entry"]
+            all_conds = _allConditions(entry["checks"])
+            _, color_conds = _splitConditions(all_conds)
+            rule_colors = _extractColorValues(color_conds) if color_conds else None
+            # build checks that only contain non-color conditions for part matching
+            part_checks = []
+            for check in entry["checks"]:
+                pc, _ = _splitConditions(check["conditions"])
+                part_checks.append({"conditions": pc, "match_mode": check["match_mode"], "children": check.get("children")})
+            rule_info.append({
+                "type": "filter",
+                "entry": entry,
+                "has_conditions": bool(all_conds),
+                "part_checks": part_checks,
+                "rule_colors": rule_colors,
+            })
+
+    # Build reverse index for set mappings: part_id -> [(bl_key, rule_id)]
+    # so we can quickly look up set membership during per-part iteration
+    _set_part_index: dict[str, list[tuple[str, str]]] = {}
+    if set_mappings:
+        for rule_id, mapping in set_mappings.items():
+            for bl_key in mapping:
+                # bl_key format: "{bl_color}-{bl_part_id}" or "any_color-{bl_part_id}"
+                sep = bl_key.index("-")
+                part_id = bl_key[sep + 1:]
+                _set_part_index.setdefault(part_id, []).append((bl_key, rule_id))
 
     part_to_category = {}
     stats = {"total_parts": len(parts), "matched": 0, "unmatched": 0, "per_category": {}}
@@ -380,9 +405,40 @@ def generateProfile(sp, parts, categories=None, bricklink_categories=None, fallb
     for _pnum, part in parts.items():
         claimed_any_color = False
         claimed_specific = False
+
+        # Determine the BrickLink part ID for set lookups
+        bl_ids = part.get("external_ids", {}).get("BrickLink", [])
+        bl_part_id = bl_ids[0] if bl_ids else part.get("part_num", "")
+        set_entries_for_part = _set_part_index.get(str(bl_part_id), [])
+
         for ri in rule_info:
             if claimed_any_color:
                 break
+
+            if ri["type"] == "set":
+                rule_id = ri["rule_id"]
+                # Check if this part has entries in this set rule's mappings
+                for bl_key, mapping_rule_id in set_entries_for_part:
+                    if mapping_rule_id != rule_id:
+                        continue
+                    sep = bl_key.index("-")
+                    color_part = bl_key[:sep]
+                    if color_part == "any_color":
+                        key = _partKey(part, None, rb_to_bl_color)
+                        if key not in part_to_category:
+                            part_to_category[key] = rule_id
+                            cat_parts.setdefault(rule_id, set()).add(_pnum)
+                            claimed_any_color = True
+                            break
+                    else:
+                        if bl_key not in part_to_category:
+                            part_to_category[bl_key] = rule_id
+                            claimed_specific = True
+                            cat_parts.setdefault(rule_id, set()).add(_pnum)
+                            cat_colors.setdefault(rule_id, set()).add(color_part)
+                continue
+
+            # --- filter rule logic (unchanged) ---
             if not ri["has_conditions"]:
                 continue
             entry = ri["entry"]

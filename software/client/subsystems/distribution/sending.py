@@ -60,6 +60,12 @@ class Sending(BaseState):
             tracker = getattr(self.gc, 'set_progress_tracker', None)
             if tracker is not None:
                 tracker.record(self.piece.part_id, self.piece.color_id, self.piece.category_id)
+                try:
+                    from server.set_progress_sync import getSetProgressSyncWorker
+
+                    getSetProgressSyncWorker().notify()
+                except Exception:
+                    pass
         self.shared.distribution_ready = True
         return DistributionState.IDLE
 

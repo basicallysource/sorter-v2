@@ -33,14 +33,7 @@ class Coordinator:
         self.event_queue = event_queue
         self.shared = SharedVariables()
         self.sorting_profile = mkSortingProfile(gc)
-
-        gc.set_progress_tracker = None
-        if self.sorting_profile.is_set_based and self.sorting_profile.set_inventories:
-            from set_progress import SetProgressTracker
-            gc.set_progress_tracker = SetProgressTracker(
-                self.sorting_profile.set_inventories,
-                self.sorting_profile.artifact_hash,
-            )
+        self._sync_set_progress_tracker()
 
         self.distribution_layout = irl.distribution_layout
 
@@ -59,6 +52,31 @@ class Coordinator:
             irl, gc, self.shared, vision, event_queue, telemetry, self.carousel
         )
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
+
+    def _sync_set_progress_tracker(self) -> None:
+        existing_tracker = getattr(self.gc, "set_progress_tracker", None)
+        if existing_tracker is not None:
+            existing_tracker.save()
+
+        self.gc.set_progress_tracker = None
+        if self.sorting_profile.is_set_based and self.sorting_profile.set_inventories:
+            from set_progress import SetProgressTracker
+
+            self.gc.set_progress_tracker = SetProgressTracker(
+                self.sorting_profile.set_inventories,
+                self.sorting_profile.artifact_hash,
+            )
+
+        try:
+            from server.set_progress_sync import getSetProgressSyncWorker
+
+            getSetProgressSyncWorker().notify()
+        except Exception:
+            pass
+
+    def reload_sorting_profile(self) -> None:
+        self.sorting_profile.reload()
+        self._sync_set_progress_tracker()
 
     def step(self) -> None:
         prof = self.gc.profiler

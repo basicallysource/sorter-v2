@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     CORS_ORIGIN: str = "http://localhost:5174"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    MIN_REVIEWS_FOR_CONSENSUS: int = 2
+    MIN_REVIEWS_FOR_CONSENSUS: int = 1
     COOKIE_SECURE: bool = False
     APP_BASE_URL: str | None = None
     GITHUB_CLIENT_ID: str | None = None
@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     BL_AFFILIATE_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
+    PROFILE_CATALOG_AUTO_SYNC_ENABLED: bool = True
+    PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES: int = 60
+    PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS: int = 24
+    PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS: int = 24
+    PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     SECRET_ENCRYPTION_KEY: str | None = None

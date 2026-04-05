@@ -783,37 +783,18 @@ def assign_machine_profile(
         raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
 
     profile = _get_profile_or_404(db, payload.profile_id)
-    _require_profile_assignable(profile, current_user, db)
     version = _get_profile_version_or_404(profile, payload.version_id)
+    _require_profile_assignable(profile, current_user, db)
     if profile.owner_id != current_user.id and not version.is_published:
         raise APIError(403, "Only published versions can be assigned from other users", "PROFILE_VERSION_NOT_PUBLISHED")
 
-    assignment = machine.profile_assignment
-    if assignment is None:
-        assignment = MachineProfileAssignment(
-            machine_id=machine.id,
-            profile_id=profile.id,
-            desired_version_id=version.id,
-            assigned_by_id=current_user.id,
-        )
-        db.add(assignment)
-    else:
-        assignment_changed = (
-            assignment.profile_id != profile.id
-            or assignment.desired_version_id != version.id
-        )
-        assignment.profile_id = profile.id
-        assignment.desired_version_id = version.id
-        assignment.assigned_by_id = current_user.id
-        assignment.last_error = None
-        if assignment_changed:
-            assignment.active_version_id = None
-            assignment.artifact_hash = None
-            assignment.last_synced_at = None
-            assignment.last_activated_at = None
-            db.query(MachineSetProgress).filter(
-                MachineSetProgress.assignment_id == assignment.id
-            ).delete(synchronize_session=False)
+    assignment = _upsert_machine_assignment(
+        db,
+        machine=machine,
+        profile=profile,
+        version=version,
+        assigned_by_id=current_user.id,
+    )
 
     db.commit()
     db.refresh(assignment)
@@ -867,6 +848,29 @@ def get_machine_profile_assignment(
     assignment = machine.profile_assignment
     if assignment is None:
         return None
+    return _serialize_machine_assignment(db, assignment, machine.owner, _saved_profile_ids(db, machine.owner_id))
+
+
+@router.put("/machine/profile-assignment", response_model=MachineProfileAssignmentResponse)
+def assign_current_machine_profile(
+    payload: MachineProfileAssignmentUpdateRequest,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+):
+    profile = _get_profile_or_404(db, payload.profile_id)
+    version = _get_profile_version_or_404(profile, payload.version_id)
+    _require_profile_assignable_for_machine(profile, version, machine.owner_id, db)
+
+    assignment = _upsert_machine_assignment(
+        db,
+        machine=machine,
+        profile=profile,
+        version=version,
+        assigned_by_id=machine.owner_id,
+    )
+
+    db.commit()
+    db.refresh(assignment)
     return _serialize_machine_assignment(db, assignment, machine.owner, _saved_profile_ids(db, machine.owner_id))
 
 
@@ -1285,6 +1289,14 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
     summary = _serialize_version_summary(version)
     if summary is None:
         return None
+    raw_categories = (version.compiled_artifact_json or {}).get("categories", {})
+    categories: dict[str, dict[str, Any]] = {}
+    if isinstance(raw_categories, dict):
+        for category_id, category_meta in raw_categories.items():
+            if isinstance(category_meta, dict):
+                categories[str(category_id)] = dict(category_meta)
+            else:
+                categories[str(category_id)] = {}
     payload = summary.model_dump()
     payload.update(
         {
@@ -1294,7 +1306,7 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
             "compiled_stats": version.compiled_stats_json,
-            "categories": (version.compiled_artifact_json or {}).get("categories", {}),
+            "categories": categories,
         }
     )
     return SortingProfileVersionResponse(**payload)
@@ -1375,6 +1387,46 @@ def _serialize_machine_assignment(
         last_synced_at=assignment.last_synced_at,
         last_activated_at=assignment.last_activated_at,
     )
+
+
+def _upsert_machine_assignment(
+    db: Session,
+    *,
+    machine: Machine,
+    profile: SortingProfile,
+    version: SortingProfileVersion,
+    assigned_by_id: UUID,
+) -> MachineProfileAssignment:
+    from app.models.machine_set_progress import MachineSetProgress
+
+    assignment = machine.profile_assignment
+    if assignment is None:
+        assignment = MachineProfileAssignment(
+            machine_id=machine.id,
+            profile_id=profile.id,
+            desired_version_id=version.id,
+            assigned_by_id=assigned_by_id,
+        )
+        db.add(assignment)
+        return assignment
+
+    assignment_changed = (
+        assignment.profile_id != profile.id
+        or assignment.desired_version_id != version.id
+    )
+    assignment.profile_id = profile.id
+    assignment.desired_version_id = version.id
+    assignment.assigned_by_id = assigned_by_id
+    assignment.last_error = None
+    if assignment_changed:
+        assignment.active_version_id = None
+        assignment.artifact_hash = None
+        assignment.last_synced_at = None
+        assignment.last_activated_at = None
+        db.query(MachineSetProgress).filter(
+            MachineSetProgress.assignment_id == assignment.id
+        ).delete(synchronize_session=False)
+    return assignment
 
 
 def _find_rule(rules: list, rule_id: str | None):

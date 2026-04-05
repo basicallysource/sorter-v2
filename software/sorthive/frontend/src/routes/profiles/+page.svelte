@@ -63,8 +63,8 @@
 
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">Sorting Profiles</h1>
-		<p class="mt-1 text-sm text-gray-500">
+		<h1 class="text-2xl font-bold text-[#1A1A1A]">Sorting Profiles</h1>
+		<p class="mt-1 text-sm text-[#7A7770]">
 			Build, share, fork, and assign sorting logic across your machines.
 		</p>
 	</div>
@@ -101,7 +101,7 @@
 								{#if profile.visibility === 'public'}
 									<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#0055BF]"></span>
 								{:else}
-									<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#E2E0DB]"></span>
+									<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#7A7770]"></span>
 								{/if}
 								{profile.name}
 							</h2>
@@ -111,9 +111,9 @@
 						</div>
 						<div class="flex shrink-0 items-center gap-1.5">
 							{#if profile.source}
-								<span class="bg-[#FFFBEB] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#A16207]">Fork</span>
+								<span class="border border-[#FFD500]/30 bg-[#FFFBEB] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#A16207]">Fork</span>
 							{/if}
-							<span class="bg-[#F7F6F3] px-1.5 py-0.5 text-[10px] font-medium text-[#7A7770]">v{profile.latest_version_number}</span>
+							<span class="border border-[#E2E0DB] bg-[#F7F6F3] px-1.5 py-0.5 text-[10px] font-medium text-[#7A7770]">v{profile.latest_version_number}</span>
 						</div>
 					</div>
 				</div>
@@ -155,7 +155,7 @@
 				{/if}
 
 				<!-- Footer -->
-				<div class="mt-auto border-t border-[#E2E0DB] bg-[#FAFAF8] px-4 py-2">
+				<div class="mt-auto border-t border-[#E2E0DB] bg-[#F7F6F3] px-4 py-2">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2 text-[10px] text-[#7A7770]">
 							<span>{profile.latest_version?.compiled_part_count ?? 0} parts</span>
@@ -172,14 +172,14 @@
 							{#if profile.tags.length > 0}
 								<div class="flex gap-1">
 									{#each profile.tags.slice(0, 3) as tag}
-										<span class="bg-[#F7F6F3] px-1.5 py-0.5 text-[10px] text-[#7A7770]">{tag}</span>
+										<span class="border border-[#E2E0DB] bg-[#F7F6F3] px-1.5 py-0.5 text-[10px] text-[#7A7770]">{tag}</span>
 									{/each}
 								</div>
 							{/if}
 							{#if profile.is_owner}
 								<button
 									onclick={(e) => { e.preventDefault(); e.stopPropagation(); deleteTarget = profile; }}
-									class="p-1 text-[#7A7770] opacity-0 transition-opacity hover:text-[#D01012] group-hover:opacity-100"
+									class="p-1 text-[#7A7770] opacity-0 transition-opacity hover:text-[#D01012] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D01012]"
 									title="Delete profile"
 								>
 									<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -218,12 +218,12 @@
 				<button
 					onclick={() => deleteTarget = null}
 					disabled={deleting}
-					class="border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
+					class="border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#7A7770] hover:bg-[#F7F6F3] disabled:opacity-50"
 				>Cancel</button>
 				<button
 					onclick={confirmDelete}
 					disabled={deleting}
-					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
+					class="bg-[#9B1D20] px-4 py-2 text-sm font-medium text-white hover:bg-[#7A1517] disabled:opacity-50"
 				>{deleting ? 'Deleting...' : 'Delete'}</button>
 			</div>
 		</div>

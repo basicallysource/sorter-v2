@@ -51,7 +51,7 @@
 		<nav class="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
 			<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 				<div class="flex items-center gap-6">
-					<a href="/" class="text-lg font-bold tracking-tight text-[var(--color-text)]">SortHive</a>
+					<a href="/" class="text-xl font-bold font-mono uppercase tracking-tight text-[var(--color-text)]">SortHive</a>
 					<div class="flex gap-1">
 						<a
 							href="/"
@@ -146,7 +146,7 @@
 								<div class="border-t border-[var(--color-border)] my-1"></div>
 								<button
 									onclick={handleLogout}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]"
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#FEF2F2]"
 								>
 									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

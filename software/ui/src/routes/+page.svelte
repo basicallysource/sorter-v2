@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import ActiveProfileCard from '$lib/components/ActiveProfileCard.svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
+	import CompactBinGrid from '$lib/components/CompactBinGrid.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
@@ -73,8 +75,9 @@
 	});
 </script>
 
-<div class="min-h-screen bg-bg p-6">
+<div class="min-h-screen bg-bg">
 	<AppHeader />
+	<div class="p-6">
 
 	{#if machine.machine}
 		<div class="flex h-[calc(100vh-7rem)] min-h-0 gap-3">
@@ -146,6 +149,10 @@
 				<div class="min-h-0 flex-1">
 					<RecentObjects />
 				</div>
+				<div class="flex shrink-0 flex-col gap-3">
+					<ActiveProfileCard />
+					<CompactBinGrid />
+				</div>
 				<div class="min-h-0 flex-1 overflow-y-auto">
 					<RuntimeStats />
 				</div>
@@ -156,4 +163,5 @@
 			No machine selected. Connect to a machine in Settings.
 		</div>
 	{/if}
+	</div>
 </div>

@@ -435,6 +435,69 @@ class TestCommunityAndMachineFlows:
         assert activated_assignment["active_version"]["version_number"] == published_version["version_number"]
         assert activated_assignment["artifact_hash"] == artifact["artifact_hash"]
 
+    def test_machine_can_self_assign_profile_with_machine_token(
+        self, client: TestClient, auth_headers: dict[str, str], monkeypatch: object
+    ) -> None:
+        monkeypatch.setattr(
+            profiles_router,
+            "get_profile_catalog_service",
+            lambda: _DummyCatalogService({"77777-1": [("3001", 5, 2)]}),
+        )
+
+        machine_response = client.post(
+            "/api/machines",
+            json={"name": "Self Assigning Sorter", "description": "Uses machine token only"},
+            headers=auth_headers,
+        )
+        assert machine_response.status_code in (200, 201), machine_response.text
+        machine = machine_response.json()
+        machine_headers = {"Authorization": f"Bearer {machine['raw_token']}"}
+
+        profile = _create_profile(client, auth_headers, name="Self Assigned Profile")
+        version = _create_version(
+            client,
+            auth_headers,
+            profile["id"],
+            name="Self Assigned Profile",
+            rules=[_set_rule("set-self", "Set Self", "77777-1")],
+        )
+
+        assign_response = client.put(
+            "/api/machine/profile-assignment",
+            json={"profile_id": profile["id"], "version_id": version["id"]},
+            headers=machine_headers,
+        )
+        assert assign_response.status_code == 200, assign_response.text
+        assignment = assign_response.json()
+        assert assignment["profile"]["id"] == profile["id"]
+        assert assignment["desired_version"]["id"] == version["id"]
+
+        activation_response = client.post(
+            "/api/machine/profile-activation",
+            json={"version_id": version["id"], "artifact_hash": version["compiled_hash"]},
+            headers=machine_headers,
+        )
+        assert activation_response.status_code == 200, activation_response.text
+
+        progress_response = client.post(
+            "/api/machine/set-progress",
+            json={
+                "version_id": version["id"],
+                "artifact_hash": version["compiled_hash"],
+                "items": [
+                    {
+                        "set_num": "77777-1",
+                        "part_num": "3001",
+                        "color_id": 5,
+                        "quantity_needed": 2,
+                        "quantity_found": 1,
+                    }
+                ],
+            },
+            headers=machine_headers,
+        )
+        assert progress_response.status_code == 200, progress_response.text
+
 
 class TestSetProgressHardening:
     def test_reassigning_machine_clears_activation_state_and_stale_progress(

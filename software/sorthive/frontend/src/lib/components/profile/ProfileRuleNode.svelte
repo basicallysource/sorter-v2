@@ -119,7 +119,7 @@
 	}
 </script>
 
-<div class="space-y-3 border border-gray-200 bg-white p-3" style={`margin-left: ${depth * 16}px`}>
+<div class="space-y-3 border border-[#E2E0DB] bg-white p-3" style={`margin-left: ${depth * 16}px`}>
 	<div class="flex flex-wrap items-start justify-between gap-2">
 		<div class="flex min-w-0 flex-1 flex-col gap-2">
 			<div class="flex flex-wrap items-center gap-2">
@@ -128,18 +128,18 @@
 					value={rule.name}
 					oninput={(event) =>
 						onUpdateRule(rule.id, { name: (event.currentTarget as HTMLInputElement).value })}
-					class="min-w-[14rem] flex-1 border border-gray-300 px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+					class="min-w-[14rem] flex-1 border border-[#E2E0DB] px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				/>
 				<select
 					value={rule.match_mode}
 					onchange={(event) =>
 						onUpdateRule(rule.id, { match_mode: (event.currentTarget as HTMLSelectElement).value })}
-					class="border border-gray-300 px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+					class="border border-[#E2E0DB] px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				>
 					<option value="all">All</option>
 					<option value="any">Any</option>
 				</select>
-				<label class="flex items-center gap-2 text-xs text-gray-500">
+				<label class="flex items-center gap-2 text-xs text-[#7A7770]">
 					<input
 						type="checkbox"
 						checked={rule.disabled}
@@ -149,13 +149,13 @@
 					Disabled
 				</label>
 			</div>
-			<div class="text-xs text-gray-500">Rule ID: <span class="font-mono">{rule.id}</span></div>
+			<div class="text-xs text-[#7A7770]">Rule ID: <span class="font-mono">{rule.id}</span></div>
 		</div>
 		<div class="flex flex-wrap gap-2">
 			<button
 				type="button"
 				onclick={() => onSelect(rule.id)}
-				class="border border-gray-300 px-2 py-1 text-xs font-medium {selectedRuleId === rule.id ? 'bg-[#FEF2F2] text-[#D01012]' : 'text-gray-700 hover:bg-gray-50'}"
+				class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium {selectedRuleId === rule.id ? 'bg-[#FEF2F2] text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
 			>
 				{selectedRuleId === rule.id ? 'Selected' : 'Select'}
 			</button>
@@ -163,7 +163,7 @@
 				type="button"
 				onclick={() => onMoveRule(rule.id, -1)}
 				disabled={index === 0}
-				class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
 			>
 				Up
 			</button>
@@ -171,14 +171,14 @@
 				type="button"
 				onclick={() => onMoveRule(rule.id, 1)}
 				disabled={index >= siblingCount - 1}
-				class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+				class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
 			>
 				Down
 			</button>
 			<button
 				type="button"
 				onclick={() => onAddChild(rule.id)}
-				class="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-[#E2E0DB] px-2 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 			>
 				Add Child
 			</button>
@@ -192,19 +192,19 @@
 		</div>
 	</div>
 
-	<div class="space-y-2 bg-gray-50 p-3">
+	<div class="space-y-2 bg-[#F7F6F3] p-3">
 		<div class="flex items-center justify-between">
-			<h4 class="text-sm font-medium text-gray-900">Conditions</h4>
+			<h4 class="text-sm font-medium text-[#1A1A1A]">Conditions</h4>
 			<button
 				type="button"
 				onclick={() => onAddCondition(rule.id)}
-				class="border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-[#E2E0DB] bg-white px-2 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 			>
 				Add Condition
 			</button>
 		</div>
 		{#if rule.conditions.length === 0}
-			<p class="text-xs text-gray-500">No conditions yet. This rule currently matches everything in its scope.</p>
+			<p class="text-xs text-[#7A7770]">No conditions yet. This rule currently matches everything in its scope.</p>
 		{:else}
 			<div class="space-y-2">
 				{#each rule.conditions as condition}
@@ -213,7 +213,7 @@
 							value={condition.field}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { field: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+							class="border border-[#E2E0DB] bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						>
 							{#each fieldOptions as field}
 								<option value={field}>{field}</option>
@@ -223,7 +223,7 @@
 							value={condition.op}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { op: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+							class="border border-[#E2E0DB] bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						>
 							{#each (opOptionsByField[condition.field] ?? ['eq', 'neq', 'in', 'contains', 'regex', 'gte', 'lte']) as op}
 								<option value={op}>{op}</option>
@@ -234,7 +234,7 @@
 							value={formatConditionValue(condition.value)}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { value: parseConditionValue((event.currentTarget as HTMLInputElement).value) })}
-							class="border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+							class="border border-[#E2E0DB] bg-white px-2 py-1.5 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 						/>
 						<button
 							type="button"

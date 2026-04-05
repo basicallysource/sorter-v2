@@ -27,8 +27,8 @@
 </svelte:head>
 
 <div class="mb-6">
-	<h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-	<p class="mt-1 text-sm text-gray-500">Welcome back{auth.user?.display_name ? `, ${auth.user.display_name}` : ''}.</p>
+	<h1 class="text-2xl font-bold text-[#1A1A1A]">Dashboard</h1>
+	<p class="mt-1 text-sm text-[#7A7770]">Welcome back{auth.user?.display_name ? `, ${auth.user.display_name}` : ''}.</p>
 </div>
 
 {#if loading}
@@ -92,5 +92,5 @@
 		</a>
 	</div>
 {:else}
-	<p class="text-gray-500">Failed to load dashboard stats.</p>
+	<p class="text-[#7A7770]">Failed to load dashboard stats.</p>
 {/if}

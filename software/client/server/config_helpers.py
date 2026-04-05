@@ -72,7 +72,14 @@ def toml_value(v: object) -> str:
     if isinstance(v, float):
         return str(v)
     if isinstance(v, str):
-        return f'"{v}"'
+        escaped = (
+            v.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        )
+        return f'"{escaped}"'
     if isinstance(v, list):
         return "[" + ", ".join(toml_value(item) for item in v) + "]"
     return str(v)

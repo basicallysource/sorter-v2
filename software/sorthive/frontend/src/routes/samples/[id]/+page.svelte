@@ -277,22 +277,22 @@
 {#if loading}
 	<Spinner />
 {:else if !sample}
-	<p class="text-gray-500">Sample not found.</p>
+	<p class="text-[#7A7770]">Sample not found.</p>
 {:else}
 	<!-- Header bar -->
 	<div class="mb-5 flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<a href="/samples" class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+			<a href="/samples" class="flex items-center gap-1 text-sm text-[#7A7770] hover:text-[#1A1A1A] transition-colors">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 				Samples
 			</a>
-			<span class="text-gray-300">/</span>
-			<span class="text-sm font-medium text-gray-900" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
+			<span class="text-[#E2E0DB]">/</span>
+			<span class="text-sm font-medium text-[#1A1A1A]" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 		</div>
 		<div class="flex items-center gap-2">
 			<Badge text={statusLabel[sample.review_status] ?? sample.review_status} variant={statusVariant[sample.review_status] ?? 'neutral'} />
 			{#if sample.review_count > 0}
-				<span class="text-xs text-gray-400">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
+				<span class="text-xs text-[#7A7770]">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
 		</div>
 	</div>
@@ -301,17 +301,17 @@
 		<!-- Left: Image area -->
 		<div class="min-w-0 space-y-3">
 			<!-- View toggle toolbar (above image) -->
-			<div class="flex items-center gap-1 bg-gray-50 p-1">
+			<div class="flex items-center gap-1 bg-[#F7F6F3] p-1">
 				<button
 					onclick={() => setView('image')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
 				>
 					Image
 				</button>
 				{#if sample.has_full_frame}
 					<button
 						onclick={() => setView('full_frame')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
 					>
 						Full Frame
 					</button>
@@ -319,22 +319,22 @@
 				{#if sample.has_overlay}
 					<button
 						onclick={() => setView('overlay')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
 					>
 						Overlay
 					</button>
 				{/if}
 				<button
 					onclick={() => setView('annotate')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-gray-900' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
 				>
 					Annotate
 				</button>
 
 				{#if activeView === 'image' && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-gray-300 text-[#D01012]" />
+						<label class="flex items-center gap-1.5 text-xs text-[#7A7770] cursor-pointer select-none">
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-[#E2E0DB] text-[#D01012]" />
 							Boxes
 						</label>
 					</div>
@@ -343,7 +343,7 @@
 
 			<!-- Image viewer -->
 			{#if activeView !== 'annotate'}
-				<div class="overflow-hidden border border-gray-200 bg-gray-950">
+				<div class="overflow-hidden border border-[#E2E0DB] bg-gray-950">
 					<div class="relative">
 						{#if activeView === 'image'}
 							<img
@@ -416,7 +416,7 @@
 
 			<!-- Inline detection message (below image, only when relevant) -->
 			{#if detectionMessage && activeView !== 'annotate'}
-				<div class="bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
+				<div class="bg-[#F7F6F3] border border-[#E2E0DB] px-3 py-2 text-xs text-[#7A7770]">
 					{detectionMessage}
 				</div>
 			{/if}
@@ -426,9 +426,9 @@
 		<div class="space-y-3">
 			<!-- Annotator controls (only in annotate mode) -->
 			{#if activeView === 'annotate'}
-				<div class="border border-gray-200 bg-white">
-					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Annotator</h2>
+				<div class="border border-[#E2E0DB] bg-white">
+					<div class="flex items-center justify-between border-b border-[#E2E0DB] px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Annotator</h2>
 						<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
 							{#if annotatorApi.isDirty}Unsaved{:else if annotatorApi.hasSavedBaseline}Saved{:else}Not saved{/if}
 						</span>
@@ -436,18 +436,18 @@
 					<div class="space-y-3 p-3">
 						<!-- Actions -->
 						<div class="grid grid-cols-4 gap-1.5">
-							<button onclick={annotatorApi.undo} class="flex flex-col items-center gap-1 border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Undo">
+							<button onclick={annotatorApi.undo} class="flex flex-col items-center gap-1 border border-[#E2E0DB] px-1 py-2 text-[#7A7770] transition-colors hover:bg-[#F7F6F3]" title="Undo">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a4 4 0 014 4v0a4 4 0 01-4 4H3m0-8l4-4m-4 4l4 4" /></svg>
 								<span class="text-[10px]">Undo</span>
 							</button>
-							<button onclick={annotatorApi.redo} class="flex flex-col items-center gap-1 border border-gray-200 px-1 py-2 text-gray-500 transition-colors hover:bg-gray-50" title="Redo">
+							<button onclick={annotatorApi.redo} class="flex flex-col items-center gap-1 border border-[#E2E0DB] px-1 py-2 text-[#7A7770] transition-colors hover:bg-[#F7F6F3]" title="Redo">
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a4 4 0 00-4 4v0a4 4 0 004 4h10m0-8l-4-4m4 4l-4 4" /></svg>
 								<span class="text-[10px]">Redo</span>
 							</button>
 							<button
 								onclick={annotatorApi.deleteSelected}
 								disabled={annotatorApi.selectedCount === 0}
-								class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-[#E2E0DB] {annotatorApi.selectedCount === 0 ? '' : 'border-[#D01012]/20 text-[#D01012] hover:bg-[#FEF2F2]'}"
+								class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#E2E0DB] {annotatorApi.selectedCount === 0 ? '' : 'border-[#D01012]/20 text-[#D01012] hover:bg-[#FEF2F2]'}"
 								title="Delete selected"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -461,12 +461,12 @@
 
 						<!-- Revert / Sorter Boxes -->
 						<div class="flex gap-1.5">
-							<button onclick={annotatorApi.revert} class="flex flex-1 items-center justify-center gap-1.5 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Discard changes and restore last saved state">
+							<button onclick={annotatorApi.revert} class="flex flex-1 items-center justify-center gap-1.5 border border-[#E2E0DB] px-2 py-1.5 text-[11px] text-[#7A7770] transition-colors hover:bg-[#F7F6F3]" title="Discard changes and restore last saved state">
 								<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								Cancel
 							</button>
 							{#if annotatorApi.hasSeedBoxes}
-								<button onclick={annotatorApi.loadSorterBoxes} class="flex flex-1 items-center justify-center gap-1.5 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-50" title="Reset to original machine detections">
+								<button onclick={annotatorApi.loadSorterBoxes} class="flex flex-1 items-center justify-center gap-1.5 border border-[#E2E0DB] px-2 py-1.5 text-[11px] text-[#7A7770] transition-colors hover:bg-[#F7F6F3]" title="Reset to original machine detections">
 									<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" /></svg>
 									Reset
 								</button>
@@ -475,17 +475,17 @@
 
 						<!-- Stats -->
 						<div class="grid grid-cols-3 gap-1 text-center">
-							<div class="bg-gray-50 px-1 py-1.5">
-								<div class="text-sm font-semibold text-gray-900">{annotatorApi.totalAnnotations}</div>
-								<div class="text-[10px] text-gray-400">Total</div>
+							<div class="bg-[#F7F6F3] px-1 py-1.5">
+								<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.totalAnnotations}</div>
+								<div class="text-[10px] text-[#7A7770]">Total</div>
 							</div>
-							<div class="bg-gray-50 px-1 py-1.5">
-								<div class="text-sm font-semibold text-gray-900">{annotatorApi.seededCount}</div>
-								<div class="text-[10px] text-gray-400">Seeded</div>
+							<div class="bg-[#F7F6F3] px-1 py-1.5">
+								<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.seededCount}</div>
+								<div class="text-[10px] text-[#7A7770]">Seeded</div>
 							</div>
-							<div class="bg-gray-50 px-1 py-1.5">
-								<div class="text-sm font-semibold text-gray-900">{annotatorApi.manualCount}</div>
-								<div class="text-[10px] text-gray-400">Manual</div>
+							<div class="bg-[#F7F6F3] px-1 py-1.5">
+								<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.manualCount}</div>
+								<div class="text-[10px] text-[#7A7770]">Manual</div>
 							</div>
 						</div>
 
@@ -511,9 +511,9 @@
 
 			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
-				<div class="border border-gray-200 bg-white">
-					<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Detection</h2>
+				<div class="border border-[#E2E0DB] bg-white">
+					<div class="flex items-center justify-between border-b border-[#E2E0DB] px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Detection</h2>
 						{#if detectionFound !== undefined}
 							{#if detectionFound}
 								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#00852B]">
@@ -532,31 +532,31 @@
 						<div class="flex flex-wrap gap-x-4 gap-y-2 text-xs">
 							{#if sample.detection_algorithm}
 								<div>
-									<div class="text-gray-400 mb-0.5">Algorithm</div>
-									<div class="font-medium text-gray-900">{sample.detection_algorithm}</div>
+									<div class="text-[#7A7770] mb-0.5">Algorithm</div>
+									<div class="font-medium text-[#1A1A1A]">{sample.detection_algorithm}</div>
 								</div>
 							{/if}
 							{#if sample.detection_count != null}
 								<div>
-									<div class="text-gray-400 mb-0.5">Count</div>
-									<div class="font-medium text-gray-900">{sample.detection_count}</div>
+									<div class="text-[#7A7770] mb-0.5">Count</div>
+									<div class="font-medium text-[#1A1A1A]">{sample.detection_count}</div>
 								</div>
 							{/if}
 							{#if sample.detection_score != null}
 								<div>
-									<div class="text-gray-400 mb-0.5">Score</div>
-									<div class="font-medium text-gray-900">{sample.detection_score.toFixed(2)}</div>
+									<div class="text-[#7A7770] mb-0.5">Score</div>
+									<div class="font-medium text-[#1A1A1A]">{sample.detection_score.toFixed(2)}</div>
 								</div>
 							{/if}
 							{#if proposalBoxes.length > 0}
 								<div>
-									<div class="text-gray-400 mb-0.5">Proposals</div>
-									<div class="font-medium text-gray-900">{proposalBoxes.length}</div>
+									<div class="text-[#7A7770] mb-0.5">Proposals</div>
+									<div class="font-medium text-[#1A1A1A]">{proposalBoxes.length}</div>
 								</div>
 							{/if}
 						</div>
 						{#if detectionOpenrouterModel}
-							<div class="mt-2 text-[11px] text-gray-400 font-mono truncate" title={detectionOpenrouterModel}>{detectionOpenrouterModel}</div>
+							<div class="mt-2 text-[11px] text-[#7A7770] font-mono truncate" title={detectionOpenrouterModel}>{detectionOpenrouterModel}</div>
 						{/if}
 					</div>
 				</div>
@@ -571,49 +571,49 @@
 			/>
 
 			<!-- Sample details card -->
-			<div class="border border-gray-200 bg-white">
-				<div class="border-b border-gray-100 px-4 py-2.5">
-					<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Details</h2>
+			<div class="border border-[#E2E0DB] bg-white">
+				<div class="border-b border-[#E2E0DB] px-4 py-2.5">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Details</h2>
 				</div>
-				<div class="divide-y divide-gray-50">
+				<div class="divide-y divide-[#E2E0DB]">
 					{#if sample.source_role}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Source</span>
-							<span class="text-xs font-medium text-gray-900">{sample.source_role}</span>
+							<span class="text-xs text-[#7A7770]">Source</span>
+							<span class="text-xs font-medium text-[#1A1A1A]">{sample.source_role}</span>
 						</div>
 					{/if}
 					{#if sample.capture_reason}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Reason</span>
-							<span class="text-xs font-medium text-gray-900">{sample.capture_reason}</span>
+							<span class="text-xs text-[#7A7770]">Reason</span>
+							<span class="text-xs font-medium text-[#1A1A1A]">{sample.capture_reason}</span>
 						</div>
 					{/if}
 					{#if camera}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Camera</span>
-							<span class="text-xs font-medium text-gray-900">{camera}</span>
+							<span class="text-xs text-[#7A7770]">Camera</span>
+							<span class="text-xs font-medium text-[#1A1A1A]">{camera}</span>
 						</div>
 					{/if}
 					{#if detectionScope}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Scope</span>
-							<span class="text-xs font-medium text-gray-900">{detectionScope}</span>
+							<span class="text-xs text-[#7A7770]">Scope</span>
+							<span class="text-xs font-medium text-[#1A1A1A]">{detectionScope}</span>
 						</div>
 					{/if}
 					{#if sample.captured_at}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Captured</span>
-							<span class="text-xs text-gray-900">{formatDate(sample.captured_at)}</span>
+							<span class="text-xs text-[#7A7770]">Captured</span>
+							<span class="text-xs text-[#1A1A1A]">{formatDate(sample.captured_at)}</span>
 						</div>
 					{/if}
 					<div class="flex items-center justify-between px-4 py-2">
-						<span class="text-xs text-gray-500">Uploaded</span>
-						<span class="text-xs text-gray-900">{formatDate(sample.uploaded_at)}</span>
+						<span class="text-xs text-[#7A7770]">Uploaded</span>
+						<span class="text-xs text-[#1A1A1A]">{formatDate(sample.uploaded_at)}</span>
 					</div>
 					{#if sample.image_width && sample.image_height}
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Size</span>
-							<span class="text-xs text-gray-900">{sample.image_width}&times;{sample.image_height}</span>
+							<span class="text-xs text-[#7A7770]">Size</span>
+							<span class="text-xs text-[#1A1A1A]">{sample.image_width}&times;{sample.image_height}</span>
 						</div>
 					{/if}
 				</div>
@@ -621,25 +621,25 @@
 
 			<!-- IDs card (collapsed look) -->
 			{#if pieceUuid || runId}
-				<div class="border border-gray-200 bg-white">
-					<div class="border-b border-gray-100 px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">IDs</h2>
+				<div class="border border-[#E2E0DB] bg-white">
+					<div class="border-b border-[#E2E0DB] px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">IDs</h2>
 					</div>
-					<div class="divide-y divide-gray-50">
+					<div class="divide-y divide-[#E2E0DB]">
 						<div class="flex items-center justify-between px-4 py-2">
-							<span class="text-xs text-gray-500">Sample</span>
-							<span class="text-[11px] font-mono text-gray-600 truncate ml-3 max-w-[200px]" title={sample.local_sample_id}>{sample.local_sample_id}</span>
+							<span class="text-xs text-[#7A7770]">Sample</span>
+							<span class="text-[11px] font-mono text-[#7A7770] truncate ml-3 max-w-[200px]" title={sample.local_sample_id}>{sample.local_sample_id}</span>
 						</div>
 						{#if pieceUuid}
 							<div class="flex items-center justify-between px-4 py-2">
-								<span class="text-xs text-gray-500">Piece</span>
-								<span class="text-[11px] font-mono text-gray-600 truncate ml-3 max-w-[200px]" title={pieceUuid}>{shortId(pieceUuid)}</span>
+								<span class="text-xs text-[#7A7770]">Piece</span>
+								<span class="text-[11px] font-mono text-[#7A7770] truncate ml-3 max-w-[200px]" title={pieceUuid}>{shortId(pieceUuid)}</span>
 							</div>
 						{/if}
 						{#if runId}
 							<div class="flex items-center justify-between px-4 py-2">
-								<span class="text-xs text-gray-500">Run</span>
-								<span class="text-[11px] font-mono text-gray-600 truncate ml-3 max-w-[200px]" title={runId}>{shortId(runId)}</span>
+								<span class="text-xs text-[#7A7770]">Run</span>
+								<span class="text-[11px] font-mono text-[#7A7770] truncate ml-3 max-w-[200px]" title={runId}>{shortId(runId)}</span>
 							</div>
 						{/if}
 					</div>
@@ -648,22 +648,22 @@
 
 			<!-- Extra Metadata -->
 			{#if extraKeys.length > 0}
-				<div class="border border-gray-200 bg-white">
+				<div class="border border-[#E2E0DB] bg-white">
 					<button
 						onclick={() => { showExpandedMeta = !showExpandedMeta; }}
 						class="flex w-full items-center justify-between px-4 py-2.5"
 					>
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Metadata ({extraKeys.length})</h2>
-						<svg class="h-3.5 w-3.5 text-gray-400 transition-transform {showExpandedMeta ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Metadata ({extraKeys.length})</h2>
+						<svg class="h-3.5 w-3.5 text-[#7A7770] transition-transform {showExpandedMeta ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 						</svg>
 					</button>
 					{#if showExpandedMeta}
-						<div class="border-t border-gray-100 divide-y divide-gray-50">
+						<div class="border-t border-[#E2E0DB] divide-y divide-[#E2E0DB]">
 							{#each extraKeys as key}
 								<div class="flex items-start justify-between gap-3 px-4 py-2">
-									<span class="text-[11px] font-mono text-gray-400 shrink-0">{key}</span>
-									<span class="text-[11px] text-gray-700 text-right break-all">{formatValue(extra[key])}</span>
+									<span class="text-[11px] font-mono text-[#7A7770] shrink-0">{key}</span>
+									<span class="text-[11px] text-[#1A1A1A] text-right break-all">{formatValue(extra[key])}</span>
 								</div>
 							{/each}
 						</div>
@@ -672,16 +672,16 @@
 			{/if}
 
 			<!-- Review History -->
-			<div class="border border-gray-200 bg-white">
-				<div class="border-b border-gray-100 px-4 py-2.5">
-					<h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Reviews</h2>
+			<div class="border border-[#E2E0DB] bg-white">
+				<div class="border-b border-[#E2E0DB] px-4 py-2.5">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Reviews</h2>
 				</div>
 				{#if reviews.length === 0}
 					<div class="px-4 py-4 text-center">
-						<p class="text-xs text-gray-400">No reviews yet</p>
+						<p class="text-xs text-[#7A7770]">No reviews yet</p>
 					</div>
 				{:else}
-					<div class="divide-y divide-gray-50">
+					<div class="divide-y divide-[#E2E0DB]">
 						{#each reviews as review (review.id)}
 							<div class="px-4 py-2.5">
 								<div class="flex items-center justify-between">
@@ -689,12 +689,12 @@
 										<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-[#F0F9F5] text-[#00852B]' : 'bg-[#FEF2F2] text-[#D01012]'}">
 											{review.decision === 'accept' ? '✓' : '✗'}
 										</div>
-										<span class="text-xs font-medium text-gray-900">{review.reviewer_display_name ?? 'Unknown'}</span>
+										<span class="text-xs font-medium text-[#1A1A1A]">{review.reviewer_display_name ?? 'Unknown'}</span>
 									</div>
-									<span class="text-[11px] text-gray-400">{formatDate(review.created_at)}</span>
+									<span class="text-[11px] text-[#7A7770]">{formatDate(review.created_at)}</span>
 								</div>
 								{#if review.notes}
-									<p class="mt-1 ml-7 text-xs text-gray-500">{review.notes}</p>
+									<p class="mt-1 ml-7 text-xs text-[#7A7770]">{review.notes}</p>
 								{/if}
 							</div>
 						{/each}
@@ -707,7 +707,7 @@
 				<div class="pt-1">
 					<button
 						onclick={() => { showDeleteModal = true; }}
-						class="w-full px-3 py-2 text-xs text-gray-400 hover:text-[#D01012] hover:bg-[#FEF2F2] transition-colors"
+						class="w-full px-3 py-2 text-xs text-[#7A7770] hover:text-[#D01012] hover:bg-[#FEF2F2] transition-colors"
 					>
 						Delete sample
 					</button>
@@ -718,11 +718,11 @@
 
 	<Modal open={showDeleteModal} title="Delete Sample" onclose={() => { showDeleteModal = false; }}>
 		<div class="space-y-4">
-			<p class="text-sm text-gray-600">Are you sure you want to delete this sample? This action cannot be undone.</p>
+			<p class="text-sm text-[#7A7770]">Are you sure you want to delete this sample? This action cannot be undone.</p>
 			<div class="flex gap-2 justify-end">
 				<button
 					onclick={() => { showDeleteModal = false; }}
-					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 				>
 					Cancel
 				</button>

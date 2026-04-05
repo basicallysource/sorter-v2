@@ -95,15 +95,15 @@
 </svelte:head>
 
 <div class="mx-auto max-w-lg py-12">
-	<a href="/profiles" class="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+	<a href="/profiles" class="mb-6 inline-flex items-center gap-1 text-sm text-[#7A7770] hover:text-[#1A1A1A]">
 		<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 			<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
 		</svg>
 		Profiles
 	</a>
 
-	<h1 class="mb-2 text-2xl font-bold text-gray-900">Create a Sorting Profile</h1>
-	<p class="mb-8 text-sm text-gray-500">
+	<h1 class="mb-2 text-2xl font-bold text-[#1A1A1A]">Create a Sorting Profile</h1>
+	<p class="mb-8 text-sm text-[#7A7770]">
 		Choose your profile type and configure it.
 	</p>
 
@@ -114,13 +114,13 @@
 	<form onsubmit={handleCreate} class="space-y-5">
 		<!-- Profile Type Toggle -->
 		<div>
-			<div class="mb-2 text-sm font-medium text-gray-700">Profile Type</div>
+			<div class="mb-2 text-sm font-medium text-[#1A1A1A]">Profile Type</div>
 			<div class="flex gap-2">
 				<button
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'rule'
 						? 'border-[#D01012] bg-[#FEF2F2] text-[#D01012]'
-						: 'border-gray-300 text-gray-600 hover:bg-gray-50'}"
+						: 'border-[#E2E0DB] text-[#7A7770] hover:bg-[#F7F6F3]'}"
 					onclick={() => (profileType = 'rule')}
 				>
 					<div class="font-medium">Rule-based</div>
@@ -130,7 +130,7 @@
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'set'
 						? 'border-[#D01012] bg-[#FEF2F2] text-[#D01012]'
-						: 'border-gray-300 text-gray-600 hover:bg-gray-50'}"
+						: 'border-[#E2E0DB] text-[#7A7770] hover:bg-[#F7F6F3]'}"
 					onclick={() => (profileType = 'set')}
 				>
 					<div class="font-medium">Set-based</div>
@@ -140,7 +140,7 @@
 		</div>
 
 		<div>
-			<label for="profile-name" class="mb-1 block text-sm font-medium text-gray-700">
+			<label for="profile-name" class="mb-1 block text-sm font-medium text-[#1A1A1A]">
 				Profile Name
 			</label>
 			<input
@@ -149,7 +149,7 @@
 				bind:value={name}
 				required
 				placeholder={profileType === 'set' ? 'e.g. UCS Collection Sort' : 'e.g. My Technic Sorter'}
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 			/>
 		</div>
 
@@ -163,7 +163,7 @@
 			{/if}
 		{:else}
 			<div>
-				<div class="mb-1 text-sm font-medium text-gray-700">
+				<div class="mb-1 text-sm font-medium text-[#1A1A1A]">
 					Add LEGO Sets
 				</div>
 				<SetSearch onSelect={addSet} />
@@ -171,20 +171,20 @@
 
 			{#if selectedSets.length > 0}
 				<div>
-					<div class="mb-1 text-sm font-medium text-gray-700">
+					<div class="mb-1 text-sm font-medium text-[#1A1A1A]">
 						Selected Sets ({selectedSets.length})
 					</div>
 					<div class="space-y-1">
 						{#each selectedSets as set}
-							<div class="flex items-center gap-3 border border-gray-200 bg-gray-50 px-3 py-2">
+							<div class="flex items-center gap-3 border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2">
 								{#if set.img_url}
 									<img src={set.img_url} alt="" class="h-8 w-8 object-contain" />
 								{:else}
-									<div class="flex h-8 w-8 items-center justify-center bg-gray-100 text-xs text-gray-400">?</div>
+									<div class="flex h-8 w-8 items-center justify-center bg-[#F7F6F3] text-xs text-[#7A7770]">?</div>
 								{/if}
 								<div class="min-w-0 flex-1 text-sm">
 									<div class="truncate font-medium">{set.name}</div>
-									<div class="text-xs text-gray-500">{set.set_num} &middot; {set.num_parts} parts</div>
+									<div class="text-xs text-[#7A7770]">{set.set_num} &middot; {set.num_parts} parts</div>
 								</div>
 								<button
 									type="button"
@@ -206,7 +206,7 @@
 					bind:checked={includeSpares}
 					class="h-4 w-4"
 				/>
-				<label for="include-spares" class="text-sm text-gray-600">Include spare parts</label>
+				<label for="include-spares" class="text-sm text-[#7A7770]">Include spare parts</label>
 			</div>
 		{/if}
 

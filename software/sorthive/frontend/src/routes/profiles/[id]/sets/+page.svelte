@@ -8,6 +8,6 @@
 	});
 </script>
 
-<div class="mx-auto max-w-lg py-12 text-center text-sm text-gray-500">
+<div class="mx-auto max-w-lg py-12 text-center text-sm text-[#7A7770]">
 	Redirecting to the profile editor...
 </div>

@@ -360,8 +360,8 @@ async function loadAssignmentProfile(profileId: string) {
 
 <div class="mb-6 flex items-center justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">Machines</h1>
-		<p class="mt-1 text-sm text-gray-500">
+		<h1 class="text-2xl font-bold text-[#1A1A1A]">Machines</h1>
+		<p class="mt-1 text-sm text-[#7A7770]">
 			Manage machine tokens and decide which sorting profile version each machine should pull.
 		</p>
 	</div>
@@ -380,7 +380,7 @@ async function loadAssignmentProfile(profileId: string) {
 {#if loading}
 	<Spinner />
 {:else if machines.length === 0}
-	<p class="text-gray-500">No machines yet. Add one to get started.</p>
+	<p class="text-[#7A7770]">No machines yet. Add one to get started.</p>
 {:else}
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 		{#each machines as machine (machine.id)}
@@ -434,11 +434,11 @@ async function loadAssignmentProfile(profileId: string) {
 								</button>
 								<div class="my-1 border-b border-[#E2E0DB]"></div>
 								<button onclick={() => { openPurge(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#A16207] hover:bg-[#FFFBEB]">
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#D01012]/8">
 									Purge Data
 								</button>
 								<button onclick={() => { openDelete(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#9B1D20] hover:bg-[#FEF2F2]">
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#FEF2F2]">
 									Delete Machine
 								</button>
 							</div>
@@ -516,22 +516,22 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showAddModal} title="Add Machine" onclose={() => { showAddModal = false; }}>
 	<form onsubmit={handleAdd} class="space-y-4">
 		<div>
-			<label for="machineName" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
+			<label for="machineName" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Name</label>
 			<input
 				id="machineName"
 				type="text"
 				bind:value={newName}
 				required
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<div>
-			<label for="machineDesc" class="mb-1 block text-sm font-medium text-gray-700">Description (optional)</label>
+			<label for="machineDesc" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Description (optional)</label>
 			<input
 				id="machineDesc"
 				type="text"
 				bind:value={newDescription}
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<button
@@ -550,10 +550,10 @@ async function loadAssignmentProfile(profileId: string) {
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">
-			<code class="flex-1 overflow-x-auto bg-gray-100 p-2 text-xs break-all">{tokenDisplay}</code>
+			<code class="flex-1 overflow-x-auto bg-[#F7F6F3] p-2 text-xs break-all">{tokenDisplay}</code>
 			<button
 				onclick={copyToken}
-				class="shrink-0 border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+				class="shrink-0 border border-[#E2E0DB] px-3 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 			>
 				{tokenCopied ? 'Copied!' : 'Copy'}
 			</button>
@@ -564,13 +564,13 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showEditModal} title="Edit Machine" onclose={() => { showEditModal = false; }}>
 	<form onsubmit={handleEdit} class="space-y-4">
 		<div>
-			<label for="editName" class="mb-1 block text-sm font-medium text-gray-700">Name</label>
+			<label for="editName" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Name</label>
 			<input
 				id="editName"
 				type="text"
 				bind:value={editName}
 				required
-				class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
 			/>
 		</div>
 		<button
@@ -584,13 +584,13 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showDeleteModal} title="Delete Machine" onclose={() => { showDeleteModal = false; }}>
 	<div class="space-y-4">
-		<p class="text-sm text-gray-600">
+		<p class="text-sm text-[#7A7770]">
 			Are you sure you want to delete <strong>{deleteMachine?.name}</strong>? This also removes upload sessions, samples, and reviews associated with this machine.
 		</p>
 		<div class="flex justify-end gap-2">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+				class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 			>
 				Cancel
 			</button>
@@ -611,26 +611,26 @@ async function loadAssignmentProfile(profileId: string) {
 			<div class="flex justify-end">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 				>
 					Close
 				</button>
 			</div>
 		{:else}
-			<p class="text-sm text-gray-600">
+			<p class="text-sm text-[#7A7770]">
 				This deletes <strong>all upload sessions, samples, reviews, and files</strong> for <strong>{purgeMachine?.name}</strong>. The machine itself remains registered.
 			</p>
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handlePurge}
 					disabled={purging}
-					class="bg-[#A16207] px-4 py-2 text-sm font-medium text-white hover:bg-[#854D0E] disabled:opacity-50"
+					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
 				>
 					{purging ? 'Purging...' : 'Purge All Data'}
 				</button>
@@ -648,25 +648,25 @@ async function loadAssignmentProfile(profileId: string) {
 		{#if assignmentLoading}
 			<Spinner />
 		{:else if accessibleProfiles.length === 0}
-			<p class="text-sm text-gray-600">
+			<p class="text-sm text-[#7A7770]">
 				No profiles are available yet. Create one or save a public profile to your library first.
 			</p>
 			<div class="flex justify-end">
 				<a
 					href="/profiles?scope=mine"
-					class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
 				>
 					Open Profiles
 				</a>
 			</div>
 		{:else}
 			<div>
-				<label for="assignment-profile" class="mb-1 block text-sm font-medium text-gray-700">Profile</label>
+				<label for="assignment-profile" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Profile</label>
 				<select
 					id="assignment-profile"
 					bind:value={assignmentProfileId}
 					onchange={(event) => void handleAssignmentProfileChange((event.currentTarget as HTMLSelectElement).value)}
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+					class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
 				>
 					<option value="">Select a profile</option>
 					{#each accessibleProfiles as profile}
@@ -679,12 +679,12 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 
 			<div>
-				<label for="assignment-version" class="mb-1 block text-sm font-medium text-gray-700">Version</label>
+				<label for="assignment-version" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Version</label>
 				<select
 					id="assignment-version"
 					bind:value={assignmentVersionId}
 					disabled={!assignmentProfileDetail}
-					class="w-full border border-gray-300 px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] disabled:bg-gray-50"
+					class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] disabled:bg-[#F7F6F3]"
 				>
 					<option value="">Select a version</option>
 					{#each visibleVersions(assignmentProfileDetail) as version}
@@ -698,12 +698,12 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 
 			{#if assignmentProfileDetail}
-				<div class="bg-gray-50 p-3 text-sm text-gray-600">
-					<div class="font-medium text-gray-900">{assignmentProfileDetail.name}</div>
+				<div class="bg-[#F7F6F3] p-3 text-sm text-[#7A7770]">
+					<div class="font-medium text-[#1A1A1A]">{assignmentProfileDetail.name}</div>
 					{#if assignmentProfileDetail.description}
 						<p class="mt-1">{assignmentProfileDetail.description}</p>
 					{/if}
-					<div class="mt-2 text-xs text-gray-500">
+					<div class="mt-2 text-xs text-[#7A7770]">
 						{assignmentProfileDetail.latest_version?.compiled_part_count ?? 0} mapped parts in the newest visible version
 					</div>
 				</div>
@@ -714,7 +714,7 @@ async function loadAssignmentProfile(profileId: string) {
 					<button
 						onclick={() => { if (assignmentMachine) void handleClearAssignment(assignmentMachine); }}
 						disabled={assignmentClearing}
-						class="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+						class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
 					>
 						{assignmentClearing ? 'Clearing...' : 'Clear'}
 					</button>

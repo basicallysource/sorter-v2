@@ -1,0 +1,52 @@
+name: Documentation Check
+
+on:
+  push:
+    paths:
+      - "Documentation/**"
+      - ".github/workflows/documentation-check.yml"
+      - ".github/workflows/documentation-pages.yml"
+      - "README.md"
+      - "software/README.md"
+      - "software/client/DETECTOR_RUNTIME_STATUS.md"
+      - "software/client/MODEL_ARTIFACTS.md"
+      - "software/client/DEVICE_BENCHMARKING.md"
+      - "software/client/HAILO_HEF_WORKFLOW.md"
+  pull_request:
+    paths:
+      - "Documentation/**"
+      - ".github/workflows/documentation-check.yml"
+      - ".github/workflows/documentation-pages.yml"
+      - "README.md"
+      - "software/README.md"
+      - "software/client/DETECTOR_RUNTIME_STATUS.md"
+      - "software/client/MODEL_ARTIFACTS.md"
+      - "software/client/DEVICE_BENCHMARKING.md"
+      - "software/client/HAILO_HEF_WORKFLOW.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./Documentation
+          destination: ./_site
+
+      - name: Upload built site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-site
+          path: ./_site
+          retention-days: 14

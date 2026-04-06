@@ -35,6 +35,7 @@
 		input?: Record<string, unknown>;
 		output_summary?: string;
 		output?: Record<string, unknown> | null;
+		duration_ms?: number;
 	};
 
 	type ToolResultListItem = {
@@ -62,6 +63,7 @@
 		detail: string | null;
 		tool?: string;
 		output?: Record<string, unknown> | null;
+		durationMs?: number | null;
 	};
 
 	// --- State ---
@@ -151,11 +153,18 @@
 
 	const aiProgressCards = $derived.by(() => buildAiProgressCards(aiProgress));
 	const visibleAiProgressCards = $derived.by(() => {
-		const completedTools = aiProgressCards
-			.filter((card) => card.kind === 'tool' && card.status === 'complete')
-			.slice(-3);
+		const completedTools = aiProgressCards.filter(
+			(card) => card.kind === 'tool' && card.status === 'complete'
+		);
 		const activeCard = [...aiProgressCards].reverse().find((card) => card.status === 'active');
-		return activeCard ? [...completedTools, activeCard] : completedTools;
+		const stableCompletedTools =
+			completedTools.length <= 5
+				? completedTools
+				: [
+					...completedTools.slice(0, 2),
+					...completedTools.slice(-3)
+				].filter((card, index, all) => all.findIndex((entry) => entry.id === card.id) === index);
+		return activeCard ? [...stableCompletedTools, activeCard] : stableCompletedTools;
 	});
 
 	// --- Field / Op config ---
@@ -1072,6 +1081,10 @@
 		const query = typeof input?.query === 'string' && input.query.trim() ? input.query.trim() : 'your query';
 		if (tool === 'search_sets') return `LEGO sets matching "${query}"${searchScopeSuffix(input)}`;
 		if (tool === 'search_parts') return `LEGO parts matching "${query}"`;
+		if (tool === 'get_set_inventory') {
+			const setNum = typeof input?.set_num === 'string' && input.set_num.trim() ? input.set_num.trim() : 'that set';
+			return `pieces in LEGO set "${setNum}"`;
+		}
 		return 'catalog data';
 	}
 
@@ -1094,12 +1107,56 @@
 		if (tool === 'search_parts') {
 			return 'I am checking the parts catalog for matching pieces.';
 		}
+		if (tool === 'get_set_inventory') {
+			return 'I am looking through the set inventory and piece list.';
+		}
 		return 'I am gathering the information I need.';
 	}
 
-		function toolTraceTitle(item: AiToolTraceItem): string {
-			return toolStageTitle(item.tool, item.input, 'complete');
-		}
+	function toolTraceTitle(item: AiToolTraceItem): string {
+		return toolStageTitle(item.tool, item.input, 'complete');
+	}
+
+	function formatDuration(ms: number | null | undefined): string | null {
+		if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return null;
+		if (ms >= 60000) return `${(ms / 60000).toFixed(1)} min`;
+		if (ms >= 10000) return `${Math.round(ms / 1000)} s`;
+		if (ms >= 1000) return `${(ms / 1000).toFixed(1)} s`;
+		return `${Math.round(ms)} ms`;
+	}
+
+	function aiMessagePerformance(message: SortingProfileAiMessage): {
+		totalMs: number | null;
+		llmMs: number | null;
+		toolMs: number | null;
+		roundCount: number | null;
+		toolCallCount: number | null;
+	} | null {
+		const performance = message.usage?.performance;
+		if (!isRecord(performance)) return null;
+		const totalMs = asNumber(performance.total_ms);
+		const llmMs = asNumber(performance.llm_ms);
+		const toolMs = asNumber(performance.tool_ms);
+		const roundCount = asNumber(performance.round_count);
+		const toolCallCount = asNumber(performance.tool_call_count);
+		if (totalMs === null && llmMs === null && toolMs === null) return null;
+		return { totalMs, llmMs, toolMs, roundCount, toolCallCount };
+	}
+
+	function aiMessagePerformanceLabel(message: SortingProfileAiMessage): string | null {
+		const perf = aiMessagePerformance(message);
+		if (!perf) return null;
+		const parts: string[] = [];
+		const total = formatDuration(perf.totalMs);
+		const llm = formatDuration(perf.llmMs);
+		const tool = formatDuration(perf.toolMs);
+		if (total) parts.push(`Total ${total}`);
+		if (llm) parts.push(`Model ${llm}`);
+		if (tool && perf.toolMs && perf.toolMs > 0) parts.push(`Tools ${tool}`);
+		if (typeof perf.roundCount === 'number' && perf.roundCount > 1) parts.push(`${perf.roundCount} rounds`);
+		if (typeof perf.toolCallCount === 'number' && perf.toolCallCount > 0) parts.push(`${perf.toolCallCount} tool calls`);
+		return parts.length > 0 ? parts.join(' · ') : null;
+	}
 
 		function isRecord(value: unknown): value is Record<string, unknown> {
 			return typeof value === 'object' && value !== null;
@@ -1182,6 +1239,35 @@
 			};
 		}
 
+		function buildSetInventoryToolResult(output: Record<string, unknown>): ExpandableToolResult | null {
+			const rawInventory = Array.isArray(output.inventory) ? output.inventory.filter(isRecord) : [];
+			const items = rawInventory.map((part, index) => {
+				const name = asString(part.part_name) ?? asString(part.part_num) ?? 'Unnamed part';
+				const bits = [
+					asString(part.part_num),
+					asString(part.color_name) ?? (asNumber(part.color_id)?.toString() ?? null),
+					asNumber(part.quantity) !== null ? `qty ${asNumber(part.quantity)}` : null,
+					part.is_spare ? 'spare' : null
+				].filter(Boolean);
+				return {
+					id: `${asString(part.part_num) ?? 'part'}-${asString(part.color_name) ?? asNumber(part.color_id) ?? index}-${index}`,
+					primary: name,
+					secondary: bits.length > 0 ? bits.join(' · ') : null,
+					imageUrl: asString(part.img_url)
+				};
+			});
+			const total = asNumber(output.total) ?? items.length;
+			return {
+				layout: 'media-grid',
+				total,
+				availableCount: items.length,
+				singularLabel: 'inventory entry',
+				pluralLabel: 'inventory entries',
+				emptyMessage: 'No inventory entries found.',
+				items
+			};
+		}
+
 		function getExpandableToolResult(
 			tool: string | undefined,
 			output: Record<string, unknown> | null | undefined
@@ -1189,6 +1275,7 @@
 			if (!output) return null;
 			if (tool === 'search_sets') return buildSetToolResult(output);
 			if (tool === 'search_parts') return buildPartToolResult(output);
+			if (tool === 'get_set_inventory') return buildSetInventoryToolResult(output);
 			return null;
 		}
 
@@ -1308,7 +1395,8 @@
 						title: toolStageTitle(event.tool, event.input, 'active'),
 						detail: toolActiveDetail(event.tool, event.input),
 						tool: event.tool,
-						output: null
+						output: null,
+						durationMs: null
 					});
 					continue;
 				}
@@ -1322,6 +1410,7 @@
 						activeTool.title = toolStageTitle(event.tool, event.input, 'complete');
 						activeTool.detail = event.output_summary ?? 'Done.';
 						activeTool.output = event.output ?? null;
+						activeTool.durationMs = event.duration_ms ?? null;
 					} else {
 						cards.push({
 							id: `tool-${counter++}`,
@@ -1330,7 +1419,8 @@
 							title: toolStageTitle(event.tool, event.input, 'complete'),
 							detail: event.output_summary ?? 'Done.',
 							tool: event.tool,
-							output: event.output ?? null
+							output: event.output ?? null,
+							durationMs: event.duration_ms ?? null
 						});
 					}
 				continue;
@@ -1651,16 +1741,23 @@
 													{#each msg.tool_trace as trace, traceIndex}
 														{@const resultView = getExpandableToolResult(trace.tool, trace.output)}
 														{@const resultKey = `${msg.id}-trace-${traceIndex}`}
-														<div class="min-w-0 overflow-hidden border border-[#00852B]/15 bg-[#00852B]/5 px-3 py-2.5 text-xs">
-															<div class="flex items-start gap-2">
-																<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-[#00852B]">
+												<div class="min-w-0 overflow-hidden border border-[#00852B]/15 bg-[#00852B]/5 px-3 py-2.5 text-xs">
+													<div class="flex items-start gap-2">
+														<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-[#00852B]">
 																	<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 																	<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
 																</svg>
 															</div>
-																<div class="min-w-0">
-															<div class="font-medium text-[#00852B]">
-																{toolTraceTitle(trace)}
+														<div class="min-w-0">
+															<div class="flex items-center justify-between gap-2">
+																<div class="font-medium text-[#00852B]">
+																	{toolTraceTitle(trace)}
+																</div>
+																{#if formatDuration(trace.duration_ms ?? null)}
+																	<div class="shrink-0 text-[11px] font-medium text-[#00852B]/60">
+																		{formatDuration(trace.duration_ms ?? null)}
+																	</div>
+																{/if}
 															</div>
 																{#if resultView}
 																	<div class="mt-1 text-[#00852B]/70">
@@ -1735,6 +1832,11 @@
 											<div class="markdown-body overflow-x-auto">
 												{@html renderMarkdown(displayAiMessageContent(msg.content))}
 											</div>
+											{#if aiMessagePerformanceLabel(msg)}
+												<div class="mt-2 text-[11px] text-[#7A7770]">
+													{aiMessagePerformanceLabel(msg)}
+												</div>
+											{/if}
 											<!-- Proposal action summaries -->
 											{#if msg.applied_at && msg.proposal}
 												{@const actions = proposalActionSummaries(msg.proposal)}
@@ -1783,9 +1885,16 @@
 															</svg>
 														{/if}
 													</div>
-														<div class="min-w-0">
-															<div class="font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-[#00852B]'}">
-																{card.title}
+														<div class="min-w-0 flex-1">
+															<div class="flex items-center justify-between gap-2">
+																<div class="font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-[#00852B]'}">
+																	{card.title}
+																</div>
+																{#if formatDuration(card.durationMs ?? null)}
+																	<div class="shrink-0 text-[11px] font-medium {card.status === 'active' ? 'text-[#8A6D1F]/70' : 'text-[#00852B]/60'}">
+																		{formatDuration(card.durationMs ?? null)}
+																	</div>
+																{/if}
 															</div>
 																{#if resultView}
 																	<div class="mt-1 {card.status === 'active' ? 'text-[#7D6C3B]' : 'text-[#00852B]/70'}">

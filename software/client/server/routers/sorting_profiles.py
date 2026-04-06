@@ -176,11 +176,16 @@ def get_sorting_profile_library() -> dict[str, Any]:
 
 
 @router.get("/api/sorting-profiles/targets/{target_id}/profiles/{profile_id}")
-def get_sorting_profile_detail(target_id: str, profile_id: str) -> dict[str, Any]:
+def get_sorting_profile_detail(
+    target_id: str,
+    profile_id: str,
+    version_id: str | None = None,
+) -> dict[str, Any]:
     target = _get_target_or_404(target_id)
     session = _target_session(target)
     response = session.get(
         f"{_target_base_url(target)}/api/machine/profiles/{profile_id}",
+        params={"version_id": version_id} if version_id else None,
         timeout=20,
     )
     if not response.ok:

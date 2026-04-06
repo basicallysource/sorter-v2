@@ -12,8 +12,8 @@
 	let canceling = $state(false);
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
-	let firstBinCenter = $state(8.4);
-	let pillarWidthDeg = $state(1.9);
+	let firstBinCenter = $state(8.25);
+	let pillarWidthDeg = $state(8.25);
 	let endstopActiveHigh = $state(true);
 	let liveAvailable = $state(false);
 	let endstopTriggered = $state<boolean | null>(null);

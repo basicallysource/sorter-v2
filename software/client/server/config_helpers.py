@@ -63,8 +63,10 @@ def read_bin_layout_config() -> tuple[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to read bin layout: {e}")
 
 
-def toml_value(v: object) -> str:
-    """Format a Python value as a TOML value string."""
+def toml_value(v: object) -> str | None:
+    """Format a Python value as a TOML value string. Returns None for None values (skip them)."""
+    if v is None:
+        return None
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):
@@ -80,9 +82,17 @@ def toml_value(v: object) -> str:
             .replace("\t", "\\t")
         )
         return f'"{escaped}"'
+    if isinstance(v, dict):
+        pairs = []
+        for dk, dv in v.items():
+            tv = toml_value(dv)
+            if tv is not None:
+                pairs.append(f"{dk} = {tv}")
+        return "{" + ", ".join(pairs) + "}"
     if isinstance(v, list):
-        return "[" + ", ".join(toml_value(item) for item in v) + "]"
-    return str(v)
+        items = [toml_value(item) for item in v if item is not None]
+        return "[" + ", ".join(i for i in items if i is not None) + "]"
+    return f'"{v}"'
 
 
 def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
@@ -107,7 +117,9 @@ def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
     if scalars:
         lines.append(f"\n[{prefix}]")
         for k, v in scalars:
-            lines.append(f"{k} = {toml_value(v)}")
+            tv = toml_value(v)
+            if tv is not None:
+                lines.append(f"{k} = {tv}")
     elif not sub_tables and not array_tables:
         lines.append(f"\n[{prefix}]")
 
@@ -120,7 +132,9 @@ def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
         for item in items:
             lines.append(f"\n[[{prefix}.{k}]]")
             for ik, iv in item.items():
-                lines.append(f"{ik} = {toml_value(iv)}")
+                tv = toml_value(iv)
+                if tv is not None:
+                    lines.append(f"{ik} = {tv}")
 
 
 def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
@@ -130,7 +144,9 @@ def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
     # Top-level scalar keys first
     for k, v in data.items():
         if not isinstance(v, dict):
-            lines.append(f"{k} = {toml_value(v)}")
+            tv = toml_value(v)
+            if tv is not None:
+                lines.append(f"{k} = {tv}")
 
     # Then all table sections (recursive)
     for k, v in data.items():

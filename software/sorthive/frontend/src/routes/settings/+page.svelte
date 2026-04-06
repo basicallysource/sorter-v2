@@ -29,6 +29,7 @@
 	let aiSaving = $state(false);
 
 	const aiModelOptions = [
+		'anthropic/claude-haiku-4-5',
 		'anthropic/claude-sonnet-4.6',
 		'anthropic/claude-3.7-sonnet',
 		'openai/gpt-5.4',

@@ -308,6 +308,18 @@ export interface AiToolTraceItem {
 	input: Record<string, unknown>;
 	output_summary: string;
 	output?: Record<string, unknown> | null;
+	duration_ms?: number | null;
+}
+
+export interface AiPerformance {
+	request_id?: string;
+	round_count?: number;
+	tool_call_count?: number;
+	llm_ms?: number;
+	tool_ms?: number;
+	total_ms?: number;
+	cached_tokens?: number;
+	cache_write_tokens?: number;
 }
 
 export interface SortingProfileAiMessage {
@@ -318,7 +330,7 @@ export interface SortingProfileAiMessage {
 	version_id: string | null;
 	applied_version_id: string | null;
 	selected_rule_id: string | null;
-	usage: Record<string, unknown> | null;
+	usage: (Record<string, unknown> & { performance?: AiPerformance }) | null;
 	proposal: Record<string, unknown> | null;
 	tool_trace: AiToolTraceItem[];
 	applied_at: string | null;

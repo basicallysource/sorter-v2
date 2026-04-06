@@ -124,9 +124,23 @@
 		return value === null ? '--' : value.toFixed(digits);
 	}
 
+	let hardwareState = $state<string>('standby');
+
+	async function fetchHardwareState() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
+			if (res.ok) {
+				const data = await res.json();
+				hardwareState = data.hardware_state ?? 'standby';
+			}
+		} catch {
+			// ignore
+		}
+	}
+
 	function humanizeStepperError(message: string): string {
 		if (message.includes('Controller not initialized')) {
-			return 'Machine controller not running. Start the machine process first.';
+			return 'Hardware not started. Press Start in the dashboard first.';
 		}
 		return message;
 	}
@@ -512,9 +526,11 @@
 
 	onMount(() => {
 		if (endstop) void loadSettings();
+		void fetchHardwareState();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
 			void refreshDrvStatus();
+			void fetchHardwareState();
 		}, 500);
 		return () => clearInterval(interval);
 	});

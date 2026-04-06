@@ -180,6 +180,7 @@ class AiToolTraceItem(BaseModel):
     input: dict[str, Any]
     output_summary: str
     output: dict[str, Any] | None = None
+    duration_ms: float | None = None
 
 
 class SortingProfileAiMessageResponse(BaseModel):

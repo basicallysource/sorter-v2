@@ -964,32 +964,37 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
-    waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
-    irl_interface.servo_controller = build_servo_controller(
-        gc,
-        control_boards=control_boards,
-        open_angle=servo_open_angle,
-        closed_angle=servo_closed_angle,
-        servo_channel_config=servo_channel_config,
-        waveshare_config=waveshare_config,
-        mcu_ports=mcu_ports,
-    )
-    irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
-        irl_interface.distribution_layout
-    )
-    for layer_index, servo in enumerate(irl_interface.servos):
-        open_angle = machine_config.servo_open_angle_overrides.get(
-            layer_index, servo_open_angle
+    if gc.disable_servos:
+        gc.logger.info("Servo init skipped (--disable servos)")
+        irl_interface.servo_controller = None
+        irl_interface.servos = []
+    else:
+        waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
+        irl_interface.servo_controller = build_servo_controller(
+            gc,
+            control_boards=control_boards,
+            open_angle=servo_open_angle,
+            closed_angle=servo_closed_angle,
+            servo_channel_config=servo_channel_config,
+            waveshare_config=waveshare_config,
+            mcu_ports=mcu_ports,
         )
-        closed_angle = machine_config.servo_closed_angle_overrides.get(
-            layer_index, servo_closed_angle
+        irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
+            irl_interface.distribution_layout
         )
-        if hasattr(servo, "set_preset_angles"):
-            servo.set_preset_angles(open_angle, closed_angle)
-    restore_servo_states(irl_interface.servos, gc)
+        for layer_index, servo in enumerate(irl_interface.servos):
+            open_angle = machine_config.servo_open_angle_overrides.get(
+                layer_index, servo_open_angle
+            )
+            closed_angle = machine_config.servo_closed_angle_overrides.get(
+                layer_index, servo_closed_angle
+            )
+            if hasattr(servo, "set_preset_angles"):
+                servo.set_preset_angles(open_angle, closed_angle)
+        restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
-        servo_backend=irl_interface.servo_controller.backend_name,
+        servo_backend=irl_interface.servo_controller.backend_name if irl_interface.servo_controller else "none",
         stepper_bindings=stepper_binding_overrides,
         stepper_direction_inverts=stepper_direction_inverts,
         control_boards=control_boards,

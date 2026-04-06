@@ -36,6 +36,12 @@ camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
 camera_calibration_tasks_lock = threading.Lock()
 runtime_stats_snapshot: Optional[dict[str, Any]] = None
 
+# Hardware lifecycle state: "standby" | "homing" | "ready" | "error"
+hardware_state: str = "standby"
+hardware_error: Optional[str] = None
+hardware_homing_step: Optional[str] = None  # Current homing phase description
+_hardware_start_fn: Optional[Any] = None  # Callable set by main.py
+
 CLASSIFICATION_BASELINE_SAMPLES = 12
 CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S = 4.0
 CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S = 0.1

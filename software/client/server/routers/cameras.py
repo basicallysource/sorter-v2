@@ -701,9 +701,17 @@ def _calibrate_usb_camera_device_settings(
     best_settings: Dict[str, int | float | bool] | None = None
     best_analysis: Dict[str, Any] | None = None
 
+    # Discovery sweep steps (used if baseline fails to find the card).
+    # We sweep exposure first (9 steps), then gain (5 steps) if still not found.
+    brightness_control = control_by_key.get("brightness")
+    discovery_exposure_steps = 9 if exposure_control is not None else 0
+    discovery_gain_steps = 5 if gain_control is not None else 0
+    discovery_brightness_steps = 5 if brightness_control is not None and exposure_control is None and gain_control is None else 0
+    discovery_total = discovery_exposure_steps + discovery_gain_steps + discovery_brightness_steps
     total_steps = max(
         1,
         len(initial_candidates)
+        + discovery_total
         + (8 if exposure_control is not None else 0)
         + (5 if gain_control is not None and exposure_control is None else 0)
         + (8 if wb_control is not None else 0),
@@ -737,6 +745,50 @@ def _calibrate_usb_camera_device_settings(
             stage="baseline",
             message=f"Analyzing baseline candidate {index} of {len(initial_candidates)}.",
         )
+
+    # If the baseline failed to find the card, sweep through exposure and gain
+    # values to discover a setting where the card is visible.
+    if best_settings is None or best_analysis is None:
+        discovery_found = False
+
+        def _sweep_control(
+            control: Dict[str, Any] | None,
+            key: str,
+            steps: int,
+            label: str,
+            base: Dict[str, int | float | bool],
+        ) -> bool:
+            nonlocal discovery_found
+            if control is None or steps <= 0 or discovery_found:
+                return False
+            c_min = _as_number(control.get("min"))
+            c_max = _as_number(control.get("max"))
+            c_step = _as_number(control.get("step"))
+            if c_min is None or c_max is None:
+                return False
+            for idx, val in enumerate(np.linspace(c_min, c_max, num=steps).tolist(), start=1):
+                cand = dict(base)
+                cand[key] = int(round(_quantize_numeric_value(val, c_min, c_step))) if c_step is not None and c_step >= 1 else float(_quantize_numeric_value(val, c_min, c_step))
+                if auto_exposure_control is not None:
+                    cand["auto_exposure"] = False
+                _, analysis = consider(
+                    cand,
+                    stage="discovery",
+                    message=f"Searching for calibration target — {label} {idx}/{steps}.",
+                )
+                if analysis is not None:
+                    discovery_found = True
+                    return True
+            return False
+
+        # Sweep exposure across full range
+        _sweep_control(exposure_control, "exposure", discovery_exposure_steps, "exposure", baseline_candidate)
+        # If still not found, sweep gain too
+        if not discovery_found:
+            _sweep_control(gain_control, "gain", discovery_gain_steps, "gain", best_settings or baseline_candidate)
+        # Last resort: brightness (only if neither exposure nor gain exist)
+        if not discovery_found:
+            _sweep_control(brightness_control, "brightness", discovery_brightness_steps, "brightness", baseline_candidate)
 
     if best_settings is None or best_analysis is None:
         raise HTTPException(

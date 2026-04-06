@@ -36,6 +36,17 @@ import time
 import asyncio
 import sys
 
+def _mkIRLInterfaceStandby(config, gc):
+    """Create a minimal IRLInterface without hardware discovery (standby mode)."""
+    from irl.config import IRLInterface, BinLayoutConfig, mkLayoutFromConfig
+    from irl.bin_layout import getBinLayout
+    irl = IRLInterface()
+    irl.servos = []
+    irl.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
+    irl.machine_profile = None
+    return irl
+
+
 FRAME_BROADCAST_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
@@ -92,6 +103,8 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 
 def main() -> None:
+    import server.shared_state as shared_state
+
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
@@ -109,22 +122,8 @@ def main() -> None:
         aruco_mgr = ArucoConfigManager(str(aruco_config_path))
         setArucoManager(aruco_mgr)
 
-    with gc.profiler.timer("startup.irl_interface_ms"):
-        irl = mkIRLInterface(irl_config, gc)
-
-    if gc.disable_servos:
-        gc.logger.info("Servo control disabled via --disable servos")
-    else:
-        gc.logger.info("Opening all layer servos...")
-        with gc.profiler.timer("startup.servo_open_ms"):
-            for servo in irl.servos:
-                try:
-                    servo.open()
-                except Exception as e:
-                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
-
-    gc.logger.info("Skipping automatic chute homing on backend startup.")
-    # sensorlessHomeCarousel(gc, irl)
+    # Create a minimal IRL interface (no hardware discovery yet)
+    irl = _mkIRLInterfaceStandby(irl_config, gc)
 
     with gc.profiler.timer("startup.telemetry_init_ms"):
         telemetry = Telemetry(gc)
@@ -132,51 +131,93 @@ def main() -> None:
         vision = VisionManager(irl_config, gc, irl)
         vision.setTelemetry(telemetry)
         setVisionManager(vision)
-    with gc.profiler.timer("startup.controller_init_ms"):
-        controller = SorterController(
-            irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
-        )
-        setController(controller)
-    gc.logger.info("client starting...")
+    # Controller is deferred until hardware is started
+    controller = None
+    gc.logger.info("client starting in standby mode (hardware not initialized)...")
 
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
-    with gc.profiler.timer("startup.init_feeder_detection_ms"):
-        if not vision.initFeederDetection():
-            gc.logger.warning(
-                "Feeder channel polygons not found. "
-                "Run: uv run python scripts/polygon_editor.py — continuing without feeder detection"
-            )
-        else:
-            with gc.profiler.timer("startup.calibrate_feeder_ms"):
-                calibrateFeederChannels(gc, irl, irl_config)
 
-    with gc.profiler.timer("startup.load_classification_baseline_ms"):
+    startup_total_ms = (time.time() - startup_total_start) * 1000
+    gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
+    startup_report = gc.profiler.getReport()
+    if startup_report:
+        print(startup_report)
+
+    # Register the hardware start function for the /api/system/home endpoint
+    def _home_hardware() -> None:
+        nonlocal irl, controller
+
+        shared_state.hardware_homing_step = "Discovering hardware..."
+        gc.logger.info("Starting hardware initialization...")
+        real_irl = mkIRLInterface(irl_config, gc)
+        irl.__dict__.update(real_irl.__dict__)
+
+        if gc.disable_servos:
+            gc.logger.info("Servo control disabled via --disable servos")
+        else:
+            shared_state.hardware_homing_step = "Opening servos..."
+            gc.logger.info("Opening all layer servos...")
+            for servo in irl.servos:
+                try:
+                    servo.open()
+                except Exception as e:
+                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+
+        if vision.initFeederDetection():
+            shared_state.hardware_homing_step = "Calibrating feeder channels..."
+            calibrateFeederChannels(gc, irl, irl_config)
+        else:
+            gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")
+
         if irl_config.camera_layout == "split_feeder":
-            # Classification cameras are optional in split_feeder mode.
             has_classification = (
                 vision._classification_top_capture is not None
                 or vision._classification_bottom_capture is not None
             )
             if has_classification and vision.usesClassificationBaseline():
                 if not vision.loadClassificationBaseline():
-                    gc.logger.warning(
-                        "Classification baseline not found — continuing without classification"
-                    )
+                    gc.logger.warning("Classification baseline not found — continuing without classification")
         elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
-            gc.logger.warning(
-                "Classification baseline not found. "
-                "Run: uv run python scripts/calibrate_classification_baseline.py "
-                "— continuing without classification"
-            )
-    with gc.profiler.timer("startup.controller_start_ms"):
+            gc.logger.warning("Classification baseline not found — continuing without classification")
+
+        # Home carousel if endstop is available
+        carousel_stepper = getattr(irl, "carousel_stepper", None)
+        if carousel_stepper is not None:
+            shared_state.hardware_homing_step = "Homing carousel..."
+            gc.logger.info("Homing carousel...")
+            try:
+                from server.routers.hardware import _home_carousel_stepper
+                _home_carousel_stepper(irl, gc)
+                gc.logger.info("Carousel homed successfully.")
+            except Exception as e:
+                gc.logger.warning(f"Carousel homing failed: {e}. Continuing without homing.")
+
+        # Home chute/distributor if available
+        shared_state.hardware_homing_step = "Homing distributor..."
+
+        controller = SorterController(
+            irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
+        )
+        setController(controller)
         controller.start()
 
-    startup_total_ms = (time.time() - startup_total_start) * 1000
-    gc.logger.info(f"startup complete in {startup_total_ms:.0f}ms")
-    startup_report = gc.profiler.getReport()
-    if startup_report:
-        print(startup_report)
+        # Home the chute through the distribution state machine
+        chute = getattr(controller.coordinator.distribution, "chute", None) if hasattr(controller, "coordinator") else None
+        if chute is not None:
+            gc.logger.info("Homing chute...")
+            try:
+                if chute.home():
+                    gc.logger.info("Chute homed successfully.")
+                else:
+                    gc.logger.warning("Chute homing failed. Continuing without homing.")
+            except Exception as e:
+                gc.logger.warning(f"Chute homing failed: {e}. Continuing without homing.")
+
+        shared_state.hardware_homing_step = None
+        gc.logger.info("Hardware initialization and homing complete.")
+
+    shared_state._hardware_start_fn = _home_hardware
 
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()
@@ -196,7 +237,8 @@ def main() -> None:
             gc.profiler.mark("main.loop.interval_ms")
             try:
                 event = server_to_main_queue.get(block=False)
-                handleServerToMainEvent(gc, controller, event)
+                if controller is not None:
+                    handleServerToMainEvent(gc, controller, event)
             except queue.Empty:
                 pass
 
@@ -240,8 +282,9 @@ def main() -> None:
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
 
-            with gc.profiler.timer("main.loop.controller_step_ms"):
-                controller.step()
+            if controller is not None:
+                with gc.profiler.timer("main.loop.controller_step_ms"):
+                    controller.step()
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:

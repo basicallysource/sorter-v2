@@ -781,6 +781,38 @@ class ProfileCatalogService:
             for s in results[:limit]
         ]
 
+    def get_set_inventory(self, set_num: str) -> dict[str, Any]:
+        normalized_set_num = str(set_num or "").strip()
+        if not normalized_set_num:
+            raise APIError(400, "set_num is required", "SET_NUM_REQUIRED")
+
+        cached = get_cached_set(self._conn, normalized_set_num)
+        if cached is None:
+            fetch_set_inventory(self._conn, self._config.rebrickable_api_key, normalized_set_num)
+            cached = get_cached_set(self._conn, normalized_set_num)
+        if cached is None:
+            raise APIError(404, "Set not found", "SET_NOT_FOUND")
+
+        inventory = get_cached_inventory(self._conn, normalized_set_num)
+        inventory.sort(
+            key=lambda part: (
+                str(part.get("part_name") or "").lower(),
+                str(part.get("color_name") or "").lower(),
+                str(part.get("part_num") or ""),
+            )
+        )
+
+        return {
+            "set": {
+                "set_num": cached.get("set_num"),
+                "name": cached.get("name"),
+                "year": cached.get("year"),
+                "num_parts": cached.get("num_parts"),
+                "img_url": cached.get("set_img_url"),
+            },
+            "inventory": inventory,
+        }
+
 
 def normalize_profile_document(document: dict[str, Any]) -> SimpleNamespace:
     payload = SimpleNamespace(

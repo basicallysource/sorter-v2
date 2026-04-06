@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 from datetime import datetime, timezone
-from uuid import UUID
+from time import perf_counter
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -56,9 +58,28 @@ from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
 
 router = APIRouter(prefix="/api", tags=["profiles"])
+logger = logging.getLogger("uvicorn.error").getChild("profiles")
 
 CATALOG_SYNC_TYPES = set(PROFILE_CATALOG_SYNC_TYPES)
 AI_CONVERSATION_HISTORY_LIMIT = 12
+
+
+def _build_ai_usage_payload(proposal_result: AiProposalResult) -> dict[str, object] | None:
+    usage_with_trace = dict(proposal_result.usage or {})
+    if proposal_result.tool_trace:
+        usage_with_trace["tool_trace"] = [
+            {
+                "tool": t.tool,
+                "input": t.input,
+                "output_summary": t.output_summary,
+                "output": t.output,
+                "duration_ms": t.duration_ms,
+            }
+            for t in proposal_result.tool_trace
+        ]
+    if proposal_result.performance:
+        usage_with_trace["performance"] = proposal_result.performance
+    return usage_with_trace or None
 
 
 @router.get("/profile-catalog/status")
@@ -545,6 +566,8 @@ def create_profile_ai_message(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
+    request_id = uuid4().hex[:12]
+    route_started_at = perf_counter()
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_edit_access(profile, current_user)
     version = _resolve_visible_version(profile, current_user, payload.version_id)
@@ -567,35 +590,66 @@ def create_profile_ai_message(
     db.add(user_message)
     db.flush()
 
-    proposal_result = generate_profile_ai_proposal(
-        user=current_user,
-        catalog=get_profile_catalog_service(),
-        document=_document_from_version(version),
-        message=payload.message,
-        conversation_history=conversation_history,
-        selected_rule_id=payload.selected_rule_id,
-    )
-    usage_with_trace = proposal_result.usage or {}
-    if proposal_result.tool_trace:
-        usage_with_trace["tool_trace"] = [
-            {"tool": t.tool, "input": t.input, "output_summary": t.output_summary, "output": t.output}
-            for t in proposal_result.tool_trace
-        ]
-    assistant_message = SortingProfileAiMessage(
-        profile_id=profile.id,
-        user_id=current_user.id,
-        version_id=version.id,
-        selected_rule_id=payload.selected_rule_id,
-        role="assistant",
-        content=proposal_result.content,
-        model=proposal_result.model,
-        usage_json=usage_with_trace or None,
-        proposal_json=proposal_result.proposal,
-    )
-    db.add(assistant_message)
-    db.commit()
-    db.refresh(assistant_message)
-    return _serialize_ai_message(assistant_message)
+    try:
+        proposal_result = generate_profile_ai_proposal(
+            user=current_user,
+            catalog=get_profile_catalog_service(),
+            document=_document_from_version(version),
+            message=payload.message,
+            conversation_history=conversation_history,
+            selected_rule_id=payload.selected_rule_id,
+            ai_request_id=request_id,
+        )
+        usage_payload = _build_ai_usage_payload(proposal_result)
+        assistant_message = SortingProfileAiMessage(
+            profile_id=profile.id,
+            user_id=current_user.id,
+            version_id=version.id,
+            selected_rule_id=payload.selected_rule_id,
+            role="assistant",
+            content=proposal_result.content,
+            model=proposal_result.model,
+            usage_json=usage_payload,
+            proposal_json=proposal_result.proposal,
+        )
+        db.add(assistant_message)
+        db.commit()
+        db.refresh(assistant_message)
+
+        logger.info(
+            "profile_ai.http_complete %s",
+            json.dumps(
+                {
+                    "request_id": request_id,
+                    "profile_id": str(profile.id),
+                    "version_id": str(version.id),
+                    "user_id": str(current_user.id),
+                    "streaming": False,
+                    "route_total_ms": round((perf_counter() - route_started_at) * 1000, 1),
+                    "generation_ms": proposal_result.performance.get("total_ms") if proposal_result.performance else None,
+                    "tool_call_count": len(proposal_result.tool_trace),
+                    "proposal_count": len(proposal_result.proposal.get("proposals", [])) if proposal_result.proposal else 0,
+                },
+                sort_keys=True,
+            ),
+        )
+        return _serialize_ai_message(assistant_message)
+    except Exception:
+        logger.exception(
+            "profile_ai.http_failed %s",
+            json.dumps(
+                {
+                    "request_id": request_id,
+                    "profile_id": str(profile.id),
+                    "version_id": str(version.id),
+                    "user_id": str(current_user.id),
+                    "streaming": False,
+                    "route_elapsed_ms": round((perf_counter() - route_started_at) * 1000, 1),
+                },
+                sort_keys=True,
+            ),
+        )
+        raise
 
 
 @router.post("/profiles/{profile_id}/ai/messages/stream")
@@ -607,6 +661,8 @@ def create_profile_ai_message_stream(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
+    request_id = uuid4().hex[:12]
+    route_started_at = perf_counter()
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_edit_access(profile, current_user)
     version = _resolve_visible_version(profile, current_user, payload.version_id)
@@ -639,6 +695,7 @@ def create_profile_ai_message_stream(
                 message=payload.message,
                 conversation_history=conversation_history,
                 selected_rule_id=payload.selected_rule_id,
+                ai_request_id=request_id,
             ):
                 if isinstance(event, AiProgressEvent):
                     yield f"data: {json.dumps({'type': event.type, **event.data})}\n\n"
@@ -649,12 +706,7 @@ def create_profile_ai_message_stream(
                 yield f"data: {json.dumps({'type': 'error', 'error': 'AI did not produce a result'})}\n\n"
                 return
 
-            usage_with_trace = proposal_result.usage or {}
-            if proposal_result.tool_trace:
-                usage_with_trace["tool_trace"] = [
-                    {"tool": t.tool, "input": t.input, "output_summary": t.output_summary, "output": t.output}
-                    for t in proposal_result.tool_trace
-                ]
+            usage_with_trace = _build_ai_usage_payload(proposal_result)
             assistant_message = SortingProfileAiMessage(
                 profile_id=profile.id,
                 user_id=current_user.id,
@@ -663,18 +715,66 @@ def create_profile_ai_message_stream(
                 role="assistant",
                 content=proposal_result.content,
                 model=proposal_result.model,
-                usage_json=usage_with_trace or None,
+                usage_json=usage_with_trace,
                 proposal_json=proposal_result.proposal,
             )
             db.add(assistant_message)
             db.commit()
             db.refresh(assistant_message)
 
+            logger.info(
+                "profile_ai.http_complete %s",
+                json.dumps(
+                    {
+                        "request_id": request_id,
+                        "profile_id": str(profile.id),
+                        "version_id": str(version.id),
+                        "user_id": str(current_user.id),
+                        "streaming": True,
+                        "route_total_ms": round((perf_counter() - route_started_at) * 1000, 1),
+                        "generation_ms": proposal_result.performance.get("total_ms") if proposal_result.performance else None,
+                        "tool_call_count": len(proposal_result.tool_trace),
+                        "proposal_count": len(proposal_result.proposal.get("proposals", [])) if proposal_result.proposal else 0,
+                    },
+                    sort_keys=True,
+                ),
+            )
+
             msg_data = _serialize_ai_message(assistant_message)
             yield f"data: {json.dumps({'type': 'complete', 'message': msg_data.model_dump(mode='json')})}\n\n"
         except APIError as exc:
+            logger.warning(
+                "profile_ai.http_error %s",
+                json.dumps(
+                    {
+                        "request_id": request_id,
+                        "profile_id": str(profile.id),
+                        "version_id": str(version.id),
+                        "user_id": str(current_user.id),
+                        "streaming": True,
+                        "route_elapsed_ms": round((perf_counter() - route_started_at) * 1000, 1),
+                        "error_code": exc.error_code,
+                        "error_message": exc.error_message,
+                    },
+                    sort_keys=True,
+                ),
+            )
             yield f"data: {json.dumps({'type': 'error', 'error': exc.error_message})}\n\n"
         except Exception as exc:
+            logger.exception(
+                "profile_ai.http_failed %s",
+                json.dumps(
+                    {
+                        "request_id": request_id,
+                        "profile_id": str(profile.id),
+                        "version_id": str(version.id),
+                        "user_id": str(current_user.id),
+                        "streaming": True,
+                        "route_elapsed_ms": round((perf_counter() - route_started_at) * 1000, 1),
+                    },
+                    sort_keys=True,
+                ),
+            )
             yield f"data: {json.dumps({'type': 'error', 'error': str(exc)})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -1313,7 +1413,7 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
 
 
 def _serialize_ai_message(message: SortingProfileAiMessage) -> SortingProfileAiMessageResponse:
-    usage = message.usage_json if isinstance(message.usage_json, dict) else None
+    usage = dict(message.usage_json) if isinstance(message.usage_json, dict) else None
     tool_trace = []
     if usage and "tool_trace" in usage:
         tool_trace = usage.pop("tool_trace", [])

@@ -97,7 +97,7 @@ def _getCameraLayout() -> str:
 
 def _stepper_mapping() -> Dict[str, Any]:
     if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=500, detail="Controller not initialized")
+        raise HTTPException(status_code=503, detail="Controller not initialized. Start the system first.")
 
     irl = shared_state.controller_ref.irl
     return {

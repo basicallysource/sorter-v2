@@ -35,6 +35,7 @@ def run_openrouter_chat(
     max_tokens: int = 2400,
     response_format: dict[str, Any] | None = None,
     tools: list[dict[str, Any]] | None = None,
+    cache_control: dict[str, Any] | None = None,
 ) -> OpenRouterResponse:
     payload: dict[str, Any] = {
         "model": model,
@@ -46,6 +47,8 @@ def run_openrouter_chat(
         payload["response_format"] = response_format
     if tools:
         payload["tools"] = tools
+    if cache_control is not None:
+        payload["cache_control"] = cache_control
 
     body = json.dumps(payload).encode()
     request = Request(

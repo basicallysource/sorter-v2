@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 	type LayerTelemetry = {
@@ -77,7 +77,7 @@
 	let newIdInputs = $state<Record<number, string>>({});
 
 	// Waveshare port discovery
-	type WavesharePort = { device: string; product: string; serial: string | null };
+	type WavesharePort = { device: string; product: string; serial: string | null; confirmed?: boolean; servo_count?: number };
 	let availablePorts = $state<WavesharePort[]>([]);
 	let portsLoaded = $state(false);
 
@@ -96,14 +96,24 @@
 	}
 
 	function waveshareServoChoices(): number[] {
-		if (availableServoIds.length > 0) {
-			return availableServoIds;
+		const ids = new Set<number>();
+
+		// Primary source: IDs actually found on the bus
+		if (busServos.length > 0) {
+			for (const servo of busServos) {
+				if (servo.id >= 1 && servo.id <= 253) ids.add(servo.id);
+			}
+		} else if (availableServoIds.length > 0) {
+			// Fallback: IDs reported by the backend (includes its own scan)
+			for (const id of availableServoIds) ids.add(id);
 		}
 
-		const ids = layers
-			.map((layer) => Number(layer.servoId))
-			.filter((value) => Number.isInteger(value) && value > 0);
-		return [...new Set(ids)];
+		// If still empty (no scan yet), offer 1..layerCount as placeholder
+		if (ids.size === 0) {
+			for (let i = 1; i <= Math.max(layers.length, 1); i++) ids.add(i);
+		}
+
+		return [...ids].sort((a, b) => a - b);
 	}
 
 	function emptyTelemetry(): LayerTelemetry {
@@ -238,11 +248,54 @@
 			loaded = true;
 			void loadLiveFeedback();
 			void loadAvailablePorts();
+			if (backend === 'waveshare') {
+				void scanBusServosQuiet();
+			}
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load storage layer settings';
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function scanBusServosQuiet() {
+		if (busScanning) return;
+		busScanning = true;
+		try {
+			const scanPort = port.trim() || undefined;
+			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			if (scanPort) url.searchParams.set('port', scanPort);
+			const res = await fetch(url.toString());
+			if (!res.ok) return;
+			const payload = await res.json();
+			const prevCount = busServos.length;
+			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+
+			// On first successful scan, auto-assign discovered IDs to layers
+			if (prevCount === 0 && busServos.length > 0) {
+				autoAssignBusIds();
+			}
+		} catch {
+			// quiet — don't show errors for background scans
+		} finally {
+			busScanning = false;
+		}
+	}
+
+	function autoAssignBusIds() {
+		const scannedIds = busServos.map((s) => s.id).sort((a, b) => a - b);
+		if (scannedIds.length === 0) return;
+
+		// Check if any layer already has a valid scanned ID
+		const alreadyAssigned = layers.some((l) => scannedIds.includes(Number(l.servoId)));
+		if (alreadyAssigned) return;
+
+		// Assign scanned IDs sequentially to layers
+		layers = layers.map((layer, index) => ({
+			...layer,
+			servoId: String(scannedIds[index] ?? scannedIds[scannedIds.length - 1])
+		}));
 	}
 
 	async function loadLiveFeedback() {
@@ -418,7 +471,10 @@
 		busError = null;
 		busStatusMsg = '';
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			const scanPort = port.trim() || undefined;
+			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			if (scanPort) url.searchParams.set('port', scanPort);
+			const res = await fetch(url.toString());
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
@@ -569,6 +625,32 @@
 		}
 	});
 
+	let previousBackend: ServoBackend | null = null;
+
+	$effect(() => {
+		const current = backend;
+		const prev = untrack(() => previousBackend);
+		if (prev !== null && prev !== current && layers.length > 0) {
+			// Remap servo IDs when switching backends
+			if (current === 'waveshare') {
+				// PCA→Waveshare: ensure 1-indexed unique IDs
+				layers = layers.map((layer, index) => ({
+					...layer,
+					servoId: String(index + 1)
+				}));
+				void loadAvailablePorts();
+				void scanBusServosQuiet();
+			} else {
+				// Waveshare→PCA: switch to 0-indexed channels
+				layers = layers.map((layer, index) => ({
+					...layer,
+					servoId: String(index)
+				}));
+			}
+		}
+		previousBackend = current;
+	});
+
 	$effect(() => {
 		loadedMachineKey;
 		backend;
@@ -576,10 +658,18 @@
 	});
 
 	onMount(() => {
-		const interval = setInterval(() => {
+		const feedbackInterval = setInterval(() => {
 			void loadLiveFeedback();
 		}, 500);
-		return () => clearInterval(interval);
+		const busScanInterval = setInterval(() => {
+			if (backend === 'waveshare') {
+				void scanBusServosQuiet();
+			}
+		}, 10000);
+		return () => {
+			clearInterval(feedbackInterval);
+			clearInterval(busScanInterval);
+		};
 	});
 </script>
 
@@ -636,7 +726,7 @@
 					>
 						<option value="">Auto-detect</option>
 						{#each availablePorts as p}
-							<option value={p.device}>{p.device} — {p.product}</option>
+							<option value={p.device}>{p.device} — {p.product}{p.confirmed ? ` (${p.servo_count} servos)` : ''}</option>
 						{/each}
 					</select>
 				{:else}
@@ -942,7 +1032,13 @@
 					</table>
 				</div>
 			{:else if !busScanning}
-				<div class="text-xs text-text-muted">Press "Scan Bus" to detect connected servos.</div>
+				<div class="text-xs text-text-muted">
+					{#if !port && availablePorts.length === 0}
+						Select a port above and save before scanning, or connect the Waveshare servo board.
+					{:else}
+						Press "Scan Bus" to detect connected servos.
+					{/if}
+				</div>
 			{/if}
 		</div>
 	{/if}

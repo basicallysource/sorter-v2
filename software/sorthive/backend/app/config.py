@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
+    PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
+    PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None
 
     @property

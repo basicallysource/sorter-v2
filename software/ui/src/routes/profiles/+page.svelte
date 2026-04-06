@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import ProfileRuleTreeNode from '$lib/components/ProfileRuleTreeNode.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
@@ -35,6 +37,62 @@
 		rules_summary?: SortingProfileRuleSummary[];
 	};
 
+	type SortingProfileCondition = {
+		id: string;
+		field: string;
+		op: string;
+		value: unknown;
+	};
+
+	type SortingProfileCustomPart = {
+		part_num: string;
+		color_id?: number | null;
+		quantity?: number | null;
+		part_name?: string | null;
+		color_name?: string | null;
+	};
+
+	type SortingProfileRule = {
+		id: string;
+		rule_type: string;
+		name: string;
+		match_mode: string;
+		conditions: SortingProfileCondition[];
+		children: SortingProfileRule[];
+		disabled: boolean;
+		set_source?: 'custom' | 'rebrickable' | string | null;
+		set_num?: string | null;
+		include_spares?: boolean;
+		set_meta?: {
+			name?: string | null;
+			year?: number | null;
+			img_url?: string | null;
+			num_parts?: number | null;
+		} | null;
+		custom_parts?: SortingProfileCustomPart[];
+	};
+
+	type SortingProfileFallbackMode = {
+		rebrickable_categories?: boolean;
+		bricklink_categories?: boolean;
+		by_color?: boolean;
+	};
+
+	type SortingProfileVersionDetail = SortingProfileVersionSummary & {
+		name: string;
+		description: string | null;
+		default_category_id: string;
+		rules: SortingProfileRule[];
+		fallback_mode: SortingProfileFallbackMode;
+		compiled_stats?: {
+			matched?: number;
+			total_parts?: number;
+			unmatched?: number;
+			per_category?: Record<string, number>;
+		} | null;
+		categories?: Record<string, Record<string, unknown>>;
+	};
+
 	type SortingProfileSummary = {
 		id: string;
 		name: string;
@@ -57,7 +115,7 @@
 
 	type SortingProfileDetail = SortingProfileSummary & {
 		versions: SortingProfileVersionSummary[];
-		current_version: SortingProfileVersionSummary | null;
+		current_version: SortingProfileVersionDetail | null;
 	};
 
 	type SortingProfileSyncState = {
@@ -127,11 +185,18 @@
 	let detailErrors = $state<Record<string, string>>({});
 	let selectedVersionIds = $state<Record<string, string>>({});
 	let loadingDetailKeys = $state<Record<string, boolean>>({});
+	let versionDetailCache = $state<Record<string, SortingProfileDetail>>({});
+	let versionDetailErrors = $state<Record<string, string>>({});
+	let loadingVersionDetailKeys = $state<Record<string, boolean>>({});
 	let applyingKey = $state<string | null>(null);
 	let reloadingRuntime = $state(false);
 	let lastMachineUrl = '';
 	let searchQuery = $state('');
 	let currentPages = $state<Record<string, number>>({});
+	let detailsModalOpen = $state(false);
+	let detailsModalTargetId = $state<string | null>(null);
+	let detailsModalProfileId = $state<string | null>(null);
+	const detailsModalVersionSelectId = 'profile-details-version-select';
 
 	function baseUrl(): string {
 		return (
@@ -143,6 +208,10 @@
 
 	function detailKey(targetId: string, profileId: string) {
 		return `${targetId}:${profileId}`;
+	}
+
+	function versionDetailKey(targetId: string, profileId: string, versionId: string) {
+		return `${targetId}:${profileId}:${versionId}`;
 	}
 
 	function visibleVersions(detail: SortingProfileDetail): SortingProfileVersionSummary[] {
@@ -223,6 +292,28 @@
 		return 'text-text';
 	}
 
+	function selectedVersionIdForCard(
+		targetId: string,
+		profile: SortingProfileSummary,
+		detail: SortingProfileDetail | undefined
+	): string | null {
+		const key = detailKey(targetId, profile.id);
+		return selectedVersionIds[key] ?? (detail ? visibleVersions(detail)[0]?.id ?? null : null);
+	}
+
+	function isActiveSelection(
+		targetId: string,
+		profile: SortingProfileSummary,
+		detail: SortingProfileDetail | undefined
+	): boolean {
+		const selectedVersionId = selectedVersionIdForCard(targetId, profile, detail);
+		return (
+			library?.sync_state?.profile_id === profile.id &&
+			Boolean(selectedVersionId) &&
+			library?.sync_state?.version_id === selectedVersionId
+		);
+	}
+
 	async function loadLibrary() {
 		loading = true;
 		error = null;
@@ -285,6 +376,44 @@
 		} finally {
 			const { [key]: _ignore, ...rest } = loadingDetailKeys;
 			loadingDetailKeys = rest;
+		}
+	}
+
+	async function loadProfileVersionDetail(
+		targetId: string,
+		profile: SortingProfileSummary,
+		versionId: string
+	): Promise<SortingProfileDetail | null> {
+		const key = versionDetailKey(targetId, profile.id, versionId);
+		if (versionDetailCache[key]) return versionDetailCache[key];
+		if (loadingVersionDetailKeys[key]) return null;
+		loadingVersionDetailKeys = { ...loadingVersionDetailKeys, [key]: true };
+		try {
+			const url = new URL(
+				`${baseUrl()}/api/sorting-profiles/targets/${encodeURIComponent(targetId)}/profiles/${encodeURIComponent(profile.id)}`
+			);
+			url.searchParams.set('version_id', versionId);
+			const res = await fetch(url.toString());
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				throw new Error(body?.detail ?? `HTTP ${res.status}`);
+			}
+			const detail = (await res.json()) as SortingProfileDetail;
+			versionDetailCache = { ...versionDetailCache, [key]: detail };
+			if (versionDetailErrors[key]) {
+				const { [key]: _ignore, ...rest } = versionDetailErrors;
+				versionDetailErrors = rest;
+			}
+			return detail;
+		} catch (e: unknown) {
+			versionDetailErrors = {
+				...versionDetailErrors,
+				[key]: e instanceof Error ? e.message : 'Failed to load this profile version'
+			};
+			return null;
+		} finally {
+			const { [key]: _ignore, ...rest } = loadingVersionDetailKeys;
+			loadingVersionDetailKeys = rest;
 		}
 	}
 
@@ -463,6 +592,104 @@
 		};
 	}
 
+	function selectedVersionIdFor(targetId: string, profileId: string): string | null {
+		return selectedVersionIds[detailKey(targetId, profileId)] ?? null;
+	}
+
+	function activeDetailsModalKey(): string | null {
+		if (!detailsModalTargetId || !detailsModalProfileId) return null;
+		return detailKey(detailsModalTargetId, detailsModalProfileId);
+	}
+
+	function activeDetailsModalVersionKey(): string | null {
+		if (!detailsModalTargetId || !detailsModalProfileId) return null;
+		const versionId = selectedVersionIdFor(detailsModalTargetId, detailsModalProfileId);
+		if (!versionId) return null;
+		return versionDetailKey(detailsModalTargetId, detailsModalProfileId, versionId);
+	}
+
+	function activeDetailsModalSummary(): SortingProfileDetail | null {
+		const key = activeDetailsModalKey();
+		return key ? detailCache[key] ?? null : null;
+	}
+
+	function activeDetailsModalDetail(): SortingProfileDetail | null {
+		const summary = activeDetailsModalSummary();
+		const versionKey = activeDetailsModalVersionKey();
+		if (versionKey && versionDetailCache[versionKey]) {
+			return versionDetailCache[versionKey];
+		}
+		const selectedVersionId =
+			detailsModalTargetId && detailsModalProfileId
+				? selectedVersionIdFor(detailsModalTargetId, detailsModalProfileId)
+				: null;
+		if (
+			summary &&
+			(!selectedVersionId || summary.current_version?.id === selectedVersionId)
+		) {
+			return summary;
+		}
+		return null;
+	}
+
+	function activeDetailsModalError(): string | null {
+		const versionKey = activeDetailsModalVersionKey();
+		if (versionKey && versionDetailErrors[versionKey]) {
+			return versionDetailErrors[versionKey];
+		}
+		const key = activeDetailsModalKey();
+		return key ? detailErrors[key] ?? null : null;
+	}
+
+	function activeDetailsModalLoading(): boolean {
+		const versionKey = activeDetailsModalVersionKey();
+		if (versionKey && loadingVersionDetailKeys[versionKey]) return true;
+		const key = activeDetailsModalKey();
+		return key ? Boolean(loadingDetailKeys[key]) : false;
+	}
+
+	function categoryEntries(detail: SortingProfileDetail | null): [string, Record<string, unknown>][] {
+		if (!detail?.current_version?.categories) return [];
+		return Object.entries(detail.current_version.categories);
+	}
+
+	async function openProfileDetails(target: SortHiveTargetLibrary, profile: SortingProfileSummary) {
+		const key = detailKey(target.id, profile.id);
+		const summary = detailCache[key] ?? (await loadProfileDetail(target.id, profile));
+		if (!summary) {
+			error = detailErrors[key] ?? 'Failed to load profile details.';
+			return;
+		}
+		const versionId = selectedVersionIds[key] || visibleVersions(summary)[0]?.id || '';
+		if (versionId) {
+			selectedVersionIds = {
+				...selectedVersionIds,
+				[key]: versionId
+			};
+		}
+		detailsModalTargetId = target.id;
+		detailsModalProfileId = profile.id;
+		detailsModalOpen = true;
+		if (versionId) {
+			await loadProfileVersionDetail(target.id, profile, versionId);
+		}
+	}
+
+	async function handleVersionSelection(
+		target: SortHiveTargetLibrary,
+		profile: SortingProfileSummary,
+		versionId: string
+	) {
+		const key = detailKey(target.id, profile.id);
+		selectedVersionIds = {
+			...selectedVersionIds,
+			[key]: versionId
+		};
+		if (detailsModalOpen && detailsModalTargetId === target.id && detailsModalProfileId === profile.id && versionId) {
+			await loadProfileVersionDetail(target.id, profile, versionId);
+		}
+	}
+
 	/** Auto-load profile detail for the currently visible cards. */
 	async function autoLoadVisibleDetails() {
 		if (!library) return;
@@ -489,7 +716,13 @@
 		detailErrors = {};
 		selectedVersionIds = {};
 		loadingDetailKeys = {};
+		versionDetailCache = {};
+		versionDetailErrors = {};
+		loadingVersionDetailKeys = {};
 		currentPages = {};
+		detailsModalOpen = false;
+		detailsModalTargetId = null;
+		detailsModalProfileId = null;
 		void loadLibrary();
 	});
 
@@ -695,6 +928,7 @@
 								{@const detail = detailCache[key]}
 								{@const update = profileHasUpdate(profile)}
 								{@const isActive = library.sync_state?.profile_id === profile.id}
+								{@const isSelectedActive = isActiveSelection(target.id, profile, detail)}
 								{@const rules = rulesForCard(profile)}
 								<div
 									class="group flex h-full flex-col border bg-surface transition-colors {isActive
@@ -812,12 +1046,12 @@
 											{#if detail}
 												<select
 													value={selectedVersionIds[key] ?? ''}
-													onchange={(event) => {
-														selectedVersionIds = {
-															...selectedVersionIds,
-															[key]: (event.currentTarget as HTMLSelectElement).value
-														};
-													}}
+													onchange={(event) =>
+														void handleVersionSelection(
+															target,
+															profile,
+															(event.currentTarget as HTMLSelectElement).value
+														)}
 													class="min-w-[13rem] border border-border bg-bg px-3 py-2 text-sm text-text focus:border-text-muted focus:outline-none"
 												>
 													{#each visibleVersions(detail) as version}
@@ -842,12 +1076,21 @@
 													</option>
 												</select>
 											{/if}
+											{#if !isSelectedActive}
+												<button
+													onclick={() => void applyProfile(target, profile)}
+													disabled={!detail || !selectedVersionIdForCard(target.id, profile, detail) || applyingKey === key}
+													class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+												>
+													{applyingKey === key ? 'Activating...' : 'Use'}
+												</button>
+											{/if}
 											<button
-												onclick={() => void applyProfile(target, profile)}
-												disabled={!detail || !selectedVersionIds[key] || applyingKey === key}
-												class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+												type="button"
+												onclick={() => void openProfileDetails(target, profile)}
+												class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
 											>
-												{applyingKey === key ? 'Activating...' : isActive ? 'Use Again' : 'Use'}
+												Details
 											</button>
 										</div>
 										{#if detailErrors[key]}
@@ -855,9 +1098,13 @@
 												Could not load versions: {detailErrors[key]}
 											</div>
 										{/if}
-										{#if isActive}
+										{#if isSelectedActive}
 											<div class="mt-2 text-xs text-[#D01012]">
 												Currently active on this machine.
+											</div>
+										{:else if isActive && library.sync_state?.version_number}
+											<div class="mt-2 text-xs text-text-muted">
+												This profile is active on v{library.sync_state.version_number}.
 											</div>
 										{/if}
 									</div>
@@ -895,4 +1142,199 @@
 		{/if}
 	{/if}
 	</div>
+
+	<Modal bind:open={detailsModalOpen} title="Profile Details" wide={true}>
+		{@const modalSummary = activeDetailsModalSummary()}
+		{@const modalDetail = activeDetailsModalDetail()}
+		{@const modalError = activeDetailsModalError()}
+		{@const modalLoading = activeDetailsModalLoading()}
+		{#if !modalSummary}
+			<div class="py-6 text-sm text-text-muted">No profile details loaded.</div>
+		{:else}
+			<div class="space-y-5">
+				<div class="flex flex-col gap-4 border border-border bg-surface p-4 lg:flex-row lg:items-start lg:justify-between">
+					<div class="min-w-0 flex-1">
+						<div class="flex flex-wrap items-center gap-2">
+							<h3 class="text-lg font-semibold text-text">{modalSummary.name}</h3>
+							{#if modalSummary.profile_type === 'set'}
+								<span class="border border-border bg-bg px-2 py-1 text-xs font-medium text-text-muted">
+									Set profile
+								</span>
+							{/if}
+							{#if modalSummary.visibility}
+								<span class="border border-border bg-bg px-2 py-1 text-xs font-medium text-text-muted">
+									{modalSummary.visibility}
+								</span>
+							{/if}
+						</div>
+						{#if modalSummary.description}
+							<p class="mt-2 text-sm text-text-muted">{modalSummary.description}</p>
+						{/if}
+						<div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+							<span>
+								Owner:
+								{modalSummary.owner?.display_name ?? modalSummary.owner?.github_login ?? 'Unknown'}
+							</span>
+							{#if modalSummary.tags.length > 0}
+								<span>Tags: {modalSummary.tags.join(', ')}</span>
+							{/if}
+							{#if modalDetail?.current_version?.default_category_id}
+								<span>Default category: {modalDetail.current_version.default_category_id}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="w-full max-w-sm space-y-2">
+						<label for={detailsModalVersionSelectId} class="block text-xs font-semibold uppercase tracking-wide text-text-muted">
+							Version
+						</label>
+						<select
+							id={detailsModalVersionSelectId}
+							value={selectedVersionIdFor(detailsModalTargetId ?? '', detailsModalProfileId ?? '') ?? ''}
+							onchange={(event) => {
+								const target = library?.targets.find((item) => item.id === detailsModalTargetId);
+								const profile = target?.profiles.find((item) => item.id === detailsModalProfileId);
+								if (!target || !profile) return;
+								void handleVersionSelection(
+									target,
+									profile,
+									(event.currentTarget as HTMLSelectElement).value
+								);
+							}}
+							class="w-full border border-border bg-bg px-3 py-2 text-sm text-text focus:border-text-muted focus:outline-none"
+						>
+							{#each visibleVersions(modalSummary) as version}
+								<option value={version.id}>
+									v{version.version_number}
+									{version.label ? ` - ${version.label}` : ''}
+									{version.is_published ? '' : ' (draft)'}
+								</option>
+							{/each}
+						</select>
+						{#if modalDetail?.current_version}
+							<div class="text-xs text-text-muted">
+								{#if modalDetail.current_version.change_note}
+									<div>Change note: {modalDetail.current_version.change_note}</div>
+								{/if}
+								<div>
+									Updated {formatRelativeTime(modalDetail.current_version.created_at) ?? 'recently'}
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				{#if modalError}
+					<div class="border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+						{modalError}
+					</div>
+				{/if}
+
+				{#if modalLoading && !modalDetail}
+					<div class="py-8 text-center text-sm text-text-muted">Loading full profile details...</div>
+				{:else if modalDetail?.current_version}
+					<div class="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(18rem,1fr)]">
+						<div class="space-y-4">
+							<div class="border border-border bg-surface p-4">
+								<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+									Rule Tree
+								</div>
+								{#if modalDetail.current_version.rules.length > 0}
+									<div class="space-y-3">
+										{#each modalDetail.current_version.rules as rule (rule.id)}
+											<ProfileRuleTreeNode rule={rule} />
+										{/each}
+									</div>
+								{:else}
+									<div class="text-sm text-text-muted">This version has no rules.</div>
+								{/if}
+							</div>
+						</div>
+
+						<div class="space-y-4">
+							<div class="border border-border bg-surface p-4">
+								<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+									Compiled Stats
+								</div>
+								<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+									<div class="border border-border bg-bg px-3 py-2">
+										<div class="text-[11px] uppercase tracking-wide text-text-muted">Matched</div>
+										<div class="text-lg font-semibold text-text">
+											{(modalDetail.current_version.compiled_stats?.matched ?? 0).toLocaleString()}
+										</div>
+									</div>
+									<div class="border border-border bg-bg px-3 py-2">
+										<div class="text-[11px] uppercase tracking-wide text-text-muted">Total parts</div>
+										<div class="text-lg font-semibold text-text">
+											{(modalDetail.current_version.compiled_stats?.total_parts ?? 0).toLocaleString()}
+										</div>
+									</div>
+									<div class="border border-border bg-bg px-3 py-2">
+										<div class="text-[11px] uppercase tracking-wide text-text-muted">Unmatched</div>
+										<div class="text-lg font-semibold text-text">
+											{(modalDetail.current_version.compiled_stats?.unmatched ?? 0).toLocaleString()}
+										</div>
+									</div>
+									<div class="border border-border bg-bg px-3 py-2">
+										<div class="text-[11px] uppercase tracking-wide text-text-muted">Categories</div>
+										<div class="text-lg font-semibold text-text">
+											{categoryEntries(modalDetail).length.toLocaleString()}
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="border border-border bg-surface p-4">
+								<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+									Fallback
+								</div>
+								<div class="flex flex-wrap gap-2">
+									<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+										Rebrickable: {modalDetail.current_version.fallback_mode?.rebrickable_categories ? 'On' : 'Off'}
+									</span>
+									<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+										BrickLink: {modalDetail.current_version.fallback_mode?.bricklink_categories ? 'On' : 'Off'}
+									</span>
+									<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+										By color: {modalDetail.current_version.fallback_mode?.by_color ? 'On' : 'Off'}
+									</span>
+								</div>
+							</div>
+
+							<div class="border border-border bg-surface p-4">
+								<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+									Categories
+								</div>
+								{#if categoryEntries(modalDetail).length > 0}
+									<div class="max-h-[24rem] space-y-2 overflow-y-auto">
+										{#each categoryEntries(modalDetail) as [categoryId, category]}
+											<div class="border border-border bg-bg px-3 py-2">
+												<div class="text-sm font-medium text-text">
+													{String(category.name ?? categoryId)}
+												</div>
+												<div class="mt-1 text-xs text-text-muted">
+													<span class="font-mono">{categoryId}</span>
+													{#if category.set_num}
+														<span class="mx-1">&middot;</span>
+														<span>{String(category.set_num)}</span>
+													{/if}
+													{#if category.year != null}
+														<span class="mx-1">&middot;</span>
+														<span>{String(category.year)}</span>
+													{/if}
+												</div>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<div class="text-sm text-text-muted">No category metadata available.</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{:else}
+					<div class="text-sm text-text-muted">No version details available for this profile.</div>
+				{/if}
+			</div>
+		{/if}
+	</Modal>
 </div>

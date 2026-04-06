@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.errors import APIError
+from app.config import settings
 from app.services import set_inventory
 from app.services.openrouter import OpenRouterResponse
 from app.services import profile_ai
@@ -279,6 +280,60 @@ def test_finalize_ai_response_rejects_create_custom_set_part_not_seen_in_search_
         )
 
 
+def test_finalize_ai_response_accepts_exact_catalog_part_for_custom_set() -> None:
+    response = OpenRouterResponse(
+        content=json.dumps(
+            {
+                "summary": "Added a custom order",
+                "proposals": [
+                    {
+                        "action": "create_custom_set",
+                        "name": "Customer Order",
+                        "custom_parts": [{"part_num": "3001", "quantity": 2}],
+                    }
+                ],
+            }
+        ),
+        model="test-model",
+        usage=None,
+    )
+
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={
+                "3001": {
+                    "name": "Brick 2 x 4",
+                    "part_img_url": "https://img.example/3001.png",
+                }
+            }
+        )
+    )
+
+    content, proposal = _finalize_ai_response(
+        response=response,
+        set_search_observations=[],
+        part_search_observations=[
+            {
+                "input": {"query": "brick 2x4"},
+                "parts": [{"part_num": "3002", "name": "Brick 2 x 3"}],
+            }
+        ],
+        catalog=catalog,
+    )
+
+    assert content == "Added a custom order"
+    assert proposal is not None
+    item = proposal["proposals"][0]
+    assert item["custom_parts"][0] == {
+        "part_num": "3001",
+        "part_name": "Brick 2 x 4",
+        "img_url": "https://img.example/3001.png",
+        "color_id": -1,
+        "color_name": "Any color",
+        "quantity": 2,
+    }
+
+
 def test_apply_profile_ai_proposal_creates_custom_set_rule() -> None:
     rules = apply_profile_ai_proposal(
         rules=[],
@@ -312,6 +367,79 @@ def test_apply_profile_ai_proposal_creates_custom_set_rule() -> None:
     assert rule["custom_parts"][0]["part_num"] == "2780"
 
 
+def test_apply_profile_ai_proposal_skips_duplicate_create_set() -> None:
+    existing_rules = [
+        {
+            "id": "rule-1",
+            "rule_type": "set",
+            "set_source": "rebrickable",
+            "name": "NASA Mars Rover Perseverance",
+            "set_num": "30682-1",
+            "include_spares": False,
+            "set_meta": {"name": "NASA Mars Rover Perseverance", "year": 2024, "num_parts": 83, "img_url": None},
+            "match_mode": "all",
+            "conditions": [],
+            "children": [],
+            "disabled": False,
+        }
+    ]
+
+    rules = apply_profile_ai_proposal(
+        rules=existing_rules,
+        selected_rule_id=None,
+        proposal={
+            "summary": "Added the set again",
+            "proposals": [
+                {
+                    "action": "create_set",
+                    "set_num": "30682-1",
+                    "name": "NASA Mars Rover Perseverance",
+                    "set_meta": {"name": "NASA Mars Rover Perseverance", "year": 2024, "num_parts": 83, "img_url": None},
+                }
+            ],
+        },
+    )
+
+    assert len(rules) == 1
+    assert rules[0]["set_num"] == "30682-1"
+
+
+def test_apply_profile_ai_proposal_skips_duplicate_filter_rule() -> None:
+    existing_rules = [
+        {
+            "id": "rule-1",
+            "name": "Technic Pins",
+            "match_mode": "all",
+            "conditions": [
+                {"id": "cond-1", "field": "name", "op": "contains", "value": "technic pin"},
+            ],
+            "children": [],
+            "disabled": False,
+        }
+    ]
+
+    rules = apply_profile_ai_proposal(
+        rules=existing_rules,
+        selected_rule_id=None,
+        proposal={
+            "summary": "Added it again",
+            "proposals": [
+                {
+                    "action": "create",
+                    "name": "Technic Pins",
+                    "match_mode": "all",
+                    "conditions": [
+                        {"field": "name", "op": "contains", "value": "technic pin"},
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert len(rules) == 1
+    assert rules[0]["name"] == "Technic Pins"
+
+
 def test_generate_profile_ai_proposal_short_circuits_custom_set_without_parts_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -337,3 +465,322 @@ def test_generate_profile_ai_proposal_short_circuits_custom_set_without_parts_ca
     assert result.proposal is None
     assert "parts catalog" in result.content
     assert "Custom Set manually" in result.content
+
+
+def test_tool_get_set_inventory_pages_inventory_and_excludes_spares_by_default() -> None:
+    catalog = SimpleNamespace(
+        get_set_inventory=lambda set_num: {
+            "set": {
+                "set_num": set_num,
+                "name": "Lion Knights' Castle",
+                "year": 2022,
+                "num_parts": 4514,
+                "img_url": "https://img.example/10305.png",
+            },
+            "inventory": [
+                {
+                    "part_num": "3001",
+                    "part_name": "Brick 2 x 4",
+                    "color_id": 1,
+                    "color_name": "Blue",
+                    "quantity": 4,
+                    "is_spare": False,
+                    "part_img_url": "https://img.example/3001.png",
+                },
+                {
+                    "part_num": "3002",
+                    "part_name": "Brick 2 x 3",
+                    "color_id": 5,
+                    "color_name": "Red",
+                    "quantity": 2,
+                    "is_spare": True,
+                    "part_img_url": "https://img.example/3002.png",
+                },
+                {
+                    "part_num": "3003",
+                    "part_name": "Brick 2 x 2",
+                    "color_id": 3,
+                    "color_name": "Green",
+                    "quantity": 6,
+                    "is_spare": False,
+                    "part_img_url": "https://img.example/3003.png",
+                },
+            ],
+        }
+    )
+
+    result = profile_ai._tool_get_set_inventory(
+        catalog,
+        {"set_num": "10305-1", "limit": 1, "offset": 1},
+    )
+    model_payload = json.loads(result.content)
+    trace_payload = result.trace_output
+
+    assert model_payload["set"] == {
+        "set_num": "10305-1",
+        "name": "Lion Knights' Castle",
+        "year": 2022,
+        "num_parts": 4514,
+        "img_url": "https://img.example/10305.png",
+    }
+    assert model_payload["total"] == 2
+    assert model_payload["showing"] == 1
+    assert model_payload["inventory"] == [
+        {
+            "part_num": "3003",
+            "part_name": "Brick 2 x 2",
+            "color_id": 3,
+            "color_name": "Green",
+            "quantity": 6,
+            "is_spare": False,
+        }
+    ]
+    assert trace_payload is not None
+    assert trace_payload["set"]["set_num"] == "10305-1"
+    assert trace_payload["total"] == 2
+    assert trace_payload["showing"] == 1
+    assert trace_payload["include_spares"] is False
+    assert trace_payload["inventory"] == [
+        {
+            "part_num": "3003",
+            "part_name": "Brick 2 x 2",
+            "color_id": 3,
+            "color_name": "Green",
+            "quantity": 6,
+            "is_spare": False,
+        }
+    ]
+
+
+def test_summarize_tool_result_formats_set_inventory() -> None:
+    summary = profile_ai._summarize_tool_result(
+        "get_set_inventory",
+        {"set_num": "10305-1"},
+        json.dumps(
+            {
+                "set": {"set_num": "10305-1", "name": "Lion Knights' Castle"},
+                "total": 2,
+                "inventory": [
+                    {
+                        "part_num": "3001",
+                        "part_name": "Brick 2 x 4",
+                        "color_name": "Blue",
+                        "quantity": 4,
+                        "is_spare": False,
+                    },
+                    {
+                        "part_num": "3002",
+                        "part_name": "Brick 2 x 3",
+                        "color_name": "Red",
+                        "quantity": 1,
+                        "is_spare": True,
+                    },
+                ],
+            }
+        ),
+    )
+
+    assert 'Found 2 inventory entries in "Lion Knights\' Castle" (10305-1):' in summary
+    assert "- Brick 2 x 4 (3001) · Blue · qty 4" in summary
+    assert "- Brick 2 x 3 (3002) · Red · qty 1 · spare" in summary
+
+
+def test_generate_profile_ai_proposal_exposes_set_inventory_tool_without_parts_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_tool_names: list[str] = []
+
+    def fake_chat(**kwargs):
+        observed_tool_names.extend(tool["function"]["name"] for tool in kwargs.get("tools", []))
+        return OpenRouterResponse(
+            content=json.dumps({"summary": "Looked it up", "proposals": []}),
+            model="test-model",
+            usage=None,
+        )
+
+    monkeypatch.setattr(profile_ai, "run_openrouter_chat", fake_chat)
+    monkeypatch.setattr(profile_ai, "get_user_openrouter_key", lambda user: "or-key")
+
+    user = SimpleNamespace(preferred_ai_model=None, openrouter_api_key_encrypted=None)
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={},
+            categories={},
+            colors={},
+            bricklink_categories={},
+        )
+    )
+
+    result = profile_ai.generate_profile_ai_proposal(
+        user=user,
+        catalog=catalog,
+        document={"rules": []},
+        message="What parts are in Lion Knights' Castle?",
+    )
+
+    assert result.content == "Looked it up"
+    assert observed_tool_names == ["search_sets", "get_set_inventory"]
+
+
+def test_generate_profile_ai_proposal_reports_performance_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(profile_ai, "run_openrouter_chat", lambda **kwargs: OpenRouterResponse(
+        content=json.dumps({"summary": "Done", "proposals": []}),
+        model="test-model",
+        usage={
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+            "prompt_tokens_details": {
+                "cached_tokens": 8,
+                "cache_write_tokens": 2,
+            },
+        },
+    ))
+    monkeypatch.setattr(profile_ai, "get_user_openrouter_key", lambda user: "or-key")
+
+    user = SimpleNamespace(preferred_ai_model=None, openrouter_api_key_encrypted=None)
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={"3001": {"name": "Brick 2 x 4"}},
+            categories={},
+            colors={},
+            bricklink_categories={},
+        )
+    )
+
+    result = profile_ai.generate_profile_ai_proposal(
+        user=user,
+        catalog=catalog,
+        document={"rules": []},
+        message="Add a simple rule",
+        ai_request_id="req-test-1",
+    )
+
+    assert result.content == "Done"
+    assert result.performance is not None
+    assert result.performance["request_id"] == "req-test-1"
+    assert result.performance["round_count"] == 1
+    assert result.performance["tool_call_count"] == 0
+    assert result.performance["cached_tokens"] == 8
+    assert result.performance["cache_write_tokens"] == 2
+    assert isinstance(result.performance["llm_ms"], float)
+    assert isinstance(result.performance["total_ms"], float)
+
+
+def test_generate_profile_ai_proposal_enables_prompt_cache_for_claude(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_kwargs: dict[str, object] = {}
+
+    def fake_chat(**kwargs):
+        observed_kwargs.update(kwargs)
+        return OpenRouterResponse(
+            content=json.dumps({"summary": "Done", "proposals": []}),
+            model="test-model",
+            usage=None,
+        )
+
+    monkeypatch.setattr(profile_ai, "run_openrouter_chat", fake_chat)
+    monkeypatch.setattr(profile_ai, "get_user_openrouter_key", lambda user: "or-key")
+
+    user = SimpleNamespace(preferred_ai_model=None, openrouter_api_key_encrypted=None)
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={"3001": {"name": "Brick 2 x 4"}},
+            categories={},
+            colors={},
+            bricklink_categories={},
+        )
+    )
+
+    profile_ai.generate_profile_ai_proposal(
+        user=user,
+        catalog=catalog,
+        document={"rules": []},
+        message="Add a simple rule",
+    )
+
+    assert observed_kwargs["max_tokens"] == 8192
+    assert observed_kwargs["cache_control"] == {"type": "ephemeral"}
+
+
+def test_generate_profile_ai_proposal_does_not_enable_prompt_cache_for_non_claude(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_kwargs: dict[str, object] = {}
+
+    def fake_chat(**kwargs):
+        observed_kwargs.update(kwargs)
+        return OpenRouterResponse(
+            content=json.dumps({"summary": "Done", "proposals": []}),
+            model="test-model",
+            usage=None,
+        )
+
+    monkeypatch.setattr(profile_ai, "run_openrouter_chat", fake_chat)
+    monkeypatch.setattr(profile_ai, "get_user_openrouter_key", lambda user: "or-key")
+
+    user = SimpleNamespace(preferred_ai_model="openai/gpt-5-mini", openrouter_api_key_encrypted=None)
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={"3001": {"name": "Brick 2 x 4"}},
+            categories={},
+            colors={},
+            bricklink_categories={},
+        )
+    )
+
+    profile_ai.generate_profile_ai_proposal(
+        user=user,
+        catalog=catalog,
+        document={"rules": []},
+        message="Add a simple rule",
+    )
+
+    assert observed_kwargs["cache_control"] is None
+
+
+def test_build_system_prompt_uses_compact_rule_snapshot_for_current_rules() -> None:
+    catalog = SimpleNamespace(
+        parts_data=SimpleNamespace(
+            parts={"3001": {"name": "Brick 2 x 4"}},
+            categories={},
+            colors={1: {"name": "Blue"}},
+            bricklink_categories={},
+        )
+    )
+    document = {
+        "rules": [
+            {
+                "id": "set-1",
+                "rule_type": "set",
+                "set_source": "custom",
+                "name": "Custom Bundle",
+                "set_num": "custom:set-1",
+                "custom_parts": [
+                    {"part_num": "3001", "part_name": "Brick 2 x 4", "color_id": 1, "color_name": "Blue", "quantity": 4},
+                    {"part_num": "3002", "part_name": "Brick 2 x 3", "color_id": -1, "color_name": "Any color", "quantity": 2},
+                ],
+                "conditions": [],
+                "children": [],
+            },
+            {
+                "id": "rule-1",
+                "name": "Technic Pins",
+                "match_mode": "all",
+                "conditions": [
+                    {"id": "cond-1", "field": "name", "op": "contains", "value": "technic pin"},
+                ],
+                "children": [],
+            },
+        ]
+    }
+
+    prompt = profile_ai._build_system_prompt(catalog, document, None)
+
+    assert '"custom_parts_summary"' in prompt
+    assert '"sample_parts"' in prompt
+    assert '"line_items": 2' in prompt
+    assert '"id": "cond-1"' not in prompt

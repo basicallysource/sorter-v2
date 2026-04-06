@@ -106,9 +106,60 @@ from server.config_helpers import (
 
 
 # ---------------------------------------------------------------------------
-# Hardware query helpers
+# Reusable carousel homing (called from main.py and the endpoint)
 # ---------------------------------------------------------------------------
 
+
+def _home_carousel_stepper(irl: Any, gc: Any) -> None:
+    """Home the carousel stepper using endstop. Raises on failure."""
+    import time as _time
+
+    interfaces = getattr(irl, "interfaces", {})
+    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+    if feeder_board is None:
+        raise RuntimeError("Feeder board not found — cannot home carousel.")
+
+    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
+    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
+        raise RuntimeError(f"Carousel home pin channel {CAROUSEL_HOME_PIN_CHANNEL} unavailable.")
+
+    _, config = _read_machine_params_config()
+    endstop_active_high = bool(
+        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
+    )
+
+    stepper = getattr(irl, "carousel_stepper", None)
+    if stepper is None:
+        raise RuntimeError("Carousel stepper not found.")
+
+    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
+
+    def _read_endstop() -> bool:
+        raw = bool(home_pin.value)
+        return raw if endstop_active_high else not raw
+
+    def _home_and_wait(speed: int, timeout_ms: int) -> None:
+        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
+        start = _time.monotonic()
+        while not stepper.stopped:
+            if (_time.monotonic() - start) * 1000 > timeout_ms:
+                stepper.move_at_speed(0)
+                raise TimeoutError("Carousel homing timed out.")
+            _time.sleep(0.01)
+        if not _read_endstop():
+            raise RuntimeError("Carousel homing stopped before endstop triggered.")
+
+    stepper.enabled = True
+    _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
+    for _ in range(CAROUSEL_HOME_PASSES - 1):
+        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
+        _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
+    stepper.position_degrees = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Hardware query helpers
+# ---------------------------------------------------------------------------
 
 
 
@@ -746,14 +797,19 @@ def save_servo_hardware_config(
     channel_ids = [int(channel["id"]) for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 
-    restart_required = (
+    structural_change = (
         backend != previous["backend"]
         or channel_ids != previous_ids
         or (backend == "waveshare" and port != previous["port"])
     )
 
+    has_controller = (
+        shared_state.controller_ref is not None
+        and hasattr(shared_state.controller_ref, "irl")
+    )
+
     applied_live = False
-    if not restart_required and shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+    if not structural_change and has_controller:
         try:
             live_servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
             if len(live_servos) == len(channels):
@@ -771,16 +827,21 @@ def save_servo_hardware_config(
         except Exception:
             applied_live = False
 
+    restart_required = structural_change and has_controller
+
+    if applied_live:
+        message = "Servo settings saved and applied live."
+    elif structural_change and has_controller:
+        message = "Servo settings saved. Re-home hardware to apply changes."
+    else:
+        message = "Servo settings saved."
+
     return {
         "ok": True,
         "settings": _servo_settings_from_config(config),
         "applied_live": applied_live,
         "restart_required": restart_required,
-        "message": (
-            "Servo settings saved and applied live."
-            if applied_live
-            else "Servo settings saved. Restart backend to apply backend or bus changes."
-        ),
+        "message": message,
     }
 
 
@@ -937,11 +998,13 @@ def get_waveshare_ports() -> Dict[str, Any]:
     ports = []
     for p in candidates:
         servo_count = 0
+        confirmed = False
         if live_port_device and p.device == live_port_device and live_bus is not None:
             # Port is already open by the controller — probe via the live bus
             try:
                 found = live_bus.scan(1, 10)
                 servo_count = len(found)
+                confirmed = True
             except Exception:
                 pass
         else:
@@ -950,19 +1013,19 @@ def get_waveshare_ports() -> Dict[str, Any]:
                 try:
                     found = bus.scan(1, 10)
                     servo_count = len(found)
+                    confirmed = servo_count > 0
                 finally:
                     bus.close()
             except Exception:
-                continue  # can't open → not a usable servo port
+                pass  # port can't be opened or scan failed — still list it as candidate
 
-        if servo_count > 0:
-            ports.append({
-                "device": p.device,
-                "product": p.product or "Waveshare Servo Board",
-                "serial": p.serial_number,
-                "servo_count": servo_count,
-                "confirmed": True,
-            })
+        ports.append({
+            "device": p.device,
+            "product": p.product or "Serial Device",
+            "serial": p.serial_number,
+            "servo_count": servo_count,
+            "confirmed": confirmed,
+        })
 
     return {"ok": True, "ports": ports}
 
@@ -1021,11 +1084,28 @@ def _update_highest_seen_servo_id(found_ids: list[int]) -> int:
 
 
 @router.get("/api/hardware-config/waveshare/servos")
-def get_waveshare_servos() -> Dict[str, Any]:
-    """Scan the bus and return info for every detected servo."""
-    bus, should_close = _get_waveshare_bus()
+def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
+    """Scan the bus and return info for every detected servo.
+
+    If *port* is given (e.g. from the UI dropdown before saving), open that
+    port directly instead of relying on the saved config.
+    """
+    bus = None
+    should_close = False
+
+    if port and port.strip():
+        # Caller provided an explicit port — open it directly
+        from hardware.waveshare_servo import ScServoBus
+        try:
+            bus = ScServoBus(port.strip(), timeout=0.02)
+            should_close = True
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Cannot open port {port}: {e}")
+    else:
+        bus, should_close = _get_waveshare_bus()
+
     if bus is None:
-        raise HTTPException(status_code=503, detail="No Waveshare bus available. Configure a port or start the backend.")
+        raise HTTPException(status_code=503, detail="No Waveshare bus available. Select a port or start the backend.")
 
     try:
         found_ids = bus.scan(1, 32)

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <link rel="stylesheet" href="assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">SV2</span>
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="index.html"{% if page.slug == "home" %} aria-current="page"{% endif %}>Overview</a>
+          <a href="runtime-status.html"{% if page.slug == "runtime-status" %} aria-current="page"{% endif %}>Runtime Status</a>
+          <a href="model-artifacts.html"{% if page.slug == "model-artifacts" %} aria-current="page"{% endif %}>Model Artifacts</a>
+          <a href="device-benchmarking.html"{% if page.slug == "device-benchmarking" %} aria-current="page"{% endif %}>Benchmarking</a>
+          <a href="hailo-hef-workflow.html"{% if page.slug == "hailo-hef-workflow" %} aria-current="page"{% endif %}>Hailo Workflow</a>
+        </nav>
+      </header>
+      <main class="content">
+        {% if page.kicker %}
+        <p class="kicker">{{ page.kicker }}</p>
+        {% endif %}
+        {% if page.title %}
+        <h1>{{ page.title }}</h1>
+        {% endif %}
+        {% if page.lede %}
+        <p class="lede">{{ page.lede }}</p>
+        {% endif %}
+        {{ content }}
+      </main>
+      <footer class="site-footer">
+        <p>
+          Source lives in <code>Documentation/</code> and is deployed via GitHub Pages.
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

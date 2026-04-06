@@ -15,16 +15,32 @@ The GitHub Pages workflow lives in:
 
 - `../.github/workflows/documentation-pages.yml`
 
-It builds from `Documentation/` so we are not tied to GitHub's built-in `/docs` source-folder convention.
+It builds from `docs/`.
 
 ## Local preview
 
 If you want to preview locally:
 
 ```bash
-cd Documentation
+cd docs
 bundle install
 bundle exec jekyll serve
 ```
 
-If macOS picks up the system `/usr/bin/bundle`, you may need to switch to a newer Ruby toolchain first. The GitHub Pages workflow is the authoritative build path.
+If local Ruby gets in the way, use the Docker-based workflow described below. The GitHub Pages workflow is the authoritative CI build path.
+
+## Local Docker build
+
+The most reliable local test path is a disposable Ruby 3.1 container:
+
+```bash
+./local-jekyll.sh build
+```
+
+This gives you a real local build check without needing GitHub Pages to be enabled yet.
+
+For a local preview server on `http://127.0.0.1:4000`:
+
+```bash
+./local-jekyll.sh serve
+```

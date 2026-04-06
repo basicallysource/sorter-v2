@@ -3,4 +3,4 @@
 
 [More details](https://basically.website/sorter-v2)
 
-[Documentation source](Documentation/index.md)
+[Documentation source](docs/index.md)

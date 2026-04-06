@@ -56,6 +56,6 @@ The durable rule is simple:
 
 ## GitHub Pages publishing
 
-This site is intended to publish from the root-level `Documentation/` folder via GitHub Actions, so we are not locked to GitHub's built-in `/docs` folder convention.
+This site is intended to publish from the root-level `docs/` folder via GitHub Actions.
 
 If the repository's default branch is not `main` or `master`, update the Pages workflow trigger in `.github/workflows/documentation-pages.yml` after merge.

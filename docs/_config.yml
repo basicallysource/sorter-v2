@@ -8,3 +8,4 @@ exclude:
   - README.md
   - Gemfile.lock
   - vendor
+  - .bundle

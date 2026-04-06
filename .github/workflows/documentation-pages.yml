@@ -6,7 +6,7 @@ on:
       - main
       - master
     paths:
-      - "Documentation/**"
+      - "docs/**"
       - ".github/workflows/documentation-pages.yml"
   workflow_dispatch:
 
@@ -33,7 +33,7 @@ jobs:
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./Documentation
+          source: ./docs
           destination: ./_site
 
       - name: Upload Pages artifact

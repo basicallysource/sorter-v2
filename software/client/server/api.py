@@ -442,4 +442,6 @@ def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
         setChannelPolygons(body["channel"])
     if "classification" in body:
         setClassificationPolygons(body["classification"])
+    if "channel" in body and shared_state.vision_manager is not None:
+        shared_state.vision_manager.reloadPolygons()
     return {"ok": True}

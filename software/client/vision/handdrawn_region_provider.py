@@ -54,6 +54,11 @@ class HanddrawnRegionProvider:
         self._arc_params = {}
         self._loadPolygons()
 
+    def reloadPolygons(self) -> None:
+        self._loadPolygons()
+        self._cached_regions = {}
+        self._cached_frame_shape = (0, 0)
+
     def _loadPolygons(self) -> None:
         saved = getChannelPolygons()
         if saved is None:

@@ -25,6 +25,15 @@ from server.routers.steppers import _stepper_mapping, _halt_stepper
 
 router = APIRouter()
 
+
+def _active_irl() -> Any | None:
+    return shared_state.getActiveIRL()
+
+
+def _ensure_not_homing(action: str) -> None:
+    if shared_state.hardware_state == "homing":
+        raise HTTPException(status_code=409, detail=f"Cannot {action} while hardware is homing.")
+
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
@@ -56,6 +65,10 @@ class CarouselHardwareSettingsPayload(BaseModel):
 
 class ServoSetIdPayload(BaseModel):
     new_id: int
+
+
+class ServoMovePayload(BaseModel):
+    position: str  # "open" | "close" | "center"
 
 
 class ServoLayerPreviewPayload(BaseModel):
@@ -175,16 +188,18 @@ def _coerce_float(value: object, default: float) -> float:
 
 
 def _distribution_layer_count() -> int:
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
+    active_irl = _active_irl()
+    if active_irl is not None:
+        layout = getattr(active_irl, "distribution_layout", None)
         if layout is not None and hasattr(layout, "layers"):
             return len(layout.layers)
     return len(getBinLayout().layers)
 
 
 def _pca_available_servo_channels() -> List[int]:
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        interfaces = getattr(shared_state.controller_ref.irl, "interfaces", {})
+    active_irl = _active_irl()
+    if active_irl is not None:
+        interfaces = getattr(active_irl, "interfaces", {})
         channels: set[int] = set()
         if isinstance(interfaces, dict):
             for interface in interfaces.values():
@@ -211,13 +226,17 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
                 if isinstance(channel_id, int) and not isinstance(channel_id, bool) and channel_id > 0:
                     found_ids.add(channel_id)
 
+    active_irl = _active_irl()
     live_servos = []
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        live_servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+    if active_irl is not None:
+        live_servos = list(getattr(active_irl, "servos", []))
         for servo_obj in live_servos:
             channel = getattr(servo_obj, "channel", None)
             if isinstance(channel, int) and not isinstance(channel, bool) and channel > 0:
                 found_ids.add(channel)
+
+    if shared_state.hardware_state == "homing":
+        return sorted(found_ids)
 
     scan_bus = None
     if live_servos:
@@ -268,6 +287,9 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
         "channel": channel,
         "available": False,
     }
+
+    if servo is None:
+        return base
 
     if hasattr(servo, "feedback"):
         try:
@@ -477,7 +499,8 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
 
 
 def _live_chute_status() -> Dict[str, Any]:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    irl = _active_irl()
+    if irl is None:
         return {
             "live_available": False,
             "endstop_triggered": None,
@@ -490,7 +513,6 @@ def _live_chute_status() -> Dict[str, Any]:
             "digital_inputs": [],
         }
 
-    irl = shared_state.controller_ref.irl
     chute = getattr(irl, "chute", None)
     stepper = getattr(irl, "chute_stepper", None)
     interfaces = getattr(irl, "interfaces", {})
@@ -576,7 +598,8 @@ def _live_carousel_status() -> Dict[str, Any]:
         carousel_settings.get("stepper_direction_inverted", False)
     )
 
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    irl = _active_irl()
+    if irl is None:
         return {
             "live_available": False,
             "endstop_triggered": None,
@@ -592,7 +615,6 @@ def _live_carousel_status() -> Dict[str, Any]:
             "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
         }
 
-    irl = shared_state.controller_ref.irl
     stepper = getattr(irl, "carousel_stepper", None)
     interfaces = getattr(irl, "interfaces", {})
     feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
@@ -811,7 +833,8 @@ def save_servo_hardware_config(
     applied_live = False
     if not structural_change and has_controller:
         try:
-            live_servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+            controller_ref = shared_state.controller_ref
+            live_servos = list(getattr(controller_ref.irl, "servos", [])) if controller_ref is not None else []
             if len(live_servos) == len(channels):
                 for index, servo in enumerate(live_servos):
                     invert = channel_inverts[index]
@@ -847,6 +870,7 @@ def save_servo_hardware_config(
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/toggle")
 def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
+    _ensure_not_homing("toggle a servo")
     servo = _live_servo_for_layer(layer_index)
     if not hasattr(servo, "toggle"):
         raise HTTPException(status_code=500, detail="Selected servo does not support test toggling.")
@@ -885,6 +909,7 @@ def preview_layer_servo(
     layer_index: int,
     payload: ServoLayerPreviewPayload,
 ) -> Dict[str, Any]:
+    _ensure_not_homing("preview a servo")
     servo = _live_servo_for_layer(layer_index)
     _, config = _read_machine_params_config()
     servo_settings = _servo_settings_from_config(config)
@@ -932,6 +957,7 @@ def preview_layer_servo(
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/calibrate")
 def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
+    _ensure_not_homing("calibrate a servo")
     servo = _live_servo_for_layer(layer_index)
     if not hasattr(servo, "recalibrate"):
         raise HTTPException(
@@ -964,10 +990,13 @@ def get_waveshare_ports() -> Dict[str, Any]:
     import serial.tools.list_ports
     from hardware.waveshare_servo import ScServoBus
 
+    active_irl = _active_irl()
+    is_homing = shared_state.hardware_state == "homing"
+
     # Also exclude ports already used by MCU boards in the running controller
     mcu_ports: set[str] = set()
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        interfaces = getattr(shared_state.controller_ref.irl, "interfaces", {})
+    if active_irl is not None:
+        interfaces = getattr(active_irl, "interfaces", {})
         if isinstance(interfaces, dict):
             for iface in interfaces.values():
                 iface_port = getattr(iface, "port", None)
@@ -977,8 +1006,8 @@ def get_waveshare_ports() -> Dict[str, Any]:
     # Check if the live controller already has a working bus — include its port directly
     live_bus = None
     live_port_device = None
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        for servo_obj in getattr(shared_state.controller_ref.irl, "servos", []):
+    if active_irl is not None:
+        for servo_obj in getattr(active_irl, "servos", []):
             candidate_bus = getattr(servo_obj, "_bus", None)
             if candidate_bus is not None and hasattr(candidate_bus, "scan"):
                 live_bus = candidate_bus
@@ -999,7 +1028,7 @@ def get_waveshare_ports() -> Dict[str, Any]:
     for p in candidates:
         servo_count = 0
         confirmed = False
-        if live_port_device and p.device == live_port_device and live_bus is not None:
+        if live_port_device and p.device == live_port_device and live_bus is not None and not is_homing:
             # Port is already open by the controller — probe via the live bus
             try:
                 found = live_bus.scan(1, 10)
@@ -1007,7 +1036,18 @@ def get_waveshare_ports() -> Dict[str, Any]:
                 confirmed = True
             except Exception:
                 pass
+        elif live_port_device and p.device == live_port_device and is_homing:
+            confirmed = True
         else:
+            if is_homing:
+                ports.append({
+                    "device": p.device,
+                    "product": p.product or "Serial Device",
+                    "serial": p.serial_number,
+                    "servo_count": servo_count,
+                    "confirmed": confirmed,
+                })
+                continue
             try:
                 bus = ScServoBus(p.device, timeout=0.01)
                 try:
@@ -1032,8 +1072,9 @@ def get_waveshare_ports() -> Dict[str, Any]:
 
 def _get_waveshare_bus():
     """Return a live ScServoBus from the running controller, or open one from config."""
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        for servo_obj in getattr(shared_state.controller_ref.irl, "servos", []):
+    active_irl = _active_irl()
+    if active_irl is not None:
+        for servo_obj in getattr(active_irl, "servos", []):
             bus = getattr(servo_obj, "_bus", None)
             if bus is not None and hasattr(bus, "scan"):
                 return bus, False  # (bus, should_close)
@@ -1090,6 +1131,7 @@ def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
     If *port* is given (e.g. from the UI dropdown before saving), open that
     port directly instead of relying on the saved config.
     """
+    _ensure_not_homing("scan Waveshare servos")
     bus = None
     should_close = False
 
@@ -1141,6 +1183,7 @@ def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/set-id")
 def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[str, Any]:
     """Change a servo's ID on the bus."""
+    _ensure_not_homing("change a Waveshare servo ID")
     new_id = payload.new_id
     if new_id < 1 or new_id > 253:
         raise HTTPException(status_code=400, detail="New ID must be between 1 and 253.")
@@ -1182,6 +1225,105 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to change servo ID: {e}")
+    finally:
+        if should_close:
+            bus.close()
+
+
+@router.post("/api/hardware-config/waveshare/servos/{servo_id}/calibrate")
+def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
+    """Auto-calibrate the open/close range of a single servo on the bus."""
+    _ensure_not_homing("calibrate a Waveshare servo")
+    if servo_id < 1 or servo_id > 253:
+        raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
+
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available.")
+
+    try:
+        if not bus.ping(servo_id):
+            raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
+
+        from hardware.waveshare_servo import calibrate_servo
+        try:
+            safe_min, safe_max = calibrate_servo(bus, servo_id)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
+
+        info = bus.read_servo_info(servo_id)
+        return {
+            "ok": True,
+            "servo_id": servo_id,
+            "limits": {"min": safe_min, "max": safe_max},
+            "servo": info,
+            "message": f"Servo {servo_id} calibrated. Range {safe_min}–{safe_max} saved to EEPROM.",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to calibrate servo: {exc}")
+    finally:
+        if should_close:
+            bus.close()
+
+
+@router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
+def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, Any]:
+    """Move a single servo to its open/close/center position based on EEPROM limits."""
+    _ensure_not_homing("move a Waveshare servo")
+    if servo_id < 1 or servo_id > 253:
+        raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
+
+    target = (payload.position or "").lower().strip()
+    if target not in {"open", "close", "center"}:
+        raise HTTPException(
+            status_code=400,
+            detail="position must be one of: open, close, center.",
+        )
+
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available.")
+
+    try:
+        if not bus.ping(servo_id):
+            raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
+
+        limits = bus.read_angle_limits(servo_id)
+        if limits is None:
+            raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
+        min_lim, max_lim = limits
+        if max_lim - min_lim < 20:
+            raise HTTPException(
+                status_code=409,
+                detail="Servo has no calibrated range. Run auto-calibration first.",
+            )
+
+        if target == "open":
+            position = min_lim
+        elif target == "close":
+            position = max_lim
+        else:
+            position = (min_lim + max_lim) // 2
+
+        bus.set_torque(servo_id, True)
+        time.sleep(0.01)
+        if not bus.move_to(servo_id, position, 400):
+            raise HTTPException(status_code=500, detail="move_to command failed.")
+
+        return {
+            "ok": True,
+            "servo_id": servo_id,
+            "position": target,
+            "raw_position": position,
+            "limits": {"min": min_lim, "max": max_lim},
+            "message": f"Servo {servo_id} moved to {target} ({position}).",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to move servo: {exc}")
     finally:
         if should_close:
             bus.close()
@@ -1247,10 +1389,11 @@ def get_live_chute_status() -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/chute/calibrate/find-endstop")
 def calibrate_chute_find_endstop() -> Dict[str, Any]:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Chute controller not initialized.")
+    irl = _active_irl()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    chute = getattr(irl, "chute", None)
     if chute is None or not hasattr(chute, "home"):
         raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
 
@@ -1264,10 +1407,22 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
             detail="Chute homing stopped before the endstop triggered.",
         )
 
+    backoff_angle = float(getattr(chute, "first_bin_center", 0.0) or 0.0)
+    backoff_message = ""
+    if backoff_angle > 0.0 and hasattr(chute, "moveToAngleBlocking"):
+        try:
+            chute.moveToAngleBlocking(backoff_angle, timeout_buffer_ms=1500)
+            backoff_message = f" Backed off to bin 1 ({backoff_angle:.2f}°)."
+        except Exception as exc:
+            backoff_message = f" Backoff to bin 1 failed: {exc}"
+
     return {
         "ok": True,
         "status": _live_chute_status(),
-        "message": "Step 1 complete. Chute moved slowly until the endstop was found and re-homed.",
+        "message": (
+            "Step 1 complete. Chute moved slowly until the endstop was found and re-homed."
+            + backoff_message
+        ),
     }
 
 
@@ -1324,8 +1479,9 @@ def save_carousel_hardware_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        stepper = getattr(shared_state.controller_ref.irl, "carousel_stepper", None)
+    live_irl = _active_irl()
+    if live_irl is not None:
+        stepper = getattr(live_irl, "carousel_stepper", None)
         if stepper is not None and hasattr(stepper, "set_direction_inverted"):
             try:
                 stepper.set_direction_inverted(stepper_direction_inverted)
@@ -1345,10 +1501,10 @@ def save_carousel_hardware_config(
 
 @router.post("/api/hardware-config/carousel/home")
 def home_carousel_to_endstop() -> Dict[str, Any]:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Carousel controller not initialized.")
+    irl = _active_irl()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    irl = shared_state.controller_ref.irl
     interfaces = getattr(irl, "interfaces", {})
     feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
     if feeder_board is None:
@@ -1421,10 +1577,10 @@ def home_carousel_to_endstop() -> Dict[str, Any]:
 @router.post("/api/hardware-config/carousel/calibrate")
 def calibrate_carousel() -> Dict[str, Any]:
     """Calibrate carousel by measuring steps for one full revolution."""
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Carousel controller not initialized.")
+    irl = _active_irl()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    irl = shared_state.controller_ref.irl
     interfaces = getattr(irl, "interfaces", {})
     feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
     if feeder_board is None:

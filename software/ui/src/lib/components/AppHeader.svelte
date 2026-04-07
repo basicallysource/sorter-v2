@@ -108,6 +108,12 @@
 					Profiles
 				</a>
 				<a
+					href="/setup"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/setup') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Setup
+				</a>
+				<a
 					href="/settings"
 					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/settings') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
 				>

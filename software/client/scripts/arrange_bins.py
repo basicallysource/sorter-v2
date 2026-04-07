@@ -346,7 +346,7 @@ HTML = """
     }
 
     async function applyChanges() {
-      const okay = confirm('Apply current draft to data.json?');
+      const okay = confirm('Apply current draft to the local database?');
       if (!okay) return;
       const res = await fetch('/api/apply_changes', { method: 'POST' });
       if (!res.ok) {
@@ -355,7 +355,7 @@ HTML = """
         return;
       }
       app_state = await res.json();
-      setImportStatus('Applied changes to data.json', false);
+      setImportStatus('Applied changes to the local database', false);
       renderAll();
     }
 

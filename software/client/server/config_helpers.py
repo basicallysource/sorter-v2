@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 import tomllib
 from pathlib import Path
 from typing import Any, Dict, List
@@ -14,6 +16,8 @@ from typing import Any, Dict, List
 from fastapi import HTTPException
 
 from irl.bin_layout import getBinLayout
+
+_CONFIG_WRITE_LOCK = threading.Lock()
 
 
 def _default_client_config_path(filename: str) -> str:
@@ -153,8 +157,7 @@ def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
         if isinstance(v, dict):
             _write_table(lines, k, v)
 
-    with open(path, "w") as f:
-        f.write("\n".join(lines) + "\n")
+    _atomic_write_text(path, "\n".join(lines) + "\n")
 
 
 def write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
@@ -171,6 +174,27 @@ def write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
             for layer in layers
         ]
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-        f.write("\n")
+    _atomic_write_text(path, json.dumps(payload, indent=2) + "\n")
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _CONFIG_WRITE_LOCK:
+        fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_path, target)
+            try:
+                os.chmod(target, 0o600)
+            except OSError:
+                pass
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise

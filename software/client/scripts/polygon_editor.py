@@ -1,6 +1,6 @@
 """
 Channel, carousel & classification polygon editor.
-All regions are click-to-draw polygons stored in blob_manager.
+All regions are click-to-draw polygons stored in the local state database.
 Shift-click on a channel tab to place the section-0 reference point.
 
 Run: /opt/homebrew/opt/python@3.11/bin/python3.11 client/scripts/polygon_editor.py

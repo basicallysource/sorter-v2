@@ -161,7 +161,7 @@ def chuteCalibrateLoop(chute: Chute, step_count_idx: int) -> dict[str, float] | 
     for size_name, bps in BINS_PER_SIZE.items():
         print(f"  bin width ({size_name}, {bps}/section): {usable / bps:.3f}°")
     print()
-    print("Saved to blob storage. Update FIRST_SECTION_CENTER and PILLAR_WIDTH_DEG in chute.py.")
+    print("Saved to local machine configuration. Update FIRST_SECTION_CENTER and PILLAR_WIDTH_DEG in chute.py.")
     print("Press any key to continue.")
     readchar.readkey()
     return cal

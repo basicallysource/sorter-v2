@@ -94,6 +94,9 @@ client/machine_params.toml
 client/stepper_current_overrides.json
 client/sorting_profile.json
 client/servo_states.json
+client/local_state.sqlite
+client/local_state.sqlite-shm
+client/local_state.sqlite-wal
 
 # Android app local/build state
 android-camera-app/.gradle/

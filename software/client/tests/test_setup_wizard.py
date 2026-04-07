@@ -15,10 +15,12 @@ class SetupWizardConfigTests(unittest.TestCase):
     def setUp(self) -> None:
         self._old_machine_params = os.environ.get("MACHINE_SPECIFIC_PARAMS_PATH")
         self._old_bin_layout = os.environ.get("BIN_LAYOUT_PATH")
+        self._old_local_state_db = os.environ.get("LOCAL_STATE_DB_PATH")
         self._tmpdir = tempfile.TemporaryDirectory()
         tmp_path = Path(self._tmpdir.name)
         self.machine_params_path = tmp_path / "machine_params.toml"
         self.bin_layout_path = tmp_path / "bin_layout.json"
+        self.local_state_db_path = tmp_path / "local_state.sqlite"
         self.bin_layout_path.write_text(
             json.dumps(
                 {
@@ -38,6 +40,7 @@ class SetupWizardConfigTests(unittest.TestCase):
         )
         os.environ["MACHINE_SPECIFIC_PARAMS_PATH"] = str(self.machine_params_path)
         os.environ["BIN_LAYOUT_PATH"] = str(self.bin_layout_path)
+        os.environ["LOCAL_STATE_DB_PATH"] = str(self.local_state_db_path)
 
     def tearDown(self) -> None:
         if self._old_machine_params is None:
@@ -49,6 +52,11 @@ class SetupWizardConfigTests(unittest.TestCase):
             os.environ.pop("BIN_LAYOUT_PATH", None)
         else:
             os.environ["BIN_LAYOUT_PATH"] = self._old_bin_layout
+
+        if self._old_local_state_db is None:
+            os.environ.pop("LOCAL_STATE_DB_PATH", None)
+        else:
+            os.environ["LOCAL_STATE_DB_PATH"] = self._old_local_state_db
 
         self._tmpdir.cleanup()
 

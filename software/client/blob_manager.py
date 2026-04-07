@@ -1,7 +1,4 @@
-import json
-import os
 import queue
-import tempfile
 import threading
 import time
 import uuid
@@ -11,52 +8,125 @@ from typing import Any, Optional
 import cv2
 import numpy as np
 
-DATA_FILE = Path(__file__).parent / "data.json"
-_DATA_LOCK = threading.Lock()
 BLOB_DIR = Path(__file__).parent / "blob"
 
 
-def _writeJsonAtomic(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.rename(tmp_path, path)
-    except BaseException:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
-
-
 def loadData() -> dict[str, Any]:
-    if not DATA_FILE.exists():
-        return {}
-    try:
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    data: dict[str, Any] = {}
+
+    from local_state import get_machine_id
+
+    machine_id = get_machine_id()
+    if machine_id:
+        data["machine_id"] = machine_id
+
+    stepper_positions = getAllStepperPositions()
+    if stepper_positions:
+        data["stepper_positions"] = stepper_positions
+
+    servo_positions = getAllServoPositions()
+    if servo_positions:
+        data["servo_positions"] = servo_positions
+
+    camera_setup = getCameraSetup()
+    if camera_setup is not None:
+        data["camera_setup"] = camera_setup
+
+    channel_polygons = getChannelPolygons()
+    if channel_polygons is not None:
+        data["channel_polygons"] = channel_polygons
+
+    classification_polygons = getClassificationPolygons()
+    if classification_polygons is not None:
+        data["classification_polygons"] = classification_polygons
+
+    machine_nickname = getMachineNickname()
+    if machine_nickname is not None:
+        data["machine_nickname"] = machine_nickname
+
+    bin_categories = getBinCategories()
+    if bin_categories is not None:
+        data["bin_categories"] = bin_categories
+
+    classification_detection = getClassificationDetectionConfig()
+    if classification_detection is not None:
+        data["classification_detection"] = classification_detection
+
+    feeder_detection = getFeederDetectionConfig()
+    if feeder_detection is not None:
+        data["feeder_detection"] = feeder_detection
+
+    carousel_detection = getCarouselDetectionConfig()
+    if carousel_detection is not None:
+        data["carousel_detection"] = carousel_detection
+
+    classification_training = getClassificationTrainingConfig()
+    if classification_training is not None:
+        data["classification_training"] = classification_training
+
+    sorting_profile_sync = getSortingProfileSyncState()
+    if sorting_profile_sync is not None:
+        data["sorting_profile_sync"] = sorting_profile_sync
+
+    api_keys = getApiKeys()
+    if api_keys:
+        data["api_keys"] = api_keys
+
+    sorthive = getSortHiveConfig()
+    if sorthive is not None:
+        data["sorthive"] = sorthive
+
+    return data
 
 
 def saveData(data: dict[str, Any]) -> None:
-    _writeJsonAtomic(DATA_FILE, data)
+    if not isinstance(data, dict):
+        raise ValueError("data must be a dict")
+
+    from local_state import set_machine_id, set_servo_positions, set_stepper_positions
+
+    if "machine_id" in data and isinstance(data["machine_id"], str):
+        set_machine_id(data["machine_id"])
+    if "stepper_positions" in data:
+        set_stepper_positions(data["stepper_positions"])
+    if "servo_positions" in data:
+        set_servo_positions(data["servo_positions"])
+    if "bin_categories" in data and isinstance(data["bin_categories"], list):
+        setBinCategories(data["bin_categories"])
+    if "camera_setup" in data and isinstance(data["camera_setup"], dict):
+        setCameraSetup(data["camera_setup"])
+    if "channel_polygons" in data and isinstance(data["channel_polygons"], dict):
+        setChannelPolygons(data["channel_polygons"])
+    if "classification_polygons" in data and isinstance(data["classification_polygons"], dict):
+        setClassificationPolygons(data["classification_polygons"])
+    if "machine_nickname" in data:
+        setMachineNickname(data["machine_nickname"])
+    if "classification_detection" in data and isinstance(data["classification_detection"], dict):
+        setClassificationDetectionConfig(data["classification_detection"])
+    if "feeder_detection" in data and isinstance(data["feeder_detection"], dict):
+        setFeederDetectionConfig(data["feeder_detection"])
+    if "carousel_detection" in data and isinstance(data["carousel_detection"], dict):
+        setCarouselDetectionConfig(data["carousel_detection"])
+    if "classification_training" in data and isinstance(data["classification_training"], dict):
+        setClassificationTrainingConfig(data["classification_training"])
+    if "sorting_profile_sync" in data and isinstance(data["sorting_profile_sync"], dict):
+        setSortingProfileSyncState(data["sorting_profile_sync"])
+    if "api_keys" in data and isinstance(data["api_keys"], dict):
+        setApiKeys(data["api_keys"])
+    if "sorthive" in data and isinstance(data["sorthive"], dict):
+        setSortHiveConfig(data["sorthive"])
 
 
 def getMachineId() -> str:
-    with _DATA_LOCK:
-        data = loadData()
-        if "machine_id" in data:
-            return data["machine_id"]
+    from local_state import get_machine_id, set_machine_id
 
-        machine_id = str(uuid.uuid4())
-        data["machine_id"] = machine_id
-        saveData(data)
+    machine_id = get_machine_id()
+    if machine_id is not None:
         return machine_id
+
+    machine_id = str(uuid.uuid4())
+    set_machine_id(machine_id)
+    return machine_id
 
 
 def getMachineNickname() -> str | None:
@@ -70,43 +140,55 @@ def setMachineNickname(nickname: str | None) -> None:
 
 
 def getStepperPosition(name: str) -> int:
-    data = loadData()
-    return data.get("stepper_positions", {}).get(name, 0)
+    from local_state import get_stepper_positions
+
+    return get_stepper_positions().get(name, 0)
 
 
 def setStepperPosition(name: str, position_steps: int) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        if "stepper_positions" not in data:
-            data["stepper_positions"] = {}
-        data["stepper_positions"][name] = position_steps
-        saveData(data)
+    from local_state import get_stepper_positions, set_stepper_positions
+
+    positions = get_stepper_positions()
+    positions[name] = position_steps
+    set_stepper_positions(positions)
+
+
+def getAllStepperPositions() -> dict[str, int]:
+    from local_state import get_stepper_positions
+
+    return get_stepper_positions()
 
 
 def getServoPosition(name: str) -> int:
-    data = loadData()
-    return data.get("servo_positions", {}).get(name, 0)
+    from local_state import get_servo_positions
+
+    return get_servo_positions().get(name, 0)
 
 
 def setServoPosition(name: str, angle: int) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        if "servo_positions" not in data:
-            data["servo_positions"] = {}
-        data["servo_positions"][name] = angle
-        saveData(data)
+    from local_state import get_servo_positions, set_servo_positions
+
+    positions = get_servo_positions()
+    positions[name] = angle
+    set_servo_positions(positions)
+
+
+def getAllServoPositions() -> dict[str, int]:
+    from local_state import get_servo_positions
+
+    return get_servo_positions()
 
 
 def getBinCategories() -> list[list[list[list[str]]]] | None:
-    data = loadData()
-    return data.get("bin_categories")
+    from local_state import get_bin_categories
+
+    return get_bin_categories()
 
 
 def setBinCategories(categories: list[list[list[list[str]]]]) -> None:
-    with _DATA_LOCK:
-        data = loadData()
-        data["bin_categories"] = categories
-        saveData(data)
+    from local_state import set_bin_categories
+
+    set_bin_categories(categories)
 
 
 def getCameraSetup() -> dict | None:
@@ -120,13 +202,15 @@ def setCameraSetup(setup: dict) -> None:
 
 
 def getChannelPolygons() -> dict | None:
-    from toml_config import getChannelPolygons as _get
-    return _get()
+    from local_state import get_channel_polygons
+
+    return get_channel_polygons()
 
 
 def setChannelPolygons(polygons: dict) -> None:
-    from toml_config import setChannelPolygons as _set
-    _set(polygons)
+    from local_state import set_channel_polygons
+
+    set_channel_polygons(polygons)
 
 
 def getChuteCalibration() -> dict[str, float] | None:
@@ -140,13 +224,15 @@ def setChuteCalibration(calibration: dict[str, float]) -> None:
 
 
 def getClassificationPolygons() -> dict | None:
-    from toml_config import getClassificationPolygons as _get
-    return _get()
+    from local_state import get_classification_polygons
+
+    return get_classification_polygons()
 
 
 def setClassificationPolygons(polygons: dict) -> None:
-    from toml_config import setClassificationPolygons as _set
-    _set(polygons)
+    from local_state import set_classification_polygons
+
+    set_classification_polygons(polygons)
 
 
 def getClassificationDetectionConfig() -> dict | None:
@@ -180,43 +266,51 @@ def setCarouselDetectionConfig(config: dict) -> None:
 
 
 def getClassificationTrainingConfig() -> dict | None:
-    from toml_config import getClassificationTrainingConfig as _get
-    return _get()
+    from local_state import get_classification_training_state
+
+    return get_classification_training_state()
 
 
 def setClassificationTrainingConfig(config: dict) -> None:
-    from toml_config import setClassificationTrainingConfig as _set
-    _set(config)
+    from local_state import set_classification_training_state
+
+    set_classification_training_state(config)
 
 
 def getSortHiveConfig() -> dict | None:
-    from toml_config import getSortHiveConfig as _get
-    return _get()
+    from local_state import get_sorthive_config
+
+    return get_sorthive_config()
 
 
 def setSortHiveConfig(config: dict) -> None:
-    from toml_config import setSortHiveConfig as _set
-    _set(config)
+    from local_state import set_sorthive_config
+
+    set_sorthive_config(config)
 
 
 def getSortingProfileSyncState() -> dict | None:
-    from toml_config import getSortingProfileSyncState as _get
-    return _get()
+    from local_state import get_sorting_profile_sync_state
+
+    return get_sorting_profile_sync_state()
 
 
 def setSortingProfileSyncState(state: dict) -> None:
-    from toml_config import setSortingProfileSyncState as _set
-    _set(state)
+    from local_state import set_sorting_profile_sync_state
+
+    set_sorting_profile_sync_state(state)
 
 
 def getApiKeys() -> dict:
-    from toml_config import getApiKeys as _get
-    return _get()
+    from local_state import get_api_keys
+
+    return get_api_keys()
 
 
 def setApiKeys(keys: dict) -> None:
-    from toml_config import setApiKeys as _set
-    _set(keys)
+    from local_state import set_api_keys
+
+    set_api_keys(keys)
 
 
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]

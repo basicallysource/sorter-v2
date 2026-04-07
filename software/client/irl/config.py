@@ -1,4 +1,3 @@
-import json
 import os
 import time
 
@@ -45,6 +44,7 @@ from .parse_user_toml import (
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories
+from local_state import get_servo_states, set_servo_states
 
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
@@ -79,38 +79,26 @@ def _run_stepper_init_command_with_retry(
     return False
 
 
-def _servo_state_path() -> str | None:
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path:
-        return None
-    return os.path.join(os.path.dirname(params_path), "servo_states.json")
-
-
 def save_servo_states(servos: list, gc: GlobalConfig) -> None:
-    path = _servo_state_path()
-    if not path:
-        return
     states = {}
     for i, servo in enumerate(servos):
         is_open = getattr(servo, "isOpen", lambda: None)()
         if is_open is not None:
             states[str(i)] = {"is_open": is_open}
     try:
-        with open(path, "w") as f:
-            json.dump(states, f)
+        set_servo_states(states)
     except Exception as e:
         gc.logger.warning(f"Failed to save servo states: {e}")
 
 
 def restore_servo_states(servos: list, gc: GlobalConfig) -> None:
-    path = _servo_state_path()
-    if not path or not os.path.exists(path):
-        return
     try:
-        with open(path, "r") as f:
-            states = json.load(f)
+        states = get_servo_states()
     except Exception as e:
         gc.logger.warning(f"Failed to load servo states: {e}")
+        return
+
+    if not states:
         return
 
     for i, servo in enumerate(servos):

@@ -49,10 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load persisted API keys into environment at import time (overrides env vars)
-_saved_api_keys = getApiKeys()
-if _saved_api_keys.get("openrouter"):
-    os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
+def _load_saved_api_keys_into_environment() -> None:
+    saved_api_keys = getApiKeys()
+    if saved_api_keys.get("openrouter"):
+        os.environ["OPENROUTER_API_KEY"] = saved_api_keys["openrouter"]
 
 # ---------------------------------------------------------------------------
 # Include routers
@@ -83,6 +83,7 @@ app.include_router(setup_router)
 
 @app.on_event("startup")
 async def onStartup() -> None:
+    _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
     getSetProgressSyncWorker().start()
 

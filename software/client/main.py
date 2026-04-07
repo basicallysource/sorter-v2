@@ -1,10 +1,16 @@
 from dotenv import load_dotenv
+import os
 from pathlib import Path
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-from toml_config import migrateFromDataJson
-migrateFromDataJson()
+from local_state import initialize_local_state
+initialize_local_state()
+
+from local_state import get_api_keys
+_saved_api_keys = get_api_keys()
+if _saved_api_keys.get("openrouter"):
+    os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables

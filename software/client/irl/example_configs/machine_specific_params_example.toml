@@ -73,7 +73,7 @@ sections = [
 
 # --- Camera configuration ---
 # layout = "default" (default): single feeder camera + classification cameras.
-#   Camera indices come from data.json (via scripts/camera_setup.py).
+#   Camera indices come from the local machine setup (for example via scripts/camera_setup.py).
 #
 # layout = "split_feeder": separate camera per c-channel + carousel.
 #   Indices are OpenCV device indices.

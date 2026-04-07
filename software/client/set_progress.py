@@ -1,12 +1,7 @@
-import json
 import time
-from pathlib import Path
 from typing import Any
 
-from blob_manager import BLOB_DIR
-
-
-PROGRESS_FILE = BLOB_DIR / "set_progress.json"
+from local_state import get_set_progress_state, set_set_progress_state
 AUTO_SAVE_INTERVAL_SEC = 5.0
 ANY_COLOR_ID = "-1"
 
@@ -212,10 +207,9 @@ class SetProgressTracker:
         }
 
     def save(self) -> None:
-        """Persist progress to local file."""
-        if not self._dirty and PROGRESS_FILE.exists():
+        """Persist progress to local SQLite state."""
+        if not self._dirty and get_set_progress_state() is not None:
             return
-        PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
         progress_data: dict[str, dict[str, int]] = {}
         for category_id, entries in self._set_parts.items():
             for entry in entries:
@@ -227,8 +221,7 @@ class SetProgressTracker:
             "updated_at": time.time(),
             "progress": progress_data,
         }
-        with open(PROGRESS_FILE, "w") as f:
-            json.dump(data, f, indent=2)
+        set_set_progress_state(data)
         self._dirty = False
         self._last_saved_at = time.time()
 
@@ -239,13 +232,9 @@ class SetProgressTracker:
             self.save()
 
     def _load(self) -> None:
-        """Load progress from local file if artifact hash matches."""
-        if not PROGRESS_FILE.exists():
-            return
-        try:
-            with open(PROGRESS_FILE, "r") as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError):
+        """Load progress from local SQLite state if artifact hash matches."""
+        data = get_set_progress_state()
+        if not isinstance(data, dict):
             return
         if data.get("artifact_hash") != self._artifact_hash:
             return  # Profile changed, start fresh

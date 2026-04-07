@@ -2252,10 +2252,22 @@
 			{/if}
 
 			<div
-				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
+				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted flex items-center gap-1"
 			>
 				<span class="font-medium text-text">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
+				{#if currentAssignment() === null && cameraConfigLoaded}
+					<button
+						onclick={openCameraPicker}
+						class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-text-muted/20 text-text hover:bg-text-muted/40 transition-colors cursor-pointer"
+						title="Select camera"
+					>
+						<svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+							<line x1="6" y1="2" x2="6" y2="10" />
+							<line x1="2" y1="6" x2="10" y2="6" />
+						</svg>
+					</button>
+				{/if}
 			</div>
 
 			{#if statusMsg}

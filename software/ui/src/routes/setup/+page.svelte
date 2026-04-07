@@ -5,12 +5,15 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import SetupCameraAreaCard from '$lib/components/setup/SetupCameraAreaCard.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
 	import SetupServoOnboardingSection from '$lib/components/setup/SetupServoOnboardingSection.svelte';
+	import SetupZoneEditorModal from '$lib/components/setup/SetupZoneEditorModal.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import StorageLayerSettingsSection from '$lib/components/settings/StorageLayerSettingsSection.svelte';
 	import {
-		Camera,
 		Check,
 		CheckCircle2,
 		ChevronLeft,
@@ -140,7 +143,6 @@
 	type WizardStepId =
 		| 'identity'
 		| 'discovery'
-		| 'layout'
 		| 'cameras'
 		| 'motion'
 		| 'homing'
@@ -160,14 +162,20 @@
 	const machine = getMachineContext();
 	const STEP_ORDER = ['c_channel_1', 'c_channel_2', 'c_channel_3', 'carousel', 'chute'];
 	const ROLE_LABELS: Record<string, string> = {
-		feeder: 'Feeder Camera',
-		c_channel_2: 'C-Channel 2 Camera',
-		c_channel_3: 'C-Channel 3 Camera',
-		carousel: 'Carousel Camera',
+		c_channel_2: 'C-Channel 2',
+		c_channel_3: 'C-Channel 3',
+		carousel: 'Carousel',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
-	const OPTIONAL_ROLES = new Set(['classification_top', 'classification_bottom']);
+	const ROLE_DESCRIPTIONS: Record<string, string> = {
+		c_channel_2: 'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
+		c_channel_3: 'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
+		carousel: 'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
+		classification_top: 'Required top-down classification view.',
+		classification_bottom: 'Optional crop for underside or second-pass classification.'
+	};
+	const OPTIONAL_ROLES = new Set(['classification_bottom']);
 	const MACHINE_NAME_INPUT_ID = 'setup-machine-name';
 	const WIZARD_STEPS: WizardStepDefinition[] = [
 		{
@@ -211,24 +219,17 @@
 			requiresManualConfirm: true
 		},
 		{
-			id: 'layout',
-			title: 'Camera Setup',
+			id: 'cameras',
+			title: 'Cameras',
 			kicker: 'Step 6',
 			description:
-				'Decide whether this machine runs the simple single-feeder layout or the split-feeder multi-camera layout.',
-			requiresManualConfirm: false
-		},
-		{
-			id: 'cameras',
-			title: 'Camera Assignment',
-			kicker: 'Step 7',
-			description: 'Assign a physical stream to each role required by the chosen camera layout.',
+				'Choose the camera layout, then assign a source to each machine area that needs coverage. The same camera can be reused for multiple areas.',
 			requiresManualConfirm: false
 		},
 		{
 			id: 'advanced',
 			title: 'Finish and Fine Tuning',
-			kicker: 'Step 8',
+			kicker: 'Step 7',
 			description:
 				'Use the detailed editors for deeper storage-layer tuning and optional camera geometry calibration.',
 			requiresManualConfirm: true
@@ -258,6 +259,10 @@
 	let cameraStatus = $state('');
 	let savingAssignments = $state(false);
 	let roleSelections = $state<Record<string, string>>({});
+	let pictureSettingsRole = $state<string | null>(null);
+	let zoneEditorRole = $state<string | null>(null);
+	let reviewedZones = $state<Record<string, boolean>>({});
+	let tunedPictures = $state<Record<string, boolean>>({});
 
 	let hardwareState = $state('standby');
 	let hardwareError = $state<string | null>(null);
@@ -340,9 +345,7 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
-		return selectedLayout === 'split_feeder'
-			? ['c_channel_2', 'c_channel_3', 'carousel', 'classification_top', 'classification_bottom']
-			: ['feeder', 'classification_top', 'classification_bottom'];
+		return ['c_channel_2', 'c_channel_3', 'carousel', 'classification_top', 'classification_bottom'];
 	}
 
 	function roleIsRequired(role: string): boolean {
@@ -410,6 +413,42 @@
 		if (key.startsWith('usb:')) return Number(key.slice(4));
 		if (key.startsWith('net:')) return key.slice(4);
 		return null;
+	}
+
+	function selectedCameraLabel(key: string | undefined): string {
+		const choice = cameraChoices().find((entry) => entry.key === (key ?? '__none__'));
+		return choice?.label ?? 'No camera selected';
+	}
+
+
+	function roleHasCamera(role: string): boolean {
+		return parseCameraSource(roleSelections[role] ?? '__none__') !== null;
+	}
+
+	function openPictureSettings(role: string) {
+		if (!roleHasCamera(role)) return;
+		pictureSettingsRole = role;
+	}
+
+	function closePictureSettings() {
+		pictureSettingsRole = null;
+	}
+
+	function openZoneEditor(role: string) {
+		if (!roleHasCamera(role)) return;
+		zoneEditorRole = role;
+	}
+
+	function closeZoneEditor() {
+		zoneEditorRole = null;
+	}
+
+	function markZoneReviewed(role: string) {
+		reviewedZones = { ...reviewedZones, [role]: true };
+	}
+
+	function markPictureTuned(role: string) {
+		tunedPictures = { ...tunedPictures, [role]: true };
 	}
 
 	function usbDevicesForUse(): UsbDevice[] {
@@ -549,10 +588,8 @@
 				return Boolean(wizard?.readiness.machine_named);
 			case 'discovery':
 				return Boolean(wizard?.readiness.boards_detected);
-			case 'layout':
-				return Boolean(wizard?.readiness.camera_layout_selected);
 			case 'cameras':
-				return Boolean(wizard?.readiness.cameras_assigned);
+				return Boolean(wizard?.readiness.camera_layout_selected) && Boolean(wizard?.readiness.cameras_assigned);
 			case 'motion':
 				return Boolean(stepConfirmations.motion);
 			case 'homing':
@@ -771,19 +808,17 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			clearManualConfirmations(['motion', 'homing', 'servos', 'advanced']);
-				layoutStatus =
-					selectedLayout === 'split_feeder'
-						? 'Split feeder layout selected.'
-						: 'Single feeder layout selected.';
-				await loadWizard();
-				await navigateToStep('cameras');
-			} catch (e: any) {
-				layoutError = e.message ?? 'Failed to save camera layout';
-			} finally {
+			layoutStatus =
+				selectedLayout === 'split_feeder'
+					? 'Split feeder layout selected.'
+					: 'Single feeder layout selected.';
+			await loadWizard();
+		} catch (e: any) {
+			layoutError = e.message ?? 'Failed to save camera layout';
+		} finally {
 			savingLayout = false;
 		}
 	}
-
 	async function saveCameraAssignments() {
 		savingAssignments = true;
 		cameraError = null;
@@ -792,13 +827,6 @@
 			const payload: Record<string, number | string | null> = { layout: selectedLayout };
 			for (const role of cameraRolesForLayout()) {
 				payload[role] = parseCameraSource(roleSelections[role] ?? '__none__');
-			}
-			if (selectedLayout === 'split_feeder') {
-				payload.feeder = null;
-			} else {
-				payload.c_channel_2 = null;
-				payload.c_channel_3 = null;
-				payload.carousel = null;
 			}
 
 			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/assign`, {
@@ -1069,6 +1097,7 @@
 						rootClass="setup-card-shell"
 						headerClass="setup-card-header"
 						bodyClass="setup-card-body"
+						on:refresh-cameras={loadCameraInventory}
 					>
 						{#if !wizard && loadingWizard}
 							<div class="setup-panel px-4 py-4 text-sm text-text-muted">
@@ -1201,125 +1230,35 @@
 									</div>
 								{/if}
 							</div>
-						{:else if activeStepId === 'layout'}
-							<div class="flex flex-col gap-4">
-								<div class="grid gap-3 md:grid-cols-2">
-									<button
-										onclick={() => (selectedLayout = 'default')}
-										class={`setup-choice px-4 py-4 text-left transition-colors ${
-											selectedLayout === 'default' ? 'border-[#0055BF] bg-[#0055BF]/10' : ''
-										}`}
-									>
-										<div class="flex items-center justify-between gap-3">
-											<div class="text-sm font-semibold text-text">Single feeder</div>
-											{#if wizard?.discovery.recommended_camera_layout === 'default'}
-												<span
-													class="rounded-full bg-[#0055BF]/10 px-2 py-1 text-[11px] font-medium text-[#0055BF]"
-												>
-													Recommended
-												</span>
-											{/if}
-										</div>
-										<div class="mt-2 text-sm text-text-muted">
-											One feeder camera plus optional classification cameras.
-										</div>
-									</button>
-									<button
-										onclick={() => (selectedLayout = 'split_feeder')}
-										class={`setup-choice px-4 py-4 text-left transition-colors ${
-											selectedLayout === 'split_feeder' ? 'border-[#0055BF] bg-[#0055BF]/10' : ''
-										}`}
-									>
-										<div class="flex items-center justify-between gap-3">
-											<div class="text-sm font-semibold text-text">Split feeder</div>
-											{#if wizard?.discovery.recommended_camera_layout === 'split_feeder'}
-												<span
-													class="rounded-full bg-[#0055BF]/10 px-2 py-1 text-[11px] font-medium text-[#0055BF]"
-												>
-													Recommended
-												</span>
-											{/if}
-										</div>
-										<div class="mt-2 text-sm text-text-muted">
-											Separate C-channel cameras plus a carousel camera.
-										</div>
-									</button>
-								</div>
-								<div class="setup-panel px-4 py-3 text-sm text-text-muted">
-									Choose the layout that matches the physical camera setup on this machine.
-								</div>
-								<div class="flex flex-wrap items-center gap-3">
-									<button
-										onclick={saveLayout}
-										disabled={savingLayout}
-										class="setup-button-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										<Camera size={14} />
-										{savingLayout ? 'Saving...' : 'Save Layout'}
-									</button>
-								</div>
-								{#if layoutError}
-									<div class="text-sm text-[#D01012]">{layoutError}</div>
-								{:else if layoutStatus}
-									<div class="text-sm text-[#00852B]">{layoutStatus}</div>
-								{/if}
-							</div>
 						{:else if activeStepId === 'cameras'}
 							<div class="flex flex-col gap-4">
-								<div class="flex flex-wrap items-center gap-3 text-sm text-text-muted">
-									<span>{usbCameras.length} USB camera(s)</span>
-									<span>{networkCameras.length} network/ADB stream(s)</span>
-									<button
-										onclick={loadCameraInventory}
-										disabled={loadingCameras}
-										class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										<RefreshCcw size={14} class={loadingCameras ? 'animate-spin' : ''} />
-										Refresh Sources
-									</button>
-								</div>
-
-								<div class="setup-panel px-4 py-3 text-sm text-text-muted">
-									Required roles must be assigned before you can continue. Optional classification
-									cameras can be left empty for now.
-								</div>
-
-								<div class="grid gap-3 md:grid-cols-2">
+								<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 									{#each cameraRolesForLayout() as role}
-										<div class="setup-panel p-4">
-											<div class="flex items-center justify-between gap-3">
-												<div class="text-sm font-medium text-text">{ROLE_LABELS[role]}</div>
-												<div
-													class={`text-xs ${roleIsRequired(role) ? 'text-[#D01012]' : 'text-text-muted'}`}
-												>
-													{roleIsRequired(role) ? 'Required' : 'Optional'}
-												</div>
-											</div>
-											<select
-												value={roleSelections[role] ?? '__none__'}
-												onchange={(event) =>
-													handleRoleSelection(
-														role,
-														(event.currentTarget as HTMLSelectElement).value
-													)}
-												class="setup-control mt-3 w-full px-3 py-2 text-sm text-text"
-											>
-												{#each cameraChoices() as choice}
-													<option value={choice.key}>{choice.label}</option>
-												{/each}
-											</select>
-										</div>
+										<SetupCameraAreaCard
+											role={role as any}
+											label={ROLE_LABELS[role]}
+											description={ROLE_DESCRIPTIONS[role]}
+											required={roleIsRequired(role)}
+											selectedKey={roleSelections[role] ?? '__none__'}
+											selectedLabel={selectedCameraLabel(roleSelections[role])}
+											zoneReviewed={Boolean(reviewedZones[role])}
+											pictureTuned={Boolean(tunedPictures[role])}
+											choices={cameraChoices().filter((choice) => choice.key !== '__none__') as any}
+											onSelect={handleRoleSelection}
+											onOpenPictureSettings={openPictureSettings}
+											onOpenZoneEditor={openZoneEditor}
+										/>
 									{/each}
 								</div>
 
 								<div class="flex flex-wrap items-center gap-3">
 									<button
 										onclick={saveCameraAssignments}
-										disabled={savingAssignments}
+										disabled={savingAssignments || savingLayout}
 										class="setup-button-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 									>
 										<CheckCircle2 size={14} />
-										{savingAssignments ? 'Saving...' : 'Save Camera Assignments'}
+										{savingAssignments ? 'Saving...' : 'Save Camera Setup'}
 									</button>
 								</div>
 
@@ -1328,6 +1267,7 @@
 								{:else if cameraStatus}
 									<div class="text-sm text-[#00852B]">{cameraStatus}</div>
 								{/if}
+
 							</div>
 						{:else if activeStepId === 'motion'}
 							{@const steppersLive =
@@ -1627,5 +1567,29 @@
 
 				</div>
 		{/if}
+
+		<Modal open={pictureSettingsRole !== null} title="Picture Settings" wide={true}>
+			{#if pictureSettingsRole}
+				<PictureSettingsSidebar
+					role={pictureSettingsRole as any}
+					label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
+					hasCamera={roleHasCamera(pictureSettingsRole)}
+					source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
+					onClose={closePictureSettings}
+					onSaved={() => {
+						const role = pictureSettingsRole;
+						if (!role) return;
+						markPictureTuned(role);
+						cameraStatus = `${ROLE_LABELS[role] ?? role} picture settings saved.`;
+					}}
+				/>
+			{/if}
+		</Modal>
+
+		<Modal open={zoneEditorRole !== null} title="Edit Zone" wide={true}>
+			{#if zoneEditorRole}
+				<SetupZoneEditorModal role={zoneEditorRole as any} on:reviewed={() => markZoneReviewed(zoneEditorRole!)} />
+			{/if}
+		</Modal>
 	</div>
 </div>

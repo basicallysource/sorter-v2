@@ -42,7 +42,7 @@
 	class="flex h-full flex-col border border-border bg-bg"
 >
 	<div
-		class="flex flex-shrink-0 items-center justify-between bg-surface px-3 py-2 text-sm"
+		class="flex flex-shrink-0 items-center justify-between bg-surface px-3 py-1.5 text-sm"
 	>
 		<span class="text-text-muted">{display_label}</span>
 		{#if frame}

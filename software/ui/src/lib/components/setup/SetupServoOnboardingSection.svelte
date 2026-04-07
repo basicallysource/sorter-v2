@@ -92,6 +92,70 @@
 			: Array.from({ length: Math.max(layerCount, 1) }, (_, index) => index);
 	}
 
+	function servoSetupState(servo: BusServo) {
+		const calibrated =
+			typeof servo.min_limit === 'number' &&
+			typeof servo.max_limit === 'number' &&
+			(servo.max_limit ?? 0) - (servo.min_limit ?? 0) >= 20;
+		const layer = layerByAssignment[servo.id] ?? 0;
+		const inverted = layer > 0 ? Boolean(invertByLayer[layer]) : false;
+		const isFactory = servo.id === 1 && suggestedNextId !== null;
+
+		if (isFactory) {
+			return {
+				calibrated,
+				layer,
+				inverted,
+				isFactory,
+				state: 'factory' as const,
+				accent: 'border-l-[#F2A900]',
+				headerTone: 'bg-[#FFF7E0]',
+				title: 'Promote ID before continuing',
+				description: `Factory ID 1 detected. Promote it to ID ${suggestedNextId} before connecting the next servo.`
+			};
+		}
+
+		if (!calibrated) {
+			return {
+				calibrated,
+				layer,
+				inverted,
+				isFactory,
+				state: 'needs-calibration' as const,
+				accent: 'border-l-[#C9C7C0]',
+				headerTone: 'bg-bg/40',
+				title: 'Needs calibration',
+				description: 'Run auto-calibration before testing movement or assigning direction.'
+			};
+		}
+
+		if (layer === 0) {
+			return {
+				calibrated,
+				layer,
+				inverted,
+				isFactory,
+				state: 'needs-assignment' as const,
+				accent: 'border-l-[#0055BF]',
+				headerTone: 'bg-[#0055BF]/[0.06]',
+				title: 'Ready for assignment',
+				description: 'Calibration is done. Assign this servo to a storage layer next.'
+			};
+		}
+
+		return {
+			calibrated,
+			layer,
+			inverted,
+			isFactory,
+			state: 'ready' as const,
+			accent: 'border-l-[#00852B]',
+			headerTone: 'bg-[#00852B]/[0.06]',
+			title: 'Setup complete',
+			description: `Calibrated and assigned to Layer ${layer}. Test the motion if you want a final check.`
+		};
+	}
+
 	function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? {};
 		const servo = payload?.servo ?? {};
@@ -529,24 +593,14 @@
 				<div class="mt-4 grid gap-3">
 					{#each busServos as servo (servo.id)}
 						{@const busy = busyByServoId[servo.id]}
-						{@const calibrated =
-							typeof servo.min_limit === 'number' &&
-							typeof servo.max_limit === 'number' &&
-							(servo.max_limit ?? 0) - (servo.min_limit ?? 0) >= 20}
-						{@const layer = layerByAssignment[servo.id] ?? 0}
+						{@const setup = servoSetupState(servo)}
+						{@const calibrated = setup.calibrated}
+						{@const layer = setup.layer}
 						{@const lastMove = lastMoveByServoId[servo.id]}
-						{@const inverted = layer > 0 ? Boolean(invertByLayer[layer]) : false}
-						{@const isFactory = servo.id === 1 && suggestedNextId !== null}
-						{@const accent = isFactory
-							? 'border-l-[#F2A900]'
-							: layer > 0
-								? 'border-l-[#00852B]'
-								: calibrated
-									? 'border-l-[#0055BF]'
-									: 'border-l-[#C9C7C0]'}
-						<div class="border border-border border-l-4 bg-surface {accent}">
-							<!-- Identity row: ID badge · model/range/voltage · layer dropdown -->
-							<div class="flex flex-wrap items-center gap-4 px-4 py-3">
+						{@const inverted = setup.inverted}
+						{@const isFactory = setup.isFactory}
+						<div class={`overflow-hidden border border-border border-l-4 bg-surface ${setup.accent}`}>
+							<div class={`flex flex-wrap items-start gap-4 px-4 py-3 ${setup.headerTone}`}>
 								<div
 									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-[#0055BF] font-bold text-white"
 								>
@@ -563,107 +617,101 @@
 											<span class="text-xs text-text-muted">{servo.voltage} V</span>
 										{/if}
 									</div>
-									<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-										{#if calibrated}
-											<span
-												class="inline-flex items-center gap-1 border border-[#0055BF]/30 bg-[#0055BF]/10 px-2 py-0.5 font-medium text-[#0055BF]"
-											>
-												<span class="h-1.5 w-1.5 rounded-full bg-[#0055BF]"></span>
-												Calibrated · {servo.min_limit}–{servo.max_limit}
-											</span>
-										{:else}
-											<span
-												class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 font-medium text-text-muted"
-											>
-												<span class="h-1.5 w-1.5 rounded-full bg-text-muted"></span>
-												Not calibrated
-											</span>
-										{/if}
-										{#if layer > 0}
-											<span
-												class="inline-flex items-center gap-1 border border-[#00852B]/30 bg-[#00852B]/10 px-2 py-0.5 font-medium text-[#00852B]"
-											>
-												<span class="h-1.5 w-1.5 rounded-full bg-[#00852B]"></span>
-												Layer {layer}{inverted ? ' · swapped' : ''}
-											</span>
-										{/if}
-									</div>
+									<div class="mt-1 text-sm font-semibold text-text">{setup.title}</div>
+									<div class="mt-1 text-xs text-text-muted">{setup.description}</div>
 								</div>
 
-								<div class="flex flex-col items-end gap-1">
-									<span class="text-[10px] uppercase tracking-wider text-text-muted">Assigned to</span>
-									<select
-										value={String(layer)}
-										onchange={(event) =>
-											assignLayer(
-												servo.id,
-												Number((event.currentTarget as HTMLSelectElement).value)
-											)}
-										class="setup-control px-3 py-1.5 text-sm font-medium text-text"
-									>
-										<option value="0">— Unassigned —</option>
-										{#each unassignedLayers(layer) as layerOption}
-											<option value={String(layerOption)}>Layer {layerOption}</option>
-										{/each}
-									</select>
+								<div class="min-w-[11rem] sm:ml-auto">
+									<label class="flex flex-col gap-1">
+										<span class="text-[10px] uppercase tracking-wider text-text-muted">Assigned to</span>
+										<select
+											value={String(layer)}
+											onchange={(event) =>
+												assignLayer(
+													servo.id,
+													Number((event.currentTarget as HTMLSelectElement).value)
+												)}
+											class="setup-control w-full px-3 py-2 text-sm font-medium text-text"
+										>
+											<option value="0">— Unassigned —</option>
+											{#each unassignedLayers(layer) as layerOption}
+												<option value={String(layerOption)}>Layer {layerOption}</option>
+											{/each}
+										</select>
+									</label>
 								</div>
 							</div>
 
-							{#if isFactory}
-								<div
-									class="flex flex-wrap items-center justify-between gap-3 border-t border-[#F2A900]/40 bg-[#FFF7E0] px-4 py-2 text-xs text-[#7A5A00]"
-								>
-									<span>
-										Brand-new servo on factory ID <span class="font-semibold">1</span>.
-										Promote it before the next servo joins the bus.
-									</span>
+							<div class="grid gap-3 border-t border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+								<div>
+									<div class="text-[10px] uppercase tracking-wider text-text-muted">Setup checklist</div>
+									<div class="mt-2 flex flex-wrap gap-2 text-xs">
+										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${calibrated ? 'border-[#0055BF]/30 bg-[#0055BF]/10 text-[#0055BF]' : 'border-border bg-bg text-text-muted'}`}>
+											<span class={`h-1.5 w-1.5 rounded-full ${calibrated ? 'bg-[#0055BF]' : 'bg-text-muted'}`}></span>
+											{calibrated ? `Calibrated · ${servo.min_limit}–${servo.max_limit}` : 'Calibration pending'}
+										</span>
+										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${layer > 0 ? 'border-[#00852B]/30 bg-[#00852B]/10 text-[#00852B]' : 'border-border bg-bg text-text-muted'}`}>
+											<span class={`h-1.5 w-1.5 rounded-full ${layer > 0 ? 'bg-[#00852B]' : 'bg-text-muted'}`}></span>
+											{layer > 0 ? `Assigned · Layer ${layer}` : 'Layer not assigned'}
+										</span>
+										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${layer > 0 ? 'border-border bg-bg text-text' : 'border-border bg-bg text-text-muted'}`}>
+											<span class={`h-1.5 w-1.5 rounded-full ${layer > 0 ? 'bg-text' : 'bg-text-muted'}`}></span>
+											Direction {layer > 0 ? (inverted ? 'reversed' : 'normal') : 'set after assignment'}
+										</span>
+									</div>
+								</div>
+
+								{#if isFactory}
+									<div class="border border-[#F2A900]/40 bg-[#FFF7E0] px-3 py-2 text-xs text-[#7A5A00] md:max-w-[18rem]">
+										<div class="font-semibold text-[#5C4400]">Factory ID detected</div>
+										<div class="mt-1">Promote this servo before plugging in the next one.</div>
+										<button
+											onclick={() => promoteServoId(servo.id, suggestedNextId!)}
+											disabled={!!busy}
+											class="mt-2 border border-[#F2A900] bg-[#F2A900] px-3 py-1.5 text-xs font-semibold text-[#3D2A00] transition-colors hover:bg-[#F2A900]/90 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{busy === 'promoting' ? 'Promoting…' : `Promote to ID ${suggestedNextId}`}
+										</button>
+									</div>
+								{/if}
+							</div>
+
+							<div class="border-t border-border bg-bg/40 px-4 py-3">
+								<div class="text-[10px] uppercase tracking-wider text-text-muted">Actions</div>
+								<div class="mt-2 flex flex-wrap items-center gap-2">
 									<button
-										onclick={() => promoteServoId(servo.id, suggestedNextId!)}
+										onclick={() => calibrateServo(servo.id)}
 										disabled={!!busy}
-										class="border border-[#F2A900] bg-[#F2A900] px-3 py-1.5 text-xs font-semibold text-[#3D2A00] transition-colors hover:bg-[#F2A900]/90 disabled:cursor-not-allowed disabled:opacity-60"
+										class={`px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${calibrated ? 'setup-button-secondary text-text' : 'border border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'}`}
 									>
-										{busy === 'promoting' ? 'Promoting…' : `Promote to ID ${suggestedNextId}`}
+										{busy === 'calibrating'
+											? 'Calibrating…'
+											: calibrated
+												? 'Recalibrate'
+												: 'Auto-calibrate'}
+									</button>
+									<button
+										onclick={() => toggleOpenClose(servo.id)}
+										disabled={!!busy || !calibrated}
+										class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+									>
+										{busy === 'moving'
+											? 'Testing…'
+											: lastMove === 'open'
+												? 'Test close'
+												: 'Test open'}
+									</button>
+									<button
+										onclick={() => toggleInvertForLayer(layer)}
+										disabled={!calibrated || layer === 0}
+										title={layer === 0
+											? 'Assign a layer first to remember this direction change'
+											: 'Use this if the gate opens when it should close'}
+										class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+									>
+										{inverted ? 'Direction reversed' : 'Reverse direction'}
 									</button>
 								</div>
-							{/if}
-
-							<!-- Action toolbar -->
-							<div
-								class="flex flex-wrap items-center gap-2 border-t border-border bg-bg/40 px-4 py-2"
-							>
-								<button
-									onclick={() => calibrateServo(servo.id)}
-									disabled={!!busy}
-									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-								>
-									{busy === 'calibrating'
-										? 'Calibrating…'
-										: calibrated
-											? 'Recalibrate'
-											: 'Auto-calibrate'}
-								</button>
-								<span class="h-4 w-px bg-border"></span>
-								<button
-									onclick={() => toggleOpenClose(servo.id)}
-									disabled={!!busy || !calibrated}
-									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-								>
-									{busy === 'moving'
-										? 'Moving…'
-										: lastMove === 'open'
-											? 'Move to closed'
-											: 'Move to open'}
-								</button>
-								<button
-									onclick={() => toggleInvertForLayer(layer)}
-									disabled={!calibrated || layer === 0}
-									title={layer === 0
-										? 'Assign a layer first to remember this swap'
-										: 'Use this if the servo opens when it should close'}
-									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-								>
-									{inverted ? '↺ Open/close swapped' : 'Swap open/close'}
-								</button>
 							</div>
 						</div>
 					{/each}

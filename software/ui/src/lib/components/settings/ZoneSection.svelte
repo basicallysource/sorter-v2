@@ -267,6 +267,7 @@
 	let activeSidebar = $state<SidePanel>(null);
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
+	let cameraAbort = $state<AbortController | null>(null);
 	let cameraSaving = $state(false);
 	let cameraError = $state<string | null>(null);
 	let cameraConfigLoaded = $state(false);
@@ -1084,12 +1085,27 @@
 		}
 	}
 
+	function cancelCameraScan() {
+		if (cameraAbort) {
+			cameraAbort.abort();
+			cameraAbort = null;
+		}
+		cameraLoading = false;
+		cameraModalOpen = false;
+	}
+
 	async function refreshCameras() {
+		if (cameraAbort) {
+			cameraAbort.abort();
+			cameraAbort = null;
+		}
 		cameraLoading = true;
 		cameraError = null;
+		const abort = new AbortController();
+		cameraAbort = abort;
 		try {
 			await loadCameraConfig();
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`);
+			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`, { signal: abort.signal });
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			if (Array.isArray(payload)) {
@@ -1100,9 +1116,11 @@
 			usbCameras = Array.isArray(payload.usb) ? payload.usb : [];
 			networkCameras = Array.isArray(payload.network) ? payload.network : [];
 		} catch (e: any) {
+			if (e.name === 'AbortError') return;
 			cameraError = e.message ?? 'Failed to scan cameras';
 		} finally {
 			cameraLoading = false;
+			cameraAbort = null;
 		}
 	}
 
@@ -2604,7 +2622,7 @@
 				{/if}
 
 				{#if cameraLoading}
-					<div class="py-8 text-center text-sm text-text-muted">
+					<div class="py-8 text-center text-sm text-text-muted animate-pulse">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -2748,14 +2766,22 @@
 				<div
 					class="flex items-center justify-between border-t border-border pt-3"
 				>
-					<button
-						onclick={refreshCameras}
-						disabled={cameraLoading}
-						class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<RefreshCw size={13} />
-						<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
-					</button>
+					{#if cameraLoading}
+						<button
+							onclick={cancelCameraScan}
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+						>
+							<span>Cancel</span>
+						</button>
+					{:else}
+						<button
+							onclick={refreshCameras}
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+						>
+							<RefreshCw size={13} />
+							<span>Refresh</span>
+						</button>
+					{/if}
 					{#if currentAssignment() !== null}
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}

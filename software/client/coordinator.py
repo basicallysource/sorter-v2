@@ -32,6 +32,8 @@ class Coordinator:
         self.vision = vision
         self.event_queue = event_queue
         self.shared = SharedVariables()
+        self.feeding_mode = getattr(irl_config, "feeding_mode", "auto_channels")
+        self.manual_feed_mode = self.feeding_mode == "manual_carousel"
         self.sorting_profile = mkSortingProfile(gc)
         self._sync_set_progress_tracker()
 
@@ -52,6 +54,10 @@ class Coordinator:
             irl, gc, self.shared, vision, event_queue, telemetry, self.carousel
         )
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
+        if self.manual_feed_mode:
+            self.logger.info(
+                "Coordinator: manual carousel feed mode enabled; automatic C-channel feeding is disabled."
+            )
 
     def _sync_set_progress_tracker(self) -> None:
         existing_tracker = getattr(self.gc, "set_progress_tracker", None)
@@ -85,7 +91,10 @@ class Coordinator:
 
         with prof.timer("coordinator.step.total_ms"):
             with prof.timer("coordinator.step.feeder_ms"):
-                self.feeder.step()
+                if self.manual_feed_mode:
+                    prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
+                else:
+                    self.feeder.step()
             with prof.timer("coordinator.step.classification_ms"):
                 self.classification.step()
             with prof.timer("coordinator.step.distribution_ms"):

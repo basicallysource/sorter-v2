@@ -47,6 +47,7 @@ def normalizePhysicalStepperBindingName(stepper_name: str) -> str:
     return PHYSICAL_STEPPER_BINDING_ALIASES.get(stepper_name, stepper_name)
 
 VALID_BIN_SIZES = {"small", "medium", "big"}
+VALID_FEEDING_MODES = {"auto_channels", "manual_carousel"}
 
 DEFAULT_LAYER_SECTIONS: list[list[str]] = [
     ["medium", "medium"],
@@ -56,6 +57,35 @@ DEFAULT_LAYER_SECTIONS: list[list[str]] = [
     ["medium", "medium"],
     ["medium", "medium"],
 ]
+
+
+def loadFeedingModeConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> str:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return "auto_channels"
+
+    feeding_params = raw.get("feeding")
+    if feeding_params is None:
+        return "auto_channels"
+    if not isinstance(feeding_params, dict):
+        gc.logger.warning("Ignoring invalid feeding config: expected object. Using auto channel feeding.")
+        return "auto_channels"
+
+    mode = feeding_params.get("mode", "auto_channels")
+    if not isinstance(mode, str) or mode not in VALID_FEEDING_MODES:
+        gc.logger.warning(
+            "Ignoring invalid feeding.mode=%r; expected one of %s. Using auto channel feeding."
+            % (mode, sorted(VALID_FEEDING_MODES))
+        )
+        return "auto_channels"
+
+    return mode
 
 
 @dataclass

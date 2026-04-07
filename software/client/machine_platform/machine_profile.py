@@ -28,6 +28,7 @@ class MachineCapabilities:
 @dataclass(frozen=True)
 class MachineProfile:
     camera_layout: str
+    feeding_mode: str
     servo_backend: str
     stepper_bindings: Mapping[str, str]
     stepper_direction_inverts: Mapping[str, bool]
@@ -38,6 +39,7 @@ class MachineProfile:
 def build_machine_profile(
     *,
     camera_layout: str,
+    feeding_mode: str,
     servo_backend: str,
     stepper_bindings: Mapping[str, str],
     stepper_direction_inverts: Mapping[str, bool],
@@ -58,6 +60,7 @@ def build_machine_profile(
 
     return MachineProfile(
         camera_layout=camera_layout,
+        feeding_mode=feeding_mode,
         servo_backend=servo_backend,
         stepper_bindings=dict(stepper_bindings),
         stepper_direction_inverts=dict(stepper_direction_inverts),

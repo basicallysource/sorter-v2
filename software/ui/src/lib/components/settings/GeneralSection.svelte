@@ -4,6 +4,8 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
+	type FeedingMode = 'auto_channels' | 'manual_carousel';
+
 	const manager = getMachinesContext();
 
 	let url = $state(`${backendWsBaseUrl}/ws`);
@@ -12,6 +14,11 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
+	let feedingMode = $state<FeedingMode>('auto_channels');
+	let loadingFeedingMode = $state(false);
+	let savingFeedingMode = $state(false);
+	let feedingModeError = $state<string | null>(null);
+	let feedingModeStatus = $state('');
 
 	function handleConnect() {
 		manager.connect(url);
@@ -63,6 +70,57 @@
 		}
 	}
 
+	async function loadFeedingMode() {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) {
+			feedingMode = 'auto_channels';
+			return;
+		}
+
+		loadingFeedingMode = true;
+		feedingModeError = null;
+		feedingModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/feeding-mode`);
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
+		} catch (e: any) {
+			feedingModeError = e.message ?? 'Failed to load feeding mode';
+		} finally {
+			loadingFeedingMode = false;
+		}
+	}
+
+	async function saveFeedingMode(nextMode: FeedingMode) {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) {
+			feedingModeError = 'Select a connected machine before changing the feeding mode.';
+			return;
+		}
+
+		savingFeedingMode = true;
+		feedingModeError = null;
+		feedingModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/feeding-mode`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mode: nextMode })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
+			feedingModeStatus = 'Feeding mode saved. Reset and re-home the machine before running.';
+		} catch (e: any) {
+			feedingModeError = e.message ?? 'Failed to save feeding mode';
+		} finally {
+			savingFeedingMode = false;
+		}
+	}
+
 	$effect(() => {
 		const machineId = manager.selectedMachineId ?? '';
 		if (machineId !== loadedMachineId) {
@@ -71,6 +129,14 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
+			feedingMode = 'auto_channels';
+			loadingFeedingMode = false;
+			savingFeedingMode = false;
+			feedingModeError = null;
+			feedingModeStatus = '';
+			if (machineId) {
+				void loadFeedingMode();
+			}
 		}
 	});
 </script>
@@ -167,9 +233,7 @@
 						{nameSaving ? 'Saving...' : 'Save Name'}
 					</button>
 				</div>
-				<div class="text-xs text-text-muted">
-					Leave it blank to fall back to the machine ID.
-				</div>
+				<div class="text-xs text-text-muted">Leave it blank to fall back to the machine ID.</div>
 				{#if nameError}
 					<div class="text-sm text-[#D01012] dark:text-red-400">{nameError}</div>
 				{:else if nameStatus}
@@ -177,8 +241,64 @@
 				{/if}
 			</div>
 		{:else}
+			<div class="text-sm text-text-muted">Connect to a machine to give it a friendly name.</div>
+		{/if}
+	</div>
+
+	<div>
+		<h3 class="mb-2 text-sm font-medium text-text">Feeding Mode</h3>
+		{#if manager.selectedMachine}
+			<div class="flex flex-col gap-3">
+				<div class="text-xs text-text-muted">
+					Choose whether this machine feeds parts through the C-Channels automatically or waits for
+					an operator to place a part directly into the carousel dropzone.
+				</div>
+				<div class="grid gap-2 sm:grid-cols-2">
+					<button
+						onclick={() => saveFeedingMode('auto_channels')}
+						disabled={loadingFeedingMode || savingFeedingMode}
+						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							feedingMode === 'auto_channels'
+								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								: 'border-border bg-bg text-text hover:bg-surface'
+						}`}
+					>
+						<span class="text-sm font-medium">Automatic Feed</span>
+						<span class="text-xs text-text-muted">
+							Use the normal C-Channel feeder automation path.
+						</span>
+					</button>
+					<button
+						onclick={() => saveFeedingMode('manual_carousel')}
+						disabled={loadingFeedingMode || savingFeedingMode}
+						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							feedingMode === 'manual_carousel'
+								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								: 'border-border bg-bg text-text hover:bg-surface'
+						}`}
+					>
+						<span class="text-sm font-medium">Manual Carousel Feed</span>
+						<span class="text-xs text-text-muted">
+							Operators place a part into the carousel dropzone and the machine takes over from
+							there.
+						</span>
+					</button>
+				</div>
+				<div class="text-xs text-text-muted">
+					This setting is persisted in the machine TOML and takes effect after `Reset` and
+					`Re-Home`.
+				</div>
+				{#if feedingModeError}
+					<div class="text-sm text-[#D01012] dark:text-red-400">{feedingModeError}</div>
+				{:else if feedingModeStatus}
+					<div class="text-sm text-text-muted">{feedingModeStatus}</div>
+				{:else if loadingFeedingMode}
+					<div class="text-sm text-text-muted">Loading current feeding mode...</div>
+				{/if}
+			</div>
+		{:else}
 			<div class="text-sm text-text-muted">
-				Connect to a machine to give it a friendly name.
+				Connect to a machine before changing the feeding mode.
 			</div>
 		{/if}
 	</div>

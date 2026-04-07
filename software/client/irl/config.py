@@ -11,7 +11,7 @@ from machine_platform import (
     build_servo_controller,
     discover_control_boards,
 )
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from machine_platform.control_board import ControlBoard
@@ -32,6 +32,7 @@ from .bin_layout import (
 )
 from .parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
+    loadFeedingModeConfig,
     loadMachineConfig,
     loadMachineSpecificParams,
     loadStepperBindingOverrides,
@@ -308,6 +309,7 @@ class IRLConfig:
     aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
+    feeding_mode: str
 
     def __init__(self):
         self.camera_layout = "default"
@@ -315,6 +317,7 @@ class IRLConfig:
         self.c_channel_3_camera = None
         self.carousel_camera = None
         self.feeder_config = FeederConfig()
+        self.feeding_mode = "auto_channels"
 
 
 class IRLInterface:
@@ -362,6 +365,11 @@ class IRLInterface:
                 getattr(self, attr).enabled = False
 
     def shutdown(self) -> None:
+        if self.servo_controller is not None and hasattr(self.servo_controller, "shutdown"):
+            try:
+                self.servo_controller.shutdown()
+            except Exception:
+                pass
         for iface in self.interfaces.values():
             iface.shutdown()
 
@@ -604,6 +612,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     # Check for TOML camera layout override
     import os, tomllib
     camera_layout_type = "default"
+    feeding_mode = "auto_channels"
     raw_toml: dict[str, object] = {}
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
@@ -617,6 +626,19 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 camera_layout_type = "default"
         except Exception:
             pass
+
+    class _SilentLogger:
+        def warning(self, *args: object, **kwargs: object) -> None:
+            return None
+
+        def info(self, *args: object, **kwargs: object) -> None:
+            return None
+
+    class _SilentGlobalConfig:
+        def __init__(self) -> None:
+            self.logger = _SilentLogger()
+
+    feeding_mode = loadFeedingModeConfig(cast(Any, _SilentGlobalConfig()), raw_toml)
 
     picture_settings_section = {}
     if isinstance(raw_toml, dict):
@@ -644,10 +666,11 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         return parseCameraColorProfile(color_profiles_section.get(role))
 
     irl_config.camera_layout = camera_layout_type
+    irl_config.feeding_mode = feeding_mode
 
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
-        cameras_section = raw_toml.get("cameras", {}) if isinstance(raw_toml, dict) else {}
+        cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}
 
         c_ch2_idx = cameras_section.get("c_channel_2")
         c_ch3_idx = cameras_section.get("c_channel_3")
@@ -743,7 +766,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         )
     else:
         # default: single feeder + classification cameras from TOML [cameras]
-        cameras_section = raw_toml.get("cameras", {}) if isinstance(raw_toml, dict) else {}
+        cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}
 
         feeder_camera_index = cameras_section.get("feeder")
         classification_camera_bottom_index = cameras_section.get("classification_bottom")
@@ -755,11 +778,11 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 "Run client/scripts/camera_setup.py or configure cameras in machine_params.toml."
             )
 
-        if feeder_camera_index is None:
+        if not isinstance(feeder_camera_index, int):
             feeder_camera_index = -1
-        if classification_camera_bottom_index is None:
+        if not isinstance(classification_camera_bottom_index, int):
             classification_camera_bottom_index = -1
-        if classification_camera_top_index is None:
+        if not isinstance(classification_camera_top_index, int):
             classification_camera_top_index = -1
 
         irl_config.feeder_camera = mkCameraConfig(
@@ -902,20 +925,22 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
         if stepper_config is not None:
+            microsteps = stepper_config.microsteps
+            default_steps_per_second = stepper_config.default_steps_per_second
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
-                f"microsteps={stepper_config.microsteps}",
-                lambda: stepper.set_microsteps(stepper_config.microsteps),
+                f"microsteps={microsteps}",
+                lambda: stepper.set_microsteps(microsteps),
             )
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
-                f"speed limits min=16 max={stepper_config.default_steps_per_second}",
-                lambda: stepper.set_speed_limits(16, stepper_config.default_steps_per_second),
+                f"speed limits min=16 max={default_steps_per_second}",
+                lambda: stepper.set_speed_limits(16, default_steps_per_second),
             )
             gc.logger.info(
-                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={stepper_config.microsteps}, speed={stepper_config.default_steps_per_second}"
+                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}"
             )
         else:
             gc.logger.warn(
@@ -994,6 +1019,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
+        feeding_mode=config.feeding_mode,
         servo_backend=irl_interface.servo_controller.backend_name if irl_interface.servo_controller else "none",
         stepper_bindings=stepper_binding_overrides,
         stepper_direction_inverts=stepper_direction_inverts,

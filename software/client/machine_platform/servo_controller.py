@@ -99,6 +99,9 @@ class ServoController(ABC):
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
         raise NotImplementedError
 
+    def shutdown(self) -> None:
+        return
+
 
 class Pca9685ServoController(ServoController):
     backend_name = "pca9685"
@@ -164,6 +167,7 @@ class WaveshareServoController(ServoController):
         self._port = port
         self._assignments = tuple(assignments)
         self._mcu_ports = tuple(mcu_ports)
+        self._bus = None
         self.issues = []
 
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
@@ -181,6 +185,7 @@ class WaveshareServoController(ServoController):
         self._gc.logger.info(f"Using Waveshare SC servo bus on {port}")
         try:
             bus = ScServoBus(port)
+            self._bus = bus
         except Exception as exc:
             error = f"Failed to open Waveshare SC servo bus on {port}: {exc}"
             self._gc.logger.warning(error)
@@ -207,6 +212,14 @@ class WaveshareServoController(ServoController):
                 f"invert={assignment.invert}"
             )
         return layer_servos
+
+    def shutdown(self) -> None:
+        if self._bus is None:
+            return
+        try:
+            self._bus.close()
+        finally:
+            self._bus = None
 
     def _iter_layer_assignments(self, distribution_layout: Any) -> list[tuple[int, LayerServoAssignment]]:
         assignments: list[tuple[int, LayerServoAssignment]] = []

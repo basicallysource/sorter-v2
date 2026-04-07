@@ -36,11 +36,16 @@ camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
 camera_calibration_tasks_lock = threading.Lock()
 runtime_stats_snapshot: Optional[dict[str, Any]] = None
 
-# Hardware lifecycle state: "standby" | "homing" | "ready" | "error"
+# Hardware lifecycle state: "standby" | "initializing" | "initialized" | "homing" | "ready" | "error"
 hardware_state: str = "standby"
 hardware_error: Optional[str] = None
 hardware_homing_step: Optional[str] = None  # Current homing phase description
 _hardware_start_fn: Optional[Any] = None  # Callable set by main.py
+_hardware_initialize_fn: Optional[Any] = None  # Callable set by main.py
+_hardware_reset_fn: Optional[Any] = None  # Callable set by main.py
+hardware_runtime_irl: Optional[Any] = None  # Active IRL during homing before controller exists
+hardware_worker_thread: Optional[threading.Thread] = None
+hardware_lifecycle_lock = threading.RLock()
 
 CLASSIFICATION_BASELINE_SAMPLES = 12
 CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S = 4.0
@@ -76,6 +81,32 @@ def setCommandQueue(q: queue.Queue) -> None:
 def setController(c: Any) -> None:
     global controller_ref
     controller_ref = c
+
+
+def setHardwareStartFn(fn: Any) -> None:
+    global _hardware_start_fn
+    _hardware_start_fn = fn
+
+
+def setHardwareInitializeFn(fn: Any) -> None:
+    global _hardware_initialize_fn
+    _hardware_initialize_fn = fn
+
+
+def setHardwareResetFn(fn: Any) -> None:
+    global _hardware_reset_fn
+    _hardware_reset_fn = fn
+
+
+def setHardwareRuntimeIRL(irl: Any | None) -> None:
+    global hardware_runtime_irl
+    hardware_runtime_irl = irl
+
+
+def getActiveIRL() -> Any | None:
+    if controller_ref is not None and hasattr(controller_ref, "irl"):
+        return controller_ref.irl
+    return hardware_runtime_irl
 
 
 def setArucoManager(mgr: ArucoConfigManager) -> None:

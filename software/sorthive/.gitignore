@@ -24,6 +24,7 @@ __pycache__/
 backend/.venv/
 backend/.pytest_cache/
 backend/test.db
+backend/sorthive.db
 
 # Local runtime data
 backend/data/

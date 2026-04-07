@@ -1494,7 +1494,7 @@ def camera_stream(index: int):
 
 
 @router.get("/api/cameras/feed/{role}")
-def camera_feed_by_role(role: str):
+def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False):
     """MJPEG stream for a camera role."""
     from vision.camera import (
         apply_camera_color_profile,
@@ -1524,7 +1524,11 @@ def camera_feed_by_role(role: str):
             b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
+    if (
+        not direct
+        and shared_state.vision_manager is not None
+        and hasattr(shared_state.vision_manager, "getCaptureThreadForRole")
+    ):
         try:
             capture = shared_state.vision_manager.getCaptureThreadForRole(role)
         except Exception:
@@ -1536,7 +1540,11 @@ def camera_feed_by_role(role: str):
                     if frame_obj is None:
                         time.sleep(0.05)
                         continue
-                    frame = frame_obj.annotated if frame_obj.annotated is not None else frame_obj.raw
+                    frame = (
+                        frame_obj.annotated
+                        if annotated and frame_obj.annotated is not None
+                        else frame_obj.raw
+                    )
                     yield _encode_chunk(frame)
                     time.sleep(0.03)
 
@@ -1923,4 +1931,3 @@ def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict
         "analysis_preview": task.get("analysis_preview"),
         "error": task.get("error"),
     }
-

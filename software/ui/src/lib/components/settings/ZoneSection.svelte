@@ -155,7 +155,7 @@
 	const ARC_SEGMENTS = 64;
 	const MIN_ZONE_SPAN_DEG = 12;
 	const MIN_ARC_THICKNESS = 20;
-	const CHANNEL_SECTION_COUNT = 64;
+	const CHANNEL_SECTION_COUNT = 360;
 	const CHANNEL_SECTION_DEG = 360 / CHANNEL_SECTION_COUNT;
 	const ALL_CAMERA_ROLES: CameraRole[] = [
 		'c_channel_2',
@@ -210,12 +210,12 @@
 		{ drop: [number, number]; exit: [number, number] }
 	> = {
 		second: {
-			drop: [18, 32],
-			exit: [54, 60]
+			drop: [101, 180],
+			exit: [304, 338]
 		},
 		third: {
-			drop: [8, 21],
-			exit: [54, 64]
+			drop: [45, 119],
+			exit: [315, 360]
 		}
 	};
 

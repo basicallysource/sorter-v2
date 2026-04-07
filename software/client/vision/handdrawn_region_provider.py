@@ -262,24 +262,6 @@ class HanddrawnRegionProvider:
             overlay[ch_mask == 0] = annotated[ch_mask == 0]
             annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
 
-            # draw all 64 section boundary lines
-            dim_color = tuple(int(c * 0.7) for c in color)
-            for q in range(CHANNEL_SECTION_COUNT):
-                angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG)
-                ex = int(cx + disp_r * np.cos(angle_rad))
-                ey = int(cy + disp_r * np.sin(angle_rad))
-                cv2.line(annotated, (cx, cy), (ex, ey), dim_color, 1)
-
-            # label each section at 70% radius
-            for q in range(CHANNEL_SECTION_COUNT):
-                angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG + CHANNEL_SECTION_DEG / 2.0)
-                lx = int(cx + disp_r * 0.7 * np.cos(angle_rad))
-                ly = int(cy + disp_r * 0.7 * np.sin(angle_rad))
-                cv2.putText(annotated, str(q), (lx - 6, ly + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 0), 2)
-                cv2.putText(annotated, str(q), (lx - 6, ly + 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
-
             cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
@@ -407,22 +389,6 @@ class HanddrawnRegionProvider:
             cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
         overlay[ch_mask == 0] = annotated[ch_mask == 0]
         annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
-
-        dim_color = tuple(int(c * 0.7) for c in color)
-        for q in range(CHANNEL_SECTION_COUNT):
-            angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG)
-            ex = int(cx + disp_r * np.cos(angle_rad))
-            ey = int(cy + disp_r * np.sin(angle_rad))
-            cv2.line(annotated, (cx, cy), (ex, ey), dim_color, 1)
-
-        for q in range(CHANNEL_SECTION_COUNT):
-            angle_rad = np.radians(r1_angle + q * CHANNEL_SECTION_DEG + CHANNEL_SECTION_DEG / 2.0)
-            lx = int(cx + disp_r * 0.7 * np.cos(angle_rad))
-            ly = int(cy + disp_r * 0.7 * np.sin(angle_rad))
-            cv2.putText(annotated, str(q), (lx - 6, ly + 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 0), 2)
-            cv2.putText(annotated, str(q), (lx - 6, ly + 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
 
         cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)

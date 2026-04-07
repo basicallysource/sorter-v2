@@ -1305,11 +1305,17 @@ def _restore_camera_color_profile(role: str, profile: Dict[str, Any]) -> None:
 
 
 class CameraAssignment(BaseModel):
-    c_channel_2: Optional[int] = None
-    c_channel_3: Optional[int] = None
+    layout: Optional[str] = None
+    feeder: Optional[int | str] = None
+    c_channel_2: Optional[int | str] = None
+    c_channel_3: Optional[int | str] = None
     carousel: Optional[int | str] = None
     classification_top: Optional[int | str] = None
     classification_bottom: Optional[int | str] = None
+
+
+class CameraLayoutPayload(BaseModel):
+    layout: str
 
 
 class CameraPictureSettingsPayload(BaseModel):
@@ -1408,6 +1414,7 @@ def get_camera_config() -> Dict[str, Any]:
             cameras = {}
         return {
             "layout": cameras.get("layout", "default"),
+            "feeder": cameras.get("feeder"),
             "c_channel_2": cameras.get("c_channel_2"),
             "c_channel_3": cameras.get("c_channel_3"),
             "carousel": cameras.get("carousel"),
@@ -1417,12 +1424,36 @@ def get_camera_config() -> Dict[str, Any]:
     except HTTPException:
         return {
             "layout": "default",
+            "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
             "carousel": None,
             "classification_top": None,
             "classification_bottom": None,
         }
+
+
+@router.post("/api/cameras/layout")
+def save_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
+    if payload.layout not in {"default", "split_feeder"}:
+        raise HTTPException(
+            status_code=400,
+            detail="layout must be 'default' or 'split_feeder'.",
+        )
+
+    params_path, config = _read_machine_params_config()
+    cameras = config.get("cameras", {})
+    if not isinstance(cameras, dict):
+        cameras = {}
+    cameras["layout"] = payload.layout
+    config["cameras"] = cameras
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    return get_camera_config()
 
 
 @router.get("/api/cameras/list")
@@ -1544,9 +1575,22 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
 
     # Update cameras section
     cameras = config.get("cameras", {})
+    if not isinstance(cameras, dict):
+        cameras = {}
     updates = assignment.model_dump(exclude_unset=True)
-    if updates:
-        cameras["layout"] = "split_feeder"
+    layout = updates.pop("layout", None)
+    if layout is not None:
+        if layout not in {"default", "split_feeder"}:
+            raise HTTPException(
+                status_code=400,
+                detail="layout must be 'default' or 'split_feeder'.",
+            )
+        cameras["layout"] = layout
+    elif "layout" not in cameras:
+        if "feeder" in updates:
+            cameras["layout"] = "default"
+        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel")):
+            cameras["layout"] = "split_feeder"
     for key, value in updates.items():
         if value is None:
             cameras.pop(key, None)
@@ -1570,6 +1614,8 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     return {
         "ok": True,
         "assignment": {
+            "layout": cameras.get("layout", "default"),
+            "feeder": cameras.get("feeder"),
             "c_channel_2": cameras.get("c_channel_2"),
             "c_channel_3": cameras.get("c_channel_3"),
             "carousel": cameras.get("carousel"),
@@ -1877,5 +1923,4 @@ def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict
         "analysis_preview": task.get("analysis_preview"),
         "error": task.get("error"),
     }
-
 

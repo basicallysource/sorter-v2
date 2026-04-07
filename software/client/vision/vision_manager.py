@@ -249,11 +249,7 @@ class VisionManager:
             self._frame_encode_thread.join(timeout=2.0)
         if self._aux_detection_thread:
             self._aux_detection_thread.join(timeout=2.0)
-        if self._feeder_analysis:
-            self._feeder_analysis.stop()
-        for analysis in self._per_channel_analysis.values():
-            analysis.stop()
-        self._per_channel_analysis.clear()
+        self._stopFeederDetection()
         self._stopClassificationAnalysis()
         self._region_provider.stop()
         if self._camera_layout == "split_feeder":
@@ -316,6 +312,16 @@ class VisionManager:
             self._classification_bottom_analysis = None
         self._classification_top_heatmap = None
         self._classification_bottom_heatmap = None
+
+    def _stopFeederDetection(self) -> None:
+        if self._feeder_analysis:
+            self._feeder_analysis.stop()
+            self._feeder_analysis = None
+        for analysis in self._per_channel_analysis.values():
+            analysis.stop()
+        self._per_channel_analysis.clear()
+        self._per_channel_detectors.clear()
+        self._feeder_detector = None
 
     def getClassificationDetectionAlgorithm(self) -> ClassificationDetectionAlgorithm:
         return self._normalizeClassificationDetectionAlgorithm(self._diff_config.algorithm)
@@ -494,9 +500,45 @@ class VisionManager:
         )
         return self._carousel_sample_collection_enabled
 
-    def initFeederDetection(self) -> bool:
+    def _loadCarouselPolygon(
+        self,
+        polygon_data: Dict[str, Any],
+        *,
+        source_resolution: tuple[int, int],
+    ) -> bool:
+        self._carousel_polygon = None
+        carousel_pts = polygon_data.get("carousel")
+        if not carousel_pts or len(carousel_pts) < 3:
+            return False
+
+        src_w, src_h = source_resolution
+        if self._camera_layout == "split_feeder" and self._carousel_capture is not None:
+            # Scale carousel polygon from editor resolution to the live carousel camera.
+            frame = self._carousel_capture.latest_frame
+            if frame is None:
+                for _ in range(20):
+                    time.sleep(0.1)
+                    frame = self._carousel_capture.latest_frame
+                    if frame is not None:
+                        break
+            if frame is not None:
+                cam_h, cam_w = frame.raw.shape[:2]
+                sx, sy = cam_w / src_w, cam_h / src_h
+                self._carousel_polygon = [(float(p[0]) * sx, float(p[1]) * sy) for p in carousel_pts]
+                return True
+
+        self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
+        return True
+
+    def initFeederDetection(self, *, manual_feed_mode: bool = False) -> bool:
         from blob_manager import getChannelPolygons
         from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
+
+        self._stopFeederDetection()
+        self._channel_polygons = {}
+        self._channel_masks = {}
+        self._channel_angles = {}
+        self._carousel_polygon = None
 
         saved = getChannelPolygons()
         if saved is None:
@@ -532,35 +574,30 @@ class VisionManager:
             elif pts:
                 polys[key] = np.array(pts, dtype=np.int32)
 
+        saved_res = saved.get("resolution", [1920, 1080])
+        src_w, src_h = int(saved_res[0]), int(saved_res[1])
+        carousel_ready = self._loadCarouselPolygon(
+            polygon_data,
+            source_resolution=(src_w, src_h),
+        )
+
+        if manual_feed_mode:
+            if carousel_ready:
+                self.gc.logger.info(
+                    "Feeder detection initialized in manual carousel feed mode; channel automation stays disabled."
+                )
+            else:
+                self.gc.logger.warning(
+                    "Manual carousel feed mode is enabled, but no carousel trigger polygon is configured."
+                )
+            return carousel_ready
+
         if not polys:
             self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
             return False
 
         self._channel_polygons = polys
         self._channel_angles = saved.get("channel_angles", {})
-
-        saved_res = saved.get("resolution", [1920, 1080])
-        src_w, src_h = int(saved_res[0]), int(saved_res[1])
-
-        carousel_pts = polygon_data.get("carousel")
-        if carousel_pts and len(carousel_pts) >= 3:
-            if self._camera_layout == "split_feeder" and self._carousel_capture is not None:
-                # Scale carousel polygon from editor resolution to camera resolution
-                frame = self._carousel_capture.latest_frame
-                if frame is None:
-                    for _ in range(20):
-                        time.sleep(0.1)
-                        frame = self._carousel_capture.latest_frame
-                        if frame is not None:
-                            break
-                if frame is not None:
-                    cam_h, cam_w = frame.raw.shape[:2]
-                    sx, sy = cam_w / src_w, cam_h / src_h
-                    self._carousel_polygon = [(float(p[0]) * sx, float(p[1]) * sy) for p in carousel_pts]
-                else:
-                    self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
-            else:
-                self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
 
         channel_steppers = {
             "second_channel": self._irl.c_channel_2_rotor_stepper,
@@ -1376,7 +1413,7 @@ class VisionManager:
             return []
         return [
             ChannelDetection(
-                bbox=tuple(int(value) for value in bbox),
+                bbox=cast(Tuple[int, int, int, int], tuple(int(value) for value in bbox[:4])),
                 channel_id=channel.channel_id,
                 channel=channel,
             )
@@ -1902,7 +1939,10 @@ class VisionManager:
         candidates = result.get("candidate_bboxes")
         if isinstance(candidates, list):
             result["candidate_previews"] = [
-                self._encodeDebugCrop(frame.raw, tuple(int(value) for value in candidate[:4]))
+                self._encodeDebugCrop(
+                    frame.raw,
+                    cast(Tuple[int, int, int, int], tuple(int(value) for value in candidate[:4])),
+                )
                 for candidate in candidates
                 if isinstance(candidate, list) and len(candidate) >= 4
             ]
@@ -2008,7 +2048,10 @@ class VisionManager:
         candidates = result.get("candidate_bboxes")
         if isinstance(candidates, list):
             result["candidate_previews"] = [
-                self._encodeDebugCrop(frame.raw, tuple(int(value) for value in candidate[:4]))
+                self._encodeDebugCrop(
+                    frame.raw,
+                    cast(Tuple[int, int, int, int], tuple(int(value) for value in candidate[:4])),
+                )
                 for candidate in candidates
                 if isinstance(candidate, list) and len(candidate) >= 4
             ]

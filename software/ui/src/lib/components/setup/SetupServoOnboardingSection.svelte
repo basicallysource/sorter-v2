@@ -43,6 +43,7 @@
 
 	let loadedMachineKey = $state('');
 	let loading = $state(false);
+	let settingsLoaded = $state(false);
 	let saving = $state(false);
 	let scanningBus = $state(false);
 	let loadingPorts = $state(false);
@@ -138,6 +139,7 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config`);
 			if (!res.ok) throw new Error(await res.text());
 			applySettings(await res.json());
+			settingsLoaded = true;
 			if (backend === 'waveshare') {
 				void loadPorts();
 				void scanBus({ silent: true });
@@ -327,8 +329,23 @@
 		invertByLayer = { ...invertByLayer, [layerIndex]: invert };
 	}
 
+	function usedLayersForBusServos(): Set<number> {
+		// Only count an assignment as "occupying" a layer if the servo it
+		// points at is actually present on the bus right now. Otherwise stale
+		// entries from a previous save (e.g. before promoting an ID 1 servo)
+		// keep hogging slots and the dropdown looks empty.
+		const onBus = new Set(busServos.map((s) => s.id));
+		const used = new Set<number>();
+		for (const [servoIdStr, layerIdx] of Object.entries(layerByAssignment)) {
+			if (onBus.size === 0 || onBus.has(Number(servoIdStr))) {
+				used.add(layerIdx);
+			}
+		}
+		return used;
+	}
+
 	function unassignedLayers(currentLayer: number): number[] {
-		const used = new Set(Object.values(layerByAssignment));
+		const used = usedLayersForBusServos();
 		const result: number[] = [];
 		for (let i = 1; i <= effectiveLayerCount; i++) {
 			if (!used.has(i) || i === currentLayer) {
@@ -347,10 +364,14 @@
 
 	function buildChannelsForSave(): Array<{ id: number; invert: boolean }> {
 		const channels: Array<{ id: number; invert: boolean }> = [];
-		// Build a layer → servoId map first.
+		// Build a layer → servoId map, but only honour assignments that
+		// still point at a servo currently on the bus (when we have a bus).
+		const onBus = new Set(busServos.map((s) => s.id));
 		const servoByLayer: Record<number, number> = {};
 		for (const [servoIdStr, layerIdx] of Object.entries(layerByAssignment)) {
-			servoByLayer[layerIdx] = Number(servoIdStr);
+			const servoId = Number(servoIdStr);
+			if (onBus.size > 0 && !onBus.has(servoId)) continue;
+			servoByLayer[layerIdx] = servoId;
 		}
 		const upper = Math.max(layerCount, effectiveLayerCount);
 		for (let layer = 1; layer <= upper; layer++) {
@@ -423,6 +444,11 @@
 		others — promote it to a fresh ID before connecting the next.
 	</div>
 
+	{#if !settingsLoaded}
+		<div class="setup-panel px-4 py-6 text-center text-sm text-text-muted">
+			Loading servo configuration…
+		</div>
+	{:else}
 	<div class="setup-panel p-4">
 		<div class="text-sm font-semibold text-text">Servo backend</div>
 		<div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -510,90 +536,62 @@
 						{@const layer = layerByAssignment[servo.id] ?? 0}
 						{@const lastMove = lastMoveByServoId[servo.id]}
 						{@const inverted = layer > 0 ? Boolean(invertByLayer[layer]) : false}
-						<div class="border border-border bg-bg">
-							<!-- Header: ID + model + status + (optional) promote -->
-							<div
-								class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg-muted/40 px-4 py-2"
-							>
-								<div class="flex items-center gap-3">
-									<div
-										class="border border-[#0055BF] bg-[#0055BF] px-3 py-1 text-sm font-semibold text-white"
-									>
-										ID {servo.id}
-									</div>
-									<div class="text-xs text-text-muted">
-										<span class="font-medium text-text">{servo.model_name ?? 'Unknown model'}</span>
+						{@const isFactory = servo.id === 1 && suggestedNextId !== null}
+						{@const accent = isFactory
+							? 'border-l-[#F2A900]'
+							: layer > 0
+								? 'border-l-[#00852B]'
+								: calibrated
+									? 'border-l-[#0055BF]'
+									: 'border-l-[#C9C7C0]'}
+						<div class="border border-border border-l-4 bg-surface {accent}">
+							<!-- Identity row: ID badge · model/range/voltage · layer dropdown -->
+							<div class="flex flex-wrap items-center gap-4 px-4 py-3">
+								<div
+									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-[#0055BF] font-bold text-white"
+								>
+									<span class="text-[10px] uppercase tracking-wider opacity-80">ID</span>
+									<span class="text-base leading-none">{servo.id}</span>
+								</div>
+
+								<div class="min-w-0 flex-1">
+									<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+										<span class="text-sm font-semibold text-text">
+											{servo.model_name ?? 'Unknown model'}
+										</span>
 										{#if servo.voltage !== null && servo.voltage !== undefined}
-											· {servo.voltage} V
+											<span class="text-xs text-text-muted">{servo.voltage} V</span>
+										{/if}
+									</div>
+									<div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+										{#if calibrated}
+											<span
+												class="inline-flex items-center gap-1 border border-[#0055BF]/30 bg-[#0055BF]/10 px-2 py-0.5 font-medium text-[#0055BF]"
+											>
+												<span class="h-1.5 w-1.5 rounded-full bg-[#0055BF]"></span>
+												Calibrated · {servo.min_limit}–{servo.max_limit}
+											</span>
+										{:else}
+											<span
+												class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 font-medium text-text-muted"
+											>
+												<span class="h-1.5 w-1.5 rounded-full bg-text-muted"></span>
+												Not calibrated
+											</span>
+										{/if}
+										{#if layer > 0}
+											<span
+												class="inline-flex items-center gap-1 border border-[#00852B]/30 bg-[#00852B]/10 px-2 py-0.5 font-medium text-[#00852B]"
+											>
+												<span class="h-1.5 w-1.5 rounded-full bg-[#00852B]"></span>
+												Layer {layer}{inverted ? ' · swapped' : ''}
+											</span>
 										{/if}
 									</div>
 								</div>
 
-								{#if servo.id === 1 && suggestedNextId !== null}
-									<button
-										onclick={() => promoteServoId(servo.id, suggestedNextId!)}
-										disabled={!!busy}
-										class="border border-[#F2A900] bg-[#F2A900] px-3 py-1.5 text-xs font-semibold text-[#3D2A00] transition-colors hover:bg-[#F2A900]/90 disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										{busy === 'promoting' ? 'Promoting…' : `Promote to ID ${suggestedNextId}`}
-									</button>
-								{/if}
-							</div>
-
-							<!-- Body: labelled action rows -->
-							<div class="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-3 px-4 py-3 text-xs">
-								<!-- Calibration -->
-								<div class="flex items-center font-medium text-text-muted">Calibration</div>
-								<div class="flex flex-wrap items-center gap-3">
-									<button
-										onclick={() => calibrateServo(servo.id)}
-										disabled={!!busy}
-										class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										{busy === 'calibrating'
-											? 'Calibrating…'
-											: calibrated
-												? 'Recalibrate'
-												: 'Auto-calibrate'}
-									</button>
-									<span class="text-text-muted">
-										{#if calibrated}
-											range {servo.min_limit}–{servo.max_limit}
-										{:else}
-											not calibrated yet
-										{/if}
-									</span>
-								</div>
-
-								<!-- Test -->
-								<div class="flex items-center font-medium text-text-muted">Test</div>
-								<div class="flex flex-wrap items-center gap-2">
-									<button
-										onclick={() => toggleOpenClose(servo.id)}
-										disabled={!!busy || !calibrated}
-										class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										{busy === 'moving'
-											? 'Moving…'
-											: lastMove === 'open'
-												? 'Move to closed'
-												: 'Move to open'}
-									</button>
-									<button
-										onclick={() => toggleInvertForLayer(layer)}
-										disabled={!calibrated || layer === 0}
-										title={layer === 0
-											? 'Assign a layer first to remember this swap'
-											: 'Use this if the servo opens when it should close'}
-										class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-									>
-										{inverted ? 'Open/close swapped' : 'Swap open/close'}
-									</button>
-								</div>
-
-								<!-- Assignment -->
-								<div class="flex items-center font-medium text-text-muted">Layer</div>
-								<div class="flex flex-wrap items-center gap-3">
+								<div class="flex flex-col items-end gap-1">
+									<span class="text-[10px] uppercase tracking-wider text-text-muted">Assigned to</span>
 									<select
 										value={String(layer)}
 										onchange={(event) =>
@@ -601,14 +599,71 @@
 												servo.id,
 												Number((event.currentTarget as HTMLSelectElement).value)
 											)}
-										class="setup-control px-2 py-1 text-text"
+										class="setup-control px-3 py-1.5 text-sm font-medium text-text"
 									>
-										<option value="0">Unassigned</option>
+										<option value="0">— Unassigned —</option>
 										{#each unassignedLayers(layer) as layerOption}
 											<option value={String(layerOption)}>Layer {layerOption}</option>
 										{/each}
 									</select>
 								</div>
+							</div>
+
+							{#if isFactory}
+								<div
+									class="flex flex-wrap items-center justify-between gap-3 border-t border-[#F2A900]/40 bg-[#FFF7E0] px-4 py-2 text-xs text-[#7A5A00]"
+								>
+									<span>
+										Brand-new servo on factory ID <span class="font-semibold">1</span>.
+										Promote it before the next servo joins the bus.
+									</span>
+									<button
+										onclick={() => promoteServoId(servo.id, suggestedNextId!)}
+										disabled={!!busy}
+										class="border border-[#F2A900] bg-[#F2A900] px-3 py-1.5 text-xs font-semibold text-[#3D2A00] transition-colors hover:bg-[#F2A900]/90 disabled:cursor-not-allowed disabled:opacity-60"
+									>
+										{busy === 'promoting' ? 'Promoting…' : `Promote to ID ${suggestedNextId}`}
+									</button>
+								</div>
+							{/if}
+
+							<!-- Action toolbar -->
+							<div
+								class="flex flex-wrap items-center gap-2 border-t border-border bg-bg/40 px-4 py-2"
+							>
+								<button
+									onclick={() => calibrateServo(servo.id)}
+									disabled={!!busy}
+									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									{busy === 'calibrating'
+										? 'Calibrating…'
+										: calibrated
+											? 'Recalibrate'
+											: 'Auto-calibrate'}
+								</button>
+								<span class="h-4 w-px bg-border"></span>
+								<button
+									onclick={() => toggleOpenClose(servo.id)}
+									disabled={!!busy || !calibrated}
+									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									{busy === 'moving'
+										? 'Moving…'
+										: lastMove === 'open'
+											? 'Move to closed'
+											: 'Move to open'}
+								</button>
+								<button
+									onclick={() => toggleInvertForLayer(layer)}
+									disabled={!calibrated || layer === 0}
+									title={layer === 0
+										? 'Assign a layer first to remember this swap'
+										: 'Use this if the servo opens when it should close'}
+									class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									{inverted ? '↺ Open/close swapped' : 'Swap open/close'}
+								</button>
 							</div>
 						</div>
 					{/each}
@@ -632,6 +687,37 @@
 			</div>
 		</div>
 	{:else}
+		<div class="setup-panel p-4">
+			<div class="text-sm font-semibold text-text">Open/close angles</div>
+			<div class="mt-1 text-xs text-text-muted">
+				PCA9685 servos can't store calibrated limits on the device, so the same open/close
+				angles apply to every channel. Use the layer's <span class="font-medium text-text">Invert</span>
+				toggle below if a specific layer is mounted upside-down.
+			</div>
+			<div class="mt-3 grid gap-3 sm:grid-cols-2">
+				<label class="flex flex-col gap-1 text-xs text-text-muted">
+					<span>Open angle (°)</span>
+					<input
+						type="number"
+						min="0"
+						max="180"
+						bind:value={openAngle}
+						class="setup-control px-3 py-2 text-text"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 text-xs text-text-muted">
+					<span>Closed angle (°)</span>
+					<input
+						type="number"
+						min="0"
+						max="180"
+						bind:value={closedAngle}
+						class="setup-control px-3 py-2 text-text"
+					/>
+				</label>
+			</div>
+		</div>
+
 		<div class="setup-panel p-4">
 			<div class="text-sm font-semibold text-text">PCA9685 channel mapping</div>
 			<div class="mt-1 text-sm text-text-muted">
@@ -731,5 +817,6 @@
 		>
 			{statusMsg}
 		</div>
+	{/if}
 	{/if}
 </div>

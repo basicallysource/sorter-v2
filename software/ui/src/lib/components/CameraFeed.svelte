@@ -3,7 +3,7 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { Eye, EyeOff } from 'lucide-svelte';
 
-	let { camera, label = '', baseUrl = '' } = $props();
+	let { camera, label = '', baseUrl = '', showHeader = true, framed = true } = $props();
 
 	const MJPEG_ROLES = [
 		'c_channel_2',
@@ -38,27 +38,25 @@
 	const display_label = $derived(label || camera);
 </script>
 
-<div
-	class="flex h-full flex-col border border-border bg-bg"
->
-	<div
-		class="flex flex-shrink-0 items-center justify-between bg-surface px-3 py-1.5 text-sm"
-	>
-		<span class="text-text-muted">{display_label}</span>
-		{#if frame}
-			<button
-				onclick={() => (show_annotated = !show_annotated)}
-				class="p-1 text-text transition-colors hover:bg-border"
-				title={show_annotated ? 'Show raw' : 'Show annotations'}
-			>
-				{#if show_annotated}
-					<Eye size={14} />
-				{:else}
-					<EyeOff size={14} />
-				{/if}
-			</button>
-		{/if}
-	</div>
+	<div class={`flex h-full flex-col bg-bg ${framed ? 'border border-border' : ''}`}>
+	{#if showHeader}
+		<div class="flex flex-shrink-0 items-center justify-between bg-surface px-3 py-1.5 text-sm">
+			<span class="text-text-muted">{display_label}</span>
+			{#if frame}
+				<button
+					onclick={() => (show_annotated = !show_annotated)}
+					class="p-1 text-text transition-colors hover:bg-border"
+					title={show_annotated ? 'Show raw' : 'Show annotations'}
+				>
+					{#if show_annotated}
+						<Eye size={14} />
+					{:else}
+						<EyeOff size={14} />
+					{/if}
+				</button>
+			{/if}
+		</div>
+	{/if}
 	<div class="relative flex-1 overflow-hidden bg-surface">
 		{#if image_src()}
 			<img src={image_src()} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />

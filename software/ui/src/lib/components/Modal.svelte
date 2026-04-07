@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import { X } from 'lucide-svelte';
 
 	let {
@@ -9,8 +10,11 @@
 		children
 	}: { open?: boolean; title?: string; wide?: boolean; children?: Snippet } = $props();
 
+	const dispatch = createEventDispatcher<{ close: void }>();
+
 	function close() {
 		open = false;
+		dispatch('close');
 	}
 
 	function handleBackdrop(event: MouseEvent) {
@@ -18,6 +22,18 @@
 			close();
 		}
 	}
+
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			close();
+		}
+	}
+
+	$effect(() => {
+		if (!open || typeof window === 'undefined') return;
+		window.addEventListener('keydown', handleWindowKeydown);
+		return () => window.removeEventListener('keydown', handleWindowKeydown);
+	});
 </script>
 
 {#if open}

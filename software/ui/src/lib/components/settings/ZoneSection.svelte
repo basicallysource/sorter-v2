@@ -21,7 +21,7 @@
 		SlidersHorizontal,
 		X
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 
 	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
 	type ArcChannel = 'second' | 'third';
@@ -225,12 +225,16 @@
 	let {
 		channels = ALL_CHANNELS,
 		stepperKey = undefined,
-		stepperEndstop = undefined
+		stepperEndstop = undefined,
+		wizardMode = false
 	}: {
 		channels?: Channel[];
 		stepperKey?: StepperKey;
 		stepperEndstop?: EndstopConfig;
+		wizardMode?: boolean;
 	} = $props();
+
+	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	const hasStepper = $derived(!!stepperKey);
 
@@ -290,6 +294,7 @@
 	$effect(() => {
 		if (!reassignModalOpen) reassignConfirm = null;
 	});
+	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar || hasStepper));
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
 	let previewViewportEl: HTMLDivElement | null = null;
@@ -308,11 +313,11 @@
 			}
 			channelSetKey = nextKey;
 			currentChannel = channels[0] ?? 'second';
-			editingZone = false;
-			activeSidebar = null;
+			editingZone = wizardMode;
+			activeSidebar = wizardMode ? 'zone' : null;
 			dragState = null;
 			didDrag = false;
-			canvasCursor = 'default';
+			canvasCursor = wizardMode ? 'crosshair' : 'default';
 			statusMsg = '';
 			return;
 		}
@@ -320,6 +325,20 @@
 		if (!channels.includes(currentChannel)) {
 			currentChannel = channels[0] ?? 'second';
 		}
+	});
+
+	$effect(() => {
+		if (!wizardMode) return;
+		if (currentAssignment() === null) {
+			editingZone = false;
+			activeSidebar = null;
+			canvasCursor = 'default';
+			return;
+		}
+
+		editingZone = true;
+		activeSidebar = 'zone';
+		canvasCursor = 'crosshair';
 	});
 
 	$effect(() => {
@@ -1038,12 +1057,15 @@
 	}
 
 	function streamUrl(channel: Channel): string {
-		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?v=${feedRevision}`;
+		if (editingZone) {
+			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
+		}
+		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=true&v=${feedRevision}`;
 	}
 
 	function feedInstanceKey(channel: Channel): string {
 		const assignment = currentAssignment(channel);
-		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${feedRevision}`;
+		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${editingZone ? 'direct-raw' : 'vision-annotated'}::${feedRevision}`;
 	}
 
 	async function loadCameraConfig() {
@@ -2116,6 +2138,7 @@
 			didDrag = false;
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
+			dispatch('saved');
 			return true;
 		} catch (e: any) {
 			statusMsg = `Error: ${e.message}`;
@@ -2249,93 +2272,111 @@
 		</div>
 
 		<div class="ml-auto flex flex-wrap items-center gap-2">
-			<button
-				onclick={openCameraPicker}
-				disabled={editingZone}
-				class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<Camera size={15} />
-				<span>Change Camera</span>
-			</button>
-
-			<button
-				onclick={togglePictureSidebar}
-				disabled={editingZone}
-				class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-					activeSidebar === 'picture'
-						? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-						: 'border-border bg-bg text-text hover:bg-bg/80'
-				}`}
-			>
-				<SlidersHorizontal size={15} />
-				<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
-			</button>
-
-			{#if supportsDetectionSidebar(currentChannel)}
-				<button
-					onclick={toggleClassificationSidebar}
-					disabled={editingZone}
-					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-						activeSidebar === 'classification'
-							? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
-							: 'border-border bg-bg text-text hover:bg-bg/80'
-					}`}
-				>
-					<Bug size={15} />
-					<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
-				</button>
-			{/if}
-
-			{#if editingZone}
-				<button
-					onclick={resetCurrentChannel}
-					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
-				>
-					<RotateCcw size={15} />
-					<span>Reset</span>
-				</button>
-				<button
-					onclick={cancelEditing}
-					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
-				>
-					<X size={15} />
-					<span>Cancel</span>
-				</button>
+			{#if wizardMode}
 				<button
 					onclick={saveAll}
-					disabled={saving}
-					class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-1.5 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+					disabled={saving || currentAssignment() === null}
+					class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					<Check size={15} />
 					<span>{saving ? 'Saving...' : 'Save Zone'}</span>
 				</button>
 			{:else}
 				<button
-					onclick={beginEditing}
-					disabled={currentAssignment() === null}
-					class="inline-flex cursor-pointer items-center gap-2 border border-[#D01012] bg-[#D01012]/15 px-3 py-1.5 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+					onclick={openCameraPicker}
+					disabled={editingZone}
+					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
 				>
-					<Pencil size={15} />
-					<span>Edit Zone</span>
+					<Camera size={15} />
+					<span>Change Camera</span>
 				</button>
+
+				<button
+					onclick={togglePictureSidebar}
+					disabled={editingZone}
+					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+						activeSidebar === 'picture'
+							? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
+							: 'border-border bg-bg text-text hover:bg-bg/80'
+					}`}
+				>
+					<SlidersHorizontal size={15} />
+					<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
+				</button>
+
+				{#if supportsDetectionSidebar(currentChannel)}
+					<button
+						onclick={toggleClassificationSidebar}
+						disabled={editingZone}
+						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							activeSidebar === 'classification'
+								? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
+								: 'border-border bg-bg text-text hover:bg-bg/80'
+						}`}
+					>
+						<Bug size={15} />
+						<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
+					</button>
+				{/if}
+
+				{#if editingZone}
+					<button
+						onclick={resetCurrentChannel}
+						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					>
+						<RotateCcw size={15} />
+						<span>Reset</span>
+					</button>
+					<button
+						onclick={cancelEditing}
+						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					>
+						<X size={15} />
+						<span>Cancel</span>
+					</button>
+					<button
+						onclick={saveAll}
+						disabled={saving}
+						class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-1.5 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+					>
+						<Check size={15} />
+						<span>{saving ? 'Saving...' : 'Save Zone'}</span>
+					</button>
+				{:else}
+					<button
+						onclick={beginEditing}
+						disabled={currentAssignment() === null}
+						class="inline-flex cursor-pointer items-center gap-2 border border-[#D01012] bg-[#D01012]/15 px-3 py-1.5 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+					>
+						<Pencil size={15} />
+						<span>Edit Zone</span>
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</div>
 
 	<!-- Help text -->
 	<div class="-mx-4 px-4 py-2 text-xs text-text-muted">
-		Use the assigned camera as the main view, tune picture settings from the sidebar, and only
-		unlock zone editing when you want to change the mask.
+		{#if wizardMode}
+			Adjust the zone overlay directly on the preview, then save to keep the updated mask.
+		{:else}
+			Use the assigned camera as the main view, tune picture settings from the sidebar, and only
+			unlock zone editing when you want to change the mask.
+		{/if}
 	</div>
 
 	<!-- Content -->
 	<div class="-mx-4 -mb-4 px-4 pb-4">
 		<div
-			class={`grid gap-4 ${activeSidebar || hasStepper ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
+			class={`grid gap-4 ${showSidebarColumn ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
 		>
 			<div class="flex min-w-0 flex-col gap-3">
 				<div class="relative overflow-hidden bg-black">
-					<div class="relative aspect-video" bind:this={previewViewportEl}>
+					<div
+						class={`relative ${wizardMode ? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]' : 'aspect-video'}`}
+						bind:this={previewViewportEl}
+					>
 						{#key feedInstanceKey(currentChannel)}
 							{#if !cameraConfigLoaded}
 								<div
@@ -2419,9 +2460,64 @@
 						></canvas>
 					</div>
 				</div>
+
+				{#if wizardMode && editingZone}
+					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+						{#if isArcChannel(currentChannel)}
+							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+								<div class="overflow-hidden rounded border border-border bg-bg/70">
+									<img
+										src="/setup/zone-placement-reference.png"
+										alt="Drop and exit zone placement reference"
+										class="h-auto w-full object-contain"
+									/>
+								</div>
+
+								<div>
+									<div class="font-medium text-text">Placement reference</div>
+									<div class="mt-2 rounded border border-[#00852B]/20 bg-[#00852B]/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-[#00852B]">Green Drop Zone:</span>
+										position this where parts arrive from the previous stage and land on the ring.
+									</div>
+									<div class="mt-2 rounded border border-[#D01012]/20 bg-[#D01012]/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-[#D01012]">Red Exit Zone:</span>
+										position this where parts should leave the ring into the next path or mechanism.
+									</div>
+									<div class="mt-2 text-xs leading-5 text-text-muted">
+										Use this as an orientation guide. The exact angles depend on your camera position and the real machine geometry.
+									</div>
+								</div>
+							</div>
+
+							<div class="mt-4 border-t border-border pt-3">
+								<div class="font-medium text-text">How to edit</div>
+								<div class="mt-2 leading-6">
+									Drag the handles for
+									<span class="font-medium text-text">Drop</span>,
+									<span class="font-medium text-text">Exit</span>,
+									<span class="font-medium text-text">Center</span>,
+									<span class="font-medium text-text">Inner</span> and
+									<span class="font-medium text-text">Outer</span> directly on the image.
+								</div>
+								<div class="mt-1 leading-6">
+									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius scaling and
+									<span class="font-medium text-text"> Shift+Click</span> to set section 0.
+								</div>
+							</div>
+						{:else}
+							<div class="font-medium text-text">How to edit</div>
+							<div class="mt-2 leading-6">
+								Drag the corner handles directly on the image to reshape the zone.
+							</div>
+							<div class="mt-1 leading-6">
+								Drag inside the zone to move it as one shape. Use the mouse wheel to scale it.
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
-			{#if editingZone && activeSidebar === 'zone'}
+			{#if !wizardMode && editingZone && activeSidebar === 'zone'}
 				<ZoneEditingSidebar
 					label={CHANNEL_LABELS[currentChannel]}
 					isArc={isArcChannel(currentChannel)}
@@ -2476,7 +2572,7 @@
 				{/key}
 			{/if}
 
-			{#if !activeSidebar && hasStepper && stepperKey}
+			{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
 				<StepperSidebar {stepperKey} endstop={stepperEndstop} keyboardShortcuts={true} />
 			{/if}
 		</div>

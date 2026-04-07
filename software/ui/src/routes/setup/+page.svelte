@@ -7,12 +7,11 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import SetupCameraAreaCard from '$lib/components/setup/SetupCameraAreaCard.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
+	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
 	import SetupServoOnboardingSection from '$lib/components/setup/SetupServoOnboardingSection.svelte';
 	import SetupZoneEditorModal from '$lib/components/setup/SetupZoneEditorModal.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import StorageLayerSettingsSection from '$lib/components/settings/StorageLayerSettingsSection.svelte';
 	import {
 		Check,
 		CheckCircle2,
@@ -131,6 +130,7 @@
 		id: string;
 		name: string;
 		source: string;
+		preview_url?: string | null;
 		transport: string;
 	};
 
@@ -138,6 +138,13 @@
 		key: string;
 		source: number | string | null;
 		label: string;
+		previewSrc: string | null;
+	};
+
+	type PersistedVerificationState = {
+		reviewedZones?: Record<string, boolean>;
+		tunedPictures?: Record<string, boolean>;
+		verifiedSteppers?: Record<string, boolean>;
 	};
 
 	type WizardStepId =
@@ -228,10 +235,10 @@
 		},
 		{
 			id: 'advanced',
-			title: 'Finish and Fine Tuning',
+			title: 'Setup Complete',
 			kicker: 'Step 7',
 			description:
-				'Use the detailed editors for deeper storage-layer tuning and optional camera geometry calibration.',
+				'Yay, the core setup is done. Next up: open the dashboard, home the machine if needed, and try a first run.',
 			requiresManualConfirm: true
 			}
 		];
@@ -268,8 +275,6 @@
 	let hardwareError = $state<string | null>(null);
 	let homingStep = $state<string | null>(null);
 	let homingSystem = $state(false);
-	let resettingSystem = $state(false);
-	let systemStatusMsg = $state('');
 
 	let stepperActionError = $state<string | null>(null);
 	let stepperActionStatus = $state('');
@@ -283,14 +288,23 @@
 	let activeStepId = $state<WizardStepId>('identity');
 	let stepConfirmations = $state<WizardStepConfirmation>({});
 	let progressLoadedMachineId = $state('');
+	let verificationLoadedMachineId = $state('');
 	let homingSectionRef = $state<SetupHomingSection | null>(null);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
 	}
 
+	function currentMachineId(): string {
+		return machine.machine?.identity?.machine_id ?? wizard?.machine.machine_id ?? '';
+	}
+
 	function progressStorageKey(machineId: string): string {
 		return `setup-wizard-progress:${machineId}`;
+	}
+
+	function verificationStorageKey(machineId: string): string {
+		return `setup-wizard-verification:${machineId}`;
 	}
 
 	function loadStoredConfirmations(machineId: string) {
@@ -323,6 +337,72 @@
 		} catch {
 			// ignore storage issues
 		}
+	}
+
+	function loadStoredVerificationState(machineId: string) {
+		if (typeof window === 'undefined' || !machineId) {
+			reviewedZones = {};
+			tunedPictures = {};
+			verifiedSteppers = {};
+			verificationLoadedMachineId = '';
+			return;
+		}
+		try {
+			const raw = window.localStorage.getItem(verificationStorageKey(machineId));
+			if (!raw) {
+				reviewedZones = {};
+				tunedPictures = {};
+				verifiedSteppers = {};
+				verificationLoadedMachineId = machineId;
+				return;
+			}
+			const parsed = JSON.parse(raw) as PersistedVerificationState | null;
+			reviewedZones =
+				parsed?.reviewedZones && typeof parsed.reviewedZones === 'object' ? parsed.reviewedZones : {};
+			tunedPictures =
+				parsed?.tunedPictures && typeof parsed.tunedPictures === 'object' ? parsed.tunedPictures : {};
+			verifiedSteppers =
+				parsed?.verifiedSteppers && typeof parsed.verifiedSteppers === 'object'
+					? parsed.verifiedSteppers
+					: {};
+			verificationLoadedMachineId = machineId;
+		} catch {
+			reviewedZones = {};
+			tunedPictures = {};
+			verifiedSteppers = {};
+			verificationLoadedMachineId = machineId;
+		}
+	}
+
+	function persistVerificationState(machineId: string) {
+		if (typeof window === 'undefined' || !machineId) return;
+		try {
+			window.localStorage.setItem(
+				verificationStorageKey(machineId),
+				JSON.stringify({
+					reviewedZones,
+					tunedPictures,
+					verifiedSteppers
+				} satisfies PersistedVerificationState)
+			);
+		} catch {
+			// ignore storage issues
+		}
+	}
+
+	function clearCameraVerification(role: string) {
+		const nextReviewed = { ...reviewedZones };
+		delete nextReviewed[role];
+		reviewedZones = nextReviewed;
+
+		const nextTuned = { ...tunedPictures };
+		delete nextTuned[role];
+		tunedPictures = nextTuned;
+	}
+
+	function clearAllCameraVerification() {
+		reviewedZones = {};
+		tunedPictures = {};
 	}
 
 	function clearManualConfirmations(stepIds: WizardStepId[]) {
@@ -375,19 +455,23 @@
 	}
 
 	function cameraChoices(): CameraChoice[] {
-		const base: CameraChoice[] = [{ key: '__none__', source: null, label: 'Not assigned' }];
+		const base: CameraChoice[] = [
+			{ key: '__none__', source: null, label: 'Not assigned', previewSrc: null }
+		];
 		for (const camera of usbCameras) {
 			base.push({
 				key: sourceKey(camera.index),
 				source: camera.index,
-				label: `${camera.name} (Camera ${camera.index})`
+				label: `${camera.name} (Camera ${camera.index})`,
+				previewSrc: `${currentBackendBaseUrl()}/api/cameras/stream/${camera.index}`
 			});
 		}
 		for (const camera of networkCameras) {
 			base.push({
 				key: sourceKey(camera.source),
 				source: camera.source,
-				label: `${camera.name} (${camera.transport})`
+				label: `${camera.name} (${camera.transport})`,
+				previewSrc: camera.preview_url ?? camera.source
 			});
 		}
 
@@ -400,7 +484,11 @@
 				key,
 				source,
 				label:
-					typeof source === 'number' ? `Configured camera ${source}` : `Configured stream ${source}`
+					typeof source === 'number' ? `Configured camera ${source}` : `Configured stream ${source}`,
+				previewSrc:
+					typeof source === 'number'
+						? `${currentBackendBaseUrl()}/api/cameras/stream/${source}`
+						: source
 			});
 			seen.add(key);
 		}
@@ -645,7 +733,7 @@
 			case 'servos':
 				return 'Servo setup looks correct';
 			case 'advanced':
-				return 'Finish wizard';
+				return 'Open Dashboard';
 			default:
 				return 'Continue';
 		}
@@ -666,14 +754,19 @@
 		}
 	}
 
-	function markCurrentStepComplete() {
+	async function finishSetup() {
 		stepConfirmations = {
 			...stepConfirmations,
-			[activeStepId]: true
+			advanced: true
 		};
-		if (activeStepId !== 'advanced') {
-			goToNextStep();
+		const machineId = currentMachineId();
+		if (machineId && progressLoadedMachineId === machineId) {
+			persistConfirmations(machineId);
 		}
+		await goto('/', {
+			noScroll: true,
+			keepFocus: true
+		});
 	}
 
 	function canAdvanceCurrentStep(): boolean {
@@ -801,6 +894,7 @@
 		layoutStatus = '';
 		layoutError = null;
 		try {
+			const layoutChanged = wizard?.config.camera_assignments.layout !== selectedLayout;
 			const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard/camera-layout`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -808,6 +902,9 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			clearManualConfirmations(['motion', 'homing', 'servos', 'advanced']);
+			if (layoutChanged) {
+				clearAllCameraVerification();
+			}
 			layoutStatus =
 				selectedLayout === 'split_feeder'
 					? 'Split feeder layout selected.'
@@ -824,6 +921,9 @@
 		cameraError = null;
 		cameraStatus = '';
 		try {
+			const changedRoles = cameraRolesForLayout().filter(
+				(role) => sourceKey(wizard?.config.camera_assignments[role] ?? null) !== (roleSelections[role] ?? '__none__')
+			);
 			const payload: Record<string, number | string | null> = { layout: selectedLayout };
 			for (const role of cameraRolesForLayout()) {
 				payload[role] = parseCameraSource(roleSelections[role] ?? '__none__');
@@ -836,6 +936,9 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 				clearManualConfirmations(['motion', 'homing', 'servos', 'advanced']);
+				for (const role of changedRoles) {
+					clearCameraVerification(role);
+				}
 				cameraStatus = 'Camera assignments saved.';
 				await loadWizard();
 				await navigateToStep('motion');
@@ -846,51 +949,18 @@
 		}
 	}
 
-	async function homeSystem() {
-		homingSystem = true;
-		systemStatusMsg = '';
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
-			if (!res.ok) throw new Error(await res.text());
-			systemStatusMsg = 'Hardware initialization started.';
-			await pollSystemStatus();
-		} catch (e: any) {
-			hardwareError = e.message ?? 'Failed to start homing';
-		} finally {
-			homingSystem = false;
-		}
-	}
-
 	async function initializeSteppers() {
 		homingSystem = true;
-		systemStatusMsg = '';
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/system/initialize`, {
 				method: 'POST'
 			});
 			if (!res.ok) throw new Error(await res.text());
-			systemStatusMsg = 'Powering on steppers...';
 			await pollSystemStatus();
 		} catch (e: any) {
 			hardwareError = e.message ?? 'Failed to power on steppers';
 		} finally {
 			homingSystem = false;
-		}
-	}
-
-	async function resetSystem() {
-		resettingSystem = true;
-		systemStatusMsg = '';
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/reset`, { method: 'POST' });
-			if (!res.ok) throw new Error(await res.text());
-			clearManualConfirmations(['motion', 'homing', 'advanced']);
-			systemStatusMsg = 'Hardware reset back to standby.';
-			await pollSystemStatus();
-		} catch (e: any) {
-			hardwareError = e.message ?? 'Failed to reset hardware';
-		} finally {
-			resettingSystem = false;
 		}
 	}
 
@@ -972,9 +1042,15 @@
 	}
 
 	$effect(() => {
-		const machineId = machine.machine?.identity?.machine_id ?? wizard?.machine.machine_id ?? '';
+		const machineId = currentMachineId();
 		if (!machineId || progressLoadedMachineId !== machineId) return;
 		persistConfirmations(machineId);
+	});
+
+	$effect(() => {
+		const machineId = currentMachineId();
+		if (!machineId || verificationLoadedMachineId !== machineId) return;
+		persistVerificationState(machineId);
 	});
 
 	$effect(() => {
@@ -986,10 +1062,11 @@
 	});
 
 	$effect(() => {
-		const machineId = machine.machine?.identity?.machine_id ?? '';
+		const machineId = currentMachineId();
 		if (!machineId || machineId === loadedMachineKey) return;
 		loadedMachineKey = machineId;
 		loadStoredConfirmations(machineId);
+		loadStoredVerificationState(machineId);
 		void loadWizard();
 		void loadCameraInventory();
 	});
@@ -1006,9 +1083,10 @@
 	});
 
 	onMount(() => {
-		const machineId = machine.machine?.identity?.machine_id ?? '';
+		const machineId = currentMachineId();
 		if (machineId) {
 			loadStoredConfirmations(machineId);
+			loadStoredVerificationState(machineId);
 		}
 		void loadWizard();
 		void loadCameraInventory();
@@ -1040,54 +1118,61 @@
 
 			<div class="flex flex-col gap-6">
 					<section class="setup-card-shell overflow-hidden border border-border">
-						<div class="setup-card-body p-6">
-							<div class="flex items-start">
+						<div class="setup-card-body px-6 py-6">
+							<ol class="flex w-full items-start">
 								{#each WIZARD_STEPS as step, index}
 									{@const status = stepStatus(step.id)}
+									{@const isFirst = index === 0}
 									{@const isLast = index === WIZARD_STEPS.length - 1}
-									<div class="flex min-w-0 flex-1 items-start">
-										<div class="flex min-w-0 flex-col items-center gap-2">
-											<button
-												type="button"
-												onclick={() => setActiveStep(step.id)}
-												disabled={!canOpenStep(step.id)}
-												aria-label={step.title}
-												class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-													status === 'done'
-														? 'border-[#00852B] bg-[#00852B] text-white hover:bg-[#006e24]'
-														: status === 'current'
-															? 'border-[#00852B] bg-white text-[#00852B]'
-															: 'border-border bg-white text-text-muted'
-												}`}
-											>
-												{#if status === 'done'}
-													<Check size={18} strokeWidth={3} />
-												{:else if status === 'current'}
-													<Pencil size={15} strokeWidth={2.5} />
-												{:else}
-													{index + 1}
-												{/if}
-											</button>
+									{@const prevStatus = index > 0 ? stepStatus(WIZARD_STEPS[index - 1].id) : null}
+									<li class="relative flex min-w-0 flex-1 flex-col items-center">
+										{#if !isFirst}
 											<div
-												class={`truncate px-1 text-center text-xs font-medium ${
-													status === 'done' || status === 'current'
-														? 'text-[#00852B]'
-														: 'text-text-muted'
+												class={`absolute left-0 top-5 -ml-px h-0.5 w-1/2 ${
+													prevStatus === 'done' ? 'bg-[#00852B]' : 'bg-border'
 												}`}
-											>
-												{step.title}
-											</div>
-										</div>
+											></div>
+										{/if}
 										{#if !isLast}
 											<div
-												class={`mt-5 h-0.5 flex-1 ${
+												class={`absolute right-0 top-5 -mr-px h-0.5 w-1/2 ${
 													status === 'done' ? 'bg-[#00852B]' : 'bg-border'
 												}`}
 											></div>
 										{/if}
-									</div>
+										<button
+											type="button"
+											onclick={() => setActiveStep(step.id)}
+											disabled={!canOpenStep(step.id)}
+											aria-label={step.title}
+											class={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+												status === 'done'
+													? 'border-[#00852B] bg-[#00852B] text-white hover:bg-[#006e24]'
+													: status === 'current'
+														? 'border-[#00852B] bg-white text-[#00852B]'
+														: 'border-border bg-white text-text-muted'
+											}`}
+										>
+											{#if status === 'done'}
+												<Check size={18} strokeWidth={3} />
+											{:else if status === 'current'}
+												<Pencil size={15} strokeWidth={2.5} />
+											{:else}
+												{index + 1}
+											{/if}
+										</button>
+										<div
+											class={`mt-2 px-1 text-center text-xs font-medium leading-4 ${
+												status === 'done' || status === 'current'
+													? 'text-[#00852B]'
+													: 'text-text-muted'
+											}`}
+										>
+											{step.title}
+										</div>
+									</li>
 								{/each}
-							</div>
+							</ol>
 						</div>
 					</section>
 
@@ -1451,67 +1536,22 @@
 						{:else if activeStepId === 'servos'}
 							<SetupServoOnboardingSection onSaved={handleServoSaved} />
 						{:else if activeStepId === 'advanced'}
-							<div class="flex flex-col gap-6">
-								<div class="setup-panel px-4 py-3 text-sm text-text-muted">
-									The baseline wizard is done at this point. This final step is where you can do
-									deeper storage-layer edits and jump into the more detailed geometry or picture
-									pages.
-								</div>
-
-								<div class="setup-panel px-4 py-3 text-sm">
-									<div class="font-medium text-text">Current feeding mode</div>
-									<div class="mt-1 text-text-muted">
-										{wizard?.config.feeding.mode === 'manual_carousel'
-											? 'Manual carousel feed is enabled. Operators place parts directly into the carousel dropzone.'
-											: 'Automatic C-channel feeding is enabled.'}
+							<div
+								class="setup-panel relative overflow-hidden border-[#00852B]/40 bg-gradient-to-br from-[#EAF7EE] via-[#F3FBF5] to-white px-8 py-10 text-center dark:from-[#0F2B18] dark:via-[#0B1F12] dark:to-bg"
+							>
+								<div class="mx-auto flex max-w-xl flex-col items-center gap-4">
+									<div
+										class="flex h-20 w-20 items-center justify-center rounded-full bg-[#00852B] text-white shadow-[0_8px_24px_-6px_rgba(0,133,43,0.55)]"
+									>
+										<Check size={44} strokeWidth={3} />
 									</div>
-									<div class="mt-2 text-xs text-text-muted">
-										You can change this later in General Settings. Reset and re-home after switching
-										the mode.
+									<div class="flex flex-col gap-2">
+										<div class="text-2xl font-bold text-text">Setup Complete!</div>
+										<div class="text-sm text-text-muted">
+											Your sorter is configured and ready to go. Open the dashboard, home the
+											machine if it's still in standby, and give it a first run.
+										</div>
 									</div>
-								</div>
-
-								<StorageLayerSettingsSection />
-
-								<div class="grid gap-3 md:grid-cols-2">
-									<a
-										href="/settings/storage-layers"
-										class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-									>
-										Open advanced storage-layer settings
-									</a>
-									<a
-										href="/settings/chute"
-										class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-									>
-										Open chute calibration page
-									</a>
-									{#if selectedLayout === 'split_feeder'}
-										<a
-											href="/settings/c-channel-2"
-											class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-										>
-											Open C-Channel 2 settings
-										</a>
-										<a
-											href="/settings/c-channel-3"
-											class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-										>
-											Open C-Channel 3 settings
-										</a>
-										<a
-											href="/settings/carousel"
-											class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-										>
-											Open carousel settings
-										</a>
-									{/if}
-									<a
-										href="/settings/classification-chamber"
-										class="setup-panel px-4 py-3 text-sm text-text transition-colors hover:bg-surface"
-									>
-										Open classification chamber settings
-									</a>
 								</div>
 							</div>
 						{/if}
@@ -1532,7 +1572,7 @@
 
 								{#if activeStepId === 'advanced' && currentStep().requiresManualConfirm && !currentStepLocked()}
 									<button
-										onclick={markCurrentStepComplete}
+										onclick={finishSetup}
 										disabled={!manualConfirmEnabled(activeStepId) || isStepComplete(activeStepId)}
 										class="inline-flex items-center gap-2 border border-[#00852B] bg-[#00852B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
 									>
@@ -1568,27 +1608,37 @@
 				</div>
 		{/if}
 
-		<Modal open={pictureSettingsRole !== null} title="Picture Settings" wide={true}>
+		<Modal open={pictureSettingsRole !== null} title="Picture Settings" wide={true} on:close={closePictureSettings}>
 			{#if pictureSettingsRole}
-				<PictureSettingsSidebar
+				<SetupPictureSettingsModal
 					role={pictureSettingsRole as any}
 					label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
 					hasCamera={roleHasCamera(pictureSettingsRole)}
 					source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
-					onClose={closePictureSettings}
-					onSaved={() => {
+					backendBaseUrl={currentBackendBaseUrl()}
+					on:saved={() => {
 						const role = pictureSettingsRole;
 						if (!role) return;
 						markPictureTuned(role);
 						cameraStatus = `${ROLE_LABELS[role] ?? role} picture settings saved.`;
+						closePictureSettings();
 					}}
 				/>
 			{/if}
 		</Modal>
 
-		<Modal open={zoneEditorRole !== null} title="Edit Zone" wide={true}>
+		<Modal open={zoneEditorRole !== null} title="Edit Zone" wide={true} on:close={closeZoneEditor}>
 			{#if zoneEditorRole}
-				<SetupZoneEditorModal role={zoneEditorRole as any} on:reviewed={() => markZoneReviewed(zoneEditorRole!)} />
+				<SetupZoneEditorModal
+					role={zoneEditorRole as any}
+					on:saved={() => {
+						const role = zoneEditorRole;
+						if (!role) return;
+						markZoneReviewed(role);
+						cameraStatus = `${ROLE_LABELS[role] ?? role} zone saved.`;
+						closeZoneEditor();
+					}}
+				/>
 			{/if}
 		</Modal>
 	</div>

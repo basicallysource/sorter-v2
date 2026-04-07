@@ -36,6 +36,10 @@
 	);
 
 	const display_label = $derived(label || camera);
+
+	function abortMjpeg(node: HTMLImageElement) {
+		return { destroy() { node.src = ''; } };
+	}
 </script>
 
 	<div class={`flex h-full flex-col bg-bg ${framed ? 'border border-border' : ''}`}>
@@ -61,7 +65,7 @@
 		{#if image_src()}
 			<img src={image_src()} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />
 		{:else if mjpeg_src}
-			<img src={mjpeg_src} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />
+			<img use:abortMjpeg src={mjpeg_src} alt={display_label} class="absolute inset-0 h-full w-full object-contain" />
 		{:else}
 			<div
 				class="flex h-full items-center justify-center text-text-muted"

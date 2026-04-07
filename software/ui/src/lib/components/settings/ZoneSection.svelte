@@ -1057,6 +1057,66 @@
 		arcParams[channel] = clamped;
 	}
 
+	function mjpegStream(node: HTMLImageElement, url: string) {
+		let controller = new AbortController();
+		let blobUrl: string | null = null;
+
+		function start(src: string) {
+			controller = new AbortController();
+			fetch(src, { signal: controller.signal })
+				.then((res) => {
+					if (!res.body) return;
+					const reader = res.body.getReader();
+					let buf = new Uint8Array(0);
+					function pump() {
+						reader.read().then(({ done, value }) => {
+							if (done) return;
+							const next = new Uint8Array(buf.length + value.length);
+							next.set(buf);
+							next.set(value, buf.length);
+							buf = next;
+							let start = 0;
+							while (true) {
+								const soi = buf.indexOf(0xff, start);
+								if (soi === -1 || soi + 1 >= buf.length) break;
+								if (buf[soi + 1] !== 0xd8) { start = soi + 1; continue; }
+								let eoi = soi + 2;
+								while (eoi + 1 < buf.length) {
+									if (buf[eoi] === 0xff && buf[eoi + 1] === 0xd9) { eoi += 2; break; }
+									eoi++;
+								}
+								if (eoi + 1 >= buf.length && !(buf[eoi - 2] === 0xff && buf[eoi - 1] === 0xd9)) break;
+								const jpeg = buf.slice(soi, eoi);
+								buf = buf.slice(eoi);
+								if (blobUrl) URL.revokeObjectURL(blobUrl);
+								blobUrl = URL.createObjectURL(new Blob([jpeg], { type: 'image/jpeg' }));
+								node.src = blobUrl;
+								start = 0;
+								break;
+							}
+							pump();
+						}).catch(() => {});
+					}
+					pump();
+				})
+				.catch(() => {});
+		}
+
+		start(url);
+
+		return {
+			update(newUrl: string) {
+				controller.abort();
+				if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+				start(newUrl);
+			},
+			destroy() {
+				controller.abort();
+				if (blobUrl) URL.revokeObjectURL(blobUrl);
+			}
+		};
+	}
+
 	function streamUrl(channel: Channel): string {
 		if (editingZone) {
 			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
@@ -2418,7 +2478,7 @@
 								</div>
 							{:else if currentAssignment() !== null}
 								<img
-									src={streamUrl(currentChannel)}
+									use:mjpegStream={streamUrl(currentChannel)}
 									alt={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}

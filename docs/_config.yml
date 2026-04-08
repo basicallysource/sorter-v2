@@ -1,6 +1,6 @@
 title: Sorter V2 Documentation
 description: Detector runtime findings, model artifacts, and target conversion workflows.
-encoding: utf-8
+encoding: "utf-8"
 markdown: kramdown
 kramdown:
   input: GFM

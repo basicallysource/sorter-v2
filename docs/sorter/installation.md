@@ -1,0 +1,163 @@
+---
+layout: default
+title: Installation
+section: sorter
+slug: sorter-installation
+kicker: Sorter — Setup
+lede: How to take a fresh Linux box from clean install to a running Sorter UI in your browser. One script, two flags, then the in-app Setup Wizard takes over.
+permalink: /sorter/installation/
+---
+
+## What you get at the end
+
+A running Sorter on the local machine, reachable from any browser on the same network at `http://<machine-ip>:5173/`. The Python backend talks to USB-connected hardware, the SvelteKit UI is what you actually use to operate the machine.
+
+This page covers only the install — getting the software stack on disk and the UI reachable. Everything *after* that point — camera assignment, lighting, homing, chamber zones, servos, profiles, the link to a SortHive account — happens inside the in-app **Setup Wizard** the first time you open the UI. The installer deliberately does not touch any of it.
+
+## Assumed environment
+
+The installer is written against a freshly installed **Debian 12** or **Ubuntu 24.04** system (`amd64` or `aarch64`). It also works on **Raspberry Pi OS Bookworm** on a Pi 5, which is the canonical target. You will need:
+
+- a sudo-capable user account
+- a working internet connection
+- ~3 GB free disk (Python interpreter, node_modules, model artifacts)
+
+## The one-command install
+
+```bash
+git lfs install
+git clone https://github.com/basicallysource/sorter-v2.git
+cd sorter-v2/software
+./install.sh
+```
+
+That's it. The installer is idempotent — re-running it on a partially-installed machine just confirms the steps it can skip.
+
+What `install.sh` actually does, in order:
+
+1. **`apt install`** the system packages — `git`, `git-lfs`, `curl`, `build-essential`, `libgl1`, `libglib2.0-0`, `lsof`, `v4l-utils`. `libgl1` is what OpenCV needs at import time; the rest are dependencies of the toolchain or the dev runner.
+2. **Install a udev rule** for Raspberry Pi Pico boards (`/etc/udev/rules.d/99-sorter-pico.rules`). This grants the Sorter backend access to the boards over USB serial **without** requiring `dialout` group membership — which would otherwise need a logout/login cycle to take effect and is the single most common silent first-run failure.
+3. **Install `uv`** (the Python toolchain) if it isn't already on the box. `uv` then fetches the exact Python version pinned by the project — no `apt python3` needed.
+4. **Install Node.js 20.x and `pnpm`** via NodeSource. `pnpm` is mandatory here, not `npm`: the dev runner explicitly invokes `pnpm dev`.
+5. **`git lfs pull`** the detector model artifacts and the parts catalogue (skip with `--skip-lfs`).
+6. **Generate `.env`** with the *correct* absolute paths discovered from the install location. No more editing `/home/user/sorter-v2/...` placeholders by hand. (The UI's own `.env` is also seeded from its example.)
+7. **`uv sync`** in `software/client/` — this is the slow step on first install because uv downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
+8. **`pnpm install --frozen-lockfile`** in `software/ui/` — resolves the SvelteKit + Vite + Tailwind toolchain and the in-app component set.
+
+When the installer finishes you can start the dev runner:
+
+```bash
+./dev.sh
+```
+
+`./dev.sh` starts the Python backend on `:8000` and the Vite dev server on `:5173`, prefixes both log streams, and restarts either one if it crashes. Stop with Ctrl-C. Then open `http://localhost:5173/` (or `http://<machine-ip>:5173/` from another device on the same network) and the in-app Setup Wizard takes over.
+
+## Installer flags
+
+```bash
+./install.sh --help
+./install.sh                 # default — install everything in dev mode
+./install.sh --as-service    # also build the UI for production and install systemd units
+./install.sh --skip-lfs      # skip git lfs pull (useful in CI / Docker / when LFS already pulled)
+./install.sh --skip-apt      # skip the apt step (useful when packages are already installed)
+```
+
+### Running as a systemd service
+
+For an "appliance" install on the Pi 5 that should boot straight into a running Sorter without anyone touching `./dev.sh`:
+
+```bash
+./install.sh --as-service
+```
+
+In addition to all the steps above, this also:
+
+- runs `pnpm build` to produce a production UI bundle under `software/ui/build/`;
+- substitutes the actual user, paths, and binary locations into the unit templates under `software/systemd/`;
+- writes `lego-sorter-backend.service` and `lego-sorter-ui.service` into `/etc/systemd/system/`;
+- runs `systemctl daemon-reload && systemctl enable --now …` so both services start immediately and on every subsequent boot.
+
+The two services are independent on purpose — you can `systemctl restart lego-sorter-backend` while iterating on the Python side without bouncing the UI, and vice versa. View the logs with:
+
+```bash
+sudo journalctl -u lego-sorter-backend -f
+sudo journalctl -u lego-sorter-ui -f
+```
+
+## Verifying the installer in Docker
+
+The whole install path is reproducibly tested against a fresh Debian 12 container so we catch regressions before they hit a real machine. From the repo root:
+
+```bash
+software/scripts/test_install_in_docker.sh
+```
+
+This script:
+
+1. builds a minimal `debian:12-slim` image whose only pre-installed packages are `sudo`, `curl`, `ca-certificates`, and `git` — everything else has to come from `install.sh` itself;
+2. copies the working tree into the container, strips any host-side dev state (`.env`, `.venv`, `node_modules`), and runs `./install.sh --skip-lfs`;
+3. smoke-tests the backend by importing the trickiest Python deps (`fastapi`, `cv2`, `onnxruntime`, `uvicorn`, `numpy`) inside the freshly-built `uv` environment;
+4. runs `pnpm exec vite --version` to confirm the UI toolchain is callable;
+5. runs `systemd-analyze verify` against both unit files to catch unit-syntax regressions.
+
+What the Docker test deliberately does **not** cover: USB serial discovery of Pico boards, camera enumeration, Hailo / RKNN runtimes, anything else that needs physical hardware. Those are exercised on real devices, not in CI.
+
+## Common first-run gotchas
+
+- **`.onnx` files are tiny text pointers.** Git LFS did not initialize before the clone. Run `git lfs install && git lfs pull` from inside the repo, or just re-run `./install.sh` — it will pull the LFS payloads as part of step 5.
+- **`ImportError: libGL.so.1`** when the backend starts. The apt step did not run, or `libgl1` is missing. `./install.sh --skip-apt` was probably used incorrectly — re-run without that flag.
+- **Port 8000 or 5173 already in use.** `./dev.sh` kills stale processes on those ports automatically before starting; if a previous run left a wedged child, `pkill -f 'uvicorn|vite'` once and try again.
+- **Nothing happens when you click anything in the UI.** The frontend started before the backend was ready. Wait ten seconds and refresh; if it persists, check the `[backend]` log lines for the actual import error.
+
+## If you'd rather walk the install by hand
+
+If you want to know exactly what the installer is doing, or you need to install on a system the script does not yet support, the manual sequence is:
+
+```bash
+# 1. system packages
+sudo apt update && sudo apt install -y \
+  git git-lfs curl ca-certificates \
+  build-essential pkg-config \
+  libgl1 libglib2.0-0 lsof v4l-utils
+
+# 2. udev rule for Pico boards (so you don't need the dialout group + logout)
+sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# 3. uv (Python toolchain)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+
+# 4. Node 20 + pnpm (UI toolchain)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pnpm
+
+# 5. clone the repo
+git lfs install
+git clone https://github.com/basicallysource/sorter-v2.git
+cd sorter-v2/software
+git lfs pull
+
+# 6. .env (replace /home/user/... with the real absolute path of your clone)
+cp .env.example .env
+$EDITOR .env
+cp ui/.env.example ui/.env
+
+# 7. dependencies
+( cd client && uv sync )
+( cd ui && pnpm install )
+
+# 8. start
+./dev.sh
+```
+
+Step 6 is the one that bites people — that is exactly what `install.sh` automates so you don't have to.
+
+## Where to go next
+
+Once the UI is up, the real work moves into the in-app **Setup Wizard**. The dedicated wizard walkthrough is still being written; until then the wizard is self-explanatory and will not let you skip a required step.
+
+If you intend to flash custom firmware on your Picos, the build instructions live in `software/firmware/sorter_interface_firmware/README.md` in the repository.
+
+If you want to run the detector benchmarks on this machine to validate your install against the published numbers, see [Benchmarking Workflow]({{ '/lab/object-detection/device-benchmarking/' | relative_url }}) over in the lab.

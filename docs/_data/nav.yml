@@ -27,6 +27,8 @@ sections:
     pages:
       - title: Overview
         url: /sorter/
+      - title: Installation
+        url: /sorter/installation/
 
   - id: sorthive
     title: SortHive

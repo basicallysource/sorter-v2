@@ -8,9 +8,13 @@ lede: The Sorter V2 local software — the Python backend that drives the hardwa
 permalink: /sorter/
 ---
 
+## Start here
+
+- **[Installation]({{ '/sorter/installation/' | relative_url }})** — how to take a fresh Linux machine from clean install to a running Sorter UI in your browser. The path you walk once per machine.
+
 ## Coming soon
 
-This section will cover:
+These pages are stubs until the underlying flows stabilize:
 
 - **Architecture** — how the coordinator, vision manager, machine platform, and UI fit together.
 - **Setup wizard** — the first-run flow: cameras, lighting, homing, chamber zones, servos, SortHive link.

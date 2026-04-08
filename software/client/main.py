@@ -7,7 +7,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import get_api_keys
+from local_state import get_api_keys, remember_recent_known_object
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
@@ -40,6 +40,7 @@ from subsystems.feeder.calibration import calibrateFeederChannels
 from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
+from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 import uvicorn
 import threading
 import queue
@@ -94,7 +95,9 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
         for command in pending_commands:
             if command.tag == "known_object":
-                gc.runtime_stats.observeKnownObject(command.data.model_dump())
+                obj_payload = command.data.model_dump()
+                gc.runtime_stats.observeKnownObject(obj_payload)
+                remember_recent_known_object(obj_payload)
             if (
                 command.tag != "frame"
                 and command.tag != "heartbeat"
@@ -206,6 +209,11 @@ def main() -> None:
             irl.shutdown()
         except Exception as exc:
             gc.logger.warning(f"Failed to shut down hardware interfaces cleanly: {exc}")
+
+        try:
+            close_all_waveshare_bus_services()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to close Waveshare bus services cleanly: {exc}")
 
         standby_irl = _mkIRLInterfaceStandby(irl_config, gc)
         _replace_irl(standby_irl)

@@ -14,7 +14,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from blob_manager import getSortHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
+from local_state import start_new_sorting_session
 from server import shared_state
+from server.routers.hardware import clear_bin_category_assignments
 
 router = APIRouter()
 
@@ -26,6 +28,7 @@ class ApplySortingProfilePayload(BaseModel):
     version_id: str
     version_number: int | None = None
     version_label: str | None = None
+    reset_bin_categories: bool = False
 
 
 def _load_targets() -> list[dict[str, Any]]:
@@ -214,6 +217,10 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized.")
 
+    reset_result: dict[str, Any] | None = None
+    if payload.reset_bin_categories:
+        reset_result = clear_bin_category_assignments(scope="all")
+
     assignment_response = session.put(
         f"{base_url}/api/machine/profile-assignment",
         json={
@@ -284,6 +291,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         sync_state["last_error"] = activation_error
 
     setSortingProfileSyncState(sync_state)
+    start_new_sorting_session(reason="profile_activated")
     try:
         from server.set_progress_sync import getSetProgressSyncWorker
 
@@ -294,6 +302,8 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     return {
         "ok": True,
         "reloaded": reloaded,
+        "bin_categories_reset": bool(reset_result),
+        "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
         "activation_error": activation_error,
         **_current_local_profile_status(),
     }

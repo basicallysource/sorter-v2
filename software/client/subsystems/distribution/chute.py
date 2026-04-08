@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
 from irl.bin_layout import DistributionLayout
+from irl.parse_user_toml import DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
@@ -34,6 +35,7 @@ class Chute:
         first_bin_center: float = FIRST_BIN_CENTER,
         pillar_width_deg: float = PILLAR_WIDTH_DEG,
         endstop_active_high: bool = True,
+        operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     ):
         self.gc = gc
         self.logger = gc.logger
@@ -43,6 +45,7 @@ class Chute:
         self.first_bin_center = first_bin_center
         self.pillar_width_deg = pillar_width_deg
         self.endstop_active_high = endstop_active_high
+        self.operating_speed_microsteps_per_second = operating_speed_microsteps_per_second
 
     @property
     def usable_deg_per_section(self) -> float:
@@ -58,6 +61,9 @@ class Chute:
         self.pillar_width_deg = pillar_width_deg
         if endstop_active_high is not None:
             self.endstop_active_high = endstop_active_high
+
+    def setOperatingSpeed(self, operating_speed_microsteps_per_second: int) -> None:
+        self.operating_speed_microsteps_per_second = max(1, int(operating_speed_microsteps_per_second))
 
     @property
     def raw_endstop_active(self) -> bool:
@@ -93,7 +99,10 @@ class Chute:
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
         delta_stepper_angle = target_stepper_angle - current_stepper_angle
-        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle)
+        estimated_ms = self.stepper.estimateMoveDegreesMs(
+            delta_stepper_angle,
+            max_speed=self.operating_speed_microsteps_per_second,
+        )
 
         if self.gc.disable_chute:
             self.logger.info(
@@ -123,7 +132,10 @@ class Chute:
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
         delta_stepper_angle = target_stepper_angle - current_stepper_angle
-        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle)
+        estimated_ms = self.stepper.estimateMoveDegreesMs(
+            delta_stepper_angle,
+            max_speed=self.operating_speed_microsteps_per_second,
+        )
         timeout_ms = max(1, estimated_ms + timeout_buffer_ms)
 
         if self.gc.disable_chute:
@@ -145,6 +157,18 @@ class Chute:
             return 0
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
+    def _backoffToFirstBin(self) -> bool:
+        backoff_angle = float(self.first_bin_center or 0.0)
+        if backoff_angle <= 0.0:
+            return True
+        try:
+            self.moveToAngleBlocking(backoff_angle, timeout_buffer_ms=1500)
+            self.logger.info(f"Chute: backed off to bin 1 ({backoff_angle:.2f}°)")
+            return True
+        except Exception as exc:
+            self.logger.error(f"Chute: backoff to bin 1 failed: {exc}")
+            return False
+
     def home(self) -> bool:
         self.logger.info("Chute: homing via sensor")
         self.stepper.home(
@@ -160,6 +184,8 @@ class Chute:
             time.sleep(0.01)
         if not self.endstop_triggered:
             self.logger.warning("Chute: homing stopped before the endstop triggered")
+            return False
+        if not self._backoffToFirstBin():
             return False
         self.logger.info("Chute: homed successfully")
         return True

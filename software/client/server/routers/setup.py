@@ -242,24 +242,18 @@ def _probe_waveshare_servo_count(device_path: str) -> int:
     opened or nothing on the bus speaks the SC protocol.
     """
     try:
-        from hardware.waveshare_servo import ScServoBus
+        from hardware.waveshare_bus_service import get_waveshare_bus_service
     except Exception:
         return 0
 
     try:
-        bus = ScServoBus(device_path, timeout=0.01)
+        service = get_waveshare_bus_service(device_path, timeout=0.01)
     except Exception:
         return 0
     try:
-        found = bus.scan(1, 10)
+        return service.probe_servo_count(1, 10)
     except Exception:
-        found = []
-    finally:
-        try:
-            bus.close()
-        except Exception:
-            pass
-    return len(found)
+        return 0
 
 
 def _enumerate_usb_devices(
@@ -403,11 +397,56 @@ def _build_discovery_payload(
     }
     pca_available = any(int(board.get("servo_count", 0)) > 0 for board in board_summaries)
 
-    probe_servo_buses = shared_state.hardware_state != "homing"
+    active_irl = shared_state.getActiveIRL()
+    live_servo_port: str | None = None
+    live_servo_count = 0
+    if active_irl is not None:
+        servo_controller = getattr(active_irl, "servo_controller", None)
+        bus_service = getattr(servo_controller, "bus_service", None)
+        live_servo_port = getattr(bus_service, "port", None)
+        live_servo_count = len(getattr(active_irl, "servos", []))
+
+    probe_servo_buses = shared_state.hardware_state == "standby" and live_servo_port is None
     usb_devices = _enumerate_usb_devices(
         board_summaries=board_summaries,
         probe_servo_buses=probe_servo_buses,
     )
+
+    if live_servo_port is not None:
+        matched_live_port = False
+        for device in usb_devices:
+            if device.get("device") != live_servo_port:
+                continue
+            device["category"] = "servo_bus"
+            device["use_by_default"] = True
+            device["servo_count"] = max(int(device.get("servo_count", 0) or 0), live_servo_count)
+            device["detail"] = f"Using active controller bus ({live_servo_count} servo(s))"
+            matched_live_port = True
+            break
+
+        if not matched_live_port:
+            port_meta = next(
+                (
+                    port for port in serial.tools.list_ports.comports()
+                    if getattr(port, "device", None) == live_servo_port
+                ),
+                None,
+            )
+            usb_devices.append(
+                {
+                    "device": live_servo_port,
+                    "product": getattr(port_meta, "product", None) or "Waveshare servo bus",
+                    "serial": getattr(port_meta, "serial_number", None),
+                    "vid_pid": _format_vid_pid(
+                        getattr(port_meta, "vid", None),
+                        getattr(port_meta, "pid", None),
+                    ),
+                    "category": "servo_bus",
+                    "use_by_default": True,
+                    "servo_count": live_servo_count,
+                    "detail": f"Using active controller bus ({live_servo_count} servo(s))",
+                }
+            )
 
     waveshare_ports = [
         {

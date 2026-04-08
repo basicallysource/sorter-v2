@@ -23,6 +23,7 @@ DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
+DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
 
@@ -424,7 +425,7 @@ def loadMachineConfig(
 
 @dataclass
 class ServoChannelConfig:
-    id: int
+    id: int | None
     invert: bool = False
 
 
@@ -439,6 +440,7 @@ class ChuteCalibrationConfig:
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
+    operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 
 def loadServoChannelConfig(
@@ -475,8 +477,13 @@ def loadServoChannelConfig(
             continue
 
         ch_id = ch.get("id")
+        if ch_id is None:
+            channels.append(ServoChannelConfig(id=None, invert=bool(ch.get("invert", False))))
+            continue
+
         if not isinstance(ch_id, int) or isinstance(ch_id, bool):
-            gc.logger.warning(f"Ignoring servo.channels[{i}]: id must be an integer, got {ch_id!r}")
+            gc.logger.warning(f"Ignoring servo.channels[{i}]: id must be an integer or null, got {ch_id!r}")
+            channels.append(ServoChannelConfig(id=None, invert=bool(ch.get("invert", False))))
             continue
 
         if backend_name == "waveshare":
@@ -553,6 +560,10 @@ def loadChuteCalibrationConfig(
         "pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     )
     endstop_active_high = chute_params.get("endstop_active_high", True)
+    operating_speed_microsteps_per_second = chute_params.get(
+        "operating_speed_microsteps_per_second",
+        DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+    )
 
     if not isinstance(first_bin_center, (int, float)) or isinstance(first_bin_center, bool):
         gc.logger.warning(
@@ -582,10 +593,29 @@ def loadChuteCalibrationConfig(
         )
         endstop_active_high = True
 
+    if not isinstance(operating_speed_microsteps_per_second, int) or isinstance(
+        operating_speed_microsteps_per_second, bool
+    ):
+        gc.logger.warning(
+            "Invalid chute.operating_speed_microsteps_per_second="
+            f"{operating_speed_microsteps_per_second!r}; using default "
+            f"{DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC}."
+        )
+        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+
+    if operating_speed_microsteps_per_second <= 0:
+        gc.logger.warning(
+            "Invalid chute.operating_speed_microsteps_per_second="
+            f"{operating_speed_microsteps_per_second!r}; expected > 0. Using default "
+            f"{DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC}."
+        )
+        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+
     return ChuteCalibrationConfig(
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,
+        operating_speed_microsteps_per_second=operating_speed_microsteps_per_second,
     )
 
 

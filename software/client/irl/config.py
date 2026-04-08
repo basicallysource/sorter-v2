@@ -1037,6 +1037,15 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         raise RuntimeError("Distribution board chute home input is unavailable.")
 
     chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
+    _run_stepper_init_command_with_retry(
+        gc,
+        "chute_stepper",
+        f"speed limits min=16 max={chute_calibration.operating_speed_microsteps_per_second}",
+        lambda: irl_interface.chute_stepper.set_speed_limits(
+            16,
+            chute_calibration.operating_speed_microsteps_per_second,
+        ),
+    )
     irl_interface.chute = Chute(
         gc,
         irl_interface.chute_stepper,
@@ -1045,6 +1054,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         first_bin_center=chute_calibration.first_bin_center,
         pillar_width_deg=chute_calibration.pillar_width_deg,
         endstop_active_high=chute_calibration.endstop_active_high,
+        operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
     )
 
     return irl_interface

@@ -301,6 +301,18 @@ def setSortingProfileSyncState(state: dict) -> None:
     set_sorting_profile_sync_state(state)
 
 
+def getRecentKnownObjects() -> list[dict]:
+    from local_state import get_recent_known_objects
+
+    return get_recent_known_objects()
+
+
+def rememberRecentKnownObject(obj: dict) -> None:
+    from local_state import remember_recent_known_object
+
+    remember_recent_known_object(obj)
+
+
 def getApiKeys() -> dict:
     from local_state import get_api_keys
 

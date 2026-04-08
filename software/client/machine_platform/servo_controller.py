@@ -13,15 +13,79 @@ from machine_platform.control_board import ControlBoard
 
 @dataclass(frozen=True)
 class LayerServoAssignment:
-    id: int
+    id: int | None
     invert: bool = False
+
+
+class UnassignedServoMotor:
+    def __init__(self, *, invert: bool, layer_index: int):
+        self.channel = None
+        self._invert = invert
+        self._layer_index = layer_index
+        self._name = f"layer_{layer_index}_servo"
+
+    @property
+    def available(self) -> bool:
+        return False
+
+    @property
+    def stopped(self) -> bool:
+        return True
+
+    @property
+    def enabled(self) -> bool:
+        return False
+
+    @enabled.setter
+    def enabled(self, _value: bool) -> None:
+        return
+
+    def set_name(self, name: str) -> None:
+        self._name = name
+
+    def set_invert(self, invert: bool) -> None:
+        self._invert = invert
+
+    def feedback(self) -> dict[str, Any]:
+        return {
+            "available": False,
+            "channel": self.channel,
+            "position": None,
+            "is_open": None,
+            "open_position": None,
+            "closed_position": None,
+            "min_limit": None,
+            "max_limit": None,
+            "error": None,
+            "name": self._name,
+            "layer_index": self._layer_index,
+            "invert": self._invert,
+        }
+
+    def open(self, _open_angle: int | None = None) -> None:
+        raise RuntimeError("No servo assigned to this layer.")
+
+    def close(self, _closed_angle: int | None = None) -> None:
+        raise RuntimeError("No servo assigned to this layer.")
+
+    def toggle(self) -> None:
+        raise RuntimeError("No servo assigned to this layer.")
+
+    def recalibrate(self) -> tuple[int, int]:
+        raise RuntimeError("No servo assigned to this layer.")
+
+    def isOpen(self) -> bool:
+        return False
+
+    def isClosed(self) -> bool:
+        return False
 
 
 class OfflineServoMotor:
     def __init__(
         self,
         *,
-        servo_id: int,
+        servo_id: int | None,
         invert: bool,
         error: str,
         layer_index: int,
@@ -124,12 +188,19 @@ class Pca9685ServoController(ServoController):
 
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
         layer_servos: list[Any] = []
-        for index, _layer in enumerate(distribution_layout.layers):
+        for index, layer in enumerate(distribution_layout.layers):
             assignment = (
                 self._assignments[index]
                 if index < len(self._assignments)
                 else LayerServoAssignment(id=index)
             )
+            if assignment.id is None:
+                if bool(getattr(layer, "enabled", True)):
+                    raise IndexError(f"Layer {index} has no servo configured.")
+                servo = UnassignedServoMotor(invert=assignment.invert, layer_index=index)
+                servo.set_name(f"layer_{index}_servo")
+                layer_servos.append(servo)
+                continue
             if assignment.id < 0 or assignment.id >= len(self._source_board.servos):
                 raise IndexError(
                     f"Layer {index} servo channel {assignment.id} not available. "
@@ -167,11 +238,16 @@ class WaveshareServoController(ServoController):
         self._port = port
         self._assignments = tuple(assignments)
         self._mcu_ports = tuple(mcu_ports)
-        self._bus = None
+        self._bus_service = None
         self.issues = []
 
+    @property
+    def bus_service(self):
+        return self._bus_service
+
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
-        from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor
+        from hardware.waveshare_bus_service import get_waveshare_bus_service
+        from hardware.waveshare_servo import WaveshareServoMotor
 
         port = self._resolve_port()
         if port is None:
@@ -184,8 +260,9 @@ class WaveshareServoController(ServoController):
 
         self._gc.logger.info(f"Using Waveshare SC servo bus on {port}")
         try:
-            bus = ScServoBus(port)
-            self._bus = bus
+            service = get_waveshare_bus_service(port)
+            service.attach_persistent()
+            self._bus_service = service
         except Exception as exc:
             error = f"Failed to open Waveshare SC servo bus on {port}: {exc}"
             self._gc.logger.warning(error)
@@ -195,7 +272,17 @@ class WaveshareServoController(ServoController):
             ]
         layer_servos: list[Any] = []
         for index, assignment in self._iter_layer_assignments(distribution_layout):
-            servo = WaveshareServoMotor(bus, assignment.id, invert=assignment.invert)
+            layer = distribution_layout.layers[index]
+            if assignment.id is None:
+                if bool(getattr(layer, "enabled", True)):
+                    error = "No servo configured for enabled layer."
+                    layer_servos.append(self._make_offline_servo(index, assignment, error))
+                else:
+                    servo = UnassignedServoMotor(invert=assignment.invert, layer_index=index)
+                    servo.set_name(f"layer_{index}_servo")
+                    layer_servos.append(servo)
+                continue
+            servo = WaveshareServoMotor(service, assignment.id, invert=assignment.invert)
             try:
                 servo.initialize()
             except Exception as exc:
@@ -214,12 +301,12 @@ class WaveshareServoController(ServoController):
         return layer_servos
 
     def shutdown(self) -> None:
-        if self._bus is None:
+        if self._bus_service is None:
             return
         try:
-            self._bus.close()
+            self._bus_service.detach_persistent()
         finally:
-            self._bus = None
+            self._bus_service = None
 
     def _iter_layer_assignments(self, distribution_layout: Any) -> list[tuple[int, LayerServoAssignment]]:
         assignments: list[tuple[int, LayerServoAssignment]] = []
@@ -241,9 +328,10 @@ class WaveshareServoController(ServoController):
             "kind": "servo",
             "backend": self.backend_name,
             "layer_index": index,
-            "servo_id": assignment.id,
             "message": error,
         }
+        if assignment.id is not None:
+            issue["servo_id"] = assignment.id
         self.issues.append(issue)
         offline = OfflineServoMotor(
             servo_id=assignment.id,

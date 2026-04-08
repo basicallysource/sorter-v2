@@ -217,9 +217,15 @@ def discover_control_boards(
         raise RuntimeError("No MCU buses found.")
 
     discovered_boards: list[SorterInterfaceControlBoard] = []
+    last_open_failures: list[str] = []
+    last_init_failures: list[str] = []
+    last_scan_summary: list[str] = []
     for attempt in range(1, attempts + 1):
         attempt_buses: list[MCUBus] = []
         attempt_boards: list[SorterInterfaceControlBoard] = []
+        attempt_open_failures: list[str] = []
+        attempt_init_failures: list[str] = []
+        attempt_scan_summary: list[str] = []
 
         for port in ports:
             gc.logger.info(f"Scanning SorterInterface devices on {port}")
@@ -227,10 +233,12 @@ def discover_control_boards(
                 bus = MCUBus(port=port)
             except Exception as exc:
                 gc.logger.warning(f"Failed to open MCU bus on {port}: {exc}")
+                attempt_open_failures.append(f"{port}: open failed ({exc})")
                 continue
 
             attempt_buses.append(bus)
             devices = bus.scan_devices()
+            attempt_scan_summary.append(f"{port}: addresses={devices}")
             if not devices:
                 gc.logger.warning(f"No SorterInterface devices found on {port}")
                 continue
@@ -254,11 +262,23 @@ def discover_control_boards(
                     gc.logger.warning(
                         f"Failed to initialize SorterInterface on {port} addr {address}: {exc}"
                     )
+                    attempt_init_failures.append(f"{port}@{address}: {exc}")
 
         if not attempt_boards:
             _close_mcu_buses(attempt_buses)
+            last_open_failures = attempt_open_failures
+            last_init_failures = attempt_init_failures
+            last_scan_summary = attempt_scan_summary
             if attempt == attempts:
-                raise RuntimeError(f"No SorterInterface devices found on buses: {ports}")
+                detail_parts: list[str] = []
+                if last_scan_summary:
+                    detail_parts.append("scan=" + "; ".join(last_scan_summary))
+                if last_init_failures:
+                    detail_parts.append("init_failures=" + "; ".join(last_init_failures))
+                if last_open_failures:
+                    detail_parts.append("open_failures=" + "; ".join(last_open_failures))
+                detail_suffix = f" ({' | '.join(detail_parts)})" if detail_parts else ""
+                raise RuntimeError(f"No SorterInterface devices found on buses: {ports}{detail_suffix}")
             gc.logger.warning(
                 "No SorterInterface devices fully initialized on attempt "
                 f"{attempt}/{attempts}. Retrying in {retry_delay_s:.2f}s..."

@@ -12,10 +12,13 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from irl.bin_layout import getBinLayout
+from blob_manager import getBinCategories, setBinCategories
+from irl.bin_layout import applyCategories, extractCategories, getBinLayout, layoutMatchesCategories, mkLayoutFromConfig
+from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     DEFAULT_SERVO_CLOSED_ANGLE,
     DEFAULT_SERVO_OPEN_ANGLE,
@@ -34,13 +37,40 @@ def _ensure_not_homing(action: str) -> None:
     if shared_state.hardware_state == "homing":
         raise HTTPException(status_code=409, detail=f"Cannot {action} while hardware is homing.")
 
+
+def _active_waveshare_service() -> Any | None:
+    active_irl = _active_irl()
+    if active_irl is None:
+        return None
+    servo_controller = getattr(active_irl, "servo_controller", None)
+    return getattr(servo_controller, "bus_service", None)
+
+
+def _configured_waveshare_service(config: Dict[str, Any], *, timeout: float = 0.02) -> Any | None:
+    servo = config.get("servo", {})
+    port = servo.get("port") if isinstance(servo, dict) else None
+    if not isinstance(port, str) or not port.strip():
+        return None
+    from hardware.waveshare_bus_service import get_waveshare_bus_service
+
+    return get_waveshare_bus_service(port.strip(), timeout=timeout)
+
+
+def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
+    service = _active_waveshare_service()
+    if service is not None:
+        return service
+
+    _, config = _read_machine_params_config()
+    return _configured_waveshare_service(config, timeout=timeout)
+
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
 
 
 class ServoChannelConfigPayload(BaseModel):
-    id: int
+    id: int | None = None
     invert: bool = False
 
 
@@ -56,6 +86,7 @@ class ChuteHardwareSettingsPayload(BaseModel):
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
+    operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 
 class CarouselHardwareSettingsPayload(BaseModel):
@@ -82,6 +113,13 @@ class MoveToBinPayload(BaseModel):
     bin_index: int
 
 
+class ClearBinCategoriesPayload(BaseModel):
+    scope: str
+    layer_index: Optional[int] = None
+    section_index: Optional[int] = None
+    bin_index: Optional[int] = None
+
+
 class StorageLayerPayload(BaseModel):
     bin_count: int
     enabled: bool = True
@@ -102,7 +140,7 @@ CAROUSEL_HOME_PIN_CHANNEL = 2
 DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
 CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC = 400
 CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC = 100
-CAROUSEL_BACKOFF_STEPS = 200
+CAROUSEL_BACKOFF_STEPS = 40
 CAROUSEL_HOME_PASSES = 3
 CAROUSEL_HOME_TIMEOUT_MS = 30000
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
@@ -238,31 +276,18 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
     if shared_state.hardware_state == "homing":
         return sorted(found_ids)
 
-    scan_bus = None
-    if live_servos:
-        for servo_obj in live_servos:
-            candidate_bus = getattr(servo_obj, "_bus", None)
-            if candidate_bus is not None and hasattr(candidate_bus, "scan"):
-                scan_bus = candidate_bus
-                break
-
-    if scan_bus is not None:
+    live_service = _active_waveshare_service()
+    if live_service is not None:
         try:
-            found_ids.update(int(servo_id) for servo_id in scan_bus.scan(1, 32))
+            found_ids.update(int(servo_id) for servo_id in live_service.scan(1, 32))
         except Exception:
             pass
         return sorted(found_ids)
 
-    port = servo.get("port")
-    if isinstance(port, str) and port.strip():
+    configured_service = _configured_waveshare_service(config, timeout=0.01)
+    if configured_service is not None:
         try:
-            from hardware.waveshare_servo import ScServoBus
-
-            bus = ScServoBus(port.strip(), timeout=0.01)
-            try:
-                found_ids.update(int(servo_id) for servo_id in bus.scan(1, 32))
-            finally:
-                bus.close()
+            found_ids.update(int(servo_id) for servo_id in configured_service.scan(1, 32))
         except Exception:
             pass
 
@@ -360,7 +385,11 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(item, dict):
                 continue
             channel_id = item.get("id")
+            if channel_id is None:
+                parsed_channels.append({"id": None, "invert": bool(item.get("invert", False))})
+                continue
             if not isinstance(channel_id, int) or isinstance(channel_id, bool):
+                parsed_channels.append({"id": None, "invert": bool(item.get("invert", False))})
                 continue
             parsed_channels.append(
                 {
@@ -375,7 +404,9 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         default_id = index + 1 if backend == "waveshare" else index
         channels.append(
             {
-                "id": int(existing["id"]) if existing is not None else default_id,
+                "id": (int(existing["id"]) if existing is not None and existing["id"] is not None else None)
+                if existing is not None
+                else default_id,
                 "invert": bool(existing["invert"]) if existing is not None else False,
             }
         )
@@ -413,6 +444,16 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     endstop_active_high = chute.get("endstop_active_high", True)
     if not isinstance(endstop_active_high, bool):
         endstop_active_high = True
+    operating_speed_microsteps_per_second = chute.get(
+        "operating_speed_microsteps_per_second",
+        DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+    )
+    if not isinstance(operating_speed_microsteps_per_second, int) or isinstance(
+        operating_speed_microsteps_per_second, bool
+    ):
+        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+    if operating_speed_microsteps_per_second <= 0:
+        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
@@ -421,6 +462,7 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
         "endstop_active_high": endstop_active_high,
+        "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
     }
 
 
@@ -763,6 +805,8 @@ def save_servo_hardware_config(
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
     layer_count = _distribution_layer_count()
     available_pca_channels = _pca_available_servo_channels()
+    _, layout = _read_bin_layout_config()
+    current_storage_layers = _storage_layer_settings_from_layout(layout)["layers"]
 
     if len(payload.channels) != layer_count:
         raise HTTPException(
@@ -773,7 +817,18 @@ def save_servo_hardware_config(
     channels: List[Dict[str, Any]] = []
     seen_ids: set[int] = set()
     for index, channel in enumerate(payload.channels):
-        channel_id = int(channel.id)
+        channel_id = int(channel.id) if channel.id is not None else None
+        layer_enabled = bool(current_storage_layers[index].get("enabled", True))
+
+        if channel_id is None:
+            if layer_enabled:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Layer {index + 1} needs a servo assignment while the layer is active.",
+                )
+            channels.append({"id": None, "invert": bool(channel.invert)})
+            continue
+
         if backend == "waveshare":
             valid = 1 <= channel_id <= 253
             help_text = "an SC servo ID between 1 and 253"
@@ -814,9 +869,9 @@ def save_servo_hardware_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
-    previous_ids = [int(channel["id"]) for channel in previous["channels"]]
+    previous_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in previous["channels"]]
     previous_inverts = [bool(channel["invert"]) for channel in previous["channels"]]
-    channel_ids = [int(channel["id"]) for channel in channels]
+    channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 
     structural_change = (
@@ -988,7 +1043,7 @@ _MCU_VIDS = {0x2E8A}  # Raspberry Pi Pico
 def get_waveshare_ports() -> Dict[str, Any]:
     """Discover serial ports that have a Waveshare servo bus by probing."""
     import serial.tools.list_ports
-    from hardware.waveshare_servo import ScServoBus
+    from hardware.waveshare_bus_service import get_waveshare_bus_service
 
     active_irl = _active_irl()
     is_homing = shared_state.hardware_state == "homing"
@@ -1004,15 +1059,8 @@ def get_waveshare_ports() -> Dict[str, Any]:
                     mcu_ports.add(iface_port)
 
     # Check if the live controller already has a working bus — include its port directly
-    live_bus = None
-    live_port_device = None
-    if active_irl is not None:
-        for servo_obj in getattr(active_irl, "servos", []):
-            candidate_bus = getattr(servo_obj, "_bus", None)
-            if candidate_bus is not None and hasattr(candidate_bus, "scan"):
-                live_bus = candidate_bus
-                live_port_device = getattr(getattr(candidate_bus, "_serial", None), "port", None)
-                break
+    live_service = _active_waveshare_service()
+    live_port_device = getattr(live_service, "port", None)
 
     candidates = []
     for p in serial.tools.list_ports.comports():
@@ -1028,10 +1076,10 @@ def get_waveshare_ports() -> Dict[str, Any]:
     for p in candidates:
         servo_count = 0
         confirmed = False
-        if live_port_device and p.device == live_port_device and live_bus is not None and not is_homing:
+        if live_port_device and p.device == live_port_device and live_service is not None and not is_homing:
             # Port is already open by the controller — probe via the live bus
             try:
-                found = live_bus.scan(1, 10)
+                found = live_service.scan(1, 10)
                 servo_count = len(found)
                 confirmed = True
             except Exception:
@@ -1049,13 +1097,9 @@ def get_waveshare_ports() -> Dict[str, Any]:
                 })
                 continue
             try:
-                bus = ScServoBus(p.device, timeout=0.01)
-                try:
-                    found = bus.scan(1, 10)
-                    servo_count = len(found)
-                    confirmed = servo_count > 0
-                finally:
-                    bus.close()
+                service = get_waveshare_bus_service(p.device, timeout=0.01)
+                servo_count = service.probe_servo_count(1, 10)
+                confirmed = servo_count > 0
             except Exception:
                 pass  # port can't be opened or scan failed — still list it as candidate
 
@@ -1068,25 +1112,6 @@ def get_waveshare_ports() -> Dict[str, Any]:
         })
 
     return {"ok": True, "ports": ports}
-
-
-def _get_waveshare_bus():
-    """Return a live ScServoBus from the running controller, or open one from config."""
-    active_irl = _active_irl()
-    if active_irl is not None:
-        for servo_obj in getattr(active_irl, "servos", []):
-            bus = getattr(servo_obj, "_bus", None)
-            if bus is not None and hasattr(bus, "scan"):
-                return bus, False  # (bus, should_close)
-
-    _, config = _read_machine_params_config()
-    servo = config.get("servo", {})
-    port = servo.get("port") if isinstance(servo, dict) else None
-    if not isinstance(port, str) or not port.strip():
-        return None, False
-
-    from hardware.waveshare_servo import ScServoBus
-    return ScServoBus(port.strip(), timeout=0.02), True
 
 
 def _read_highest_seen_servo_id() -> int:
@@ -1132,32 +1157,21 @@ def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
     port directly instead of relying on the saved config.
     """
     _ensure_not_homing("scan Waveshare servos")
-    bus = None
-    should_close = False
-
     if port and port.strip():
-        # Caller provided an explicit port — open it directly
-        from hardware.waveshare_servo import ScServoBus
+        from hardware.waveshare_bus_service import get_waveshare_bus_service
+
         try:
-            bus = ScServoBus(port.strip(), timeout=0.02)
-            should_close = True
+            service = get_waveshare_bus_service(port.strip(), timeout=0.02)
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Cannot open port {port}: {e}")
     else:
-        bus, should_close = _get_waveshare_bus()
+        service = _get_waveshare_service(timeout=0.02)
 
-    if bus is None:
+    if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available. Select a port or start the backend.")
 
     try:
-        found_ids = bus.scan(1, 32)
-        servos = []
-        for sid in found_ids:
-            info = bus.read_servo_info(sid)
-            if info is not None:
-                servos.append(info)
-            else:
-                servos.append({"id": sid, "error": "Could not read servo info"})
+        found_ids, servos = service.list_servo_infos(1, 32)
 
         # Track highest ID ever seen and suggest next
         highest_ever = _update_highest_seen_servo_id(found_ids)
@@ -1175,9 +1189,6 @@ def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bus scan failed: {e}")
-    finally:
-        if should_close:
-            bus.close()
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/set-id")
@@ -1190,21 +1201,21 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
     if new_id == servo_id:
         raise HTTPException(status_code=400, detail="New ID is the same as the current ID.")
 
-    bus, should_close = _get_waveshare_bus()
-    if bus is None:
+    service = _get_waveshare_service(timeout=0.02)
+    if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
     try:
-        if not bus.ping(servo_id):
+        if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
-        if bus.ping(new_id):
+        if service.ping(new_id):
             raise HTTPException(status_code=409, detail=f"A servo with ID {new_id} already exists on the bus.")
 
-        if not bus.set_id(servo_id, new_id):
+        if not service.set_id(servo_id, new_id):
             raise HTTPException(status_code=500, detail="set_id command failed.")
 
         time.sleep(0.05)
-        if not bus.ping(new_id):
+        if not service.ping(new_id):
             raise HTTPException(
                 status_code=500,
                 detail=f"ID change sent but servo does not respond at new ID {new_id}. Power-cycle may be needed.",
@@ -1213,7 +1224,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
         # Track the new ID as potentially the highest ever seen
         _update_highest_seen_servo_id([new_id])
 
-        info = bus.read_servo_info(new_id)
+        info = service.read_servo_info(new_id)
         return {
             "ok": True,
             "old_id": servo_id,
@@ -1225,9 +1236,6 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to change servo ID: {e}")
-    finally:
-        if should_close:
-            bus.close()
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/calibrate")
@@ -1237,21 +1245,20 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    bus, should_close = _get_waveshare_bus()
-    if bus is None:
+    service = _get_waveshare_service(timeout=0.02)
+    if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
     try:
-        if not bus.ping(servo_id):
+        if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
-        from hardware.waveshare_servo import calibrate_servo
         try:
-            safe_min, safe_max = calibrate_servo(bus, servo_id)
+            safe_min, safe_max = service.calibrate_servo(servo_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
 
-        info = bus.read_servo_info(servo_id)
+        info = service.read_servo_info(servo_id)
         return {
             "ok": True,
             "servo_id": servo_id,
@@ -1263,9 +1270,6 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to calibrate servo: {exc}")
-    finally:
-        if should_close:
-            bus.close()
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
@@ -1282,15 +1286,15 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
             detail="position must be one of: open, close, center.",
         )
 
-    bus, should_close = _get_waveshare_bus()
-    if bus is None:
+    service = _get_waveshare_service(timeout=0.02)
+    if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
     try:
-        if not bus.ping(servo_id):
+        if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
-        limits = bus.read_angle_limits(servo_id)
+        limits = service.read_angle_limits(servo_id)
         if limits is None:
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
@@ -1307,9 +1311,9 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         else:
             position = (min_lim + max_lim) // 2
 
-        bus.set_torque(servo_id, True)
+        service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not bus.move_to(servo_id, position, 400):
+        if not service.move_to(servo_id, position, 400):
             raise HTTPException(status_code=500, detail="move_to command failed.")
 
         return {
@@ -1324,9 +1328,6 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to move servo: {exc}")
-    finally:
-        if should_close:
-            bus.close()
 
 
 @router.get("/api/hardware-config/chute")
@@ -1342,10 +1343,16 @@ def save_chute_hardware_config(
     first_bin_center = float(payload.first_bin_center)
     pillar_width_deg = float(payload.pillar_width_deg)
     endstop_active_high = bool(payload.endstop_active_high)
+    operating_speed_microsteps_per_second = int(payload.operating_speed_microsteps_per_second)
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         raise HTTPException(
             status_code=400,
             detail="pillar_width_deg must be between 0 and less than 60 degrees",
+        )
+    if operating_speed_microsteps_per_second <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="operating_speed_microsteps_per_second must be greater than 0",
         )
 
     params_path, config = _read_machine_params_config()
@@ -1353,6 +1360,7 @@ def save_chute_hardware_config(
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
         "endstop_active_high": endstop_active_high,
+        "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
     }
 
     try:
@@ -1366,6 +1374,11 @@ def save_chute_hardware_config(
         if chute is not None and hasattr(chute, "setCalibration"):
             try:
                 chute.setCalibration(first_bin_center, pillar_width_deg, endstop_active_high)
+                if hasattr(chute, "setOperatingSpeed"):
+                    chute.setOperatingSpeed(operating_speed_microsteps_per_second)
+                stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
+                if stepper is not None:
+                    stepper.set_speed_limits(16, operating_speed_microsteps_per_second)
                 applied_live = True
             except Exception:
                 applied_live = False
@@ -1407,22 +1420,10 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
             detail="Chute homing stopped before the endstop triggered.",
         )
 
-    backoff_angle = float(getattr(chute, "first_bin_center", 0.0) or 0.0)
-    backoff_message = ""
-    if backoff_angle > 0.0 and hasattr(chute, "moveToAngleBlocking"):
-        try:
-            chute.moveToAngleBlocking(backoff_angle, timeout_buffer_ms=1500)
-            backoff_message = f" Backed off to bin 1 ({backoff_angle:.2f}°)."
-        except Exception as exc:
-            backoff_message = f" Backoff to bin 1 failed: {exc}"
-
     return {
         "ok": True,
         "status": _live_chute_status(),
-        "message": (
-            "Step 1 complete. Chute moved slowly until the endstop was found and re-homed."
-            + backoff_message
-        ),
+        "message": "Step 1 complete. Chute moved slowly until the endstop was found and then moved to bin 1.",
     }
 
 
@@ -1792,6 +1793,120 @@ def save_storage_layer_hardware_config(
 # ---------------------------------------------------------------------------
 
 
+def _runtime_distribution_layout() -> Any | None:
+    irl = _active_irl()
+    if irl is None:
+        return None
+    return getattr(irl, "distribution_layout", None)
+
+
+def _empty_categories_from_config() -> list[list[list[list[str]]]]:
+    _, layout_config = _read_bin_layout_config()
+    return [
+        [[[] for _ in section] for section in layer.sections]
+        for layer in layout_config.layers
+    ]
+
+
+def _current_bin_categories() -> list[list[list[list[str]]]]:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None:
+        return extractCategories(runtime_layout)
+
+    saved = getBinCategories()
+    if saved is not None:
+        _, layout_config = _read_bin_layout_config()
+        reference_layout = mkLayoutFromConfig(layout_config)
+        if layoutMatchesCategories(reference_layout, saved):
+            return saved
+
+    return _empty_categories_from_config()
+
+
+def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -> None:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None and layoutMatchesCategories(runtime_layout, categories):
+        applyCategories(runtime_layout, categories)
+        setBinCategories(extractCategories(runtime_layout))
+        return
+
+    setBinCategories(categories)
+
+
+def clear_bin_category_assignments(
+    *,
+    scope: str,
+    layer_index: int | None = None,
+    section_index: int | None = None,
+    bin_index: int | None = None,
+) -> dict[str, Any]:
+    categories = _current_bin_categories()
+
+    if scope == "all":
+        cleared_bins = 0
+        for layer in categories:
+            for section in layer:
+                for category_ids in section:
+                    if category_ids:
+                        cleared_bins += 1
+                    category_ids.clear()
+        _apply_and_persist_bin_categories(categories)
+        clear_current_session_bins(scope=scope)
+        return {
+            "ok": True,
+            "scope": scope,
+            "cleared_bins": cleared_bins,
+            "message": "Cleared all bin assignments.",
+        }
+
+    if layer_index is None or layer_index < 0 or layer_index >= len(categories):
+        raise HTTPException(status_code=400, detail="Invalid layer index.")
+
+    if scope == "layer":
+        cleared_bins = 0
+        for section in categories[layer_index]:
+            for category_ids in section:
+                if category_ids:
+                    cleared_bins += 1
+                category_ids.clear()
+        _apply_and_persist_bin_categories(categories)
+        clear_current_session_bins(scope=scope, layer_index=layer_index)
+        return {
+            "ok": True,
+            "scope": scope,
+            "layer_index": layer_index,
+            "cleared_bins": cleared_bins,
+            "message": f"Cleared all bin assignments on layer {layer_index + 1}.",
+        }
+
+    if scope != "bin":
+        raise HTTPException(status_code=400, detail="Unsupported clear scope.")
+
+    if section_index is None or section_index < 0 or section_index >= len(categories[layer_index]):
+        raise HTTPException(status_code=400, detail="Invalid section index.")
+    if bin_index is None or bin_index < 0 or bin_index >= len(categories[layer_index][section_index]):
+        raise HTTPException(status_code=400, detail="Invalid bin index.")
+
+    had_categories = bool(categories[layer_index][section_index][bin_index])
+    categories[layer_index][section_index][bin_index] = []
+    _apply_and_persist_bin_categories(categories)
+    clear_current_session_bins(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    )
+    return {
+        "ok": True,
+        "scope": scope,
+        "layer_index": layer_index,
+        "section_index": section_index,
+        "bin_index": bin_index,
+        "cleared_bins": 1 if had_categories else 0,
+        "message": f"Cleared bin {bin_index + 1} on layer {layer_index + 1}.",
+    }
+
+
 @router.get("/api/bins/layout")
 def get_bins_layout() -> Dict[str, Any]:
     """Return the full bin grid: layers → sections → bins, with chute angles."""
@@ -1831,6 +1946,7 @@ def get_bins_layout() -> Dict[str, Any]:
     # Overlay category assignments from live layout if available
     current_angle = None
     active_layer = None
+    runtime_overlay_applied = False
     if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
         chute = getattr(shared_state.controller_ref.irl, "chute", None)
         if chute is not None:
@@ -1854,6 +1970,7 @@ def get_bins_layout() -> Dict[str, Any]:
             for layer_out in layers_out:
                 li = layer_out["layer_index"]
                 if li < len(runtime_layers):
+                    runtime_overlay_applied = True
                     rt_layer = runtime_layers[li]
                     rt_sections = list(rt_layer.sections)
                     for bin_out in layer_out["bins"]:
@@ -1861,6 +1978,17 @@ def get_bins_layout() -> Dict[str, Any]:
                         bi = bin_out["bin_index"]
                         if si < len(rt_sections) and bi < len(rt_sections[si].bins):
                             bin_out["category_ids"] = list(rt_sections[si].bins[bi].category_ids)
+
+    if not runtime_overlay_applied:
+        saved_categories = getBinCategories()
+        reference_layout = mkLayoutFromConfig(layout_config)
+        if saved_categories is not None and layoutMatchesCategories(reference_layout, saved_categories):
+            for layer_out in layers_out:
+                li = layer_out["layer_index"]
+                for bin_out in layer_out["bins"]:
+                    si = bin_out["section_index"]
+                    bi = bin_out["bin_index"]
+                    bin_out["category_ids"] = list(saved_categories[li][si][bi])
 
     # Ensure every bin has category_ids even if live layout wasn't available
     for layer_out in layers_out:
@@ -1929,3 +2057,31 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
         "section_index": payload.section_index,
         "bin_index": payload.bin_index,
     }
+
+
+@router.post("/api/bins/categories/clear")
+def clear_bins_categories(payload: ClearBinCategoriesPayload) -> Dict[str, Any]:
+    return clear_bin_category_assignments(
+        scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+    )
+
+
+@router.get("/api/bins/contents")
+def get_bin_contents() -> Dict[str, Any]:
+    persisted = get_current_bin_contents_snapshot()
+    if persisted.get("bins"):
+        return persisted
+
+    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
+    if collector is None or not hasattr(collector, "binContentsSnapshot"):
+        return persisted
+    try:
+        snapshot = collector.binContentsSnapshot()
+        if isinstance(snapshot, dict):
+            return snapshot
+        return persisted
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")

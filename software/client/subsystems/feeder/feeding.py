@@ -1,5 +1,6 @@
 import time
 from typing import Optional, TYPE_CHECKING
+import server.shared_state as shared_state
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import FeederState
@@ -8,9 +9,13 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
 from defs.consts import LOOP_TICK_MS
+from defs.events import PauseCommandData, PauseCommandEvent
 
 CH3_PRECISE_HOLDOVER_MS = 2000
 CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
+CH1_STALL_ALERT_PREFIX = "Feeder transport blocked"
+FEEDER_DETECTION_ALERT_PREFIX = "Feeder camera detection unavailable"
+FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -38,7 +43,73 @@ class Feeding(BaseState):
         self._ch1_pulses_since_ch2_activity: int = 0
         self._ch1_jam_recovery_cooldown_until: float = 0.0
         self._ch1_jam_recovery_level: int = 0
+        self._ch1_jam_recovery_attempts: int = 0
         self._last_ch1_jam_recovery_level_used: int = 0
+        self._ch1_pause_enqueued: bool = False
+        self._feeder_detection_unavailable_since: float | None = None
+        self._feeder_detection_pause_enqueued: bool = False
+
+    def _resetCh1JamTracking(self) -> None:
+        self._ch1_pulses_since_ch2_activity = 0
+        self._ch1_jam_recovery_level = 0
+        self._ch1_jam_recovery_attempts = 0
+        self._ch1_jam_recovery_cooldown_until = 0.0
+        self._ch1_pause_enqueued = False
+
+    def _clearCh1StallAlertIfOwned(self) -> None:
+        with shared_state.hardware_lifecycle_lock:
+            if (
+                isinstance(shared_state.hardware_error, str)
+                and shared_state.hardware_error.startswith(CH1_STALL_ALERT_PREFIX)
+            ):
+                shared_state.hardware_error = None
+
+    def _clearFeederDetectionAlertIfOwned(self) -> None:
+        with shared_state.hardware_lifecycle_lock:
+            if (
+                isinstance(shared_state.hardware_error, str)
+                and shared_state.hardware_error.startswith(FEEDER_DETECTION_ALERT_PREFIX)
+            ):
+                shared_state.hardware_error = None
+
+    def _pauseMachineForCh1Stall(self, max_levels: int) -> None:
+        if self._ch1_pause_enqueued:
+            return
+
+        message = (
+            f"{CH1_STALL_ALERT_PREFIX}: No parts could be transported through the feeder after {max_levels} recovery attempts. "
+            "Please check whether there are still parts available or whether the bulk bucket / C-Channel 1 is clogged."
+        )
+        self.gc.logger.error(message)
+        self.gc.profiler.hit("feeder.ch1_jam_recovery.exhausted")
+        self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_recovery_exhausted")
+        with shared_state.hardware_lifecycle_lock:
+            shared_state.hardware_error = message
+
+        if shared_state.command_queue is not None:
+            shared_state.command_queue.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
+
+        self._ch1_pause_enqueued = True
+
+    def _pauseMachineForDetectionUnavailable(self, detail: str | None) -> None:
+        if self._feeder_detection_pause_enqueued:
+            return
+
+        suffix = f" ({detail})" if detail else ""
+        message = (
+            f"{FEEDER_DETECTION_ALERT_PREFIX}: The feeder cameras are not delivering reliable live data. "
+            f"Please check the C-Channel cameras and reconnect them if needed.{suffix}"
+        )
+        self.gc.logger.error(message)
+        self.gc.profiler.hit("feeder.detection_unavailable")
+        self.gc.runtime_stats.observeBlockedReason("feeder", "detection_unavailable")
+        with shared_state.hardware_lifecycle_lock:
+            shared_state.hardware_error = message
+
+        if shared_state.command_queue is not None:
+            shared_state.command_queue.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
+
+        self._feeder_detection_pause_enqueued = True
 
     def _setOccupancyState(self, resource_name: str, state_name: str) -> None:
         prev_state = self._occupancy_state_by_resource.get(resource_name)
@@ -125,6 +196,7 @@ class Feeding(BaseState):
             now_after + self.irl_config.feeder_config.first_rotor_jam_retry_cooldown_s
         )
         self._ch1_pulses_since_ch2_activity = 0
+        self._ch1_jam_recovery_attempts += 1
         self._ch1_jam_recovery_level = min(
             self._ch1_jam_recovery_level + 1,
             max(0, int(self.irl_config.feeder_config.first_rotor_jam_max_cycles) - 1),
@@ -195,13 +267,51 @@ class Feeding(BaseState):
                     "feeder.object_detection_count", float(len(detections))
                 )
 
+                detection_available, detection_reason = self.vision.getFeederDetectionAvailability()
+                now = time.monotonic()
+
+                if detection_available:
+                    self._feeder_detection_unavailable_since = None
+                    self._feeder_detection_pause_enqueued = False
+                    self._clearFeederDetectionAlertIfOwned()
+                else:
+                    if self._feeder_detection_unavailable_since is None:
+                        self._feeder_detection_unavailable_since = now
+                    unavailable_for = now - self._feeder_detection_unavailable_since
+                    if unavailable_for >= FEEDER_DETECTION_UNAVAILABLE_GRACE_S:
+                        self._pauseMachineForDetectionUnavailable(detection_reason)
+
+                    self.gc.runtime_stats.observeBlockedReason("feeder", "detection_unavailable")
+                    self.gc.runtime_stats.observeFeederSignals(
+                        {
+                            "wait_chute": False,
+                            "wait_classification_ready": False,
+                            "wait_ch2_dropzone_clear": False,
+                            "wait_ch3_dropzone_clear": False,
+                            "wait_stepper_busy": False,
+                            "pulse_intent_ch1": False,
+                            "pulse_intent_ch2": False,
+                            "pulse_intent_ch3": False,
+                            "stepper_busy_ch1": False,
+                            "stepper_busy_ch2": False,
+                            "stepper_busy_ch3": False,
+                            "pulse_sent_any": False,
+                            "stable": False,
+                        },
+                        now_monotonic=now,
+                    )
+                    self._setOccupancyState("feeder.ch1", "feeding.wait_detection_available")
+                    self._setOccupancyState("feeder.ch2", "feeding.wait_detection_available")
+                    self._setOccupancyState("feeder.ch3", "feeding.wait_detection_available")
+                    self._stop_event.wait(LOOP_TICK_MS / 1000.0)
+                    continue
+
                 with prof.timer("feeder.analyze_state_ms"):
                     analysis = analyzeFeederChannels(self.gc, detections)
 
                 ch2_action = analysis.ch2_action
                 ch3_action = analysis.ch3_action
 
-                now = time.monotonic()
                 if ch3_action == ChannelAction.PULSE_PRECISE:
                     self._ch3_last_precise_at = now
                 elif ch3_action == ChannelAction.PULSE_NORMAL and self._ch3_last_precise_at > 0:
@@ -211,8 +321,8 @@ class Feeding(BaseState):
                 ch2_active = analysis.ch2_dropzone_occupied or ch2_action != ChannelAction.IDLE
                 if ch2_active:
                     self._last_ch2_activity_at = now
-                    self._ch1_pulses_since_ch2_activity = 0
-                    self._ch1_jam_recovery_level = 0
+                    self._resetCh1JamTracking()
+                    self._clearCh1StallAlertIfOwned()
 
                 if ch2_action != self._last_ch2_action:
                     self.gc.logger.info(f"state change: ch2 {self._last_ch2_action.value} -> {ch2_action.value}")
@@ -337,12 +447,21 @@ class Feeding(BaseState):
                         self._ch1_pulses_since_ch2_activity >= fc.first_rotor_jam_min_pulses
                     )
                     recovery_ready = now >= self._ch1_jam_recovery_cooldown_until
+                    max_recovery_levels = max(1, int(self.irl_config.feeder_config.first_rotor_jam_max_cycles))
                     if (
                         no_recent_ch2_activity
                         and ch1_has_been_trying
                         and recovery_ready
                         and not analysis.ch3_dropzone_occupied
                     ):
+                        if self._ch1_jam_recovery_attempts >= max_recovery_levels:
+                            self._pauseMachineForCh1Stall(max_recovery_levels)
+                            self._setOccupancyState(
+                                "feeder.ch1",
+                                "feeding.stalled_before_ch2_dropzone",
+                            )
+                            self._stop_event.wait(LOOP_TICK_MS / 1000.0)
+                            continue
                         ch1_jam_recovery_triggered = self._runCh1JamRecovery(
                             fc.first_rotor,
                             now,
@@ -409,4 +528,6 @@ class Feeding(BaseState):
             self._stop_event.wait(LOOP_TICK_MS / 1000.0)
 
     def cleanup(self) -> None:
+        self._ch1_pause_enqueued = False
+        self._feeder_detection_pause_enqueued = False
         super().cleanup()

@@ -156,6 +156,14 @@ class RuntimeStatsCollector:
         self._piece_by_uuid[obj_uuid] = current
         self._last_updated_at = time.time()
 
+        if current.get("distributed_at") is not None and current.get("destination_bin") is not None:
+            try:
+                from local_state import record_piece_distribution
+
+                record_piece_distribution(current)
+            except Exception:
+                pass
+
     def observeFeederState(
         self,
         now_monotonic: float,
@@ -403,6 +411,133 @@ class RuntimeStatsCollector:
             )
             if len(self._state_timeline) > MAX_STATE_TIMELINE_EVENTS:
                 del self._state_timeline[0]
+
+    def binContentsSnapshot(self) -> dict[str, Any]:
+        bins: dict[str, dict[str, Any]] = {}
+
+        for piece in self._piece_by_uuid.values():
+            destination_bin = piece.get("destination_bin")
+            if not isinstance(destination_bin, (list, tuple)) or len(destination_bin) != 3:
+                continue
+            if piece.get("distributed_at") is None:
+                continue
+
+            try:
+                layer_index = int(destination_bin[0])
+                section_index = int(destination_bin[1])
+                bin_index = int(destination_bin[2])
+            except (TypeError, ValueError):
+                continue
+
+            bin_key = f"{layer_index}:{section_index}:{bin_index}"
+            bucket = bins.get(bin_key)
+            if bucket is None:
+                bucket = {
+                    "bin_key": bin_key,
+                    "layer_index": layer_index,
+                    "section_index": section_index,
+                    "bin_index": bin_index,
+                    "piece_count": 0,
+                    "unique_item_count": 0,
+                    "last_distributed_at": None,
+                    "items": [],
+                    "recent_pieces": [],
+                }
+                bins[bin_key] = bucket
+
+            bucket["piece_count"] += 1
+            distributed_at = piece.get("distributed_at")
+            if isinstance(distributed_at, (int, float)):
+                current_last = bucket.get("last_distributed_at")
+                if not isinstance(current_last, (int, float)) or distributed_at > current_last:
+                    bucket["last_distributed_at"] = float(distributed_at)
+
+            part_id = piece.get("part_id")
+            color_id = piece.get("color_id")
+            color_name = piece.get("color_name")
+            category_id = piece.get("category_id")
+            classification_status = piece.get("classification_status")
+            item_key = "|".join(
+                [
+                    str(part_id or ""),
+                    str(color_id or ""),
+                    str(category_id or ""),
+                    str(classification_status or ""),
+                ]
+            )
+
+            item = next((existing for existing in bucket["items"] if existing["key"] == item_key), None)
+            if item is None:
+                item = {
+                    "key": item_key,
+                    "part_id": part_id,
+                    "color_id": color_id,
+                    "color_name": color_name,
+                    "category_id": category_id,
+                    "classification_status": classification_status,
+                    "count": 0,
+                    "last_distributed_at": None,
+                    "thumbnail": piece.get("thumbnail"),
+                    "top_image": piece.get("top_image"),
+                    "bottom_image": piece.get("bottom_image"),
+                    "brickognize_preview_url": piece.get("brickognize_preview_url"),
+                }
+                bucket["items"].append(item)
+
+            item["count"] += 1
+            if isinstance(distributed_at, (int, float)):
+                item_last = item.get("last_distributed_at")
+                if not isinstance(item_last, (int, float)) or distributed_at > item_last:
+                    item["last_distributed_at"] = float(distributed_at)
+                    if piece.get("thumbnail"):
+                        item["thumbnail"] = piece.get("thumbnail")
+                    if piece.get("top_image"):
+                        item["top_image"] = piece.get("top_image")
+                    if piece.get("bottom_image"):
+                        item["bottom_image"] = piece.get("bottom_image")
+                    if piece.get("brickognize_preview_url"):
+                        item["brickognize_preview_url"] = piece.get("brickognize_preview_url")
+
+            bucket["recent_pieces"].append(
+                {
+                    "uuid": piece.get("uuid"),
+                    "part_id": part_id,
+                    "color_id": color_id,
+                    "color_name": color_name,
+                    "category_id": category_id,
+                    "classification_status": classification_status,
+                    "distributed_at": float(distributed_at) if isinstance(distributed_at, (int, float)) else None,
+                    "thumbnail": piece.get("thumbnail"),
+                    "top_image": piece.get("top_image"),
+                    "bottom_image": piece.get("bottom_image"),
+                    "brickognize_preview_url": piece.get("brickognize_preview_url"),
+                }
+            )
+
+        for bucket in bins.values():
+            bucket["items"].sort(
+                key=lambda item: (
+                    -int(item.get("count", 0)),
+                    -(float(item.get("last_distributed_at") or 0.0)),
+                    str(item.get("part_id") or "~"),
+                )
+            )
+            bucket["unique_item_count"] = len(bucket["items"])
+            bucket["recent_pieces"].sort(
+                key=lambda piece: -(float(piece.get("distributed_at") or 0.0))
+            )
+            bucket["recent_pieces"] = bucket["recent_pieces"][:8]
+
+        return {
+            "bins": sorted(
+                bins.values(),
+                key=lambda bucket: (
+                    int(bucket["layer_index"]),
+                    int(bucket["section_index"]),
+                    int(bucket["bin_index"]),
+                ),
+            )
+        }
 
     def snapshot(self) -> dict[str, Any]:
         now = time.time()

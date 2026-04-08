@@ -16,6 +16,9 @@ CHANNEL_COLORS = {
     "third_channel": (0, 200, 255),
 }
 
+BOOTSTRAP_FRAMES = 24
+BOOTSTRAP_LEARNING_RATE = 0.2
+
 
 class _ChannelMog2:
     def __init__(self, name: str, polygon_channel: PolygonChannel, mask: np.ndarray, cfg: Mog2DiffConfig):
@@ -35,6 +38,7 @@ class _ChannelMog2:
         self.mask = mask
         self._cfg = cfg
         self._current_shape = mask.shape[:2]
+        self._bootstrap_frames_remaining = BOOTSTRAP_FRAMES
         self.mog2 = self._make_subtractor()
 
     def _make_subtractor(self):
@@ -85,8 +89,16 @@ class _ChannelMog2:
             inner_polygon=inner_i32,
         )
         self._current_shape = shape
+        self._bootstrap_frames_remaining = BOOTSTRAP_FRAMES
         self.mog2 = self._make_subtractor()
         return True
+
+    def in_bootstrap(self) -> bool:
+        return self._bootstrap_frames_remaining > 0
+
+    def mark_bootstrap_frame(self) -> None:
+        if self._bootstrap_frames_remaining > 0:
+            self._bootstrap_frames_remaining -= 1
 
 
 class Mog2ChannelDetector:
@@ -153,6 +165,7 @@ class Mog2ChannelDetector:
 
     def detect(self, frame: np.ndarray) -> List[ChannelDetection]:
         mog2_frame = self._mog2InputFrame(frame)
+        self._ensure_shape(mog2_frame.shape[:2])
         blur_k = int(self._cfg.blur_kernel) | 1
         morph_k = int(self._cfg.morph_kernel) | 1
         learning_rate = float(self._cfg.learning_rate)
@@ -167,8 +180,12 @@ class Mog2ChannelDetector:
         fg_combined = np.zeros(mog2_frame.shape[:2], dtype=np.uint8)
 
         for ch in self._channels.values():
-            lr = learning_rate if self._is_channel_rotating(ch.name) else 0.0
+            bootstrap = ch.in_bootstrap()
+            lr = BOOTSTRAP_LEARNING_RATE if bootstrap else (learning_rate if self._is_channel_rotating(ch.name) else 0.0)
             fg_raw = ch.mog2.apply(blurred, learningRate=lr)
+            if bootstrap:
+                ch.mark_bootstrap_frame()
+                continue
             fg_masked = cv2.bitwise_and(fg_raw, ch.mask)
             if fg_threshold > 0:
                 _, fg_masked = cv2.threshold(fg_masked, fg_threshold, 255, cv2.THRESH_BINARY)

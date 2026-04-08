@@ -23,7 +23,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from blob_manager import BLOB_DIR, getCameraSetup
+from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
 from hardware.macos_camera_registry import refresh_macos_cameras
 from irl.bin_layout import getBinLayout
 from irl.config import (
@@ -56,6 +56,10 @@ CAMERA_SETUP_ROLES = {
     "classification_top",
     "classification_bottom",
 }
+
+_DASHBOARD_CROP_PADDING_FACTOR = 0.14
+_DASHBOARD_CROP_MIN_PADDING_PX = 48.0
+_DASHBOARD_QUAD_PADDING_FACTOR = 0.1
 
 
 from server.config_helpers import (
@@ -93,17 +97,27 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
     if role not in CAMERA_SETUP_ROLES:
         raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
 
+    def _normalized_source(value: Any) -> int | str | None:
+        if isinstance(value, int):
+            return value if value >= 0 else None
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized or normalized.lower() in {"none", "null", "-1"}:
+                return None
+            return normalized
+        return None
+
     cameras = config.get("cameras", {})
     if isinstance(cameras, dict):
-        source = cameras.get(role)
-        if isinstance(source, (int, str)):
+        source = _normalized_source(cameras.get(role))
+        if source is not None:
             return source
 
     if role in {"feeder", "classification_top", "classification_bottom"}:
         camera_setup = getCameraSetup()
         if isinstance(camera_setup, dict):
-            fallback_source = camera_setup.get(role)
-            if isinstance(fallback_source, int):
+            fallback_source = _normalized_source(camera_setup.get(role))
+            if fallback_source is not None:
                 return fallback_source
     return None
 
@@ -1414,12 +1428,12 @@ def get_camera_config() -> Dict[str, Any]:
             cameras = {}
         return {
             "layout": cameras.get("layout", "default"),
-            "feeder": cameras.get("feeder"),
-            "c_channel_2": cameras.get("c_channel_2"),
-            "c_channel_3": cameras.get("c_channel_3"),
-            "carousel": cameras.get("carousel"),
-            "classification_top": cameras.get("classification_top"),
-            "classification_bottom": cameras.get("classification_bottom"),
+            "feeder": _camera_source_for_role(raw, "feeder"),
+            "c_channel_2": _camera_source_for_role(raw, "c_channel_2"),
+            "c_channel_3": _camera_source_for_role(raw, "c_channel_3"),
+            "carousel": _camera_source_for_role(raw, "carousel"),
+            "classification_top": _camera_source_for_role(raw, "classification_top"),
+            "classification_bottom": _camera_source_for_role(raw, "classification_bottom"),
         }
     except HTTPException:
         return {
@@ -1493,8 +1507,247 @@ def camera_stream(index: int):
     )
 
 
+def _dashboard_polygon_resolution(saved: Dict[str, Any] | None) -> tuple[float, float]:
+    if not isinstance(saved, dict):
+        return (1920.0, 1080.0)
+    resolution = saved.get("resolution")
+    if isinstance(resolution, (list, tuple)) and len(resolution) >= 2:
+        width = _as_number(resolution[0])
+        height = _as_number(resolution[1])
+        if width and width > 0 and height and height > 0:
+            return (width, height)
+    return (1920.0, 1080.0)
+
+
+def _dashboard_points(raw: Any) -> list[tuple[float, float]]:
+    if not isinstance(raw, (list, tuple)):
+        return []
+    points: list[tuple[float, float]] = []
+    for point in raw:
+        if not isinstance(point, (list, tuple)) or len(point) < 2:
+            continue
+        x = _as_number(point[0])
+        y = _as_number(point[1])
+        if x is None or y is None:
+            continue
+        points.append((float(x), float(y)))
+    return points
+
+
+def _dashboard_quad_points(raw: Any) -> list[tuple[float, float]]:
+    if not isinstance(raw, dict):
+        return []
+    return _dashboard_points(raw.get("corners"))
+
+
+def _scale_dashboard_points(
+    points: list[tuple[float, float]],
+    source_resolution: tuple[float, float],
+    frame_w: int,
+    frame_h: int,
+) -> np.ndarray | None:
+    if len(points) < 3:
+        return None
+    src_w, src_h = source_resolution
+    if src_w <= 0 or src_h <= 0 or frame_w <= 0 or frame_h <= 0:
+        return None
+    scaled = np.array(points, dtype=np.float32)
+    scaled[:, 0] *= float(frame_w) / float(src_w)
+    scaled[:, 1] *= float(frame_h) / float(src_h)
+    return scaled
+
+
+def _dashboard_padded_bbox(
+    polygons: list[np.ndarray],
+    frame_w: int,
+    frame_h: int,
+) -> tuple[int, int, int, int] | None:
+    if not polygons:
+        return None
+    merged = np.concatenate(polygons, axis=0)
+    min_x = float(np.min(merged[:, 0]))
+    min_y = float(np.min(merged[:, 1]))
+    max_x = float(np.max(merged[:, 0]))
+    max_y = float(np.max(merged[:, 1]))
+    width = max(1.0, max_x - min_x)
+    height = max(1.0, max_y - min_y)
+    pad_x = max(_DASHBOARD_CROP_MIN_PADDING_PX, width * _DASHBOARD_CROP_PADDING_FACTOR)
+    pad_y = max(_DASHBOARD_CROP_MIN_PADDING_PX, height * _DASHBOARD_CROP_PADDING_FACTOR)
+    x1 = max(0, int(np.floor(min_x - pad_x)))
+    y1 = max(0, int(np.floor(min_y - pad_y)))
+    x2 = min(frame_w, int(np.ceil(max_x + pad_x)))
+    y2 = min(frame_h, int(np.ceil(max_y + pad_y)))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return (x1, y1, x2, y2)
+
+
+def _dashboard_expand_quad(quad: np.ndarray) -> np.ndarray:
+    center = np.mean(quad, axis=0)
+    width_top = float(np.linalg.norm(quad[1] - quad[0]))
+    width_bottom = float(np.linalg.norm(quad[2] - quad[3]))
+    height_right = float(np.linalg.norm(quad[2] - quad[1]))
+    height_left = float(np.linalg.norm(quad[3] - quad[0]))
+    padding = max(
+        _DASHBOARD_CROP_MIN_PADDING_PX,
+        max(width_top, width_bottom, height_right, height_left) * _DASHBOARD_QUAD_PADDING_FACTOR,
+    )
+    expanded = quad.copy()
+    for index in range(4):
+        vector = quad[index] - center
+        length = float(np.linalg.norm(vector))
+        if length <= 1e-6:
+            continue
+        expanded[index] = quad[index] + (vector / length) * padding
+    return expanded.astype(np.float32)
+
+
+def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
+    width_top = float(np.linalg.norm(quad[1] - quad[0]))
+    width_bottom = float(np.linalg.norm(quad[2] - quad[3]))
+    height_right = float(np.linalg.norm(quad[2] - quad[1]))
+    height_left = float(np.linalg.norm(quad[3] - quad[0]))
+    width = max(1, int(round(max(width_top, width_bottom))))
+    height = max(1, int(round(max(height_right, height_left))))
+    return (width, height)
+
+
+def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
+    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel"}:
+        saved = getChannelPolygons() or {}
+        source_resolution = _dashboard_polygon_resolution(saved)
+        polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
+        quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+
+        if role == "carousel":
+            quad_points = _dashboard_quad_points(quad_table.get("carousel"))
+            if len(quad_points) != 4:
+                quad_points = _dashboard_points(polygons_table.get("carousel"))
+            scaled_quad = (
+                _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+                if len(quad_points) == 4 else None
+            )
+            if scaled_quad is not None and len(scaled_quad) == 4:
+                expanded_quad = _dashboard_expand_quad(scaled_quad)
+                target_w, target_h = _dashboard_quad_size(expanded_quad)
+                destination = np.array(
+                    [[0, 0], [target_w - 1, 0], [target_w - 1, target_h - 1], [0, target_h - 1]],
+                    dtype=np.float32,
+                )
+                return {
+                    "kind": "rectified",
+                    "matrix": cv2.getPerspectiveTransform(expanded_quad.astype(np.float32), destination),
+                    "size": (target_w, target_h),
+                }
+
+        polygon_keys = {
+            "feeder": ["second_channel", "third_channel", "carousel"],
+            "c_channel_2": ["second_channel"],
+            "c_channel_3": ["third_channel"],
+            "carousel": ["carousel"],
+        }.get(role, [])
+        scaled_polygons = [
+            scaled
+            for key in polygon_keys
+            for scaled in [
+                _scale_dashboard_points(
+                    _dashboard_points(polygons_table.get(key)),
+                    source_resolution,
+                    frame_w,
+                    frame_h,
+                )
+            ]
+            if scaled is not None
+        ]
+        bbox = _dashboard_padded_bbox(scaled_polygons, frame_w, frame_h)
+        return {"kind": "bbox", "bbox": bbox} if bbox is not None else None
+
+    if role in {"classification_top", "classification_bottom"}:
+        saved = getClassificationPolygons() or {}
+        source_resolution = _dashboard_polygon_resolution(saved)
+        polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
+        quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+        quad_key = "class_top" if role == "classification_top" else "class_bottom"
+        polygon_key = "top" if role == "classification_top" else "bottom"
+        quad_points = _dashboard_quad_points(quad_table.get(quad_key))
+        if len(quad_points) != 4:
+            quad_points = _dashboard_points(polygons_table.get(polygon_key))
+        scaled_quad = (
+            _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+            if len(quad_points) == 4 else None
+        )
+        if scaled_quad is not None and len(scaled_quad) == 4:
+            expanded_quad = _dashboard_expand_quad(scaled_quad)
+            target_w, target_h = _dashboard_quad_size(expanded_quad)
+            destination = np.array(
+                [[0, 0], [target_w - 1, 0], [target_w - 1, target_h - 1], [0, target_h - 1]],
+                dtype=np.float32,
+            )
+            return {
+                "kind": "rectified",
+                "matrix": cv2.getPerspectiveTransform(expanded_quad.astype(np.float32), destination),
+                "size": (target_w, target_h),
+                "square": True,
+            }
+
+        scaled_polygon = _scale_dashboard_points(
+            _dashboard_points(polygons_table.get(polygon_key)),
+            source_resolution,
+            frame_w,
+            frame_h,
+        )
+        bbox = _dashboard_padded_bbox([scaled_polygon], frame_w, frame_h) if scaled_polygon is not None else None
+        return {"kind": "bbox", "bbox": bbox, "square": True} if bbox is not None else None
+
+    return None
+
+
+def _dashboard_pad_square(frame: np.ndarray) -> np.ndarray:
+    height, width = frame.shape[:2]
+    if height <= 0 or width <= 0 or height == width:
+        return frame
+    target = max(height, width)
+    pad_y = target - height
+    pad_x = target - width
+    top = pad_y // 2
+    bottom = pad_y - top
+    left = pad_x // 2
+    right = pad_x - left
+    return cv2.copyMakeBorder(frame, top, bottom, left, right, cv2.BORDER_REPLICATE)
+
+
+def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.ndarray:
+    if not spec:
+        return frame
+    processed = frame
+    if spec.get("kind") == "rectified":
+        size = spec.get("size")
+        matrix = spec.get("matrix")
+        if not isinstance(size, tuple) or matrix is None:
+            return frame
+        processed = cv2.warpPerspective(
+            frame,
+            matrix,
+            size,
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+    else:
+        bbox = spec.get("bbox")
+        if not isinstance(bbox, tuple) or len(bbox) != 4:
+            return frame
+        x1, y1, x2, y2 = [int(value) for value in bbox]
+        if x2 <= x1 or y2 <= y1:
+            return frame
+        processed = frame[y1:y2, x1:x2]
+
+    if spec.get("square"):
+        processed = _dashboard_pad_square(processed)
+    return processed
+
+
 @router.get("/api/cameras/feed/{role}")
-def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False):
+def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False, dashboard: bool = False):
     """MJPEG stream for a camera role."""
     from vision.camera import (
         apply_camera_color_profile,
@@ -1524,6 +1777,20 @@ def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False)
             b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
+    cached_dashboard_shape: tuple[int, int] | None = None
+    cached_dashboard_spec: Dict[str, Any] | None = None
+
+    def _dashboard_frame(frame: np.ndarray) -> np.ndarray:
+        nonlocal cached_dashboard_shape, cached_dashboard_spec
+        if not dashboard:
+            return frame
+        frame_h, frame_w = frame.shape[:2]
+        shape = (frame_w, frame_h)
+        if cached_dashboard_shape != shape:
+            cached_dashboard_spec = _dashboard_crop_spec(role, frame_w, frame_h)
+            cached_dashboard_shape = shape
+        return _apply_dashboard_crop(frame, cached_dashboard_spec)
+
     if (
         not direct
         and shared_state.vision_manager is not None
@@ -1545,6 +1812,7 @@ def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False)
                         if annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
+                    frame = _dashboard_frame(frame)
                     yield _encode_chunk(frame)
                     time.sleep(0.03)
 
@@ -1566,6 +1834,7 @@ def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False)
                     break
                 frame = apply_camera_color_profile(frame, color_profile)
                 frame = apply_picture_settings(frame, picture_settings)
+                frame = _dashboard_frame(frame)
                 yield _encode_chunk(frame)
         finally:
             cap.release()

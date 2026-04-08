@@ -760,17 +760,17 @@ class VisionManager:
             )
             self._per_channel_detectors[role] = detector
 
-            def _make_gray_getter(cap: CaptureThread):
-                def _get_gray() -> np.ndarray | None:
+            def _make_frame_getter(cap: CaptureThread):
+                def _get_frame() -> np.ndarray | None:
                     f = cap.latest_frame
                     if f is None:
                         return None
-                    return cv2.cvtColor(f.raw, cv2.COLOR_BGR2GRAY)
-                return _get_gray
+                    return f.raw
+                return _get_frame
 
             analysis = FeederAnalysisThread(
                 detector=detector,
-                get_gray=_make_gray_getter(capture),
+                get_gray=_make_frame_getter(capture),
                 profiler=self.gc.profiler,
             )
             analysis.start()
@@ -1583,6 +1583,38 @@ class VisionManager:
         if self._feeder_analysis is None:
             return []
         return self._feeder_analysis.getDetections()
+
+    def getFeederDetectionAvailability(self, *, max_frame_age_s: float = 1.5) -> tuple[bool, str | None]:
+        now = time.time()
+        algorithm = self.getFeederDetectionAlgorithm()
+
+        if self._camera_layout == "split_feeder":
+            required_roles = {
+                "c_channel_2": self._c_channel_2_capture,
+                "c_channel_3": self._c_channel_3_capture,
+            }
+            for role, capture in required_roles.items():
+                if capture is None:
+                    return False, f"{role} camera is not configured."
+                frame = capture.latest_frame
+                if frame is None:
+                    return False, f"{role} camera has no live frame."
+                if now - frame.timestamp > max_frame_age_s:
+                    return False, f"{role} camera frame is stale."
+                if algorithm != "gemini_sam" and role not in self._per_channel_analysis:
+                    return False, f"{role} feeder detector is not running."
+            return True, None
+
+        if self._feeder_capture is None:
+            return False, "feeder camera is not configured."
+        frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return False, "feeder camera has no live frame."
+        if now - frame.timestamp > max_frame_age_s:
+            return False, "feeder camera frame is stale."
+        if algorithm != "gemini_sam" and self._feeder_analysis is None:
+            return False, "feeder detector is not running."
+        return True, None
 
     def captureCarouselBaseline(self) -> bool:
         if not self.usesCarouselBaseline():

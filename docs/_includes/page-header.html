@@ -1,0 +1,46 @@
+{%- comment -%}
+Renders the page kicker, the page-type badge, the H1, and the lede.
+
+Inputs (from page front matter):
+  page.kicker     - small label above the title
+  page.type       - one of: tutorial, how-to, reference, explanation,
+                    installation, troubleshooting, architecture, landing.
+                    Rendered as a badge next to the H1 unless type == landing
+                    or unset.
+  page.title      - the H1
+  page.lede       - the introductory paragraph below the H1
+{%- endcomment -%}
+
+{% if page.kicker %}
+<p class="kicker">{{ page.kicker }}</p>
+{% endif %}
+
+{% if page.title %}
+  {% assign show_badge = false %}
+  {% if page.type and page.type != "landing" %}{% assign show_badge = true %}{% endif %}
+
+  {% if show_badge %}
+    {%- capture badge_label -%}
+      {%- case page.type -%}
+        {%- when "how-to" -%}How-to guide
+        {%- when "installation" -%}Installation
+        {%- when "tutorial" -%}Tutorial
+        {%- when "reference" -%}Reference
+        {%- when "explanation" -%}Explanation
+        {%- when "troubleshooting" -%}Troubleshooting
+        {%- when "architecture" -%}Architecture
+        {%- else -%}{{ page.type }}
+      {%- endcase -%}
+    {%- endcapture -%}
+    <div class="page-title-row">
+      <h1>{{ page.title }}</h1>
+      <span class="page-type-badge page-type-{{ page.type }}">{{ badge_label }}</span>
+    </div>
+  {% else %}
+    <h1>{{ page.title }}</h1>
+  {% endif %}
+{% endif %}
+
+{% if page.lede %}
+<p class="lede">{{ page.lede }}</p>
+{% endif %}

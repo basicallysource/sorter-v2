@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Hardware
+type: landing
 section: hardware
 slug: hardware
 kicker: The Physical Machine

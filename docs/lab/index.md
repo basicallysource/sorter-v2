@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Lab
+type: landing
 section: lab
 slug: lab
 kicker: Research & Contributor References

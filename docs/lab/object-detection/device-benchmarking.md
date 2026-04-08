@@ -1,6 +1,7 @@
 ---
 layout: default
-title: Benchmarking Workflow
+title: Benchmark a new device
+type: how-to
 section: lab
 slug: device-benchmarking
 kicker: Object Detection Research

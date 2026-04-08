@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Sorter V2 Documentation
+type: landing
 slug: home
 kicker: Sorter V2
 lede: The durable documentation layer for the Sorter V2 project — hardware, the local machine software, the SortHive community platform, and the lab where research and contributor references live.

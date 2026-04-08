@@ -1,6 +1,7 @@
 ---
 layout: default
 title: How the Models Are Built
+type: explanation
 section: lab
 slug: how-models-are-built
 kicker: Object Detection Research

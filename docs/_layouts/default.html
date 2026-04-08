@@ -62,30 +62,16 @@
             </nav>
           </aside>
           <main class="content">
-            {% if page.kicker %}
-            <p class="kicker">{{ page.kicker }}</p>
-            {% endif %}
-            {% if page.title %}
-            <h1>{{ page.title }}</h1>
-            {% endif %}
-            {% if page.lede %}
-            <p class="lede">{{ page.lede }}</p>
-            {% endif %}
+            {% include page-header.html %}
             {{ content }}
+            {% include page-meta.html %}
           </main>
         </div>
       {% else %}
         <main class="content">
-          {% if page.kicker %}
-          <p class="kicker">{{ page.kicker }}</p>
-          {% endif %}
-          {% if page.title %}
-          <h1>{{ page.title }}</h1>
-          {% endif %}
-          {% if page.lede %}
-          <p class="lede">{{ page.lede }}</p>
-          {% endif %}
+          {% include page-header.html %}
           {{ content }}
+          {% include page-meta.html %}
         </main>
       {% endif %}
 

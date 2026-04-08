@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Object Detection Research
+type: explanation
 section: lab
 slug: lab-object-detection
 kicker: Lab — Research Area

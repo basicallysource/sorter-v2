@@ -191,6 +191,66 @@ body {
   font-weight: 600;
 }
 
+.page-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 14px;
+}
+
+.page-title-row h1 {
+  margin: 0;
+}
+
+.page-type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.page-meta {
+  margin: 2.4rem 0 0;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.page-meta dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+}
+
+.page-meta div {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-meta dt {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+
+.page-meta dd {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .lede {
   max-width: 72ch;
   font-size: 1.02rem;

@@ -27,8 +27,25 @@ sections:
     pages:
       - title: Overview
         url: /sorter/
-      - title: Installation
-        url: /sorter/installation/
+    groups:
+      - title: Install
+        pages:
+          - title: Install on a Linux machine
+            url: /sorter/installation/
+          - title: Install by hand
+            url: /sorter/install-by-hand/
+      - title: Operate
+        pages:
+          - title: Your first sort run
+            url: /sorter/tutorials/first-sort-run/
+          - title: Troubleshooting
+            url: /sorter/troubleshooting/
+      - title: Under the hood
+        pages:
+          - title: Architecture
+            url: /sorter/architecture/
+          - title: Sorting profile reference
+            url: /sorter/profile-reference/
 
   - id: sorthive
     title: SortHive

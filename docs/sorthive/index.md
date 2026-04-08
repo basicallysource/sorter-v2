@@ -1,6 +1,7 @@
 ---
 layout: default
 title: SortHive
+type: landing
 section: sorthive
 slug: sorthive
 kicker: Community Platform

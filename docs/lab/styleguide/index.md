@@ -1,6 +1,10 @@
 ---
 layout: default
 title: Styleguide
+type: reference
+audience: contributor working on the Sorter UI, SortHive, or these docs
+applies_to: visual language v1
+owner: ui
 section: lab
 slug: styleguide
 kicker: Lab — Contributor Reference

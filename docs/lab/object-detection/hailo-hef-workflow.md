@@ -1,6 +1,7 @@
 ---
 layout: default
-title: Hailo HEF Workflow
+title: Compile a model to HEF for the Pi 5 Hailo
+type: how-to
 section: lab
 slug: hailo-hef-workflow
 kicker: Object Detection Research

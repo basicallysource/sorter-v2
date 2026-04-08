@@ -1,0 +1,11 @@
+# udev rule for the Raspberry Pi Pico boards used by sorter_interface_firmware.
+#
+# Vendor 2e8a is Raspberry Pi (Trading) Ltd. — covers RP2040 and RP2350 in
+# both stdio CDC mode (running firmware) and BOOTSEL mode (mass storage).
+#
+# Granting MODE="0666" lets the Sorter backend talk to the boards without
+# requiring the user to be in the dialout group, which would otherwise need a
+# logout/login cycle to take effect.
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"

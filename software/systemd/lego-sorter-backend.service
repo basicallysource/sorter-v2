@@ -1,0 +1,19 @@
+[Unit]
+Description=LEGO Sorter Backend
+Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__SOFTWARE_DIR__/client
+EnvironmentFile=__SOFTWARE_DIR__/.env
+ExecStart=__UV_BIN__ run python main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

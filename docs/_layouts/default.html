@@ -10,7 +10,7 @@
   <body>
     <div class="shell">
       <header class="site-header">
-        <a class="brand" href="index.html">
+        <a class="brand" href="/">
           <span class="brand-mark">SV2</span>
           <span>
             <strong>Sorter V2</strong>
@@ -18,11 +18,11 @@
           </span>
         </a>
         <nav class="site-nav" aria-label="Primary">
-          <a href="index.html"{% if page.slug == "home" %} aria-current="page"{% endif %}>Overview</a>
-          <a href="runtime-status.html"{% if page.slug == "runtime-status" %} aria-current="page"{% endif %}>Runtime Status</a>
-          <a href="model-artifacts.html"{% if page.slug == "model-artifacts" %} aria-current="page"{% endif %}>Model Artifacts</a>
-          <a href="device-benchmarking.html"{% if page.slug == "device-benchmarking" %} aria-current="page"{% endif %}>Benchmarking</a>
-          <a href="hailo-hef-workflow.html"{% if page.slug == "hailo-hef-workflow" %} aria-current="page"{% endif %}>Hailo Workflow</a>
+          <a href="/"{% if page.slug == "home" %} aria-current="page"{% endif %}>Overview</a>
+          <a href="/runtime-status"{% if page.slug == "runtime-status" %} aria-current="page"{% endif %}>Runtime Status</a>
+          <a href="/model-artifacts"{% if page.slug == "model-artifacts" %} aria-current="page"{% endif %}>Model Artifacts</a>
+          <a href="/device-benchmarking"{% if page.slug == "device-benchmarking" %} aria-current="page"{% endif %}>Benchmarking</a>
+          <a href="/hailo-hef-workflow"{% if page.slug == "hailo-hef-workflow" %} aria-current="page"{% endif %}>Hailo Workflow</a>
         </nav>
       </header>
       <main class="content">

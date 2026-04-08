@@ -6,7 +6,7 @@ from threading import Event, Lock
 from types import SimpleNamespace
 
 from app.config import settings
-from app.services.profile_builder_compat import builder_db
+from app.services.profile_engine import db as profile_db
 from app.services.profile_catalog import ProfileCatalogService
 
 
@@ -74,8 +74,8 @@ def _build_service(tmp_path: Path, sync_manager: _IdleSyncManager | None = None,
         brickstore_db_path="",
     )
     service._lock = Lock()
-    service._conn = builder_db.initDb(str(db_path))
-    service._parts_data = builder_db.PartsData()
+    service._conn = profile_db.initDb(str(db_path))
+    service._parts_data = profile_db.PartsData()
     service._sync = sync_manager or _IdleSyncManager()
     service._auto_sync_state_lock = Lock()
     service._auto_sync_stop_event = Event()
@@ -116,17 +116,17 @@ def test_get_auto_sync_plan_refreshes_only_stale_sections(tmp_path: Path, monkey
     service._parts_data.colors = {5: {"name": "Red"}}
     service._parts_data.parts = {"3001": {"name": "Brick 2 x 4"}}
 
-    builder_db.setMeta(
+    profile_db.setMeta(
         service._conn,
         service._sync_meta_key("categories"),
         (now - timedelta(days=10)).isoformat(),
     )
-    builder_db.setMeta(
+    profile_db.setMeta(
         service._conn,
         service._sync_meta_key("colors"),
         (now - timedelta(hours=2)).isoformat(),
     )
-    builder_db.setMeta(
+    profile_db.setMeta(
         service._conn,
         service._sync_meta_key("parts"),
         (now - timedelta(days=2)).isoformat(),

@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_machine, get_current_user, get_db, verify_csrf
@@ -75,10 +76,11 @@ def _build_ai_usage_payload(proposal_result: AiProposalResult) -> dict[str, obje
                 "output": t.output,
                 "duration_ms": t.duration_ms,
             }
-            for t in proposal_result.tool_trace
-        ]
-    if proposal_result.performance:
-        usage_with_trace["performance"] = proposal_result.performance
+                for t in proposal_result.tool_trace
+            ]
+    performance = getattr(proposal_result, "performance", None)
+    if performance:
+        usage_with_trace["performance"] = performance
     return usage_with_trace or None
 
 
@@ -354,8 +356,17 @@ def delete_profile(
 ):
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_edit_access(profile, current_user)
-    db.delete(profile)
-    db.commit()
+
+    try:
+        db.query(MachineProfileAssignment).filter(
+            MachineProfileAssignment.profile_id == profile.id
+        ).delete(synchronize_session=False)
+        db.delete(profile)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise APIError(500, f"Failed to delete profile: {exc}", "PROFILE_DELETE_FAILED")
+
     return {"ok": True}
 
 
@@ -626,7 +637,7 @@ def create_profile_ai_message(
                     "user_id": str(current_user.id),
                     "streaming": False,
                     "route_total_ms": round((perf_counter() - route_started_at) * 1000, 1),
-                    "generation_ms": proposal_result.performance.get("total_ms") if proposal_result.performance else None,
+                    "generation_ms": getattr(proposal_result, "performance", None).get("total_ms") if getattr(proposal_result, "performance", None) else None,
                     "tool_call_count": len(proposal_result.tool_trace),
                     "proposal_count": len(proposal_result.proposal.get("proposals", [])) if proposal_result.proposal else 0,
                 },
@@ -732,7 +743,7 @@ def create_profile_ai_message_stream(
                         "user_id": str(current_user.id),
                         "streaming": True,
                         "route_total_ms": round((perf_counter() - route_started_at) * 1000, 1),
-                        "generation_ms": proposal_result.performance.get("total_ms") if proposal_result.performance else None,
+                        "generation_ms": getattr(proposal_result, "performance", None).get("total_ms") if getattr(proposal_result, "performance", None) else None,
                         "tool_call_count": len(proposal_result.tool_trace),
                         "proposal_count": len(proposal_result.proposal.get("proposals", [])) if proposal_result.proposal else 0,
                     },

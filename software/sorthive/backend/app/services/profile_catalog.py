@@ -15,12 +15,10 @@ from typing import Any
 
 from app.config import settings
 from app.errors import APIError
-from app.services.profile_builder_compat import (
-    builder_db,
-    builder_parts_cache,
-    builder_rule_engine,
-    builder_sorting_profile,
-)
+from app.services.profile_engine import db as profile_db
+from app.services.profile_engine import parts_cache as profile_parts_cache
+from app.services.profile_engine import rule_engine as profile_rule_engine
+from app.services.profile_engine import sorting_profile as profile_sorting_profile
 from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory, search_sets as _search_sets
 
 CUSTOM_SET_ANY_COLOR_ID = -1
@@ -52,10 +50,10 @@ class ProfileCatalogService:
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
         )
         self._lock = Lock()
-        self._conn = builder_db.initDb(self._config.db_path)
-        self._parts_data = builder_db.PartsData()
-        builder_db.reloadPartsData(self._conn, self._parts_data)
-        self._sync = builder_parts_cache.SyncManager()
+        self._conn = profile_db.initDb(self._config.db_path)
+        self._parts_data = profile_db.PartsData()
+        profile_db.reloadPartsData(self._conn, self._parts_data)
+        self._sync = profile_parts_cache.SyncManager()
         self._auto_sync_state_lock = Lock()
         self._auto_sync_stop_event = Event()
         self._auto_sync_loop_thread: Thread | None = None
@@ -198,7 +196,7 @@ class ProfileCatalogService:
     def get_last_synced_at(self, sync_type: str) -> str | None:
         if sync_type not in PROFILE_CATALOG_SYNC_TYPES:
             raise ValueError(f"Unsupported sync_type '{sync_type}'")
-        raw = builder_db.getMeta(self._conn, self._sync_meta_key(sync_type))
+        raw = profile_db.getMeta(self._conn, self._sync_meta_key(sync_type))
         return str(raw) if raw else None
 
     def get_last_synced_at_map(self) -> dict[str, str | None]:
@@ -241,7 +239,7 @@ class ProfileCatalogService:
         return False
 
     def _mark_sync_completed(self, sync_type: str) -> None:
-        builder_db.setMeta(
+        profile_db.setMeta(
             self._conn,
             self._sync_meta_key(sync_type),
             datetime.now(timezone.utc).isoformat(),
@@ -273,7 +271,7 @@ class ProfileCatalogService:
     def search_parts(self, query: str = "", cat_id: int | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
         if not query and cat_id is None:
             return {"results": [], "total": 0, "offset": offset, "limit": limit}
-        results, total = builder_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
+        results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
         return {"results": results, "total": total, "offset": offset, "limit": limit}
 
     def list_colors(self) -> list[dict[str, Any]]:
@@ -422,7 +420,7 @@ class ProfileCatalogService:
         set_mappings, set_inventories = self._resolve_set_rule_data(payload.rules)
         is_set_based = bool(set_inventories)
 
-        result = builder_rule_engine.generateProfile(
+        result = profile_rule_engine.generateProfile(
             payload,
             self._parts_data.parts,
             self._parts_data.categories,
@@ -477,13 +475,13 @@ class ProfileCatalogService:
     ) -> dict[str, Any]:
         payload_rule = copy.deepcopy(rule)
         payload_rules = copy.deepcopy(rules or [])
-        builder_sorting_profile._migrateRules([payload_rule])
-        builder_sorting_profile._migrateRules(payload_rules)
+        profile_sorting_profile._migrateRules([payload_rule])
+        profile_sorting_profile._migrateRules(payload_rules)
         ancestor_checks = []
         if not standalone and rule_id:
             fake_profile = SimpleNamespace(rules=payload_rules)
-            ancestor_checks = builder_sorting_profile.getAncestorChecks(fake_profile, rule_id)
-        return builder_rule_engine.previewRule(
+            ancestor_checks = profile_sorting_profile.getAncestorChecks(fake_profile, rule_id)
+        return profile_rule_engine.previewRule(
             payload_rule,
             self._parts_data.parts,
             categories=self._parts_data.categories,
@@ -823,7 +821,7 @@ def normalize_profile_document(document: dict[str, Any]) -> SimpleNamespace:
         rules=copy.deepcopy(document.get("rules") or []),
         fallback_mode=normalize_fallback_mode(document.get("fallback_mode")),
     )
-    builder_sorting_profile._migrateRules(payload.rules)
+    profile_sorting_profile._migrateRules(payload.rules)
     return payload
 
 

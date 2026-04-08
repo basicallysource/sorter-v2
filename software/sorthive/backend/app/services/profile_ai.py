@@ -15,7 +15,7 @@ from app.config import settings
 from app.errors import APIError
 from app.models.user import User
 from app.services.openrouter import OpenRouterResponse, run_openrouter_chat
-from app.services.profile_builder_compat import builder_sorting_profile
+from app.services.profile_engine import sorting_profile as profile_sorting_profile
 from app.services.profile_catalog import ProfileCatalogService
 from app.services.secrets import decrypt_secret
 
@@ -1244,7 +1244,7 @@ def apply_profile_ai_proposal(
     proposal: dict[str, Any],
 ) -> list[dict[str, Any]]:
     next_rules = copy.deepcopy(rules)
-    builder_sorting_profile._migrateRules(next_rules)
+    profile_sorting_profile._migrateRules(next_rules)
     profile_like = SimpleNamespace(rules=next_rules)
 
     for item in proposal.get("proposals", []):
@@ -1262,7 +1262,7 @@ def apply_profile_ai_proposal(
             }
             if _has_duplicate_filter_rule(profile_like, candidate_rule, parent_id):
                 continue
-            created_rule_id = builder_sorting_profile.addRule(
+            created_rule_id = profile_sorting_profile.addRule(
                 profile_like,
                 candidate_rule["name"],
                 conditions,
@@ -1331,17 +1331,17 @@ def apply_profile_ai_proposal(
         if not target_rule_id:
             raise APIError(400, "AI proposal did not specify a target rule", "AI_TARGET_RULE_MISSING")
 
-        target_rule = builder_sorting_profile.getRule(profile_like, target_rule_id)
+        target_rule = profile_sorting_profile.getRule(profile_like, target_rule_id)
         if target_rule is None:
             raise APIError(400, "AI proposal references an unknown target rule", "AI_TARGET_RULE_INVALID")
 
         if action == "delete":
-            builder_sorting_profile.removeRule(profile_like, target_rule_id)
+            profile_sorting_profile.removeRule(profile_like, target_rule_id)
             continue
 
         if action == "move":
             moving_rule = copy.deepcopy(target_rule)
-            builder_sorting_profile.removeRule(profile_like, target_rule_id)
+            profile_sorting_profile.removeRule(profile_like, target_rule_id)
             _insert_existing_rule(profile_like, moving_rule, parent_id, position)
             continue
 
@@ -1354,7 +1354,7 @@ def apply_profile_ai_proposal(
 
         if parent_id is not None or position is not None:
             moved_rule = copy.deepcopy(target_rule)
-            builder_sorting_profile.removeRule(profile_like, target_rule_id)
+            profile_sorting_profile.removeRule(profile_like, target_rule_id)
             _insert_existing_rule(profile_like, moved_rule, parent_id, position)
 
     return profile_like.rules
@@ -1479,7 +1479,7 @@ def _normalize_conditions(conditions: list[dict[str, Any]]) -> list[dict[str, An
 
 def _insert_existing_rule(profile_like: SimpleNamespace, rule: dict[str, Any], parent_id: str | None, position: int | None) -> None:
     if parent_id:
-        parent = builder_sorting_profile.getRule(profile_like, parent_id)
+        parent = profile_sorting_profile.getRule(profile_like, parent_id)
         if parent is None:
             raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
         children = parent.setdefault("children", [])
@@ -1591,7 +1591,7 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
 
 def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any], selected_rule_id: str | None) -> str:
     payload_rules = copy.deepcopy(document.get("rules") or [])
-    builder_sorting_profile._migrateRules(payload_rules)
+    profile_sorting_profile._migrateRules(payload_rules)
     selected_rule = _find_rule(payload_rules, selected_rule_id) if selected_rule_id else None
     prompt_rules = [_prompt_rule_snapshot(rule) for rule in payload_rules]
     prompt_selected_rule = _prompt_rule_snapshot(selected_rule, expand_custom_parts=True) if selected_rule else None

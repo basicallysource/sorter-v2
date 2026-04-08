@@ -92,27 +92,27 @@
 	});
 </script>
 
-<div class="border border-[#E2E0DB] bg-white">
-	<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2">
-		<h3 class="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]">Sorting</h3>
+<div class="border border-border bg-surface">
+	<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2">
+		<h3 class="text-xs font-semibold uppercase tracking-wide text-text">Sorting</h3>
 		<div class="flex gap-3">
-			<a href="/profiles" class="text-xs text-[#7A7770] hover:text-[#1A1A1A]">Profiles</a>
-			<a href="/bins" class="text-xs text-[#7A7770] hover:text-[#1A1A1A]">Bins</a>
+			<a href="/profiles" class="text-xs text-text-muted hover:text-text">Profiles</a>
+			<a href="/bins" class="text-xs text-text-muted hover:text-text">Bins</a>
 		</div>
 	</div>
 
 	<!-- Active Profile -->
 	{#if profileLoading}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">Loading profile...</div>
+		<div class="px-3 py-3 text-center text-xs text-text-muted">Loading profile...</div>
 	{:else if !profile}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">No profile loaded</div>
+		<div class="px-3 py-3 text-center text-xs text-text-muted">No profile loaded</div>
 	{:else}
-		<div class="border-b border-[#E2E0DB] px-3 py-3">
+		<div class="border-b border-border px-3 py-3">
 			<div class="flex items-start gap-2">
 				<span class="mt-1 inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
 				<div class="min-w-0 flex-1">
-					<div class="truncate text-sm font-semibold text-[#1A1A1A]">{profile.name}</div>
-					<div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-[#7A7770]">
+					<div class="truncate text-sm font-semibold text-text">{profile.name}</div>
+					<div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
 						{#if syncState?.version_number}
 							<span>v{syncState.version_number}</span>
 						{/if}
@@ -131,7 +131,7 @@
 						<span class="text-[#00852B]">In sync</span>
 					{/if}
 					{#if syncState.target_name}
-						<span class="text-[#7A7770]">&middot; {syncState.target_name}</span>
+						<span class="text-text-muted">&middot; {syncState.target_name}</span>
 					{/if}
 				</div>
 			{/if}
@@ -140,16 +140,16 @@
 
 	<!-- Compact Bin Grid -->
 	{#if binsLoading}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">Loading bins...</div>
+		<div class="px-3 py-3 text-center text-xs text-text-muted">Loading bins...</div>
 	{:else if layers.length === 0}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">No bins configured</div>
+		<div class="px-3 py-3 text-center text-xs text-text-muted">No bins configured</div>
 	{:else}
 		<div class="flex flex-col gap-3 p-3">
 			{#each layers as layer}
 				{@const isActive = activeLayer === layer.layer_index}
 				<div class="{!layer.enabled ? 'opacity-50' : ''}">
 					<div class="mb-1 flex items-center justify-between">
-						<span class="text-[10px] font-semibold uppercase tracking-wide text-[#7A7770]">
+						<span class="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
 							Layer {layer.layer_index + 1}
 						</span>
 						{#if isActive}
@@ -158,17 +158,17 @@
 								Active
 							</span>
 						{:else if !layer.enabled}
-							<span class="text-[10px] text-[#7A7770]">Off</span>
+							<span class="text-[10px] text-text-muted">Off</span>
 						{/if}
 					</div>
-					<div class="flex flex-col gap-px bg-[#E2E0DB]">
+					<div class="flex flex-col gap-px bg-border">
 						{#each [0, 1] as rowIdx}
 							{@const rowSections = [0, 1, 2].map(c => binsForSection(layer, rowIdx * 3 + c)).filter(s => s.length > 0)}
 							{#if rowSections.flat().length > 0}
 								<div class="flex gap-px">
 									{#each rowSections as sectionBins, sIdx}
 										{#if sIdx > 0}
-											<div class="w-0.5 bg-[#E2E0DB]"></div>
+											<div class="w-0.5 bg-border"></div>
 										{/if}
 										{#each sectionBins as bin}
 											{@const isCurrent = isCurrentBin(bin) && isActive}
@@ -177,7 +177,7 @@
 												class="flex min-h-[1.75rem] flex-1 items-center justify-center text-[10px]
 													{isCurrent
 														? 'bg-[#00852B]/10 font-bold text-[#00852B] ring-1 ring-inset ring-[#00852B]'
-														: 'bg-white text-[#1A1A1A]'}"
+														: 'bg-surface text-text'}"
 												title="Bin {bin.global_index + 1} ({bin.angle}\u00b0){catLabel ? ` — ${catLabel}` : ''}"
 											>
 												{bin.global_index + 1}

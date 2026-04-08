@@ -2,6 +2,7 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
+	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -78,6 +79,10 @@
 	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
 	// Track servo ids we've already auto-promoted this session so we don't loop.
 	let autoPromotedIds = $state<Set<number>>(new Set());
+
+	let selectedServoId = $state<number | null>(null);
+	let selectedLayerIdx = $state<number | null>(null);
+	let nudgeDegrees = $state<number>(5);
 
 	// Effective number of assignable layers. If we have more servos on the bus
 	// than the configured storage layers, expand so every servo can be mapped.
@@ -361,6 +366,51 @@
 		await moveServo(servoId, last === 'open' ? 'close' : 'open');
 	}
 
+	async function nudgeLayer(layerIdx: number, degrees: number) {
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/servo/layers/${layerIdx - 1}/nudge`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ degrees })
+				}
+			);
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text);
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? `Failed to nudge layer ${layerIdx} servo`;
+		}
+	}
+
+	async function nudgeServo(servoId: number, degrees: number) {
+		setBusy(servoId, 'moving');
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/nudge`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ degrees })
+				}
+			);
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text);
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? `Failed to nudge servo ${servoId}`;
+		} finally {
+			setBusy(servoId, null);
+		}
+	}
+
 	async function promoteServoId(currentId: number, newId: number) {
 		setBusy(currentId, 'promoting');
 		errorMsg = null;
@@ -547,7 +597,29 @@
 			if (scanningBus) return;
 			void scanBus({ silent: true });
 		}, 4000);
-		return () => clearInterval(interval);
+
+		function handleKeydown(e: KeyboardEvent) {
+			if (selectedServoId === null && selectedLayerIdx === null) return;
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				if (selectedServoId !== null) void nudgeServo(selectedServoId, -nudgeDegrees);
+				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, -nudgeDegrees);
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				if (selectedServoId !== null) void nudgeServo(selectedServoId, nudgeDegrees);
+				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, nudgeDegrees);
+			} else if (e.key === 'Escape') {
+				selectedServoId = null;
+				selectedLayerIdx = null;
+			}
+		}
+		window.addEventListener('keydown', handleKeydown);
+
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener('keydown', handleKeydown);
+		};
 	});
 </script>
 
@@ -649,7 +721,12 @@
 						{@const lastMove = lastMoveByServoId[servo.id]}
 						{@const inverted = setup.inverted}
 						{@const isFactory = setup.isFactory}
-						<div class={`overflow-hidden border border-border border-l-4 bg-surface ${setup.accent}`}>
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class={`overflow-hidden border border-l-4 bg-surface ${setup.accent} ${selectedServoId === servo.id ? 'border-[#0055BF] ring-2 ring-[#0055BF]/30' : 'border-border'}`}
+							onclick={() => { selectedServoId = selectedServoId === servo.id ? null : servo.id; }}
+						>
 							<div class={`flex flex-wrap items-start gap-4 px-4 py-3 ${setup.headerTone}`}>
 								<div
 									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-[#0055BF] font-bold text-white"
@@ -801,6 +878,42 @@
 										{inverted ? 'Direction reversed' : 'Reverse direction'}
 									</button>
 								</div>
+
+								{#if calibrated}
+									<div class="mt-3 flex items-center gap-2">
+										<span class="text-[10px] uppercase tracking-wider text-text-muted">Nudge</span>
+										<button
+											onclick={(e) => { e.stopPropagation(); void nudgeServo(servo.id, -nudgeDegrees); }}
+											disabled={!!busy}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+											title="Move left"
+										>
+											<ChevronLeft size={16} />
+										</button>
+										<input
+											type="number"
+											min="1"
+											max="180"
+											bind:value={nudgeDegrees}
+											onclick={(e) => e.stopPropagation()}
+											class="setup-control w-14 px-2 py-1 text-center text-xs text-text"
+										/>
+										<span class="text-[10px] text-text-muted">°</span>
+										<button
+											onclick={(e) => { e.stopPropagation(); void nudgeServo(servo.id, nudgeDegrees); }}
+											disabled={!!busy}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+											title="Move right"
+										>
+											<ChevronRight size={16} />
+										</button>
+										{#if selectedServoId === servo.id}
+											<span class="text-[10px] text-[#0055BF]">Selected — use ←/→ arrow keys</span>
+										{:else}
+											<span class="text-[10px] text-text-muted">Click card to use arrow keys</span>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/each}
@@ -867,6 +980,7 @@
 							<th class="px-3 py-2 font-medium">Invert</th>
 							<th class="px-3 py-2 font-medium">Open °</th>
 							<th class="px-3 py-2 font-medium">Closed °</th>
+								<th class="px-3 py-2 font-medium">Nudge</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -938,6 +1052,38 @@
 										}}
 										class="setup-control w-20 px-2 py-1.5 text-text"
 									/>
+								</td>
+								<td class="px-3 py-2">
+									<div class="flex items-center gap-1">
+										<button
+											onclick={() => void nudgeLayer(layerIdx, -nudgeDegrees)}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg"
+											title="Move left"
+										>
+											<ChevronLeft size={16} />
+										</button>
+										<input
+											type="number"
+											min="1"
+											max="180"
+											bind:value={nudgeDegrees}
+											class="setup-control w-12 px-1 py-1 text-center text-xs text-text"
+										/>
+										<button
+											onclick={() => void nudgeLayer(layerIdx, nudgeDegrees)}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg"
+											title="Move right"
+										>
+											<ChevronRight size={16} />
+										</button>
+										<button
+											onclick={() => { selectedLayerIdx = selectedLayerIdx === layerIdx ? null : layerIdx; selectedServoId = null; }}
+											class={`ml-1 px-2 py-1 text-[10px] font-medium transition-colors ${selectedLayerIdx === layerIdx ? 'border border-[#0055BF] bg-[#0055BF]/10 text-[#0055BF]' : 'border border-border bg-surface text-text-muted hover:bg-bg'}`}
+											title="Select to use arrow keys"
+										>
+											{selectedLayerIdx === layerIdx ? '← → active' : 'keys'}
+										</button>
+									</div>
 								</td>
 							</tr>
 						{/each}

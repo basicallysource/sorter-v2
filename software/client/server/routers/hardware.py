@@ -67,6 +67,10 @@ class ServoMovePayload(BaseModel):
     position: str  # "open" | "close" | "center"
 
 
+class ServoNudgePayload(BaseModel):
+    degrees: int
+
+
 class ServoLayerPreviewPayload(BaseModel):
     invert: bool = False
     is_open: bool = False
@@ -980,6 +984,48 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
     }
 
 
+@router.post("/api/hardware-config/servo/layers/{layer_index}/nudge")
+def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str, Any]:
+    _ensure_not_homing("nudge a servo")
+    servo = _live_servo_for_layer(layer_index)
+
+    if not hasattr(servo, "move_to") or not hasattr(servo, "position"):
+        raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
+
+    try:
+        current_pos = int(servo.position)
+        # PCA ServoMotor.position returns tenths-of-degrees, move_to takes degrees 0-180
+        # Waveshare BusServo.position returns raw 0-1023, move_to takes angle 0-180
+        # Use move_to(angle) which handles mapping internally
+        if hasattr(servo, '_angle_to_position'):
+            # waveshare bus servo: position is raw, convert to angle space
+            limits = getattr(servo, '_min_limit', 0), getattr(servo, '_max_limit', 1023)
+            range_size = limits[1] - limits[0]
+            if range_size > 0:
+                current_angle = int((current_pos - limits[0]) * 180 / range_size)
+            else:
+                current_angle = 90
+        else:
+            # PCA servo: position is tenths of degrees
+            current_angle = current_pos // 10
+
+        new_angle = max(0, min(180, current_angle + payload.degrees))
+        servo.move_to(new_angle)
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to nudge layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "degrees": payload.degrees,
+        "new_angle": new_angle,
+        "feedback": feedback,
+    }
+
+
 # VIDs of known non-servo MCU boards (exclude from servo port candidates)
 _MCU_VIDS = {0x2E8A}  # Raspberry Pi Pico
 
@@ -1324,6 +1370,57 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to move servo: {exc}")
+    finally:
+        if should_close:
+            bus.close()
+
+
+@router.post("/api/hardware-config/waveshare/servos/{servo_id}/nudge")
+def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str, Any]:
+    _ensure_not_homing("nudge a Waveshare servo")
+    if servo_id < 1 or servo_id > 253:
+        raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
+
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available.")
+
+    try:
+        if not bus.ping(servo_id):
+            raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
+
+        limits = bus.read_angle_limits(servo_id)
+        if limits is None:
+            raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
+        min_lim, max_lim = limits
+        range_size = max_lim - min_lim
+        if range_size < 20:
+            raise HTTPException(status_code=409, detail="Servo has no calibrated range. Run auto-calibration first.")
+
+        current_pos = bus.read_position(servo_id)
+        if current_pos is None:
+            raise HTTPException(status_code=500, detail="Could not read current servo position.")
+
+        raw_delta = int(payload.degrees * range_size / 180)
+        new_pos = max(0, min(1023, current_pos + raw_delta))
+
+        bus.set_torque(servo_id, True)
+        time.sleep(0.01)
+        if not bus.move_to(servo_id, new_pos, 200):
+            raise HTTPException(status_code=500, detail="move_to command failed.")
+
+        return {
+            "ok": True,
+            "servo_id": servo_id,
+            "degrees": payload.degrees,
+            "raw_position": new_pos,
+            "previous_position": current_pos,
+            "limits": {"min": min_lim, "max": max_lim},
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to nudge servo: {exc}")
     finally:
         if should_close:
             bus.close()

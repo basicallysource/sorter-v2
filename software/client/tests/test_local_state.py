@@ -6,17 +6,24 @@ import tomllib
 import unittest
 
 from local_state import (
+    clear_current_session_bins,
     get_api_keys,
     get_bin_categories,
+    get_current_bin_contents_snapshot,
     get_channel_polygons,
     get_classification_polygons,
     get_classification_training_state,
     get_machine_id,
+    get_recent_known_objects,
+    get_active_sorting_session,
     get_set_progress_state,
     get_servo_states,
     get_sorting_profile_sync_state,
     get_sorthive_config,
     initialize_local_state,
+    record_piece_distribution,
+    remember_recent_known_object,
+    start_new_sorting_session,
 )
 
 
@@ -142,6 +149,63 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertNotIn("api_keys", cleaned)
         self.assertNotIn("sorthive", cleaned)
         self.assertNotIn("sorting_profile_sync", cleaned)
+
+    def test_recent_known_objects_are_persisted_and_deduplicated(self) -> None:
+        initialize_local_state()
+
+        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 1.0})
+        remember_recent_known_object({"uuid": "piece-2", "part_id": "3002", "updated_at": 2.0})
+        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 3.0})
+
+        recent = get_recent_known_objects()
+        self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
+        self.assertEqual(3.0, recent[0]["updated_at"])
+
+    def test_sorting_sessions_persist_current_bin_state_and_recent_pieces(self) -> None:
+        initialize_local_state()
+
+        session = start_new_sorting_session(reason="test")
+        self.assertEqual(session["id"], get_active_sorting_session()["id"])
+
+        record_piece_distribution(
+            {
+                "uuid": "piece-a",
+                "destination_bin": [0, 0, 0],
+                "distributed_at": 10.0,
+                "part_id": "3001",
+                "color_id": "15",
+                "color_name": "White",
+                "category_id": "bricks",
+                "classification_status": "classified",
+                "thumbnail": "thumb-a",
+            }
+        )
+        record_piece_distribution(
+            {
+                "uuid": "piece-b",
+                "destination_bin": [0, 0, 0],
+                "distributed_at": 12.0,
+                "part_id": "3002",
+                "color_id": "14",
+                "color_name": "Yellow",
+                "category_id": "bricks",
+                "classification_status": "classified",
+                "thumbnail": "thumb-b",
+            }
+        )
+
+        snapshot = get_current_bin_contents_snapshot()
+        self.assertEqual(session["id"], snapshot["session"]["id"])
+        self.assertEqual(1, len(snapshot["bins"]))
+        current_bin = snapshot["bins"][0]
+        self.assertEqual(2, current_bin["piece_count"])
+        self.assertEqual(2, current_bin["unique_item_count"])
+        self.assertEqual(2, len(current_bin["recent_pieces"]))
+        self.assertEqual("piece-b", current_bin["recent_pieces"][0]["uuid"])
+
+        clear_current_session_bins(scope="bin", layer_index=0, section_index=0, bin_index=0)
+        cleared = get_current_bin_contents_snapshot()
+        self.assertEqual([], cleared["bins"])
 
 
 if __name__ == "__main__":

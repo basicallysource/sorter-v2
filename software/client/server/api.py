@@ -10,12 +10,15 @@ from pathlib import Path
 from defs.events import (
     IdentityEvent,
     MachineIdentityData,
+    KnownObjectData,
+    KnownObjectEvent,
 )
 from bricklink.api import getPartInfo
 from blob_manager import (
     getApiKeys,
     getMachineId,
     getMachineNickname,
+    getRecentKnownObjects,
     getSortingProfileSyncState,
     setMachineNickname,
 )
@@ -66,6 +69,7 @@ from server.routers.aruco import router as aruco_router
 from server.routers.sorting_profiles import router as sorting_profiles_router
 from server.routers.system import router as system_router
 from server.routers.setup import router as setup_router
+from server.routers.logs import router as logs_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -75,6 +79,7 @@ app.include_router(aruco_router)
 app.include_router(sorting_profiles_router)
 app.include_router(system_router)
 app.include_router(setup_router)
+app.include_router(logs_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -154,6 +159,40 @@ def save_machine_identity(payload: MachineIdentityUpdateRequest) -> MachineIdent
 
 
 # ---------------------------------------------------------------------------
+# UI theme color
+# ---------------------------------------------------------------------------
+
+
+_DEFAULT_UI_THEME_COLOR_ID = "blue"
+
+
+class UiThemeResponse(BaseModel):
+    color_id: str
+
+
+class UiThemeUpdateRequest(BaseModel):
+    color_id: str
+
+
+@app.get("/api/settings/theme", response_model=UiThemeResponse)
+def get_ui_theme() -> UiThemeResponse:
+    from local_state import get_ui_theme_color_id
+
+    return UiThemeResponse(color_id=get_ui_theme_color_id() or _DEFAULT_UI_THEME_COLOR_ID)
+
+
+@app.post("/api/settings/theme", response_model=UiThemeResponse)
+def save_ui_theme(payload: UiThemeUpdateRequest) -> UiThemeResponse:
+    from local_state import set_ui_theme_color_id, get_ui_theme_color_id
+
+    color_id = (payload.color_id or "").strip()
+    if not color_id:
+        raise HTTPException(status_code=400, detail="color_id must be a non-empty string")
+    set_ui_theme_color_id(color_id)
+    return UiThemeResponse(color_id=get_ui_theme_color_id() or _DEFAULT_UI_THEME_COLOR_ID)
+
+
+# ---------------------------------------------------------------------------
 # Sorting profile metadata
 # ---------------------------------------------------------------------------
 
@@ -179,6 +218,45 @@ class SortingProfileMetadataResponse(BaseModel):
     rules: List[Dict[str, Any]]
     fallback_mode: SortingProfileFallbackMode
     sync_state: Dict[str, Any] | None = None
+
+
+class SortingProfileSetViewPart(BaseModel):
+    part_num: str
+    color_id: str
+    part_name: str | None = None
+    color_name: str | None = None
+    quantity_needed: int
+    quantity_found: int
+    img_url: str | None = None
+    manual_override_count: int | None = None
+    user_state: str = "auto"
+
+
+class SortingProfileSetViewResponse(BaseModel):
+    category_id: str
+    set_num: str
+    name: str
+    img_url: str | None = None
+    year: int | None = None
+    num_parts: int | None = None
+    total_needed: int
+    total_found: int
+    pct: float
+    parts: List[SortingProfileSetViewPart]
+
+
+class SortingProfileSetViewPartStateUpdate(BaseModel):
+    part_num: str
+    color_id: str
+    manual_override_count: int | None = None
+    user_state: str = "auto"
+
+
+class SortingProfileSetViewPartStateResponse(BaseModel):
+    part_num: str
+    color_id: str
+    manual_override_count: int | None = None
+    user_state: str = "auto"
 
 
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
@@ -209,6 +287,130 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     )
 
 
+@app.get("/sorting-profile/set-view/{category_id}", response_model=SortingProfileSetViewResponse)
+def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
+    if shared_state.gc_ref is None:
+        raise HTTPException(status_code=500, detail="Global config not initialized")
+
+    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
+        raw_profile = json.load(f)
+    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    if not isinstance(set_inventories, dict):
+        raise HTTPException(status_code=404, detail="No set inventory data available")
+
+    inventory = set_inventories.get(category_id)
+    if not isinstance(inventory, dict):
+        raise HTTPException(status_code=404, detail="Set category not found")
+
+    parts = inventory.get("parts") if isinstance(inventory.get("parts"), list) else []
+    artifact_hash = str(raw_profile.get("artifact_hash") or "") if isinstance(raw_profile, dict) else ""
+    found_lookup: dict[tuple[str, str], int] = {}
+    total_found = 0
+
+    if artifact_hash:
+        try:
+            from set_progress import SetProgressTracker
+
+            tracker = SetProgressTracker(set_inventories, artifact_hash)
+            progress = tracker.get_progress()
+            for set_info in progress.get("sets", []):
+                if str(set_info.get("id")) != category_id:
+                    continue
+                total_found = int(set_info.get("total_found") or 0)
+                for part in set_info.get("parts", []):
+                    key = (str(part.get("part_num") or ""), str(part.get("color_id") or ""))
+                    found_lookup[key] = int(part.get("quantity_found") or 0)
+                break
+        except Exception:
+            pass
+
+    total_needed = sum(int(part.get("quantity") or 0) for part in parts if isinstance(part, dict))
+    pct = (total_found / total_needed * 100) if total_needed > 0 else 0.0
+
+    from local_state import get_checklist_state_for_set
+
+    resolved_set_num = str(inventory.get("set_num") or category_id)
+    checklist_state = get_checklist_state_for_set(resolved_set_num)
+
+    response_parts: List[SortingProfileSetViewPart] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        part_num = str(part.get("part_num") or "")
+        color_id = str(part.get("color_id") or "")
+        state_entry = checklist_state.get((part_num, color_id)) or {}
+        response_parts.append(
+            SortingProfileSetViewPart(
+                part_num=part_num,
+                color_id=color_id,
+                part_name=part.get("part_name"),
+                color_name=part.get("color_name"),
+                quantity_needed=int(part.get("quantity") or 0),
+                quantity_found=found_lookup.get((part_num, color_id), 0),
+                img_url=part.get("img_url"),
+                manual_override_count=state_entry.get("manual_override_count"),
+                user_state=state_entry.get("user_state") or "auto",
+            )
+        )
+
+    return SortingProfileSetViewResponse(
+        category_id=category_id,
+        set_num=resolved_set_num,
+        name=str(inventory.get("name") or category_id),
+        img_url=inventory.get("img_url"),
+        year=inventory.get("year"),
+        num_parts=inventory.get("num_parts"),
+        total_needed=total_needed,
+        total_found=total_found,
+        pct=round(pct, 1),
+        parts=response_parts,
+    )
+
+
+@app.post(
+    "/sorting-profile/set-view/{category_id}/part/state",
+    response_model=SortingProfileSetViewPartStateResponse,
+)
+def updateSortingProfileSetViewPartState(
+    category_id: str,
+    payload: SortingProfileSetViewPartStateUpdate,
+) -> SortingProfileSetViewPartStateResponse:
+    if shared_state.gc_ref is None:
+        raise HTTPException(status_code=500, detail="Global config not initialized")
+
+    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
+        raw_profile = json.load(f)
+    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    if not isinstance(set_inventories, dict):
+        raise HTTPException(status_code=404, detail="No set inventory data available")
+
+    inventory = set_inventories.get(category_id)
+    if not isinstance(inventory, dict):
+        raise HTTPException(status_code=404, detail="Set category not found")
+
+    set_num = str(inventory.get("set_num") or category_id)
+
+    from local_state import set_checklist_part_state
+
+    try:
+        result = set_checklist_part_state(
+            set_num,
+            payload.part_num,
+            payload.color_id,
+            manual_override_count=payload.manual_override_count,
+            user_state=payload.user_state,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return SortingProfileSetViewPartStateResponse(
+        part_num=payload.part_num,
+        color_id=payload.color_id,
+        manual_override_count=result.get("manual_override_count"),
+        user_state=result.get("user_state") or "auto",
+    )
+
+
 # ---------------------------------------------------------------------------
 # WebSocket
 # ---------------------------------------------------------------------------
@@ -221,6 +423,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
+    for item in reversed(getRecentKnownObjects()):
+        try:
+            event = KnownObjectEvent(
+                tag="known_object",
+                data=KnownObjectData.model_validate(item),
+            )
+        except Exception:
+            continue
+        await websocket.send_json(event.model_dump())
     if shared_state.runtime_stats_snapshot is not None:
         await websocket.send_json(
             {

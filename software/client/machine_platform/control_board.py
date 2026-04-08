@@ -43,7 +43,7 @@ SKR_PICO_FEEDER_PROFILE = BoardProfile(
         "c_channel_3_rotor": "c_channel_3_rotor",
         "carousel": "carousel",
     },
-    input_aliases={"carousel_home": 2},
+    input_aliases={"carousel_home": 1},
 )
 
 SKR_PICO_DISTRIBUTION_PROFILE = BoardProfile(

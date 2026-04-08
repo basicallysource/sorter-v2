@@ -100,13 +100,7 @@ class StorageLayerSettingsPayload(BaseModel):
 
 ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
 DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
-CAROUSEL_HOME_PIN_CHANNEL = 2
 DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
-CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC = 400
-CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC = 100
-CAROUSEL_BACKOFF_STEPS = 200
-CAROUSEL_HOME_PASSES = 3
-CAROUSEL_HOME_TIMEOUT_MS = 30000
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 from server.config_helpers import (
@@ -115,63 +109,6 @@ from server.config_helpers import (
     toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
 )
-
-
-# ---------------------------------------------------------------------------
-# Reusable carousel homing (called from main.py and the endpoint)
-# ---------------------------------------------------------------------------
-
-
-def _home_carousel_stepper(irl: Any, gc: Any) -> None:
-    """Home the carousel stepper using endstop. Raises on failure."""
-    import time as _time
-
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise RuntimeError("Feeder board not found — cannot home carousel.")
-
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise RuntimeError(f"Carousel home pin channel {CAROUSEL_HOME_PIN_CHANNEL} unavailable.")
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise RuntimeError("Carousel stepper not found.")
-
-    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin.value)
-        return raw if endstop_active_high else not raw
-
-    def _home_and_wait(speed: int, timeout_ms: int) -> None:
-        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
-        start = _time.monotonic()
-        while not stepper.stopped:
-            if (_time.monotonic() - start) * 1000 > timeout_ms:
-                stepper.move_at_speed(0)
-                raise TimeoutError("Carousel homing timed out.")
-            _time.sleep(0.01)
-        if not _read_endstop():
-            raise RuntimeError("Carousel homing stopped before endstop triggered.")
-
-    stepper.enabled = True
-    _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-    for _ in range(CAROUSEL_HOME_PASSES - 1):
-        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
-        _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-    stepper.position_degrees = 0.0
-
-
-# ---------------------------------------------------------------------------
-# Hardware query helpers
-# ---------------------------------------------------------------------------
 
 
 
@@ -442,10 +379,14 @@ def _carousel_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(stepper_direction_inverted, bool):
         stepper_direction_inverted = False
 
+    irl = _active_irl()
+    carousel_hw = getattr(irl, "carousel_hw", None) if irl is not None else None
+    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
+
     return {
         "endstop_active_high": endstop_active_high,
         "stepper_direction_inverted": stepper_direction_inverted,
-        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        "home_pin_channel": home_pin_channel,
     }
 
 
@@ -615,15 +556,14 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_stopped": None,
             "bound_stepper_name": None,
             "bound_stepper_channel": None,
-            "digital_inputs": [],
-            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+            "home_pin_channel": None,
         }
 
+    carousel_hw = getattr(irl, "carousel_hw", None)
     stepper = getattr(irl, "carousel_stepper", None)
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
 
-    if stepper is None or feeder_board is None:
+    if stepper is None or carousel_hw is None:
         return {
             "live_available": False,
             "endstop_triggered": None,
@@ -633,10 +573,9 @@ def _live_carousel_status() -> Dict[str, Any]:
             "current_position_degrees": None,
             "stepper_microsteps": None,
             "stepper_stopped": None,
-            "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper is not None else None,
-            "bound_stepper_channel": getattr(stepper, "channel", None) if stepper is not None else None,
-            "digital_inputs": [],
-            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+            "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper else None,
+            "bound_stepper_channel": getattr(stepper, "channel", None) if stepper else None,
+            "home_pin_channel": home_pin_channel,
         }
 
     status: Dict[str, Any] = {
@@ -650,18 +589,14 @@ def _live_carousel_status() -> Dict[str, Any]:
         "stepper_stopped": None,
         "bound_stepper_name": getattr(stepper, "hardware_name", None),
         "bound_stepper_channel": getattr(stepper, "channel", None),
-        "digital_inputs": [],
-        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        "home_pin_channel": home_pin_channel,
     }
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if 0 <= CAROUSEL_HOME_PIN_CHANNEL < len(digital_inputs):
-        try:
-            raw_high = bool(digital_inputs[CAROUSEL_HOME_PIN_CHANNEL].value)
-            status["raw_endstop_high"] = raw_high
-            status["endstop_triggered"] = raw_high if endstop_active_high else not raw_high
-        except Exception as e:
-            status["endstop_error"] = str(e)
+    try:
+        status["raw_endstop_high"] = carousel_hw.raw_endstop_active
+        status["endstop_triggered"] = carousel_hw.endstop_triggered
+    except Exception as e:
+        status["endstop_error"] = str(e)
 
     try:
         status["current_position_degrees"] = float(stepper.position_degrees)
@@ -673,17 +608,6 @@ def _live_carousel_status() -> Dict[str, Any]:
         status["stepper_stopped"] = bool(stepper.stopped)
     except Exception as e:
         status["stepper_stopped_error"] = str(e)
-
-    try:
-        status["digital_inputs"] = [
-            {
-                "channel": index,
-                "raw_high": bool(pin.value),
-            }
-            for index, pin in enumerate(digital_inputs)
-        ]
-    except Exception as e:
-        status["digital_inputs_error"] = str(e)
 
     return status
 
@@ -1602,72 +1526,18 @@ def home_carousel_to_endstop() -> Dict[str, Any]:
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+    carousel_hw = getattr(irl, "carousel_hw", None)
+    if carousel_hw is None:
+        raise HTTPException(status_code=503, detail="Carousel hardware not initialized.")
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
-        )
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
-
-    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin.value)
-        return raw if endstop_active_high else not raw
-
-    def _home_and_wait(speed: int, timeout_ms: int) -> None:
-        """Issue firmware home command, wait for stop, verify endstop."""
-        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
-        start = time.monotonic()
-        while not stepper.stopped:
-            if (time.monotonic() - start) * 1000 > timeout_ms:
-                stepper.move_at_speed(0)
-                raise TimeoutError("Carousel homing timed out.")
-            time.sleep(0.01)
-        if not _read_endstop():
-            raise HTTPException(
-                status_code=409,
-                detail="Carousel homing stopped before the endstop triggered.",
-            )
-
-    try:
-        stepper.enabled = True
-
-        # Pass 1: fast approach
-        _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-
-        # Passes 2..N: back off then slow approach for precision
-        for _ in range(CAROUSEL_HOME_PASSES - 1):
-            stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
-            _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-
-        stepper.position_degrees = 0.0
-        # Keep stepper enabled to hold position
-    except HTTPException:
-        raise
-    except TimeoutError as e:
-        raise HTTPException(status_code=504, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to home carousel to endstop: {e}")
+    success = carousel_hw.home()
+    if not success:
+        raise HTTPException(status_code=500, detail="Carousel homing failed.")
 
     return {
         "ok": True,
         "status": _live_carousel_status(),
-        "message": f"Carousel homed ({CAROUSEL_HOME_PASSES}-pass) and zeroed.",
+        "message": "Carousel homed and zeroed.",
     }
 
 
@@ -1678,53 +1548,32 @@ def calibrate_carousel() -> Dict[str, Any]:
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+    carousel_hw = getattr(irl, "carousel_hw", None)
+    if carousel_hw is None:
+        raise HTTPException(status_code=503, detail="Carousel hardware not initialized.")
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
-        )
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
-
-    home_pin_obj = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin_obj.value)
-        return raw if endstop_active_high else not raw
-
-    if not _read_endstop():
+    if not carousel_hw.endstop_triggered:
         raise HTTPException(
             status_code=409,
             detail="Carousel must be homed first (endstop not currently triggered).",
         )
 
+    from subsystems.classification.carousel_hardware import BACKOFF_STEPS, HOME_SPEED_MICROSTEPS_PER_SEC
+
+    stepper = carousel_hw.stepper
+    home_pin = carousel_hw.home_pin
+
     try:
         stepper.enabled = True
 
-        # Back off the endstop
-        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
+        stepper.move_steps_blocking(-BACKOFF_STEPS, timeout_ms=5000)
 
-        # Zero position counter at this point
         stepper.position = 0
 
-        # Move CW until endstop triggers again (full rotation) using firmware home
         stepper.home(
-            CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC,
-            home_pin_obj,
-            home_pin_active_high=endstop_active_high,
+            HOME_SPEED_MICROSTEPS_PER_SEC,
+            home_pin,
+            home_pin_active_high=carousel_hw.endstop_active_high,
         )
         start = time.monotonic()
         while not stepper.stopped:
@@ -1733,7 +1582,7 @@ def calibrate_carousel() -> Dict[str, Any]:
                 raise TimeoutError("Carousel calibration timed out.")
             time.sleep(0.01)
 
-        if not _read_endstop():
+        if not carousel_hw.endstop_triggered:
             raise HTTPException(
                 status_code=409,
                 detail="Calibration failed: endstop did not trigger after full rotation.",
@@ -1741,7 +1590,6 @@ def calibrate_carousel() -> Dict[str, Any]:
 
         measured_steps = abs(stepper.position)
 
-        # Save to config
         params_path, config = _read_machine_params_config()
         carousel_config = config.get("carousel", {})
         if not isinstance(carousel_config, dict):
@@ -1750,10 +1598,7 @@ def calibrate_carousel() -> Dict[str, Any]:
         config["carousel"] = carousel_config
         _write_machine_params_config(params_path, config)
 
-        # Update stepper in-memory
         stepper.steps_per_revolution = measured_steps
-
-        # Re-zero position at the endstop
         stepper.position_degrees = 0.0
 
     except HTTPException:

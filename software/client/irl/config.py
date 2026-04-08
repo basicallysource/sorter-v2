@@ -16,7 +16,8 @@ if TYPE_CHECKING:
     from machine_platform.control_board import ControlBoard
     from machine_platform.machine_profile import MachineProfile
     from machine_platform.servo_controller import ServoController
-    from hardware.sorter_interface import StepperMotor, ServoMotor
+    from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalInputPin
+    from subsystems.classification.carousel_hardware import CarouselHardware
     from subsystems.distribution.chute import Chute
 
 from .bin_layout import (
@@ -37,6 +38,7 @@ from .parse_user_toml import (
     loadStepperDirectionInverts,
     loadServoChannelConfig,
     loadWaveshareServoConfig,
+    loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
@@ -308,6 +310,8 @@ class IRLConfig:
 
 class IRLInterface:
     carousel_stepper: "StepperMotor"
+    carousel_home_pin: "DigitalInputPin"
+    carousel_hw: "CarouselHardware"
     chute_stepper: "StepperMotor"
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
@@ -847,6 +851,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     }
 
     stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
+    feeder_board: "ControlBoard | None" = None
     distribution_board: "ControlBoard | None" = None
 
     for board in control_boards:
@@ -865,6 +870,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                     board,
                 )
             )
+        if board.identity.role == "feeder":
+            feeder_board = board
         if board.identity.role == "distribution":
             distribution_board = board
 
@@ -1002,21 +1009,34 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         else:
             gc.logger.warn("Saved bin categories don't match layout, ignoring")
 
+    from subsystems.classification.carousel_hardware import CarouselHardware
+    carousel_calibration = loadCarouselCalibrationConfig(gc, machine_specific_params)
+
+    if feeder_board is None:
+        raise RuntimeError("Feeder board not found — cannot initialize carousel homing")
+    carousel_home_pin = feeder_board.get_input(carousel_calibration.home_pin_channel)
+    if carousel_home_pin is None:
+        raise RuntimeError(
+            f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
+        )
+    irl_interface.carousel_home_pin = carousel_home_pin
+    irl_interface.carousel_hw = CarouselHardware(
+        gc,
+        irl_interface.carousel_stepper,
+        carousel_home_pin,
+        endstop_active_high=carousel_calibration.endstop_active_high,
+    )
+
     from subsystems.distribution.chute import Chute
+    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
-    chute_home_pin = distribution_board.get_input("chute_home")
+    chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
     if chute_home_pin is None:
-        gc.logger.warning(
-            "Distribution board does not declare a chute_home input alias; "
-            "falling back to digital input channel 3."
+        raise RuntimeError(
+            f"Distribution board chute home input channel {chute_calibration.home_pin_channel} is unavailable."
         )
-        chute_home_pin = distribution_board.get_input(3)
-    if chute_home_pin is None:
-        raise RuntimeError("Distribution board chute home input is unavailable.")
-
-    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
     irl_interface.chute = Chute(
         gc,
         irl_interface.chute_stepper,

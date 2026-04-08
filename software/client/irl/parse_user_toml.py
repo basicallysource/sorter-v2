@@ -371,7 +371,14 @@ class WaveshareServoConfig:
 
 
 @dataclass
+class CarouselCalibrationConfig:
+    home_pin_channel: int = 0
+    endstop_active_high: bool = False
+
+
+@dataclass
 class ChuteCalibrationConfig:
+    home_pin_channel: int = 0
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
@@ -482,6 +489,13 @@ def loadChuteCalibrationConfig(
         gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
         return ChuteCalibrationConfig()
 
+    home_pin_channel = chute_params.get("home_pin_channel", 0)
+    if not isinstance(home_pin_channel, int) or isinstance(home_pin_channel, bool):
+        gc.logger.warning(
+            f"Invalid chute.home_pin_channel={home_pin_channel!r}; using default 0."
+        )
+        home_pin_channel = 0
+
     first_bin_center = chute_params.get(
         "first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER
     )
@@ -519,8 +533,47 @@ def loadChuteCalibrationConfig(
         endstop_active_high = True
 
     return ChuteCalibrationConfig(
+        home_pin_channel=home_pin_channel,
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
+        endstop_active_high=endstop_active_high,
+    )
+
+
+def loadCarouselCalibrationConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> CarouselCalibrationConfig:
+    raw = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return CarouselCalibrationConfig()
+
+    carousel_params = raw.get("carousel")
+    if carousel_params is None:
+        return CarouselCalibrationConfig()
+    if not isinstance(carousel_params, dict):
+        gc.logger.warning("Ignoring invalid carousel config: expected object. Using defaults.")
+        return CarouselCalibrationConfig()
+
+    home_pin_channel = carousel_params.get("home_pin_channel", 0)
+    if not isinstance(home_pin_channel, int) or isinstance(home_pin_channel, bool):
+        gc.logger.warning(
+            f"Invalid carousel.home_pin_channel={home_pin_channel!r}; using default 0."
+        )
+        home_pin_channel = 0
+
+    endstop_active_high = carousel_params.get("endstop_active_high", False)
+    if not isinstance(endstop_active_high, bool):
+        gc.logger.warning(
+            f"Invalid carousel.endstop_active_high={endstop_active_high!r}; using default False."
+        )
+        endstop_active_high = False
+
+    return CarouselCalibrationConfig(
+        home_pin_channel=home_pin_channel,
         endstop_active_high=endstop_active_high,
     )
 

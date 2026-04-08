@@ -63,10 +63,15 @@
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
+	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
 	let invertByLayer = $state<Record<number, boolean>>({});
+
+	// per-layer angle overrides (1-based layer index → angle or empty string for "use global")
+	let openAngleByLayer = $state<Record<number, string>>({});
+	let closedAngleByLayer = $state<Record<number, string>>({});
 
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
@@ -159,7 +164,7 @@
 	function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? {};
 		const servo = payload?.servo ?? {};
-		const storageLayers = Array.isArray(storage?.layers) ? storage.layers : [];
+		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
 
 		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
@@ -181,7 +186,11 @@
 				)
 			: [];
 
-		layerCount = Math.max(storageLayers.length, Number(servo.layer_count ?? 0));
+		layerCount = Math.max(storageLayersRaw.length, Number(servo.layer_count ?? 0));
+		storageLayers = storageLayersRaw.map((sl: any) => ({
+			bin_count: Number(sl?.bin_count ?? 12),
+			enabled: sl?.enabled !== false,
+		}));
 
 		const newAssignments: Record<number, number> = {};
 		const newInverts: Record<number, boolean> = {};
@@ -194,6 +203,20 @@
 		}
 		layerByAssignment = newAssignments;
 		invertByLayer = newInverts;
+
+		const newOpenAngles: Record<number, string> = {};
+		const newClosedAngles: Record<number, string> = {};
+		for (let i = 0; i < storageLayersRaw.length; i++) {
+			const sl = storageLayersRaw[i];
+			if (typeof sl?.servo_open_angle === 'number') {
+				newOpenAngles[i + 1] = String(sl.servo_open_angle);
+			}
+			if (typeof sl?.servo_closed_angle === 'number') {
+				newClosedAngles[i + 1] = String(sl.servo_closed_angle);
+			}
+		}
+		openAngleByLayer = newOpenAngles;
+		closedAngleByLayer = newClosedAngles;
 	}
 
 	async function loadSettings() {
@@ -449,12 +472,39 @@
 		return channels;
 	}
 
+	function buildStorageLayersForSave() {
+		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		for (let i = 0; i < layerCount; i++) {
+			const sl = storageLayers[i];
+			const openStr = openAngleByLayer[i + 1] ?? '';
+			const closedStr = closedAngleByLayer[i + 1] ?? '';
+			const openVal = openStr !== '' ? Number(openStr) : null;
+			const closedVal = closedStr !== '' ? Number(closedStr) : null;
+			result.push({
+				bin_count: sl?.bin_count ?? 12,
+				enabled: sl?.enabled ?? true,
+				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
+				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
+			});
+		}
+		return result;
+	}
+
 	async function saveServoSetup() {
 		saving = true;
 		errorMsg = null;
 		statusMsg = '';
 		try {
 			const channels = buildChannelsForSave();
+
+			const storageLayers = buildStorageLayersForSave();
+			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ layers: storageLayers })
+			});
+			if (!storageRes.ok) throw new Error(await storageRes.text());
+
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/servo`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -676,6 +726,45 @@
 								{/if}
 							</div>
 
+							{#if layer > 0}
+								<div class="border-t border-border bg-bg/40 px-4 py-3">
+									<div class="text-[10px] uppercase tracking-wider text-text-muted">Angle overrides for Layer {layer}</div>
+									<div class="mt-2 grid gap-3 sm:grid-cols-2 max-w-sm">
+										<label class="flex flex-col gap-1 text-xs text-text-muted">
+											<span>Open angle (°)</span>
+											<input
+												type="number"
+												min="0"
+												max="180"
+												placeholder={String(openAngle)}
+												value={openAngleByLayer[layer] ?? ''}
+												oninput={(event) => {
+													const val = (event.currentTarget as HTMLInputElement).value;
+													openAngleByLayer = { ...openAngleByLayer, [layer]: val };
+												}}
+												class="setup-control px-2 py-1.5 text-text"
+											/>
+										</label>
+										<label class="flex flex-col gap-1 text-xs text-text-muted">
+											<span>Closed angle (°)</span>
+											<input
+												type="number"
+												min="0"
+												max="180"
+												placeholder={String(closedAngle)}
+												value={closedAngleByLayer[layer] ?? ''}
+												oninput={(event) => {
+													const val = (event.currentTarget as HTMLInputElement).value;
+													closedAngleByLayer = { ...closedAngleByLayer, [layer]: val };
+												}}
+												class="setup-control px-2 py-1.5 text-text"
+											/>
+										</label>
+									</div>
+									<div class="mt-1 text-[10px] text-text-muted">Leave blank to use the default angles ({openAngle}° / {closedAngle}°)</div>
+								</div>
+							{/if}
+
 							<div class="border-t border-border bg-bg/40 px-4 py-3">
 								<div class="text-[10px] uppercase tracking-wider text-text-muted">Actions</div>
 								<div class="mt-2 flex flex-wrap items-center gap-2">
@@ -736,11 +825,9 @@
 		</div>
 	{:else}
 		<div class="setup-panel p-4">
-			<div class="text-sm font-semibold text-text">Open/close angles</div>
+			<div class="text-sm font-semibold text-text">Default open/close angles</div>
 			<div class="mt-1 text-xs text-text-muted">
-				PCA9685 servos can't store calibrated limits on the device, so the same open/close
-				angles apply to every channel. Use the layer's <span class="font-medium text-text">Invert</span>
-				toggle below if a specific layer is mounted upside-down.
+				Default angles used for layers that don't have a custom override set below.
 			</div>
 			<div class="mt-3 grid gap-3 sm:grid-cols-2">
 				<label class="flex flex-col gap-1 text-xs text-text-muted">
@@ -778,6 +865,8 @@
 							<th class="px-3 py-2 font-medium">Layer</th>
 							<th class="px-3 py-2 font-medium">Channel</th>
 							<th class="px-3 py-2 font-medium">Invert</th>
+							<th class="px-3 py-2 font-medium">Open °</th>
+							<th class="px-3 py-2 font-medium">Closed °</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -821,6 +910,34 @@
 										/>
 										<span>{invertByLayer[layerIdx] ? 'Yes' : 'No'}</span>
 									</label>
+								</td>
+								<td class="px-3 py-2">
+									<input
+										type="number"
+										min="0"
+										max="180"
+										placeholder={String(openAngle)}
+										value={openAngleByLayer[layerIdx] ?? ''}
+										oninput={(event) => {
+											const val = (event.currentTarget as HTMLInputElement).value;
+											openAngleByLayer = { ...openAngleByLayer, [layerIdx]: val };
+										}}
+										class="setup-control w-20 px-2 py-1.5 text-text"
+									/>
+								</td>
+								<td class="px-3 py-2">
+									<input
+										type="number"
+										min="0"
+										max="180"
+										placeholder={String(closedAngle)}
+										value={closedAngleByLayer[layerIdx] ?? ''}
+										oninput={(event) => {
+											const val = (event.currentTarget as HTMLInputElement).value;
+											closedAngleByLayer = { ...closedAngleByLayer, [layerIdx]: val };
+										}}
+										class="setup-control w-20 px-2 py-1.5 text-text"
+									/>
 								</td>
 							</tr>
 						{/each}

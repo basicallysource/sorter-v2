@@ -1,5 +1,3 @@
-import json
-import os
 from typing import List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -9,6 +7,8 @@ from enum import Enum
 class LayerConfig:
     sections: List[List[str]]
     enabled: bool = True
+    servo_open_angle: int | None = None
+    servo_closed_angle: int | None = None
 
 
 @dataclass
@@ -94,17 +94,26 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 
 
 def getBinLayout() -> BinLayoutConfig:
-    path = os.environ.get("BIN_LAYOUT_PATH")
-    if path is None:
+    from local_state import get_bin_layout
+
+    data = get_bin_layout()
+    if data is None:
         return DEFAULT_BIN_LAYOUT
 
-    with open(path, "r") as f:
-        data = json.load(f)
+    if not isinstance(data, dict) or not isinstance(data.get("layers"), list):
+        return DEFAULT_BIN_LAYOUT
 
     layers = []
     for layer_idx, layer_data in enumerate(data["layers"]):
+        if not isinstance(layer_data, dict):
+            continue
+        sections_raw = layer_data.get("sections")
+        if not isinstance(sections_raw, list):
+            continue
         sections = []
-        for section_data in layer_data["sections"]:
+        for section_data in sections_raw:
+            if not isinstance(section_data, list):
+                continue
             for bin_size in section_data:
                 if bin_size not in VALID_BIN_SIZES:
                     raise ValueError(
@@ -115,8 +124,34 @@ def getBinLayout() -> BinLayoutConfig:
         enabled = layer_data.get("enabled", True)
         if not isinstance(enabled, bool):
             enabled = True
-        layers.append(LayerConfig(sections=sections, enabled=enabled))
+        servo_open = layer_data.get("servo_open_angle")
+        servo_close = layer_data.get("servo_closed_angle")
+        layers.append(LayerConfig(
+            sections=sections,
+            enabled=enabled,
+            servo_open_angle=servo_open if isinstance(servo_open, int) else None,
+            servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
+        ))
+    if not layers:
+        return DEFAULT_BIN_LAYOUT
     return BinLayoutConfig(layers=layers)
+
+
+def saveBinLayout(config: BinLayoutConfig) -> None:
+    from local_state import set_bin_layout
+
+    data = {
+        "layers": [
+            {
+                "sections": layer.sections,
+                "enabled": layer.enabled,
+                "servo_open_angle": layer.servo_open_angle,
+                "servo_closed_angle": layer.servo_closed_angle,
+            }
+            for layer in config.layers
+        ]
+    }
+    set_bin_layout(data)
 
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:

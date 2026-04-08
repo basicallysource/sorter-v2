@@ -21,13 +21,11 @@ from blob_manager import getBinCategories, setBinCategories
 from global_config import mkGlobalConfig
 from irl.bin_layout import (
     BinLayoutConfig,
-    DEFAULT_BIN_LAYOUT,
-    LayerConfig,
+    getBinLayout,
     applyCategories,
     layoutMatchesCategories,
     mkLayoutFromConfig,
 )
-from irl.parse_user_toml import loadMachineConfig
 
 
 HTML = """
@@ -546,12 +544,7 @@ def cloneData(data):
 
 
 def getBinLayoutConfigFromMain(gc) -> BinLayoutConfig:
-    machine_config = loadMachineConfig(gc)
-    if machine_config.layer_sections:
-        return BinLayoutConfig(
-            layers=[LayerConfig(sections=sections) for sections in machine_config.layer_sections]
-        )
-    return DEFAULT_BIN_LAYOUT
+    return getBinLayout()
 
 
 def loadSortingCategoriesFromMain(gc) -> list[dict[str, str]]:

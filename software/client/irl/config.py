@@ -22,8 +22,6 @@ if TYPE_CHECKING:
 from .bin_layout import (
     getBinLayout,
     BinLayoutConfig,
-    LayerConfig,
-    DEFAULT_BIN_LAYOUT,
     DistributionLayout,
     mkLayoutFromConfig,
     layoutMatchesCategories,
@@ -958,22 +956,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
 
     bin_layout = config.bin_layout_config
-    if machine_config.layer_sections:
-        previous_layers = config.bin_layout_config.layers
-        bin_layout = BinLayoutConfig(
-            layers=[
-                LayerConfig(
-                    sections=sections,
-                    enabled=(
-                        previous_layers[index].enabled
-                        if index < len(previous_layers)
-                        else True
-                    ),
-                )
-                for index, sections in enumerate(machine_config.layer_sections)
-            ]
-        )
-
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
@@ -996,12 +978,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             irl_interface.distribution_layout
         )
         for layer_index, servo in enumerate(irl_interface.servos):
-            open_angle = machine_config.servo_open_angle_overrides.get(
-                layer_index, servo_open_angle
-            )
-            closed_angle = machine_config.servo_closed_angle_overrides.get(
-                layer_index, servo_closed_angle
-            )
+            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
+            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+            open_angle = layer_open if layer_open is not None else servo_open_angle
+            closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
             if hasattr(servo, "set_preset_angles"):
                 servo.set_preset_angles(open_angle, closed_angle)
         restore_servo_states(irl_interface.servos, gc)

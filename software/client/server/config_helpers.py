@@ -1,11 +1,10 @@
-"""Shared config I/O helpers for reading/writing machine_params.toml and bin_layout.json.
+"""Shared config I/O helpers for reading/writing machine_params.toml.
 
 Used by hardware, steppers, and cameras routers.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import threading
@@ -14,8 +13,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import HTTPException
-
-from irl.bin_layout import getBinLayout
 
 _CONFIG_WRITE_LOCK = threading.Lock()
 
@@ -30,14 +27,6 @@ def machine_params_path() -> str:
     if params_path:
         return params_path
     return _default_client_config_path("machine_params.toml")
-
-
-def bin_layout_path() -> str:
-    """Return the bin layout path from env, or the repo-local default."""
-    layout_path = os.getenv("BIN_LAYOUT_PATH")
-    if layout_path:
-        return layout_path
-    return _default_client_config_path("bin_layout.json")
 
 
 def read_machine_params_config(
@@ -56,15 +45,6 @@ def read_machine_params_config(
             return params_path, tomllib.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read config: {e}")
-
-
-def read_bin_layout_config() -> tuple[str, Any]:
-    """Read the bin layout JSON file."""
-    layout_path = bin_layout_path()
-    try:
-        return layout_path, getBinLayout()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read bin layout: {e}")
 
 
 def toml_value(v: object) -> str | None:
@@ -158,23 +138,6 @@ def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
             _write_table(lines, k, v)
 
     _atomic_write_text(path, "\n".join(lines) + "\n")
-
-
-def write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
-    """Serialize bin layout to JSON and write to disk."""
-    payload = {
-        "layers": [
-            {
-                "enabled": bool(layer.get("enabled", True)),
-                "sections": [
-                    [layer["bin_size"]] * layer["bins_per_section"]
-                    for _ in range(layer["section_count"])
-                ]
-            }
-            for layer in layers
-        ]
-    }
-    _atomic_write_text(path, json.dumps(payload, indent=2) + "\n")
 
 
 def _atomic_write_text(path: str, content: str) -> None:

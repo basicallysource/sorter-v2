@@ -26,6 +26,7 @@ _STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
+_STATE_KEY_BIN_LAYOUT = "bin_layout"
 
 
 def local_state_db_path() -> Path:
@@ -245,6 +246,43 @@ def _migrate_misc_state_files(conn: sqlite3.Connection) -> None:
         _migrate_state_key(conn, _STATE_KEY_SET_PROGRESS, set_progress)
 
 
+def _migrate_bin_layout_from_toml(conn: sqlite3.Connection) -> None:
+    if _get_json(conn, _STATE_KEY_BIN_LAYOUT) is not None:
+        return
+
+    config = _read_machine_params()
+    layers_table = config.get("layers")
+    if not isinstance(layers_table, dict):
+        return
+
+    raw_sections = layers_table.get("sections")
+    if not isinstance(raw_sections, list) or not raw_sections:
+        return
+
+    open_angles = layers_table.get("servo_open_angles", {})
+    if not isinstance(open_angles, dict):
+        open_angles = {}
+    closed_angles = layers_table.get("servo_closed_angles", {})
+    if not isinstance(closed_angles, dict):
+        closed_angles = {}
+
+    layers = []
+    for i, sections in enumerate(raw_sections):
+        if not isinstance(sections, list):
+            continue
+        layer: dict[str, Any] = {"sections": sections, "enabled": True}
+        open_val = open_angles.get(str(i))
+        closed_val = closed_angles.get(str(i))
+        if isinstance(open_val, int):
+            layer["servo_open_angle"] = open_val
+        if isinstance(closed_val, int):
+            layer["servo_closed_angle"] = closed_val
+        layers.append(layer)
+
+    if layers:
+        _set_json(conn, _STATE_KEY_BIN_LAYOUT, {"layers": layers})
+
+
 def _cleanup_machine_params_runtime_sections(conn: sqlite3.Connection) -> None:
     config_path = _legacy_machine_params_path()
     config = _read_machine_params()
@@ -298,6 +336,7 @@ def initialize_local_state() -> None:
             _migrate_from_polygons_json(conn)
             _migrate_from_data_json(conn)
             _migrate_misc_state_files(conn)
+            _migrate_bin_layout_from_toml(conn)
             _cleanup_machine_params_runtime_sections(conn)
             conn.commit()
 
@@ -467,3 +506,12 @@ def get_set_progress_state() -> dict[str, Any] | None:
 def set_set_progress_state(state: dict[str, Any] | None) -> None:
     normalized = dict(state) if isinstance(state, dict) else None
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
+
+
+def get_bin_layout() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_BIN_LAYOUT)
+    return value if isinstance(value, dict) else None
+
+
+def set_bin_layout(layout: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_BIN_LAYOUT, dict(layout))

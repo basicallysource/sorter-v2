@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
 import time
-import threading
-import tomllib
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from irl.bin_layout import getBinLayout
+from irl.bin_layout import getBinLayout, saveBinLayout, BinLayoutConfig, LayerConfig
 from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -85,6 +81,8 @@ class MoveToBinPayload(BaseModel):
 class StorageLayerPayload(BaseModel):
     bin_count: int
     enabled: bool = True
+    servo_open_angle: Optional[int] = None
+    servo_closed_angle: Optional[int] = None
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -109,12 +107,9 @@ CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 from server.config_helpers import (
     machine_params_path as _camera_params_path,
-    bin_layout_path as _bin_layout_path,
     read_machine_params_config as _read_machine_params_config,
-    read_bin_layout_config as _read_bin_layout_config,
     toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
-    write_bin_layout_config as _write_bin_layout_config,
 )
 
 
@@ -467,15 +462,20 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             if bin_size != "medium":
                 break
 
-        layers.append(
-            {
-                "index": index,
-                "bin_count": bin_count,
-                "section_count": section_count,
-                "bin_size": bin_size,
-                "enabled": enabled,
-            }
-        )
+        layer_entry: Dict[str, Any] = {
+            "index": index,
+            "bin_count": bin_count,
+            "section_count": section_count,
+            "bin_size": bin_size,
+            "enabled": enabled,
+        }
+        servo_open = getattr(layer, "servo_open_angle", None)
+        servo_closed = getattr(layer, "servo_closed_angle", None)
+        if isinstance(servo_open, int):
+            layer_entry["servo_open_angle"] = servo_open
+        if isinstance(servo_closed, int):
+            layer_entry["servo_closed_angle"] = servo_closed
+        layers.append(layer_entry)
 
     return {
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
@@ -717,7 +717,7 @@ def _stop_all_steppers() -> None:
 @router.get("/api/hardware-config")
 def get_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
-    _, layout = _read_bin_layout_config()
+    layout = getBinLayout()
     return {
         "storage_layers": _storage_layer_settings_from_layout(layout),
         "servo": _servo_settings_from_config(config),
@@ -1693,12 +1693,17 @@ def cancel_carousel_home_to_endstop() -> Dict[str, Any]:
 def save_storage_layer_hardware_config(
     payload: StorageLayerSettingsPayload,
 ) -> Dict[str, Any]:
-    layout_path, layout = _read_bin_layout_config()
+    layout = getBinLayout()
     current = _storage_layer_settings_from_layout(layout)
     requested_layers = list(payload.layers)
     if requested_layers:
         layer_updates = [
-            {"bin_count": int(layer.bin_count), "enabled": bool(layer.enabled)}
+            {
+                "bin_count": int(layer.bin_count),
+                "enabled": bool(layer.enabled),
+                "servo_open_angle": layer.servo_open_angle,
+                "servo_closed_angle": layer.servo_closed_angle,
+            }
             for layer in requested_layers
         ]
     else:
@@ -1706,6 +1711,8 @@ def save_storage_layer_hardware_config(
             {
                 "bin_count": int(count),
                 "enabled": bool(layer.get("enabled", True)),
+                "servo_open_angle": layer.get("servo_open_angle"),
+                "servo_closed_angle": layer.get("servo_closed_angle"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
@@ -1716,10 +1723,10 @@ def save_storage_layer_hardware_config(
             detail=f"Expected {len(current['layers'])} storage layers, got {len(layer_updates)}.",
         )
 
-    updated_layers: List[Dict[str, Any]] = []
+    new_layer_configs: List[LayerConfig] = []
     layout_changed = False
     enabled_changed = False
-    for layer_update, layer in zip(layer_updates, current["layers"]):
+    for layer_update, cur_layer in zip(layer_updates, current["layers"]):
         count = int(layer_update["bin_count"])
         enabled = bool(layer_update["enabled"])
         if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
@@ -1728,26 +1735,31 @@ def save_storage_layer_hardware_config(
                 detail=f"Each layer bin count must be one of {ALLOWED_STORAGE_LAYER_BIN_COUNTS}.",
             )
 
-        section_count = int(layer["section_count"])
+        section_count = int(cur_layer["section_count"])
         if section_count <= 0 or count % section_count != 0:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Layer {layer['index']} cannot be configured to {count} bins "
+                    f"Layer {cur_layer['index']} cannot be configured to {count} bins "
                     f"with its current {section_count} sections."
                 ),
             )
 
-        updated_layers.append(
-            {
-                "section_count": section_count,
-                "bin_size": layer["bin_size"],
-                "bins_per_section": count // section_count,
-                "enabled": enabled,
-            }
-        )
-        layout_changed = layout_changed or count != int(layer["bin_count"])
-        enabled_changed = enabled_changed or enabled != bool(layer.get("enabled", True))
+        bins_per_section = count // section_count
+        bin_size = cur_layer["bin_size"]
+        sections = [[bin_size] * bins_per_section for _ in range(section_count)]
+
+        servo_open = layer_update.get("servo_open_angle")
+        servo_closed = layer_update.get("servo_closed_angle")
+
+        new_layer_configs.append(LayerConfig(
+            sections=sections,
+            enabled=enabled,
+            servo_open_angle=servo_open if isinstance(servo_open, int) else None,
+            servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
+        ))
+        layout_changed = layout_changed or count != int(cur_layer["bin_count"])
+        enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
 
     if not layout_changed and not enabled_changed:
         return {
@@ -1759,11 +1771,11 @@ def save_storage_layer_hardware_config(
         }
 
     try:
-        _write_bin_layout_config(layout_path, updated_layers)
+        saveBinLayout(BinLayoutConfig(layers=new_layer_configs))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write bin layout: {e}")
 
-    _, saved_layout = _read_bin_layout_config()
+    saved_layout = getBinLayout()
     saved_settings = _storage_layer_settings_from_layout(saved_layout)
     applied_live = False
     restart_required = layout_changed
@@ -1795,7 +1807,7 @@ def save_storage_layer_hardware_config(
 @router.get("/api/bins/layout")
 def get_bins_layout() -> Dict[str, Any]:
     """Return the full bin grid: layers → sections → bins, with chute angles."""
-    _, layout_config = _read_bin_layout_config()
+    layout_config = getBinLayout()
     _, config = _read_machine_params_config()
     chute_cfg = _chute_settings_from_config(config)
     first_bin_center = float(chute_cfg.get("first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER))

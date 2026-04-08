@@ -1541,7 +1541,7 @@
 							>
 								<div class="mx-auto flex max-w-xl flex-col items-center gap-4">
 									<div
-										class="flex h-20 w-20 items-center justify-center rounded-full bg-[#00852B] text-white shadow-[0_8px_24px_-6px_rgba(0,133,43,0.55)]"
+										class="flex h-20 w-20 items-center justify-center rounded-full bg-[#00852B] text-white"
 									>
 										<Check size={44} strokeWidth={3} />
 									</div>

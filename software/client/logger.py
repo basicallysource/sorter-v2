@@ -45,6 +45,21 @@ class Logger:
             self._log_file.write(line + "\n")
             self._log_file.flush()
 
+    def _formatMessage(self, msg: str, *args, **kwargs) -> str:
+        if args:
+            try:
+                msg = msg % args
+            except Exception:
+                msg = " ".join([msg, *[str(arg) for arg in args]])
+        if kwargs:
+            try:
+                msg = msg.format(**kwargs)
+            except Exception:
+                extras = " ".join(f"{key}={value!r}" for key, value in kwargs.items())
+                if extras:
+                    msg = f"{msg} {extras}"
+        return msg
+
     def _addToBuffer(self, entry: LogEntry) -> None:
         with self._buffer_lock:
             self._buffer.append(entry)
@@ -65,28 +80,32 @@ class Logger:
         )
         thread.start()
 
-    def error(self, msg: str, **kwargs) -> None:
+    def error(self, msg: str, *args, **kwargs) -> None:
+        msg = self._formatMessage(msg, *args, **kwargs)
         entry = LogEntry("ERROR", msg)
         self._addToBuffer(entry)
         self._log("ERROR", msg)
 
-    def warn(self, msg: str, **kwargs) -> None:
+    def warn(self, msg: str, *args, **kwargs) -> None:
         if self.debug_level > 0:
+            msg = self._formatMessage(msg, *args, **kwargs)
             entry = LogEntry("WARN", msg)
             self._addToBuffer(entry)
             self._log("WARN", msg)
 
-    def warning(self, msg: str) -> None:
-        self.warn(msg)
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self.warn(msg, *args, **kwargs)
 
-    def info(self, msg: str) -> None:
+    def info(self, msg: str, *args, **kwargs) -> None:
         if self.debug_level > 1:
+            msg = self._formatMessage(msg, *args, **kwargs)
             entry = LogEntry("INFO", msg)
             self._addToBuffer(entry)
             self._log("INFO", msg)
 
-    def debug(self, msg: str) -> None:
+    def debug(self, msg: str, *args, **kwargs) -> None:
         if self.debug_level > 2:
+            msg = self._formatMessage(msg, *args, **kwargs)
             entry = LogEntry("DEBUG", msg)
             self._addToBuffer(entry)
             self._log("DEBUG", msg)

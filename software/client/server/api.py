@@ -16,11 +16,13 @@ from blob_manager import (
     getApiKeys,
     getMachineId,
     getMachineNickname,
+    getSortingProfileSyncState,
     setMachineNickname,
 )
 from runtime_variables import VARIABLE_DEFS
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
+from server.set_progress_sync import getSetProgressSyncWorker
 
 from server.shared_state import (
     active_connections,
@@ -47,10 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load persisted API keys into environment at import time (overrides env vars)
-_saved_api_keys = getApiKeys()
-if _saved_api_keys.get("openrouter"):
-    os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
+def _load_saved_api_keys_into_environment() -> None:
+    saved_api_keys = getApiKeys()
+    if saved_api_keys.get("openrouter"):
+        os.environ["OPENROUTER_API_KEY"] = saved_api_keys["openrouter"]
 
 # ---------------------------------------------------------------------------
 # Include routers
@@ -61,12 +63,18 @@ from server.routers.steppers import router as steppers_router
 from server.routers.cameras import router as cameras_router
 from server.routers.detection import router as detection_router
 from server.routers.aruco import router as aruco_router
+from server.routers.sorting_profiles import router as sorting_profiles_router
+from server.routers.system import router as system_router
+from server.routers.setup import router as setup_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
 app.include_router(cameras_router)
 app.include_router(detection_router)
 app.include_router(aruco_router)
+app.include_router(sorting_profiles_router)
+app.include_router(system_router)
+app.include_router(setup_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -75,11 +83,14 @@ app.include_router(aruco_router)
 
 @app.on_event("startup")
 async def onStartup() -> None:
+    _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
+    getSetProgressSyncWorker().start()
 
 
 @app.on_event("shutdown")
 async def onShutdown() -> None:
+    getSetProgressSyncWorker().stop()
     shutdownCameraDiscovery()
 
 
@@ -153,6 +164,7 @@ class SortingProfileCategoryMeta(BaseModel):
 
 class SortingProfileFallbackMode(BaseModel):
     rebrickable_categories: bool
+    bricklink_categories: bool = False
     by_color: bool
 
 
@@ -166,6 +178,7 @@ class SortingProfileMetadataResponse(BaseModel):
     categories: Dict[str, SortingProfileCategoryMeta]
     rules: List[Dict[str, Any]]
     fallback_mode: SortingProfileFallbackMode
+    sync_state: Dict[str, Any] | None = None
 
 
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
@@ -175,11 +188,11 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
         data = json.load(f)
     return SortingProfileMetadataResponse(
-        id=data["id"],
-        name=data["name"],
+        id=data.get("id", ""),
+        name=data.get("name", os.path.basename(shared_state.gc_ref.sorting_profile_path)),
         description=data.get("description", ""),
-        created_at=data["created_at"],
-        updated_at=data["updated_at"],
+        created_at=data.get("created_at", ""),
+        updated_at=data.get("updated_at", ""),
         default_category_id=data.get("default_category_id", "misc"),
         categories={
             k: SortingProfileCategoryMeta(**v)
@@ -187,8 +200,12 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
         },
         rules=data.get("rules", []),
         fallback_mode=SortingProfileFallbackMode(
-            **data.get("fallback_mode", {"rebrickable_categories": False, "by_color": False})
+            **data.get(
+                "fallback_mode",
+                {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
+            )
         ),
+        sync_state=getSortingProfileSyncState(),
     )
 
 
@@ -209,6 +226,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             {
                 "tag": "runtime_stats",
                 "data": {"payload": shared_state.runtime_stats_snapshot},
+            }
+        )
+
+    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
+    if tracker is not None:
+        await websocket.send_json(
+            {
+                "tag": "set_progress",
+                "data": tracker.get_snapshot(),
             }
         )
 
@@ -332,6 +358,24 @@ def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
     if not isinstance(runtime_stats, dict):
         raise HTTPException(status_code=404, detail="runtime_stats_final missing")
     return RuntimeStatsResponse(payload=runtime_stats)
+
+
+# ---------------------------------------------------------------------------
+# Set Progress
+# ---------------------------------------------------------------------------
+
+
+class SetProgressResponse(BaseModel):
+    is_set_based: bool
+    progress: Dict[str, Any] | None = None
+
+
+@app.get("/api/set-progress", response_model=SetProgressResponse)
+def getSetProgress() -> SetProgressResponse:
+    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
+    if tracker is None:
+        return SetProgressResponse(is_set_based=False)
+    return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
 
 
 # ---------------------------------------------------------------------------

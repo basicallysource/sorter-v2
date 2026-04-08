@@ -73,3 +73,26 @@ class SaveSampleAnnotationsResponse(BaseModel):
     ok: bool
     annotation_count: int
     data: SampleAnnotationsPayload
+
+
+class SampleClassificationPayload(BaseModel):
+    version: Literal["sorthive-classification-v1"] = "sorthive-classification-v1"
+    updated_at: datetime | None = None
+    updated_by_display_name: str | None = None
+    part_id: str | None = None
+    item_name: str | None = None
+    color_id: str | None = None
+    color_name: str | None = None
+
+
+class SaveSampleClassificationRequest(BaseModel):
+    part_id: str | None = None
+    item_name: str | None = None
+    color_id: str | None = None
+    color_name: str | None = None
+
+
+class SaveSampleClassificationResponse(BaseModel):
+    ok: bool
+    cleared: bool = False
+    data: SampleClassificationPayload | None = None

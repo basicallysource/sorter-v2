@@ -1,0 +1,11 @@
+title: Sorter V2 Documentation
+description: Detector runtime findings, model artifacts, and target conversion workflows.
+markdown: kramdown
+kramdown:
+  input: GFM
+permalink: pretty
+exclude:
+  - README.md
+  - Gemfile.lock
+  - vendor
+  - .bundle

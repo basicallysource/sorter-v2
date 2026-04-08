@@ -15,12 +15,36 @@ from app.schemas.sample import (
     SampleListResponse,
     SampleResponse,
     SampleAnnotationsPayload,
+    SampleClassificationPayload,
     SaveSampleAnnotationsRequest,
     SaveSampleAnnotationsResponse,
+    SaveSampleClassificationRequest,
+    SaveSampleClassificationResponse,
 )
 from app.services.storage import delete_sample_files, get_file_path
 
 router = APIRouter(prefix="/api/samples", tags=["samples"])
+
+
+def _is_classification_sample(sample: Sample) -> bool:
+    if sample.source_role == "classification_chamber":
+        return True
+
+    extra_metadata = sample.extra_metadata or {}
+    if not isinstance(extra_metadata, dict):
+        return False
+
+    return (
+        extra_metadata.get("detection_scope") == "classification"
+        or sample.capture_reason == "live_classification"
+    )
+
+
+def _normalized_optional_string(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 @router.get("/filter-options")
@@ -141,6 +165,55 @@ def save_sample_annotations(
     return SaveSampleAnnotationsResponse(
         ok=True,
         annotation_count=len(data.annotations),
+        data=payload,
+    )
+
+
+@router.put("/{sample_id}/classification", response_model=SaveSampleClassificationResponse)
+def save_sample_classification(
+    sample_id: UUID,
+    data: SaveSampleClassificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    if not _is_classification_sample(sample):
+        raise APIError(
+            400,
+            "Manual classification is only supported for classification chamber samples.",
+            "UNSUPPORTED_SAMPLE_TYPE",
+        )
+
+    payload = SampleClassificationPayload(
+        part_id=_normalized_optional_string(data.part_id),
+        item_name=_normalized_optional_string(data.item_name),
+        color_id=_normalized_optional_string(data.color_id),
+        color_name=_normalized_optional_string(data.color_name),
+        updated_at=datetime.now(timezone.utc),
+        updated_by_display_name=current_user.display_name or current_user.email,
+    )
+
+    extra_metadata = dict(sample.extra_metadata or {})
+    if not any([payload.part_id, payload.item_name, payload.color_id, payload.color_name]):
+        extra_metadata.pop("manual_classification", None)
+        sample.extra_metadata = extra_metadata
+        db.add(sample)
+        db.commit()
+        return SaveSampleClassificationResponse(ok=True, cleared=True, data=None)
+
+    extra_metadata["manual_classification"] = payload.model_dump(mode="json")
+    sample.extra_metadata = extra_metadata
+
+    db.add(sample)
+    db.commit()
+
+    return SaveSampleClassificationResponse(
+        ok=True,
+        cleared=False,
         data=payload,
     )
 

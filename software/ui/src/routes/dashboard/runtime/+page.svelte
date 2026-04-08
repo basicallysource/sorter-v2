@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
+	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
 
 	type MachineStateStats = {
@@ -58,6 +60,85 @@
 	let composition_chart: InstanceType<ChartCtor> | null = null;
 	let gantt_chart: InstanceType<ChartCtor> | null = null;
 	let chart_constructor: ChartCtor | null = null;
+
+	function cssVar(name: string, fallback: string): string {
+		if (typeof document === 'undefined') return fallback;
+		const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+		return value || fallback;
+	}
+
+	function chartPalette() {
+		return {
+			text: cssVar('--color-text', '#1A1A1A'),
+			textMuted: cssVar('--color-text-muted', '#7A7770'),
+			border: cssVar('--color-border', '#E2E0DB'),
+			surface: cssVar('--color-surface', '#FFFFFF'),
+			background: cssVar('--color-bg', '#F7F6F3')
+		};
+	}
+
+	function applyChartTheme() {
+		if (!composition_chart || !gantt_chart) return;
+		const palette = chartPalette();
+		const grid_color = `${palette.border}CC`;
+
+		const composition_options = composition_chart.options as {
+			plugins?: { legend?: { labels?: Record<string, unknown> } };
+			scales?: {
+				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+			};
+		};
+		composition_options.plugins ??= {};
+		composition_options.plugins.legend ??= {};
+		composition_options.plugins.legend.labels ??= {};
+		composition_options.plugins.legend.labels.color = palette.text;
+		composition_options.scales ??= {};
+		composition_options.scales.x ??= {};
+		composition_options.scales.y ??= {};
+		composition_options.scales.x.ticks ??= {};
+		composition_options.scales.x.title ??= {};
+		composition_options.scales.x.grid ??= {};
+		composition_options.scales.y.ticks ??= {};
+		composition_options.scales.y.title ??= {};
+		composition_options.scales.y.grid ??= {};
+		composition_options.scales.x.ticks.color = palette.textMuted;
+		composition_options.scales.x.title.color = palette.text;
+		composition_options.scales.x.grid.color = grid_color;
+		composition_options.scales.y.ticks.color = palette.textMuted;
+		composition_options.scales.y.title.color = palette.text;
+		composition_options.scales.y.grid.color = grid_color;
+
+		const gantt_options = gantt_chart.options as {
+			plugins?: { tooltip?: Record<string, unknown> };
+			scales?: {
+				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
+			};
+		};
+		gantt_options.plugins ??= {};
+		gantt_options.plugins.tooltip ??= {};
+		gantt_options.plugins.tooltip.backgroundColor = palette.surface;
+		gantt_options.plugins.tooltip.titleColor = palette.text;
+		gantt_options.plugins.tooltip.bodyColor = palette.text;
+		gantt_options.plugins.tooltip.borderColor = palette.border;
+		gantt_options.plugins.tooltip.borderWidth = 1;
+		gantt_options.scales ??= {};
+		gantt_options.scales.x ??= {};
+		gantt_options.scales.y ??= {};
+		gantt_options.scales.x.ticks ??= {};
+		gantt_options.scales.x.title ??= {};
+		gantt_options.scales.x.grid ??= {};
+		gantt_options.scales.y.ticks ??= {};
+		gantt_options.scales.y.title ??= {};
+		gantt_options.scales.y.grid ??= {};
+		gantt_options.scales.x.ticks.color = palette.textMuted;
+		gantt_options.scales.x.title.color = palette.text;
+		gantt_options.scales.x.grid.color = grid_color;
+		gantt_options.scales.y.ticks.color = palette.textMuted;
+		gantt_options.scales.y.title.color = palette.text;
+		gantt_options.scales.y.grid.color = grid_color;
+	}
 
 	const runtime_stats = $derived(
 		(loaded_runtime_stats ?? machine_ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>
@@ -418,6 +499,7 @@
 				}
 			});
 			initialized = true;
+			applyChartTheme();
 			updateCharts();
 		});
 
@@ -436,6 +518,14 @@
 		runtime_stats;
 		if (!chart_constructor) return;
 		updateCharts();
+	});
+
+	$effect(() => {
+		$settings.theme;
+		if (!chart_constructor || !composition_chart || !gantt_chart) return;
+		applyChartTheme();
+		composition_chart.update('none');
+		gantt_chart.update('none');
 	});
 
 	const top_occupancy_states = $derived.by(() => {
@@ -464,21 +554,22 @@
 	}
 </script>
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-6">
+<div class="min-h-screen bg-bg p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<a
 				href="/"
-				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
+				class="p-2 text-text transition-colors hover:bg-surface"
 				title="Back"
 			>
 				<ArrowLeft size={20} />
 			</a>
-			<h1 class="dark:text-text-dark text-xl font-bold text-text">Runtime Dashboard</h1>
+			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
 		</div>
 		<div class="flex items-center gap-2">
+			<ThemeToggle />
 			<select
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_group}
 				onchange={(event) => (selected_group = (event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -488,7 +579,7 @@
 				<option value="distribution">Distribution</option>
 			</select>
 			<select
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_record_id}
 				onchange={(event) => selectRecord((event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -498,7 +589,7 @@
 				{/each}
 			</select>
 			<button
-				class="dark:border-border-dark dark:text-text-dark border border-border px-2 py-1 text-xs text-text"
+				class="border border-border px-2 py-1 text-xs text-text"
 				onclick={loadRecords}
 			>
 				Refresh
@@ -508,17 +599,17 @@
 	</div>
 
 	{#if records_error}
-		<div class="dark:text-red-400 mb-3 text-xs text-red-600">Record load error: {records_error}</div>
+		<div class="dark:text-red-400 mb-3 text-xs text-[#D01012]">Record load error: {records_error}</div>
 	{/if}
 
 	{#if !machine_ctx.machine && !loaded_runtime_stats}
-		<div class="dark:text-text-muted-dark py-12 text-center text-text-muted">
+		<div class="py-12 text-center text-text-muted">
 			No machine selected.
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
-				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+			<div class="border border-border bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-text">
 					Occupancy Share By Subsystem
 				</div>
 				<div class="h-[460px]">
@@ -526,8 +617,8 @@
 				</div>
 			</div>
 
-			<div class="dark:border-border-dark dark:bg-surface-dark border border-border bg-surface p-3">
-				<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+			<div class="border border-border bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-text">
 					Occupancy Gantt (Last {WINDOW_S}s)
 				</div>
 				<div class="h-[380px]">
@@ -536,16 +627,16 @@
 			</div>
 		</div>
 
-		<div class="dark:border-border-dark dark:bg-surface-dark mt-4 border border-border bg-surface p-3">
-			<div class="dark:text-text-dark mb-2 text-sm font-medium text-text">
+		<div class="mt-4 border border-border bg-surface p-3">
+			<div class="mb-2 text-sm font-medium text-text">
 				Top Occupancy Blocks (Run Total)
 			</div>
 			{#if top_occupancy_states.length === 0}
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">No occupancy data yet.</div>
+				<div class="text-xs text-text-muted">No occupancy data yet.</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
 					{#each top_occupancy_states as [name, seconds]}
-						<div class="dark:text-text-muted-dark flex items-center justify-between text-text-muted">
+						<div class="flex items-center justify-between text-text-muted">
 							<span class="truncate pr-2">{name}</span>
 							<span class="tabular-nums">{seconds.toFixed(2)}s</span>
 						</div>

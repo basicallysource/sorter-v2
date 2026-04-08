@@ -57,7 +57,7 @@ class SyncManager:
             if self.running:
                 self.stop_requested = True
 
-    def startPartsSync(self, gc, conn, parts_data) -> bool:
+    def startPartsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -69,11 +69,11 @@ class SyncManager:
             self.sync_type = "parts"
             self.error = None
             self.last_message = "Starting parts sync..."
-        t = threading.Thread(target=self._syncPartsLoop, args=(gc, conn, parts_data), daemon=True)
+        t = threading.Thread(target=self._syncPartsLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
 
-    def startCategoriesSync(self, gc, conn, parts_data) -> bool:
+    def startCategoriesSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -85,11 +85,11 @@ class SyncManager:
             self.sync_type = "categories"
             self.error = None
             self.last_message = "Syncing categories..."
-        t = threading.Thread(target=self._syncCategoriesOnce, args=(gc, conn, parts_data), daemon=True)
+        t = threading.Thread(target=self._syncCategoriesOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
 
-    def startColorsSync(self, gc, conn, parts_data) -> bool:
+    def startColorsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -101,11 +101,11 @@ class SyncManager:
             self.sync_type = "colors"
             self.error = None
             self.last_message = "Syncing colors..."
-        t = threading.Thread(target=self._syncColorsOnce, args=(gc, conn, parts_data), daemon=True)
+        t = threading.Thread(target=self._syncColorsOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
 
-    def startBrickstoreImport(self, gc, conn, parts_data) -> bool:
+    def startBrickstoreImport(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -117,11 +117,11 @@ class SyncManager:
             self.sync_type = "brickstore"
             self.error = None
             self.last_message = "Importing BrickStore DB..."
-        t = threading.Thread(target=self._importBrickstoreOnce, args=(gc, conn, parts_data), daemon=True)
+        t = threading.Thread(target=self._importBrickstoreOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
 
-    def startPriceSync(self, gc, conn, parts_data) -> bool:
+    def startPriceSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -136,9 +136,17 @@ class SyncManager:
             self.sync_type = "prices"
             self.error = None
             self.last_message = "Starting BrickLink price sync..."
-        t = threading.Thread(target=self._syncPricesLoop, args=(gc, conn, parts_data), daemon=True)
+        t = threading.Thread(target=self._syncPricesLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
+
+    def _invoke_callback(self, callback, *args) -> None:
+        if not callable(callback):
+            return
+        try:
+            callback(*args)
+        except Exception as exc:
+            print(f"[sync] callback failed: {exc}")
 
     def _throttle(self):
         elapsed = time.time() - self._last_request_time
@@ -148,7 +156,7 @@ class SyncManager:
         self._request_count += 1
         print(f"[rebrickable] request #{self._request_count}")
 
-    def _syncPartsLoop(self, gc, conn, parts_data) -> None:
+    def _syncPartsLoop(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             while True:
                 with self._lock:
@@ -166,48 +174,54 @@ class SyncManager:
                     with self._lock:
                         self.last_message = f'Sync complete! {result["cached"]} parts'
                     reloadPartsData(conn, parts_data)
+                    self._invoke_callback(on_complete)
                     break
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+            self._invoke_callback(on_error, e)
         finally:
             with self._lock:
                 self.running = False
                 self.stop_requested = False
                 self.sync_type = None
 
-    def _syncCategoriesOnce(self, gc, conn, parts_data) -> None:
+    def _syncCategoriesOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             count = _syncCategories(gc, conn, self._throttle)
             reloadPartsData(conn, parts_data)
             with self._lock:
                 self.last_message = f"Synced {count} categories"
+            self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+            self._invoke_callback(on_error, e)
         finally:
             with self._lock:
                 self.running = False
                 self.sync_type = None
 
-    def _syncColorsOnce(self, gc, conn, parts_data) -> None:
+    def _syncColorsOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             count = _syncColors(gc, conn, self._throttle)
             reloadPartsData(conn, parts_data)
             with self._lock:
                 self.last_message = f"Synced {count} colors"
+            self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+            self._invoke_callback(on_error, e)
         finally:
             with self._lock:
                 self.running = False
                 self.sync_type = None
 
-    def _importBrickstoreOnce(self, gc, conn, parts_data) -> None:
+    def _importBrickstoreOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             if not os.path.exists(gc.brickstore_db_path):
                 raise FileNotFoundError(f"BrickStore DB not found: {gc.brickstore_db_path}")
@@ -218,17 +232,19 @@ class SyncManager:
                     f"Imported {result['categories']} categories, "
                     f"{result['items']} items ({result['skipped']} skipped)"
                 )
+            self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+            self._invoke_callback(on_error, e)
         finally:
             with self._lock:
                 self.running = False
                 self.sync_type = None
 
 
-    def _syncPricesLoop(self, gc, conn, parts_data) -> None:
+    def _syncPricesLoop(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             result = syncBricklinkPrices(
                 conn,
@@ -248,10 +264,13 @@ class SyncManager:
                         f"Price sync complete: {result['updated']} / {result['total']} updated "
                         f"({result['batches']} batches)"
                     )
+            if not result["stopped"]:
+                self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+            self._invoke_callback(on_error, e)
         finally:
             with self._lock:
                 self.running = False

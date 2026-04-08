@@ -43,6 +43,11 @@
 		label,
 		source = null,
 		hasCamera = true,
+		showHeader = true,
+		calibrationReferenceImageSrc = '',
+		calibrationReferenceLinkUrl = '',
+		primaryActionLabel = 'Save',
+		allowPrimaryActionWithoutChanges = false,
 		onSaved,
 		onClose,
 		onPreviewChange,
@@ -52,6 +57,11 @@
 		label: string;
 		source?: number | string | null;
 		hasCamera?: boolean;
+		showHeader?: boolean;
+		calibrationReferenceImageSrc?: string;
+		calibrationReferenceLinkUrl?: string;
+		primaryActionLabel?: string;
+		allowPrimaryActionWithoutChanges?: boolean;
 		onSaved?: (() => void) | undefined;
 		onClose?: (() => void) | undefined;
 		onPreviewChange?:
@@ -88,12 +98,14 @@
 	});
 
 	let manualSettingsOpen = $state(false);
+	let calibrationTargetHelpOpen = $state(false);
 	let devicePreviewRequest = 0;
 	let calibrating = $state(false);
 	let calibrationResult = $state<CameraCalibrationAnalysis | null>(null);
 	let calibrationStage = $state('');
 	let calibrationProgress = $state(0);
 	let calibrationMessage = $state('');
+	let calibrationNeedsSave = $state(false);
 
 	const CALIBRATION_TILE_ORDER = [
 		'white_top',
@@ -127,6 +139,8 @@
 		green: '#16a34a',
 		blue: '#0284c7'
 	};
+
+	const ROTATION_OPTIONS = [0, 90, 180, 270] as const;
 
 	function emitPreview(roleName: CameraRole, saved: PictureSettings, draft: PictureSettings) {
 		onPreviewChange?.(roleName, clonePictureSettings(saved), clonePictureSettings(draft));
@@ -314,6 +328,7 @@
 		loading = true;
 		error = null;
 		status = '';
+		calibrationNeedsSave = false;
 		calibrationResult = null;
 		calibrationStage = '';
 		calibrationProgress = 0;
@@ -478,18 +493,28 @@
 	async function saveSettings() {
 		saving = true;
 		error = null;
-		status = '';
+		const hadUnsavedChanges = hasUnsavedChanges();
+		const isConfirmOnly = !hadUnsavedChanges && !calibrationNeedsSave && allowPrimaryActionWithoutChanges;
 		try {
-			if (deviceSupported) {
-				await saveDeviceSettings();
+			status = '';
+			if (hadUnsavedChanges) {
+				if (deviceSupported) {
+					await saveDeviceSettings();
+				}
+
+				const localPayload = normalizePictureSettings(draftSettings);
+				const normalizedLocal = await saveLocalSettingsPayload(localPayload);
+				savedSettings = normalizedLocal;
+				draftSettings = clonePictureSettings(normalizedLocal);
+				status = deviceSupported ? 'Camera settings saved.' : 'Feed orientation saved.';
+				emitPreview(role, normalizedLocal, normalizedLocal);
+			} else if (calibrationNeedsSave) {
+				status = 'Picture settings confirmed.';
+			} else if (isConfirmOnly) {
+				status = 'Picture settings confirmed.';
 			}
 
-			const localPayload = normalizePictureSettings(draftSettings);
-			const normalizedLocal = await saveLocalSettingsPayload(localPayload);
-			savedSettings = normalizedLocal;
-			draftSettings = clonePictureSettings(normalizedLocal);
-			status = deviceSupported ? 'Camera settings saved.' : 'Feed orientation saved.';
-			emitPreview(role, normalizedLocal, normalizedLocal);
+			calibrationNeedsSave = false;
 			onSaved?.();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to save camera settings';
@@ -546,6 +571,7 @@
 				if (task.status === 'completed') {
 					taskDone = true;
 					await loadDeviceSettings();
+					calibrationNeedsSave = true;
 					status = task.result?.message ?? task.message ?? 'Camera calibrated from target plate.';
 				} else if (task.status === 'failed') {
 					throw new Error(task.error ?? task.message ?? 'Failed to calibrate camera from target plate');
@@ -607,6 +633,7 @@
 		}
 		status = '';
 		error = null;
+		calibrationNeedsSave = false;
 		emitPreview(role, savedSettings, savedSettings);
 		emitCalibrationHighlight(null);
 		onClose?.();
@@ -630,6 +657,10 @@
 			return localChanged || !usbCameraSettingsEqual(draftUsbSettings, savedUsbSettings, usbControls);
 		}
 		return localChanged;
+	}
+
+	function canSave(): boolean {
+		return hasUnsavedChanges() || calibrationNeedsSave || allowPrimaryActionWithoutChanges;
 	}
 
 	function calibrationStageLabel(stage: string): string {
@@ -687,8 +718,53 @@
 			.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 	}
 
+	function calibrationAverageMatch(analysis: CameraCalibrationAnalysis | null): number {
+		const entries = calibrationTileEntries(analysis);
+		if (entries.length === 0) return 0;
+		return entries.reduce((sum, entry) => sum + entry.matchPercent, 0) / entries.length;
+	}
+
+	function calibrationLowestMatch(analysis: CameraCalibrationAnalysis | null): number {
+		const entries = calibrationTileEntries(analysis);
+		if (entries.length === 0) return 0;
+		return Math.min(...entries.map((entry) => entry.matchPercent));
+	}
+
+	function calibrationFeedback(analysis: CameraCalibrationAnalysis | null): {
+		tone: 'good' | 'okay' | 'weak';
+		label: string;
+		message: string;
+	} | null {
+		if (!analysis) return null;
+		const averageMatch = calibrationAverageMatch(analysis);
+		const lowestMatch = calibrationLowestMatch(analysis);
+		if (averageMatch >= 80 && lowestMatch >= 60) {
+			return {
+				tone: 'good',
+				label: 'Calibration looks solid',
+				message: 'The checker is reading consistently across the target.'
+			};
+		}
+		if (averageMatch >= 60 && lowestMatch >= 35) {
+			return {
+				tone: 'okay',
+				label: 'Calibration is usable',
+				message: 'You can improve it further by reducing glare and filling more of the frame with the checker.'
+			};
+		}
+		return {
+			tone: 'weak',
+			label: 'Calibration looks weak',
+			message: 'Try reducing glare, keeping the target flatter, and making the Color Check larger in the preview before recalibrating.'
+		};
+	}
+
 	function hasTileDetails(analysis: CameraCalibrationAnalysis | null) {
 		return !!analysis && Object.keys(analysis.tile_samples).length > 0;
+	}
+
+	function calibrationSummaryVisible(analysis: CameraCalibrationAnalysis | null): boolean {
+		return !!analysis && !calibrating && (calibrationNeedsSave || calibrationStage === 'completed');
 	}
 
 	$effect(() => {
@@ -701,38 +777,40 @@
 </script>
 
 <aside
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
+	class="flex h-full min-w-0 flex-col overflow-hidden border border-border bg-white shadow-sm dark:bg-bg xl:min-h-[32rem]"
 >
-	<div
-		class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface px-4 py-3"
-	>
-		<div class="flex items-start justify-between gap-3">
-			<div class="flex items-start gap-3">
-				<div
-					class="dark:bg-bg-dark dark:text-text-dark flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
-				>
-					<SlidersHorizontal size={16} />
+	{#if showHeader}
+		<div
+			class="border-b border-border bg-surface px-4 py-3"
+		>
+			<div class="flex items-start justify-between gap-3">
+				<div class="flex items-start gap-3">
+					<div
+						class="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-text dark:bg-bg"
+					>
+						<SlidersHorizontal size={16} />
+					</div>
+					<div class="min-w-0">
+						<div class="text-sm font-semibold text-text">Picture Settings</div>
+					</div>
 				</div>
-				<div class="min-w-0">
-					<div class="dark:text-text-dark text-sm font-semibold text-text">Picture Settings</div>
-				</div>
+				{#if onClose}
+					<button
+						onclick={closeSidebar}
+						class="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white hover:text-text dark:hover:bg-bg"
+						aria-label="Close picture settings"
+					>
+						<X size={15} />
+					</button>
+				{/if}
 			</div>
-			{#if onClose}
-				<button
-					onclick={closeSidebar}
-					class="dark:text-text-muted-dark dark:hover:bg-bg-dark dark:hover:text-text-dark inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg hover:text-text"
-					aria-label="Close picture settings"
-				>
-					<X size={15} />
-				</button>
-			{/if}
 		</div>
-	</div>
+	{/if}
 
-	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
+	<div class="flex flex-1 flex-col gap-3 bg-white px-4 py-4 dark:bg-bg">
 		{#if !hasCamera}
 			<div
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+				class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
 			>
 				Assign a camera to preview these changes live.
 			</div>
@@ -740,158 +818,226 @@
 
 		{#if error}
 			<div
-				class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
+				class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2 dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
 			>
-				{error}
+				<div class="text-[11px] font-semibold uppercase tracking-wider text-[#7A0A0B] dark:text-rose-300">
+					Error
+				</div>
+				<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
 			</div>
 		{/if}
 
 		{#if loading}
-			<div class="dark:text-text-muted-dark py-10 text-center text-sm text-text-muted">
+			<div class="py-10 text-center text-sm text-text-muted">
 				Loading picture settings...
 			</div>
 		{:else}
 			<div class="flex flex-col gap-3">
 				<div class="flex flex-col gap-3">
 					{#if deviceSupported}
-						<div class="flex items-start gap-3">
-							<svg viewBox="0 0 40 60" width="36" height="54" class="shrink-0 rounded-sm border border-black/10 dark:border-white/10">
-								<!-- Row 1: white, black, white, dark navy -->
-								<rect x="0"  y="0"  width="10" height="10" fill="#f0f0f0"/>
-								<rect x="10" y="0"  width="10" height="10" fill="#111111"/>
-								<rect x="20" y="0"  width="10" height="10" fill="#e0eef8"/>
-								<rect x="30" y="0"  width="10" height="10" fill="#0a0a2a"/>
-								<!-- Rows 2-3: blue (2x2), red (2x2) -->
-								<rect x="0"  y="10" width="20" height="20" fill="#1a8cff"/>
-								<rect x="20" y="10" width="20" height="20" fill="#e02020"/>
-								<!-- Rows 4-5: green (2x2), yellow (2x2) -->
-								<rect x="0"  y="30" width="20" height="20" fill="#16a34a"/>
-								<rect x="20" y="30" width="20" height="20" fill="#eab308"/>
-								<!-- Row 6: dark navy, white, dark gray, white -->
-								<rect x="0"  y="50" width="10" height="10" fill="#0a0a2a"/>
-								<rect x="10" y="50" width="10" height="10" fill="#f0f0f0"/>
-								<rect x="20" y="50" width="10" height="10" fill="#222222"/>
-								<rect x="30" y="50" width="10" height="10" fill="#e0eef8"/>
-								<!-- Grid lines -->
-								<line x1="10" y1="0"  x2="10" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="20" y1="0"  x2="20" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="30" y1="0"  x2="30" y2="60" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="10" x2="40" y2="10" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="20" x2="40" y2="20" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="30" x2="40" y2="30" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="40" x2="40" y2="40" stroke="#00000018" stroke-width="0.5"/>
-								<line x1="0"  y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5"/>
-							</svg>
-							<p class="dark:text-text-muted-dark text-xs leading-4 text-text-muted">
-								Place the color calibration plate fully in view, then calibrate.
-							</p>
+						<div class="grid gap-3">
+							<div class="flex items-start gap-3">
+								{#if calibrationReferenceImageSrc}
+									<img
+										src={calibrationReferenceImageSrc}
+										alt="LEGO Color Check reference"
+										class="h-16 w-16 shrink-0 border border-border bg-surface object-contain"
+									/>
+								{:else}
+									<svg viewBox="0 0 40 60" width="36" height="54" class="shrink-0 rounded-sm border border-black/10 dark:border-white/10">
+										<rect x="0" y="0" width="10" height="10" fill="#f0f0f0"/>
+										<rect x="10" y="0" width="10" height="10" fill="#111111"/>
+										<rect x="20" y="0" width="10" height="10" fill="#e0eef8"/>
+										<rect x="30" y="0" width="10" height="10" fill="#0a0a2a"/>
+										<rect x="0" y="10" width="20" height="20" fill="#1a8cff"/>
+										<rect x="20" y="10" width="20" height="20" fill="#e02020"/>
+										<rect x="0" y="30" width="20" height="20" fill="#16a34a"/>
+										<rect x="20" y="30" width="20" height="20" fill="#eab308"/>
+										<rect x="0" y="50" width="10" height="10" fill="#0a0a2a"/>
+										<rect x="10" y="50" width="10" height="10" fill="#f0f0f0"/>
+										<rect x="20" y="50" width="10" height="10" fill="#222222"/>
+										<rect x="30" y="50" width="10" height="10" fill="#e0eef8"/>
+										<line x1="10" y1="0" x2="10" y2="60" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="20" y1="0" x2="20" y2="60" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="30" y1="0" x2="30" y2="60" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="0" y1="10" x2="40" y2="10" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="0" y1="20" x2="40" y2="20" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="0" y1="30" x2="40" y2="30" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="0" y1="40" x2="40" y2="40" stroke="#00000018" stroke-width="0.5"/>
+										<line x1="0" y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5"/>
+									</svg>
+								{/if}
+								<div class="min-w-0 text-xs leading-5 text-text-muted">
+									<div class="font-medium text-text">How to calibrate</div>
+									<div class="mt-1">
+										Place the Color Check fully inside the live preview, keep it flat and well lit, and use the preview to tune exposure, white balance, and orientation before you calibrate.
+									</div>
+								</div>
+							</div>
+
+							{#if calibrationReferenceLinkUrl}
+								<div class="border-t border-border pt-3 text-xs leading-5 text-text-muted">
+									<button
+										onclick={() => (calibrationTargetHelpOpen = !calibrationTargetHelpOpen)}
+										class="flex w-full cursor-pointer items-center justify-between gap-3 text-left transition-colors hover:text-text"
+										aria-expanded={calibrationTargetHelpOpen}
+									>
+										<span class="font-medium text-text">Where do I get a calibration color checker?</span>
+										<ChevronDown
+											size={15}
+											class={`shrink-0 text-text-muted transition-transform duration-200 ${calibrationTargetHelpOpen ? 'rotate-180' : ''}`}
+										/>
+									</button>
+									{#if calibrationTargetHelpOpen}
+										<div class="mt-2 grid gap-2 border-t border-border pt-2">
+											<div>
+												Use the BrickLink Studio model to buy the parts and rebuild the same LEGO Color Check target for your machine.
+											</div>
+											<a
+												href={calibrationReferenceLinkUrl}
+												target="_blank"
+												rel="noreferrer"
+												class="w-fit text-[11px] font-medium text-[#0055BF] transition-colors hover:underline"
+											>
+												Open BrickLink model
+											</a>
+										</div>
+									{/if}
+								</div>
+							{/if}
+
+							{#if calibrationResult}
+								<div
+									class="border border-[#0055BF]/40 bg-[#0055BF]/[0.06] px-3 py-2 dark:border-[#4D8DFF]/40 dark:bg-[#4D8DFF]/[0.08]"
+								>
+									<div
+										class="text-[11px] font-semibold uppercase tracking-wider text-[#003A8C] dark:text-[#7BAEFF]"
+									>
+										Calibration hint
+									</div>
+									<div class="mt-1 text-xs leading-relaxed text-text">
+										The blue frame in the preview marks the detected Color Check area from the latest calibration pass.
+									</div>
+								</div>
+							{/if}
 						</div>
 
 						<button
 							onclick={calibrateFromTarget}
 							disabled={!hasCamera || calibrating || saving}
-							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-sky-500 bg-sky-500/15 px-3 py-2 text-sm text-sky-700 transition-colors hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300"
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-[#0055BF] bg-[#0055BF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0055BF]/90 disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<span>{calibrating ? 'Calibrating...' : 'Calibrate'}</span>
 						</button>
 
 						{#if calibrationResult}
-								<div class="grid grid-cols-2 gap-1.5 text-[11px]">
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">Score</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
-											{calibrationResult.score.toFixed(1)}
-										</div>
+							{@const summaryVisible = calibrationSummaryVisible(calibrationResult)}
+							<div class={`grid gap-1.5 ${summaryVisible ? 'grid-cols-2' : 'grid-cols-1'}`}>
+								<div class="border border-border bg-bg px-2.5 py-2">
+									<div class="text-[11px] uppercase tracking-wider text-text-muted">Match Avg</div>
+									<div class="mt-0.5 font-mono text-sm tabular-nums text-text">
+										{calibrationAverageMatch(calibrationResult).toFixed(0)}%
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">Ref Error</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+								</div>
+								{#if summaryVisible}
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-[11px] uppercase tracking-wider text-text-muted">Ref Error</div>
+										<div class="mt-0.5 font-mono text-sm tabular-nums text-text">
 											{calibrationResult.reference_color_error_mean.toFixed(1)}
 										</div>
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">White / Black</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-[11px] uppercase tracking-wider text-text-muted">White / Black</div>
+										<div class="mt-0.5 font-mono text-sm tabular-nums text-text">
 											{calibrationResult.white_luma_mean.toFixed(1)} / {calibrationResult.black_luma_mean.toFixed(1)}
 										</div>
 									</div>
-									<div class="dark:border-border-dark dark:bg-bg-dark border border-border bg-bg px-2.5 py-2">
-										<div class="dark:text-text-muted-dark text-text-muted">WB Cast</div>
-										<div class="dark:text-text-dark font-mono text-[13px] text-text">
+									<div class="border border-border bg-bg px-2.5 py-2">
+										<div class="text-[11px] uppercase tracking-wider text-text-muted">WB Cast</div>
+										<div class="mt-0.5 font-mono text-sm tabular-nums text-text">
 											{calibrationResult.white_balance_cast.toFixed(3)}
 										</div>
 									</div>
-								</div>
-
-								{#if calibrationTileEntries(calibrationResult).length > 0}
-									<div class="grid gap-2">
-										<div class="dark:text-text-muted-dark text-[11px] uppercase tracking-[0.14em] text-text-muted">
-											Live Tile Levels
-										</div>
-										<div class="grid grid-cols-2 gap-1.5">
-											{#each calibrationTileEntries(calibrationResult) as tile}
-												<div class="dark:border-border-dark dark:bg-bg-dark grid gap-1 border border-border bg-bg px-2.5 py-2">
-													<div class="flex items-center justify-between gap-2 text-[10px]">
-														<div class="flex items-center gap-2">
-															<span
-																class="inline-block h-3 w-3 rounded-[2px] border border-black/15"
-																style={`background:${tile.swatch}`}
-															></span>
-															<span class="dark:text-text-dark font-medium text-text">{tile.label}</span>
-														</div>
-														<span
-															class:text-emerald-700={tile.matchTone === 'good'}
-															class:text-amber-700={tile.matchTone === 'okay'}
-															class:text-rose-700={tile.matchTone === 'weak'}
-															class:dark:text-emerald-300={tile.matchTone === 'good'}
-															class:dark:text-amber-300={tile.matchTone === 'okay'}
-															class:dark:text-rose-300={tile.matchTone === 'weak'}
-															class="font-mono text-[10px] font-semibold"
-														>
-															{tile.matchPercent.toFixed(0)}%
-														</span>
-													</div>
-													<div class="flex items-center justify-between gap-2 text-[10px]">
-														<span class="dark:text-text-muted-dark text-text-muted">
-															dE {tile.reference_error.toFixed(1)}
-														</span>
-														<span class="dark:text-text-muted-dark text-text-muted">
-															L {tile.luma.toFixed(0)} / S {tile.saturation.toFixed(0)}
-														</span>
-													</div>
-													<div class="flex items-center justify-between gap-2 text-[10px]">
-														<span class="dark:text-text-muted-dark text-text-muted">
-															C {(tile.clip_fraction * 100).toFixed(0)}
-														</span>
-														<span class="dark:text-text-muted-dark text-text-muted">
-															Sh {(tile.shadow_fraction * 100).toFixed(0)}
-														</span>
-													</div>
-												</div>
-											{/each}
-										</div>
-									</div>
 								{/if}
+							</div>
+
+							{#if summaryVisible && calibrationFeedback(calibrationResult)}
+								{@const feedback = calibrationFeedback(calibrationResult)}
+								<div
+									class={`border px-3 py-2 ${
+										feedback?.tone === 'good'
+											? 'border-[#00852B]/40 bg-[#00852B]/[0.06] dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]'
+											: feedback?.tone === 'okay'
+												? 'border-[#F2A900]/50 bg-[#F2A900]/[0.07] dark:border-amber-500/40 dark:bg-amber-500/[0.08]'
+												: 'border-[#D01012]/40 bg-[#D01012]/[0.06] dark:border-rose-500/40 dark:bg-rose-500/[0.08]'
+									}`}
+								>
+									<div
+										class={`text-[11px] font-semibold uppercase tracking-wider ${
+											feedback?.tone === 'good'
+												? 'text-[#003D14] dark:text-emerald-300'
+												: feedback?.tone === 'okay'
+													? 'text-[#4A3300] dark:text-amber-300'
+													: 'text-[#5C0708] dark:text-rose-300'
+										}`}
+									>
+										{feedback?.label}
+									</div>
+									<div class="mt-1 text-xs leading-relaxed text-text">{feedback?.message}</div>
+								</div>
+							{/if}
+
+							{#if calibrationTileEntries(calibrationResult).length > 0}
+								<div class="grid gap-2">
+									<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+										Live Tile Levels
+									</div>
+									<div class="grid grid-cols-2 gap-1.5">
+										{#each calibrationTileEntries(calibrationResult) as tile}
+											<div class="flex items-center justify-between gap-2 border border-border bg-bg px-2.5 py-2">
+												<div class="flex min-w-0 items-center gap-2">
+													<span
+														class="inline-block h-3 w-3 shrink-0 rounded-[2px] border border-black/15"
+														style={`background:${tile.swatch}`}
+													></span>
+													<span class="truncate text-xs text-text">{tile.label}</span>
+												</div>
+												<span
+													class:text-[#003D14]={tile.matchTone === 'good'}
+													class:text-[#4A3300]={tile.matchTone === 'okay'}
+													class:text-[#5C0708]={tile.matchTone === 'weak'}
+													class:dark:text-emerald-300={tile.matchTone === 'good'}
+													class:dark:text-amber-300={tile.matchTone === 'okay'}
+													class:dark:text-rose-300={tile.matchTone === 'weak'}
+													class="font-mono text-xs font-semibold tabular-nums"
+												>
+													{tile.matchPercent.toFixed(0)}%
+												</span>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
 							{/if}
 
 							{#if calibrating || calibrationMessage}
 								<div class="flex flex-col gap-2">
 									<div class="flex items-center justify-between gap-3 text-xs">
-										<span class="dark:text-text-dark font-medium text-text">
+										<span class="font-medium text-text">
 											{calibrationStageLabel(calibrationStage)}
 										</span>
-										<span class="dark:text-text-muted-dark font-mono text-text-muted">
+										<span class="font-mono text-text-muted">
 											{Math.round(calibrationProgress * 100)}%
 										</span>
 									</div>
-									<div class="dark:bg-bg-dark h-2 overflow-hidden rounded-full bg-bg">
+									<div class="h-2 overflow-hidden rounded-full bg-bg">
 										<div
 											class="h-full bg-sky-500 transition-[width] duration-300"
 											style={`width: ${Math.max(4, Math.min(100, calibrationProgress * 100))}%`}
 										></div>
 									</div>
 									{#if calibrationMessage}
-										<div class="dark:text-text-muted-dark text-xs text-text-muted">
+										<div class="text-xs text-text-muted">
 											{calibrationMessage}
 										</div>
 									{/if}
@@ -902,10 +1048,10 @@
 					{#if deviceProvider === 'android-camera-app' && deviceSupported}
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">Processing Mode</span>
+								<span class="font-medium text-text">Processing Mode</span>
 							</div>
 							<select
-								class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
 								value={draftAndroidSettings.processing_mode}
 								onchange={(event) => updateAndroidProcessingMode(event.currentTarget.value)}
 							>
@@ -913,7 +1059,7 @@
 									<option value={mode}>{processingModeLabel(mode)}</option>
 								{/each}
 							</select>
-							<div class="dark:text-text-muted-dark text-xs text-text-muted">
+							<div class="text-xs text-text-muted">
 								{#if draftAndroidSettings.processing_mode === 'standard'}
 									Uses the phone's normal live camera pipeline.
 								{:else if androidCapabilities.image_analysis_supported_modes.includes(draftAndroidSettings.processing_mode)}
@@ -926,8 +1072,8 @@
 
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">Exposure Compensation</span>
-								<span class="dark:text-text-muted-dark font-mono text-xs text-text-muted">
+								<span class="font-medium text-text">Exposure Compensation</span>
+								<span class="font-mono text-xs text-text-muted">
 									{draftAndroidSettings.exposure_compensation}
 								</span>
 							</div>
@@ -943,10 +1089,10 @@
 
 						<label class="flex flex-col gap-2">
 							<div class="flex items-center justify-between gap-3 text-sm">
-								<span class="dark:text-text-dark font-medium text-text">White Balance</span>
+								<span class="font-medium text-text">White Balance</span>
 							</div>
 							<select
-								class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
 								value={draftAndroidSettings.white_balance_mode}
 								onchange={(event) => updateAndroidWhiteBalance(event.currentTarget.value)}
 							>
@@ -959,7 +1105,7 @@
 						<div class="grid gap-2 sm:grid-cols-2">
 							{#if androidCapabilities.supports_ae_lock}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -973,7 +1119,7 @@
 
 							{#if androidCapabilities.supports_awb_lock}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -988,7 +1134,7 @@
 					{:else if deviceProvider === 'usb-opencv' && deviceSupported && usbControls.length > 0}
 						<button
 							onclick={() => (manualSettingsOpen = !manualSettingsOpen)}
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+							class="flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
 						>
 							<span>Manual Settings</span>
 							<ChevronDown
@@ -1001,7 +1147,7 @@
 						{#each usbControls as control (control.key)}
 							{#if control.kind === 'boolean'}
 								<label
-									class="dark:border-border-dark dark:bg-surface-dark flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+									class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
 								>
 									<input
 										type="checkbox"
@@ -1013,8 +1159,8 @@
 							{:else}
 								<label class="flex flex-col gap-2">
 									<div class="flex items-center justify-between gap-3 text-sm">
-										<span class="dark:text-text-dark font-medium text-text">{control.label}</span>
-										<span class="dark:text-text-muted-dark font-mono text-xs text-text-muted">
+										<span class="font-medium text-text">{control.label}</span>
+										<span class="font-mono text-xs text-text-muted">
 											{formatUsbValue(control)}
 										</span>
 									</div>
@@ -1029,7 +1175,7 @@
 										oninput={(event) => updateUsbNumeric(control, Number(event.currentTarget.value))}
 									/>
 									{#if control.help}
-										<div class="dark:text-text-muted-dark text-xs text-text-muted">
+										<div class="text-xs text-text-muted">
 											{control.help}
 										</div>
 									{/if}
@@ -1039,48 +1185,70 @@
 						{/if}
 					{:else}
 						<div
-							class="dark:border-border-dark dark:bg-surface-dark dark:text-text-muted-dark border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
+							class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
 						>
 							{deviceMessage || 'This source does not currently expose adjustable real camera controls.'}
 						</div>
 					{/if}
 				</div>
 
-				<div class="dark:border-border-dark flex items-center gap-3 border-t border-border pt-3">
-					<select
-						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark border border-border bg-surface px-2 py-1.5 text-xs text-text"
-						value={String(draftSettings.rotation)}
-						onchange={(event) => updateRotation(Number(event.currentTarget.value))}
-					>
-						<option value="0">0deg</option>
-						<option value="90">90deg</option>
-						<option value="180">180deg</option>
-						<option value="270">270deg</option>
-					</select>
-					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
-						<input
-							type="checkbox"
-							checked={draftSettings.flip_horizontal}
-							onchange={(event) =>
-								updateBooleanSetting('flip_horizontal', event.currentTarget.checked)}
-						/>
-						<span>Flip H</span>
-					</label>
-					<label class="dark:text-text-dark flex items-center gap-1.5 text-xs text-text">
-						<input
-							type="checkbox"
-							checked={draftSettings.flip_vertical}
-							onchange={(event) =>
-								updateBooleanSetting('flip_vertical', event.currentTarget.checked)}
-						/>
-						<span>Flip V</span>
-					</label>
+				<div class="grid gap-2 border-t border-border pt-3">
+					<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						Orientation
+					</div>
+					<div class="grid gap-2">
+						<div>
+							<div class="mb-1 text-xs font-medium text-text">Rotate</div>
+							<div class="grid grid-cols-4 gap-1">
+								{#each ROTATION_OPTIONS as rotation}
+									<button
+										onclick={() => updateRotation(rotation)}
+										class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
+											draftSettings.rotation === rotation
+												? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+												: 'border-border bg-surface text-text hover:bg-bg'
+										}`}
+										aria-pressed={draftSettings.rotation === rotation}
+									>
+										{rotation}deg
+									</button>
+								{/each}
+							</div>
+						</div>
+						<div>
+							<div class="mb-1 text-xs font-medium text-text">Mirror</div>
+							<div class="grid grid-cols-2 gap-1">
+								<button
+									onclick={() => updateBooleanSetting('flip_horizontal', !draftSettings.flip_horizontal)}
+									class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
+										draftSettings.flip_horizontal
+											? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+											: 'border-border bg-surface text-text hover:bg-bg'
+									}`}
+									aria-pressed={draftSettings.flip_horizontal}
+								>
+									Flip Horizontally
+								</button>
+								<button
+									onclick={() => updateBooleanSetting('flip_vertical', !draftSettings.flip_vertical)}
+									class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
+										draftSettings.flip_vertical
+											? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+											: 'border-border bg-surface text-text hover:bg-bg'
+									}`}
+									aria-pressed={draftSettings.flip_vertical}
+								>
+									Flip Vertically
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<div class="dark:border-border-dark mt-auto flex flex-col gap-2 border-t border-border pt-3">
+			<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
 				{#if status}
-					<div class="dark:text-text-muted-dark text-xs text-text-muted">{status}</div>
+					<div class="text-xs text-text-muted">{status}</div>
 				{/if}
 
 				<div class="flex items-center gap-2">
@@ -1089,7 +1257,7 @@
 						disabled={saving || calibrating || !hasUnsavedChanges()}
 						title="Revert changes"
 						aria-label="Revert changes"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Undo2 size={15} />
 					</button>
@@ -1098,17 +1266,21 @@
 						disabled={saving || calibrating}
 						title="Reset to defaults"
 						aria-label="Reset to defaults"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RotateCcw size={15} />
 					</button>
 					<button
 						onclick={saveSettings}
-						disabled={saving || calibrating || !hasUnsavedChanges()}
-						class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						disabled={saving || calibrating || !canSave()}
+						class={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+							canSave()
+								? 'border-[#00852B] bg-[#00852B] text-white hover:bg-[#00852B]/90'
+								: 'border-border bg-surface text-text-muted'
+						}`}
 					>
 						<Save size={15} />
-						<span>{saving ? 'Saving...' : 'Save'}</span>
+						<span>{saving ? `${primaryActionLabel}...` : primaryActionLabel}</span>
 					</button>
 				</div>
 			</div>

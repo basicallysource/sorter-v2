@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 import tomllib
 from pathlib import Path
 from typing import Any, Dict, List
@@ -15,21 +17,27 @@ from fastapi import HTTPException
 
 from irl.bin_layout import getBinLayout
 
+_CONFIG_WRITE_LOCK = threading.Lock()
+
+
+def _default_client_config_path(filename: str) -> str:
+    return str(Path(__file__).resolve().parent.parent / filename)
+
 
 def machine_params_path() -> str:
-    """Return the MACHINE_SPECIFIC_PARAMS_PATH or raise 500."""
+    """Return the machine params path from env, or the repo-local default."""
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not params_path:
-        raise HTTPException(status_code=500, detail="MACHINE_SPECIFIC_PARAMS_PATH not set")
-    return params_path
+    if params_path:
+        return params_path
+    return _default_client_config_path("machine_params.toml")
 
 
 def bin_layout_path() -> str:
-    """Return the BIN_LAYOUT_PATH or raise 500."""
+    """Return the bin layout path from env, or the repo-local default."""
     layout_path = os.getenv("BIN_LAYOUT_PATH")
-    if not layout_path:
-        raise HTTPException(status_code=500, detail="BIN_LAYOUT_PATH not set")
-    return layout_path
+    if layout_path:
+        return layout_path
+    return _default_client_config_path("bin_layout.json")
 
 
 def read_machine_params_config(
@@ -59,8 +67,10 @@ def read_bin_layout_config() -> tuple[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to read bin layout: {e}")
 
 
-def toml_value(v: object) -> str:
-    """Format a Python value as a TOML value string."""
+def toml_value(v: object) -> str | None:
+    """Format a Python value as a TOML value string. Returns None for None values (skip them)."""
+    if v is None:
+        return None
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):
@@ -68,10 +78,25 @@ def toml_value(v: object) -> str:
     if isinstance(v, float):
         return str(v)
     if isinstance(v, str):
-        return f'"{v}"'
+        escaped = (
+            v.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        )
+        return f'"{escaped}"'
+    if isinstance(v, dict):
+        pairs = []
+        for dk, dv in v.items():
+            tv = toml_value(dv)
+            if tv is not None:
+                pairs.append(f"{dk} = {tv}")
+        return "{" + ", ".join(pairs) + "}"
     if isinstance(v, list):
-        return "[" + ", ".join(toml_value(item) for item in v) + "]"
-    return str(v)
+        items = [toml_value(item) for item in v if item is not None]
+        return "[" + ", ".join(i for i in items if i is not None) + "]"
+    return f'"{v}"'
 
 
 def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
@@ -96,7 +121,9 @@ def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
     if scalars:
         lines.append(f"\n[{prefix}]")
         for k, v in scalars:
-            lines.append(f"{k} = {toml_value(v)}")
+            tv = toml_value(v)
+            if tv is not None:
+                lines.append(f"{k} = {tv}")
     elif not sub_tables and not array_tables:
         lines.append(f"\n[{prefix}]")
 
@@ -109,7 +136,9 @@ def _write_table(lines: List[str], prefix: str, table: Dict[str, Any]) -> None:
         for item in items:
             lines.append(f"\n[[{prefix}.{k}]]")
             for ik, iv in item.items():
-                lines.append(f"{ik} = {toml_value(iv)}")
+                tv = toml_value(iv)
+                if tv is not None:
+                    lines.append(f"{ik} = {tv}")
 
 
 def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
@@ -119,15 +148,16 @@ def write_machine_params_config(path: str, data: Dict[str, Any]) -> None:
     # Top-level scalar keys first
     for k, v in data.items():
         if not isinstance(v, dict):
-            lines.append(f"{k} = {toml_value(v)}")
+            tv = toml_value(v)
+            if tv is not None:
+                lines.append(f"{k} = {tv}")
 
     # Then all table sections (recursive)
     for k, v in data.items():
         if isinstance(v, dict):
             _write_table(lines, k, v)
 
-    with open(path, "w") as f:
-        f.write("\n".join(lines) + "\n")
+    _atomic_write_text(path, "\n".join(lines) + "\n")
 
 
 def write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
@@ -144,6 +174,27 @@ def write_bin_layout_config(path: str, layers: List[Dict[str, Any]]) -> None:
             for layer in layers
         ]
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-        f.write("\n")
+    _atomic_write_text(path, json.dumps(payload, indent=2) + "\n")
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _CONFIG_WRITE_LOCK:
+        fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_path, target)
+            try:
+                os.chmod(target, 0o600)
+            except OSError:
+                pass
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise

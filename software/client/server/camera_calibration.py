@@ -296,7 +296,290 @@ def analyze_calibration_target(frame: np.ndarray) -> CalibrationAnalysis | None:
 def analyze_color_plate_target(frame: np.ndarray) -> CalibrationAnalysis | None:
     if frame is None or frame.size == 0:
         return None
-    return _analyze_fixed_color_target(frame)
+
+    # Run all detection strategies and pick the best result.
+    candidates: list[CalibrationAnalysis] = []
+
+    # Strategy 1: HSV color-region detection (original — works best with good exposure)
+    hsv_result = _analyze_fixed_color_target(frame)
+    if hsv_result is not None:
+        candidates.append(hsv_result)
+
+    # Strategy 2: Adaptive-threshold grid detection (robust to bad exposure)
+    adaptive_result = _detect_plate_via_adaptive_grid(frame)
+    if adaptive_result is not None:
+        candidates.append(adaptive_result)
+
+    # Strategy 3: CLAHE-enhanced HSV detection (handles over/underexposure)
+    clahe_result = _analyze_fixed_color_target_clahe(frame)
+    if clahe_result is not None:
+        candidates.append(clahe_result)
+
+    if not candidates:
+        return None
+
+    # Pick the candidate with the highest score
+    return max(candidates, key=lambda c: c.score)
+
+
+def _analyze_fixed_color_target_clahe(frame: np.ndarray) -> CalibrationAnalysis | None:
+    """Re-run the HSV color detection on a CLAHE-enhanced frame.
+
+    CLAHE (Contrast Limited Adaptive Histogram Equalization) redistributes
+    local contrast so that overexposed or underexposed images recover enough
+    color information for the HSV thresholds to work.
+    """
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+    enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    return _analyze_fixed_color_target(enhanced)
+
+
+def _detect_plate_via_adaptive_grid(frame: np.ndarray) -> CalibrationAnalysis | None:
+    """Detect the 4x6 color plate using adaptive thresholding and grid structure.
+
+    This works even when exposure is severely off because adaptive thresholding
+    uses local pixel neighborhoods — so a black tile next to a white tile will
+    still produce contrast regardless of global brightness.
+
+    The algorithm:
+    1. Adaptive-threshold the grayscale image to get a binary image.
+    2. Find rectangular contours of similar size (tile candidates).
+    3. Cluster them into a grid and check for the B-W-B-W signature rows.
+    4. If found, derive an affine transform and validate via the existing
+       color-target analysis pipeline.
+    """
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    max_dim = max(frame.shape[0], frame.shape[1])
+    scale = min(1.0, 960.0 / float(max_dim))
+    if scale < 1.0:
+        work = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    else:
+        work = gray
+
+    # Try multiple adaptive threshold block sizes
+    best: CalibrationAnalysis | None = None
+    for block_size in (31, 51, 71):
+        result = _try_adaptive_grid(frame, work, scale, block_size)
+        if result is not None and (best is None or result.score > best.score):
+            best = result
+    return best
+
+
+def _try_adaptive_grid(
+    frame: np.ndarray,
+    gray_work: np.ndarray,
+    scale: float,
+    block_size: int,
+) -> CalibrationAnalysis | None:
+    binary = cv2.adaptiveThreshold(
+        gray_work, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, block_size, 5,
+    )
+    # Clean up noise
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+    contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Also try inverted binary (in case black/white are swapped by exposure)
+    contours_inv, _ = cv2.findContours(
+        cv2.bitwise_not(binary), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE,
+    )
+    contours = list(contours) + list(contours_inv)
+
+    frame_area = float(gray_work.shape[0] * gray_work.shape[1])
+    min_tile_area = frame_area / 5000.0
+    max_tile_area = frame_area / 12.0
+
+    # Collect rectangular contour candidates
+    rects: list[tuple[float, float, float, float]] = []  # cx, cy, w, h
+    for contour in contours:
+        area = float(cv2.contourArea(contour))
+        if area < min_tile_area or area > max_tile_area:
+            continue
+        rect = cv2.minAreaRect(contour)
+        w, h = rect[1]
+        if w < 3 or h < 3:
+            continue
+        aspect = max(w, h) / min(w, h)
+        if aspect > 2.2:
+            continue
+        fill = area / max(1.0, float(w * h))
+        if fill < 0.55:
+            continue
+        rects.append((rect[0][0], rect[0][1], min(w, h), max(w, h)))
+
+    if len(rects) < 12:
+        return None
+
+    # Cluster rects by size — look for groups of similar-sized tiles
+    rects_arr = np.array(rects, dtype=np.float32)
+    sizes = rects_arr[:, 2:4]  # w, h columns
+    median_size = np.median(sizes, axis=0)
+    size_tolerance = median_size * 0.6
+    consistent = np.all(np.abs(sizes - median_size) < size_tolerance, axis=1)
+    filtered = rects_arr[consistent]
+
+    if len(filtered) < 12:
+        return None
+
+    centers = filtered[:, :2]
+    tile_w = float(np.median(filtered[:, 2]))
+    tile_h = float(np.median(filtered[:, 3]))
+    tile_pitch = max(tile_w, tile_h) * 1.05  # approx center-to-center distance
+
+    # Try to find a 4x6 grid arrangement among these centers.
+    # Use DBSCAN-style clustering: find rows of aligned centers.
+    best_result: CalibrationAnalysis | None = None
+
+    # Sort centers and try to build grid from each potential top-left
+    for anchor_idx in range(min(len(centers), 30)):
+        anchor = centers[anchor_idx]
+        # Find centers that form a grid relative to this anchor
+        relative = centers - anchor
+        # Try both orientations (portrait and landscape)
+        for cols, rows in [(4, 6), (6, 4)]:
+            grid = _match_grid(relative, centers, tile_pitch, cols, rows)
+            if grid is None:
+                continue
+            # grid is a (rows, cols, 2) array of center positions in work-image coords
+            # Scale back to original frame coords
+            grid_orig = grid / scale
+            affine = _affine_from_grid(grid_orig, cols, rows)
+            if affine is None:
+                continue
+            # Use all 4 rotations if cols==4, rows==6 means rotation=0 or 180
+            # If cols==6, rows==4 means rotation=90 or 270
+            if cols == 4 and rows == 6:
+                rotations = [0, 180]
+            else:
+                rotations = [90, 270]
+            for rot in rotations:
+                result = _analyze_fixed_color_candidate(frame, affine, rot)
+                if result is not None and (best_result is None or result.score > best_result.score):
+                    best_result = result
+
+    return best_result
+
+
+def _match_grid(
+    relative: np.ndarray,
+    centers: np.ndarray,
+    tile_pitch: float,
+    cols: int,
+    rows: int,
+) -> np.ndarray | None:
+    """Try to find a cols x rows grid of centers with the given tile pitch.
+
+    Returns a (rows, cols, 2) array of matched centers, or None.
+    """
+    tolerance = tile_pitch * 0.45
+
+    # Build expected positions relative to (0,0) top-left
+    # The grid vectors may be rotated, so we estimate them from neighbors
+    # Find the two dominant direction vectors from the relative positions
+    distances = np.linalg.norm(relative, axis=1)
+    near_mask = (distances > tile_pitch * 0.4) & (distances < tile_pitch * 1.6)
+    if np.count_nonzero(near_mask) < 2:
+        return None
+    neighbors = relative[near_mask]
+
+    # Cluster neighbor directions to find the two grid axes
+    angles = np.arctan2(neighbors[:, 1], neighbors[:, 0])
+    # Quantize angles to find dominant directions
+    angle_bins: dict[int, list[int]] = {}
+    for i, angle in enumerate(angles):
+        key = int(round(float(angle) * 6 / np.pi))  # ~30-degree bins
+        angle_bins.setdefault(key, []).append(i)
+
+    # Find two largest bins that are roughly perpendicular
+    sorted_bins = sorted(angle_bins.items(), key=lambda kv: len(kv[1]), reverse=True)
+    if len(sorted_bins) < 2:
+        return None
+
+    vec1_indices = sorted_bins[0][1]
+    vec1 = np.mean(neighbors[vec1_indices], axis=0)
+
+    vec2: np.ndarray | None = None
+    for _, indices in sorted_bins[1:]:
+        candidate = np.mean(neighbors[indices], axis=0)
+        # Check roughly perpendicular (dot product near 0)
+        dot = abs(float(np.dot(vec1, candidate))) / (
+            max(1e-6, float(np.linalg.norm(vec1)) * float(np.linalg.norm(candidate)))
+        )
+        if dot < 0.55:
+            vec2 = candidate
+            break
+    if vec2 is None:
+        return None
+
+    # Ensure vec1 is more horizontal (smaller abs angle) for consistent col/row mapping
+    if abs(vec1[0]) < abs(vec2[0]):
+        vec1, vec2 = vec2, vec1
+
+    # Ensure consistent direction (vec1 pointing right-ish, vec2 pointing down-ish)
+    if vec1[0] < 0:
+        vec1 = -vec1
+    if vec2[1] < 0:
+        vec2 = -vec2
+
+    # Recover the actual reference point used to compute `relative`.
+    # One entry should be ~[0, 0] for the chosen anchor; using centers[0]
+    # here breaks matching whenever the loop is evaluating any other anchor.
+    anchor_idx = int(np.argmin(np.linalg.norm(relative, axis=1)))
+    anchor = centers[anchor_idx]
+    grid = np.full((rows, cols, 2), np.nan, dtype=np.float32)
+    matched = 0
+    for r in range(rows):
+        for c in range(cols):
+            expected = anchor + vec1 * c + vec2 * r
+            dists = np.linalg.norm(centers - expected, axis=1)
+            best_idx = int(np.argmin(dists))
+            if float(dists[best_idx]) < tolerance:
+                grid[r, c] = centers[best_idx]
+                matched += 1
+
+    # Require at least 60% of grid cells matched
+    required = max(12, int(rows * cols * 0.6))
+    if matched < required:
+        return None
+
+    # Fill missing cells by interpolation
+    for r in range(rows):
+        for c in range(cols):
+            if np.isnan(grid[r, c, 0]):
+                grid[r, c] = anchor + vec1 * c + vec2 * r
+
+    return grid
+
+
+def _affine_from_grid(
+    grid: np.ndarray,
+    cols: int,
+    rows: int,
+) -> np.ndarray | None:
+    """Compute an affine transform from a detected grid to the target coordinate system.
+
+    Target coords: tile (col, row) where each tile is 1.0 units.
+    The affine maps target coords → pixel coords.
+    """
+    # Use three well-separated grid points for affine
+    src = np.array([
+        [0.5, 0.5],                          # center of top-left tile
+        [cols - 0.5, 0.5],                    # center of top-right tile
+        [0.5, rows - 0.5],                    # center of bottom-left tile
+    ], dtype=np.float32)
+    dst = np.array([
+        grid[0, 0],
+        grid[0, cols - 1],
+        grid[rows - 1, 0],
+    ], dtype=np.float32)
+    if np.any(np.isnan(dst)):
+        return None
+    return cv2.getAffineTransform(src, dst)
 
 
 def _detect_checkerboard(frame: np.ndarray) -> tuple[tuple[int, int], np.ndarray] | None:

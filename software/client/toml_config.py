@@ -1,11 +1,8 @@
-"""Unified TOML-based config manager.
+"""Machine config helpers.
 
-All settings read/write machine_params.toml as the single source of truth.
-Polygons are stored in a separate polygons.json file (same directory as TOML)
-because their deeply nested coordinate arrays are unsuitable for TOML.
-
-Runtime state (machine_id, stepper_positions, servo_positions, bin_categories)
-stays in data.json via blob_manager.
+Declarative machine configuration stays in `machine_params.toml`.
+Mutable local state such as polygons, sync state, training session state,
+and secrets lives in `local_state.sqlite` via `local_state.py`.
 """
 
 from __future__ import annotations
@@ -39,7 +36,7 @@ def _toml_path() -> str:
 
 
 def _polygons_path() -> str:
-    """Return the polygons.json path (same directory as the TOML file)."""
+    """Legacy helper for the old polygons.json location."""
     toml = _toml_path()
     return str(Path(toml).parent / "polygons.json")
 
@@ -94,7 +91,7 @@ def _write_json_atomic(path: str, data: dict[str, Any]) -> None:
 
 
 def _read_polygons_json() -> dict[str, Any]:
-    """Read the polygons.json file. Returns {} if missing."""
+    """Read the legacy polygons.json file. Returns {} if missing."""
     path = _polygons_path()
     if not os.path.exists(path):
         return {}
@@ -180,20 +177,17 @@ def setMachineNickname(nickname: str | None) -> None:
 
 
 def getClassificationTrainingConfig() -> dict[str, Any] | None:
-    """Read classification training config from TOML."""
-    config = _read_toml()
-    section = config.get("classification_training")
-    if not isinstance(section, dict):
-        return None
-    return dict(section)
+    """Read classification training state from local SQLite storage."""
+    from local_state import get_classification_training_state
+
+    return get_classification_training_state()
 
 
 def setClassificationTrainingConfig(cfg: dict[str, Any]) -> None:
-    """Write classification training config to TOML."""
-    def updater(config: dict[str, Any]) -> None:
-        config["classification_training"] = dict(cfg)
+    """Write classification training state to local SQLite storage."""
+    from local_state import set_classification_training_state
 
-    _update_toml(updater)
+    set_classification_training_state(cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -236,41 +230,31 @@ def _normalize_sorthive_target(raw: Any, index: int) -> dict[str, Any] | None:
 
 
 def getSortHiveConfig() -> dict[str, Any] | None:
-    """Read SortHive upload config from TOML [sorthive] section."""
-    config = _read_toml()
-    section = config.get("sorthive")
-    if not isinstance(section, dict):
-        return None
+    """Read SortHive connection state from local SQLite storage."""
+    from local_state import get_sorthive_config
 
-    raw_targets = section.get("targets")
-    normalized_targets: list[dict[str, Any]] = []
-    if isinstance(raw_targets, list):
-        for index, item in enumerate(raw_targets):
-            target = _normalize_sorthive_target(item, index)
-            if target is not None:
-                normalized_targets.append(target)
-    else:
-        legacy_target = _normalize_sorthive_target(section, 0)
-        if legacy_target is not None:
-            normalized_targets = [legacy_target]
-
-    return {"targets": normalized_targets}
+    return get_sorthive_config()
 
 
 def setSortHiveConfig(cfg: dict[str, Any]) -> None:
-    """Write SortHive upload config to TOML [sorthive] section."""
-    raw_targets = cfg.get("targets") if isinstance(cfg, dict) else None
-    normalized_targets: list[dict[str, Any]] = []
-    if isinstance(raw_targets, list):
-        for index, item in enumerate(raw_targets):
-            target = _normalize_sorthive_target(item, index)
-            if target is not None:
-                normalized_targets.append(target)
+    """Write SortHive connection state to local SQLite storage."""
+    from local_state import set_sorthive_config
 
-    def updater(config: dict[str, Any]) -> None:
-        config["sorthive"] = {"targets": normalized_targets}
+    set_sorthive_config(cfg)
 
-    _update_toml(updater)
+
+def getSortingProfileSyncState() -> dict[str, Any] | None:
+    """Read persisted sorting-profile sync metadata from local SQLite storage."""
+    from local_state import get_sorting_profile_sync_state
+
+    return get_sorting_profile_sync_state()
+
+
+def setSortingProfileSyncState(state: dict[str, Any]) -> None:
+    """Write persisted sorting-profile sync metadata to local SQLite storage."""
+    from local_state import set_sorting_profile_sync_state
+
+    set_sorting_profile_sync_state(state)
 
 
 # ---------------------------------------------------------------------------
@@ -279,20 +263,17 @@ def setSortHiveConfig(cfg: dict[str, Any]) -> None:
 
 
 def getApiKeys() -> dict[str, str]:
-    """Read API keys from TOML [api_keys] section."""
-    config = _read_toml()
-    section = config.get("api_keys")
-    if not isinstance(section, dict):
-        return {}
-    return {k: str(v) for k, v in section.items()}
+    """Read API keys from local SQLite storage."""
+    from local_state import get_api_keys
+
+    return get_api_keys()
 
 
 def setApiKeys(keys: dict[str, str]) -> None:
-    """Write API keys to TOML [api_keys] section."""
-    def updater(config: dict[str, Any]) -> None:
-        config["api_keys"] = dict(keys)
+    """Write API keys to local SQLite storage."""
+    from local_state import set_api_keys
 
-    _update_toml(updater)
+    set_api_keys(keys)
 
 
 # ---------------------------------------------------------------------------
@@ -352,150 +333,45 @@ def setCameraSetup(setup: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Polygons (stored in polygons.json, not TOML)
+# Polygons (stored in local SQLite state, not TOML)
 # ---------------------------------------------------------------------------
 
 
 def getChannelPolygons() -> dict[str, Any] | None:
-    """Read channel polygons from polygons.json."""
-    data = _read_polygons_json()
-    result = data.get("channel_polygons")
-    return result if isinstance(result, dict) else None
+    """Read channel polygons from local SQLite storage."""
+    from local_state import get_channel_polygons
+
+    return get_channel_polygons()
 
 
 def setChannelPolygons(polygons: dict[str, Any]) -> None:
-    """Write channel polygons to polygons.json."""
-    with _POLYGONS_LOCK:
-        data = _read_polygons_json()
-        data["channel_polygons"] = polygons
-        _write_json_atomic(_polygons_path(), data)
+    """Write channel polygons to local SQLite storage."""
+    from local_state import set_channel_polygons
+
+    set_channel_polygons(polygons)
 
 
 def getClassificationPolygons() -> dict[str, Any] | None:
-    """Read classification polygons from polygons.json."""
-    data = _read_polygons_json()
-    result = data.get("classification_polygons")
-    return result if isinstance(result, dict) else None
+    """Read classification polygons from local SQLite storage."""
+    from local_state import get_classification_polygons
+
+    return get_classification_polygons()
 
 
 def setClassificationPolygons(polygons: dict[str, Any]) -> None:
-    """Write classification polygons to polygons.json."""
-    with _POLYGONS_LOCK:
-        data = _read_polygons_json()
-        data["classification_polygons"] = polygons
-        _write_json_atomic(_polygons_path(), data)
+    """Write classification polygons to local SQLite storage."""
+    from local_state import set_classification_polygons
+
+    set_classification_polygons(polygons)
 
 
 # ---------------------------------------------------------------------------
-# Migration: data.json → TOML + polygons.json
+# Legacy migration entry point
 # ---------------------------------------------------------------------------
 
 
 def migrateFromDataJson() -> None:
-    """One-time migration of settings from data.json to TOML + polygons.json.
+    """Compatibility wrapper for the legacy startup migration entry point."""
+    from local_state import initialize_local_state
 
-    Only copies values that don't already exist in the target store.
-    Does NOT delete from data.json (preserves as fallback).
-    """
-    from blob_manager import loadData
-
-    data = loadData()
-    if not data:
-        return
-
-    toml_path = _toml_path()
-    config = _read_toml()
-    changed = False
-
-    # Detection configs
-    for json_key, toml_scope in [
-        ("classification_detection", "classification"),
-        ("feeder_detection", "feeder"),
-        ("carousel_detection", "carousel"),
-    ]:
-        val = data.get(json_key)
-        if isinstance(val, dict):
-            detection = config.setdefault("detection", {})
-            if toml_scope not in detection:
-                section = dict(val)
-                by_role = section.pop("sample_collection_enabled_by_role", None)
-                detection[toml_scope] = section
-                if isinstance(by_role, dict):
-                    detection[toml_scope]["sample_collection_enabled_by_role"] = by_role
-                changed = True
-
-    # Machine nickname
-    nickname = data.get("machine_nickname")
-    if isinstance(nickname, str) and nickname.strip():
-        machine = config.setdefault("machine", {})
-        if "nickname" not in machine:
-            machine["nickname"] = nickname.strip()
-            changed = True
-
-    # Classification training config
-    training = data.get("classification_training")
-    if isinstance(training, dict) and "classification_training" not in config:
-        config["classification_training"] = dict(training)
-        changed = True
-
-    # API keys
-    api_keys = data.get("api_keys")
-    if isinstance(api_keys, dict) and "api_keys" not in config:
-        config["api_keys"] = dict(api_keys)
-        changed = True
-
-    # Camera setup → [cameras] section (for default layout)
-    camera_setup = data.get("camera_setup")
-    if isinstance(camera_setup, dict):
-        cameras = config.setdefault("cameras", {})
-        for role in ("feeder", "classification_top", "classification_bottom"):
-            val = camera_setup.get(role)
-            if val is not None and role not in cameras:
-                # Legacy format may be "opencv:N|name" string — extract index
-                if isinstance(val, str):
-                    if val == "none":
-                        cameras[role] = -1
-                    elif val.startswith("opencv:"):
-                        try:
-                            cameras[role] = int(val.split(":")[1].split("|")[0])
-                        except (ValueError, IndexError):
-                            pass
-                    else:
-                        try:
-                            cameras[role] = int(val)
-                        except ValueError:
-                            pass
-                elif isinstance(val, int):
-                    cameras[role] = val
-                changed = True
-
-    # Chute calibration
-    chute_cal = data.get("chute_calibration")
-    if isinstance(chute_cal, dict):
-        chute = config.setdefault("chute", {})
-        for k, v in chute_cal.items():
-            if k not in chute:
-                chute[k] = v
-                changed = True
-
-    if changed:
-        with _TOML_LOCK:
-            write_machine_params_config(toml_path, config)
-
-    # Polygons → polygons.json
-    polygons_data = _read_polygons_json()
-    polygons_changed = False
-
-    channel_polys = data.get("channel_polygons")
-    if isinstance(channel_polys, dict) and "channel_polygons" not in polygons_data:
-        polygons_data["channel_polygons"] = channel_polys
-        polygons_changed = True
-
-    class_polys = data.get("classification_polygons")
-    if isinstance(class_polys, dict) and "classification_polygons" not in polygons_data:
-        polygons_data["classification_polygons"] = class_polys
-        polygons_changed = True
-
-    if polygons_changed:
-        with _POLYGONS_LOCK:
-            _write_json_atomic(_polygons_path(), polygons_data)
+    initialize_local_state()

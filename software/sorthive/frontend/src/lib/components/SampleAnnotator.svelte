@@ -171,7 +171,7 @@
 	// ── External API: register actions ──
 	$effect(() => {
 		if (!externalApi) return;
-		externalApi.save = () => void saveAnnotations();
+		externalApi.save = saveAnnotations;
 		externalApi.deleteSelected = deleteSelected;
 		externalApi.undo = () => annotator?.undo();
 		externalApi.redo = () => annotator?.redo();
@@ -561,7 +561,7 @@
 	}
 
 	async function saveAnnotations() {
-		if (saving) return;
+		if (saving) return false;
 
 		saving = true;
 		try {
@@ -577,8 +577,10 @@
 				`Saved ${response.annotation_count} annotation${response.annotation_count === 1 ? '' : 's'}.`,
 				'success'
 			);
+			return true;
 		} catch {
 			setFeedback('Saving annotations failed. Please try again.', 'danger');
+			return false;
 		} finally {
 			saving = false;
 		}
@@ -589,7 +591,7 @@
 	<!-- Canvas-only mode: external controls are rendered by the parent -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="overflow-hidden rounded-lg border border-gray-200 bg-slate-950/95"
+		class="overflow-hidden border border-[#E2E0DB] bg-slate-950/95"
 		onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 	>
 		<div class="flex min-h-[50vh] items-center justify-center p-2">
@@ -604,56 +606,56 @@
 	</div>
 {:else}
 	<!-- Self-contained mode: toolbar + canvas -->
-	<div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+	<div class="space-y-4 border border-[#E2E0DB] bg-white p-4">
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+			<div class="inline-flex border border-[#E2E0DB] bg-[#F7F6F3] p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
 				>Rectangle</button>
 				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
-				class="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 {saving || !isDirty ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}"
+				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {saving || !isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
 			>{saving ? 'Saving...' : 'Save'}</button>
 			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
-				class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-red-50'}"
+				class="border border-[#D01012]/20 px-3 py-1.5 text-xs font-medium text-[#D01012] transition-colors disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#7A7770] {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-[#FEF2F2]'}"
 			>Delete Selected</button>
-			<button type="button" onclick={() => annotator?.undo()} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Undo</button>
-			<button type="button" onclick={() => annotator?.redo()} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Redo</button>
-			<button type="button" onclick={restoreBaseline} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Revert</button>
+			<button type="button" onclick={() => annotator?.undo()} class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Undo</button>
+			<button type="button" onclick={() => annotator?.redo()} class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Redo</button>
+			<button type="button" onclick={restoreBaseline} class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Revert</button>
 			{#if seedBoxes.length > 0}
-				<button type="button" onclick={loadSorterBoxes} class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Load Sorter Boxes</button>
+				<button type="button" onclick={loadSorterBoxes} class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Load Sorter Boxes</button>
 			{/if}
-			<button type="button" onclick={clearAll} class="rounded-lg border border-orange-200 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50">Clear</button>
+			<button type="button" onclick={clearAll} class="border border-[#FFD500]/30 px-3 py-1.5 text-xs font-medium text-[#A16207] hover:bg-[#FFFBEB]">Clear</button>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2 text-xs text-[#7A7770]">
 			<span>{annotationStats.total} annotations</span>
 			<span>{annotationStats.seeded} seeded</span>
 			<span>{annotationStats.manual} manual</span>
 			<span>{annotationStats.rectangles} rectangles</span>
 			<span>{annotationStats.polygons} polygons</span>
 			<span>{selectedAnnotationIds.length} selected</span>
-			<span class="ml-auto font-medium {isDirty ? 'text-amber-700' : 'text-emerald-700'}">
+			<span class="ml-auto font-medium {isDirty ? 'text-[#A16207]' : 'text-[#00852B]'}">
 				{#if isDirty}Unsaved changes{:else if hasSavedBaseline}Saved{:else}Not saved yet{/if}
 			</span>
 		</div>
 
-		<div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+		<div class="border border-[#0055BF]/10 bg-[#F0F7FF] px-3 py-2 text-xs text-[#0055BF]">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 
 		{#if feedback}
-			<p class="rounded-lg px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-red-50 text-red-700' : feedbackTone === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-700'}">
+			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-[#D01012]/8 text-[#D01012]' : feedbackTone === 'success' ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#F7F6F3] text-[#7A7770]'}">
 				{feedback}
 			</p>
 		{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="overflow-auto rounded-xl border border-gray-200 bg-slate-950/95 p-4"
+			class="overflow-auto border border-[#E2E0DB] bg-slate-950/95 p-4"
 			onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 		>
 			<div class="flex min-h-[28rem] items-center justify-center">

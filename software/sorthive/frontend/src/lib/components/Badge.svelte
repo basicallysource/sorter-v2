@@ -7,14 +7,18 @@
 	let { text, variant = 'neutral' }: Props = $props();
 
 	const colors: Record<string, string> = {
-		success: 'bg-green-100 text-green-800',
-		warning: 'bg-yellow-100 text-yellow-800',
-		danger: 'bg-red-100 text-red-800',
-		info: 'bg-blue-100 text-blue-800',
-		neutral: 'bg-gray-100 text-gray-800'
+		success: 'border border-[#00852B]/30 bg-[#00852B]/10 text-[#00852B]',
+		warning: 'border border-[#FFD500]/30 bg-[#FFD500]/15 text-[#A16207]',
+		danger: 'border border-[#D01012]/30 bg-[#D01012]/8 text-[#D01012]',
+		info: 'border border-[#0055BF]/30 bg-[#0055BF]/8 text-[#0055BF]',
+		neutral: 'border border-[#E2E0DB] bg-[#F7F6F3] text-[#7A7770]'
 	};
+
+	function formatText(value: string): string {
+		return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+	}
 </script>
 
-<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {colors[variant]}">
-	{text}
+<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium {colors[variant]}">
+	{formatText(text)}
 </span>

@@ -701,9 +701,17 @@ def _calibrate_usb_camera_device_settings(
     best_settings: Dict[str, int | float | bool] | None = None
     best_analysis: Dict[str, Any] | None = None
 
+    # Discovery sweep steps (used if baseline fails to find the card).
+    # We sweep exposure first (9 steps), then gain (5 steps) if still not found.
+    brightness_control = control_by_key.get("brightness")
+    discovery_exposure_steps = 9 if exposure_control is not None else 0
+    discovery_gain_steps = 5 if gain_control is not None else 0
+    discovery_brightness_steps = 5 if brightness_control is not None and exposure_control is None and gain_control is None else 0
+    discovery_total = discovery_exposure_steps + discovery_gain_steps + discovery_brightness_steps
     total_steps = max(
         1,
         len(initial_candidates)
+        + discovery_total
         + (8 if exposure_control is not None else 0)
         + (5 if gain_control is not None and exposure_control is None else 0)
         + (8 if wb_control is not None else 0),
@@ -737,6 +745,50 @@ def _calibrate_usb_camera_device_settings(
             stage="baseline",
             message=f"Analyzing baseline candidate {index} of {len(initial_candidates)}.",
         )
+
+    # If the baseline failed to find the card, sweep through exposure and gain
+    # values to discover a setting where the card is visible.
+    if best_settings is None or best_analysis is None:
+        discovery_found = False
+
+        def _sweep_control(
+            control: Dict[str, Any] | None,
+            key: str,
+            steps: int,
+            label: str,
+            base: Dict[str, int | float | bool],
+        ) -> bool:
+            nonlocal discovery_found
+            if control is None or steps <= 0 or discovery_found:
+                return False
+            c_min = _as_number(control.get("min"))
+            c_max = _as_number(control.get("max"))
+            c_step = _as_number(control.get("step"))
+            if c_min is None or c_max is None:
+                return False
+            for idx, val in enumerate(np.linspace(c_min, c_max, num=steps).tolist(), start=1):
+                cand = dict(base)
+                cand[key] = int(round(_quantize_numeric_value(val, c_min, c_step))) if c_step is not None and c_step >= 1 else float(_quantize_numeric_value(val, c_min, c_step))
+                if auto_exposure_control is not None:
+                    cand["auto_exposure"] = False
+                _, analysis = consider(
+                    cand,
+                    stage="discovery",
+                    message=f"Searching for calibration target — {label} {idx}/{steps}.",
+                )
+                if analysis is not None:
+                    discovery_found = True
+                    return True
+            return False
+
+        # Sweep exposure across full range
+        _sweep_control(exposure_control, "exposure", discovery_exposure_steps, "exposure", baseline_candidate)
+        # If still not found, sweep gain too
+        if not discovery_found:
+            _sweep_control(gain_control, "gain", discovery_gain_steps, "gain", best_settings or baseline_candidate)
+        # Last resort: brightness (only if neither exposure nor gain exist)
+        if not discovery_found:
+            _sweep_control(brightness_control, "brightness", discovery_brightness_steps, "brightness", baseline_candidate)
 
     if best_settings is None or best_analysis is None:
         raise HTTPException(
@@ -1253,11 +1305,17 @@ def _restore_camera_color_profile(role: str, profile: Dict[str, Any]) -> None:
 
 
 class CameraAssignment(BaseModel):
-    c_channel_2: Optional[int] = None
-    c_channel_3: Optional[int] = None
+    layout: Optional[str] = None
+    feeder: Optional[int | str] = None
+    c_channel_2: Optional[int | str] = None
+    c_channel_3: Optional[int | str] = None
     carousel: Optional[int | str] = None
     classification_top: Optional[int | str] = None
     classification_bottom: Optional[int | str] = None
+
+
+class CameraLayoutPayload(BaseModel):
+    layout: str
 
 
 class CameraPictureSettingsPayload(BaseModel):
@@ -1356,6 +1414,7 @@ def get_camera_config() -> Dict[str, Any]:
             cameras = {}
         return {
             "layout": cameras.get("layout", "default"),
+            "feeder": cameras.get("feeder"),
             "c_channel_2": cameras.get("c_channel_2"),
             "c_channel_3": cameras.get("c_channel_3"),
             "carousel": cameras.get("carousel"),
@@ -1365,12 +1424,36 @@ def get_camera_config() -> Dict[str, Any]:
     except HTTPException:
         return {
             "layout": "default",
+            "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
             "carousel": None,
             "classification_top": None,
             "classification_bottom": None,
         }
+
+
+@router.post("/api/cameras/layout")
+def save_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
+    if payload.layout not in {"default", "split_feeder"}:
+        raise HTTPException(
+            status_code=400,
+            detail="layout must be 'default' or 'split_feeder'.",
+        )
+
+    params_path, config = _read_machine_params_config()
+    cameras = config.get("cameras", {})
+    if not isinstance(cameras, dict):
+        cameras = {}
+    cameras["layout"] = payload.layout
+    config["cameras"] = cameras
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    return get_camera_config()
 
 
 @router.get("/api/cameras/list")
@@ -1411,7 +1494,7 @@ def camera_stream(index: int):
 
 
 @router.get("/api/cameras/feed/{role}")
-def camera_feed_by_role(role: str):
+def camera_feed_by_role(role: str, annotated: bool = True, direct: bool = False):
     """MJPEG stream for a camera role."""
     from vision.camera import (
         apply_camera_color_profile,
@@ -1441,7 +1524,11 @@ def camera_feed_by_role(role: str):
             b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
+    if (
+        not direct
+        and shared_state.vision_manager is not None
+        and hasattr(shared_state.vision_manager, "getCaptureThreadForRole")
+    ):
         try:
             capture = shared_state.vision_manager.getCaptureThreadForRole(role)
         except Exception:
@@ -1453,7 +1540,11 @@ def camera_feed_by_role(role: str):
                     if frame_obj is None:
                         time.sleep(0.05)
                         continue
-                    frame = frame_obj.annotated if frame_obj.annotated is not None else frame_obj.raw
+                    frame = (
+                        frame_obj.annotated
+                        if annotated and frame_obj.annotated is not None
+                        else frame_obj.raw
+                    )
                     yield _encode_chunk(frame)
                     time.sleep(0.03)
 
@@ -1492,9 +1583,22 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
 
     # Update cameras section
     cameras = config.get("cameras", {})
+    if not isinstance(cameras, dict):
+        cameras = {}
     updates = assignment.model_dump(exclude_unset=True)
-    if updates:
-        cameras["layout"] = "split_feeder"
+    layout = updates.pop("layout", None)
+    if layout is not None:
+        if layout not in {"default", "split_feeder"}:
+            raise HTTPException(
+                status_code=400,
+                detail="layout must be 'default' or 'split_feeder'.",
+            )
+        cameras["layout"] = layout
+    elif "layout" not in cameras:
+        if "feeder" in updates:
+            cameras["layout"] = "default"
+        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel")):
+            cameras["layout"] = "split_feeder"
     for key, value in updates.items():
         if value is None:
             cameras.pop(key, None)
@@ -1518,6 +1622,8 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     return {
         "ok": True,
         "assignment": {
+            "layout": cameras.get("layout", "default"),
+            "feeder": cameras.get("feeder"),
             "c_channel_2": cameras.get("c_channel_2"),
             "c_channel_3": cameras.get("c_channel_3"),
             "carousel": cameras.get("carousel"),
@@ -1825,5 +1931,3 @@ def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict
         "analysis_preview": task.get("analysis_preview"),
         "error": task.get("error"),
     }
-
-

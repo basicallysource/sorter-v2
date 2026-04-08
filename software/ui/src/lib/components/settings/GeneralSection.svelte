@@ -4,6 +4,8 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
+	type FeedingMode = 'auto_channels' | 'manual_carousel';
+
 	const manager = getMachinesContext();
 
 	let url = $state(`${backendWsBaseUrl}/ws`);
@@ -12,6 +14,11 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
+	let feedingMode = $state<FeedingMode>('auto_channels');
+	let loadingFeedingMode = $state(false);
+	let savingFeedingMode = $state(false);
+	let feedingModeError = $state<string | null>(null);
+	let feedingModeStatus = $state('');
 
 	function handleConnect() {
 		manager.connect(url);
@@ -63,6 +70,57 @@
 		}
 	}
 
+	async function loadFeedingMode() {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) {
+			feedingMode = 'auto_channels';
+			return;
+		}
+
+		loadingFeedingMode = true;
+		feedingModeError = null;
+		feedingModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/feeding-mode`);
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
+		} catch (e: any) {
+			feedingModeError = e.message ?? 'Failed to load feeding mode';
+		} finally {
+			loadingFeedingMode = false;
+		}
+	}
+
+	async function saveFeedingMode(nextMode: FeedingMode) {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) {
+			feedingModeError = 'Select a connected machine before changing the feeding mode.';
+			return;
+		}
+
+		savingFeedingMode = true;
+		feedingModeError = null;
+		feedingModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/feeding-mode`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mode: nextMode })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
+			feedingModeStatus = 'Feeding mode saved. Reset and re-home the machine before running.';
+		} catch (e: any) {
+			feedingModeError = e.message ?? 'Failed to save feeding mode';
+		} finally {
+			savingFeedingMode = false;
+		}
+	}
+
 	$effect(() => {
 		const machineId = manager.selectedMachineId ?? '';
 		if (machineId !== loadedMachineId) {
@@ -71,30 +129,38 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
+			feedingMode = 'auto_channels';
+			loadingFeedingMode = false;
+			savingFeedingMode = false;
+			feedingModeError = null;
+			feedingModeStatus = '';
+			if (machineId) {
+				void loadFeedingMode();
+			}
 		}
 	});
 </script>
 
 <div class="flex flex-col gap-6">
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Connection</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Connection</h3>
 		<div class="mb-3 flex flex-col gap-2 sm:flex-row">
 			<input
 				type="text"
 				bind:value={url}
 				placeholder="ws://host:port/ws"
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 			<button
 				onclick={handleConnect}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
 			>
 				Connect
 			</button>
 		</div>
 
 		{#if manager.machines.size > 0}
-			<div class="dark:text-text-muted-dark mb-2 text-xs text-text-muted">
+			<div class="mb-2 text-xs text-text-muted">
 				Connected Machines ({manager.machines.size})
 			</div>
 			<div class="flex flex-col gap-1">
@@ -111,17 +177,17 @@
 						tabindex="0"
 						class={`flex items-center justify-between border px-2 py-1.5 ${
 							manager.selectedMachineId === id
-								? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/10'
-								: 'dark:border-border-dark dark:bg-bg-dark border-border bg-bg'
+								? 'border-[#D01012] bg-[#D01012]/10 dark:bg-[#D01012]/10'
+								: 'border-border bg-bg'
 						}`}
 					>
 						<div class="flex items-center gap-2">
 							<span
 								class="h-2 w-2 rounded-full {m.status === 'connected'
-									? 'bg-green-500'
-									: 'bg-red-500'}"
+									? 'bg-[#00852B]'
+									: 'bg-[#D01012]'}"
 							></span>
-							<span class="dark:text-text-dark text-sm text-text">
+							<span class="text-sm text-text">
 								{m.identity?.nickname ?? id.slice(0, 8)}
 							</span>
 						</div>
@@ -130,7 +196,7 @@
 								event.stopPropagation();
 								manager.disconnect(id);
 							}}
-							class="dark:text-text-muted-dark text-xs text-text-muted hover:text-red-500 dark:hover:text-red-400"
+							class="text-xs text-text-muted hover:text-[#D01012] dark:hover:text-red-400"
 						>
 							Disconnect
 						</button>
@@ -138,67 +204,121 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">No machines connected</div>
+			<div class="text-sm text-text-muted">No machines connected</div>
 		{/if}
 	</div>
 
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Machine Name</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Machine Name</h3>
 		{#if manager.selectedMachine}
 			<div class="flex flex-col gap-3">
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
+				<div class="text-xs text-text-muted">
 					Selected machine:
-					<span class="dark:text-text-dark font-medium text-text">{selectedMachineLabel()}</span>
+					<span class="font-medium text-text">{selectedMachineLabel()}</span>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<input
 						type="text"
 						bind:value={nicknameDraft}
 						placeholder="e.g. Bench Sorter"
-						class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 					<button
 						onclick={saveMachineName}
 						disabled={nameSaving ||
 							normalizedNickname(nicknameDraft) ===
 								(manager.selectedMachine.identity?.nickname ?? '')}
-						class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{nameSaving ? 'Saving...' : 'Save Name'}
 					</button>
 				</div>
-				<div class="dark:text-text-muted-dark text-xs text-text-muted">
-					Leave it blank to fall back to the machine ID.
-				</div>
+				<div class="text-xs text-text-muted">Leave it blank to fall back to the machine ID.</div>
 				{#if nameError}
-					<div class="text-sm text-red-600 dark:text-red-400">{nameError}</div>
+					<div class="text-sm text-[#D01012] dark:text-red-400">{nameError}</div>
 				{:else if nameStatus}
-					<div class="dark:text-text-muted-dark text-sm text-text-muted">{nameStatus}</div>
+					<div class="text-sm text-text-muted">{nameStatus}</div>
 				{/if}
 			</div>
 		{:else}
-			<div class="dark:text-text-muted-dark text-sm text-text-muted">
-				Connect to a machine to give it a friendly name.
+			<div class="text-sm text-text-muted">Connect to a machine to give it a friendly name.</div>
+		{/if}
+	</div>
+
+	<div>
+		<h3 class="mb-2 text-sm font-medium text-text">Feeding Mode</h3>
+		{#if manager.selectedMachine}
+			<div class="flex flex-col gap-3">
+				<div class="text-xs text-text-muted">
+					Choose whether this machine feeds parts through the C-Channels automatically or waits for
+					an operator to place a part directly into the carousel dropzone.
+				</div>
+				<div class="grid gap-2 sm:grid-cols-2">
+					<button
+						onclick={() => saveFeedingMode('auto_channels')}
+						disabled={loadingFeedingMode || savingFeedingMode}
+						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							feedingMode === 'auto_channels'
+								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								: 'border-border bg-bg text-text hover:bg-surface'
+						}`}
+					>
+						<span class="text-sm font-medium">Automatic Feed</span>
+						<span class="text-xs text-text-muted">
+							Use the normal C-Channel feeder automation path.
+						</span>
+					</button>
+					<button
+						onclick={() => saveFeedingMode('manual_carousel')}
+						disabled={loadingFeedingMode || savingFeedingMode}
+						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							feedingMode === 'manual_carousel'
+								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								: 'border-border bg-bg text-text hover:bg-surface'
+						}`}
+					>
+						<span class="text-sm font-medium">Manual Carousel Feed</span>
+						<span class="text-xs text-text-muted">
+							Operators place a part into the carousel dropzone and the machine takes over from
+							there.
+						</span>
+					</button>
+				</div>
+				<div class="text-xs text-text-muted">
+					This setting is persisted in the machine TOML and takes effect after `Reset` and
+					`Re-Home`.
+				</div>
+				{#if feedingModeError}
+					<div class="text-sm text-[#D01012] dark:text-red-400">{feedingModeError}</div>
+				{:else if feedingModeStatus}
+					<div class="text-sm text-text-muted">{feedingModeStatus}</div>
+				{:else if loadingFeedingMode}
+					<div class="text-sm text-text-muted">Loading current feeding mode...</div>
+				{/if}
+			</div>
+		{:else}
+			<div class="text-sm text-text-muted">
+				Connect to a machine before changing the feeding mode.
 			</div>
 		{/if}
 	</div>
 
 	<div>
-		<h3 class="dark:text-text-dark mb-2 text-sm font-medium text-text">Theme</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Theme</h3>
 		<div class="grid grid-cols-2 gap-2">
 			<button
 				onclick={() => settings.setTheme('light')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'light'
-					? 'border-blue-500 bg-blue-500/20 text-blue-500'
-					: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border-border bg-bg text-text hover:bg-surface'}"
+					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
+					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Light
 			</button>
 			<button
 				onclick={() => settings.setTheme('dark')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'dark'
-					? 'border-blue-500 bg-blue-500/20 text-blue-500'
-					: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark border-border bg-bg text-text hover:bg-surface'}"
+					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
+					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Dark
 			</button>

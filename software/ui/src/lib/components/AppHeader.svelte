@@ -2,13 +2,17 @@
 	import { page } from '$app/state';
 	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Home, Pause, Play, Settings } from 'lucide-svelte';
+	import { Home, Pause, Play, RotateCcw } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
 
 	let machineState = $state('initializing');
+	let hardwareState = $state<string>('standby');
+	let homingStep = $state<string | null>(null);
+	let hardwareError = $state<string | null>(null);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
@@ -20,6 +24,37 @@
 			if (!res.ok) return;
 			const data = await res.json();
 			machineState = data.state ?? 'initializing';
+		} catch {
+			// ignore
+		}
+	}
+
+	async function fetchSystemStatus() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
+			if (!res.ok) return;
+			const data = await res.json();
+			hardwareState = data.hardware_state ?? 'standby';
+			homingStep = data.homing_step ?? null;
+			hardwareError = data.hardware_error ?? null;
+		} catch {
+			// ignore
+		}
+	}
+
+	async function homeSystem() {
+		try {
+			await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
+			await fetchSystemStatus();
+		} catch {
+			// ignore
+		}
+	}
+
+	async function resetSystem() {
+		try {
+			await fetch(`${currentBackendBaseUrl()}/api/system/reset`, { method: 'POST' });
+			await fetchSystemStatus();
 		} catch {
 			// ignore
 		}
@@ -40,55 +75,105 @@
 			manager.connect(`${backendWsBaseUrl}/ws`);
 		}
 		void fetchState();
-		const interval = setInterval(fetchState, 1000);
+		void fetchSystemStatus();
+		const interval = setInterval(() => {
+			void fetchState();
+			void fetchSystemStatus();
+		}, 1000);
 		return () => clearInterval(interval);
 	});
 </script>
 
-<div class="mb-4 flex items-center justify-between">
-	<a
-		href="/"
-		class="dark:text-text-dark flex items-center gap-2 text-text transition-colors"
-		title="Dashboard"
-	>
-		<h1 class="text-2xl font-bold">Sorter</h1>
-	</a>
-	<div class="flex items-center gap-2">
-		<MachineDropdown />
-		<button
-			onclick={togglePauseResume}
-			class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
-			title={machineState === 'paused' ? 'Resume' : 'Pause'}
-		>
-			{#if machineState === 'paused'}
-				<Play size={24} />
-			{:else}
-				<Pause size={24} />
+<nav class="border-b border-border bg-surface">
+	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
+		<div class="flex items-center gap-6">
+			<a href="/" class="text-xl font-bold font-mono uppercase tracking-tight text-text">Sorter</a>
+			<div class="flex gap-1">
+				<a
+					href="/"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Dashboard
+				</a>
+				<a
+					href="/bins"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Bins
+				</a>
+				<a
+					href="/profiles"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/profiles' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Profiles
+				</a>
+				<a
+					href="/setup"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/setup') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Setup
+				</a>
+				<a
+					href="/settings"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/settings') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Settings
+				</a>
+			</div>
+		</div>
+		<div class="flex items-center gap-2">
+			<MachineDropdown />
+			<ThemeToggle />
+
+			{#if hardwareState === 'standby' || hardwareState === 'error'}
+				<button
+					onclick={homeSystem}
+					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+					title="Initialize hardware and home all axes"
+				>
+					<Home size={14} />
+					Home
+				</button>
+			{:else if hardwareState === 'homing'}
+				<div class="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted">
+					<div class="h-3.5 w-3.5 animate-spin border-2 border-[#0055BF] border-t-transparent" style="border-radius: 50%;"></div>
+					<span class="max-w-[200px] truncate">{homingStep ?? 'Homing...'}</span>
+				</div>
+			{:else if hardwareState === 'ready'}
+				<button
+					onclick={homeSystem}
+					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+					title="Re-home all axes"
+				>
+					<Home size={14} />
+					Re-Home
+				</button>
+				<button
+					onclick={resetSystem}
+					class="p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
+					title="Reset hardware to standby"
+				>
+					<RotateCcw size={14} />
+				</button>
 			{/if}
-		</button>
-		<a
-			href="/"
-			aria-current={page.url.pathname === '/' ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname === '/'
-					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
-					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
-			}`}
-			title="Home"
-		>
-			<Home size={24} />
-		</a>
-		<a
-			href="/settings"
-			aria-current={page.url.pathname.startsWith('/settings') ? 'page' : undefined}
-			class={`p-2 transition-colors ${
-				page.url.pathname.startsWith('/settings')
-					? 'dark:bg-surface-dark dark:text-text-dark bg-surface text-text'
-					: 'dark:text-text-dark dark:hover:bg-surface-dark text-text hover:bg-surface'
-			}`}
-			title="Settings"
-		>
-			<Settings size={24} />
-		</a>
+
+			{#if hardwareError}
+				<span class="max-w-[200px] truncate text-xs text-[#D01012]" title={hardwareError}>{hardwareError}</span>
+			{/if}
+
+			{#if hardwareState === 'ready'}
+				<button
+					onclick={togglePauseResume}
+					class="p-2 text-text transition-colors hover:bg-bg"
+					title={machineState === 'paused' ? 'Resume' : 'Pause'}
+				>
+					{#if machineState === 'paused'}
+						<Play size={20} />
+					{:else}
+						<Pause size={20} />
+					{/if}
+				</button>
+			{/if}
+		</div>
 	</div>
-</div>
+</nav>

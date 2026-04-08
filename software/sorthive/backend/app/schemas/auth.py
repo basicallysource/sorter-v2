@@ -22,6 +22,8 @@ class UserResponse(BaseModel):
     github_login: str | None = None
     avatar_url: str | None = None
     has_password: bool
+    openrouter_configured: bool = False
+    preferred_ai_model: str | None = None
     role: str
     is_active: bool
     created_at: datetime
@@ -38,6 +40,9 @@ class UpdateProfileRequest(BaseModel):
     display_name: str | None = None
     current_password: str | None = None
     new_password: str | None = None
+    openrouter_api_key: str | None = None
+    clear_openrouter_api_key: bool = False
+    preferred_ai_model: str | None = None
 
 
 class AdminUpdateUserRequest(BaseModel):

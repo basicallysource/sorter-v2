@@ -17,6 +17,7 @@ procedure only runs once per servo (unless limits are reset to 0-1023).
 
 import logging
 import struct
+import threading
 import time
 from typing import Any, Dict
 
@@ -33,18 +34,25 @@ _INST_PING = 0x01
 _INST_READ = 0x02
 _INST_WRITE = 0x03
 
-# Register addresses
+# Register addresses — EEPROM
+_REG_MODEL_L = 3
+_REG_ID = 5
 _REG_MIN_ANGLE_L = 9
 _REG_MAX_ANGLE_L = 11
 _REG_P_COEF = 21
 _REG_D_COEF = 22
 _REG_I_COEF = 23
+
+# Register addresses — SRAM
 _REG_TORQUE_ENABLE = 40
 _REG_GOAL_POSITION_L = 42
 _REG_LOCK = 48
 _REG_PRESENT_POSITION_L = 56
 _REG_PRESENT_LOAD_L = 60
+_REG_PRESENT_VOLTAGE = 62
+_REG_PRESENT_TEMPERATURE = 63
 _REG_MOVING = 66
+_REG_PRESENT_CURRENT_L = 69
 
 
 def _checksum(data: bytes) -> int:
@@ -56,6 +64,7 @@ class ScServoBus:
 
     def __init__(self, port: str, baudrate: int = 1_000_000, timeout: float = 0.05):
         self._serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+        self._lock = threading.Lock()
 
     def close(self):
         self._serial.close()
@@ -63,25 +72,26 @@ class ScServoBus:
     # -- packet I/O ---------------------------------------------------------
 
     def _send(self, servo_id: int, instruction: int, params: bytes = b"") -> bytes | None:
-        length = len(params) + 2
-        pkt = bytes([0xFF, 0xFF, servo_id, length, instruction]) + params
-        pkt += bytes([_checksum(pkt[2:])])
+        with self._lock:
+            length = len(params) + 2
+            pkt = bytes([0xFF, 0xFF, servo_id, length, instruction]) + params
+            pkt += bytes([_checksum(pkt[2:])])
 
-        self._serial.reset_input_buffer()
-        self._serial.write(pkt)
-        self._serial.flush()
-        time.sleep(0.0005)
+            self._serial.reset_input_buffer()
+            self._serial.write(pkt)
+            self._serial.flush()
+            time.sleep(0.0005)
 
-        header = self._serial.read(5)
-        if len(header) < 5 or header[0] != 0xFF or header[1] != 0xFF:
-            return None
-        resp_length = header[3]
-        if resp_length < 2:
-            return None
-        data = self._serial.read(resp_length - 1)
-        if len(data) < resp_length - 1:
-            return None
-        return data  # first byte is error/status, rest is payload
+            header = self._serial.read(5)
+            if len(header) < 5 or header[0] != 0xFF or header[1] != 0xFF:
+                return None
+            resp_length = header[3]
+            if resp_length < 2:
+                return None
+            data = self._serial.read(resp_length - 1)
+            if len(data) < resp_length - 1:
+                return None
+            return data  # first byte is error/status, rest is payload
 
     # -- helpers ------------------------------------------------------------
 
@@ -177,6 +187,67 @@ class ScServoBus:
         time.sleep(0.01)
         self.write_byte(servo_id, _REG_LOCK, 1)
         return result
+
+    def set_id(self, old_id: int, new_id: int) -> bool:
+        """Change a servo's ID.  Requires EEPROM unlock."""
+        if new_id < 1 or new_id > 253:
+            return False
+        self.write_byte(old_id, _REG_LOCK, 0)
+        time.sleep(0.01)
+        result = self.write_byte(old_id, _REG_ID, new_id)
+        time.sleep(0.01)
+        self.write_byte(new_id, _REG_LOCK, 1)
+        return result
+
+    def read_servo_info(self, servo_id: int) -> dict | None:
+        """Read identification and live telemetry from a servo."""
+        if not self.ping(servo_id):
+            return None
+
+        model = self.read_word(servo_id, _REG_MODEL_L)
+        position = self.read_position(servo_id)
+        load = self.read_load(servo_id)
+        limits = self.read_angle_limits(servo_id)
+
+        temp_data = self.read_bytes(servo_id, _REG_PRESENT_VOLTAGE, 2)
+        voltage: int | None = None
+        temperature: int | None = None
+        if temp_data is not None and len(temp_data) >= 2:
+            voltage = temp_data[0]
+            temperature = temp_data[1]
+
+        current = self.read_word(servo_id, _REG_PRESENT_CURRENT_L)
+
+        pid_data = self.read_bytes(servo_id, _REG_P_COEF, 3)
+        pid = None
+        if pid_data is not None and len(pid_data) >= 3:
+            pid = {"p": pid_data[0], "d": pid_data[1], "i": pid_data[2]}
+
+        model_name = None
+        if model is not None:
+            # Model detection based on observed firmware values (see sc_servo.rs)
+            if model in (4, 9, 0x0400, 0x0504, 0x0405, 0x0900):
+                model_name = "SC09"
+            elif model in (15, 0x0F00, 0x050F, 0x0F05):
+                model_name = "SC15"
+            elif model in (40, 0x2800):
+                model_name = "SC40"
+            elif model in (60, 0x3C00):
+                model_name = "SC60"
+
+        return {
+            "id": servo_id,
+            "model": model,
+            "model_name": model_name,
+            "position": position,
+            "load": load,
+            "min_limit": limits[0] if limits else None,
+            "max_limit": limits[1] if limits else None,
+            "voltage": round(voltage / 10.0, 1) if voltage is not None else None,
+            "temperature": temperature,
+            "current": current,
+            "pid": pid,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -417,6 +488,10 @@ class WaveshareServoMotor:
             self._move_started_at = 0
             return True
         return False
+
+    @property
+    def available(self) -> bool:
+        return True
 
     def open(self, open_angle: int | None = None) -> None:
         if not self._enabled:

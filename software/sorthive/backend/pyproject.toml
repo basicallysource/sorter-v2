@@ -15,4 +15,6 @@ dependencies = [
     "pydantic-settings>=2.7",
     "pydantic[email]>=2.7",
     "slowapi>=0.1.9",
+    "cryptography>=45.0",
+    "requests>=2.32",
 ]

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 	type LayerTelemetry = {
@@ -34,9 +34,25 @@
 		calibrating: boolean;
 	};
 
+	type BusServo = {
+		id: number;
+		model: number | null;
+		model_name: string | null;
+		position: number | null;
+		load: number | null;
+		min_limit: number | null;
+		max_limit: number | null;
+		voltage: number | null;
+		temperature: number | null;
+		current: number | null;
+		pid: { p: number; d: number; i: number } | null;
+		error?: string;
+	};
+
 	const manager = getMachinesContext();
 
 	let loadedMachineKey = $state('');
+	let loaded = $state(false);
 	let loading = $state(false);
 	let saving = $state(false);
 	let errorMsg = $state<string | null>(null);
@@ -50,6 +66,20 @@
 	let port = $state('');
 	let layers = $state<LayerDraft[]>([]);
 	let liveFeedbackRequestInFlight = false;
+
+	// Waveshare servo bus management
+	let busServos = $state<BusServo[]>([]);
+	let busScanning = $state(false);
+	let busSuggestedNextId = $state<number | null>(null);
+	let busError = $state<string | null>(null);
+	let busStatusMsg = $state('');
+	let changingIdFor = $state<number | null>(null);
+	let newIdInputs = $state<Record<number, string>>({});
+
+	// Waveshare port discovery
+	type WavesharePort = { device: string; product: string; serial: string | null; confirmed?: boolean; servo_count?: number };
+	let availablePorts = $state<WavesharePort[]>([]);
+	let portsLoaded = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -66,14 +96,24 @@
 	}
 
 	function waveshareServoChoices(): number[] {
-		if (availableServoIds.length > 0) {
-			return availableServoIds;
+		const ids = new Set<number>();
+
+		// Primary source: IDs actually found on the bus
+		if (busServos.length > 0) {
+			for (const servo of busServos) {
+				if (servo.id >= 1 && servo.id <= 253) ids.add(servo.id);
+			}
+		} else if (availableServoIds.length > 0) {
+			// Fallback: IDs reported by the backend (includes its own scan)
+			for (const id of availableServoIds) ids.add(id);
 		}
 
-		const ids = layers
-			.map((layer) => Number(layer.servoId))
-			.filter((value) => Number.isInteger(value) && value > 0);
-		return [...new Set(ids)];
+		// If still empty (no scan yet), offer 1..layerCount as placeholder
+		if (ids.size === 0) {
+			for (let i = 1; i <= Math.max(layers.length, 1); i++) ids.add(i);
+		}
+
+		return [...ids].sort((a, b) => a - b);
 	}
 
 	function emptyTelemetry(): LayerTelemetry {
@@ -205,12 +245,57 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config`);
 			if (!res.ok) throw new Error(await res.text());
 			applySettings(await res.json());
+			loaded = true;
 			void loadLiveFeedback();
+			void loadAvailablePorts();
+			if (backend === 'waveshare') {
+				void scanBusServosQuiet();
+			}
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load storage layer settings';
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function scanBusServosQuiet() {
+		if (busScanning) return;
+		busScanning = true;
+		try {
+			const scanPort = port.trim() || undefined;
+			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			if (scanPort) url.searchParams.set('port', scanPort);
+			const res = await fetch(url.toString());
+			if (!res.ok) return;
+			const payload = await res.json();
+			const prevCount = busServos.length;
+			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+
+			// On first successful scan, auto-assign discovered IDs to layers
+			if (prevCount === 0 && busServos.length > 0) {
+				autoAssignBusIds();
+			}
+		} catch {
+			// quiet — don't show errors for background scans
+		} finally {
+			busScanning = false;
+		}
+	}
+
+	function autoAssignBusIds() {
+		const scannedIds = busServos.map((s) => s.id).sort((a, b) => a - b);
+		if (scannedIds.length === 0) return;
+
+		// Check if any layer already has a valid scanned ID
+		const alreadyAssigned = layers.some((l) => scannedIds.includes(Number(l.servoId)));
+		if (alreadyAssigned) return;
+
+		// Assign scanned IDs sequentially to layers
+		layers = layers.map((layer, index) => ({
+			...layer,
+			servoId: String(scannedIds[index] ?? scannedIds[scannedIds.length - 1])
+		}));
 	}
 
 	async function loadLiveFeedback() {
@@ -303,10 +388,20 @@
 			if (!servoRes.ok) throw new Error(await servoRes.text());
 			const servoPayload = await servoRes.json();
 
+			// If a restart is required, clear stale issues — they reflect the old config
+			if (servoPayload?.restart_required) {
+				servoIssues = [];
+			}
+
 			applySettings({
 				storage_layers: storagePayload?.settings ?? storagePayload?.storage_layers,
 				servo: servoPayload?.settings
 			});
+
+			if (servoPayload?.restart_required) {
+				servoIssues = [];
+			}
+
 			void loadLiveFeedback();
 
 			statusMsg = [storagePayload?.message, servoPayload?.message].filter(Boolean).join(' ');
@@ -369,6 +464,89 @@
 			);
 			errorMsg = e.message ?? `Failed to calibrate layer ${index + 1} servo`;
 		}
+	}
+
+	async function scanBusServos() {
+		busScanning = true;
+		busError = null;
+		busStatusMsg = '';
+		try {
+			const scanPort = port.trim() || undefined;
+			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			if (scanPort) url.searchParams.set('port', scanPort);
+			const res = await fetch(url.toString());
+			if (!res.ok) throw new Error(await res.text());
+			const payload = await res.json();
+			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+
+			// Pre-fill new ID inputs: for ID 1 servos, suggest the next available ID
+			const inputs: Record<number, string> = {};
+			for (const servo of busServos) {
+				if (servo.id === 1 && busSuggestedNextId !== null) {
+					inputs[servo.id] = String(busSuggestedNextId);
+				}
+			}
+			newIdInputs = inputs;
+		} catch (e: any) {
+			busError = e.message ?? 'Failed to scan bus';
+		} finally {
+			busScanning = false;
+		}
+	}
+
+	async function loadAvailablePorts() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/ports`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
+			portsLoaded = true;
+		} catch {
+			// silent — keep text input as fallback
+		}
+	}
+
+	async function changeServoId(oldId: number) {
+		const rawNewId = newIdInputs[oldId];
+		const newId = Number(rawNewId);
+		if (!Number.isInteger(newId) || newId < 1 || newId > 253) {
+			busError = 'New ID must be between 1 and 253.';
+			return;
+		}
+		if (newId === oldId) {
+			busError = 'New ID is the same as the current ID.';
+			return;
+		}
+
+		changingIdFor = oldId;
+		busError = null;
+		busStatusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${oldId}/set-id`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ new_id: newId })
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const payload = await res.json();
+			busStatusMsg = payload?.message ?? `ID changed from ${oldId} to ${newId}.`;
+			// Refresh the servo list
+			await scanBusServos();
+		} catch (e: any) {
+			busError = e.message ?? `Failed to change servo ID from ${oldId} to ${newId}`;
+		} finally {
+			changingIdFor = null;
+		}
+	}
+
+	function modelLabel(servo: BusServo): string {
+		if (servo.model_name) return servo.model_name;
+		if (servo.model !== null) return `SC?? (${servo.model})`;
+		return '--';
 	}
 
 	function updateLayerCount(index: number, value: string) {
@@ -447,6 +625,32 @@
 		}
 	});
 
+	let previousBackend: ServoBackend | null = null;
+
+	$effect(() => {
+		const current = backend;
+		const prev = untrack(() => previousBackend);
+		if (prev !== null && prev !== current && layers.length > 0) {
+			// Remap servo IDs when switching backends
+			if (current === 'waveshare') {
+				// PCA→Waveshare: ensure 1-indexed unique IDs
+				layers = layers.map((layer, index) => ({
+					...layer,
+					servoId: String(index + 1)
+				}));
+				void loadAvailablePorts();
+				void scanBusServosQuiet();
+			} else {
+				// Waveshare→PCA: switch to 0-indexed channels
+				layers = layers.map((layer, index) => ({
+					...layer,
+					servoId: String(index)
+				}));
+			}
+		}
+		previousBackend = current;
+	});
+
 	$effect(() => {
 		loadedMachineKey;
 		backend;
@@ -454,21 +658,32 @@
 	});
 
 	onMount(() => {
-		const interval = setInterval(() => {
+		const feedbackInterval = setInterval(() => {
 			void loadLiveFeedback();
 		}, 500);
-		return () => clearInterval(interval);
+		const busScanInterval = setInterval(() => {
+			if (backend === 'waveshare') {
+				void scanBusServosQuiet();
+			}
+		}, 10000);
+		return () => {
+			clearInterval(feedbackInterval);
+			clearInterval(busScanInterval);
+		};
 	});
 </script>
 
 <div class="flex flex-col gap-4">
+	{#if !loaded}
+		<div class="text-sm text-text-muted">{loading ? 'Loading...' : ''}</div>
+	{:else}
 	<div class="flex flex-wrap items-end gap-3">
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Backend
 			<select
 				bind:value={backend}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-40 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 block w-40 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			>
 				<option value="pca9685">PCA9685</option>
 				<option value="waveshare">Waveshare SC</option>
@@ -476,7 +691,7 @@
 		</label>
 
 		{#if backend === 'pca9685'}
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Open Angle
 				<input
 					type="number"
@@ -485,10 +700,10 @@
 					step="1"
 					bind:value={openAngle}
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Closed Angle
 				<input
 					type="number"
@@ -497,19 +712,32 @@
 					step="1"
 					bind:value={closedAngle}
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
 		{:else}
-			<label class="dark:text-text-dark min-w-0 flex-1 text-xs text-text">
+			<label class="min-w-0 flex-1 text-xs text-text">
 				Port
-				<input
-					type="text"
-					bind:value={port}
-					placeholder="Auto-detect"
-					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
+				{#if portsLoaded && availablePorts.length > 0}
+					<select
+						bind:value={port}
+						disabled={loading || saving}
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					>
+						<option value="">Auto-detect</option>
+						{#each availablePorts as p}
+							<option value={p.device}>{p.device} — {p.product}{p.confirmed ? ` (${p.servo_count} servos)` : ''}</option>
+						{/each}
+					</select>
+				{:else}
+					<input
+						type="text"
+						bind:value={port}
+						placeholder="Auto-detect"
+						disabled={loading || saving}
+						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				{/if}
 			</label>
 		{/if}
 
@@ -517,14 +745,14 @@
 			<button
 				onclick={saveSettings}
 				disabled={loading || saving || layers.length === 0}
-				class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{saving ? 'Saving...' : 'Save'}
 			</button>
 			<button
 				onclick={loadSettings}
 				disabled={loading || saving}
-				class="dark:text-text-muted-dark cursor-pointer text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-text-dark"
+				class="cursor-pointer text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{loading ? 'Loading...' : 'Reload'}
 			</button>
@@ -532,9 +760,9 @@
 	</div>
 
 	{#if errorMsg}
-		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 
 	{#if servoIssues.length > 0}
@@ -558,30 +786,30 @@
 	{/if}
 
 	{#if layers.length === 0 && !loading}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">
+		<div class="text-sm text-text-muted">
 			No storage layers found.
 		</div>
 	{:else}
-		<div class="dark:border-border-dark overflow-hidden border border-border">
+		<div class="overflow-hidden border border-border">
 			<table class="w-full text-sm">
 				<thead>
-					<tr class="dark:border-border-dark dark:bg-surface-dark border-b border-border bg-surface text-left text-xs">
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Layer</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Active</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Bins</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Invert</th>
+					<tr class="border-b border-border bg-surface text-left text-xs">
+						<th class="px-3 py-2 font-medium text-text-muted">Layer</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Active</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Bins</th>
+						<th class="px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
+						<th class="px-3 py-2 font-medium text-text-muted">Invert</th>
 						{#if backend === 'waveshare'}
-							<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">Position</th>
+							<th class="px-3 py-2 font-medium text-text-muted">Position</th>
 						{/if}
-						<th class="dark:text-text-muted-dark px-3 py-2 font-medium text-text-muted">State</th>
-						<th class="dark:text-text-muted-dark px-3 py-2 text-right font-medium text-text-muted">Actions</th>
+						<th class="px-3 py-2 font-medium text-text-muted">State</th>
+						<th class="px-3 py-2 text-right font-medium text-text-muted">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each layers as layer, index}
-						<tr class="dark:border-border-dark dark:bg-bg-dark border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
-							<td class="dark:text-text-dark px-3 py-2 font-medium text-text">{layer.index}</td>
+						<tr class="border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
+							<td class="px-3 py-2 font-medium text-text">{layer.index}</td>
 							<td class="px-3 py-2">
 								<input
 									type="checkbox"
@@ -596,7 +824,7 @@
 									value={layer.binCount}
 									onchange={(event) => updateLayerCount(index, event.currentTarget.value)}
 									disabled={loading || saving}
-									class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+									class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 								>
 									{#each allowedCounts as count}
 										<option value={String(count)}>{count}</option>
@@ -609,7 +837,7 @@
 										value={layer.servoId}
 										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
 										disabled={loading || saving}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
 										{#each waveshareServoChoices() as servoId}
 											<option value={String(servoId)}>{servoId}</option>
@@ -620,7 +848,7 @@
 										value={layer.servoId}
 										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
 										disabled={loading || saving}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
+										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
 										{#each pcaChannelChoices() as channel}
 											<option value={String(channel)}>{channel}</option>
@@ -637,14 +865,14 @@
 								/>
 							</td>
 							{#if backend === 'waveshare'}
-								<td class="dark:text-text-muted-dark px-3 py-2 font-mono text-xs text-text-muted">
+								<td class="px-3 py-2 font-mono text-xs text-text-muted">
 									{#if layerIsOffline(layer)}
-										<span class="text-red-600 dark:text-red-400">Offline</span>
+										<span class="text-[#D01012] dark:text-red-400">Offline</span>
 									{:else}
 										{formatTelemetryValue(layer.telemetry.position)}
-										<span class="dark:text-text-muted-dark/50 text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
+										<span class="text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
 										{#if layer.telemetry.error}
-											<span class="ml-1 text-red-500" title={layer.telemetry.error}>!</span>
+											<span class="ml-1 text-[#D01012]" title={layer.telemetry.error}>!</span>
 										{/if}
 									{/if}
 								</td>
@@ -660,19 +888,19 @@
 									</span>
 								{:else if layerIsOffline(layer)}
 									<span
-										class="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
+										class="inline-flex items-center gap-1 text-xs text-[#D01012] dark:text-red-400"
 										title={layer.telemetry.error ?? 'Servo offline'}
 									>
-										<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+										<span class="h-1.5 w-1.5 rounded-full bg-[#D01012]"></span>
 										Offline
 									</span>
 								{:else if layer.liveOpen !== null}
-									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-green-600 dark:text-green-400' : 'dark:text-text-muted-dark text-text-muted'}">
-										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-green-500' : 'dark:bg-border-dark bg-border'}"></span>
+									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-[#00852B] dark:text-green-400' : 'text-text-muted'}">
+										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-[#00852B]' : 'bg-border'}"></span>
 										{layer.liveOpen ? 'Open' : 'Closed'}
 									</span>
 								{:else}
-									<span class="dark:text-text-muted-dark text-xs text-text-muted">--</span>
+									<span class="text-xs text-text-muted">--</span>
 								{/if}
 							</td>
 							<td class="px-3 py-2 text-right">
@@ -680,7 +908,7 @@
 									<button
 										onclick={() => toggleLayerServo(index)}
 										disabled={loading || saving || layer.testing || layerIsOffline(layer)}
-										class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+										class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 									>
 										{#if layer.testing}
 											...
@@ -696,7 +924,7 @@
 										<button
 											onclick={() => calibrateLayerServo(index)}
 											disabled={loading || saving || layer.calibrating || layerIsOffline(layer)}
-											class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+											class="cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											{layer.calibrating ? '...' : 'Cal'}
 										</button>
@@ -708,5 +936,111 @@
 				</tbody>
 			</table>
 		</div>
+	{/if}
+
+	{#if backend === 'waveshare'}
+		<div class="mt-6 flex flex-col gap-3">
+			<div class="flex items-center gap-3">
+				<h3 class="text-sm font-medium text-text">Waveshare Servos on Bus</h3>
+				<button
+					onclick={scanBusServos}
+					disabled={busScanning}
+					class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{busScanning ? 'Scanning...' : 'Scan Bus'}
+				</button>
+			</div>
+
+			{#if busError}
+				<div class="text-sm text-[#D01012] dark:text-red-400">{busError}</div>
+			{:else if busStatusMsg}
+				<div class="text-sm text-text-muted">{busStatusMsg}</div>
+			{/if}
+
+			{#if busServos.length > 0}
+				<div class="overflow-hidden border border-border">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border bg-surface text-left text-xs">
+								<th class="px-3 py-2 font-medium text-text-muted">ID</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Model</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Position</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Limits</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Temp</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Voltage</th>
+								<th class="px-3 py-2 font-medium text-text-muted">Load</th>
+								<th class="px-3 py-2 font-medium text-text-muted">PID</th>
+								<th class="px-3 py-2 text-right font-medium text-text-muted">Change ID</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each busServos as servo}
+								<tr class="border-b border-border bg-bg last:border-b-0 {servo.id === 1 ? 'bg-amber-50 dark:bg-amber-950/20' : ''}">
+									<td class="px-3 py-2 font-medium text-text">
+										{servo.id}
+										{#if servo.id === 1}
+											<span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title="Factory default ID — assign a unique ID before use">Factory</span>
+										{/if}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">{modelLabel(servo)}</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">{servo.position ?? '--'}</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.min_limit ?? '--'} – {servo.max_limit ?? '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.temperature !== null && servo.temperature !== undefined ? `${servo.temperature}°C` : '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.voltage !== null && servo.voltage !== undefined ? `${servo.voltage}V` : '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{servo.load ?? '--'}
+									</td>
+									<td class="px-3 py-2 font-mono text-xs text-text-muted">
+										{#if servo.pid}
+											{servo.pid.p}/{servo.pid.d}/{servo.pid.i}
+										{:else}
+											--
+										{/if}
+									</td>
+									<td class="px-3 py-2 text-right">
+										<div class="flex items-center justify-end gap-1.5">
+											<input
+												type="number"
+												min="1"
+												max="253"
+												value={newIdInputs[servo.id] ?? ''}
+												oninput={(e) => {
+													newIdInputs = { ...newIdInputs, [servo.id]: e.currentTarget.value };
+												}}
+												placeholder={servo.id === 1 && busSuggestedNextId ? String(busSuggestedNextId) : 'New ID'}
+												disabled={changingIdFor !== null}
+												class="w-20 border border-border bg-surface px-1.5 py-1 text-xs text-text"
+											/>
+											<button
+												onclick={() => changeServoId(servo.id)}
+												disabled={changingIdFor !== null || !newIdInputs[servo.id]}
+												class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+											>
+												{changingIdFor === servo.id ? '...' : 'Set'}
+											</button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else if !busScanning}
+				<div class="text-xs text-text-muted">
+					{#if !port && availablePorts.length === 0}
+						Select a port above and save before scanning, or connect the Waveshare servo board.
+					{:else}
+						Press "Scan Bus" to detect connected servos.
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
 	{/if}
 </div>

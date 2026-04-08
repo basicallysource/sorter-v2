@@ -31,6 +31,7 @@ from app.services.auth import (
     set_github_oauth_cookies,
     verify_password,
 )
+from app.services.secrets import encrypt_secret
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -255,6 +256,17 @@ def update_profile(
 ):
     if data.display_name is not None:
         current_user.display_name = data.display_name
+
+    if data.clear_openrouter_api_key:
+        current_user.openrouter_api_key_encrypted = None
+
+    if data.openrouter_api_key is not None:
+        normalized_key = data.openrouter_api_key.strip()
+        current_user.openrouter_api_key_encrypted = encrypt_secret(normalized_key) if normalized_key else None
+
+    if data.preferred_ai_model is not None:
+        normalized_model = data.preferred_ai_model.strip()
+        current_user.preferred_ai_model = normalized_model or None
 
     if data.new_password is not None:
         if len(data.new_password) < 8:

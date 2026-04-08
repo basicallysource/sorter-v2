@@ -11,3 +11,8 @@
 /samples-nav-requests.txt
 /sample-detail-blank.png
 /software/client/calibration_image_sample_data_20x128x128x3_float32.npy
+/docs/_site/
+/docs/.jekyll-cache/
+/docs/.sass-cache/
+/docs/vendor/
+/docs/.bundle/

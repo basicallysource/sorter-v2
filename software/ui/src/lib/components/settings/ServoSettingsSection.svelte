@@ -128,24 +128,24 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="dark:text-text-muted-dark text-sm text-text-muted">
+	<div class="text-sm text-text-muted">
 		Configure the bin-door servo backend. PCA9685 is the default board-driven mode; Waveshare
 		uses SC serial bus servos with one servo ID per layer.
 	</div>
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Backend
 			<select
 				bind:value={backend}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			>
 				<option value="pca9685">PCA9685</option>
 				<option value="waveshare">Waveshare SC</option>
 			</select>
 		</label>
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Open Angle
 			<input
 				type="number"
@@ -154,10 +154,10 @@
 				step="1"
 				bind:value={openAngle}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 		</label>
-		<label class="dark:text-text-dark text-xs text-text">
+		<label class="text-xs text-text">
 			Closed Angle
 			<input
 				type="number"
@@ -166,34 +166,34 @@
 				step="1"
 				bind:value={closedAngle}
 				disabled={loading || saving}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
 		</label>
 	</div>
 
 	{#if backend === 'waveshare'}
 		<div class="flex flex-col gap-3">
-			<label class="dark:text-text-dark text-xs text-text">
+			<label class="text-xs text-text">
 				Servo Bus Port
 				<input
 					type="text"
 					bind:value={port}
 					placeholder="Auto-detect if left blank"
 					disabled={loading || saving}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 			</label>
 
 			<div class="flex flex-col gap-2">
-				<div class="dark:text-text-dark text-xs font-medium text-text">Layer Channels</div>
+				<div class="text-xs font-medium text-text">Layer Channels</div>
 				{#each channels as channel, index}
 					<div
-						class="dark:border-border-dark dark:bg-bg-dark grid grid-cols-[minmax(0,1fr)_120px] gap-3 border border-border bg-bg px-3 py-2 sm:grid-cols-[minmax(0,1fr)_120px_110px]"
+						class="grid grid-cols-[minmax(0,1fr)_120px] gap-3 border border-border bg-bg px-3 py-2 sm:grid-cols-[minmax(0,1fr)_120px_110px]"
 					>
-						<div class="dark:text-text-dark flex items-center text-sm text-text">
+						<div class="flex items-center text-sm text-text">
 							Layer {index + 1}
 						</div>
-						<label class="dark:text-text-dark text-xs text-text">
+						<label class="text-xs text-text">
 							Servo ID
 							<input
 								type="number"
@@ -203,10 +203,10 @@
 								value={channel.id}
 								oninput={(event) => updateChannelId(index, event.currentTarget.value)}
 								disabled={loading || saving}
-								class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark mt-1 w-full border border-border bg-surface px-2 py-1.5 text-sm text-text"
+								class="mt-1 w-full border border-border bg-surface px-2 py-1.5 text-sm text-text"
 							/>
 						</label>
-						<label class="dark:text-text-dark flex items-center gap-2 text-xs text-text">
+						<label class="flex items-center gap-2 text-xs text-text">
 							<input
 								type="checkbox"
 								checked={channel.invert}
@@ -225,22 +225,22 @@
 		<button
 			onclick={saveSettings}
 			disabled={loading || saving}
-			class="dark:border-border-dark dark:bg-surface-dark dark:text-text-dark dark:hover:bg-bg-dark cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+			class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{saving ? 'Saving...' : 'Save Bin / Servo Settings'}
 		</button>
 		<button
 			onclick={loadSettings}
 			disabled={loading || saving}
-			class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-surface-dark cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+			class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{loading ? 'Loading...' : 'Reload'}
 		</button>
 	</div>
 
 	{#if errorMsg}
-		<div class="text-sm text-red-600 dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
-		<div class="dark:text-text-muted-dark text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
 </div>

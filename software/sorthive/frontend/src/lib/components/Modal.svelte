@@ -28,7 +28,7 @@
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="mx-4 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+			class="mx-4 w-full max-w-lg bg-white p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -36,11 +36,11 @@
 			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-gray-900">{title}</h2>
+				<h2 class="text-lg font-semibold text-[#1A1A1A]">{title}</h2>
 				<button
 					onclick={onclose}
 					aria-label="Close"
-					class="text-gray-400 hover:text-gray-600"
+					class="text-[#7A7770] hover:text-[#1A1A1A]"
 				>
 					<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 						<path

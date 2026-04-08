@@ -32,7 +32,11 @@ class Coordinator:
         self.vision = vision
         self.event_queue = event_queue
         self.shared = SharedVariables()
+        self.feeding_mode = getattr(irl_config, "feeding_mode", "auto_channels")
+        self.manual_feed_mode = self.feeding_mode == "manual_carousel"
         self.sorting_profile = mkSortingProfile(gc)
+        self._sync_set_progress_tracker()
+
         self.distribution_layout = irl.distribution_layout
 
         self.carousel = Carousel(gc.logger, event_queue)
@@ -50,6 +54,35 @@ class Coordinator:
             irl, gc, self.shared, vision, event_queue, telemetry, self.carousel
         )
         self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
+        if self.manual_feed_mode:
+            self.logger.info(
+                "Coordinator: manual carousel feed mode enabled; automatic C-channel feeding is disabled."
+            )
+
+    def _sync_set_progress_tracker(self) -> None:
+        existing_tracker = getattr(self.gc, "set_progress_tracker", None)
+        if existing_tracker is not None:
+            existing_tracker.save()
+
+        self.gc.set_progress_tracker = None
+        if self.sorting_profile.is_set_based and self.sorting_profile.set_inventories:
+            from set_progress import SetProgressTracker
+
+            self.gc.set_progress_tracker = SetProgressTracker(
+                self.sorting_profile.set_inventories,
+                self.sorting_profile.artifact_hash,
+            )
+
+        try:
+            from server.set_progress_sync import getSetProgressSyncWorker
+
+            getSetProgressSyncWorker().notify()
+        except Exception:
+            pass
+
+    def reload_sorting_profile(self) -> None:
+        self.sorting_profile.reload()
+        self._sync_set_progress_tracker()
 
     def step(self) -> None:
         prof = self.gc.profiler
@@ -58,7 +91,10 @@ class Coordinator:
 
         with prof.timer("coordinator.step.total_ms"):
             with prof.timer("coordinator.step.feeder_ms"):
-                self.feeder.step()
+                if self.manual_feed_mode:
+                    prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
+                else:
+                    self.feeder.step()
             with prof.timer("coordinator.step.classification_ms"):
                 self.classification.step()
             with prof.timer("coordinator.step.distribution_ms"):

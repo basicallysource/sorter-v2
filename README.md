@@ -3,3 +3,4 @@
 
 [More details](https://basically.website/sorter-v2)
 
+[Documentation source](docs/index.md)

@@ -82,15 +82,16 @@
 
 <svelte:window onkeydown={handleSettingsHotkey} />
 
-<div class="dark:bg-bg-dark min-h-screen bg-bg p-4 sm:p-6">
+<div class="min-h-screen bg-bg">
 	<AppHeader />
+	<div class="p-4 sm:p-6">
 
 	{#if hotkeyStatusMsg || hotkeyErrorMsg}
 		<div
 			class={`mb-4 border px-3 py-2 text-sm ${
 				hotkeyErrorMsg
-					? 'border-red-400 bg-red-50 text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400'
-					: 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300'
+					? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
+					: 'border-[#00852B] bg-[#00852B]/10 text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/10 dark:text-emerald-300'
 			}`}
 		>
 			{hotkeyErrorMsg ?? hotkeyStatusMsg}
@@ -106,8 +107,8 @@
 						href={item.href}
 						aria-current={active ? 'page' : undefined}
 						class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-							? 'dark:bg-surface-dark dark:text-text-dark bg-surface font-medium text-text'
-							: 'dark:text-text-muted-dark dark:hover:bg-surface-dark text-text-muted hover:bg-surface'}"
+							? 'bg-surface font-medium text-text'
+							: 'text-text-muted hover:bg-surface'}"
 					>
 						<item.icon size={16} />
 						{item.label}
@@ -119,5 +120,6 @@
 		<div class="min-w-0 flex-1">
 			{@render children()}
 		</div>
+	</div>
 	</div>
 </div>

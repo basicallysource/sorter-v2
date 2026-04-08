@@ -1,4 +1,5 @@
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -7,6 +8,7 @@ import tomllib
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBusError
+from hardware.cobs import DecodeError
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -19,8 +21,10 @@ DEFAULT_SERVO_CLOSED_ANGLE = 83
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
-DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.4
-DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 1.9
+DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
+DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
+HARDWARE_INIT_COMMAND_ATTEMPTS = 4
+HARDWARE_INIT_RETRY_DELAY_S = 0.2
 
 LOGICAL_STEPPER_BINDING_BASES = {
     "c_channel_1": "c_channel_1_rotor",
@@ -43,6 +47,7 @@ def normalizePhysicalStepperBindingName(stepper_name: str) -> str:
     return PHYSICAL_STEPPER_BINDING_ALIASES.get(stepper_name, stepper_name)
 
 VALID_BIN_SIZES = {"small", "medium", "big"}
+VALID_FEEDING_MODES = {"auto_channels", "manual_carousel"}
 
 DEFAULT_LAYER_SECTIONS: list[list[str]] = [
     ["medium", "medium"],
@@ -52,6 +57,35 @@ DEFAULT_LAYER_SECTIONS: list[list[str]] = [
     ["medium", "medium"],
     ["medium", "medium"],
 ]
+
+
+def loadFeedingModeConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> str:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return "auto_channels"
+
+    feeding_params = raw.get("feeding")
+    if feeding_params is None:
+        return "auto_channels"
+    if not isinstance(feeding_params, dict):
+        gc.logger.warning("Ignoring invalid feeding config: expected object. Using auto channel feeding.")
+        return "auto_channels"
+
+    mode = feeding_params.get("mode", "auto_channels")
+    if not isinstance(mode, str) or mode not in VALID_FEEDING_MODES:
+        gc.logger.warning(
+            "Ignoring invalid feeding.mode=%r; expected one of %s. Using auto channel feeding."
+            % (mode, sorted(VALID_FEEDING_MODES))
+        )
+        return "auto_channels"
+
+    return mode
 
 
 @dataclass
@@ -642,14 +676,24 @@ def applyStepperCurrentOverride(
         irun, ihold, ihold_delay = override
         source = "override"
 
-    try:
-        stepper.set_current(irun, ihold, ihold_delay)
-    except (MCUBusError, OSError) as e:
-        gc.logger.warning(
-            f"Failed to apply stepper current config for '{stepper_name}' from {source} "
-            f"(IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}): {e}. Continuing."
-        )
-        return
+    for attempt in range(1, HARDWARE_INIT_COMMAND_ATTEMPTS + 1):
+        try:
+            stepper.set_current(irun, ihold, ihold_delay)
+            break
+        except (MCUBusError, OSError, DecodeError) as e:
+            if attempt == HARDWARE_INIT_COMMAND_ATTEMPTS:
+                gc.logger.warning(
+                    f"Failed to apply stepper current config for '{stepper_name}' from {source} "
+                    f"(IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}) after "
+                    f"{HARDWARE_INIT_COMMAND_ATTEMPTS} attempts: {e}. Continuing."
+                )
+                return
+            gc.logger.warning(
+                f"Failed to apply stepper current config for '{stepper_name}' from {source} "
+                f"on attempt {attempt}/{HARDWARE_INIT_COMMAND_ATTEMPTS}: {e}. "
+                f"Retrying in {HARDWARE_INIT_RETRY_DELAY_S:.2f}s..."
+            )
+            time.sleep(HARDWARE_INIT_RETRY_DELAY_S)
 
     gc.logger.info(
         f"Stepper '{stepper_name}' current config applied from {source}: "

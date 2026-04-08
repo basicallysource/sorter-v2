@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
+	import { X } from 'lucide-svelte';
 
 	let {
 		open = $bindable(false),
@@ -8,8 +10,11 @@
 		children
 	}: { open?: boolean; title?: string; wide?: boolean; children?: Snippet } = $props();
 
+	const dispatch = createEventDispatcher<{ close: void }>();
+
 	function close() {
 		open = false;
+		dispatch('close');
 	}
 
 	function handleBackdrop(event: MouseEvent) {
@@ -17,6 +22,18 @@
 			close();
 		}
 	}
+
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			close();
+		}
+	}
+
+	$effect(() => {
+		if (!open || typeof window === 'undefined') return;
+		window.addEventListener('keydown', handleWindowKeydown);
+		return () => window.removeEventListener('keydown', handleWindowKeydown);
+	});
 </script>
 
 {#if open}
@@ -26,21 +43,21 @@
 		role="presentation"
 	>
 		<div
-			class="dark:border-border-dark dark:bg-bg-dark relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide ? 'max-w-6xl' : 'max-w-2xl'}"
+			class="relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide ? 'max-w-6xl' : 'max-w-2xl'}"
 		>
 			<div
-				class="dark:border-border-dark dark:bg-surface-dark sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
+				class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
 			>
 				{#if title}
-					<h2 class="dark:text-text-dark text-lg font-semibold text-text">{title}</h2>
+					<h2 class="text-lg font-semibold text-text">{title}</h2>
 				{:else}
 					<div></div>
 				{/if}
 				<button
 					onclick={close}
-					class="dark:hover:bg-border-dark dark:text-text-dark p-1 text-text transition-colors hover:bg-border"
+					class="p-1 text-text transition-colors hover:bg-border"
 				>
-					✕
+					<X size={16} />
 				</button>
 			</div>
 			<div class="p-4">

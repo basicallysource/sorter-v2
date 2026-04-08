@@ -21,11 +21,16 @@
 		SlidersHorizontal,
 		X
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 
 	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
 	type ArcChannel = 'second' | 'third';
+	type RectChannel = 'carousel' | 'class_top' | 'class_bottom';
 	type Point = [number, number];
+	type QuadParams = {
+		corners: [Point, Point, Point, Point]; // TL, TR, BR, BL
+	};
+	type QuadHandle = 0 | 1 | 2 | 3; // corner index
 	type UsbCameraInfo = {
 		kind: 'usb';
 		index: number;
@@ -76,6 +81,7 @@
 		userPoints: Record<Channel, number[][]>;
 		arcParams: Record<ArcChannel, ArcParams | null>;
 		sectionZeroPoints: Record<ArcChannel, Point | null>;
+		quadParams: Record<RectChannel, QuadParams | null>;
 	};
 	type PreviewImageSize = {
 		width: number;
@@ -95,14 +101,14 @@
 				start: Point;
 				origPts: number[][];
 				origSec0: Point | null;
-		  }
+		 }
 		| {
 				kind: 'arc-shape' | 'arc-center';
 				channel: ArcChannel;
 				start: Point;
 				orig: ArcParams;
 				origSec0: Point | null;
-		  }
+		 }
 		| {
 				kind:
 					| 'arc-inner'
@@ -113,13 +119,25 @@
 					| 'arc-exit-end';
 				channel: ArcChannel;
 				orig: ArcParams;
-		  }
+		 }
 		| {
 				kind: 'section-zero';
 				channel: ArcChannel;
-		  };
+		 }
+		| {
+				kind: 'quad-shape';
+				channel: RectChannel;
+				start: Point;
+				origCorners: [Point, Point, Point, Point];
+		 }
+		| {
+				kind: 'quad-corner';
+				channel: RectChannel;
+				cornerIdx: QuadHandle;
+		 };
 
 	const ARC_CHANNELS: ArcChannel[] = ['second', 'third'];
+	const RECT_CHANNELS: RectChannel[] = ['carousel', 'class_top', 'class_bottom'];
 	const FEEDER_CHANNELS: Channel[] = ['second', 'third', 'carousel'];
 	const CLASSIFICATION_CHANNELS: Channel[] = ['class_top', 'class_bottom'];
 	const DETECTION_CHANNELS: Channel[] = [
@@ -207,12 +225,16 @@
 	let {
 		channels = ALL_CHANNELS,
 		stepperKey = undefined,
-		stepperEndstop = undefined
+		stepperEndstop = undefined,
+		wizardMode = false
 	}: {
 		channels?: Channel[];
 		stepperKey?: StepperKey;
 		stepperEndstop?: EndstopConfig;
+		wizardMode?: boolean;
 	} = $props();
+
+	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	const hasStepper = $derived(!!stepperKey);
 
@@ -231,6 +253,11 @@
 	let sectionZeroPoints = $state<Record<ArcChannel, Point | null>>({
 		second: null,
 		third: null
+	});
+	let quadParams = $state<Record<RectChannel, QuadParams | null>>({
+		carousel: null,
+		class_top: null,
+		class_bottom: null
 	});
 	let saving = $state(false);
 	let statusMsg = $state('');
@@ -257,6 +284,17 @@
 	let calibrationHighlightByRole = $state<Partial<Record<CameraRole, CalibrationHighlight>>>({});
 	let detectionHighlightByRole = $state<Partial<Record<CameraRole, DetectionHighlight[]>>>({});
 	let feedRevision = $state(0);
+	let reassignConfirm = $state<{
+		source: CameraSource;
+		targetRole: CameraRole;
+		currentRole: CameraRole;
+		cameraLabel: string;
+	} | null>(null);
+	let reassignModalOpen = $state(false);
+	$effect(() => {
+		if (!reassignModalOpen) reassignConfirm = null;
+	});
+	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar || hasStepper));
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
 	let previewViewportEl: HTMLDivElement | null = null;
@@ -275,11 +313,11 @@
 			}
 			channelSetKey = nextKey;
 			currentChannel = channels[0] ?? 'second';
-			editingZone = false;
-			activeSidebar = null;
+			editingZone = wizardMode;
+			activeSidebar = wizardMode ? 'zone' : null;
 			dragState = null;
 			didDrag = false;
-			canvasCursor = 'default';
+			canvasCursor = wizardMode ? 'crosshair' : 'default';
 			statusMsg = '';
 			return;
 		}
@@ -290,6 +328,20 @@
 	});
 
 	$effect(() => {
+		if (!wizardMode) return;
+		if (currentAssignment() === null) {
+			editingZone = false;
+			activeSidebar = null;
+			canvasCursor = 'default';
+			return;
+		}
+
+		editingZone = true;
+		activeSidebar = 'zone';
+		canvasCursor = 'crosshair';
+	});
+
+	$effect(() => {
 		for (const ch of ARC_CHANNELS) {
 			if (channels.includes(ch) && arcParams[ch] === null) {
 				arcParams[ch] = defaultArcParams(ch);
@@ -297,8 +349,20 @@
 		}
 	});
 
+	$effect(() => {
+		for (const ch of RECT_CHANNELS) {
+			if (channels.includes(ch) && quadParams[ch] === null) {
+				quadParams[ch] = defaultQuadParams(ch);
+			}
+		}
+	});
+
 	function isArcChannel(ch: Channel): ch is ArcChannel {
 		return ARC_CHANNELS.includes(ch as ArcChannel);
+	}
+
+	function isRectChannel(ch: Channel): ch is RectChannel {
+		return RECT_CHANNELS.includes(ch as RectChannel);
 	}
 
 	function isClassificationChannel(ch: Channel): ch is (typeof CLASSIFICATION_CHANNELS)[number] {
@@ -414,6 +478,11 @@
 			sectionZeroPoints: {
 				second: null,
 				third: null
+			},
+			quadParams: {
+				carousel: null,
+				class_top: null,
+				class_bottom: null
 			}
 		};
 	}
@@ -434,6 +503,11 @@
 			sectionZeroPoints: {
 				second: clonePoint(sectionZeroPoints.second),
 				third: clonePoint(sectionZeroPoints.third)
+			},
+			quadParams: {
+				carousel: quadParams.carousel ? copyQuadParams(quadParams.carousel) : null,
+				class_top: quadParams.class_top ? copyQuadParams(quadParams.class_top) : null,
+				class_bottom: quadParams.class_bottom ? copyQuadParams(quadParams.class_bottom) : null
 			}
 		};
 	}
@@ -453,6 +527,11 @@
 		sectionZeroPoints = {
 			second: clonePoint(snapshot.sectionZeroPoints.second),
 			third: clonePoint(snapshot.sectionZeroPoints.third)
+		};
+		quadParams = {
+			carousel: snapshot.quadParams.carousel ? copyQuadParams(snapshot.quadParams.carousel) : null,
+			class_top: snapshot.quadParams.class_top ? copyQuadParams(snapshot.quadParams.class_top) : null,
+			class_bottom: snapshot.quadParams.class_bottom ? copyQuadParams(snapshot.quadParams.class_bottom) : null
 		};
 	}
 
@@ -859,6 +938,82 @@
 		];
 	}
 
+	// ---- Quad helpers ----
+
+	function quadCenter(q: QuadParams): Point {
+		const cx = (q.corners[0][0] + q.corners[1][0] + q.corners[2][0] + q.corners[3][0]) / 4;
+		const cy = (q.corners[0][1] + q.corners[1][1] + q.corners[2][1] + q.corners[3][1]) / 4;
+		return [cx, cy];
+	}
+
+	function copyQuadParams(q: QuadParams): QuadParams {
+		return { corners: q.corners.map((c) => [c[0], c[1]] as Point) as [Point, Point, Point, Point] };
+	}
+
+	function defaultQuadParams(_channel: RectChannel): QuadParams {
+		const cx = CANVAS_W / 2;
+		const cy = CANVAS_H / 2;
+		const hw = 200;
+		const hh = 150;
+		return {
+			corners: [
+				[cx - hw, cy - hh],
+				[cx + hw, cy - hh],
+				[cx + hw, cy + hh],
+				[cx - hw, cy + hh]
+			]
+		};
+	}
+
+	function pointInQuad(point: Point, q: QuadParams): boolean {
+		// Ray-casting on the 4-corner polygon
+		const pts = q.corners;
+		let inside = false;
+		for (let i = 0, j = 3; i < 4; j = i++) {
+			const xi = pts[i][0], yi = pts[i][1];
+			const xj = pts[j][0], yj = pts[j][1];
+			if (yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi) {
+				inside = !inside;
+			}
+		}
+		return inside;
+	}
+
+	function hitQuadCorner(channel: RectChannel, point: Point): QuadHandle | null {
+		const q = quadParams[channel];
+		if (!q) return null;
+		for (let i = 0; i < 4; i++) {
+			if (pointDistance(point, q.corners[i]) <= HANDLE_HIT_RADIUS) return i as QuadHandle;
+		}
+		return null;
+	}
+
+	function deriveQuadFromPolygon(points: number[][]): QuadParams | null {
+		if (points.length < 3) return null;
+		if (points.length === 4) {
+			return {
+				corners: points.map((p) => [p[0], p[1]] as Point) as [Point, Point, Point, Point]
+			};
+		}
+		// Bounding rect fallback
+		const cx = points.reduce((s, p) => s + p[0], 0) / points.length;
+		const cy = points.reduce((s, p) => s + p[1], 0) / points.length;
+		const maxDx = Math.max(...points.map((p) => Math.abs(p[0] - cx)));
+		const maxDy = Math.max(...points.map((p) => Math.abs(p[1] - cy)));
+		const hw = Math.max(20, maxDx);
+		const hh = Math.max(20, maxDy);
+		return {
+			corners: [
+				[cx - hw, cy - hh],
+				[cx + hw, cy - hh],
+				[cx + hw, cy + hh],
+				[cx - hw, cy + hh]
+			]
+		};
+	}
+
+	// ---- End quad helpers ----
+
 	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
 		const params = arcParams[channel];
 		if (!params) return null;
@@ -902,12 +1057,15 @@
 	}
 
 	function streamUrl(channel: Channel): string {
-		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?v=${feedRevision}`;
+		if (editingZone) {
+			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
+		}
+		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=true&v=${feedRevision}`;
 	}
 
 	function feedInstanceKey(channel: Channel): string {
 		const assignment = currentAssignment(channel);
-		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${feedRevision}`;
+		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${editingZone ? 'direct-raw' : 'vision-annotated'}::${feedRevision}`;
 	}
 
 	async function loadCameraConfig() {
@@ -973,8 +1131,40 @@
 		}
 	}
 
+	function findRoleUsing(source: CameraSource, excludeRole: CameraRole): CameraRole | null {
+		for (const role of ALL_CAMERA_ROLES) {
+			if (role !== excludeRole && assignments[role] === source) return role;
+		}
+		return null;
+	}
+
 	async function selectCamera(role: CameraRole, cameraIndex: number) {
+		const otherRole = findRoleUsing(cameraIndex, role);
+		if (otherRole) {
+			const cam = usbCameras.find((c) => c.index === cameraIndex);
+			reassignConfirm = {
+				source: cameraIndex,
+				targetRole: role,
+				currentRole: otherRole,
+				cameraLabel: cam?.name ?? `Camera ${cameraIndex}`
+			};
+			reassignModalOpen = true;
+			return;
+		}
 		await saveCameraRole(role, cameraIndex);
+		if (!cameraError) {
+			cameraModalOpen = false;
+		}
+	}
+
+	async function confirmReassign() {
+		if (!reassignConfirm) return;
+		const { source, targetRole, currentRole: fromRole } = reassignConfirm;
+		reassignConfirm = null;
+		reassignModalOpen = false;
+		await saveCameraRole(fromRole, null);
+		if (cameraError) return;
+		await saveCameraRole(targetRole, source);
 		if (!cameraError) {
 			cameraModalOpen = false;
 		}
@@ -1004,12 +1194,21 @@
 			if (!params) return [];
 			return buildCirclePoints(params.center, params.outerRadius);
 		}
+		if (isRectChannel(channel)) {
+			const q = quadParams[channel];
+			if (!q) return [];
+			return [...q.corners];
+		}
 		return sortPolygon(userPoints[channel]).map((pt) => [pt[0], pt[1]]);
 	}
 
 	function getChannelCenter(channel: Channel): Point | null {
 		if (isArcChannel(channel)) {
 			return arcParams[channel]?.center ?? null;
+		}
+		if (isRectChannel(channel)) {
+			const q = quadParams[channel];
+			return q ? quadCenter(q) : null;
 		}
 		const center = polyCenter(userPoints[channel]);
 		return center ? [center[0], center[1]] : null;
@@ -1070,9 +1269,9 @@
 		return null;
 	}
 
-	function hitPolygonVertex(channel: Exclude<Channel, ArcChannel>, point: Point): boolean {
+	function hitPolygonVertex(channel: Channel, point: Point): boolean {
 		return userPoints[channel].some(
-			(vertex) => pointDistance(point, [vertex[0], vertex[1]]) <= VERTEX_HIT_RADIUS
+			(vertex: number[]) => pointDistance(point, [vertex[0], vertex[1]]) <= VERTEX_HIT_RADIUS
 		);
 	}
 
@@ -1101,6 +1300,22 @@
 				arcParams[currentChannel] && pointInAnnulus(point, arcParams[currentChannel]!)
 					? 'grab'
 					: 'crosshair';
+			return;
+		}
+
+		if (isRectChannel(currentChannel)) {
+			const q = quadParams[currentChannel];
+			if (q) {
+				if (hitQuadCorner(currentChannel, point) !== null) {
+					canvasCursor = 'pointer';
+					return;
+				}
+				if (pointInQuad(point, q)) {
+					canvasCursor = 'grab';
+					return;
+				}
+			}
+			canvasCursor = 'crosshair';
 			return;
 		}
 
@@ -1176,13 +1391,44 @@
 			return;
 		}
 
-		const shape = getShapePoints(currentChannel);
+		if (isRectChannel(currentChannel)) {
+			const q = quadParams[currentChannel];
+			if (!q) {
+				const def = defaultQuadParams(currentChannel);
+				const dc = quadCenter(def);
+				const dx = point[0] - dc[0];
+				const dy = point[1] - dc[1];
+				quadParams[currentChannel] = {
+					corners: def.corners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [Point, Point, Point, Point]
+				};
+				return;
+			}
+			const cornerIdx = hitQuadCorner(currentChannel, point);
+			if (cornerIdx !== null) {
+				dragState = { kind: 'quad-corner', channel: currentChannel, cornerIdx };
+				canvasCursor = 'grabbing';
+				return;
+			}
+			if (pointInQuad(point, q)) {
+				dragState = {
+					kind: 'quad-shape',
+					channel: currentChannel,
+					start: point,
+					origCorners: copyQuadParams(q).corners
+				};
+				canvasCursor = 'grabbing';
+			}
+			return;
+		}
+
+		const polyChannel = currentChannel as 'second' | 'third';
+		const shape = getShapePoints(polyChannel);
 		if (shape.length >= 3 && pointInPolygon(point[0], point[1], shape) && !e.shiftKey) {
 			dragState = {
 				kind: 'polygon-shape',
-				channel: currentChannel,
+				channel: polyChannel,
 				start: point,
-				origPts: userPoints[currentChannel].map((pt) => [pt[0], pt[1]]),
+				origPts: userPoints[polyChannel].map((pt: number[]) => [pt[0], pt[1]]),
 				origSec0: null
 			};
 			canvasCursor = 'grabbing';
@@ -1298,6 +1544,25 @@
 				sectionZeroPoints[dragState.channel] = point;
 				break;
 			}
+			case 'quad-shape': {
+				const dx = point[0] - dragState.start[0];
+				const dy = point[1] - dragState.start[1];
+				if (Math.hypot(dx, dy) > 5) didDrag = true;
+				quadParams[dragState.channel] = {
+					corners: dragState.origCorners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [Point, Point, Point, Point]
+				};
+				break;
+			}
+			case 'quad-corner': {
+				didDrag = true;
+				const q = quadParams[dragState.channel];
+				if (q) {
+					const newCorners = [...q.corners] as [Point, Point, Point, Point];
+					newCorners[dragState.cornerIdx] = point;
+					quadParams[dragState.channel] = { corners: newCorners };
+				}
+				break;
+			}
 		}
 	}
 
@@ -1326,20 +1591,27 @@
 			return;
 		}
 
-		const shape = getShapePoints(currentChannel);
+		if (isRectChannel(currentChannel)) {
+			// Click places a new rect if none exists (handled in onMouseDown)
+			return;
+		}
+
+		const ch = currentChannel as 'second' | 'third';
+		const shape = getShapePoints(ch);
 		if (shape.length >= 3 && pointInPolygon(point[0], point[1], shape)) return;
-		userPoints[currentChannel] = [...userPoints[currentChannel], [point[0], point[1]]];
+		userPoints[ch] = [...userPoints[ch], [point[0], point[1]]];
 	}
 
 	function onContextMenu(e: MouseEvent) {
 		if (!editingZone) return;
 		e.preventDefault();
-		if (isArcChannel(currentChannel)) {
+		if (isArcChannel(currentChannel) || isRectChannel(currentChannel)) {
 			return;
 		}
 
+		const ch = currentChannel as 'second' | 'third';
 		const point = canvasCoords(e);
-		const pts = userPoints[currentChannel];
+		const pts = userPoints[ch];
 		let minDist = Infinity;
 		let minIdx = -1;
 		for (let i = 0; i < pts.length; i++) {
@@ -1350,7 +1622,7 @@
 			}
 		}
 		if (minIdx >= 0 && minDist < 40) {
-			userPoints[currentChannel] = pts.filter((_, idx) => idx !== minIdx);
+			userPoints[ch] = pts.filter((_: number[], idx: number) => idx !== minIdx);
 		}
 	}
 
@@ -1372,11 +1644,25 @@
 			return;
 		}
 
-		const pts = userPoints[currentChannel];
+		if (isRectChannel(currentChannel)) {
+			const q = quadParams[currentChannel];
+			if (!q) return;
+			const center = quadCenter(q);
+			quadParams[currentChannel] = {
+				corners: q.corners.map((c) => [
+					center[0] + (c[0] - center[0]) * scale,
+					center[1] + (c[1] - center[1]) * scale
+				] as Point) as [Point, Point, Point, Point]
+			};
+			return;
+		}
+
+		const ch = currentChannel as 'second' | 'third';
+		const pts = userPoints[ch];
 		if (pts.length < 3) return;
-		const cx = pts.reduce((sum, pt) => sum + pt[0], 0) / pts.length;
-		const cy = pts.reduce((sum, pt) => sum + pt[1], 0) / pts.length;
-		userPoints[currentChannel] = pts.map((pt) => [
+		const cx = pts.reduce((sum: number, pt: number[]) => sum + pt[0], 0) / pts.length;
+		const cy = pts.reduce((sum: number, pt: number[]) => sum + pt[1], 0) / pts.length;
+		userPoints[ch] = pts.map((pt: number[]) => [
 			cx + (pt[0] - cx) * scale,
 			cy + (pt[1] - cy) * scale
 		]);
@@ -1581,9 +1867,49 @@
 		}
 	}
 
+	function drawQuadChannel(ctx: CanvasRenderingContext2D, channel: RectChannel, active: boolean) {
+		const q = quadParams[channel];
+		if (!q) return;
+		const color = CHANNEL_COLORS[channel];
+		const alpha = active ? 1 : 0.35;
+		const corners = q.corners;
+
+		// Fill
+		ctx.beginPath();
+		ctx.moveTo(corners[0][0], corners[0][1]);
+		for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+		ctx.closePath();
+		ctx.fillStyle = active ? `${color}20` : `${color}0d`;
+		ctx.fill();
+
+		// Stroke
+		ctx.strokeStyle = color;
+		ctx.globalAlpha = alpha;
+		ctx.lineWidth = active ? 2 : 1;
+		ctx.stroke();
+		ctx.globalAlpha = 1;
+
+		if (active && editingZone) {
+			// Corner handles
+			for (const corner of corners) {
+				ctx.beginPath();
+				ctx.arc(corner[0], corner[1], HANDLE_DRAW_RADIUS, 0, Math.PI * 2);
+				ctx.fillStyle = color;
+				ctx.fill();
+				ctx.lineWidth = 2;
+				ctx.strokeStyle = '#111';
+				ctx.stroke();
+			}
+		}
+	}
+
 	function drawChannel(ctx: CanvasRenderingContext2D, channel: Channel, active: boolean) {
 		if (isArcChannel(channel)) {
 			drawArcChannel(ctx, channel, active);
+			return;
+		}
+		if (isRectChannel(channel)) {
+			drawQuadChannel(ctx, channel, active);
 			return;
 		}
 		drawPolygonChannel(ctx, channel, active);
@@ -1611,6 +1937,7 @@
 		void userPoints;
 		void arcParams;
 		void sectionZeroPoints;
+		void quadParams;
 		void currentChannel;
 		void channels;
 		void editingZone;
@@ -1668,28 +1995,49 @@
 				}
 			}
 
-			if (Array.isArray(channelUserPts.carousel)) {
-				userPoints.carousel = channelUserPts.carousel;
-			} else if (Array.isArray(channelPolygons.carousel)) {
-				userPoints.carousel = channelPolygons.carousel;
-			}
-
+			// Load rect params for carousel, classification channels
+			const channelQuadParams = channelData.quad_params ?? {};
 			const classificationData = data.classification ?? {};
 			const classUserPts = classificationData.user_pts ?? {};
 			const classPolygons = classificationData.polygons ?? {};
-			if (Array.isArray(classUserPts.class_top)) {
-				userPoints.class_top = classUserPts.class_top;
-			} else if (Array.isArray(classPolygons.top)) {
-				userPoints.class_top = classPolygons.top;
+			const classQuadParams = classificationData.quad_params ?? {};
+
+			function loadQuad(saved: any, fallbackPts: any): QuadParams | null {
+				if (saved && Array.isArray(saved.corners) && saved.corners.length === 4) {
+					return {
+						corners: saved.corners.map((c: number[]) => [c[0], c[1]] as Point) as [Point, Point, Point, Point]
+					};
+				}
+				if (Array.isArray(fallbackPts) && fallbackPts.length >= 3) {
+					return deriveQuadFromPolygon(fallbackPts);
+				}
+				return null;
 			}
-			if (Array.isArray(classUserPts.class_bottom)) {
-				userPoints.class_bottom = classUserPts.class_bottom;
-			} else if (Array.isArray(classPolygons.bottom)) {
-				userPoints.class_bottom = classPolygons.bottom;
-			}
+
+			// Carousel
+			const carouselQuad = loadQuad(channelQuadParams.carousel, channelUserPts.carousel ?? channelPolygons.carousel);
+			if (carouselQuad) quadParams.carousel = carouselQuad;
+
+			// Classification top
+			const topQuad = loadQuad(classQuadParams.class_top, classUserPts.class_top ?? classPolygons.top);
+			if (topQuad) quadParams.class_top = topQuad;
+
+			// Classification bottom
+			const bottomQuad = loadQuad(classQuadParams.class_bottom, classUserPts.class_bottom ?? classPolygons.bottom);
+			if (bottomQuad) quadParams.class_bottom = bottomQuad;
 		} catch {
 			// ignore
 		}
+	}
+
+	function serializeQuadParams(q: QuadParams): Record<string, any> {
+		return {
+			corners: q.corners.map((c) => [Math.round(c[0]), Math.round(c[1])])
+		};
+	}
+
+	function quadAsPolygon(q: QuadParams): number[][] {
+		return q.corners.map((c) => [Math.round(c[0]), Math.round(c[1])]);
 	}
 
 	async function saveAll(): Promise<boolean> {
@@ -1698,25 +2046,29 @@
 			const polygons: Record<string, number[][]> = {};
 			const user_pts: Record<string, number[][]> = {};
 			const arc_params: Record<string, ArcParamsPayload> = {};
+			const quad_params_channel: Record<string, Record<string, any>> = {};
 
 			for (const channel of FEEDER_CHANNELS) {
 				const key = channel === 'carousel' ? 'carousel' : `${channel}_channel`;
-				const points =
-					isArcChannel(channel) && arcParams[channel]
-						? buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map(
-								(pt) => [Math.round(pt[0]), Math.round(pt[1])]
-							)
-						: getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
-				polygons[key] = points;
-				user_pts[channel] =
-					isArcChannel(channel) && arcParams[channel]
-						? buildRingStoragePoints(arcParams[channel]!).map((pt) => [
-								Math.round(pt[0]),
-								Math.round(pt[1])
-							])
-						: points;
 				if (isArcChannel(channel) && arcParams[channel]) {
+					polygons[key] = buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map(
+						(pt) => [Math.round(pt[0]), Math.round(pt[1])]
+					);
+					user_pts[channel] = buildRingStoragePoints(arcParams[channel]!).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
 					arc_params[channel] = serializeArcParams(arcParams[channel]);
+				} else if (isRectChannel(channel) && quadParams[channel]) {
+					const q = quadParams[channel]!;
+					const cornerPts = quadAsPolygon(q);
+					polygons[key] = cornerPts;
+					user_pts[channel] = cornerPts;
+					quad_params_channel[channel] = serializeQuadParams(q);
+				} else {
+					const points = getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+					polygons[key] = points;
+					user_pts[channel] = points;
 				}
 			}
 
@@ -1735,17 +2087,26 @@
 
 			const class_polygons: Record<string, number[][]> = {};
 			const class_user_pts: Record<string, number[][]> = {};
+			const quad_params_class: Record<string, Record<string, any>> = {};
 			for (const channel of CLASSIFICATION_CHANNELS) {
 				const key = channel === 'class_top' ? 'top' : 'bottom';
-				const points = sortPolygon(userPoints[channel]).map((pt) => [
-					Math.round(pt[0]),
-					Math.round(pt[1])
-				]);
-				class_polygons[key] = points;
-				class_user_pts[channel] = userPoints[channel].map((pt) => [
-					Math.round(pt[0]),
-					Math.round(pt[1])
-				]);
+				if (isRectChannel(channel) && quadParams[channel]) {
+					const q = quadParams[channel]!;
+					const cornerPts = quadAsPolygon(q);
+					class_polygons[key] = cornerPts;
+					class_user_pts[channel] = cornerPts;
+					quad_params_class[channel] = serializeQuadParams(q);
+				} else {
+					const points = sortPolygon(userPoints[channel]).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
+					class_polygons[key] = points;
+					class_user_pts[channel] = userPoints[channel].map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
+				}
 			}
 
 			const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, {
@@ -1756,6 +2117,7 @@
 						polygons,
 						user_pts,
 						arc_params,
+						quad_params: quad_params_channel,
 						channel_angles,
 						section_zero_pts,
 						resolution: [CANVAS_W, CANVAS_H]
@@ -1763,6 +2125,7 @@
 					classification: {
 						polygons: class_polygons,
 						user_pts: class_user_pts,
+						quad_params: quad_params_class,
 						resolution: [CANVAS_W, CANVAS_H]
 					}
 				})
@@ -1775,6 +2138,7 @@
 			didDrag = false;
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
+			dispatch('saved');
 			return true;
 		} catch (e: any) {
 			statusMsg = `Error: ${e.message}`;
@@ -1822,7 +2186,12 @@
 			statusMsg = 'Zone reset. Save to keep it.';
 			return;
 		}
-		userPoints[currentChannel] = [];
+		if (isRectChannel(currentChannel)) {
+			quadParams[currentChannel] = defaultQuadParams(currentChannel);
+			statusMsg = 'Zone reset. Save to keep it.';
+			return;
+		}
+		(userPoints as Record<string, number[][]>)[currentChannel] = [];
 		statusMsg = 'Zone reset. Save to keep it.';
 	}
 
@@ -1853,7 +2222,7 @@
 <div class="flex flex-col">
 	<!-- Card header -->
 	<div
-		class="dark:border-border-dark dark:bg-surface-dark -mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-3"
+		class="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-3"
 	>
 		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 			{#if channels.length > 1}
@@ -1863,32 +2232,29 @@
 						channel === 'class_top' &&
 						channels.some((item) => item === 'second' || item === 'third' || item === 'carousel')}
 					{#if isSep}
-						<div class="dark:bg-border-dark h-6 w-px bg-border"></div>
+						<div class="h-6 w-px bg-border"></div>
 					{/if}
 					<button
 						onclick={() => selectChannel(channel)}
 						class="border px-3 py-1.5 text-xs font-medium transition-colors"
 						style:border-color={active ? CHANNEL_COLORS[channel] : undefined}
 						class:bg-surface={active}
-						class:dark:bg-surface-dark={active}
 						class:bg-bg={!active}
-						class:dark:bg-bg-dark={!active}
 						class:text-text={true}
-						class:dark:text-text-dark={true}
 					>
 						{CHANNEL_LABELS[channel]}
 					</button>
 				{/each}
 			{:else}
-				<h2 class="dark:text-text-dark text-base font-semibold text-text">
+				<h2 class="text-base font-semibold text-text">
 					{CHANNEL_LABELS[currentChannel]}
 				</h2>
 			{/if}
 
 			<div
-				class="dark:bg-bg-dark dark:text-text-muted-dark min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
+				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
 			>
-				<span class="dark:text-text-dark font-medium text-text">Source:</span>
+				<span class="font-medium text-text">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
 			</div>
 
@@ -1896,8 +2262,8 @@
 				<div
 					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
 						statusMsg.startsWith('Error:')
-							? 'border-red-400 bg-red-50 text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400'
-							: 'dark:bg-bg-dark dark:text-text-muted-dark border-border bg-bg text-text-muted'
+							? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
+							: 'border-border bg-bg text-text-muted'
 					}`}
 				>
 					<span class="truncate">{statusMsg}</span>
@@ -1906,93 +2272,111 @@
 		</div>
 
 		<div class="ml-auto flex flex-wrap items-center gap-2">
-			<button
-				onclick={openCameraPicker}
-				disabled={editingZone}
-				class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<Camera size={15} />
-				<span>Change Camera</span>
-			</button>
-
-			<button
-				onclick={togglePictureSidebar}
-				disabled={editingZone}
-				class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-					activeSidebar === 'picture'
-						? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-						: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 border-border bg-bg text-text hover:bg-bg/80'
-				}`}
-			>
-				<SlidersHorizontal size={15} />
-				<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
-			</button>
-
-			{#if supportsDetectionSidebar(currentChannel)}
-				<button
-					onclick={toggleClassificationSidebar}
-					disabled={editingZone}
-					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-						activeSidebar === 'classification'
-							? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
-							: 'dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 border-border bg-bg text-text hover:bg-bg/80'
-					}`}
-				>
-					<Bug size={15} />
-					<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
-				</button>
-			{/if}
-
-			{#if editingZone}
-				<button
-					onclick={resetCurrentChannel}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
-				>
-					<RotateCcw size={15} />
-					<span>Reset</span>
-				</button>
-				<button
-					onclick={cancelEditing}
-					class="dark:border-border-dark dark:bg-bg-dark dark:text-text-dark dark:hover:bg-bg-dark/80 inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
-				>
-					<X size={15} />
-					<span>Cancel</span>
-				</button>
+			{#if wizardMode}
 				<button
 					onclick={saveAll}
-					disabled={saving}
-					class="inline-flex cursor-pointer items-center gap-2 border border-emerald-500 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-700 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+					disabled={saving || currentAssignment() === null}
+					class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					<Check size={15} />
 					<span>{saving ? 'Saving...' : 'Save Zone'}</span>
 				</button>
 			{:else}
 				<button
-					onclick={beginEditing}
-					disabled={currentAssignment() === null}
-					class="inline-flex cursor-pointer items-center gap-2 border border-blue-500 bg-blue-500/15 px-3 py-1.5 text-sm text-blue-700 transition-colors hover:bg-blue-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-300"
+					onclick={openCameraPicker}
+					disabled={editingZone}
+					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
 				>
-					<Pencil size={15} />
-					<span>Edit Zone</span>
+					<Camera size={15} />
+					<span>Change Camera</span>
 				</button>
+
+				<button
+					onclick={togglePictureSidebar}
+					disabled={editingZone}
+					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+						activeSidebar === 'picture'
+							? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
+							: 'border-border bg-bg text-text hover:bg-bg/80'
+					}`}
+				>
+					<SlidersHorizontal size={15} />
+					<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
+				</button>
+
+				{#if supportsDetectionSidebar(currentChannel)}
+					<button
+						onclick={toggleClassificationSidebar}
+						disabled={editingZone}
+						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							activeSidebar === 'classification'
+								? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
+								: 'border-border bg-bg text-text hover:bg-bg/80'
+						}`}
+					>
+						<Bug size={15} />
+						<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
+					</button>
+				{/if}
+
+				{#if editingZone}
+					<button
+						onclick={resetCurrentChannel}
+						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					>
+						<RotateCcw size={15} />
+						<span>Reset</span>
+					</button>
+					<button
+						onclick={cancelEditing}
+						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+					>
+						<X size={15} />
+						<span>Cancel</span>
+					</button>
+					<button
+						onclick={saveAll}
+						disabled={saving}
+						class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-1.5 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+					>
+						<Check size={15} />
+						<span>{saving ? 'Saving...' : 'Save Zone'}</span>
+					</button>
+				{:else}
+					<button
+						onclick={beginEditing}
+						disabled={currentAssignment() === null}
+						class="inline-flex cursor-pointer items-center gap-2 border border-[#D01012] bg-[#D01012]/15 px-3 py-1.5 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+					>
+						<Pencil size={15} />
+						<span>Edit Zone</span>
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</div>
 
 	<!-- Help text -->
-	<div class="dark:text-text-muted-dark -mx-4 px-4 py-2 text-xs text-text-muted">
-		Use the assigned camera as the main view, tune picture settings from the sidebar, and only
-		unlock zone editing when you want to change the mask.
+	<div class="-mx-4 px-4 py-2 text-xs text-text-muted">
+		{#if wizardMode}
+			Adjust the zone overlay directly on the preview, then save to keep the updated mask.
+		{:else}
+			Use the assigned camera as the main view, tune picture settings from the sidebar, and only
+			unlock zone editing when you want to change the mask.
+		{/if}
 	</div>
 
 	<!-- Content -->
 	<div class="-mx-4 -mb-4 px-4 pb-4">
 		<div
-			class={`grid gap-4 ${activeSidebar || hasStepper ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
+			class={`grid gap-4 ${showSidebarColumn ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
 		>
 			<div class="flex min-w-0 flex-col gap-3">
 				<div class="relative overflow-hidden bg-black">
-					<div class="relative aspect-video" bind:this={previewViewportEl}>
+					<div
+						class={`relative ${wizardMode ? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]' : 'aspect-video'}`}
+						bind:this={previewViewportEl}
+					>
 						{#key feedInstanceKey(currentChannel)}
 							{#if !cameraConfigLoaded}
 								<div
@@ -2076,9 +2460,64 @@
 						></canvas>
 					</div>
 				</div>
+
+				{#if wizardMode && editingZone}
+					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+						{#if isArcChannel(currentChannel)}
+							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+								<div class="overflow-hidden rounded border border-border bg-bg/70">
+									<img
+										src="/setup/zone-placement-reference.png"
+										alt="Drop and exit zone placement reference"
+										class="h-auto w-full object-contain"
+									/>
+								</div>
+
+								<div>
+									<div class="font-medium text-text">Placement reference</div>
+									<div class="mt-2 rounded border border-[#00852B]/20 bg-[#00852B]/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-[#00852B]">Green Drop Zone:</span>
+										position this where parts arrive from the previous stage and land on the ring.
+									</div>
+									<div class="mt-2 rounded border border-[#D01012]/20 bg-[#D01012]/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-[#D01012]">Red Exit Zone:</span>
+										position this where parts should leave the ring into the next path or mechanism.
+									</div>
+									<div class="mt-2 text-xs leading-5 text-text-muted">
+										Use this as an orientation guide. The exact angles depend on your camera position and the real machine geometry.
+									</div>
+								</div>
+							</div>
+
+							<div class="mt-4 border-t border-border pt-3">
+								<div class="font-medium text-text">How to edit</div>
+								<div class="mt-2 leading-6">
+									Drag the handles for
+									<span class="font-medium text-text">Drop</span>,
+									<span class="font-medium text-text">Exit</span>,
+									<span class="font-medium text-text">Center</span>,
+									<span class="font-medium text-text">Inner</span> and
+									<span class="font-medium text-text">Outer</span> directly on the image.
+								</div>
+								<div class="mt-1 leading-6">
+									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius scaling and
+									<span class="font-medium text-text"> Shift+Click</span> to set section 0.
+								</div>
+							</div>
+						{:else}
+							<div class="font-medium text-text">How to edit</div>
+							<div class="mt-2 leading-6">
+								Drag the corner handles directly on the image to reshape the zone.
+							</div>
+							<div class="mt-1 leading-6">
+								Drag inside the zone to move it as one shape. Use the mouse wheel to scale it.
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
-			{#if editingZone && activeSidebar === 'zone'}
+			{#if !wizardMode && editingZone && activeSidebar === 'zone'}
 				<ZoneEditingSidebar
 					label={CHANNEL_LABELS[currentChannel]}
 					isArc={isArcChannel(currentChannel)}
@@ -2133,7 +2572,7 @@
 				{/key}
 			{/if}
 
-			{#if !activeSidebar && hasStepper && stepperKey}
+			{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
 				<StepperSidebar {stepperKey} endstop={stepperEndstop} keyboardShortcuts={true} />
 			{/if}
 		</div>
@@ -2146,14 +2585,14 @@
 			<div class="flex flex-col gap-4">
 				{#if cameraError}
 					<div
-						class="border border-red-400 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-600 dark:bg-red-900/20 dark:text-red-400"
+						class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400"
 					>
 						{cameraError}
 					</div>
 				{/if}
 
 				{#if cameraLoading}
-					<div class="dark:text-text-muted-dark py-8 text-center text-sm text-text-muted">
+					<div class="py-8 text-center text-sm text-text-muted">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -2172,16 +2611,16 @@
 									)}
 								<button
 									onclick={() => selectCamera(role, cam.index)}
-									disabled={usedByOther || cameraSaving}
+									disabled={cameraSaving}
 									class="group relative overflow-hidden text-left transition-all {isSelected
-										? 'ring-2 ring-blue-500'
+										? 'ring-2 ring-[#D01012]'
 										: usedByOther
-											? 'cursor-not-allowed opacity-40'
-											: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
+											: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
 								>
 									{#if cam.preview_available === false}
 										<div
-											class="dark:bg-bg-dark dark:text-text-muted-dark flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
+											class="flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
 										>
 											No preview
 										</div>
@@ -2207,15 +2646,16 @@
 									</div>
 									{#if isSelected}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
 										>
 											Active
 										</div>
 									{:else if usedByOther}
+										{@const otherRole = findRoleUsing(cam.index, role)}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-[10px] font-medium text-[#1A1A1A]"
 										>
-											In use
+											{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
 										</div>
 									{/if}
 								</button>
@@ -2231,13 +2671,26 @@
 											(otherRole) => otherRole !== role && assignments[otherRole] === cam.source
 										)}
 									<button
-										onclick={() => saveCameraRole(role, cam.source)}
-										disabled={usedByOther || cameraSaving}
+										onclick={() => {
+											const otherRole = findRoleUsing(cam.source, role);
+											if (otherRole) {
+												reassignConfirm = {
+													source: cam.source,
+													targetRole: role,
+													currentRole: otherRole,
+													cameraLabel: cam.name
+												};
+												reassignModalOpen = true;
+												return;
+											}
+											saveCameraRole(role, cam.source);
+										}}
+										disabled={cameraSaving}
 										class="group relative overflow-hidden text-left transition-all {isSelected
-											? 'ring-2 ring-blue-500'
+											? 'ring-2 ring-[#D01012]'
 											: usedByOther
-												? 'cursor-not-allowed opacity-40'
-												: 'hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-600'}"
+												? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
+												: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
 									>
 										<img
 											src={discoveredPreviewUrl(cam)}
@@ -2255,15 +2708,16 @@
 										</div>
 										{#if isSelected}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
 											>
 												Active
 											</div>
 										{:else if usedByOther}
+											{@const otherRole = findRoleUsing(cam.source, role)}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-[10px] font-medium text-[#1A1A1A]"
 											>
-												In use
+												{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
 											</div>
 										{/if}
 									</button>
@@ -2272,7 +2726,7 @@
 						</div>
 					{:else}
 						<div
-							class="dark:border-border-dark dark:text-text-muted-dark border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
+							class="border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
 						>
 							No cameras detected. Click Refresh to scan again.
 						</div>
@@ -2280,12 +2734,12 @@
 				{/if}
 
 				<div
-					class="dark:border-border-dark flex items-center justify-between border-t border-border pt-3"
+					class="flex items-center justify-between border-t border-border pt-3"
 				>
 					<button
 						onclick={refreshCameras}
 						disabled={cameraLoading}
-						class="dark:text-text-muted-dark dark:hover:text-text-dark inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RefreshCw size={13} />
 						<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
@@ -2294,7 +2748,7 @@
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}
 							disabled={cameraSaving}
-							class="cursor-pointer text-xs text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+							class="cursor-pointer text-xs text-[#D01012] transition-colors hover:text-[#D01012]/80 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
 						>
 							Remove current camera
 						</button>
@@ -2302,6 +2756,36 @@
 				</div>
 			</div>
 		</Modal>
+
+		{#if reassignConfirm}
+			<Modal
+				bind:open={reassignModalOpen}
+				title="Reassign Camera"
+			>
+				<div class="flex flex-col gap-4">
+					<p class="text-sm text-text">
+						<span class="font-medium">{reassignConfirm.cameraLabel}</span> is currently assigned to
+						<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>.
+						It will be unassigned from that role.
+					</p>
+					<div class="flex items-center justify-end gap-2">
+						<button
+							onclick={() => { reassignConfirm = null; reassignModalOpen = false; }}
+							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface"
+						>
+							Cancel
+						</button>
+						<button
+							onclick={confirmReassign}
+							disabled={cameraSaving}
+							class="cursor-pointer border border-[#D01012] bg-[#D01012] px-3 py-1.5 text-sm text-white hover:bg-[#D01012]/90 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							{cameraSaving ? 'Reassigning...' : 'Reassign Camera'}
+						</button>
+					</div>
+				</div>
+			</Modal>
+		{/if}
 	</div>
 	<!-- /content -->
 </div>

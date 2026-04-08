@@ -18,6 +18,8 @@ class Machine(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     hardware_info = Column(JSON_VARIANT, nullable=True)
+    last_seen_ip = Column(String, nullable=True)
+    local_ui_port = Column(String, nullable=True, default="8000")
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
@@ -25,6 +27,12 @@ class Machine(Base):
     owner = relationship("User", back_populates="machines")
     upload_sessions = relationship("UploadSession", back_populates="machine", cascade="all, delete-orphan")
     samples = relationship("Sample", back_populates="machine", cascade="all, delete-orphan")
+    profile_assignment = relationship(
+        "MachineProfileAssignment",
+        back_populates="machine",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
     __table_args__ = (
         Index("ix_machines_owner_id", "owner_id"),

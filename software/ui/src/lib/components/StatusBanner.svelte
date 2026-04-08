@@ -10,11 +10,11 @@
 
 {#if message}
 	<div
-		class="mb-4 border px-4 py-3 text-sm {variant === 'error'
-			? 'border-[#D01012]/30 bg-[#D01012]/8 text-[#D01012] dark:text-red-400'
+		class="mb-4 border px-3 py-2 text-xs leading-relaxed text-text {variant === 'error'
+			? 'border-[#D01012]/40 bg-[#D01012]/[0.06] dark:border-rose-500/40 dark:bg-rose-500/[0.08]'
 			: variant === 'warning'
-				? 'border-amber-500/30 bg-amber-500/8 text-amber-700 dark:text-amber-300'
-				: 'border-[#00852B]/25 bg-[#00852B]/6 text-text dark:text-emerald-200'}"
+				? 'border-[#F2A900]/50 bg-[#F2A900]/[0.07] dark:border-amber-500/40 dark:bg-amber-500/[0.08]'
+				: 'border-[#00852B]/40 bg-[#00852B]/[0.06] dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]'}"
 	>
 		{message}
 	</div>

@@ -897,7 +897,7 @@
 												href={calibrationReferenceLinkUrl}
 												target="_blank"
 												rel="noreferrer"
-												class="w-fit text-[11px] font-medium text-[#0055BF] transition-colors hover:underline"
+												class="w-fit text-[11px] font-medium text-primary transition-colors hover:underline"
 											>
 												Open BrickLink model
 											</a>
@@ -908,10 +908,10 @@
 
 							{#if calibrationResult}
 								<div
-									class="border border-[#0055BF]/40 bg-[#0055BF]/[0.06] px-3 py-2 dark:border-[#4D8DFF]/40 dark:bg-[#4D8DFF]/[0.08]"
+									class="border border-primary/40 bg-primary/[0.06] px-3 py-2 dark:border-[#4D8DFF]/40 dark:bg-[#4D8DFF]/[0.08]"
 								>
 									<div
-										class="text-[11px] font-semibold uppercase tracking-wider text-[#003A8C] dark:text-[#7BAEFF]"
+										class="text-[11px] font-semibold uppercase tracking-wider text-primary-dark dark:text-[#7BAEFF]"
 									>
 										Calibration hint
 									</div>
@@ -925,7 +925,7 @@
 						<button
 							onclick={calibrateFromTarget}
 							disabled={!hasCamera || calibrating || saving}
-							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-[#0055BF] bg-[#0055BF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0055BF]/90 disabled:cursor-not-allowed disabled:opacity-60"
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<span>{calibrating ? 'Calibrating...' : 'Calibrate'}</span>
 						</button>
@@ -1205,7 +1205,7 @@
 										onclick={() => updateRotation(rotation)}
 										class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
 											draftSettings.rotation === rotation
-												? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+												? 'border-primary bg-primary text-primary-contrast hover:bg-primary-hover'
 												: 'border-border bg-surface text-text hover:bg-bg'
 										}`}
 										aria-pressed={draftSettings.rotation === rotation}
@@ -1222,7 +1222,7 @@
 									onclick={() => updateBooleanSetting('flip_horizontal', !draftSettings.flip_horizontal)}
 									class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
 										draftSettings.flip_horizontal
-											? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+											? 'border-primary bg-primary text-primary-contrast hover:bg-primary-hover'
 											: 'border-border bg-surface text-text hover:bg-bg'
 									}`}
 									aria-pressed={draftSettings.flip_horizontal}
@@ -1233,7 +1233,7 @@
 									onclick={() => updateBooleanSetting('flip_vertical', !draftSettings.flip_vertical)}
 									class={`inline-flex items-center justify-center border px-2 py-2 text-xs font-medium transition-colors ${
 										draftSettings.flip_vertical
-											? 'border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'
+											? 'border-primary bg-primary text-primary-contrast hover:bg-primary-hover'
 											: 'border-border bg-surface text-text hover:bg-bg'
 									}`}
 									aria-pressed={draftSettings.flip_vertical}

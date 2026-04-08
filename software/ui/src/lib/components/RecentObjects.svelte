@@ -100,10 +100,10 @@
 </script>
 
 <div
-	class="flex h-full flex-col border border-border bg-surface"
+	class="setup-card-shell flex h-full flex-col border"
 >
 	<div
-		class="border-b border-border px-3 py-2 text-sm font-medium text-text"
+		class="setup-card-header px-3 py-2 text-sm font-medium text-text"
 	>
 		Recent Pieces
 	</div>

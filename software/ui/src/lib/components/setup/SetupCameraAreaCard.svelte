@@ -109,7 +109,7 @@
 					{#each choices.filter((choice) => choice.key !== '__none__') as choice}
 						<button
 							onclick={() => onSelect?.(role, choice.key)}
-							class="flex min-h-0 flex-col overflow-hidden border border-border bg-surface text-left transition-colors hover:border-[#0055BF] hover:bg-[#0055BF]/5"
+							class="flex min-h-0 flex-col overflow-hidden border border-border bg-surface text-left transition-colors hover:border-primary hover:bg-primary/5"
 						>
 							<div class="min-h-0 flex-1">
 								<div class="relative h-full border border-border bg-bg">
@@ -169,7 +169,7 @@
 								onSelect?.(role, choice.key);
 								changingCamera = false;
 							}}
-							class={`overflow-hidden border bg-surface text-left transition-colors ${choice.key === selectedKey ? 'border-[#0055BF] ring-1 ring-[#0055BF]/30' : 'border-border hover:border-[#0055BF] hover:bg-[#0055BF]/5'}`}
+							class={`overflow-hidden border bg-surface text-left transition-colors ${choice.key === selectedKey ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary hover:bg-primary/5'}`}
 						>
 							<div class="aspect-[4/3] min-h-0 bg-surface">
 								<div class="relative h-full border border-border bg-bg">

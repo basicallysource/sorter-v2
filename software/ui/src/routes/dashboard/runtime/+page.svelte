@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
@@ -567,7 +566,6 @@
 			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
 		</div>
 		<div class="flex items-center gap-2">
-			<ThemeToggle />
 			<select
 				class="border border-border bg-surface px-2 py-1 text-xs text-text"
 				value={selected_group}

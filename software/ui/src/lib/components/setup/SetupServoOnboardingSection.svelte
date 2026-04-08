@@ -136,8 +136,8 @@
 				inverted,
 				isFactory,
 				state: 'needs-assignment' as const,
-				accent: 'border-l-[#0055BF]',
-				headerTone: 'bg-[#0055BF]/[0.06]',
+				accent: 'border-l-primary',
+				headerTone: 'bg-primary/[0.06]',
 				title: 'Ready for assignment',
 				description: 'Calibration is done. Assign this servo to a storage layer next.'
 			};
@@ -567,7 +567,7 @@
 				</button>
 				<button
 					onclick={() => scanBus()}
-					class="border border-[#0055BF] bg-[#0055BF] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0055BF]/90"
+					class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
 				>
 					Scan bus
 				</button>
@@ -602,7 +602,7 @@
 						<div class={`overflow-hidden border border-border border-l-4 bg-surface ${setup.accent}`}>
 							<div class={`flex flex-wrap items-start gap-4 px-4 py-3 ${setup.headerTone}`}>
 								<div
-									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-[#0055BF] font-bold text-white"
+									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-primary font-bold text-primary-contrast"
 								>
 									<span class="text-[10px] uppercase tracking-wider opacity-80">ID</span>
 									<span class="text-base leading-none">{servo.id}</span>
@@ -646,8 +646,8 @@
 								<div>
 									<div class="text-[10px] uppercase tracking-wider text-text-muted">Setup checklist</div>
 									<div class="mt-2 flex flex-wrap gap-2 text-xs">
-										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${calibrated ? 'border-[#0055BF]/30 bg-[#0055BF]/10 text-[#0055BF]' : 'border-border bg-bg text-text-muted'}`}>
-											<span class={`h-1.5 w-1.5 rounded-full ${calibrated ? 'bg-[#0055BF]' : 'bg-text-muted'}`}></span>
+										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${calibrated ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted'}`}>
+											<span class={`h-1.5 w-1.5 rounded-full ${calibrated ? 'bg-primary' : 'bg-text-muted'}`}></span>
 											{calibrated ? `Calibrated · ${servo.min_limit}–${servo.max_limit}` : 'Calibration pending'}
 										</span>
 										<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${layer > 0 ? 'border-[#00852B]/30 bg-[#00852B]/10 text-[#00852B]' : 'border-border bg-bg text-text-muted'}`}>
@@ -682,7 +682,7 @@
 									<button
 										onclick={() => calibrateServo(servo.id)}
 										disabled={!!busy}
-										class={`px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${calibrated ? 'setup-button-secondary text-text' : 'border border-[#0055BF] bg-[#0055BF] text-white hover:bg-[#0055BF]/90'}`}
+										class={`px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${calibrated ? 'setup-button-secondary text-text' : 'border border-primary bg-primary text-primary-contrast hover:bg-primary-hover'}`}
 									>
 										{busy === 'calibrating'
 											? 'Calibrating…'

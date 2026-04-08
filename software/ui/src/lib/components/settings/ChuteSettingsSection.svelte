@@ -15,6 +15,7 @@
 	let firstBinCenter = $state(8.25);
 	let pillarWidthDeg = $state(8.25);
 	let endstopActiveHigh = $state(true);
+	let operatingSpeedMicrostepsPerSecond = $state(3000);
 	let liveAvailable = $state(false);
 	let endstopTriggered = $state<boolean | null>(null);
 	let rawEndstopHigh = $state<boolean | null>(null);
@@ -90,6 +91,9 @@
 			firstBinCenter = Number(payload?.chute?.first_bin_center ?? 8.4);
 			pillarWidthDeg = Number(payload?.chute?.pillar_width_deg ?? 1.9);
 			endstopActiveHigh = Boolean(payload?.chute?.endstop_active_high ?? true);
+			operatingSpeedMicrostepsPerSecond = Number(
+				payload?.chute?.operating_speed_microsteps_per_second ?? 3000
+			);
 			void loadLiveStatus();
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load chute settings';
@@ -123,7 +127,8 @@
 				body: JSON.stringify({
 					first_bin_center: firstBinCenter,
 					pillar_width_deg: pillarWidthDeg,
-					endstop_active_high: endstopActiveHigh
+					endstop_active_high: endstopActiveHigh,
+					operating_speed_microsteps_per_second: operatingSpeedMicrostepsPerSecond
 				})
 			});
 			if (!res.ok) throw new Error(await res.text());
@@ -131,6 +136,9 @@
 			firstBinCenter = Number(payload?.settings?.first_bin_center ?? firstBinCenter);
 			pillarWidthDeg = Number(payload?.settings?.pillar_width_deg ?? pillarWidthDeg);
 			endstopActiveHigh = Boolean(payload?.settings?.endstop_active_high ?? endstopActiveHigh);
+			operatingSpeedMicrostepsPerSecond = Number(
+				payload?.settings?.operating_speed_microsteps_per_second ?? operatingSpeedMicrostepsPerSecond
+			);
 			statusMsg = payload?.message ?? 'Chute settings saved.';
 			void loadLiveStatus();
 		} catch (e: any) {
@@ -349,6 +357,20 @@
 				disabled={loading || saving}
 				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
+		</label>
+		<label class="text-xs text-text">
+			Operating Speed (uSteps/s)
+			<input
+				type="number"
+				min="1"
+				step="100"
+				bind:value={operatingSpeedMicrostepsPerSecond}
+				disabled={loading || saving}
+				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+			/>
+			<div class="mt-1 text-[11px] text-text-muted">
+				Normal distributor movement speed during bin-to-bin operation.
+			</div>
 		</label>
 	</div>
 

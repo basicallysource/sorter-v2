@@ -2346,7 +2346,7 @@
 					<button
 						onclick={beginEditing}
 						disabled={currentAssignment() === null}
-						class="inline-flex cursor-pointer items-center gap-2 border border-[#D01012] bg-[#D01012]/15 px-3 py-1.5 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300"
+						class="inline-flex cursor-pointer items-center gap-2 border border-primary bg-primary/15 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Pencil size={15} />
 						<span>Edit Zone</span>
@@ -2613,10 +2613,10 @@
 									onclick={() => selectCamera(role, cam.index)}
 									disabled={cameraSaving}
 									class="group relative overflow-hidden text-left transition-all {isSelected
-										? 'ring-2 ring-[#D01012]'
+										? 'ring-2 ring-primary'
 										: usedByOther
 											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
-											: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
+											: 'hover:ring-2 hover:ring-primary/50'}"
 								>
 									{#if cam.preview_available === false}
 										<div
@@ -2646,7 +2646,7 @@
 									</div>
 									{#if isSelected}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-contrast"
 										>
 											Active
 										</div>
@@ -2687,10 +2687,10 @@
 										}}
 										disabled={cameraSaving}
 										class="group relative overflow-hidden text-left transition-all {isSelected
-											? 'ring-2 ring-[#D01012]'
+											? 'ring-2 ring-primary'
 											: usedByOther
 												? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
-												: 'hover:ring-2 hover:ring-[#D01012]/50 dark:hover:ring-[#D01012]/60'}"
+												: 'hover:ring-2 hover:ring-primary/50'}"
 									>
 										<img
 											src={discoveredPreviewUrl(cam)}
@@ -2708,7 +2708,7 @@
 										</div>
 										{#if isSelected}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-[#D01012] px-1.5 py-0.5 text-[10px] font-medium text-white"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-contrast"
 											>
 												Active
 											</div>

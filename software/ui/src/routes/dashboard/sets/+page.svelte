@@ -119,7 +119,7 @@
 			</div>
 			<div class="h-3 w-full bg-bg">
 				<div
-					class="h-full bg-[#D01012] transition-all"
+					class="h-full bg-primary transition-all"
 					style="width: {progress.overall_pct}%"
 				></div>
 			</div>
@@ -158,7 +158,7 @@
 							</div>
 							<div class="mt-1.5 h-2 w-full bg-bg">
 								<div
-									class="h-full transition-all {set_progress.pct >= 100 ? 'bg-[#00852B]' : 'bg-[#D01012]'}"
+									class="h-full transition-all {set_progress.pct >= 100 ? 'bg-[#00852B]' : 'bg-primary'}"
 									style="width: {Math.min(set_progress.pct, 100)}%"
 								></div>
 							</div>

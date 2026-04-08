@@ -177,7 +177,7 @@
 						tabindex="0"
 						class={`flex items-center justify-between border px-2 py-1.5 ${
 							manager.selectedMachineId === id
-								? 'border-[#D01012] bg-[#D01012]/10 dark:bg-[#D01012]/10'
+								? 'border-primary bg-primary/10 dark:bg-primary/10'
 								: 'border-border bg-bg'
 						}`}
 					>
@@ -259,7 +259,7 @@
 						disabled={loadingFeedingMode || savingFeedingMode}
 						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 							feedingMode === 'auto_channels'
-								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								? 'border-primary bg-primary/10 text-text'
 								: 'border-border bg-bg text-text hover:bg-surface'
 						}`}
 					>
@@ -273,7 +273,7 @@
 						disabled={loadingFeedingMode || savingFeedingMode}
 						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 							feedingMode === 'manual_carousel'
-								? 'border-[#D01012] bg-[#D01012]/10 text-text'
+								? 'border-primary bg-primary/10 text-text'
 								: 'border-border bg-bg text-text hover:bg-surface'
 						}`}
 					>
@@ -309,7 +309,7 @@
 			<button
 				onclick={() => settings.setTheme('light')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'light'
-					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
+					? 'border-primary bg-primary/20 text-primary'
 					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Light
@@ -317,7 +317,7 @@
 			<button
 				onclick={() => settings.setTheme('dark')}
 				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'dark'
-					? 'border-[#D01012] bg-[#D01012]/20 text-[#D01012]'
+					? 'border-primary bg-primary/20 text-primary'
 					: 'border-border bg-bg text-text hover:bg-surface'}"
 			>
 				Dark

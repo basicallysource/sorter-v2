@@ -2,6 +2,13 @@ export interface SortingProfileCategory {
 	name: string;
 }
 
+export interface SortingProfileSetMeta {
+	name?: string;
+	img_url?: string;
+	year?: number;
+	num_parts?: number;
+}
+
 export interface SortingProfileCondition {
 	id: string;
 	field: string;
@@ -12,6 +19,9 @@ export interface SortingProfileCondition {
 export interface SortingProfileRule {
 	id: string;
 	name: string;
+	rule_type?: string;
+	set_num?: string;
+	set_meta?: SortingProfileSetMeta;
 	match_mode: string;
 	conditions: SortingProfileCondition[];
 	children: SortingProfileRule[];
@@ -95,11 +105,23 @@ function getCategoryName(category_id: string): string | null {
 	return cached.categories[category_id]?.name ?? null;
 }
 
+function getSetCategoryMeta(category_id: string): { name: string; set_num?: string; img_url?: string } | null {
+	if (!cached) return null;
+	const match = cached.rules.find((rule) => rule.id === category_id && rule.rule_type === 'set');
+	if (!match) return null;
+	return {
+		name: match.name,
+		set_num: match.set_num,
+		img_url: match.set_meta?.img_url
+	};
+}
+
 export const sortingProfileStore = {
 	get data() {
 		return cached;
 	},
 	load,
 	reload,
-	getCategoryName
+	getCategoryName,
+	getSetCategoryMeta
 };

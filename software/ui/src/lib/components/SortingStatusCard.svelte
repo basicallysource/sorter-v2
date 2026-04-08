@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { sortingProfileStore, type SortingProfileMetadata } from '$lib/stores/sortingProfile.svelte';
+	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -23,8 +23,6 @@
 		bins: BinInfo[];
 	};
 
-	let profile = $state<SortingProfileMetadata | null>(null);
-	let profileLoading = $state(true);
 	let layers = $state<LayerInfo[]>([]);
 	let currentAngle = $state<number | null>(null);
 	let activeLayer = $state<number | null>(null);
@@ -36,16 +34,6 @@
 				manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null
 			) ?? backendHttpBaseUrl
 		);
-	}
-
-	async function loadProfile() {
-		try {
-			profile = await sortingProfileStore.load(baseUrl());
-		} catch {
-			// ignore
-		} finally {
-			profileLoading = false;
-		}
 	}
 
 	async function loadLayout() {
@@ -64,8 +52,34 @@
 	}
 
 	function isCurrentBin(bin: BinInfo): boolean {
-		if (currentAngle === null) return false;
-		return Math.abs(bin.angle - currentAngle) < 2;
+		if (currentAngle === null || activeLayer === null) return false;
+		const layer = layers.find((entry) => entry.layer_index === activeLayer);
+		if (!layer || !layer.enabled) return false;
+		const currentBin = currentBinForLayer(layer);
+		return (
+			currentBin !== null &&
+			currentBin.section_index === bin.section_index &&
+			currentBin.bin_index === bin.bin_index
+		);
+	}
+
+	function angleDistance(a: number, b: number): number {
+		const diff = Math.abs(a - b);
+		return Math.min(diff, 360 - diff);
+	}
+
+	function currentBinForLayer(layer: LayerInfo): BinInfo | null {
+		if (currentAngle === null || layer.layer_index !== activeLayer || layer.bins.length === 0) return null;
+		let closest = layer.bins[0];
+		let closestDistance = angleDistance(closest.angle, currentAngle);
+		for (const candidate of layer.bins.slice(1)) {
+			const distance = angleDistance(candidate.angle, currentAngle);
+			if (distance < closestDistance) {
+				closest = candidate;
+				closestDistance = distance;
+			}
+		}
+		return closest;
 	}
 
 	function categoryLabel(categoryIds: string[]): string {
@@ -79,64 +93,22 @@
 		return layer.bins.filter((b) => b.section_index === sectionIndex);
 	}
 
-	const categoryCount = $derived(profile ? Object.keys(profile.categories).length : 0);
-	const ruleCount = $derived(profile ? profile.rules.filter(r => !r.disabled).length : 0);
-	const syncState = $derived(profile?.sync_state);
-	const isSynced = $derived(syncState?.version_number != null && !syncState?.last_error);
-
 	onMount(() => {
-		void loadProfile();
+		void sortingProfileStore.load(baseUrl()).catch(() => {});
 		void loadLayout();
 		const interval = setInterval(loadLayout, 2000);
 		return () => clearInterval(interval);
 	});
 </script>
 
-<div class="border border-[#E2E0DB] bg-white">
-	<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2">
+<div class="setup-card-shell border">
+	<div class="setup-card-header flex items-center justify-between px-3 py-2">
 		<h3 class="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]">Sorting</h3>
 		<div class="flex gap-3">
 			<a href="/profiles" class="text-xs text-[#7A7770] hover:text-[#1A1A1A]">Profiles</a>
 			<a href="/bins" class="text-xs text-[#7A7770] hover:text-[#1A1A1A]">Bins</a>
 		</div>
 	</div>
-
-	<!-- Active Profile -->
-	{#if profileLoading}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">Loading profile...</div>
-	{:else if !profile}
-		<div class="px-3 py-3 text-center text-xs text-[#7A7770]">No profile loaded</div>
-	{:else}
-		<div class="border-b border-[#E2E0DB] px-3 py-3">
-			<div class="flex items-start gap-2">
-				<span class="mt-1 inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
-				<div class="min-w-0 flex-1">
-					<div class="truncate text-sm font-semibold text-[#1A1A1A]">{profile.name}</div>
-					<div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-[#7A7770]">
-						{#if syncState?.version_number}
-							<span>v{syncState.version_number}</span>
-						{/if}
-						<span>{categoryCount} categories</span>
-						<span>{ruleCount} rules</span>
-					</div>
-				</div>
-			</div>
-			{#if syncState}
-				<div class="mt-1.5 flex items-center gap-1.5 pl-[1.125rem] text-xs">
-					{#if syncState.last_error}
-						<span class="inline-block h-1.5 w-1.5 bg-[#D01012]"></span>
-						<span class="text-[#D01012]">Sync error</span>
-					{:else if isSynced}
-						<span class="inline-block h-1.5 w-1.5 bg-[#00852B]"></span>
-						<span class="text-[#00852B]">In sync</span>
-					{/if}
-					{#if syncState.target_name}
-						<span class="text-[#7A7770]">&middot; {syncState.target_name}</span>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	{/if}
 
 	<!-- Compact Bin Grid -->
 	{#if binsLoading}

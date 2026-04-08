@@ -4,6 +4,7 @@
 	import MachinesProvider from '$lib/components/MachinesProvider.svelte';
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
 	import { settings } from '$lib/stores/settings';
+	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -38,6 +39,7 @@
 		} catch (e) {
 			console.error(e);
 		}
+		void loadThemeColor();
 	});
 </script>
 

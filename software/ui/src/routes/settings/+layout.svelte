@@ -107,7 +107,7 @@
 						href={item.href}
 						aria-current={active ? 'page' : undefined}
 						class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-							? 'bg-surface font-medium text-text'
+							? 'bg-primary/10 font-medium text-primary'
 							: 'text-text-muted hover:bg-surface'}"
 					>
 						<item.icon size={16} />

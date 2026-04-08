@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 	import SetupCameraAreaCard from '$lib/components/setup/SetupCameraAreaCard.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
 	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
@@ -149,11 +150,13 @@
 
 	type WizardStepId =
 		| 'identity'
+		| 'theme'
 		| 'discovery'
 		| 'cameras'
 		| 'motion'
 		| 'homing'
 		| 'servos'
+		| 'sorthive'
 		| 'advanced';
 
 	type WizardStepDefinition = {
@@ -194,9 +197,17 @@
 			requiresManualConfirm: false
 		},
 		{
+			id: 'theme',
+			title: 'Your Color',
+			kicker: 'Step 2',
+			description:
+				'Pick the LEGO color that should drive the rest of the UI. Buttons, focus rings, and active highlights will all switch to your choice — change it any time from Settings.',
+			requiresManualConfirm: false
+		},
+		{
 			id: 'discovery',
 			title: 'Controller Discovery',
-			kicker: 'Step 2',
+			kicker: 'Step 3',
 			description:
 				'Review the USB controllers on this machine — we will use the ones identified as feeder, distribution and Waveshare servo bus.',
 			requiresManualConfirm: false
@@ -204,7 +215,7 @@
 		{
 			id: 'motion',
 			title: 'Motion Direction Check',
-			kicker: 'Step 3',
+			kicker: 'Step 4',
 			description:
 				'Jog each axis a tiny amount and confirm whether it moved clockwise or counter-clockwise. The wizard will flip any reversed logical directions automatically.',
 			requiresManualConfirm: false
@@ -212,7 +223,7 @@
 		{
 			id: 'homing',
 			title: 'Endstops and Homing',
-			kicker: 'Step 4',
+			kicker: 'Step 5',
 			description:
 				'Verify the carousel and chute endstops, then run the guided home procedures safely.',
 			requiresManualConfirm: true
@@ -220,7 +231,7 @@
 		{
 			id: 'servos',
 			title: 'Servo Configuration',
-			kicker: 'Step 5',
+			kicker: 'Step 6',
 			description:
 				'Discover the servos on the bus, calibrate and assign each one to a storage layer one-by-one.',
 			requiresManualConfirm: true
@@ -228,15 +239,23 @@
 		{
 			id: 'cameras',
 			title: 'Cameras',
-			kicker: 'Step 6',
+			kicker: 'Step 7',
 			description:
 				'Choose the camera layout, then assign a source to each machine area that needs coverage. The same camera can be reused for multiple areas.',
 			requiresManualConfirm: false
 		},
 		{
+			id: 'sorthive',
+			title: 'SortHive',
+			kicker: 'Step 8',
+			description:
+				'Connect this sorter to the official SortHive community platform so your samples and progress sync automatically. You can also skip this and set it up later from Settings.',
+			requiresManualConfirm: true
+		},
+		{
 			id: 'advanced',
 			title: 'Setup Complete',
-			kicker: 'Step 7',
+			kicker: 'Step 9',
 			description:
 				'Yay, the core setup is done. Next up: open the dashboard, home the machine if needed, and try a first run.',
 			requiresManualConfirm: true
@@ -284,6 +303,33 @@
 	let showStepperWiringHelp = $state(false);
 
 	const SKR_PICO_WIRING_DIAGRAM_URL = '/setup/skr-pico-v1.0-headers.png';
+	const DEFAULT_SORTHIVE_URL = 'https://sorthive.neuhaus.nrw';
+
+	type SortHiveSetupTarget = {
+		id: string;
+		name: string;
+		url: string;
+		machine_id: string | null;
+		enabled: boolean;
+	};
+
+	let sorthiveLoading = $state(false);
+	let sorthiveTargets = $state<SortHiveSetupTarget[]>([]);
+	let sorthiveEmail = $state('');
+	let sorthivePassword = $state('');
+	let sorthiveConnecting = $state(false);
+	let sorthiveError = $state<string | null>(null);
+	let sorthiveStatus = $state<string | null>(null);
+
+	const officialSorthiveTarget = $derived(
+		sorthiveTargets.find((target) => {
+			try {
+				return new URL(target.url).host === new URL(DEFAULT_SORTHIVE_URL).host;
+			} catch {
+				return target.url.replace(/\/$/, '') === DEFAULT_SORTHIVE_URL;
+			}
+		}) ?? null
+	);
 
 	let activeStepId = $state<WizardStepId>('identity');
 	let stepConfirmations = $state<WizardStepConfirmation>({});
@@ -674,6 +720,11 @@
 		switch (stepId) {
 			case 'identity':
 				return Boolean(wizard?.readiness.machine_named);
+			case 'theme':
+				// Theme step is informational — picking a color is optional, the
+				// default is LEGO Blue. Mark it complete unconditionally so it
+				// never blocks the wizard.
+				return true;
 			case 'discovery':
 				return Boolean(wizard?.readiness.boards_detected);
 			case 'cameras':
@@ -684,6 +735,8 @@
 				return Boolean(stepConfirmations.homing);
 			case 'servos':
 				return Boolean(wizard?.readiness.servo_configured) && Boolean(stepConfirmations.servos);
+			case 'sorthive':
+				return Boolean(stepConfirmations.sorthive) || officialSorthiveTarget !== null;
 			case 'advanced':
 				return Boolean(stepConfirmations.advanced);
 		}
@@ -732,6 +785,8 @@
 				return 'Endstops and homing look correct';
 			case 'servos':
 				return 'Servo setup looks correct';
+			case 'sorthive':
+				return 'Continue';
 			case 'advanced':
 				return 'Open Dashboard';
 			default:
@@ -747,6 +802,8 @@
 				return hardwareState === 'initialized' || hardwareState === 'ready';
 			case 'servos':
 				return Boolean(wizard?.readiness.servo_configured);
+			case 'sorthive':
+				return isStepComplete('sorthive');
 			case 'advanced':
 				return true;
 			default:
@@ -831,6 +888,91 @@
 		} finally {
 			loadingWizard = false;
 		}
+	}
+
+	async function loadSorthiveConfig() {
+		sorthiveLoading = true;
+		sorthiveError = null;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/sorthive`);
+			if (!res.ok) throw new Error(await res.text());
+			const payload = await res.json();
+			const rawTargets = Array.isArray(payload?.targets) ? payload.targets : [];
+			sorthiveTargets = rawTargets.map((entry: any, index: number) => ({
+				id: typeof entry?.id === 'string' && entry.id.trim() ? entry.id : `target-${index + 1}`,
+				name:
+					typeof entry?.name === 'string' && entry.name.trim()
+						? entry.name
+						: typeof entry?.url === 'string'
+							? entry.url
+							: `SortHive ${index + 1}`,
+				url: typeof entry?.url === 'string' ? entry.url : '',
+				machine_id: typeof entry?.machine_id === 'string' ? entry.machine_id : null,
+				enabled: Boolean(entry?.enabled)
+			})) satisfies SortHiveSetupTarget[];
+		} catch (e: any) {
+			sorthiveError = e.message ?? 'Failed to load SortHive configuration.';
+		} finally {
+			sorthiveLoading = false;
+		}
+	}
+
+	async function connectToSorthive() {
+		if (!sorthiveEmail.trim() || !sorthivePassword.trim()) return;
+		sorthiveConnecting = true;
+		sorthiveError = null;
+		sorthiveStatus = null;
+		const machineName =
+			(wizard?.machine.nickname ?? '').trim() ||
+			nicknameDraft.trim() ||
+			(wizard?.machine.machine_id ?? '');
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/sorthive/register`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					target_name: 'SortHive Community',
+					url: DEFAULT_SORTHIVE_URL,
+					email: sorthiveEmail.trim(),
+					password: sorthivePassword.trim(),
+					machine_name: machineName,
+					machine_description: ''
+				})
+			});
+			if (!res.ok) {
+				let message = await res.text();
+				try {
+					const body = JSON.parse(message);
+					message = body.detail ?? body.error ?? message;
+				} catch {
+					// use raw text
+				}
+				throw new Error(message || 'Failed to connect to SortHive.');
+			}
+			sorthivePassword = '';
+			sorthiveStatus = 'Connected to SortHive. Your sorter will start syncing samples in the background.';
+			stepConfirmations = { ...stepConfirmations, sorthive: true };
+			const machineId = currentMachineId();
+			if (machineId && progressLoadedMachineId === machineId) {
+				persistConfirmations(machineId);
+			}
+			await loadSorthiveConfig();
+		} catch (e: any) {
+			sorthiveError = e.message ?? 'Failed to connect to SortHive.';
+		} finally {
+			sorthiveConnecting = false;
+		}
+	}
+
+	function skipSorthive() {
+		sorthiveError = null;
+		sorthiveStatus = 'Skipped for now. You can connect any time from Settings › SortHive.';
+		stepConfirmations = { ...stepConfirmations, sorthive: true };
+		const machineId = currentMachineId();
+		if (machineId && progressLoadedMachineId === machineId) {
+			persistConfirmations(machineId);
+		}
+		goToNextStep();
 	}
 
 	async function loadCameraInventory() {
@@ -1082,6 +1224,13 @@
 		}
 	});
 
+	$effect(() => {
+		if (activeStepId !== 'sorthive') return;
+		untrack(() => {
+			void loadSorthiveConfig();
+		});
+	});
+
 	onMount(() => {
 		const machineId = currentMachineId();
 		if (machineId) {
@@ -1240,6 +1389,15 @@
 								{:else if nameStatus}
 									<div class="text-sm text-[#00852B]">{nameStatus}</div>
 								{/if}
+							</div>
+						{:else if activeStepId === 'theme'}
+							<div class="flex flex-col gap-4">
+								<div class="text-sm text-text-muted">
+									Pick the LEGO color you want to see across the UI. Buttons,
+									focus rings, and active highlights will switch immediately
+									— no reload needed.
+								</div>
+								<LegoColorPicker />
 							</div>
 						{:else if activeStepId === 'discovery'}
 							<div class="flex flex-col gap-4">
@@ -1499,7 +1657,7 @@
 												<button
 													onclick={() => pulseStepper(entry.name, 'cw')}
 													disabled={!steppersLive || !!stepperBusy[`${entry.name}:cw`]}
-													class="inline-flex items-center justify-center border border-[#0055BF] bg-[#0055BF] px-6 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#0055BF]/90 disabled:cursor-not-allowed disabled:opacity-50"
+													class="inline-flex items-center justify-center border border-primary bg-primary px-6 py-1.5 text-xs font-medium text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
 												>
 													Jog
 												</button>
@@ -1535,6 +1693,154 @@
 							<SetupHomingSection bind:this={homingSectionRef} />
 						{:else if activeStepId === 'servos'}
 							<SetupServoOnboardingSection onSaved={handleServoSaved} />
+						{:else if activeStepId === 'sorthive'}
+							<div class="flex flex-col gap-4">
+								{#if sorthiveLoading}
+									<div class="setup-panel flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
+										<Loader2 size={14} class="animate-spin" />
+										Checking current SortHive configuration…
+									</div>
+								{:else if officialSorthiveTarget}
+									<div
+										class="border border-[#00852B]/40 bg-[#00852B]/[0.06] px-4 py-3 dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
+									>
+										<div class="flex items-start gap-3">
+											<div
+												class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#00852B] text-white"
+											>
+												<Check size={14} strokeWidth={3} />
+											</div>
+											<div class="flex min-w-0 flex-1 flex-col gap-1">
+												<div class="text-[11px] font-semibold tracking-wider text-[#003D14] uppercase dark:text-emerald-200">
+													Connected to SortHive
+												</div>
+												<div class="text-xs leading-relaxed text-text">
+													This sorter is registered with
+													<span class="font-mono">{officialSorthiveTarget.url}</span>.
+												</div>
+												{#if officialSorthiveTarget.machine_id}
+													<div class="text-[11px] text-text-muted">
+														Machine ID
+														<span class="font-mono text-text">{officialSorthiveTarget.machine_id}</span>
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+									<div class="text-xs text-text-muted">
+										You can manage this connection later under Settings › SortHive. Click
+										Continue to finish the setup wizard.
+									</div>
+								{:else}
+									<div class="setup-panel flex flex-col gap-2 px-4 py-3">
+										<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">
+											SortHive server
+										</div>
+										<div class="font-mono text-sm text-text">{DEFAULT_SORTHIVE_URL}</div>
+										<div class="text-xs text-text-muted">
+											The official community platform. Additional servers can be added later
+											from Settings › SortHive.
+										</div>
+									</div>
+
+									<div class="grid gap-3 sm:grid-cols-2">
+										<div class="flex flex-col gap-1">
+											<label
+												for="setup-sorthive-email"
+												class="text-xs font-medium text-text"
+											>
+												Email
+											</label>
+											<input
+												id="setup-sorthive-email"
+												type="email"
+												autocomplete="email"
+												bind:value={sorthiveEmail}
+												placeholder="you@example.com"
+												class="setup-control px-3 py-2 text-sm text-text"
+												disabled={sorthiveConnecting}
+											/>
+										</div>
+										<div class="flex flex-col gap-1">
+											<label
+												for="setup-sorthive-password"
+												class="text-xs font-medium text-text"
+											>
+												Password
+											</label>
+											<input
+												id="setup-sorthive-password"
+												type="password"
+												autocomplete="current-password"
+												bind:value={sorthivePassword}
+												placeholder="••••••••"
+												class="setup-control px-3 py-2 text-sm text-text"
+												disabled={sorthiveConnecting}
+											/>
+										</div>
+									</div>
+
+									<div class="setup-panel flex flex-col gap-1 px-4 py-3">
+										<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">
+											Machine name
+										</div>
+										<div class="text-sm text-text">
+											{(wizard?.machine.nickname ?? '').trim() ||
+												nicknameDraft.trim() ||
+												wizard?.machine.machine_id ||
+												'Unnamed sorter'}
+										</div>
+										<div class="text-[11px] text-text-muted">
+											This is how your sorter will appear in SortHive. Change it in Step 1
+											if needed.
+										</div>
+									</div>
+
+									<div class="flex flex-wrap items-center gap-2">
+										<button
+											type="button"
+											onclick={connectToSorthive}
+											disabled={sorthiveConnecting ||
+												!sorthiveEmail.trim() ||
+												!sorthivePassword.trim()}
+											class="inline-flex items-center gap-2 border border-[#00852B] bg-[#00852B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{#if sorthiveConnecting}
+												<Loader2 size={14} class="animate-spin" />
+												Connecting…
+											{:else}
+												<CheckCircle2 size={14} />
+												Connect to SortHive
+											{/if}
+										</button>
+										<button
+											type="button"
+											onclick={skipSorthive}
+											disabled={sorthiveConnecting}
+											class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											Skip for now
+										</button>
+									</div>
+								{/if}
+
+								{#if sorthiveError}
+									<div
+										class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2 text-xs leading-relaxed text-text dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
+									>
+										<div class="mb-1 text-[11px] font-semibold tracking-wider text-[#5C0708] uppercase dark:text-rose-200">
+											SortHive connection failed
+										</div>
+										{sorthiveError}
+									</div>
+								{:else if sorthiveStatus}
+									<div
+										class="border border-[#00852B]/40 bg-[#00852B]/[0.06] px-3 py-2 text-xs leading-relaxed text-text dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
+									>
+										{sorthiveStatus}
+									</div>
+								{/if}
+							</div>
 						{:else if activeStepId === 'advanced'}
 							<div
 								class="setup-panel relative overflow-hidden border-[#00852B]/40 bg-gradient-to-br from-[#EAF7EE] via-[#F3FBF5] to-white px-8 py-10 text-center dark:from-[#0F2B18] dark:via-[#0B1F12] dark:to-bg"

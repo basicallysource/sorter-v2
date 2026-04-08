@@ -116,6 +116,10 @@
 		return [...ids].sort((a, b) => a - b);
 	}
 
+	function layerHasAssignedServo(layer: LayerDraft): boolean {
+		return layer.servoId.trim().length > 0;
+	}
+
 	function emptyTelemetry(): LayerTelemetry {
 		return {
 			available: false,
@@ -225,11 +229,10 @@
 			index: Number(layer?.index ?? index + 1),
 			binCount: String(Number(layer?.bin_count ?? 12)),
 			enabled: layer?.enabled !== false,
-			servoId: String(
-				Number(
-					servoChannels[index]?.id ?? (backend === 'waveshare' ? index + 1 : index)
-				)
-			),
+			servoId:
+				servoChannels[index]?.id === null || servoChannels[index]?.id === undefined
+					? ''
+					: String(Number(servoChannels[index].id)),
 			invert: Boolean(servoChannels[index]?.invert),
 			liveOpen: previousStates.get(Number(layer?.index ?? index + 1))?.liveOpen ?? null,
 			telemetry: previousStates.get(Number(layer?.index ?? index + 1))?.telemetry ?? emptyTelemetry(),
@@ -287,15 +290,19 @@
 		const scannedIds = busServos.map((s) => s.id).sort((a, b) => a - b);
 		if (scannedIds.length === 0) return;
 
-		// Check if any layer already has a valid scanned ID
-		const alreadyAssigned = layers.some((l) => scannedIds.includes(Number(l.servoId)));
+		// Check if any enabled layer already has a valid scanned ID
+		const alreadyAssigned = layers.some(
+			(l) => l.enabled && layerHasAssignedServo(l) && scannedIds.includes(Number(l.servoId))
+		);
 		if (alreadyAssigned) return;
 
-		// Assign scanned IDs sequentially to layers
-		layers = layers.map((layer, index) => ({
-			...layer,
-			servoId: String(scannedIds[index] ?? scannedIds[scannedIds.length - 1])
-		}));
+		let nextIndex = 0;
+		layers = layers.map((layer) => {
+			if (!layer.enabled || layerHasAssignedServo(layer)) return layer;
+			const assignedId = scannedIds[nextIndex] ?? scannedIds[scannedIds.length - 1];
+			nextIndex += 1;
+			return { ...layer, servoId: String(assignedId) };
+		});
 	}
 
 	async function loadLiveFeedback() {
@@ -330,11 +337,18 @@
 		});
 	}
 
-	function parsedServoChannels(): Array<{ id: number; invert: boolean }> {
+	function parsedServoChannels(): Array<{ id: number | null; invert: boolean }> {
 		const seenIds = new Set<number>();
 		const validPcaChannels = new Set(pcaChannelChoices());
 
 		return layers.map((layer) => {
+			if (!layerHasAssignedServo(layer)) {
+				if (layer.enabled) {
+					throw new Error(`Layer ${layer.index} needs a servo assignment while it is active.`);
+				}
+				return { id: null, invert: layer.invert };
+			}
+
 			const id = Number(layer.servoId);
 			if (!Number.isInteger(id)) {
 				throw new Error(`Layer ${layer.index} needs a valid servo assignment.`);
@@ -402,7 +416,7 @@
 				servoIssues = [];
 			}
 
-			void loadLiveFeedback();
+			await loadSettings();
 
 			statusMsg = [storagePayload?.message, servoPayload?.message].filter(Boolean).join(' ');
 		} catch (e: any) {
@@ -557,13 +571,24 @@
 
 	function updateLayerEnabled(index: number, value: boolean) {
 		layers = layers.map((layer, layerIndex) =>
-			layerIndex === index ? { ...layer, enabled: value } : layer
+			layerIndex === index
+				? {
+					...layer,
+					enabled: value
+				}
+				: layer
 		);
 	}
 
 	function updateLayerServoId(index: number, value: string) {
 		layers = layers.map((layer, layerIndex) =>
-			layerIndex === index ? { ...layer, servoId: value } : layer
+			layerIndex === index
+				? {
+					...layer,
+					servoId: value,
+					enabled: value.trim().length > 0 ? layer.enabled : false
+				}
+				: layer
 		);
 	}
 
@@ -636,7 +661,7 @@
 				// PCA→Waveshare: ensure 1-indexed unique IDs
 				layers = layers.map((layer, index) => ({
 					...layer,
-					servoId: String(index + 1)
+					servoId: layer.enabled ? String(index + 1) : ''
 				}));
 				void loadAvailablePorts();
 				void scanBusServosQuiet();
@@ -644,7 +669,7 @@
 				// Waveshare→PCA: switch to 0-indexed channels
 				layers = layers.map((layer, index) => ({
 					...layer,
-					servoId: String(index)
+					servoId: layer.enabled ? String(index) : ''
 				}));
 			}
 		}
@@ -839,6 +864,7 @@
 										disabled={loading || saving}
 										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
+										<option value="">-</option>
 										{#each waveshareServoChoices() as servoId}
 											<option value={String(servoId)}>{servoId}</option>
 										{/each}
@@ -850,6 +876,7 @@
 										disabled={loading || saving}
 										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
 									>
+										<option value="">-</option>
 										{#each pcaChannelChoices() as channel}
 											<option value={String(channel)}>{channel}</option>
 										{/each}
@@ -861,7 +888,7 @@
 									type="checkbox"
 									checked={layer.invert}
 									onchange={(event) => void updateLayerInvert(index, event.currentTarget.checked)}
-									disabled={loading || saving}
+									disabled={loading || saving || !layer.enabled || !layerHasAssignedServo(layer)}
 								/>
 							</td>
 							{#if backend === 'waveshare'}
@@ -894,6 +921,14 @@
 										<span class="h-1.5 w-1.5 rounded-full bg-[#D01012]"></span>
 										Offline
 									</span>
+								{:else if !layerHasAssignedServo(layer)}
+									<span
+										class="inline-flex items-center gap-1 text-xs text-text-muted"
+										title="No servo assigned to this layer."
+									>
+										<span class="h-1.5 w-1.5 rounded-full bg-border"></span>
+										No servo
+									</span>
 								{:else if layer.liveOpen !== null}
 									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-[#00852B] dark:text-green-400' : 'text-text-muted'}">
 										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-[#00852B]' : 'bg-border'}"></span>
@@ -907,7 +942,7 @@
 								<div class="flex items-center justify-end gap-1.5">
 									<button
 										onclick={() => toggleLayerServo(index)}
-										disabled={loading || saving || layer.testing || layerIsOffline(layer)}
+										disabled={loading || saving || layer.testing || !layer.enabled || !layerHasAssignedServo(layer) || layerIsOffline(layer)}
 										class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 									>
 										{#if layer.testing}
@@ -923,7 +958,7 @@
 									{#if backend === 'waveshare'}
 										<button
 											onclick={() => calibrateLayerServo(index)}
-											disabled={loading || saving || layer.calibrating || layerIsOffline(layer)}
+											disabled={loading || saving || layer.calibrating || !layer.enabled || !layerHasAssignedServo(layer) || layerIsOffline(layer)}
 											class="cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											{layer.calibrating ? '...' : 'Cal'}

@@ -111,10 +111,10 @@
 </script>
 
 <div
-	class="flex h-full flex-col border border-border bg-surface"
+	class="setup-card-shell flex h-full flex-col border"
 >
 	<div
-		class="flex items-center justify-between border-b border-border px-3 py-2 text-sm font-medium text-text"
+		class="setup-card-header flex items-center justify-between px-3 py-2 text-sm font-medium text-text"
 	>
 		<span>Runtime Stats</span>
 		<div class="flex items-center gap-2">

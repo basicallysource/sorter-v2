@@ -27,6 +27,7 @@
 	const manager = getMachinesContext();
 	const displayLabel = $derived(label ?? stepperLabels[stepperKey]);
 	const hasEndstop = $derived(!!endstop);
+	const isChute = $derived(stepperKey === 'chute');
 
 	// --- Machine tracking ---
 	let loadedMachineKey = $state('');
@@ -90,6 +91,9 @@
 	// --- Endstop settings ---
 	let endstopActiveHigh = $state(false);
 	let stepperDirectionInverted = $state(false);
+	let chuteFirstBinCenter = $state(8.25);
+	let chutePillarWidthDeg = $state(8.25);
+	let chuteOperatingSpeed = $state(3000);
 
 	// --- TMC driver settings ---
 	let tmcIrun = $state(16);
@@ -202,6 +206,13 @@
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			endstopActiveHigh = Boolean(payload?.endstop_active_high ?? false);
+			if (stepperKey === 'chute') {
+				chuteFirstBinCenter = Number(payload?.first_bin_center ?? chuteFirstBinCenter);
+				chutePillarWidthDeg = Number(payload?.pillar_width_deg ?? chutePillarWidthDeg);
+				chuteOperatingSpeed = Number(
+					payload?.operating_speed_microsteps_per_second ?? chuteOperatingSpeed
+				);
+			}
 			stepperDirectionInverted = Boolean(payload?.stepper_direction_inverted ?? false);
 			void loadLiveStatus();
 		} catch (e: any) {
@@ -386,8 +397,45 @@
 
 	// --- Endstop settings ---
 
+	async function saveChuteSettings(customMessage?: string) {
+		if (!endstop || stepperKey !== 'chute') return;
+		saving = true;
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					first_bin_center: chuteFirstBinCenter,
+					pillar_width_deg: chutePillarWidthDeg,
+					endstop_active_high: endstopActiveHigh,
+					operating_speed_microsteps_per_second: chuteOperatingSpeed
+				})
+			});
+			if (!res.ok) throw new Error(await readErrorMessage(res));
+			const payload = await res.json();
+			endstopActiveHigh = Boolean(payload?.settings?.endstop_active_high ?? endstopActiveHigh);
+			chuteFirstBinCenter = Number(payload?.settings?.first_bin_center ?? chuteFirstBinCenter);
+			chutePillarWidthDeg = Number(payload?.settings?.pillar_width_deg ?? chutePillarWidthDeg);
+			chuteOperatingSpeed = Number(
+				payload?.settings?.operating_speed_microsteps_per_second ?? chuteOperatingSpeed
+			);
+			applyLiveStatus(payload?.status ?? payload);
+			statusMsg = customMessage ?? payload?.message ?? 'Chute settings saved.';
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Failed to save chute settings';
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function saveEndstopSettings() {
 		if (!endstop) return;
+		if (stepperKey === 'chute') {
+			await saveChuteSettings('Endstop settings saved.');
+			return;
+		}
 		saving = true;
 		errorMsg = null;
 		statusMsg = '';
@@ -677,6 +725,37 @@
 			</div>
 		{/if}
 
+		{#if isChute}
+			<div class="border-t border-border pt-4"></div>
+
+			<div class="flex flex-col gap-1">
+				<div class="text-sm font-medium text-text">Operation</div>
+				<div class="text-xs text-text-muted">
+					Normal distributor movement speed during bin-to-bin operation.
+				</div>
+			</div>
+
+			<label class="text-xs text-text">
+				Operating Speed (uSteps/s)
+				<input
+					type="number"
+					min="1"
+					step="100"
+					bind:value={chuteOperatingSpeed}
+					disabled={loading || saving || homing || canceling}
+					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
+				/>
+			</label>
+
+			<button
+				onclick={() => void saveChuteSettings('Distributor operating speed saved.')}
+				disabled={loading || saving || homing || canceling}
+				class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				{saving ? 'Saving...' : 'Save Operation Settings'}
+			</button>
+		{/if}
+
 		<!-- Homing (only if endstop) -->
 		{#if hasEndstop}
 			<div class="border-t border-border pt-4"></div>
@@ -936,9 +1015,9 @@
 			{:else if statusMsg}
 				<div class="text-sm text-text-muted">{statusMsg}</div>
 			{:else if homing}
-				<div class="text-sm text-[#D01012]">Homing to endstop...</div>
+				<div class="text-sm text-primary">Homing to endstop...</div>
 			{:else if calibrating}
-				<div class="text-sm text-[#D01012]">Calibrating full rotation...</div>
+				<div class="text-sm text-primary">Calibrating full rotation...</div>
 			{/if}
 		</div>
 	</div>

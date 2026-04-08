@@ -60,7 +60,7 @@
 					onclick={() => selectMachine(id)}
 					class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors {id ===
 					manager.selectedMachineId
-						? 'bg-[#D01012]/20 text-[#D01012]'
+						? 'bg-primary/20 text-primary'
 						: 'text-text hover:bg-bg'}"
 				>
 					<span

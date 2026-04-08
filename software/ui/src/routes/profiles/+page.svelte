@@ -8,6 +8,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
+	import { Ellipsis, RotateCw } from 'lucide-svelte';
 
 	type SortingProfileRuleSummary = {
 		name: string;
@@ -173,8 +174,24 @@
 		local_profile: LocalProfileStatus;
 	};
 
+	type PendingProfileApply = {
+		key: string;
+		target_id: string;
+		target_name: string;
+		profile_id: string;
+		profile_name: string;
+		version_id: string;
+		version_number: number | null;
+		version_label: string | null;
+	};
+
+	type SortingProfileCardEntry = {
+		target: SortHiveTargetLibrary;
+		profile: SortingProfileSummary;
+	};
+
 	const manager = getMachinesContext();
-	const PROFILES_PAGE_SIZE = 9;
+	const PROFILE_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -192,10 +209,14 @@
 	let reloadingRuntime = $state(false);
 	let lastMachineUrl = '';
 	let searchQuery = $state('');
-	let currentPages = $state<Record<string, number>>({});
+	let currentPage = $state(1);
+	let pageSize = $state<number>(12);
 	let detailsModalOpen = $state(false);
 	let detailsModalTargetId = $state<string | null>(null);
 	let detailsModalProfileId = $state<string | null>(null);
+	let applyConfirmOpen = $state(false);
+	let pendingApply = $state<PendingProfileApply | null>(null);
+	let openVersionMenuKey = $state<string | null>(null);
 	const detailsModalVersionSelectId = 'profile-details-version-select';
 
 	function baseUrl(): string {
@@ -267,28 +288,40 @@
 		return (displayVersion(profile)?.rules_summary ?? []).filter((rule) => !rule.disabled);
 	}
 
-	function profileOwnerLabel(profile: SortingProfileSummary): string | null {
-		if (profile.is_owner) return null;
-		return profile.owner?.display_name ?? profile.owner?.github_login ?? null;
+	function sourceLabel(target: SortHiveTargetLibrary): string {
+		return target.name || target.url || 'Unknown source';
 	}
 
-	function versionBadgeLabel(profile: SortingProfileSummary): string | null {
-		const version =
-			profile.latest_published_version_number ??
-			profile.latest_version_number ??
-			displayVersion(profile)?.version_number;
-		return version != null ? `v${version}` : null;
+	function targetWebUrl(target: SortHiveTargetLibrary): string | null {
+		if (!target.url) return null;
+		try {
+			const url = new URL(target.url);
+			if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
+				url.pathname = url.pathname.replace(/^\/api(?=\/|$)/, '') || '/';
+			}
+			if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.port === '8001') {
+				url.port = '5174';
+			}
+			return url.toString();
+		} catch {
+			return target.url;
+		}
 	}
 
-	function profileDotClass(profile: SortingProfileSummary, isActive: boolean): string {
-		if (isActive) return 'bg-[#D01012]';
-		if (profile.visibility === 'public') return 'bg-[#0055BF]';
-		return 'bg-text-muted';
+	function lastUsedAt(target: SortHiveTargetLibrary, profile: SortingProfileSummary): string | null {
+		if (library?.sync_state?.profile_id === profile.id) {
+			return library.sync_state.activated_at ?? library.sync_state.applied_at ?? null;
+		}
+		const assignment = target.assignment;
+		if (assignment?.profile?.id === profile.id) {
+			return assignment.last_activated_at ?? assignment.last_synced_at ?? null;
+		}
+		return null;
 	}
 
 	function profileTitleClass(profile: SortingProfileSummary, isActive: boolean): string {
-		if (isActive) return 'text-[#D01012]';
-		if (profile.visibility === 'public') return 'text-[#0055BF] dark:text-blue-400';
+		if (isActive) return 'text-primary';
+		if (profile.visibility === 'public') return 'text-primary dark:text-blue-400';
 		return 'text-text';
 	}
 
@@ -417,21 +450,58 @@
 		}
 	}
 
-	async function applyProfile(target: SortHiveTargetLibrary, profile: SortingProfileSummary) {
+	async function requestApplyProfile(target: SortHiveTargetLibrary, profile: SortingProfileSummary) {
+		await requestApplyProfileVersion(target, profile, null);
+	}
+
+	async function requestApplyProfileVersion(
+		target: SortHiveTargetLibrary,
+		profile: SortingProfileSummary,
+		versionId: string | null
+	) {
 		const key = detailKey(target.id, profile.id);
 		const detail = detailCache[key] ?? (await loadProfileDetail(target.id, profile));
 		if (!detail) {
 			error = detailErrors[key] ?? 'Failed to load profile versions.';
 			return;
 		}
-		const versionId = selectedVersionIds[key];
-		const version = visibleVersions(detail).find((entry) => entry.id === versionId);
+		const version = versionId
+			? visibleVersions(detail).find((entry) => entry.id === versionId)
+			: visibleVersions(detail)[0];
 		if (!version) {
-			error = 'Please choose a version first.';
+			error = 'No version available for this profile.';
 			return;
 		}
 
-		applyingKey = key;
+		openVersionMenuKey = null;
+
+		pendingApply = {
+			key,
+			target_id: target.id,
+			target_name: target.name,
+			profile_id: profile.id,
+			profile_name: profile.name,
+			version_id: version.id,
+			version_number: version.version_number ?? null,
+			version_label: version.label ?? null
+		};
+		applyConfirmOpen = true;
+	}
+
+	function toggleVersionMenu(key: string) {
+		openVersionMenuKey = openVersionMenuKey === key ? null : key;
+	}
+
+	function closeVersionMenu() {
+		openVersionMenuKey = null;
+	}
+
+	async function confirmApplyProfile() {
+		if (!pendingApply) return;
+		const applyRequest = pendingApply;
+		applyConfirmOpen = false;
+
+		applyingKey = applyRequest.key;
 		error = null;
 		success = null;
 		warning = null;
@@ -440,12 +510,13 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					target_id: target.id,
-					profile_id: profile.id,
-					profile_name: profile.name,
-					version_id: version.id,
-					version_number: version.version_number,
-					version_label: version.label
+					target_id: applyRequest.target_id,
+					profile_id: applyRequest.profile_id,
+					profile_name: applyRequest.profile_name,
+					version_id: applyRequest.version_id,
+					version_number: applyRequest.version_number,
+					version_label: applyRequest.version_label,
+					reset_bin_categories: true
 				})
 			});
 			if (!res.ok) {
@@ -454,16 +525,17 @@
 			}
 			const payload = await res.json();
 			if (payload.activation_error) {
-				success = `Using ${profile.name} locally.`;
+				success = `Using ${applyRequest.profile_name} locally. Bin assignments were reset.`;
 				warning = `SortHive activation could not be confirmed: ${payload.activation_error}`;
 			} else {
-				success = `Using ${profile.name} on this machine.`;
+				success = `Using ${applyRequest.profile_name} on this machine. Bin assignments were reset.`;
 			}
 			await sortingProfileStore.reload(baseUrl());
 			await loadLibrary();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to apply sorting profile';
 		} finally {
+			pendingApply = null;
 			applyingKey = null;
 		}
 	}
@@ -504,6 +576,13 @@
 		return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
 	}
 
+	function formatAbsoluteTime(value: unknown): string | null {
+		if (typeof value !== 'string' || !value) return null;
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return null;
+		return date.toLocaleString();
+	}
+
 	function normalizedSearchQuery(): string {
 		return searchQuery.trim().toLowerCase();
 	}
@@ -531,65 +610,81 @@
 			.toLowerCase();
 	}
 
-	function filteredProfilesForTarget(target: SortHiveTargetLibrary): SortingProfileSummary[] {
-		const query = normalizedSearchQuery();
-		if (!query) return target.profiles;
-		return target.profiles.filter((profile) => searchableProfileText(profile).includes(query));
-	}
-
-	function visibleTargets(): SortHiveTargetLibrary[] {
+	function allProfileEntries(): SortingProfileCardEntry[] {
 		if (!library) return [];
-		const query = normalizedSearchQuery();
-		if (!query) return library.targets;
-		return library.targets.filter(
-			(target) => Boolean(target.error) || filteredProfilesForTarget(target).length > 0
+		return library.targets.flatMap((target) =>
+			target.profiles.map((profile) => ({ target, profile }))
 		);
 	}
 
+	function filteredProfileEntries(): SortingProfileCardEntry[] {
+		const query = normalizedSearchQuery();
+		const entries = allProfileEntries();
+		if (!query) return entries;
+		return entries.filter(({ profile, target }) => {
+			const haystack = [searchableProfileText(profile), target.name, target.url]
+				.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+				.join(' ')
+				.toLowerCase();
+			return haystack.includes(query);
+		});
+	}
+
 	function filteredProfileCount(): number {
-		if (!library) return 0;
-		return library.targets.reduce((total, target) => total + filteredProfilesForTarget(target).length, 0);
+		return filteredProfileEntries().length;
 	}
 
 	function totalProfileCount(): number {
-		if (!library) return 0;
-		return library.targets.reduce((total, target) => total + target.profiles.length, 0);
+		return allProfileEntries().length;
 	}
 
-	function totalPagesForTarget(target: SortHiveTargetLibrary): number {
-		return Math.max(1, Math.ceil(filteredProfilesForTarget(target).length / PROFILES_PAGE_SIZE));
+	function totalPages(): number {
+		return Math.max(1, Math.ceil(filteredProfileEntries().length / pageSize));
 	}
 
-	function currentPageForTarget(target: SortHiveTargetLibrary): number {
-		const page = currentPages[target.id] ?? 1;
-		return Math.min(Math.max(page, 1), totalPagesForTarget(target));
+	function currentListPage(): number {
+		return Math.min(Math.max(currentPage, 1), totalPages());
 	}
 
-	function paginatedProfilesForTarget(target: SortHiveTargetLibrary): SortingProfileSummary[] {
-		const filtered = filteredProfilesForTarget(target);
-		const page = currentPageForTarget(target);
-		const start = (page - 1) * PROFILES_PAGE_SIZE;
-		return filtered.slice(start, start + PROFILES_PAGE_SIZE);
+	function paginatedProfileEntries(): SortingProfileCardEntry[] {
+		const filtered = filteredProfileEntries();
+		const page = currentListPage();
+		const start = (page - 1) * pageSize;
+		return filtered.slice(start, start + pageSize);
 	}
 
-	function paginationSummaryForTarget(target: SortHiveTargetLibrary): string {
-		const filtered = filteredProfilesForTarget(target);
+	function paginationSummary(): string {
+		const filtered = filteredProfileEntries();
 		if (filtered.length === 0) return '0 profiles';
-		if (filtered.length <= PROFILES_PAGE_SIZE) {
+		if (filtered.length <= pageSize) {
 			return `${filtered.length} profile${filtered.length === 1 ? '' : 's'}`;
 		}
-		const page = currentPageForTarget(target);
-		const start = (page - 1) * PROFILES_PAGE_SIZE + 1;
-		const end = Math.min(page * PROFILES_PAGE_SIZE, filtered.length);
+		const page = currentListPage();
+		const start = (page - 1) * pageSize + 1;
+		const end = Math.min(page * pageSize, filtered.length);
 		return `${start}-${end} of ${filtered.length}`;
 	}
 
-	function setTargetPage(target: SortHiveTargetLibrary, nextPage: number) {
-		const clamped = Math.min(Math.max(nextPage, 1), totalPagesForTarget(target));
-		currentPages = {
-			...currentPages,
-			[target.id]: clamped
-		};
+	function setListPage(nextPage: number) {
+		currentPage = Math.min(Math.max(nextPage, 1), totalPages());
+	}
+
+	function visiblePageNumbers(): number[] {
+		const total = totalPages();
+		const current = currentListPage();
+		const start = Math.max(1, current - 2);
+		const end = Math.min(total, start + 4);
+		const adjustedStart = Math.max(1, end - 4);
+		const pages: number[] = [];
+		for (let page = adjustedStart; page <= end; page += 1) {
+			pages.push(page);
+		}
+		return pages;
+	}
+
+	function targetErrors(): SortHiveTargetLibrary[] {
+		if (!library) return [];
+		return library.targets.filter((target) => Boolean(target.error));
 	}
 
 	function selectedVersionIdFor(targetId: string, profileId: string): string | null {
@@ -693,16 +788,15 @@
 	/** Auto-load profile detail for the currently visible cards. */
 	async function autoLoadVisibleDetails() {
 		if (!library) return;
-		for (const target of visibleTargets()) {
-			for (const profile of paginatedProfilesForTarget(target)) {
-				const key = detailKey(target.id, profile.id);
-				if (!detailCache[key] && !detailErrors[key] && !loadingDetailKeys[key]) {
-					// Fire and forget, but sequentially to avoid hammering the API
-					try {
-						await loadProfileDetail(target.id, profile);
-					} catch {
-						// Silently ignore — user can retry manually
-					}
+		for (const entry of paginatedProfileEntries()) {
+			const target = entry.target;
+			const profile = entry.profile;
+			const key = detailKey(target.id, profile.id);
+			if (!detailCache[key] && !detailErrors[key] && !loadingDetailKeys[key]) {
+				try {
+					await loadProfileDetail(target.id, profile);
+				} catch {
+					// Silently ignore — user can retry manually
 				}
 			}
 		}
@@ -719,7 +813,7 @@
 		versionDetailCache = {};
 		versionDetailErrors = {};
 		loadingVersionDetailKeys = {};
-		currentPages = {};
+		currentPage = 1;
 		detailsModalOpen = false;
 		detailsModalTargetId = null;
 		detailsModalProfileId = null;
@@ -740,6 +834,8 @@
 	});
 </script>
 
+<svelte:window onclick={closeVersionMenu} />
+
 <svelte:head><title>Sorting Profiles - Sorter</title></svelte:head>
 
 <div class="min-h-screen bg-bg">
@@ -748,13 +844,27 @@
 
 	<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 		<h2 class="text-xl font-bold text-text">Sorting Profiles</h2>
-		<button
-			onclick={reloadRuntimeProfile}
-			disabled={reloadingRuntime}
-			class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:opacity-50"
-		>
-			{reloadingRuntime ? 'Reloading...' : 'Reload from Disk'}
-		</button>
+		<div class="flex min-w-[24rem] max-w-[36rem] flex-1 items-center justify-end gap-2">
+			<input
+				id="profile-search"
+				type="search"
+				value={searchQuery}
+				oninput={(event) => {
+					searchQuery = (event.currentTarget as HTMLInputElement).value;
+					currentPage = 1;
+				}}
+				placeholder="Search profiles, sets, tags, owners..."
+				class="w-full max-w-md border border-border bg-bg px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-text-muted focus:outline-none"
+			/>
+			<button
+				onclick={reloadRuntimeProfile}
+				disabled={reloadingRuntime}
+				class="flex items-center justify-center border border-border bg-surface p-2 text-text transition-colors hover:bg-bg disabled:opacity-50"
+				title="Reload runtime profile from disk"
+			>
+				<RotateCw size={16} class={reloadingRuntime ? 'animate-spin' : ''} />
+			</button>
+		</div>
 	</div>
 
 	<StatusBanner message={success ?? ''} variant="success" />
@@ -766,88 +876,6 @@
 	{:else if !library}
 		<p class="text-text-muted">No sorting profile data available.</p>
 	{:else}
-		<!-- Active Profile Section -->
-		{@const updateInfo = findLatestAvailableVersion()}
-		<div class="mb-6 border border-border bg-surface p-4">
-			<div class="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#D01012]">
-				<span class="inline-block h-2.5 w-2.5 shrink-0 bg-[#D01012]"></span>
-				Active Profile
-			</div>
-			{#if library.local_profile.name || library.sync_state?.profile_name}
-				<div class="mt-2 text-lg font-semibold text-text">
-					{String(library.local_profile.name ?? library.sync_state?.profile_name ?? 'Unknown')}
-				</div>
-				<div class="mt-2 space-y-1 text-sm text-text-muted">
-					<div>
-						{#if library.sync_state?.version_number}
-							Version: v{library.sync_state.version_number}
-							{#if library.sync_state?.version_label}
-								({library.sync_state.version_label})
-							{/if}
-							{#if library.sync_state?.applied_at || library.sync_state?.activated_at}
-								<span class="mx-1">&middot;</span>
-								Applied {formatRelativeTime(library.sync_state.activated_at ?? library.sync_state.applied_at) ?? 'unknown'}
-							{/if}
-						{:else}
-							Version: not tracked
-						{/if}
-					</div>
-					{#if library.sync_state?.target_name || library.sync_state?.target_url}
-						<div>
-							Source: {library.sync_state.target_name ?? 'SortHive'}
-							{#if library.sync_state?.target_url}
-								({library.sync_state.target_url})
-							{/if}
-						</div>
-					{/if}
-					{#if library.local_profile.category_count != null || library.local_profile.rule_count != null}
-						<div>
-							{#if library.local_profile.category_count != null}
-								{library.local_profile.category_count.toLocaleString()} categories
-							{/if}
-							{#if library.local_profile.category_count != null && library.local_profile.rule_count != null}
-								<span class="mx-1">&middot;</span>
-							{/if}
-							{#if library.local_profile.rule_count != null}
-								{library.local_profile.rule_count.toLocaleString()} rules
-							{/if}
-						</div>
-					{/if}
-					<div>
-						{#if library.sync_state?.last_error}
-							<span class="text-[#D01012]">{library.sync_state.last_error}</span>
-						{:else if updateInfo}
-							<span class="text-amber-600">
-								Update available: v{updateInfo.version_number}
-								{#if library.sync_state?.version_number}
-									(you're on v{library.sync_state.version_number})
-								{/if}
-							</span>
-						{:else if library.sync_state?.version_number}
-							<span class="text-[#00852B]">In sync</span>
-						{:else}
-							<span class="text-text-muted">No sync state</span>
-						{/if}
-					</div>
-					{#if library.sync_state?.progress_last_error}
-						<div>
-							<span class="text-[#D01012]">
-								Set progress sync failed: {library.sync_state.progress_last_error}
-							</span>
-						</div>
-					{:else if library.sync_state?.progress_last_synced_at}
-						<div>
-							Set progress synced {formatRelativeTime(library.sync_state.progress_last_synced_at) ?? 'just now'}
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<div class="mt-2 text-sm text-text-muted">
-					No active profile. Apply one from the list below.
-				</div>
-			{/if}
-		</div>
-
 		<!-- Available Profiles -->
 		{#if library.targets.length === 0}
 			<p class="text-sm text-text-muted">
@@ -858,290 +886,264 @@
 				Add one in <a href="/settings" class="underline hover:text-text">Settings</a>.
 			</p>
 		{:else}
-			<div class="mb-5 border border-border bg-surface p-4">
-				<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-					<div class="min-w-0 flex-1">
-						<label for="profile-search" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-muted">
-							Search
-						</label>
-						<input
-							id="profile-search"
-							type="search"
-							value={searchQuery}
-							oninput={(event) => {
-								searchQuery = (event.currentTarget as HTMLInputElement).value;
-								currentPages = {};
-							}}
-							placeholder="Search profiles, sets, tags, owners..."
-							class="w-full border border-border bg-bg px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-text-muted focus:outline-none"
-						/>
-					</div>
-					<div class="text-sm text-text-muted">
-						{#if normalizedSearchQuery()}
-							Showing {filteredProfileCount().toLocaleString()} of {totalProfileCount().toLocaleString()} profiles
-						{:else}
-							{totalProfileCount().toLocaleString()} profile{totalProfileCount() === 1 ? '' : 's'} available
-						{/if}
-					</div>
-				</div>
-			</div>
-
 			{#if normalizedSearchQuery() && filteredProfileCount() === 0}
 				<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
 					No profiles match “{searchQuery.trim()}”.
 				</div>
 			{/if}
 
-			{#each visibleTargets() as target}
-				{@const filteredProfiles = filteredProfilesForTarget(target)}
-				{@const paginatedProfiles = paginatedProfilesForTarget(target)}
-				{@const pageCount = totalPagesForTarget(target)}
-				{@const page = currentPageForTarget(target)}
-				<div class="mb-6">
-					<div class="mb-3 flex flex-wrap items-center gap-3">
-						<div class="flex min-w-0 flex-1 items-center gap-3">
-							<div class="h-px flex-1 bg-border"></div>
-							<span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-								Available from {target.name}
-							</span>
-							<div class="h-px flex-1 bg-border"></div>
+			{#if targetErrors().length > 0}
+				<div class="mb-4 space-y-2">
+					{#each targetErrors() as target}
+						<div class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:text-red-400">
+							{target.name}: {target.error}
 						</div>
-						<div class="text-xs text-text-muted">{paginationSummaryForTarget(target)}</div>
-					</div>
+					{/each}
+				</div>
+			{/if}
 
-					{#if target.error}
-						<div class="mb-3 border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:text-red-400">
-							{target.error}
-						</div>
-					{/if}
-
-					{#if target.profiles.length === 0}
-						<p class="text-sm text-text-muted">
-							No profiles available from this target. Save profiles to your library in SortHive first.
-						</p>
-					{:else if filteredProfiles.length === 0}
-						<p class="text-sm text-text-muted">No profiles from this target match the current search.</p>
-					{:else}
-						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{#each paginatedProfiles as profile}
-								{@const key = detailKey(target.id, profile.id)}
-								{@const detail = detailCache[key]}
-								{@const update = profileHasUpdate(profile)}
-								{@const isActive = library.sync_state?.profile_id === profile.id}
-								{@const isSelectedActive = isActiveSelection(target.id, profile, detail)}
-								{@const rules = rulesForCard(profile)}
-								<div
-									class="group flex h-full flex-col border bg-surface transition-colors {isActive
-										? 'border-[#D01012]'
-										: 'border-border hover:border-text-muted'}"
-								>
-									<div class="px-4 pt-4 pb-3">
-										<div class="flex items-start justify-between gap-2">
-											<div class="min-w-0">
-												<h4 class="flex items-center gap-2 truncate text-sm font-semibold {profileTitleClass(profile, isActive)}">
-													<span class="inline-block h-2.5 w-2.5 shrink-0 {profileDotClass(profile, isActive)}"></span>
-													{profile.name}
-												</h4>
-												{#if profile.description}
-													<p class="mt-0.5 truncate text-xs text-text-muted">{profile.description}</p>
-												{/if}
-												{#if update}
-													<div class="mt-1 text-xs text-amber-600">
-														v{update.latest} available (you're on v{update.current})
-													</div>
-												{:else if displayVersion(profile)}
-													<div class="mt-1 text-xs text-text-muted">
-														{#if displayVersion(profile)?.label}
-															{displayVersion(profile)?.label}
-														{:else}
-															Updated {formatRelativeTime(displayVersion(profile)?.created_at) ?? 'recently'}
-														{/if}
-													</div>
+			{#if filteredProfileCount() > 0}
+				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+					{#each paginatedProfileEntries() as entry}
+						{@const target = entry.target}
+						{@const profile = entry.profile}
+						{@const key = detailKey(target.id, profile.id)}
+						{@const detail = detailCache[key]}
+						{@const update = profileHasUpdate(profile)}
+						{@const isActive = library.sync_state?.profile_id === profile.id}
+						{@const isSelectedActive = isActiveSelection(target.id, profile, detail)}
+						{@const rules = rulesForCard(profile)}
+						{@const lastUsed = lastUsedAt(target, profile)}
+						<div
+							class="setup-card-shell group flex h-full flex-col overflow-hidden border transition-colors {isActive
+								? 'border-[#00852B] ring-1 ring-[#00852B]/20'
+								: 'border-border hover:border-text-muted'}"
+						>
+							<div class="setup-card-header px-3 py-2 text-sm">
+								<div class="flex items-center justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<button
+											type="button"
+											onclick={() => void openProfileDetails(target, profile)}
+											class="flex max-w-full items-center gap-2 truncate text-left text-sm font-semibold {profileTitleClass(profile, isActive)} hover:underline"
+										>
+											{profile.name}
+										</button>
+										{#if isActive}
+											<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+												{#if isActive}
+													<span class="border border-[#00852B]/30 bg-[#00852B]/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#00852B]">Active</span>
 												{/if}
 											</div>
-											<div class="flex shrink-0 items-center gap-1.5">
-												{#if profile.source}
-													<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
-														Fork
-													</span>
-												{/if}
-												{#if profile.profile_type === 'set'}
-													<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
-														Set
-													</span>
-												{/if}
-												{#if versionBadgeLabel(profile)}
-													<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
-														{versionBadgeLabel(profile)}
-													</span>
-												{/if}
-											</div>
-										</div>
+										{/if}
+										{#if update}
+											<div class="mt-1 text-xs text-amber-600">v{update.latest} available (you're on v{update.current})</div>
+										{/if}
 									</div>
-
-									{#if rules.length > 0}
-										<div class="border-t border-border px-4 py-2.5">
-											<div class="space-y-1.5">
-												{#each rules.slice(0, 6) as rule}
-													<div class="flex items-center gap-2 text-xs">
-														{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
-															<img src={rule.set_meta.img_url} alt="" class="h-5 w-5 shrink-0 object-contain" />
-														{:else}
-															<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
-																<path
-																	fill-rule="evenodd"
-																	d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558z"
-																	clip-rule="evenodd"
-																/>
-																<path d="M10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252a4 4 0 004.678 4.678z" />
-															</svg>
-														{/if}
-														<span class="truncate text-text">{rule.name}</span>
-														{#if rule.rule_type === 'set' && rule.set_num}
-															<span class="shrink-0 font-mono text-[10px] text-text-muted">{rule.set_num}</span>
-														{:else if rule.condition_count > 0}
-															<span class="shrink-0 text-[10px] text-text-muted">{rule.condition_count} cond{rule.condition_count !== 1 ? 's' : ''}</span>
-														{/if}
-														{#if rule.child_count > 0}
-															<span class="shrink-0 text-[10px] text-text-muted">+{rule.child_count} sub</span>
-														{/if}
-													</div>
-												{/each}
-												{#if rules.length > 6}
-													<div class="text-[10px] text-text-muted">+{rules.length - 6} more rules</div>
-												{/if}
-											</div>
-										</div>
-									{:else}
-										<div class="border-t border-border px-4 py-2.5">
-											<span class="text-xs text-text-muted">No rules defined</span>
-										</div>
-									{/if}
-
-									<div class="mt-auto border-t border-border bg-bg/40 px-4 py-2">
-										<div class="flex items-center justify-between gap-3">
-											<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-text-muted">
-												<span>{displayVersion(profile)?.compiled_part_count ?? 0} parts</span>
-												{#if profile.fork_count && profile.fork_count > 0}
-													<span class="text-border">|</span>
-													<span>{profile.fork_count} forks</span>
-												{/if}
-												{#if profileOwnerLabel(profile)}
-													<span class="text-border">|</span>
-													<span>by {profileOwnerLabel(profile)}</span>
-												{/if}
-											</div>
-											{#if profile.tags.length > 0}
-												<div class="flex flex-wrap justify-end gap-1">
-													{#each profile.tags.slice(0, 3) as tag}
-														<span class="border border-border bg-surface px-1.5 py-0.5 text-[10px] text-text-muted">{tag}</span>
-													{/each}
-												</div>
-											{/if}
-										</div>
-									</div>
-
-									<div class="border-t border-border px-4 py-3">
-										<div class="flex flex-wrap items-center gap-2">
-											{#if detail}
-												<select
-													value={selectedVersionIds[key] ?? ''}
-													onchange={(event) =>
-														void handleVersionSelection(
-															target,
-															profile,
-															(event.currentTarget as HTMLSelectElement).value
-														)}
-													class="min-w-[13rem] border border-border bg-bg px-3 py-2 text-sm text-text focus:border-text-muted focus:outline-none"
-												>
-													{#each visibleVersions(detail) as version}
-														<option value={version.id}>
-															v{version.version_number}
-															{version.label ? ` - ${version.label}` : ''}
-															{version.is_published ? '' : ' (draft)'}
-														</option>
-													{/each}
-												</select>
-											{:else if detailErrors[key]}
-												<div class="min-w-[13rem] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-													Unavailable
-												</div>
-											{:else}
-												<select
-													disabled
-													class="min-w-[13rem] border border-border bg-bg px-3 py-2 text-sm text-text opacity-60 focus:border-text-muted focus:outline-none"
-												>
-													<option>
-														{loadingDetailKeys[key] ? 'Loading versions...' : 'Loading...'}
-													</option>
-												</select>
-											{/if}
-											{#if !isSelectedActive}
-												<button
-													onclick={() => void applyProfile(target, profile)}
-													disabled={!detail || !selectedVersionIdForCard(target.id, profile, detail) || applyingKey === key}
-													class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
-												>
-													{applyingKey === key ? 'Activating...' : 'Use'}
-												</button>
-											{/if}
-											<button
-												type="button"
-												onclick={() => void openProfileDetails(target, profile)}
-												class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
-											>
-												Details
-											</button>
-										</div>
+									<div class="flex shrink-0 items-center gap-2 self-center">
 										{#if detailErrors[key]}
-											<div class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-												Could not load versions: {detailErrors[key]}
+											<div class="min-w-[10.5rem] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">Unavailable</div>
+										{:else if detail}
+											<div class="relative flex items-stretch">
+												<button
+													onclick={(event) => {
+														event.stopPropagation();
+														void requestApplyProfile(target, profile);
+													}}
+													disabled={applyingKey === key}
+													class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+												>
+													{applyingKey === key ? 'Activating...' : 'activate'}
+												</button>
+												<button
+													type="button"
+													onclick={(event) => {
+														event.stopPropagation();
+														toggleVersionMenu(key);
+													}}
+													disabled={applyingKey === key}
+													class="border border-l-0 border-border bg-white px-2 py-2 text-text transition-colors hover:bg-bg disabled:opacity-50"
+													title="Choose version"
+												>
+													<Ellipsis size={16} />
+												</button>
+												{#if openVersionMenuKey === key}
+													<div class="absolute top-full right-0 z-10 mt-1 min-w-[14rem] border border-border bg-surface shadow-lg">
+														{#each visibleVersions(detail) as version}
+															<button
+																type="button"
+																onclick={(event) => {
+																	event.stopPropagation();
+																	void requestApplyProfileVersion(target, profile, version.id);
+																}}
+																class="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg last:border-b-0"
+															>
+																<span>v{version.version_number}{version.label ? ` - ${version.label}` : ''}</span>
+																{#if !version.is_published}
+																	<span class="text-xs text-text-muted">draft</span>
+																{/if}
+															</button>
+														{/each}
+													</div>
+												{/if}
 											</div>
-										{/if}
-										{#if isSelectedActive}
-											<div class="mt-2 text-xs text-[#D01012]">
-												Currently active on this machine.
-											</div>
-										{:else if isActive && library.sync_state?.version_number}
-											<div class="mt-2 text-xs text-text-muted">
-												This profile is active on v{library.sync_state.version_number}.
-											</div>
+										{:else}
+											<div class="min-w-[10.5rem] border border-border bg-bg px-3 py-2 text-sm text-text opacity-60">Loading...</div>
 										{/if}
 									</div>
-								</div>
-							{/each}
-						</div>
-						{#if pageCount > 1}
-							<div class="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 text-sm text-text-muted">
-								<div>
-									Page {page} of {pageCount}
-								</div>
-								<div class="flex items-center gap-2">
-									<button
-										type="button"
-										onclick={() => setTargetPage(target, page - 1)}
-										disabled={page <= 1}
-										class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
-									>
-										Previous
-									</button>
-									<button
-										type="button"
-										onclick={() => setTargetPage(target, page + 1)}
-										disabled={page >= pageCount}
-										class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
-									>
-										Next
-									</button>
 								</div>
 							</div>
-						{/if}
-					{/if}
+
+							{#if rules.length > 0}
+								<div class="setup-card-body border-t border-border px-4 py-3">
+									<div class="grid gap-x-4 gap-y-1.5 md:grid-cols-2">
+										{#each rules.slice(0, 8) as rule}
+											<div class="flex items-center gap-2 text-xs" title={rule.set_num ?? rule.name}>
+												{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
+													<img src={rule.set_meta.img_url} alt="" class="h-5 w-5 shrink-0 object-contain" />
+												{:else}
+													<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558z" clip-rule="evenodd" /><path d="M10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252a4 4 0 004.678 4.678z" /></svg>
+												{/if}
+												<span class="truncate text-text">{rule.name}</span>
+											</div>
+										{/each}
+										{#if rules.length > 8}
+											<button type="button" onclick={() => void openProfileDetails(target, profile)} class="text-[10px] text-text-muted hover:text-text hover:underline md:col-span-2">+{rules.length - 8} more rules</button>
+										{/if}
+									</div>
+								</div>
+							{:else}
+								<div class="setup-card-body border-t border-border px-4 py-3"><span class="text-xs text-text-muted">No rules defined</span></div>
+							{/if}
+
+							<div class="setup-card-body border-t border-border px-4 py-3">
+								<div class="grid items-center gap-3 text-xs text-text-muted md:grid-cols-[1fr_auto_1fr]">
+									<div>
+										{#if lastUsed}
+											<span title={formatAbsoluteTime(lastUsed) ?? undefined} class="cursor-help">
+												Last used {formatRelativeTime(lastUsed) ?? 'recently'}
+											</span>
+										{/if}
+									</div>
+									<div class="text-center">
+									{#if targetWebUrl(target)}
+										<a
+											href={targetWebUrl(target) ?? undefined}
+											target="_blank"
+											rel="noreferrer"
+											class="transition-colors hover:text-text hover:underline"
+											>
+												{sourceLabel(target)}
+											</a>
+										{:else}
+											{sourceLabel(target)}
+										{/if}
+									</div>
+									<div class="text-right">
+										{#if displayVersion(profile)?.created_at}
+											<span title={formatAbsoluteTime(displayVersion(profile)?.created_at) ?? undefined} class="cursor-help">
+												Updated {formatRelativeTime(displayVersion(profile)?.created_at) ?? 'recently'}
+											</span>
+										{/if}
+									</div>
+								</div>
+								{#if detailErrors[key]}
+									<div class="mt-2 text-xs text-amber-700 dark:text-amber-300">Could not load versions: {detailErrors[key]}</div>
+								{/if}
+								{#if isSelectedActive}
+									<div class="mt-2 text-xs text-primary">Currently active on this machine.</div>
+								{:else if isActive && library.sync_state?.version_number}
+									<div class="mt-2 text-xs text-text-muted">This profile is active on v{library.sync_state.version_number}.</div>
+								{/if}
+							</div>
+						</div>
+					{/each}
 				</div>
-			{/each}
+				<div class="mt-4 grid items-center gap-3 border border-border bg-surface px-4 py-3 text-sm text-text-muted md:grid-cols-[auto_1fr_auto]">
+					<label class="flex items-center gap-2 text-sm text-text-muted">
+						<span>Per page</span>
+						<select
+							value={String(pageSize)}
+							onchange={(event) => {
+								pageSize = Number((event.currentTarget as HTMLSelectElement).value);
+								currentPage = 1;
+							}}
+							class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						>
+							{#each PROFILE_PAGE_SIZE_OPTIONS as option}
+								<option value={option}>{option}</option>
+							{/each}
+						</select>
+					</label>
+					<div class="text-center">{paginationSummary()}</div>
+					<div class="flex items-center justify-end gap-1">
+						<button type="button" onclick={() => setListPage(currentListPage() - 1)} disabled={currentListPage() <= 1} class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50">Previous</button>
+						{#each visiblePageNumbers() as pageNumber}
+							<button
+								type="button"
+								onclick={() => setListPage(pageNumber)}
+								class="border px-3 py-1.5 transition-colors {pageNumber === currentListPage() ? 'border-primary bg-primary text-primary-contrast' : 'border-border text-text hover:bg-bg'}"
+							>
+								{pageNumber}
+							</button>
+						{/each}
+						<button type="button" onclick={() => setListPage(currentListPage() + 1)} disabled={currentListPage() >= totalPages()} class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50">Next</button>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 	</div>
+
+	<Modal bind:open={applyConfirmOpen} title="Activate Profile on Machine">
+		{#if pendingApply}
+			<div class="space-y-4">
+				<div class="border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-text">
+					<div class="font-medium text-text">Please empty all physical bins first.</div>
+					<div class="mt-2 text-text-muted">
+						Activating a different sorting profile will reset all learned bin assignments on
+						this machine. After that, bins will be assigned again as parts are sorted.
+					</div>
+				</div>
+
+				<div class="grid gap-2 border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+					<div>
+						Target: <span class="font-medium text-text">{pendingApply.target_name}</span>
+					</div>
+					<div>
+						Profile: <span class="font-medium text-text">{pendingApply.profile_name}</span>
+					</div>
+					<div>
+						Version:
+						<span class="font-medium text-text">
+							v{pendingApply.version_number ?? '?'}
+							{pendingApply.version_label ? ` - ${pendingApply.version_label}` : ''}
+						</span>
+					</div>
+				</div>
+
+				<div class="flex flex-wrap justify-end gap-2">
+					<button
+						type="button"
+						onclick={() => {
+							applyConfirmOpen = false;
+							pendingApply = null;
+						}}
+						class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={() => void confirmApplyProfile()}
+						class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
+					>
+						Empty Bins and Activate
+					</button>
+				</div>
+			</div>
+		{/if}
+	</Modal>
 
 	<Modal bind:open={detailsModalOpen} title="Profile Details" wide={true}>
 		{@const modalSummary = activeDetailsModalSummary()}

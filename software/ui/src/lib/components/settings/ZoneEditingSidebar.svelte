@@ -70,12 +70,11 @@
 				</div>
 			{:else}
 				<div class="text-sm leading-6 text-text-muted">
-					Click to add polygon vertices and
-					<span class="font-medium text-text"> right-click</span> a point to remove
-					it.
+					Drag the four
+					<span class="font-medium text-text">corner handles</span> to reshape the zone.
 				</div>
 				<div class="text-sm leading-6 text-text-muted">
-					Drag inside the polygon to move the full zone, and use the mouse wheel to scale it.
+					Drag inside the quad to move the full zone, and use the mouse wheel to scale it.
 				</div>
 			{/if}
 		</div>

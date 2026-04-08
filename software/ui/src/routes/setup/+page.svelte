@@ -198,7 +198,7 @@
 			title: 'Controller Discovery',
 			kicker: 'Step 2',
 			description:
-				'Review the USB controllers on this machine — we will use the ones identified as feeder, distribution and Waveshare servo bus.',
+				'Review the USB controllers on this machine — we will use the ones identified as feeder, distribution, and Waveshare servo bus.',
 			requiresManualConfirm: false
 		},
 		{
@@ -207,7 +207,7 @@
 			kicker: 'Step 3',
 			description:
 				'Jog each axis a tiny amount and confirm whether it moved clockwise or counter-clockwise. The wizard will flip any reversed logical directions automatically.',
-			requiresManualConfirm: false
+			requiresManualConfirm: true
 		},
 		{
 			id: 'homing',
@@ -767,6 +767,42 @@
 			noScroll: true,
 			keepFocus: true
 		});
+	}
+
+	const STEP_BLOCKERS: Record<string, () => string | null> = {
+		identity: () => {
+			if (nicknameDraft.trim().length === 0) return 'Enter a machine name to continue';
+			if (savingName) return 'Saving name…';
+			return null;
+		},
+		discovery: () => {
+			if (!wizard?.readiness.boards_detected) return 'Waiting for controller boards to be detected';
+			return null;
+		},
+		motion: () => {
+			if (hardwareState !== 'initialized' && hardwareState !== 'ready')
+				return 'Hardware must be initialized before continuing';
+			return null;
+		},
+		homing: () => {
+			if (hardwareState !== 'initialized' && hardwareState !== 'ready')
+				return 'Hardware must be initialized before continuing';
+			return null;
+		},
+		cameras: () => {
+			if (!wizard?.readiness.camera_layout_selected) return 'Select a camera layout to continue';
+			if (!wizard?.readiness.cameras_assigned) return 'Assign cameras to all required areas';
+			return null;
+		},
+		servos: () => {
+			if (!wizard?.readiness.servo_configured) return 'Configure servos before continuing';
+			return null;
+		}
+	};
+
+	function stepBlockerReason(): string | null {
+		if (currentStepLocked()) return 'Complete previous steps first';
+		return STEP_BLOCKERS[activeStepId]?.() ?? null;
 	}
 
 	function canAdvanceCurrentStep(): boolean {
@@ -1541,7 +1577,7 @@
 							>
 								<div class="mx-auto flex max-w-xl flex-col items-center gap-4">
 									<div
-										class="flex h-20 w-20 items-center justify-center rounded-full bg-[#00852B] text-white shadow-[0_8px_24px_-6px_rgba(0,133,43,0.55)]"
+										class="flex h-20 w-20 items-center justify-center rounded-full bg-[#00852B] text-white"
 									>
 										<Check size={44} strokeWidth={3} />
 									</div>
@@ -1559,6 +1595,9 @@
 						<div
 							class="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end"
 						>
+							{#if stepBlockerReason()}
+								<p class="text-xs text-text-muted">{stepBlockerReason()}</p>
+							{/if}
 							<div class="flex flex-wrap items-center gap-2">
 								{#if currentStepNumber() > 1}
 									<button

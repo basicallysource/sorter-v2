@@ -147,19 +147,19 @@
 			<button
 				onclick={homeChute}
 				disabled={homing || !!movingTo}
-				class="flex items-center gap-1.5 border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
+				class="flex items-center gap-1.5 border border-border px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
 				title="Home chute (find endstop)"
 			>
 				<Home size={14} />
 				{homing ? 'Homing...' : 'Home Chute'}
 			</button>
 		</div>
-		<div class="flex items-center gap-4 text-sm text-[#7A7770]">
+		<div class="flex items-center gap-4 text-sm text-text-muted">
 			{#if profileName}
-				<span>Profile: <span class="font-medium text-[#1A1A1A]">{profileName}</span></span>
+				<span>Profile: <span class="font-medium text-text">{profileName}</span></span>
 			{/if}
 			{#if currentAngle !== null}
-				<span>Chute: <span class="font-mono text-[#1A1A1A]">{currentAngle}&deg;</span></span>
+				<span>Chute: <span class="font-mono text-text">{currentAngle}&deg;</span></span>
 			{/if}
 		</div>
 	</div>
@@ -168,18 +168,18 @@
 	<StatusBanner message={error ?? ''} variant="error" />
 
 	{#if loading}
-		<p class="text-[#7A7770]">Loading bin layout...</p>
+		<p class="text-text-muted">Loading bin layout...</p>
 	{:else if layers.length === 0}
-		<p class="text-[#7A7770]">No storage layers configured.</p>
+		<p class="text-text-muted">No storage layers configured.</p>
 	{:else}
 		<div class="flex flex-col gap-6">
 			{#each layers as layer}
 				{@const isActive = activeLayer === layer.layer_index}
-				<div class="border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
-					<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-[#F7F6F3] px-4 py-2.5">
-						<h3 class="text-sm font-semibold text-[#1A1A1A]">
+				<div class="border border-border {!layer.enabled ? 'opacity-60' : ''}">
+					<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2.5">
+						<h3 class="text-sm font-semibold text-text">
 							Layer {layer.layer_index + 1}
-							<span class="ml-2 text-xs font-normal text-[#7A7770]">
+							<span class="ml-2 text-xs font-normal text-text-muted">
 								{layer.bin_count} bins
 							</span>
 						</h3>
@@ -191,18 +191,18 @@
 								</span>
 							{/if}
 							{#if !layer.enabled}
-								<span class="text-xs font-medium text-[#7A7770]">Disabled</span>
+								<span class="text-xs font-medium text-text-muted">Disabled</span>
 							{/if}
 						</div>
 					</div>
-					<div class="flex flex-col gap-px bg-[#E2E0DB] p-px">
+					<div class="flex flex-col gap-px bg-border p-px">
 						{#each [0, 1] as rowIdx}
 							{@const rowSections = [0, 1, 2].map(c => binsForSection(layer, rowIdx * 3 + c)).filter(s => s.length > 0)}
 							{#if rowSections.flat().length > 0}
 								<div class="flex gap-px">
 									{#each rowSections as sectionBins, sIdx}
 										{#if sIdx > 0}
-											<div class="w-1 bg-[#E2E0DB]"></div>
+											<div class="w-1 bg-border"></div>
 										{/if}
 										{#each sectionBins as bin}
 											{@const key = `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
@@ -212,24 +212,24 @@
 											<button
 												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
 												disabled={!!movingTo || !layer.enabled}
-												class="group relative flex min-h-[4.5rem] flex-1 flex-col items-center justify-center bg-white px-1 py-2 transition-colors
+												class="group relative flex min-h-[4.5rem] flex-1 flex-col items-center justify-center bg-surface px-1 py-2 transition-colors
 													{isCurrent
 														? 'bg-[#00852B]/8 ring-2 ring-inset ring-[#00852B]'
 														: layer.enabled
-															? 'hover:bg-[#F7F6F3]'
+															? 'hover:bg-bg'
 															: 'cursor-not-allowed'}
 													{isMoving ? 'animate-pulse' : ''}"
 												title="Bin {bin.global_index + 1} ({bin.angle}\u00b0){catLabel ? ` — ${catLabel}` : ''}"
 											>
-												<span class="text-sm font-bold {isCurrent ? 'text-[#00852B]' : 'text-[#1A1A1A]'}">{bin.global_index + 1}</span>
+												<span class="text-sm font-bold {isCurrent ? 'text-[#00852B]' : 'text-text'}">{bin.global_index + 1}</span>
 												{#if catLabel}
-													<span class="mt-0.5 max-w-full truncate text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-[#7A7770]'}">{catLabel}</span>
+													<span class="mt-0.5 max-w-full truncate text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-text-muted'}">{catLabel}</span>
 												{:else}
-													<span class="mt-0.5 font-mono text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-[#7A7770]'}">{bin.angle}&deg;</span>
+													<span class="mt-0.5 font-mono text-[11px] {isCurrent ? 'text-[#00852B]/70' : 'text-text-muted'}">{bin.angle}&deg;</span>
 												{/if}
 												{#if layer.enabled && !isCurrent}
 													<div class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-														<ArrowRight size={14} class="text-[#7A7770]" />
+														<ArrowRight size={14} class="text-text-muted" />
 													</div>
 												{/if}
 											</button>

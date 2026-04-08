@@ -530,6 +530,17 @@ class VisionManager:
         self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
         return True
 
+    def reloadPolygons(self) -> None:
+        from blob_manager import getChannelPolygons
+        if isinstance(self._region_provider, HanddrawnRegionProvider):
+            self._region_provider.reloadPolygons()
+        saved = getChannelPolygons()
+        if saved is not None:
+            polygon_data = saved.get("polygons", {})
+            saved_res = saved.get("resolution", [1920, 1080])
+            src_w, src_h = int(saved_res[0]), int(saved_res[1])
+            self._loadCarouselPolygon(polygon_data, source_resolution=(src_w, src_h))
+
     def initFeederDetection(self, *, manual_feed_mode: bool = False) -> bool:
         from blob_manager import getChannelPolygons
         from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel

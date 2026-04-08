@@ -84,7 +84,7 @@
 	});
 </script>
 
-<nav class="border-b border-border bg-surface">
+<nav class="border-b border-border bg-surface" style="--header-btn-h: 36px;">
 	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
 		<div class="flex items-center gap-6">
 			<a href="/" class="text-xl font-bold font-mono uppercase tracking-tight text-text">Sorter</a>
@@ -128,21 +128,23 @@
 			{#if hardwareState === 'standby' || hardwareState === 'error'}
 				<button
 					onclick={homeSystem}
-					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+					class="flex items-center gap-1.5 border border-border bg-bg px-3 text-sm font-medium text-text transition-colors hover:bg-surface"
+					style="height: var(--header-btn-h);"
 					title="Initialize hardware and home all axes"
 				>
 					<Home size={14} />
 					Home
 				</button>
 			{:else if hardwareState === 'homing'}
-				<div class="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted">
+				<div class="flex items-center gap-2 px-3 text-sm text-text-muted" style="height: var(--header-btn-h);">
 					<div class="h-3.5 w-3.5 animate-spin border-2 border-[#0055BF] border-t-transparent" style="border-radius: 50%;"></div>
 					<span class="max-w-[200px] truncate">{homingStep ?? 'Homing...'}</span>
 				</div>
 			{:else if hardwareState === 'ready'}
 				<button
 					onclick={homeSystem}
-					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+					class="flex items-center gap-1.5 border border-border bg-bg px-3 text-sm font-medium text-text transition-colors hover:bg-surface"
+					style="height: var(--header-btn-h);"
 					title="Re-home all axes"
 				>
 					<Home size={14} />
@@ -150,7 +152,8 @@
 				</button>
 				<button
 					onclick={resetSystem}
-					class="p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
+					class="flex items-center justify-center border border-border bg-surface text-text-muted transition-colors hover:text-text hover:bg-bg"
+					style="height: var(--header-btn-h); width: var(--header-btn-h);"
 					title="Reset hardware to standby"
 				>
 					<RotateCcw size={14} />
@@ -164,7 +167,8 @@
 			{#if hardwareState === 'ready'}
 				<button
 					onclick={togglePauseResume}
-					class="p-2 text-text transition-colors hover:bg-bg"
+					class="flex items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg"
+					style="height: var(--header-btn-h); width: var(--header-btn-h);"
 					title={machineState === 'paused' ? 'Resume' : 'Pause'}
 				>
 					{#if machineState === 'paused'}

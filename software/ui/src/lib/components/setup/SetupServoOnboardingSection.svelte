@@ -2,6 +2,7 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
+	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -63,16 +64,25 @@
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
+	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
 	let invertByLayer = $state<Record<number, boolean>>({});
+
+	// per-layer angle overrides (1-based layer index → angle or empty string for "use global")
+	let openAngleByLayer = $state<Record<number, string>>({});
+	let closedAngleByLayer = $state<Record<number, string>>({});
 
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
 	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
 	// Track servo ids we've already auto-promoted this session so we don't loop.
 	let autoPromotedIds = $state<Set<number>>(new Set());
+
+	let selectedServoId = $state<number | null>(null);
+	let selectedLayerIdx = $state<number | null>(null);
+	let nudgeDegrees = $state<number>(5);
 
 	// Effective number of assignable layers. If we have more servos on the bus
 	// than the configured storage layers, expand so every servo can be mapped.
@@ -159,7 +169,7 @@
 	function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? {};
 		const servo = payload?.servo ?? {};
-		const storageLayers = Array.isArray(storage?.layers) ? storage.layers : [];
+		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
 
 		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
@@ -181,7 +191,11 @@
 				)
 			: [];
 
-		layerCount = Math.max(storageLayers.length, Number(servo.layer_count ?? 0));
+		layerCount = Math.max(storageLayersRaw.length, Number(servo.layer_count ?? 0));
+		storageLayers = storageLayersRaw.map((sl: any) => ({
+			bin_count: Number(sl?.bin_count ?? 12),
+			enabled: sl?.enabled !== false,
+		}));
 
 		const newAssignments: Record<number, number> = {};
 		const newInverts: Record<number, boolean> = {};
@@ -194,6 +208,20 @@
 		}
 		layerByAssignment = newAssignments;
 		invertByLayer = newInverts;
+
+		const newOpenAngles: Record<number, string> = {};
+		const newClosedAngles: Record<number, string> = {};
+		for (let i = 0; i < storageLayersRaw.length; i++) {
+			const sl = storageLayersRaw[i];
+			if (typeof sl?.servo_open_angle === 'number') {
+				newOpenAngles[i + 1] = String(sl.servo_open_angle);
+			}
+			if (typeof sl?.servo_closed_angle === 'number') {
+				newClosedAngles[i + 1] = String(sl.servo_closed_angle);
+			}
+		}
+		openAngleByLayer = newOpenAngles;
+		closedAngleByLayer = newClosedAngles;
 	}
 
 	async function loadSettings() {
@@ -338,6 +366,51 @@
 		await moveServo(servoId, last === 'open' ? 'close' : 'open');
 	}
 
+	async function nudgeLayer(layerIdx: number, degrees: number) {
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/servo/layers/${layerIdx - 1}/nudge`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ degrees })
+				}
+			);
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text);
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? `Failed to nudge layer ${layerIdx} servo`;
+		}
+	}
+
+	async function nudgeServo(servoId: number, degrees: number) {
+		setBusy(servoId, 'moving');
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/nudge`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ degrees })
+				}
+			);
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text);
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? `Failed to nudge servo ${servoId}`;
+		} finally {
+			setBusy(servoId, null);
+		}
+	}
+
 	async function promoteServoId(currentId: number, newId: number) {
 		setBusy(currentId, 'promoting');
 		errorMsg = null;
@@ -449,12 +522,39 @@
 		return channels;
 	}
 
+	function buildStorageLayersForSave() {
+		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		for (let i = 0; i < layerCount; i++) {
+			const sl = storageLayers[i];
+			const openStr = openAngleByLayer[i + 1] ?? '';
+			const closedStr = closedAngleByLayer[i + 1] ?? '';
+			const openVal = openStr !== '' ? Number(openStr) : null;
+			const closedVal = closedStr !== '' ? Number(closedStr) : null;
+			result.push({
+				bin_count: sl?.bin_count ?? 12,
+				enabled: sl?.enabled ?? true,
+				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
+				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
+			});
+		}
+		return result;
+	}
+
 	async function saveServoSetup() {
 		saving = true;
 		errorMsg = null;
 		statusMsg = '';
 		try {
 			const channels = buildChannelsForSave();
+
+			const storageLayers = buildStorageLayersForSave();
+			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ layers: storageLayers })
+			});
+			if (!storageRes.ok) throw new Error(await storageRes.text());
+
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/servo`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -497,7 +597,29 @@
 			if (scanningBus) return;
 			void scanBus({ silent: true });
 		}, 4000);
-		return () => clearInterval(interval);
+
+		function handleKeydown(e: KeyboardEvent) {
+			if (selectedServoId === null && selectedLayerIdx === null) return;
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				if (selectedServoId !== null) void nudgeServo(selectedServoId, -nudgeDegrees);
+				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, -nudgeDegrees);
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				if (selectedServoId !== null) void nudgeServo(selectedServoId, nudgeDegrees);
+				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, nudgeDegrees);
+			} else if (e.key === 'Escape') {
+				selectedServoId = null;
+				selectedLayerIdx = null;
+			}
+		}
+		window.addEventListener('keydown', handleKeydown);
+
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener('keydown', handleKeydown);
+		};
 	});
 </script>
 
@@ -599,7 +721,12 @@
 						{@const lastMove = lastMoveByServoId[servo.id]}
 						{@const inverted = setup.inverted}
 						{@const isFactory = setup.isFactory}
-						<div class={`overflow-hidden border border-border border-l-4 bg-surface ${setup.accent}`}>
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class={`overflow-hidden border border-l-4 bg-surface ${setup.accent} ${selectedServoId === servo.id ? 'border-[#0055BF] ring-2 ring-[#0055BF]/30' : 'border-border'}`}
+							onclick={() => { selectedServoId = selectedServoId === servo.id ? null : servo.id; }}
+						>
 							<div class={`flex flex-wrap items-start gap-4 px-4 py-3 ${setup.headerTone}`}>
 								<div
 									class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-[#0055BF] font-bold text-white"
@@ -676,6 +803,45 @@
 								{/if}
 							</div>
 
+							{#if layer > 0}
+								<div class="border-t border-border bg-bg/40 px-4 py-3">
+									<div class="text-[10px] uppercase tracking-wider text-text-muted">Angle overrides for Layer {layer}</div>
+									<div class="mt-2 grid gap-3 sm:grid-cols-2 max-w-sm">
+										<label class="flex flex-col gap-1 text-xs text-text-muted">
+											<span>Open angle (°)</span>
+											<input
+												type="number"
+												min="0"
+												max="180"
+												placeholder={String(openAngle)}
+												value={openAngleByLayer[layer] ?? ''}
+												oninput={(event) => {
+													const val = (event.currentTarget as HTMLInputElement).value;
+													openAngleByLayer = { ...openAngleByLayer, [layer]: val };
+												}}
+												class="setup-control px-2 py-1.5 text-text"
+											/>
+										</label>
+										<label class="flex flex-col gap-1 text-xs text-text-muted">
+											<span>Closed angle (°)</span>
+											<input
+												type="number"
+												min="0"
+												max="180"
+												placeholder={String(closedAngle)}
+												value={closedAngleByLayer[layer] ?? ''}
+												oninput={(event) => {
+													const val = (event.currentTarget as HTMLInputElement).value;
+													closedAngleByLayer = { ...closedAngleByLayer, [layer]: val };
+												}}
+												class="setup-control px-2 py-1.5 text-text"
+											/>
+										</label>
+									</div>
+									<div class="mt-1 text-[10px] text-text-muted">Leave blank to use the default angles ({openAngle}° / {closedAngle}°)</div>
+								</div>
+							{/if}
+
 							<div class="border-t border-border bg-bg/40 px-4 py-3">
 								<div class="text-[10px] uppercase tracking-wider text-text-muted">Actions</div>
 								<div class="mt-2 flex flex-wrap items-center gap-2">
@@ -712,6 +878,42 @@
 										{inverted ? 'Direction reversed' : 'Reverse direction'}
 									</button>
 								</div>
+
+								{#if calibrated}
+									<div class="mt-3 flex items-center gap-2">
+										<span class="text-[10px] uppercase tracking-wider text-text-muted">Nudge</span>
+										<button
+											onclick={(e) => { e.stopPropagation(); void nudgeServo(servo.id, -nudgeDegrees); }}
+											disabled={!!busy}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+											title="Move left"
+										>
+											<ChevronLeft size={16} />
+										</button>
+										<input
+											type="number"
+											min="1"
+											max="180"
+											bind:value={nudgeDegrees}
+											onclick={(e) => e.stopPropagation()}
+											class="setup-control w-14 px-2 py-1 text-center text-xs text-text"
+										/>
+										<span class="text-[10px] text-text-muted">°</span>
+										<button
+											onclick={(e) => { e.stopPropagation(); void nudgeServo(servo.id, nudgeDegrees); }}
+											disabled={!!busy}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+											title="Move right"
+										>
+											<ChevronRight size={16} />
+										</button>
+										{#if selectedServoId === servo.id}
+											<span class="text-[10px] text-[#0055BF]">Selected — use ←/→ arrow keys</span>
+										{:else}
+											<span class="text-[10px] text-text-muted">Click card to use arrow keys</span>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/each}
@@ -736,11 +938,9 @@
 		</div>
 	{:else}
 		<div class="setup-panel p-4">
-			<div class="text-sm font-semibold text-text">Open/close angles</div>
+			<div class="text-sm font-semibold text-text">Default open/close angles</div>
 			<div class="mt-1 text-xs text-text-muted">
-				PCA9685 servos can't store calibrated limits on the device, so the same open/close
-				angles apply to every channel. Use the layer's <span class="font-medium text-text">Invert</span>
-				toggle below if a specific layer is mounted upside-down.
+				Default angles used for layers that don't have a custom override set below.
 			</div>
 			<div class="mt-3 grid gap-3 sm:grid-cols-2">
 				<label class="flex flex-col gap-1 text-xs text-text-muted">
@@ -778,6 +978,9 @@
 							<th class="px-3 py-2 font-medium">Layer</th>
 							<th class="px-3 py-2 font-medium">Channel</th>
 							<th class="px-3 py-2 font-medium">Invert</th>
+							<th class="px-3 py-2 font-medium">Open °</th>
+							<th class="px-3 py-2 font-medium">Closed °</th>
+								<th class="px-3 py-2 font-medium">Nudge</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -821,6 +1024,66 @@
 										/>
 										<span>{invertByLayer[layerIdx] ? 'Yes' : 'No'}</span>
 									</label>
+								</td>
+								<td class="px-3 py-2">
+									<input
+										type="number"
+										min="0"
+										max="180"
+										placeholder={String(openAngle)}
+										value={openAngleByLayer[layerIdx] ?? ''}
+										oninput={(event) => {
+											const val = (event.currentTarget as HTMLInputElement).value;
+											openAngleByLayer = { ...openAngleByLayer, [layerIdx]: val };
+										}}
+										class="setup-control w-20 px-2 py-1.5 text-text"
+									/>
+								</td>
+								<td class="px-3 py-2">
+									<input
+										type="number"
+										min="0"
+										max="180"
+										placeholder={String(closedAngle)}
+										value={closedAngleByLayer[layerIdx] ?? ''}
+										oninput={(event) => {
+											const val = (event.currentTarget as HTMLInputElement).value;
+											closedAngleByLayer = { ...closedAngleByLayer, [layerIdx]: val };
+										}}
+										class="setup-control w-20 px-2 py-1.5 text-text"
+									/>
+								</td>
+								<td class="px-3 py-2">
+									<div class="flex items-center gap-1">
+										<button
+											onclick={() => void nudgeLayer(layerIdx, -nudgeDegrees)}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg"
+											title="Move left"
+										>
+											<ChevronLeft size={16} />
+										</button>
+										<input
+											type="number"
+											min="1"
+											max="180"
+											bind:value={nudgeDegrees}
+											class="setup-control w-12 px-1 py-1 text-center text-xs text-text"
+										/>
+										<button
+											onclick={() => void nudgeLayer(layerIdx, nudgeDegrees)}
+											class="flex h-7 w-7 items-center justify-center border border-border bg-surface text-text transition-colors hover:bg-bg"
+											title="Move right"
+										>
+											<ChevronRight size={16} />
+										</button>
+										<button
+											onclick={() => { selectedLayerIdx = selectedLayerIdx === layerIdx ? null : layerIdx; selectedServoId = null; }}
+											class={`ml-1 px-2 py-1 text-[10px] font-medium transition-colors ${selectedLayerIdx === layerIdx ? 'border border-[#0055BF] bg-[#0055BF]/10 text-[#0055BF]' : 'border border-border bg-surface text-text-muted hover:bg-bg'}`}
+											title="Select to use arrow keys"
+										>
+											{selectedLayerIdx === layerIdx ? '← → active' : 'keys'}
+										</button>
+									</div>
 								</td>
 							</tr>
 						{/each}

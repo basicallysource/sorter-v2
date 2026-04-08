@@ -36,16 +36,18 @@ sections = [
 # computes bin center positions around the ring.
 
 # [chute]
+# home_pin_channel = 0
 # first_bin_center = 8.4
 # pillar_width_deg = 1.9
 # endstop_active_high = true
 
 # --- Carousel endstop polarity ---
-# The carousel home switch is currently expected on feeder input channel 2
-# (`Z-stop / IO25`). Set active high when that input reads High at the exact
+# The carousel home sensor is on feeder input channel 1.
+# Set active high when that input reads High at the exact
 # moment the optical endstop is physically triggered.
 
 # [carousel]
+# home_pin_channel = 0
 # endstop_active_high = false
 
 # --- Feeding mode ---

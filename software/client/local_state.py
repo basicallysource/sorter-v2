@@ -26,6 +26,7 @@ _STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
+_STATE_KEY_BIN_LAYOUT = "bin_layout"
 
 
 def local_state_db_path() -> Path:
@@ -467,3 +468,12 @@ def get_set_progress_state() -> dict[str, Any] | None:
 def set_set_progress_state(state: dict[str, Any] | None) -> None:
     normalized = dict(state) if isinstance(state, dict) else None
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
+
+
+def get_bin_layout() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_BIN_LAYOUT)
+    return value if isinstance(value, dict) else None
+
+
+def set_bin_layout(layout: dict[str, Any] | None) -> None:
+    _write_state(_STATE_KEY_BIN_LAYOUT, dict(layout) if layout is not None else None)

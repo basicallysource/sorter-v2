@@ -37,7 +37,6 @@ from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
-from subsystems.classification.carousel_stepper import sensorlessHomeCarousel
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
 import uvicorn
@@ -267,17 +266,14 @@ def main() -> None:
         elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
             gc.logger.warning("Classification baseline not found — continuing without classification")
 
-        # Home carousel if endstop is available
-        carousel_stepper = getattr(irl, "carousel_stepper", None)
-        if carousel_stepper is not None:
-            shared_state.hardware_homing_step = "Homing carousel..."
+        shared_state.hardware_homing_step = "Homing carousel..."
+        carousel_hw = getattr(irl, "carousel_hw", None)
+        if carousel_hw is not None:
             gc.logger.info("Homing carousel...")
-            try:
-                from server.routers.hardware import _home_carousel_stepper
-                _home_carousel_stepper(irl, gc)
+            if carousel_hw.home():
                 gc.logger.info("Carousel homed successfully.")
-            except Exception as e:
-                gc.logger.warning(f"Carousel homing failed: {e}. Continuing without homing.")
+            else:
+                gc.logger.warning("Carousel homing failed. Continuing without homing.")
 
         # Home chute/distributor if available
         shared_state.hardware_homing_step = "Homing distributor..."

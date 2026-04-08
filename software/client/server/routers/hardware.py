@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
 import time
-import threading
-import tomllib
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from irl.bin_layout import getBinLayout
+from irl.bin_layout import getBinLayout, saveBinLayout, BinLayoutConfig, LayerConfig
 from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -71,6 +67,10 @@ class ServoMovePayload(BaseModel):
     position: str  # "open" | "close" | "center"
 
 
+class ServoNudgePayload(BaseModel):
+    degrees: int
+
+
 class ServoLayerPreviewPayload(BaseModel):
     invert: bool = False
     is_open: bool = False
@@ -85,6 +85,8 @@ class MoveToBinPayload(BaseModel):
 class StorageLayerPayload(BaseModel):
     bin_count: int
     enabled: bool = True
+    servo_open_angle: Optional[int] = None
+    servo_closed_angle: Optional[int] = None
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -98,81 +100,15 @@ class StorageLayerSettingsPayload(BaseModel):
 
 ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
 DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
-CAROUSEL_HOME_PIN_CHANNEL = 2
 DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
-CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC = 400
-CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC = 100
-CAROUSEL_BACKOFF_STEPS = 200
-CAROUSEL_HOME_PASSES = 3
-CAROUSEL_HOME_TIMEOUT_MS = 30000
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 from server.config_helpers import (
     machine_params_path as _camera_params_path,
-    bin_layout_path as _bin_layout_path,
     read_machine_params_config as _read_machine_params_config,
-    read_bin_layout_config as _read_bin_layout_config,
     toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
-    write_bin_layout_config as _write_bin_layout_config,
 )
-
-
-# ---------------------------------------------------------------------------
-# Reusable carousel homing (called from main.py and the endpoint)
-# ---------------------------------------------------------------------------
-
-
-def _home_carousel_stepper(irl: Any, gc: Any) -> None:
-    """Home the carousel stepper using endstop. Raises on failure."""
-    import time as _time
-
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise RuntimeError("Feeder board not found — cannot home carousel.")
-
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise RuntimeError(f"Carousel home pin channel {CAROUSEL_HOME_PIN_CHANNEL} unavailable.")
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise RuntimeError("Carousel stepper not found.")
-
-    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin.value)
-        return raw if endstop_active_high else not raw
-
-    def _home_and_wait(speed: int, timeout_ms: int) -> None:
-        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
-        start = _time.monotonic()
-        while not stepper.stopped:
-            if (_time.monotonic() - start) * 1000 > timeout_ms:
-                stepper.move_at_speed(0)
-                raise TimeoutError("Carousel homing timed out.")
-            _time.sleep(0.01)
-        if not _read_endstop():
-            raise RuntimeError("Carousel homing stopped before endstop triggered.")
-
-    stepper.enabled = True
-    _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-    for _ in range(CAROUSEL_HOME_PASSES - 1):
-        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
-        _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-    stepper.position_degrees = 0.0
-
-
-# ---------------------------------------------------------------------------
-# Hardware query helpers
-# ---------------------------------------------------------------------------
 
 
 
@@ -443,10 +379,14 @@ def _carousel_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(stepper_direction_inverted, bool):
         stepper_direction_inverted = False
 
+    irl = _active_irl()
+    carousel_hw = getattr(irl, "carousel_hw", None) if irl is not None else None
+    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
+
     return {
         "endstop_active_high": endstop_active_high,
         "stepper_direction_inverted": stepper_direction_inverted,
-        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        "home_pin_channel": home_pin_channel,
     }
 
 
@@ -467,15 +407,20 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             if bin_size != "medium":
                 break
 
-        layers.append(
-            {
-                "index": index,
-                "bin_count": bin_count,
-                "section_count": section_count,
-                "bin_size": bin_size,
-                "enabled": enabled,
-            }
-        )
+        layer_entry: Dict[str, Any] = {
+            "index": index,
+            "bin_count": bin_count,
+            "section_count": section_count,
+            "bin_size": bin_size,
+            "enabled": enabled,
+        }
+        servo_open = getattr(layer, "servo_open_angle", None)
+        servo_closed = getattr(layer, "servo_closed_angle", None)
+        if isinstance(servo_open, int):
+            layer_entry["servo_open_angle"] = servo_open
+        if isinstance(servo_closed, int):
+            layer_entry["servo_closed_angle"] = servo_closed
+        layers.append(layer_entry)
 
     return {
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
@@ -611,15 +556,14 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_stopped": None,
             "bound_stepper_name": None,
             "bound_stepper_channel": None,
-            "digital_inputs": [],
-            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+            "home_pin_channel": None,
         }
 
+    carousel_hw = getattr(irl, "carousel_hw", None)
     stepper = getattr(irl, "carousel_stepper", None)
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
+    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
 
-    if stepper is None or feeder_board is None:
+    if stepper is None or carousel_hw is None:
         return {
             "live_available": False,
             "endstop_triggered": None,
@@ -629,10 +573,9 @@ def _live_carousel_status() -> Dict[str, Any]:
             "current_position_degrees": None,
             "stepper_microsteps": None,
             "stepper_stopped": None,
-            "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper is not None else None,
-            "bound_stepper_channel": getattr(stepper, "channel", None) if stepper is not None else None,
-            "digital_inputs": [],
-            "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+            "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper else None,
+            "bound_stepper_channel": getattr(stepper, "channel", None) if stepper else None,
+            "home_pin_channel": home_pin_channel,
         }
 
     status: Dict[str, Any] = {
@@ -646,18 +589,14 @@ def _live_carousel_status() -> Dict[str, Any]:
         "stepper_stopped": None,
         "bound_stepper_name": getattr(stepper, "hardware_name", None),
         "bound_stepper_channel": getattr(stepper, "channel", None),
-        "digital_inputs": [],
-        "home_pin_channel": CAROUSEL_HOME_PIN_CHANNEL,
+        "home_pin_channel": home_pin_channel,
     }
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if 0 <= CAROUSEL_HOME_PIN_CHANNEL < len(digital_inputs):
-        try:
-            raw_high = bool(digital_inputs[CAROUSEL_HOME_PIN_CHANNEL].value)
-            status["raw_endstop_high"] = raw_high
-            status["endstop_triggered"] = raw_high if endstop_active_high else not raw_high
-        except Exception as e:
-            status["endstop_error"] = str(e)
+    try:
+        status["raw_endstop_high"] = carousel_hw.raw_endstop_active
+        status["endstop_triggered"] = carousel_hw.endstop_triggered
+    except Exception as e:
+        status["endstop_error"] = str(e)
 
     try:
         status["current_position_degrees"] = float(stepper.position_degrees)
@@ -669,17 +608,6 @@ def _live_carousel_status() -> Dict[str, Any]:
         status["stepper_stopped"] = bool(stepper.stopped)
     except Exception as e:
         status["stepper_stopped_error"] = str(e)
-
-    try:
-        status["digital_inputs"] = [
-            {
-                "channel": index,
-                "raw_high": bool(pin.value),
-            }
-            for index, pin in enumerate(digital_inputs)
-        ]
-    except Exception as e:
-        status["digital_inputs_error"] = str(e)
 
     return status
 
@@ -717,7 +645,7 @@ def _stop_all_steppers() -> None:
 @router.get("/api/hardware-config")
 def get_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
-    _, layout = _read_bin_layout_config()
+    layout = getBinLayout()
     return {
         "storage_layers": _storage_layer_settings_from_layout(layout),
         "servo": _servo_settings_from_config(config),
@@ -977,6 +905,48 @@ def calibrate_layer_servo(layer_index: int) -> Dict[str, Any]:
         "limits": {"min": min_limit, "max": max_limit},
         "feedback": feedback,
         "message": f"Layer {layer_index + 1} servo calibrated.",
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/nudge")
+def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str, Any]:
+    _ensure_not_homing("nudge a servo")
+    servo = _live_servo_for_layer(layer_index)
+
+    if not hasattr(servo, "move_to") or not hasattr(servo, "position"):
+        raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
+
+    try:
+        current_pos = int(servo.position)
+        # PCA ServoMotor.position returns tenths-of-degrees, move_to takes degrees 0-180
+        # Waveshare BusServo.position returns raw 0-1023, move_to takes angle 0-180
+        # Use move_to(angle) which handles mapping internally
+        if hasattr(servo, '_angle_to_position'):
+            # waveshare bus servo: position is raw, convert to angle space
+            limits = getattr(servo, '_min_limit', 0), getattr(servo, '_max_limit', 1023)
+            range_size = limits[1] - limits[0]
+            if range_size > 0:
+                current_angle = int((current_pos - limits[0]) * 180 / range_size)
+            else:
+                current_angle = 90
+        else:
+            # PCA servo: position is tenths of degrees
+            current_angle = current_pos // 10
+
+        new_angle = max(0, min(180, current_angle + payload.degrees))
+        servo.move_to(new_angle)
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to nudge layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "degrees": payload.degrees,
+        "new_angle": new_angle,
+        "feedback": feedback,
     }
 
 
@@ -1329,6 +1299,57 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
             bus.close()
 
 
+@router.post("/api/hardware-config/waveshare/servos/{servo_id}/nudge")
+def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str, Any]:
+    _ensure_not_homing("nudge a Waveshare servo")
+    if servo_id < 1 or servo_id > 253:
+        raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
+
+    bus, should_close = _get_waveshare_bus()
+    if bus is None:
+        raise HTTPException(status_code=503, detail="No Waveshare bus available.")
+
+    try:
+        if not bus.ping(servo_id):
+            raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
+
+        limits = bus.read_angle_limits(servo_id)
+        if limits is None:
+            raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
+        min_lim, max_lim = limits
+        range_size = max_lim - min_lim
+        if range_size < 20:
+            raise HTTPException(status_code=409, detail="Servo has no calibrated range. Run auto-calibration first.")
+
+        current_pos = bus.read_position(servo_id)
+        if current_pos is None:
+            raise HTTPException(status_code=500, detail="Could not read current servo position.")
+
+        raw_delta = int(payload.degrees * range_size / 180)
+        new_pos = max(0, min(1023, current_pos + raw_delta))
+
+        bus.set_torque(servo_id, True)
+        time.sleep(0.01)
+        if not bus.move_to(servo_id, new_pos, 200):
+            raise HTTPException(status_code=500, detail="move_to command failed.")
+
+        return {
+            "ok": True,
+            "servo_id": servo_id,
+            "degrees": payload.degrees,
+            "raw_position": new_pos,
+            "previous_position": current_pos,
+            "limits": {"min": min_lim, "max": max_lim},
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to nudge servo: {exc}")
+    finally:
+        if should_close:
+            bus.close()
+
+
 @router.get("/api/hardware-config/chute")
 def get_chute_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
@@ -1505,72 +1526,18 @@ def home_carousel_to_endstop() -> Dict[str, Any]:
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+    carousel_hw = getattr(irl, "carousel_hw", None)
+    if carousel_hw is None:
+        raise HTTPException(status_code=503, detail="Carousel hardware not initialized.")
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
-        )
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
-
-    home_pin = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin.value)
-        return raw if endstop_active_high else not raw
-
-    def _home_and_wait(speed: int, timeout_ms: int) -> None:
-        """Issue firmware home command, wait for stop, verify endstop."""
-        stepper.home(speed, home_pin, home_pin_active_high=endstop_active_high)
-        start = time.monotonic()
-        while not stepper.stopped:
-            if (time.monotonic() - start) * 1000 > timeout_ms:
-                stepper.move_at_speed(0)
-                raise TimeoutError("Carousel homing timed out.")
-            time.sleep(0.01)
-        if not _read_endstop():
-            raise HTTPException(
-                status_code=409,
-                detail="Carousel homing stopped before the endstop triggered.",
-            )
-
-    try:
-        stepper.enabled = True
-
-        # Pass 1: fast approach
-        _home_and_wait(CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-
-        # Passes 2..N: back off then slow approach for precision
-        for _ in range(CAROUSEL_HOME_PASSES - 1):
-            stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
-            _home_and_wait(CAROUSEL_HOME_SPEED_SLOW_MICROSTEPS_PER_SEC, CAROUSEL_HOME_TIMEOUT_MS)
-
-        stepper.position_degrees = 0.0
-        # Keep stepper enabled to hold position
-    except HTTPException:
-        raise
-    except TimeoutError as e:
-        raise HTTPException(status_code=504, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to home carousel to endstop: {e}")
+    success = carousel_hw.home()
+    if not success:
+        raise HTTPException(status_code=500, detail="Carousel homing failed.")
 
     return {
         "ok": True,
         "status": _live_carousel_status(),
-        "message": f"Carousel homed ({CAROUSEL_HOME_PASSES}-pass) and zeroed.",
+        "message": "Carousel homed and zeroed.",
     }
 
 
@@ -1581,53 +1548,32 @@ def calibrate_carousel() -> Dict[str, Any]:
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
 
-    interfaces = getattr(irl, "interfaces", {})
-    feeder_board = interfaces.get("FEEDER MB") if isinstance(interfaces, dict) else None
-    if feeder_board is None:
-        raise HTTPException(status_code=503, detail="Feeder board not initialized.")
+    carousel_hw = getattr(irl, "carousel_hw", None)
+    if carousel_hw is None:
+        raise HTTPException(status_code=503, detail="Carousel hardware not initialized.")
 
-    digital_inputs = list(getattr(feeder_board, "digital_inputs", []))
-    if CAROUSEL_HOME_PIN_CHANNEL < 0 or CAROUSEL_HOME_PIN_CHANNEL >= len(digital_inputs):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Carousel home input channel {CAROUSEL_HOME_PIN_CHANNEL} is unavailable.",
-        )
-
-    _, config = _read_machine_params_config()
-    endstop_active_high = bool(
-        _carousel_settings_from_config(config).get("endstop_active_high", DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH)
-    )
-
-    stepper = getattr(irl, "carousel_stepper", None)
-    if stepper is None:
-        raise HTTPException(status_code=503, detail="Carousel stepper unavailable.")
-
-    home_pin_obj = digital_inputs[CAROUSEL_HOME_PIN_CHANNEL]
-
-    def _read_endstop() -> bool:
-        raw = bool(home_pin_obj.value)
-        return raw if endstop_active_high else not raw
-
-    if not _read_endstop():
+    if not carousel_hw.endstop_triggered:
         raise HTTPException(
             status_code=409,
             detail="Carousel must be homed first (endstop not currently triggered).",
         )
 
+    from subsystems.classification.carousel_hardware import BACKOFF_STEPS, HOME_SPEED_MICROSTEPS_PER_SEC
+
+    stepper = carousel_hw.stepper
+    home_pin = carousel_hw.home_pin
+
     try:
         stepper.enabled = True
 
-        # Back off the endstop
-        stepper.move_steps_blocking(-CAROUSEL_BACKOFF_STEPS, timeout_ms=5000)
+        stepper.move_steps_blocking(-BACKOFF_STEPS, timeout_ms=5000)
 
-        # Zero position counter at this point
         stepper.position = 0
 
-        # Move CW until endstop triggers again (full rotation) using firmware home
         stepper.home(
-            CAROUSEL_HOME_SPEED_MICROSTEPS_PER_SEC,
-            home_pin_obj,
-            home_pin_active_high=endstop_active_high,
+            HOME_SPEED_MICROSTEPS_PER_SEC,
+            home_pin,
+            home_pin_active_high=carousel_hw.endstop_active_high,
         )
         start = time.monotonic()
         while not stepper.stopped:
@@ -1636,7 +1582,7 @@ def calibrate_carousel() -> Dict[str, Any]:
                 raise TimeoutError("Carousel calibration timed out.")
             time.sleep(0.01)
 
-        if not _read_endstop():
+        if not carousel_hw.endstop_triggered:
             raise HTTPException(
                 status_code=409,
                 detail="Calibration failed: endstop did not trigger after full rotation.",
@@ -1644,7 +1590,6 @@ def calibrate_carousel() -> Dict[str, Any]:
 
         measured_steps = abs(stepper.position)
 
-        # Save to config
         params_path, config = _read_machine_params_config()
         carousel_config = config.get("carousel", {})
         if not isinstance(carousel_config, dict):
@@ -1653,10 +1598,7 @@ def calibrate_carousel() -> Dict[str, Any]:
         config["carousel"] = carousel_config
         _write_machine_params_config(params_path, config)
 
-        # Update stepper in-memory
         stepper.steps_per_revolution = measured_steps
-
-        # Re-zero position at the endstop
         stepper.position_degrees = 0.0
 
     except HTTPException:
@@ -1693,12 +1635,17 @@ def cancel_carousel_home_to_endstop() -> Dict[str, Any]:
 def save_storage_layer_hardware_config(
     payload: StorageLayerSettingsPayload,
 ) -> Dict[str, Any]:
-    layout_path, layout = _read_bin_layout_config()
+    layout = getBinLayout()
     current = _storage_layer_settings_from_layout(layout)
     requested_layers = list(payload.layers)
     if requested_layers:
         layer_updates = [
-            {"bin_count": int(layer.bin_count), "enabled": bool(layer.enabled)}
+            {
+                "bin_count": int(layer.bin_count),
+                "enabled": bool(layer.enabled),
+                "servo_open_angle": layer.servo_open_angle,
+                "servo_closed_angle": layer.servo_closed_angle,
+            }
             for layer in requested_layers
         ]
     else:
@@ -1706,6 +1653,8 @@ def save_storage_layer_hardware_config(
             {
                 "bin_count": int(count),
                 "enabled": bool(layer.get("enabled", True)),
+                "servo_open_angle": layer.get("servo_open_angle"),
+                "servo_closed_angle": layer.get("servo_closed_angle"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
@@ -1716,10 +1665,10 @@ def save_storage_layer_hardware_config(
             detail=f"Expected {len(current['layers'])} storage layers, got {len(layer_updates)}.",
         )
 
-    updated_layers: List[Dict[str, Any]] = []
+    new_layer_configs: List[LayerConfig] = []
     layout_changed = False
     enabled_changed = False
-    for layer_update, layer in zip(layer_updates, current["layers"]):
+    for layer_update, cur_layer in zip(layer_updates, current["layers"]):
         count = int(layer_update["bin_count"])
         enabled = bool(layer_update["enabled"])
         if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
@@ -1728,26 +1677,31 @@ def save_storage_layer_hardware_config(
                 detail=f"Each layer bin count must be one of {ALLOWED_STORAGE_LAYER_BIN_COUNTS}.",
             )
 
-        section_count = int(layer["section_count"])
+        section_count = int(cur_layer["section_count"])
         if section_count <= 0 or count % section_count != 0:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Layer {layer['index']} cannot be configured to {count} bins "
+                    f"Layer {cur_layer['index']} cannot be configured to {count} bins "
                     f"with its current {section_count} sections."
                 ),
             )
 
-        updated_layers.append(
-            {
-                "section_count": section_count,
-                "bin_size": layer["bin_size"],
-                "bins_per_section": count // section_count,
-                "enabled": enabled,
-            }
-        )
-        layout_changed = layout_changed or count != int(layer["bin_count"])
-        enabled_changed = enabled_changed or enabled != bool(layer.get("enabled", True))
+        bins_per_section = count // section_count
+        bin_size = cur_layer["bin_size"]
+        sections = [[bin_size] * bins_per_section for _ in range(section_count)]
+
+        servo_open = layer_update.get("servo_open_angle")
+        servo_closed = layer_update.get("servo_closed_angle")
+
+        new_layer_configs.append(LayerConfig(
+            sections=sections,
+            enabled=enabled,
+            servo_open_angle=servo_open if isinstance(servo_open, int) else None,
+            servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
+        ))
+        layout_changed = layout_changed or count != int(cur_layer["bin_count"])
+        enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
 
     if not layout_changed and not enabled_changed:
         return {
@@ -1759,11 +1713,11 @@ def save_storage_layer_hardware_config(
         }
 
     try:
-        _write_bin_layout_config(layout_path, updated_layers)
+        saveBinLayout(BinLayoutConfig(layers=new_layer_configs))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write bin layout: {e}")
 
-    _, saved_layout = _read_bin_layout_config()
+    saved_layout = getBinLayout()
     saved_settings = _storage_layer_settings_from_layout(saved_layout)
     applied_live = False
     restart_required = layout_changed
@@ -1795,7 +1749,7 @@ def save_storage_layer_hardware_config(
 @router.get("/api/bins/layout")
 def get_bins_layout() -> Dict[str, Any]:
     """Return the full bin grid: layers → sections → bins, with chute angles."""
-    _, layout_config = _read_bin_layout_config()
+    layout_config = getBinLayout()
     _, config = _read_machine_params_config()
     chute_cfg = _chute_settings_from_config(config)
     first_bin_center = float(chute_cfg.get("first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER))

@@ -60,12 +60,9 @@ CAMERA_SETUP_ROLES = {
 
 from server.config_helpers import (
     machine_params_path as _camera_params_path,
-    bin_layout_path as _bin_layout_path,
     read_machine_params_config as _read_machine_params_config,
-    read_bin_layout_config as _read_bin_layout_config,
     toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
-    write_bin_layout_config as _write_bin_layout_config,
 )
 
 

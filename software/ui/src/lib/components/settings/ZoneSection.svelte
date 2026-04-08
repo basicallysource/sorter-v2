@@ -155,7 +155,7 @@
 	const ARC_SEGMENTS = 64;
 	const MIN_ZONE_SPAN_DEG = 12;
 	const MIN_ARC_THICKNESS = 20;
-	const CHANNEL_SECTION_COUNT = 64;
+	const CHANNEL_SECTION_COUNT = 360;
 	const CHANNEL_SECTION_DEG = 360 / CHANNEL_SECTION_COUNT;
 	const ALL_CAMERA_ROLES: CameraRole[] = [
 		'c_channel_2',
@@ -210,12 +210,12 @@
 		{ drop: [number, number]; exit: [number, number] }
 	> = {
 		second: {
-			drop: [18, 32],
-			exit: [54, 60]
+			drop: [101, 180],
+			exit: [304, 338]
 		},
 		third: {
-			drop: [8, 21],
-			exit: [54, 64]
+			drop: [45, 119],
+			exit: [315, 360]
 		}
 	};
 
@@ -267,6 +267,7 @@
 	let activeSidebar = $state<SidePanel>(null);
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
+	let cameraAbort = $state<AbortController | null>(null);
 	let cameraSaving = $state(false);
 	let cameraError = $state<string | null>(null);
 	let cameraConfigLoaded = $state(false);
@@ -1056,6 +1057,66 @@
 		arcParams[channel] = clamped;
 	}
 
+	function mjpegStream(node: HTMLImageElement, url: string) {
+		let controller = new AbortController();
+		let blobUrl: string | null = null;
+
+		function start(src: string) {
+			controller = new AbortController();
+			fetch(src, { signal: controller.signal })
+				.then((res) => {
+					if (!res.body) return;
+					const reader = res.body.getReader();
+					let buf = new Uint8Array(0);
+					function pump() {
+						reader.read().then(({ done, value }) => {
+							if (done) return;
+							const next = new Uint8Array(buf.length + value.length);
+							next.set(buf);
+							next.set(value, buf.length);
+							buf = next;
+							let start = 0;
+							while (true) {
+								const soi = buf.indexOf(0xff, start);
+								if (soi === -1 || soi + 1 >= buf.length) break;
+								if (buf[soi + 1] !== 0xd8) { start = soi + 1; continue; }
+								let eoi = soi + 2;
+								while (eoi + 1 < buf.length) {
+									if (buf[eoi] === 0xff && buf[eoi + 1] === 0xd9) { eoi += 2; break; }
+									eoi++;
+								}
+								if (eoi + 1 >= buf.length && !(buf[eoi - 2] === 0xff && buf[eoi - 1] === 0xd9)) break;
+								const jpeg = buf.slice(soi, eoi);
+								buf = buf.slice(eoi);
+								if (blobUrl) URL.revokeObjectURL(blobUrl);
+								blobUrl = URL.createObjectURL(new Blob([jpeg], { type: 'image/jpeg' }));
+								node.src = blobUrl;
+								start = 0;
+								break;
+							}
+							pump();
+						}).catch(() => {});
+					}
+					pump();
+				})
+				.catch(() => {});
+		}
+
+		start(url);
+
+		return {
+			update(newUrl: string) {
+				controller.abort();
+				if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+				start(newUrl);
+			},
+			destroy() {
+				controller.abort();
+				if (blobUrl) URL.revokeObjectURL(blobUrl);
+			}
+		};
+	}
+
 	function streamUrl(channel: Channel): string {
 		if (editingZone) {
 			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
@@ -1084,12 +1145,27 @@
 		}
 	}
 
+	function cancelCameraScan() {
+		if (cameraAbort) {
+			cameraAbort.abort();
+			cameraAbort = null;
+		}
+		cameraLoading = false;
+		cameraModalOpen = false;
+	}
+
 	async function refreshCameras() {
+		if (cameraAbort) {
+			cameraAbort.abort();
+			cameraAbort = null;
+		}
 		cameraLoading = true;
 		cameraError = null;
+		const abort = new AbortController();
+		cameraAbort = abort;
 		try {
 			await loadCameraConfig();
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`);
+			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`, { signal: abort.signal });
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			if (Array.isArray(payload)) {
@@ -1100,9 +1176,11 @@
 			usbCameras = Array.isArray(payload.usb) ? payload.usb : [];
 			networkCameras = Array.isArray(payload.network) ? payload.network : [];
 		} catch (e: any) {
+			if (e.name === 'AbortError') return;
 			cameraError = e.message ?? 'Failed to scan cameras';
 		} finally {
 			cameraLoading = false;
+			cameraAbort = null;
 		}
 	}
 
@@ -2252,10 +2330,22 @@
 			{/if}
 
 			<div
-				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
+				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted flex items-center gap-1"
 			>
 				<span class="font-medium text-text">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
+				{#if currentAssignment() === null && cameraConfigLoaded}
+					<button
+						onclick={openCameraPicker}
+						class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-text-muted/20 text-text hover:bg-text-muted/40 transition-colors cursor-pointer"
+						title="Select camera"
+					>
+						<svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+							<line x1="6" y1="2" x2="6" y2="10" />
+							<line x1="2" y1="6" x2="10" y2="6" />
+						</svg>
+					</button>
+				{/if}
 			</div>
 
 			{#if statusMsg}
@@ -2388,7 +2478,7 @@
 								</div>
 							{:else if currentAssignment() !== null}
 								<img
-									src={streamUrl(currentChannel)}
+									use:mjpegStream={streamUrl(currentChannel)}
 									alt={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}
@@ -2592,7 +2682,7 @@
 				{/if}
 
 				{#if cameraLoading}
-					<div class="py-8 text-center text-sm text-text-muted">
+					<div class="py-8 text-center text-sm text-text-muted animate-pulse">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -2736,14 +2826,22 @@
 				<div
 					class="flex items-center justify-between border-t border-border pt-3"
 				>
-					<button
-						onclick={refreshCameras}
-						disabled={cameraLoading}
-						class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<RefreshCw size={13} />
-						<span>{cameraLoading ? 'Scanning...' : 'Refresh'}</span>
-					</button>
+					{#if cameraLoading}
+						<button
+							onclick={cancelCameraScan}
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+						>
+							<span>Cancel</span>
+						</button>
+					{:else}
+						<button
+							onclick={refreshCameras}
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+						>
+							<RefreshCw size={13} />
+							<span>Refresh</span>
+						</button>
+					{/if}
 					{#if currentAssignment() !== null}
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}

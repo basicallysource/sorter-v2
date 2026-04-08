@@ -183,11 +183,11 @@
 			<div class="flex min-h-0 flex-shrink-0 flex-col gap-3" style="width: {sidebar_width}px;">
 				{#if hardwareState !== 'ready'}
 					<div class="shrink-0 border border-border bg-bg px-4 py-3">
-						{#if hardwareState === 'standby'}
+						{#if hardwareState === 'standby' || hardwareState === 'initialized' || hardwareState === 'initializing'}
 							<div class="flex items-center justify-between gap-3">
 								<div>
-									<div class="text-sm font-medium text-text">System Standby</div>
-									<div class="text-xs text-text-muted">Press Home to initialize hardware and home all axes.</div>
+									<div class="text-sm font-medium text-text">{hardwareState === 'initialized' ? 'Hardware Initialized' : 'System Standby'}</div>
+									<div class="text-xs text-text-muted">{hardwareState === 'initialized' ? 'Hardware is up. Press Home to home all axes.' : 'Press Home to initialize hardware and home all axes.'}</div>
 								</div>
 								<button
 									onclick={startSystem}

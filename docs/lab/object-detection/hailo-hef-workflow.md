@@ -1,17 +1,19 @@
 ---
 layout: default
 title: Hailo HEF Workflow
+section: lab
 slug: hailo-hef-workflow
-kicker: Raspberry Pi 5 AI HAT
+kicker: Object Detection Research
 lede: The maintained ONNX to HEF path for running our custom detector models on the Raspberry Pi 5 AI HAT.
+permalink: /lab/object-detection/hailo-hef-workflow/
 ---
 
 ## Before you start
 
 Read these first:
 
-- [Runtime Status](runtime-status.html)
-- [Model Artifacts](model-artifacts.html)
+- [How the Models Are Built]({{ '/lab/object-detection/how-models-are-built/' | relative_url }}) — in particular the quantization section, which explains why calibration matters here.
+- [Benchmarking Workflow]({{ '/lab/object-detection/device-benchmarking/' | relative_url }}) — the compiled `.hef` is only useful once it has been run through the benchmark bundle and compared against the Mac CPU reference.
 
 ## Current state
 

@@ -9,3 +9,5 @@ exclude:
   - Gemfile.lock
   - vendor
   - .bundle
+  - ux-concept-sorting-profiles.md
+  - local-jekyll.sh

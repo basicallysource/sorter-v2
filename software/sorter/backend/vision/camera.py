@@ -386,79 +386,6 @@ def apply_camera_color_profile(
     return np.round(corrected[:, :, ::-1] * 255.0).astype(np.uint8)
 
 
-def _apply_device_settings_software(
-    frame: np.ndarray,
-    settings: dict[str, int | float | bool],
-    defaults: dict[str, int | float | bool],
-) -> np.ndarray:
-    """Apply device setting adjustments as software post-processing.
-
-    Computes the delta between current settings and defaults and applies
-    brightness, contrast, saturation, gamma, and sharpness as OpenCV
-    image operations.  This is used on macOS where UVC controls do not
-    reliably affect AVFoundation captures.
-    """
-    result = frame
-
-    # --- Brightness: shift pixel values ---
-    bri = float(settings.get("brightness", 0))
-    bri_def = float(defaults.get("brightness", 0))
-    bri_delta = bri - bri_def
-    if abs(bri_delta) > 0.5:
-        result = cv2.convertScaleAbs(result, alpha=1.0, beta=bri_delta)
-
-    # --- Contrast: scale around mid-gray ---
-    con = float(settings.get("contrast", 40))
-    con_def = float(defaults.get("contrast", 40))
-    if abs(con - con_def) > 0.5:
-        # Map 0..100 → alpha 0.5..1.5 (default 40 → 1.0)
-        alpha = 0.5 + (con / 100.0)
-        alpha_def = 0.5 + (con_def / 100.0)
-        scale = alpha / max(alpha_def, 0.01)
-        if abs(scale - 1.0) > 0.01:
-            mean = np.mean(result)
-            result = cv2.convertScaleAbs(result, alpha=scale, beta=mean * (1.0 - scale))
-
-    # --- Saturation: scale HSV S channel ---
-    sat = float(settings.get("saturation", 64))
-    sat_def = float(defaults.get("saturation", 64))
-    if abs(sat - sat_def) > 0.5 and sat_def > 0:
-        scale = sat / sat_def
-        if abs(scale - 1.0) > 0.01:
-            hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV).astype(np.float32)
-            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * scale, 0, 255)
-            result = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-
-    # --- Gamma correction ---
-    gam = float(settings.get("gamma", 300))
-    gam_def = float(defaults.get("gamma", 300))
-    if abs(gam - gam_def) > 0.5:
-        # Map 100..500 → gamma 0.33..1.67 (300 → 1.0)
-        gamma_val = gam / max(gam_def, 1.0)
-        if abs(gamma_val - 1.0) > 0.01:
-            inv_gamma = 1.0 / max(gamma_val, 0.01)
-            lut = np.array(
-                [((i / 255.0) ** inv_gamma) * 255 for i in range(256)],
-                dtype=np.uint8,
-            )
-            result = cv2.LUT(result, lut)
-
-    # --- Sharpness: unsharp mask ---
-    shp = float(settings.get("sharpness", 50))
-    shp_def = float(defaults.get("sharpness", 50))
-    shp_delta = shp - shp_def
-    if abs(shp_delta) > 0.5:
-        # Positive delta → sharpen, negative → blur
-        amount = shp_delta / 50.0  # -1.0 to +1.0 range
-        blurred = cv2.GaussianBlur(result, (0, 0), 3)
-        if amount > 0:
-            result = cv2.addWeighted(result, 1.0 + amount, blurred, -amount, 0)
-        else:
-            result = cv2.addWeighted(result, 1.0 + amount, blurred, -amount, 0)
-
-    return result
-
-
 class CaptureThread:
     _thread: Optional[threading.Thread]
     _stop_event: threading.Event
@@ -477,7 +404,6 @@ class CaptureThread:
         self.latest_frame = None
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
         self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
-        self._device_defaults: dict[str, int | float | bool] = {}
         self._color_profile = clampCameraColorProfile(config.color_profile)
         self._picture_settings_lock = threading.Lock()
         self._device_settings_lock = threading.Lock()
@@ -601,7 +527,6 @@ class CaptureThread:
     def _captureLoop(self) -> None:
         cap: Optional[cv2.VideoCapture] = None
         self._cap = None
-        use_sw_device_settings = platform.system() == "Darwin"
 
         while not self._stop_event.is_set():
             source, is_url, width, height, fps = self._get_config_snapshot()
@@ -634,11 +559,6 @@ class CaptureThread:
                         if applied_device_settings:
                             with self._device_settings_lock:
                                 self._device_settings = dict(applied_device_settings)
-                        # Capture hardware defaults for software post-processing
-                        if use_sw_device_settings and not self._device_defaults:
-                            self._device_defaults = dict(
-                                applied_device_settings or self.getDeviceSettings()
-                            )
                     if not cap.isOpened():
                         cap.release()
                         cap = None
@@ -652,10 +572,6 @@ class CaptureThread:
             if ret:
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
-                if use_sw_device_settings and self._device_defaults:
-                    frame = _apply_device_settings_software(
-                        frame, self.getDeviceSettings(), self._device_defaults
-                    )
                 self.latest_frame = CameraFrame(
                     raw=frame, annotated=None, results=[], timestamp=time.time()
                 )

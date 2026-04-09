@@ -297,43 +297,73 @@ def analyze_color_plate_target(frame: np.ndarray) -> CalibrationAnalysis | None:
     if frame is None or frame.size == 0:
         return None
 
-    # Run all detection strategies and pick the best result.
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _strategy_hsv() -> CalibrationAnalysis | None:
+        return _analyze_fixed_color_target(frame)
+
+    def _strategy_adaptive() -> CalibrationAnalysis | None:
+        return _detect_plate_via_adaptive_grid(frame)
+
+    def _strategy_clahe() -> CalibrationAnalysis | None:
+        return _analyze_fixed_color_target_clahe(frame)
+
+    def _strategy_gamma() -> CalibrationAnalysis | None:
+        return _analyze_fixed_color_target_gamma(frame)
+
+    def _strategy_denoised() -> CalibrationAnalysis | None:
+        return _analyze_fixed_color_target_denoised(frame)
+
+    strategies = [_strategy_hsv, _strategy_adaptive, _strategy_clahe, _strategy_gamma, _strategy_denoised]
     candidates: list[CalibrationAnalysis] = []
 
-    # Strategy 1: HSV color-region detection (original — works best with good exposure)
-    hsv_result = _analyze_fixed_color_target(frame)
-    if hsv_result is not None:
-        candidates.append(hsv_result)
-
-    # Strategy 2: Adaptive-threshold grid detection (robust to bad exposure)
-    adaptive_result = _detect_plate_via_adaptive_grid(frame)
-    if adaptive_result is not None:
-        candidates.append(adaptive_result)
-
-    # Strategy 3: CLAHE-enhanced HSV detection (handles over/underexposure)
-    clahe_result = _analyze_fixed_color_target_clahe(frame)
-    if clahe_result is not None:
-        candidates.append(clahe_result)
+    with ThreadPoolExecutor(max_workers=min(len(strategies), 4)) as pool:
+        futures = [pool.submit(fn) for fn in strategies]
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                if result is not None:
+                    candidates.append(result)
+            except Exception:
+                pass
 
     if not candidates:
         return None
 
-    # Pick the candidate with the highest score
     return max(candidates, key=lambda c: c.score)
 
 
 def _analyze_fixed_color_target_clahe(frame: np.ndarray) -> CalibrationAnalysis | None:
-    """Re-run the HSV color detection on a CLAHE-enhanced frame.
+    """Re-run HSV detection on CLAHE-enhanced frames with multiple configs."""
+    best: CalibrationAnalysis | None = None
+    for clip_limit, tile_size in [(2.0, (16, 16)), (3.0, (8, 8)), (5.0, (4, 4))]:
+        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_size)
+        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+        enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        result = _analyze_fixed_color_target(enhanced)
+        if result is not None and (best is None or result.score > best.score):
+            best = result
+    return best
 
-    CLAHE (Contrast Limited Adaptive Histogram Equalization) redistributes
-    local contrast so that overexposed or underexposed images recover enough
-    color information for the HSV thresholds to work.
-    """
-    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-    enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    return _analyze_fixed_color_target(enhanced)
+
+def _analyze_fixed_color_target_gamma(frame: np.ndarray) -> CalibrationAnalysis | None:
+    """Run HSV detection on gamma-corrected variants of the frame."""
+    best: CalibrationAnalysis | None = None
+    for gamma in (0.5, 0.7, 1.5, 2.0):
+        inv_gamma = 1.0 / gamma
+        table = np.array([(i / 255.0) ** inv_gamma * 255 for i in range(256)], dtype=np.uint8)
+        corrected = cv2.LUT(frame, table)
+        result = _analyze_fixed_color_target(corrected)
+        if result is not None and (best is None or result.score > best.score):
+            best = result
+    return best
+
+
+def _analyze_fixed_color_target_denoised(frame: np.ndarray) -> CalibrationAnalysis | None:
+    """Run HSV detection on a bilateral-filtered (denoised) frame."""
+    denoised = cv2.bilateralFilter(frame, 9, 75, 75)
+    return _analyze_fixed_color_target(denoised)
 
 
 def _detect_plate_via_adaptive_grid(frame: np.ndarray) -> CalibrationAnalysis | None:
@@ -629,7 +659,7 @@ def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     # Scale min_area for color region detection based on frame resolution
     frame_pixels = frame.shape[0] * frame.shape[1]
-    min_region_area = max(25.0, frame_pixels / 30_000.0)
+    min_region_area = max(16.0, frame_pixels / 50_000.0)
     region_candidates = {
         "red": _collect_color_regions_for_specs(
             hsv,
@@ -662,7 +692,7 @@ def _analyze_fixed_color_target(frame: np.ndarray) -> CalibrationAnalysis | None
         "blue": _collect_color_regions_for_specs(
             hsv,
             [
-                ((95, 90, 20), (125, 255, 255)),
+                ((95, 60, 20), (125, 255, 255)),
                 ((90, 70, 20), (135, 255, 255)),
                 ((80, 25, 15), (145, 255, 255)),
             ],
@@ -833,11 +863,13 @@ def _analyze_fixed_color_candidate(
     bbox = _corners_bbox(board_quad)
     if _bbox_area(bbox) < 1_500:
         return None
+    margin_x = int((bbox[2] - bbox[0]) * 0.05)
+    margin_y = int((bbox[3] - bbox[1]) * 0.05)
     if (
-        bbox[0] < 0
-        or bbox[1] < 0
-        or bbox[2] > frame.shape[1]
-        or bbox[3] > frame.shape[0]
+        bbox[0] < -margin_x
+        or bbox[1] < -margin_y
+        or bbox[2] > frame.shape[1] + margin_x
+        or bbox[3] > frame.shape[0] + margin_y
     ):
         return None
 
@@ -875,7 +907,7 @@ def _analyze_fixed_color_candidate(
             samples_by_expectation[label].append(sample)
             layout_score += _expected_region_score(sample, label)
 
-    if layout_score < 280.0:
+    if layout_score < 200.0:
         return None
 
     white_samples = samples_by_expectation["white"]
@@ -999,11 +1031,11 @@ def _fixed_target_matches_are_plausible(tile_match_percentages: dict[str, float]
 
     if strong_color_count < 3:
         return False
-    if average_color_match < 30.0:
+    if average_color_match < 20.0:
         return False
-    if best_white_match < 30.0:
+    if best_white_match < 20.0:
         return False
-    if best_black_match < 30.0:
+    if best_black_match < 15.0:
         return False
     return True
 

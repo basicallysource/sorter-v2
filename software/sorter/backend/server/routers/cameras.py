@@ -36,6 +36,7 @@ from irl.config import (
 )
 from server import shared_state
 from server.camera_calibration import (
+    CalibrationAnalysis,
     analyze_color_plate_target,
     generate_color_profile_from_analysis,
 )
@@ -433,32 +434,56 @@ def _capture_frame_for_calibration(
         cap.release()
 
 
+def _grab_live_frame(role: str, after_timestamp: float, timeout: float = 1.0) -> np.ndarray | None:
+    """Grab a frame from the running CaptureThread, waiting for one newer than after_timestamp."""
+    if shared_state.vision_manager is None or not hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
+        return None
+    try:
+        capture = shared_state.vision_manager.getCaptureThreadForRole(role)
+    except Exception:
+        return None
+    if capture is None:
+        return None
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        frame_obj = capture.latest_frame
+        if frame_obj is not None and frame_obj.timestamp > after_timestamp and frame_obj.raw is not None:
+            return frame_obj.raw.copy()
+        time.sleep(0.03)
+    # Last resort: return whatever is there
+    frame_obj = capture.latest_frame
+    if frame_obj is not None and frame_obj.raw is not None:
+        return frame_obj.raw.copy()
+    return None
+
+
 def _analyze_candidate_settings(
     role: str,
     source: int | str | None,
     settings: Dict[str, Any],
-) -> tuple[Dict[str, Any], Dict[str, Any] | None]:
+) -> tuple[Dict[str, Any], Dict[str, Any] | None, np.ndarray | None]:
     preview_started_at = time.time()
     preview = preview_camera_device_settings(role, settings)
     preview_settings = preview.get("settings", settings)
     if isinstance(source, str):
         applied_settings = dict(preview_settings) if isinstance(preview_settings, dict) else dict(settings)
         time.sleep(1.35)
+        frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
     else:
-        applied_settings = cameraDeviceSettingsToDict(
-            parseCameraDeviceSettings(preview_settings)
-        )
-        time.sleep(0.35)
-    frame = _capture_frame_for_calibration(
-        role,
-        source,
-        after_timestamp=preview_started_at,
-        fallback_settings=applied_settings,
-    )
+        applied_settings = cameraDeviceSettingsToDict(parseCameraDeviceSettings(preview_settings))
+        time.sleep(0.25)
+        # Grab from live CaptureThread — no second camera open needed
+        frame = _grab_live_frame(role, after_timestamp=preview_started_at)
+        if frame is None:
+            # Fallback: direct capture (CaptureThread might not be running)
+            frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
+
     if frame is None:
-        return applied_settings, None
+        return applied_settings, None, None
     analysis = analyze_color_plate_target(frame)
-    return applied_settings, analysis.to_dict() if analysis is not None else None
+    analysis_dict = analysis.to_dict() if analysis is not None else None
+    return applied_settings, analysis_dict, frame
 
 
 # ---------------------------------------------------------------------------
@@ -728,6 +753,49 @@ def _get_camera_calibration_task(task_id: str) -> Dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
+def _capture_raw_frame(
+    role: str,
+    source: int,
+    settings: Dict[str, int | float | bool],
+) -> np.ndarray | None:
+    """Capture a raw frame (no color profile / picture settings) for histogram analysis."""
+    from vision.camera import apply_camera_device_settings
+
+    cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION) if platform.system() == "Darwin" else cv2.VideoCapture(source)
+    if not cap.isOpened():
+        cap.release()
+        return None
+    try:
+        apply_camera_device_settings(cap, settings, source=source)
+        time.sleep(0.15)
+        frame: np.ndarray | None = None
+        for _ in range(4):
+            ret, current = cap.read()
+            if ret and current is not None:
+                frame = current
+        return frame.copy() if frame is not None else None
+    finally:
+        cap.release()
+
+
+def _quantize_control(value: float, control: Dict[str, Any]) -> float:
+    """Quantize a value to match a control's min/step grid."""
+    c_min = _as_number(control.get("min")) or 0.0
+    step = _as_number(control.get("step"))
+    return _quantize_numeric_value(value, c_min, step)
+
+
+def _clamp_control(value: float, control: Dict[str, Any]) -> float:
+    """Clamp a value to a control's min/max range and quantize."""
+    c_min = _as_number(control.get("min"))
+    c_max = _as_number(control.get("max"))
+    if c_min is not None:
+        value = max(c_min, value)
+    if c_max is not None:
+        value = min(c_max, value)
+    return _quantize_control(value, control)
+
+
 def _calibrate_usb_camera_device_settings(
     role: str,
     source: int,
@@ -735,6 +803,7 @@ def _calibrate_usb_camera_device_settings(
     current_settings: Dict[str, int | float | bool],
     *,
     report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+    gallery_dir: Path | None = None,
 ) -> tuple[Dict[str, int | float | bool], Dict[str, Any]]:
     control_by_key = {
         str(control.get("key")): control
@@ -747,237 +816,349 @@ def _calibrate_usb_camera_device_settings(
     wb_control = control_by_key.get("white_balance_temperature")
     auto_exposure_control = control_by_key.get("auto_exposure")
     auto_wb_control = control_by_key.get("auto_white_balance")
-    defaults = _usb_control_defaults(controls, current_settings)
-    primary_keys = {
-        "auto_exposure",
-        "exposure",
-        "gain",
-        "auto_white_balance",
-        "white_balance_temperature",
-        "power_line_frequency",
-        "backlight_compensation",
-        "sharpness",
-    }
-    baseline_candidate = dict(defaults or current_settings)
-    for key in primary_keys:
-        if key in current_settings:
-            baseline_candidate[key] = current_settings[key]
-    if auto_exposure_control is not None:
-        baseline_candidate["auto_exposure"] = False
-    if auto_wb_control is not None:
-        baseline_candidate["auto_white_balance"] = False
-    initial_candidates: List[Dict[str, int | float | bool]] = [baseline_candidate]
+    saturation_control = control_by_key.get("saturation")
+    contrast_control = control_by_key.get("contrast")
+    gamma_control = control_by_key.get("gamma")
 
-    best_settings: Dict[str, int | float | bool] | None = None
+    defaults = _usb_control_defaults(controls, current_settings)
+
+    # Build baseline: auto off, gain to minimum
+    baseline = dict(defaults or current_settings)
+    if auto_exposure_control is not None:
+        baseline["auto_exposure"] = False
+    if auto_wb_control is not None:
+        baseline["auto_white_balance"] = False
+    if gain_control is not None:
+        baseline["gain"] = _as_number(gain_control.get("min")) or 0.0
+
+    # Estimate total steps for progress reporting
+    total_steps = max(1, 8 + 8 + 1 + 8 + 45)  # phase0 + phase1-retries + detect + wb + coord-descent (3 rounds × 3 params × 5 values)
+    completed_steps = 0
+    gallery_step = 0
+
+    def _report(stage: str, message: str, analysis: Dict[str, Any] | None = None) -> None:
+        nonlocal completed_steps
+        completed_steps += 1
+        if report_progress is not None:
+            progress = min(0.9, completed_steps / total_steps)
+            report_progress(stage, progress, message, analysis)
+
+    def _save_gallery(
+        frame: np.ndarray | None,
+        stage: str,
+        settings: Dict[str, int | float | bool],
+        extra: Dict[str, Any] | None = None,
+    ) -> None:
+        nonlocal gallery_step
+        if gallery_dir is None or frame is None:
+            return
+        gallery_step += 1
+        prefix = f"step_{gallery_step:03d}_{stage}"
+        cv2.imwrite(str(gallery_dir / f"{prefix}.jpg"), frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        meta: Dict[str, Any] = {"stage": stage, "step": gallery_step, "settings": {k: v for k, v in settings.items()}}
+        if extra:
+            meta.update(extra)
+        (gallery_dir / f"{prefix}.json").write_text(json.dumps(meta, indent=2, default=str))
+
+    # ------------------------------------------------------------------
+    # Phase 0: Global histogram optimization (exposure + gain)
+    # Target: p1 ≈ 15, p99 ∈ [230, 240] — good dynamic range, no clipping
+    # ------------------------------------------------------------------
+
+    settings = dict(baseline)
+
+    def _apply_and_grab(s: Dict[str, int | float | bool]) -> np.ndarray | None:
+        """Apply settings via preview and grab a frame from the CaptureThread."""
+        ts = time.time()
+        preview_camera_device_settings(role, s)
+        time.sleep(0.25)
+        frame = _grab_live_frame(role, after_timestamp=ts)
+        if frame is None:
+            frame = _capture_raw_frame(role, source, s)
+        return frame
+
+    if exposure_control is not None:
+        exp_min = _as_number(exposure_control.get("min")) or -13.0
+        exp_max = _as_number(exposure_control.get("max")) or 13.0
+        low, high = exp_min, exp_max
+
+        for iteration in range(8):
+            trial = _clamp_control((low + high) / 2.0, exposure_control)
+            settings["exposure"] = trial
+            frame = _apply_and_grab(settings)
+            if frame is None:
+                _report("histogram", f"Histogram optimization — exposure {iteration + 1}/8 (no frame)")
+                continue
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            p1 = float(np.percentile(gray, 1))
+            p99 = float(np.percentile(gray, 99))
+            _save_gallery(frame, "histogram_exposure", settings, {"p1": p1, "p99": p99, "iteration": iteration})
+            _report("histogram", f"Histogram exposure {iteration + 1}/8 — p1={p1:.0f} p99={p99:.0f}")
+
+            if p99 > 240:
+                high = trial
+            elif p99 < 230:
+                low = trial
+            else:
+                break
+            if abs(high - low) < ((_as_number(exposure_control.get("step")) or 1.0) + 0.01):
+                break
+
+    # If exposure is maxed and p99 still too low, binary search gain
+    if gain_control is not None:
+        frame = _apply_and_grab(settings)
+        if frame is not None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            p99 = float(np.percentile(gray, 99))
+            if p99 < 200:
+                gain_min = _as_number(gain_control.get("min")) or 0.0
+                gain_max = _as_number(gain_control.get("max")) or 255.0
+                g_low, g_high = gain_min, gain_max
+                for iteration in range(6):
+                    trial = _clamp_control((g_low + g_high) / 2.0, gain_control)
+                    settings["gain"] = trial
+                    frame = _apply_and_grab(settings)
+                    if frame is None:
+                        _report("histogram", f"Histogram gain {iteration + 1}/6 (no frame)")
+                        continue
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    p1 = float(np.percentile(gray, 1))
+                    p99 = float(np.percentile(gray, 99))
+                    _save_gallery(frame, "histogram_gain", settings, {"p1": p1, "p99": p99, "iteration": iteration})
+                    _report("histogram", f"Histogram gain {iteration + 1}/6 — p1={p1:.0f} p99={p99:.0f}")
+
+                    if p99 > 240:
+                        g_high = trial
+                    elif p99 < 230:
+                        g_low = trial
+                    else:
+                        break
+                    if abs(g_high - g_low) < ((_as_number(gain_control.get("step")) or 1.0) + 0.01):
+                        break
+
+    # ------------------------------------------------------------------
+    # Phase 1: Detect the checker
+    # With decent exposure, run detection. If it fails, sweep exposure ±10%.
+    # ------------------------------------------------------------------
+
+    best_settings: Dict[str, int | float | bool] = dict(settings)
     best_analysis: Dict[str, Any] | None = None
 
-    # Discovery sweep steps (used if baseline fails to find the card).
-    # We sweep exposure first (9 steps), then gain (5 steps) if still not found.
-    brightness_control = control_by_key.get("brightness")
-    discovery_exposure_steps = 9 if exposure_control is not None else 0
-    discovery_gain_steps = 5 if gain_control is not None else 0
-    discovery_brightness_steps = 5 if brightness_control is not None and exposure_control is None and gain_control is None else 0
-    discovery_total = discovery_exposure_steps + discovery_gain_steps + discovery_brightness_steps
-    total_steps = max(
-        1,
-        len(initial_candidates)
-        + discovery_total
-        + (8 if exposure_control is not None else 0)
-        + (5 if gain_control is not None and exposure_control is None else 0)
-        + (8 if wb_control is not None else 0),
-    )
-    completed_steps = 0
+    def _try_detect(candidate: Dict[str, int | float | bool], label: str) -> Dict[str, Any] | None:
+        nonlocal best_settings, best_analysis
+        # Capture 3 frames, analyze each, keep best
+        frames: list[np.ndarray] = []
+        for _ in range(3):
+            f = _capture_frame_for_calibration(role, source, fallback_settings=candidate)
+            if f is not None:
+                frames.append(f)
 
-    def consider(
-        candidate: Dict[str, int | float | bool],
-        *,
-        stage: str,
-        message: str,
-    ) -> tuple[Dict[str, Any], Dict[str, Any] | None]:
-        nonlocal best_settings, best_analysis, completed_steps
-        completed_steps += 1
-        applied_settings, analysis = _analyze_candidate_settings(role, source, candidate)
-        progress = min(0.9, completed_steps / total_steps)
-        if report_progress is not None:
-            report_progress(stage, progress, message, analysis)
-        if analysis is None:
-            return applied_settings, None
-        if best_analysis is None or _calibration_selection_value(analysis) > _calibration_selection_value(best_analysis):
-            best_settings = dict(applied_settings)
-            best_analysis = analysis
-            if report_progress is not None:
-                report_progress(stage, progress, message, analysis)
-        return applied_settings, analysis
+        result: CalibrationAnalysis | None = None
+        for f in frames:
+            analysis = analyze_color_plate_target(f)
+            if analysis is not None and (result is None or analysis.score > result.score):
+                result = analysis
 
-    for index, candidate in enumerate(initial_candidates, start=1):
-        consider(
+        # Fallback: try averaged frame
+        if result is None and len(frames) >= 2:
+            avg = np.mean(np.stack(frames), axis=0).astype(np.uint8)
+            result = analyze_color_plate_target(avg)
+
+        analysis_dict = result.to_dict() if result is not None else None
+        _save_gallery(
+            frames[-1] if frames else None,
+            "detection",
             candidate,
-            stage="baseline",
-            message=f"Analyzing baseline candidate {index} of {len(initial_candidates)}.",
+            {"detected": result is not None, "score": result.score if result else None, "label": label},
         )
+        _report("detection", label, analysis_dict)
+        if analysis_dict is not None:
+            if best_analysis is None or _calibration_selection_value(analysis_dict) > _calibration_selection_value(best_analysis):
+                best_settings = dict(candidate)
+                best_analysis = analysis_dict
+        return analysis_dict
 
-    # If the baseline failed to find the card, sweep through exposure and gain
-    # values to discover a setting where the card is visible.
-    if best_settings is None or best_analysis is None:
-        discovery_found = False
+    # First attempt with histogram-optimized settings
+    _try_detect(settings, "Detecting calibration target.")
 
-        def _sweep_control(
-            control: Dict[str, Any] | None,
-            key: str,
-            steps: int,
-            label: str,
-            base: Dict[str, int | float | bool],
-        ) -> bool:
-            nonlocal discovery_found
-            if control is None or steps <= 0 or discovery_found:
-                return False
-            c_min = _as_number(control.get("min"))
-            c_max = _as_number(control.get("max"))
-            c_step = _as_number(control.get("step"))
-            if c_min is None or c_max is None:
-                return False
-            for idx, val in enumerate(np.linspace(c_min, c_max, num=steps).tolist(), start=1):
-                cand = dict(base)
-                cand[key] = int(round(_quantize_numeric_value(val, c_min, c_step))) if c_step is not None and c_step >= 1 else float(_quantize_numeric_value(val, c_min, c_step))
-                if auto_exposure_control is not None:
-                    cand["auto_exposure"] = False
-                _, analysis = consider(
-                    cand,
-                    stage="discovery",
-                    message=f"Searching for calibration target — {label} {idx}/{steps}.",
-                )
-                if analysis is not None:
-                    discovery_found = True
-                    return True
-            return False
+    # If detection failed, sweep exposure ±10% (5 steps)
+    if best_analysis is None and exposure_control is not None:
+        current_exp = _as_number(settings.get("exposure")) or 0.0
+        exp_min = _as_number(exposure_control.get("min")) or -13.0
+        exp_max = _as_number(exposure_control.get("max")) or 13.0
+        span = (exp_max - exp_min) * 0.1
+        for offset in [-span, -span * 0.5, span * 0.5, span]:
+            trial_exp = _clamp_control(current_exp + offset, exposure_control)
+            candidate = dict(settings)
+            candidate["exposure"] = trial_exp
+            result = _try_detect(candidate, f"Retrying detection — exposure offset {offset:+.1f}")
+            if result is not None:
+                break
 
-        # Sweep exposure across full range
-        _sweep_control(exposure_control, "exposure", discovery_exposure_steps, "exposure", baseline_candidate)
-        # If still not found, sweep gain too
-        if not discovery_found:
-            _sweep_control(gain_control, "gain", discovery_gain_steps, "gain", best_settings or baseline_candidate)
-        # Last resort: brightness (only if neither exposure nor gain exist)
-        if not discovery_found:
-            _sweep_control(brightness_control, "brightness", discovery_brightness_steps, "brightness", baseline_candidate)
+    # Last resort: full exposure sweep
+    if best_analysis is None and exposure_control is not None:
+        exp_min = _as_number(exposure_control.get("min")) or -13.0
+        exp_max = _as_number(exposure_control.get("max")) or 13.0
+        for val in np.linspace(exp_min, exp_max, num=9).tolist():
+            candidate = dict(settings)
+            candidate["exposure"] = _clamp_control(val, exposure_control)
+            if auto_exposure_control is not None:
+                candidate["auto_exposure"] = False
+            result = _try_detect(candidate, f"Discovery sweep — exposure={val:.1f}")
+            if result is not None:
+                break
 
-    if best_settings is None or best_analysis is None:
+    if best_analysis is None:
         raise HTTPException(
             status_code=400,
             detail="Calibration target not found. Make sure the 6-color calibration plate is fully visible and not clipped.",
         )
 
-    if exposure_control is not None:
-        exposure_min = _as_number(exposure_control.get("min"))
-        exposure_max = _as_number(exposure_control.get("max"))
-        current_exposure = _as_number(best_settings.get("exposure"))
-        if exposure_min is not None and exposure_max is not None and current_exposure is not None:
-            low = exposure_min
-            high = exposure_max
-            trial = float(
-                _quantize_numeric_value(
-                    max(exposure_min, min(exposure_max, current_exposure)),
-                    exposure_min,
-                    _as_number(exposure_control.get("step")),
-                )
-            )
-            last_trial: float | None = None
-            for index in range(8):
-                candidate = dict(best_settings)
-                candidate["exposure"] = trial
-                if auto_exposure_control is not None:
-                    candidate["auto_exposure"] = False
-                _, analysis = consider(
-                    candidate,
-                    stage="exposure_search",
-                    message=f"Evaluating exposure candidate {index + 1} of 8.",
-                )
-                if analysis is None:
-                    break
-                direction = _exposure_direction(analysis)
-                if direction > 0:
-                    high = min(high, trial)
-                elif direction < 0:
-                    low = max(low, trial)
-                else:
-                    break
-                if high <= low:
-                    break
-                next_trial = float(np.sqrt(low * high)) if low > 0 else float((low + high) / 2.0)
-                next_trial = float(
-                    _quantize_numeric_value(
-                        max(exposure_min, min(exposure_max, next_trial)),
-                        exposure_min,
-                        _as_number(exposure_control.get("step")),
-                    )
-                )
-                if last_trial is not None and abs(next_trial - last_trial) < 1e-6:
-                    break
-                last_trial = trial
-                trial = next_trial
-    elif gain_control is not None:
-        gain_values = _focused_numeric_control_candidates(
-            gain_control,
-            best_settings.get("gain"),
-            count=5,
-            linear_span_fraction=0.12,
-        )
-        for index, gain_value in enumerate(gain_values, start=1):
-            candidate = dict(best_settings)
-            candidate["gain"] = gain_value
-            consider(
-                candidate,
-                stage="exposure_search",
-                message=f"Evaluating gain candidate {index} of {len(gain_values)}.",
-            )
+    # ------------------------------------------------------------------
+    # Phase 2: White balance optimization using detected white patch
+    # Target: R ≈ B on the white tiles (minimize R-B error)
+    # ------------------------------------------------------------------
 
     if wb_control is not None:
         wb_min = _as_number(wb_control.get("min"))
         wb_max = _as_number(wb_control.get("max"))
-        current_wb = _as_number(best_settings.get("white_balance_temperature"))
-        if wb_min is not None and wb_max is not None and current_wb is not None:
-            low = wb_min
-            high = wb_max
-            trial = float(
-                _quantize_numeric_value(
-                    max(wb_min, min(wb_max, current_wb)),
-                    wb_min,
-                    _as_number(wb_control.get("step")),
-                )
-            )
-            last_trial: float | None = None
-            for index in range(8):
+        if wb_min is not None and wb_max is not None:
+            low, high = wb_min, wb_max
+            last_trial_wb: float | None = None
+            for iteration in range(8):
+                trial = _clamp_control((low + high) / 2.0, wb_control)
+                if last_trial_wb is not None and abs(trial - last_trial_wb) < 1e-6:
+                    break
+                last_trial_wb = trial
+
                 candidate = dict(best_settings)
                 candidate["white_balance_temperature"] = trial
                 if auto_wb_control is not None:
                     candidate["auto_white_balance"] = False
-                _, analysis = consider(
+
+                # Capture and detect to get white patch color
+                applied_settings, analysis, wb_frame = _analyze_candidate_settings(role, source, candidate)
+                _save_gallery(
+                    wb_frame,
+                    "white_balance",
                     candidate,
-                    stage="white_balance_search",
-                    message=f"Evaluating white balance candidate {index + 1} of 8.",
+                    {"iteration": iteration, "detected": analysis is not None},
                 )
+                _report("white_balance", f"White balance {iteration + 1}/8 — temp={trial:.0f}K", analysis)
+
                 if analysis is None:
-                    break
-                direction = _white_balance_direction(analysis)
-                if direction > 0:
-                    low = max(low, trial)
-                elif direction < 0:
-                    high = min(high, trial)
+                    # Lost detection — use directional hint from last known analysis
+                    direction = _white_balance_direction(best_analysis)
+                    if direction > 0:
+                        low = max(low, trial)
+                    elif direction < 0:
+                        high = min(high, trial)
+                    continue
+
+                if _calibration_selection_value(analysis) > _calibration_selection_value(best_analysis):
+                    best_settings = dict(applied_settings)
+                    best_analysis = analysis
+
+                # Check R-B error on white patch
+                neutral_bgr = _analysis_neutral_mean_bgr(analysis)
+                if neutral_bgr is not None:
+                    blue, _green, red = neutral_bgr
+                    error = red - blue
+                    if abs(error) < 3.0:
+                        break
+                    if error > 0:  # too warm → lower temp
+                        high = min(high, trial)
+                    else:  # too cool → raise temp
+                        low = max(low, trial)
                 else:
-                    break
+                    direction = _white_balance_direction(analysis)
+                    if direction > 0:
+                        low = max(low, trial)
+                    elif direction < 0:
+                        high = min(high, trial)
+                    else:
+                        break
                 if high <= low:
                     break
-                next_trial = float((low + high) / 2.0)
-                next_trial = float(
-                    _quantize_numeric_value(
-                        max(wb_min, min(wb_max, next_trial)),
-                        wb_min,
-                        _as_number(wb_control.get("step")),
-                    )
-                )
-                if last_trial is not None and abs(next_trial - last_trial) < 1e-6:
-                    break
-                last_trial = trial
-                trial = next_trial
+
+    # ------------------------------------------------------------------
+    # Phase 3: Coordinate descent on saturation / gamma / contrast
+    # Coarse-to-fine: minimize mean ΔE across all 6 patches
+    # ------------------------------------------------------------------
+
+    cd_controls: list[tuple[str, Dict[str, Any]]] = []
+    for key, ctrl in [("saturation", saturation_control), ("gamma", gamma_control), ("contrast", contrast_control)]:
+        if ctrl is not None and _as_number(ctrl.get("min")) is not None and _as_number(ctrl.get("max")) is not None:
+            cd_controls.append((key, ctrl))
+
+    if cd_controls:
+
+        def _mean_delta_e(analysis: Dict[str, Any] | None) -> float:
+            if analysis is None:
+                return 100.0
+            tile_samples = analysis.get("tile_samples")
+            if not isinstance(tile_samples, dict):
+                return 50.0
+            errors: list[float] = []
+            for _label, sample in tile_samples.items():
+                if isinstance(sample, dict):
+                    ref_error = sample.get("reference_error")
+                    if isinstance(ref_error, (int, float)):
+                        errors.append(float(ref_error))
+            return float(np.mean(errors)) if errors else 50.0
+
+        def _evaluate_setting(key: str, value: float, ctrl: Dict[str, Any], round_label: str) -> tuple[float, Dict[str, Any] | None, np.ndarray | None]:
+            candidate = dict(best_settings)
+            candidate[key] = _clamp_control(value, ctrl)
+            if auto_exposure_control is not None:
+                candidate["auto_exposure"] = False
+            if auto_wb_control is not None:
+                candidate["auto_white_balance"] = False
+            applied, analysis, frame = _analyze_candidate_settings(role, source, candidate)
+            de = _mean_delta_e(analysis)
+            _save_gallery(frame, f"coord_descent_{round_label}", candidate, {"key": key, "value": value, "delta_e": de, "detected": analysis is not None})
+            _report("fine_tune", f"Fine-tune {round_label} — {key}={value:.0f} (ΔE={de:.1f})", analysis)
+            return de, analysis, frame
+
+        best_de = _mean_delta_e(best_analysis)
+
+        for round_num, (steps, span_frac) in enumerate([(5, 1.0), (5, 0.2), (5, 0.08)], start=1):
+            round_label = f"round{round_num}"
+            improved = False
+
+            for key, ctrl in cd_controls:
+                c_min = _as_number(ctrl.get("min")) or 0.0
+                c_max = _as_number(ctrl.get("max")) or 255.0
+                current = float(best_settings.get(key, (c_min + c_max) / 2.0))
+
+                if span_frac >= 1.0:
+                    # Coarse: full range
+                    test_values = np.linspace(c_min, c_max, num=steps).tolist()
+                else:
+                    # Fine: window around current best
+                    span = (c_max - c_min) * span_frac
+                    low = max(c_min, current - span)
+                    high = min(c_max, current + span)
+                    test_values = np.linspace(low, high, num=steps).tolist()
+
+                for value in test_values:
+                    clamped = _clamp_control(value, ctrl)
+                    de, analysis, _ = _evaluate_setting(key, clamped, ctrl, round_label)
+                    if de < best_de and analysis is not None:
+                        best_de = de
+                        best_settings[key] = clamped
+                        best_analysis = analysis
+                        improved = True
+
+            # Stop early if we're already below perceptual threshold or no improvement
+            if best_de < 1.0 or not improved:
+                break
+
+        # Final re-detect with optimized settings
+        applied_settings, final_analysis, _ = _analyze_candidate_settings(role, source, best_settings)
+        if final_analysis is not None:
+            best_analysis = final_analysis
+            best_settings = dict(applied_settings)
 
     if best_settings is None or best_analysis is None:
         raise HTTPException(status_code=400, detail="Calibration failed to find usable settings.")
@@ -1031,7 +1212,7 @@ def _calibrate_android_camera_device_settings(
         nonlocal steps_done
         steps_done += 1
         tick(stage, steps_done / total_steps, message)
-        applied_settings, analysis = _analyze_candidate_settings(role, source, candidate)
+        applied_settings, analysis, _ = _analyze_candidate_settings(role, source, candidate)
         if analysis is None:
             return
         if best_analysis is None or _calibration_selection_value(analysis) > _calibration_selection_value(best_analysis):
@@ -1137,10 +1318,29 @@ def _calibrate_android_camera_device_settings(
 # ---------------------------------------------------------------------------
 
 
+def _cleanup_old_gallery_dirs(max_age_seconds: float = 3600.0) -> None:
+    """Remove calibration gallery directories older than max_age_seconds."""
+    import shutil
+
+    gallery_root = Path("/tmp/calibration-gallery")
+    if not gallery_root.exists():
+        return
+    now = time.time()
+    for child in gallery_root.iterdir():
+        if child.is_dir():
+            try:
+                age = now - child.stat().st_mtime
+                if age > max_age_seconds:
+                    shutil.rmtree(child, ignore_errors=True)
+            except OSError:
+                pass
+
+
 def _run_camera_calibration_sync(
     role: str,
     *,
     report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+    task_id: str | None = None,
 ) -> Dict[str, Any]:
     current_response = get_camera_device_settings(role)
     source = current_response.get("source")
@@ -1149,6 +1349,12 @@ def _run_camera_calibration_sync(
         raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
     if not bool(current_response.get("supported")):
         raise HTTPException(status_code=400, detail=current_response.get("message") or "This camera cannot be calibrated through the current control backend.")
+
+    # Create gallery directory for this calibration run
+    _cleanup_old_gallery_dirs()
+    gallery_id = task_id or uuid4().hex
+    gallery_dir = Path("/tmp/calibration-gallery") / gallery_id
+    gallery_dir.mkdir(parents=True, exist_ok=True)
 
     _, raw_config = _read_machine_params_config()
     original_picture_settings = _picture_settings_for_role(raw_config, role)
@@ -1178,6 +1384,7 @@ def _run_camera_calibration_sync(
                 controls,
                 original_settings,
                 report_progress=report_progress,
+                gallery_dir=gallery_dir,
             )
         elif provider == "android-camera-app":
             capabilities = current_response.get("capabilities")
@@ -1249,6 +1456,7 @@ def _run_camera_calibration_sync(
             **saved,
             "color_profile": profile_saved.get("profile"),
             "analysis": chosen_analysis,
+            "gallery_id": gallery_id,
             "message": "Camera calibrated from the 6-color target plate, and a color profile was generated.",
         }
         if report_progress is not None:
@@ -1283,7 +1491,7 @@ def _run_camera_calibration_task(task_id: str, role: str) -> None:
             progress=0.01,
             message="Starting camera calibration.",
         )
-        result = _run_camera_calibration_sync(role, report_progress=report_progress)
+        result = _run_camera_calibration_sync(role, report_progress=report_progress, task_id=task_id)
         _update_camera_calibration_task(
             task_id,
             status="completed",
@@ -2233,3 +2441,49 @@ def get_camera_device_settings_calibration_task(role: str, task_id: str) -> Dict
         "analysis_preview": task.get("analysis_preview"),
         "error": task.get("error"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Calibration debug gallery
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/cameras/device-settings/{role}/calibrate-target/{task_id}/gallery")
+def get_calibration_gallery(role: str, task_id: str) -> Dict[str, Any]:
+    """List all frames saved during a calibration run."""
+    gallery_dir = Path("/tmp/calibration-gallery") / task_id
+    if not gallery_dir.exists():
+        raise HTTPException(status_code=404, detail="Gallery not found for this calibration task.")
+
+    entries: list[Dict[str, Any]] = []
+    for json_path in sorted(gallery_dir.glob("*.json")):
+        try:
+            meta = json.loads(json_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        image_name = json_path.stem + ".jpg"
+        image_path = gallery_dir / image_name
+        if not image_path.exists():
+            continue
+        entries.append({
+            "filename": image_name,
+            "image_url": f"/api/cameras/device-settings/{role}/calibrate-target/{task_id}/gallery/{image_name}",
+            **meta,
+        })
+
+    return {"ok": True, "task_id": task_id, "entries": entries}
+
+
+@router.get("/api/cameras/device-settings/{role}/calibrate-target/{task_id}/gallery/{filename}")
+def get_calibration_gallery_image(role: str, task_id: str, filename: str) -> StreamingResponse:
+    """Serve a single saved calibration frame."""
+    if ".." in filename or "/" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+    image_path = Path("/tmp/calibration-gallery") / task_id / filename
+    if not image_path.exists() or not image_path.suffix == ".jpg":
+        raise HTTPException(status_code=404, detail="Image not found.")
+    return StreamingResponse(
+        open(image_path, "rb"),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )

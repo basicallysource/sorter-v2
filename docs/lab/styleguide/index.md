@@ -2,19 +2,19 @@
 layout: default
 title: Styleguide
 type: reference
-audience: contributor working on the Sorter UI, SortHive, or these docs
+audience: contributor working on the Sorter UI, Hive, or these docs
 applies_to: visual language v1
 owner: ui
 section: lab
 slug: styleguide
 kicker: Lab — Contributor Reference
-lede: The shared visual language used by the Sorter UI, the SortHive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.
+lede: The shared visual language used by the Sorter UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.
 permalink: /lab/styleguide/
 ---
 
 ## Design Principles {#design-principles}
 
-Five rules that apply across Sorter, SortHive, and these docs. Every new screen or component must honor them unless you have a documented reason not to.
+Five rules that apply across Sorter, Hive, and these docs. Every new screen or component must honor them unless you have a documented reason not to.
 
 ### 1. No rounded corners
 
@@ -47,7 +47,7 @@ Each operator can choose their preferred LEGO primary in the app settings. The f
     <div class="sg-swatch-chip" style="background:#D01012"></div>
     <div class="sg-swatch-label">LEGO Red</div>
     <div class="sg-swatch-value">#D01012</div>
-    <div class="sg-swatch-usage">Default primary for SortHive and docs. Destructive actions, active nav, errors.</div>
+    <div class="sg-swatch-usage">Default primary for Hive and docs. Destructive actions, active nav, errors.</div>
   </div>
   <div class="sg-swatch">
     <div class="sg-swatch-chip" style="background:#0055BF"></div>
@@ -157,7 +157,7 @@ Both apps and these docs use IBM Plex Sans for copy and IBM Plex Mono for identi
 ### Rules of thumb
 
 - **Never grow a micro-heading back to `text-sm`.** The 11px uppercase label is a deliberate rhythm — inflating it to the body scale dissolves the hierarchy we rely on inside notification blocks and stat cells.
-- **Body copy is 12px (`text-xs`), not 14px.** Sorter and SortHive both default to the tighter scale; `text-sm` is reserved for hero descriptions and form labels that carry a specific hint.
+- **Body copy is 12px (`text-xs`), not 14px.** Sorter and Hive both default to the tighter scale; `text-sm` is reserved for hero descriptions and form labels that carry a specific hint.
 - **Mono is for things you copy.** Hashes, URLs, hex codes, machine identifiers. Prose and UI chrome stay in IBM Plex Sans.
 
 ## Notifications {#notifications}
@@ -231,7 +231,7 @@ The canonical warning tone is `#FFD500` — the real LEGO yellow. The yellow tin
     Connection failed
   </div>
   <div class="mt-1 text-xs leading-relaxed text-text">
-    Could not reach the SortHive server. Check your credentials.
+    Could not reach the Hive server. Check your credentials.
   </div>
 </div>
 ```
@@ -268,7 +268,7 @@ Three button roles:
 
 - **Primary** — uses `--color-primary` (user-selected). One primary per screen, maximum.
 - **Secondary** — flat bordered button with the neutral surface background.
-- **Brand confirm** — inline affirmative actions that carry a fixed brand color regardless of the user's primary (for example, the LEGO-green "Connect to SortHive" confirm in the setup wizard).
+- **Brand confirm** — inline affirmative actions that carry a fixed brand color regardless of the user's primary (for example, the LEGO-green "Connect to Hive" confirm in the setup wizard).
 
 ```html
 <!-- primary -->
@@ -287,7 +287,7 @@ Three button roles:
 <button class="inline-flex items-center gap-2 border border-[#00852B]
                bg-[#00852B] px-4 py-2 text-sm font-medium text-white
                hover:bg-[#00852B]/90">
-  Connect to SortHive
+  Connect to Hive
 </button>
 ```
 
@@ -309,7 +309,7 @@ The standard spinner row used when fetching async data inside a step or panel:
 <div class="setup-panel flex items-center gap-2 px-4 py-3
             text-sm text-text-muted">
   <Loader2 size={14} class="animate-spin" />
-  Checking current SortHive configuration…
+  Checking current Hive configuration…
 </div>
 ```
 
@@ -322,9 +322,9 @@ How the user-selectable primary is wired through CSS custom properties, and whic
 - Each app reads `--color-primary` from CSS custom properties at the `:root` level.
 - Defaults are:
   - **Sorter UI** → `#0055BF` (LEGO Blue)
-  - **SortHive** → `#D01012` (LEGO Red)
+  - **Hive** → `#D01012` (LEGO Red)
   - **Docs site** → `#D01012` (LEGO Red)
-- In both apps the user can override the default via **Settings → Appearance → Primary color**. The choice is persisted per-machine (Sorter) or per-user (SortHive).
+- In both apps the user can override the default via **Settings → Appearance → Primary color**. The choice is persisted per-machine (Sorter) or per-user (Hive).
 - Components must consume `--color-primary` via the utility classes `.text-primary`, `.bg-primary`, `.border-primary`, or raw `var(--color-primary)` — **never via hard-coded hex values** of the four LEGO options.
 
 ### Semantic slots are fixed
@@ -352,7 +352,7 @@ If a user picks a primary that collides with a semantic slot (for example, Green
 ## Where this guide lives {#where-this-guide-lives}
 
 - **Canonical prose and rules:** this page.
-- **Live smoke test:** `/styleguide` in the Sorter UI and `/styleguide` in the SortHive frontend. Both routes render the same patterns with real components so designers can spot drift at a glance.
+- **Live smoke test:** `/styleguide` in the Sorter UI and `/styleguide` in the Hive frontend. Both routes render the same patterns with real components so designers can spot drift at a glance.
 - **Design tokens:** `--color-bg`, `--color-surface`, `--color-border`, `--color-text`, `--color-text-muted`, `--color-primary` (CSS custom properties, same names across all three surfaces).
 
 When you add a new pattern, update the matching section above first, then mirror it into both in-app styleguides.

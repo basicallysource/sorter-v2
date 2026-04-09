@@ -8,13 +8,13 @@ from pathlib import Path
 
 LOCAL_PARTS_WITH_CATEGORIES_FILE_PATH = os.getenv(
     "PARTS_WITH_CATEGORIES_FILE_PATH",
-    "/Users/spencer/Documents/GitHub/sorter-v2/software/client/parts_with_categories.json",
+    "/Users/spencer/Documents/GitHub/sorter-v2/software/sorter/backend/parts_with_categories.json",
 )
 
 REMOTE_USER = "spencer"
 REMOTE_HOST = "192.168.1.214"
 REMOTE_PARTS_WITH_CATEGORIES_PATH = (
-    f"/home/{REMOTE_USER}/sorter-v2/software/client/parts_with_categories.json"
+    f"/home/{REMOTE_USER}/sorter-v2/software/sorter/backend/parts_with_categories.json"
 )
 
 RSYNC_FLAGS = ["-avz"]

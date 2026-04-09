@@ -5,7 +5,7 @@ type: landing
 section: lab
 slug: lab
 kicker: Research & Contributor References
-lede: The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, SortHive, and these docs.
+lede: The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, Hive, and these docs.
 permalink: /lab/
 ---
 
@@ -18,7 +18,7 @@ permalink: /lab/
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
-    <p>The shared visual language used by the Sorter UI, SortHive, and this documentation site. Contributor reference only — not useful for end users.</p>
+    <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
   </div>
 </div>
 
@@ -36,6 +36,6 @@ Once a finding stabilizes enough to be promoted — for example, when we settle 
 The durable rule across all lab work:
 
 1. Keep decisions and workflows in checked-in Markdown on these pages.
-2. Keep only the latest canonical benchmark and compile artifacts under `software/client/blob/`.
+2. Keep only the latest canonical benchmark and compile artifacts under `software/sorter/backend/blob/`.
 3. Regenerate reports from benchmark JSONs instead of treating every HTML file as permanent.
 4. Promote a finding out of the lab only after it has both a quality comparison against a reference and a sustained-throughput measurement.

@@ -81,22 +81,22 @@ Thumbs.db
 #merge on purpose
 #ui/src/lib/api/rest.ts
 #ui/src/lib/api/events.ts
-client/logs/
-client/blob/
+sorter/backend/logs/
+sorter/backend/blob/
 
 # Persistent data
-client/data.json
-client/polygons.json
-client/aruco_config.json
-client/bin_layout.json
-client/every_part_bl_api_res.json
-client/machine_params.toml
-client/stepper_current_overrides.json
-client/sorting_profile.json
-client/servo_states.json
-client/local_state.sqlite
-client/local_state.sqlite-shm
-client/local_state.sqlite-wal
+sorter/backend/data.json
+sorter/backend/polygons.json
+sorter/backend/aruco_config.json
+sorter/backend/bin_layout.json
+sorter/backend/every_part_bl_api_res.json
+sorter/backend/machine_params.toml
+sorter/backend/stepper_current_overrides.json
+sorter/backend/sorting_profile.json
+sorter/backend/servo_states.json
+sorter/backend/local_state.sqlite
+sorter/backend/local_state.sqlite-shm
+sorter/backend/local_state.sqlite-wal
 
 # Android app local/build state
 android-camera-app/.gradle/
@@ -108,4 +108,4 @@ android-camera-app/local.properties
 *.pt
 
 # Model checkpoints directory
-client/models/checkpoints/
+sorter/backend/models/checkpoints/

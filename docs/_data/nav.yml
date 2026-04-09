@@ -47,13 +47,13 @@ sections:
           - title: Sorting profile reference
             url: /sorter/profile-reference/
 
-  - id: sorthive
-    title: SortHive
-    url: /sorthive/
+  - id: hive
+    title: Hive
+    url: /hive/
     description: The community platform for shared profiles, samples, and verification.
     pages:
       - title: Overview
-        url: /sorthive/
+        url: /hive/
 
   - id: lab
     title: Lab

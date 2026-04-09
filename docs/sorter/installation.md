@@ -12,7 +12,7 @@ permalink: /sorter/installation/
 
 A running Sorter on the local machine, reachable from any browser on the same network at `http://<machine-ip>:5173/`. The Python backend talks to USB-connected hardware, the SvelteKit UI is what you actually use to operate the machine.
 
-This page covers only the install — getting the software stack on disk and the UI reachable. Everything *after* that point — camera assignment, lighting, homing, chamber zones, servos, profiles, the link to a SortHive account — happens inside the in-app **Setup Wizard** the first time you open the UI. The installer deliberately does not touch any of it.
+This page covers only the install — getting the software stack on disk and the UI reachable. Everything *after* that point — camera assignment, lighting, homing, chamber zones, servos, profiles, the link to a Hive account — happens inside the in-app **Setup Wizard** the first time you open the UI. The installer deliberately does not touch any of it.
 
 ## Supported platforms
 
@@ -45,8 +45,8 @@ What `install.sh` actually does, in order:
 4. **Install Node.js 20.x and `pnpm`** via NodeSource. `pnpm` is mandatory here, not `npm`: the dev runner explicitly invokes `pnpm dev`.
 5. **`git lfs pull`** the detector model artifacts and the parts catalogue (skip with `--skip-lfs`).
 6. **Generate `.env`** with the *correct* absolute paths discovered from the install location. No more editing `/home/user/sorter-v2/...` placeholders by hand. (The UI's own `.env` is also seeded from its example.)
-7. **`uv sync`** in `software/client/` — this is the slow step on first install because uv downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
-8. **`pnpm install --frozen-lockfile`** in `software/ui/` — resolves the SvelteKit + Vite + Tailwind toolchain and the in-app component set.
+7. **`uv sync`** in `software/sorter/backend/` — this is the slow step on first install because uv downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
+8. **`pnpm install --frozen-lockfile`** in `software/sorter/frontend/` — resolves the SvelteKit + Vite + Tailwind toolchain and the in-app component set.
 
 ## Verify the install
 
@@ -82,7 +82,7 @@ For an "appliance" install on the Pi 5 that should boot straight into a running 
 
 In addition to all the steps above, this also:
 
-- runs `pnpm build` to produce a production UI bundle under `software/ui/build/`;
+- runs `pnpm build` to produce a production UI bundle under `software/sorter/frontend/build/`;
 - substitutes the actual user, paths, and binary locations into the unit templates under `software/systemd/`;
 - writes `lego-sorter-backend.service` and `lego-sorter-ui.service` into `/etc/systemd/system/`;
 - runs `systemctl daemon-reload && systemctl enable --now …` so both services start immediately and on every subsequent boot.

@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hive-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      APP_BASE_URL: ${APP_BASE_URL}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+    volumes:
+      - ./data/uploads:${UPLOAD_DIR}
+    networks:
+      - default
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.hive-api.rule=Host(`${HIVE_DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.hive-api.entrypoints=websecure"
+      - "traefik.http.routers.hive-api.priority=100"
+      - "traefik.http.routers.hive-api.tls=true"
+      - "traefik.http.routers.hive-api.tls.certresolver=neuhaus"
+      - "traefik.http.services.hive-api.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: hive-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      ORIGIN: ${APP_BASE_URL}
+    networks:
+      - web
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.middlewares.hive-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.hive-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.hive-http.rule=Host(`${HIVE_DOMAIN}`)"
+      - "traefik.http.routers.hive-http.entrypoints=web"
+      - "traefik.http.routers.hive-http.middlewares=hive-redirect"
+      - "traefik.http.routers.hive.rule=Host(`${HIVE_DOMAIN}`)"
+      - "traefik.http.routers.hive.entrypoints=websecure"
+      - "traefik.http.routers.hive.priority=10"
+      - "traefik.http.routers.hive.tls=true"
+      - "traefik.http.routers.hive.tls.certresolver=neuhaus"
+      - "traefik.http.services.hive.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+networks:
+  web:
+    external: true

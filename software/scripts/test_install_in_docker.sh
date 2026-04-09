@@ -38,9 +38,9 @@ docker run --rm \
 
         echo "==> Stripping host-side dev state from the copy..."
         rm -f  /home/sorter/sorter-v2/software/.env
-        rm -f  /home/sorter/sorter-v2/software/ui/.env
-        rm -rf /home/sorter/sorter-v2/software/client/.venv
-        rm -rf /home/sorter/sorter-v2/software/ui/node_modules
+        rm -f  /home/sorter/sorter-v2/software/sorter/frontend/.env
+        rm -rf /home/sorter/sorter-v2/software/sorter/backend/.venv
+        rm -rf /home/sorter/sorter-v2/software/sorter/frontend/node_modules
 
         cd /home/sorter/sorter-v2/software
 
@@ -52,7 +52,7 @@ docker run --rm \
 
         echo
         echo "==> Smoke-testing backend imports..."
-        cd client
+        cd sorter/backend
         uv run python -c "
 import sys
 print(f\"  python: {sys.version.split()[0]}\")
@@ -66,7 +66,7 @@ print(\"  backend deps OK\")
 
         echo
         echo "==> Smoke-testing UI tooling..."
-        cd ../ui
+        cd ../../sorter/frontend
         echo "  vite: $(pnpm exec vite --version)"
 
         echo

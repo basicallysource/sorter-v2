@@ -58,12 +58,12 @@ defaults:
       audience: self-hosting operator
       applies_to: sorter 2.x
   - scope:
-      path: "sorthive"
+      path: "hive"
     values:
-      section: sorthive
-      owner: sorthive
-      audience: operator linking a Sorter to SortHive
-      applies_to: sorthive 0.x
+      section: hive
+      owner: hive
+      audience: operator linking a Sorter to Hive
+      applies_to: hive 0.x
   - scope:
       path: "lab"
     values:

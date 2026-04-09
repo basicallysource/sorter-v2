@@ -82,7 +82,7 @@ run_backend() {
 
         log "${GREEN}Starting backend...${RESET}"
         (
-            cd "$ROOT/client"
+            cd "$ROOT/sorter/backend"
             exec uv run python main.py 2>&1 \
                 | sed -u "s/^/${GREEN}[backend]${RESET}  /"
         ) &
@@ -111,7 +111,7 @@ run_api_only_backend() {
 
         log "${GREEN}Starting API-only backend...${RESET}"
         (
-            cd "$ROOT/client"
+            cd "$ROOT/sorter/backend"
             exec uv run uvicorn server.api:app --host 0.0.0.0 --port 8000 2>&1 \
                 | sed -u "s/^/${GREEN}[api]${RESET}      /"
         ) &
@@ -137,7 +137,7 @@ run_frontend() {
 
         log "${BLUE}Starting frontend...${RESET}"
         (
-            cd "$ROOT/ui"
+            cd "$ROOT/sorter/frontend"
             exec pnpm dev 2>&1 \
                 | sed -u "s/^/${BLUE}[frontend]${RESET} /"
         ) &

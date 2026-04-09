@@ -133,9 +133,9 @@ else
     cat > "$ENV_FILE" <<EOF
 export DEBUG_LEVEL=2
 
-export PARTS_WITH_CATEGORIES_FILE_PATH="$SOFTWARE_DIR/client/parts_with_categories.json"
-export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/client/irl/example_configs/machine_specific_params_example.toml"
-export SORTING_PROFILE_PATH="$SOFTWARE_DIR/client/sorting_profile.json"
+export PARTS_WITH_CATEGORIES_FILE_PATH="$SOFTWARE_DIR/sorter/backend/parts_with_categories.json"
+export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/sorter/backend/irl/example_configs/machine_specific_params_example.toml"
+export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
 export FEEDER_CAMERA_INDEX=0
 export CLASSIFICATION_CAMERA_BOTTOM_INDEX=2
@@ -154,24 +154,24 @@ EOF
     ok ".env written"
 fi
 
-UI_ENV="$SOFTWARE_DIR/ui/.env"
+UI_ENV="$SOFTWARE_DIR/sorter/frontend/.env"
 if [[ ! -f "$UI_ENV" ]]; then
-    cp "$SOFTWARE_DIR/ui/.env.example" "$UI_ENV"
-    ok "ui/.env written"
+    cp "$SOFTWARE_DIR/sorter/frontend/.env.example" "$UI_ENV"
+    ok "sorter/frontend/.env written"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. Python dependencies (slow on first run — uv fetches Python 3.13)
 # ─────────────────────────────────────────────────────────────────────────────
 log "Running uv sync (this is the slow one on a clean install)..."
-( cd "$SOFTWARE_DIR/client" && uv sync )
+( cd "$SOFTWARE_DIR/sorter/backend" && uv sync )
 ok "Python deps installed"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. UI dependencies
 # ─────────────────────────────────────────────────────────────────────────────
 log "Running pnpm install..."
-( cd "$SOFTWARE_DIR/ui" && pnpm install --frozen-lockfile )
+( cd "$SOFTWARE_DIR/sorter/frontend" && pnpm install --frozen-lockfile )
 ok "UI deps installed"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ ok "UI deps installed"
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$AS_SERVICE" == "true" ]]; then
     log "Building UI for production..."
-    ( cd "$SOFTWARE_DIR/ui" && pnpm build )
+    ( cd "$SOFTWARE_DIR/sorter/frontend" && pnpm build )
 
     log "Installing systemd units..."
     UV_BIN="$(command -v uv)"

@@ -18,4 +18,4 @@ This section will cover:
 - **Bill of materials** — the canonical BOM with sources, part numbers, and substitutes.
 - **Assembly** — the maintained order of operations and the quirks worth warning future builders about.
 
-Until those pages land, the authoritative place for hardware decisions is the per-machine profile files under `software/client/irl/example_configs/` and the running `HANDOFF.md` at the repo root.
+Until those pages land, the authoritative place for hardware decisions is the per-machine profile files under `software/sorter/backend/irl/example_configs/` and the running `HANDOFF.md` at the repo root.

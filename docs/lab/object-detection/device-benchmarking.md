@@ -13,7 +13,7 @@ permalink: /lab/object-detection/device-benchmarking/
 
 Every benchmark run on every device consumes the **same portable bundle** — one directory holding a fixed 50-image sample set, the canonical model artifacts in each format, and the metadata describing how it was built. That is what makes cross-device numbers comparable in the first place. No ad hoc local copies, no "but it was a different image on that device".
 
-The tooling lives in one script: `software/client/scripts/device_detector_benchmark.py`. It exposes `bundle`, `run`, `compare`, and `report`.
+The tooling lives in one script: `software/sorter/backend/scripts/device_detector_benchmark.py`. It exposes `bundle`, `run`, `compare`, and `report`.
 
 ## 1. Build the bundle (once, on the dev machine)
 
@@ -99,4 +99,4 @@ Reports are regeneratable side output, not source of truth — delete them whene
 
 ## Concurrency harness
 
-Single-stream FPS is only half the story on accelerators that expose multiple inference workers. The concurrency harness under `software/client/blob/device_benchmarks/concurrency/` runs N workers against the same model and records per-worker and combined throughput. The three result JSONs committed there are what populate the parallel throughput tables in the [Overview]({{ '/lab/object-detection/' | relative_url }}).
+Single-stream FPS is only half the story on accelerators that expose multiple inference workers. The concurrency harness under `software/sorter/backend/blob/device_benchmarks/concurrency/` runs N workers against the same model and records per-worker and combined throughput. The three result JSONs committed there are what populate the parallel throughput tables in the [Overview]({{ '/lab/object-detection/' | relative_url }}).

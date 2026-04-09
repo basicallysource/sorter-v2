@@ -25,9 +25,9 @@ Read these first:
 
 ## Tooling
 
-- `software/client/scripts/prepare_hailo_compile_bundle.py`
+- `software/sorter/backend/scripts/prepare_hailo_compile_bundle.py`
   - Builds a self-contained compile bundle with ONNX, Hailo config files, calibration images, and local reference artifacts.
-- `software/client/scripts/vastai_hailo_session.py`
+- `software/sorter/backend/scripts/vastai_hailo_session.py`
   - Searches Vast.ai offers and packages a manual compile workspace tarball.
   - Can auto-pick the required Hailo SDK payloads from a local download directory and stage an install script for the Vast.ai host.
 
@@ -38,17 +38,17 @@ Read these first:
 
 The YOLO11s preset pulls from:
 
-- ONNX: `software/client/blob/local_detection_models/20260331-zone-classification_chamber-yolo11s/exports/best.onnx`
-- Calibration set: `software/client/blob/zone_datasets/classification_chamber/train/images`
-- Verification bundle: `software/client/blob/device_benchmarks/chamber_zone_pair_bundle`
-- Local reference results: `software/client/blob/device_benchmarks/local_reference/local-m4__20260331-zone-classification-chamber-yolo11s__onnx.json`
+- ONNX: `software/sorter/backend/blob/local_detection_models/20260331-zone-classification_chamber-yolo11s/exports/best.onnx`
+- Calibration set: `software/sorter/backend/blob/zone_datasets/classification_chamber/train/images`
+- Verification bundle: `software/sorter/backend/blob/device_benchmarks/chamber_zone_pair_bundle`
+- Local reference results: `software/sorter/backend/blob/device_benchmarks/local_reference/local-m4__20260331-zone-classification-chamber-yolo11s__onnx.json`
 
 The NanoDet preset pulls from:
 
-- ONNX: `software/client/blob/local_detection_models/20260331-zone-classification_chamber-nanodet/exports/best.onnx`
-- Calibration set: `software/client/blob/zone_datasets/classification_chamber/train/images`
-- Verification bundle: `software/client/blob/device_benchmarks/chamber_zone_pair_bundle`
-- Local reference results: `software/client/blob/device_benchmarks/local_reference/local-m4__20260331-zone-classification-chamber-nanodet__onnx.json`
+- ONNX: `software/sorter/backend/blob/local_detection_models/20260331-zone-classification_chamber-nanodet/exports/best.onnx`
+- Calibration set: `software/sorter/backend/blob/zone_datasets/classification_chamber/train/images`
+- Verification bundle: `software/sorter/backend/blob/device_benchmarks/chamber_zone_pair_bundle`
+- Local reference results: `software/sorter/backend/blob/device_benchmarks/local_reference/local-m4__20260331-zone-classification-chamber-nanodet__onnx.json`
 
 ## Refresh the compile bundle
 
@@ -70,8 +70,8 @@ uv run python scripts/prepare_hailo_compile_bundle.py build \
 
 This creates the matching bundle directory plus archive, for example:
 
-- `software/client/blob/hailo_compile_bundles/classification_chamber_yolo11s/`
-- `software/client/blob/hailo_compile_bundles/classification_chamber_yolo11s.tar.gz`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_yolo11s/`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_yolo11s.tar.gz`
 
 ## Packaging a manual Vast.ai session
 
@@ -121,13 +121,13 @@ The newer `5.x` toolchain line is for newer Hailo hardware and is not valid for 
 
 YOLO11s:
 
-- `software/client/blob/hailo_compile_bundles/classification_chamber_yolo11s/results/yolov11s_piece_320.har`
-- `software/client/blob/hailo_compile_bundles/classification_chamber_yolo11s/results/yolov11s_piece_320.hef`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_yolo11s/results/yolov11s_piece_320.har`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_yolo11s/results/yolov11s_piece_320.hef`
 
 NanoDet:
 
-- `software/client/blob/hailo_compile_bundles/classification_chamber_nanodet/results/nanodet_plus_m_1_5x_piece_416_raw.har`
-- `software/client/blob/hailo_compile_bundles/classification_chamber_nanodet/results/nanodet_plus_m_1_5x_piece_416_raw.hef`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_nanodet/results/nanodet_plus_m_1_5x_piece_416_raw.har`
+- `software/sorter/backend/blob/hailo_compile_bundles/classification_chamber_nanodet/results/nanodet_plus_m_1_5x_piece_416_raw.hef`
 
 These `results/` directories are the canonical Hailo deliverables we keep locally.
 

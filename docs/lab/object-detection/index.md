@@ -26,11 +26,11 @@ Both models share the same training dataset (1,877 labelled chamber frames, sing
 | **Chamber Zone NanoDet** | NanoDet-Plus-m 1.5x | 416 × 416 | mAP 0.885 (AP50 0.941, AP75 0.900) |
 | **Chamber Zone YOLO11s** | YOLOv11s | 320 × 320 | mAP50 0.960, mAP50–95 0.911 (precision 0.944, recall 0.872 at epoch 124) |
 
-The canonical exports live under `software/client/blob/local_detection_models/`. Dig into [How the Models Are Built]({{ '/lab/object-detection/how-models-are-built/' | relative_url }}) for the training and export pipeline.
+The canonical exports live under `software/sorter/backend/blob/local_detection_models/`. Dig into [How the Models Are Built]({{ '/lab/object-detection/how-models-are-built/' | relative_url }}) for the training and export pipeline.
 
 ## Single-stream FPS across devices
 
-Every row below is a real run against the same 50-image chamber-zone benchmark bundle (3 warm-up frames, then 50 timed frames per model). The numbers come from `software/client/blob/device_benchmarks/*/…__*.json`.
+Every row below is a real run against the same 50-image chamber-zone benchmark bundle (3 warm-up frames, then 50 timed frames per model). The numbers come from `software/sorter/backend/blob/device_benchmarks/*/…__*.json`.
 
 | Device | Runtime | NanoDet FPS | YOLO11s FPS |
 | --- | --- | ---: | ---: |
@@ -46,7 +46,7 @@ FPS is the average frames-per-second across the 50 benchmark samples after the w
 
 ## Sustained parallel throughput
 
-A single-stream FPS number does not tell the whole story for accelerator hardware. Both the Hailo-8 on the Pi 5 and the RKNPU on the Orange Pi 5 expose multiple inference workers, so we ran a separate concurrency harness (`software/client/blob/device_benchmarks/concurrency/`) to measure what happens when several streams hit the same device at the same time.
+A single-stream FPS number does not tell the whole story for accelerator hardware. Both the Hailo-8 on the Pi 5 and the RKNPU on the Orange Pi 5 expose multiple inference workers, so we ran a separate concurrency harness (`software/sorter/backend/blob/device_benchmarks/concurrency/`) to measure what happens when several streams hit the same device at the same time.
 
 ### Orange Pi 5 NPU (RKNN) — 3 sustained workers
 

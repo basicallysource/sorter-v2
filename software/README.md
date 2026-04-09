@@ -39,11 +39,11 @@ cp .env.example .env
 Edit `.env` and update:
 - `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
 - Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
-- `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `client/irl/example_configs/machine_specific_params_example.toml` for an example)
+- `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `sorter/backend/irl/example_configs/machine_specific_params_example.toml` for an example)
 
 Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
 ```bash
-cd client
+cd sorter/backend
 uv run python scripts/camera_setup.py
 ```
 
@@ -52,7 +52,7 @@ uv run python scripts/camera_setup.py
 ## UI Dependencies
 
 ```bash
-cd ui
+cd sorter/frontend
 npm install
 ```
 
@@ -65,14 +65,14 @@ You'll need two terminal tabs, both from `sorter-v2/software`.
 ## Terminal 1: UI
 
 ```bash
-cd ui
+cd sorter/frontend
 npm run dev
 ```
 
 ## Terminal 2: Client
 
 ```bash
-cd client
+cd sorter/backend
 uv run python main.py
 ```
 
@@ -113,7 +113,7 @@ On startup the client will:
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Multi-Pico hardware abstraction, firmware roles, client init flow
 - [../docs/runtime-status.md](../docs/runtime-status.md) — Current detector benchmark conclusions, deployment recommendations, and canonical local artifacts to keep
 - [../docs/model-artifacts.md](../docs/model-artifacts.md) — Which detector exports and compiled formats exist, what they are for, and how they map to targets
-- [client/ARUCO_GUI_USAGE.md](client/ARUCO_GUI_USAGE.md) — Web-based ArUco tag calibration GUI
+- [sorter/backend/ARUCO_GUI_USAGE.md](sorter/backend/ARUCO_GUI_USAGE.md) — Web-based ArUco tag calibration GUI
 - [../docs/device-benchmarking.md](../docs/device-benchmarking.md) — Reproducible detector benchmarking across Mac, Raspberry Pi, and Orange Pi targets
 - [../docs/hailo-hef-workflow.md](../docs/hailo-hef-workflow.md) — `ONNX -> HEF` workflow for Raspberry Pi 5 AI HAT deployments
 - [firmware/sorter_interface_firmware/README.md](firmware/sorter_interface_firmware/README.md) — Firmware build options and flashing

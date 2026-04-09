@@ -18,7 +18,7 @@ Die gesamte Profil-Funktionalität wurde als technischer Durchstich gebaut: alle
 2. **AI-First Creation** — Der primäre Weg ein Profil zu erstellen ist: beschreiben was du sortieren willst
 3. **Seiten statt Tabs** — Jede Seite hat einen klaren Zweck. Editor ≠ Detail-Ansicht
 4. **Einfacher Lifecycle** — Edit → Save. Fertig. Kein Publish/Deploy-Overhead fürs MVP
-5. **Machine pulls** — Die Maschine entscheidet wann sie updatet, nicht SortHive
+5. **Machine pulls** — Die Maschine entscheidet wann sie updatet, nicht Hive
 
 ---
 
@@ -51,7 +51,7 @@ Die gesamte Profil-Funktionalität wurde als technischer Durchstich gebaut: alle
 ## Informationsarchitektur
 
 ```
-SortHive:
+Hive:
   /profiles                      Profiles Hub (Discover, Library, My Profiles)
   /profiles/new                  Create Wizard (AI-first)
   /profiles/:id                  Profile Detail (Show-Seite: Info, Versions, Stats)
@@ -409,7 +409,7 @@ Die Maschine ist Consumer. Sie pullt Profile, sie pusht nicht.
 │  ┌─Active Profile────────────────────────────────────┐   │
 │  │                                                   │   │
 │  │  "My Technic Sorter" v5                           │   │
-│  │  Source: SortHive (hub.sorthive.com)               │   │
+│  │  Source: Hive (hub.hive.com)               │   │
 │  │  Applied: 2 hours ago · 8.432 parts · 24 cats     │   │
 │  │  Status: In sync                                  │   │
 │  │                                                   │   │
@@ -438,9 +438,9 @@ Die Maschine ist Consumer. Sie pullt Profile, sie pusht nicht.
 - **Active Profile prominent** oben — was läuft gerade?
 - **Update-Hinweis** wenn eine neuere Version verfügbar ist ("v7 available, you're on v5")
 - **Version-Picker + Apply** — Dropdown + Button, mehr braucht man nicht
-- **Kein Editing** — dafür geht man auf SortHive
-- **Kein Catalog-Sync** — passiert auf SortHive-Seite
-- **Kein Deploy von SortHive** — die Maschine pullt selbst
+- **Kein Editing** — dafür geht man auf Hive
+- **Kein Catalog-Sync** — passiert auf Hive-Seite
+- **Kein Deploy von Hive** — die Maschine pullt selbst
 
 ---
 
@@ -456,7 +456,7 @@ Hub → [+ New Profile] → [AI-Assisted]
   → Editor mit v1 geladen
   → Ggf. verfeinern
   → [Save] → v2
-  → Fertig in SortHive
+  → Fertig in Hive
   → Auf der Maschine: /profiles → neues Profil sichtbar → [Apply]
 ```
 
@@ -497,7 +497,7 @@ Lokale UI → /profiles
 
 Catalog-Sync (Rebrickable Parts, BrickLink Preise) ist ein Admin-Tool und gehört nicht in den Editor.
 
-**Lösung:** Eigener Bereich in SortHive Settings.
+**Lösung:** Eigener Bereich in Hive Settings.
 
 ```
 /settings → Catalog Management
@@ -537,7 +537,7 @@ Der Editor setzt voraus dass der Catalog aktuell ist. Wenn kein Catalog vorhande
 | Versions | Liste in Seitenleiste | Chronologisch auf Detail-Seite |
 | Save-Flow | "Save New Version" + Checkboxen | Simple Save mit optionalem Kommentar |
 | Lifecycle | Edit → Save → Publish → Deploy | Edit → Save |
-| Machine-Update | Assignment von SortHive pushen | Machine zeigt "Update available" → User pullt |
+| Machine-Update | Assignment von Hive pushen | Machine zeigt "Update available" → User pullt |
 | Conditions | Generisches Textfeld | Feldspezifische Inputs |
 | Catalog-Sync | Im Editor eingebettet | Eigener Bereich in Settings |
 | Detail-Ansicht | Editor mit disabled Feldern | Eigene read-only Show-Seite |

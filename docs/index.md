@@ -4,7 +4,7 @@ title: Sorter V2 Documentation
 type: landing
 slug: home
 kicker: Sorter V2
-lede: The durable documentation layer for the Sorter V2 project — hardware, the local machine software, the SortHive community platform, and the lab where research and contributor references live.
+lede: The durable documentation layer for the Sorter V2 project — hardware, the local machine software, the Hive community platform, and the lab where research and contributor references live.
 ---
 
 ## Start here
@@ -19,7 +19,7 @@ lede: The durable documentation layer for the Sorter V2 project — hardware, th
     <p>The local software running on the machine — Python backend, SvelteKit UI, setup wizard, profiles.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/sorthive/' | relative_url }}">SortHive</a></strong>
+    <strong><a href="{{ '/hive/' | relative_url }}">Hive</a></strong>
     <p>The community platform — shared sorting profiles, uploaded samples, crowd verification.</p>
   </div>
   <div class="callout">
@@ -32,10 +32,10 @@ lede: The durable documentation layer for the Sorter V2 project — hardware, th
 
 Right now the site is uneven on purpose:
 
-- **Lab** is the only section with real, promoted content — the April 6, 2026 detector findings plus the shared styleguide that keeps the Sorter UI, SortHive, and this site visually consistent.
-- **Hardware**, **Sorter**, and **SortHive** are still placeholder indexes. Their content is being promoted out of code comments, in-repo notes, and the handoff file as each area stabilizes.
+- **Lab** is the only section with real, promoted content — the April 6, 2026 detector findings plus the shared styleguide that keeps the Sorter UI, Hive, and this site visually consistent.
+- **Hardware**, **Sorter**, and **Hive** are still placeholder indexes. Their content is being promoted out of code comments, in-repo notes, and the handoff file as each area stabilizes.
 
-The durable rule: keep decisions and workflows in checked-in Markdown here, and treat every generated report or experiment bundle under `software/client/blob/` as disposable working state unless a document in this site promotes it.
+The durable rule: keep decisions and workflows in checked-in Markdown here, and treat every generated report or experiment bundle under `software/sorter/backend/blob/` as disposable working state unless a document in this site promotes it.
 
 ## Editing and publishing
 

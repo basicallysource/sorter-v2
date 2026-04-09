@@ -19,7 +19,7 @@ Everything downstream — the cropped image we feed into colour and shape classi
 
 | Property | Value |
 | --- | --- |
-| Source location | `software/client/blob/zone_datasets/classification_chamber/` |
+| Source location | `software/sorter/backend/blob/zone_datasets/classification_chamber/` |
 | Images total | 1,877 |
 | Train / val split | 1,690 / 187 (≈ 90 / 10) |
 | Classes | 1 (`piece`) |
@@ -59,10 +59,10 @@ Both models are trained off-machine on rented Vast.ai GPU instances. We do not t
 
 The end-to-end flow is:
 
-1. **Prepare the labelled chamber dataset** in `software/client/blob/zone_datasets/classification_chamber/` (the `data.yaml` plus `train/` and `val/` splits).
+1. **Prepare the labelled chamber dataset** in `software/sorter/backend/blob/zone_datasets/classification_chamber/` (the `data.yaml` plus `train/` and `val/` splits).
 2. **Provision a Vast.ai GPU instance** with the appropriate framework (Ultralytics for YOLO, the NanoDet trainer for NanoDet).
 3. **Run the training job** on the instance, capturing best-checkpoint metrics into a `run.json` file.
-4. **Pull the resulting checkpoint and the `run.json`** back into `software/client/blob/local_detection_models/<run-id>/`.
+4. **Pull the resulting checkpoint and the `run.json`** back into `software/sorter/backend/blob/local_detection_models/<run-id>/`.
 5. **Run the export step** on the developer machine, producing the canonical `best.onnx` and a sibling `best_ncnn_model/` directory.
 
 The `run.json` for each model is the durable record of the training run — it carries the model family, the input size, the source provider (`vastai`), the best metrics, and the absolute paths to the resulting ONNX and NCNN exports. Both maintained models point at:

@@ -12,7 +12,7 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ## `.onnx` files are tiny — backend logs a malformed model error
 
-`du -h software/client/blob/local_detection_models/*.onnx` shows files of a few hundred bytes.
+`du -h software/sorter/backend/blob/local_detection_models/*.onnx` shows files of a few hundred bytes.
 
 **Cause:** Git LFS was not initialized before the clone.
 
@@ -100,11 +100,11 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ---
 
-## SortHive uploads pile up and never drain
+## Hive uploads pile up and never drain
 
-**Cause:** Wrong URL/token, or SortHive is unreachable from this machine. The uploader keeps samples on disk and backs off — nothing is dropped.
+**Cause:** Wrong URL/token, or Hive is unreachable from this machine. The uploader keeps samples on disk and backs off — nothing is dropped.
 
-**Fix:** Test with `curl -fsS "$SORTHIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → SortHive** in the UI (stored via `blob_manager`, not `.env`).
+**Fix:** Test with `curl -fsS "$HIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → Hive** in the UI (stored via `blob_manager`, not `.env`).
 
 **Verify:** The pending queue drains at roughly one upload per second per worker.
 

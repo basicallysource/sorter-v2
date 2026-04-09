@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-architecture
 kicker: Sorter — Under the hood
-lede: Where things live in the Sorter V2 local software, and why. Read this before changing any module under `software/client/`.
+lede: Where things live in the Sorter V2 local software, and why. Read this before changing any module under `software/sorter/backend/`.
 permalink: /sorter/architecture/
 ---
 
@@ -15,14 +15,14 @@ The local software is two processes:
 
 | Process | Path | Responsibility |
 |---|---|---|
-| **Python backend** | `software/client/` | Owns hardware, vision, authoritative state. Listens on `:8000`. |
-| **SvelteKit UI** | `software/ui/` | View + command emitter. No machine state. Vite on `:5173`. |
+| **Python backend** | `software/sorter/backend/` | Owns hardware, vision, authoritative state. Listens on `:8000`. |
+| **SvelteKit UI** | `software/sorter/frontend/` | View + command emitter. No machine state. Vite on `:5173`. |
 
 `./dev.sh` boots both. The UI proxies API calls to the backend.
 
 ## Backend boot
 
-Entry point: `software/client/main.py`. It wires together:
+Entry point: `software/sorter/backend/main.py`. It wires together:
 
 - **`global_config.py`** — logging, profiler, runtime stats. Passed everywhere as `gc`.
 - **`irl/config.py`** — `IRLConfig` is the declarative hardware config; `IRLInterface` is the live hardware (servos, steppers, chute, carousel).
@@ -97,7 +97,7 @@ Four sources, in increasing user-editability:
 |---|---|---|
 | **Code defaults** | Python constants | Things that are the same on every machine. |
 | **TOML** | `machine_specific_params.toml` (env: `MACHINE_SPECIFIC_PARAMS_PATH`) | Servo angles, layer layout, chute calibration, camera indices, feeding mode. |
-| **Blob storage** | `software/client/blob/*.json` (via `blob_manager`) | Detection configs, classification polygons, SortHive credentials, ArUco calibrations. Most of this is UI-edited. |
+| **Blob storage** | `software/sorter/backend/blob/*.json` (via `blob_manager`) | Detection configs, classification polygons, Hive credentials, ArUco calibrations. Most of this is UI-edited. |
 | **SQLite** | `local_state.sqlite` | API keys, recent known objects, lifecycle state across restarts. |
 
 The sorting profile (`sorting_profile.json`) is technically a blob but is edited through its own UI because it changes during a run. See [profile reference]({{ '/sorter/profile-reference/' | relative_url }}).

@@ -201,7 +201,7 @@
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
 			{#if profile.is_owner}
-				<a href="/profiles/{profile.id}/edit" class="inline-block bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Edit Profile</a>
+				<a href={`/profiles/${profile.id}/edit`} class="inline-block bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Edit Profile</a>
 			{:else}
 				<button onclick={() => void toggleLibrary()} disabled={libraryBusy} class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50">
 					{libraryBusy ? 'Updating...' : profile.saved_in_library ? 'In Library \u2713' : 'Save to Library'}

@@ -47,15 +47,30 @@ def _normalized_optional_string(value: str | None) -> str | None:
     return normalized or None
 
 
+def _sample_query_for_user(db: Session, current_user: User):
+    query = db.query(Sample)
+    if current_user.role in {"reviewer", "admin"}:
+        return query
+    return query.filter(Sample.machine.has(owner_id=current_user.id))
+
+
+def _get_sample_for_user(db: Session, sample_id: UUID, current_user: User) -> Sample:
+    sample = _sample_query_for_user(db, current_user).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    return sample
+
+
 @router.get("/filter-options")
 def get_sample_filter_options(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    query = _sample_query_for_user(db, current_user)
     source_roles = [
         value
         for (value,) in (
-            db.query(Sample.source_role)
+            query.with_entities(Sample.source_role)
             .filter(Sample.source_role.isnot(None))
             .distinct()
             .order_by(Sample.source_role.asc())
@@ -66,7 +81,7 @@ def get_sample_filter_options(
     capture_reasons = [
         value
         for (value,) in (
-            db.query(Sample.capture_reason)
+            query.with_entities(Sample.capture_reason)
             .filter(Sample.capture_reason.isnot(None))
             .distinct()
             .order_by(Sample.capture_reason.asc())
@@ -92,7 +107,7 @@ def list_samples(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Sample)
+    query = _sample_query_for_user(db, current_user)
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)
@@ -126,9 +141,7 @@ def get_sample(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
-        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    sample = _get_sample_for_user(db, sample_id, current_user)
 
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None
@@ -144,9 +157,7 @@ def save_sample_annotations(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
-        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    sample = _get_sample_for_user(db, sample_id, current_user)
 
     payload = SampleAnnotationsPayload(
         version=data.version,
@@ -177,9 +188,7 @@ def save_sample_classification(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
-        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    sample = _get_sample_for_user(db, sample_id, current_user)
 
     if not _is_classification_sample(sample):
         raise APIError(
@@ -253,9 +262,7 @@ def get_sample_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
-        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    sample = _get_sample_for_user(db, sample_id, current_user)
 
     path = get_file_path(sample.image_path)
     return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
@@ -267,7 +274,7 @@ def get_sample_full_frame(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    sample = _get_sample_for_user(db, sample_id, current_user)
     if not sample or not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
@@ -281,7 +288,7 @@ def get_sample_overlay(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    sample = _get_sample_for_user(db, sample_id, current_user)
     if not sample or not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 

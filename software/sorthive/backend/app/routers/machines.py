@@ -13,7 +13,14 @@ from app.deps import get_current_machine, get_current_user, get_db, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.user import User
-from app.schemas.machine import MachineCreate, MachineRegister, MachineResponse, MachineUpdate, MachineWithTokenResponse
+from app.schemas.machine import (
+    MachineCreate,
+    MachineHeartbeat,
+    MachineRegister,
+    MachineResponse,
+    MachineUpdate,
+    MachineWithTokenResponse,
+)
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
 from app.services.storage import delete_machine_files
@@ -235,6 +242,7 @@ def rotate_token(
 @router.post("/machine/heartbeat")
 def heartbeat(
     request: Request,
+    data: MachineHeartbeat | None = None,
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
@@ -243,6 +251,17 @@ def heartbeat(
     client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
     if client_ip:
         machine.last_seen_ip = client_ip
+    if data is not None:
+        if "hardware_info" in data.model_fields_set:
+            machine.hardware_info = data.hardware_info
+        local_ui_port = data.local_ui_port if "local_ui_port" in data.model_fields_set else None
+        if local_ui_port is None and isinstance(data.hardware_info, dict) and "hardware_info" in data.model_fields_set:
+            raw_port = data.hardware_info.get("local_ui_port")
+            if isinstance(raw_port, (str, int)) and not isinstance(raw_port, bool):
+                local_ui_port = str(raw_port)
+        if local_ui_port is not None:
+            normalized_port = local_ui_port.strip()
+            machine.local_ui_port = normalized_port or None
     db.commit()
     return {"ok": True, "machine_id": str(machine.id)}
 

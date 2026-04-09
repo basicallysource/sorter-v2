@@ -22,6 +22,11 @@ class MachineUpdate(BaseModel):
     description: str | None = None
 
 
+class MachineHeartbeat(BaseModel):
+    hardware_info: dict | None = None
+    local_ui_port: str | None = None
+
+
 class MachineResponse(BaseModel):
     id: UUID
     owner_id: UUID

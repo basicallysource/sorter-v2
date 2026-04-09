@@ -253,32 +253,9 @@ def _migrate_misc_state_files(conn: sqlite3.Connection) -> None:
 
 
 def _cleanup_machine_params_runtime_sections(conn: sqlite3.Connection) -> None:
-    config_path = _legacy_machine_params_path()
-    config = _read_machine_params()
-    if not config:
-        return
-
-    moved_sections = {
-        "classification_training": _STATE_KEY_CLASSIFICATION_TRAINING,
-        "api_keys": _STATE_KEY_API_KEYS,
-        "sorthive": _STATE_KEY_SORTHIVE,
-        "sorting_profile_sync": _STATE_KEY_SORTING_PROFILE_SYNC,
-    }
-    changed = False
-    for section_name, state_key in moved_sections.items():
-        if section_name not in config:
-            continue
-        if _get_json(conn, state_key) is None:
-            continue
-        config.pop(section_name, None)
-        changed = True
-
-    if not changed:
-        return
-
-    from server.config_helpers import write_machine_params_config
-
-    write_machine_params_config(str(config_path), config)
+    # Keep migrated runtime sections in machine_params.toml as a compatibility
+    # fallback so older clients can still boot after a rollback.
+    return
 
 
 def initialize_local_state() -> None:

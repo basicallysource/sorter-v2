@@ -28,6 +28,7 @@
 	};
 
 	const manager = getMachinesContext();
+	let activeBaseUrl = $state(currentBackendBaseUrl());
 
 	let sets = $state<SetProgress[]>([]);
 	let loading = $state(true);
@@ -35,7 +36,11 @@
 	let missingOnly = $state(true);
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
+		return (
+			machineHttpBaseUrlFromWsUrl(
+				manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null
+			) ?? backendHttpBaseUrl
+		);
 	}
 
 	async function fetchProgress() {
@@ -54,6 +59,16 @@
 
 	onMount(() => {
 		fetchProgress();
+	});
+
+	$effect(() => {
+		const nextBaseUrl = currentBackendBaseUrl();
+		if (nextBaseUrl === activeBaseUrl) return;
+		activeBaseUrl = nextBaseUrl;
+		loading = true;
+		sets = [];
+		error = null;
+		void fetchProgress();
 	});
 
 	function colorLabel(part: SetPart): string {

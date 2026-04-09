@@ -28,7 +28,7 @@
 	const validViews: ViewMode[] = ['image', 'full_frame', 'overlay', 'annotate'];
 
 	function readViewFromUrl(): ViewMode {
-		const v = new URL(window.location.href).searchParams.get('view');
+		const v = page.url.searchParams.get('view');
 		if (v && validViews.includes(v as ViewMode)) return v as ViewMode;
 		return 'image';
 	}
@@ -36,13 +36,13 @@
 	function setView(view: ViewMode) {
 		activeView = view;
 		if (view === 'annotate') annotatorMounted = true;
-		const url = new URL(window.location.href);
+		const url = new URL(page.url);
 		if (view === 'image') {
 			url.searchParams.delete('view');
 		} else {
 			url.searchParams.set('view', view);
 		}
-		history.replaceState(history.state, '', url.pathname + url.search);
+		void goto(`${url.pathname}${url.search}`, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	let activeView = $state<ViewMode>(readViewFromUrl());

@@ -43,11 +43,17 @@ class SortHiveClient:
             return None
         return resp.json()
 
-    def heartbeat(self, hardware_info: dict | None = None) -> dict:
+    def heartbeat(
+        self,
+        hardware_info: dict | None = None,
+        local_ui_port: str | int | None = None,
+    ) -> dict:
         """POST /api/machine/heartbeat"""
         payload: dict[str, Any] = {}
         if hardware_info is not None:
             payload["hardware_info"] = hardware_info
+        if local_ui_port is not None:
+            payload["local_ui_port"] = str(local_ui_port)
         return self._request("POST", "/api/machine/heartbeat", json=payload)
 
     def upload_sample(

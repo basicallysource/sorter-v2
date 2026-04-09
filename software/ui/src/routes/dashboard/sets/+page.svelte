@@ -36,13 +36,18 @@
 	};
 
 	const manager = getMachinesContext();
+	let activeBaseUrl = $state(currentBackendBaseUrl());
 
 	let data = $state<ProgressData | null>(null);
 	let error = $state<string | null>(null);
 	let expanded_sets = $state<Set<string>>(new Set());
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
+		return (
+			machineHttpBaseUrlFromWsUrl(
+				manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null
+			) ?? backendHttpBaseUrl
+		);
 	}
 
 	function toggleExpand(setId: string) {
@@ -70,6 +75,15 @@
 		fetchProgress();
 		const interval = setInterval(fetchProgress, 3000);
 		return () => clearInterval(interval);
+	});
+
+	$effect(() => {
+		const nextBaseUrl = currentBackendBaseUrl();
+		if (nextBaseUrl === activeBaseUrl) return;
+		activeBaseUrl = nextBaseUrl;
+		data = null;
+		error = null;
+		void fetchProgress();
 	});
 
 	const progress = $derived(data?.progress);

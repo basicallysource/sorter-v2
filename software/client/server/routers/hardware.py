@@ -28,6 +28,8 @@ from server.routers.steppers import _stepper_mapping, _halt_stepper
 
 router = APIRouter()
 
+_PCA9685_CHANNEL_COUNT = 16
+
 
 def _active_irl() -> Any | None:
     return shared_state.getActiveIRL()
@@ -247,7 +249,7 @@ def _pca_available_servo_channels() -> List[int]:
                         channels.add(channel)
         if channels:
             return sorted(channels)
-    return list(range(_distribution_layer_count()))
+    return list(range(_PCA9685_CHANNEL_COUNT))
 
 
 def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
@@ -295,10 +297,11 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
 
 
 def _live_servo_for_layer(layer_index: int) -> Any:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    active_irl = _active_irl()
+    if active_irl is None:
         raise HTTPException(status_code=503, detail="Servo controller not initialized.")
 
-    servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+    servos = list(getattr(active_irl, "servos", []))
     if layer_index < 0 or layer_index >= len(servos):
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
     return servos[layer_index]
@@ -343,9 +346,10 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
 
 
 def _servo_hardware_issues() -> List[Dict[str, Any]]:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    active_irl = _active_irl()
+    if active_irl is None:
         return []
-    servo_controller = getattr(shared_state.controller_ref.irl, "servo_controller", None)
+    servo_controller = getattr(active_irl, "servo_controller", None)
     issues = getattr(servo_controller, "issues", None)
     if not isinstance(issues, list):
         return []
@@ -526,16 +530,16 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
 
 
 def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    active_irl = _active_irl()
+    if active_irl is None:
         return False
 
-    distribution_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
+    distribution_layout = getattr(active_irl, "distribution_layout", None)
     runtime_layers = list(getattr(distribution_layout, "layers", [])) if distribution_layout is not None else []
     if len(runtime_layers) != len(layers):
         return False
 
-    # Config order is mirrored into runtime order during mkLayoutFromConfig.
-    for runtime_layer, layer in zip(runtime_layers, reversed(layers)):
+    for runtime_layer, layer in zip(runtime_layers, layers):
         setattr(runtime_layer, "enabled", bool(layer.get("enabled", True)))
     return True
 
@@ -774,8 +778,9 @@ def get_live_servo_feedback() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
     servo_settings = _servo_settings_from_config(config)
     layer_count = int(servo_settings.get("layer_count", 0))
+    active_irl = _active_irl()
 
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+    if active_irl is None:
         return {
             "ok": True,
             "backend": servo_settings["backend"],
@@ -783,7 +788,7 @@ def get_live_servo_feedback() -> Dict[str, Any]:
             "layers": [],
         }
 
-    servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+    servos = list(getattr(active_irl, "servos", []))
     return {
         "ok": True,
         "backend": servo_settings["backend"],
@@ -880,16 +885,13 @@ def save_servo_hardware_config(
         or (backend == "waveshare" and port != previous["port"])
     )
 
-    has_controller = (
-        shared_state.controller_ref is not None
-        and hasattr(shared_state.controller_ref, "irl")
-    )
+    active_irl = _active_irl()
+    has_live_hardware = active_irl is not None
 
     applied_live = False
-    if not structural_change and has_controller:
+    if not structural_change and has_live_hardware:
         try:
-            controller_ref = shared_state.controller_ref
-            live_servos = list(getattr(controller_ref.irl, "servos", [])) if controller_ref is not None else []
+            live_servos = list(getattr(active_irl, "servos", [])) if active_irl is not None else []
             if len(live_servos) == len(channels):
                 for index, servo in enumerate(live_servos):
                     invert = channel_inverts[index]
@@ -905,11 +907,11 @@ def save_servo_hardware_config(
         except Exception:
             applied_live = False
 
-    restart_required = structural_change and has_controller
+    restart_required = structural_change and has_live_hardware
 
     if applied_live:
         message = "Servo settings saved and applied live."
-    elif structural_change and has_controller:
+    elif structural_change and has_live_hardware:
         message = "Servo settings saved. Re-home hardware to apply changes."
     else:
         message = "Servo settings saved."

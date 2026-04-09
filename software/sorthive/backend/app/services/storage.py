@@ -18,10 +18,22 @@ def _upload_base() -> Path:
     return Path(settings.UPLOAD_DIR)
 
 
+def _safe_path_component(value: str, field_name: str) -> str:
+    component = value.strip()
+    if not component or component in {".", ".."} or "/" in component or "\\" in component:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+    return component
+
+
 def save_upload_file(
     machine_id: str, session_id: str, sample_id: str, file: UploadFile, suffix: str
 ) -> str:
-    directory = _upload_base() / machine_id / session_id / sample_id
+    directory = (
+        _upload_base()
+        / _safe_path_component(machine_id, "machine id")
+        / _safe_path_component(session_id, "session id")
+        / _safe_path_component(sample_id, "sample id")
+    )
     directory.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{suffix}"
     dest = directory / filename

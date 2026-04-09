@@ -1500,7 +1500,7 @@
 	<!-- Header -->
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<a href="/profiles/{profile.id}" class="text-[#7A7770] hover:text-[#1A1A1A]" title="Back to profile">
+			<a href={`/profiles/${profile.id}`} class="text-[#7A7770] hover:text-[#1A1A1A]" title="Back to profile">
 				<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
 				</svg>
@@ -2225,7 +2225,7 @@
 									{rule.set_num} · {rule.set_meta?.year ?? '?'} · {rule.set_meta?.num_parts ?? '?'} parts
 								</div>
 								{#if rule.set_num}
-									<a href="https://rebrickable.com/sets/{rule.set_num}/"
+									<a href={`https://rebrickable.com/sets/${rule.set_num}/`}
 										target="_blank" rel="noopener noreferrer"
 										class="inline-flex items-center gap-1 text-xs text-[#D01012] hover:underline">
 										View on Rebrickable

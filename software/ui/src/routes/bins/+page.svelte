@@ -11,6 +11,7 @@
 
 	const manager = getMachinesContext();
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
+	let activeBaseUrl = $state(baseUrl());
 
 	type BinInfo = {
 		section_index: number;
@@ -71,6 +72,9 @@
 	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
 	let bricklinkCache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
 
+	type SetProgressSummary = { total_needed: number; total_found: number; pct: number };
+	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
+
 	function baseUrl(): string {
 		return (
 			machineHttpBaseUrlFromWsUrl(
@@ -97,6 +101,32 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadSetProgress() {
+		try {
+			const res = await fetch(`${baseUrl()}/api/set-progress`);
+			if (!res.ok) return;
+			const data = await res.json();
+			const sets = Array.isArray(data?.progress?.sets) ? data.progress.sets : [];
+			const next: Record<string, SetProgressSummary> = {};
+			for (const entry of sets) {
+				if (!entry || typeof entry.id !== 'string') continue;
+				next[entry.id] = {
+					total_needed: Number(entry.total_needed) || 0,
+					total_found: Number(entry.total_found) || 0,
+					pct: Number(entry.pct) || 0
+				};
+			}
+			setProgressByCategoryId = next;
+		} catch {
+			// Keep last known progress on transient failures.
+		}
+	}
+
+	function setProgressFor(categoryIds: string[]): SetProgressSummary | null {
+		if (!categoryIds || categoryIds.length !== 1) return null;
+		return setProgressByCategoryId[categoryIds[0]] ?? null;
 	}
 
 	async function loadBinContents() {
@@ -353,12 +383,36 @@
 	onMount(() => {
 		void loadLayout();
 		void loadBinContents();
+		void loadSetProgress();
 		void sortingProfileStore.load(baseUrl()).catch(() => {});
 		const interval = setInterval(() => {
 			void loadLayout();
 			void loadBinContents();
+			void loadSetProgress();
 		}, 2000);
 		return () => clearInterval(interval);
+	});
+
+	$effect(() => {
+		const nextBaseUrl = baseUrl();
+		if (nextBaseUrl === activeBaseUrl) return;
+		activeBaseUrl = nextBaseUrl;
+		loading = true;
+		error = null;
+		statusMsg = '';
+		layers = [];
+		contentsByKey = {};
+		setProgressByCategoryId = {};
+		detailsOpen = false;
+		detailsBin = null;
+		movingTo = null;
+		homing = false;
+		clearingKey = null;
+		togglingLayerKey = null;
+		void loadLayout();
+		void loadBinContents();
+		void loadSetProgress();
+		void sortingProfileStore.load(nextBaseUrl).catch(() => {});
 	});
 </script>
 
@@ -463,7 +517,8 @@
 								{@const contents = contentsForBin(layer.layer_index, bin)}
 								{@const previewItems = cardPreviewItems(contents)}
 								{@const setMeta = assignedSetMeta(bin.category_ids)}
-								<div class="group relative border border-[#E2E0DB] bg-white">
+								{@const setProgress = setProgressFor(bin.category_ids)}
+								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white">
 									<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2">
 										<div class="pr-3 text-base font-semibold {isCurrent ? 'text-[#00852B]' : 'text-[#1A1A1A]'}">
 											{#if catLabel}
@@ -497,27 +552,27 @@
 									</div>
 									<button
 										onclick={() => openBinDetails(layer.layer_index, bin)}
-										class="relative flex min-h-[6.25rem] w-full flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-[#00852B]/8 ring-2 ring-inset ring-[#00852B]' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
+										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-[#00852B]/8 ring-2 ring-inset ring-[#00852B]' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
 										title={`Bin ${bin.global_index + 1}${catLabel ? ` — ${catLabel}` : ''}`}
 									>
 										{#if contents}
-											<div class="mt-1 flex min-h-[2.5rem] w-full flex-col gap-3">
+											<div class="mt-1 flex w-full flex-col gap-3">
 												{#if setMeta}
-													<div class="relative w-full bg-bg">
+													<div class="relative w-full border border-[#E2E0DB] bg-bg">
 														{#if setMeta.img_url}
-															<img src={setMeta.img_url} alt={setMeta.name} class="h-28 w-full bg-white object-contain" />
+															<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full bg-white object-contain" />
 														{/if}
 														{#if setMeta.set_num}
 															<div class="absolute top-2 right-2 border border-border bg-white/95 px-2 py-1 text-[11px] font-medium text-[#1A1A1A] shadow-sm">{setMeta.set_num}</div>
 														{/if}
 													</div>
 												{/if}
-												<div class="grid min-h-[2.5rem] w-full grid-cols-4 gap-2">
+												<div class="grid w-full grid-cols-4 gap-2">
 													{#each previewItems as piece}
 														{@const thumb = previewUrl(piece)}
-														<div class="flex h-10 w-10 items-center justify-center bg-bg" title={pieceTooltip(piece)}>
+														<div class="flex aspect-square w-full items-center justify-center" title={pieceTooltip(piece)}>
 															{#if thumb}
-																<img src={thumb} alt={pieceTooltip(piece)} class="h-10 w-10 object-contain" />
+																<img src={thumb} alt={pieceTooltip(piece)} class="h-full w-full object-contain" />
 															{/if}
 														</div>
 													{/each}
@@ -528,6 +583,22 @@
 									{#if !catLabel && !contents}
 										<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center opacity-0 transition-opacity group-hover:opacity-100">
 											<div class="text-[12px] text-[#8B887F]">No category assigned yet. No recorded pieces yet.</div>
+										</div>
+									{/if}
+									{#if setProgress && setProgress.total_needed > 0}
+										{@const clampedPct = Math.min(100, Math.max(0, setProgress.pct))}
+										{@const isDone = setProgress.total_found >= setProgress.total_needed}
+										<div
+											class="relative h-5 w-full overflow-hidden border-t border-[#E2E0DB] bg-[#F0EFEB]"
+											title="{setProgress.total_found} of {setProgress.total_needed} parts found"
+										>
+											<div
+												class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-[#00852B]' : 'bg-primary'}"
+												style="width: {clampedPct}%"
+											></div>
+											<div class="relative flex h-full items-center justify-center text-[11px] font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
+												{setProgress.total_found} / {setProgress.total_needed} parts
+											</div>
 										</div>
 									{/if}
 									{#if contents}

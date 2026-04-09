@@ -13,7 +13,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_machine, get_current_user, get_db, verify_csrf
+from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_profile_assignment import MachineProfileAssignment
@@ -86,7 +86,7 @@ def _build_ai_usage_payload(proposal_result: AiProposalResult) -> dict[str, obje
 
 @router.get("/profile-catalog/status")
 def get_profile_catalog_status(
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_role("reviewer", "admin")),
 ):
     return get_profile_catalog_service().status()
 
@@ -94,7 +94,7 @@ def get_profile_catalog_status(
 @router.post("/profile-catalog/sync/{sync_type}")
 def start_profile_catalog_sync(
     sync_type: str,
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_role("reviewer", "admin")),
     _csrf: None = Depends(verify_csrf),
 ):
     if sync_type not in CATALOG_SYNC_TYPES:
@@ -111,7 +111,7 @@ def start_profile_catalog_sync(
 
 @router.post("/profile-catalog/stop")
 def stop_profile_catalog_sync(
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_role("reviewer", "admin")),
     _csrf: None = Depends(verify_csrf),
 ):
     get_profile_catalog_service().stop_sync()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class UploadMetadata(BaseModel):
@@ -15,3 +15,13 @@ class UploadMetadata(BaseModel):
     extra_metadata: dict | None = None
 
     model_config = {"extra": "allow"}
+
+    @field_validator("local_sample_id")
+    @classmethod
+    def validate_local_sample_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("local_sample_id must not be empty")
+        if normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+            raise ValueError("local_sample_id must be a single path segment")
+        return normalized

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from uuid import UUID
+
+from app.models.machine import Machine
 
 
 class TestCreateMachine:
@@ -136,14 +139,20 @@ class TestRotateToken:
 
 class TestHeartbeat:
     def test_heartbeat_updates_last_seen(
-        self, client: TestClient, machine_token: str
+        self, client: TestClient, db, test_machine: dict, machine_token: str
     ) -> None:
         resp = client.post(
             "/api/machine/heartbeat",
             headers={"Authorization": f"Bearer {machine_token}"},
-            json={"hardware_info": {"cpu": "RPi5"}},
+            json={"hardware_info": {"cpu": "RPi5"}, "local_ui_port": "9000"},
         )
         assert resp.status_code == 200
+
+        machine = db.query(Machine).filter(Machine.id == UUID(test_machine["id"])).first()
+        assert machine is not None
+        assert machine.last_seen_at is not None
+        assert machine.hardware_info == {"cpu": "RPi5"}
+        assert machine.local_ui_port == "9000"
 
     def test_machine_token_auth(self, client: TestClient) -> None:
         # Invalid token should be rejected

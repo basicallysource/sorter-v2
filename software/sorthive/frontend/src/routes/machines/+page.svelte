@@ -409,7 +409,7 @@ async function loadAssignmentProfile(profileId: string) {
 					</div>
 					<div class="flex shrink-0 items-center gap-0.5">
 						{#if machine.last_seen_ip}
-							<a href="http://{machine.last_seen_ip}:{machine.local_ui_port || '8000'}"
+							<a href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
 								target="_blank" rel="noopener noreferrer"
 								class="-mt-1 p-1.5 text-[#7A7770] hover:text-[#D01012]" title="Open local UI">
 								<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -486,7 +486,7 @@ async function loadAssignmentProfile(profileId: string) {
 							<svg class="h-3.5 w-3.5 shrink-0 text-[#7A7770]" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
 							</svg>
-							<a href="/profiles/{assignment.profile.id}" class="truncate font-medium text-[#1A1A1A] hover:text-[#D01012] hover:underline">{assignment.profile.name}</a>
+								<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-[#1A1A1A] hover:text-[#D01012] hover:underline">{assignment.profile.name}</a>
 							<span class="shrink-0 text-[#7A7770]">v{assignment.desired_version.version_number}</span>
 							{#if assignment.active_version}
 								<Badge text="Synced" variant="success" />

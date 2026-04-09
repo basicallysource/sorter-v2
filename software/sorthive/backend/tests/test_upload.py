@@ -147,3 +147,21 @@ class TestUploadSample:
             files={"image": ("big.png", big, "image/png")},
         )
         assert resp.status_code in (400, 413, 422)
+
+    def test_upload_rejects_path_traversal_sample_id(
+        self, client: TestClient, machine_token: str, upload_dir: str
+    ) -> None:
+        metadata = json.dumps(
+            {
+                "source_session_id": "sess-traversal",
+                "local_sample_id": "../escape",
+            }
+        )
+        image = make_test_image()
+        resp = client.post(
+            "/api/machine/upload",
+            headers={"Authorization": f"Bearer {machine_token}"},
+            data={"metadata": metadata},
+            files={"image": ("test.png", image, "image/png")},
+        )
+        assert resp.status_code in (400, 422)

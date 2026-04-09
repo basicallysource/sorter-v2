@@ -193,6 +193,22 @@ def _create_version(
     return response.json()
 
 
+class _CatalogRouteService:
+    def __init__(self) -> None:
+        self.started: str | None = None
+        self.stopped = False
+
+    def status(self) -> dict[str, object]:
+        return {"sync_type": self.started}
+
+    def start_sync(self, sync_type: str) -> bool:
+        self.started = sync_type
+        return True
+
+    def stop_sync(self) -> None:
+        self.stopped = True
+
+
 class TestProfileSettings:
     def test_update_profile_ai_settings_encrypts_key(
         self, client: TestClient, auth_headers: dict[str, str], db: Session, test_user: dict
@@ -279,6 +295,40 @@ class TestProfileSettings:
         current_rule = detail_response.json()["current_version"]["rules"][0]
         assert current_rule["set_source"] == "custom"
         assert current_rule["custom_parts"][0]["part_num"] == "2780"
+
+
+class TestProfileCatalogPermissions:
+    def test_member_cannot_start_catalog_sync(
+        self,
+        client: TestClient,
+        auth_headers: dict[str, str],
+        monkeypatch,
+    ) -> None:
+        service = _CatalogRouteService()
+        monkeypatch.setattr(profiles_router, "get_profile_catalog_service", lambda: service)
+
+        response = client.post(
+            "/api/profile-catalog/sync/categories",
+            headers=auth_headers,
+        )
+        assert response.status_code == 403
+        assert service.started is None
+
+    def test_reviewer_can_start_catalog_sync(
+        self,
+        client: TestClient,
+        test_reviewer: dict,
+        monkeypatch,
+    ) -> None:
+        service = _CatalogRouteService()
+        monkeypatch.setattr(profiles_router, "get_profile_catalog_service", lambda: service)
+
+        response = client.post(
+            "/api/profile-catalog/sync/categories",
+            headers=_auth_headers(client),
+        )
+        assert response.status_code == 200, response.text
+        assert service.started == "categories"
 
 
 class TestPublicProfiles:

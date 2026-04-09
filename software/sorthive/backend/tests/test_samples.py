@@ -189,6 +189,57 @@ class TestSampleAssets:
         assert "image" in resp.headers.get("content-type", "")
 
 
+class TestSampleAuthorization:
+    def test_member_cannot_access_other_users_samples(
+        self,
+        client: TestClient,
+        test_user: dict,
+        auth_headers: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(client, machine_token, "sess-auth", "s1")
+        sample_id = sample["id"]
+
+        _register_user(client, "other@test.com", "Password123!", "Other User")
+        _login_user(client, "other@test.com", "Password123!")
+        other_headers = _auth_headers(client)
+
+        listing = client.get("/api/samples", headers=other_headers)
+        assert listing.status_code == 200
+        items = listing.json().get("items", [])
+        assert all(item["id"] != sample_id for item in items)
+
+        detail = client.get(f"/api/samples/{sample_id}", headers=other_headers)
+        assert detail.status_code == 404
+
+        asset = client.get(f"/api/samples/{sample_id}/assets/image", headers=other_headers)
+        assert asset.status_code == 404
+
+        annotations = client.put(
+            f"/api/samples/{sample_id}/annotations",
+            headers=other_headers,
+            json={"annotations": []},
+        )
+        assert annotations.status_code == 404
+
+    def test_reviewer_can_access_other_users_samples(
+        self,
+        client: TestClient,
+        test_user: dict,
+        machine_token: str,
+        test_reviewer: dict,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(client, machine_token, "sess-reviewer", "s1")
+        sample_id = sample["id"]
+
+        reviewer_headers = _auth_headers(client)
+        detail = client.get(f"/api/samples/{sample_id}", headers=reviewer_headers)
+        assert detail.status_code == 200
+        assert detail.json()["id"] == sample_id
+
+
 class TestSampleAnnotations:
     def test_save_annotations(
         self,

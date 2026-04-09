@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { backendHttpBaseUrl } from '$lib/backend';
+	import CameraHistogram from './CameraHistogram.svelte';
 	import {
 		androidCameraSettingsEqual,
 		cloneAndroidCameraSettings,
@@ -921,6 +922,8 @@
 								</div>
 							{/if}
 						</div>
+
+						<CameraHistogram {role} active={hasCamera && !calibrating} />
 
 						<button
 							onclick={calibrateFromTarget}

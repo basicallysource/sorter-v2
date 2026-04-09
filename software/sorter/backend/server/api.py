@@ -52,6 +52,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method != "GET":
+            if shared_state.gc_ref is not None:
+                shared_state.gc_ref.logger.info(f"[API] {request.method} {request.url.path}")
+        response: Response = await call_next(request)
+        return response
+
+app.add_middleware(RequestLoggingMiddleware)
+
 def _load_saved_api_keys_into_environment() -> None:
     saved_api_keys = getApiKeys()
     if saved_api_keys.get("openrouter"):
@@ -653,14 +667,6 @@ def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
         setChannelPolygons(body["channel"])
     if "classification" in body:
         setClassificationPolygons(body["classification"])
-
-    # Reload region provider and re-initialize overlays so the MJPEG stream
-    # immediately reflects the updated zone polygons.
-    vm = shared_state.vision_manager
-    if vm is not None:
-        from vision.handdrawn_region_provider import HanddrawnRegionProvider
-        if isinstance(vm._region_provider, HanddrawnRegionProvider):
-            vm._region_provider.reloadPolygons()
-        vm._initOverlays()
-
+    if "channel" in body and shared_state.vision_manager is not None:
+        shared_state.vision_manager.reloadPolygons()
     return {"ok": True}

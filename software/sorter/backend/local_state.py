@@ -29,6 +29,7 @@ _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
+_STATE_KEY_BIN_LAYOUT = "bin_layout"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
@@ -1218,3 +1219,12 @@ def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KN
     existing = [entry for entry in get_recent_known_objects() if entry.get("uuid") != uuid]
     next_entries = [normalized, *existing][: max(1, int(limit))]
     _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)
+
+
+def get_bin_layout() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_BIN_LAYOUT)
+    return value if isinstance(value, dict) else None
+
+
+def set_bin_layout(layout: dict[str, Any] | None) -> None:
+    _write_state(_STATE_KEY_BIN_LAYOUT, dict(layout) if layout is not None else None)

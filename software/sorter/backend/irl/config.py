@@ -16,14 +16,13 @@ if TYPE_CHECKING:
     from machine_platform.control_board import ControlBoard
     from machine_platform.machine_profile import MachineProfile
     from machine_platform.servo_controller import ServoController
-    from hardware.sorter_interface import StepperMotor, ServoMotor
+    from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalInputPin
+    from subsystems.classification.carousel_hardware import CarouselHardware
     from subsystems.distribution.chute import Chute
 
 from .bin_layout import (
     getBinLayout,
     BinLayoutConfig,
-    LayerConfig,
-    DEFAULT_BIN_LAYOUT,
     DistributionLayout,
     mkLayoutFromConfig,
     layoutMatchesCategories,
@@ -39,6 +38,7 @@ from .parse_user_toml import (
     loadStepperDirectionInverts,
     loadServoChannelConfig,
     loadWaveshareServoConfig,
+    loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
@@ -310,6 +310,8 @@ class IRLConfig:
 
 class IRLInterface:
     carousel_stepper: "StepperMotor"
+    carousel_home_pin: "DigitalInputPin"
+    carousel_hw: "CarouselHardware"
     chute_stepper: "StepperMotor"
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
@@ -849,6 +851,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     }
 
     stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
+    feeder_board: "ControlBoard | None" = None
     distribution_board: "ControlBoard | None" = None
 
     for board in control_boards:
@@ -867,6 +870,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                     board,
                 )
             )
+        if board.identity.role == "feeder":
+            feeder_board = board
         if board.identity.role == "distribution":
             distribution_board = board
 
@@ -958,22 +963,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
 
     bin_layout = config.bin_layout_config
-    if machine_config.layer_sections:
-        previous_layers = config.bin_layout_config.layers
-        bin_layout = BinLayoutConfig(
-            layers=[
-                LayerConfig(
-                    sections=sections,
-                    enabled=(
-                        previous_layers[index].enabled
-                        if index < len(previous_layers)
-                        else True
-                    ),
-                )
-                for index, sections in enumerate(machine_config.layer_sections)
-            ]
-        )
-
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
@@ -996,12 +985,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             irl_interface.distribution_layout
         )
         for layer_index, servo in enumerate(irl_interface.servos):
-            open_angle = machine_config.servo_open_angle_overrides.get(
-                layer_index, servo_open_angle
-            )
-            closed_angle = machine_config.servo_closed_angle_overrides.get(
-                layer_index, servo_closed_angle
-            )
+            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
+            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+            open_angle = layer_open if layer_open is not None else servo_open_angle
+            closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
             if hasattr(servo, "set_preset_angles"):
                 servo.set_preset_angles(open_angle, closed_angle)
         restore_servo_states(irl_interface.servos, gc)
@@ -1022,30 +1009,34 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         else:
             gc.logger.warn("Saved bin categories don't match layout, ignoring")
 
+    from subsystems.classification.carousel_hardware import CarouselHardware
+    carousel_calibration = loadCarouselCalibrationConfig(gc, machine_specific_params)
+
+    if feeder_board is None:
+        raise RuntimeError("Feeder board not found — cannot initialize carousel homing")
+    carousel_home_pin = feeder_board.get_input(carousel_calibration.home_pin_channel)
+    if carousel_home_pin is None:
+        raise RuntimeError(
+            f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
+        )
+    irl_interface.carousel_home_pin = carousel_home_pin
+    irl_interface.carousel_hw = CarouselHardware(
+        gc,
+        irl_interface.carousel_stepper,
+        carousel_home_pin,
+        endstop_active_high=carousel_calibration.endstop_active_high,
+    )
+
     from subsystems.distribution.chute import Chute
+    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
-    chute_home_pin = distribution_board.get_input("chute_home")
+    chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
     if chute_home_pin is None:
-        gc.logger.warning(
-            "Distribution board does not declare a chute_home input alias; "
-            "falling back to digital input channel 3."
+        raise RuntimeError(
+            f"Distribution board chute home input channel {chute_calibration.home_pin_channel} is unavailable."
         )
-        chute_home_pin = distribution_board.get_input(3)
-    if chute_home_pin is None:
-        raise RuntimeError("Distribution board chute home input is unavailable.")
-
-    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
-    _run_stepper_init_command_with_retry(
-        gc,
-        "chute_stepper",
-        f"speed limits min=16 max={chute_calibration.operating_speed_microsteps_per_second}",
-        lambda: irl_interface.chute_stepper.set_speed_limits(
-            16,
-            chute_calibration.operating_speed_microsteps_per_second,
-        ),
-    )
     irl_interface.chute = Chute(
         gc,
         irl_interface.chute_stepper,

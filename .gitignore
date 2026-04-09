@@ -16,3 +16,5 @@
 /docs/.sass-cache/
 /docs/vendor/
 /docs/.bundle/
+
+.DS_Store

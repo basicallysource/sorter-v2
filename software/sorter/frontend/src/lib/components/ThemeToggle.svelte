@@ -12,7 +12,8 @@
 	onclick={toggleTheme}
 	aria-label={$settings.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 	title={$settings.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-	class="inline-flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
+	class="inline-flex items-center gap-2 border border-border bg-surface px-3 text-sm text-text transition-colors hover:bg-bg"
+	style="height: var(--header-btn-h);"
 >
 	{#if $settings.theme === 'dark'}
 		<Sun size={16} />

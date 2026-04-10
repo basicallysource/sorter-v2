@@ -152,12 +152,24 @@ class CameraColorProfile:
     enabled: bool
     matrix: list[list[float]]
     bias: list[float]
+    response_lut_r: list[float] | None
+    response_lut_g: list[float] | None
+    response_lut_b: list[float] | None
+    gamma_a: list[float] | None
+    gamma_exp: list[float] | None
+    gamma_b: list[float] | None
 
     def __init__(
         self,
         enabled: bool = False,
         matrix: list[list[float]] | None = None,
         bias: list[float] | None = None,
+        response_lut_r: list[float] | None = None,
+        response_lut_g: list[float] | None = None,
+        response_lut_b: list[float] | None = None,
+        gamma_a: list[float] | None = None,
+        gamma_exp: list[float] | None = None,
+        gamma_b: list[float] | None = None,
     ):
         self.enabled = enabled
         self.matrix = matrix or [
@@ -166,6 +178,12 @@ class CameraColorProfile:
             [0.0, 0.0, 1.0],
         ]
         self.bias = bias or [0.0, 0.0, 0.0]
+        self.response_lut_r = response_lut_r
+        self.response_lut_g = response_lut_g
+        self.response_lut_b = response_lut_b
+        self.gamma_a = gamma_a
+        self.gamma_exp = gamma_exp
+        self.gamma_b = gamma_b
 
 
 class StepperConfig:
@@ -437,11 +455,23 @@ def mkCameraColorProfile(
     enabled: bool = False,
     matrix: list[list[float]] | None = None,
     bias: list[float] | None = None,
+    response_lut_r: list[float] | None = None,
+    response_lut_g: list[float] | None = None,
+    response_lut_b: list[float] | None = None,
+    gamma_a: list[float] | None = None,
+    gamma_exp: list[float] | None = None,
+    gamma_b: list[float] | None = None,
 ) -> CameraColorProfile:
     return CameraColorProfile(
         enabled=enabled,
         matrix=matrix,
         bias=bias,
+        response_lut_r=response_lut_r,
+        response_lut_g=response_lut_g,
+        response_lut_b=response_lut_b,
+        gamma_a=gamma_a,
+        gamma_exp=gamma_exp,
+        gamma_b=gamma_b,
     )
 
 
@@ -476,10 +506,23 @@ def clampCameraColorProfile(profile: CameraColorProfile) -> CameraColorProfile:
     while len(bias_values) < 3:
         bias_values.append(0.0)
 
+    def _parse_float_list(attr_name: str, length: int) -> list[float] | None:
+        raw = getattr(profile, attr_name, None)
+        if not isinstance(raw, list) or len(raw) < length:
+            return None
+        values = [_number(v, 0.0) for v in raw[:length]]
+        return values
+
     return mkCameraColorProfile(
         enabled=bool(getattr(profile, "enabled", False)),
         matrix=matrix_rows,
         bias=bias_values,
+        response_lut_r=_parse_float_list("response_lut_r", 256),
+        response_lut_g=_parse_float_list("response_lut_g", 256),
+        response_lut_b=_parse_float_list("response_lut_b", 256),
+        gamma_a=_parse_float_list("gamma_a", 3),
+        gamma_exp=_parse_float_list("gamma_exp", 3),
+        gamma_b=_parse_float_list("gamma_b", 3),
     )
 
 
@@ -492,17 +535,36 @@ def parseCameraColorProfile(raw: object) -> CameraColorProfile:
             enabled=bool(raw.get("enabled", False)),
             matrix=raw.get("matrix") if isinstance(raw.get("matrix"), list) else None,
             bias=raw.get("bias") if isinstance(raw.get("bias"), list) else None,
+            response_lut_r=raw.get("response_lut_r") if isinstance(raw.get("response_lut_r"), list) else None,
+            response_lut_g=raw.get("response_lut_g") if isinstance(raw.get("response_lut_g"), list) else None,
+            response_lut_b=raw.get("response_lut_b") if isinstance(raw.get("response_lut_b"), list) else None,
+            gamma_a=raw.get("gamma_a") if isinstance(raw.get("gamma_a"), list) else None,
+            gamma_exp=raw.get("gamma_exp") if isinstance(raw.get("gamma_exp"), list) else None,
+            gamma_b=raw.get("gamma_b") if isinstance(raw.get("gamma_b"), list) else None,
         )
     )
 
 
 def cameraColorProfileToDict(profile: CameraColorProfile) -> dict[str, object]:
     clamped = clampCameraColorProfile(profile)
-    return {
+    result: dict[str, object] = {
         "enabled": clamped.enabled,
         "matrix": [[float(value) for value in row] for row in clamped.matrix],
         "bias": [float(value) for value in clamped.bias],
     }
+    if clamped.response_lut_r is not None:
+        result["response_lut_r"] = [float(v) for v in clamped.response_lut_r]
+    if clamped.response_lut_g is not None:
+        result["response_lut_g"] = [float(v) for v in clamped.response_lut_g]
+    if clamped.response_lut_b is not None:
+        result["response_lut_b"] = [float(v) for v in clamped.response_lut_b]
+    if clamped.gamma_a is not None:
+        result["gamma_a"] = [float(v) for v in clamped.gamma_a]
+    if clamped.gamma_exp is not None:
+        result["gamma_exp"] = [float(v) for v in clamped.gamma_exp]
+    if clamped.gamma_b is not None:
+        result["gamma_b"] = [float(v) for v in clamped.gamma_b]
+    return result
 
 
 def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:

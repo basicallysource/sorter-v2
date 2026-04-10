@@ -80,7 +80,11 @@ class ScServoBus:
             self._serial.reset_input_buffer()
             self._serial.write(pkt)
             self._serial.flush()
-            time.sleep(0.0005)
+
+            # Half-duplex bus echoes our TX back on RX — drain the echo
+            echo = self._serial.read(len(pkt))
+            if len(echo) < len(pkt):
+                return None  # bus didn't even echo fully — nothing connected
 
             header = self._serial.read(5)
             if len(header) < 5 or header[0] != 0xFF or header[1] != 0xFF:

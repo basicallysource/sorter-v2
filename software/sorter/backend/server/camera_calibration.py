@@ -109,8 +109,34 @@ class CalibrationAnalysis:
         }
 
 
+def _linearize_rgb(
+    rgb_01: np.ndarray,
+    response_curve: dict[str, Any] | None,
+) -> np.ndarray:
+    """Linearize RGB [0,1] values using response curve LUT. Falls back to identity."""
+    if response_curve is None:
+        return rgb_01
+    lut_r = response_curve.get("lut_r")
+    lut_g = response_curve.get("lut_g")
+    lut_b = response_curve.get("lut_b")
+    if not lut_r or not lut_g or not lut_b:
+        return rgb_01
+    lut = np.stack([
+        np.array(lut_r, dtype=np.float32),
+        np.array(lut_g, dtype=np.float32),
+        np.array(lut_b, dtype=np.float32),
+    ], axis=1)  # (256, 3)
+    # Convert [0,1] → uint8 indices, look up linear values
+    indices = np.clip((rgb_01 * 255.0).astype(np.int32), 0, 255)
+    result = np.empty_like(rgb_01)
+    for c in range(3):
+        result[:, c] = lut[indices[:, c], c]
+    return result
+
+
 def generate_color_profile_from_analysis(
     analysis: CalibrationAnalysis | dict[str, Any] | None,
+    response_curve: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     if isinstance(analysis, CalibrationAnalysis):
         tile_samples = analysis.tile_samples
@@ -123,8 +149,6 @@ def generate_color_profile_from_analysis(
     observed_rows: list[list[float]] = []
     target_rows: list[list[float]] = []
     weights: list[float] = []
-    white_samples: list[np.ndarray] = []
-    black_samples: list[np.ndarray] = []
 
     for tile_label, raw_sample in tile_samples.items():
         if not isinstance(raw_sample, dict):
@@ -143,14 +167,12 @@ def generate_color_profile_from_analysis(
         observed = np.array([float(value) / 255.0 for value in mean_rgb], dtype=np.float32)
         target_rgb = REFERENCE_TILE_RGB[expected_label]
         target = np.array([float(channel) / 255.0 for channel in target_rgb], dtype=np.float32)
-        observed_rows.append([float(observed[0]), float(observed[1]), float(observed[2])])
-        target_rows.append([float(target[0]), float(target[1]), float(target[2])])
+        observed_rows.append(observed.tolist())
+        target_rows.append(target.tolist())
         if expected_label == "white":
             weights.append(1.8)
-            white_samples.append(observed)
         elif expected_label == "black":
             weights.append(1.9)
-            black_samples.append(observed)
         elif expected_label == "yellow":
             weights.append(1.15)
         else:
@@ -159,55 +181,86 @@ def generate_color_profile_from_analysis(
     if len(observed_rows) < 4:
         return None
 
-    x = np.array(observed_rows, dtype=np.float32)
-    y = np.array(target_rows, dtype=np.float32)
+    x_raw = np.array(observed_rows, dtype=np.float32)  # (N, 3)
+    y = np.array(target_rows, dtype=np.float32)         # (N, 3)
 
-    reference_white = np.array(REFERENCE_TILE_RGB["white"], dtype=np.float32) / 255.0
-    reference_black = np.array(REFERENCE_TILE_RGB["black"], dtype=np.float32) / 255.0
-    if white_samples:
-        observed_white = np.mean(np.stack(white_samples, axis=0), axis=0)
-    else:
-        observed_white = np.max(x, axis=0)
-    if black_samples:
-        observed_black = np.mean(np.stack(black_samples, axis=0), axis=0)
-    else:
-        observed_black = np.min(x, axis=0)
+    # Linearize observed values using response curve
+    x = _linearize_rgb(x_raw, response_curve)
+    # Also linearize targets if response curve is available (targets are in display space)
+    y_linear = _linearize_rgb(y, response_curve)
 
-    neutral_span = np.maximum(observed_white - observed_black, 0.05)
-    neutral_scale = np.clip((reference_white - reference_black) / neutral_span, 0.45, 3.0)
-    neutral_bias = np.clip(reference_black - observed_black * neutral_scale, -0.25, 0.25)
-
-    normalized = np.clip((x * neutral_scale) + neutral_bias, 0.0, 1.0)
+    # Affine CCM: solve [x, 1] @ W = y  (W is 4×3, includes offset)
     w = np.sqrt(np.array(weights, dtype=np.float32)).reshape(-1, 1)
-    xw = normalized * w
-    yw = y * w
+    x_aug = np.hstack([x, np.ones((x.shape[0], 1), dtype=np.float32)])  # (N, 4)
+    xw = x_aug * w
+    yw = y_linear * w
 
-    identity_prior = 0.3
-    x_prior = np.eye(3, dtype=np.float32) * identity_prior
-    y_prior = np.eye(3, dtype=np.float32) * identity_prior
+    # Regularization toward identity + zero offset
+    reg_strength = 0.3
+    x_prior = np.eye(4, 3, dtype=np.float32) * reg_strength  # top 3×3 = identity, bottom row = 0
+    y_prior = np.eye(3, dtype=np.float32) * reg_strength
 
-    residual_matrix, _, _, _ = np.linalg.lstsq(
+    W, _, _, _ = np.linalg.lstsq(
         np.vstack([xw, x_prior]),
         np.vstack([yw, y_prior]),
         rcond=None,
     )
 
-    residual_matrix = np.clip(residual_matrix.T, -2.0, 2.0)
-    neutral_matrix = np.diag(neutral_scale.astype(np.float32))
-    matrix = residual_matrix @ neutral_matrix
-    bias = residual_matrix @ neutral_bias
-    bias = np.clip(bias, -0.2, 0.2)
+    matrix = np.clip(W[:3, :].T, -2.0, 2.0)  # (3, 3)
+    bias = np.clip(W[3, :], -0.3, 0.3)        # (3,)
 
+    # Apply CCM to check residuals
     corrected = np.clip(x @ matrix.T + bias, 0.0, 1.0)
-    errors = np.linalg.norm(corrected - y, axis=1)
 
-    return {
+    # Per-channel gamma correction from residuals
+    gamma_a = [1.0, 1.0, 1.0]
+    gamma_exp = [1.0, 1.0, 1.0]
+    gamma_b = [0.0, 0.0, 0.0]
+
+    for c in range(3):
+        pred = corrected[:, c]
+        target_c = y_linear[:, c]
+        # Fit: target = a * pred^gamma + b
+        # Simple approach: if we have enough dynamic range, estimate gamma
+        valid = pred > 0.01
+        if np.sum(valid) >= 3:
+            log_pred = np.log(pred[valid])
+            log_target = np.log(np.clip(target_c[valid], 1e-6, None))
+            # Linear regression in log space: log(target) = gamma * log(pred) + log(a)
+            A_log = np.vstack([log_pred, np.ones(np.sum(valid))]).T
+            params, _, _, _ = np.linalg.lstsq(A_log, log_target, rcond=None)
+            fitted_gamma = float(np.clip(params[0], 0.5, 2.0))
+            fitted_a = float(np.clip(np.exp(params[1]), 0.3, 3.0))
+            gamma_exp[c] = fitted_gamma
+            gamma_a[c] = fitted_a
+
+    # Apply gamma to corrected and compute final error
+    final_corrected = np.empty_like(corrected)
+    for c in range(3):
+        ch = np.clip(corrected[:, c], 0.0, None)
+        final_corrected[:, c] = gamma_a[c] * np.power(ch, gamma_exp[c]) + gamma_b[c]
+    final_corrected = np.clip(final_corrected, 0.0, 1.0)
+    errors = np.linalg.norm(final_corrected - y_linear, axis=1)
+
+    result: dict[str, Any] = {
         "enabled": True,
         "matrix": [[float(value) for value in row] for row in matrix.tolist()],
         "bias": [float(value) for value in bias.tolist()],
+        "gamma_a": [round(v, 6) for v in gamma_a],
+        "gamma_exp": [round(v, 6) for v in gamma_exp],
+        "gamma_b": [round(v, 6) for v in gamma_b],
         "reference_error_mean": float(np.mean(errors)),
         "reference_error_max": float(np.max(errors)),
     }
+
+    # Include response curve LUTs if available
+    if response_curve is not None:
+        for key in ("lut_r", "lut_g", "lut_b"):
+            lut = response_curve.get(key)
+            if isinstance(lut, list) and len(lut) == 256:
+                result[f"response_{key}"] = [round(v, 6) for v in lut]
+
+    return result
 
 
 @dataclass(frozen=True)

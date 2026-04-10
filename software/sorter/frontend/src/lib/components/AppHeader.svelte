@@ -5,7 +5,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { AlertTriangle, Home, Pause, Play, RefreshCw, X } from 'lucide-svelte';
+	import { AlertTriangle, ChevronDown, Home, Pause, Play, Power, RefreshCw, RotateCcw, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -17,6 +17,8 @@
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
 	let hardwareAlertOpen = $state(false);
+	let powerMenuOpen = $state(false);
+	let restartingBackend = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
@@ -72,6 +74,45 @@
 			await fetchState();
 		} catch {
 			// ignore
+		}
+	}
+
+	async function restartBackend() {
+		powerMenuOpen = false;
+		restartingBackend = true;
+		try {
+			await fetch(`${currentBackendBaseUrl()}/api/system/restart`, { method: 'POST' });
+		} catch {
+			// Expected — connection drops during restart
+		}
+		// Poll until backend is back
+		await waitForBackend();
+		restartingBackend = false;
+		void fetchState();
+		void fetchSystemStatus();
+	}
+
+	async function waitForBackend() {
+		// Give it a moment to actually go down
+		await new Promise((r) => setTimeout(r, 1500));
+		const maxAttempts = 60;
+		for (let i = 0; i < maxAttempts; i++) {
+			try {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`, {
+					signal: AbortSignal.timeout(2000)
+				});
+				if (res.ok) return;
+			} catch {
+				// Still down
+			}
+			await new Promise((r) => setTimeout(r, 500));
+		}
+	}
+
+	function handlePowerMenuClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (!target.closest('[data-power-menu]')) {
+			powerMenuOpen = false;
 		}
 	}
 
@@ -191,7 +232,11 @@
 			void fetchState();
 			void fetchSystemStatus();
 		}, 1000);
-		return () => clearInterval(interval);
+		document.addEventListener('click', handlePowerMenuClickOutside);
+		return () => {
+			clearInterval(interval);
+			document.removeEventListener('click', handlePowerMenuClickOutside);
+		};
 	});
 </script>
 
@@ -272,6 +317,39 @@
 					{/if}
 				</button>
 			{/if}
+
+			<div class="relative" data-power-menu>
+				<button
+					onclick={() => (powerMenuOpen = !powerMenuOpen)}
+					class="flex items-center gap-1 p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
+					title="System controls"
+				>
+					<Power size={16} />
+					<ChevronDown size={12} class={`transition-transform duration-150 ${powerMenuOpen ? 'rotate-180' : ''}`} />
+				</button>
+
+				{#if powerMenuOpen}
+					<div class="absolute right-0 top-full z-50 mt-1 min-w-[180px] border border-border bg-surface shadow-lg">
+						<div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+							Service Control
+						</div>
+						<button
+							onclick={restartBackend}
+							class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+						>
+							<RotateCcw size={14} class="text-text-muted" />
+							Restart Backend
+						</button>
+						<button
+							onclick={() => { resetHardwareSystem(); powerMenuOpen = false; }}
+							class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+						>
+							<RefreshCw size={14} class="text-text-muted" />
+							Reset Hardware
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 
@@ -393,6 +471,16 @@
 			</div>
 		</div>
 	</Modal>
+
+	{#if restartingBackend}
+		<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+			<div class="flex flex-col items-center gap-4 border border-border bg-surface px-10 py-8 shadow-lg">
+				<div class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent" style="border-radius: 50%;"></div>
+				<div class="text-sm font-medium text-text">Restarting backend...</div>
+				<div class="text-xs text-text-muted">Waiting for the service to come back online.</div>
+			</div>
+		</div>
+	{/if}
 
 	<Modal bind:open={homingDetailsOpen} title="Hardware Homing">
 		<div class="flex flex-col gap-4">

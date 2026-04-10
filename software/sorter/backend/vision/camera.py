@@ -380,8 +380,46 @@ def apply_camera_color_profile(
     if matrix.shape != (3, 3) or bias.shape != (3,):
         return frame
 
-    rgb = frame[:, :, ::-1].astype(np.float32) / 255.0
+    # Step 1: Linearize via response LUT (if available)
+    has_lut = (
+        current.response_lut_r is not None
+        and current.response_lut_g is not None
+        and current.response_lut_b is not None
+        and len(current.response_lut_r) == 256
+        and len(current.response_lut_g) == 256
+        and len(current.response_lut_b) == 256
+    )
+
+    if has_lut:
+        # Build per-channel LUT: uint8 → float32 linear [0, 1]
+        lut_b = np.array(current.response_lut_b, dtype=np.float32)
+        lut_g = np.array(current.response_lut_g, dtype=np.float32)
+        lut_r = np.array(current.response_lut_r, dtype=np.float32)
+        rgb = np.stack([lut_r[frame[:, :, 2]], lut_g[frame[:, :, 1]], lut_b[frame[:, :, 0]]], axis=-1)
+    else:
+        rgb = frame[:, :, ::-1].astype(np.float32) / 255.0
+
+    # Step 2: Affine CCM (3×3 matrix + bias)
     corrected = np.tensordot(rgb, matrix.T, axes=1) + bias
+
+    # Step 3: Per-channel gamma (if available)
+    has_gamma = (
+        current.gamma_a is not None
+        and current.gamma_exp is not None
+        and current.gamma_b is not None
+        and len(current.gamma_a) == 3
+        and len(current.gamma_exp) == 3
+        and len(current.gamma_b) == 3
+    )
+
+    if has_gamma:
+        ga = current.gamma_a
+        ge = current.gamma_exp
+        gb = current.gamma_b
+        for c in range(3):
+            ch = np.clip(corrected[:, :, c], 0.0, None)
+            corrected[:, :, c] = ga[c] * np.power(ch, ge[c]) + gb[c]
+
     corrected = np.clip(corrected, 0.0, 1.0)
     return np.round(corrected[:, :, ::-1] * 255.0).astype(np.uint8)
 

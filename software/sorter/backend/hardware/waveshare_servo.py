@@ -71,6 +71,39 @@ class ScServoBus:
 
     # -- packet I/O ---------------------------------------------------------
 
+    def _read_packet(self) -> bytes | None:
+        first = self._serial.read(1)
+        if len(first) < 1:
+            return None
+
+        while True:
+            if first == b"\xFF":
+                second = self._serial.read(1)
+                if len(second) < 1:
+                    return None
+                if second == b"\xFF":
+                    break
+                first = second
+                continue
+
+            first = self._serial.read(1)
+            if len(first) < 1:
+                return None
+
+        meta = self._serial.read(3)
+        if len(meta) < 3:
+            return None
+
+        resp_length = meta[1]
+        if resp_length < 2:
+            return None
+
+        tail = self._serial.read(resp_length - 1)
+        if len(tail) < resp_length - 1:
+            return None
+
+        return b"\xFF\xFF" + meta + tail
+
     def _send(self, servo_id: int, instruction: int, params: bytes = b"") -> bytes | None:
         with self._lock:
             length = len(params) + 2
@@ -81,21 +114,29 @@ class ScServoBus:
             self._serial.write(pkt)
             self._serial.flush()
 
-            # Half-duplex bus echoes our TX back on RX — drain the echo
-            echo = self._serial.read(len(pkt))
-            if len(echo) < len(pkt):
-                return None  # bus didn't even echo fully — nothing connected
-
-            header = self._serial.read(5)
-            if len(header) < 5 or header[0] != 0xFF or header[1] != 0xFF:
+            packet = self._read_packet()
+            if packet == pkt:
+                packet = self._read_packet()
+            if packet is None or len(packet) < 6:
                 return None
-            resp_length = header[3]
+
+            response_id = packet[2]
+            resp_length = packet[3]
             if resp_length < 2:
                 return None
-            data = self._serial.read(resp_length - 1)
-            if len(data) < resp_length - 1:
+            error = packet[4]
+            if response_id != servo_id:
                 return None
-            return data  # first byte is error/status, rest is payload
+
+            payload = packet[5:-1]
+            checksum = packet[-1]
+            expected_checksum = _checksum(packet[2:-1])
+            if checksum != expected_checksum:
+                return None
+            if error != 0:
+                return None
+
+            return payload
 
     # -- helpers ------------------------------------------------------------
 

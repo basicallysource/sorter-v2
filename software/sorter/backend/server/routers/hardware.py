@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from irl.bin_layout import getBinLayout, saveBinLayout, BinLayoutConfig, LayerConfig
 from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
+    DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    DEFAULT_CHUTE_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     DEFAULT_SERVO_CLOSED_ANGLE,
@@ -159,6 +161,24 @@ def _coerce_float(value: object, default: float) -> float:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     return default
+
+
+def _coerce_int(value: object, default: int) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return default
+
+
+def _pin_channel(pin: Any | None) -> int | None:
+    channel = getattr(pin, "channel", None)
+    if isinstance(channel, int) and not isinstance(channel, bool):
+        return channel
+
+    channel = getattr(pin, "_channel", None)
+    if isinstance(channel, int) and not isinstance(channel, bool):
+        return channel
+
+    return None
 
 
 def _distribution_layer_count() -> int:
@@ -396,11 +416,21 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 
+    home_pin_channel = _coerce_int(
+        chute.get("home_pin_channel"), DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    )
+    irl = _active_irl()
+    live_chute = getattr(irl, "chute", None) if irl is not None else None
+    live_home_pin_channel = _pin_channel(getattr(live_chute, "home_pin", None))
+    if live_home_pin_channel is not None:
+        home_pin_channel = live_home_pin_channel
+
     return {
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
         "endstop_active_high": endstop_active_high,
         "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
+        "home_pin_channel": home_pin_channel,
     }
 
 
@@ -423,9 +453,14 @@ def _carousel_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(stepper_direction_inverted, bool):
         stepper_direction_inverted = False
 
+    home_pin_channel = _coerce_int(
+        carousel.get("home_pin_channel"), DEFAULT_CAROUSEL_HOME_PIN_CHANNEL
+    )
     irl = _active_irl()
     carousel_hw = getattr(irl, "carousel_hw", None) if irl is not None else None
-    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
+    live_home_pin_channel = _pin_channel(getattr(carousel_hw, "home_pin", None))
+    if live_home_pin_channel is not None:
+        home_pin_channel = live_home_pin_channel
 
     return {
         "endstop_active_high": endstop_active_high,
@@ -500,6 +535,7 @@ def _live_chute_status() -> Dict[str, Any]:
             "stepper_microsteps": None,
             "stepper_stopped": None,
             "digital_inputs": [],
+            "home_pin_channel": None,
         }
 
     chute = getattr(irl, "chute", None)
@@ -517,6 +553,7 @@ def _live_chute_status() -> Dict[str, Any]:
             "stepper_microsteps": None,
             "stepper_stopped": None,
             "digital_inputs": [],
+            "home_pin_channel": None,
         }
 
     status: Dict[str, Any] = {
@@ -529,6 +566,7 @@ def _live_chute_status() -> Dict[str, Any]:
         "stepper_microsteps": None,
         "stepper_stopped": None,
         "digital_inputs": [],
+        "home_pin_channel": _pin_channel(getattr(chute, "home_pin", None)),
     }
 
     try:
@@ -542,7 +580,6 @@ def _live_chute_status() -> Dict[str, Any]:
                 if active_high
                 else not bool(status["raw_endstop_high"])
             )
-        status["home_pin_channel"] = getattr(chute.home_pin, "channel", None)
     except Exception as e:
         status["endstop_error"] = str(e)
 
@@ -605,7 +642,7 @@ def _live_carousel_status() -> Dict[str, Any]:
 
     carousel_hw = getattr(irl, "carousel_hw", None)
     stepper = getattr(irl, "carousel_stepper", None)
-    home_pin_channel = getattr(getattr(carousel_hw, "home_pin", None), "_channel", None)
+    home_pin_channel = _pin_channel(getattr(carousel_hw, "home_pin", None))
 
     if stepper is None or carousel_hw is None:
         return {
@@ -1377,7 +1414,11 @@ def save_chute_hardware_config(
         )
 
     params_path, config = _read_machine_params_config()
+    chute_config = config.get("chute", {})
+    if not isinstance(chute_config, dict):
+        chute_config = {}
     config["chute"] = {
+        **chute_config,
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
         "endstop_active_high": endstop_active_high,

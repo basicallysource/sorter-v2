@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 import sqlite3
@@ -88,6 +89,15 @@ def _connect() -> sqlite3.Connection:
     except OSError:
         pass
     return conn
+
+
+@contextmanager
+def _connection() -> sqlite3.Connection:
+    conn = _connect()
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _read_json_file(path: Path) -> Any | None:
@@ -254,9 +264,46 @@ def _migrate_misc_state_files(conn: sqlite3.Connection) -> None:
 
 
 def _cleanup_machine_params_runtime_sections(conn: sqlite3.Connection) -> None:
-    # Keep migrated runtime sections in machine_params.toml as a compatibility
-    # fallback so older clients can still boot after a rollback.
-    return
+    path = _legacy_machine_params_path()
+    if not path.exists():
+        return
+
+    try:
+        original = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    runtime_roots = {
+        _STATE_KEY_CLASSIFICATION_TRAINING,
+        _STATE_KEY_API_KEYS,
+        _STATE_KEY_HIVE,
+        "sorthive",
+        _STATE_KEY_SORTING_PROFILE_SYNC,
+    }
+
+    cleaned_lines: list[str] = []
+    skipping_block = False
+
+    for line in original.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            header = stripped.strip("[]").strip()
+            table_path = header.split(".", 1)[0].strip()
+            skipping_block = table_path in runtime_roots
+            if skipping_block:
+                continue
+
+        if not skipping_block:
+            cleaned_lines.append(line)
+
+    cleaned = "".join(cleaned_lines)
+    if cleaned == original:
+        return
+
+    try:
+        path.write_text(cleaned, encoding="utf-8")
+    except OSError:
+        return
 
 
 def _migrate_renamed_state_keys(conn: sqlite3.Connection) -> None:
@@ -273,7 +320,7 @@ def _migrate_renamed_state_keys(conn: sqlite3.Connection) -> None:
 
 def initialize_local_state() -> None:
     with _STATE_INIT_LOCK:
-        with _connect() as conn:
+        with _connection() as conn:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS metadata ("
                 "key TEXT PRIMARY KEY, "
@@ -403,13 +450,13 @@ def initialize_local_state() -> None:
 
 def _read_state(key: str) -> Any | None:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         return _get_json(conn, key)
 
 
 def _write_state(key: str, value: Any | None) -> None:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         if value is None:
             _delete_key(conn, key)
         else:
@@ -614,7 +661,7 @@ def get_checklist_state_for_set(set_num: str) -> dict[tuple[str, str], dict[str,
         return {}
     initialize_local_state()
     out: dict[tuple[str, str], dict[str, Any]] = {}
-    with _connect() as conn:
+    with _connection() as conn:
         cursor = conn.execute(
             "SELECT part_num, color_id, manual_override_count, user_state, updated_at "
             "FROM checklist_part_state WHERE set_num = ?",
@@ -660,7 +707,7 @@ def set_checklist_part_state(
 
     now = time.time()
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         if manual_override_count is None and user_state == "auto":
             conn.execute(
                 "DELETE FROM checklist_part_state "
@@ -785,7 +832,7 @@ def _ensure_active_sorting_session_conn(
 
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         session = _ensure_active_sorting_session_conn(conn, force_new=True, reason=reason)
         conn.commit()
         return session
@@ -793,7 +840,7 @@ def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str,
 
 def get_active_sorting_session() -> dict[str, Any] | None:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
         if not active_session_id:
             return None
@@ -847,7 +894,7 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
         return
 
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         session = _ensure_active_sorting_session_conn(conn, force_new=False)
         session_id = str(session["id"])
         bin_epoch = _ensure_bin_state_row_conn(
@@ -942,7 +989,7 @@ def clear_current_session_bins(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
         if not active_session_id:
             return {"ok": True, "cleared_bins": 0}
@@ -1019,7 +1066,7 @@ def clear_current_session_bins(
 
 def get_current_bin_contents_snapshot() -> dict[str, Any]:
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
         if not active_session_id:
             return {"session": None, "bins": []}
@@ -1093,7 +1140,7 @@ def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "sna
         return {"imported_bins": 0}
 
     initialize_local_state()
-    with _connect() as conn:
+    with _connection() as conn:
         session = _ensure_active_sorting_session_conn(conn, force_new=False, reason=reason)
         session_id = str(session["id"])
         imported_bins = 0

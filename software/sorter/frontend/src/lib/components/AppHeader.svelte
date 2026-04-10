@@ -284,11 +284,13 @@
 			<SortingProfileDropdown />
 			<MachineDropdown />
 
-			{#if hardwareState === 'standby' || hardwareState === 'error'}
+			{#if hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'}
 				<button
 					onclick={homeSystem}
 					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
-					title="Initialize hardware and home all axes"
+					title={hardwareState === 'initialized'
+						? 'Home all axes'
+						: 'Initialize hardware and home all axes'}
 				>
 					<Home size={14} />
 					Home

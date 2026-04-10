@@ -24,6 +24,10 @@ DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
 DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
+# Matches the SKR Pico feeder Z-STOP wiring used by the setup wizard.
+DEFAULT_CAROUSEL_HOME_PIN_CHANNEL = 1
+# Matches the SKR Pico distribution E0-STOP wiring used by the setup wizard.
+DEFAULT_CHUTE_HOME_PIN_CHANNEL = 3
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
 
@@ -373,13 +377,13 @@ class WaveshareServoConfig:
 
 @dataclass
 class CarouselCalibrationConfig:
-    home_pin_channel: int = 0
+    home_pin_channel: int = DEFAULT_CAROUSEL_HOME_PIN_CHANNEL
     endstop_active_high: bool = False
 
 
 @dataclass
 class ChuteCalibrationConfig:
-    home_pin_channel: int = 0
+    home_pin_channel: int = DEFAULT_CHUTE_HOME_PIN_CHANNEL
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
@@ -496,12 +500,15 @@ def loadChuteCalibrationConfig(
         gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
         return ChuteCalibrationConfig()
 
-    home_pin_channel = chute_params.get("home_pin_channel", 0)
+    home_pin_channel = chute_params.get(
+        "home_pin_channel", DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    )
     if not isinstance(home_pin_channel, int) or isinstance(home_pin_channel, bool):
         gc.logger.warning(
-            f"Invalid chute.home_pin_channel={home_pin_channel!r}; using default 0."
+            "Invalid chute.home_pin_channel=%r; using default %d."
+            % (home_pin_channel, DEFAULT_CHUTE_HOME_PIN_CHANNEL)
         )
-        home_pin_channel = 0
+        home_pin_channel = DEFAULT_CHUTE_HOME_PIN_CHANNEL
 
     first_bin_center = chute_params.get(
         "first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER
@@ -588,12 +595,15 @@ def loadCarouselCalibrationConfig(
         gc.logger.warning("Ignoring invalid carousel config: expected object. Using defaults.")
         return CarouselCalibrationConfig()
 
-    home_pin_channel = carousel_params.get("home_pin_channel", 0)
+    home_pin_channel = carousel_params.get(
+        "home_pin_channel", DEFAULT_CAROUSEL_HOME_PIN_CHANNEL
+    )
     if not isinstance(home_pin_channel, int) or isinstance(home_pin_channel, bool):
         gc.logger.warning(
-            f"Invalid carousel.home_pin_channel={home_pin_channel!r}; using default 0."
+            "Invalid carousel.home_pin_channel=%r; using default %d."
+            % (home_pin_channel, DEFAULT_CAROUSEL_HOME_PIN_CHANNEL)
         )
-        home_pin_channel = 0
+        home_pin_channel = DEFAULT_CAROUSEL_HOME_PIN_CHANNEL
 
     endstop_active_high = carousel_params.get("endstop_active_high", False)
     if not isinstance(endstop_active_high, bool):

@@ -1,9 +1,11 @@
 import json
+import local_state
 import os
 from pathlib import Path
 import tempfile
 import tomllib
 import unittest
+from unittest.mock import patch
 
 from local_state import (
     clear_current_session_bins,
@@ -206,6 +208,23 @@ class LocalStateMigrationTests(unittest.TestCase):
         clear_current_session_bins(scope="bin", layer_index=0, section_index=0, bin_index=0)
         cleared = get_current_bin_contents_snapshot()
         self.assertEqual([], cleared["bins"])
+
+    def test_connection_context_closes_sqlite_connections(self) -> None:
+        class FakeConnection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        fake_conn = FakeConnection()
+
+        with patch("local_state._connect", return_value=fake_conn):
+            with local_state._connection() as conn:
+                self.assertIs(fake_conn, conn)
+                self.assertFalse(fake_conn.closed)
+
+        self.assertTrue(fake_conn.closed)
 
 
 if __name__ == "__main__":

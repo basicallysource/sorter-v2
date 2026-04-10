@@ -8,6 +8,7 @@
 		endstop_triggered: boolean | null;
 		raw_endstop_high: boolean | null;
 		endstop_active_high: boolean | null;
+		endstop_error?: string;
 		stepper_direction_inverted: boolean | null;
 		current_position_degrees: number | null;
 		stepper_microsteps: number | null;
@@ -23,6 +24,7 @@
 		endstop_triggered: boolean | null;
 		raw_endstop_high: boolean | null;
 		endstop_active_high: boolean | null;
+		endstop_error?: string;
 		current_angle: number | null;
 		stepper_position_degrees: number | null;
 		stepper_microsteps: number | null;
@@ -92,6 +94,27 @@
 		);
 	}
 
+	function optionalChannel(value: unknown): number | null {
+		return typeof value === 'number' && Number.isInteger(value) ? value : null;
+	}
+
+	function endstopStatusLabel(
+		triggered: boolean | null,
+		error: string | undefined,
+		liveAvailable: boolean
+	): string {
+		if (error) return 'Read error';
+		if (!liveAvailable) return 'Offline';
+		if (triggered === null) return '--';
+		return triggered ? 'Triggered' : 'Not triggered';
+	}
+
+	function endstopStatusClass(triggered: boolean | null, error: string | undefined): string {
+		if (error) return 'border-[#D01012] bg-[#FBE4E5] text-[#7A0A0B]';
+		if (triggered) return 'border-[#00852B] bg-[#D4EDDA] text-[#00852B]';
+		return 'border-border bg-bg text-text-muted';
+	}
+
 	async function loadSystemStatus() {
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
@@ -111,16 +134,23 @@
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/carousel`),
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/carousel/live`)
 			]);
+			let configuredHomePinChannel: number | null = null;
 			if (configRes.ok) {
 				const configPayload = await configRes.json();
 				carouselEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? false);
+				configuredHomePinChannel = optionalChannel(configPayload?.home_pin_channel);
 			}
 			if (liveRes.ok) {
 				const livePayload = (await liveRes.json()) as CarouselLiveStatus;
-				carouselLive = livePayload;
+				carouselLive = {
+					...livePayload,
+					home_pin_channel: livePayload.home_pin_channel ?? configuredHomePinChannel
+				};
 				if (typeof livePayload.endstop_active_high === 'boolean') {
 					carouselEndstopActiveHigh = livePayload.endstop_active_high;
 				}
+			} else {
+				carouselLive = { ...carouselLive, home_pin_channel: configuredHomePinChannel };
 			}
 		} finally {
 			carouselLoading = false;
@@ -134,18 +164,25 @@
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/chute`),
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/chute/live`)
 			]);
+			let configuredHomePinChannel: number | null = null;
 			if (configRes.ok) {
 				const configPayload = await configRes.json();
 				chuteFirstBinCenter = Number(configPayload?.first_bin_center ?? 8.25);
 				chutePillarWidthDeg = Number(configPayload?.pillar_width_deg ?? 8.25);
 				chuteEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? true);
+				configuredHomePinChannel = optionalChannel(configPayload?.home_pin_channel);
 			}
 			if (liveRes.ok) {
 				const livePayload = (await liveRes.json()) as ChuteLiveStatus;
-				chuteLive = livePayload;
+				chuteLive = {
+					...livePayload,
+					home_pin_channel: livePayload.home_pin_channel ?? configuredHomePinChannel
+				};
 				if (typeof livePayload.endstop_active_high === 'boolean') {
 					chuteEndstopActiveHigh = livePayload.endstop_active_high;
 				}
+			} else {
+				chuteLive = { ...chuteLive, home_pin_channel: configuredHomePinChannel };
 			}
 		} finally {
 			chuteLoading = false;
@@ -430,21 +467,35 @@
 			</div>
 
 			<div
-				class={`mt-3 flex items-center justify-between border px-4 py-3 transition-colors ${
-					carouselLive.endstop_triggered
-						? 'border-[#00852B] bg-[#D4EDDA] text-[#00852B]'
-						: 'border-border bg-bg text-text-muted'
-				}`}
+				class={`mt-3 flex items-center justify-between border px-4 py-3 transition-colors ${endstopStatusClass(
+					carouselLive.endstop_triggered,
+					carouselLive.endstop_error
+				)}`}
 			>
 				<span class="text-xs tracking-[0.16em] uppercase">Carousel endstop</span>
 				<span class="text-base font-semibold">
-					{carouselLive.endstop_triggered === null
-						? '--'
-						: carouselLive.endstop_triggered
-							? 'Triggered'
-							: 'Not triggered'}
+					{endstopStatusLabel(
+						carouselLive.endstop_triggered,
+						carouselLive.endstop_error,
+						carouselLive.live_available
+					)}
 				</span>
 			</div>
+			<div class="mt-2 text-[11px] text-text-muted">
+				Input channel
+				<span class="font-medium text-text"> {carouselLive.home_pin_channel ?? '--'}</span>
+				{#if carouselLive.raw_endstop_high !== null}
+					· raw signal
+					<span class="font-medium text-text">
+						{carouselLive.raw_endstop_high ? 'HIGH' : 'LOW'}
+					</span>
+				{/if}
+			</div>
+			{#if carouselLive.endstop_error}
+				<div class="mt-2 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]">
+					Live endstop read failed: {carouselLive.endstop_error}
+				</div>
+			{/if}
 
 			<div class="mt-3">
 				<button
@@ -513,21 +564,35 @@
 			</div>
 
 			<div
-				class={`mt-3 flex items-center justify-between border px-4 py-3 transition-colors ${
-					chuteLive.endstop_triggered
-						? 'border-[#00852B] bg-[#D4EDDA] text-[#00852B]'
-						: 'border-border bg-bg text-text-muted'
-				}`}
+				class={`mt-3 flex items-center justify-between border px-4 py-3 transition-colors ${endstopStatusClass(
+					chuteLive.endstop_triggered,
+					chuteLive.endstop_error
+				)}`}
 			>
 				<span class="text-xs tracking-[0.16em] uppercase">Chute endstop</span>
 				<span class="text-base font-semibold">
-					{chuteLive.endstop_triggered === null
-						? '--'
-						: chuteLive.endstop_triggered
-							? 'Triggered'
-							: 'Not triggered'}
+					{endstopStatusLabel(
+						chuteLive.endstop_triggered,
+						chuteLive.endstop_error,
+						chuteLive.live_available
+					)}
 				</span>
 			</div>
+			<div class="mt-2 text-[11px] text-text-muted">
+				Input channel
+				<span class="font-medium text-text"> {chuteLive.home_pin_channel ?? '--'}</span>
+				{#if chuteLive.raw_endstop_high !== null}
+					· raw signal
+					<span class="font-medium text-text">
+						{chuteLive.raw_endstop_high ? 'HIGH' : 'LOW'}
+					</span>
+				{/if}
+			</div>
+			{#if chuteLive.endstop_error}
+				<div class="mt-2 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]">
+					Live endstop read failed: {chuteLive.endstop_error}
+				</div>
+			{/if}
 
 			<div class="mt-4 grid gap-3 sm:grid-cols-2">
 				<label class="flex flex-col gap-1 text-sm">

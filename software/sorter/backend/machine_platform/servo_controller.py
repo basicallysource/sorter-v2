@@ -311,11 +311,12 @@ class WaveshareServoController(ServoController):
     def _iter_layer_assignments(self, distribution_layout: Any) -> list[tuple[int, LayerServoAssignment]]:
         assignments: list[tuple[int, LayerServoAssignment]] = []
         for index, _layer in enumerate(distribution_layout.layers):
-            if index >= len(self._assignments):
-                raise IndexError(
-                    f"Layer {index} servo not configured. Only {len(self._assignments)} servo.channels defined."
-                )
-            assignments.append((index, self._assignments[index]))
+            assignment = (
+                self._assignments[index]
+                if index < len(self._assignments)
+                else LayerServoAssignment(id=None)
+            )
+            assignments.append((index, assignment))
         return assignments
 
     def _make_offline_servo(

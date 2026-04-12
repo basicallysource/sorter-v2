@@ -54,32 +54,12 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
         ),
         LayerConfig(
             sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
+                ["big"],
+                ["big"],
+                ["big"],
+                ["big"],
+                ["big"],
+                ["big"],
             ],
         ),
     ]
@@ -109,30 +89,37 @@ def mkDefaultLayout() -> DistributionLayout:
 
 
 def extractCategories(layout: DistributionLayout) -> list[list[list[str | None]]]:
-    return [
+    # Reverse so data.json layer order matches TOML config order (bottom-to-top),
+    # since mkLayoutFromConfig stores layers top-first internally.
+    result = [
         [[b.category_id for b in section.bins] for section in layer.sections]
         for layer in layout.layers
     ]
+    return list(reversed(result))
 
 
 def applyCategories(
     layout: DistributionLayout, categories: list[list[list[str | None]]]
 ) -> None:
+    # categories is in TOML order (bottom-to-top); reverse to match internal layout order.
+    reversed_categories = list(reversed(categories))
     for layer_idx, layer in enumerate(layout.layers):
         for section_idx, section in enumerate(layer.sections):
             for bin_idx, b in enumerate(section.bins):
-                b.category_id = categories[layer_idx][section_idx][bin_idx]
+                b.category_id = reversed_categories[layer_idx][section_idx][bin_idx]
 
 
 def layoutMatchesCategories(
     layout: DistributionLayout, categories: list[list[list[str | None]]]
 ) -> bool:
-    if len(categories) != len(layout.layers):
+    # categories is in TOML order (bottom-to-top); reverse to match internal layout order.
+    reversed_categories = list(reversed(categories))
+    if len(reversed_categories) != len(layout.layers):
         return False
     for layer_idx, layer in enumerate(layout.layers):
-        if len(categories[layer_idx]) != len(layer.sections):
+        if len(reversed_categories[layer_idx]) != len(layer.sections):
             return False
         for section_idx, section in enumerate(layer.sections):
-            if len(categories[layer_idx][section_idx]) != len(section.bins):
+            if len(reversed_categories[layer_idx][section_idx]) != len(section.bins):
                 return False
     return True

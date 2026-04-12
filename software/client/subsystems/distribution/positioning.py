@@ -113,13 +113,10 @@ class Positioning(BaseState):
         self.shared.chute_move_in_progress = False
 
     def _selectDoor(self, target_layer_index: int) -> None:
-        target_servo = self.irl.servos[target_layer_index]
-        if not target_servo.isClosed():
-            for i, servo in enumerate(self.irl.servos):
-                if i != target_layer_index and servo.isClosed():
-                    servo.open()
-
-        target_servo.close()
+        for i, servo in enumerate(self.irl.servos):
+            if i != target_layer_index:
+                servo.open()
+        self.irl.servos[target_layer_index].close()
 
     def _findOrAssignBinForCategory(
         self, category_id: str

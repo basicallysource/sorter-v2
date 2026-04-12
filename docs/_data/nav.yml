@@ -38,6 +38,8 @@ sections:
         pages:
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
+          - title: Camera calibration
+            url: /sorter/camera-calibration/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
       - title: Under the hood

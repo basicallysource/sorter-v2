@@ -17,6 +17,7 @@ permalink: /sorter/
 ## Operate
 
 - **[Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }})** — the end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.
+- **[Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }})** — focus with a Siemens Star, then auto-calibrate color with a SpyderCheckr 24.
 - **[Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.
 
 ## Under the hood

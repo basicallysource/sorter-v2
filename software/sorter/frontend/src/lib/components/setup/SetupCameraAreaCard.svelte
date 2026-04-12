@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mjpegStream } from '$lib/actions/mjpegStream';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
@@ -9,6 +10,7 @@
 		label: string;
 		source: number | string | null;
 		previewSrc: string | null;
+		previewKind: 'mjpeg' | 'image';
 	};
 
 	let {
@@ -47,6 +49,10 @@
 
 	function previewForChoice(choice: CameraChoice) {
 		return choice.previewSrc;
+	}
+
+	function previewIsMjpeg(choice: CameraChoice) {
+		return choice.previewKind === 'mjpeg';
 	}
 </script>
 
@@ -114,11 +120,23 @@
 							<div class="min-h-0 flex-1">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										<img
-											src={previewForChoice(choice) ?? undefined}
-											alt={choice.label}
-											class="absolute inset-0 h-full w-full object-contain"
-										/>
+										{#if previewIsMjpeg(choice)}
+											<img
+												use:mjpegStream={{
+													url: previewForChoice(choice) ?? '',
+													firstFrameTimeoutMs: 6000,
+													stallTimeoutMs: 4000
+												}}
+												alt={choice.label}
+												class="absolute inset-0 h-full w-full object-contain"
+											/>
+										{:else}
+											<img
+												src={previewForChoice(choice) ?? undefined}
+												alt={choice.label}
+												class="absolute inset-0 h-full w-full object-contain"
+											/>
+										{/if}
 									{:else}
 										<div class="flex h-full items-center justify-center text-sm text-text-muted">
 											No preview
@@ -174,11 +192,23 @@
 							<div class="aspect-[4/3] min-h-0 bg-surface">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										<img
-											src={previewForChoice(choice) ?? undefined}
-											alt={choice.label}
-											class="absolute inset-0 h-full w-full object-contain"
-										/>
+										{#if previewIsMjpeg(choice)}
+											<img
+												use:mjpegStream={{
+													url: previewForChoice(choice) ?? '',
+													firstFrameTimeoutMs: 6000,
+													stallTimeoutMs: 4000
+												}}
+												alt={choice.label}
+												class="absolute inset-0 h-full w-full object-contain"
+											/>
+										{:else}
+											<img
+												src={previewForChoice(choice) ?? undefined}
+												alt={choice.label}
+												class="absolute inset-0 h-full w-full object-contain"
+											/>
+										{/if}
 									{:else}
 										<div class="flex h-full items-center justify-center text-sm text-text-muted">
 											No preview

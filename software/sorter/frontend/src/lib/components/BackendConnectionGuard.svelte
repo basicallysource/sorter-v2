@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import {
+		backendHttpBaseUrl,
+		machineHttpBaseUrlFromWsUrl,
+		probeBackendConnection,
+		requestBackendRestart,
+		waitForBackend
+	} from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import Modal from '$lib/components/Modal.svelte';
 	import { AlertTriangle, RefreshCw, Power, WifiOff } from 'lucide-svelte';
@@ -9,81 +15,110 @@
 
 	const HEALTH_INTERVAL_MS = 3000;
 	const RECOVERY_POLL_MS = 1500;
+	const FAILURE_THRESHOLD = 3;
+	const TRANSIENT_OUTAGE_GRACE_MS = 12000;
+	const HARD_OUTAGE_GRACE_MS = 6000;
+	const HEARTBEAT_STALE_MS = 15000;
 
 	let healthy = $state(true);
 	let checking = $state(false);
 	let restarting = $state(false);
 	let consecutiveFailures = $state(0);
+	let firstFailureAt = $state<number | null>(null);
+
+	type HealthCheckResult = {
+		backendOk: boolean;
+		showUnavailable: boolean;
+	};
 
 	function baseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
 	}
 
-	async function checkHealth(): Promise<boolean> {
-		try {
-			const res = await fetch(`${baseUrl()}/health`, { signal: AbortSignal.timeout(4000) });
-			return res.ok;
-		} catch {
-			return false;
+	function selectedMachineLooksAlive(): boolean {
+		const machine = manager.selectedMachine;
+		if (!machine || machine.status !== 'connected') return false;
+		if (machine.connection.readyState !== WebSocket.OPEN) return false;
+		if (machine.lastHeartbeat === null) return true;
+		return Date.now() - machine.lastHeartbeat * 1000 < HEARTBEAT_STALE_MS;
+	}
+
+	async function checkHealth(): Promise<HealthCheckResult> {
+		const status = await probeBackendConnection(baseUrl());
+		if (status.backendOk || selectedMachineLooksAlive()) {
+			firstFailureAt = null;
+			restarting = false;
+			return { backendOk: true, showUnavailable: false };
 		}
+
+		consecutiveFailures++;
+		if (firstFailureAt === null) {
+			firstFailureAt = Date.now();
+		}
+
+		const outageMs = Date.now() - firstFailureAt;
+		const supervisorRecovering =
+			status.supervisorOk &&
+			(status.restartRequested ||
+				status.supervisorState === 'restarting' ||
+				!status.backendRunning);
+
+		restarting =
+			status.restartRequested ||
+			status.supervisorState === 'restarting' ||
+			(status.supervisorOk && !status.backendRunning && outageMs >= HARD_OUTAGE_GRACE_MS);
+
+		const graceMs = supervisorRecovering ? TRANSIENT_OUTAGE_GRACE_MS : HARD_OUTAGE_GRACE_MS;
+		return {
+			backendOk: false,
+			showUnavailable: outageMs >= graceMs && consecutiveFailures >= FAILURE_THRESHOLD
+		};
 	}
 
 	async function poll() {
-		const ok = await checkHealth();
-		if (ok) {
+		const result = await checkHealth();
+		if (result.backendOk) {
 			consecutiveFailures = 0;
 			if (!healthy) {
 				healthy = true;
 				restarting = false;
 			}
-		} else {
-			consecutiveFailures++;
-			if (consecutiveFailures >= 2) {
-				healthy = false;
-			}
+		} else if (result.showUnavailable) {
+			healthy = false;
 		}
 	}
 
 	async function retryNow() {
 		checking = true;
-		const ok = await checkHealth();
+		const result = await checkHealth();
 		checking = false;
-		if (ok) {
+		if (result.backendOk) {
 			healthy = true;
 			consecutiveFailures = 0;
+			firstFailureAt = null;
 			restarting = false;
 		}
 	}
 
 	async function restartBackend() {
 		restarting = true;
-		try {
-			await fetch(`${baseUrl()}/api/system/restart`, {
-				method: 'POST',
-				signal: AbortSignal.timeout(4000)
-			});
-		} catch {
-			// Expected — the backend may already be shutting down
+		const currentBaseUrl = baseUrl();
+		const restart = await requestBackendRestart(currentBaseUrl);
+		if (!restart.ok) {
+			restarting = false;
+			return;
 		}
 
-		// Poll until it comes back
-		const maxAttempts = 30;
-		let attempt = 0;
-		const pollRestart = async () => {
-			while (attempt < maxAttempts) {
-				attempt++;
-				await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS));
-				const ok = await checkHealth();
-				if (ok) {
-					healthy = true;
-					consecutiveFailures = 0;
-					restarting = false;
-					return;
-				}
-			}
-			restarting = false;
-		};
-		void pollRestart();
+		const recovered = await waitForBackend(currentBaseUrl, {
+			initialDelayMs: RECOVERY_POLL_MS,
+			intervalMs: RECOVERY_POLL_MS
+		});
+		if (recovered) {
+			healthy = true;
+			consecutiveFailures = 0;
+			firstFailureAt = null;
+		}
+		restarting = false;
 	}
 
 	onMount(() => {
@@ -133,7 +168,7 @@
 					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
 				>
 					<Power size={14} />
-					Restart Backend
+					Hard Restart Backend
 				</button>
 				<button
 					type="button"

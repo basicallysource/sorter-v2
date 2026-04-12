@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mjpegStream } from '$lib/actions/mjpegStream';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -172,10 +173,6 @@
 		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
 	}
 
-	function abortMjpeg(node: HTMLImageElement) {
-		return { destroy() { node.src = ''; } };
-	}
-
 	function streamUrl(): string {
 		return `${backendBaseUrl}/api/cameras/feed/${role}?annotated=false&v=${feedRevision}`;
 	}
@@ -197,8 +194,11 @@
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
 						<img
-							use:abortMjpeg
-							src={streamUrl()}
+							use:mjpegStream={{
+								url: streamUrl(),
+								firstFrameTimeoutMs: 6000,
+								stallTimeoutMs: 4000
+							}}
 							alt={label}
 							class="absolute inset-0 h-full w-full object-contain"
 							style={previewTransformStyle()}

@@ -140,6 +140,7 @@
 		source: number | string | null;
 		label: string;
 		previewSrc: string | null;
+		previewKind: 'mjpeg' | 'image';
 	};
 
 	type PersistedVerificationState = {
@@ -502,14 +503,15 @@
 
 	function cameraChoices(): CameraChoice[] {
 		const base: CameraChoice[] = [
-			{ key: '__none__', source: null, label: 'Not assigned', previewSrc: null }
+			{ key: '__none__', source: null, label: 'Not assigned', previewSrc: null, previewKind: 'image' }
 		];
 		for (const camera of usbCameras) {
 			base.push({
 				key: sourceKey(camera.index),
 				source: camera.index,
 				label: `${camera.name} (Camera ${camera.index})`,
-				previewSrc: `${currentBackendBaseUrl()}/api/cameras/stream/${camera.index}`
+				previewSrc: `${currentBackendBaseUrl()}/api/cameras/stream/${camera.index}`,
+				previewKind: 'mjpeg'
 			});
 		}
 		for (const camera of networkCameras) {
@@ -517,7 +519,8 @@
 				key: sourceKey(camera.source),
 				source: camera.source,
 				label: `${camera.name} (${camera.transport})`,
-				previewSrc: camera.preview_url ?? camera.source
+				previewSrc: camera.preview_url ?? camera.source,
+				previewKind: camera.preview_url ? 'image' : 'mjpeg'
 			});
 		}
 
@@ -534,7 +537,8 @@
 				previewSrc:
 					typeof source === 'number'
 						? `${currentBackendBaseUrl()}/api/cameras/stream/${source}`
-						: source
+						: source,
+				previewKind: 'mjpeg'
 			});
 			seen.add(key);
 		}

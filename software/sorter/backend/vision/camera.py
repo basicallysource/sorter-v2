@@ -22,18 +22,36 @@ if platform.system() == "Darwin":
             apply_controls_for_index as _apply_macos_uvc_controls_for_index,
             describe_controls_for_index as _describe_macos_uvc_controls_for_index,
         )
+        from hardware.macos_camera_registry import refresh_macos_cameras as _refresh_macos_cameras
     except Exception:
         _apply_macos_uvc_controls_for_index = None
         _describe_macos_uvc_controls_for_index = None
+        _refresh_macos_cameras = None
 else:
     _apply_macos_uvc_controls_for_index = None
     _describe_macos_uvc_controls_for_index = None
+    _refresh_macos_cameras = None
 
 
 def _open_capture_source(source: int | str) -> cv2.VideoCapture:
     if isinstance(source, int) and platform.system() == "Darwin":
         return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
     return cv2.VideoCapture(source)
+
+
+def _capture_failure_backoff_s(failure_count: int) -> float:
+    if failure_count <= 0:
+        return 0.0
+    return min(5.0, 0.25 * (2 ** min(failure_count - 1, 4)))
+
+
+def _is_macos_camera_index_available(source: int | str | None) -> bool:
+    if platform.system() != "Darwin" or not isinstance(source, int) or _refresh_macos_cameras is None:
+        return True
+    try:
+        return any(int(camera.index) == source for camera in _refresh_macos_cameras())
+    except Exception:
+        return True
 
 
 def _cv_prop(name: str) -> int | None:
@@ -312,28 +330,29 @@ def describe_camera_device_controls(
 def probe_camera_device_controls(
     source: int | str | None,
     settings: dict[str, int | float | bool] | None = None,
+    *,
+    allow_open_capture: bool = True,
 ) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
     if not isinstance(source, int):
         return [], {}
 
+    normalized_settings = parseCameraDeviceSettingsForCapture(settings)
     macos_controls, macos_settings = _describe_macos_uvc_controls(source)
     if macos_controls:
-        if settings:
-            applied = _apply_macos_uvc_controls(source, settings)
-            return macos_controls, applied or macos_settings
-        return macos_controls, macos_settings
+        return macos_controls, macos_settings or normalized_settings
+
+    if not allow_open_capture:
+        return [], normalized_settings
 
     cap = _open_capture_source(source)
     if not cap.isOpened():
         cap.release()
-        return [], {}
+        return [], normalized_settings
 
     try:
-        if settings:
-            apply_camera_device_settings(cap, settings)
-        controls = describe_camera_device_controls(cap)
+        controls = describe_camera_device_controls(cap, source=source)
         current = read_camera_device_settings(cap)
-        return controls, current
+        return controls, current or normalized_settings
     finally:
         cap.release()
 
@@ -515,7 +534,11 @@ class CaptureThread:
                         return macos_controls, macos_settings
                 return controls, current
 
-        return probe_camera_device_controls(source, self.getDeviceSettings())
+        return probe_camera_device_controls(
+            source,
+            self.getDeviceSettings(),
+            allow_open_capture=False,
+        )
 
     def setCameraSource(self, source: int | str | None) -> None:
         with self._config_lock:
@@ -565,9 +588,19 @@ class CaptureThread:
     def _captureLoop(self) -> None:
         cap: Optional[cv2.VideoCapture] = None
         self._cap = None
+        open_failures = 0
+        read_failures = 0
+        next_open_attempt_at = 0.0
+        previous_source: int | str | None = None
 
         while not self._stop_event.is_set():
             source, is_url, width, height, fps = self._get_config_snapshot()
+
+            if source != previous_source:
+                previous_source = source
+                open_failures = 0
+                read_failures = 0
+                next_open_attempt_at = 0.0
 
             if self._reopen_event.is_set():
                 self._reopen_event.clear()
@@ -575,6 +608,9 @@ class CaptureThread:
                     cap.release()
                     cap = None
                     self._cap = None
+                open_failures = 0
+                read_failures = 0
+                next_open_attempt_at = 0.0
 
             if source is None:
                 self.latest_frame = None
@@ -582,9 +618,36 @@ class CaptureThread:
                 continue
 
             if cap is None:
+                now = time.time()
+                if now < next_open_attempt_at:
+                    time.sleep(min(0.1, max(0.01, next_open_attempt_at - now)))
+                    continue
+
+                if not is_url and not _is_macos_camera_index_available(source):
+                    self.latest_frame = None
+                    open_failures += 1
+                    next_open_attempt_at = time.time() + _capture_failure_backoff_s(open_failures)
+                    time.sleep(min(0.25, _capture_failure_backoff_s(open_failures)))
+                    continue
+
                 with self._cap_lock:
-                    cap = _open_capture_source(source)
+                    candidate = _open_capture_source(source)
+                    if not candidate.isOpened():
+                        candidate.release()
+                        cap = None
+                        self._cap = None
+                        self.latest_frame = None
+                        open_failures += 1
+                        next_open_attempt_at = time.time() + _capture_failure_backoff_s(open_failures)
+                        time.sleep(min(0.25, _capture_failure_backoff_s(open_failures)))
+                        continue
+
+                    cap = candidate
                     self._cap = cap
+                    open_failures = 0
+                    read_failures = 0
+                    next_open_attempt_at = 0.0
+
                     if not is_url:
                         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -597,29 +660,27 @@ class CaptureThread:
                         if applied_device_settings:
                             with self._device_settings_lock:
                                 self._device_settings = dict(applied_device_settings)
-                    if not cap.isOpened():
-                        cap.release()
-                        cap = None
-                        self._cap = None
-                        self.latest_frame = None
-                        time.sleep(0.2)
-                        continue
 
             with self._cap_lock:
                 ret, frame = cap.read()
             if ret:
+                read_failures = 0
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
                 self.latest_frame = CameraFrame(
                     raw=frame, annotated=None, results=[], timestamp=time.time()
                 )
             else:
+                read_failures += 1
                 # For URL sources, briefly wait then retry (stream may reconnect)
-                time.sleep(0.1 if is_url else 0.05)
-                if not cap.isOpened():
+                time.sleep(0.1 if is_url else min(0.5, 0.05 * read_failures))
+                if not cap.isOpened() or (not is_url and read_failures >= 5):
                     cap.release()
                     cap = None
                     self._cap = None
+                    self.latest_frame = None
+                    if not is_url:
+                        next_open_attempt_at = time.time() + _capture_failure_backoff_s(read_failures)
 
         if cap is not None:
             cap.release()

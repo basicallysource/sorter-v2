@@ -189,28 +189,45 @@ def _android_camera_bytes_request(source: int | str | None, path: str) -> bytes:
         raise HTTPException(status_code=502, detail=f"Failed to reach Android camera app: {exc}")
 
 
-def _live_usb_device_controls(
+def _camera_service_usb_device_controls(
     role: str,
     source: int,
     saved_settings: Dict[str, int | float | bool],
 ) -> tuple[List[Dict[str, Any]], Dict[str, int | float | bool]]:
-    from vision.camera import probe_camera_device_controls
-
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
+    svc = shared_state.camera_service
+    if svc is not None and hasattr(svc, "inspect_device_controls_for_role"):
         try:
-            capture = shared_state.vision_manager.getCaptureThreadForRole(role)
+            controls, live_settings = svc.inspect_device_controls_for_role(role, source, saved_settings)
+            return controls, cameraDeviceSettingsToDict(live_settings or saved_settings)
         except Exception:
-            capture = None
-        if capture is not None and hasattr(capture, "describeDeviceControls"):
-            try:
-                controls, live_settings = capture.describeDeviceControls()
-                if controls:
-                    return controls, cameraDeviceSettingsToDict(live_settings)
-            except Exception:
-                pass
+            pass
+    return [], cameraDeviceSettingsToDict(saved_settings)
 
-    controls, current_settings = probe_camera_device_controls(source, saved_settings)
-    return controls, cameraDeviceSettingsToDict(current_settings)
+
+def _apply_live_usb_device_settings(
+    role: str,
+    parsed: Dict[str, int | float | bool],
+    *,
+    persist: bool,
+) -> tuple[Dict[str, int | float | bool], bool]:
+    svc = shared_state.camera_service
+    if svc is not None and hasattr(svc, "set_device_settings_for_role"):
+        try:
+            live_result = svc.set_device_settings_for_role(role, parsed, persist=persist)
+            if live_result is not None:
+                return cameraDeviceSettingsToDict(live_result), True
+        except Exception:
+            pass
+
+    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setDeviceSettingsForRole"):
+        try:
+            live_result = shared_state.vision_manager.setDeviceSettingsForRole(role, parsed, persist=persist)
+            if live_result is not None:
+                return cameraDeviceSettingsToDict(live_result), True
+        except Exception:
+            pass
+
+    return dict(parsed), False
 
 
 def _as_number(value: Any) -> float | None:
@@ -2117,9 +2134,21 @@ _HISTOGRAM_BINS = 64
 @router.get("/api/cameras/{role}/histogram")
 def get_camera_histogram(role: str) -> Dict[str, Any]:
     """Return live RGB histogram (64 bins) with reference color markers."""
+    markers: Dict[str, Dict[str, int]] = {}
+    for label, (r, g, b) in REFERENCE_TILE_RGB.items():
+        markers[label] = {"r": r, "g": g, "b": b}
+
     frame = _grab_live_frame(role, after_timestamp=0.0, timeout=0.3)
     if frame is None:
-        raise HTTPException(status_code=404, detail="No frame available")
+        return {
+            "ok": True,
+            "waiting": True,
+            "bins": _HISTOGRAM_BINS,
+            "r": [],
+            "g": [],
+            "b": [],
+            "reference_markers": markers,
+        }
 
     # Downsample large frames for speed
     h, w = frame.shape[:2]
@@ -2136,12 +2165,9 @@ def get_camera_histogram(role: str) -> Dict[str, Any]:
         peak = float(hist.max()) if hist.max() > 0 else 1.0
         channels[ch_name] = (hist / peak).tolist()
 
-    markers: Dict[str, Dict[str, int]] = {}
-    for label, (r, g, b) in REFERENCE_TILE_RGB.items():
-        markers[label] = {"r": r, "g": g, "b": b}
-
     return {
         "ok": True,
+        "waiting": False,
         "bins": bins,
         **channels,
         "reference_markers": markers,
@@ -2198,7 +2224,7 @@ def get_camera_device_settings(role: str) -> Dict[str, Any]:
     saved_settings = cameraDeviceSettingsToDict(
         parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
     )
-    controls, live_settings = _live_usb_device_controls(role, source, saved_settings)
+    controls, live_settings = _camera_service_usb_device_controls(role, source, saved_settings)
     current_settings = live_settings or saved_settings
     return {
         "ok": True,
@@ -2246,18 +2272,8 @@ def preview_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[s
 
     parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(payload))
     shared_state.camera_device_preview_overrides[role] = dict(parsed)
-    applied_live = False
-    applied_settings = dict(parsed)
-
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setDeviceSettingsForRole"):
-        try:
-            live_result = shared_state.vision_manager.setDeviceSettingsForRole(role, parsed, persist=False)
-            if live_result is not None:
-                applied_settings = cameraDeviceSettingsToDict(live_result)
-                shared_state.camera_device_preview_overrides[role] = dict(applied_settings)
-                applied_live = True
-        except Exception:
-            applied_live = False
+    applied_settings, applied_live = _apply_live_usb_device_settings(role, parsed, persist=False)
+    shared_state.camera_device_preview_overrides[role] = dict(applied_settings)
 
     return {
         "ok": True,
@@ -2308,17 +2324,8 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
         raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
 
     shared_state.camera_device_preview_overrides[role] = dict(parsed)
-    applied_live = False
-    applied_settings = dict(parsed)
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setDeviceSettingsForRole"):
-        try:
-            live_result = shared_state.vision_manager.setDeviceSettingsForRole(role, parsed, persist=True)
-            if live_result is not None:
-                applied_settings = cameraDeviceSettingsToDict(live_result)
-                shared_state.camera_device_preview_overrides[role] = dict(applied_settings)
-                applied_live = True
-        except Exception:
-            applied_live = False
+    applied_settings, applied_live = _apply_live_usb_device_settings(role, parsed, persist=True)
+    shared_state.camera_device_preview_overrides[role] = dict(applied_settings)
 
     return {
         "ok": True,

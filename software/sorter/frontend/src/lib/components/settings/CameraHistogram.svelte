@@ -10,6 +10,7 @@
 	const BIN_W = W / BINS;
 
 	type HistogramData = {
+		waiting?: boolean;
 		r: number[];
 		g: number[];
 		b: number[];
@@ -59,7 +60,9 @@
 	async function poll() {
 		if (!active) return;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/${role}/histogram`);
+			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/${role}/histogram`, {
+				signal: AbortSignal.timeout(1000)
+			});
 			if (res.ok) {
 				data = await res.json();
 			}
@@ -97,7 +100,7 @@
 		Live Histogram
 	</div>
 	<div class="border border-border bg-bg p-2">
-		{#if data}
+		{#if data && !data.waiting}
 			<svg viewBox="0 0 {W} {H}" class="w-full" preserveAspectRatio="none">
 				{#each ['b', 'g', 'r'] as ch}
 					<path

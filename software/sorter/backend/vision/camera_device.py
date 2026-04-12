@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from irl.config import CameraConfig, CameraColorProfile, CameraPictureSettings
 from .camera import CaptureThread
@@ -110,5 +110,5 @@ class CameraDevice:
     def get_device_settings(self) -> dict[str, int | float | bool]:
         return self._capture.getDeviceSettings()
 
-    def describe_device_controls(self):
+    def describe_device_controls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
         return self._capture.describeDeviceControls()

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mjpegStream } from '$lib/actions/mjpegStream';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
@@ -66,7 +67,7 @@
 	{/if}
 	<div class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}>
 		<img
-			src={mjpeg_src}
+			use:mjpegStream={mjpeg_src}
 			alt={display_label}
 			class="absolute inset-0 h-full w-full object-contain"
 			class:opacity-30={!is_healthy}

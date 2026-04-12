@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import threading
 import time
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -17,7 +17,7 @@ from irl.config import (
     CameraConfig,
     mkCameraConfig,
 )
-from .camera import CaptureThread
+from .camera import CaptureThread, probe_camera_device_controls
 from .camera_device import CameraDevice, DeviceHealth
 from .camera_feed import CameraFeed
 from .types import CameraFrame
@@ -129,15 +129,50 @@ class CameraService:
     def get_device(self, role: str) -> Optional[CameraDevice]:
         return self._devices.get(role)
 
-    def get_capture_thread_for_role(self, role: str) -> Optional[CaptureThread]:
+    def _device_for_role(self, role: str) -> Optional[CameraDevice]:
         device = self._devices.get(role)
+        if device is not None:
+            return device
+        feed = self._feeds.get(role)
+        if feed is not None:
+            return feed.device
+        return None
+
+    def get_capture_thread_for_role(self, role: str) -> Optional[CaptureThread]:
+        device = self._device_for_role(role)
         if device is None:
-            # feeder alias: in split_feeder mode feeder feed maps to c_channel_2 device
-            feed = self._feeds.get(role)
-            if feed is not None:
-                return feed.device.capture_thread
             return None
         return device.capture_thread
+
+    def get_device_settings_for_role(self, role: str) -> dict[str, int | float | bool] | None:
+        device = self._device_for_role(role)
+        if device is None:
+            return None
+        return device.get_device_settings()
+
+    def describe_device_controls_for_role(
+        self,
+        role: str,
+    ) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]] | None:
+        device = self._device_for_role(role)
+        if device is None:
+            return None
+        return device.describe_device_controls()
+
+    def inspect_device_controls_for_role(
+        self,
+        role: str,
+        source: int | str | None,
+        saved_settings: dict[str, int | float | bool],
+    ) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
+        device = self._device_for_role(role)
+        if device is not None:
+            controls, live_settings = device.describe_device_controls()
+            return controls, live_settings or dict(saved_settings)
+        if isinstance(source, int):
+            controls, current_settings = probe_camera_device_controls(source, saved_settings)
+            return controls, current_settings or dict(saved_settings)
+        return [], dict(saved_settings)
 
     # ---- Health ----
 
@@ -209,7 +244,7 @@ class CameraService:
     def set_picture_settings_for_role(
         self, role: str, settings: CameraPictureSettings
     ) -> bool:
-        device = self._devices.get(role)
+        device = self._device_for_role(role)
         if device is None:
             return False
         device.set_picture_settings(settings)
@@ -222,7 +257,7 @@ class CameraService:
         *,
         persist: bool = False,
     ) -> dict[str, int | float | bool] | None:
-        device = self._devices.get(role)
+        device = self._device_for_role(role)
         if device is None:
             return None
         config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
@@ -235,7 +270,7 @@ class CameraService:
     def set_color_profile_for_role(
         self, role: str, profile: CameraColorProfile | None
     ) -> bool:
-        device = self._devices.get(role)
+        device = self._device_for_role(role)
         if device is None:
             return False
         config_attr = _ROLE_TO_CONFIG_ATTR.get(role)

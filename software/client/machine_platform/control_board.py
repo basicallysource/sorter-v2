@@ -79,7 +79,7 @@ BASICALLY_DISTRIBUTION_PROFILE = BoardProfile(
         "distribution_aux_2": "distribution_aux_2",
         "distribution_aux_3": "distribution_aux_3",
     },
-    input_aliases={},
+    input_aliases={"chute_home": 0},
 )
 
 GENERIC_PROFILE = BoardProfile(

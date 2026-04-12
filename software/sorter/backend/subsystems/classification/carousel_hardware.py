@@ -7,7 +7,8 @@ if TYPE_CHECKING:
 
 HOME_SPEED_MICROSTEPS_PER_SEC = 400
 HOME_SPEED_SLOW_MICROSTEPS_PER_SEC = 100
-BACKOFF_STEPS = 200
+# Match the older direct homing path that was stable in day-to-day use.
+BACKOFF_STEPS = 40
 HOME_PASSES = 3
 HOME_TIMEOUT_MS = 30000
 

@@ -24,8 +24,9 @@ DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
 DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
-# Matches the SKR Pico feeder Z-STOP wiring used by the setup wizard.
-DEFAULT_CAROUSEL_HOME_PIN_CHANNEL = 1
+# Matches the long-running carousel homing wiring used by the stable
+# pre-setup-wizard backend path.
+DEFAULT_CAROUSEL_HOME_PIN_CHANNEL = 2
 # Matches the SKR Pico distribution E0-STOP wiring used by the setup wizard.
 DEFAULT_CHUTE_HOME_PIN_CHANNEL = 3
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4

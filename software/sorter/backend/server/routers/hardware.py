@@ -8,7 +8,15 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from irl.bin_layout import getBinLayout, saveBinLayout, BinLayoutConfig, LayerConfig
+from blob_manager import getBinCategories
+from irl.bin_layout import (
+    getBinLayout,
+    saveBinLayout,
+    BinLayoutConfig,
+    LayerConfig,
+    layoutMatchesCategories,
+    mkLayoutFromConfig,
+)
 from subsystems.distribution.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
@@ -1552,6 +1560,15 @@ def save_carousel_hardware_config(
                 raise HTTPException(
                     status_code=500,
                     detail=f"Settings were saved, but live direction inversion could not be applied: {e}",
+                )
+        carousel_hw = getattr(live_irl, "carousel_hw", None)
+        if carousel_hw is not None:
+            try:
+                carousel_hw.endstop_active_high = endstop_active_high
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Settings were saved, but live carousel endstop polarity could not be applied: {e}",
                 )
 
     return {

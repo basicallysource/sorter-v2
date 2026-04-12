@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import {
+		backendHttpBaseUrl,
+		backendWsBaseUrl,
+		machineHttpBaseUrlFromWsUrl,
+		requestBackendRestart,
+		waitForBackend
+	} from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
@@ -80,33 +86,16 @@
 	async function restartBackend() {
 		powerMenuOpen = false;
 		restartingBackend = true;
-		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/restart`, { method: 'POST' });
-		} catch {
-			// Expected — connection drops during restart
+		const baseUrl = currentBackendBaseUrl();
+		const restart = await requestBackendRestart(baseUrl);
+		if (!restart.ok) {
+			restartingBackend = false;
+			return;
 		}
-		// Poll until backend is back
-		await waitForBackend();
+		await waitForBackend(baseUrl, { maxAttempts: 60 });
 		restartingBackend = false;
 		void fetchState();
 		void fetchSystemStatus();
-	}
-
-	async function waitForBackend() {
-		// Give it a moment to actually go down
-		await new Promise((r) => setTimeout(r, 1500));
-		const maxAttempts = 60;
-		for (let i = 0; i < maxAttempts; i++) {
-			try {
-				const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`, {
-					signal: AbortSignal.timeout(2000)
-				});
-				if (res.ok) return;
-			} catch {
-				// Still down
-			}
-			await new Promise((r) => setTimeout(r, 500));
-		}
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -340,7 +329,7 @@
 							class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
 						>
 							<RotateCcw size={14} class="text-text-muted" />
-							Restart Backend
+							Hard Restart Backend
 						</button>
 						<button
 							onclick={() => { resetHardwareSystem(); powerMenuOpen = false; }}

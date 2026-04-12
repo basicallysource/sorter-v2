@@ -83,7 +83,7 @@ run_backend() {
         log "${GREEN}Starting backend...${RESET}"
         (
             cd "$ROOT/sorter/backend"
-            exec uv run python main.py 2>&1 \
+            exec uv run python supervisor.py 2>&1 \
                 | sed -u "s/^/${GREEN}[backend]${RESET}  /"
         ) &
         BACKEND_PID=$!
@@ -166,6 +166,7 @@ fi
 case "$MODE" in
     backend)
         kill_port 8000
+        kill_port 8001
         run_backend
         ;;
     api)
@@ -178,6 +179,7 @@ case "$MODE" in
         ;;
     all|*)
         kill_port 8000
+        kill_port 8001
         kill_port 5173
         run_backend &
         run_frontend &

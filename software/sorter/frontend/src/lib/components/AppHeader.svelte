@@ -10,7 +10,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { AlertTriangle, ChevronDown, Home, Pause, Play, Power, RefreshCw, RotateCcw, X } from 'lucide-svelte';
+	import { AlertTriangle, ChevronDown, Home, Pause, Play, RefreshCw, RotateCcw, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -24,6 +24,7 @@
 	let hardwareAlertOpen = $state(false);
 	let powerMenuOpen = $state(false);
 	let restartingBackend = $state(false);
+	let cameraHealth = $state<Record<string, { status: string }>>({});
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
@@ -52,6 +53,40 @@
 			// ignore
 		}
 	}
+
+	async function fetchCameraHealth() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/health`);
+			if (!res.ok) { cameraHealth = {}; return; }
+			cameraHealth = await res.json();
+		} catch {
+			cameraHealth = {};
+		}
+	}
+
+	const cameraTotal = $derived(Object.keys(cameraHealth).length);
+	const cameraActive = $derived(Object.values(cameraHealth).filter(c => c.status === 'healthy').length);
+
+	const powerDotColor = $derived(
+		hardwareState === 'ready' ? '#00852B'
+		: hardwareState === 'error' ? '#D01012'
+		: hardwareState === 'homing' || hardwareState === 'initializing' ? '#0055BF'
+		: '#FFD500'
+	);
+
+	const hardwareStateLabel = $derived(
+		hardwareState === 'ready' ? 'Ready'
+		: hardwareState === 'standby' ? 'Standby'
+		: hardwareState === 'homing' ? 'Homing'
+		: hardwareState === 'initializing' ? 'Initializing'
+		: hardwareState === 'initialized' ? 'Initialized'
+		: hardwareState === 'error' ? 'Error'
+		: 'Unknown'
+	);
+
+	const needsHoming = $derived(
+		hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'
+	);
 
 	async function homeSystem() {
 		try {
@@ -216,13 +251,18 @@
 		}
 		void fetchState();
 		void fetchSystemStatus();
+		void fetchCameraHealth();
 		const interval = setInterval(() => {
 			void fetchState();
 			void fetchSystemStatus();
 		}, 1000);
+		const cameraInterval = setInterval(() => {
+			void fetchCameraHealth();
+		}, 5000);
 		document.addEventListener('click', handlePowerMenuClickOutside);
 		return () => {
 			clearInterval(interval);
+			clearInterval(cameraInterval);
 			document.removeEventListener('click', handlePowerMenuClickOutside);
 		};
 	});
@@ -271,28 +311,6 @@
 		<div class="flex items-center gap-2">
 			<SortingProfileDropdown />
 
-			{#if hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'}
-				<button
-					onclick={homeSystem}
-					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
-					title={hardwareState === 'initialized'
-						? 'Home all axes'
-						: 'Initialize hardware and home all axes'}
-				>
-					<Home size={14} />
-					Home
-				</button>
-			{:else if hardwareState === 'ready'}
-				<button
-					onclick={homeSystem}
-					class="flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
-					title="Re-home all axes"
-				>
-					<Home size={14} />
-					Re-Home
-				</button>
-			{/if}
-
 			{#if hardwareState === 'ready'}
 				<button
 					onclick={togglePauseResume}
@@ -310,32 +328,72 @@
 			<div class="relative" data-power-menu>
 				<button
 					onclick={() => (powerMenuOpen = !powerMenuOpen)}
-					class="flex items-center gap-1 p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
+					class="flex items-center gap-1.5 p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
 					title="System controls"
 				>
-					<Power size={16} />
+					<span
+						class="inline-block h-4 w-4 shrink-0"
+						style="background-color: {powerDotColor}; border-radius: 50%;"
+					></span>
 					<ChevronDown size={12} class={`transition-transform duration-150 ${powerMenuOpen ? 'rotate-180' : ''}`} />
 				</button>
 
 				{#if powerMenuOpen}
-					<div class="absolute right-0 top-full z-50 mt-1 min-w-[180px] border border-border bg-surface shadow-lg">
-						<div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-							Service Control
+					<div class="absolute right-0 top-full z-50 mt-1 w-[260px] border border-border bg-surface shadow-lg">
+						<div class="px-3 pt-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+							System Status
 						</div>
-						<button
-							onclick={restartBackend}
-							class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-						>
-							<RotateCcw size={14} class="text-text-muted" />
-							Hard Restart Backend
-						</button>
-						<button
-							onclick={() => { resetHardwareSystem(); powerMenuOpen = false; }}
-							class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-						>
-							<RefreshCw size={14} class="text-text-muted" />
-							Reset Hardware
-						</button>
+						<div class="flex flex-col gap-0.5 px-3 pb-2.5">
+							<div class="flex items-center justify-between py-1">
+								<span class="text-xs text-text-muted">Hardware</span>
+								<span class="flex items-center gap-1.5 text-xs font-medium text-text">
+									<span class="inline-block h-1.5 w-1.5" style="background-color: {powerDotColor}; border-radius: 50%;"></span>
+									{hardwareStateLabel}
+								</span>
+							</div>
+							{#if cameraTotal > 0}
+								<div class="flex items-center justify-between py-1">
+									<span class="text-xs text-text-muted">Cameras</span>
+									<span class="flex items-center gap-1.5 text-xs font-medium text-text">
+										<span
+											class="inline-block h-1.5 w-1.5"
+											style="background-color: {cameraActive === cameraTotal ? '#00852B' : cameraActive > 0 ? '#FFD500' : '#D01012'}; border-radius: 50%;"
+										></span>
+										{cameraActive}/{cameraTotal} active
+									</span>
+								</div>
+							{/if}
+						</div>
+						<div class="border-t border-border">
+							<div class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+								Actions
+							</div>
+							<button
+								onclick={() => { homeSystem(); powerMenuOpen = false; }}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+							>
+								<Home size={14} class="text-text-muted" />
+								{#if needsHoming}
+									Home
+								{:else}
+									Re-Home
+								{/if}
+							</button>
+							<button
+								onclick={() => { resetHardwareSystem(); powerMenuOpen = false; }}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+							>
+								<RefreshCw size={14} class="text-text-muted" />
+								Reset Hardware
+							</button>
+							<button
+								onclick={restartBackend}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+							>
+								<RotateCcw size={14} class="text-text-muted" />
+								Hard Restart Backend
+							</button>
+						</div>
 					</div>
 				{/if}
 			</div>

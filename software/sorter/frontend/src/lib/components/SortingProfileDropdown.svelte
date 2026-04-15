@@ -8,7 +8,7 @@
 		rememberRecentSortingProfile,
 		type RecentSortingProfileEntry
 	} from '$lib/sorting-profiles/recent';
-	import { ChevronDown, SlidersHorizontal } from 'lucide-svelte';
+	import { ChevronDown } from 'lucide-svelte';
 
 	type SortingProfileSyncState = {
 		target_id?: string | null;
@@ -407,7 +407,6 @@
 		disabled={!manager.selectedMachineId}
 		class="flex max-w-[240px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:cursor-default disabled:opacity-60"
 	>
-		<SlidersHorizontal size={14} class="shrink-0 text-text-muted" />
 		<span class="truncate font-medium">{current_profile_name}</span>
 		{#if current_profile_version}
 			<span class="shrink-0 text-xs text-text-muted">v{current_profile_version}</span>

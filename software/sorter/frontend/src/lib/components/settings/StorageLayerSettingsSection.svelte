@@ -563,6 +563,30 @@
 		return '--';
 	}
 
+	function addLayer() {
+		const nextIndex = layers.length > 0 ? Math.max(...layers.map((l) => l.index)) + 1 : 1;
+		layers = [
+			...layers,
+			{
+				index: nextIndex,
+				binCount: '12',
+				enabled: true,
+				servoId: '',
+				invert: false,
+				liveOpen: null,
+				telemetry: emptyTelemetry(),
+				testing: false,
+				calibrating: false
+			}
+		];
+	}
+
+	function removeLayer(index: number) {
+		layers = layers
+			.filter((_, i) => i !== index)
+			.map((layer, i) => ({ ...layer, index: i + 1 }));
+	}
+
 	function updateLayerCount(index: number, value: string) {
 		layers = layers.map((layer, layerIndex) =>
 			layerIndex === index ? { ...layer, binCount: value } : layer
@@ -810,9 +834,20 @@
 		</div>
 	{/if}
 
+	<div class="flex items-center justify-between">
+		<div class="text-xs text-text-muted">{layers.length} layer{layers.length !== 1 ? 's' : ''}</div>
+		<button
+			onclick={addLayer}
+			disabled={loading || saving}
+			class="cursor-pointer border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			Add Layer
+		</button>
+	</div>
+
 	{#if layers.length === 0 && !loading}
 		<div class="text-sm text-text-muted">
-			No storage layers found.
+			No storage layers configured. Add one to get started.
 		</div>
 	{:else}
 		<div class="overflow-hidden border border-border">
@@ -964,6 +999,14 @@
 											{layer.calibrating ? '...' : 'Cal'}
 										</button>
 									{/if}
+									<button
+										onclick={() => removeLayer(index)}
+										disabled={loading || saving}
+										class="cursor-pointer border border-[#D01012]/30 bg-[#D01012]/[0.06] px-2 py-1 text-xs text-[#D01012] hover:bg-[#D01012]/10 disabled:cursor-not-allowed disabled:opacity-50"
+										title="Remove layer {layer.index}"
+									>
+										Del
+									</button>
 								</div>
 							</td>
 						</tr>

@@ -1718,16 +1718,13 @@ def save_storage_layer_hardware_config(
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
 
-    if len(layer_updates) != len(current["layers"]):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Expected {len(current['layers'])} storage layers, got {len(layer_updates)}.",
-        )
-
     new_layer_configs: List[LayerConfig] = []
-    layout_changed = False
+    layout_changed = len(layer_updates) != len(current["layers"])
     enabled_changed = False
-    for layer_update, cur_layer in zip(layer_updates, current["layers"]):
+    default_section_count = int(current["layers"][0]["section_count"]) if current["layers"] else DEFAULT_SECTION_COUNT
+    default_bin_size = current["layers"][0]["bin_size"] if current["layers"] else "medium"
+
+    for i, layer_update in enumerate(layer_updates):
         count = int(layer_update["bin_count"])
         enabled = bool(layer_update["enabled"])
         if count not in ALLOWED_STORAGE_LAYER_BIN_COUNTS:
@@ -1736,18 +1733,19 @@ def save_storage_layer_hardware_config(
                 detail=f"Each layer bin count must be one of {ALLOWED_STORAGE_LAYER_BIN_COUNTS}.",
             )
 
-        section_count = int(cur_layer["section_count"])
+        cur_layer = current["layers"][i] if i < len(current["layers"]) else None
+        section_count = int(cur_layer["section_count"]) if cur_layer else default_section_count
         if section_count <= 0 or count % section_count != 0:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Layer {cur_layer['index']} cannot be configured to {count} bins "
-                    f"with its current {section_count} sections."
+                    f"Layer {i + 1} cannot be configured to {count} bins "
+                    f"with {section_count} sections."
                 ),
             )
 
         bins_per_section = count // section_count
-        bin_size = cur_layer["bin_size"]
+        bin_size = cur_layer["bin_size"] if cur_layer else default_bin_size
         sections = [[bin_size] * bins_per_section for _ in range(section_count)]
 
         servo_open = layer_update.get("servo_open_angle")
@@ -1759,8 +1757,11 @@ def save_storage_layer_hardware_config(
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
         ))
-        layout_changed = layout_changed or count != int(cur_layer["bin_count"])
-        enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
+        if cur_layer:
+            layout_changed = layout_changed or count != int(cur_layer["bin_count"])
+            enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
+        else:
+            layout_changed = True
 
     if not layout_changed and not enabled_changed:
         return {

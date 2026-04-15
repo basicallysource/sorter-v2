@@ -19,6 +19,7 @@ class SampleResponse(BaseModel):
     detection_bboxes: list | None
     detection_count: int | None
     detection_score: float | None
+    sample_payload: dict | None
     extra_metadata: dict | None
     review_status: str
     review_count: int

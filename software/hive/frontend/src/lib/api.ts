@@ -60,6 +60,7 @@ export interface Sample {
 	detection_bboxes: unknown | null;
 	detection_count: number | null;
 	detection_score: number | null;
+	sample_payload: Record<string, unknown> | null;
 	extra_metadata: Record<string, unknown> | null;
 	review_status: 'unreviewed' | 'in_review' | 'accepted' | 'rejected' | 'conflict';
 	review_count: number;
@@ -405,8 +406,8 @@ function getApiBaseUrl(): string {
 	if (explicit) return explicit;
 	if (typeof window !== 'undefined') {
 		const host = window.location.hostname;
-		if ((host === 'localhost' || host === '127.0.0.1') && window.location.port !== '8001') {
-			return `${window.location.protocol}//${host}:8001`;
+		if ((host === 'localhost' || host === '127.0.0.1') && window.location.port !== '8002') {
+			return `${window.location.protocol}//${host}:8002`;
 		}
 	}
 	return '';

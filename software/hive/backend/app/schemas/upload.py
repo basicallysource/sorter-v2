@@ -12,6 +12,7 @@ class UploadMetadata(BaseModel):
     detection_bboxes: list | None = None
     detection_count: int | None = None
     detection_score: float | None = None
+    sample_payload: dict | None = None
     extra_metadata: dict | None = None
 
     model_config = {"extra": "allow"}

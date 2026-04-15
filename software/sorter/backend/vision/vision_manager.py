@@ -2493,6 +2493,40 @@ class VisionManager:
         zone = sample.get(f"{cam}_zone")
         return zone if isinstance(zone, np.ndarray) else None
 
+    def _classificationZoneBBoxFromFrame(
+        self,
+        cam: str,
+        frame: CameraFrame | None,
+    ) -> Tuple[int, int, int, int] | None:
+        if cam not in {"top", "bottom"}:
+            return None
+        if frame is None:
+            return None
+
+        frame_h, frame_w = frame.raw.shape[:2]
+        polygon = self._classification_masks.get(cam)
+        if polygon is None or len(polygon) < 3:
+            return (0, 0, int(frame_w), int(frame_h))
+
+        scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h)
+        x, y, w, h = cv2.boundingRect(scaled_polygon)
+        x2 = min(frame_w, x + w)
+        y2 = min(frame_h, y + h)
+        if x2 <= x or y2 <= y:
+            return None
+        return (int(x), int(y), int(x2), int(y2))
+
+    def getClassificationZoneBBox(
+        self,
+        cam: str,
+        *,
+        frame: CameraFrame | None = None,
+    ) -> Tuple[int, int, int, int] | None:
+        if frame is None:
+            capture = self._classification_top_capture if cam == "top" else self._classification_bottom_capture
+            frame = capture.latest_frame if capture is not None else None
+        return self._classificationZoneBBoxFromFrame(cam, frame)
+
     def _classificationZoneCropFromFrame(
         self,
         cam: str,
@@ -2503,18 +2537,11 @@ class VisionManager:
         if frame is None:
             return None
 
-        polygon = self._classification_masks.get(cam)
-        if polygon is None or len(polygon) < 3:
-            return frame.raw.copy()
-
-        frame_h, frame_w = frame.raw.shape[:2]
-        scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h)
-        x, y, w, h = cv2.boundingRect(scaled_polygon)
-        masked = self._maskToRegion(frame.raw, cam)
-        x2 = min(frame_w, x + w)
-        y2 = min(frame_h, y + h)
-        if x2 <= x or y2 <= y:
+        zone_bbox = self._classificationZoneBBoxFromFrame(cam, frame)
+        if zone_bbox is None:
             return None
+        x, y, x2, y2 = zone_bbox
+        masked = self._maskToRegion(frame.raw, cam)
         return masked[y:y2, x:x2].copy()
 
     def _classificationSampleFromFrames(

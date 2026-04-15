@@ -7,7 +7,6 @@
 		requestBackendRestart,
 		waitForBackend
 	} from '$lib/backend';
-	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
@@ -271,7 +270,6 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<SortingProfileDropdown />
-			<MachineDropdown />
 
 			{#if hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'}
 				<button

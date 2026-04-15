@@ -221,6 +221,10 @@ class HiveBackfillPayload(BaseModel):
     target_ids: list[str] | None = None
 
 
+class HivePurgePayload(BaseModel):
+    target_ids: list[str] | None = None
+
+
 # ---------------------------------------------------------------------------
 # Classification baseline helpers
 # ---------------------------------------------------------------------------
@@ -501,6 +505,11 @@ def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[
         session_ids=payload.session_ids,
         target_ids=payload.target_ids,
     )
+
+
+@router.post("/api/settings/hive/purge")
+def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]:
+    return getClassificationTrainingManager().purgeHiveQueue(target_ids=payload.target_ids)
 
 
 # ---------------------------------------------------------------------------

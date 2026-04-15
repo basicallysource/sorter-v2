@@ -8,7 +8,7 @@ dev:
 	$(MAKE) backend & $(MAKE) frontend & wait
 
 backend:
-	cd backend && uv run uvicorn app.main:app --reload --port 8001
+	cd backend && uv run uvicorn app.main:app --reload --port 8002
 
 frontend:
 	cd frontend && pnpm dev --port 5174

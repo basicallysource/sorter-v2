@@ -290,6 +290,9 @@ class TestSampleAnnotations:
         assert saved["version"] == "hive-annotorious-v1"
         assert saved["annotations"][0]["source"] == "manual"
         assert saved["updated_by_display_name"] == "Member User"
+        payload_saved = detail.json()["sample_payload"]["annotations"]["manual_regions"]
+        assert payload_saved["version"] == "hive-annotorious-v1"
+        assert payload_saved["annotations"][0]["source"] == "manual"
 
 
 class TestSampleClassification:
@@ -332,6 +335,9 @@ class TestSampleClassification:
         assert saved["version"] == "hive-classification-v1"
         assert saved["part_id"] == "3001"
         assert saved["updated_by_display_name"] == "Member User"
+        payload_saved = detail.json()["sample_payload"]["annotations"]["manual_classification"]
+        assert payload_saved["version"] == "hive-classification-v1"
+        assert payload_saved["part_id"] == "3001"
 
     def test_save_manual_classification_rejects_non_classification_sample(
         self,

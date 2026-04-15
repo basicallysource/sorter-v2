@@ -27,6 +27,7 @@ class Sample(Base):
     detection_bboxes = Column(JSON_VARIANT, nullable=True)
     detection_count = Column(Integer, nullable=True)
     detection_score = Column(Float, nullable=True)
+    sample_payload = Column(JSON_VARIANT, nullable=True)
     extra_metadata = Column(JSON_VARIANT, nullable=True)
     review_status = Column(String, nullable=False, default="unreviewed")
     review_count = Column(Integer, nullable=False, default=0)

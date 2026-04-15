@@ -47,6 +47,8 @@
 	let errorMsg = $state<string | null>(null);
 	let backfillResult = $state<string | null>(null);
 	let backfillTargetId = $state<string | null>(null);
+	let purgeResult = $state<string | null>(null);
+	let purgeTargetId = $state<string | null>(null);
 
 	let editingTargetId = $state<string | null>(null);
 	let showRegisterForm = $state(false);
@@ -54,6 +56,7 @@
 	let removingTargetId = $state<string | null>(null);
 	let registering = $state(false);
 	let backfillingTargetId = $state<string | null>(null);
+	let purgingTargetId = $state<string | null>(null);
 
 	let targetName = $state('');
 	let targetUrl = $state('');
@@ -172,6 +175,8 @@
 		errorMsg = null;
 		backfillResult = null;
 		backfillTargetId = null;
+		purgeResult = null;
+		purgeTargetId = null;
 	}
 
 	function resetTargetForm(target: HiveTarget | null = null) {
@@ -362,6 +367,45 @@
 		}
 	}
 
+	async function handlePurge(target: HiveTarget) {
+		const queueHint =
+			target.uploader.queue_size > 0
+				? `This will remove ${target.uploader.queue_size} queued sync job${target.uploader.queue_size === 1 ? '' : 's'} for "${target.name}".`
+				: `This will clear any queued or retrying sync jobs for "${target.name}".`;
+		if (
+			!confirm(
+				`${queueHint} An upload that is already in flight may still finish.`
+			)
+		) {
+			return;
+		}
+
+		purgingTargetId = target.id;
+		clearMessages();
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/purge`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					target_ids: [target.id]
+				})
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			if (!data.ok) throw new Error(data.error ?? 'Queue purge failed.');
+			purgeTargetId = target.id;
+			purgeResult =
+				data.purged > 0
+					? `Purged ${data.purged} queued sample sync job${data.purged === 1 ? '' : 's'} for "${target.name}".`
+					: `No queued sample sync jobs were waiting for "${target.name}".`;
+			await loadConfig();
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Queue purge failed.';
+		} finally {
+			purgingTargetId = null;
+		}
+	}
+
 	function statusLabel(target: HiveTarget): string {
 		if (!target.enabled) return 'Connected, uploads disabled';
 		if (target.uploader.server_reachable) return 'Connected and ready';
@@ -459,6 +503,15 @@
 								</button>
 								<button
 									type="button"
+									onclick={() => void handlePurge(target)}
+									disabled={purgingTargetId === target.id}
+									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<Trash2 size={12} />
+									{purgingTargetId === target.id ? 'Purging...' : 'Purge Queue'}
+								</button>
+								<button
+									type="button"
 									onclick={() => void handleToggleEnabled(target)}
 									class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 								>
@@ -488,6 +541,12 @@
 						{#if backfillTargetId === target.id && backfillResult}
 							<div class="mt-3 border border-[#00852B] bg-[#00852B]/10 px-3 py-2 text-sm font-medium text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/10 dark:text-emerald-200">
 								{backfillResult}
+							</div>
+						{/if}
+
+						{#if purgeTargetId === target.id && purgeResult}
+							<div class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-200">
+								{purgeResult}
 							</div>
 						{/if}
 

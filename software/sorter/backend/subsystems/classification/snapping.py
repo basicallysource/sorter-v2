@@ -17,6 +17,7 @@ from defs.known_object import ClassificationStatus
 from classification import classify
 from blob_manager import BLOB_DIR
 from server.classification_training import getClassificationTrainingManager
+from .bbox_projection import translate_bbox_to_crop, translate_bboxes_to_crop
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -121,12 +122,22 @@ class Snapping(BaseState):
         sample_capture = self.vision.getClassificationSampleFromFrames(top_frame, bottom_frame)
         preferred_camera = "top" if sample_capture.get("top_zone") is not None else "bottom"
         preferred_frame = top_frame if preferred_camera == "top" else bottom_frame
+        preferred_zone_bbox = (
+            self.vision.getClassificationZoneBBox(preferred_camera, frame=preferred_frame)
+            if preferred_frame is not None
+            else None
+        )
         preferred_detection_bbox = (
             self.vision.getClassificationCombinedBbox(preferred_camera, force=True, frame=preferred_frame)
             if preferred_frame is not None
             else None
         )
         preferred_candidate_bboxes = top_candidates if preferred_camera == "top" else bottom_candidates
+        preferred_detection_bbox = translate_bbox_to_crop(preferred_detection_bbox, preferred_zone_bbox)
+        preferred_candidate_bboxes = translate_bboxes_to_crop(
+            preferred_candidate_bboxes,
+            preferred_zone_bbox,
+        )
 
         if top_frame and top_frame.annotated is not None:
             self.telemetry.saveCapture(

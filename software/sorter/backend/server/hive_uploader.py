@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 import json
 import logging
 import queue
@@ -13,6 +14,7 @@ from typing import Any
 import requests
 
 from blob_manager import getHiveConfig
+from server.sample_payloads import build_sample_payload
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +108,76 @@ class _HiveClient:
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {api_token}"
 
+    def _send_sample_request(
+        self,
+        *,
+        method: str,
+        url: str,
+        source_session_id: str,
+        local_sample_id: str,
+        image_path: Path | None = None,
+        full_frame_path: Path | None = None,
+        overlay_path: Path | None = None,
+        source_role: str | None = None,
+        capture_reason: str | None = None,
+        captured_at: str | None = None,
+        session_name: str | None = None,
+        detection_algorithm: str | None = None,
+        detection_bboxes: Any = None,
+        detection_count: int | None = None,
+        detection_score: float | None = None,
+        sample_payload: dict[str, Any] | None = None,
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        metadata: dict[str, Any] = {
+            "source_session_id": source_session_id,
+            "local_sample_id": local_sample_id,
+        }
+        for key, value in [
+            ("source_role", source_role),
+            ("capture_reason", capture_reason),
+            ("captured_at", captured_at),
+            ("session_name", session_name),
+            ("detection_algorithm", detection_algorithm),
+            ("detection_bboxes", detection_bboxes),
+            ("detection_count", detection_count),
+            ("detection_score", detection_score),
+            ("sample_payload", sample_payload),
+        ]:
+            if value is not None:
+                metadata[key] = value
+        if extra_metadata:
+            metadata["extra_metadata"] = extra_metadata
+
+        handles: list[Any] = []
+        try:
+            files: dict[str, Any] = {}
+            if image_path is not None:
+                image_fh = open(image_path, "rb")
+                handles.append(image_fh)
+                files["image"] = (image_path.name, image_fh, "image/jpeg")
+            if full_frame_path and full_frame_path.exists():
+                full_frame_fh = open(full_frame_path, "rb")
+                handles.append(full_frame_fh)
+                files["full_frame"] = (full_frame_path.name, full_frame_fh, "image/jpeg")
+            if overlay_path and overlay_path.exists():
+                overlay_fh = open(overlay_path, "rb")
+                handles.append(overlay_fh)
+                files["overlay"] = (overlay_path.name, overlay_fh, "image/jpeg")
+
+            request = getattr(self._session, method.lower())
+            response = request(
+                url,
+                data={"metadata": json.dumps(metadata)},
+                files=files or None,
+                timeout=30,
+            )
+            response.raise_for_status()
+            return response.json()
+        finally:
+            for handle in handles:
+                handle.close()
+
     def upload_sample(
         self,
         *,
@@ -122,54 +194,67 @@ class _HiveClient:
         detection_bboxes: Any = None,
         detection_count: int | None = None,
         detection_score: float | None = None,
+        sample_payload: dict[str, Any] | None = None,
         extra_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "source_session_id": source_session_id,
-            "local_sample_id": local_sample_id,
-        }
-        for key, value in [
-            ("source_role", source_role),
-            ("capture_reason", capture_reason),
-            ("captured_at", captured_at),
-            ("session_name", session_name),
-            ("detection_algorithm", detection_algorithm),
-            ("detection_bboxes", detection_bboxes),
-            ("detection_count", detection_count),
-            ("detection_score", detection_score),
-        ]:
-            if value is not None:
-                metadata[key] = value
-        if extra_metadata:
-            metadata["extra_metadata"] = extra_metadata
+        return self._send_sample_request(
+            method="POST",
+            url=f"{self._url}/api/machine/upload",
+            source_session_id=source_session_id,
+            local_sample_id=local_sample_id,
+            image_path=image_path,
+            full_frame_path=full_frame_path,
+            overlay_path=overlay_path,
+            source_role=source_role,
+            capture_reason=capture_reason,
+            captured_at=captured_at,
+            session_name=session_name,
+            detection_algorithm=detection_algorithm,
+            detection_bboxes=detection_bboxes,
+            detection_count=detection_count,
+            detection_score=detection_score,
+            sample_payload=sample_payload,
+            extra_metadata=extra_metadata,
+        )
 
-        handles: list[Any] = []
-        try:
-            image_fh = open(image_path, "rb")
-            handles.append(image_fh)
-            files: dict[str, Any] = {
-                "image": (image_path.name, image_fh, "image/jpeg"),
-            }
-            if full_frame_path and full_frame_path.exists():
-                full_frame_fh = open(full_frame_path, "rb")
-                handles.append(full_frame_fh)
-                files["full_frame"] = (full_frame_path.name, full_frame_fh, "image/jpeg")
-            if overlay_path and overlay_path.exists():
-                overlay_fh = open(overlay_path, "rb")
-                handles.append(overlay_fh)
-                files["overlay"] = (overlay_path.name, overlay_fh, "image/jpeg")
-
-            response = self._session.post(
-                f"{self._url}/api/machine/upload",
-                data={"metadata": json.dumps(metadata)},
-                files=files,
-                timeout=30,
-            )
-            response.raise_for_status()
-            return response.json()
-        finally:
-            for handle in handles:
-                handle.close()
+    def update_sample(
+        self,
+        *,
+        source_session_id: str,
+        local_sample_id: str,
+        image_path: Path | None = None,
+        full_frame_path: Path | None = None,
+        overlay_path: Path | None = None,
+        source_role: str | None = None,
+        capture_reason: str | None = None,
+        captured_at: str | None = None,
+        session_name: str | None = None,
+        detection_algorithm: str | None = None,
+        detection_bboxes: Any = None,
+        detection_count: int | None = None,
+        detection_score: float | None = None,
+        sample_payload: dict[str, Any] | None = None,
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._send_sample_request(
+            method="PATCH",
+            url=f"{self._url}/api/machine/upload/{source_session_id}/{local_sample_id}",
+            source_session_id=source_session_id,
+            local_sample_id=local_sample_id,
+            image_path=image_path,
+            full_frame_path=full_frame_path,
+            overlay_path=overlay_path,
+            source_role=source_role,
+            capture_reason=capture_reason,
+            captured_at=captured_at,
+            session_name=session_name,
+            detection_algorithm=detection_algorithm,
+            detection_bboxes=detection_bboxes,
+            detection_count=detection_count,
+            detection_score=detection_score,
+            sample_payload=sample_payload,
+            extra_metadata=extra_metadata,
+        )
 
     def heartbeat(self) -> bool:
         try:
@@ -318,6 +403,44 @@ class HiveUploader:
         for target_id in resolved_target_ids:
             self._queue.put(
                 {
+                    "operation": "upload",
+                    "target_id": target_id,
+                    "session_id": session_id,
+                    "session_name": session_name,
+                    "sample_id": sample_id,
+                    "metadata": metadata,
+                    "image_path": image_path,
+                    "full_frame_path": full_frame_path,
+                    "overlay_path": overlay_path,
+                    "queued_at": time.time(),
+                }
+            )
+
+    def enqueue_update(
+        self,
+        *,
+        session_id: str,
+        session_name: str | None,
+        sample_id: str,
+        metadata: dict[str, Any],
+        image_path: str | None = None,
+        full_frame_path: str | None = None,
+        overlay_path: str | None = None,
+        target_ids: list[str] | None = None,
+    ) -> None:
+        with self._lock:
+            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
+            if not resolved_target_ids:
+                return
+            for target_id in resolved_target_ids:
+                target = self._targets.get(target_id)
+                if target is not None:
+                    target["queued"] = int(target.get("queued", 0)) + 1
+
+        for target_id in resolved_target_ids:
+            self._queue.put(
+                {
+                    "operation": "update",
                     "target_id": target_id,
                     "session_id": session_id,
                     "session_name": session_name,
@@ -435,6 +558,77 @@ class HiveUploader:
             "target_count": len(resolved_target_ids),
         }
 
+    def purge(self, target_ids: list[str] | None = None) -> dict[str, Any]:
+        requested_target_ids = (
+            {
+                target_id.strip()
+                for target_id in target_ids
+                if isinstance(target_id, str) and target_id.strip()
+            }
+            if target_ids is not None
+            else None
+        )
+        if target_ids is not None and not requested_target_ids:
+            return {"ok": False, "error": "No valid Hive target is available for purge."}
+
+        purged = 0
+        purged_by_target: dict[str, int] = {}
+        target_count = len(requested_target_ids) if requested_target_ids is not None else 0
+
+        with self._lock:
+            if requested_target_ids is None:
+                target_count = len(self._targets)
+
+            # Purge only queued jobs while preserving order for the rest.
+            with self._queue.mutex:
+                kept_jobs: deque[dict[str, Any] | None] = deque()
+                while self._queue.queue:
+                    job = self._queue.queue.popleft()
+                    if job is None:
+                        kept_jobs.append(job)
+                        continue
+
+                    job_target_id = job.get("target_id")
+                    if requested_target_ids is not None and job_target_id not in requested_target_ids:
+                        kept_jobs.append(job)
+                        continue
+
+                    purged += 1
+                    if isinstance(job_target_id, str) and job_target_id:
+                        purged_by_target[job_target_id] = purged_by_target.get(job_target_id, 0) + 1
+
+                self._queue.queue.extend(kept_jobs)
+                self._queue.unfinished_tasks = max(0, self._queue.unfinished_tasks - purged)
+                self._queue.not_full.notify_all()
+
+            affected_target_ids = requested_target_ids if requested_target_ids is not None else set(self._targets.keys())
+            for target_id in affected_target_ids:
+                target = self._targets.get(target_id)
+                if target is None:
+                    continue
+
+                removed = purged_by_target.get(target_id, 0)
+                if removed > 0:
+                    target["queued"] = max(0, int(target.get("queued", 0)) - removed)
+                    target["retry_after"] = 0.0
+                    target["backoff_s"] = SERVER_DOWN_BACKOFF_S
+                    if int(target.get("queued", 0)) == 0 and isinstance(target.get("last_error"), str):
+                        target["last_error"] = None
+
+            remaining = sum(
+                max(0, int(target.get("queued", 0)))
+                for target_id, target in self._targets.items()
+                if requested_target_ids is None or target_id in requested_target_ids
+            )
+
+        return {
+            "ok": True,
+            "purged": purged,
+            "remaining": remaining,
+            "target_count": target_count,
+            "purged_by_target": purged_by_target,
+        }
+
     def _heartbeat_loop(self) -> None:
         while True:
             time.sleep(HEARTBEAT_INTERVAL_S)
@@ -484,10 +678,20 @@ class HiveUploader:
         target_id = job.get("target_id")
         if not isinstance(target_id, str) or not target_id:
             return
+        operation = job.get("operation") if isinstance(job.get("operation"), str) else "upload"
 
-        image_path = Path(job["image_path"])
-        if not image_path.exists():
-            log.warning("Hive upload skipped: image not found %s", image_path)
+        image_path = None
+        if job.get("image_path"):
+            candidate = Path(job["image_path"])
+            if candidate.exists():
+                image_path = candidate
+            elif operation == "upload":
+                log.warning("Hive upload skipped: image not found %s", candidate)
+                with self._lock:
+                    self._decrement_queue_locked(target_id)
+                return
+        elif operation == "upload":
+            log.warning("Hive upload skipped: missing image path for %s/%s", job.get("session_id"), job.get("sample_id"))
             with self._lock:
                 self._decrement_queue_locked(target_id)
             return
@@ -522,8 +726,20 @@ class HiveUploader:
             "processor",
             "preferred_camera",
             "archive_mode",
+            "sample_payload",
         }
         extra_metadata = {key: value for key, value in metadata.items() if key not in skip_keys and value is not None}
+        sample_payload = metadata.get("sample_payload")
+        if not isinstance(sample_payload, dict):
+            sample_payload = build_sample_payload(
+                session_id=job["session_id"],
+                sample_id=job["sample_id"],
+                session_name=job.get("session_name"),
+                metadata=metadata,
+                include_primary_asset=image_path is not None,
+                include_full_frame=full_frame_path is not None,
+                include_overlay=overlay_path is not None,
+            )
 
         with self._lock:
             target = self._targets.get(target_id)
@@ -543,25 +759,32 @@ class HiveUploader:
 
         for attempt in range(1, UPLOAD_MAX_RETRIES + 1):
             try:
-                client.upload_sample(
-                    source_session_id=job["session_id"],
-                    local_sample_id=job["sample_id"],
-                    image_path=image_path,
-                    full_frame_path=full_frame_path,
-                    overlay_path=overlay_path,
-                    source_role=metadata.get("source_role"),
-                    capture_reason=metadata.get("capture_reason") or metadata.get("source"),
-                    captured_at=self._format_timestamp(metadata.get("captured_at")),
-                    session_name=job.get("session_name"),
-                    detection_algorithm=metadata.get("detection_algorithm"),
-                    detection_bboxes=(
+                request_kwargs = {
+                    "source_session_id": job["session_id"],
+                    "local_sample_id": job["sample_id"],
+                    "image_path": image_path,
+                    "full_frame_path": full_frame_path,
+                    "overlay_path": overlay_path,
+                    "source_role": metadata.get("source_role"),
+                    "capture_reason": metadata.get("capture_reason") or metadata.get("source"),
+                    "captured_at": self._format_timestamp(metadata.get("captured_at")),
+                    "session_name": job.get("session_name"),
+                    "detection_algorithm": metadata.get("detection_algorithm"),
+                    "detection_bboxes": (
                         _normalize_bbox_list_payload(metadata.get("detection_bboxes"))
                         or _normalize_bbox_list_payload(metadata.get("detection_bbox"))
                     ),
-                    detection_count=_safe_int(metadata.get("detection_bbox_count")),
-                    detection_score=_safe_float(metadata.get("detection_score")),
-                    extra_metadata=extra_metadata or None,
-                )
+                    "detection_count": _safe_int(metadata.get("detection_bbox_count")),
+                    "detection_score": _safe_float(metadata.get("detection_score")),
+                    "sample_payload": sample_payload,
+                    "extra_metadata": extra_metadata or None,
+                }
+                if operation == "update":
+                    client.update_sample(**request_kwargs)
+                else:
+                    if image_path is None:
+                        raise FileNotFoundError("Upload job is missing the primary image path.")
+                    client.upload_sample(**request_kwargs)  # type: ignore[arg-type]
                 with self._lock:
                     target = self._targets.get(target_id)
                     if target is not None:
@@ -573,13 +796,19 @@ class HiveUploader:
                         self._decrement_queue_locked(target_id)
                 return
             except Exception as exc:
-                if _is_transient(exc):
+                retry_missing_sample = (
+                    operation == "update"
+                    and isinstance(exc, requests.HTTPError)
+                    and exc.response is not None
+                    and exc.response.status_code == 404
+                )
+                if _is_transient(exc) or retry_missing_sample:
                     with self._lock:
                         target = self._targets.get(target_id)
                         if target is not None:
-                            target["server_reachable"] = False
+                            target["server_reachable"] = not retry_missing_sample
                             target["requeued"] = int(target.get("requeued", 0)) + 1
-                            target["last_error"] = f"Server unreachable: {exc}"
+                            target["last_error"] = f"Retrying sample sync: {exc}"
                             backoff_s = min(
                                 max(float(target.get("backoff_s", SERVER_DOWN_BACKOFF_S)), SERVER_DOWN_BACKOFF_S) * 1.5,
                                 SERVER_DOWN_MAX_BACKOFF_S,

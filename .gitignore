@@ -16,5 +16,8 @@
 /docs/.sass-cache/
 /docs/vendor/
 /docs/.bundle/
+/data/
+/test.db
+/test-profile-parts.db
 
 .DS_Store

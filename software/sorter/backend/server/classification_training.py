@@ -14,6 +14,7 @@ import numpy as np
 
 from blob_manager import BLOB_DIR, getClassificationTrainingConfig, setClassificationTrainingConfig
 from server.hive_uploader import HiveUploader
+from server.sample_payloads import build_sample_payload
 
 if TYPE_CHECKING:
     from vision import VisionManager
@@ -329,6 +330,7 @@ class ClassificationTrainingManager:
         classification_dir = session_dir / "classification"
         classification_json_dir = classification_dir / "json"
         classification_json_dir.mkdir(parents=True, exist_ok=True)
+        session_name: str | None = None
 
         with self._lock:
             metadata = self._readJsonFile(metadata_path)
@@ -426,7 +428,29 @@ class ClassificationTrainingManager:
                 ),
                 "error": error,
             }
+            manifest = self._readJsonFile(session_dir / "manifest.json") or {}
+            session_name = (
+                manifest.get("session_name")
+                if isinstance(manifest.get("session_name"), str) and manifest.get("session_name")
+                else session_id
+            )
+            metadata["sample_payload"] = build_sample_payload(
+                session_id=session_id,
+                sample_id=sample_id,
+                session_name=session_name,
+                metadata=metadata,
+                include_primary_asset=True,
+                include_full_frame=bool(metadata.get("top_frame_path") or metadata.get("bottom_frame_path")),
+                include_overlay=False,
+            )
             metadata_path.write_text(json.dumps(metadata, indent=2))
+
+        self._hive.enqueue_update(
+            session_id=session_id,
+            session_name=session_name,
+            sample_id=sample_id,
+            metadata=metadata,
+        )
 
         return {
             "ok": True,
@@ -518,6 +542,12 @@ class ClassificationTrainingManager:
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         return self._hive.backfill(TRAINING_ROOT, session_ids=session_ids, target_ids=target_ids)
+
+    def purgeHiveQueue(
+        self,
+        target_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return self._hive.purge(target_ids=target_ids)
 
     def resolveSessionDir(self, session_id: str) -> Path:
         session_dir = (TRAINING_ROOT / session_id).resolve()
@@ -643,6 +673,15 @@ class ClassificationTrainingManager:
             "top_frame_path": str(top_frame_path) if top_frame is not None else None,
             "bottom_frame_path": str(bottom_frame_path) if bottom_frame is not None else None,
         }
+        metadata_payload["sample_payload"] = build_sample_payload(
+            session_id=self._session_id or session_dir.name,
+            sample_id=sample_id,
+            session_name=self._session_name,
+            metadata=metadata_payload,
+            include_primary_asset=True,
+            include_full_frame=bool(top_frame is not None or bottom_frame is not None),
+            include_overlay=False,
+        )
 
         metadata_path = metadata_dir / f"{sample_id}.json"
         metadata_path.write_text(json.dumps(metadata_payload, indent=2))

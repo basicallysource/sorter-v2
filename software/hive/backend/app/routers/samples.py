@@ -22,21 +22,20 @@ from app.schemas.sample import (
     SaveSampleClassificationResponse,
 )
 from app.services.storage import delete_sample_files, get_file_path
+from app.services.sample_payloads import (
+    is_classification_payload,
+    set_manual_annotations,
+    set_manual_classification,
+)
 
 router = APIRouter(prefix="/api/samples", tags=["samples"])
 
 
 def _is_classification_sample(sample: Sample) -> bool:
-    if sample.source_role == "classification_chamber":
-        return True
-
-    extra_metadata = sample.extra_metadata or {}
-    if not isinstance(extra_metadata, dict):
-        return False
-
-    return (
-        extra_metadata.get("detection_scope") == "classification"
-        or sample.capture_reason == "live_classification"
+    return is_classification_payload(
+        sample.sample_payload,
+        fallback_source_role=sample.source_role,
+        fallback_capture_reason=sample.capture_reason,
     )
 
 
@@ -169,6 +168,7 @@ def save_sample_annotations(
     extra_metadata = dict(sample.extra_metadata or {})
     extra_metadata["manual_annotations"] = payload.model_dump(mode="json")
     sample.extra_metadata = extra_metadata
+    sample.sample_payload = set_manual_annotations(sample.sample_payload, payload.model_dump(mode="json"))
 
     db.add(sample)
     db.commit()
@@ -210,12 +210,14 @@ def save_sample_classification(
     if not any([payload.part_id, payload.item_name, payload.color_id, payload.color_name]):
         extra_metadata.pop("manual_classification", None)
         sample.extra_metadata = extra_metadata
+        sample.sample_payload = set_manual_classification(sample.sample_payload, None)
         db.add(sample)
         db.commit()
         return SaveSampleClassificationResponse(ok=True, cleared=True, data=None)
 
     extra_metadata["manual_classification"] = payload.model_dump(mode="json")
     sample.extra_metadata = extra_metadata
+    sample.sample_payload = set_manual_classification(sample.sample_payload, payload.model_dump(mode="json"))
 
     db.add(sample)
     db.commit()

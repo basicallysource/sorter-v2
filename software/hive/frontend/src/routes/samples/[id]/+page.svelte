@@ -25,6 +25,7 @@
 
 	// Image view toggle — persisted via ?view= query param
 	type ViewMode = 'image' | 'full_frame' | 'overlay' | 'annotate';
+	type ImageRenderAsset = 'image' | 'full_frame';
 	const validViews: ViewMode[] = ['image', 'full_frame', 'overlay', 'annotate'];
 
 	function readViewFromUrl(): ViewMode {
@@ -51,6 +52,8 @@
 	let showExpandedMeta = $state(false);
 	let imageNaturalWidth = $state(0);
 	let imageNaturalHeight = $state(0);
+	let imageRenderAsset = $state<ImageRenderAsset>('image');
+	let lastLoadedSampleId = $state<string | null>(null);
 
 	const sampleId = $derived(page.params.id);
 
@@ -163,6 +166,24 @@
 		return proposals.length > 0 ? proposals : legacyReviewBboxes;
 	});
 
+	const usingFullFrameFallback = $derived.by(() => {
+		return Boolean(
+			sample &&
+			activeView === 'image' &&
+			imageRenderAsset === 'full_frame' &&
+			sample.has_full_frame &&
+			sample.source_role === 'classification_chamber'
+		);
+	});
+
+	const effectiveImageUrl = $derived.by(() => {
+		if (!sample) return '';
+		if (imageRenderAsset === 'full_frame' && sample.has_full_frame) {
+			return api.sampleFullFrameUrl(sample.id);
+		}
+		return api.sampleImageUrl(sample.id);
+	});
+
 	function proposalColor(index: number) {
 		return proposalPalette[index % proposalPalette.length];
 	}
@@ -201,6 +222,15 @@
 
 	$effect(() => {
 		if (sampleId) loadSample(sampleId);
+	});
+
+	$effect(() => {
+		const currentSampleId = sample?.id ?? null;
+		if (currentSampleId === lastLoadedSampleId) return;
+		lastLoadedSampleId = currentSampleId;
+		imageRenderAsset = 'image';
+		imageNaturalWidth = 0;
+		imageNaturalHeight = 0;
 	});
 
 	async function loadSample(id: string) {
@@ -248,8 +278,31 @@
 
 	function onImageLoad(e: Event) {
 		const img = e.target as HTMLImageElement;
-		imageNaturalWidth = img.naturalWidth;
-		imageNaturalHeight = img.naturalHeight;
+		const naturalWidth = img.naturalWidth;
+		const naturalHeight = img.naturalHeight;
+		const requiresFullFrameFallback =
+			activeView === 'image' &&
+			imageRenderAsset === 'image' &&
+			sample?.source_role === 'classification_chamber' &&
+			sample.has_full_frame &&
+			proposalBoxes.length > 0 &&
+			proposalBoxes.some(
+				(bbox) =>
+					bbox.x < 0 ||
+					bbox.y < 0 ||
+					bbox.x + bbox.w > naturalWidth ||
+					bbox.y + bbox.h > naturalHeight
+			);
+
+		if (requiresFullFrameFallback) {
+			imageRenderAsset = 'full_frame';
+			imageNaturalWidth = 0;
+			imageNaturalHeight = 0;
+			return;
+		}
+
+		imageNaturalWidth = naturalWidth;
+		imageNaturalHeight = naturalHeight;
 	}
 
 	function formatValue(val: unknown): string {
@@ -347,7 +400,7 @@
 					<div class="relative">
 						{#if activeView === 'image'}
 							<img
-								src={api.sampleImageUrl(sample.id)}
+								src={effectiveImageUrl}
 								alt="Sample"
 								class="w-full"
 								onload={onImageLoad}
@@ -397,11 +450,17 @@
 				</div>
 			{/if}
 
+			{#if usingFullFrameFallback}
+				<div class="border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2 text-xs text-[#7A7770]">
+					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
+				</div>
+			{/if}
+
 			{#if annotatorMounted}
 				<div class={activeView === 'annotate' ? 'block' : 'hidden'}>
 					<SampleAnnotator
 						sampleId={sample.id}
-						imageUrl={api.sampleImageUrl(sample.id)}
+						imageUrl={effectiveImageUrl}
 						imageAlt={`Sample ${sample.local_sample_id}`}
 						imageWidth={sample.image_width}
 						imageHeight={sample.image_height}

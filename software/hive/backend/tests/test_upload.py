@@ -32,6 +32,7 @@ class TestUploadSample:
         data = resp.json()
         assert "id" in data
         assert data.get("local_sample_id") == "sample-001"
+        assert data["sample_payload"]["sample"]["local_sample_id"] == "sample-001"
 
     def test_upload_creates_session(
         self, client: TestClient, machine_token: str, upload_dir: str
@@ -86,6 +87,146 @@ class TestUploadSample:
         id2 = resp2.json()["id"]
 
         assert id1 == id2
+
+    def test_upload_preserves_canonical_sample_payload(
+        self, client: TestClient, machine_token: str, upload_dir: str
+    ) -> None:
+        metadata = json.dumps(
+            {
+                "source_session_id": "sess-payload",
+                "local_sample_id": "sample-payload",
+                "source_role": "classification_chamber",
+                "capture_reason": "live_classification",
+                "sample_payload": {
+                    "schema_version": "hive_sample_v1",
+                    "sample": {
+                        "source_session_id": "sess-payload",
+                        "local_sample_id": "sample-payload",
+                        "source_role": "classification_chamber",
+                        "capture_reason": "live_classification",
+                        "capture_scope": "classification",
+                    },
+                    "assets": {},
+                    "analyses": [
+                        {
+                            "analysis_id": "det_primary",
+                            "kind": "detection",
+                            "stage": "primary_detection",
+                            "provider": "gemini_sam",
+                            "status": "completed",
+                            "input_asset_ids": ["img_primary"],
+                            "artifact_asset_ids": [],
+                            "outputs": {
+                                "found": True,
+                                "primary_box_index": 0,
+                                "boxes": [{"box_px": [1, 2, 30, 40], "score": 0.88}],
+                            },
+                        }
+                    ],
+                    "annotations": {},
+                    "provenance": {"session_name": "payload-test"},
+                },
+            }
+        )
+        image = make_test_image()
+        resp = client.post(
+            "/api/machine/upload",
+            headers={"Authorization": f"Bearer {machine_token}"},
+            data={"metadata": metadata},
+            files={"image": ("test.png", image, "image/png")},
+        )
+        assert resp.status_code in (200, 201), resp.text
+        data = resp.json()
+        assert data["sample_payload"]["sample"]["capture_scope"] == "classification"
+        assert data["sample_payload"]["analyses"][0]["provider"] == "gemini_sam"
+        assert data["detection_algorithm"] == "gemini_sam"
+        assert data["detection_count"] == 1
+
+    def test_patch_sample_merges_payload_and_extra_metadata(
+        self, client: TestClient, machine_token: str, upload_dir: str
+    ) -> None:
+        headers = {"Authorization": f"Bearer {machine_token}"}
+        create_metadata = json.dumps(
+            {
+                "source_session_id": "sess-patch",
+                "local_sample_id": "sample-patch",
+                "source_role": "classification_chamber",
+                "capture_reason": "live_classification",
+            }
+        )
+        create_resp = client.post(
+            "/api/machine/upload",
+            headers=headers,
+            data={"metadata": create_metadata},
+            files={"image": ("test.png", make_test_image(), "image/png")},
+        )
+        assert create_resp.status_code in (200, 201), create_resp.text
+
+        patch_metadata = json.dumps(
+            {
+                "source_session_id": "sess-patch",
+                "local_sample_id": "sample-patch",
+                "extra_metadata": {
+                    "classification_result": {
+                        "provider": "brickognize",
+                        "status": "completed",
+                        "part_id": "3001",
+                        "item_name": "Brick 2 x 4",
+                        "color_name": "Red",
+                        "confidence": 0.91,
+                        "source_view": "top",
+                    }
+                },
+                "sample_payload": {
+                    "schema_version": "hive_sample_v1",
+                    "sample": {
+                        "source_session_id": "sess-patch",
+                        "local_sample_id": "sample-patch",
+                        "source_role": "classification_chamber",
+                        "capture_reason": "live_classification",
+                        "capture_scope": "classification",
+                    },
+                    "assets": {},
+                    "analyses": [
+                        {
+                            "analysis_id": "cls_primary",
+                            "kind": "classification",
+                            "stage": "part_classification",
+                            "provider": "brickognize",
+                            "status": "completed",
+                            "input_asset_ids": ["img_primary"],
+                            "artifact_asset_ids": [],
+                            "outputs": {
+                                "best_candidate_index": 0,
+                                "candidates": [
+                                    {
+                                        "part_id": "3001",
+                                        "item_name": "Brick 2 x 4",
+                                        "color_name": "Red",
+                                        "confidence": 0.91,
+                                    }
+                                ],
+                                "source_view": "top",
+                            },
+                        }
+                    ],
+                    "annotations": {},
+                    "provenance": {},
+                },
+            }
+        )
+        patch_resp = client.patch(
+            "/api/machine/upload/sess-patch/sample-patch",
+            headers=headers,
+            data={"metadata": patch_metadata},
+        )
+        assert patch_resp.status_code == 200, patch_resp.text
+        patched = patch_resp.json()
+        assert patched["extra_metadata"]["classification_result"]["part_id"] == "3001"
+        assert any(
+            analysis.get("analysis_id") == "cls_primary"
+            for analysis in patched["sample_payload"]["analyses"]
+        )
 
     def test_upload_invalid_token(
         self, client: TestClient, upload_dir: str

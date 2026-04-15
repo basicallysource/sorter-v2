@@ -17,14 +17,14 @@ make migrate
 # Seed first admin user
 make seed-admin
 
-# Start dev servers (backend :8001 + frontend :5174)
+# Start dev servers (backend :8002 + frontend :5174)
 make dev
 ```
 
 If you run the built frontend directly instead of `pnpm dev`, set `PUBLIC_API_BASE_URL` for the frontend process, for example:
 
 ```bash
-PUBLIC_API_BASE_URL=http://localhost:8001 node build
+PUBLIC_API_BASE_URL=http://localhost:8002 node build
 ```
 
 Without that, a standalone frontend process on another port cannot reach the backend `/api` routes by itself.
@@ -42,7 +42,7 @@ For GitHub login, create an OAuth app in GitHub and set:
 For local development, the redirect URI should typically be:
 
 ```text
-http://localhost:8001/api/auth/github/callback
+http://localhost:8002/api/auth/github/callback
 ```
 
 Using the backend callback directly avoids dev-proxy cookie edge cases during the OAuth redirect back from GitHub.
@@ -78,6 +78,10 @@ On startup, the backend automatically runs Alembic migrations and bootstraps an 
 
 ## Architecture
 
-- **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8001)
+- **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8002)
 - **Frontend**: SvelteKit + Tailwind CSS (port 5174)
 - **Storage**: Local filesystem for uploaded images
+
+## Design Docs
+
+- [Unified Sample Payload v1](./SAMPLE_PAYLOAD_V1.md)

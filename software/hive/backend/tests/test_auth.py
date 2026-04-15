@@ -127,7 +127,7 @@ class TestGitHubOAuth:
         monkeypatch.setattr(
             auth_router.settings,
             "GITHUB_REDIRECT_URI",
-            "http://localhost:8001/api/auth/github/callback",
+            "http://localhost:8002/api/auth/github/callback",
         )
 
     def test_github_login_creates_new_user(self, client: TestClient, monkeypatch: object) -> None:

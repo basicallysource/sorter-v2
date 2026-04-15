@@ -17,6 +17,7 @@
 
 	type ReviewDecision = 'accept' | 'reject';
 	type Bbox = { x: number; y: number; w: number; h: number };
+	type ReviewImageAsset = 'image' | 'full_frame';
 
 	const annotatorApi = new AnnotatorApi();
 	const classificationApi = new ClassificationApi();
@@ -44,6 +45,8 @@
 	let imageNaturalHeight = $state(0);
 	let reviewHistory = $state<string[]>([]);
 	let lastLoadedReviewKey = $state<string | null>(null);
+	let lastSampleId = $state<string | null>(null);
+	let reviewImageAsset = $state<ReviewImageAsset>('image');
 
 	function parseBbox(b: unknown): Bbox | null {
 		if (Array.isArray(b) && b.length >= 4) {
@@ -162,6 +165,23 @@
 		return Boolean(raw && typeof raw === 'object' && 'annotations' in raw);
 	});
 
+	const usingFullFrameFallback = $derived.by(() => {
+		return Boolean(
+			sample &&
+			reviewImageAsset === 'full_frame' &&
+			sample.has_full_frame &&
+			sample.source_role === 'classification_chamber'
+		);
+	});
+
+	const reviewImageUrl = $derived.by(() => {
+		if (!sample) return '';
+		if (reviewImageAsset === 'full_frame' && sample.has_full_frame) {
+			return api.sampleFullFrameUrl(sample.id);
+		}
+		return api.sampleImageUrl(sample.id);
+	});
+
 	const currentUserReview = $derived.by(() => {
 		const userId = auth.user?.id;
 		if (!userId) return null;
@@ -180,6 +200,15 @@
 
 		currentDecision = currentUserReview?.decision ?? null;
 		lastLoadedReviewKey = marker;
+	});
+
+	$effect(() => {
+		const sampleId = sample?.id ?? null;
+		if (sampleId === lastSampleId) return;
+		lastSampleId = sampleId;
+		reviewImageAsset = 'image';
+		imageNaturalWidth = 0;
+		imageNaturalHeight = 0;
 	});
 
 	onMount(() => {
@@ -370,8 +399,30 @@
 
 	function onImageLoad(event: Event) {
 		const image = event.target as HTMLImageElement;
-		imageNaturalWidth = image.naturalWidth;
-		imageNaturalHeight = image.naturalHeight;
+		const naturalWidth = image.naturalWidth;
+		const naturalHeight = image.naturalHeight;
+		const requiresFullFrameFallback =
+			reviewImageAsset === 'image' &&
+			sample?.source_role === 'classification_chamber' &&
+			sample.has_full_frame &&
+			proposalBoxes.length > 0 &&
+			proposalBoxes.some(
+				(bbox) =>
+					bbox.x < 0 ||
+					bbox.y < 0 ||
+					bbox.x + bbox.w > naturalWidth ||
+					bbox.y + bbox.h > naturalHeight
+			);
+
+		if (requiresFullFrameFallback) {
+			reviewImageAsset = 'full_frame';
+			imageNaturalWidth = 0;
+			imageNaturalHeight = 0;
+			return;
+		}
+
+		imageNaturalWidth = naturalWidth;
+		imageNaturalHeight = naturalHeight;
 	}
 
 	function formatDate(value: string | null | undefined) {
@@ -454,7 +505,7 @@
 			{#if annotateMode}
 				<SampleAnnotator
 					sampleId={sample.id}
-					imageUrl={api.sampleImageUrl(sample.id)}
+					imageUrl={reviewImageUrl}
 					imageAlt={`Review sample ${sample.local_sample_id}`}
 					imageWidth={sample.image_width}
 					imageHeight={sample.image_height}
@@ -468,7 +519,7 @@
 				<div class="overflow-hidden border border-[#E2E0DB] bg-gray-950">
 					<div class="relative">
 						<img
-							src={api.sampleImageUrl(sample.id)}
+							src={reviewImageUrl}
 							alt={`Review sample ${sample.local_sample_id}`}
 							class="w-full"
 							onload={onImageLoad}
@@ -505,6 +556,12 @@
 							</svg>
 						{/if}
 					</div>
+				</div>
+			{/if}
+
+			{#if usingFullFrameFallback}
+				<div class="border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2 text-xs text-[#7A7770]">
+					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
 				</div>
 			{/if}
 		</div>

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import cv2
@@ -1133,3 +1134,81 @@ def capture_classification_baseline() -> Dict[str, Any]:
         "cameras": camera_results,
         "baseline_dir": str(baseline_dir),
     }
+
+
+# ---------------------------------------------------------------------------
+# Sample storage management
+# ---------------------------------------------------------------------------
+
+TRAINING_ROOT = BLOB_DIR / "classification_training"
+
+
+def _session_stats(session_dir: Path) -> Dict[str, Any]:
+    """Compute sample count and disk size for a single session directory."""
+    metadata_dir = session_dir / "metadata"
+    sample_count = sum(1 for f in metadata_dir.glob("*.json")) if metadata_dir.is_dir() else 0
+    total_bytes = 0
+    for f in session_dir.rglob("*"):
+        if f.is_file():
+            total_bytes += f.stat().st_size
+    manifest_path = session_dir / "manifest.json"
+    session_name = None
+    created_at = None
+    if manifest_path.is_file():
+        try:
+            import json as _json
+            manifest = _json.loads(manifest_path.read_text())
+            session_name = manifest.get("session_name")
+            created_at = manifest.get("created_at")
+        except Exception:
+            pass
+    return {
+        "session_id": session_dir.name,
+        "session_name": session_name,
+        "created_at": created_at,
+        "sample_count": sample_count,
+        "size_bytes": total_bytes,
+    }
+
+
+@router.get("/api/samples/storage")
+def get_sample_storage() -> Dict[str, Any]:
+    """List all local sample sessions with stats."""
+    sessions: List[Dict[str, Any]] = []
+    if TRAINING_ROOT.is_dir():
+        for child in sorted(TRAINING_ROOT.iterdir()):
+            if child.is_dir():
+                sessions.append(_session_stats(child))
+    total_samples = sum(s["sample_count"] for s in sessions)
+    total_bytes = sum(s["size_bytes"] for s in sessions)
+    return {
+        "sessions": sessions,
+        "total_samples": total_samples,
+        "total_bytes": total_bytes,
+    }
+
+
+@router.delete("/api/samples/storage/{session_id}")
+def delete_sample_session(session_id: str) -> Dict[str, Any]:
+    """Delete a single sample session."""
+    session_dir = TRAINING_ROOT / session_id
+    if not session_dir.is_dir() or not session_dir.resolve().is_relative_to(TRAINING_ROOT.resolve()):
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+    sample_count = sum(1 for f in (session_dir / "metadata").glob("*.json")) if (session_dir / "metadata").is_dir() else 0
+    shutil.rmtree(session_dir)
+    return {"ok": True, "message": f"Deleted session '{session_id}' ({sample_count} samples)."}
+
+
+@router.delete("/api/samples/storage")
+def purge_all_samples() -> Dict[str, Any]:
+    """Delete all sample sessions."""
+    deleted = 0
+    total_samples = 0
+    if TRAINING_ROOT.is_dir():
+        for child in sorted(TRAINING_ROOT.iterdir()):
+            if child.is_dir():
+                metadata_dir = child / "metadata"
+                total_samples += sum(1 for f in metadata_dir.glob("*.json")) if metadata_dir.is_dir() else 0
+                shutil.rmtree(child)
+                deleted += 1
+    return {"ok": True, "message": f"Purged {deleted} sessions ({total_samples} samples)."}

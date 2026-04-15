@@ -3,6 +3,7 @@ import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
 import RuntimeVarsSection from '$lib/components/settings/RuntimeVarsSection.svelte';
 import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
 import HiveSection from '$lib/components/settings/HiveSection.svelte';
+import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 </script>
@@ -54,6 +55,13 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 		description="Configure the OpenRouter key used for cloud-assisted detection."
 	>
 		<ApiKeysSection />
+	</SectionCard>
+
+	<SectionCard
+		title="Local Samples"
+		description="Browse and manage classification sample sessions stored on this machine."
+	>
+		<SampleStorageSection />
 	</SectionCard>
 
 	<SectionCard

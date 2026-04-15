@@ -11,6 +11,10 @@ lede: The durable documentation layer for the Sorter V2 project — hardware, th
 
 <div class="callout-grid">
   <div class="callout">
+    <strong><a href="{{ '/getting-started/' | relative_url }}">Getting started</a></strong>
+    <p>New to the project? Prerequisites, contribution tracks, key resources, and how the project works.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/hardware/' | relative_url }}">Hardware</a></strong>
     <p>The physical machine — mechanics, electronics, bill of materials, and assembly notes.</p>
   </div>

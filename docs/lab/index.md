@@ -13,8 +13,24 @@ permalink: /lab/
 
 <div class="callout-grid">
   <div class="callout">
-    <strong><a href="{{ '/lab/object-detection/' | relative_url }}">Object Detection Research</a></strong>
+    <strong><a href="{{ '/lab/object-detection/' | relative_url }}">Object detection research</a></strong>
     <p>Which detector runtimes we validated, where the canonical artifacts live, the cross-device benchmark workflow, and the Raspberry Pi 5 Hailo HEF compile path.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/c-channel-singulation/' | relative_url }}">C-channel singulation</a></strong>
+    <p>How the sorter separates tangled LEGO into single pieces using rotating C-shaped channels — a novel approach with no known published precedent.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/classification-research/' | relative_url }}">Classification research</a></strong>
+    <p>Embeddings vs classifiers, the Brickognize API, training data strategy, and why color detection avoids ML entirely.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/feeder-experiments/' | relative_url }}">Feeder experiments</a></strong>
+    <p>Turntable, vibration, and chute experiments that preceded the C-channel design — what was tested, what failed, and what the data showed.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a></strong>
+    <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>

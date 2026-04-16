@@ -14,22 +14,18 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { AnnotatorApi } from '$lib/components/annotator-api.svelte';
 	import { ClassificationApi } from '$lib/components/classification-api.svelte';
+	import ReviewImageViewer from '$lib/components/review/ReviewImageViewer.svelte';
+	import ReviewActionPad from '$lib/components/review/ReviewActionPad.svelte';
+	import ReviewAnnotatorPanel from '$lib/components/review/ReviewAnnotatorPanel.svelte';
+	import ReviewHeuristics from '$lib/components/review/ReviewHeuristics.svelte';
+	import { Alert } from '$lib/components/primitives';
+	import { extractLegacyReviewBboxes, extractPrimaryBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
 	type ReviewDecision = 'accept' | 'reject';
-	type Bbox = { x: number; y: number; w: number; h: number };
 	type ReviewImageAsset = 'image' | 'full_frame';
 
 	const annotatorApi = new AnnotatorApi();
 	const classificationApi = new ClassificationApi();
-
-	const proposalPalette = [
-		{ stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.10)' },
-		{ stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.10)' },
-		{ stroke: '#f97316', fill: 'rgba(249, 115, 22, 0.10)' },
-		{ stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.10)' },
-		{ stroke: '#eab308', fill: 'rgba(234, 179, 8, 0.10)' },
-		{ stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.10)' }
-	] as const;
 
 	let sample = $state<SampleDetail | null>(null);
 	let reviews = $state<SampleReview[]>([]);
@@ -47,49 +43,6 @@
 	let lastLoadedReviewKey = $state<string | null>(null);
 	let lastSampleId = $state<string | null>(null);
 	let reviewImageAsset = $state<ReviewImageAsset>('image');
-
-	function parseBbox(b: unknown): Bbox | null {
-		if (Array.isArray(b) && b.length >= 4) {
-			const [x1, y1, x2, y2] = b;
-			if ([x1, y1, x2, y2].every((value) => typeof value === 'number')) {
-				return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-			}
-		}
-		if (
-			b &&
-			typeof b === 'object' &&
-			'x' in b &&
-			'y' in b &&
-			'w' in b &&
-			'h' in b &&
-			typeof b.x === 'number' &&
-			typeof b.y === 'number' &&
-			typeof b.w === 'number' &&
-			typeof b.h === 'number'
-		) {
-			return { x: b.x, y: b.y, w: b.w, h: b.h };
-		}
-		return null;
-	}
-
-	function parseBboxCollection(raw: unknown): Bbox[] {
-		if (Array.isArray(raw)) {
-			if (raw.length >= 4 && typeof raw[0] === 'number') {
-				const single = parseBbox(raw);
-				return single ? [single] : [];
-			}
-			return raw.map(parseBbox).filter((bbox): bbox is Bbox => bbox !== null);
-		}
-		if (raw && typeof raw === 'object') {
-			const single = parseBbox(raw);
-			return single ? [single] : [];
-		}
-		return [];
-	}
-
-	function proposalColor(index: number) {
-		return proposalPalette[index % proposalPalette.length];
-	}
 
 	function isTextInputTarget(target: EventTarget | null) {
 		if (!(target instanceof HTMLElement)) return false;
@@ -109,25 +62,9 @@
 	);
 	const camera = $derived(typeof extra.camera === 'string' ? extra.camera : null);
 
-	const primaryBboxes = $derived.by(() => {
-		const direct = parseBboxCollection(sample?.detection_bboxes);
-		return direct.length > 0 ? direct : parseBboxCollection(extra.detection_bbox);
-	});
-
-	const candidateBboxes = $derived.by(() => parseBboxCollection(extra.detection_candidate_bboxes));
-
-	const legacyReviewBboxes = $derived.by(() => {
-		const review = extra.review;
-		if (!review || typeof review !== 'object') return [] as Bbox[];
-		const corrections = (review as Record<string, unknown>).box_corrections;
-		if (!Array.isArray(corrections)) return [] as Bbox[];
-		return corrections
-			.map((entry) => {
-				if (!entry || typeof entry !== 'object') return null;
-				return parseBbox((entry as Record<string, unknown>).bbox);
-			})
-			.filter((bbox): bbox is Bbox => bbox !== null);
-	});
+	const primaryBboxes = $derived(extractPrimaryBboxes(sample?.detection_bboxes, extra.detection_bbox));
+	const candidateBboxes = $derived(parseBboxCollection(extra.detection_candidate_bboxes));
+	const legacyReviewBboxes = $derived(extractLegacyReviewBboxes(extra.review));
 
 	const proposalBoxes = $derived.by(() => {
 		const proposals = [...primaryBboxes, ...candidateBboxes];
@@ -449,9 +386,9 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
 	<div>
-		<h1 class="text-2xl font-bold text-[#1A1A1A]">Review Queue</h1>
-		<p class="mt-1 text-sm text-[#7A7770]">
-			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-[#E2E0DB] bg-[#F7F6F3] px-1.5 py-0.5 text-[11px] font-semibold text-[#1A1A1A]">D</kbd> toggles annotation.
+		<h1 class="text-2xl font-bold text-text">Review Queue</h1>
+		<p class="mt-1 text-sm text-text-muted">
+			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation.
 		</p>
 	</div>
 </div>
@@ -459,43 +396,43 @@
 {#if loading}
 	<Spinner />
 {:else if empty}
-	<div class="border border-[#E2E0DB] bg-white p-10 text-center">
-		<p class="text-lg font-medium text-[#1A1A1A]">No more samples to review.</p>
-		<p class="mt-2 text-sm text-[#7A7770]">Come back later when the queue has fresh uploads again.</p>
+	<div class="border border-border bg-white p-10 text-center">
+		<p class="text-lg font-medium text-text">No more samples to review.</p>
+		<p class="mt-2 text-sm text-text-muted">Come back later when the queue has fresh uploads again.</p>
 	</div>
 {:else if sample}
 	{#if error}
-		<div class="mb-4 bg-[#D01012]/8 px-4 py-3 text-sm text-[#D01012]">{error}</div>
+		<div class="mb-4"><Alert variant="danger">{error}</Alert></div>
 	{/if}
 
 	{#if feedback}
-		<div class="mb-4 bg-[#00852B]/10 px-4 py-3 text-sm text-[#00852B]">{feedback}</div>
+		<div class="mb-4"><Alert variant="success">{feedback}</Alert></div>
 	{/if}
 
 	<div class="grid gap-5 lg:grid-cols-[1fr_360px]">
 		<div class="min-w-0 space-y-3">
-			<div class="flex flex-wrap items-center gap-2 bg-[#F7F6F3] p-1">
+			<div class="flex flex-wrap items-center gap-2 bg-bg p-1">
 				<button
 					type="button"
 					onclick={() => {
 						annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-[#7A7770] hover:text-[#1A1A1A]' : 'bg-white text-[#1A1A1A]'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-text-muted hover:text-text' : 'bg-white text-text'}"
 				>
 					Review
 				</button>
 				<button
 					type="button"
 					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-[#1A1A1A]' : 'text-[#7A7770] hover:text-[#1A1A1A]'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
 				>
 					Annotate
 				</button>
 
 				{#if !annotateMode && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-[#7A7770] select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-[#E2E0DB] text-[#0055BF]" />
+						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted select-none">
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-border text-info" />
 							Boxes
 						</label>
 					</div>
@@ -516,58 +453,27 @@
 					externalApi={annotatorApi}
 				/>
 			{:else}
-				<div class="overflow-hidden border border-[#E2E0DB] bg-gray-950">
-					<div class="relative">
-						<img
-							src={reviewImageUrl}
-							alt={`Review sample ${sample.local_sample_id}`}
-							class="w-full"
-							onload={onImageLoad}
-						/>
-
-						{#if showBboxOverlay && imageNaturalWidth > 0 && proposalBoxes.length > 0}
-							<svg
-								class="pointer-events-none absolute inset-0 h-full w-full"
-								viewBox="0 0 {imageNaturalWidth} {imageNaturalHeight}"
-								preserveAspectRatio="xMidYMid meet"
-							>
-								{#each proposalBoxes as bbox, index}
-									{@const color = proposalColor(index)}
-									<rect
-										x={bbox.x}
-										y={bbox.y}
-										width={bbox.w}
-										height={bbox.h}
-										fill={color.fill}
-										stroke={color.stroke}
-										stroke-width="2"
-									/>
-									<rect x={bbox.x} y={bbox.y - 18} width={52} height={18} fill="rgba(0,0,0,0.6)" rx="2" />
-									<text
-										x={bbox.x + 5}
-										y={bbox.y - 5}
-										fill={color.stroke}
-										font-size="11"
-										font-family="monospace"
-									>
-										box {index + 1}
-									</text>
-								{/each}
-							</svg>
-						{/if}
-					</div>
-				</div>
+				<ReviewImageViewer
+					imageUrl={reviewImageUrl}
+					imageAlt={`Review sample ${sample.local_sample_id}`}
+					{proposalBoxes}
+					{showBboxOverlay}
+					{imageNaturalWidth}
+					{imageNaturalHeight}
+					{proposalColor}
+					onload={onImageLoad}
+				/>
 			{/if}
 
 			{#if usingFullFrameFallback}
-				<div class="border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-2 text-xs text-[#7A7770]">
+				<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
 					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
 				</div>
 			{/if}
 		</div>
 
 		<div class="space-y-4">
-			<div class="border border-[#E2E0DB] bg-white p-4">
+			<div class="border border-border bg-white p-4">
 				<div class="flex flex-wrap items-center gap-2">
 					<Badge text={sample.review_status} variant="info" />
 					{#if currentDecision}
@@ -580,57 +486,57 @@
 
 				<div class="mt-3 space-y-2 text-sm">
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-[#7A7770]">Sample</span>
-						<span class="font-medium text-[#1A1A1A]" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
+						<span class="text-text-muted">Sample</span>
+						<span class="font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-[#7A7770]">Captured</span>
-						<span class="text-right text-[#1A1A1A]">{formatDate(sample.captured_at)}</span>
+						<span class="text-text-muted">Captured</span>
+						<span class="text-right text-text">{formatDate(sample.captured_at)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-[#7A7770]">Uploaded</span>
-						<span class="text-right text-[#1A1A1A]">{formatDate(sample.uploaded_at)}</span>
+						<span class="text-text-muted">Uploaded</span>
+						<span class="text-right text-text">{formatDate(sample.uploaded_at)}</span>
 					</div>
 					{#if sample.capture_reason}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Reason</span>
-							<span class="text-right text-[#1A1A1A]">{sample.capture_reason}</span>
+							<span class="text-text-muted">Reason</span>
+							<span class="text-right text-text">{sample.capture_reason}</span>
 						</div>
 					{/if}
 					{#if camera}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Camera</span>
-							<span class="text-right text-[#1A1A1A]">{camera}</span>
+							<span class="text-text-muted">Camera</span>
+							<span class="text-right text-text">{camera}</span>
 						</div>
 					{/if}
 					{#if detectionScope}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Scope</span>
-							<span class="text-right text-[#1A1A1A]">{detectionScope}</span>
+							<span class="text-text-muted">Scope</span>
+							<span class="text-right text-text">{detectionScope}</span>
 						</div>
 					{/if}
 					{#if sample.detection_algorithm}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Detection</span>
-							<span class="text-right text-[#1A1A1A]">{sample.detection_algorithm}</span>
+							<span class="text-text-muted">Detection</span>
+							<span class="text-right text-text">{sample.detection_algorithm}</span>
 						</div>
 					{/if}
 					{#if sample.detection_score != null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Score</span>
-							<span class="text-right text-[#1A1A1A]">{sample.detection_score.toFixed(2)}</span>
+							<span class="text-text-muted">Score</span>
+							<span class="text-right text-text">{sample.detection_score.toFixed(2)}</span>
 						</div>
 					{/if}
 					{#if proposalBoxes.length > 0}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Proposals</span>
-							<span class="text-right font-medium text-[#1A1A1A]">{proposalBoxes.length}</span>
+							<span class="text-text-muted">Proposals</span>
+							<span class="text-right font-medium text-text">{proposalBoxes.length}</span>
 						</div>
 					{/if}
 					{#if detectionFound !== null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-[#7A7770]">Found</span>
-							<span class={detectionFound ? 'font-medium text-[#00852B]' : 'font-medium text-[#D01012]'}>
+							<span class="text-text-muted">Found</span>
+							<span class={detectionFound ? 'font-medium text-success' : 'font-medium text-primary'}>
 								{detectionFound ? 'Yes' : 'No'}
 							</span>
 						</div>
@@ -647,217 +553,23 @@
 				onSaved={handleClassificationSaved}
 			/>
 
-			<div class="border border-[#E2E0DB] bg-white p-4">
-				<div class="space-y-2 text-xs">
-					<div class="flex items-center justify-center gap-2">
-						<button
-							type="button"
-							onclick={toggleAnnotateMode}
-							disabled={loading || submitting}
-							class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-[#0055BF]/30 bg-[#0055BF]/10' : 'border-[#0055BF]/20 bg-[#F0F7FF] hover:bg-[#0055BF]/15'}"
-						>
-							<div class="border border-[#0055BF]/30 bg-white px-2 py-1 text-[11px] font-bold text-[#0055BF]">
-								D
-							</div>
-							<div>
-								<div class="font-medium text-[#0055BF]">Annotate</div>
-								<div class="text-[11px] text-[#0055BF]">Toggle edit mode</div>
-							</div>
-						</button>
-						<button
-							type="button"
-							onclick={() => {
-								annotateMode = false;
-							}}
-							disabled={!annotateMode || loading || submitting}
-							class="inline-flex items-center gap-2 border border-[#E2E0DB] bg-[#F7F6F3] px-2.5 py-2 text-left transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<div class="border border-[#E2E0DB] bg-white px-2 py-1 text-[11px] font-bold text-[#1A1A1A]">
-								Esc
-							</div>
-							<div>
-								<div class="font-medium text-[#1A1A1A]">Close</div>
-								<div class="text-[11px] text-[#7A7770]">Exit annotate</div>
-							</div>
-						</button>
-					</div>
+			<ReviewActionPad
+				{annotateMode}
+				{loading}
+				{submitting}
+				reviewHistoryLength={reviewHistory.length}
+				onToggleAnnotate={toggleAnnotateMode}
+				onExitAnnotate={() => { annotateMode = false; }}
+				onAccept={() => void submitReview('accept')}
+				onReject={() => void submitReview('reject')}
+				onSkip={skip}
+				onBack={() => void goBack()}
+			/>
 
-					<div class="mx-auto grid max-w-[210px] grid-cols-3 gap-1.5">
-						<div></div>
-						<button
-							type="button"
-							onclick={() => void submitReview('accept')}
-							disabled={loading || submitting}
-							class="border border-[#00852B]/20 bg-[#F0F9F5] px-3 py-3 text-center transition-colors hover:bg-[#00852B]/15 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<div class="text-2xl font-bold text-[#00852B]">↑</div>
-							<div class="mt-0.5 font-medium text-[#00852B]">Accept</div>
-						</button>
-						<div></div>
-
-						<button
-							type="button"
-							onclick={() => void goBack()}
-							disabled={reviewHistory.length === 0 || loading || submitting}
-							class="border border-[#E2E0DB] bg-[#F7F6F3] px-2 py-2 text-center transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<div class="text-xl font-bold text-[#1A1A1A]">←</div>
-							<div class="mt-0.5 font-medium text-[#1A1A1A]">Back</div>
-						</button>
-						<button
-							type="button"
-							onclick={() => void submitReview('reject')}
-							disabled={loading || submitting}
-							class="border border-[#D01012]/20 bg-[#FEF2F2] px-3 py-3 text-center transition-colors hover:bg-[#D01012]/10 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<div class="text-2xl font-bold text-[#D01012]">↓</div>
-							<div class="mt-0.5 font-medium text-[#D01012]">Reject</div>
-						</button>
-						<button
-							type="button"
-							onclick={skip}
-							disabled={loading || submitting}
-							class="border border-[#E2E0DB] bg-[#F7F6F3] px-2 py-2 text-center transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<div class="text-xl font-bold text-[#1A1A1A]">→</div>
-							<div class="mt-0.5 font-medium text-[#1A1A1A]">Skip</div>
-						</button>
-					</div>
-
-					<p class="text-center text-[11px] text-[#7A7770]">
-						Green means keep it, red means reject it, and gray moves through the queue.
-					</p>
-					{#if reviewHistory.length > 0}
-						<p class="mt-2 text-center text-xs text-[#7A7770]">{reviewHistory.length} reviewed this session</p>
-					{/if}
-				</div>
-			</div>
-
-			<div class="bg-[#FFD500]/12 p-4">
-				<h2 class="text-sm font-semibold text-[#A16207]">What Counts As Good Training Data</h2>
-				<div class="mt-3 space-y-3 text-sm text-[#A16207]">
-					<p>
-						Accept only images where every visible LEGO part is covered by a box or corrected annotation.
-					</p>
-					<div class="border border-[#00852B]/20 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-[#00852B] uppercase">Accept</div>
-						<p class="mt-1 text-sm text-[#1A1A1A]">
-							All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
-						</p>
-					</div>
-					<div class="border border-[#0055BF]/20 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-[#0055BF] uppercase">Annotate First</div>
-						<p class="mt-1 text-sm text-[#1A1A1A]">
-							If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
-						</p>
-					</div>
-					<div class="border border-[#D01012]/20 bg-white px-3 py-3">
-						<div class="text-xs font-semibold tracking-wide text-[#D01012] uppercase">Reject</div>
-						<p class="mt-1 text-sm text-[#1A1A1A]">
-							Reject images that stay incomplete or unreliable, for example when visible parts cannot be marked cleanly enough for training.
-						</p>
-					</div>
-				</div>
-			</div>
+			<ReviewHeuristics />
 
 			{#if annotateMode}
-				<div class="border border-[#E2E0DB] bg-white p-4">
-					<div class="mb-3 flex items-center justify-between">
-						<h2 class="text-sm font-semibold text-[#1A1A1A]">Annotator</h2>
-						<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
-							{#if annotatorApi.isDirty}
-								Unsaved
-							{:else if annotatorApi.hasSavedBaseline}
-								Saved
-							{:else}
-								Not saved
-							{/if}
-						</span>
-					</div>
-
-					<div class="grid grid-cols-4 gap-1.5">
-						<button onclick={annotatorApi.undo} class="border border-[#E2E0DB] px-2 py-2 text-[11px] text-[#7A7770] hover:bg-[#F7F6F3]">Undo</button>
-						<button onclick={annotatorApi.redo} class="border border-[#E2E0DB] px-2 py-2 text-[11px] text-[#7A7770] hover:bg-[#F7F6F3]">Redo</button>
-						<button
-							onclick={annotatorApi.deleteSelected}
-							disabled={annotatorApi.selectedCount === 0}
-							class="border border-[#D01012]/20 px-2 py-2 text-[11px] text-[#D01012] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#E2E0DB]"
-						>
-							Delete
-						</button>
-						<button onclick={annotatorApi.clearAll} class="border border-[#FFD500]/30 px-2 py-2 text-[11px] text-[#A16207] hover:bg-[#FFFBEB]">Clear</button>
-					</div>
-
-					<div class="mt-3 inline-flex border border-[#E2E0DB] bg-[#F7F6F3] p-1">
-						<button
-							type="button"
-							onclick={() => {
-								annotatorApi.activeTool = 'rectangle';
-							}}
-							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
-						>
-							Rectangle
-						</button>
-						<button
-							type="button"
-							onclick={() => {
-								annotatorApi.activeTool = 'polygon';
-							}}
-							class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-[#1A1A1A] text-white' : 'text-[#7A7770] hover:bg-white'}"
-						>
-							Polygon
-						</button>
-					</div>
-
-					<div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-						<div class="bg-[#F7F6F3] px-2 py-2">
-							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.totalAnnotations}</div>
-							<div class="text-[#7A7770]">Total</div>
-						</div>
-						<div class="bg-[#F7F6F3] px-2 py-2">
-							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.seededCount}</div>
-							<div class="text-[#7A7770]">Seeded</div>
-						</div>
-						<div class="bg-[#F7F6F3] px-2 py-2">
-							<div class="text-sm font-semibold text-[#1A1A1A]">{annotatorApi.manualCount}</div>
-							<div class="text-[#7A7770]">Manual</div>
-						</div>
-					</div>
-
-					<div class="mt-3 flex gap-2">
-						<button
-							type="button"
-							onclick={annotatorApi.revert}
-							class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]"
-						>
-							Revert
-						</button>
-						{#if annotatorApi.hasSeedBoxes}
-							<button
-								type="button"
-								onclick={annotatorApi.loadSorterBoxes}
-								class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] hover:bg-[#F7F6F3]"
-							>
-								Reset
-							</button>
-						{/if}
-					</div>
-
-					{#if annotatorApi.feedback}
-						<p class="mt-3 px-3 py-2 text-xs {annotatorApi.feedbackTone === 'danger' ? 'bg-[#D01012]/8 text-[#D01012]' : annotatorApi.feedbackTone === 'success' ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#F7F6F3] text-[#7A7770]'}">
-							{annotatorApi.feedback}
-						</p>
-					{/if}
-
-					<button
-						type="button"
-						onclick={annotatorApi.save}
-						disabled={annotatorApi.saving || !annotatorApi.isDirty}
-						class="mt-3 flex w-full items-center justify-center px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
-					>
-						{annotatorApi.saving ? 'Saving...' : 'Save Annotations'}
-					</button>
-				</div>
+				<ReviewAnnotatorPanel {annotatorApi} />
 			{/if}
 
 		</div>

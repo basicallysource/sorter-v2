@@ -8,12 +8,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN adduser --system --group --home /app app
+
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend/ ./
 RUN chmod +x /app/docker-entrypoint.sh \
-    && mkdir -p /data/uploads
+    && mkdir -p /data/uploads \
+    && chown -R app:app /app /data
+
+USER app
 
 EXPOSE 8000
 

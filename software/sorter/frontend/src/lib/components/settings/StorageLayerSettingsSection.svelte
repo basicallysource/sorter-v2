@@ -2,6 +2,9 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount, untrack } from 'svelte';
+	import BackendToolbar from './storage/BackendToolbar.svelte';
+	import LayerList from './storage/LayerList.svelte';
+	import WaveshareBusTable from './storage/WaveshareBusTable.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 	type LayerTelemetry = {
@@ -197,15 +200,7 @@
 		);
 	}
 
-	function formatTelemetryValue(value: number | null): string {
-		return value === null ? '--' : String(value);
-	}
-
-	function layerIsOffline(layer: LayerDraft): boolean {
-		return backend === 'waveshare' && !layer.telemetry.available && !!layer.telemetry.error;
-	}
-
-	function applySettings(payload: any) {
+function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? payload?.settings ?? {};
 		const servo = payload?.servo ?? {};
 		const previousStates = new Map(
@@ -568,13 +563,7 @@
 		}
 	}
 
-	function modelLabel(servo: BusServo): string {
-		if (servo.model_name) return servo.model_name;
-		if (servo.model !== null) return `SC?? (${servo.model})`;
-		return '--';
-	}
-
-	function addLayer() {
+function addLayer() {
 		const nextIndex = layers.length > 0 ? Math.max(...layers.map((l) => l.index)) + 1 : 1;
 		layers = [
 			...layers,
@@ -736,90 +725,22 @@
 	{#if !loaded}
 		<div class="text-sm text-text-muted">{loading ? 'Loading...' : ''}</div>
 	{:else}
-	<div class="flex flex-wrap items-end gap-3">
-		<label class="text-xs text-text">
-			Backend
-			<select
-				bind:value={backend}
-				disabled={loading || saving}
-				class="mt-1 block w-40 border border-border bg-bg px-2 py-1.5 text-sm text-text"
-			>
-				<option value="pca9685">PCA9685</option>
-				<option value="waveshare">Waveshare SC</option>
-			</select>
-		</label>
-
-		{#if backend === 'pca9685'}
-			<label class="text-xs text-text">
-				Open Angle
-				<input
-					type="number"
-					min="0"
-					max="180"
-					step="1"
-					bind:value={openAngle}
-					disabled={loading || saving}
-					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-			</label>
-			<label class="text-xs text-text">
-				Closed Angle
-				<input
-					type="number"
-					min="0"
-					max="180"
-					step="1"
-					bind:value={closedAngle}
-					disabled={loading || saving}
-					class="mt-1 block w-24 border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-			</label>
-		{:else}
-			<label class="min-w-0 flex-1 text-xs text-text">
-				Port
-				{#if portsLoaded && availablePorts.length > 0}
-					<select
-						bind:value={port}
-						disabled={loading || saving}
-						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					>
-						<option value="">Auto-detect</option>
-						{#each availablePorts as p}
-							<option value={p.device}>{p.device} — {p.product}{p.confirmed ? ` (${p.servo_count} servos)` : ''}</option>
-						{/each}
-					</select>
-				{:else}
-					<input
-						type="text"
-						bind:value={port}
-						placeholder="Auto-detect"
-						disabled={loading || saving}
-						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				{/if}
-			</label>
-		{/if}
-
-		<div class="flex items-center gap-2 pb-0.5">
-			<button
-				onclick={saveSettings}
-				disabled={loading || saving || layers.length === 0}
-				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{saving ? 'Saving...' : 'Save'}
-			</button>
-			<button
-				onclick={loadSettings}
-				disabled={loading || saving}
-				class="cursor-pointer text-xs text-text-muted hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{loading ? 'Loading...' : 'Reload'}
-			</button>
-		</div>
-	</div>
+	<BackendToolbar
+		bind:backend
+		bind:openAngle
+		bind:closedAngle
+		bind:port
+		{availablePorts}
+		{portsLoaded}
+		{loading}
+		{saving}
+		layerCount={layers.length}
+		onSave={saveSettings}
+		onReload={loadSettings}
+	/>
 
 	{#if errorMsg}
-		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
 		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
@@ -844,291 +765,38 @@
 		</div>
 	{/if}
 
-	<div class="flex items-center justify-between">
-		<div class="text-xs text-text-muted">{layers.length} layer{layers.length !== 1 ? 's' : ''}</div>
-		<button
-			onclick={addLayer}
-			disabled={loading || saving}
-			class="cursor-pointer border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-		>
-			Add Layer
-		</button>
-	</div>
-
-	{#if layers.length === 0 && !loading}
-		<div class="text-sm text-text-muted">
-			No storage layers configured. Add one to get started.
-		</div>
-	{:else}
-		<div class="overflow-hidden border border-border">
-			<table class="w-full text-sm">
-				<thead>
-					<tr class="border-b border-border bg-surface text-left text-xs">
-						<th class="px-3 py-2 font-medium text-text-muted">Layer</th>
-						<th class="px-3 py-2 font-medium text-text-muted">Active</th>
-						<th class="px-3 py-2 font-medium text-text-muted">Bins</th>
-						<th class="px-3 py-2 font-medium text-text-muted">{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th>
-						<th class="px-3 py-2 font-medium text-text-muted">Invert</th>
-						{#if backend === 'waveshare'}
-							<th class="px-3 py-2 font-medium text-text-muted">Position</th>
-						{/if}
-						<th class="px-3 py-2 font-medium text-text-muted">State</th>
-						<th class="px-3 py-2 text-right font-medium text-text-muted">Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each layers as layer, index}
-						<tr class="border-b border-border bg-bg last:border-b-0 {layer.enabled ? '' : 'opacity-60'}">
-							<td class="px-3 py-2 font-medium text-text">{layer.index}</td>
-							<td class="px-3 py-2">
-								<input
-									type="checkbox"
-									checked={layer.enabled}
-									onchange={(event) => updateLayerEnabled(index, event.currentTarget.checked)}
-									disabled={loading || saving}
-									aria-label={`Layer ${layer.index} active`}
-								/>
-							</td>
-							<td class="px-3 py-2">
-								<select
-									value={layer.binCount}
-									onchange={(event) => updateLayerCount(index, event.currentTarget.value)}
-									disabled={loading || saving}
-									class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
-								>
-									{#each allowedCounts as count}
-										<option value={String(count)}>{count}</option>
-									{/each}
-								</select>
-							</td>
-							<td class="px-3 py-2">
-								{#if backend === 'waveshare'}
-									<select
-										value={layer.servoId}
-										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
-										disabled={loading || saving}
-										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
-									>
-										<option value="">-</option>
-										{#each waveshareServoChoices() as servoId}
-											<option value={String(servoId)}>{servoId}</option>
-										{/each}
-									</select>
-								{:else}
-									<select
-										value={layer.servoId}
-										onchange={(event) => updateLayerServoId(index, event.currentTarget.value)}
-										disabled={loading || saving}
-										class="w-16 border border-border bg-surface px-1.5 py-1 text-sm text-text"
-									>
-										<option value="">-</option>
-										{#each pcaChannelChoices() as channel}
-											<option value={String(channel)}>{channel}</option>
-										{/each}
-									</select>
-								{/if}
-							</td>
-							<td class="px-3 py-2">
-								<input
-									type="checkbox"
-									checked={layer.invert}
-									onchange={(event) => void updateLayerInvert(index, event.currentTarget.checked)}
-									disabled={loading || saving || !layer.enabled || !layerHasAssignedServo(layer)}
-								/>
-							</td>
-							{#if backend === 'waveshare'}
-								<td class="px-3 py-2 font-mono text-xs text-text-muted">
-									{#if layerIsOffline(layer)}
-										<span class="text-[#D01012] dark:text-red-400">Offline</span>
-									{:else}
-										{formatTelemetryValue(layer.telemetry.position)}
-										<span class="text-text-muted/50">/ {formatTelemetryValue(layer.telemetry.openPosition)} · {formatTelemetryValue(layer.telemetry.closedPosition)}</span>
-										{#if layer.telemetry.error}
-											<span class="ml-1 text-[#D01012]" title={layer.telemetry.error}>!</span>
-										{/if}
-									{/if}
-								</td>
-							{/if}
-							<td class="px-3 py-2">
-								{#if !layer.enabled}
-									<span
-										class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
-										title="Inactive layers are ignored when assigning bins."
-									>
-										<span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-										Inactive
-									</span>
-								{:else if layerIsOffline(layer)}
-									<span
-										class="inline-flex items-center gap-1 text-xs text-[#D01012] dark:text-red-400"
-										title={layer.telemetry.error ?? 'Servo offline'}
-									>
-										<span class="h-1.5 w-1.5 rounded-full bg-[#D01012]"></span>
-										Offline
-									</span>
-								{:else if !layerHasAssignedServo(layer)}
-									<span
-										class="inline-flex items-center gap-1 text-xs text-text-muted"
-										title="No servo assigned to this layer."
-									>
-										<span class="h-1.5 w-1.5 rounded-full bg-border"></span>
-										No servo
-									</span>
-								{:else if layer.liveOpen !== null}
-									<span class="inline-flex items-center gap-1 text-xs {layer.liveOpen ? 'text-[#00852B] dark:text-green-400' : 'text-text-muted'}">
-										<span class="h-1.5 w-1.5 rounded-full {layer.liveOpen ? 'bg-[#00852B]' : 'bg-border'}"></span>
-										{layer.liveOpen ? 'Open' : 'Closed'}
-									</span>
-								{:else}
-									<span class="text-xs text-text-muted">--</span>
-								{/if}
-							</td>
-							<td class="px-3 py-2 text-right">
-								<div class="flex items-center justify-end gap-1.5">
-									<button
-										onclick={() => toggleLayerServo(index)}
-										disabled={loading || saving || layer.testing || !layer.enabled || !layerHasAssignedServo(layer) || layerIsOffline(layer)}
-										class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										{#if layer.testing}
-											...
-										{:else if layer.liveOpen === true}
-											Close
-										{:else if layer.liveOpen === false}
-											Open
-										{:else}
-											Toggle
-										{/if}
-									</button>
-									{#if backend === 'waveshare'}
-										<button
-											onclick={() => calibrateLayerServo(index)}
-											disabled={loading || saving || layer.calibrating || !layer.enabled || !layerHasAssignedServo(layer) || layerIsOffline(layer)}
-											class="cursor-pointer border border-border bg-bg px-2 py-1 text-xs text-text hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-										>
-											{layer.calibrating ? '...' : 'Cal'}
-										</button>
-									{/if}
-									<button
-										onclick={() => removeLayer(index)}
-										disabled={loading || saving}
-										class="cursor-pointer border border-[#D01012]/30 bg-[#D01012]/[0.06] px-2 py-1 text-xs text-[#D01012] hover:bg-[#D01012]/10 disabled:cursor-not-allowed disabled:opacity-50"
-										title="Remove layer {layer.index}"
-									>
-										Del
-									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+	<LayerList
+		{layers}
+		{backend}
+		{loading}
+		{saving}
+		{allowedCounts}
+		pcaChannelChoices={pcaChannelChoices()}
+		waveshareServoChoices={waveshareServoChoices()}
+		onAdd={addLayer}
+		onRemove={removeLayer}
+		onUpdateCount={updateLayerCount}
+		onUpdateEnabled={updateLayerEnabled}
+		onUpdateServoId={updateLayerServoId}
+		onUpdateInvert={(index, value) => void updateLayerInvert(index, value)}
+		onToggle={toggleLayerServo}
+		onCalibrate={calibrateLayerServo}
+	/>
 
 	{#if backend === 'waveshare'}
-		<div class="mt-6 flex flex-col gap-3">
-			<div class="flex items-center gap-3">
-				<h3 class="text-sm font-medium text-text">Waveshare Servos on Bus</h3>
-				<button
-					onclick={scanBusServos}
-					disabled={busScanning}
-					class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{busScanning ? 'Scanning...' : 'Scan Bus'}
-				</button>
-			</div>
-
-			{#if busError}
-				<div class="text-sm text-[#D01012] dark:text-red-400">{busError}</div>
-			{:else if busStatusMsg}
-				<div class="text-sm text-text-muted">{busStatusMsg}</div>
-			{/if}
-
-			{#if busServos.length > 0}
-				<div class="overflow-hidden border border-border">
-					<table class="w-full text-sm">
-						<thead>
-							<tr class="border-b border-border bg-surface text-left text-xs">
-								<th class="px-3 py-2 font-medium text-text-muted">ID</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Model</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Position</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Limits</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Temp</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Voltage</th>
-								<th class="px-3 py-2 font-medium text-text-muted">Load</th>
-								<th class="px-3 py-2 font-medium text-text-muted">PID</th>
-								<th class="px-3 py-2 text-right font-medium text-text-muted">Change ID</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each busServos as servo}
-								<tr class="border-b border-border bg-bg last:border-b-0 {servo.id === 1 ? 'bg-amber-50 dark:bg-amber-950/20' : ''}">
-									<td class="px-3 py-2 font-medium text-text">
-										{servo.id}
-										{#if servo.id === 1}
-											<span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title="Factory default ID — assign a unique ID before use">Factory</span>
-										{/if}
-									</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">{modelLabel(servo)}</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">{servo.position ?? '--'}</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">
-										{servo.min_limit ?? '--'} – {servo.max_limit ?? '--'}
-									</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">
-										{servo.temperature !== null && servo.temperature !== undefined ? `${servo.temperature}°C` : '--'}
-									</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">
-										{servo.voltage !== null && servo.voltage !== undefined ? `${servo.voltage}V` : '--'}
-									</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">
-										{servo.load ?? '--'}
-									</td>
-									<td class="px-3 py-2 font-mono text-xs text-text-muted">
-										{#if servo.pid}
-											{servo.pid.p}/{servo.pid.d}/{servo.pid.i}
-										{:else}
-											--
-										{/if}
-									</td>
-									<td class="px-3 py-2 text-right">
-										<div class="flex items-center justify-end gap-1.5">
-											<input
-												type="number"
-												min="1"
-												max="253"
-												value={newIdInputs[servo.id] ?? ''}
-												oninput={(e) => {
-													newIdInputs = { ...newIdInputs, [servo.id]: e.currentTarget.value };
-												}}
-												placeholder={servo.id === 1 && busSuggestedNextId ? String(busSuggestedNextId) : 'New ID'}
-												disabled={changingIdFor !== null}
-												class="w-20 border border-border bg-surface px-1.5 py-1 text-xs text-text"
-											/>
-											<button
-												onclick={() => changeServoId(servo.id)}
-												disabled={changingIdFor !== null || !newIdInputs[servo.id]}
-												class="cursor-pointer border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-											>
-												{changingIdFor === servo.id ? '...' : 'Set'}
-											</button>
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else if !busScanning}
-				<div class="text-xs text-text-muted">
-					{#if !port && availablePorts.length === 0}
-						Select a port above and save before scanning, or connect the Waveshare servo board.
-					{:else}
-						Press "Scan Bus" to detect connected servos.
-					{/if}
-				</div>
-			{/if}
-		</div>
+		<WaveshareBusTable
+			{busServos}
+			{busScanning}
+			{busError}
+			{busStatusMsg}
+			{busSuggestedNextId}
+			{changingIdFor}
+			bind:newIdInputs
+			{port}
+			{availablePorts}
+			onScan={scanBusServos}
+			onChangeId={changeServoId}
+		/>
 	{/if}
 	{/if}
 </div>

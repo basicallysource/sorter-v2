@@ -9,8 +9,13 @@
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
-	import { ChevronLeft, ChevronRight, ChevronDown, Home, Square, Cog } from 'lucide-svelte';
+	import { Cog } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
+	import StepperHoming from './stepper/StepperHoming.svelte';
+	import StepperDriverSettings from './stepper/StepperDriverSettings.svelte';
+	import StepperEndstopSettings from './stepper/StepperEndstopSettings.svelte';
+	import StepperChuteOperation from './stepper/StepperChuteOperation.svelte';
 
 	let {
 		stepperKey,
@@ -128,19 +133,7 @@
 		return value === null ? '--' : value.toFixed(digits);
 	}
 
-	let hardwareState = $state<string>('standby');
-
-	async function fetchHardwareState() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
-			if (res.ok) {
-				const data = await res.json();
-				hardwareState = data.hardware_state ?? 'standby';
-			}
-		} catch {
-			// ignore
-		}
-	}
+	const hardwareState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
 
 	function humanizeStepperError(message: string): string {
 		if (message.includes('Controller not initialized')) {
@@ -574,11 +567,9 @@
 
 	onMount(() => {
 		if (endstop) void loadSettings();
-		void fetchHardwareState();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
 			void refreshDrvStatus();
-			void fetchHardwareState();
 		}, 500);
 		return () => clearInterval(interval);
 	});
@@ -613,7 +604,7 @@
 				{#if hasEndstop && endstopTriggered !== null}
 					<div
 						class="mt-1 text-xs {endstopTriggered
-							? 'text-[#00852B] dark:text-green-400'
+							? 'text-success dark:text-green-400'
 							: 'text-text-muted'}"
 					>
 						Endstop: {endstopTriggered ? 'Triggered' : 'Not Triggered'}
@@ -625,393 +616,85 @@
 
 	<!-- Scrollable content -->
 	<div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-		<!-- Controls -->
-		<div class="flex flex-col gap-1">
-			<div class="text-sm font-medium text-text">Controls</div>
-			{#if keyboardShortcuts}
-				<div class="text-xs text-text-muted">
-					Arrow keys also jog this stepper.
-				</div>
-			{/if}
-		</div>
-
-		<div class="grid grid-cols-3 gap-2">
-			<button
-				onclick={() => pulse('ccw')}
-				disabled={Boolean(pulsing[`${stepperKey}:ccw`]) || homing || canceling}
-				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<ChevronLeft size={16} />
-				CCW
-			</button>
-			<button
-				onclick={stopStepper}
-				disabled={stopping || homing || canceling}
-				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-[#D01012] bg-[#D01012]/10 px-3 text-sm text-[#D01012] transition-colors hover:bg-[#D01012]/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
-			>
-				<Square size={14} />
-				Stop
-			</button>
-			<button
-				onclick={() => pulse('cw')}
-				disabled={Boolean(pulsing[`${stepperKey}:cw`]) || homing || canceling}
-				class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				CW
-				<ChevronRight size={16} />
-			</button>
-		</div>
-
-		<!-- Pulse mode toggle -->
-		<div class="flex gap-1">
-			<button
-				onclick={() => (pulseMode = 'duration')}
-				class="flex-1 cursor-pointer border px-2 py-1 text-xs transition-colors {pulseMode === 'duration'
-					? 'border-border bg-surface font-medium text-text'
-					: 'border-border/50 bg-transparent text-text-muted hover:bg-surface'}"
-			>
-				Duration
-			</button>
-			<button
-				onclick={() => (pulseMode = 'degrees')}
-				class="flex-1 cursor-pointer border px-2 py-1 text-xs transition-colors {pulseMode === 'degrees'
-					? 'border-border bg-surface font-medium text-text'
-					: 'border-border/50 bg-transparent text-text-muted hover:bg-surface'}"
-			>
-				Degrees
-			</button>
-		</div>
-
-		<div class="grid grid-cols-2 gap-3">
-			{#if pulseMode === 'duration'}
-				<label class="text-xs text-text">
-					Duration (s)
-					<input
-						type="number"
-						min="0.05"
-						max="5"
-						step="0.05"
-						bind:value={pulseDuration}
-						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-			{:else}
-				<label class="text-xs text-text">
-					Degrees (output)
-					<input
-						type="number"
-						min="1"
-						max="3600"
-						step="1"
-						bind:value={pulseDegrees}
-						class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-			{/if}
-			<label class="text-xs text-text">
-				Speed
-				<input
-					type="number"
-					min="1"
-					step="50"
-					bind:value={pulseSpeed}
-					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-			</label>
-		</div>
-		{#if pulseMode === 'degrees' && gearRatio !== 1}
-			<div class="text-xs text-text-muted">
-				Ratio {gearRatio.toFixed(2)}:1 — {pulseDegrees}° output = {(pulseDegrees * gearRatio).toFixed(1)}° motor
-			</div>
-		{/if}
+		<StepperPulseControls
+			{stepperKey}
+			{keyboardShortcuts}
+			{pulsing}
+			{homing}
+			{canceling}
+			{stopping}
+			bind:pulseMode
+			bind:pulseDuration
+			bind:pulseSpeed
+			bind:pulseDegrees
+			{gearRatio}
+			onPulse={pulse}
+			onStop={stopStepper}
+		/>
 
 		{#if isChute}
-			<div class="border-t border-border pt-4"></div>
-
-			<div class="flex flex-col gap-1">
-				<div class="text-sm font-medium text-text">Operation</div>
-				<div class="text-xs text-text-muted">
-					Normal distributor movement speed during bin-to-bin operation.
-				</div>
-			</div>
-
-			<label class="text-xs text-text">
-				Operating Speed (uSteps/s)
-				<input
-					type="number"
-					min="1"
-					step="100"
-					bind:value={chuteOperatingSpeed}
-					disabled={loading || saving || homing || canceling}
-					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-			</label>
-
-			<button
-				onclick={() => void saveChuteSettings('Distributor operating speed saved.')}
-				disabled={loading || saving || homing || canceling}
-				class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{saving ? 'Saving...' : 'Save Operation Settings'}
-			</button>
+			<StepperChuteOperation
+				{loading}
+				{saving}
+				{homing}
+				{canceling}
+				bind:chuteOperatingSpeed
+				onSave={() => void saveChuteSettings('Distributor operating speed saved.')}
+			/>
 		{/if}
 
-		<!-- Homing (only if endstop) -->
 		{#if hasEndstop}
-			<div class="border-t border-border pt-4"></div>
-
-			<div class="flex flex-col gap-1">
-				<div class="text-sm font-medium text-text">Homing</div>
-				<div class="text-xs text-text-muted">
-					Find the endstop slowly, or cancel and stop all steppers if the wrong motor moves.
-				</div>
-			</div>
-
-			<div class="flex flex-col gap-2">
-				<button
-					onclick={homeToEndstop}
-					disabled={loading || saving || homing || canceling}
-					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					<Home size={14} />
-					{homing ? 'Homing...' : 'Home to Endstop'}
-				</button>
-				<button
-					onclick={cancelHoming}
-					disabled={!homing || canceling}
-					class="cursor-pointer border border-[#D01012] bg-[#D01012]/20 px-3 py-2 text-sm text-[#D01012] hover:bg-[#D01012]/30 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400"
-				>
-					{canceling ? 'Canceling...' : 'Cancel Homing'}
-				</button>
-				{#if endstop?.calibrateEndpoint}
-					<button
-						onclick={calibrate}
-						disabled={endstopTriggered !== true || homing || calibrating || canceling}
-						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{calibrating ? 'Calibrating...' : 'Calibrate Full Rotation'}
-					</button>
-					{#if calibrateResult}
-						<div class="text-xs text-text-muted">
-							Result: {calibrateResult.steps_per_revolution} steps/rev
-						</div>
-					{/if}
-				{/if}
-			</div>
+			<StepperHoming
+				{loading}
+				{saving}
+				{homing}
+				{canceling}
+				{calibrating}
+				{endstopTriggered}
+				{calibrateResult}
+				hasCalibrateEndpoint={Boolean(endstop?.calibrateEndpoint)}
+				onHome={homeToEndstop}
+				onCancel={cancelHoming}
+				onCalibrate={calibrate}
+			/>
 		{/if}
 
-		<!-- Driver Settings (collapsible) -->
-		<div class="border-t border-border pt-4"></div>
-
-		<button
-			onclick={() => {
+		<StepperDriverSettings
+			bind:open={driverSettingsOpen}
+			loading={tmcLoading}
+			saving={tmcSaving}
+			{hasEndstop}
+			bind:tmcIrun
+			bind:tmcIhold
+			bind:tmcMicrosteps
+			bind:tmcStealthchop
+			bind:tmcCoolstep
+			bind:stepperDirectionInverted
+			{tmcDrvStatus}
+			onToggle={() => {
 				driverSettingsOpen = !driverSettingsOpen;
 				if (driverSettingsOpen && !tmcLoaded) void loadTmcSettings();
 			}}
-			class="flex w-full cursor-pointer items-center justify-between"
-		>
-			<div class="text-sm font-medium text-text">Driver Settings</div>
-			<ChevronDown
-				size={16}
-				class="text-text-muted transition-transform {driverSettingsOpen
-					? 'rotate-180'
-					: ''}"
-			/>
-		</button>
+			onSave={saveTmcSettings}
+		/>
 
-		{#if driverSettingsOpen}
-			{#if tmcLoading}
-				<div class="text-sm text-text-muted">
-					Loading driver state...
-				</div>
-			{:else}
-				<div class="flex flex-col gap-3">
-					<label class="flex flex-col gap-1 text-xs text-text">
-						Run Current (IRUN): {tmcIrun}
-						<input type="range" min="0" max="31" bind:value={tmcIrun} class="w-full" />
-					</label>
-
-					<label class="flex flex-col gap-1 text-xs text-text">
-						Hold Current (IHOLD): {tmcIhold}
-						<input type="range" min="0" max="31" bind:value={tmcIhold} class="w-full" />
-					</label>
-
-					<label class="flex flex-col gap-1 text-xs text-text">
-						Microstepping
-						<select
-							bind:value={tmcMicrosteps}
-							class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-						>
-							{#each [1, 2, 4, 8, 16, 32, 64, 128, 256] as ms}
-								<option value={ms}>1/{ms}</option>
-							{/each}
-						</select>
-					</label>
-
-					<label class="flex items-center gap-2 text-sm text-text">
-						<input type="checkbox" bind:checked={tmcStealthchop} />
-						StealthChop
-					</label>
-
-					<label class="flex items-center gap-2 text-sm text-text">
-						<input type="checkbox" bind:checked={tmcCoolstep} />
-						CoolStep
-					</label>
-
-					{#if hasEndstop}
-						<label class="flex items-center gap-2 text-sm text-text">
-							<input
-								type="checkbox"
-								checked={stepperDirectionInverted}
-								onchange={(event) =>
-									(stepperDirectionInverted = event.currentTarget.checked)}
-							/>
-							Invert stepper direction
-						</label>
-					{/if}
-
-					<button
-						onclick={saveTmcSettings}
-						disabled={tmcSaving}
-						class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{tmcSaving ? 'Applying...' : 'Apply Driver Settings'}
-					</button>
-
-					{#if tmcDrvStatus}
-						<div class="flex flex-col gap-1">
-							<div
-								class="text-xs uppercase tracking-[0.18em] text-text-muted"
-							>
-								DRV_STATUS
-							</div>
-							<div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-								<div
-									class={tmcDrvStatus.ot
-										? 'font-semibold text-[#D01012]'
-										: 'text-text-muted'}
-								>
-									Overtemp: {tmcDrvStatus.ot ? 'YES' : 'No'}
-								</div>
-								<div
-									class={tmcDrvStatus.otpw
-										? 'font-semibold text-yellow-500'
-										: 'text-text-muted'}
-								>
-									OT Pre-warn: {tmcDrvStatus.otpw ? 'YES' : 'No'}
-								</div>
-								<div
-									class={tmcDrvStatus.s2ga
-										? 'font-semibold text-[#D01012]'
-										: 'text-text-muted'}
-								>
-									Short A: {tmcDrvStatus.s2ga ? 'YES' : 'No'}
-								</div>
-								<div
-									class={tmcDrvStatus.s2gb
-										? 'font-semibold text-[#D01012]'
-										: 'text-text-muted'}
-								>
-									Short B: {tmcDrvStatus.s2gb ? 'YES' : 'No'}
-								</div>
-								<div
-									class={tmcDrvStatus.ola
-										? 'font-semibold text-yellow-500'
-										: 'text-text-muted'}
-								>
-									Open A: {tmcDrvStatus.ola ? 'YES' : 'No'}
-								</div>
-								<div
-									class={tmcDrvStatus.olb
-										? 'font-semibold text-yellow-500'
-										: 'text-text-muted'}
-								>
-									Open B: {tmcDrvStatus.olb ? 'YES' : 'No'}
-								</div>
-								<div class="text-text-muted">
-									StealthChop: {tmcDrvStatus.stealth ? 'Active' : 'Off'}
-								</div>
-								<div class="text-text-muted">
-									Standstill: {tmcDrvStatus.stst ? 'Yes' : 'No'}
-								</div>
-								<div class="text-text-muted">
-									CS Actual: {tmcDrvStatus.cs_actual}
-								</div>
-								<div class="text-text-muted">
-									SG Result: {tmcDrvStatus.sg_result}
-								</div>
-								<div
-									class="col-span-2 {tmcDrvStatus.ot
-										? 'font-semibold text-[#D01012]'
-										: tmcDrvStatus.otpw
-											? 'font-semibold text-yellow-500'
-											: 'text-text-muted'}"
-								>
-									Temp: {tmcDrvStatus.ot
-										? '>157°C SHUTDOWN'
-										: tmcDrvStatus.t157
-											? '>157°C'
-											: tmcDrvStatus.t150
-												? '>150°C'
-												: tmcDrvStatus.t143
-													? '>143°C'
-													: tmcDrvStatus.t120
-														? '>120°C'
-														: '<120°C'}
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
-		{/if}
-
-		<!-- Endstop Settings (collapsible, only if endstop) -->
 		{#if hasEndstop}
-			<div class="border-t border-border pt-4"></div>
-
-			<button
-				onclick={() => (endstopSettingsOpen = !endstopSettingsOpen)}
-				class="flex w-full cursor-pointer items-center justify-between"
-			>
-				<div class="text-sm font-medium text-text">Endstop Settings</div>
-				<ChevronDown
-					size={16}
-					class="text-text-muted transition-transform {endstopSettingsOpen
-						? 'rotate-180'
-						: ''}"
-				/>
-			</button>
-
-			{#if endstopSettingsOpen}
-				<div class="text-sm text-text-muted">
-					Flip this if the endstop reads backwards.
-				</div>
-
-				<label class="flex items-center gap-2 text-sm text-text">
-					<input
-						type="checkbox"
-						checked={endstopActiveHigh}
-						onchange={(event) => (endstopActiveHigh = event.currentTarget.checked)}
-						disabled={loading || saving || homing || canceling}
-					/>
-					Endstop active high
-				</label>
-
-				<button
-					onclick={saveEndstopSettings}
-					disabled={loading || saving || homing || canceling}
-					class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{saving ? 'Saving...' : 'Save Endstop Settings'}
-				</button>
-			{/if}
+			<StepperEndstopSettings
+				bind:open={endstopSettingsOpen}
+				{loading}
+				{saving}
+				{homing}
+				{canceling}
+				bind:endstopActiveHigh
+				onToggle={() => (endstopSettingsOpen = !endstopSettingsOpen)}
+				onSave={saveEndstopSettings}
+			/>
 		{/if}
 
 		<!-- Status / Error footer -->
 		<div class="mt-auto">
 			{#if errorMsg}
-				<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
+				<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
 			{:else if statusMsg}
 				<div class="text-sm text-text-muted">{statusMsg}</div>
 			{:else if homing}

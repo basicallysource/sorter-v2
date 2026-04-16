@@ -360,27 +360,27 @@ async function loadAssignmentProfile(profileId: string) {
 
 <div class="mb-6 flex items-center justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-[#1A1A1A]">Machines</h1>
-		<p class="mt-1 text-sm text-[#7A7770]">
+		<h1 class="text-2xl font-bold text-text">Machines</h1>
+		<p class="mt-1 text-sm text-text-muted">
 			Manage machine tokens and decide which sorting profile version each machine should pull.
 		</p>
 	</div>
 	<button
 		onclick={() => { showAddModal = true; }}
-		class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+		class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 	>
 		Add Machine
 	</button>
 </div>
 
 {#if error}
-	<div class="mb-4 bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
 {/if}
 
 {#if loading}
 	<Spinner />
 {:else if machines.length === 0}
-	<p class="text-[#7A7770]">No machines yet. Add one to get started.</p>
+	<p class="text-text-muted">No machines yet. Add one to get started.</p>
 {:else}
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 		{#each machines as machine (machine.id)}
@@ -388,30 +388,30 @@ async function loadAssignmentProfile(profileId: string) {
 			{@const stats = machineStats[machine.id]}
 			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
 			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
-			<div class="flex flex-col border border-[#E2E0DB] bg-white transition-colors hover:border-[#7A7770]">
+			<div class="flex flex-col border border-border bg-white transition-colors hover:border-text-muted">
 				<!-- Header -->
 				<div class="flex items-start gap-3 px-4 pt-4 pb-3">
-					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-[#00852B]/10 text-[#00852B]' : 'bg-[#E2E0DB]/60 text-[#7A7770]'}">
+					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-success/10 text-success' : 'bg-border/60 text-text-muted'}">
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 							<path stroke-linecap="square" stroke-linejoin="miter" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
 						</svg>
 					</div>
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
-							<h3 class="truncate text-sm font-semibold text-[#1A1A1A]">{machine.name}</h3>
-							<span class="shrink-0 text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-[#00852B]' : 'text-[#7A7770]'}">
+							<h3 class="truncate text-sm font-semibold text-text">{machine.name}</h3>
+							<span class="shrink-0 text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-success' : 'text-text-muted'}">
 								{isOnline ? 'Online' : 'Offline'}
 							</span>
 						</div>
 						{#if machine.description}
-							<p class="mt-0.5 truncate text-xs text-[#7A7770]">{machine.description}</p>
+							<p class="mt-0.5 truncate text-xs text-text-muted">{machine.description}</p>
 						{/if}
 					</div>
 					<div class="flex shrink-0 items-center gap-0.5">
 						{#if machine.last_seen_ip}
 							<a href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
 								target="_blank" rel="noopener noreferrer"
-								class="-mt-1 p-1.5 text-[#7A7770] hover:text-[#D01012]" title="Open local UI">
+								class="-mt-1 p-1.5 text-text-muted hover:text-primary" title="Open local UI">
 								<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 									<path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5zm7.25-.75a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0V6.31l-5.97 5.97a.75.75 0 01-1.06-1.06l5.97-5.97H12.25a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
 								</svg>
@@ -420,25 +420,25 @@ async function loadAssignmentProfile(profileId: string) {
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 					<div class="relative" onclick={(event) => event.stopPropagation()}>
 						<button onclick={() => toggleMenu(machine.id)}
-							class="-mr-1 -mt-1 p-1.5 text-[#7A7770] hover:text-[#1A1A1A]" title="More actions">
+							class="-mr-1 -mt-1 p-1.5 text-text-muted hover:text-text" title="More actions">
 							<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 								<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
 							</svg>
 						</button>
 						{#if openMenuId === machine.id}
-							<div class="absolute right-0 z-10 mt-1 w-48 border border-[#E2E0DB] bg-white py-1 shadow-sm">
-								<button onclick={() => openEdit(machine)} class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Edit</button>
+							<div class="absolute right-0 z-10 mt-1 w-48 border border-border bg-white py-1 shadow-sm">
+								<button onclick={() => openEdit(machine)} class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Edit</button>
 								<button onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">
 									Rotate Token
 								</button>
-								<div class="my-1 border-b border-[#E2E0DB]"></div>
+								<div class="my-1 border-b border-border"></div>
 								<button onclick={() => { openPurge(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#D01012]/8">
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary/8">
 									Purge Data
 								</button>
 								<button onclick={() => { openDelete(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#FEF2F2]">
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary-light">
 									Delete Machine
 								</button>
 							</div>
@@ -448,46 +448,46 @@ async function loadAssignmentProfile(profileId: string) {
 				</div>
 
 				<!-- Stats grid -->
-				<div class="grid grid-cols-3 gap-px border-t border-[#E2E0DB] bg-[#E2E0DB]">
+				<div class="grid grid-cols-3 gap-px border-t border-border bg-border">
 					<div class="flex flex-col items-center bg-white py-3">
-						<span class="text-lg font-bold text-[#1A1A1A]">{stats ? formatNumber(stats.total_samples) : '—'}</span>
-						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Samples</span>
+						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_samples) : '—'}</span>
+						<span class="text-[10px] uppercase tracking-wider text-text-muted">Samples</span>
 					</div>
 					<div class="flex flex-col items-center bg-white py-3">
-						<span class="text-lg font-bold {acceptRate !== null && acceptRate >= 80 ? 'text-[#00852B]' : acceptRate !== null ? 'text-[#1A1A1A]' : 'text-[#1A1A1A]'}">
+						<span class="text-lg font-bold {acceptRate !== null && acceptRate >= 80 ? 'text-success' : acceptRate !== null ? 'text-text' : 'text-text'}">
 							{acceptRate !== null ? `${acceptRate}%` : '—'}
 						</span>
-						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Accepted</span>
+						<span class="text-[10px] uppercase tracking-wider text-text-muted">Accepted</span>
 					</div>
 					<div class="flex flex-col items-center bg-white py-3">
-						<span class="text-lg font-bold text-[#1A1A1A]">{stats ? formatNumber(stats.total_sessions) : '—'}</span>
-						<span class="text-[10px] uppercase tracking-wider text-[#7A7770]">Sessions</span>
+						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_sessions) : '—'}</span>
+						<span class="text-[10px] uppercase tracking-wider text-text-muted">Sessions</span>
 					</div>
 				</div>
 
 				<!-- Set progress bar (if set-based profile) -->
 				{#if stats && stats.parts_needed > 0}
 					{@const pct = Math.round((stats.parts_found / stats.parts_needed) * 100)}
-					<div class="border-t border-[#E2E0DB] px-4 py-2.5">
+					<div class="border-t border-border px-4 py-2.5">
 						<div class="mb-1.5 flex items-center justify-between text-xs">
-							<span class="font-medium text-[#1A1A1A]">Parts Found</span>
-							<span class="font-mono text-[#7A7770]">{stats.parts_found}/{stats.parts_needed}</span>
+							<span class="font-medium text-text">Parts Found</span>
+							<span class="font-mono text-text-muted">{stats.parts_found}/{stats.parts_needed}</span>
 						</div>
-						<div class="h-2 w-full bg-[#E2E0DB]">
-							<div class="h-full bg-[#00852B] transition-all" style="width: {pct}%"></div>
+						<div class="h-2 w-full bg-border">
+							<div class="h-full bg-success transition-all" style="width: {pct}%"></div>
 						</div>
 					</div>
 				{/if}
 
 				<!-- Profile assignment -->
 				{#if assignment?.profile && assignment.desired_version}
-					<div class="mt-auto border-t border-[#E2E0DB] px-4 py-2.5">
+					<div class="mt-auto border-t border-border px-4 py-2.5">
 						<div class="flex items-center gap-2 text-xs">
-							<svg class="h-3.5 w-3.5 shrink-0 text-[#7A7770]" viewBox="0 0 20 20" fill="currentColor">
+							<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
 							</svg>
-								<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-[#1A1A1A] hover:text-[#D01012] hover:underline">{assignment.profile.name}</a>
-							<span class="shrink-0 text-[#7A7770]">v{assignment.desired_version.version_number}</span>
+								<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-text hover:text-primary hover:underline">{assignment.profile.name}</a>
+							<span class="shrink-0 text-text-muted">v{assignment.desired_version.version_number}</span>
 							{#if assignment.active_version}
 								<Badge text="Synced" variant="success" />
 							{:else}
@@ -498,8 +498,8 @@ async function loadAssignmentProfile(profileId: string) {
 				{/if}
 
 				<!-- Footer -->
-				<div class="mt-auto border-t border-[#E2E0DB] bg-[#FAFAF8] px-4 py-2">
-					<div class="flex items-center justify-between text-[10px] text-[#7A7770]">
+				<div class="mt-auto border-t border-border bg-bg px-4 py-2">
+					<div class="flex items-center justify-between text-[10px] text-text-muted">
 						<span>Registered {formatUptime(machine.created_at)} ago</span>
 						{#if machine.last_seen_at}
 							<span>{isOnline ? 'Online now' : `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span>
@@ -516,28 +516,28 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showAddModal} title="Add Machine" onclose={() => { showAddModal = false; }}>
 	<form onsubmit={handleAdd} class="space-y-4">
 		<div>
-			<label for="machineName" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Name</label>
+			<label for="machineName" class="mb-1 block text-sm font-medium text-text">Name</label>
 			<input
 				id="machineName"
 				type="text"
 				bind:value={newName}
 				required
-				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 			/>
 		</div>
 		<div>
-			<label for="machineDesc" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Description (optional)</label>
+			<label for="machineDesc" class="mb-1 block text-sm font-medium text-text">Description (optional)</label>
 			<input
 				id="machineDesc"
 				type="text"
 				bind:value={newDescription}
-				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
 			disabled={addSubmitting}
-			class="w-full bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
+			class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 		>
 			{addSubmitting ? 'Creating...' : 'Create Machine'}
 		</button>
@@ -546,14 +546,14 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
 	<div class="space-y-4">
-		<div class="bg-[#FFD500]/12 p-3 text-sm text-[#A16207]">
+		<div class="bg-warning/12 p-3 text-sm text-[#A16207]">
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">
-			<code class="flex-1 overflow-x-auto bg-[#F7F6F3] p-2 text-xs break-all">{tokenDisplay}</code>
+			<code class="flex-1 overflow-x-auto bg-bg p-2 text-xs break-all">{tokenDisplay}</code>
 			<button
 				onclick={copyToken}
-				class="shrink-0 border border-[#E2E0DB] px-3 py-1 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+				class="shrink-0 border border-border px-3 py-1 text-xs font-medium text-text hover:bg-bg"
 			>
 				{tokenCopied ? 'Copied!' : 'Copy'}
 			</button>
@@ -564,18 +564,18 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showEditModal} title="Edit Machine" onclose={() => { showEditModal = false; }}>
 	<form onsubmit={handleEdit} class="space-y-4">
 		<div>
-			<label for="editName" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Name</label>
+			<label for="editName" class="mb-1 block text-sm font-medium text-text">Name</label>
 			<input
 				id="editName"
 				type="text"
 				bind:value={editName}
 				required
-				class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:ring-1 focus:ring-[#D01012] focus:outline-none"
+				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 			/>
 		</div>
 		<button
 			type="submit"
-			class="w-full bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+			class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 		>
 			Save
 		</button>
@@ -584,19 +584,19 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showDeleteModal} title="Delete Machine" onclose={() => { showDeleteModal = false; }}>
 	<div class="space-y-4">
-		<p class="text-sm text-[#7A7770]">
+		<p class="text-sm text-text-muted">
 			Are you sure you want to delete <strong>{deleteMachine?.name}</strong>? This also removes upload sessions, samples, and reviews associated with this machine.
 		</p>
 		<div class="flex justify-end gap-2">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+				class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 			>
 				Cancel
 			</button>
 			<button
 				onclick={handleDelete}
-				class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+				class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 			>
 				Delete
 			</button>
@@ -607,30 +607,30 @@ async function loadAssignmentProfile(profileId: string) {
 <Modal open={showPurgeModal} title="Purge Machine Data" onclose={() => { showPurgeModal = false; }}>
 	<div class="space-y-4">
 		{#if purgeResult}
-			<div class="bg-[#00852B]/10 p-3 text-sm text-[#00852B]">{purgeResult}</div>
+			<div class="bg-success/10 p-3 text-sm text-success">{purgeResult}</div>
 			<div class="flex justify-end">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				>
 					Close
 				</button>
 			</div>
 		{:else}
-			<p class="text-sm text-[#7A7770]">
+			<p class="text-sm text-text-muted">
 				This deletes <strong>all upload sessions, samples, reviews, and files</strong> for <strong>{purgeMachine?.name}</strong>. The machine itself remains registered.
 			</p>
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { showPurgeModal = false; }}
-					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handlePurge}
 					disabled={purging}
-					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
+					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 				>
 					{purging ? 'Purging...' : 'Purge All Data'}
 				</button>
@@ -648,25 +648,25 @@ async function loadAssignmentProfile(profileId: string) {
 		{#if assignmentLoading}
 			<Spinner />
 		{:else if accessibleProfiles.length === 0}
-			<p class="text-sm text-[#7A7770]">
+			<p class="text-sm text-text-muted">
 				No profiles are available yet. Create one or save a public profile to your library first.
 			</p>
 			<div class="flex justify-end">
 				<a
 					href="/profiles?scope=mine"
-					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				>
 					Open Profiles
 				</a>
 			</div>
 		{:else}
 			<div>
-				<label for="assignment-profile" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Profile</label>
+				<label for="assignment-profile" class="mb-1 block text-sm font-medium text-text">Profile</label>
 				<select
 					id="assignment-profile"
 					bind:value={assignmentProfileId}
 					onchange={(event) => void handleAssignmentProfileChange((event.currentTarget as HTMLSelectElement).value)}
-					class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 				>
 					<option value="">Select a profile</option>
 					{#each accessibleProfiles as profile}
@@ -679,12 +679,12 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 
 			<div>
-				<label for="assignment-version" class="mb-1 block text-sm font-medium text-[#1A1A1A]">Version</label>
+				<label for="assignment-version" class="mb-1 block text-sm font-medium text-text">Version</label>
 				<select
 					id="assignment-version"
 					bind:value={assignmentVersionId}
 					disabled={!assignmentProfileDetail}
-					class="w-full border border-[#E2E0DB] px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012] disabled:bg-[#F7F6F3]"
+					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-bg"
 				>
 					<option value="">Select a version</option>
 					{#each visibleVersions(assignmentProfileDetail) as version}
@@ -698,12 +698,12 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 
 			{#if assignmentProfileDetail}
-				<div class="bg-[#F7F6F3] p-3 text-sm text-[#7A7770]">
-					<div class="font-medium text-[#1A1A1A]">{assignmentProfileDetail.name}</div>
+				<div class="bg-bg p-3 text-sm text-text-muted">
+					<div class="font-medium text-text">{assignmentProfileDetail.name}</div>
 					{#if assignmentProfileDetail.description}
 						<p class="mt-1">{assignmentProfileDetail.description}</p>
 					{/if}
-					<div class="mt-2 text-xs text-[#7A7770]">
+					<div class="mt-2 text-xs text-text-muted">
 						{assignmentProfileDetail.latest_version?.compiled_part_count ?? 0} mapped parts in the newest visible version
 					</div>
 				</div>
@@ -714,7 +714,7 @@ async function loadAssignmentProfile(profileId: string) {
 					<button
 						onclick={() => { if (assignmentMachine) void handleClearAssignment(assignmentMachine); }}
 						disabled={assignmentClearing}
-						class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50"
+						class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg disabled:opacity-50"
 					>
 						{assignmentClearing ? 'Clearing...' : 'Clear'}
 					</button>
@@ -722,7 +722,7 @@ async function loadAssignmentProfile(profileId: string) {
 				<button
 					onclick={() => void handleSaveAssignment()}
 					disabled={assignmentSaving || !assignmentProfileId || !assignmentVersionId}
-					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10] disabled:opacity-50"
+					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 				>
 					{assignmentSaving ? 'Saving...' : 'Save Assignment'}
 				</button>

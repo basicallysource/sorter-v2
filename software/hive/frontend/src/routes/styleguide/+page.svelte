@@ -1,3 +1,7 @@
+<script lang="ts">
+	import { Button, Alert, Tooltip } from '$lib/components/primitives';
+</script>
+
 <svelte:head>
 	<title>Style Guide - Hive</title>
 </svelte:head>
@@ -776,6 +780,72 @@
 			</div>
 		</div>
 		<p class="text-xs text-[#7A7770]">Top border color encodes status · Square image area · Badge + metadata below</p>
+	</section>
+
+	<!-- ─── Primitives: Button ─── -->
+	<section class="space-y-4">
+		<h2 class="text-lg font-semibold tracking-tight">Primitives · Button</h2>
+		<div class="space-y-6 border border-border bg-surface p-6">
+			<div>
+				<p class="mb-2 text-xs uppercase tracking-wider text-text-muted">Variants (md)</p>
+				<div class="flex flex-wrap gap-3">
+					<Button variant="primary">Primary</Button>
+					<Button variant="secondary">Secondary</Button>
+					<Button variant="danger">Danger</Button>
+					<Button variant="ghost">Ghost</Button>
+				</div>
+			</div>
+			<div>
+				<p class="mb-2 text-xs uppercase tracking-wider text-text-muted">Sizes</p>
+				<div class="flex flex-wrap items-center gap-3">
+					<Button size="sm">Small</Button>
+					<Button size="md">Medium</Button>
+				</div>
+			</div>
+			<div>
+				<p class="mb-2 text-xs uppercase tracking-wider text-text-muted">States</p>
+				<div class="flex flex-wrap gap-3">
+					<Button disabled>Disabled</Button>
+					<Button loading>Loading</Button>
+					<Button variant="secondary" disabled>Secondary disabled</Button>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- ─── Primitives: Alert ─── -->
+	<section class="space-y-4">
+		<h2 class="text-lg font-semibold tracking-tight">Primitives · Alert</h2>
+		<div class="space-y-3 border border-border bg-surface p-6">
+			<Alert variant="success" title="Upload complete">
+				42 samples synced from the Sorter.
+			</Alert>
+			<Alert variant="warning" title="Calibration drift detected">
+				Recalibrate the classification chamber before the next capture run.
+			</Alert>
+			<Alert variant="danger" title="Model import failed">
+				The uploaded artifact is missing a tokenizer config.
+			</Alert>
+			<Alert variant="info">
+				Review decisions auto-save as you go.
+			</Alert>
+		</div>
+	</section>
+
+	<!-- ─── Primitives: Tooltip ─── -->
+	<section class="space-y-4">
+		<h2 class="text-lg font-semibold tracking-tight">Primitives · Tooltip</h2>
+		<div class="flex flex-wrap gap-8 border border-border bg-surface p-10">
+			<Tooltip text="Appears above">
+				<Button variant="secondary" size="sm">Hover top</Button>
+			</Tooltip>
+			<Tooltip text="Appears below" placement="bottom">
+				<Button variant="secondary" size="sm">Hover bottom</Button>
+			</Tooltip>
+			<Tooltip text="Appears right" placement="right">
+				<Button variant="secondary" size="sm">Hover right</Button>
+			</Tooltip>
+		</div>
 	</section>
 
 	<!-- ─── Spacing Reference ─── -->

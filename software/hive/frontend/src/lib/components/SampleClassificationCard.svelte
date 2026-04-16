@@ -212,86 +212,86 @@
 </script>
 
 {#if isClassificationSample}
-	<div class="border border-[#E2E0DB] bg-white">
-		<div class="flex items-center justify-between border-b border-[#E2E0DB] px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-[#7A7770]">Classification</h2>
+	<div class="border border-border bg-white">
+		<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Classification</h2>
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}
-				<span class="bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-medium text-[#D01012]">
+				<span class="bg-primary-light px-2 py-0.5 text-[11px] font-medium text-primary">
 					Manual override
 				</span>
 			{:else if autoClassification}
-				<span class="bg-[#F7F6F3] px-2 py-0.5 text-[11px] font-medium text-[#7A7770]">
+				<span class="bg-bg px-2 py-0.5 text-[11px] font-medium text-text-muted">
 					{autoClassification.provider ?? 'Auto'}
 				</span>
 			{/if}
 		</div>
 
 		<div class="space-y-3 p-3">
-			<div class="border border-[#E2E0DB] bg-[#F7F6F3] px-3 py-3">
-				<div class="text-[11px] font-semibold tracking-wide text-[#7A7770] uppercase">
+			<div class="border border-border bg-bg px-3 py-3">
+				<div class="text-[11px] font-semibold tracking-wide text-text-muted uppercase">
 					Current Label
 				</div>
-				<div class="mt-1 text-sm font-semibold text-[#1A1A1A]">
+				<div class="mt-1 text-sm font-semibold text-text">
 					{effectivePartId ?? 'Unknown part'}
 				</div>
 				{#if effectiveItemName}
-					<div class="mt-0.5 text-xs text-[#7A7770]">{effectiveItemName}</div>
+					<div class="mt-0.5 text-xs text-text-muted">{effectiveItemName}</div>
 				{/if}
 				{#if effectiveColorName}
-					<div class="mt-1 text-[11px] text-[#7A7770]">Color: {effectiveColorName}</div>
+					<div class="mt-1 text-[11px] text-text-muted">Color: {effectiveColorName}</div>
 				{/if}
 			</div>
 
 			{#if autoClassification}
-				<div class="border border-[#E2E0DB] px-3 py-3">
-					<div class="text-[11px] font-semibold tracking-wide text-[#7A7770] uppercase">
+				<div class="border border-border px-3 py-3">
+					<div class="text-[11px] font-semibold tracking-wide text-text-muted uppercase">
 						Auto Result
 					</div>
-					<div class="mt-1 text-sm font-medium text-[#1A1A1A]">
+					<div class="mt-1 text-sm font-medium text-text">
 						{autoClassification.part_id ?? 'Unknown part'}
 					</div>
 					{#if autoClassification.item_name}
-						<div class="mt-0.5 text-xs text-[#7A7770]">{autoClassification.item_name}</div>
+						<div class="mt-0.5 text-xs text-text-muted">{autoClassification.item_name}</div>
 					{/if}
-					<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[#7A7770]">
+					<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-text-muted">
 						<div>
-							<div class="font-medium text-[#7A7770]">Status</div>
-							<div class="mt-0.5 text-[#1A1A1A] capitalize">{formatStatus(autoClassification.status)}</div>
+							<div class="font-medium text-text-muted">Status</div>
+							<div class="mt-0.5 text-text capitalize">{formatStatus(autoClassification.status)}</div>
 						</div>
 						{#if autoClassification.confidence != null}
 							<div>
-								<div class="font-medium text-[#7A7770]">Confidence</div>
-								<div class="mt-0.5 text-[#1A1A1A]">{Math.round(autoClassification.confidence * 100)}%</div>
+								<div class="font-medium text-text-muted">Confidence</div>
+								<div class="mt-0.5 text-text">{Math.round(autoClassification.confidence * 100)}%</div>
 							</div>
 						{/if}
 						{#if autoClassification.color_name}
 							<div>
-								<div class="font-medium text-[#7A7770]">Color</div>
-								<div class="mt-0.5 text-[#1A1A1A]">{autoClassification.color_name}</div>
+								<div class="font-medium text-text-muted">Color</div>
+								<div class="mt-0.5 text-text">{autoClassification.color_name}</div>
 							</div>
 						{/if}
 						{#if autoClassification.source_view}
 							<div>
-								<div class="font-medium text-[#7A7770]">View</div>
-								<div class="mt-0.5 text-[#1A1A1A] capitalize">{autoClassification.source_view}</div>
+								<div class="font-medium text-text-muted">View</div>
+								<div class="mt-0.5 text-text capitalize">{autoClassification.source_view}</div>
 							</div>
 						{/if}
 					</div>
 					{#if autoClassification.error}
-						<p class="mt-2 bg-[#FEF2F2] px-2 py-1.5 text-[11px] text-[#D01012]">
+						<p class="mt-2 bg-primary-light px-2 py-1.5 text-[11px] text-primary">
 							{autoClassification.error}
 						</p>
 					{/if}
 				</div>
 			{:else}
-				<p class="text-xs text-[#7A7770]">
+				<p class="text-xs text-text-muted">
 					No classification result has been uploaded for this sample yet.
 				</p>
 			{/if}
 
 			<div class="space-y-2">
 				<div>
-					<label for={`classification-part-${sampleId}`} class="mb-1 block text-[11px] font-medium text-[#7A7770]">
+					<label for={`classification-part-${sampleId}`} class="mb-1 block text-[11px] font-medium text-text-muted">
 						Part ID
 					</label>
 					<input
@@ -299,11 +299,11 @@
 						bind:value={formPartId}
 						type="text"
 						placeholder={autoClassification?.part_id ?? 'e.g. 3001'}
-						class="w-full border border-[#E2E0DB] px-3 py-2 text-sm text-[#1A1A1A] placeholder:text-[#7A7770] focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="w-full border border-border px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 					/>
 				</div>
 				<div>
-					<label for={`classification-name-${sampleId}`} class="mb-1 block text-[11px] font-medium text-[#7A7770]">
+					<label for={`classification-name-${sampleId}`} class="mb-1 block text-[11px] font-medium text-text-muted">
 						Name
 					</label>
 					<input
@@ -311,7 +311,7 @@
 						bind:value={formItemName}
 						type="text"
 						placeholder={autoClassification?.item_name ?? 'Optional human-readable name'}
-						class="w-full border border-[#E2E0DB] px-3 py-2 text-sm text-[#1A1A1A] placeholder:text-[#7A7770] focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]"
+						class="w-full border border-border px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 					/>
 				</div>
 			</div>
@@ -319,10 +319,10 @@
 			{#if feedback}
 				<p
 					class="px-3 py-2 text-[11px] {feedbackTone === 'danger'
-						? 'bg-[#D01012]/8 text-[#D01012]'
+						? 'bg-primary/8 text-primary'
 						: feedbackTone === 'success'
-							? 'bg-[#00852B]/10 text-[#00852B]'
-							: 'bg-[#F7F6F3] text-[#7A7770]'}"
+							? 'bg-success/10 text-success'
+							: 'bg-bg text-text-muted'}"
 				>
 					{feedback}
 				</p>
@@ -333,7 +333,7 @@
 					type="button"
 					onclick={resetForm}
 					disabled={saving || !isDirty}
-					class="flex-1 border border-[#E2E0DB] px-3 py-2 text-xs font-medium text-[#7A7770] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:text-[#E2E0DB]"
+					class="flex-1 border border-border px-3 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:text-border"
 				>
 					Reset
 				</button>
@@ -341,7 +341,7 @@
 					type="button"
 					onclick={clearForm}
 					disabled={saving || (!formPartId && !formItemName)}
-					class="flex-1 border border-[#FFD500]/30 px-3 py-2 text-xs font-medium text-[#A16207] transition-colors hover:bg-[#FFFBEB] disabled:cursor-not-allowed disabled:border-[#E2E0DB] disabled:text-[#E2E0DB]"
+					class="flex-1 border border-warning/30 px-3 py-2 text-xs font-medium text-[#A16207] transition-colors hover:bg-warning/[0.1] disabled:cursor-not-allowed disabled:border-border disabled:text-border"
 				>
 					Clear
 				</button>
@@ -349,7 +349,7 @@
 					type="button"
 					onclick={saveClassification}
 					disabled={saving || !isDirty}
-					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-[#D01012]/40 {saving || !isDirty ? 'bg-[#D01012]/40' : 'bg-[#D01012] hover:bg-[#B00E10]'}"
+					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-primary/40 {saving || !isDirty ? 'bg-primary/40' : 'bg-primary hover:bg-primary-hover'}"
 				>
 					{saving ? 'Saving...' : 'Save'}
 				</button>

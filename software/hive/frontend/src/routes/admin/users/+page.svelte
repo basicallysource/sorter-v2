@@ -89,12 +89,12 @@
 </svelte:head>
 
 <div class="mb-6 flex items-center justify-between">
-	<h1 class="text-2xl font-bold text-[#1A1A1A]">Manage Users</h1>
-	<span class="text-sm text-[#7A7770]">{users.length} users total</span>
+	<h1 class="text-2xl font-bold text-text">Manage Users</h1>
+	<span class="text-sm text-text-muted">{users.length} users total</span>
 </div>
 
 {#if error}
-	<div class="mb-4 bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
 {/if}
 
 {#if loading}
@@ -102,24 +102,24 @@
 		<Spinner />
 	</div>
 {:else}
-	<div class="overflow-hidden border border-[#E2E0DB] bg-white">
-		<table class="min-w-full divide-y divide-[#E2E0DB]">
-			<thead class="bg-[#F7F6F3]">
+	<div class="overflow-hidden border border-border bg-white">
+		<table class="min-w-full divide-y divide-border">
+			<thead class="bg-bg">
 				<tr>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">User</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Role</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Status</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#7A7770]">Joined</th>
-					<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-[#7A7770]">Actions</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">User</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Role</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Status</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Joined</th>
+					<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Actions</th>
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-[#E2E0DB]">
+			<tbody class="divide-y divide-border">
 				{#each users as user (user.id)}
-					<tr class="hover:bg-[#F7F6F3] {!user.is_active ? 'opacity-50' : ''}">
+					<tr class="hover:bg-bg {!user.is_active ? 'opacity-50' : ''}">
 						<td class="whitespace-nowrap px-6 py-4">
 							<div>
-								<p class="text-sm font-medium text-[#1A1A1A]">{user.display_name || '—'}</p>
-								<p class="text-xs text-[#7A7770]">{user.email}</p>
+								<p class="text-sm font-medium text-text">{user.display_name || '—'}</p>
+								<p class="text-xs text-text-muted">{user.email}</p>
 							</div>
 						</td>
 						<td class="whitespace-nowrap px-6 py-4">
@@ -133,14 +133,14 @@
 								variant={user.is_active ? 'success' : 'danger'}
 							/>
 						</td>
-						<td class="whitespace-nowrap px-6 py-4 text-sm text-[#7A7770]">
+						<td class="whitespace-nowrap px-6 py-4 text-sm text-text-muted">
 							{new Date(user.created_at).toLocaleDateString()}
 						</td>
 						<td class="whitespace-nowrap px-6 py-4 text-right">
 							<div class="flex items-center justify-end gap-2">
 								<button
 									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-[#A16207] hover:text-[#A16207]' : 'text-[#00852B] hover:text-[#00852B]'}"
+									class="text-xs font-medium {user.is_active ? 'text-[#A16207] hover:text-[#A16207]' : 'text-success hover:text-success'}"
 									title={user.is_active ? 'Deactivate' : 'Activate'}
 								>
 									{user.is_active ? 'Deactivate' : 'Activate'}
@@ -148,7 +148,7 @@
 								{#if String(user.id) !== String(auth.user?.id)}
 									<button
 										onclick={() => { deletingUser = user; }}
-										class="text-xs font-medium text-[#D01012] hover:text-[#D01012]"
+										class="text-xs font-medium text-primary hover:text-primary"
 									>
 										Delete
 									</button>
@@ -166,16 +166,16 @@
 <Modal open={editingUser !== null} title="Change Role" onclose={() => { editingUser = null; }}>
 	{#if editingUser}
 		<div class="space-y-4">
-			<p class="text-sm text-[#7A7770]">
+			<p class="text-sm text-text-muted">
 				Change role for <strong>{editingUser.display_name || editingUser.email}</strong>
 			</p>
 			<div class="space-y-2">
 				{#each ['member', 'reviewer', 'admin'] as role}
-					<label class="flex items-center gap-3 border border-[#E2E0DB] p-3 cursor-pointer hover:bg-[#F7F6F3] {selectedRole === role ? 'border-[#D01012] bg-[#FEF2F2]' : ''}">
-						<input type="radio" bind:group={selectedRole} value={role} class="text-[#D01012]" />
+					<label class="flex items-center gap-3 border border-border p-3 cursor-pointer hover:bg-bg {selectedRole === role ? 'border-primary bg-primary-light' : ''}">
+						<input type="radio" bind:group={selectedRole} value={role} class="text-primary" />
 						<div>
-							<p class="text-sm font-medium text-[#1A1A1A] capitalize">{role}</p>
-							<p class="text-xs text-[#7A7770]">
+							<p class="text-sm font-medium text-text capitalize">{role}</p>
+							<p class="text-xs text-text-muted">
 								{#if role === 'member'}
 									Can manage own machines and view samples
 								{:else if role === 'reviewer'}
@@ -191,13 +191,13 @@
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { editingUser = null; }}
-					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={saveRole}
-					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 				>
 					Save Role
 				</button>
@@ -211,21 +211,21 @@
 	{#if deletingUser}
 		<div class="space-y-4">
 			{#if deleteError}
-				<div class="bg-[#D01012]/8 p-3 text-sm text-[#D01012]">{deleteError}</div>
+				<div class="bg-primary/8 p-3 text-sm text-primary">{deleteError}</div>
 			{/if}
-			<p class="text-sm text-[#7A7770]">
+			<p class="text-sm text-text-muted">
 				This will permanently delete <strong>{deletingUser.display_name || deletingUser.email}</strong> and all their machines, samples, and reviews.
 			</p>
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { deletingUser = null; deleteError = null; }}
-					class="border border-[#E2E0DB] px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]"
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handleDeleteUser}
-					class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 				>
 					Delete User
 				</button>

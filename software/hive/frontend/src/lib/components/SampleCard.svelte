@@ -59,11 +59,11 @@
 </script>
 
 <a
-	class="group block overflow-hidden border border-[#E2E0DB] bg-white transition hover:border-[#7A7770]"
+	class="group block overflow-hidden border border-border bg-white transition hover:border-text-muted"
 	{href}
 >
 	<!-- Image with overlays -->
-	<div class="relative aspect-square overflow-hidden bg-[#F7F6F3]">
+	<div class="relative aspect-square overflow-hidden bg-bg">
 		<img
 			src={api.sampleImageUrl(sample.id)}
 			alt="Sample {sample.local_sample_id}"
@@ -109,19 +109,19 @@
 
 	<!-- Info row -->
 	<div class="flex items-center justify-between px-2.5 py-2">
-		<div class="flex items-center gap-1.5 text-[10px] text-[#7A7770]">
+		<div class="flex items-center gap-1.5 text-[10px] text-text-muted">
 			{#if roleLabel}
-				<span class="font-medium text-[#1A1A1A]">{roleLabel}</span>
-				<span class="text-[#E2E0DB]">&middot;</span>
+				<span class="font-medium text-text">{roleLabel}</span>
+				<span class="text-border">&middot;</span>
 			{/if}
 			<span>{timeAgo}</span>
 			{#if score !== null}
-				<span class="text-[#E2E0DB]">&middot;</span>
-				<span class="{score >= 80 ? 'text-[#00852B]' : score >= 50 ? 'text-[#1A1A1A]' : 'text-[#D01012]'}">{score}%</span>
+				<span class="text-border">&middot;</span>
+				<span class="{score >= 80 ? 'text-success' : score >= 50 ? 'text-text' : 'text-primary'}">{score}%</span>
 			{/if}
 		</div>
 		{#if sample.review_count > 0}
-			<span class="text-[10px] text-[#7A7770]">{sample.review_count}x</span>
+			<span class="text-[10px] text-text-muted">{sample.review_count}x</span>
 		{/if}
 	</div>
 </a>

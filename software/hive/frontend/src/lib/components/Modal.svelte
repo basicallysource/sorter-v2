@@ -36,11 +36,11 @@
 			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-[#1A1A1A]">{title}</h2>
+				<h2 class="text-lg font-semibold text-text">{title}</h2>
 				<button
 					onclick={onclose}
 					aria-label="Close"
-					class="text-[#7A7770] hover:text-[#1A1A1A]"
+					class="text-text-muted hover:text-text"
 				>
 					<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 						<path

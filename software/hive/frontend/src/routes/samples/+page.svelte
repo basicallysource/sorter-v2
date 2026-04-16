@@ -29,11 +29,11 @@
 	};
 
 	const statusColors: Record<string, string> = {
-		accepted: 'bg-[#00852B]',
-		rejected: 'bg-[#D01012]',
-		in_review: 'bg-[#0055BF]',
-		conflict: 'bg-[#FFD500]',
-		unreviewed: 'bg-[#E2E0DB]'
+		accepted: 'bg-success',
+		rejected: 'bg-primary',
+		in_review: 'bg-info',
+		conflict: 'bg-warning',
+		unreviewed: 'bg-border'
 	};
 
 	const hasActiveFilters = $derived(filterMachine || filterStatus || filterSourceRole || filterCaptureReason);
@@ -140,15 +140,15 @@
 
 <div class="mb-6 flex items-center justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-[#1A1A1A]">Samples</h1>
-		<p class="mt-1 text-sm text-[#7A7770]">
+		<h1 class="text-2xl font-bold text-text">Samples</h1>
+		<p class="mt-1 text-sm text-text-muted">
 			Browse and review training samples captured by your machines.
 		</p>
 	</div>
 	{#if auth.isReviewer}
 		<a
 			href="/review"
-			class="inline-flex items-center gap-2 bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]"
+			class="inline-flex items-center gap-2 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -167,7 +167,7 @@
 		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: '#FFD500' },
 		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: '#E2E0DB' },
 	]}
-	<div class="mb-5 border border-[#E2E0DB] bg-white">
+	<div class="mb-5 border border-border bg-white">
 		<!-- Stacked bar -->
 		<div class="flex h-2">
 			{#each segments as seg}
@@ -191,12 +191,12 @@
 						class="flex items-center gap-1.5 text-xs transition-opacity {filterStatus && filterStatus !== seg.key ? 'opacity-40' : ''} hover:opacity-100"
 					>
 						<span class="inline-block h-2.5 w-2.5 shrink-0" style="background-color: {seg.color};"></span>
-						<span class="font-medium text-[#1A1A1A]">{seg.count.toLocaleString()}</span>
-						<span class="text-[#7A7770]">{seg.label}</span>
+						<span class="font-medium text-text">{seg.count.toLocaleString()}</span>
+						<span class="text-text-muted">{seg.label}</span>
 					</button>
 				{/if}
 			{/each}
-			<span class="ml-auto text-xs text-[#7A7770]">{stats.total_samples.toLocaleString()} total</span>
+			<span class="ml-auto text-xs text-text-muted">{stats.total_samples.toLocaleString()} total</span>
 		</div>
 	</div>
 {/if}
@@ -206,7 +206,7 @@
 	<aside class="w-48 shrink-0">
 		<div class="sticky top-20 space-y-5">
 			{#if hasActiveFilters}
-				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-[#D01012] hover:underline">
+				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary hover:underline">
 					<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
 						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
 					</svg>
@@ -216,7 +216,7 @@
 
 			<!-- Status -->
 			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A7770]">Status</h3>
+				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Status</h3>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
@@ -229,7 +229,7 @@
 						<li>
 							<button
 								onclick={() => { filterStatus = item.key; currentPage = 1; }}
-								class="w-full px-2 py-1 text-left text-xs {filterStatus === item.key ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								class="w-full px-2 py-1 text-left text-xs {filterStatus === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								{item.label}
 							</button>
@@ -241,12 +241,12 @@
 			<!-- Machine -->
 			{#if machines.length > 0}
 				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A7770]">Machine</h3>
+					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Machine</h3>
 					<ul class="space-y-0.5">
 						<li>
 							<button
 								onclick={() => updateMachineFilter('')}
-								class="w-full px-2 py-1 text-left text-xs {filterMachine === '' ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								class="w-full px-2 py-1 text-left text-xs {filterMachine === '' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								All
 							</button>
@@ -255,7 +255,7 @@
 							<li>
 								<button
 									onclick={() => updateMachineFilter(String(machine.id))}
-									class="w-full truncate px-2 py-1 text-left text-xs {filterMachine === String(machine.id) ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+									class="w-full truncate px-2 py-1 text-left text-xs {filterMachine === String(machine.id) ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 								>
 									{machine.name}
 								</button>
@@ -268,12 +268,12 @@
 			<!-- Source -->
 			{#if filterOptions.source_roles.length > 0}
 				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A7770]">Source</h3>
+					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Source</h3>
 					<ul class="space-y-0.5">
 						<li>
 							<button
 								onclick={() => updateSourceRoleFilter('')}
-								class="w-full px-2 py-1 text-left text-xs {filterSourceRole === '' ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								class="w-full px-2 py-1 text-left text-xs {filterSourceRole === '' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								All
 							</button>
@@ -282,7 +282,7 @@
 							<li>
 								<button
 									onclick={() => updateSourceRoleFilter(sourceRole)}
-									class="w-full px-2 py-1 text-left text-xs {filterSourceRole === sourceRole ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+									class="w-full px-2 py-1 text-left text-xs {filterSourceRole === sourceRole ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 								>
 									{sourceRoleLabel(sourceRole)}
 								</button>
@@ -295,12 +295,12 @@
 			<!-- Capture Reason -->
 			{#if filterOptions.capture_reasons.length > 0}
 				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A7770]">Capture Reason</h3>
+					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Capture Reason</h3>
 					<ul class="space-y-0.5">
 						<li>
 							<button
 								onclick={() => updateCaptureReasonFilter('')}
-								class="w-full px-2 py-1 text-left text-xs {filterCaptureReason === '' ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								class="w-full px-2 py-1 text-left text-xs {filterCaptureReason === '' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								All
 							</button>
@@ -309,7 +309,7 @@
 							<li>
 								<button
 									onclick={() => updateCaptureReasonFilter(captureReason)}
-									class="w-full px-2 py-1 text-left text-xs {filterCaptureReason === captureReason ? 'bg-[#FEF2F2] font-medium text-[#D01012]' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+									class="w-full px-2 py-1 text-left text-xs {filterCaptureReason === captureReason ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 								>
 									{captureReasonLabel(captureReason)}
 								</button>
@@ -326,11 +326,11 @@
 		{#if loading}
 			<Spinner />
 		{:else if !data || data.items.length === 0}
-			<div class="border border-[#E2E0DB] bg-white px-6 py-12 text-center">
-				<svg class="mx-auto mb-3 h-10 w-10 text-[#E2E0DB]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+			<div class="border border-border bg-white px-6 py-12 text-center">
+				<svg class="mx-auto mb-3 h-10 w-10 text-border" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="square" stroke-linejoin="miter" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V4.5a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v15a1.5 1.5 0 0 0 1.5 1.5z" />
 				</svg>
-				<p class="text-sm text-[#7A7770]">
+				<p class="text-sm text-text-muted">
 					{#if hasActiveFilters}
 						No samples match your current filters.
 					{:else}
@@ -338,7 +338,7 @@
 					{/if}
 				</p>
 				{#if hasActiveFilters}
-					<button onclick={clearFilters} class="mt-2 text-xs text-[#D01012] hover:underline">Clear filters</button>
+					<button onclick={clearFilters} class="mt-2 text-xs text-primary hover:underline">Clear filters</button>
 				{/if}
 			</div>
 		{:else}
@@ -350,13 +350,13 @@
 
 			<!-- Pagination -->
 			{#if data.pages > 1}
-				<div class="mt-6 flex items-center justify-between border border-[#E2E0DB] bg-white px-4 py-2.5">
+				<div class="mt-6 flex items-center justify-between border border-border bg-white px-4 py-2.5">
 					<div class="flex items-center gap-3">
-						<span class="text-xs text-[#7A7770]">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
+						<span class="text-xs text-text-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
 						<select
 							value={pageSize}
 							onchange={(e) => { pageSize = Number((e.currentTarget as HTMLSelectElement).value); currentPage = 1; }}
-							class="border border-[#E2E0DB] bg-white px-2 py-1 text-xs text-[#1A1A1A] focus:border-[#D01012] focus:outline-none"
+							class="border border-border bg-white px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
 						>
 							<option value={10}>10 / page</option>
 							<option value={20}>20 / page</option>
@@ -369,7 +369,7 @@
 						<button
 							onclick={() => goToPage(currentPage - 1)}
 							disabled={currentPage <= 1}
-							class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-30"
+							class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
 						>
 							Previous
 						</button>
@@ -377,18 +377,18 @@
 							{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
 								<button
 									onclick={() => goToPage(p)}
-									class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === currentPage ? 'bg-[#D01012] text-white' : 'text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+									class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === currentPage ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
 								>
 									{p}
 								</button>
 							{:else if p === 2 || p === data.pages - 1}
-								<span class="px-1 text-[#7A7770]">...</span>
+								<span class="px-1 text-text-muted">...</span>
 							{/if}
 						{/each}
 						<button
 							onclick={() => goToPage(currentPage + 1)}
 							disabled={currentPage >= data.pages}
-							class="border border-[#E2E0DB] px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-30"
+							class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
 						>
 							Next
 						</button>

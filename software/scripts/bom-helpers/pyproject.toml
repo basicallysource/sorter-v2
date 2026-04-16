@@ -1,0 +1,12 @@
+[project]
+name = "bom-helpers"
+version = "0.1.0"
+description = "BOM/STL helpers for Sorter V2"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.4.2",
+]
+
+[tool.pyright]
+reportMissingImports = "none"
+reportMissingModuleSource = "none"

@@ -3,6 +3,8 @@ Description=LEGO Sorter Backend
 Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
 After=network-online.target
 Wants=network-online.target
+StartLimitBurst=3
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
@@ -14,6 +16,19 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+
+# Sandbox hardening
+ProtectSystem=strict
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# Backend writes: local_state.sqlite, blob/ (sample images, run records,
+# classification training, baselines), sorting_profile.json, polygons.json,
+# servo_states.json, aruco_config.json, bin_layout.json, data.json, logs/,
+# and atomic temp files created alongside each of these via tempfile.mkstemp.
+# All are under the backend tree, so allowlist that subtree.
+ReadWritePaths=__SOFTWARE_DIR__/sorter/backend
 
 [Install]
 WantedBy=multi-user.target

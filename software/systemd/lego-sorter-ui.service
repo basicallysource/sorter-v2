@@ -3,6 +3,8 @@ Description=LEGO Sorter UI
 Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
 After=network-online.target lego-sorter-backend.service
 Wants=network-online.target
+StartLimitBurst=3
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
@@ -13,6 +15,16 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+
+# Sandbox hardening
+ProtectSystem=strict
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# pnpm preview serves the pre-built build/ output. It may touch .svelte-kit
+# and node_modules caches under the frontend tree, so allowlist that subtree.
+ReadWritePaths=__SOFTWARE_DIR__/sorter/frontend
 
 [Install]
 WantedBy=multi-user.target

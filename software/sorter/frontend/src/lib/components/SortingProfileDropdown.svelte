@@ -8,6 +8,7 @@
 		rememberRecentSortingProfile,
 		type RecentSortingProfileEntry
 	} from '$lib/sorting-profiles/recent';
+	import { formatRelativeTime } from '$lib/sorting-profiles/format';
 	import { ChevronDown } from 'lucide-svelte';
 
 	type SortingProfileSyncState = {
@@ -305,21 +306,6 @@
 		if (!target.closest('.sorting-profile-dropdown')) {
 			dropdown_open = false;
 		}
-	}
-
-	function formatRelativeTime(value: string | null | undefined): string | null {
-		if (!value) return null;
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return null;
-		const diffMs = Date.now() - date.getTime();
-		const diffSec = Math.floor(diffMs / 1000);
-		if (diffSec < 60) return 'just now';
-		const diffMin = Math.floor(diffSec / 60);
-		if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
-		const diffHr = Math.floor(diffMin / 60);
-		if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
-		const diffDay = Math.floor(diffHr / 24);
-		return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
 	}
 
 	async function applyRecentProfile(entry: QuickSwitchProfileEntry) {

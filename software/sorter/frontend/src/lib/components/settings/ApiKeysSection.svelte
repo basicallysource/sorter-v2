@@ -80,7 +80,7 @@
 			<Key size={14} class="text-text-muted" />
 			<span class="text-sm font-medium text-text">{PROVIDER.label}</span>
 			{#if savedKeys[PROVIDER.id]}
-				<span class="ml-auto flex items-center gap-1 text-xs text-[#00852B] dark:text-emerald-400">
+				<span class="ml-auto flex items-center gap-1 text-xs text-success dark:text-emerald-400">
 					<Check size={12} />
 					{savedKeys[PROVIDER.id]}
 				</span>
@@ -113,7 +113,7 @@
 	</div>
 
 	{#if errorMsg}
-		<div class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400">
+		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
 			{errorMsg}
 		</div>
 	{/if}

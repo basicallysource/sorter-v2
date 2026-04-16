@@ -119,9 +119,9 @@
 			{#if sessions.length > 0}
 				{#if confirmPurge}
 					<div class="flex items-center gap-2">
-						<span class="text-xs text-[#D01012]">Delete everything?</span>
+						<span class="text-xs text-danger">Delete everything?</span>
 						<button
-							class="border border-[#D01012]/30 bg-[#D01012]/[0.06] px-3 py-1.5 text-xs font-medium text-[#D01012] transition-colors hover:bg-[#D01012]/[0.12] disabled:opacity-50"
+							class="border border-danger/30 bg-danger/[0.06] px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.12] disabled:opacity-50"
 							disabled={purging}
 							onclick={purgeAll}
 						>
@@ -136,7 +136,7 @@
 					</div>
 				{:else}
 					<button
-						class="flex items-center gap-1.5 border border-[#D01012]/30 bg-[#D01012]/[0.06] px-3 py-1.5 text-xs font-medium text-[#D01012] transition-colors hover:bg-[#D01012]/[0.12]"
+						class="flex items-center gap-1.5 border border-danger/30 bg-danger/[0.06] px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.12]"
 						onclick={() => (confirmPurge = true)}
 					>
 						<Trash2 size={12} />
@@ -173,7 +173,7 @@
 								<td class="px-4 py-2.5 text-right text-text-muted tabular-nums">{formatBytes(session.size_bytes)}</td>
 								<td class="px-4 py-2.5 text-right">
 									<button
-										class="inline-flex items-center gap-1 border border-[#D01012]/30 bg-[#D01012]/[0.06] px-2 py-1 text-xs text-[#D01012] transition-colors hover:bg-[#D01012]/[0.12] disabled:opacity-50"
+										class="inline-flex items-center gap-1 border border-danger/30 bg-danger/[0.06] px-2 py-1 text-xs text-danger transition-colors hover:bg-danger/[0.12] disabled:opacity-50"
 										disabled={deleting === session.session_id}
 										onclick={() => deleteSession(session.session_id)}
 									>
@@ -193,7 +193,7 @@
 		{/if}
 
 		{#if errorMsg}
-			<div class="border border-[#D01012]/30 bg-[#D01012]/[0.06] px-4 py-2.5 text-sm text-[#D01012]">
+			<div class="border border-danger/30 bg-danger/[0.06] px-4 py-2.5 text-sm text-danger">
 				{errorMsg}
 			</div>
 		{/if}

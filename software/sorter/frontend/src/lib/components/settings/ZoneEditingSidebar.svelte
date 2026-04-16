@@ -38,7 +38,7 @@
 			<div
 				class={`border px-3 py-2 text-xs ${
 					statusMessage.startsWith('Error:')
-						? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
+						? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
 						: 'border-border bg-surface text-text-muted'
 				}`}
 			>

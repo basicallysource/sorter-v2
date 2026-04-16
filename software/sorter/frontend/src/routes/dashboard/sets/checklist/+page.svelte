@@ -216,10 +216,10 @@
 			</div>
 		{:else if error}
 			<div
-				class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2"
+				class="border border-danger/40 bg-danger/[0.06] px-3 py-2"
 			>
 				<div
-					class="text-[11px] font-semibold uppercase tracking-wider text-[#5C0708]"
+					class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark"
 				>
 					Could not load checklist
 				</div>
@@ -254,7 +254,7 @@
 						>
 							Found
 						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-[#00852B]">
+						<div class="mt-1 text-lg font-semibold tabular-nums text-success">
 							{totals.found}
 						</div>
 					</div>
@@ -264,7 +264,7 @@
 						>
 							Missing
 						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-[#D01012]">
+						<div class="mt-1 text-lg font-semibold tabular-nums text-danger">
 							{totals.missing}
 						</div>
 					</div>
@@ -317,14 +317,14 @@
 								</div>
 								{#if isComplete}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-[#00852B]/40 bg-[#00852B]/[0.08] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#003D14]"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success/[0.08] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-success-dark"
 									>
 										<CheckCircle2 size={12} />
 										Complete
 									</span>
 								{:else}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-[#D01012]/40 bg-[#D01012]/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#5C0708]"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-danger-dark"
 									>
 										{setMissing}
 										{setMissing === 1 ? 'part' : 'parts'} missing
@@ -334,7 +334,7 @@
 							<div class="mt-2 flex items-center gap-3">
 								<div class="h-1.5 flex-1 bg-bg">
 									<div
-										class="h-full transition-all {isComplete ? 'bg-[#00852B]' : 'bg-primary'}"
+										class="h-full transition-all {isComplete ? 'bg-success' : 'bg-primary'}"
 										style="width: {setPct}%"
 									></div>
 								</div>
@@ -415,14 +415,14 @@
 											<td class="px-3 py-2 text-right">
 												{#if partComplete}
 													<span
-														class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#003D14]"
+														class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-success-dark"
 													>
 														<CheckCircle2 size={12} />
 														OK
 													</span>
 												{:else}
 													<span
-														class="font-mono text-sm font-bold tabular-nums text-[#D01012] print-strong"
+														class="font-mono text-sm font-bold tabular-nums text-danger print-strong"
 													>
 														{missing}
 													</span>
@@ -439,10 +439,10 @@
 
 			{#if visibleSets.length === 0 && missingOnly}
 				<div
-					class="border border-[#00852B]/40 bg-[#00852B]/[0.06] px-4 py-8 text-center"
+					class="border border-success/40 bg-success/[0.06] px-4 py-8 text-center"
 				>
 					<div
-						class="text-[11px] font-semibold uppercase tracking-wider text-[#003D14]"
+						class="text-[11px] font-semibold uppercase tracking-wider text-success-dark"
 					>
 						All clear
 					</div>

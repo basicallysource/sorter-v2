@@ -2,7 +2,12 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
-	import { Check, CheckCircle2, ChevronRight, Loader2, RefreshCcw } from 'lucide-svelte';
+	import { Alert, Button, Input, Tooltip } from '$lib/components/primitives';
+	import { Check, CheckCircle2, ChevronRight, HelpCircle, Loader2, RefreshCcw } from 'lucide-svelte';
+
+	let primitiveInputText = $state('');
+	let primitiveInputNumber = $state(0);
+	let primitiveInputPassword = $state('');
 
 	type Swatch = { name: string; value: string; usage: string };
 
@@ -52,52 +57,6 @@
 		{ name: 'text', value: 'var(--color-text)', usage: 'Primary copy' },
 		{ name: 'text-muted', value: 'var(--color-text-muted)', usage: 'Secondary copy, labels' }
 	];
-
-	const codeNotificationInfo = `<div
-  class="border border-[#0055BF]/40 bg-[#0055BF]/[0.06] px-3 py-2
-         dark:border-sky-500/40 dark:bg-sky-500/[0.08]"
->
-  <div class="text-[11px] font-semibold tracking-wider text-[#003A8C]
-              uppercase dark:text-sky-200">
-    Calibration hint
-  </div>
-  <div class="mt-1 text-xs leading-relaxed text-text">
-    Hold a flat reference card under the camera and click Capture.
-  </div>
-</div>`;
-
-	const codeNotificationSuccess = `<div
-  class="border border-[#00852B]/40 bg-[#00852B]/[0.06] px-3 py-2
-         dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
->
-  <div class="text-[11px] font-semibold tracking-wider text-[#003D14]
-              uppercase dark:text-emerald-200">
-    Calibration is usable
-  </div>
-  ...
-</div>`;
-
-	const codeNotificationWarning = `<div
-  class="border border-[#F2A900]/50 bg-[#F2A900]/[0.07] px-3 py-2
-         dark:border-amber-500/40 dark:bg-amber-500/[0.08]"
->
-  <div class="text-[11px] font-semibold tracking-wider text-[#4A3300]
-              uppercase dark:text-amber-200">
-    Calibration weak
-  </div>
-  ...
-</div>`;
-
-	const codeNotificationError = `<div
-  class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2
-         dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
->
-  <div class="text-[11px] font-semibold tracking-wider text-[#5C0708]
-              uppercase dark:text-rose-200">
-    Connection failed
-  </div>
-  ...
-</div>`;
 
 	const codeStatLabel = `<div class="text-[11px] font-semibold tracking-wider
             text-text-muted uppercase">
@@ -372,68 +331,50 @@
 
 		<SectionCard
 			title="Notifications"
-			description="The unified info / success / warning / error template."
+			description="The unified info / success / warning / error template. Always use the Alert primitive — no hand-rolled boxes."
 		>
 			<div class="flex flex-col gap-4">
-				<div
-					class="border border-[#0055BF]/40 bg-[#0055BF]/[0.06] px-3 py-2 dark:border-sky-500/40 dark:bg-sky-500/[0.08]"
-				>
-					<div
-						class="text-[11px] font-semibold tracking-wider text-[#003A8C] uppercase dark:text-sky-200"
-					>
+				<Alert variant="info">
+					<div class="text-[11px] font-semibold tracking-wider text-primary-dark uppercase dark:text-sky-200">
 						Calibration hint
 					</div>
 					<div class="mt-1 text-xs leading-relaxed text-text">
 						Hold a flat reference card under the camera and click Capture.
 					</div>
-				</div>
-				<pre
-					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{codeNotificationInfo}</pre>
+				</Alert>
 
-				<div
-					class="border border-[#00852B]/40 bg-[#00852B]/[0.06] px-3 py-2 dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
-				>
-					<div
-						class="text-[11px] font-semibold tracking-wider text-[#003D14] uppercase dark:text-emerald-200"
-					>
+				<Alert variant="success">
+					<div class="text-[11px] font-semibold tracking-wider text-success-dark uppercase dark:text-emerald-200">
 						Calibration is usable
 					</div>
 					<div class="mt-1 text-xs leading-relaxed text-text">
 						White balance and exposure are within tolerance. You can move on.
 					</div>
-				</div>
-				<pre
-					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{codeNotificationSuccess}</pre>
+				</Alert>
 
-				<div
-					class="border border-[#F2A900]/50 bg-[#F2A900]/[0.07] px-3 py-2 dark:border-amber-500/40 dark:bg-amber-500/[0.08]"
-				>
-					<div
-						class="text-[11px] font-semibold tracking-wider text-[#4A3300] uppercase dark:text-amber-200"
-					>
+				<Alert variant="warning">
+					<div class="text-[11px] font-semibold tracking-wider text-warning-dark uppercase dark:text-amber-200">
 						Calibration weak
 					</div>
 					<div class="mt-1 text-xs leading-relaxed text-text">
 						Reference patches drifted by 8.3 ΔE. Re-shoot the calibration card.
 					</div>
-				</div>
-				<pre
-					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{codeNotificationWarning}</pre>
+				</Alert>
 
-				<div
-					class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2 dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
-				>
-					<div
-						class="text-[11px] font-semibold tracking-wider text-[#5C0708] uppercase dark:text-rose-200"
-					>
+				<Alert variant="danger">
+					<div class="text-[11px] font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-200">
 						Connection failed
 					</div>
 					<div class="mt-1 text-xs leading-relaxed text-text">
 						Could not reach the Hive server. Check your credentials and try again.
 					</div>
-				</div>
+				</Alert>
+
 				<pre
-					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{codeNotificationError}</pre>
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`<Alert variant="info">…</Alert>
+<Alert variant="success">…</Alert>
+<Alert variant="warning">…</Alert>
+<Alert variant="danger">…</Alert>`}</pre>
 			</div>
 		</SectionCard>
 
@@ -630,6 +571,108 @@
   <Loader2 size={14} class="animate-spin" />
   Checking current Hive configuration…
 </div>`}</pre>
+			</div>
+		</SectionCard>
+
+		<SectionCard
+			title="Button primitive"
+			description="Variants primary / secondary / danger / ghost in sizes sm and md. Sharp edges, callback-prop based. Loading state renders the shared Spinner."
+		>
+			<div class="flex flex-col gap-6">
+				<div class="flex flex-col gap-3">
+					<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Variants (md)</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<Button variant="primary">Primary</Button>
+						<Button variant="secondary">Secondary</Button>
+						<Button variant="danger">Danger</Button>
+						<Button variant="ghost">Ghost</Button>
+					</div>
+				</div>
+				<div class="flex flex-col gap-3">
+					<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Size sm</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<Button variant="primary" size="sm">Primary</Button>
+						<Button variant="secondary" size="sm">Secondary</Button>
+						<Button variant="danger" size="sm">Danger</Button>
+						<Button variant="ghost" size="sm">Ghost</Button>
+					</div>
+				</div>
+				<div class="flex flex-col gap-3">
+					<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Disabled / loading</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<Button variant="primary" disabled>Disabled</Button>
+						<Button variant="primary" loading>Saving…</Button>
+						<Button variant="secondary" loading>Loading</Button>
+						<Button variant="danger" loading>Deleting</Button>
+					</div>
+				</div>
+				<pre
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`import { Button } from '$lib/components/primitives';
+
+<Button variant="primary" onclick={save}>Save</Button>
+<Button variant="danger" loading={pending}>Delete</Button>`}</pre>
+			</div>
+		</SectionCard>
+
+		<SectionCard
+			title="Input primitive"
+			description="Wraps the .setup-control class so inputs share the focus ring and surface. Supports text, number, password, email, search."
+		>
+			<div class="flex flex-col gap-3">
+				<Input placeholder="Sorting Bench A" bind:value={primitiveInputText} />
+				<Input type="number" bind:value={primitiveInputNumber} />
+				<Input type="password" placeholder="API token" bind:value={primitiveInputPassword} />
+				<pre
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`import { Input } from '$lib/components/primitives';
+
+<Input placeholder="Sorting Bench A" bind:value={name} />
+<Input type="number" bind:value={count} />
+<Input type="password" bind:value={token} />`}</pre>
+			</div>
+		</SectionCard>
+
+		<SectionCard
+			title="Alert primitive"
+			description="Replaces inline notification boxes. Four variants mapped to the danger / success / warning / info tokens. No left-border accent."
+		>
+			<div class="flex flex-col gap-3">
+				<Alert variant="success">Sorting profile saved. Ready to run.</Alert>
+				<Alert variant="warning">Servo calibration is older than 30 days.</Alert>
+				<Alert variant="danger">Could not reach machine — check the network cable.</Alert>
+				<Alert variant="info">Homing in progress. This usually takes ~12 seconds.</Alert>
+				<pre
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`import { Alert } from '$lib/components/primitives';
+
+<Alert variant="success">Saved.</Alert>
+<Alert variant="danger">Could not reach machine.</Alert>`}</pre>
+			</div>
+		</SectionCard>
+
+		<SectionCard
+			title="Tooltip primitive"
+			description="Simple hover / focus tooltip, no portal. Pass the label via the text prop and the trigger as default children."
+		>
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center gap-4">
+					<Tooltip text="Recalibrate the bed height">
+						<Button variant="secondary" size="sm">
+							<RefreshCcw size={14} />
+							Recalibrate
+						</Button>
+					</Tooltip>
+					<Tooltip text="Opens the full hardware homing flow">
+						<span class="inline-flex items-center gap-1 text-sm text-text-muted">
+							<HelpCircle size={14} />
+							What is homing?
+						</span>
+					</Tooltip>
+				</div>
+				<pre
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`import { Tooltip } from '$lib/components/primitives';
+
+<Tooltip text="Recalibrate the bed height">
+  <Button variant="secondary" size="sm">Recalibrate</Button>
+</Tooltip>`}</pre>
 			</div>
 		</SectionCard>
 	</main>

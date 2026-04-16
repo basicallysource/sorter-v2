@@ -38,8 +38,8 @@
 		{#if selected}
 			<span
 				class="h-2 w-2 rounded-full {selected.status === 'connected'
-					? 'bg-[#00852B]'
-					: 'bg-[#D01012]'}"
+					? 'bg-success'
+					: 'bg-danger'}"
 			></span>
 			<span class="max-w-32 truncate">
 				{selected.identity?.nickname ?? selected.identity?.machine_id.slice(0, 8) ?? 'Unknown'}
@@ -65,7 +65,7 @@
 						: 'text-text hover:bg-bg'}"
 				>
 					<span
-						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-[#00852B]' : 'bg-[#D01012]'}"
+						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-success' : 'bg-danger'}"
 					></span>
 					<span class="truncate">
 						{m.identity?.nickname ?? id.slice(0, 8)}

@@ -125,8 +125,8 @@
 							Layer {layer.layer_index + 1}
 						</span>
 						{#if isActive}
-							<span class="flex items-center gap-1 text-[10px] font-semibold text-[#00852B]">
-								<span class="inline-block h-1.5 w-1.5 bg-[#00852B]"></span>
+							<span class="flex items-center gap-1 text-[10px] font-semibold text-success">
+								<span class="inline-block h-1.5 w-1.5 bg-success"></span>
 								Active
 							</span>
 						{:else if !layer.enabled}
@@ -148,7 +148,7 @@
 											<div
 												class="flex min-h-[1.75rem] flex-1 items-center justify-center text-[10px]
 													{isCurrent
-														? 'bg-[#00852B]/10 font-bold text-[#00852B] ring-1 ring-inset ring-[#00852B]'
+														? 'bg-success/10 font-bold text-success ring-1 ring-inset ring-success'
 														: 'bg-surface text-text'}"
 												title="Bin {bin.global_index + 1} ({bin.angle}\u00b0){catLabel ? ` — ${catLabel}` : ''}"
 											>

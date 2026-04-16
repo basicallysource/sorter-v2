@@ -635,8 +635,8 @@
 							</div>
 							<div class="flex items-center gap-3">
 								{#if isActive}
-									<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#00852B]">
-										<span class="inline-block h-2 w-2 bg-[#00852B]"></span>
+									<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-success">
+										<span class="inline-block h-2 w-2 bg-success"></span>
 										Active
 									</span>
 								{/if}
@@ -648,7 +648,7 @@
 										aria-label={layer.enabled ? `Disable layer ${layer.layer_index + 1}` : `Enable layer ${layer.layer_index + 1}`}
 										onclick={() => void toggleLayerEnabled(layer.layer_index, !layer.enabled)}
 										disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-										class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${layer.enabled ? 'bg-[#00852B]' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+										class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${layer.enabled ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
 									>
 										<span class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${layer.enabled ? 'translate-x-6' : 'translate-x-1'}`}></span>
 									</button>
@@ -710,7 +710,7 @@
 										</div>
 									{/if}
 									<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2">
-										<div class="pr-3 text-base font-semibold {isCurrent ? 'text-[#00852B]' : 'text-[#1A1A1A]'}">
+										<div class="pr-3 text-base font-semibold {isCurrent ? 'text-success' : 'text-[#1A1A1A]'}">
 											{#if catLabel}
 												{bin.global_index + 1}: {catLabel}
 											{:else}
@@ -767,7 +767,7 @@
 									</div>
 									<button
 										onclick={() => openBinDetails(layer.layer_index, bin)}
-										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-[#00852B]/8 ring-2 ring-inset ring-[#00852B]' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
+										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success/8 ring-2 ring-inset ring-success' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
 										title={`Bin ${bin.global_index + 1}${catLabel ? ` — ${catLabel}` : ''}`}
 									>
 										{#if contents}
@@ -808,7 +808,7 @@
 											title="{setProgress.total_found} of {setProgress.total_needed} parts found"
 										>
 											<div
-												class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-[#00852B]' : 'bg-primary'}"
+												class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-success' : 'bg-primary'}"
 												style="width: {clampedPct}%"
 											></div>
 											<div class="relative flex h-full items-center justify-center text-[11px] font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">

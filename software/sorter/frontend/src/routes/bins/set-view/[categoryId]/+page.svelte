@@ -246,8 +246,8 @@
 	{#if loading}
 		<div class="text-sm text-text-muted">Loading set checklist…</div>
 	{:else if error && !data}
-		<div class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2">
-			<div class="text-[11px] font-semibold uppercase tracking-wider text-[#5C0708]">
+		<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
+			<div class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark">
 				Could not load checklist
 			</div>
 			<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
@@ -313,8 +313,8 @@
 			</div>
 
 			{#if error}
-				<div class="border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2">
-					<div class="text-[11px] font-semibold uppercase tracking-wider text-[#5C0708]">
+				<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
+					<div class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark">
 						Update failed
 					</div>
 					<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
@@ -345,9 +345,9 @@
 					{@const isPending = pendingKeys.has(partKey(part))}
 					{@const cardBorder =
 						status === 'complete'
-							? 'border-[#00852B]/40 bg-[#00852B]/[0.04]'
+							? 'border-success/40 bg-success/[0.04]'
 							: status === 'deferred'
-								? 'border-[#F2A900]/50 bg-[#F2A900]/[0.04]'
+								? 'border-warning/50 bg-warning/[0.04]'
 								: 'border-border bg-surface'}
 					<div
 						class={`flex flex-col overflow-hidden border ${cardBorder} print:break-inside-avoid`}

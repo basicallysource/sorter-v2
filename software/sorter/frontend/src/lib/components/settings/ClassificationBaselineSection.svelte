@@ -351,7 +351,7 @@
 
 	function resultToneClass(found: boolean): string {
 		return found
-			? 'font-semibold text-[#00852B] dark:text-emerald-300'
+			? 'font-semibold text-success dark:text-emerald-300'
 			: 'font-semibold text-amber-700 dark:text-amber-300';
 	}
 
@@ -467,7 +467,7 @@
 		{/if}
 
 		{#if errorMsg}
-			<div class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400">
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
 				{errorMsg}
 			</div>
 		{/if}

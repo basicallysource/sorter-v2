@@ -239,7 +239,7 @@
 	</div>
 
 	{#if errorMsg}
-		<div class="text-sm text-[#D01012] dark:text-red-400">{errorMsg}</div>
+		<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
 	{:else if statusMsg}
 		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}

@@ -414,7 +414,7 @@
 
 	function statusToneClass(target: HiveTarget): string {
 		if (!target.enabled) return 'text-amber-600 dark:text-amber-400';
-		if (target.uploader.server_reachable) return 'text-[#00852B] dark:text-emerald-400';
+		if (target.uploader.server_reachable) return 'text-success dark:text-emerald-400';
 		return 'text-amber-600 dark:text-amber-400';
 	}
 
@@ -521,7 +521,7 @@
 									type="button"
 									onclick={() => void handleRemoveTarget(target)}
 									disabled={removingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-[#D01012] bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#D01012]/80 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#D01012] dark:bg-[#D01012] dark:hover:bg-[#D01012]/80"
+									class="inline-flex items-center gap-1.5 border border-danger bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50 dark:border-danger dark:bg-danger dark:hover:bg-danger/80"
 								>
 									<Trash2 size={12} />
 									{removingTargetId === target.id ? 'Removing...' : 'Remove'}
@@ -539,7 +539,7 @@
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
-							<div class="mt-3 border border-[#00852B] bg-[#00852B]/10 px-3 py-2 text-sm font-medium text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/10 dark:text-emerald-200">
+							<div class="mt-3 border border-success bg-success/10 px-3 py-2 text-sm font-medium text-success dark:border-success dark:bg-success/10 dark:text-emerald-200">
 								{backfillResult}
 							</div>
 						{/if}
@@ -569,7 +569,7 @@
 									<div class="text-text-muted">Requeued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-[#D01012]' : 'text-text'}">{target.uploader.failed}</div>
+									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-danger' : 'text-text'}">{target.uploader.failed}</div>
 									<div class="text-text-muted">Failed</div>
 								</div>
 							</div>
@@ -690,7 +690,7 @@
 	{/if}
 
 	{#if errorMsg}
-		<div class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400">
+		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
 			{errorMsg}
 		</div>
 	{/if}

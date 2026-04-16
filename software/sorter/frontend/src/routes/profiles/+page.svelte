@@ -539,7 +539,7 @@
 				<div class="mb-4 space-y-2">
 					{#each targetErrors() as target}
 						<div
-							class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:text-red-400"
+							class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400"
 						>
 							{target.name}: {target.error}
 						</div>

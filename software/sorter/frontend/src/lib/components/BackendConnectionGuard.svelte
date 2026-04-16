@@ -132,7 +132,7 @@
 	<div class="flex flex-col gap-4">
 		<div class="flex items-start gap-3">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D01012]/25 bg-[#D01012]/[0.08] text-[#B11618]"
+				class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
 			>
 				<WifiOff size={18} />
 			</div>

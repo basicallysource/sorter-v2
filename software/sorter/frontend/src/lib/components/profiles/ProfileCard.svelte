@@ -79,7 +79,7 @@
 
 <div
 	class="setup-card-shell group flex h-full flex-col overflow-hidden border transition-colors {isActive
-		? 'border-[#00852B] ring-1 ring-[#00852B]/20'
+		? 'border-success ring-1 ring-success/20'
 		: 'border-border hover:border-text-muted'}"
 >
 	<div class="setup-card-header px-3 py-2 text-sm">
@@ -95,7 +95,7 @@
 				{#if isActive}
 					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
 						<span
-							class="border border-[#00852B]/30 bg-[#00852B]/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#00852B]"
+							class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success"
 							>Active</span
 						>
 					</div>

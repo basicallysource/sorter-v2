@@ -206,8 +206,8 @@
 	}
 
 	function levelBadgeClass(level: LogLevel): string {
-		if (level === 'ERROR') return 'border-[#D01012]/40 bg-[#D01012]/10 text-[#D01012]';
-		if (level === 'WARN') return 'border-[#F2A900]/40 bg-[#F2A900]/10 text-[#A56D00]';
+		if (level === 'ERROR') return 'border-danger/40 bg-danger/10 text-danger';
+		if (level === 'WARN') return 'border-warning/40 bg-warning/10 text-[#A56D00]';
 		if (level === 'INFO') return 'border-primary/40 bg-primary/10 text-primary';
 		if (level === 'DEBUG') return 'border-border bg-bg text-text-muted';
 		return 'border-border bg-bg text-text-muted';
@@ -361,8 +361,8 @@
 
 						<div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
 							<span class="rounded border border-border bg-bg px-2 py-1">{filteredEntries().length} matching lines</span>
-							<span class="rounded border border-[#D01012]/30 bg-[#D01012]/10 px-2 py-1 text-[#D01012]">Errors: {countByLevel('ERROR')}</span>
-							<span class="rounded border border-[#F2A900]/30 bg-[#F2A900]/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
+							<span class="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">Errors: {countByLevel('ERROR')}</span>
+							<span class="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
 							<span class="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary">Info: {countByLevel('INFO')}</span>
 						</div>
 					</div>

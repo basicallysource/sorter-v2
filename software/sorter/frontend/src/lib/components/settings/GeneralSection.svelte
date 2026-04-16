@@ -184,8 +184,8 @@
 						<div class="flex items-center gap-2">
 							<span
 								class="h-2 w-2 rounded-full {m.status === 'connected'
-									? 'bg-[#00852B]'
-									: 'bg-[#D01012]'}"
+									? 'bg-success'
+									: 'bg-danger'}"
 							></span>
 							<span class="text-sm text-text">
 								{m.identity?.nickname ?? id.slice(0, 8)}
@@ -196,7 +196,7 @@
 								event.stopPropagation();
 								manager.disconnect(id);
 							}}
-							class="text-xs text-text-muted hover:text-[#D01012] dark:hover:text-red-400"
+							class="text-xs text-text-muted hover:text-danger dark:hover:text-red-400"
 						>
 							Disconnect
 						</button>
@@ -235,7 +235,7 @@
 				</div>
 				<div class="text-xs text-text-muted">Leave it blank to fall back to the machine ID.</div>
 				{#if nameError}
-					<div class="text-sm text-[#D01012] dark:text-red-400">{nameError}</div>
+					<div class="text-sm text-danger dark:text-red-400">{nameError}</div>
 				{:else if nameStatus}
 					<div class="text-sm text-text-muted">{nameStatus}</div>
 				{/if}
@@ -289,7 +289,7 @@
 					`Re-Home`.
 				</div>
 				{#if feedingModeError}
-					<div class="text-sm text-[#D01012] dark:text-red-400">{feedingModeError}</div>
+					<div class="text-sm text-danger dark:text-red-400">{feedingModeError}</div>
 				{:else if feedingModeStatus}
 					<div class="text-sm text-text-muted">{feedingModeStatus}</div>
 				{:else if loadingFeedingMode}

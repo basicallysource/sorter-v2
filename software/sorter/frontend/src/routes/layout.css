@@ -10,6 +10,15 @@
 	--color-primary-hover: #004499;
 	--color-primary-dark: #002656;
 	--color-primary-contrast: #ffffff;
+	--color-primary-light: #FBE4E5;
+	--color-danger: #D01012;
+	--color-danger-hover: #B00E10;
+	--color-danger-dark: #5C0708;
+	--color-success: #00852B;
+	--color-success-dark: #003D14;
+	--color-warning: #F2A900;
+	--color-warning-dark: #4A3300;
+	--color-info: #0055BF;
 	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
 	--font-mono: 'IBM Plex Mono', monospace;
 }

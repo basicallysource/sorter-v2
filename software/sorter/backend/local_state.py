@@ -563,11 +563,34 @@ def get_hive_config() -> dict[str, Any] | None:
     value = _read_state(_STATE_KEY_HIVE)
     if not isinstance(value, dict):
         return {"targets": []}
-    return _normalize_hive_config(value)
+
+    from secrets_crypto import decrypt_str, is_encrypted
+
+    config = _normalize_hive_config(value)
+    had_plaintext_token = False
+    for target in config.get("targets", []):
+        token = target.get("api_token")
+        if isinstance(token, str) and token:
+            if not is_encrypted(token):
+                had_plaintext_token = True
+            target["api_token"] = decrypt_str(token)
+
+    # Migrate legacy plaintext tokens to encrypted form on first read.
+    if had_plaintext_token and config.get("targets"):
+        set_hive_config(config)
+
+    return config
 
 
 def set_hive_config(config: dict[str, Any]) -> None:
-    _write_state(_STATE_KEY_HIVE, _normalize_hive_config(config))
+    from secrets_crypto import encrypt_str
+
+    normalized = _normalize_hive_config(config)
+    for target in normalized.get("targets", []):
+        token = target.get("api_token")
+        if isinstance(token, str) and token:
+            target["api_token"] = encrypt_str(token)
+    _write_state(_STATE_KEY_HIVE, normalized)
 
 
 def get_sorting_profile_sync_state() -> dict[str, Any] | None:
@@ -588,12 +611,24 @@ def set_sorting_profile_sync_state(state: dict[str, Any] | None) -> None:
 
 def get_api_keys() -> dict[str, str]:
     value = _read_state(_STATE_KEY_API_KEYS)
-    return _normalize_string_dict(value)
+    stored = _normalize_string_dict(value)
+
+    from secrets_crypto import decrypt_str, is_encrypted
+
+    decoded = {key: decrypt_str(val) for key, val in stored.items()}
+    had_plaintext = any(val and not is_encrypted(val) for val in stored.values())
+    if had_plaintext and decoded:
+        # Transparent migration: re-save so future reads decrypt from ciphertext.
+        set_api_keys(decoded)
+    return decoded
 
 
 def set_api_keys(keys: dict[str, str] | None) -> None:
+    from secrets_crypto import encrypt_str
+
     normalized = _normalize_string_dict(keys)
-    _write_state(_STATE_KEY_API_KEYS, normalized or None)
+    encrypted = {key: encrypt_str(val) for key, val in normalized.items() if val}
+    _write_state(_STATE_KEY_API_KEYS, encrypted or None)
 
 
 def get_servo_states() -> dict[str, Any]:

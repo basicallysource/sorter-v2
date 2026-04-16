@@ -97,6 +97,7 @@ sorter/backend/servo_states.json
 sorter/backend/local_state.sqlite
 sorter/backend/local_state.sqlite-shm
 sorter/backend/local_state.sqlite-wal
+sorter/backend/.secret_seed
 
 # Android app local/build state
 android-camera-app/.gradle/

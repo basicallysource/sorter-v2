@@ -115,11 +115,38 @@ ok "pnpm: $(pnpm --version)"
 # 5. Git LFS payloads
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$SKIP_LFS" == "false" ]]; then
-    log "Pulling Git LFS payloads (detector models, parts catalogue)..."
-    ( cd "$REPO_ROOT" && git lfs install --local && git lfs pull )
-    ok "LFS payloads pulled"
+    # Pre-check: git-lfs must be installed, otherwise `git lfs pull` silently
+    # leaves pointer files on disk and the backend later fails importing a
+    # 200-byte ".onnx" file with a cryptic error. This is the #1 support ticket.
+    if ! command -v git-lfs &>/dev/null && ! git lfs version &>/dev/null 2>&1; then
+        err "git-lfs not found. Install it first:"
+        err "  Debian/Ubuntu/Pi OS:  sudo apt-get install git-lfs"
+        err "  macOS:                brew install git-lfs"
+        err "Or re-run this installer without --skip-apt so apt installs it."
+        exit 1
+    fi
+
+    log "Pulling Git LFS payloads (parts catalogue, ~10 MB)..."
+    if ! ( cd "$REPO_ROOT" && git lfs install --local && git lfs pull ); then
+        err "git lfs pull failed. Check network connectivity and LFS bandwidth quota."
+        exit 1
+    fi
+
+    # Post-verify: confirm the largest known LFS file is a real blob, not a
+    # pointer. LFS pointers are ~130 bytes; the real file is ~10 MB.
+    PARTS_FILE="$SOFTWARE_DIR/sorter/backend/parts_with_categories.json"
+    if [[ -f "$PARTS_FILE" ]]; then
+        PARTS_SIZE=$(wc -c < "$PARTS_FILE" | tr -d ' ')
+        if [[ "$PARTS_SIZE" -lt 1000000 ]]; then
+            err "LFS payload verification failed: $PARTS_FILE is only $PARTS_SIZE bytes."
+            err "This usually means LFS is not configured for this clone."
+            err "Try:  cd $REPO_ROOT && git lfs fetch --all && git lfs checkout"
+            exit 1
+        fi
+    fi
+    ok "LFS payloads pulled and verified"
 else
-    warn "Skipping git lfs pull (--skip-lfs)"
+    warn "Skipping git lfs pull (--skip-lfs) — models may be 200-byte pointers"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -41,6 +41,7 @@ from subsystems.feeder.calibration import calibrateFeederChannels
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
 from hardware.waveshare_bus_service import close_all_waveshare_bus_services
+from server.waveshare_inventory import get_waveshare_inventory_manager
 import uvicorn
 import threading
 import queue
@@ -180,6 +181,10 @@ def main() -> None:
         camera_service.start()
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
+    with gc.profiler.timer("startup.waveshare_inventory_ms"):
+        waveshare_inventory = get_waveshare_inventory_manager()
+        waveshare_inventory.start()
+        waveshare_inventory.refresh()
 
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
@@ -230,6 +235,10 @@ def main() -> None:
             close_all_waveshare_bus_services()
         except Exception as exc:
             gc.logger.warning(f"Failed to close Waveshare bus services cleanly: {exc}")
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
 
         standby_irl = _mkIRLInterfaceStandby(irl_config, gc)
         _replace_irl(standby_irl)
@@ -310,6 +319,10 @@ def main() -> None:
             controller = next_controller
         setController(next_controller)
         next_controller.start()
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
 
         # Home the chute through the distribution state machine
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None

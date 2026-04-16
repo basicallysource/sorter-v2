@@ -34,6 +34,16 @@
 		error?: string;
 	};
 
+	type WaveshareInventoryPayload = {
+		current_port?: string | null;
+		ports?: WavesharePort[];
+		servos?: BusServo[];
+		highest_seen_id?: number;
+		suggested_next_id?: number | null;
+		scanning?: boolean;
+		last_error?: string | null;
+	};
+
 	let {
 		onSaved = null
 	}: {
@@ -233,8 +243,7 @@
 			applySettings(await res.json());
 			settingsLoaded = true;
 			if (backend === 'waveshare') {
-				void loadPorts();
-				void scanBus({ silent: true });
+				void loadWaveshareInventory({ refresh: false, silent: true });
 			}
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load servo setup';
@@ -246,44 +255,60 @@
 	async function loadPorts() {
 		loadingPorts = true;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/ports`);
-			if (!res.ok) return;
-			const payload = await res.json();
-			availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
+			await loadWaveshareInventory({ refresh: false, silent: true });
 		} finally {
 			loadingPorts = false;
 		}
 	}
 
-	async function scanBus(options: { silent?: boolean } = {}) {
+	function applyWaveshareInventory(payload: WaveshareInventoryPayload) {
+		availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
+		const previousCount = busServos.length;
+		busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+		suggestedNextId =
+			typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+		highestSeenId = typeof payload?.highest_seen_id === 'number' ? payload.highest_seen_id : 0;
+		if (!port.trim() && typeof payload?.current_port === 'string' && payload.current_port) {
+			port = payload.current_port;
+		}
+		if (previousCount === 0 && busServos.length > 0) {
+			maybeAutoPromoteFactoryId();
+		}
+	}
+
+	async function loadWaveshareInventory(options: { refresh?: boolean; silent?: boolean } = {}) {
 		if (backend !== 'waveshare') return;
-		if (scanningBus) return;
-		scanningBus = true;
+		const refresh = options.refresh === true;
+		if (refresh && scanningBus) return;
+		if (refresh) {
+			scanningBus = true;
+		}
 		if (!options.silent) {
 			errorMsg = null;
 		}
 		try {
-			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			const url = new URL(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/${refresh ? 'rescan' : 'status'}`
+			);
 			if (port.trim()) {
 				url.searchParams.set('port', port.trim());
 			}
-			const res = await fetch(url.toString());
+			const res = await fetch(url.toString(), { method: refresh ? 'POST' : 'GET' });
 			if (!res.ok) throw new Error(await res.text());
-			const payload = await res.json();
-			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
-			suggestedNextId =
-				typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
-			highestSeenId = typeof payload?.highest_seen_id === 'number' ? payload.highest_seen_id : 0;
-			// Auto-promote any servo still on the factory ID 1 to the next free id,
-			// so the user can just connect them one by one without a second click.
-			maybeAutoPromoteFactoryId();
+			applyWaveshareInventory(await res.json());
 		} catch (e: any) {
 			if (!options.silent) {
 				errorMsg = e.message ?? 'Failed to scan Waveshare bus';
 			}
 		} finally {
-			scanningBus = false;
+			if (refresh) {
+				scanningBus = false;
+			}
 		}
+	}
+
+	async function scanBus(options: { silent?: boolean } = {}) {
+		await loadWaveshareInventory({ refresh: true, silent: options.silent });
 	}
 
 	function maybeAutoPromoteFactoryId() {
@@ -328,7 +353,7 @@
 			}
 			const payload = await res.json();
 			statusMsg = payload?.message ?? `Servo ${servoId} calibrated.`;
-			await scanBus();
+			await loadWaveshareInventory({ refresh: true });
 		} catch (e: any) {
 			errorMsg = e.message ?? `Failed to calibrate servo ${servoId}`;
 		} finally {
@@ -438,7 +463,7 @@
 				layerByAssignment = next;
 			}
 			statusMsg = payload?.message ?? `Servo ${currentId} → ${newId}.`;
-			await scanBus();
+			await loadWaveshareInventory({ refresh: true });
 		} catch (e: any) {
 			errorMsg = e.message ?? `Failed to change servo ID`;
 		} finally {
@@ -595,7 +620,7 @@
 			// Skip auto-refresh while a per-servo action is running so we don't fight it.
 			if (Object.keys(busyByServoId).length > 0) return;
 			if (scanningBus) return;
-			void scanBus({ silent: true });
+			void loadWaveshareInventory({ refresh: false, silent: true });
 		}, 4000);
 
 		function handleKeydown(e: KeyboardEvent) {
@@ -659,8 +684,7 @@
 					checked={backend === 'waveshare'}
 					onchange={() => {
 						backend = 'waveshare';
-						void loadPorts();
-						void scanBus();
+						void loadWaveshareInventory({ refresh: false, silent: true });
 					}}
 				/>
 				<span>Waveshare SC serial bus</span>

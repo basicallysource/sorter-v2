@@ -49,6 +49,16 @@
 		error?: string;
 	};
 
+	type WaveshareInventoryPayload = {
+		current_port?: string | null;
+		ports?: WavesharePort[];
+		servos?: BusServo[];
+		highest_seen_id?: number;
+		suggested_next_id?: number | null;
+		scanning?: boolean;
+		last_error?: string | null;
+	};
+
 	const manager = getMachinesContext();
 
 	let loadedMachineKey = $state('');
@@ -250,9 +260,8 @@
 			applySettings(await res.json());
 			loaded = true;
 			void loadLiveFeedback();
-			void loadAvailablePorts();
 			if (backend === 'waveshare') {
-				void scanBusServosQuiet();
+				void loadWaveshareInventory({ refresh: false, silent: true });
 			}
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load storage layer settings';
@@ -261,28 +270,64 @@
 		}
 	}
 
-	async function scanBusServosQuiet() {
-		if (busScanning) return;
-		busScanning = true;
+	function applyWaveshareInventory(
+		payload: WaveshareInventoryPayload,
+		options: { seedNewIds?: boolean } = {}
+	) {
+		availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
+		portsLoaded = true;
+		const previousCount = busServos.length;
+		busServos = Array.isArray(payload?.servos) ? payload.servos : [];
+		busSuggestedNextId =
+			typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
+		if (!port.trim() && typeof payload?.current_port === 'string' && payload.current_port) {
+			port = payload.current_port;
+		}
+
+		if (options.seedNewIds) {
+			const inputs: Record<number, string> = {};
+			for (const servo of busServos) {
+				if (servo.id === 1 && busSuggestedNextId !== null) {
+					inputs[servo.id] = String(busSuggestedNextId);
+				}
+			}
+			newIdInputs = inputs;
+		}
+
+		if (previousCount === 0 && busServos.length > 0) {
+			autoAssignBusIds();
+		}
+	}
+
+	async function loadWaveshareInventory(
+		options: { refresh?: boolean; silent?: boolean; seedNewIds?: boolean } = {}
+	) {
+		const refresh = options.refresh === true;
+		if (refresh && busScanning) return;
+		if (refresh) {
+			busScanning = true;
+		}
+		if (!options.silent) {
+			busError = null;
+			busStatusMsg = '';
+		}
 		try {
 			const scanPort = port.trim() || undefined;
-			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
+			const url = new URL(
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/${refresh ? 'rescan' : 'status'}`
+			);
 			if (scanPort) url.searchParams.set('port', scanPort);
-			const res = await fetch(url.toString());
-			if (!res.ok) return;
-			const payload = await res.json();
-			const prevCount = busServos.length;
-			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
-			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
-
-			// On first successful scan, auto-assign discovered IDs to layers
-			if (prevCount === 0 && busServos.length > 0) {
-				autoAssignBusIds();
+			const res = await fetch(url.toString(), { method: refresh ? 'POST' : 'GET' });
+			if (!res.ok) throw new Error(await res.text());
+			applyWaveshareInventory(await res.json(), { seedNewIds: options.seedNewIds });
+		} catch (e: any) {
+			if (!options.silent) {
+				busError = e.message ?? 'Failed to load Waveshare bus inventory';
 			}
-		} catch {
-			// quiet — don't show errors for background scans
 		} finally {
-			busScanning = false;
+			if (refresh) {
+				busScanning = false;
+			}
 		}
 	}
 
@@ -481,44 +526,11 @@
 	}
 
 	async function scanBusServos() {
-		busScanning = true;
-		busError = null;
-		busStatusMsg = '';
-		try {
-			const scanPort = port.trim() || undefined;
-			const url = new URL(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos`);
-			if (scanPort) url.searchParams.set('port', scanPort);
-			const res = await fetch(url.toString());
-			if (!res.ok) throw new Error(await res.text());
-			const payload = await res.json();
-			busServos = Array.isArray(payload?.servos) ? payload.servos : [];
-			busSuggestedNextId = typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
-
-			// Pre-fill new ID inputs: for ID 1 servos, suggest the next available ID
-			const inputs: Record<number, string> = {};
-			for (const servo of busServos) {
-				if (servo.id === 1 && busSuggestedNextId !== null) {
-					inputs[servo.id] = String(busSuggestedNextId);
-				}
-			}
-			newIdInputs = inputs;
-		} catch (e: any) {
-			busError = e.message ?? 'Failed to scan bus';
-		} finally {
-			busScanning = false;
-		}
+		await loadWaveshareInventory({ refresh: true, silent: false, seedNewIds: true });
 	}
 
 	async function loadAvailablePorts() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/waveshare/ports`);
-			if (!res.ok) return;
-			const payload = await res.json();
-			availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
-			portsLoaded = true;
-		} catch {
-			// silent — keep text input as fallback
-		}
+		await loadWaveshareInventory({ refresh: false, silent: true });
 	}
 
 	async function changeServoId(oldId: number) {
@@ -548,8 +560,7 @@
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			busStatusMsg = payload?.message ?? `ID changed from ${oldId} to ${newId}.`;
-			// Refresh the servo list
-			await scanBusServos();
+			await loadWaveshareInventory({ refresh: true, silent: false, seedNewIds: true });
 		} catch (e: any) {
 			busError = e.message ?? `Failed to change servo ID from ${oldId} to ${newId}`;
 		} finally {
@@ -687,8 +698,7 @@
 					...layer,
 					servoId: layer.enabled ? String(index + 1) : ''
 				}));
-				void loadAvailablePorts();
-				void scanBusServosQuiet();
+				void loadWaveshareInventory({ refresh: false, silent: true });
 			} else {
 				// Waveshare→PCA: switch to 0-indexed channels
 				layers = layers.map((layer, index) => ({
@@ -712,7 +722,7 @@
 		}, 500);
 		const busScanInterval = setInterval(() => {
 			if (backend === 'waveshare') {
-				void scanBusServosQuiet();
+				void loadWaveshareInventory({ refresh: false, silent: true });
 			}
 		}, 10000);
 		return () => {

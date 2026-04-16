@@ -92,6 +92,9 @@ class RuntimeStatsCollector:
         self._feeder_blocker_combo_entered_at_monotonic: float | None = None
         self._feeder_blocker_combo_totals_s: dict[str, float] = {}
         self._feeder_blocker_combo_timeline: list[dict[str, Any]] = []
+        self._all_bins_cleared_after_s: float | None = None
+        self._layer_bins_cleared_after_s: dict[int, float] = {}
+        self._bin_cleared_after_s: dict[tuple[int, int, int], float] = {}
         self._last_updated_at = time.time()
 
     def setLifecycleState(
@@ -163,6 +166,57 @@ class RuntimeStatsCollector:
                 record_piece_distribution(current)
             except Exception:
                 pass
+
+    def clearBinContents(
+        self,
+        *,
+        scope: str,
+        layer_index: int | None = None,
+        section_index: int | None = None,
+        bin_index: int | None = None,
+        cleared_at: float | None = None,
+    ) -> None:
+        cleared_at = time.time() if cleared_at is None else float(cleared_at)
+        if scope == "all":
+            self._all_bins_cleared_after_s = cleared_at
+            self._last_updated_at = cleared_at
+            return
+
+        if scope == "layer":
+            if layer_index is None:
+                raise ValueError("layer_index is required when clearing a layer")
+            self._layer_bins_cleared_after_s[int(layer_index)] = cleared_at
+            self._last_updated_at = cleared_at
+            return
+
+        if scope == "bin":
+            if layer_index is None or section_index is None or bin_index is None:
+                raise ValueError("layer_index, section_index, and bin_index are required when clearing a bin")
+            self._bin_cleared_after_s[(int(layer_index), int(section_index), int(bin_index))] = cleared_at
+            self._last_updated_at = cleared_at
+            return
+
+        raise ValueError(f"Unsupported bin clear scope: {scope}")
+
+    def _binContentsClearCutoff(
+        self,
+        *,
+        layer_index: int,
+        section_index: int,
+        bin_index: int,
+    ) -> float | None:
+        candidates: list[float] = []
+        if self._all_bins_cleared_after_s is not None:
+            candidates.append(self._all_bins_cleared_after_s)
+        layer_cutoff = self._layer_bins_cleared_after_s.get(layer_index)
+        if layer_cutoff is not None:
+            candidates.append(layer_cutoff)
+        bin_cutoff = self._bin_cleared_after_s.get((layer_index, section_index, bin_index))
+        if bin_cutoff is not None:
+            candidates.append(bin_cutoff)
+        if not candidates:
+            return None
+        return max(candidates)
 
     def observeFeederState(
         self,
@@ -429,6 +483,19 @@ class RuntimeStatsCollector:
             except (TypeError, ValueError):
                 continue
 
+            distributed_at = piece.get("distributed_at")
+            clear_cutoff = self._binContentsClearCutoff(
+                layer_index=layer_index,
+                section_index=section_index,
+                bin_index=bin_index,
+            )
+            if (
+                clear_cutoff is not None
+                and isinstance(distributed_at, (int, float))
+                and float(distributed_at) <= clear_cutoff
+            ):
+                continue
+
             bin_key = f"{layer_index}:{section_index}:{bin_index}"
             bucket = bins.get(bin_key)
             if bucket is None:
@@ -446,7 +513,6 @@ class RuntimeStatsCollector:
                 bins[bin_key] = bucket
 
             bucket["piece_count"] += 1
-            distributed_at = piece.get("distributed_at")
             if isinstance(distributed_at, (int, float)):
                 current_last = bucket.get("last_distributed_at")
                 if not isinstance(current_last, (int, float)) or distributed_at > current_last:

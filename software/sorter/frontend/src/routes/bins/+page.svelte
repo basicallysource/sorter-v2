@@ -7,7 +7,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { Crosshair, Home, Trash2 } from 'lucide-svelte';
+	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2 } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
@@ -57,6 +57,15 @@
 		recent_pieces: BinContentItem[];
 	};
 
+	type ClearingState = {
+		endpoint: 'contents/clear' | 'categories/clear';
+		scope: 'all' | 'layer' | 'bin';
+		busyKey: string;
+		layerIndex?: number;
+		sectionIndex?: number;
+		binIndex?: number;
+	};
+
 	let layers = $state<LayerInfo[]>([]);
 	let currentAngle = $state<number | null>(null);
 	let activeLayer = $state<number | null>(null);
@@ -65,7 +74,7 @@
 	let movingTo = $state<string | null>(null);
 	let homing = $state(false);
 	let statusMsg = $state('');
-	let clearingKey = $state<string | null>(null);
+	let clearingStates = $state<ClearingState[]>([]);
 	let togglingLayerKey = $state<number | null>(null);
 	let contentsByKey = $state<Record<string, BinContents>>({});
 	let detailsOpen = $state(false);
@@ -200,7 +209,7 @@
 	}
 
 	async function homeChute() {
-		if (homing || movingTo || clearingKey) return;
+		if (homing || movingTo || hasAnyClearing() || togglingLayerKey !== null) return;
 		homing = true;
 		statusMsg = '';
 		error = null;
@@ -319,20 +328,112 @@
 		window.open(target, '_blank', 'noopener,noreferrer');
 	}
 
-	async function clearAssignments(
+	function actionVerb(endpoint: 'contents/clear' | 'categories/clear'): string {
+		return endpoint === 'contents/clear' ? 'Emptying' : 'Resetting';
+	}
+
+	function hasAnyClearing(): boolean {
+		return clearingStates.length > 0;
+	}
+
+	function hasClearingKey(busyKey: string): boolean {
+		return clearingStates.some((state) => state.busyKey === busyKey);
+	}
+
+	function activeGlobalClearing(): ClearingState | null {
+		return clearingStates.find((state) => state.scope === 'all') ?? null;
+	}
+
+	function isGlobalClearing(): boolean {
+		return activeGlobalClearing() !== null;
+	}
+
+	function isLayerClearing(layerIndex: number): boolean {
+		return clearingStates.some(
+			(state) => state.scope === 'layer' && state.layerIndex === layerIndex
+		);
+	}
+
+	function isBinClearing(
+		layerIndex: number,
+		sectionIndex: number,
+		binIndex: number
+	): boolean {
+		return (
+			clearingStates.some(
+				(state) =>
+					state.scope === 'bin' &&
+					state.layerIndex === layerIndex &&
+					state.sectionIndex === sectionIndex &&
+					state.binIndex === binIndex
+			)
+		);
+	}
+
+	function globalClearingTitle(): string {
+		const state = activeGlobalClearing();
+		if (!state) return '';
+		return `${actionVerb(state.endpoint)} all bins…`;
+	}
+
+	function globalClearingDescription(): string {
+		const state = activeGlobalClearing();
+		if (!state) return '';
+		return state.endpoint === 'contents/clear'
+			? 'Updating the full machine state while keeping all current bin assignments in place.'
+			: 'Clearing the full machine state and removing all current bin assignments.';
+	}
+
+	function layerClearingLabel(layerIndex: number): string {
+		const state =
+			clearingStates.find(
+				(entry) => entry.scope === 'layer' && entry.layerIndex === layerIndex
+			) ?? null;
+		if (!state) return '';
+		return `${actionVerb(state.endpoint)} layer ${layerIndex + 1}…`;
+	}
+
+	function binClearingLabel(
+		layerIndex: number,
+		sectionIndex: number,
+		binIndex: number
+	): string {
+		const state =
+			clearingStates.find(
+				(entry) =>
+					entry.scope === 'bin' &&
+					entry.layerIndex === layerIndex &&
+					entry.sectionIndex === sectionIndex &&
+					entry.binIndex === binIndex
+			) ?? null;
+		if (!state) return '';
+		return state.endpoint === 'contents/clear' ? 'Emptying bin…' : 'Resetting bin…';
+	}
+
+	async function runBinAction(
+		endpoint: 'contents/clear' | 'categories/clear',
 		scope: 'all' | 'layer' | 'bin',
 		payload: { layer_index?: number; section_index?: number; bin_index?: number },
 		confirmMessage: string,
 		busyKey: string
 	) {
-		if (movingTo || homing || clearingKey) return;
+		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
+		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
 		if (!window.confirm(confirmMessage)) return;
 
-		clearingKey = busyKey;
+		const nextState: ClearingState = {
+			endpoint,
+			scope,
+			busyKey,
+			layerIndex: payload.layer_index,
+			sectionIndex: payload.section_index,
+			binIndex: payload.bin_index
+		};
+		clearingStates = [...clearingStates, nextState];
 		statusMsg = '';
 		error = null;
 		try {
-			const res = await fetch(`${baseUrl()}/api/bins/categories/clear`, {
+			const res = await fetch(`${baseUrl()}/api/bins/${endpoint}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ scope, ...payload })
@@ -344,15 +445,16 @@
 			const data = await res.json();
 			statusMsg = data?.message ?? 'Bin assignments updated.';
 			await loadLayout();
+			await loadBinContents();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Failed to clear bin assignments';
+			error = e instanceof Error ? e.message : 'Failed to update bins';
 		} finally {
-			clearingKey = null;
+			clearingStates = clearingStates.filter((state) => state.busyKey !== busyKey);
 		}
 	}
 
 	async function toggleLayerEnabled(layerIndex: number, enabled: boolean) {
-		if (movingTo || homing || clearingKey || togglingLayerKey !== null) return;
+		if (movingTo || homing || hasAnyClearing() || togglingLayerKey !== null) return;
 		togglingLayerKey = layerIndex;
 		statusMsg = '';
 		error = null;
@@ -407,26 +509,61 @@
 		detailsBin = null;
 		movingTo = null;
 		homing = false;
-		clearingKey = null;
+		clearingStates = [];
 		togglingLayerKey = null;
 		void loadLayout();
 		void loadBinContents();
 		void loadSetProgress();
 		void sortingProfileStore.load(nextBaseUrl).catch(() => {});
 	});
+
+	$effect(() => {
+		const currentDetails = detailsBin;
+		if (!currentDetails) return;
+		const layer = layers.find((entry) => entry.layer_index === currentDetails.layerIndex);
+		const bin = layer?.bins.find(
+			(entry) =>
+				entry.section_index === currentDetails.bin.section_index &&
+				entry.bin_index === currentDetails.bin.bin_index
+		);
+		if (!bin) return;
+		const contents = contentsForBin(currentDetails.layerIndex, bin);
+		if (currentDetails.bin === bin && currentDetails.contents === contents) return;
+		detailsBin = {
+			layerIndex: currentDetails.layerIndex,
+			bin,
+			contents
+		};
+	});
 </script>
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
+	{#if isGlobalClearing()}
+		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+			<div class="w-full max-w-md border border-[#E2E0DB] bg-white p-6 shadow-xl">
+				<div class="flex items-start gap-4">
+					<div class="flex h-10 w-10 items-center justify-center border border-[#E2E0DB] bg-surface">
+						<Loader2 size={18} class="animate-spin text-primary" />
+					</div>
+					<div class="space-y-2">
+						<h3 class="text-lg font-semibold text-[#1A1A1A]">{globalClearingTitle()}</h3>
+						<p class="text-sm leading-6 text-[#66635C]">{globalClearingDescription()}</p>
+						<p class="text-xs uppercase tracking-wide text-[#8B887F]">Please wait while the sorter refreshes the bin state.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex items-center justify-between gap-4">
 			<div>
 				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
 			</div>
 			<div class="flex items-center gap-3">
-					<button
-						onclick={homeChute}
-						disabled={homing || !!movingTo || !!clearingKey}
+				<button
+					onclick={homeChute}
+					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
 					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
 					title="Home chute (find endstop)"
 				>
@@ -435,19 +572,36 @@
 				</button>
 				<button
 					onclick={() =>
-						void clearAssignments(
+						void runBinAction(
+							'contents/clear',
 							'all',
 							{},
-							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine.',
-							'all'
+							'Please make sure all physical bins are empty first. This will mark every bin on the machine as emptied, but keep the current profile-to-bin assignments in place.',
+							'empty-all'
 						)}
-					disabled={homing || !!movingTo || !!clearingKey}
+					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
 					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-					title="Clear all learned bin assignments"
+					title="Empty all bins but keep assignments"
 				>
-						<Trash2 size={16} />
-						{clearingKey === 'all' ? 'Clearing…' : 'Clear All Bins'}
-					</button>
+					<FolderOutput size={16} />
+					{hasClearingKey('empty-all') ? 'Emptying…' : 'Empty All Bins'}
+				</button>
+				<button
+					onclick={() =>
+						void runBinAction(
+							'categories/clear',
+							'all',
+							{},
+							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
+							'reset-all'
+						)}
+					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
+					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+					title="Reset all bins and remove assignments"
+				>
+					<ArchiveX size={16} />
+					{hasClearingKey('reset-all') ? 'Resetting…' : 'Reset All Bins'}
+				</button>
 			</div>
 		</div>
 
@@ -462,7 +616,16 @@
 			<div class="flex flex-col gap-6">
 				{#each layers as layer}
 					{@const isActive = activeLayer === layer.layer_index}
-					<div class="border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
+					{@const layerBusy = isLayerClearing(layer.layer_index)}
+					<div class="relative border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
+						{#if layerBusy}
+							<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]">
+								<div class="flex items-center gap-3 border border-[#E2E0DB] bg-white px-4 py-3 shadow-sm">
+									<Loader2 size={16} class="animate-spin text-primary" />
+									<div class="text-sm font-medium text-[#1A1A1A]">{layerClearingLabel(layer.layer_index)}</div>
+								</div>
+							</div>
+						{/if}
 						<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3">
 							<div class="flex items-center gap-3">
 								<h3 class="text-base font-semibold text-[#1A1A1A]">
@@ -484,7 +647,7 @@
 										aria-checked={layer.enabled}
 										aria-label={layer.enabled ? `Disable layer ${layer.layer_index + 1}` : `Enable layer ${layer.layer_index + 1}`}
 										onclick={() => void toggleLayerEnabled(layer.layer_index, !layer.enabled)}
-										disabled={homing || !!movingTo || !!clearingKey || togglingLayerKey !== null}
+										disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
 										class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${layer.enabled ? 'bg-[#00852B]' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
 									>
 										<span class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${layer.enabled ? 'translate-x-6' : 'translate-x-1'}`}></span>
@@ -493,17 +656,34 @@
 								<button
 									type="button"
 									onclick={() =>
-										void clearAssignments(
+										void runBinAction(
+											'contents/clear',
 											'layer',
 											{ layer_index: layer.layer_index },
-											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer.`,
-											`layer-${layer.layer_index}`
+											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will mark all bins on that layer as emptied, but keep their assignments.`,
+											`empty-layer-${layer.layer_index}`
 										)}
-									disabled={homing || !!movingTo || !!clearingKey || togglingLayerKey !== null}
+									disabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
 									class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 								>
-									<Trash2 size={14} />
-									{clearingKey === `layer-${layer.layer_index}` ? 'Clearing…' : 'Clear Layer'}
+									<FolderOutput size={14} />
+									{hasClearingKey(`empty-layer-${layer.layer_index}`) ? 'Emptying…' : 'Empty Layer'}
+								</button>
+								<button
+									type="button"
+									onclick={() =>
+										void runBinAction(
+											'categories/clear',
+											'layer',
+											{ layer_index: layer.layer_index },
+											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
+											`reset-layer-${layer.layer_index}`
+										)}
+									disabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
+									class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<ArchiveX size={14} />
+									{hasClearingKey(`reset-layer-${layer.layer_index}`) ? 'Resetting…' : 'Reset Layer'}
 								</button>
 							</div>
 						</div>
@@ -512,13 +692,23 @@
 								{@const key = `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
 								{@const isCurrent = isCurrentBin(bin) && isActive}
 								{@const isMoving = movingTo === key}
-								{@const isClearing = clearingKey === `bin-${key}`}
+								{@const isClearing = isBinClearing(layer.layer_index, bin.section_index, bin.bin_index)}
 								{@const catLabel = categoryLabel(bin.category_ids)}
 								{@const contents = contentsForBin(layer.layer_index, bin)}
 								{@const previewItems = cardPreviewItems(contents)}
 								{@const setMeta = assignedSetMeta(bin.category_ids)}
 								{@const setProgress = setProgressFor(bin.category_ids)}
 								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white">
+									{#if isClearing}
+										<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/82 backdrop-blur-[1px]">
+											<div class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-2 shadow-sm">
+												<Loader2 size={14} class="animate-spin text-primary" />
+												<span class="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]">
+													{binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
+												</span>
+											</div>
+										</div>
+									{/if}
 									<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2">
 										<div class="pr-3 text-base font-semibold {isCurrent ? 'text-[#00852B]' : 'text-[#1A1A1A]'}">
 											{#if catLabel}
@@ -531,21 +721,46 @@
 											<button
 												type="button"
 												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
-												disabled={!!movingTo || !!clearingKey || !layer.enabled}
+												disabled={!!movingTo || homing || hasAnyClearing() || !layer.enabled}
 												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
 												title="Move chute to this bin"
 											>
 												<Crosshair size={13} />
 											</button>
+											{#if contents && contents.piece_count > 0}
+												<button
+													type="button"
+													onclick={() =>
+														void runBinAction(
+															'contents/clear',
+															'bin',
+															{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+															`Please make sure bin ${bin.global_index + 1} is physically empty first. This will mark the bin as emptied but keep its assignment.`,
+															`empty-bin-${key}`
+														)}
+													disabled={!!movingTo || homing || isGlobalClearing() || layerBusy || isClearing}
+													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
+													title="Empty this bin but keep assignment"
+												>
+													<FolderOutput size={13} />
+												</button>
+											{/if}
 											{#if bin.category_ids.length > 0}
 												<button
 													type="button"
-													onclick={() => void clearAssignments('bin', { layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index }, `Please make sure bin ${bin.global_index + 1} is physically empty first. This will remove the learned assignment for just this bin.`, `bin-${key}`)}
-													disabled={!!movingTo || !!clearingKey}
+													onclick={() =>
+														void runBinAction(
+															'categories/clear',
+															'bin',
+															{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+															`Please make sure bin ${bin.global_index + 1} is physically empty first. This will remove the learned assignment for just this bin and mark it as empty.`,
+															`reset-bin-${key}`
+														)}
+													disabled={!!movingTo || homing || isGlobalClearing() || layerBusy || isClearing}
 													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
-													title="Clear this bin assignment"
+													title="Reset this bin and clear assignment"
 												>
-													<Trash2 size={13} />
+													<ArchiveX size={13} />
 												</button>
 											{/if}
 										</div>

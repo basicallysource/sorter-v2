@@ -26,6 +26,7 @@ from runtime_variables import VARIABLE_DEFS
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
+from server.waveshare_inventory import get_waveshare_inventory_manager
 
 from server.shared_state import (
     active_connections,
@@ -105,12 +106,14 @@ async def onStartup() -> None:
     _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
     getSetProgressSyncWorker().start()
+    get_waveshare_inventory_manager().start()
 
 
 @app.on_event("shutdown")
 async def onShutdown() -> None:
     getSetProgressSyncWorker().stop()
     shutdownCameraDiscovery()
+    get_waveshare_inventory_manager().stop()
 
 
 # ---------------------------------------------------------------------------

@@ -27,8 +27,10 @@ from irl.parse_user_toml import (
     DEFAULT_SERVO_CLOSED_ANGLE,
     DEFAULT_SERVO_OPEN_ANGLE,
 )
+from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
+from server.waveshare_inventory import get_waveshare_inventory_manager
 
 router = APIRouter()
 
@@ -69,6 +71,31 @@ def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
 
     _, config = _read_machine_params_config()
     return _configured_waveshare_service(config, timeout=timeout)
+
+
+def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:
+    manager = get_waveshare_inventory_manager()
+    if refresh:
+        return manager.refresh(port=port)
+    return manager.get_status(port=port)
+
+
+def _clear_runtime_bin_contents(
+    *,
+    scope: str,
+    layer_index: int | None = None,
+    section_index: int | None = None,
+    bin_index: int | None = None,
+) -> None:
+    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
+    if collector is None or not hasattr(collector, "clearBinContents"):
+        return
+    collector.clearBinContents(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    )
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -123,11 +150,19 @@ class MoveToBinPayload(BaseModel):
     bin_index: int
 
 
-class ClearBinCategoriesPayload(BaseModel):
+class BinScopePayload(BaseModel):
     scope: str
     layer_index: Optional[int] = None
     section_index: Optional[int] = None
     bin_index: Optional[int] = None
+
+
+class ClearBinCategoriesPayload(BinScopePayload):
+    pass
+
+
+class ClearBinContentsPayload(BinScopePayload):
+    pass
 
 
 class StorageLayerPayload(BaseModel):
@@ -237,23 +272,14 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
             if isinstance(channel, int) and not isinstance(channel, bool) and channel > 0:
                 found_ids.add(channel)
 
-    if shared_state.hardware_state == "homing":
-        return sorted(found_ids)
-
-    live_service = _active_waveshare_service()
-    if live_service is not None:
-        try:
-            found_ids.update(int(servo_id) for servo_id in live_service.scan(1, 32))
-        except Exception:
-            pass
-        return sorted(found_ids)
-
-    configured_service = _configured_waveshare_service(config, timeout=0.01)
-    if configured_service is not None:
-        try:
-            found_ids.update(int(servo_id) for servo_id in configured_service.scan(1, 32))
-        except Exception:
-            pass
+    port = None
+    servo = config.get("servo", {})
+    if isinstance(servo, dict):
+        port = servo.get("port") if isinstance(servo.get("port"), str) else None
+    try:
+        found_ids.update(get_waveshare_inventory_manager().get_known_servo_ids(port=port))
+    except Exception:
+        pass
 
     return sorted(found_ids)
 
@@ -781,7 +807,7 @@ def save_servo_hardware_config(
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
     layer_count = _distribution_layer_count()
     available_pca_channels = _pca_available_servo_channels()
-    _, layout = _read_bin_layout_config()
+    layout = getBinLayout()
     current_storage_layers = _storage_layer_settings_from_layout(layout)["layers"]
 
     if len(payload.channels) != layer_count:
@@ -1050,160 +1076,32 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
     }
 
 
-# VIDs of known non-servo MCU boards (exclude from servo port candidates)
-_MCU_VIDS = {0x2E8A}  # Raspberry Pi Pico
-
-
 @router.get("/api/hardware-config/waveshare/ports")
 def get_waveshare_ports() -> Dict[str, Any]:
-    """Discover serial ports that have a Waveshare servo bus by probing."""
-    import serial.tools.list_ports
-    from hardware.waveshare_bus_service import get_waveshare_bus_service
-
-    active_irl = _active_irl()
-    is_homing = shared_state.hardware_state == "homing"
-
-    # Also exclude ports already used by MCU boards in the running controller
-    mcu_ports: set[str] = set()
-    if active_irl is not None:
-        interfaces = getattr(active_irl, "interfaces", {})
-        if isinstance(interfaces, dict):
-            for iface in interfaces.values():
-                iface_port = getattr(iface, "port", None)
-                if isinstance(iface_port, str):
-                    mcu_ports.add(iface_port)
-
-    # Check if the live controller already has a working bus — include its port directly
-    live_service = _active_waveshare_service()
-    live_port_device = getattr(live_service, "port", None)
-
-    candidates = []
-    for p in serial.tools.list_ports.comports():
-        if p.vid is None:
-            continue  # skip non-USB ports (bluetooth, debug, etc.)
-        if p.vid in _MCU_VIDS:
-            continue
-        if p.device in mcu_ports:
-            continue
-        candidates.append(p)
-
-    ports = []
-    for p in candidates:
-        servo_count = 0
-        confirmed = False
-        if live_port_device and p.device == live_port_device and live_service is not None and not is_homing:
-            # Port is already open by the controller — probe via the live bus
-            try:
-                found = live_service.scan(1, 10)
-                servo_count = len(found)
-                confirmed = True
-            except Exception:
-                pass
-        elif live_port_device and p.device == live_port_device and is_homing:
-            confirmed = True
-        else:
-            if is_homing:
-                ports.append({
-                    "device": p.device,
-                    "product": p.product or "Serial Device",
-                    "serial": p.serial_number,
-                    "servo_count": servo_count,
-                    "confirmed": confirmed,
-                })
-                continue
-            try:
-                service = get_waveshare_bus_service(p.device, timeout=0.01)
-                servo_count = service.probe_servo_count(1, 10)
-                confirmed = servo_count > 0
-            except Exception:
-                pass  # port can't be opened or scan failed — still list it as candidate
-
-        ports.append({
-            "device": p.device,
-            "product": p.product or "Serial Device",
-            "serial": p.serial_number,
-            "servo_count": servo_count,
-            "confirmed": confirmed,
-        })
-
-    return {"ok": True, "ports": ports}
+    status = _waveshare_inventory_status()
+    return {"ok": True, "ports": status.get("ports", [])}
 
 
-def _read_highest_seen_servo_id() -> int:
-    """Read the highest servo ID ever seen from the machine config."""
-    _, config = _read_machine_params_config()
-    servo = config.get("servo", {})
-    if isinstance(servo, dict):
-        val = servo.get("highest_seen_id")
-        if isinstance(val, int) and not isinstance(val, bool) and val >= 1:
-            return val
-    return 0
+@router.get("/api/hardware-config/waveshare/status")
+def get_waveshare_inventory_status(port: str | None = None) -> Dict[str, Any]:
+    return _waveshare_inventory_status(port=port)
 
 
-def _update_highest_seen_servo_id(found_ids: list[int]) -> int:
-    """Persist the highest ever seen servo ID (excluding factory ID 1)."""
-    if not found_ids:
-        return _read_highest_seen_servo_id()
-
-    max_found = max(sid for sid in found_ids if sid > 1) if any(sid > 1 for sid in found_ids) else 0
-    current_highest = _read_highest_seen_servo_id()
-    new_highest = max(current_highest, max_found)
-
-    if new_highest > current_highest:
-        params_path, config = _read_machine_params_config()
-        servo = config.get("servo", {})
-        if not isinstance(servo, dict):
-            servo = {}
-        servo["highest_seen_id"] = new_highest
-        config["servo"] = servo
-        try:
-            _write_machine_params_config(params_path, config)
-        except Exception:
-            pass
-
-    return new_highest
+@router.post("/api/hardware-config/waveshare/rescan")
+def rescan_waveshare_inventory(port: str | None = None) -> Dict[str, Any]:
+    _ensure_not_homing("scan Waveshare servos")
+    return _waveshare_inventory_status(port=port, refresh=True)
 
 
 @router.get("/api/hardware-config/waveshare/servos")
 def get_waveshare_servos(port: str | None = None) -> Dict[str, Any]:
-    """Scan the bus and return info for every detected servo.
-
-    If *port* is given (e.g. from the UI dropdown before saving), open that
-    port directly instead of relying on the saved config.
-    """
-    _ensure_not_homing("scan Waveshare servos")
-    if port and port.strip():
-        from hardware.waveshare_bus_service import get_waveshare_bus_service
-
-        try:
-            service = get_waveshare_bus_service(port.strip(), timeout=0.02)
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Cannot open port {port}: {e}")
-    else:
-        service = _get_waveshare_service(timeout=0.02)
-
-    if service is None:
-        raise HTTPException(status_code=503, detail="No Waveshare bus available. Select a port or start the backend.")
-
-    try:
-        found_ids, servos = service.list_servo_infos(1, 32)
-
-        # Track highest ID ever seen and suggest next
-        highest_ever = _update_highest_seen_servo_id(found_ids)
-        used_ids = set(found_ids)
-        next_id = max(highest_ever, 1) + 1
-        while next_id in used_ids and next_id <= 253:
-            next_id += 1
-        suggested_next_id = next_id if next_id <= 253 else None
-
-        return {
-            "ok": True,
-            "servos": servos,
-            "highest_seen_id": highest_ever,
-            "suggested_next_id": suggested_next_id,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Bus scan failed: {e}")
+    status = _waveshare_inventory_status(port=port)
+    return {
+        "ok": True,
+        "servos": status.get("servos", []),
+        "highest_seen_id": status.get("highest_seen_id", 0),
+        "suggested_next_id": status.get("suggested_next_id"),
+    }
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/set-id")
@@ -1236,10 +1134,11 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
                 detail=f"ID change sent but servo does not respond at new ID {new_id}. Power-cycle may be needed.",
             )
 
-        # Track the new ID as potentially the highest ever seen
-        _update_highest_seen_servo_id([new_id])
-
         info = service.read_servo_info(new_id)
+        try:
+            get_waveshare_inventory_manager().refresh(port=getattr(service, "port", None))
+        except Exception:
+            pass
         return {
             "ok": True,
             "old_id": servo_id,
@@ -1274,6 +1173,10 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
             raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
 
         info = service.read_servo_info(servo_id)
+        try:
+            get_waveshare_inventory_manager().refresh(port=getattr(service, "port", None))
+        except Exception:
+            pass
         return {
             "ok": True,
             "servo_id": servo_id,
@@ -1330,6 +1233,10 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         time.sleep(0.01)
         if not service.move_to(servo_id, position, 400):
             raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
 
         return {
             "ok": True,
@@ -1351,15 +1258,15 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    bus, should_close = _get_waveshare_bus()
-    if bus is None:
+    service = _get_waveshare_service(timeout=0.02)
+    if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
     try:
-        if not bus.ping(servo_id):
+        if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
-        limits = bus.read_angle_limits(servo_id)
+        limits = service.read_angle_limits(servo_id)
         if limits is None:
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
@@ -1367,17 +1274,21 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
         if range_size < 20:
             raise HTTPException(status_code=409, detail="Servo has no calibrated range. Run auto-calibration first.")
 
-        current_pos = bus.read_position(servo_id)
+        current_pos = service.read_position(servo_id)
         if current_pos is None:
             raise HTTPException(status_code=500, detail="Could not read current servo position.")
 
         raw_delta = int(payload.degrees * range_size / 180)
         new_pos = max(0, min(1023, current_pos + raw_delta))
 
-        bus.set_torque(servo_id, True)
+        service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not bus.move_to(servo_id, new_pos, 200):
+        if not service.move_to(servo_id, new_pos, 200):
             raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
 
         return {
             "ok": True,
@@ -1391,9 +1302,6 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to nudge servo: {exc}")
-    finally:
-        if should_close:
-            bus.close()
 
 
 @router.get("/api/hardware-config/chute")
@@ -1814,7 +1722,7 @@ def _runtime_distribution_layout() -> Any | None:
 
 
 def _empty_categories_from_config() -> list[list[list[list[str]]]]:
-    _, layout_config = _read_bin_layout_config()
+    layout_config = getBinLayout()
     return [
         [[[] for _ in section] for section in layer.sections]
         for layer in layout_config.layers
@@ -1828,7 +1736,7 @@ def _current_bin_categories() -> list[list[list[list[str]]]]:
 
     saved = getBinCategories()
     if saved is not None:
-        _, layout_config = _read_bin_layout_config()
+        layout_config = getBinLayout()
         reference_layout = mkLayoutFromConfig(layout_config)
         if layoutMatchesCategories(reference_layout, saved):
             return saved
@@ -1864,12 +1772,13 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
+        _clear_runtime_bin_contents(scope=scope)
         clear_current_session_bins(scope=scope)
         return {
             "ok": True,
             "scope": scope,
             "cleared_bins": cleared_bins,
-            "message": "Cleared all bin assignments.",
+            "message": "Reset all bins and cleared their assignments.",
         }
 
     if layer_index is None or layer_index < 0 or layer_index >= len(categories):
@@ -1883,13 +1792,14 @@ def clear_bin_category_assignments(
                     cleared_bins += 1
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         clear_current_session_bins(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
             "scope": scope,
             "layer_index": layer_index,
             "cleared_bins": cleared_bins,
-            "message": f"Cleared all bin assignments on layer {layer_index + 1}.",
+            "message": f"Reset all bins on layer {layer_index + 1} and cleared their assignments.",
         }
 
     if scope != "bin":
@@ -1903,6 +1813,12 @@ def clear_bin_category_assignments(
     had_categories = bool(categories[layer_index][section_index][bin_index])
     categories[layer_index][section_index][bin_index] = []
     _apply_and_persist_bin_categories(categories)
+    _clear_runtime_bin_contents(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    )
     clear_current_session_bins(
         scope=scope,
         layer_index=layer_index,
@@ -1916,7 +1832,70 @@ def clear_bin_category_assignments(
         "section_index": section_index,
         "bin_index": bin_index,
         "cleared_bins": 1 if had_categories else 0,
-        "message": f"Cleared bin {bin_index + 1} on layer {layer_index + 1}.",
+        "message": f"Reset bin {bin_index + 1} on layer {layer_index + 1} and cleared its assignment.",
+    }
+
+
+def clear_bin_contents(
+    *,
+    scope: str,
+    layer_index: int | None = None,
+    section_index: int | None = None,
+    bin_index: int | None = None,
+) -> dict[str, Any]:
+    if scope == "all":
+        _clear_runtime_bin_contents(scope=scope)
+        cleared = clear_current_session_bins(scope=scope)
+        return {
+            "ok": True,
+            "scope": scope,
+            "cleared_bins": int(cleared.get("cleared_bins", 0)),
+            "message": "Emptied all bins without changing their assignments.",
+        }
+
+    categories = _current_bin_categories()
+    if layer_index is None or layer_index < 0 or layer_index >= len(categories):
+        raise HTTPException(status_code=400, detail="Invalid layer index.")
+
+    if scope == "layer":
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
+        cleared = clear_current_session_bins(scope=scope, layer_index=layer_index)
+        return {
+            "ok": True,
+            "scope": scope,
+            "layer_index": layer_index,
+            "cleared_bins": int(cleared.get("cleared_bins", 0)),
+            "message": f"Emptied all bins on layer {layer_index + 1} without changing assignments.",
+        }
+
+    if scope != "bin":
+        raise HTTPException(status_code=400, detail="Unsupported clear scope.")
+
+    if section_index is None or section_index < 0 or section_index >= len(categories[layer_index]):
+        raise HTTPException(status_code=400, detail="Invalid section index.")
+    if bin_index is None or bin_index < 0 or bin_index >= len(categories[layer_index][section_index]):
+        raise HTTPException(status_code=400, detail="Invalid bin index.")
+
+    cleared = clear_current_session_bins(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    )
+    _clear_runtime_bin_contents(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    )
+    return {
+        "ok": True,
+        "scope": scope,
+        "layer_index": layer_index,
+        "section_index": section_index,
+        "bin_index": bin_index,
+        "cleared_bins": int(cleared.get("cleared_bins", 0)),
+        "message": f"Emptied bin {bin_index + 1} on layer {layer_index + 1} without changing its assignment.",
     }
 
 
@@ -2075,6 +2054,16 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
 @router.post("/api/bins/categories/clear")
 def clear_bins_categories(payload: ClearBinCategoriesPayload) -> Dict[str, Any]:
     return clear_bin_category_assignments(
+        scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+    )
+
+
+@router.post("/api/bins/contents/clear")
+def clear_bins_contents(payload: ClearBinContentsPayload) -> Dict[str, Any]:
+    return clear_bin_contents(
         scope=payload.scope,
         layer_index=payload.layer_index,
         section_index=payload.section_index,

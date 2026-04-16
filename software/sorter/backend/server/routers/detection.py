@@ -129,20 +129,6 @@ def _openrouter_model_label(model: str) -> str:
         return "Gemini 3.1 Flash-Lite Preview"
     if model == "google/gemini-3.1-pro-preview":
         return "Gemini 3.1 Pro Preview"
-    if model == "reka/reka-edge":
-        return "Reka Edge"
-    if model == "anthropic/claude-sonnet-4.6":
-        return "Claude Sonnet 4.6"
-    if model == "xiaomi/mimo-v2-omni":
-        return "MiMo-V2-Omni"
-    if model == "moonshotai/kimi-k2.5":
-        return "Kimi K2.5"
-    if model == "openai/gpt-5.4":
-        return "GPT-5.4"
-    if model == "openai/gpt-5.4-nano":
-        return "GPT-5.4 Nano"
-    if model == "qwen/qwen3.5-flash-02-23":
-        return "Qwen3.5-Flash"
     return model
 
 

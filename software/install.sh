@@ -68,11 +68,22 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. udev rule for Pico boards (replaces dialout group dance)
+# 2. udev rule for Pico boards (plugdev group + uaccess tag)
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ -d /etc/udev/rules.d ]]; then
     log "Installing udev rule for Raspberry Pi Pico boards..."
     sudo cp "$SOFTWARE_DIR/systemd/99-sorter-pico.rules" /etc/udev/rules.d/
+    # Ensure plugdev group exists and current user is a member so headless /
+    # non-seat access keeps working. uaccess still covers the active desktop
+    # seat user without requiring logout/login.
+    if ! getent group plugdev >/dev/null; then
+        sudo groupadd --system plugdev || warn "failed to create plugdev group"
+    fi
+    if ! id -nG "$USER" | tr ' ' '\n' | grep -qx plugdev; then
+        sudo usermod -aG plugdev "$USER" \
+            && warn "Added $USER to plugdev — log out/in for headless/ssh sessions to pick it up" \
+            || warn "failed to add $USER to plugdev"
+    fi
     sudo udevadm control --reload-rules 2>/dev/null \
         || warn "udevadm reload failed (ok inside containers)"
     sudo udevadm trigger 2>/dev/null || true

@@ -42,10 +42,11 @@ sudo apt update && sudo apt install -y \
 
 ### 2. Udev rule for Pico boards
 
-This grants the Sorter backend access to Pico boards over USB serial without requiring `dialout` group membership. Without it, you would need to log out and log back in for group changes to take effect.
+This restricts Pico USB serial access to the `plugdev` group plus the active desktop seat user (via `uaccess`), so arbitrary local users cannot flash firmware. Add your user to `plugdev` for headless/SSH access; a desktop seat session works immediately without logout/login.
 
 ```bash
 sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/
+sudo usermod -aG plugdev "$USER"   # log out/in for headless/SSH sessions
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 

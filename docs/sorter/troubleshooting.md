@@ -56,11 +56,11 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ## Pico boards not detected (`permission denied` on `/dev/ttyACM*`)
 
-**Cause:** udev rule not installed; access falls back to the `dialout` group, which needs a logout cycle.
+**Cause:** udev rule not installed, or your user is not in the `plugdev` group and you are not on the active desktop seat (e.g. headless/SSH session).
 
-**Fix:** Re-run `install.sh`, or by hand: `sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger`. Unplug and replug.
+**Fix:** Re-run `install.sh`, or by hand: `sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/ && sudo usermod -aG plugdev $USER && sudo udevadm control --reload-rules && sudo udevadm trigger`. Unplug and replug. For headless/SSH, log out and back in so the group takes effect.
 
-**Verify:** `ls -l /dev/ttyACM*` shows the device readable by your user without `sudo`.
+**Verify:** `ls -l /dev/ttyACM*` shows the device owned by `root:plugdev` with mode `0660`, and `id` lists `plugdev` for your user.
 
 ---
 

@@ -40,7 +40,7 @@ That's it. The installer is idempotent — re-running it on a partially-installe
 What `install.sh` actually does, in order:
 
 1. **`apt install`** the system packages — `git`, `git-lfs`, `curl`, `build-essential`, `libgl1`, `libglib2.0-0`, `lsof`, `v4l-utils`. `libgl1` is what OpenCV needs at import time; the rest are dependencies of the toolchain or the dev runner.
-2. **Install a udev rule** for Raspberry Pi Pico boards (`/etc/udev/rules.d/99-sorter-pico.rules`). This grants the Sorter backend access to the boards over USB serial **without** requiring `dialout` group membership — which would otherwise need a logout/login cycle to take effect and is the single most common silent first-run failure.
+2. **Install a udev rule** for Raspberry Pi Pico boards (`/etc/udev/rules.d/99-sorter-pico.rules`). This restricts Pico access to the `plugdev` group plus the active desktop seat user (via `uaccess`), preventing arbitrary local users from flashing firmware. The installer adds your user to `plugdev`; headless/SSH sessions need a logout/login cycle, but the seat user's desktop session works immediately.
 3. **Install `uv`** (the Python toolchain) if it isn't already on the box. `uv` then fetches the exact Python version pinned by the project — no `apt python3` needed.
 4. **Install Node.js 20.x and `pnpm`** via NodeSource. `pnpm` is mandatory here, not `npm`: the dev runner explicitly invokes `pnpm dev`.
 5. **`git lfs pull`** the detector model artifacts and the parts catalogue (skip with `--skip-lfs`).

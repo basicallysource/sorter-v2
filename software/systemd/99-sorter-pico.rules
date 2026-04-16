@@ -3,9 +3,11 @@
 # Vendor 2e8a is Raspberry Pi (Trading) Ltd. — covers RP2040 and RP2350 in
 # both stdio CDC mode (running firmware) and BOOTSEL mode (mass storage).
 #
-# Granting MODE="0666" lets the Sorter backend talk to the boards without
-# requiring the user to be in the dialout group, which would otherwise need a
-# logout/login cycle to take effect.
+# MODE="0660" with GROUP="plugdev" restricts access to members of the plugdev
+# group, so arbitrary local users cannot flash firmware or talk to the boards.
+# TAG+="uaccess" additionally grants access to the currently logged-in seat
+# user on systemd/logind systems, so a desktop session still works without
+# logout/login — while non-plugdev, non-seat users are denied.
 
-SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", MODE="0660", GROUP="plugdev", TAG+="uaccess"

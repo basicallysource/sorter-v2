@@ -11,7 +11,11 @@ if TYPE_CHECKING:
     from vision import VisionManager
 
 WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS = 0
-DEBOUNCE_MS = 0
+# Time to hold after the heatmap diff trigger fires before we grab the teacher
+# frame + start rotating. The piece has just dropped — giving it ~300ms to
+# settle removes the motion blur and ensures Gemini sees a stationary object.
+# Also doubles as debounce against single-frame heatmap spikes.
+DEBOUNCE_MS = 300
 
 
 class Detecting(BaseState):
@@ -95,12 +99,13 @@ class Detecting(BaseState):
                 self._detected_at = now
                 self.logger.info(
                     f"Detecting: piece detected via heatmap diff "
-                    f"(score={score:.1f}, hot_px={hot_px}), debouncing {DEBOUNCE_MS}ms"
+                    f"(score={score:.1f}, hot_px={hot_px}), settling {DEBOUNCE_MS}ms"
                 )
             elif (now - self._detected_at) * 1000 >= DEBOUNCE_MS:
                 self._setOccupancyState("detecting.debounce_trigger")
+                settle_ms = (now - self._detected_at) * 1000
                 self.logger.info(
-                    f"Detecting: confirming detection "
+                    f"Detecting: confirming detection after {settle_ms:.0f}ms settle "
                     f"(score={score:.1f}, hot_px={hot_px})"
                 )
                 self.vision.scheduleCarouselTeacherCaptureOnClassicTrigger(

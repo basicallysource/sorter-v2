@@ -68,7 +68,13 @@ main_to_server_queue = queue.Queue()
 
 
 def runServer() -> None:
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="error", ws="wsproto")
+    # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
+    # specific IP) exposes the API to the LAN — every endpoint (system reset,
+    # supervisor restart, calibration, camera control) becomes reachable from
+    # any host that can route to this machine, so only do that on a trusted
+    # network. CORS is widened to match in server/api.py.
+    host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
+    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:

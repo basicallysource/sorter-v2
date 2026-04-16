@@ -112,7 +112,7 @@ run_api_only_backend() {
         log "${GREEN}Starting API-only backend...${RESET}"
         (
             cd "$ROOT/sorter/backend"
-            exec uv run uvicorn server.api:app --host 0.0.0.0 --port 8000 2>&1 \
+            exec uv run uvicorn server.api:app --host "${SORTER_API_HOST:-127.0.0.1}" --port 8000 2>&1 \
                 | sed -u "s/^/${GREEN}[api]${RESET}      /"
         ) &
         BACKEND_PID=$!

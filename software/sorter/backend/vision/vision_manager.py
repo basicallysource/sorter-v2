@@ -1308,6 +1308,11 @@ class VisionManager:
             return None
         h, w = frame.shape[:2]
         x, y, bw, bh = cv2.boundingRect(polygon.astype(np.int32))
+        # Clamp to frame bounds. Arc-derived channel polygons (e.g. third_channel)
+        # can extend above y=0; numpy slicing with negative start would wrap
+        # from the end of the array and collapse the crop to 1-2 rows.
+        x = max(0, x)
+        y = max(0, y)
         x2 = min(w, x + bw)
         y2 = min(h, y + bh)
         if x2 <= x or y2 <= y:
@@ -2510,6 +2515,9 @@ class VisionManager:
 
         scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h)
         x, y, w, h = cv2.boundingRect(scaled_polygon)
+        # Clamp to frame bounds — negative origin would wrap via numpy slicing.
+        x = max(0, x)
+        y = max(0, y)
         x2 = min(frame_w, x + w)
         y2 = min(frame_h, y + h)
         if x2 <= x or y2 <= y:

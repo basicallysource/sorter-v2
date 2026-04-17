@@ -277,7 +277,7 @@
 				<line x1="0" y1="50" x2="40" y2="50" stroke="#00000018" stroke-width="0.5" />
 			</svg>
 		{/if}
-		<div class="min-w-0 text-xs leading-5 text-text-muted">
+		<div class="min-w-0 text-sm leading-6 text-text-muted">
 			<div class="font-medium text-text">How to calibrate</div>
 			<div class="mt-1">
 				{#if calibrationMethod === 'llm_guided'}
@@ -292,7 +292,7 @@
 	</div>
 
 	{#if calibrationReferenceLinkUrl}
-		<div class="border-t border-border pt-3 text-xs leading-5 text-text-muted">
+		<div class="border-t border-border pt-3 text-sm leading-6 text-text-muted">
 			<button
 				onclick={() => (calibrationTargetHelpOpen = !calibrationTargetHelpOpen)}
 				class="flex w-full cursor-pointer items-center justify-between gap-3 text-left transition-colors hover:text-text"
@@ -314,7 +314,7 @@
 						href={calibrationReferenceLinkUrl}
 						target="_blank"
 						rel="noreferrer"
-						class="w-fit text-[11px] font-medium text-primary transition-colors hover:underline"
+						class="w-fit text-xs font-medium text-primary transition-colors hover:underline"
 					>
 						Open BrickLink model
 					</a>
@@ -328,11 +328,11 @@
 			class="border border-primary/40 bg-primary/[0.06] px-3 py-2 dark:border-[#4D8DFF]/40 dark:bg-[#4D8DFF]/[0.08]"
 		>
 			<div
-				class="text-[11px] font-semibold tracking-wider text-primary-dark uppercase dark:text-[#7BAEFF]"
+				class="text-xs font-semibold tracking-wider text-primary-dark uppercase dark:text-[#7BAEFF]"
 			>
 				Calibration hint
 			</div>
-			<div class="mt-1 text-xs leading-relaxed text-text">
+			<div class="mt-1 text-sm leading-relaxed text-text">
 				The blue frame in the preview marks the detected Color Check area from the latest
 				calibration pass.
 			</div>
@@ -401,20 +401,20 @@
 	)}
 	<div class={`grid gap-1.5 ${summaryVisible ? 'grid-cols-2' : 'grid-cols-1'}`}>
 		<div class="border border-border bg-bg px-2.5 py-2">
-			<div class="text-[11px] tracking-wider text-text-muted uppercase">Match Avg</div>
+			<div class="text-xs tracking-wider text-text-muted uppercase">Match Avg</div>
 			<div class="mt-0.5 font-mono text-sm text-text tabular-nums">
 				{calibrationAverageMatch(calibrationResult).toFixed(0)}%
 			</div>
 		</div>
 		{#if summaryVisible}
 			<div class="border border-border bg-bg px-2.5 py-2">
-				<div class="text-[11px] tracking-wider text-text-muted uppercase">Ref Error</div>
+				<div class="text-xs tracking-wider text-text-muted uppercase">Ref Error</div>
 				<div class="mt-0.5 font-mono text-sm text-text tabular-nums">
 					{calibrationResult.reference_color_error_mean.toFixed(1)}
 				</div>
 			</div>
 			<div class="border border-border bg-bg px-2.5 py-2">
-				<div class="text-[11px] tracking-wider text-text-muted uppercase">White / Black</div>
+				<div class="text-xs tracking-wider text-text-muted uppercase">White / Black</div>
 				<div class="mt-0.5 font-mono text-sm text-text tabular-nums">
 					{calibrationResult.white_luma_mean.toFixed(1)} / {calibrationResult.black_luma_mean.toFixed(
 						1
@@ -422,7 +422,7 @@
 				</div>
 			</div>
 			<div class="border border-border bg-bg px-2.5 py-2">
-				<div class="text-[11px] tracking-wider text-text-muted uppercase">WB Cast</div>
+				<div class="text-xs tracking-wider text-text-muted uppercase">WB Cast</div>
 				<div class="mt-0.5 font-mono text-sm text-text tabular-nums">
 					{calibrationResult.white_balance_cast.toFixed(3)}
 				</div>
@@ -442,7 +442,7 @@
 			}`}
 		>
 			<div
-				class={`text-[11px] font-semibold tracking-wider uppercase ${
+				class={`text-xs font-semibold tracking-wider uppercase ${
 					feedback?.tone === 'good'
 						? 'text-success-dark dark:text-emerald-300'
 						: feedback?.tone === 'okay'
@@ -452,13 +452,13 @@
 			>
 				{feedback?.label}
 			</div>
-			<div class="mt-1 text-xs leading-relaxed text-text">{feedback?.message}</div>
+			<div class="mt-1 text-sm leading-relaxed text-text">{feedback?.message}</div>
 		</div>
 	{/if}
 
 	{#if calibrationTileEntries(calibrationResult).length > 0}
 		<div class="grid gap-2">
-			<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">
+			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 				Live Tile Levels
 			</div>
 			<div class="grid grid-cols-2 gap-1.5">
@@ -471,7 +471,7 @@
 								class="inline-block h-3 w-3 shrink-0 rounded-[2px] border border-black/15"
 								style={`background:${tile.swatch}`}
 							></span>
-							<span class="truncate text-xs text-text">{tile.label}</span>
+							<span class="truncate text-sm text-text">{tile.label}</span>
 						</div>
 						<span
 							class:text-success-dark={tile.matchTone === 'good'}
@@ -480,7 +480,7 @@
 							class:dark:text-emerald-300={tile.matchTone === 'good'}
 							class:dark:text-amber-300={tile.matchTone === 'okay'}
 							class:dark:text-rose-300={tile.matchTone === 'weak'}
-							class="font-mono text-xs font-semibold tabular-nums"
+							class="font-mono text-sm font-semibold tabular-nums"
 						>
 							{tile.matchPercent.toFixed(0)}%
 						</span>

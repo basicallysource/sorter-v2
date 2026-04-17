@@ -875,17 +875,17 @@
 
 	<div class="flex flex-1 flex-col gap-3 bg-white px-4 py-4 dark:bg-bg">
 		{#if !hasCamera}
-			<div class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted">
+			<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
 				Assign a camera to preview these changes live.
 			</div>
 		{/if}
 
 		{#if error}
 			<Alert variant="danger">
-				<div class="text-[11px] font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
+				<div class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
 					Error
 				</div>
-				<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
+				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
 			</Alert>
 		{/if}
 
@@ -951,7 +951,7 @@
 
 			<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
 				{#if status}
-					<div class="text-xs text-text-muted">{status}</div>
+					<div class="text-sm text-text-muted">{status}</div>
 				{/if}
 
 				<div class="flex items-center gap-2">

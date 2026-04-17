@@ -90,8 +90,8 @@
 		<div
 			class={`mb-4 border px-3 py-2 text-sm ${
 				hotkeyErrorMsg
-					? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
-					: 'border-[#00852B] bg-[#00852B]/10 text-[#00852B] dark:border-[#00852B] dark:bg-[#00852B]/10 dark:text-emerald-300'
+					? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
+					: 'border-success bg-success/10 text-success dark:border-success dark:bg-success/10 dark:text-emerald-300'
 			}`}
 		>
 			{hotkeyErrorMsg ?? hotkeyStatusMsg}
@@ -101,18 +101,26 @@
 	<div class="flex flex-col gap-4 lg:flex-row lg:gap-6">
 		<nav class="w-full lg:w-48 lg:flex-shrink-0">
 			<div class="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-				{#each settingsNavItems as item}
-					{@const active = page.url.pathname === item.href}
-					<a
-						href={item.href}
-						aria-current={active ? 'page' : undefined}
-						class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-							? 'bg-primary/10 font-medium text-primary'
-							: 'text-text-muted hover:bg-surface'}"
-					>
-						<item.icon size={16} />
-						{item.label}
-					</a>
+				{#each settingsNavItems as entry, i (i)}
+					{#if 'href' in entry}
+						{@const active = page.url.pathname === entry.href}
+						<a
+							href={entry.href}
+							aria-current={active ? 'page' : undefined}
+							class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
+								? 'bg-primary/10 font-medium text-primary'
+								: 'text-text-muted hover:bg-surface'}"
+						>
+							<entry.icon size={16} />
+							{entry.label}
+						</a>
+					{:else}
+						<div
+							class="col-span-full mt-3 px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-text-muted lg:mt-4"
+						>
+							{entry.label}
+						</div>
+					{/if}
 				{/each}
 			</div>
 		</nav>

@@ -39,8 +39,8 @@
 
 	let showEndstopWiringHelp = $state(false);
 	let loadedMachineKey = $state('');
-	let systemState = $state('standby');
-	let homingStep = $state<string | null>(null);
+	const systemState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
+	const homingStep = $derived(manager.selectedMachine?.systemStatus?.homing_step ?? null);
 
 	let carouselLoading = $state(false);
 	let carouselSaving = $state(false);
@@ -110,21 +110,9 @@
 	}
 
 	function endstopStatusClass(triggered: boolean | null, error: string | undefined): string {
-		if (error) return 'border-[#D01012] bg-[#FBE4E5] text-[#7A0A0B]';
-		if (triggered) return 'border-[#00852B] bg-[#D4EDDA] text-[#00852B]';
+		if (error) return 'border-danger bg-primary-light text-[#7A0A0B]';
+		if (triggered) return 'border-success bg-[#D4EDDA] text-success';
 		return 'border-border bg-bg text-text-muted';
-	}
-
-	async function loadSystemStatus() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
-			if (!res.ok) return;
-			const payload = await res.json();
-			systemState = payload.hardware_state ?? 'standby';
-			homingStep = payload.homing_step ?? null;
-		} catch {
-			// ignore
-		}
 	}
 
 	async function loadCarouselSettings() {
@@ -190,7 +178,7 @@
 	}
 
 	async function loadAll() {
-		await Promise.all([loadSystemStatus(), loadCarouselSettings(), loadChuteSettings()]);
+		await Promise.all([loadCarouselSettings(), loadChuteSettings()]);
 	}
 
 	async function saveCarouselSettings() {
@@ -351,7 +339,6 @@
 
 	onMount(() => {
 		const interval = setInterval(() => {
-			void loadSystemStatus();
 			if (systemState === 'ready' || systemState === 'initialized') {
 				void loadCarouselSettings();
 				void loadChuteSettings();
@@ -364,7 +351,7 @@
 <div class="flex flex-col gap-4">
 	{#if systemState === 'initializing' || systemState === 'homing'}
 		<div
-			class="flex items-center gap-3 border border-[#F2A900] bg-[#FFF7E0] px-4 py-3 text-sm text-[#7A5A00]"
+			class="flex items-center gap-3 border border-warning bg-[#FFF7E0] px-4 py-3 text-sm text-[#7A5A00]"
 		>
 			<div class="flex flex-col">
 				<span class="font-medium">Powering on steppers…</span>
@@ -376,7 +363,7 @@
 		</div>
 	{:else if systemState === 'error'}
 		<div
-			class="flex items-center gap-3 border border-[#D01012] bg-[#FBE4E5] px-4 py-3 text-sm text-[#7A0A0B]"
+			class="flex items-center gap-3 border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
 		>
 			<div class="flex flex-col">
 				<span class="font-medium">Hardware connection failed</span>
@@ -492,7 +479,7 @@
 				{/if}
 			</div>
 			{#if carouselLive.endstop_error}
-				<div class="mt-2 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]">
+				<div class="mt-2 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]">
 					Live endstop read failed: {carouselLive.endstop_error}
 				</div>
 			{/if}
@@ -519,7 +506,7 @@
 				<button
 					onclick={homeCarousel}
 					disabled={!(systemState === 'ready' || systemState === 'initialized') || carouselHoming}
-					class="border border-[#00852B] bg-[#00852B] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
+					class="border border-success bg-success px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{carouselHoming ? 'Homing...' : 'Home carousel'}
 				</button>
@@ -534,13 +521,13 @@
 
 			{#if carouselError}
 				<div
-					class="mt-3 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]"
+					class="mt-3 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]"
 				>
 					{carouselError}
 				</div>
 			{:else if carouselStatus}
 				<div
-					class="mt-3 border border-[#00852B] bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-[#00852B]"
+					class="mt-3 border border-success bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-success"
 				>
 					{carouselStatus}
 				</div>
@@ -589,7 +576,7 @@
 				{/if}
 			</div>
 			{#if chuteLive.endstop_error}
-				<div class="mt-2 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]">
+				<div class="mt-2 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]">
 					Live endstop read failed: {chuteLive.endstop_error}
 				</div>
 			{/if}
@@ -641,7 +628,7 @@
 				<button
 					onclick={findChuteEndstop}
 					disabled={!(systemState === 'ready' || systemState === 'initialized') || chuteHoming}
-					class="border border-[#00852B] bg-[#00852B] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
+					class="border border-success bg-success px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{chuteHoming ? 'Homing...' : 'Find chute endstop'}
 				</button>
@@ -656,13 +643,13 @@
 
 			{#if chuteError}
 				<div
-					class="mt-3 border border-[#D01012] bg-[#FBE4E5] px-3 py-2 text-sm text-[#7A0A0B]"
+					class="mt-3 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]"
 				>
 					{chuteError}
 				</div>
 			{:else if chuteStatus}
 				<div
-					class="mt-3 border border-[#00852B] bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-[#00852B]"
+					class="mt-3 border border-success bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-success"
 				>
 					{chuteStatus}
 				</div>

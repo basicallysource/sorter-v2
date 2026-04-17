@@ -67,7 +67,7 @@
 				<option value={mode}>{processingModeLabel(mode)}</option>
 			{/each}
 		</select>
-		<div class="text-xs text-text-muted">
+		<div class="text-sm text-text-muted">
 			{#if draftAndroidSettings.processing_mode === 'standard'}
 				Uses the phone's normal live camera pipeline.
 			{:else if androidCapabilities.image_analysis_supported_modes.includes(draftAndroidSettings.processing_mode)}
@@ -82,7 +82,7 @@
 	<label class="flex flex-col gap-2">
 		<div class="flex items-center justify-between gap-3 text-sm">
 			<span class="font-medium text-text">Exposure Compensation</span>
-			<span class="font-mono text-xs text-text-muted">
+			<span class="font-mono text-sm text-text-muted">
 				{draftAndroidSettings.exposure_compensation}
 			</span>
 		</div>
@@ -199,7 +199,7 @@
 				<label class="flex flex-col gap-2">
 					<div class="flex items-center justify-between gap-3 text-sm">
 						<span class="font-medium text-text">{control.label}</span>
-						<span class="font-mono text-xs text-text-muted">
+						<span class="font-mono text-sm text-text-muted">
 							{formatUsbValue(control)}
 						</span>
 					</div>
@@ -228,7 +228,7 @@
 						>
 					</div>
 					{#if control.help}
-						<div class="text-xs text-text-muted">
+						<div class="text-sm text-text-muted">
 							{control.help}
 						</div>
 					{/if}
@@ -237,7 +237,7 @@
 		{/each}
 	{/if}
 {:else}
-	<div class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted">
+	<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
 		{deviceMessage || 'This source does not currently expose adjustable real camera controls.'}
 	</div>
 {/if}

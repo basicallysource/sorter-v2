@@ -1,8 +1,6 @@
 <script lang="ts">
 import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
-import RuntimeVarsSection from '$lib/components/settings/RuntimeVarsSection.svelte';
 import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
-import HiveSection from '$lib/components/settings/HiveSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
@@ -44,13 +42,6 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 	</SectionCard>
 
 	<SectionCard
-		title="Hive"
-		description="Connect this sorter to Hive for registration, uploads, and backfill of archived samples."
-	>
-		<HiveSection />
-	</SectionCard>
-
-	<SectionCard
 		title="OpenRouter"
 		description="Configure the OpenRouter key used for cloud-assisted detection."
 	>
@@ -62,12 +53,5 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 		description="Browse and manage classification sample sessions stored on this machine."
 	>
 		<SampleStorageSection />
-	</SectionCard>
-
-	<SectionCard
-		title="Runtime Variables"
-		description="Adjust live backend tunables that are exposed for the current machine."
-	>
-		<RuntimeVarsSection />
 	</SectionCard>
 </div>

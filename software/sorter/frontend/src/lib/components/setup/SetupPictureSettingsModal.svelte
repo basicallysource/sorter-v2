@@ -182,6 +182,7 @@
 		feedRevision += 1;
 		dispatch('saved');
 	}
+
 </script>
 
 <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
@@ -211,7 +212,7 @@
 									class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
 									style={`left:${calibrationHighlight[0] * 100}%;top:${calibrationHighlight[1] * 100}%;width:${(calibrationHighlight[2] - calibrationHighlight[0]) * 100}%;height:${(calibrationHighlight[3] - calibrationHighlight[1]) * 100}%;`}
 								>
-									<div class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-[11px] font-medium text-slate-950 shadow-md">
+									<div class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md">
 										Color Check
 									</div>
 								</div>
@@ -227,6 +228,7 @@
 				{/if}
 			</div>
 		</div>
+
 	</div>
 
 	<PictureSettingsSidebar

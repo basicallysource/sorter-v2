@@ -1,10 +1,8 @@
 import type { AndroidCameraCapabilities } from '$lib/settings/android-camera-settings';
 
-export type CameraDeviceProvider =
-	| 'none'
-	| 'network-stream'
-	| 'android-camera-app'
-	| 'usb-opencv';
+export type CameraDeviceProvider = 'none' | 'network-stream' | 'android-camera-app' | 'usb-opencv';
+
+export type CameraCalibrationMethod = 'target_plate' | 'llm_guided';
 
 export type UsbCameraControl = {
 	key: string;
@@ -63,13 +61,55 @@ export type CameraCalibrationAnalysis = {
 	>;
 };
 
+export type CameraCalibrationAdvisorChange = {
+	key: string;
+	value: unknown;
+	reason?: string;
+};
+
+export type CameraCalibrationAdvisorIteration = {
+	iteration: number;
+	status: string;
+	stage?: string;
+	summary?: string;
+	input?: Record<string, unknown>;
+	response?: Record<string, unknown>;
+	analysis?: Record<string, unknown>;
+	changes?: CameraCalibrationAdvisorChange[];
+	resulting_settings?: Record<string, unknown>;
+	input_image_url?: string;
+};
+
+export type CameraCalibrationGalleryEntry = {
+	filename?: string;
+	stage: string;
+	iteration: number;
+	step: number;
+	image_url: string;
+	summary?: string;
+	settings?: Record<string, unknown>;
+	analysis?: Record<string, unknown>;
+	advisor_payload?: Record<string, unknown>;
+};
+
+export type CameraCalibrationGalleryResponse = {
+	ok: boolean;
+	task_id: string;
+	entries: CameraCalibrationGalleryEntry[];
+};
+
 export type CameraCalibrationResponse = {
 	ok: boolean;
 	role: string;
 	source: string | number | null;
 	provider: CameraDeviceProvider | string;
+	method?: CameraCalibrationMethod | string;
+	openrouter_model?: string;
 	settings?: Record<string, unknown>;
 	analysis?: Partial<CameraCalibrationAnalysis>;
+	advisor_summary?: string;
+	advisor_trace?: CameraCalibrationAdvisorIteration[];
+	advisor_final_review?: CameraCalibrationAdvisorIteration;
 	persisted?: boolean;
 	applied_live?: boolean;
 	message?: string;
@@ -82,6 +122,8 @@ export type CameraCalibrationTaskStartResponse = {
 	role: string;
 	source: string | number | null;
 	provider: CameraDeviceProvider | string;
+	method?: CameraCalibrationMethod | string;
+	openrouter_model?: string;
 	status: string;
 	stage: string;
 	progress: number;
@@ -94,14 +136,116 @@ export type CameraCalibrationTaskStatusResponse = {
 	role: string;
 	source: string | number | null;
 	provider: CameraDeviceProvider | string;
+	method?: CameraCalibrationMethod | string;
+	openrouter_model?: string;
 	status: string;
 	stage: string;
 	progress: number;
 	message?: string;
 	result?: CameraCalibrationResponse;
 	analysis_preview?: Partial<CameraCalibrationAnalysis>;
+	advisor_trace?: CameraCalibrationAdvisorIteration[];
 	error?: string | null;
 };
+
+export function normalizeCameraCalibrationAdvisorTrace(
+	value: unknown
+): CameraCalibrationAdvisorIteration[] {
+	if (!Array.isArray(value)) return [];
+	const result: CameraCalibrationAdvisorIteration[] = [];
+	for (const item of value) {
+		if (!item || typeof item !== 'object') continue;
+		const record = item as Record<string, unknown>;
+		if (typeof record.iteration !== 'number' || typeof record.status !== 'string') continue;
+
+		const changes: CameraCalibrationAdvisorChange[] = [];
+		const rawChanges = Array.isArray(record.changes) ? record.changes : [];
+		for (const change of rawChanges) {
+			if (!change || typeof change !== 'object') continue;
+			const changeRecord = change as Record<string, unknown>;
+			if (typeof changeRecord.key !== 'string') continue;
+			const normalizedChange: CameraCalibrationAdvisorChange = {
+				key: changeRecord.key,
+				value: changeRecord.value
+			};
+			if (typeof changeRecord.reason === 'string') {
+				normalizedChange.reason = changeRecord.reason;
+			}
+			changes.push(normalizedChange);
+		}
+
+		const normalized: CameraCalibrationAdvisorIteration = {
+			iteration: record.iteration,
+			status: record.status,
+			changes
+		};
+		if (typeof record.summary === 'string') {
+			normalized.summary = record.summary;
+		}
+		if (typeof record.stage === 'string' && record.stage) {
+			normalized.stage = record.stage;
+		}
+		if (record.input && typeof record.input === 'object') {
+			normalized.input = record.input as Record<string, unknown>;
+		}
+		if (record.response && typeof record.response === 'object') {
+			normalized.response = record.response as Record<string, unknown>;
+		}
+		if (record.analysis && typeof record.analysis === 'object') {
+			normalized.analysis = record.analysis as Record<string, unknown>;
+		}
+		if (record.resulting_settings && typeof record.resulting_settings === 'object') {
+			normalized.resulting_settings = record.resulting_settings as Record<string, unknown>;
+		}
+		if (typeof record.input_image_url === 'string' && record.input_image_url) {
+			normalized.input_image_url = record.input_image_url;
+		}
+		result.push(normalized);
+	}
+	return result;
+}
+
+export function normalizeCameraCalibrationGalleryEntries(
+	value: unknown
+): CameraCalibrationGalleryEntry[] {
+	if (!Array.isArray(value)) return [];
+	const result: CameraCalibrationGalleryEntry[] = [];
+	for (const item of value) {
+		if (!item || typeof item !== 'object') continue;
+		const record = item as Record<string, unknown>;
+		if (
+			typeof record.stage !== 'string' ||
+			typeof record.iteration !== 'number' ||
+			typeof record.step !== 'number' ||
+			typeof record.image_url !== 'string'
+		) {
+			continue;
+		}
+		const normalized: CameraCalibrationGalleryEntry = {
+			stage: record.stage,
+			iteration: record.iteration,
+			step: record.step,
+			image_url: record.image_url
+		};
+		if (typeof record.filename === 'string') {
+			normalized.filename = record.filename;
+		}
+		if (typeof record.summary === 'string') {
+			normalized.summary = record.summary;
+		}
+		if (record.settings && typeof record.settings === 'object') {
+			normalized.settings = record.settings as Record<string, unknown>;
+		}
+		if (record.analysis && typeof record.analysis === 'object') {
+			normalized.analysis = record.analysis as Record<string, unknown>;
+		}
+		if (record.advisor_payload && typeof record.advisor_payload === 'object') {
+			normalized.advisor_payload = record.advisor_payload as Record<string, unknown>;
+		}
+		result.push(normalized);
+	}
+	return result;
+}
 
 export function normalizeUsbCameraControls(value: unknown): UsbCameraControl[] {
 	if (!Array.isArray(value)) return [];

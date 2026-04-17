@@ -22,6 +22,7 @@
 		SlidersHorizontal,
 		X
 	} from 'lucide-svelte';
+	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 
 	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
@@ -266,6 +267,10 @@
 	let didDrag = $state(false);
 	let editingZone = $state(false);
 	let activeSidebar = $state<SidePanel>(null);
+	let previewColorCorrect = $state(true);
+	let previewAnnotated = $state(true);
+	let previewCropped = $state(false);
+	let previewZones = $state(true);
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
 	let cameraAbort = $state<AbortController | null>(null);
@@ -1062,12 +1067,19 @@
 		if (editingZone) {
 			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
 		}
-		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=true&v=${feedRevision}`;
+		const annotatedParam = previewAnnotated ? 'true' : 'false';
+		const colorParam = previewColorCorrect ? 'true' : 'false';
+		const dashboardParam = previewCropped ? 'true' : 'false';
+		const zonesParam = previewZones ? 'true' : 'false';
+		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=${annotatedParam}&color_correct=${colorParam}&dashboard=${dashboardParam}&show_regions=${zonesParam}&v=${feedRevision}`;
 	}
 
 	function feedInstanceKey(channel: Channel): string {
 		const assignment = currentAssignment(channel);
-		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${editingZone ? 'direct-raw' : 'vision-annotated'}::${feedRevision}`;
+		const mode = editingZone
+			? 'direct-raw'
+			: `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${previewZones ? 'z' : 'nz'}`;
+		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
 	}
 
 	async function loadCameraConfig() {
@@ -2293,7 +2305,7 @@
 				<div
 					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
 						statusMsg.startsWith('Error:')
-							? 'border-[#D01012] bg-[#D01012]/10 text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400'
+							? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
 							: 'border-border bg-bg text-text-muted'
 					}`}
 				>
@@ -2307,7 +2319,7 @@
 				<button
 					onclick={saveAll}
 					disabled={saving || currentAssignment() === null}
-					class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-60"
+					class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					<Check size={15} />
 					<span>{saving ? 'Saving...' : 'Save Zone'}</span>
@@ -2368,7 +2380,7 @@
 					<button
 						onclick={saveAll}
 						disabled={saving}
-						class="inline-flex cursor-pointer items-center gap-2 border border-[#00852B] bg-[#00852B]/15 px-3 py-1.5 text-sm text-[#00852B] transition-colors hover:bg-[#00852B]/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success/15 px-3 py-1.5 text-sm text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
 					>
 						<Check size={15} />
 						<span>{saving ? 'Saving...' : 'Save Zone'}</span>
@@ -2388,7 +2400,7 @@
 	</div>
 
 	<!-- Help text -->
-	<div class="-mx-4 px-4 py-2 text-xs text-text-muted">
+	<div class="-mx-4 px-4 py-2 text-sm text-text-muted">
 		{#if wizardMode}
 			Adjust the zone overlay directly on the preview, then save to keep the updated mask.
 		{:else}
@@ -2489,10 +2501,23 @@
 							oncontextmenu={onContextMenu}
 							onwheel={onWheel}
 						></canvas>
+
+						{#if !editingZone && currentAssignment() !== null}
+							<StreamControlsOverlay
+								bind:annotated={previewAnnotated}
+								bind:colorCorrect={previewColorCorrect}
+								bind:cropped={previewCropped}
+								bind:zones={previewZones}
+								showAnnotations
+								showColor
+								showCrop
+								showZones
+							/>
+						{/if}
 					</div>
 				</div>
 
-				{#if wizardMode && editingZone}
+{#if wizardMode && editingZone}
 					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
 						{#if isArcChannel(currentChannel)}
 							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
@@ -2506,12 +2531,12 @@
 
 								<div>
 									<div class="font-medium text-text">Placement reference</div>
-									<div class="mt-2 rounded border border-[#00852B]/20 bg-[#00852B]/8 px-3 py-2 leading-6 text-text-muted">
-										<span class="font-medium text-[#00852B]">Green Drop Zone:</span>
+									<div class="mt-2 rounded border border-success/20 bg-success/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-success">Green Drop Zone:</span>
 										position this where parts arrive from the previous stage and land on the ring.
 									</div>
-									<div class="mt-2 rounded border border-[#D01012]/20 bg-[#D01012]/8 px-3 py-2 leading-6 text-text-muted">
-										<span class="font-medium text-[#D01012]">Red Exit Zone:</span>
+									<div class="mt-2 rounded border border-danger/20 bg-danger/8 px-3 py-2 leading-6 text-text-muted">
+										<span class="font-medium text-danger">Red Exit Zone:</span>
 										position this where parts should leave the ring into the next path or mechanism.
 									</div>
 									<div class="mt-2 text-xs leading-5 text-text-muted">
@@ -2616,7 +2641,7 @@
 			<div class="flex flex-col gap-4">
 				{#if cameraError}
 					<div
-						class="border border-[#D01012] bg-[#D01012]/10 px-3 py-2 text-sm text-[#D01012] dark:border-[#D01012] dark:bg-[#D01012]/10 dark:text-red-400"
+						class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
 					>
 						{cameraError}
 					</div>
@@ -2791,7 +2816,7 @@
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}
 							disabled={cameraSaving}
-							class="cursor-pointer text-xs text-[#D01012] transition-colors hover:text-[#D01012]/80 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+							class="cursor-pointer text-xs text-danger transition-colors hover:text-danger/80 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
 						>
 							Remove current camera
 						</button>
@@ -2821,7 +2846,7 @@
 						<button
 							onclick={confirmReassign}
 							disabled={cameraSaving}
-							class="cursor-pointer border border-[#D01012] bg-[#D01012] px-3 py-1.5 text-sm text-white hover:bg-[#D01012]/90 disabled:cursor-not-allowed disabled:opacity-50"
+							class="cursor-pointer border border-danger bg-danger px-3 py-1.5 text-sm text-white hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{cameraSaving ? 'Reassigning...' : 'Reassign Camera'}
 						</button>

@@ -1,4 +1,4 @@
-import { Camera, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
+import { Camera, Cloud, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -51,6 +51,12 @@ export const storageLayersNavItem: SettingsNavItem = {
 	href: '/settings/storage-layers',
 	label: 'Storage Layers',
 	icon: Layers3
+};
+
+export const hiveNavItem: SettingsNavItem = {
+	href: '/settings/hive',
+	label: 'Hive',
+	icon: Cloud
 };
 
 export const chuteNavItem: SettingsNavItem = {
@@ -122,8 +128,17 @@ export const stationPageConfigs: StationPageConfig[] = [
 	}
 ];
 
-export const settingsNavItems: SettingsNavItem[] = [
+export type SettingsNavHeading = {
+	type: 'heading';
+	label: string;
+};
+
+export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
+
+export const settingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
+	hiveNavItem,
+	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
 	storageLayersNavItem

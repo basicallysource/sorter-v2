@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_user, get_db, verify_csrf
+from app.deps import get_current_user_or_api_key, get_db, verify_csrf
 from app.errors import APIError
 from app.models.sample import Sample
 from app.models.user import User
@@ -63,7 +63,7 @@ def _get_sample_for_user(db: Session, sample_id: UUID, current_user: User) -> Sa
 @router.get("/filter-options")
 def get_sample_filter_options(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     query = _sample_query_for_user(db, current_user)
     source_roles = [
@@ -104,7 +104,7 @@ def list_samples(
     capture_reason: str | None = None,
     review_status: str | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     query = _sample_query_for_user(db, current_user)
 
@@ -138,7 +138,7 @@ def list_samples(
 def get_sample(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
 
@@ -153,7 +153,7 @@ def save_sample_annotations(
     sample_id: UUID,
     data: SaveSampleAnnotationsRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     _csrf: None = Depends(verify_csrf),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
@@ -185,7 +185,7 @@ def save_sample_classification(
     sample_id: UUID,
     data: SaveSampleClassificationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     _csrf: None = Depends(verify_csrf),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
@@ -233,7 +233,7 @@ def save_sample_classification(
 def delete_sample(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     _csrf: None = Depends(verify_csrf),
 ):
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
@@ -262,7 +262,7 @@ def delete_sample(
 def get_sample_image(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
 
@@ -274,7 +274,7 @@ def get_sample_image(
 def get_sample_full_frame(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
     if not sample or not sample.full_frame_path:
@@ -288,7 +288,7 @@ def get_sample_full_frame(
 def get_sample_overlay(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
     if not sample or not sample.overlay_path:

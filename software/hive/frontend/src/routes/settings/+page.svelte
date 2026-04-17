@@ -21,6 +21,72 @@
 	let passwordError = $state<string | null>(null);
 	let passwordSaved = $state(false);
 
+	// API keys (personal access tokens)
+	import type { ApiKeySummary } from '$lib/api';
+
+	let apiKeys = $state<ApiKeySummary[]>([]);
+	let apiKeyName = $state('');
+	let apiKeysError = $state<string | null>(null);
+	let apiKeysLoading = $state(false);
+	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
+
+	async function loadApiKeys() {
+		try {
+			apiKeys = await api.listApiKeys();
+		} catch (e: any) {
+			apiKeysError = e.error || 'Failed to load API keys';
+		}
+	}
+
+	async function handleCreateApiKey(event: Event) {
+		event.preventDefault();
+		apiKeysError = null;
+		const name = apiKeyName.trim();
+		if (!name) {
+			apiKeysError = 'Name is required';
+			return;
+		}
+		apiKeysLoading = true;
+		try {
+			const resp = await api.createApiKey(name);
+			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
+			apiKeyName = '';
+			await loadApiKeys();
+		} catch (e: any) {
+			apiKeysError = e.error || 'Failed to create API key';
+		} finally {
+			apiKeysLoading = false;
+		}
+	}
+
+	async function handleRevokeApiKey(id: string) {
+		apiKeysError = null;
+		if (!confirm('Revoke this API key? This cannot be undone.')) return;
+		try {
+			await api.revokeApiKey(id);
+			await loadApiKeys();
+		} catch (e: any) {
+			apiKeysError = e.error || 'Failed to revoke';
+		}
+	}
+
+	function formatDate(iso: string | null) {
+		if (!iso) return '—';
+		return new Date(iso).toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
+	$effect(() => {
+		if (auth.user?.role === 'admin') {
+			void loadApiKeys();
+		}
+	});
+
 	// AI / OpenRouter
 	let openrouterApiKey = $state('');
 	let preferredAiModel = $state(auth.user?.preferred_ai_model ?? 'anthropic/claude-sonnet-4.6');
@@ -362,6 +428,98 @@
 				</div>
 			</form>
 		</div>
+
+		{#if auth.user.role === 'admin'}
+			<!-- API keys -->
+			<div class="border border-border bg-white p-6">
+				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
+				<p class="mb-4 text-sm text-text-muted">
+					Use a token to authenticate from CLI tools (e.g. the training hub). Tokens inherit your account's permissions — treat them like a password.
+				</p>
+
+				{#if apiKeyJustCreated}
+					<div class="mb-4 border border-warning/40 bg-warning/[0.06] p-3 text-sm text-text">
+						<div class="mb-2 font-semibold">Copy this token now — it won't be shown again.</div>
+						<div class="mb-2 text-text-muted">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
+						<code class="block select-all break-all bg-bg p-2 font-mono text-xs">{apiKeyJustCreated.token}</code>
+						<button
+							onclick={() => { apiKeyJustCreated = null; }}
+							class="mt-3 border border-border px-3 py-1 text-xs text-text-muted hover:text-text"
+							type="button"
+						>Dismiss</button>
+					</div>
+				{/if}
+
+				{#if apiKeysError}
+					<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{apiKeysError}</div>
+				{/if}
+
+				<form onsubmit={handleCreateApiKey} class="mb-6 flex flex-wrap items-end gap-2">
+					<label class="flex flex-col gap-1 text-xs text-text-muted">
+						<span>Token name</span>
+						<input
+							type="text"
+							bind:value={apiKeyName}
+							placeholder="e.g. marc-laptop-training"
+							class="border border-border bg-bg px-2 py-1 text-sm text-text"
+							required
+						/>
+					</label>
+					<button
+						type="submit"
+						disabled={apiKeysLoading}
+						class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+					>
+						{apiKeysLoading ? 'Creating...' : 'Create token'}
+					</button>
+				</form>
+
+				{#if apiKeys.length === 0}
+					<p class="text-sm text-text-muted">No tokens yet.</p>
+				{:else}
+					<div class="border border-border">
+						<table class="w-full text-sm">
+							<thead class="border-b border-border bg-bg text-left text-xs uppercase tracking-wide text-text-muted">
+								<tr>
+									<th class="px-3 py-2">Name</th>
+									<th class="px-3 py-2">Token</th>
+									<th class="px-3 py-2">Created</th>
+									<th class="px-3 py-2">Last used</th>
+									<th class="px-3 py-2">Status</th>
+									<th class="px-3 py-2"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each apiKeys as key (key.id)}
+									<tr class="border-b border-border last:border-b-0">
+										<td class="px-3 py-2 font-mono">{key.name}</td>
+										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.token_prefix}…</td>
+										<td class="px-3 py-2">{formatDate(key.created_at)}</td>
+										<td class="px-3 py-2">{formatDate(key.last_used_at)}</td>
+										<td class="px-3 py-2">
+											{#if key.revoked_at}
+												<span class="text-text-muted">Revoked</span>
+											{:else}
+												<span class="text-success">Active</span>
+											{/if}
+										</td>
+										<td class="px-3 py-2 text-right">
+											{#if !key.revoked_at}
+												<button
+													onclick={() => handleRevokeApiKey(key.id)}
+													class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+													type="button"
+												>Revoke</button>
+											{/if}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Danger Zone -->
 		<div class="border border-primary/20 bg-white p-6">

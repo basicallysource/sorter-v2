@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import requests
 
@@ -118,6 +120,182 @@ class HiveClient:
             for _name, file_tuple in files.items():
                 file_tuple[1].close()
 
-    def get_models(self) -> list[dict]:
-        """GET /api/machine/models (placeholder for future)."""
-        return self._request("GET", "/api/machine/models")
+    def list_models(
+        self,
+        scope: str | None = None,
+        runtime: str | None = None,
+        family: str | None = None,
+        q: str | None = None,
+        page: int = 1,
+        page_size: int = 30,
+    ) -> dict:
+        """GET /api/machine/models -- paginated catalog."""
+        params: dict[str, Any] = {"page": page, "page_size": page_size}
+        if scope:
+            params["scope"] = scope
+        if runtime:
+            params["runtime"] = runtime
+        if family:
+            params["family"] = family
+        if q:
+            params["q"] = q
+        return self._request("GET", "/api/machine/models", params=params)
+
+    def get_model(self, model_id: str) -> dict:
+        """GET /api/machine/models/{id}."""
+        return self._request("GET", f"/api/machine/models/{model_id}")
+
+    def download_model_variant(
+        self,
+        model_id: str,
+        variant_id: str,
+        dest_path: Path,
+        on_progress: Callable[[int, int], None] | None = None,
+        expected_sha256: str | None = None,
+    ) -> str:
+        """GET /api/machine/models/{id}/variants/{vid}/download -- stream to disk, verify sha256."""
+        dest_path = Path(dest_path)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        partial = dest_path.with_suffix(dest_path.suffix + ".partial")
+        url = f"{self.api_url}/api/machine/models/{model_id}/variants/{variant_id}/download"
+        with self._session.get(url, stream=True) as resp:
+            if not resp.ok:
+                try:
+                    body = resp.json()
+                    message = body.get("error", resp.text)
+                    code = body.get("code")
+                except (ValueError, KeyError):
+                    message = resp.text
+                    code = None
+                raise HiveError(resp.status_code, message, code)
+            header_sha = resp.headers.get("X-Model-SHA256")
+            total = int(resp.headers.get("Content-Length") or 0)
+            hasher = hashlib.sha256()
+            written = 0
+            with open(partial, "wb") as out:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if not chunk:
+                        continue
+                    hasher.update(chunk)
+                    out.write(chunk)
+                    written += len(chunk)
+                    if on_progress is not None:
+                        on_progress(written, total)
+                out.flush()
+                os.fsync(out.fileno())
+        digest = hasher.hexdigest()
+        expected = expected_sha256 or header_sha
+        if expected and digest != expected:
+            partial.unlink(missing_ok=True)
+            raise HiveError(
+                500,
+                f"SHA256 mismatch on download (expected {expected}, got {digest})",
+                "SHA256_MISMATCH",
+            )
+        os.replace(partial, dest_path)
+        return digest
+
+
+class HiveAdminClient:
+    """Admin client for publishing models.
+
+    Two auth modes:
+      - API key (recommended): pass ``api_key=`` at construction. All requests
+        attach ``Authorization: Bearer <key>``. No login call needed.
+      - Legacy cookie login: construct without ``api_key`` then call ``login()``.
+    """
+
+    def __init__(self, api_url: str, api_key: str | None = None):
+        self.api_url = api_url.rstrip("/")
+        self._session = requests.Session()
+        self._csrf_token: str | None = None
+        self._api_key = api_key
+        if api_key:
+            self._session.headers["Authorization"] = f"Bearer {api_key}"
+
+    def login(self, email: str, password: str) -> None:
+        if self._api_key:
+            return  # API key auth active — login call is a no-op
+        resp = self._session.post(
+            f"{self.api_url}/api/auth/login",
+            json={"email": email, "password": password},
+        )
+        if not resp.ok:
+            raise HiveError(resp.status_code, f"Login failed: {resp.text}", None)
+        self._csrf_token = self._session.cookies.get("csrf_token")
+        if not self._csrf_token:
+            raise HiveError(500, "No CSRF token in login response", None)
+
+    def _headers(self) -> dict[str, str]:
+        if self._api_key:
+            return {}
+        if not self._csrf_token:
+            raise HiveError(401, "Not logged in; call login() first", None)
+        return {"X-CSRF-Token": self._csrf_token}
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        headers = kwargs.pop("headers", {})
+        headers.update(self._headers())
+        resp = self._session.request(method, f"{self.api_url}{path}", headers=headers, **kwargs)
+        if not resp.ok:
+            try:
+                body = resp.json()
+                message = body.get("error", resp.text)
+                code = body.get("code")
+            except (ValueError, KeyError):
+                message = resp.text
+                code = None
+            raise HiveError(resp.status_code, message, code)
+        if resp.status_code == 204:
+            return None
+        return resp.json()
+
+    def create_model(self, payload: dict) -> dict:
+        """POST /api/models."""
+        return self._request("POST", "/api/models", json=payload)
+
+    def upload_variant(
+        self,
+        model_id: str,
+        runtime: str,
+        file_path: Path,
+        format_meta: dict | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
+    ) -> dict:
+        """POST /api/models/{id}/variants -- multipart streamed."""
+        file_path = Path(file_path)
+        total = file_path.stat().st_size
+        data: dict[str, Any] = {"runtime": runtime}
+        if format_meta is not None:
+            data["format_meta"] = json.dumps(format_meta)
+        with open(file_path, "rb") as fh:
+            files = {
+                "file": (file_path.name, _ProgressReader(fh, total, on_progress), "application/octet-stream")
+            }
+            return self._request(
+                "POST",
+                f"/api/models/{model_id}/variants",
+                data=data,
+                files=files,
+            )
+
+
+class _ProgressReader:
+    """Wraps a file object to emit progress callbacks while requests reads from it."""
+
+    def __init__(self, fh, total: int, on_progress: Callable[[int, int], None] | None):
+        self._fh = fh
+        self._total = total
+        self._read = 0
+        self._cb = on_progress
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self._fh.read(size)
+        if chunk:
+            self._read += len(chunk)
+            if self._cb is not None:
+                self._cb(self._read, self._total)
+        return chunk
+
+    def __len__(self) -> int:
+        return self._total

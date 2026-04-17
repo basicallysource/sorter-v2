@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None
+    MAX_MODEL_FILE_SIZE: int = 2 * 1024 * 1024 * 1024
+    ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch")
 
     @property
     def public_app_url(self) -> str:

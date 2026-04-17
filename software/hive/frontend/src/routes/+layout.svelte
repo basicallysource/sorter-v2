@@ -55,27 +55,33 @@
 					<div class="flex gap-1">
 						<a
 							href="/"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/' ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
 							Dashboard
 						</a>
 						<a
 							href="/machines"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname === '/machines' ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
 							Machines
 						</a>
 						<a
 							href="/profiles"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/profiles') ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/profiles') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
 							Profiles
 						</a>
 						<a
 							href="/samples"
-							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') || page.url.pathname === '/review' ? 'border-b-2 border-[#D01012] text-[#D01012]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') || page.url.pathname === '/review' ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
 							Samples
+						</a>
+						<a
+							href="/models"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/models') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+						>
+							Models
 						</a>
 					</div>
 				</div>
@@ -146,7 +152,7 @@
 								<div class="border-t border-[var(--color-border)] my-1"></div>
 								<button
 									onclick={handleLogout}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#D01012] hover:bg-[#FEF2F2]"
+									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary-light"
 								>
 									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import uuid
 from pathlib import Path
@@ -89,6 +90,57 @@ def validate_image(file: UploadFile) -> str:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
 
     return f".{ext}"
+
+
+def save_model_variant(
+    model_id,
+    runtime: str,
+    file: UploadFile,
+    file_name: str,
+) -> tuple[str, str, int]:
+    runtime_safe = _safe_path_component(runtime, "runtime")
+    if runtime_safe not in settings.ALLOWED_MODEL_RUNTIMES:
+        raise HTTPException(status_code=400, detail="Unsupported runtime")
+    model_safe = _safe_path_component(str(model_id), "model id")
+    name_safe = _safe_path_component(file_name, "file name")
+    directory = _upload_base() / "models" / model_safe / runtime_safe
+    directory.mkdir(parents=True, exist_ok=True)
+    dest = directory / name_safe
+
+    hasher = hashlib.sha256()
+    total = 0
+    max_size = settings.MAX_MODEL_FILE_SIZE
+    chunk_size = 1024 * 1024
+    try:
+        with open(dest, "wb") as out:
+            while True:
+                chunk = file.file.read(chunk_size)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_size:
+                    out.close()
+                    dest.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="Model file exceeds size limit")
+                hasher.update(chunk)
+                out.write(chunk)
+    except HTTPException:
+        raise
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+    return str(dest.relative_to(_upload_base())), hasher.hexdigest(), total
+
+
+def get_model_variant_file(stored_path: str) -> Path:
+    return get_file_path(stored_path)
+
+
+def delete_model_files(model_id) -> None:
+    model_safe = _safe_path_component(str(model_id), "model id")
+    directory = _upload_base() / "models" / model_safe
+    if directory.exists():
+        shutil.rmtree(directory)
 
 
 def _remove_file(stored_path: str) -> None:

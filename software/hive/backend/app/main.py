@@ -8,7 +8,20 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.errors import APIError, api_error_handler, http_exception_handler
-from app.routers import admin, auth, machines, profiles, review, samples, sets, stats, upload
+from app.routers import (
+    admin,
+    api_keys,
+    auth,
+    machine_models,
+    machines,
+    models as models_router,
+    profiles,
+    review,
+    samples,
+    sets,
+    stats,
+    upload,
+)
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
 
 limiter = Limiter(key_func=get_remote_address)
@@ -50,6 +63,9 @@ app.include_router(samples.router)
 app.include_router(review.router)
 app.include_router(sets.router)
 app.include_router(stats.router)
+app.include_router(models_router.router)
+app.include_router(machine_models.router)
+app.include_router(api_keys.router)
 
 
 @app.get("/api/health")

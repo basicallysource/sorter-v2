@@ -859,5 +859,108 @@ export const api = {
 	// Stats
 	getOverview() {
 		return request<StatsOverview>('GET', '/api/stats/overview');
+	},
+
+	// API keys (personal access tokens)
+	listApiKeys() {
+		return request<ApiKeySummary[]>('GET', '/api/auth/api-keys');
+	},
+	createApiKey(name: string, scopes?: string[]) {
+		return request<ApiKeyCreateResponse>('POST', '/api/auth/api-keys', { name, scopes });
+	},
+	revokeApiKey(id: string) {
+		return request<{ ok: boolean }>('DELETE', `/api/auth/api-keys/${id}`);
+	},
+
+	// Detection models
+	getModels(params: {
+		page?: number;
+		page_size?: number;
+		scope?: string;
+		runtime?: string;
+		family?: string;
+		q?: string;
+	} = {}) {
+		const searchParams = new URLSearchParams();
+		for (const [key, val] of Object.entries(params)) {
+			if (val !== undefined && val !== null && val !== '') {
+				searchParams.set(key, String(val));
+			}
+		}
+		const qs = searchParams.toString();
+		return request<PaginatedDetectionModels>('GET', `/api/models${qs ? '?' + qs : ''}`);
+	},
+	getModel(id: string) {
+		return request<DetectionModelDetail>('GET', `/api/models/${id}`);
+	},
+	modelVariantDownloadUrl(modelId: string, variantId: string) {
+		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
+	},
+	createModel(payload: {
+		slug: string;
+		name: string;
+		description?: string | null;
+		model_family: string;
+		scopes?: string[];
+		training_metadata?: Record<string, unknown>;
+		is_public?: boolean;
+	}) {
+		return request<{ id: string; slug: string; version: number }>('POST', '/api/models', payload);
+	},
+	deleteModel(id: string) {
+		return request<void>('DELETE', `/api/models/${id}`);
 	}
 };
+
+export interface DetectionModelVariant {
+	id: string;
+	runtime: string;
+	file_name: string;
+	file_size: number;
+	sha256: string;
+	format_meta: Record<string, unknown> | null;
+	uploaded_at: string;
+}
+
+export interface DetectionModelSummary {
+	id: string;
+	owner_id: string | null;
+	slug: string;
+	version: number;
+	name: string;
+	description: string | null;
+	model_family: string;
+	scopes: string[] | null;
+	is_public: boolean;
+	published_at: string;
+	updated_at: string;
+	variant_runtimes: string[];
+}
+
+export interface DetectionModelDetail extends DetectionModelSummary {
+	training_metadata: Record<string, unknown> | null;
+	variants: DetectionModelVariant[];
+}
+
+export interface ApiKeySummary {
+	id: string;
+	name: string;
+	token_prefix: string;
+	scopes: string[] | null;
+	created_at: string;
+	last_used_at: string | null;
+	revoked_at: string | null;
+}
+
+export interface ApiKeyCreateResponse {
+	summary: ApiKeySummary;
+	raw_token: string;
+}
+
+export interface PaginatedDetectionModels {
+	items: DetectionModelSummary[];
+	total: number;
+	page: number;
+	page_size: number;
+	pages: number;
+}

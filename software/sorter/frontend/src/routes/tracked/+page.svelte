@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
+	import { RefreshCw } from 'lucide-svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { getMachineContext } from '$lib/machines/context';
@@ -26,12 +27,13 @@
 	}
 
 	let items = $state<HistoryItem[]>([]);
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let selectedId = $state<number | null>(null);
 	let minSectors = $state(3);
 	let limit = $state(120);
+	let loading = $state(false);
 
 	async function load() {
+		loading = true;
 		try {
 			const res = await fetch(
 				`${effectiveBase()}/api/feeder/tracking/history?limit=${limit}&min_sectors=${minSectors}`
@@ -41,6 +43,8 @@
 			items = Array.isArray(json?.items) ? json.items : [];
 		} catch {
 			// ignore
+		} finally {
+			loading = false;
 		}
 	}
 
@@ -62,22 +66,14 @@
 
 	onMount(() => {
 		void load();
-		pollTimer = setInterval(() => void load(), 2000);
 	});
 
-	onDestroy(() => {
-		if (pollTimer !== null) {
-			clearInterval(pollTimer);
-			pollTimer = null;
-		}
-	});
-
-	$effect(() => {
-		// React to filter changes with an immediate fetch.
-		minSectors;
-		limit;
+	// Filter changes trigger an explicit fetch — no $effect, because
+	// capturing reactive context reads (e.g. ctx.machine.url heartbeats)
+	// would silently re-trigger the load on every websocket event.
+	function onFilterChange() {
 		void load();
-	});
+	}
 </script>
 
 <svelte:head>
@@ -102,6 +98,7 @@
 					min="0"
 					max="12"
 					bind:value={minSectors}
+					onchange={onFilterChange}
 					class="w-16 border border-border bg-bg px-2 py-1 text-text"
 				/>
 			</label>
@@ -113,10 +110,21 @@
 					max="300"
 					step="10"
 					bind:value={limit}
+					onchange={onFilterChange}
 					class="w-20 border border-border bg-bg px-2 py-1 text-text"
 				/>
 			</label>
 			<span class="text-text-muted">{items.length} shown</span>
+			<button
+				type="button"
+				onclick={() => void load()}
+				disabled={loading}
+				aria-label="Reload"
+				title="Reload tracked pieces"
+				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text disabled:opacity-50"
+			>
+				<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
+			</button>
 		</div>
 	</header>
 

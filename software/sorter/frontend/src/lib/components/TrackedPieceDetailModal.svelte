@@ -18,7 +18,25 @@
 		jpeg_b64: string;
 		r_inner?: number;
 		r_outer?: number;
+		piece_jpeg_b64?: string;
+		piece_bbox_x?: number;
+		piece_bbox_y?: number;
+		piece_width?: number;
+		piece_height?: number;
 	};
+
+	function pieceJpeg(s: SectorSnapshot): string {
+		return s.piece_jpeg_b64 && s.piece_jpeg_b64.length > 0 ? s.piece_jpeg_b64 : s.jpeg_b64;
+	}
+
+	function channelViewBox(seg: Segment): string {
+		// Crop the big view tight around the annular channel so half the
+		// image isn't empty backdrop. Adds a small padding beyond r_outer.
+		const cx = seg.channel_center_x ?? seg.snapshot_width / 2;
+		const cy = seg.channel_center_y ?? seg.snapshot_height / 2;
+		const r = (seg.channel_radius_outer ?? Math.min(seg.snapshot_width, seg.snapshot_height) / 3) + 12;
+		return `${cx - r} ${cy - r} ${r * 2} ${r * 2}`;
+	}
 
 	type Segment = {
 		source_role: string;
@@ -67,6 +85,45 @@
 
 	function sectorSnapshots(seg: Segment): SectorSnapshot[] {
 		return seg.sector_snapshots ?? [];
+	}
+
+	type RecognizeResult = {
+		best_item?: { id: string; name: string; score: number; img_url?: string } | null;
+		best_color?: { id: string; name: string } | null;
+		error?: string;
+		loading?: boolean;
+	};
+
+	// Keyed by the crop's stable signature so repeat clicks don't reshuffle.
+	let recognizeResults = $state<Record<string, RecognizeResult>>({});
+
+	async function recognizeCrop(key: string, jpegB64: string) {
+		recognizeResults = { ...recognizeResults, [key]: { loading: true } };
+		try {
+			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/recognize`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ jpeg_b64: jpegB64 })
+			});
+			if (!res.ok) {
+				const text = await res.text();
+				recognizeResults = {
+					...recognizeResults,
+					[key]: { error: text.slice(0, 200) }
+				};
+				return;
+			}
+			const data = await res.json();
+			recognizeResults = {
+				...recognizeResults,
+				[key]: { best_item: data.best_item ?? null, best_color: data.best_color ?? null }
+			};
+		} catch (e: any) {
+			recognizeResults = {
+				...recognizeResults,
+				[key]: { error: e?.message ?? 'failed' }
+			};
+		}
 	}
 
 	function nearestPathPoint(path: PathPoint[], ts: number): PathPoint | null {
@@ -270,10 +327,11 @@
 									{/if}
 								</span>
 							</div>
-							<div class="relative bg-black">
+							<div class="flex min-h-0 flex-col lg:flex-row">
+							<div class="relative flex-1 bg-bg">
 								{#if hasSectorGeom(segment)}
 									<svg
-										viewBox={`0 0 ${segment.snapshot_width} ${segment.snapshot_height}`}
+										viewBox={channelViewBox(segment)}
 										class="block h-auto w-full"
 										preserveAspectRatio="xMidYMid meet"
 									>
@@ -360,6 +418,75 @@
 										class="block h-auto w-full"
 									></canvas>
 								{/if}
+							</div>
+							{#if sectorSnapshots(segment).length > 0}
+								<aside class="flex w-full flex-col border-t border-border bg-bg/50 lg:w-[320px] lg:border-t-0 lg:border-l">
+									<div class="border-b border-border px-3 py-2">
+										<span class="text-sm font-medium uppercase tracking-wider text-text-muted">
+											Object crops · {sectorSnapshots(segment).length}
+										</span>
+									</div>
+									<div class="flex flex-col gap-3 overflow-y-auto p-3" style="max-height: calc(100vh - 12rem);">
+										{#each sectorSnapshots(segment) as s, sIdx (sIdx)}
+											{@const cropKey = `${globalId}-${idx}-${sIdx}-${s.captured_ts}`}
+											{@const recog = recognizeResults[cropKey]}
+											{@const pieceB64 = pieceJpeg(s)}
+											<div class="flex flex-col border border-border bg-surface">
+												<div class="bg-bg">
+													<img
+														src={`data:image/jpeg;base64,${pieceB64}`}
+														alt=""
+														class="block h-auto w-full object-contain"
+														style="filter: brightness(1.35) contrast(1.1);"
+													/>
+												</div>
+												<div class="flex items-center justify-between gap-2 px-2 py-1.5">
+													<span class="text-sm text-text-muted">
+														{Math.round(s.start_angle_deg)}°–{Math.round(s.end_angle_deg)}°
+													</span>
+													<button
+														type="button"
+														onclick={() => void recognizeCrop(cropKey, pieceB64)}
+														disabled={recog?.loading}
+														class="border border-primary/50 bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+													>
+														{recog?.loading ? '…' : 'Recognize'}
+													</button>
+												</div>
+												{#if recog && !recog.loading}
+													<div class="flex flex-col gap-1.5 border-t border-border px-2 py-2 text-sm">
+														{#if recog.error}
+															<span class="text-danger" title={recog.error}>failed</span>
+														{:else if recog.best_item}
+															{#if recog.best_item.img_url}
+																<img
+																	src={recog.best_item.img_url}
+																	alt="Brickognize reference"
+																	class="block h-auto w-full border border-border bg-white object-contain"
+																	loading="lazy"
+																/>
+															{/if}
+															<div class="flex flex-col gap-0.5">
+																<span class="font-mono font-medium text-text">
+																	{recog.best_item.id} · {(recog.best_item.score * 100).toFixed(0)}%
+																</span>
+																<span class="text-text-muted" title={recog.best_item.name}>
+																	{recog.best_item.name}
+																</span>
+																{#if recog.best_color}
+																	<span class="text-text-muted">{recog.best_color.name}</span>
+																{/if}
+															</div>
+														{:else}
+															<span class="text-text-muted">no match</span>
+														{/if}
+													</div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</aside>
+							{/if}
 							</div>
 						</div>
 					{/each}

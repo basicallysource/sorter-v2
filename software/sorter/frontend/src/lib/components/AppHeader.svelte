@@ -15,62 +15,32 @@
 
 	const manager = getMachinesContext();
 
-	let machineState = $state('initializing');
-	let hardwareState = $state<string>('standby');
-	let homingStep = $state<string | null>(null);
-	let hardwareError = $state<string | null>(null);
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
 	let hardwareAlertOpen = $state(false);
 	let powerMenuOpen = $state(false);
 	let restartingBackend = $state(false);
-	let cameraHealth = $state<Record<string, { status: string }>>({});
+	let restartConfirmOpen = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
 	}
 
-	async function fetchState() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/state`);
-			if (!res.ok) return;
-			const data = await res.json();
-			machineState = data.state ?? 'initializing';
-		} catch {
-			// ignore
-		}
-	}
+	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
+	const hardwareState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
+	const homingStep = $derived(manager.selectedMachine?.systemStatus?.homing_step ?? null);
+	const hardwareError = $derived(manager.selectedMachine?.systemStatus?.hardware_error ?? null);
 
-	async function fetchSystemStatus() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
-			if (!res.ok) return;
-			const data = await res.json();
-			hardwareState = data.hardware_state ?? 'standby';
-			homingStep = data.homing_step ?? null;
-			hardwareError = data.hardware_error ?? null;
-		} catch {
-			// ignore
-		}
-	}
-
-	async function fetchCameraHealth() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/health`);
-			if (!res.ok) { cameraHealth = {}; return; }
-			cameraHealth = await res.json();
-		} catch {
-			cameraHealth = {};
-		}
-	}
-
-	const cameraTotal = $derived(Object.keys(cameraHealth).length);
-	const cameraActive = $derived(Object.values(cameraHealth).filter(c => c.status === 'healthy').length);
+	const cameraHealth = $derived(manager.selectedMachine?.cameraHealth ?? new Map<string, string>());
+	const cameraTotal = $derived(cameraHealth.size);
+	const cameraActive = $derived(
+		Array.from(cameraHealth.values()).filter((status) => status === 'online').length
+	);
 
 	const powerDotColor = $derived(
-		hardwareState === 'ready' ? '#00852B'
-		: hardwareState === 'error' ? '#D01012'
-		: hardwareState === 'homing' || hardwareState === 'initializing' ? '#0055BF'
+		hardwareState === 'ready' ? 'var(--color-success)'
+		: hardwareState === 'error' ? 'var(--color-danger)'
+		: hardwareState === 'homing' || hardwareState === 'initializing' ? 'var(--color-info)'
 		: '#FFD500'
 	);
 
@@ -91,7 +61,6 @@
 	async function homeSystem() {
 		try {
 			await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
-			await fetchSystemStatus();
 		} catch {
 			// ignore
 		}
@@ -100,8 +69,6 @@
 	async function resetHardwareSystem() {
 		try {
 			await fetch(`${currentBackendBaseUrl()}/api/system/reset`, { method: 'POST' });
-			await fetchSystemStatus();
-			await fetchState();
 		} catch {
 			// ignore
 		}
@@ -111,14 +78,18 @@
 		const endpoint = machineState === 'paused' ? '/resume' : '/pause';
 		try {
 			await fetch(`${currentBackendBaseUrl()}${endpoint}`, { method: 'POST' });
-			await fetchState();
 		} catch {
 			// ignore
 		}
 	}
 
-	async function restartBackend() {
+	function requestRestartBackend() {
 		powerMenuOpen = false;
+		restartConfirmOpen = true;
+	}
+
+	async function confirmRestartBackend() {
+		restartConfirmOpen = false;
 		restartingBackend = true;
 		const baseUrl = currentBackendBaseUrl();
 		const restart = await requestBackendRestart(baseUrl);
@@ -128,8 +99,7 @@
 		}
 		await waitForBackend(baseUrl, { maxAttempts: 60 });
 		restartingBackend = false;
-		void fetchState();
-		void fetchSystemStatus();
+		// Ws will reconnect and push fresh snapshots automatically.
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -145,14 +115,13 @@
 			return;
 		}
 		if (isFeederTransportBlocked(hardwareError)) {
-			await fetchSystemStatus();
+			// Nothing to refetch — WS pushes new status automatically.
 			return;
 		}
 		if (hardwareState === 'standby' || hardwareState === 'error') {
 			await homeSystem();
 			return;
 		}
-		await fetchSystemStatus();
 	}
 
 	function dismissHardwareBanner() {
@@ -249,20 +218,8 @@
 		if (manager.machines.size === 0) {
 			manager.connect(`${backendWsBaseUrl}/ws`);
 		}
-		void fetchState();
-		void fetchSystemStatus();
-		void fetchCameraHealth();
-		const interval = setInterval(() => {
-			void fetchState();
-			void fetchSystemStatus();
-		}, 1000);
-		const cameraInterval = setInterval(() => {
-			void fetchCameraHealth();
-		}, 5000);
 		document.addEventListener('click', handlePowerMenuClickOutside);
 		return () => {
-			clearInterval(interval);
-			clearInterval(cameraInterval);
 			document.removeEventListener('click', handlePowerMenuClickOutside);
 		};
 	});
@@ -293,6 +250,12 @@
 					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/profiles' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
 				>
 					Profiles
+				</a>
+				<a
+					href="/tracked"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/tracked') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+				>
+					Tracked
 				</a>
 				<a
 					href="/logs"
@@ -357,7 +320,7 @@
 									<span class="flex items-center gap-1.5 text-xs font-medium text-text">
 										<span
 											class="inline-block h-1.5 w-1.5"
-											style="background-color: {cameraActive === cameraTotal ? '#00852B' : cameraActive > 0 ? '#FFD500' : '#D01012'}; border-radius: 50%;"
+											style="background-color: {cameraActive === cameraTotal ? 'var(--color-success)' : cameraActive > 0 ? '#FFD500' : 'var(--color-danger)'}; border-radius: 50%;"
 										></span>
 										{cameraActive}/{cameraTotal} active
 									</span>
@@ -387,7 +350,7 @@
 								Reset Hardware
 							</button>
 							<button
-								onclick={restartBackend}
+								onclick={requestRestartBackend}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
 							>
 								<RotateCcw size={14} class="text-text-muted" />
@@ -408,12 +371,12 @@
 				class="pointer-events-auto flex w-full items-start gap-3 border border-border bg-surface px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-colors hover:bg-surface hover:border-[#C9C7C0]"
 				title="Show hardware homing details"
 			>
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-[#0055BF]/[0.08] text-[#0055BF]">
+				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info">
 					<div class="h-4 w-4 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-3">
-						<div class="text-xs font-semibold uppercase tracking-wider text-[#0055BF]">Hardware Homing</div>
+						<div class="text-xs font-semibold uppercase tracking-wider text-info">Hardware Homing</div>
 						<div class="text-xs text-text-muted">View details</div>
 					</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
@@ -424,10 +387,10 @@
 	{/if}
 
 	{#if showHardwareBanner}
-		<div class="border-t border-[#D01012]/30 bg-[#D01012]/[0.06] px-4 py-3 sm:px-6">
+		<div class="border-t border-danger/30 bg-danger/[0.06] px-4 py-3 sm:px-6">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="flex min-w-0 gap-3">
-					<div class="flex h-8 w-8 shrink-0 items-center justify-center border border-[#D01012]/30 bg-[#D01012]/10 text-[#B11618]">
+					<div class="flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]">
 						<AlertTriangle size={16} />
 					</div>
 					<div class="min-w-0">
@@ -440,7 +403,7 @@
 					<button
 						type="button"
 						onclick={() => void retryHardwareAction()}
-						class="inline-flex items-center gap-1.5 border border-[#D01012]/30 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white"
+						class="inline-flex items-center gap-1.5 border border-danger/30 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white"
 					>
 						{#if hardwareState === 'standby' || hardwareState === 'error'}
 							<Home size={14} />
@@ -465,7 +428,7 @@
 	<Modal bind:open={hardwareAlertOpen} title={hardwareAlertTitle}>
 		<div class="flex flex-col gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D01012]/25 bg-[#D01012]/[0.08] text-[#B11618]">
+				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]">
 					<AlertTriangle size={18} />
 				</div>
 				<div>
@@ -489,7 +452,7 @@
 					<button
 						type="button"
 						onclick={() => void resetHardwareSystem()}
-						class="inline-flex items-center gap-1.5 border border-[#D01012]/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
+						class="inline-flex items-center gap-1.5 border border-danger/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
 					>
 						<RefreshCw size={14} />
 						Reset Hardware
@@ -498,7 +461,7 @@
 				<button
 					type="button"
 					onclick={() => void retryHardwareAction()}
-					class="inline-flex items-center gap-1.5 border border-[#D01012]/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
+					class="inline-flex items-center gap-1.5 border border-danger/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
 				>
 					{#if hardwareBannerActionLabel === 'Retry Home'}
 						<Home size={14} />
@@ -519,6 +482,43 @@
 		</div>
 	</Modal>
 
+	<Modal bind:open={restartConfirmOpen} title="Hard Restart Backend?">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]">
+					<AlertTriangle size={18} />
+				</div>
+				<div>
+					<div class="text-sm text-text">
+						This will forcibly restart the sorter backend service.
+					</div>
+					<div class="mt-2 text-sm text-text-muted">
+						Any running sort or homing operation will be interrupted. Cameras and hardware
+						state will be re-initialized. The UI will be unavailable for a few seconds.
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (restartConfirmOpen = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmRestartBackend()}
+					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
+				>
+					<RotateCcw size={14} />
+					Restart Backend
+				</button>
+			</div>
+		</div>
+	</Modal>
+
 	{#if restartingBackend}
 		<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
 			<div class="flex flex-col items-center gap-4 border border-border bg-surface px-10 py-8 shadow-lg">
@@ -532,11 +532,11 @@
 	<Modal bind:open={homingDetailsOpen} title="Hardware Homing">
 		<div class="flex flex-col gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-[#0055BF]/[0.08] text-[#0055BF]">
+				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info">
 					<div class="h-4 w-4 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-[#0055BF]">Current step</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-info">Current step</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
 					<div class="mt-2 text-sm text-text-muted">
 						The machine is currently initializing and referencing its hardware. Let the process finish before starting a run.
@@ -545,14 +545,6 @@
 			</div>
 
 			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => void fetchSystemStatus()}
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
-				>
-					<RefreshCw size={14} />
-					Refresh Status
-				</button>
 				<button
 					type="button"
 					onclick={() => (homingDetailsOpen = false)}

@@ -1099,6 +1099,22 @@ def clear_current_session_bins(
         return {"ok": True, "cleared_bins": cleared_bins}
 
 
+def get_current_bin_piece_counts() -> dict[tuple[int, int, int], int]:
+    initialize_local_state()
+    with _connection() as conn:
+        active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+        if not active_session_id:
+            return {}
+        rows = conn.execute(
+            "SELECT layer_index, section_index, bin_index, piece_count FROM bin_state_current WHERE session_id = ?",
+            (active_session_id,),
+        ).fetchall()
+        return {
+            (int(row["layer_index"]), int(row["section_index"]), int(row["bin_index"])): int(row["piece_count"] or 0)
+            for row in rows
+        }
+
+
 def get_current_bin_contents_snapshot() -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:

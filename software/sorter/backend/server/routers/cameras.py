@@ -692,6 +692,10 @@ def _create_camera_calibration_task(
     role: str,
     provider: str,
     source: int | str | None,
+    *,
+    method: str = DEFAULT_CAMERA_CALIBRATION_METHOD,
+    openrouter_model: str | None = None,
+    apply_color_profile: bool = True,
 ) -> str:
     task_id = uuid4().hex
     task = {
@@ -699,12 +703,16 @@ def _create_camera_calibration_task(
         "role": role,
         "provider": provider,
         "source": source,
+        "method": method,
+        "openrouter_model": openrouter_model,
+        "apply_color_profile": bool(apply_color_profile),
         "status": "queued",
         "stage": "queued",
         "message": "Queued camera calibration.",
         "progress": 0.0,
         "result": None,
         "analysis_preview": None,
+        "advisor_trace": [],
         "error": None,
         "created_at": time.time(),
         "updated_at": time.time(),
@@ -1261,12 +1269,20 @@ def _cleanup_old_gallery_dirs(max_age_seconds: float = 3600.0) -> None:
 def _run_camera_calibration_sync(
     role: str,
     *,
+    method: str = DEFAULT_CAMERA_CALIBRATION_METHOD,
+    openrouter_model: str | None = None,
+    max_iterations: int = DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS,
+    apply_color_profile: bool = True,
     report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+    report_trace: Callable[[List[Dict[str, Any]]], None] | None = None,
     task_id: str | None = None,
 ) -> Dict[str, Any]:
     current_response = get_camera_device_settings(role)
     source = current_response.get("source")
     provider = current_response.get("provider")
+    normalized_method = _normalize_camera_calibration_method(method)
+    normalized_openrouter_model = _normalize_llm_calibration_model(openrouter_model)
+    normalized_max_iterations = _normalize_llm_calibration_iterations(max_iterations)
     if source is None:
         raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
     if not bool(current_response.get("supported")):
@@ -1343,14 +1359,37 @@ def _run_camera_calibration_sync(
         )
         raw_analysis_obj = analyze_color_plate_target(raw_frame) if raw_frame is not None else None
         raw_analysis = raw_analysis_obj.to_dict() if raw_analysis_obj is not None else analysis
-        profile_payload = generate_color_profile_from_analysis(raw_analysis, response_curve=response_curve_data)
-        if profile_payload is None:
+        profile_saved: Dict[str, Any] | None = None
+        if not apply_color_profile:
+            # User opted out of final color correction. Persist a disabled
+            # profile so the live capture pipeline (vision_manager) skips
+            # correction going forward, regardless of what the target analysis
+            # would have suggested.
+            if report_progress is not None:
+                report_progress("profile_generation", 0.95, "Skipping color correction profile per user request.", raw_analysis)
+            profile_saved = _save_camera_color_profile(role, {"enabled": False})
+        elif raw_analysis is not None:
+            if report_progress is not None:
+                report_progress("profile_generation", 0.95, "Generating a color correction profile from the target plate.", raw_analysis)
+            profile_payload = generate_color_profile_from_analysis(raw_analysis, response_curve=response_curve_data)
+            if profile_payload is None and normalized_method == CALIBRATION_METHOD_TARGET_PLATE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Calibration found the target, but could not generate a color profile from it.",
+                )
+            if profile_payload is not None:
+                profile_saved = _save_camera_color_profile(role, profile_payload)
+        elif normalized_method == CALIBRATION_METHOD_TARGET_PLATE:
             raise HTTPException(
                 status_code=400,
-                detail="Calibration found the target, but could not generate a color profile from it.",
+                detail="Calibration found device settings, but could not re-analyze the target plate afterwards.",
             )
 
-        profile_saved = _save_camera_color_profile(role, profile_payload)
+        # If we disabled the live color profile for the LLM loop but never
+        # generated a replacement, restore the original profile to the live
+        # capture thread so we don't leave the camera with no correction.
+        if live_color_profile_disabled and profile_saved is None:
+            _push_live_color_profile(role, original_color_profile)
 
         if report_progress is not None:
             report_progress("verifying", 0.98, "Verifying the calibrated profile on the live feed.", raw_analysis)
@@ -1365,10 +1404,11 @@ def _run_camera_calibration_sync(
         if final_frame is not None:
             from vision.camera import apply_camera_color_profile, apply_picture_settings
 
-            final_frame = apply_camera_color_profile(
-                final_frame,
-                parseCameraColorProfile(profile_saved.get("profile")),
-            )
+            if apply_color_profile:
+                final_frame = apply_camera_color_profile(
+                    final_frame,
+                    parseCameraColorProfile(profile_saved.get("profile") if profile_saved is not None else original_color_profile),
+                )
             final_frame = apply_picture_settings(
                 final_frame,
                 parseCameraPictureSettings(original_picture_settings),
@@ -1376,13 +1416,84 @@ def _run_camera_calibration_sync(
 
         final_analysis = analyze_color_plate_target(final_frame) if final_frame is not None else None
         chosen_analysis = final_analysis.to_dict() if final_analysis is not None else raw_analysis
+
+        # LLM-guided calibration: send the CCM-corrected frame back to the advisor
+        # for a final sign-off so the trace shows whether the finished pipeline is
+        # actually acceptable.
+        if (
+            normalized_method == CALIBRATION_METHOD_LLM_GUIDED
+            and final_frame is not None
+        ):
+            existing_trace_raw = calibration_metadata.get("trace")
+            existing_trace: List[Dict[str, Any]] = (
+                list(existing_trace_raw) if isinstance(existing_trace_raw, list) else []
+            )
+            iteration_numbers = [
+                int(entry.get("iteration"))
+                for entry in existing_trace
+                if isinstance(entry, dict) and isinstance(entry.get("iteration"), int)
+            ]
+            next_iteration_index = (max(iteration_numbers) + 1) if iteration_numbers else 1
+            advisor_history_step = len(existing_trace) + 1
+            if report_progress is not None:
+                report_progress(
+                    "llm_final_review",
+                    0.99,
+                    "Asking the advisor to sign off on the color-corrected result.",
+                    chosen_analysis,
+                )
+            review_entry = _run_llm_final_review(
+                role=role,
+                gallery_dir=gallery_dir,
+                openrouter_model=normalized_openrouter_model,
+                final_frame=final_frame,
+                final_settings=best_settings,
+                profile_present=profile_saved is not None,
+                last_loop_summary=str(calibration_metadata.get("summary") or ""),
+                next_iteration_index=next_iteration_index,
+                advisor_history_step=advisor_history_step,
+            )
+            existing_trace.append(review_entry)
+            calibration_metadata["trace"] = existing_trace
+            calibration_metadata["final_review"] = review_entry
+            if report_trace is not None:
+                report_trace([dict(entry) for entry in existing_trace])
+
+        if normalized_method == CALIBRATION_METHOD_LLM_GUIDED:
+            review_status = ""
+            review_obj = calibration_metadata.get("final_review")
+            if isinstance(review_obj, dict):
+                review_status = str(review_obj.get("status") or "").strip().lower()
+            if not apply_color_profile:
+                base_msg = "Camera settings were tuned by the LLM advisor. Final color correction was disabled — no color profile is applied."
+            elif profile_saved is not None:
+                base_msg = "Camera settings were tuned by the LLM advisor and a fresh color profile was generated from the target plate."
+            else:
+                base_msg = "Camera settings were tuned by the LLM advisor. The existing color profile was kept because the target plate was not confidently re-analyzed."
+            if review_status == "approved":
+                message = f"{base_msg} Advisor signed off on the corrected image."
+            elif review_status == "concerns":
+                message = f"{base_msg} Advisor flagged remaining concerns — review the trace."
+            else:
+                message = base_msg
+        else:
+            if not apply_color_profile:
+                message = "Camera calibrated from the 6-color target plate. Final color correction was disabled per request."
+            else:
+                message = "Camera calibrated from the 6-color target plate, and a color profile was generated."
         result = {
             **saved,
-            "color_profile": profile_saved.get("profile"),
+            "color_profile": profile_saved.get("profile") if profile_saved is not None else original_color_profile,
             "analysis": chosen_analysis,
             "gallery_id": gallery_id,
-            "message": "Camera calibrated from the 6-color target plate, and a color profile was generated.",
+            "message": message,
+            "method": normalized_method,
         }
+        if normalized_method == CALIBRATION_METHOD_LLM_GUIDED:
+            result["openrouter_model"] = calibration_metadata.get("openrouter_model")
+            result["advisor_trace"] = calibration_metadata.get("trace")
+            result["advisor_summary"] = calibration_metadata.get("summary")
+            result["advisor_final_review"] = calibration_metadata.get("final_review")
         if report_progress is not None:
             report_progress("completed", 1.0, "Camera calibration finished.", result.get("analysis"))
         return result
@@ -1396,7 +1507,15 @@ def _run_camera_calibration_sync(
         raise HTTPException(status_code=500, detail=f"Camera calibration failed: {exc}")
 
 
-def _run_camera_calibration_task(task_id: str, role: str) -> None:
+def _run_camera_calibration_task(
+    task_id: str,
+    role: str,
+    *,
+    method: str = DEFAULT_CAMERA_CALIBRATION_METHOD,
+    openrouter_model: str | None = None,
+    max_iterations: int = DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS,
+    apply_color_profile: bool = True,
+) -> None:
     def report_progress(stage: str, progress: float, message: str, analysis: Dict[str, Any] | None = None) -> None:
         _update_camera_calibration_task(
             task_id,
@@ -1415,7 +1534,16 @@ def _run_camera_calibration_task(task_id: str, role: str) -> None:
             progress=0.01,
             message="Starting camera calibration.",
         )
-        result = _run_camera_calibration_sync(role, report_progress=report_progress, task_id=task_id)
+        result = _run_camera_calibration_sync(
+            role,
+            method=method,
+            openrouter_model=openrouter_model,
+            max_iterations=max_iterations,
+            apply_color_profile=apply_color_profile,
+            report_progress=report_progress,
+            report_trace=report_trace,
+            task_id=task_id,
+        )
         _update_camera_calibration_task(
             task_id,
             status="completed",
@@ -1524,6 +1652,13 @@ class CameraPictureSettingsPayload(BaseModel):
     rotation: int = 0
     flip_horizontal: bool = False
     flip_vertical: bool = False
+
+
+class CameraCalibrationStartPayload(BaseModel):
+    method: Optional[str] = None
+    openrouter_model: Optional[str] = None
+    max_iterations: Optional[int] = None
+    apply_color_profile: Optional[bool] = None
 
 
 # ===================================================================
@@ -2345,19 +2480,43 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
 
 
 @router.post("/api/cameras/device-settings/{role}/calibrate-target")
-def start_camera_device_settings_calibration_from_target(role: str) -> Dict[str, Any]:
+def start_camera_device_settings_calibration_from_target(
+    role: str,
+    payload: CameraCalibrationStartPayload | None = None,
+) -> Dict[str, Any]:
     current_response = get_camera_device_settings(role)
     source = current_response.get("source")
     provider = str(current_response.get("provider") or "unknown")
+    method = _normalize_camera_calibration_method(payload.method if payload is not None else None)
+    openrouter_model = _normalize_llm_calibration_model(payload.openrouter_model if payload is not None else None)
+    max_iterations = _normalize_llm_calibration_iterations(payload.max_iterations if payload is not None else None)
+    apply_color_profile = True
+    if payload is not None and payload.apply_color_profile is not None:
+        apply_color_profile = bool(payload.apply_color_profile)
     if source is None:
         raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
     if not bool(current_response.get("supported")):
         raise HTTPException(status_code=400, detail=current_response.get("message") or "This camera cannot be calibrated through the current control backend.")
+    if method == CALIBRATION_METHOD_LLM_GUIDED and not os.getenv("OPENROUTER_API_KEY"):
+        raise HTTPException(status_code=400, detail="OpenRouter API key is required for LLM-guided calibration.")
 
-    task_id = _create_camera_calibration_task(role, provider, source)
+    task_id = _create_camera_calibration_task(
+        role,
+        provider,
+        source,
+        method=method,
+        openrouter_model=openrouter_model if method == CALIBRATION_METHOD_LLM_GUIDED else None,
+        apply_color_profile=apply_color_profile,
+    )
     thread = threading.Thread(
         target=_run_camera_calibration_task,
         args=(task_id, role),
+        kwargs={
+            "method": method,
+            "openrouter_model": openrouter_model if method == CALIBRATION_METHOD_LLM_GUIDED else None,
+            "max_iterations": max_iterations,
+            "apply_color_profile": apply_color_profile,
+        },
         daemon=True,
     )
     thread.start()

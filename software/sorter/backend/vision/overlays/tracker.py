@@ -1,0 +1,119 @@
+"""Overlay that renders persistent track IDs + velocity vectors.
+
+Reads the latest track list from a callable so the overlay stays decoupled
+from the VisionManager — inject via
+``TrackOverlay(lambda: vm.getFeederTracks(role))``.
+"""
+
+from __future__ import annotations
+
+from typing import Callable
+
+import cv2
+import numpy as np
+
+
+# BGR to match OpenCV.
+COLOR_ACTIVE = (0, 200, 0)       # green
+COLOR_COASTING = (0, 200, 200)   # amber
+COLOR_HANDOFF = (220, 80, 220)   # magenta pop for fresh cross-camera pickup
+COLOR_LABEL_BG = (0, 0, 0)
+
+LABEL_FONT = cv2.FONT_HERSHEY_SIMPLEX
+LABEL_SCALE = 0.6
+LABEL_THICKNESS = 1
+BOX_THICKNESS = 1
+LABEL_PAD_PX = 3
+
+VELOCITY_MIN_MAGNITUDE_PX_S = 40.0
+VELOCITY_VECTOR_SCALE_S = 0.25
+
+# 4-digit zero-padded display code wraps after this many IDs — a short,
+# readable label that stays the same length forever. 10 000 is plenty for a
+# single session; once it wraps, collisions with earlier long-dead tracks are
+# cosmetic only (the internal ``global_id`` stays unique).
+DISPLAY_ID_MODULO = 10_000
+
+
+def format_track_label(global_id: int) -> str:
+    """Deterministic 4-digit display code for a track's ``global_id``.
+
+    Uses Knuth's multiplicative hash before taking the modulo so consecutive
+    IDs scatter across the label space instead of showing ``#0001 #0002 …``
+    (which reads as "obviously sequential" and draws the eye to the running
+    count). Still fully deterministic — same ``global_id`` → same label.
+    """
+    mixed = (int(global_id) * 2654435761) & 0xFFFFFFFF
+    return f"{mixed % DISPLAY_ID_MODULO:04d}"
+
+
+def _label_color_for(track) -> tuple[int, int, int]:
+    # Pieces that inherited their ID from an upstream camera stay magenta for
+    # their whole lifetime — makes handoff events easy to spot while they ride
+    # the downstream channel toward the carousel.
+    if track.handoff_from is not None:
+        return COLOR_HANDOFF
+    if track.coasting:
+        return COLOR_COASTING
+    return COLOR_ACTIVE
+
+
+class TrackOverlay:
+    """Thin green bbox + compact #id pill + optional velocity arrow."""
+
+    category = "detections"
+
+    def __init__(self, get_tracks: Callable[[], list]):
+        self._get_tracks = get_tracks
+
+    def annotate(self, frame: np.ndarray) -> np.ndarray:
+        tracks = self._get_tracks() or []
+        for track in tracks:
+            bbox = getattr(track, "bbox", None)
+            if bbox is None:
+                continue
+            x1, y1, x2, y2 = [int(round(v)) for v in bbox]
+            color = _label_color_for(track)
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, BOX_THICKNESS, cv2.LINE_AA)
+
+            label = f"#{format_track_label(track.global_id)}"
+            (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, LABEL_SCALE, LABEL_THICKNESS)
+            pad = LABEL_PAD_PX
+            pill_w = tw + pad * 2
+            pill_h = th + pad * 2
+            pill_x1 = x1
+            pill_y1 = max(0, y1 - pill_h - 1)
+            pill_x2 = pill_x1 + pill_w
+            pill_y2 = pill_y1 + pill_h
+
+            # Dark background pill → readable over any background.
+            cv2.rectangle(frame, (pill_x1, pill_y1), (pill_x2, pill_y2), COLOR_LABEL_BG, -1)
+            cv2.putText(
+                frame,
+                label,
+                (pill_x1 + pad, pill_y2 - pad - 1),
+                LABEL_FONT,
+                LABEL_SCALE,
+                color,
+                LABEL_THICKNESS,
+                cv2.LINE_AA,
+            )
+
+            vx, vy = track.velocity_px_per_s
+            magnitude = float(np.hypot(vx, vy))
+            if magnitude >= VELOCITY_MIN_MAGNITUDE_PX_S:
+                cx, cy = track.center
+                end_x = int(round(cx + vx * VELOCITY_VECTOR_SCALE_S))
+                end_y = int(round(cy + vy * VELOCITY_VECTOR_SCALE_S))
+                cv2.arrowedLine(
+                    frame,
+                    (int(round(cx)), int(round(cy))),
+                    (end_x, end_y),
+                    color,
+                    1,
+                    cv2.LINE_AA,
+                    tipLength=0.3,
+                )
+
+        return frame

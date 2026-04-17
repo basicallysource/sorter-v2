@@ -16,6 +16,10 @@ CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
 CH1_STALL_ALERT_PREFIX = "Feeder transport blocked"
 FEEDER_DETECTION_ALERT_PREFIX = "Feeder camera detection unavailable"
 FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
+# Cap pieces on c_channel_2 before c_channel_1 may feed more in. Keeps the
+# bulk feeder from piling up the transport channel — c_channel_3 can only
+# swallow one piece at a time so anything beyond this number is dead weight.
+MAX_CH2_PIECES_FOR_CH1_FEED = 5
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -62,7 +66,7 @@ class Feeding(BaseState):
                 isinstance(shared_state.hardware_error, str)
                 and shared_state.hardware_error.startswith(CH1_STALL_ALERT_PREFIX)
             ):
-                shared_state.hardware_error = None
+                shared_state.setHardwareStatus(clear_error=True)
 
     def _clearFeederDetectionAlertIfOwned(self) -> None:
         with shared_state.hardware_lifecycle_lock:
@@ -70,7 +74,7 @@ class Feeding(BaseState):
                 isinstance(shared_state.hardware_error, str)
                 and shared_state.hardware_error.startswith(FEEDER_DETECTION_ALERT_PREFIX)
             ):
-                shared_state.hardware_error = None
+                shared_state.setHardwareStatus(clear_error=True)
 
     def _pauseMachineForCh1Stall(self, max_levels: int) -> None:
         if self._ch1_pause_enqueued:
@@ -84,7 +88,7 @@ class Feeding(BaseState):
         self.gc.profiler.hit("feeder.ch1_jam_recovery.exhausted")
         self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_recovery_exhausted")
         with shared_state.hardware_lifecycle_lock:
-            shared_state.hardware_error = message
+            shared_state.setHardwareStatus(error=message)
 
         if shared_state.command_queue is not None:
             shared_state.command_queue.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
@@ -104,7 +108,7 @@ class Feeding(BaseState):
         self.gc.profiler.hit("feeder.detection_unavailable")
         self.gc.runtime_stats.observeBlockedReason("feeder", "detection_unavailable")
         with shared_state.hardware_lifecycle_lock:
-            shared_state.hardware_error = message
+            shared_state.setHardwareStatus(error=message)
 
         if shared_state.command_queue is not None:
             shared_state.command_queue.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
@@ -436,9 +440,24 @@ class Feeding(BaseState):
                     prof.hit("feeder.skip.ch2_dropzone_occupied")
                     self.gc.runtime_stats.observeBlockedReason("feeder", "ch2_blocked_by_ch3_dropzone")
 
-                # channel 1 — only pulse if ch2 dropzone is clear
+                # channel 1 — only pulse if ch2 dropzone is clear AND the rest
+                # of ch2 isn't already saturated with tracked pieces.
                 ch1_jam_recovery_triggered = False
-                if not analysis.ch2_dropzone_occupied:
+                try:
+                    ch2_piece_count = len(self.vision.getFeederTracks("c_channel_2"))
+                except Exception:
+                    ch2_piece_count = 0
+                ch2_saturated = ch2_piece_count >= MAX_CH2_PIECES_FOR_CH1_FEED
+                if not analysis.ch2_dropzone_occupied and ch2_saturated:
+                    prof.hit("feeder.skip.ch2_saturated")
+                    self.gc.runtime_stats.observeBlockedReason(
+                        "feeder", "ch2_saturated_pause_ch1"
+                    )
+                    self._setOccupancyState(
+                        "feeder.ch1",
+                        f"feeding.ch2_saturated_{ch2_piece_count}_pieces",
+                    )
+                elif not analysis.ch2_dropzone_occupied:
                     prof.hit("feeder.path.ch1")
                     no_recent_ch2_activity = (
                         now - self._last_ch2_activity_at >= fc.first_rotor_jam_timeout_s

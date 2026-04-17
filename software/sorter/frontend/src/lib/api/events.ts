@@ -91,6 +91,38 @@ export interface RuntimeStatsEvent {
   tag: "runtime_stats";
   data: RuntimeStatsData;
 }
+export interface SystemStatusData {
+  hardware_state: string;
+  hardware_error: string | null;
+  homing_step: string | null;
+}
+export interface SystemStatusEvent {
+  tag: "system_status";
+  data: SystemStatusData;
+}
+export interface SorterStateData {
+  state: string;
+  camera_layout: string | null;
+}
+export interface SorterStateEvent {
+  tag: "sorter_state";
+  data: SorterStateData;
+}
+export interface CamerasConfigData {
+  cameras: Record<string, number | string | null>;
+}
+export interface CamerasConfigEvent {
+  tag: "cameras_config";
+  data: CamerasConfigData;
+}
+export interface SortingProfileStatusData {
+  sync_state: Record<string, unknown>;
+  local_profile: Record<string, unknown>;
+}
+export interface SortingProfileStatusEvent {
+  tag: "sorting_profile_status";
+  data: SortingProfileStatusData;
+}
 export interface PauseCommandData {}
 export interface PauseCommandEvent {
   tag: "pause";
@@ -102,4 +134,4 @@ export interface ResumeCommandEvent {
   data: ResumeCommandData;
 }
 
-export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent | CameraHealthEvent | RuntimeStatsEvent;
+export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent | CameraHealthEvent | SystemStatusEvent | SorterStateEvent | CamerasConfigEvent | SortingProfileStatusEvent | RuntimeStatsEvent;

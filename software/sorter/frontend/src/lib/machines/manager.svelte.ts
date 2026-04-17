@@ -1,4 +1,14 @@
-import type { SocketEvent, CameraName, FrameData, KnownObjectData, CameraHealthData } from '$lib/api/events';
+import type {
+	SocketEvent,
+	CameraName,
+	FrameData,
+	KnownObjectData,
+	CameraHealthData,
+	SystemStatusData,
+	SorterStateData,
+	CamerasConfigData,
+	SortingProfileStatusData
+} from '$lib/api/events';
 import type { MachineState, MachineIdentity } from './types';
 import {
 	isIdentityEvent,
@@ -6,7 +16,11 @@ import {
 	isHeartbeatEvent,
 	isKnownObjectEvent,
 	isCameraHealthEvent,
-	isRuntimeStatsEvent
+	isRuntimeStatsEvent,
+	isSystemStatusEvent,
+	isSorterStateEvent,
+	isCamerasConfigEvent,
+	isSortingProfileStatusEvent
 } from './types';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
@@ -146,6 +160,14 @@ export class MachineManager {
 				this.handleCameraHealth(machineId, event.data);
 			} else if (isRuntimeStatsEvent(event)) {
 				this.handleRuntimeStats(machineId, event.data.payload as Record<string, unknown>);
+			} else if (isSystemStatusEvent(event)) {
+				this.handleSystemStatus(machineId, event.data);
+			} else if (isSorterStateEvent(event)) {
+				this.handleSorterState(machineId, event.data);
+			} else if (isCamerasConfigEvent(event)) {
+				this.handleCamerasConfig(machineId, event.data);
+			} else if (isSortingProfileStatusEvent(event)) {
+				this.handleSortingProfileStatus(machineId, event.data);
 			}
 		}
 	}
@@ -169,7 +191,11 @@ export class MachineManager {
 			cameraHealth: existing?.cameraHealth ?? new Map(),
 			lastHeartbeat: null,
 			recentObjects: existing?.recentObjects ?? [],
-			runtimeStats: existing?.runtimeStats ?? null
+			runtimeStats: existing?.runtimeStats ?? null,
+			systemStatus: existing?.systemStatus ?? null,
+			sorterState: existing?.sorterState ?? null,
+			camerasConfig: existing?.camerasConfig ?? null,
+			sortingProfileStatus: existing?.sortingProfileStatus ?? null
 		});
 		this.machines = updated;
 
@@ -244,6 +270,38 @@ export class MachineManager {
 		if (!machine) return;
 		const updated = new Map(this.machines);
 		updated.set(machineId, { ...machine, runtimeStats: payload });
+		this.machines = updated;
+	}
+
+	private handleSystemStatus(machineId: string, data: SystemStatusData): void {
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, { ...machine, systemStatus: data });
+		this.machines = updated;
+	}
+
+	private handleSorterState(machineId: string, data: SorterStateData): void {
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, { ...machine, sorterState: data });
+		this.machines = updated;
+	}
+
+	private handleCamerasConfig(machineId: string, data: CamerasConfigData): void {
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, { ...machine, camerasConfig: data });
+		this.machines = updated;
+	}
+
+	private handleSortingProfileStatus(machineId: string, data: SortingProfileStatusData): void {
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, { ...machine, sortingProfileStatus: data });
 		this.machines = updated;
 	}
 

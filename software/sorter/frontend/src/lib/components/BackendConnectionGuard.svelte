@@ -114,6 +114,13 @@
 			intervalMs: RECOVERY_POLL_MS
 		});
 		if (recovered) {
+			// Full page reload once health is back — some subsystems (WS
+			// reconnection, camera layout, Machine context) only fully
+			// re-initialize on fresh page load after a hard restart.
+			if (typeof window !== 'undefined') {
+				window.location.reload();
+				return;
+			}
 			healthy = true;
 			consecutiveFailures = 0;
 			firstFailureAt = null;

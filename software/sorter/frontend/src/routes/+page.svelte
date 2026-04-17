@@ -17,14 +17,10 @@
 
 	const machine = getMachineContext();
 
-	let camera_layout = $state<string>('default');
-	let cameraConfig = $state<Record<string, number | string | null>>({});
 	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
 	let cropBaseUrl = $state<string | null>(null);
 	let sidebar_width = $state(SIDEBAR_DEFAULT);
-	let hardwareState = $state<string>('standby');
-	let hardwareError = $state<string | null>(null);
-	let startingSystem = $state(false);
+	let startSystemError = $state<string | null>(null);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
 
@@ -36,57 +32,23 @@
 		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
 	}
 
-	async function fetchState() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/state`);
-			if (res.ok) {
-				const data = await res.json();
-				camera_layout = data.camera_layout ?? 'default';
-			}
-		} catch {
-			// ignore
-		}
-	}
-
-	let homingStep = $state<string | null>(null);
-
-	async function fetchSystemStatus() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/status`);
-			if (res.ok) {
-				const data = await res.json();
-				hardwareState = data.hardware_state ?? 'standby';
-				hardwareError = data.hardware_error ?? null;
-				homingStep = data.homing_step ?? null;
-				startingSystem = hardwareState === 'homing';
-			}
-		} catch {
-			// ignore
-		}
-	}
+	const camera_layout = $derived(machine.machine?.sorterState?.camera_layout ?? 'default');
+	const cameraConfig = $derived<Record<string, number | string | null>>(
+		machine.machine?.camerasConfig?.cameras ?? {}
+	);
+	const hardwareState = $derived(machine.machine?.systemStatus?.hardware_state ?? 'standby');
+	const hardwareError = $derived(
+		startSystemError ?? machine.machine?.systemStatus?.hardware_error ?? null
+	);
+	const homingStep = $derived(machine.machine?.systemStatus?.homing_step ?? null);
+	const startingSystem = $derived(hardwareState === 'homing');
 
 	async function startSystem() {
-		startingSystem = true;
-		hardwareError = null;
+		startSystemError = null;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
-			if (res.ok) {
-				hardwareState = 'homing';
-			}
+			await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
 		} catch (e: any) {
-			hardwareError = e.message ?? 'Failed to home system';
-			startingSystem = false;
-		}
-	}
-
-	async function fetchCameraConfig() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/config`);
-			if (res.ok) {
-				cameraConfig = await res.json();
-			}
-		} catch {
-			// ignore
+			startSystemError = e?.message ?? 'Failed to home system';
 		}
 	}
 
@@ -153,18 +115,9 @@
 	};
 
 	onMount(() => {
-		void fetchState();
-		void fetchCameraConfig();
-		void fetchSystemStatus();
 		if (machine.machine) {
 			void fetchDashboardCrops(currentBackendBaseUrl());
 		}
-		const interval = setInterval(() => {
-			void fetchState();
-			void fetchCameraConfig();
-			void fetchSystemStatus();
-		}, 2000);
-		return () => clearInterval(interval);
 	});
 </script>
 
@@ -185,6 +138,8 @@
 									camera="c_channel_2"
 									label={CAMERA_LABELS.c_channel_2}
 									crop={cropFor('c_channel_2')}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -192,6 +147,8 @@
 									camera="c_channel_3"
 									label={CAMERA_LABELS.c_channel_3}
 									crop={cropFor('c_channel_3')}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
@@ -201,6 +158,8 @@
 									camera="carousel"
 									label={CAMERA_LABELS.carousel}
 									crop={cropFor('carousel')}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}
@@ -247,6 +206,8 @@
 												label={CAMERA_LABELS[classification_camera]}
 												crop={cropFor(classification_camera)}
 												showHeader={false}
+												source="ws"
+												controls={[]}
 												bind:layer={classification_layer}
 											/>
 										</div>
@@ -266,6 +227,8 @@
 									camera="feeder"
 									label={CAMERA_LABELS.feeder}
 									crop={cropFor('feeder')}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -273,6 +236,8 @@
 									camera={classification_camera}
 									label={CAMERA_LABELS[classification_camera]}
 									crop={cropFor(classification_camera)}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
@@ -283,6 +248,8 @@
 									camera="feeder"
 									label={CAMERA_LABELS.feeder}
 									crop={cropFor('feeder')}
+									source="ws"
+									controls={["annotations", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}
@@ -328,6 +295,8 @@
 											label={CAMERA_LABELS[classification_camera]}
 											crop={cropFor(classification_camera)}
 											showHeader={false}
+											controls={[]}
+											source="ws"
 											bind:layer={classification_layer}
 										/>
 									</div>
@@ -339,7 +308,7 @@
 
 			<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
 
-			<div class="flex min-h-0 flex-shrink-0 flex-col gap-3" style="width: {sidebar_width}px;">
+			<div class="flex min-h-0 flex-shrink-0 flex-col gap-3 overflow-hidden" style="width: {sidebar_width}px;">
 				{#if hardwareState !== 'ready'}
 					<div class="shrink-0 border border-border bg-bg px-4 py-3">
 						{#if hardwareState === 'standby'}
@@ -351,7 +320,7 @@
 								<button
 									onclick={startSystem}
 									disabled={startingSystem}
-									class="shrink-0 cursor-pointer border border-[#00852B] bg-[#00852B] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#00852B]/90 disabled:cursor-not-allowed disabled:opacity-50"
+									class="shrink-0 cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									Home
 								</button>
@@ -366,7 +335,7 @@
 							</div>
 						{:else if hardwareState === 'error'}
 							<div class="flex flex-col gap-2">
-								<div class="text-sm font-medium text-[#D01012]">Hardware Error</div>
+								<div class="text-sm font-medium text-danger">Hardware Error</div>
 								{#if hardwareError}
 									<div class="text-xs text-text-muted">{hardwareError}</div>
 								{/if}

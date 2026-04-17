@@ -6,7 +6,15 @@ import type {
 	KnownObjectData,
 	KnownObjectEvent,
 	CameraHealthEvent,
-	RuntimeStatsEvent
+	RuntimeStatsEvent,
+	SystemStatusEvent,
+	SystemStatusData,
+	SorterStateEvent,
+	SorterStateData,
+	CamerasConfigEvent,
+	CamerasConfigData,
+	SortingProfileStatusEvent,
+	SortingProfileStatusData
 } from '$lib/api/events';
 
 export type MachineIdentity = MachineIdentityData;
@@ -23,6 +31,10 @@ export interface MachineState {
 	lastHeartbeat: number | null;
 	recentObjects: KnownObjectData[];
 	runtimeStats: Record<string, unknown> | null;
+	systemStatus: SystemStatusData | null;
+	sorterState: SorterStateData | null;
+	camerasConfig: CamerasConfigData | null;
+	sortingProfileStatus: SortingProfileStatusData | null;
 }
 
 export interface MachinesContext {
@@ -67,4 +79,22 @@ export function isCameraHealthEvent(event: SocketEvent): event is CameraHealthEv
 
 export function isRuntimeStatsEvent(event: SocketEvent): event is RuntimeStatsEvent {
 	return event.tag === 'runtime_stats';
+}
+
+export function isSystemStatusEvent(event: SocketEvent): event is SystemStatusEvent {
+	return event.tag === 'system_status';
+}
+
+export function isSorterStateEvent(event: SocketEvent): event is SorterStateEvent {
+	return event.tag === 'sorter_state';
+}
+
+export function isCamerasConfigEvent(event: SocketEvent): event is CamerasConfigEvent {
+	return event.tag === 'cameras_config';
+}
+
+export function isSortingProfileStatusEvent(
+	event: SocketEvent
+): event is SortingProfileStatusEvent {
+	return event.tag === 'sorting_profile_status';
 }

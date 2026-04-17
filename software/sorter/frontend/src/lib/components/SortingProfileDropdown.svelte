@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
@@ -84,14 +84,14 @@
 	const MAX_QUICK_SWITCH_PROFILES = 8;
 
 	let dropdown_open = $state(false);
-	let loading_status = $state(false);
 	let loading_quick_profiles = $state(false);
-	let status_error = $state<string | null>(null);
 	let quick_profiles_error = $state<string | null>(null);
 	let action_error = $state<string | null>(null);
 	let action_message = $state<string | null>(null);
 	let applying_key = $state<string | null>(null);
-	let status = $state<SortingProfileStatusResponse | null>(null);
+	const status = $derived<SortingProfileStatusResponse | null>(
+		(manager.selectedMachine?.sortingProfileStatus as SortingProfileStatusResponse | null | undefined) ?? null
+	);
 	let profile_library = $state<SortingProfileLibraryResponse | null>(null);
 	let recent_profiles = $state<RecentSortingProfileEntry[]>([]);
 	let quick_profiles = $state<QuickSwitchProfileEntry[]>([]);
@@ -263,41 +263,13 @@
 		}
 	}
 
-	async function loadStatus() {
-		if (!manager.selectedMachineId) {
-			status = null;
-			status_error = null;
-			recent_profiles = [];
-			loading_status = false;
-			return;
-		}
-
-		loading_status = true;
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/sorting-profiles/status`);
-			if (!res.ok) {
-				const body = await res.json().catch(() => null);
-				throw new Error(body?.detail ?? `HTTP ${res.status}`);
-			}
-			status = (await res.json()) as SortingProfileStatusResponse;
-			status_error = null;
-			rememberCurrentProfile();
-		} catch (e: unknown) {
-			status_error = e instanceof Error ? e.message : 'Failed to load sorting profile status';
-			refreshRecentProfiles();
-			rebuildQuickProfiles();
-		} finally {
-			loading_status = false;
-		}
-	}
-
 	async function toggleDropdown() {
 		if (!manager.selectedMachineId) return;
 		dropdown_open = !dropdown_open;
 		if (dropdown_open) {
 			action_error = null;
 			action_message = null;
-			await Promise.all([loadStatus(), loadQuickProfileLibrary()]);
+			await loadQuickProfileLibrary();
 		}
 	}
 
@@ -333,7 +305,7 @@
 			const payload = await res.json().catch(() => null);
 			recent_profiles = rememberRecentSortingProfile(currentMachineKey(), { ...entry, last_used_at: null });
 			await sortingProfileStore.reload(currentBackendBaseUrl()).catch(() => null);
-			await Promise.all([loadStatus(), loadQuickProfileLibrary()]);
+			await loadQuickProfileLibrary();
 			action_message = payload?.activation_error
 				? `Applied ${entry.profile_name} locally. Hive activation could not be confirmed.`
 				: `Switched to ${entry.profile_name}.`;
@@ -373,14 +345,15 @@
 		profile_library = null;
 		refreshRecentProfiles();
 		rebuildQuickProfiles();
-		void loadStatus();
 	});
 
-	onMount(() => {
-		const interval = setInterval(() => {
-			void loadStatus();
-		}, 10000);
-		return () => clearInterval(interval);
+	// Re-remember the currently-applied profile whenever a new WS snapshot arrives.
+	// `untrack` so writes to recent_profiles/quick_profiles inside the helper don't
+	// loop the effect back through their own deps.
+	$effect(() => {
+		if (status) {
+			untrack(() => rememberCurrentProfile());
+		}
 	});
 </script>
 
@@ -413,7 +386,7 @@
 								v{current_profile_version}{current_profile_version_label ? ` - ${current_profile_version_label}` : ''}
 							</span>
 						{/if}
-						<span class="border border-[#00852B]/30 bg-[#00852B]/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-[#00852B]">Active</span>
+						<span class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success">Active</span>
 					</div>
 				</div>
 				<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
@@ -437,22 +410,17 @@
 
 			<div>
 				{#if action_message}
-					<div class="mx-3 mb-2 border border-[#00852B]/20 bg-[#00852B]/8 px-2.5 py-2 text-xs text-[#00852B]">
+					<div class="mx-3 mb-2 border border-success/20 bg-success/8 px-2.5 py-2 text-xs text-success">
 						{action_message}
 					</div>
 				{/if}
 				{#if action_error}
-					<div class="mx-3 mb-2 border border-[#D01012]/20 bg-[#D01012]/8 px-2.5 py-2 text-xs text-[#D01012]">
+					<div class="mx-3 mb-2 border border-danger/20 bg-danger/8 px-2.5 py-2 text-xs text-danger">
 						{action_error}
 					</div>
 				{/if}
-				{#if status_error}
-					<div class="mx-3 mb-2 border border-[#D01012]/20 bg-[#D01012]/8 px-2.5 py-2 text-xs text-[#D01012]">
-						{status_error}
-					</div>
-				{/if}
 				{#if quick_profiles_error}
-					<div class="mx-3 mb-2 border border-[#D01012]/20 bg-[#D01012]/8 px-2.5 py-2 text-xs text-[#D01012]">
+					<div class="mx-3 mb-2 border border-danger/20 bg-danger/8 px-2.5 py-2 text-xs text-danger">
 						{quick_profiles_error}
 					</div>
 				{/if}

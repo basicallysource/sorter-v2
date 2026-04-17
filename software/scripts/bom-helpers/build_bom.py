@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 import sys
 import argparse
 from collections import defaultdict
@@ -177,21 +178,142 @@ def merge(*totals_list):
     return merged
 
 
+SCREW_RE = re.compile(r'M(\d+)x([\d.]+)\s*x\s*(\d+)')
+NUT_RE = re.compile(r'M(\d+)(?:x([\d.]+))?')
+RUTHEX_RX_RE = re.compile(r'RX-M(\d+)-([\d.,]+)')
+RUTHEX_M_RE = re.compile(r'M(\d+)(?:x([\d.]+))?')
+
+
+class BOMNameParseError(ValueError):
+    """Raised when a BOM item name doesn't match the expected pattern for
+    its category. Fail loud so drifted names get caught instead of silently
+    producing blank fields."""
+
+
+def parse_screw(name):
+    m = SCREW_RE.search(name)
+    if not m:
+        raise BOMNameParseError(
+            f"screw name does not match expected 'M<n>x<pitch> x <length>' pattern: {name!r}. "
+            f"Fix the BOM entry or update SCREW_RE in build_bom.py."
+        )
+    size = f'M{m.group(1)}'
+    pitch = m.group(2)
+    length = m.group(3)
+    n = name.lower()
+    if 'button' in n:
+        head = 'button'
+    elif 'countersunk' in n:
+        head = 'countersunk'
+    elif 'socket head' in n or 'cap' in n:
+        head = 'socket cap'
+    else:
+        raise BOMNameParseError(
+            f"screw head type not recognized in name: {name!r}. "
+            f"Expected one of: button, countersunk, socket head/cap."
+        )
+    grade = ''
+    gm = re.search(r'grade\s+[A-Za-z&\s]+?(?=\s+M\d|$)', name, re.IGNORECASE)
+    if gm:
+        grade = gm.group(0).replace('grade', '').replace('Grade', '').strip()
+    return {'size': size, 'pitch': pitch, 'length_mm': length, 'head_type': head, 'grade': grade}
+
+
+def parse_nut(name):
+    n = name.lower()
+    if 'flange' in n:
+        nut_type = 'flange'
+    elif 'pronged' in n:
+        nut_type = 'pronged'
+    elif 'hex' in n:
+        nut_type = 'hex'
+    else:
+        raise BOMNameParseError(
+            f"nut type not recognized in name: {name!r}. "
+            f"Expected one of: flange, pronged, hex."
+        )
+    m = NUT_RE.search(name)
+    if not m:
+        raise BOMNameParseError(
+            f"nut size (M<n>) not found in name: {name!r}. "
+            f"Fix the BOM entry or update NUT_RE in build_bom.py."
+        )
+    return {'size': f'M{m.group(1)}', 'pitch': m.group(2) or '', 'type': nut_type}
+
+
+def parse_heat_insert(name):
+    rx = RUTHEX_RX_RE.search(name)
+    if rx:
+        return {'size': f'M{rx.group(1)}', 'depth_mm': rx.group(2).replace(',', '.')}
+    m = RUTHEX_M_RE.search(name)
+    if m:
+        return {'size': f'M{m.group(1)}', 'depth_mm': m.group(2) or ''}
+    raise BOMNameParseError(
+        f"heat insert size (M<n>) not found in name: {name!r}. "
+        f"Expected 'Ruthex M<n>...' or 'RX-M<n>-<depth>'."
+    )
+
+
 def write_csv(path, totals, descs, label, lengths):
-    rows = []
+    qty_col = f'quantity_{label}'
+    buckets = defaultdict(list)
     for (cat, name), qty in totals.items():
+        buckets[cat].append((name, qty))
+
+    sections = []
+
+    aluminum_rows = []
+    for name, qty in buckets.get('aluminum', []):
         canonical = CANONICAL_ALIAS.get(name, name)
         length = lengths.get(name, lengths.get(canonical, ''))
-        notes = ''
-        if canonical != name:
-            notes = f"canonical name: {canonical}"
-        rows.append((cat, name, qty, length, descs.get((cat, name), ''), notes))
-    rows.sort(key=lambda r: (r[0], r[1]))
+        notes = '' if name in ALUMINUM_EXTRUSION_NAMES else 'not an extrusion'
+        aluminum_rows.append((name, canonical if canonical != name else '', qty, length, notes))
+    sections.append((
+        '# aluminum',
+        ['name', 'canonical', qty_col, 'length_mm', 'notes'],
+        sorted(aluminum_rows),
+    ))
+
+    screw_rows = []
+    for name, qty in buckets.get('screw', []):
+        p = parse_screw(name)
+        screw_rows.append((p['size'], p['pitch'], p['length_mm'], p['head_type'],
+                           p['grade'], qty, name))
+    sections.append((
+        '# screws',
+        ['size', 'pitch', 'length_mm', 'head_type', 'grade', qty_col, 'name'],
+        sorted(screw_rows, key=lambda r: (r[0], r[3], int(r[2] or 0))),
+    ))
+
+    nut_rows = []
+    for name, qty in buckets.get('nut', []):
+        p = parse_nut(name)
+        nut_rows.append((p['size'], p['pitch'], p['type'], qty, name))
+    sections.append((
+        '# nuts',
+        ['size', 'pitch', 'type', qty_col, 'name'],
+        sorted(nut_rows, key=lambda r: (r[0], r[2])),
+    ))
+
+    heat_rows = []
+    for name, qty in buckets.get('heat_insert', []):
+        p = parse_heat_insert(name)
+        heat_rows.append((p['size'], p['depth_mm'], qty, name))
+    sections.append((
+        '# heat_inserts',
+        ['size', 'depth_mm', qty_col, 'name'],
+        sorted(heat_rows, key=lambda r: (r[0], r[1])),
+    ))
+
     with open(path, 'w', newline='') as f:
         w = csv.writer(f)
-        w.writerow(['category', 'name', f'quantity_{label}', 'length_mm', 'description', 'notes'])
-        for r in rows:
-            w.writerow(r)
+        for i, (title, header, rows) in enumerate(sections):
+            if i > 0:
+                w.writerow([])
+            w.writerow([title])
+            w.writerow(header)
+            for r in rows:
+                w.writerow(r)
 
 
 def main():

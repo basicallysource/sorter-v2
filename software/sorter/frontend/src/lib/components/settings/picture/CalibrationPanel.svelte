@@ -209,6 +209,7 @@
 
 	let {
 		calibrationMethod = $bindable(),
+		calibrationApplyColorProfile = $bindable(true),
 		calibrating,
 		saving,
 		hasCamera,
@@ -222,6 +223,7 @@
 		onCalibrate
 	}: {
 		calibrationMethod: CameraCalibrationMethod;
+		calibrationApplyColorProfile?: boolean;
 		calibrating: boolean;
 		saving: boolean;
 		hasCamera: boolean;
@@ -351,10 +353,28 @@
 			<option value={option.value}>{option.label}</option>
 		{/each}
 	</select>
-	<div class="text-xs leading-5 text-text-muted">
+	<div class="text-sm leading-6 text-text-muted">
 		{selectedCalibrationMethodDescription(calibrationMethod)}
 	</div>
 </label>
+
+{#if calibrationMethod === 'llm_guided'}
+	<label class="flex items-start gap-2 border border-border bg-surface px-3 py-2 text-sm text-text">
+		<input
+			type="checkbox"
+			class="mt-0.5"
+			bind:checked={calibrationApplyColorProfile}
+			disabled={calibrating || saving}
+		/>
+		<span class="flex flex-col gap-0.5">
+			<span class="font-medium">Apply final color correction</span>
+			<span class="text-sm leading-6 text-text-muted">
+				Generate and save a color profile from the target plate after the advisor finishes.
+				Uncheck to tune device settings only and keep the live feed uncorrected.
+			</span>
+		</span>
+	</label>
+{/if}
 
 <button
 	onclick={onCalibrate}
@@ -471,9 +491,9 @@
 	{/if}
 {/if}
 
-{#if calibrating || calibrationMessage}
+{#if calibrating}
 	<div class="flex flex-col gap-2">
-		<div class="flex items-center justify-between gap-3 text-xs">
+		<div class="flex items-center justify-between gap-3 text-sm">
 			<span class="font-medium text-text">
 				{calibrationStageLabel(calibrationStage)}
 			</span>
@@ -487,10 +507,5 @@
 				style={`width: ${Math.max(4, Math.min(100, calibrationProgress * 100))}%`}
 			></div>
 		</div>
-		{#if calibrationMessage}
-			<div class="text-xs text-text-muted">
-				{calibrationMessage}
-			</div>
-		{/if}
 	</div>
 {/if}

@@ -45,6 +45,8 @@
 	import CalibrationPanel, { hasTileDetails } from './picture/CalibrationPanel.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
 	import OrientationPanel from './picture/OrientationPanel.svelte';
+	import LLMCalibrationTrace from '$lib/components/calibration/LLMCalibrationTrace.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let {
 		role,
@@ -59,8 +61,7 @@
 		onSaved,
 		onClose,
 		onPreviewChange,
-		onCalibrationHighlightChange,
-		onCalibrationTraceChange
+		onCalibrationHighlightChange
 	}: {
 		role: CameraRole;
 		label: string;
@@ -78,15 +79,6 @@
 			| undefined;
 		onCalibrationHighlightChange?:
 			| ((bbox: [number, number, number, number] | null) => void)
-			| undefined;
-		onCalibrationTraceChange?:
-			| ((payload: {
-					active: boolean;
-					method: CameraCalibrationMethod;
-					taskId: string | null;
-					trace: CameraCalibrationAdvisorIteration[];
-					galleryEntries: CameraCalibrationGalleryEntry[];
-			  }) => void)
 			| undefined;
 	} = $props();
 
@@ -124,6 +116,7 @@
 	let calibrationNeedsSave = $state(false);
 	const CALIBRATION_METHOD_STORAGE_KEY = 'camera-calibration-method';
 	const CALIBRATION_OPENROUTER_MODEL_STORAGE_KEY = 'camera-calibration-openrouter-model';
+	const CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY = 'camera-calibration-apply-color-profile';
 	const DEFAULT_CALIBRATION_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4.6';
 
 	function loadStoredCalibrationMethod(): CameraCalibrationMethod {
@@ -148,8 +141,22 @@
 		return DEFAULT_CALIBRATION_OPENROUTER_MODEL;
 	}
 
+	function loadStoredCalibrationApplyColorProfile(): boolean {
+		if (typeof window === 'undefined') return true;
+		try {
+			const raw = window.localStorage.getItem(CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY);
+			if (raw === 'false') return false;
+			if (raw === 'true') return true;
+		} catch {
+			// ignore — storage may be disabled
+		}
+		return true;
+	}
+
 	let calibrationMethod = $state<CameraCalibrationMethod>(loadStoredCalibrationMethod());
 	let calibrationOpenrouterModel = $state(loadStoredCalibrationOpenrouterModel());
+	let calibrationApplyColorProfile = $state(loadStoredCalibrationApplyColorProfile());
+	let calibrationTraceEnlarged = $state(false);
 	let calibrationTaskId = $state<string | null>(null);
 	let calibrationAdvisorTrace = $state<CameraCalibrationAdvisorIteration[]>([]);
 	let calibrationGalleryEntries = $state<CameraCalibrationGalleryEntry[]>([]);
@@ -198,16 +205,6 @@
 	}
 
 	$effect(() => {
-		onCalibrationTraceChange?.({
-			active: calibrating,
-			method: calibrationMethod,
-			taskId: calibrationTaskId,
-			trace: calibrationAdvisorTrace,
-			galleryEntries: calibrationGalleryEntries
-		});
-	});
-
-	$effect(() => {
 		if (typeof window === 'undefined') return;
 		try {
 			window.localStorage.setItem(CALIBRATION_METHOD_STORAGE_KEY, calibrationMethod);
@@ -222,6 +219,18 @@
 			window.localStorage.setItem(
 				CALIBRATION_OPENROUTER_MODEL_STORAGE_KEY,
 				calibrationOpenrouterModel
+			);
+		} catch {
+			// ignore — storage may be disabled
+		}
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		try {
+			window.localStorage.setItem(
+				CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY,
+				calibrationApplyColorProfile ? 'true' : 'false'
 			);
 		} catch {
 			// ignore — storage may be disabled
@@ -643,7 +652,8 @@
 				calibrationMethod === 'llm_guided'
 					? {
 							method: calibrationMethod,
-							openrouter_model: calibrationOpenrouterModel
+							openrouter_model: calibrationOpenrouterModel,
+							apply_color_profile: calibrationApplyColorProfile
 						}
 					: {
 							method: calibrationMethod
@@ -887,6 +897,7 @@
 					{#if deviceSupported}
 						<CalibrationPanel
 							bind:calibrationMethod
+							bind:calibrationApplyColorProfile
 							{calibrating}
 							{saving}
 							{hasCamera}
@@ -899,6 +910,19 @@
 							{calibrationNeedsSave}
 							onCalibrate={calibrateFromTarget}
 						/>
+
+						{#if calibrationMethod === 'llm_guided' && (calibrating || calibrationAdvisorTrace.length > 0 || calibrationGalleryEntries.length > 0)}
+							<LLMCalibrationTrace
+								method={calibrationMethod}
+								active={calibrating}
+								taskId={calibrationTaskId}
+								entries={calibrationAdvisorTrace}
+								galleryEntries={calibrationGalleryEntries}
+								backendBaseUrl={backendHttpBaseUrl}
+								compact
+								onEnlarge={() => (calibrationTraceEnlarged = true)}
+							/>
+						{/if}
 					{/if}
 
 					<DeviceControlsPanel
@@ -966,3 +990,14 @@
 		{/if}
 	</div>
 </aside>
+
+<Modal bind:open={calibrationTraceEnlarged} wide title="LLM Calibration Log">
+	<LLMCalibrationTrace
+		method={calibrationMethod}
+		active={calibrating}
+		taskId={calibrationTaskId}
+		entries={calibrationAdvisorTrace}
+		galleryEntries={calibrationGalleryEntries}
+		backendBaseUrl={backendHttpBaseUrl}
+	/>
+</Modal>

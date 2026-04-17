@@ -84,6 +84,15 @@ Thumbs.db
 sorter/backend/logs/
 sorter/backend/blob/
 
+# Training hub — large artifacts stay out of git
+training/datasets/
+training/runs/
+training/hailo_bundles/
+training/staging/
+training/reports_out/
+training/vendor/
+training/.venv/
+
 # Persistent data
 sorter/backend/data.json
 sorter/backend/polygons.json

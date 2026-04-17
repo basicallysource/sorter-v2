@@ -2,6 +2,7 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount, untrack } from 'svelte';
+	import { CheckCircle2, RefreshCcw } from 'lucide-svelte';
 	import BackendToolbar from './storage/BackendToolbar.svelte';
 	import LayerList from './storage/LayerList.svelte';
 	import WaveshareBusTable from './storage/WaveshareBusTable.svelte';
@@ -31,6 +32,7 @@
 		enabled: boolean;
 		servoId: string;
 		invert: boolean;
+		maxPiecesPerBin: string;
 		liveOpen: boolean | null;
 		telemetry: LayerTelemetry;
 		testing: boolean;
@@ -79,6 +81,24 @@
 	let port = $state('');
 	let layers = $state<LayerDraft[]>([]);
 	let liveFeedbackRequestInFlight = false;
+	let baselineSnapshot = $state('');
+
+	const currentSnapshot = $derived(
+		JSON.stringify({
+			backend,
+			openAngle,
+			closedAngle,
+			port: port.trim(),
+			layers: layers.map((l) => ({
+				binCount: l.binCount,
+				enabled: l.enabled,
+				servoId: l.servoId.trim(),
+				invert: l.invert,
+				maxPiecesPerBin: l.maxPiecesPerBin.trim()
+			}))
+		})
+	);
+	const isDirty = $derived(loaded && baselineSnapshot !== currentSnapshot);
 
 	// Waveshare servo bus management
 	let busServos = $state<BusServo[]>([]);
@@ -239,6 +259,10 @@ function applySettings(payload: any) {
 					? ''
 					: String(Number(servoChannels[index].id)),
 			invert: Boolean(servoChannels[index]?.invert),
+			maxPiecesPerBin:
+				typeof layer?.max_pieces_per_bin === 'number' && layer.max_pieces_per_bin > 0
+					? String(Math.floor(layer.max_pieces_per_bin))
+					: '',
 			liveOpen: previousStates.get(Number(layer?.index ?? index + 1))?.liveOpen ?? null,
 			telemetry: previousStates.get(Number(layer?.index ?? index + 1))?.telemetry ?? emptyTelemetry(),
 			testing: false,
@@ -254,6 +278,7 @@ function applySettings(payload: any) {
 			if (!res.ok) throw new Error(await res.text());
 			applySettings(await res.json());
 			loaded = true;
+			baselineSnapshot = currentSnapshot;
 			void loadLiveFeedback();
 			if (backend === 'waveshare') {
 				void loadWaveshareInventory({ refresh: false, silent: true });
@@ -414,10 +439,23 @@ function applySettings(payload: any) {
 		statusMsg = '';
 		try {
 			const layerBinCounts = parsedLayerCounts();
-			const storageLayers = layerBinCounts.map((binCount, index) => ({
-				bin_count: binCount,
-				enabled: layers[index]?.enabled ?? true
-			}));
+			const storageLayers = layerBinCounts.map((binCount, index) => {
+				const draft = layers[index];
+				const trimmed = draft?.maxPiecesPerBin.trim() ?? '';
+				let maxPiecesPerBin: number | null = null;
+				if (trimmed.length > 0) {
+					const parsed = Number(trimmed);
+					if (!Number.isInteger(parsed) || parsed <= 0) {
+						throw new Error(`Layer ${draft?.index ?? index + 1} max pieces per bin must be a positive integer.`);
+					}
+					maxPiecesPerBin = parsed;
+				}
+				return {
+					bin_count: binCount,
+					enabled: draft?.enabled ?? true,
+					max_pieces_per_bin: maxPiecesPerBin
+				};
+			});
 			const channels = parsedServoChannels();
 
 			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
@@ -457,6 +495,7 @@ function applySettings(payload: any) {
 			}
 
 			await loadSettings();
+			baselineSnapshot = currentSnapshot;
 
 			statusMsg = [storagePayload?.message, servoPayload?.message].filter(Boolean).join(' ');
 		} catch (e: any) {
@@ -573,6 +612,7 @@ function addLayer() {
 				enabled: true,
 				servoId: '',
 				invert: false,
+				maxPiecesPerBin: '',
 				liveOpen: null,
 				telemetry: emptyTelemetry(),
 				testing: false,
@@ -581,7 +621,16 @@ function addLayer() {
 		];
 	}
 
+	function updateLayerMaxPieces(index: number, value: string) {
+		layers = layers.map((layer, layerIndex) =>
+			layerIndex === index ? { ...layer, maxPiecesPerBin: value } : layer
+		);
+	}
+
 	function removeLayer(index: number) {
+		const layer = layers[index];
+		const label = layer ? `Layer ${layer.index}` : `layer ${index + 1}`;
+		if (!window.confirm(`Remove ${label}? This only changes the draft — Save to apply.`)) return;
 		layers = layers
 			.filter((_, i) => i !== index)
 			.map((layer, i) => ({ ...layer, index: i + 1 }));
@@ -725,78 +774,107 @@ function addLayer() {
 	{#if !loaded}
 		<div class="text-sm text-text-muted">{loading ? 'Loading...' : ''}</div>
 	{:else}
-	<BackendToolbar
-		bind:backend
-		bind:openAngle
-		bind:closedAngle
-		bind:port
-		{availablePorts}
-		{portsLoaded}
-		{loading}
-		{saving}
-		layerCount={layers.length}
-		onSave={saveSettings}
-		onReload={loadSettings}
-	/>
+		<BackendToolbar
+			bind:backend
+			bind:openAngle
+			bind:closedAngle
+			bind:port
+			{availablePorts}
+			{portsLoaded}
+			{loading}
+			{saving}
+		/>
 
-	{#if errorMsg}
-		<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
-	{:else if statusMsg}
-		<div class="text-sm text-text-muted">{statusMsg}</div>
-	{/if}
-
-	{#if servoIssues.length > 0}
-		<div class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-			<div class="font-medium">Some storage-layer hardware is offline.</div>
-			<div class="mt-1 space-y-1 text-xs">
-				{#each servoIssues as issue}
-					<div>
-						{#if typeof issue.layer_index === 'number'}
-							Layer {issue.layer_index + 1}
-							{#if typeof issue.servo_id === 'number'}
-								servo {issue.servo_id}
+		{#if servoIssues.length > 0}
+			<div
+				class="border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200"
+			>
+				<div class="font-medium">Some storage-layer hardware is offline.</div>
+				<div class="mt-1 space-y-1 text-sm">
+					{#each servoIssues as issue}
+						<div>
+							{#if typeof issue.layer_index === 'number'}
+								Layer {issue.layer_index + 1}
+								{#if typeof issue.servo_id === 'number'}
+									servo {issue.servo_id}
+								{/if}
+								:
 							{/if}
-							:
-						{/if}
-						{issue.message}
-					</div>
-				{/each}
+							{issue.message}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		<LayerList
+			{layers}
+			{backend}
+			{loading}
+			{saving}
+			{allowedCounts}
+			pcaChannelChoices={pcaChannelChoices()}
+			waveshareServoChoices={waveshareServoChoices()}
+			onAdd={addLayer}
+			onRemove={removeLayer}
+			onUpdateCount={updateLayerCount}
+			onUpdateEnabled={updateLayerEnabled}
+			onUpdateServoId={updateLayerServoId}
+			onUpdateInvert={(index, value) => void updateLayerInvert(index, value)}
+			onUpdateMaxPieces={updateLayerMaxPieces}
+			onToggle={toggleLayerServo}
+			onCalibrate={calibrateLayerServo}
+		/>
+
+		{#if backend === 'waveshare'}
+			<WaveshareBusTable
+				{busServos}
+				{busScanning}
+				{busError}
+				{busStatusMsg}
+				{busSuggestedNextId}
+				{changingIdFor}
+				bind:newIdInputs
+				{port}
+				{availablePorts}
+				onScan={scanBusServos}
+				onChangeId={changeServoId}
+			/>
+		{/if}
+
+		<div
+			class="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border bg-bg/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+		>
+			<div class="min-w-0 flex-1 text-sm">
+				{#if errorMsg}
+					<span class="text-danger dark:text-red-400">{errorMsg}</span>
+				{:else if statusMsg}
+					<span class="text-text-muted">{statusMsg}</span>
+				{:else if isDirty}
+					<span class="font-medium text-warning">Unsaved changes — click Save to apply.</span>
+				{:else}
+					<span class="text-text-muted">All changes saved.</span>
+				{/if}
+			</div>
+			<div class="flex items-center gap-2">
+				<button
+					onclick={loadSettings}
+					disabled={loading || saving}
+					class="setup-button-secondary inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+					title="Reload from server"
+				>
+					<RefreshCcw size={14} />
+					{loading ? 'Loading…' : 'Reload'}
+				</button>
+				<button
+					onclick={saveSettings}
+					disabled={loading || saving || layers.length === 0 || !isDirty}
+					class="setup-button-primary inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<CheckCircle2 size={14} />
+					{saving ? 'Saving…' : 'Save Changes'}
+				</button>
 			</div>
 		</div>
-	{/if}
-
-	<LayerList
-		{layers}
-		{backend}
-		{loading}
-		{saving}
-		{allowedCounts}
-		pcaChannelChoices={pcaChannelChoices()}
-		waveshareServoChoices={waveshareServoChoices()}
-		onAdd={addLayer}
-		onRemove={removeLayer}
-		onUpdateCount={updateLayerCount}
-		onUpdateEnabled={updateLayerEnabled}
-		onUpdateServoId={updateLayerServoId}
-		onUpdateInvert={(index, value) => void updateLayerInvert(index, value)}
-		onToggle={toggleLayerServo}
-		onCalibrate={calibrateLayerServo}
-	/>
-
-	{#if backend === 'waveshare'}
-		<WaveshareBusTable
-			{busServos}
-			{busScanning}
-			{busError}
-			{busStatusMsg}
-			{busSuggestedNextId}
-			{changingIdFor}
-			bind:newIdInputs
-			{port}
-			{availablePorts}
-			onScan={scanBusServos}
-			onChangeId={changeServoId}
-		/>
-	{/if}
 	{/if}
 </div>

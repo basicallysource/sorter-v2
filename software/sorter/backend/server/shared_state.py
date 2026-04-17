@@ -36,6 +36,10 @@ camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
 camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
 camera_calibration_tasks_lock = threading.Lock()
 runtime_stats_snapshot: Optional[dict[str, Any]] = None
+system_status_snapshot: Optional[dict[str, Any]] = None
+sorter_state_snapshot: Optional[dict[str, Any]] = None
+cameras_config_snapshot: Optional[dict[str, Any]] = None
+sorting_profile_status_snapshot: Optional[dict[str, Any]] = None
 
 # Hardware lifecycle state: "standby" | "initializing" | "initialized" | "homing" | "ready" | "error"
 hardware_state: str = "standby"
@@ -135,13 +139,21 @@ def setVisionManager(mgr: Any) -> None:
 
 
 async def broadcastEvent(event: dict) -> None:
-    global runtime_stats_snapshot
-    if event.get("tag") == "runtime_stats":
-        data = event.get("data")
-        if isinstance(data, dict):
-            payload = data.get("payload")
-            if isinstance(payload, dict):
-                runtime_stats_snapshot = payload
+    global runtime_stats_snapshot, system_status_snapshot, sorter_state_snapshot, cameras_config_snapshot, sorting_profile_status_snapshot
+    tag = event.get("tag")
+    data = event.get("data") if isinstance(event.get("data"), dict) else None
+    if tag == "runtime_stats" and data is not None:
+        payload = data.get("payload")
+        if isinstance(payload, dict):
+            runtime_stats_snapshot = payload
+    elif tag == "system_status" and data is not None:
+        system_status_snapshot = dict(data)
+    elif tag == "sorter_state" and data is not None:
+        sorter_state_snapshot = dict(data)
+    elif tag == "cameras_config" and data is not None:
+        cameras_config_snapshot = dict(data)
+    elif tag == "sorting_profile_status" and data is not None:
+        sorting_profile_status_snapshot = dict(data)
     dead_connections = []
     for connection in active_connections[:]:
         try:
@@ -151,6 +163,130 @@ async def broadcastEvent(event: dict) -> None:
     for conn in dead_connections:
         if conn in active_connections:
             active_connections.remove(conn)
+
+
+def _update_snapshot(event: dict) -> None:
+    """Update in-memory snapshot globals so WS-connect replay is accurate."""
+    global runtime_stats_snapshot, system_status_snapshot, sorter_state_snapshot, cameras_config_snapshot, sorting_profile_status_snapshot
+    tag = event.get("tag")
+    data = event.get("data") if isinstance(event.get("data"), dict) else None
+    if tag == "system_status" and data is not None:
+        system_status_snapshot = dict(data)
+    elif tag == "sorter_state" and data is not None:
+        sorter_state_snapshot = dict(data)
+    elif tag == "cameras_config" and data is not None:
+        cameras_config_snapshot = dict(data)
+    elif tag == "sorting_profile_status" and data is not None:
+        sorting_profile_status_snapshot = dict(data)
+    elif tag == "runtime_stats" and data is not None:
+        payload = data.get("payload")
+        if isinstance(payload, dict):
+            runtime_stats_snapshot = payload
+
+
+def broadcast_from_thread(event: dict) -> None:
+    """Thread-safe broadcast helper — schedules a broadcast on the server loop.
+
+    Safe to call from any thread, including synchronous request handlers.
+    Always updates the snapshot first; the live broadcast is best-effort and
+    silently no-ops if the server loop is not running.
+    """
+    _update_snapshot(event)
+    loop = server_loop
+    if loop is None or not loop.is_running():
+        return
+    try:
+        asyncio.run_coroutine_threadsafe(broadcastEvent(event), loop)
+    except Exception:
+        # Loop closed / not running — best-effort only.
+        pass
+
+
+def publishSystemStatus() -> None:
+    """Broadcast the current hardware status snapshot over WS."""
+    broadcast_from_thread(
+        {
+            "tag": "system_status",
+            "data": {
+                "hardware_state": hardware_state,
+                "hardware_error": hardware_error,
+                "homing_step": hardware_homing_step,
+            },
+        }
+    )
+
+
+def setHardwareStatus(
+    *,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    homing_step: Optional[str] = None,
+    clear_error: bool = False,
+    clear_homing_step: bool = False,
+) -> None:
+    """Update hardware lifecycle fields and broadcast the change over WS.
+
+    Pass ``clear_error`` or ``clear_homing_step`` to explicitly null those fields
+    (since ``None`` means "don't change" for the update args).
+    Caller is responsible for holding ``hardware_lifecycle_lock`` when needed.
+    """
+    global hardware_state, hardware_error, hardware_homing_step
+    changed = False
+    if state is not None and state != hardware_state:
+        hardware_state = state
+        changed = True
+    if error is not None and error != hardware_error:
+        hardware_error = error
+        changed = True
+    elif clear_error and hardware_error is not None:
+        hardware_error = None
+        changed = True
+    if homing_step is not None and homing_step != hardware_homing_step:
+        hardware_homing_step = homing_step
+        changed = True
+    elif clear_homing_step and hardware_homing_step is not None:
+        hardware_homing_step = None
+        changed = True
+    if changed:
+        publishSystemStatus()
+
+
+def publishSorterState(state: str, camera_layout: Optional[str] = None) -> None:
+    """Broadcast the sorter-controller FSM state over WS."""
+    broadcast_from_thread(
+        {
+            "tag": "sorter_state",
+            "data": {
+                "state": state,
+                "camera_layout": camera_layout,
+            },
+        }
+    )
+
+
+def publishCamerasConfig(cameras: Dict[str, Any]) -> None:
+    """Broadcast the camera role → source map over WS."""
+    broadcast_from_thread(
+        {
+            "tag": "cameras_config",
+            "data": {"cameras": dict(cameras)},
+        }
+    )
+
+
+def publishSortingProfileStatus(status: Dict[str, Any]) -> None:
+    """Broadcast the sorting profile sync status + local profile metadata over WS."""
+    sync_state = status.get("sync_state") if isinstance(status.get("sync_state"), dict) else {}
+    local_profile = status.get("local_profile") if isinstance(status.get("local_profile"), dict) else {}
+    broadcast_from_thread(
+        {
+            "tag": "sorting_profile_status",
+            "data": {
+                "sync_state": dict(sync_state),
+                "local_profile": dict(local_profile),
+            },
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

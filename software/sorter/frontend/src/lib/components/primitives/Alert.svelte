@@ -21,6 +21,6 @@
 	};
 </script>
 
-<div class="border px-3 py-2 text-xs leading-relaxed {variantClasses[variant]} {className}">
+<div class="border px-3 py-2 text-sm leading-relaxed {variantClasses[variant]} {className}">
 	{@render children()}
 </div>

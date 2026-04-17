@@ -16,6 +16,8 @@ class RegionOverlay:
     Used for the feeder camera in default layout.
     """
 
+    category = "regions"
+
     def __init__(self, region_provider) -> None:
         self._region_provider = region_provider
 
@@ -29,6 +31,8 @@ class ChannelRegionOverlay:
     Used for split_feeder channels (c_channel_2, c_channel_3, carousel).
     Requires a HanddrawnRegionProvider.
     """
+
+    category = "regions"
 
     def __init__(self, region_provider, poly_key: str) -> None:
         self._region_provider = region_provider

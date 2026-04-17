@@ -195,10 +195,12 @@ def generate_color_profile_from_analysis(
     xw = x_aug * w
     yw = y_linear * w
 
-    # Regularization toward identity + zero offset
+    # Regularization toward identity matrix + zero offset.
+    # Constraint: x_prior @ W ≈ y_prior. With x_prior = I_4 and y_prior = [[I_3],[0]],
+    # the solution is pulled toward W = [[I_3],[0]] (identity 3×3 with zero offset row).
     reg_strength = 0.3
-    x_prior = np.eye(4, 3, dtype=np.float32) * reg_strength  # top 3×3 = identity, bottom row = 0
-    y_prior = np.eye(3, dtype=np.float32) * reg_strength
+    x_prior = np.eye(4, dtype=np.float32) * reg_strength               # (4, 4)
+    y_prior = np.eye(4, 3, dtype=np.float32) * reg_strength            # (4, 3)
 
     W, _, _, _ = np.linalg.lstsq(
         np.vstack([xw, x_prior]),

@@ -41,29 +41,29 @@ body {
 }
 
 .setup-panel {
-	border: 1px solid #dee2e6;
-	background: #f8f9fa;
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.8),
-		0 1px 2px rgba(16, 24, 40, 0.03);
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.04);
 }
 
 .setup-control {
 	min-height: 2.75rem;
-	border: 1px solid #ced4da;
-	background: #ffffff;
+	border: 1px solid #d6d3cb;
+	background: var(--color-surface);
 	color: var(--color-text);
 	box-shadow:
 		inset 0 1px 0 rgba(255, 255, 255, 0.9),
-		0 1px 2px rgba(16, 24, 40, 0.02);
+		0 1px 2px rgba(32, 28, 20, 0.02);
 }
 
 .setup-control::placeholder {
-	color: #6c757d;
+	color: var(--color-text-muted);
 }
 
 .setup-control:hover {
-	border-color: #b6bec8;
+	border-color: #b9b5ab;
 }
 
 .setup-control:focus,
@@ -76,14 +76,14 @@ body {
 }
 
 .setup-button-secondary {
-	border: 1px solid #ced4da;
-	background: #f8f9fa;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+	border: 1px solid #d6d3cb;
+	background: #f3f1ec;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .setup-button-secondary:hover {
-	border-color: #b6bec8;
-	background: #eef1f4;
+	border-color: #b9b5ab;
+	background: #ebe8e1;
 }
 
 .setup-button-primary {
@@ -99,36 +99,36 @@ body {
 }
 
 .setup-choice {
-	border: 1px solid #d7dce2;
-	background: #f8f9fa;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+	border: 1px solid var(--color-border);
+	background: #f3f1ec;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .setup-choice:hover {
-	border-color: #b8c0ca;
-	background: #eef1f4;
+	border-color: #b9b5ab;
+	background: #ebe8e1;
 }
 
 .setup-card-shell {
-	border-color: #d7dde3;
-	background: #ffffff;
-	box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+	border-color: var(--color-border);
+	background: var(--color-surface);
+	box-shadow: 0 1px 2px rgba(32, 28, 20, 0.04);
 }
 
 .setup-card-header {
-	background: #ececea;
+	background: #efede8;
 }
 
 .setup-card-body {
-	background: #ffffff;
+	background: var(--color-surface);
 }
 
 .setup-card-header .text-text {
-	color: #212529;
+	color: var(--color-text);
 }
 
 .setup-card-header .text-text-muted {
-	color: #6c757d;
+	color: var(--color-text-muted);
 }
 
 .setup-toggle {
@@ -136,8 +136,8 @@ body {
 }
 
 .dark .setup-panel {
-	border-color: #35322d;
-	background: #181715;
+	border-color: var(--color-border);
+	background: var(--color-surface);
 	box-shadow: none;
 }
 

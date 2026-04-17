@@ -27,6 +27,7 @@
 		enabled: boolean;
 		section_count: number;
 		bin_count: number;
+		max_pieces_per_bin: number | null;
 		bins: BinInfo[];
 	};
 
@@ -461,7 +462,8 @@
 		try {
 			const payloadLayers = layers.map((layer) => ({
 				bin_count: layer.bin_count,
-				enabled: layer.layer_index === layerIndex ? enabled : layer.enabled
+				enabled: layer.layer_index === layerIndex ? enabled : layer.enabled,
+				max_pieces_per_bin: layer.max_pieces_per_bin
 			}));
 			const res = await fetch(`${baseUrl()}/api/hardware-config/storage-layers`, {
 				method: 'POST',
@@ -765,6 +767,25 @@
 											{/if}
 										</div>
 									</div>
+									{#if layer.max_pieces_per_bin && layer.max_pieces_per_bin > 0}
+										{@const fillCount = contents?.piece_count ?? 0}
+										{@const fillMax = layer.max_pieces_per_bin}
+										{@const fillPct = Math.min(100, Math.max(0, (fillCount / fillMax) * 100))}
+										{@const isFull = fillCount >= fillMax}
+										{@const isNearFull = fillCount / fillMax >= 0.85 && !isFull}
+										<div
+											class="relative h-4 w-full overflow-hidden border-b border-[#E2E0DB] bg-[#F0EFEB]"
+											title="{fillCount} / {fillMax} pieces"
+										>
+											<div
+												class="absolute inset-y-0 left-0 transition-all {isFull ? 'bg-danger' : isNearFull ? 'bg-warning' : 'bg-success'}"
+												style="width: {fillPct}%"
+											></div>
+											<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
+												{fillCount} / {fillMax}
+											</div>
+										</div>
+									{/if}
 									<button
 										onclick={() => openBinDetails(layer.layer_index, bin)}
 										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success/8 ring-2 ring-inset ring-success' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"

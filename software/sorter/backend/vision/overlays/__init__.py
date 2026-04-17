@@ -5,6 +5,7 @@ from .region import RegionOverlay, ChannelRegionOverlay
 from .detector import DetectorOverlay, DynamicDetectionOverlay
 from .heatmap import HeatmapOverlay
 from .classification import ClassificationOverlay
+from .tracker import TrackOverlay
 
 __all__ = [
     "FrameOverlay",
@@ -14,4 +15,5 @@ __all__ = [
     "DynamicDetectionOverlay",
     "HeatmapOverlay",
     "ClassificationOverlay",
+    "TrackOverlay",
 ]

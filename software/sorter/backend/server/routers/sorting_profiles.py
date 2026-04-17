@@ -299,11 +299,13 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     except Exception:
         pass
 
+    status = _current_local_profile_status()
+    shared_state.publishSortingProfileStatus(status)
     return {
         "ok": True,
         "reloaded": reloaded,
         "bin_categories_reset": bool(reset_result),
         "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
         "activation_error": activation_error,
-        **_current_local_profile_status(),
+        **status,
     }

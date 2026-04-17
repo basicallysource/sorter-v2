@@ -9,6 +9,7 @@ class LayerConfig:
     enabled: bool = True
     servo_open_angle: int | None = None
     servo_closed_angle: int | None = None
+    max_pieces_per_bin: int | None = None
 
 
 @dataclass
@@ -37,6 +38,7 @@ class BinSection:
 class Layer:
     sections: List[BinSection] = field(default_factory=list)
     enabled: bool = True
+    max_pieces_per_bin: int | None = None
 
 
 @dataclass
@@ -121,11 +123,13 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             enabled = True
         servo_open = layer_data.get("servo_open_angle")
         servo_close = layer_data.get("servo_closed_angle")
+        max_per_bin = layer_data.get("max_pieces_per_bin")
         layers.append(LayerConfig(
             sections=sections,
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
+            max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
         ))
     return BinLayoutConfig(layers=layers) if layers else None
 
@@ -212,6 +216,7 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
                 "enabled": layer.enabled,
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
+                "max_pieces_per_bin": layer.max_pieces_per_bin,
             }
             for layer in config.layers
         ]
@@ -229,7 +234,11 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
                 bin_size = BinSize(bin_size_str)
                 bins.append(Bin(size=bin_size))
             sections.append(BinSection(bins=bins))
-        layers.append(Layer(sections=sections, enabled=layer_config.enabled))
+        layers.append(Layer(
+            sections=sections,
+            enabled=layer_config.enabled,
+            max_pieces_per_bin=layer_config.max_pieces_per_bin,
+        ))
     return DistributionLayout(layers=layers)
 
 

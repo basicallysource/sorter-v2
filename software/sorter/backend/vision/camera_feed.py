@@ -51,7 +51,11 @@ class CameraFeed:
             self._overlays.clear()
             self._cached_annotated = None
 
-    def get_frame(self, annotated: bool = True) -> Optional[CameraFrame]:
+    def get_frame(
+        self,
+        annotated: bool = True,
+        exclude_categories: Optional[frozenset[str]] = None,
+    ) -> Optional[CameraFrame]:
         frame = self._device.latest_frame
         if frame is None:
             return None
@@ -60,12 +64,25 @@ class CameraFeed:
             if not annotated or not self._overlays:
                 return frame
 
-            # Cache hit: same source timestamp
-            if self._cached_annotated is not None and self._cached_annotated[0] == frame.timestamp:
+            active_overlays = [
+                ov for ov in self._overlays
+                if not exclude_categories or getattr(ov, "category", "") not in exclude_categories
+            ]
+            if not active_overlays:
+                return frame
+
+            # Cache only the default (unfiltered) path — keeps the hot loop fast
+            # without per-filter cache bookkeeping.
+            cache_eligible = not exclude_categories
+            if (
+                cache_eligible
+                and self._cached_annotated is not None
+                and self._cached_annotated[0] == frame.timestamp
+            ):
                 return self._cached_annotated[1]
 
             result_img = frame.annotated if frame.annotated is not None else frame.raw.copy()
-            for overlay in self._overlays:
+            for overlay in active_overlays:
                 result_img = overlay.annotate(result_img)
 
             result = CameraFrame(
@@ -74,5 +91,6 @@ class CameraFeed:
                 results=[],
                 timestamp=frame.timestamp,
             )
-            self._cached_annotated = (frame.timestamp, result)
+            if cache_eligible:
+                self._cached_annotated = (frame.timestamp, result)
             return result

@@ -32,6 +32,12 @@ def _merge_sync_state(updates: dict[str, Any]) -> None:
         else:
             next_state[key] = value
     setSortingProfileSyncState(next_state)
+    try:
+        from server.routers.sorting_profiles import _current_local_profile_status
+
+        shared_state.publishSortingProfileStatus(_current_local_profile_status())
+    except Exception:
+        pass
 
 
 class SetProgressSyncWorker:

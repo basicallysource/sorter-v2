@@ -16,6 +16,8 @@ class HeatmapOverlay:
     Used on feeder (carousel heatmap), carousel standalone, and classification cameras.
     """
 
+    category = "heatmap"
+
     def __init__(
         self,
         heatmap: HeatmapDiff,

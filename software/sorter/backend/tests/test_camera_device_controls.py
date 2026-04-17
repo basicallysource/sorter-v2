@@ -115,6 +115,82 @@ class CameraDeviceControlsTests(unittest.TestCase):
         self.assertTrue(response["applied_live"])
         self.assertEqual(23.0, response["settings"]["brightness"])
 
+    def test_calibration_start_route_defaults_to_target_plate(self) -> None:
+        fake_thread = SimpleNamespace(start=lambda: None)
+
+        with patch.dict("os.environ", {}, clear=False):
+            with patch("server.routers.cameras.get_camera_device_settings", return_value={
+                "source": 1,
+                "provider": "usb-opencv",
+                "supported": True,
+            }):
+                with patch("server.routers.cameras._create_camera_calibration_task", return_value="task-1") as create_task:
+                    with patch("server.routers.cameras._get_camera_calibration_task", return_value={
+                        "status": "queued",
+                        "stage": "queued",
+                        "progress": 0.0,
+                        "message": "Queued",
+                        "method": "target_plate",
+                        "openrouter_model": None,
+                    }):
+                        with patch("server.routers.cameras.threading.Thread", return_value=fake_thread) as thread_cls:
+                            response = cameras.start_camera_device_settings_calibration_from_target(
+                                "classification_top"
+                            )
+
+        create_task.assert_called_once_with(
+            "classification_top",
+            "usb-opencv",
+            1,
+            method="target_plate",
+            openrouter_model=None,
+        )
+        thread_cls.assert_called_once()
+        self.assertEqual("target_plate", response["method"])
+
+    def test_calibration_start_route_accepts_llm_guided_method(self) -> None:
+        fake_thread = SimpleNamespace(start=lambda: None)
+        payload = cameras.CameraCalibrationStartPayload(
+            method="llm_guided",
+            openrouter_model="google/gemini-3.1-pro-preview",
+            max_iterations=5,
+        )
+
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}, clear=False):
+            with patch("server.routers.cameras.get_camera_device_settings", return_value={
+                "source": 1,
+                "provider": "usb-opencv",
+                "supported": True,
+            }):
+                with patch("server.routers.cameras._create_camera_calibration_task", return_value="task-2") as create_task:
+                    with patch("server.routers.cameras._get_camera_calibration_task", return_value={
+                        "status": "queued",
+                        "stage": "queued",
+                        "progress": 0.0,
+                        "message": "Queued",
+                        "method": "llm_guided",
+                        "openrouter_model": "google/gemini-3.1-pro-preview",
+                    }):
+                        with patch("server.routers.cameras.threading.Thread", return_value=fake_thread) as thread_cls:
+                            response = cameras.start_camera_device_settings_calibration_from_target(
+                                "classification_top",
+                                payload,
+                            )
+
+        create_task.assert_called_once_with(
+            "classification_top",
+            "usb-opencv",
+            1,
+            method="llm_guided",
+            openrouter_model="google/gemini-3.1-pro-preview",
+        )
+        thread_kwargs = thread_cls.call_args.kwargs
+        self.assertEqual("llm_guided", thread_kwargs["kwargs"]["method"])
+        self.assertEqual("google/gemini-3.1-pro-preview", thread_kwargs["kwargs"]["openrouter_model"])
+        self.assertEqual(5, thread_kwargs["kwargs"]["max_iterations"])
+        self.assertEqual("llm_guided", response["method"])
+        self.assertEqual("google/gemini-3.1-pro-preview", response["openrouter_model"])
+
     def test_capture_failure_backoff_caps(self) -> None:
         self.assertEqual(0.0, _capture_failure_backoff_s(0))
         self.assertEqual(0.25, _capture_failure_backoff_s(1))

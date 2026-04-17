@@ -18,6 +18,8 @@ class DetectorOverlay:
     Used for feeder (default) and split_feeder channel cameras.
     """
 
+    category = "detections"
+
     def __init__(
         self,
         detector: Mog2ChannelDetector,
@@ -45,6 +47,8 @@ class DynamicDetectionOverlay:
 
     Used for feeder channels and carousel in gemini_sam mode.
     """
+
+    category = "detections"
 
     def __init__(
         self,

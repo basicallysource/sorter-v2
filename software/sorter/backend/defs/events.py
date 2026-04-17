@@ -113,6 +113,46 @@ class CameraHealthEvent(BaseModel):
     data: CameraHealthData
 
 
+class SystemStatusData(BaseModel):
+    hardware_state: str
+    hardware_error: Optional[str] = None
+    homing_step: Optional[str] = None
+
+
+class SystemStatusEvent(BaseModel):
+    tag: Literal["system_status"]
+    data: SystemStatusData
+
+
+class SorterStateData(BaseModel):
+    state: str
+    camera_layout: Optional[str] = None
+
+
+class SorterStateEvent(BaseModel):
+    tag: Literal["sorter_state"]
+    data: SorterStateData
+
+
+class CamerasConfigData(BaseModel):
+    cameras: dict[str, Union[int, str, None]]
+
+
+class CamerasConfigEvent(BaseModel):
+    tag: Literal["cameras_config"]
+    data: CamerasConfigData
+
+
+class SortingProfileStatusData(BaseModel):
+    sync_state: dict
+    local_profile: dict
+
+
+class SortingProfileStatusEvent(BaseModel):
+    tag: Literal["sorting_profile_status"]
+    data: SortingProfileStatusData
+
+
 class RuntimeStatsData(BaseModel):
     payload: dict
 
@@ -140,6 +180,27 @@ class ResumeCommandEvent(BaseModel):
     data: ResumeCommandData
 
 
-SocketEvent = Union[HeartbeatEvent, FrameEvent, IdentityEvent, KnownObjectEvent, CameraHealthEvent, RuntimeStatsEvent]
-MainThreadToServerCommand = Union[HeartbeatEvent, FrameEvent, KnownObjectEvent, CameraHealthEvent, RuntimeStatsEvent]
+SocketEvent = Union[
+    HeartbeatEvent,
+    FrameEvent,
+    IdentityEvent,
+    KnownObjectEvent,
+    CameraHealthEvent,
+    SystemStatusEvent,
+    SorterStateEvent,
+    CamerasConfigEvent,
+    SortingProfileStatusEvent,
+    RuntimeStatsEvent,
+]
+MainThreadToServerCommand = Union[
+    HeartbeatEvent,
+    FrameEvent,
+    KnownObjectEvent,
+    CameraHealthEvent,
+    SystemStatusEvent,
+    SorterStateEvent,
+    CamerasConfigEvent,
+    SortingProfileStatusEvent,
+    RuntimeStatsEvent,
+]
 ServerToMainThreadEvent = Union[HeartbeatEvent, PauseCommandEvent, ResumeCommandEvent]

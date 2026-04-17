@@ -18,6 +18,8 @@ class ClassificationOverlay:
     Handles both baseline (heatmap) and dynamic (gemini_sam) modes.
     """
 
+    category = "detections"
+
     def __init__(
         self,
         cam: str,

@@ -225,6 +225,9 @@ class Positioning(BaseState):
     def _findOrAssignBinForCategory(
         self, category_id: str
     ) -> tuple[Optional[BinAddress], bool]:
+        from local_state import get_current_bin_piece_counts
+
+        piece_counts = get_current_bin_piece_counts()
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
         has_usable_layers = False
 
@@ -235,12 +238,15 @@ class Positioning(BaseState):
                 continue
 
             has_usable_layers = True
+            max_per_bin = getattr(layer, "max_pieces_per_bin", None)
             for section_idx, section in enumerate(layer.sections):
                 for bin_idx, b in enumerate(section.bins):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
                     if not self.chute.isBinReachable(address):
                         continue
-                    if category_id in b.category_ids:
+                    count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
+                    is_full = max_per_bin is not None and count >= max_per_bin
+                    if category_id in b.category_ids and not is_full:
                         return address, False
                     if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)

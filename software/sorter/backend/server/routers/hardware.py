@@ -170,6 +170,7 @@ class StorageLayerPayload(BaseModel):
     enabled: bool = True
     servo_open_angle: Optional[int] = None
     servo_closed_angle: Optional[int] = None
+    max_pieces_per_bin: Optional[int] = None
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -529,10 +530,12 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         }
         servo_open = getattr(layer, "servo_open_angle", None)
         servo_closed = getattr(layer, "servo_closed_angle", None)
+        max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         if isinstance(servo_open, int):
             layer_entry["servo_open_angle"] = servo_open
         if isinstance(servo_closed, int):
             layer_entry["servo_closed_angle"] = servo_closed
+        layer_entry["max_pieces_per_bin"] = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         layers.append(layer_entry)
 
     return {
@@ -553,6 +556,12 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
 
     for runtime_layer, layer in zip(runtime_layers, layers):
         setattr(runtime_layer, "enabled", bool(layer.get("enabled", True)))
+        max_per_bin = layer.get("max_pieces_per_bin")
+        setattr(
+            runtime_layer,
+            "max_pieces_per_bin",
+            max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+        )
     return True
 
 
@@ -1612,6 +1621,7 @@ def save_storage_layer_hardware_config(
                 "enabled": bool(layer.enabled),
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
+                "max_pieces_per_bin": layer.max_pieces_per_bin,
             }
             for layer in requested_layers
         ]
@@ -1622,6 +1632,7 @@ def save_storage_layer_hardware_config(
                 "enabled": bool(layer.get("enabled", True)),
                 "servo_open_angle": layer.get("servo_open_angle"),
                 "servo_closed_angle": layer.get("servo_closed_angle"),
+                "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
@@ -1658,16 +1669,21 @@ def save_storage_layer_hardware_config(
 
         servo_open = layer_update.get("servo_open_angle")
         servo_closed = layer_update.get("servo_closed_angle")
+        max_per_bin = layer_update.get("max_pieces_per_bin")
+        max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
 
         new_layer_configs.append(LayerConfig(
             sections=sections,
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
+            max_pieces_per_bin=max_per_bin_value,
         ))
         if cur_layer:
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
             enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
+            if max_per_bin_value != cur_layer.get("max_pieces_per_bin"):
+                enabled_changed = True
         else:
             layout_changed = True
 
@@ -1927,11 +1943,13 @@ def get_bins_layout() -> Dict[str, Any]:
                     "angle": round(angle, 2),
                 })
                 global_bin += 1
+        max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         layers_out.append({
             "layer_index": layer_idx,
             "enabled": layer.enabled,
             "section_count": len(sections),
             "bin_count": global_bin,
+            "max_pieces_per_bin": max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             "bins": bins_flat,
         })
 

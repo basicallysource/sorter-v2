@@ -36,24 +36,28 @@ def reset_system() -> Dict[str, Any]:
             return {"ok": False, "hardware_state": "homing", "message": "Cannot reset while homing."}
 
         reset_fn = shared_state._hardware_reset_fn
-        shared_state.hardware_homing_step = "Resetting..."
+        shared_state.setHardwareStatus(homing_step="Resetting...")
 
         try:
             if reset_fn is not None:
                 reset_fn()
         except Exception as exc:
-            shared_state.hardware_state = "error"
-            shared_state.hardware_error = f"Reset failed: {exc}"
-            shared_state.hardware_homing_step = None
+            shared_state.setHardwareStatus(
+                state="error",
+                error=f"Reset failed: {exc}",
+                clear_homing_step=True,
+            )
             return {
                 "ok": False,
                 "hardware_state": "error",
                 "message": f"Hardware reset failed: {exc}",
             }
 
-        shared_state.hardware_state = "standby"
-        shared_state.hardware_error = None
-        shared_state.hardware_homing_step = None
+        shared_state.setHardwareStatus(
+            state="standby",
+            clear_error=True,
+            clear_homing_step=True,
+        )
         shared_state.hardware_worker_thread = None
         return {"ok": True, "hardware_state": "standby", "message": "Hardware reset to standby."}
 
@@ -79,23 +83,29 @@ def home_system() -> Dict[str, Any]:
                 "message": "No hardware start function registered.",
             }
 
-        shared_state.hardware_state = "homing"
-        shared_state.hardware_error = None
-        shared_state.hardware_homing_step = "Starting..."
+        shared_state.setHardwareStatus(
+            state="homing",
+            clear_error=True,
+            homing_step="Starting...",
+        )
 
     def _run() -> None:
         try:
             fn()
         except Exception as exc:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.hardware_state = "error"
-                shared_state.hardware_error = str(exc)
-                shared_state.hardware_homing_step = None
+                shared_state.setHardwareStatus(
+                    state="error",
+                    error=str(exc),
+                    clear_homing_step=True,
+                )
         else:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.hardware_state = "ready"
-                shared_state.hardware_error = None
-                shared_state.hardware_homing_step = None
+                shared_state.setHardwareStatus(
+                    state="ready",
+                    clear_error=True,
+                    clear_homing_step=True,
+                )
         finally:
             with shared_state.hardware_lifecycle_lock:
                 shared_state.hardware_worker_thread = None
@@ -131,23 +141,29 @@ def initialize_system() -> Dict[str, Any]:
                 "message": "No hardware initialize function registered.",
             }
 
-        shared_state.hardware_state = "initializing"
-        shared_state.hardware_error = None
-        shared_state.hardware_homing_step = "Starting..."
+        shared_state.setHardwareStatus(
+            state="initializing",
+            clear_error=True,
+            homing_step="Starting...",
+        )
 
     def _run() -> None:
         try:
             fn()
         except Exception as exc:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.hardware_state = "error"
-                shared_state.hardware_error = str(exc)
-                shared_state.hardware_homing_step = None
+                shared_state.setHardwareStatus(
+                    state="error",
+                    error=str(exc),
+                    clear_homing_step=True,
+                )
         else:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.hardware_state = "initialized"
-                shared_state.hardware_error = None
-                shared_state.hardware_homing_step = None
+                shared_state.setHardwareStatus(
+                    state="initialized",
+                    clear_error=True,
+                    clear_homing_step=True,
+                )
         finally:
             with shared_state.hardware_lifecycle_lock:
                 shared_state.hardware_worker_thread = None

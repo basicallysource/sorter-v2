@@ -10,7 +10,7 @@
 
 {#if message}
 	<div
-		class="mb-4 border px-3 py-2 text-xs leading-relaxed text-text {variant === 'error'
+		class="mb-4 border px-3 py-2 text-sm leading-relaxed text-text {variant === 'error'
 			? 'border-danger/40 bg-danger/[0.06] dark:border-rose-500/40 dark:bg-rose-500/[0.08]'
 			: variant === 'warning'
 				? 'border-warning/50 bg-warning/[0.07] dark:border-amber-500/40 dark:bg-amber-500/[0.08]'

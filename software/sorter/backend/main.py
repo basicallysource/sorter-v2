@@ -290,16 +290,30 @@ def main() -> None:
                     "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
                 )
         elif feeder_detection_ready:
-            # Reverse-pulse calibration seeds the MOG2 background model with
-            # an empty conveyor view. Hive/Gemini detectors don't need this
-            # priming step — skip it to save homing time.
+            # Reverse-pulse calibration seeds background-subtraction models
+            # (MOG2 / heatmap) with an empty-ring view. The feeder may have
+            # moved to Hive/Gemini and no longer need it, but the CAROUSEL
+            # heatmap still relies on this warm-up window unless it's also
+            # been switched to gemini_sam. Run the pulses whenever either
+            # subsystem still uses a baseline.
             feeder_algo = vision.getFeederDetectionAlgorithm()
-            if feeder_algo == "mog2":
+            feeder_needs_baseline = feeder_algo == "mog2"
+            carousel_needs_baseline = vision.usesCarouselBaseline()
+            if feeder_needs_baseline or carousel_needs_baseline:
+                reason = []
+                if feeder_needs_baseline:
+                    reason.append("feeder=mog2")
+                if carousel_needs_baseline:
+                    reason.append("carousel=baseline")
                 shared_state.setHardwareStatus(homing_step="Calibrating feeder channels...")
+                gc.logger.info(
+                    f"Running feeder reverse-pulse calibration ({', '.join(reason)})"
+                )
                 calibrateFeederChannels(gc, irl, irl_config)
             else:
                 gc.logger.info(
-                    f"Skipping feeder reverse-pulse calibration — algorithm={feeder_algo!r} does not need it"
+                    f"Skipping feeder reverse-pulse calibration — "
+                    f"feeder={feeder_algo!r}, carousel uses dynamic detection"
                 )
         else:
             gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")

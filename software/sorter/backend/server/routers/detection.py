@@ -1032,6 +1032,42 @@ def debug_feeder_detection(role: str) -> Dict[str, Any]:
     )
 
 
+@router.post("/api/feeder/tracking/recognize")
+def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Send a single tracked-piece crop to the Brickognize classifier
+    synchronously and return what it thinks the piece is. Used from the
+    tracked-pieces detail modal to manually test a crop.
+    """
+    import base64
+    import numpy as np
+    import cv2
+    from classification.brickognize import _classifyImage, _pickBestColor, _pickBestItem
+
+    jpeg_b64 = body.get("jpeg_b64")
+    if not isinstance(jpeg_b64, str) or not jpeg_b64:
+        raise HTTPException(status_code=400, detail="jpeg_b64 required")
+    try:
+        raw = base64.b64decode(jpeg_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid base64")
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="could not decode image")
+    try:
+        result = _classifyImage(img)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
+    best_item, best_view = _pickBestItem(result, None)
+    best_color = _pickBestColor(result, None)
+    return {
+        "best_item": best_item,
+        "best_view": best_view,
+        "best_color": best_color,
+        "items": result.get("items", []),
+    }
+
+
 @router.get("/api/feeder/tracking/history")
 def feeder_tracking_history(limit: int = 30, min_sectors: int = 3) -> Dict[str, Any]:
     """Ring buffer of recent completed tracks (summary only — no big JPEGs).

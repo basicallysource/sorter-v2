@@ -83,7 +83,7 @@
 		<div
 			class="flex h-12 w-14 shrink-0 flex-col items-center justify-center bg-primary font-bold text-primary-contrast"
 		>
-			<span class="text-[10px] uppercase tracking-wider opacity-80">ID</span>
+			<span class="text-xs uppercase tracking-wider opacity-80">ID</span>
 			<span class="text-base leading-none">{servo.id}</span>
 		</div>
 
@@ -97,12 +97,12 @@
 				{/if}
 			</div>
 			<div class="mt-1 text-sm font-semibold text-text">{setup.title}</div>
-			<div class="mt-1 text-xs text-text-muted">{setup.description}</div>
+			<div class="mt-1 text-sm text-text-muted">{setup.description}</div>
 		</div>
 
 		<div class="min-w-[11rem] sm:ml-auto">
 			<label class="flex flex-col gap-1">
-				<span class="text-[10px] uppercase tracking-wider text-text-muted">Assigned to</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Assigned to</span>
 				<select
 					value={String(layer)}
 					onchange={(event) =>
@@ -120,7 +120,7 @@
 
 	<div class="grid gap-3 border-t border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
 		<div>
-			<div class="text-[10px] uppercase tracking-wider text-text-muted">Setup checklist</div>
+			<div class="text-xs uppercase tracking-wider text-text-muted">Setup checklist</div>
 			<div class="mt-2 flex flex-wrap gap-2 text-xs">
 				<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${calibrated ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted'}`}>
 					<span class={`h-1.5 w-1.5 rounded-full ${calibrated ? 'bg-primary' : 'bg-text-muted'}`}></span>
@@ -154,7 +154,7 @@
 
 	{#if layer > 0}
 		<div class="border-t border-border bg-bg/40 px-4 py-3">
-			<div class="text-[10px] uppercase tracking-wider text-text-muted">Angle overrides for Layer {layer}</div>
+			<div class="text-xs uppercase tracking-wider text-text-muted">Angle overrides for Layer {layer}</div>
 			<div class="mt-2 grid gap-3 sm:grid-cols-2 max-w-sm">
 				<label class="flex flex-col gap-1 text-xs text-text-muted">
 					<span>Open angle (°)</span>
@@ -187,12 +187,12 @@
 					/>
 				</label>
 			</div>
-			<div class="mt-1 text-[10px] text-text-muted">Leave blank to use the default angles ({openAngle}° / {closedAngle}°)</div>
+			<div class="mt-1 text-sm text-text-muted">Leave blank to use the default angles ({openAngle}° / {closedAngle}°)</div>
 		</div>
 	{/if}
 
 	<div class="border-t border-border bg-bg/40 px-4 py-3">
-		<div class="text-[10px] uppercase tracking-wider text-text-muted">Actions</div>
+		<div class="text-xs uppercase tracking-wider text-text-muted">Actions</div>
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<button
 				onclick={onCalibrate}
@@ -230,7 +230,7 @@
 
 		{#if calibrated}
 			<div class="mt-3 flex items-center gap-2">
-				<span class="text-[10px] uppercase tracking-wider text-text-muted">Nudge</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Nudge</span>
 				<button
 					onclick={(e) => { e.stopPropagation(); onNudge(-nudgeDegrees); }}
 					disabled={!!busy}
@@ -247,7 +247,7 @@
 					onclick={(e) => e.stopPropagation()}
 					class="setup-control w-14 px-2 py-1 text-center text-xs text-text"
 				/>
-				<span class="text-[10px] text-text-muted">°</span>
+				<span class="text-xs text-text-muted">°</span>
 				<button
 					onclick={(e) => { e.stopPropagation(); onNudge(nudgeDegrees); }}
 					disabled={!!busy}
@@ -257,9 +257,9 @@
 					<ChevronRight size={16} />
 				</button>
 				{#if selected}
-					<span class="text-[10px] text-info">Selected — use ←/→ arrow keys</span>
+					<span class="text-xs text-info">Selected — use ←/→ arrow keys</span>
 				{:else}
-					<span class="text-[10px] text-text-muted">Click card to use arrow keys</span>
+					<span class="text-xs text-text-muted">Click card to use arrow keys</span>
 				{/if}
 			</div>
 		{/if}

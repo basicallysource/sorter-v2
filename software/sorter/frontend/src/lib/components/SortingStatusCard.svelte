@@ -121,16 +121,16 @@
 				{@const isActive = activeLayer === layer.layer_index}
 				<div class="{!layer.enabled ? 'opacity-50' : ''}">
 					<div class="mb-1 flex items-center justify-between">
-						<span class="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+						<span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
 							Layer {layer.layer_index + 1}
 						</span>
 						{#if isActive}
-							<span class="flex items-center gap-1 text-[10px] font-semibold text-success">
+							<span class="flex items-center gap-1 text-xs font-semibold text-success">
 								<span class="inline-block h-1.5 w-1.5 bg-success"></span>
 								Active
 							</span>
 						{:else if !layer.enabled}
-							<span class="text-[10px] text-text-muted">Off</span>
+							<span class="text-xs text-text-muted">Off</span>
 						{/if}
 					</div>
 					<div class="flex flex-col gap-px bg-border">
@@ -146,7 +146,7 @@
 											{@const isCurrent = isCurrentBin(bin) && isActive}
 											{@const catLabel = categoryLabel(bin.category_ids)}
 											<div
-												class="flex min-h-[1.75rem] flex-1 items-center justify-center text-[10px]
+												class="flex min-h-[1.75rem] flex-1 items-center justify-center text-xs
 													{isCurrent
 														? 'bg-success/10 font-bold text-success ring-1 ring-inset ring-success'
 														: 'bg-surface text-text'}"

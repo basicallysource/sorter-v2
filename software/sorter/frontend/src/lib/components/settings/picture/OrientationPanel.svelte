@@ -17,7 +17,7 @@
 </script>
 
 <div class="grid gap-2 border-t border-border pt-3">
-	<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">Orientation</div>
+	<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">Orientation</div>
 	<div class="grid gap-2">
 		<div>
 			<div class="mb-1 text-xs font-medium text-text">Rotate</div>

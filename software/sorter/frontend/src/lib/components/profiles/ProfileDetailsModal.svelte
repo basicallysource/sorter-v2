@@ -150,25 +150,25 @@
 							</div>
 							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-[11px] uppercase tracking-wide text-text-muted">Matched</div>
+									<div class="text-xs uppercase tracking-wide text-text-muted">Matched</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.matched ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-[11px] uppercase tracking-wide text-text-muted">Total parts</div>
+									<div class="text-xs uppercase tracking-wide text-text-muted">Total parts</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.total_parts ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-[11px] uppercase tracking-wide text-text-muted">Unmatched</div>
+									<div class="text-xs uppercase tracking-wide text-text-muted">Unmatched</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.unmatched ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-[11px] uppercase tracking-wide text-text-muted">Categories</div>
+									<div class="text-xs uppercase tracking-wide text-text-muted">Categories</div>
 									<div class="text-lg font-semibold text-text">
 										{categoryEntries(detail).length.toLocaleString()}
 									</div>
@@ -208,7 +208,7 @@
 											<div class="text-sm font-medium text-text">
 												{String(category.name ?? categoryId)}
 											</div>
-											<div class="mt-1 text-xs text-text-muted">
+											<div class="mt-1 text-sm text-text-muted">
 												<span class="font-mono">{categoryId}</span>
 												{#if category.set_num}
 													<span class="mx-1">&middot;</span>

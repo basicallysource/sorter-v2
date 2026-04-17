@@ -131,7 +131,7 @@
 			</button>
 			<a
 				href="/dashboard/runtime"
-				class="flex items-center gap-1 text-[11px] font-normal text-text-muted transition-colors"
+				class="flex items-center gap-1 text-xs font-normal text-text-muted transition-colors"
 				title="Dashboard"
 			>
 				<LayoutDashboard size={12} />
@@ -144,14 +144,14 @@
 			<div class="text-text-muted">No runtime stats yet</div>
 		{:else}
 			{#if updated_at}
-				<div class="mb-2 text-[10px] text-text-muted">
+				<div class="mb-2 text-xs text-text-muted">
 					Updated {new Date(updated_at * 1000).toLocaleTimeString()}
 				</div>
 			{/if}
 
 			<!-- Counts -->
 			<div class="mb-3">
-				<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Counts</div>
+				<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Counts</div>
 				<table class="w-full">
 					<tbody>
 						<tr class="text-text-muted">
@@ -183,9 +183,9 @@
 			</div>
 
 			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
 					<span>Throughput</span>
-					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">ppm</span>
+					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">ppm</span>
 				</div>
 				<table class="w-full">
 					<tbody>
@@ -207,9 +207,9 @@
 
 			<!-- Timings -->
 			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
 					<span>Carousel</span>
-					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
@@ -230,9 +230,9 @@
 			</div>
 
 			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
 					<span>Distribution</span>
-					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
@@ -250,7 +250,7 @@
 
 			<!-- State Machines -->
 			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">States</div>
+				<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">States</div>
 				{#if Object.keys(state_machines).length === 0}
 					<div class="text-text-muted">-</div>
 				{:else}
@@ -258,7 +258,7 @@
 						<div class="mb-1.5">
 							<div class="flex items-baseline justify-between text-text">
 								<span>{machine_name}</span>
-								<span class="text-[10px] text-text-muted">{machine_data.current_state ?? '-'}</span>
+								<span class="text-xs text-text-muted">{machine_data.current_state ?? '-'}</span>
 							</div>
 							{#if machine_data.state_share_pct}
 								<div class="mt-0.5 flex h-1.5 overflow-hidden rounded-sm">
@@ -278,9 +278,9 @@
 
 			<!-- C-Channels -->
 			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide text-text">
+				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
 					<span>C-Channels</span>
-					<span class="text-[9px] font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
 				</div>
 				<table class="w-full">
 					<tbody>
@@ -303,10 +303,10 @@
 			<!-- Pulse Counts -->
 			{#if Object.keys(pulse_counts).length > 0}
 				<div class="mb-3 border-t border-border pt-3">
-					<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Pulses</div>
+					<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Pulses</div>
 					<table class="w-full">
 						<thead>
-							<tr class="text-[10px] text-text-muted">
+							<tr class="text-xs text-text-muted">
 								<th class="text-left font-normal"></th>
 								<th class="text-right font-normal">sent</th>
 								<th class="text-right font-normal">busy</th>
@@ -330,7 +330,7 @@
 			<!-- Blocked Reasons -->
 			{#if Object.keys(blocked_reasons).length > 0}
 				<div class="border-t border-border pt-3">
-					<div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text">Blocked</div>
+					<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Blocked</div>
 					<table class="w-full">
 						<tbody>
 							{#each Object.entries(blocked_reasons) as [reason, count]}

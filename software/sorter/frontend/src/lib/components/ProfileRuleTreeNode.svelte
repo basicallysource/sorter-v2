@@ -93,19 +93,19 @@
 		<div class="min-w-0 flex-1">
 			<div class="flex flex-wrap items-center gap-2">
 				<h4 class="text-sm font-semibold text-text">{rule.name}</h4>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
 					{ruleTypeLabel(rule)}
 				</span>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium text-text-muted">
 					{rule.match_mode === 'any' ? 'Any condition' : 'All conditions'}
 				</span>
 				{#if rule.disabled}
-					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
 						Disabled
 					</span>
 				{/if}
 			</div>
-			<div class="mt-1 text-xs text-text-muted">
+			<div class="mt-1 text-sm text-text-muted">
 				<span class="font-mono">{rule.id}</span>
 			</div>
 		</div>
@@ -127,7 +127,7 @@
 				{#if setMetaBits(rule).length > 0}
 					<div class="flex flex-wrap gap-1.5">
 						{#each setMetaBits(rule) as bit}
-							<span class="border border-border bg-surface px-2 py-1 text-[11px] text-text-muted">{bit}</span>
+							<span class="border border-border bg-surface px-2 py-1 text-xs text-text-muted">{bit}</span>
 						{/each}
 					</div>
 				{/if}

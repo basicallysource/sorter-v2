@@ -413,7 +413,7 @@
 								v{current_profile_version}{current_profile_version_label ? ` - ${current_profile_version_label}` : ''}
 							</span>
 						{/if}
-						<span class="border border-[#00852B]/30 bg-[#00852B]/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#00852B]">Active</span>
+						<span class="border border-[#00852B]/30 bg-[#00852B]/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-[#00852B]">Active</span>
 					</div>
 				</div>
 				<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
@@ -423,7 +423,7 @@
 					{/if}
 				</div>
 				{#if current_profile_updated}
-					<div class="mt-1 text-[11px] text-text-muted">Updated {current_profile_updated}</div>
+					<div class="mt-1 text-sm text-text-muted">Updated {current_profile_updated}</div>
 				{/if}
 			</div>
 
@@ -431,7 +431,7 @@
 
 			<div class="px-3 pb-2 pt-4">
 				<div>
-					<div class="text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">Recent profiles</div>
+					<div class="text-xs font-medium uppercase tracking-[0.08em] text-text-muted">Recent profiles</div>
 				</div>
 			</div>
 
@@ -486,7 +486,7 @@
 									<span class="min-w-0 truncate">{entry.target_name}</span>
 									<span class="shrink-0">{entry.rule_count ?? '?'} rules</span>
 								</div>
-								<div class="mt-1 flex items-center justify-between gap-3 text-[11px] text-text-muted">
+								<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
 									<span class="min-w-0 truncate">{used}</span>
 									<span class="min-w-0 truncate text-right">{updated}</span>
 								</div>

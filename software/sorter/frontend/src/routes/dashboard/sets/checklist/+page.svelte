@@ -176,7 +176,7 @@
 				</a>
 				<div>
 					<div
-						class="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
+						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 					>
 						Set tracking
 					</div>
@@ -219,11 +219,11 @@
 				class="border border-danger/40 bg-danger/[0.06] px-3 py-2"
 			>
 				<div
-					class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark"
+					class="text-xs font-semibold uppercase tracking-wider text-danger-dark"
 				>
 					Could not load checklist
 				</div>
-				<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
+				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
 			</div>
 		{:else if sets.length === 0}
 			<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
@@ -234,7 +234,7 @@
 			<section class="print-block print-card border border-border bg-surface">
 				<div class="print-card-header border-b border-border bg-surface px-4 py-3">
 					<div
-						class="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
+						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 					>
 						Hunt summary
 					</div>
@@ -250,7 +250,7 @@
 				<div class="grid grid-cols-3 divide-x divide-border">
 					<div class="px-4 py-3">
 						<div
-							class="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 						>
 							Found
 						</div>
@@ -260,7 +260,7 @@
 					</div>
 					<div class="px-4 py-3">
 						<div
-							class="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 						>
 							Missing
 						</div>
@@ -270,7 +270,7 @@
 					</div>
 					<div class="px-4 py-3">
 						<div
-							class="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 						>
 							Needed
 						</div>
@@ -307,7 +307,7 @@
 							<div class="flex items-baseline justify-between gap-3">
 								<div class="min-w-0">
 									<div
-										class="text-[11px] font-semibold uppercase tracking-wider text-text-muted print-muted"
+										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
 									>
 										Set {set_progress.set_num}{#if set_progress.year} &middot; {set_progress.year}{/if}
 									</div>
@@ -317,14 +317,14 @@
 								</div>
 								{#if isComplete}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success/[0.08] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-success-dark"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success/[0.08] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-success-dark"
 									>
 										<CheckCircle2 size={12} />
 										Complete
 									</span>
 								{:else}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-danger-dark"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger/[0.06] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger-dark"
 									>
 										{setMissing}
 										{setMissing === 1 ? 'part' : 'parts'} missing
@@ -339,7 +339,7 @@
 									></div>
 								</div>
 								<div
-									class="flex-shrink-0 text-[11px] font-semibold tabular-nums text-text-muted print-muted"
+									class="flex-shrink-0 text-xs font-semibold tabular-nums text-text-muted print-muted"
 								>
 									{set_progress.total_found}/{set_progress.total_needed} &middot; {setPct}%
 								</div>
@@ -360,7 +360,7 @@
 							<table class="w-full text-sm">
 								<thead>
 									<tr
-										class="text-[11px] font-semibold uppercase tracking-wider text-text-muted print-muted"
+										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
 									>
 										<th class="px-3 pb-2 pt-2 text-left" style="width: 30px;">
 											<span class="sr-only">Done</span>
@@ -394,7 +394,7 @@
 													{part.part_num}
 												</div>
 												{#if part.part_name}
-													<div class="mt-0.5 text-[11px] text-text-muted print-muted">
+													<div class="mt-0.5 text-xs text-text-muted print-muted">
 														{part.part_name}
 													</div>
 												{/if}
@@ -415,7 +415,7 @@
 											<td class="px-3 py-2 text-right">
 												{#if partComplete}
 													<span
-														class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-success-dark"
+														class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-success-dark"
 													>
 														<CheckCircle2 size={12} />
 														OK
@@ -442,7 +442,7 @@
 					class="border border-success/40 bg-success/[0.06] px-4 py-8 text-center"
 				>
 					<div
-						class="text-[11px] font-semibold uppercase tracking-wider text-success-dark"
+						class="text-xs font-semibold uppercase tracking-wider text-success-dark"
 					>
 						All clear
 					</div>

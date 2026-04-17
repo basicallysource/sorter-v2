@@ -247,10 +247,10 @@
 		<div class="text-sm text-text-muted">Loading set checklist…</div>
 	{:else if error && !data}
 		<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
-			<div class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark">
+			<div class="text-xs font-semibold uppercase tracking-wider text-danger-dark">
 				Could not load checklist
 			</div>
-			<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
+			<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
 		</div>
 	{:else if data}
 		<div class="mx-auto max-w-[1400px] space-y-6 print:max-w-none">
@@ -267,7 +267,7 @@
 						/>
 					{/if}
 					<div>
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
 							Set {data.set_num}{#if data.year}
 								&middot; {data.year}{/if}
 						</div>
@@ -294,7 +294,7 @@
 								class="h-28 w-28 border border-border bg-white"
 							/>
 							<div
-								class="text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+								class="text-xs font-semibold uppercase tracking-wider text-text-muted"
 							>
 								Scan to continue
 							</div>
@@ -314,10 +314,10 @@
 
 			{#if error}
 				<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
-					<div class="text-[11px] font-semibold uppercase tracking-wider text-danger-dark">
+					<div class="text-xs font-semibold uppercase tracking-wider text-danger-dark">
 						Update failed
 					</div>
-					<div class="mt-1 text-xs leading-relaxed text-text">{error}</div>
+					<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
 				</div>
 			{/if}
 
@@ -332,7 +332,7 @@
 						class={`pb-2 transition-colors ${filter === tab.key ? 'border-b-2 border-primary font-medium text-primary' : 'hover:text-text'}`}
 					>
 						{tab.label}
-						<span class="ml-1 text-[11px] tabular-nums text-text-muted">({counts[tab.key]})</span>
+						<span class="ml-1 text-xs tabular-nums text-text-muted">({counts[tab.key]})</span>
 					</button>
 				{/each}
 			</div>
@@ -416,7 +416,7 @@
 										type="button"
 										onclick={() => onReset(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Reset
 									</button>
@@ -425,7 +425,7 @@
 										type="button"
 										onclick={() => onReset(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Resume
 									</button>
@@ -433,7 +433,7 @@
 										type="button"
 										onclick={() => onComplete(part)}
 										disabled={isPending}
-										class="setup-button-primary flex-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Complete
 									</button>
@@ -442,7 +442,7 @@
 										type="button"
 										onclick={() => onDefer(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Defer
 									</button>
@@ -450,7 +450,7 @@
 										type="button"
 										onclick={() => onComplete(part)}
 										disabled={isPending}
-										class="setup-button-primary flex-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Complete
 									</button>

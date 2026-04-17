@@ -95,7 +95,7 @@
 			<div class="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/72 via-black/14 to-transparent"></div>
 
 			<div class="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-3">
-				<div class="rounded-full border border-white/12 bg-black/55 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-white/90 uppercase backdrop-blur-sm">
+				<div class="rounded-full border border-white/12 bg-black/55 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-white/90 uppercase backdrop-blur-sm">
 					{display_label}
 				</div>
 				<button
@@ -112,7 +112,7 @@
 			</div>
 
 			<div class="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
-				<div class="rounded-full border border-white/12 bg-black/50 px-3 py-1 text-[11px] font-medium text-white/75 backdrop-blur-sm">
+				<div class="rounded-full border border-white/12 bg-black/50 px-3 py-1 text-xs font-medium text-white/75 backdrop-blur-sm">
 					{annotated ? 'Annotated' : 'Raw'} — MJPEG
 				</div>
 			</div>

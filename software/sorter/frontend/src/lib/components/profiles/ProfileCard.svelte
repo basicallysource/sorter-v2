@@ -95,7 +95,7 @@
 				{#if isActive}
 					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
 						<span
-							class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success"
+							class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success"
 							>Active</span
 						>
 					</div>
@@ -197,7 +197,7 @@
 					<button
 						type="button"
 						onclick={props.onOpenDetails}
-						class="text-[10px] text-text-muted hover:text-text hover:underline md:col-span-2"
+						class="text-xs text-text-muted hover:text-text hover:underline md:col-span-2"
 						>+{rules.length - 8} more rules</button
 					>
 				{/if}
@@ -251,7 +251,7 @@
 		{#if isSelectedActive}
 			<div class="mt-2 text-xs text-primary">Currently active on this machine.</div>
 		{:else if isActive && props.syncState?.version_number}
-			<div class="mt-2 text-xs text-text-muted">
+			<div class="mt-2 text-sm text-text-muted">
 				This profile is active on v{props.syncState.version_number}.
 			</div>
 		{/if}

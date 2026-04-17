@@ -501,7 +501,7 @@
 								<option value={option.id}>{option.label}</option>
 							{/each}
 						</select>
-						<div class="mt-1 text-[11px] text-text-muted">
+						<div class="mt-1 text-sm text-text-muted">
 							{openRouterModelShortLabel(openrouterModel)}
 						</div>
 					</label>
@@ -526,13 +526,13 @@
 							<span class="block text-sm font-medium text-text">
 								Collect Positive Samples
 							</span>
-							<span class="mt-0.5 block text-[11px] text-text-muted">
+							<span class="mt-0.5 block text-xs text-text-muted">
 								{sampleCollectionDescription()}
 							</span>
 						</span>
 					</label>
 				{:else if scope !== 'classification'}
-					<div class="border border-border bg-bg px-3 py-2.5 text-[11px] text-text-muted">
+					<div class="border border-border bg-bg px-3 py-2.5 text-xs text-text-muted">
 						{sampleCollectionDescription()}
 					</div>
 				{/if}
@@ -566,7 +566,7 @@
 				</div>
 
 				{#if debugResult}
-					<div class="grid grid-cols-2 gap-1.5 text-[11px]">
+					<div class="grid grid-cols-2 gap-1.5 text-xs">
 						<div class="border border-border bg-bg px-2.5 py-2">
 							<div class="text-text-muted">Result</div>
 							<div class={resultToneClass(debugResult.found)}>
@@ -575,13 +575,13 @@
 						</div>
 						<div class="border border-border bg-bg px-2.5 py-2">
 							<div class="text-text-muted">Algorithm</div>
-							<div class="font-mono text-[13px] text-text">
+							<div class="font-mono text-sm text-text">
 								{algorithmShortLabel(debugResult.algorithm)}
 							</div>
 						</div>
 						<div class="border border-border bg-bg px-2.5 py-2">
 							<div class="text-text-muted">Best Box</div>
-							<div class="font-mono text-[13px] text-text">
+							<div class="font-mono text-sm text-text">
 								{bboxSummary(debugResult.bbox)}
 							</div>
 						</div>
@@ -589,7 +589,7 @@
 							<div class="text-text-muted">
 								{debugResult.score === undefined || debugResult.score === null ? 'Zone Pts' : 'Score'}
 							</div>
-							<div class="font-mono text-[13px] text-text">
+							<div class="font-mono text-sm text-text">
 								{#if debugResult.score !== undefined && debugResult.score !== null}
 									{debugResult.score.toFixed(1)}
 								{:else}
@@ -599,7 +599,7 @@
 						</div>
 						<div class="border border-border bg-bg px-2.5 py-2">
 							<div class="text-text-muted">Frame</div>
-							<div class="font-mono text-[13px] text-text">
+							<div class="font-mono text-sm text-text">
 								{#if debugResult.frame_resolution}
 									{debugResult.frame_resolution[0]} x {debugResult.frame_resolution[1]}
 								{:else}
@@ -611,7 +611,7 @@
 							<div class="text-text-muted">
 								{debugResult.bbox_count === undefined ? 'Zone Box' : 'Candidates'}
 							</div>
-							<div class="font-mono text-[13px] text-text">
+							<div class="font-mono text-sm text-text">
 								{#if debugResult.bbox_count !== undefined}
 									{debugResult.bbox_count}
 								{:else}
@@ -623,10 +623,10 @@
 
 					{#if debugResult.candidate_bboxes && debugResult.candidate_bboxes.length > 0}
 						<div class="grid gap-2 border border-border bg-bg px-3 py-3">
-							<div class="text-[11px] uppercase tracking-[0.14em] text-text-muted">
+							<div class="text-xs uppercase tracking-[0.14em] text-text-muted">
 								Candidate Boxes
 							</div>
-							<div class="grid grid-cols-2 gap-1.5 text-[11px]">
+							<div class="grid grid-cols-2 gap-1.5 text-xs">
 								{#each debugResult.candidate_bboxes.slice(0, 6) as bbox, index}
 									<div class="grid gap-2 border border-border px-2.5 py-2">
 										{#if debugResult.candidate_previews?.[index]}
@@ -651,7 +651,7 @@
 
 				{#if captureResult}
 					<div class="grid grid-cols-1 gap-2 border border-border bg-bg px-3 py-3">
-						<div class="text-[11px] uppercase tracking-[0.14em] text-text-muted">
+						<div class="text-xs uppercase tracking-[0.14em] text-text-muted">
 							Baseline Capture
 						</div>
 						<div class="grid grid-cols-2 gap-2 text-xs">

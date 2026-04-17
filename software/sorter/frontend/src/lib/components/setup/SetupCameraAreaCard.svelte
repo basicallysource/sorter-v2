@@ -74,7 +74,7 @@
 			<button
 				onclick={() => selectedSource !== null && (changingCamera = !changingCamera)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
 			>
 				<span class="whitespace-nowrap">{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span>
 			</button>
@@ -84,7 +84,7 @@
 			<button
 				onclick={() => onOpenZoneEditor?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{zoneReviewed ? 'Zone reviewed' : 'Review zone'}</span>
 			</button>
@@ -94,7 +94,7 @@
 			<button
 				onclick={() => onOpenPictureSettings?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 w-full items-center justify-center border px-2 py-1.5 text-center text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex min-w-0 w-full items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{pictureTuned ? 'Picture tuned' : 'Picture tuning'}</span>
 			</button>
@@ -171,7 +171,7 @@
 				<div class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3">
 					<div>
 						<div class="text-sm font-semibold text-text">Change camera</div>
-						<div class="mt-1 text-xs text-text-muted">Pick a different live source for {label}.</div>
+						<div class="mt-1 text-sm text-text-muted">Pick a different live source for {label}.</div>
 					</div>
 					<button
 						onclick={() => (changingCamera = false)}

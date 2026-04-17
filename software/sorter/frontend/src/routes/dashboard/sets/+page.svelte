@@ -177,7 +177,7 @@
 								></div>
 							</div>
 							{#if missing_parts.length > 0}
-								<div class="mt-1 text-xs text-text-muted">{missing_parts.length} parts still missing</div>
+								<div class="mt-1 text-sm text-text-muted">{missing_parts.length} parts still missing</div>
 							{:else}
 								<div class="mt-1 text-xs text-success">Complete!</div>
 							{/if}
@@ -201,7 +201,7 @@
 											<td class="py-0.5">
 												<div>{part.part_num}</div>
 												{#if part.part_name}
-													<div class="text-[11px] text-text-muted">{part.part_name}</div>
+													<div class="text-xs text-text-muted">{part.part_name}</div>
 												{/if}
 											</td>
 											<td class="py-0.5">{colorLabel(part)}</td>

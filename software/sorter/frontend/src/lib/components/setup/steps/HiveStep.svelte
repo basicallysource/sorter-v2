@@ -54,16 +54,16 @@
 				</div>
 				<div class="flex min-w-0 flex-1 flex-col gap-1">
 					<div
-						class="text-[11px] font-semibold tracking-wider text-success-dark uppercase dark:text-emerald-200"
+						class="text-xs font-semibold tracking-wider text-success-dark uppercase dark:text-emerald-200"
 					>
 						Connected to Hive
 					</div>
-					<div class="text-xs leading-relaxed text-text">
+					<div class="text-sm leading-relaxed text-text">
 						This sorter is registered with
 						<span class="font-mono">{officialHiveTarget.url}</span>.
 					</div>
 					{#if officialHiveTarget.machine_id}
-						<div class="text-[11px] text-text-muted">
+						<div class="text-xs text-text-muted">
 							Machine ID
 							<span class="font-mono text-text">{officialHiveTarget.machine_id}</span>
 						</div>
@@ -77,7 +77,7 @@
 		</div>
 	{:else}
 		<div class="setup-panel flex flex-col gap-2 px-4 py-3">
-			<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">
+			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 				Hive server
 			</div>
 			<div class="font-mono text-sm text-text">{defaultHiveUrl}</div>
@@ -115,11 +115,11 @@
 		</div>
 
 		<div class="setup-panel flex flex-col gap-1 px-4 py-3">
-			<div class="text-[11px] font-semibold tracking-wider text-text-muted uppercase">
+			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 				Machine name
 			</div>
 			<div class="text-sm text-text">{machineDisplayName}</div>
-			<div class="text-[11px] text-text-muted">
+			<div class="text-xs text-text-muted">
 				This is how your sorter will appear in Hive. Change it in Step 1 if needed.
 			</div>
 		</div>
@@ -152,10 +152,10 @@
 
 	{#if hiveError}
 		<div
-			class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-xs leading-relaxed text-text dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
+			class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm leading-relaxed text-text dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
 		>
 			<div
-				class="mb-1 text-[11px] font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-200"
+				class="mb-1 text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-200"
 			>
 				Hive connection failed
 			</div>
@@ -163,7 +163,7 @@
 		</div>
 	{:else if hiveStatus}
 		<div
-			class="border border-success/40 bg-success/[0.06] px-3 py-2 text-xs leading-relaxed text-text dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
+			class="border border-success/40 bg-success/[0.06] px-3 py-2 text-sm leading-relaxed text-text dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
 		>
 			{hiveStatus}
 		</div>

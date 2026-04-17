@@ -34,7 +34,7 @@
 
 <div class="setup-panel p-4">
 	<div class="text-sm font-semibold text-text">Default open/close angles</div>
-	<div class="mt-1 text-xs text-text-muted">
+	<div class="mt-1 text-sm text-text-muted">
 		Default angles used for layers that don't have a custom override set below.
 	</div>
 	<div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -173,7 +173,7 @@
 								</button>
 								<button
 									onclick={() => onSelectLayer(layerIdx)}
-									class={`ml-1 px-2 py-1 text-[10px] font-medium transition-colors ${selectedLayerIdx === layerIdx ? 'border border-info bg-info/10 text-info' : 'border border-border bg-surface text-text-muted hover:bg-bg'}`}
+									class={`ml-1 px-2 py-1 text-xs font-medium transition-colors ${selectedLayerIdx === layerIdx ? 'border border-info bg-info/10 text-info' : 'border border-border bg-surface text-text-muted hover:bg-bg'}`}
 									title="Select to use arrow keys"
 								>
 									{selectedLayerIdx === layerIdx ? '← → active' : 'keys'}

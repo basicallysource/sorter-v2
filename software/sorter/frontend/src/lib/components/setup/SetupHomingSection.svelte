@@ -410,7 +410,7 @@
 	{#if showEndstopWiringHelp}
 		<div class="setup-panel px-4 py-4 text-sm text-text">
 			<div class="text-sm font-semibold text-text">SKR Pico endstop wiring</div>
-			<div class="mt-1 text-xs text-text-muted">
+			<div class="mt-1 text-sm text-text-muted">
 				Reference for the SKR Pico V1.0 endstop headers used by the feeder and distributor
 				boards.
 			</div>
@@ -481,7 +481,7 @@
 					)}
 				</span>
 			</div>
-			<div class="mt-2 text-[11px] text-text-muted">
+			<div class="mt-2 text-sm text-text-muted">
 				Input channel
 				<span class="font-medium text-text"> {carouselLive.home_pin_channel ?? '--'}</span>
 				{#if carouselLive.raw_endstop_high !== null}
@@ -507,7 +507,7 @@
 						? 'Flipping…'
 						: 'Trigger state looks inverted? Flip polarity'}
 				</button>
-				<div class="mt-1 text-[11px] text-text-muted">
+				<div class="mt-1 text-sm text-text-muted">
 					Currently treating the input as
 					<span class="font-medium text-text"
 						>{carouselEndstopActiveHigh ? 'active-high' : 'active-low'}</span
@@ -578,7 +578,7 @@
 					)}
 				</span>
 			</div>
-			<div class="mt-2 text-[11px] text-text-muted">
+			<div class="mt-2 text-sm text-text-muted">
 				Input channel
 				<span class="font-medium text-text"> {chuteLive.home_pin_channel ?? '--'}</span>
 				{#if chuteLive.raw_endstop_high !== null}
@@ -625,7 +625,7 @@
 						? 'Flipping…'
 						: 'Trigger state looks inverted? Flip polarity'}
 				</button>
-				<div class="mt-1 text-[11px] text-text-muted">
+				<div class="mt-1 text-sm text-text-muted">
 					Currently treating the input as
 					<span class="font-medium text-text"
 						>{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span
@@ -633,7 +633,7 @@
 				</div>
 			</div>
 
-			<div class="mt-1 text-[11px] text-text-muted">
+			<div class="mt-1 text-sm text-text-muted">
 				First-bin and pillar values are saved automatically when you continue to the next step.
 			</div>
 

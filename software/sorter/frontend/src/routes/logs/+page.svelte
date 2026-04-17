@@ -301,15 +301,15 @@
 								<div class="flex items-center justify-between gap-2">
 									<div class="text-sm font-medium text-text">{source.label}</div>
 									{#if source.available}
-										<span class="text-[11px] text-text-muted">{formatBytes(source.size_bytes)}</span>
+										<span class="text-xs text-text-muted">{formatBytes(source.size_bytes)}</span>
 									{:else}
-										<span class="text-[11px] text-text-muted">Unavailable</span>
+										<span class="text-xs text-text-muted">Unavailable</span>
 									{/if}
 								</div>
-								<div class="mt-1 text-xs text-text-muted">{source.description}</div>
+								<div class="mt-1 text-sm text-text-muted">{source.description}</div>
 								{#if source.available}
-									<div class="mt-2 truncate text-[11px] text-text-muted">{source.path}</div>
-									<div class="mt-1 text-[11px] text-text-muted">Updated {formatTimestamp(source.updated_at)}</div>
+									<div class="mt-2 truncate text-xs text-text-muted">{source.path}</div>
+									<div class="mt-1 text-sm text-text-muted">Updated {formatTimestamp(source.updated_at)}</div>
 								{/if}
 							</button>
 						{/each}
@@ -323,10 +323,10 @@
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div>
 								<div class="text-sm font-medium text-text">{selectedLog.label}</div>
-								<div class="mt-1 text-xs text-text-muted">{selectedLog.description}</div>
-								<div class="mt-2 text-[11px] text-text-muted">{selectedLog.path}</div>
+								<div class="mt-1 text-sm text-text-muted">{selectedLog.description}</div>
+								<div class="mt-2 text-sm text-text-muted">{selectedLog.path}</div>
 							</div>
-							<div class="text-right text-[11px] text-text-muted">
+							<div class="text-right text-xs text-text-muted">
 								<div>{formatBytes(selectedLog.size_bytes)}</div>
 								<div>Updated {formatTimestamp(selectedLog.updated_at)}</div>
 								{#if refreshingContent || refreshingSources}
@@ -336,7 +336,7 @@
 						</div>
 					{:else}
 						<div class="text-sm font-medium text-text">Log Output</div>
-						<div class="mt-1 text-xs text-text-muted">Select an available source to inspect its logs.</div>
+						<div class="mt-1 text-sm text-text-muted">Select an available source to inspect its logs.</div>
 					{/if}
 				</div>
 
@@ -359,7 +359,7 @@
 							</select>
 						</div>
 
-						<div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+						<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
 							<span class="rounded border border-border bg-bg px-2 py-1">{filteredEntries().length} matching lines</span>
 							<span class="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">Errors: {countByLevel('ERROR')}</span>
 							<span class="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
@@ -376,7 +376,7 @@
 									<div class="grid gap-2 border-b border-border px-4 py-2 text-xs leading-5 {wrapLines ? '' : 'grid-cols-[110px_70px_minmax(0,1fr)]'}">
 										<div class="font-mono text-text-muted">{entry.timestamp ?? ''}</div>
 										<div>
-											<span class={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
+											<span class={`inline-flex rounded border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
 												{entry.level}
 											</span>
 										</div>

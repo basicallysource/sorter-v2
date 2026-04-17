@@ -368,7 +368,7 @@
 				disabled={loading || saving}
 				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 			/>
-			<div class="mt-1 text-[11px] text-text-muted">
+			<div class="mt-1 text-sm text-text-muted">
 				Normal distributor movement speed during bin-to-bin operation.
 			</div>
 		</label>

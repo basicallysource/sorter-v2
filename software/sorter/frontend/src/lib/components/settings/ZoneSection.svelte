@@ -2437,7 +2437,7 @@
 											style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
 										>
 											<div
-												class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-[11px] font-medium text-slate-950 shadow-md"
+												class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
 											>
 												Calibration Target
 											</div>
@@ -2453,7 +2453,7 @@
 										style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
 									>
 										<div
-											class="absolute right-1 top-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-md backdrop-blur-sm"
+											class="absolute right-1 top-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs font-semibold leading-none text-white shadow-md backdrop-blur-sm"
 										>
 											{index + 1}
 										</div>
@@ -2667,7 +2667,7 @@
 										/>
 									{/if}
 									<div
-										class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
+										class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-xs text-white"
 									>
 										<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
 										{#if cam.name && cam.width > 0 && cam.height > 0}
@@ -2681,14 +2681,14 @@
 									</div>
 									{#if isSelected}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-contrast"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-contrast"
 										>
 											Active
 										</div>
 									{:else if usedByOther}
 										{@const otherRole = findRoleUsing(cam.index, role)}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-[10px] font-medium text-[#1A1A1A]"
+											class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-xs font-medium text-[#1A1A1A]"
 										>
 											{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
 										</div>
@@ -2733,7 +2733,7 @@
 											class="block aspect-video w-full object-cover"
 										/>
 										<div
-											class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-[11px] text-white"
+											class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-xs text-white"
 										>
 											<div class="font-medium">{cam.name}</div>
 											<div class="text-white/70">
@@ -2743,14 +2743,14 @@
 										</div>
 										{#if isSelected}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-contrast"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-contrast"
 											>
 												Active
 											</div>
 										{:else if usedByOther}
 											{@const otherRole = findRoleUsing(cam.source, role)}
 											<div
-												class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-[10px] font-medium text-[#1A1A1A]"
+												class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-xs font-medium text-[#1A1A1A]"
 											>
 												{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
 											</div>

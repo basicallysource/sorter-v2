@@ -134,13 +134,13 @@
 								{usbDeviceDisplayName(device)}
 							</span>
 							<span
-								class={`px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase ${badge.className}`}
+								class={`px-2 py-0.5 text-xs font-semibold tracking-wide uppercase ${badge.className}`}
 							>
 								{badge.label}
 							</span>
 							{#if familyLabel}
 								<span
-									class="bg-border/40 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-text-muted uppercase"
+									class="bg-border/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-text-muted uppercase"
 								>
 									{familyLabel}
 								</span>
@@ -150,7 +150,7 @@
 							{device.device}{device.vid_pid ? ` · ${device.vid_pid}` : ''}
 						</div>
 						{#if device.detail}
-							<div class="mt-1 text-xs text-text-muted">{device.detail}</div>
+							<div class="mt-1 text-sm text-text-muted">{device.detail}</div>
 						{/if}
 					</div>
 				</label>

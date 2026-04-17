@@ -152,7 +152,7 @@
 	{#if showStepperWiringHelp}
 		<div class="setup-panel px-4 py-4 text-sm text-text">
 			<div class="text-sm font-semibold text-text">SKR Pico stepper wiring</div>
-			<div class="mt-1 text-xs text-text-muted">
+			<div class="mt-1 text-sm text-text-muted">
 				Reference for the SKR Pico V1.0 stepper headers used by the feeder and distributor
 				boards.
 			</div>
@@ -213,7 +213,7 @@
 			>
 				{#if isVerified}
 					<div
-						class="absolute top-2 right-2 inline-flex items-center gap-1 bg-success px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase"
+						class="absolute top-2 right-2 inline-flex items-center gap-1 bg-success px-2 py-0.5 text-xs font-semibold tracking-wide text-white uppercase"
 					>
 						<Check size={12} />
 						Verified

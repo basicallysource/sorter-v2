@@ -71,7 +71,7 @@
 <div class="setup-panel p-4">
 	<div>
 		<div class="text-sm font-semibold text-text">Detected servos</div>
-		<div class="mt-1 text-xs text-text-muted">
+		<div class="mt-1 text-sm text-text-muted">
 			{busServos.length} on the bus · highest ID ever seen: {highestSeenId || '–'}
 			{#if suggestedNextId !== null}
 				· next free ID: {suggestedNextId}
@@ -115,7 +115,7 @@
 	{/if}
 
 	<div
-		class="mt-4 border border-warning bg-[#FFF7E0] px-4 py-3 text-xs leading-relaxed text-[#7A5A00]"
+		class="mt-4 border border-warning bg-[#FFF7E0] px-4 py-3 text-sm leading-relaxed text-[#7A5A00]"
 	>
 		<div class="font-semibold text-[#5C4400]">Connect one servo at a time</div>
 		<div class="mt-1">

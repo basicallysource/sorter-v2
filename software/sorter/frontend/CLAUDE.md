@@ -26,6 +26,22 @@ hardware servo state.
 Use the `Alert` primitive (`$lib/components/primitives`) for anything
 notification-shaped. Do not hand-roll `border border-*/40 bg-*/[0.06]` blocks.
 
+## Minimum font size
+
+Body copy — descriptions, help text, notification bodies, status strings,
+narration, table cells, anything the operator needs to read — must be **`text-sm`
+(14px) or larger**. Never use `text-xs`, `text-[11px]`, `text-[10px]`, or
+smaller custom sizes for readable content.
+
+`text-xs` (12px) is reserved for:
+
+- Section labels with `font-semibold tracking-wider uppercase`
+- Inline mono "code chip" labels inside the style guide
+- Short metadata badges (status pills, task IDs)
+
+Anything smaller than `text-xs` (e.g. `text-[11px]`, `text-[10px]`,
+`text-[9px]`) is a bug. See `/styleguide` → Typography for the canonical scale.
+
 ## No raw hex colors
 
 All brand colors live in `src/routes/layout.css` as `@theme` CSS variables.

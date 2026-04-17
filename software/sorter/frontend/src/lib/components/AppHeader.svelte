@@ -340,7 +340,7 @@
 
 				{#if powerMenuOpen}
 					<div class="absolute right-0 top-full z-50 mt-1 w-[260px] border border-border bg-surface shadow-lg">
-						<div class="px-3 pt-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+						<div class="px-3 pt-2.5 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
 							System Status
 						</div>
 						<div class="flex flex-col gap-0.5 px-3 pb-2.5">
@@ -365,7 +365,7 @@
 							{/if}
 						</div>
 						<div class="border-t border-border">
-							<div class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+							<div class="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
 								Actions
 							</div>
 							<button
@@ -413,11 +413,11 @@
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-3">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-[#0055BF]">Hardware Homing</div>
-						<div class="text-[11px] text-text-muted">View details</div>
+						<div class="text-xs font-semibold uppercase tracking-wider text-[#0055BF]">Hardware Homing</div>
+						<div class="text-xs text-text-muted">View details</div>
 					</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
-					<div class="mt-2 text-xs text-text-muted">The machine is currently initializing and referencing its hardware.</div>
+					<div class="mt-2 text-sm text-text-muted">The machine is currently initializing and referencing its hardware.</div>
 				</div>
 			</button>
 		</div>
@@ -431,7 +431,7 @@
 						<AlertTriangle size={16} />
 					</div>
 					<div class="min-w-0">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-[#B11618]">Machine Alert</div>
+						<div class="text-xs font-semibold uppercase tracking-wider text-[#B11618]">Machine Alert</div>
 						<div class="mt-1 text-sm text-text">{hardwareAlertBody(hardwareError)}</div>
 					</div>
 				</div>
@@ -536,7 +536,7 @@
 					<div class="h-4 w-4 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
 				</div>
 				<div>
-					<div class="text-[11px] font-semibold uppercase tracking-wider text-[#0055BF]">Current step</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-[#0055BF]">Current step</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
 					<div class="mt-2 text-sm text-text-muted">
 						The machine is currently initializing and referencing its hardware. Let the process finish before starting a run.

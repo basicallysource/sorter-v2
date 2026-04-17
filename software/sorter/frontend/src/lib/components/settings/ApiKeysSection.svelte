@@ -107,7 +107,7 @@
 				{saving[PROVIDER.id] ? 'Saving...' : 'Save'}
 			</button>
 		</div>
-		<div class="mt-1 text-[11px] text-text-muted">
+		<div class="mt-1 text-sm text-text-muted">
 			Used for cloud-assisted detection via <code class="font-mono">{PROVIDER.envVar}</code>.
 		</div>
 	</div>

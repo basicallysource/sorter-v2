@@ -778,7 +778,7 @@
 															<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full bg-white object-contain" />
 														{/if}
 														{#if setMeta.set_num}
-															<div class="absolute top-2 right-2 border border-border bg-white/95 px-2 py-1 text-[11px] font-medium text-[#1A1A1A] shadow-sm">{setMeta.set_num}</div>
+															<div class="absolute top-2 right-2 border border-border bg-white/95 px-2 py-1 text-xs font-medium text-[#1A1A1A] shadow-sm">{setMeta.set_num}</div>
 														{/if}
 													</div>
 												{/if}
@@ -797,7 +797,7 @@
 									</button>
 									{#if !catLabel && !contents}
 										<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center opacity-0 transition-opacity group-hover:opacity-100">
-											<div class="text-[12px] text-[#8B887F]">No category assigned yet. No recorded pieces yet.</div>
+											<div class="text-sm text-text-muted">No category assigned yet. No recorded pieces yet.</div>
 										</div>
 									{/if}
 									{#if setProgress && setProgress.total_needed > 0}
@@ -811,7 +811,7 @@
 												class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-success' : 'bg-primary'}"
 												style="width: {clampedPct}%"
 											></div>
-											<div class="relative flex h-full items-center justify-center text-[11px] font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
+											<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
 												{setProgress.total_found} / {setProgress.total_needed} parts
 											</div>
 										</div>
@@ -837,15 +837,15 @@
 			<div class="space-y-4">
 				<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-3">
 					<div>
-						<div class="text-[11px] uppercase tracking-wide">Layer</div>
+						<div class="text-xs uppercase tracking-wide">Layer</div>
 						<div class="mt-1 text-base font-medium text-text">{detailsBin.layerIndex + 1}</div>
 					</div>
 					<div>
-						<div class="text-[11px] uppercase tracking-wide">Assigned Category</div>
+						<div class="text-xs uppercase tracking-wide">Assigned Category</div>
 						<div class="mt-1 text-base font-medium text-text">{categoryLabel(detailsBin.bin.category_ids) || 'None'}</div>
 					</div>
 					<div>
-						<div class="text-[11px] uppercase tracking-wide">Recorded Pieces</div>
+						<div class="text-xs uppercase tracking-wide">Recorded Pieces</div>
 						<div class="mt-1 text-base font-medium text-text">{detailsBin.contents?.piece_count ?? 0} {(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}</div>
 					</div>
 				</div>

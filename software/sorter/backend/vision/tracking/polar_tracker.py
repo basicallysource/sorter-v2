@@ -555,6 +555,8 @@ class PolarFeederTracker(Tracker):
                 geom.r_outer,
                 track.snapshot_width,
                 track.snapshot_height,
+                path=track.path,
+                handoff=track.handoff_from is not None,
             )
             if b64:
                 track.thumb_jpeg_b64 = b64
@@ -631,18 +633,36 @@ class PolarFeederTracker(Tracker):
             if abs(raw_diff) < required:
                 return
 
-        bbox = _wedge_bbox(
+        # Wide wedge-bbox crop — used by the pie composite + SVG clipPath
+        # so the big modal view shows the piece in ring context.
+        wedge = _wedge_bbox(
             geom.center_x, geom.center_y, r_in, r_out, a0, a1, frame_bgr.shape,
         )
-        if bbox is None:
+        if wedge is None:
             return
-        bx1, by1, bx2, by2 = bbox
+        bx1, by1, bx2, by2 = wedge
         crop = frame_bgr[by1:by2, bx1:bx2]
         if crop.size == 0:
             return
         b64, w, h = encode_snapshot(crop)
         if not b64:
             return
+
+        # Tight crop around the piece itself — for Recognize / classification
+        # thumbnails. Piece bbox + small margin, like the classification
+        # chamber does.
+        piece_margin = 8
+        fh, fw = frame_bgr.shape[:2]
+        pbx1 = max(0, int(x1) - piece_margin)
+        pby1 = max(0, int(y1) - piece_margin)
+        pbx2 = min(fw, int(x2) + piece_margin)
+        pby2 = min(fh, int(y2) + piece_margin)
+        piece_b64 = ""
+        piece_w = piece_h = 0
+        if pbx2 - pbx1 >= 4 and pby2 - pby1 >= 4:
+            piece_crop = frame_bgr[pby1:pby2, pbx1:pbx2]
+            if piece_crop.size > 0:
+                piece_b64, piece_w, piece_h = encode_snapshot(piece_crop)
 
         sector_span = (2 * math.pi) / geom.sector_count
         norm_angle = center_angle_rad % (2 * math.pi)
@@ -661,6 +681,11 @@ class PolarFeederTracker(Tracker):
                 jpeg_b64=b64,
                 r_inner=float(r_in),
                 r_outer=float(r_out),
+                piece_jpeg_b64=piece_b64,
+                piece_bbox_x=int(pbx1),
+                piece_bbox_y=int(pby1),
+                piece_width=int(piece_w),
+                piece_height=int(piece_h),
             )
         )
         track.last_capture_angle_rad = center_angle_rad
@@ -684,6 +709,8 @@ class PolarFeederTracker(Tracker):
                 geom.r_outer,
                 track.snapshot_width,
                 track.snapshot_height,
+                path=track.path,
+                handoff=track.handoff_from is not None,
             )
         if not composite_b64 and track.snapshot_jpeg_b64:
             composite_b64, composite_w, composite_h = render_snapshot_thumb(

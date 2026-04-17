@@ -56,6 +56,14 @@ class SectorSnapshot:
     jpeg_b64: str
     r_inner: float = 0.0
     r_outer: float = 0.0
+    # Tight crop around just the piece bbox (+small margin) — used for
+    # Recognize/classification. Separate from ``jpeg_b64`` so the pie-chart
+    # composite keeps the full wedge context.
+    piece_jpeg_b64: str = ""
+    piece_bbox_x: int = 0
+    piece_bbox_y: int = 0
+    piece_width: int = 0
+    piece_height: int = 0
 
 
 @dataclass
@@ -125,6 +133,11 @@ class TrackSegment:
                     "jpeg_b64": s.jpeg_b64,
                     "r_inner": s.r_inner,
                     "r_outer": s.r_outer,
+                    "piece_jpeg_b64": s.piece_jpeg_b64,
+                    "piece_bbox_x": s.piece_bbox_x,
+                    "piece_bbox_y": s.piece_bbox_y,
+                    "piece_width": s.piece_width,
+                    "piece_height": s.piece_height,
                 }
                 for s in self.sector_snapshots
             ],
@@ -191,12 +204,15 @@ def render_sector_composite(
     frame_height: int,
     *,
     target_size: int = COMPOSITE_THUMB_SIZE,
+    path: list[tuple[float, float, float]] | None = None,
+    handoff: bool = False,
 ) -> tuple[str, int, int]:
     """Composite all sector wedges into one small JPEG for sidebar thumbs.
 
     Builds a full-frame canvas, stamps each decoded sector-JPEG at its
     ``(bbox_x, bbox_y)`` clipped to the wedge polygon via ``cv2.fillPoly``,
-    then crops to the channel bounding square and resizes to ``target_size``.
+    draws the trajectory polyline + capture-point circles on top, then
+    crops to the channel bounding square and resizes to ``target_size``.
     Returns ``("", 0, 0)`` if nothing usable was produced.
     """
     if not sector_snapshots or frame_width <= 0 or frame_height <= 0:
@@ -254,6 +270,30 @@ def render_sector_composite(
         sub_canvas = canvas[y1:y2, x1:x2]
         # In-place blit where the mask is set.
         np.copyto(sub_canvas, sector_img, where=sub_mask[..., None] > 0)
+
+    # Trajectory polyline + capture-point circles — match the SVG modal
+    # so the thumbnail tells the same story at a glance.
+    if path and len(path) > 1:
+        poly_pts = np.array(
+            [[int(round(x)), int(round(y))] for _ts, x, y in path],
+            dtype=np.int32,
+        ).reshape(-1, 1, 2)
+        # BGR: magenta for handoff tracks, green otherwise.
+        poly_color = (220, 80, 220) if handoff else (0, 220, 0)
+        cv2.polylines(canvas, [poly_pts], False, poly_color, thickness=3, lineType=cv2.LINE_AA)
+
+    if sector_snapshots and path:
+        for snap in sector_snapshots:
+            # Find nearest path sample by capture timestamp.
+            nearest = min(path, key=lambda p: abs(p[0] - snap.captured_ts))
+            cv2.circle(
+                canvas,
+                (int(round(nearest[1])), int(round(nearest[2]))),
+                radius=26,
+                color=(0, 220, 255),  # yellow in BGR
+                thickness=3,
+                lineType=cv2.LINE_AA,
+            )
 
     # Crop to a square around the channel outer radius (with small padding).
     pad = 6

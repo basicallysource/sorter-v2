@@ -369,6 +369,8 @@ class ByteTrackFeederTracker(Tracker):
                 geom.r_outer,
                 track.snapshot_width,
                 track.snapshot_height,
+                path=track.path,
+                handoff=track.handoff_from is not None,
             )
             if b64:
                 track.thumb_jpeg_b64 = b64
@@ -520,6 +522,8 @@ class ByteTrackFeederTracker(Tracker):
                 geom.r_outer,
                 track.snapshot_width,
                 track.snapshot_height,
+                path=track.path,
+                handoff=track.handoff_from is not None,
             )
         if not composite_b64 and track.snapshot_jpeg_b64:
             composite_b64, composite_w, composite_h = render_snapshot_thumb(

@@ -1892,6 +1892,13 @@ class VisionManager:
                         "width": s.width,
                         "height": s.height,
                         "jpeg_b64": s.jpeg_b64,
+                        "r_inner": getattr(s, "r_inner", 0.0),
+                        "r_outer": getattr(s, "r_outer", 0.0),
+                        "piece_jpeg_b64": getattr(s, "piece_jpeg_b64", ""),
+                        "piece_bbox_x": getattr(s, "piece_bbox_x", 0),
+                        "piece_bbox_y": getattr(s, "piece_bbox_y", 0),
+                        "piece_width": getattr(s, "piece_width", 0),
+                        "piece_height": getattr(s, "piece_height", 0),
                     }
                     for s in live_track.sector_snapshots
                 ]

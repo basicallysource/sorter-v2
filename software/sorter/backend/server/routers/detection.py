@@ -1032,6 +1032,48 @@ def debug_feeder_detection(role: str) -> Dict[str, Any]:
     )
 
 
+@router.get("/api/feeder/tracking/history")
+def feeder_tracking_history(limit: int = 30, min_sectors: int = 3) -> Dict[str, Any]:
+    """Ring buffer of recent completed tracks (summary only — no big JPEGs).
+
+    ``min_sectors`` hides finished tracks that didn't cover at least that
+    many angular channel sectors — useful for filtering out noise/short
+    flickers. Live tracks are always shown regardless.
+    """
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "listFeederTrackHistory"):
+        raise HTTPException(status_code=503, detail="Tracker history not available.")
+    limit = max(1, min(int(limit), 200))
+    min_sectors = max(0, min(int(min_sectors), 12))
+    return {"items": vm.listFeederTrackHistory(limit=limit, min_sectors=min_sectors)}
+
+
+@router.get("/api/feeder/tracking/history/{global_id}")
+def feeder_tracking_history_detail(global_id: int) -> Dict[str, Any]:
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "getFeederTrackHistoryDetail"):
+        raise HTTPException(status_code=503, detail="Tracker history not available.")
+    entry = vm.getFeederTrackHistoryDetail(int(global_id))
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Track not found.")
+    return entry
+
+
+@router.get("/api/feeder/tracking/pending")
+def feeder_tracking_pending() -> Dict[str, Any]:
+    """Debug: show pending cross-camera handoff entries + current zone config."""
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "_piece_handoff_manager"):
+        raise HTTPException(status_code=503, detail="Handoff manager not available.")
+    manager = vm._piece_handoff_manager
+    return {
+        "pending": manager.pending_snapshot(),
+        "entry_zones": {role: poly for role, poly in manager._entry_zones.items()},
+        "exit_zones": {role: poly for role, poly in manager._exit_zones.items()},
+        "handoff_window_s": manager.handoff_window_s,
+    }
+
+
 @router.post("/api/carousel/detect/current")
 def debug_carousel_detection() -> Dict[str, Any]:
     if shared_state.vision_manager is None:

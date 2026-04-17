@@ -260,7 +260,7 @@ def main() -> None:
         if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for homing")
 
-        shared_state.hardware_homing_step = "Discovering hardware..."
+        shared_state.setHardwareStatus(homing_step="Discovering hardware...")
         gc.logger.info("Starting hardware initialization...")
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
@@ -275,7 +275,7 @@ def main() -> None:
         if gc.disable_servos:
             gc.logger.info("Servo control disabled via --disable servos")
         else:
-            shared_state.hardware_homing_step = "Opening servos..."
+            shared_state.setHardwareStatus(homing_step="Opening servos...")
             gc.logger.info("Opening all layer servos...")
             for servo in irl.servos:
                 try:
@@ -290,8 +290,17 @@ def main() -> None:
                     "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
                 )
         elif feeder_detection_ready:
-            shared_state.hardware_homing_step = "Calibrating feeder channels..."
-            calibrateFeederChannels(gc, irl, irl_config)
+            # Reverse-pulse calibration seeds the MOG2 background model with
+            # an empty conveyor view. Hive/Gemini detectors don't need this
+            # priming step — skip it to save homing time.
+            feeder_algo = vision.getFeederDetectionAlgorithm()
+            if feeder_algo == "mog2":
+                shared_state.setHardwareStatus(homing_step="Calibrating feeder channels...")
+                calibrateFeederChannels(gc, irl, irl_config)
+            else:
+                gc.logger.info(
+                    f"Skipping feeder reverse-pulse calibration — algorithm={feeder_algo!r} does not need it"
+                )
         else:
             gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")
 
@@ -306,7 +315,7 @@ def main() -> None:
         elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
             gc.logger.warning("Classification baseline not found — continuing without classification")
 
-        shared_state.hardware_homing_step = "Homing carousel..."
+        shared_state.setHardwareStatus(homing_step="Homing carousel...")
         carousel_hw = getattr(irl, "carousel_hw", None)
         if carousel_hw is not None:
             gc.logger.info("Homing carousel...")
@@ -316,7 +325,7 @@ def main() -> None:
                 gc.logger.warning("Carousel homing failed. Continuing without homing.")
 
         # Home chute/distributor if available
-        shared_state.hardware_homing_step = "Homing distributor..."
+        shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
             irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
@@ -342,7 +351,7 @@ def main() -> None:
             except Exception as e:
                 gc.logger.warning(f"Chute homing failed: {e}. Continuing without homing.")
 
-        shared_state.hardware_homing_step = None
+        shared_state.setHardwareStatus(clear_homing_step=True)
         gc.logger.info("Hardware initialization and homing complete.")
 
     def _initialize_hardware() -> None:
@@ -359,7 +368,7 @@ def main() -> None:
         if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for stepper jog")
 
-        shared_state.hardware_homing_step = "Discovering hardware..."
+        shared_state.setHardwareStatus(homing_step="Discovering hardware...")
         gc.logger.info("Initializing hardware (no homing)...")
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
@@ -368,14 +377,14 @@ def main() -> None:
         if gc.disable_servos:
             gc.logger.info("Servo control disabled via --disable servos")
         else:
-            shared_state.hardware_homing_step = "Opening servos..."
+            shared_state.setHardwareStatus(homing_step="Opening servos...")
             for servo in irl.servos:
                 try:
                     servo.open()
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
 
-        shared_state.hardware_homing_step = None
+        shared_state.setHardwareStatus(clear_homing_step=True)
         gc.logger.info("Hardware initialized (steppers ready, no homing performed).")
 
     setHardwareStartFn(_home_hardware)

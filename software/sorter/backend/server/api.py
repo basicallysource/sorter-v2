@@ -142,6 +142,8 @@ from server.routers.sorting_profiles import router as sorting_profiles_router
 from server.routers.system import router as system_router
 from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
+from server.routers.hive_models import router as hive_models_router
+from server.routers.runtimes import router as runtimes_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -152,6 +154,8 @@ app.include_router(sorting_profiles_router)
 app.include_router(system_router)
 app.include_router(setup_router)
 app.include_router(logs_router)
+app.include_router(hive_models_router)
+app.include_router(runtimes_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -513,6 +517,65 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 "data": {"payload": shared_state.runtime_stats_snapshot},
             }
         )
+
+    # Always send a fresh system_status snapshot on connect (cheap + always valid).
+    await websocket.send_json(
+        {
+            "tag": "system_status",
+            "data": {
+                "hardware_state": shared_state.hardware_state,
+                "hardware_error": shared_state.hardware_error,
+                "homing_step": shared_state.hardware_homing_step,
+            },
+        }
+    )
+    # Populate sorter_state snapshot on-demand if missing — broadcasts are only
+    # fired at FSM transitions, so a freshly-connected client would otherwise
+    # default to 'default' camera_layout even when the config says split_feeder.
+    if shared_state.sorter_state_snapshot is None:
+        layout = None
+        if shared_state.vision_manager is not None:
+            layout = getattr(shared_state.vision_manager, "_camera_layout", None)
+        fsm_state = "initializing"
+        if shared_state.controller_ref is not None:
+            fsm_state = getattr(shared_state.controller_ref.state, "value", "initializing")
+        shared_state.sorter_state_snapshot = {
+            "state": fsm_state,
+            "camera_layout": layout,
+        }
+    await websocket.send_json(
+        {
+            "tag": "sorter_state",
+            "data": shared_state.sorter_state_snapshot,
+        }
+    )
+
+    # Populate cameras_config snapshot on-demand from the live config file.
+    if shared_state.cameras_config_snapshot is None:
+        try:
+            from server.routers.cameras import get_camera_config
+            shared_state.cameras_config_snapshot = {"cameras": get_camera_config()}
+        except Exception:
+            shared_state.cameras_config_snapshot = None
+    if shared_state.cameras_config_snapshot is not None:
+        await websocket.send_json(
+            {
+                "tag": "cameras_config",
+                "data": shared_state.cameras_config_snapshot,
+            }
+        )
+    # Always compute fresh sorting profile status on connect — cheap file read,
+    # keeps frontend in sync without depending on mutation-time broadcasts.
+    try:
+        from server.routers.sorting_profiles import _current_local_profile_status
+        await websocket.send_json(
+            {
+                "tag": "sorting_profile_status",
+                "data": _current_local_profile_status(),
+            }
+        )
+    except Exception:
+        pass
 
     tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
     if tracker is not None:

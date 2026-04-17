@@ -67,6 +67,16 @@ class AuxiliaryTeacherCaptureRequest:
     frame_snapshot: np.ndarray | None = None
 
 
+# Minimum seconds between consecutive ``hive:*`` inferences per (scope, role).
+# Live frame-encode runs at ~10 Hz and each ONNX inference is ~30-50 ms on CPU;
+# without this guard the encode thread serializes and the dashboard stream
+# stutters. Override via ``SORTER_HIVE_INFERENCE_INTERVAL_S`` env var for tuning.
+import os as _os
+HIVE_INFERENCE_MIN_INTERVAL_S: float = float(
+    _os.environ.get("SORTER_HIVE_INFERENCE_INTERVAL_S", "0.2")
+)
+
+
 class VisionManager:
     _irl_config: IRLConfig
     _video_recorder: Optional[VideoRecorder]
@@ -146,6 +156,18 @@ class VisionManager:
         self._gemini_sam_detector: GeminiSamDetector | None = None
         self._feeder_gemini_detectors: Dict[str, GeminiSamDetector] = {}
         self._carousel_gemini_detector: GeminiSamDetector | None = None
+        self._hive_ml_processors: Dict[str, Any] = {}
+        from .tracking import build_feeder_tracker_system, TrackedPiece  # noqa: F401
+        (
+            self._piece_handoff_manager,
+            self._feeder_trackers,
+            self._piece_history,
+        ) = build_feeder_tracker_system()
+        self._feeder_track_cache: Dict[str, Tuple[float, list]] = {}
+        # Gate: tracker updates only happen while the sorter is actually
+        # running. Toggled from SorterController.resume/pause/stop so we
+        # don't accumulate tracks while the operator is calibrating or idle.
+        self._feeder_tracker_active: bool = False
         self._aux_detection_stop = threading.Event()
         self._aux_detection_thread: threading.Thread | None = None
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
@@ -237,6 +259,7 @@ class VisionManager:
             DynamicDetectionOverlay,
             HeatmapOverlay,
             ClassificationOverlay,
+            TrackOverlay,
         )
 
         _ROLE_TO_POLY_KEY = {
@@ -255,10 +278,17 @@ class VisionManager:
                 poly_key = _ROLE_TO_POLY_KEY.get(role)
                 if poly_key:
                     feed.add_overlay(ChannelRegionOverlay(self._region_provider, poly_key))
-                if self.getFeederDetectionAlgorithm() == "gemini_sam":
-                    feed.add_overlay(DynamicDetectionOverlay(
-                        lambda r=role: self._getFeederDynamicDetection(r, force=False)
-                    ))
+                feeder_algo = self.getFeederDetectionAlgorithm()
+                if feeder_algo == "gemini_sam" or feeder_algo.startswith("hive:"):
+                    # TrackOverlay replaces DynamicDetectionOverlay. Triggering
+                    # _getFeederDynamicDetection on each render tick is what
+                    # keeps the Hive inference (throttled) + tracker cache warm;
+                    # the overlay itself reads the freshly-updated track list.
+                    def _tracks_for(r=role):
+                        self._getFeederDynamicDetection(r, force=False)
+                        return self.getFeederTracks(r)
+
+                    feed.add_overlay(TrackOverlay(_tracks_for))
                 else:
                     detector = self._per_channel_detectors.get(role)
                     analysis = self._per_channel_analysis.get(role)
@@ -270,7 +300,8 @@ class VisionManager:
             if carousel_feed is not None:
                 carousel_feed.clear_overlays()
                 carousel_feed.add_overlay(ChannelRegionOverlay(self._region_provider, "carousel"))
-                if self.getCarouselDetectionAlgorithm() == "gemini_sam":
+                carousel_algo = self.getCarouselDetectionAlgorithm()
+                if carousel_algo == "gemini_sam" or carousel_algo.startswith("hive:"):
                     carousel_feed.add_overlay(DynamicDetectionOverlay(
                         lambda: self._getCarouselDynamicDetection(force=False)
                     ))
@@ -313,6 +344,12 @@ class VisionManager:
         self._started = True
         # CameraService.start() already started capture threads + frame encode loop
         self._region_provider.start()
+        # Populate handoff zones from saved polygons so the tracker can
+        # inherit IDs across cameras even before the user triggers a Home cycle.
+        try:
+            self.reloadPolygons()
+        except Exception as exc:
+            self.gc.logger.warning(f"reloadPolygons at start failed: {exc}")
         self._initOverlays()
         self._aux_detection_stop.clear()
         self._aux_detection_thread = threading.Thread(
@@ -498,7 +535,9 @@ class VisionManager:
         normalized = self._normalizeClassificationDetectionAlgorithm(algorithm)
         self._diff_config.algorithm = normalized
         self._classification_dynamic_detection_cache.clear()
+        self._hive_ml_processors.clear()
         self._stopClassificationAnalysis()
+        self._initOverlays()
         if normalized == "baseline_diff" and self._started:
             return self.loadClassificationBaseline()
         return False
@@ -516,6 +555,9 @@ class VisionManager:
             raise ValueError(f"Unsupported feeder detection algorithm '{algorithm}'")
         self._feeder_detection_algorithm = self._normalizeFeederDetectionAlgorithm(algorithm)
         self._feeder_dynamic_detection_cache.clear()
+        self._hive_ml_processors.clear()
+        self.resetFeederTrackers()
+        self._initOverlays()
 
     def setFeederOpenRouterModel(self, model: str) -> str:
         normalized = normalize_openrouter_model(model)
@@ -551,6 +593,8 @@ class VisionManager:
             raise ValueError(f"Unsupported carousel detection algorithm '{algorithm}'")
         self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(algorithm)
         self._carousel_dynamic_detection_cache = None
+        self._hive_ml_processors.clear()
+        self._initOverlays()
 
     def setCarouselOpenRouterModel(self, model: str) -> str:
         normalized = normalize_openrouter_model(model)
@@ -606,6 +650,109 @@ class VisionManager:
             saved_res = saved.get("resolution", [1920, 1080])
             src_w, src_h = int(saved_res[0]), int(saved_res[1])
             self._loadCarouselPolygon(polygon_data, source_resolution=(src_w, src_h))
+            # Configure handoff zones right away so the tracker works even
+            # before the user runs System Home.
+            self._configureHandoffZonesFromSaved(polygon_data, saved_res)
+
+    def _configureChannelGeometryFromSaved(self, saved: dict) -> None:
+        """Push channel center + inner/outer radii into feeder trackers.
+
+        The tracker uses this to slice the piece's trajectory into angular
+        sectors and snapshot each sector as the piece passes through it.
+        Radii/center are scaled from the saved capture resolution to each
+        role's live camera resolution.
+        """
+        try:
+            from subsystems.feeder.analysis import parseSavedChannelArcZones
+        except Exception:
+            return
+        saved_res = saved.get("resolution") or [1920, 1080]
+        try:
+            src_w = int(saved_res[0])
+            src_h = int(saved_res[1])
+        except (TypeError, ValueError):
+            return
+        if src_w <= 0 or src_h <= 0:
+            return
+        channel_angles = saved.get("channel_angles") or {}
+        arc_params = saved.get("arc_params") or {}
+        role_to_key = {"c_channel_2": "second", "c_channel_3": "third"}
+        for role, channel_key in role_to_key.items():
+            arc = parseSavedChannelArcZones(channel_key, channel_angles, arc_params)
+            if arc is None or arc.outer_radius <= arc.inner_radius or arc.inner_radius <= 0:
+                continue
+            tracker = self._feeder_trackers.get(role)
+            if tracker is None:
+                continue
+            capture = self.getCaptureThreadForRole(role)
+            frame = capture.latest_frame if capture is not None else None
+            if frame is None:
+                sx = sy = 1.0
+            else:
+                cam_h, cam_w = frame.raw.shape[:2]
+                sx = cam_w / src_w
+                sy = cam_h / src_h
+            cx = arc.center[0] * sx
+            cy = arc.center[1] * sy
+            # Mean scale for radii — the channel is circular, so sx≈sy in practice.
+            rs = (sx + sy) / 2.0
+            r_in = arc.inner_radius * rs
+            r_out = arc.outer_radius * rs
+            tracker.set_channel_geometry((cx, cy), r_in, r_out, sector_count=12)
+
+    def _configureHandoffZonesFromSaved(self, polygon_data: dict, saved_res) -> None:
+        """Set up c_channel_2 exit / c_channel_3 entry zones from saved polygons.
+
+        Polygon coordinates are stored in the capture resolution written to
+        disk (``saved_res``); the active camera may run at a different
+        resolution (e.g. 1280×720 on the live feed while the stored polygon
+        is in 1920×1080). Rescale per role using the role's current capture.
+        """
+        try:
+            src_w, src_h = int(saved_res[0]), int(saved_res[1])
+        except (TypeError, ValueError):
+            return
+        if src_w <= 0 or src_h <= 0:
+            return
+        role_to_key = {"c_channel_2": "second_channel", "c_channel_3": "third_channel"}
+
+        def _rect_to_polygon(x1, y1, x2, y2):
+            return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+
+        def _role_scale(role: str) -> tuple[float, float]:
+            capture = self.getCaptureThreadForRole(role)
+            frame = capture.latest_frame if capture is not None else None
+            if frame is None:
+                return 1.0, 1.0
+            cam_h, cam_w = frame.raw.shape[:2]
+            return cam_w / src_w, cam_h / src_h
+
+        for role, key in role_to_key.items():
+            pts = polygon_data.get(key)
+            if not isinstance(pts, list) or len(pts) < 3:
+                continue
+            try:
+                poly = np.array([[float(p[0]), float(p[1])] for p in pts], dtype=np.int32)
+            except (TypeError, ValueError):
+                continue
+            x, y, w, h = cv2.boundingRect(poly)
+            sx, sy = _role_scale(role)
+            if role == "c_channel_2":
+                ex1 = (x + w // 2) * sx
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    exit_polygon=_rect_to_polygon(
+                        ex1, y * sy, (x + w) * sx, (y + h) * sy
+                    ),
+                )
+            elif role == "c_channel_3":
+                en2 = (x + w // 2) * sx
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    entry_polygon=_rect_to_polygon(
+                        x * sx, y * sy, en2, (y + h) * sy
+                    ),
+                )
 
     def initFeederDetection(self, *, manual_feed_mode: bool = False) -> bool:
         from blob_manager import getChannelPolygons
@@ -675,6 +822,10 @@ class VisionManager:
 
         self._channel_polygons = polys
         self._channel_angles = saved.get("channel_angles", {})
+        # Tracker reset + zones — new polygons mean we can't trust old track positions.
+        self.resetFeederTrackers()
+        self._configureFeederHandoffZones(polys)
+        self._configureChannelGeometryFromSaved(saved)
 
         channel_steppers = {
             "second_channel": self._irl.c_channel_2_rotor_stepper,
@@ -1075,6 +1226,14 @@ class VisionManager:
                 return None
             return cached[1] if abs(float(frame.timestamp) - float(cached[0])) <= 4.0 else None
 
+        # Hive inference is local but CPU-bound; throttle on the live path so
+        # the frame-encode thread doesn't serialize a ~40ms ONNX call per frame.
+        if algorithm.startswith("hive:") and not force:
+            if cached is not None:
+                last_ts, last_det = cached
+                if frame.timestamp - float(last_ts) < HIVE_INFERENCE_MIN_INTERVAL_S:
+                    return last_det
+
         detection: ClassificationDetectionResult | None = None
         if algorithm == "gemini_sam":
             polygon = self._classification_masks.get(cam)
@@ -1091,6 +1250,8 @@ class VisionManager:
                     force=True,
                 )
             )
+        elif algorithm.startswith("hive:"):
+            detection = self._runHiveDetection(algorithm, frame.raw, scope="classification", role=cam)
 
         self._classification_dynamic_detection_cache[cam] = (frame.timestamp, detection)
         return detection
@@ -1447,6 +1608,426 @@ class VisionManager:
         detection, _ = self._runGeminiDetectionRequestWithThrottle(request)
         return detection
 
+    def _getOrBuildHiveProcessor(self, algorithm_id: str):
+        cached = self._hive_ml_processors.get(algorithm_id)
+        if cached is not None:
+            return cached
+        from .detection_registry import detection_algorithm_definition
+        from .ml import create_processor
+
+        definition = detection_algorithm_definition(algorithm_id)
+        if definition is None or definition.kind != "hive" or definition.model_path is None:
+            return None
+        try:
+            processor = create_processor(
+                model_path=definition.model_path,
+                model_family=definition.model_family or "yolo",
+                runtime=definition.runtime or "onnx",
+                imgsz=int(definition.imgsz or 320),
+            )
+        except Exception as exc:
+            self.gc.logger.warning("Failed to build Hive processor %s: %s", algorithm_id, exc)
+            return None
+        self._hive_ml_processors[algorithm_id] = processor
+        return processor
+
+    def _resolveZonePolygon(
+        self,
+        scope: DetectionScope,
+        role: str,
+        frame_shape: tuple[int, int],
+    ) -> np.ndarray | None:
+        """Return polygon as int32 ndarray in frame pixel coords, or None.
+
+        Falls back to the saved polygons in ``blob_manager.getChannelPolygons()``
+        when the in-memory state (per-channel detectors, carousel polygon) is
+        still empty — that happens pre-home, before ``initFeederDetection`` has
+        populated ``_per_channel_detectors`` / ``_carousel_polygon``.
+        """
+        h, w = frame_shape[:2]
+        if scope == "classification":
+            polygon = self._classification_masks.get(role)
+            if polygon is None or len(polygon) < 3:
+                return None
+            scaled = self._scalePolygon(polygon, w, h)
+            if scaled is None:
+                return None
+            return np.asarray(scaled, dtype=np.int32)
+
+        if scope == "feeder":
+            channel = self._channelInfoForRole(role)
+            if channel is not None and channel.polygon is not None and len(channel.polygon) >= 3:
+                return np.asarray(channel.polygon, dtype=np.int32)
+            key = "second_channel" if role == "c_channel_2" else "third_channel" if role == "c_channel_3" else None
+            if key is None:
+                return None
+            return self._loadSavedPolygon(key, w, h)
+
+        if scope == "carousel":
+            if self._carousel_polygon is not None and len(self._carousel_polygon) >= 3:
+                return np.asarray(self._carousel_polygon, dtype=np.int32)
+            return self._loadSavedPolygon("carousel", w, h)
+
+        return None
+
+    def _loadSavedPolygon(
+        self,
+        key: str,
+        target_w: int,
+        target_h: int,
+    ) -> np.ndarray | None:
+        """Read + scale a polygon from ``blob_manager.getChannelPolygons()``."""
+        try:
+            from blob_manager import getChannelPolygons
+        except Exception:
+            return None
+        saved = getChannelPolygons()
+        if not isinstance(saved, dict):
+            return None
+        polygon_data = saved.get("polygons") or {}
+        pts = polygon_data.get(key)
+        if not isinstance(pts, list) or len(pts) < 3:
+            return None
+        saved_res = saved.get("resolution") or [1920, 1080]
+        try:
+            src_w, src_h = int(saved_res[0]), int(saved_res[1])
+        except (TypeError, ValueError):
+            return None
+        if src_w <= 0 or src_h <= 0:
+            return None
+        sx = float(target_w) / float(src_w)
+        sy = float(target_h) / float(src_h)
+        try:
+            scaled = np.array(
+                [[float(p[0]) * sx, float(p[1]) * sy] for p in pts],
+                dtype=np.int32,
+            )
+        except (TypeError, ValueError):
+            return None
+        return scaled
+
+    def _ensureHandoffZones(self) -> None:
+        """Idempotent lazy-init of the handoff zones.
+
+        Runs on each tracker update. Once zones are set for both roles, the
+        method is a no-op. Waits until a real camera frame has arrived so we
+        can scale from the saved polygon resolution to the live one.
+        """
+        entry_roles = set(self._piece_handoff_manager._entry_zones.keys())
+        exit_roles = set(self._piece_handoff_manager._exit_zones.keys())
+        if "c_channel_2" in exit_roles and "c_channel_3" in entry_roles:
+            return
+        # Both cameras must have produced a frame so we know their resolution.
+        for role in ("c_channel_2", "c_channel_3"):
+            capture = self.getCaptureThreadForRole(role)
+            if capture is None or capture.latest_frame is None:
+                return
+        try:
+            from blob_manager import getChannelPolygons
+            saved = getChannelPolygons()
+        except Exception:
+            return
+        if not isinstance(saved, dict):
+            return
+        self._configureHandoffZonesFromSaved(
+            saved.get("polygons") or {},
+            saved.get("resolution") or [1920, 1080],
+        )
+        self._configureChannelGeometryFromSaved(saved)
+
+    def setFeederTrackerActive(self, active: bool) -> None:
+        """Enable/disable live piece tracking. Called by SorterController on
+        lifecycle transitions so we only track pieces while the machine is
+        actually running. Leaving the active state flushes live tracks into
+        the history buffer via ``resetFeederTrackers`` so the sidebar keeps
+        showing the last run's results.
+        """
+        new_state = bool(active)
+        if new_state == self._feeder_tracker_active:
+            return
+        self._feeder_tracker_active = new_state
+        if not new_state:
+            try:
+                self.resetFeederTrackers()
+            except Exception:
+                pass
+
+    def _updateFeederTracker(
+        self,
+        role: str,
+        detection: "ClassificationDetectionResult | None",
+        timestamp: float,
+        frame_bgr: "np.ndarray | None" = None,
+    ) -> None:
+        """Push the latest detection bboxes into the per-role SORT tracker.
+
+        Runs ONLY for feeder roles (``c_channel_2``/``c_channel_3``) because
+        the handoff manager only knows that chain. Safe to call with
+        ``detection=None`` — tracker still ticks with an empty detection list
+        so coasting/death logic runs. ``frame_bgr`` is used to snapshot the
+        first sighting of each new track for the history panel.
+        """
+        if not self._feeder_tracker_active:
+            return
+        tracker = self._feeder_trackers.get(role)
+        if tracker is None:
+            return
+        self._ensureHandoffZones()
+        if detection is None or not detection.bboxes:
+            tracks = tracker.update([], [], float(timestamp), frame_bgr=frame_bgr)
+        else:
+            bboxes = [tuple(int(v) for v in bb) for bb in detection.bboxes]
+            # Per-bbox scores aren't kept separately on the detection result —
+            # use the overall score as a uniform proxy (good enough for the
+            # score-threshold filter; Hungarian doesn't consume score).
+            uniform_score = float(detection.score) if detection.score is not None else 0.9
+            scores = [uniform_score] * len(bboxes)
+            tracks = tracker.update(bboxes, scores, float(timestamp), frame_bgr=frame_bgr)
+        self._feeder_track_cache[role] = (float(timestamp), tracks)
+        self._piece_handoff_manager.prune(float(timestamp))
+
+    def getFeederTracks(self, role: str) -> list:
+        cached = self._feeder_track_cache.get(role)
+        if cached is None:
+            return []
+        return list(cached[1])
+
+    def _attachFeederTrackInfo(self, result: Dict[str, object], role: str) -> None:
+        """Append serialized tracks + count to a feeder debug payload."""
+        tracks = self.getFeederTracks(role)
+        result["tracks"] = [track.to_dict() for track in tracks]
+        result["track_count"] = len(tracks)
+
+    def resetFeederTrackers(self) -> None:
+        # Tracker.reset() flushes live confirmed tracks into the history buffer
+        # before clearing — the user still sees them in the sidebar afterward.
+        for tracker in self._feeder_trackers.values():
+            tracker.reset()
+        self._piece_handoff_manager.reset()
+        self._feeder_track_cache.clear()
+
+    def listFeederTrackHistory(
+        self,
+        limit: int | None = None,
+        *,
+        min_sectors: int = 0,
+    ) -> list[dict]:
+        """Combined list: currently-live tracks first, then recent deaths.
+
+        Live tracks get ``live: True`` plus a rough duration from the last
+        cached tracker snapshot. ``min_sectors`` filters historical entries
+        so only pieces that visited at least that many angular sectors in
+        any single segment are included — live tracks are always shown.
+        """
+        historical = self._piece_history.list_summaries(
+            limit=limit, min_sectors=min_sectors
+        )
+        seen_ids = {item["global_id"] for item in historical}
+        live: list[dict] = []
+        for role, (_ts, tracks) in self._feeder_track_cache.items():
+            tracker = self._feeder_trackers.get(role)
+            for t in tracks:
+                if t.global_id in seen_ids:
+                    continue
+                # Apply the same sector-count filter to live tracks so the
+                # sidebar only surfaces pieces that have traveled far enough
+                # to produce meaningful snapshots.
+                if min_sectors > 0 and tracker is not None:
+                    live_track = next(
+                        (lt for lt in tracker._tracks.values() if lt.global_id == t.global_id),
+                        None,
+                    )
+                    if live_track is None or len(live_track.sector_snapshots) < min_sectors:
+                        continue
+                seen_ids.add(t.global_id)
+                thumb = tracker.get_live_thumb(t.global_id) if tracker is not None else ""
+                live.append(
+                    {
+                        "global_id": t.global_id,
+                        "created_at": t.origin_seen_ts,
+                        "finished_at": t.last_seen_ts,
+                        "duration_s": max(0.0, t.last_seen_ts - t.origin_seen_ts),
+                        "roles": [t.source_role],
+                        "handoff_count": 1 if t.handoff_from else 0,
+                        "segment_count": 1,
+                        "total_hit_count": t.hit_count,
+                        "composite_jpeg_b64": thumb,
+                        "live": True,
+                    }
+                )
+        live.sort(key=lambda x: x["finished_at"], reverse=True)
+        combined = live + [{**h, "live": False} for h in historical]
+        if limit is not None:
+            combined = combined[:limit]
+        return combined
+
+    def getFeederTrackHistoryDetail(self, global_id: int) -> dict | None:
+        """Detail from history buffer, falling back to live track if not archived yet."""
+        detail = self._piece_history.get_detail(global_id)
+        if detail is not None:
+            return detail
+        # Fabricate a detail record for a still-live track from the current caches.
+        for role, (_ts, tracks) in self._feeder_track_cache.items():
+            for t in tracks:
+                if t.global_id != global_id:
+                    continue
+                tracker = self._feeder_trackers.get(t.source_role)
+                live_track = None
+                if tracker is not None:
+                    for internal in tracker._tracks.values():
+                        if internal.global_id == global_id:
+                            live_track = internal
+                            break
+                if live_track is None:
+                    continue
+                geom = tracker._channel_geom if tracker is not None else None
+                sector_snaps_payload = [
+                    {
+                        "sector_index": s.sector_index,
+                        "start_angle_deg": s.start_angle_deg,
+                        "end_angle_deg": s.end_angle_deg,
+                        "captured_ts": s.captured_ts,
+                        "bbox_x": s.bbox_x,
+                        "bbox_y": s.bbox_y,
+                        "width": s.width,
+                        "height": s.height,
+                        "jpeg_b64": s.jpeg_b64,
+                    }
+                    for s in live_track.sector_snapshots
+                ]
+                return {
+                    "global_id": global_id,
+                    "created_at": live_track.origin_seen_ts,
+                    "finished_at": live_track.last_seen_ts,
+                    "duration_s": max(0.0, live_track.last_seen_ts - live_track.origin_seen_ts),
+                    "roles": [t.source_role],
+                    "handoff_count": 1 if live_track.handoff_from else 0,
+                    "segment_count": 1,
+                    "total_hit_count": live_track.hit_count,
+                    "live": True,
+                    "segments": [
+                        {
+                            "source_role": t.source_role,
+                            "handoff_from": live_track.handoff_from,
+                            "first_seen_ts": live_track.first_seen_ts,
+                            "last_seen_ts": live_track.last_seen_ts,
+                            "duration_s": max(0.0, live_track.last_seen_ts - live_track.first_seen_ts),
+                            "hit_count": live_track.hit_count,
+                            "path_points": len(live_track.path),
+                            "snapshot_width": live_track.snapshot_width,
+                            "snapshot_height": live_track.snapshot_height,
+                            "snapshot_jpeg_b64": live_track.snapshot_jpeg_b64,
+                            "path": [list(p) for p in live_track.path],
+                            "channel_center_x": geom.center_x if geom is not None else None,
+                            "channel_center_y": geom.center_y if geom is not None else None,
+                            "channel_radius_inner": geom.r_inner if geom is not None else None,
+                            "channel_radius_outer": geom.r_outer if geom is not None else None,
+                            "sector_count": geom.sector_count if geom is not None else 0,
+                            "sector_snapshot_count": len(sector_snaps_payload),
+                            "sector_snapshots": sector_snaps_payload,
+                            "composite_jpeg_b64": "",
+                            "composite_width": 0,
+                            "composite_height": 0,
+                        }
+                    ],
+                }
+        return None
+
+    def _configureFeederHandoffZones(self, polys: Dict[str, np.ndarray]) -> None:
+        """Derive exit/entry polygons from the loaded channel polygons.
+
+        Phase-1 heuristic: take the channel polygon's bounding-rect and carve
+        the right third as ``exit_zone`` for c_channel_2, the left third as
+        ``entry_zone`` for c_channel_3. This only needs to be roughly correct
+        — the tracker just asks "did the track die near the border?" and
+        "did the new track appear near the entry?" within the 2 s handoff
+        window. Tight geometry is not required.
+
+        If the rig has the cameras oriented differently we may need TOML
+        overrides later — for now the rig is c_channel_2 pours into
+        c_channel_3 from right to left.
+        """
+        # Role-to-polygon-key mapping mirrors ``_ROLE_TO_POLY_KEY`` in
+        # ``_initOverlays``. We duplicate the tiny dict because this method is
+        # called before that one runs.
+        role_to_key = {"c_channel_2": "second_channel", "c_channel_3": "third_channel"}
+
+        def _rect_to_polygon(x1: float, y1: float, x2: float, y2: float) -> list[tuple[float, float]]:
+            return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+
+        for role, key in role_to_key.items():
+            poly = polys.get(key)
+            if poly is None or len(poly) < 3:
+                continue
+            x, y, w, h = cv2.boundingRect(np.asarray(poly, dtype=np.int32))
+            if role == "c_channel_2":
+                # Exit = right HALF of the channel polygon. A tighter third
+                # missed too many pieces that coasted into the edge but
+                # expired before dying fully within the small sliver.
+                ex1 = x + w // 2
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    exit_polygon=_rect_to_polygon(ex1, y, x + w, y + h),
+                )
+            elif role == "c_channel_3":
+                # Entry = left HALF mirrors c_channel_2's exit.
+                en2 = x + w // 2
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    entry_polygon=_rect_to_polygon(x, y, en2, y + h),
+                )
+
+    def _runHiveDetection(
+        self,
+        algorithm_id: str,
+        frame_bgr,
+        *,
+        scope: DetectionScope,
+        role: str,
+    ) -> ClassificationDetectionResult | None:
+        processor = self._getOrBuildHiveProcessor(algorithm_id)
+        if processor is None or frame_bgr is None:
+            return None
+        polygon = self._resolveZonePolygon(scope, role, frame_bgr.shape)
+        crop = frame_bgr
+        off_x, off_y = 0, 0
+        if polygon is not None:
+            result = self._cropFrameToPolygonRegion(frame_bgr, polygon)
+            if result is not None:
+                crop, (off_x, off_y) = result
+        try:
+            detections = processor.infer(crop)
+        except Exception as exc:
+            self.gc.logger.warning("Hive inference %s failed: %s", algorithm_id, exc)
+            return None
+        if not detections:
+            return ClassificationDetectionResult(
+                bbox=None,
+                bboxes=(),
+                score=0.0,
+                algorithm=algorithm_id,
+                found=False,
+            )
+        # Translate crop-space bboxes back to full-frame coordinates so the
+        # live overlay + downstream pipeline see frame-absolute boxes.
+        shifted = [
+            (
+                det.bbox[0] + off_x,
+                det.bbox[1] + off_y,
+                det.bbox[2] + off_x,
+                det.bbox[3] + off_y,
+            )
+            for det in detections
+        ]
+        top_box = shifted[0]
+        return ClassificationDetectionResult(
+            bbox=top_box,
+            bboxes=tuple(shifted),
+            score=detections[0].score,
+            algorithm=algorithm_id,
+            found=True,
+        )
+
     def _computeFeederGeminiDetection(
         self,
         role: str,
@@ -1485,11 +2066,28 @@ class VisionManager:
         frame = capture.latest_frame
         if frame is None:
             return None
+        algorithm = self.getFeederDetectionAlgorithm()
+        if algorithm.startswith("hive:"):
+            # Hive inference is local but ~30-50ms per 320 crop on CPU. If we
+            # ran it inline per frame-encode (10fps target), the encode thread
+            # would stall for multiple cameras in parallel. Throttle to ~5fps
+            # — overlay rendering reads whichever detection is most recent.
+            cached = self._feeder_dynamic_detection_cache.get(role)
+            now = frame.timestamp
+            if cached is not None and not force:
+                last_ts, last_det = cached
+                if now - float(last_ts) < HIVE_INFERENCE_MIN_INTERVAL_S:
+                    return last_det
+            detection = self._runHiveDetection(algorithm, frame.raw, scope="feeder", role=role)
+            self._feeder_dynamic_detection_cache[role] = (now, detection)
+            self._updateFeederTracker(role, detection, now, frame_bgr=frame.raw)
+            return detection
         cached = self._getCachedFeederDynamicDetection(role, frame.timestamp)
         if not force:
             return cached
         detection = self._computeFeederGeminiDetection(role, frame, force_call=True)
         self._feeder_dynamic_detection_cache[role] = (frame.timestamp, detection)
+        self._updateFeederTracker(role, detection, frame.timestamp, frame_bgr=frame.raw)
         return detection
 
     def _channelDetectionsFromDynamicResult(
@@ -1537,6 +2135,17 @@ class VisionManager:
         frame = capture.latest_frame
         if frame is None:
             return None
+        algorithm = self.getCarouselDetectionAlgorithm()
+        if algorithm.startswith("hive:"):
+            now = frame.timestamp
+            cached = self._carousel_dynamic_detection_cache
+            if cached is not None and not force:
+                last_ts, last_det = cached
+                if now - float(last_ts) < HIVE_INFERENCE_MIN_INTERVAL_S:
+                    return last_det
+            detection = self._runHiveDetection(algorithm, frame.raw, scope="carousel", role="carousel")
+            self._carousel_dynamic_detection_cache = (now, detection)
+            return detection
         cached = self._carousel_dynamic_detection_cache
         if cached is not None:
             if cached[0] == frame.timestamp:
@@ -1856,6 +2465,7 @@ class VisionManager:
                         "message": message,
                     }
                 )
+                self._attachFeederTrackInfo(result, role)
                 return result
 
             result.update(
@@ -1872,6 +2482,42 @@ class VisionManager:
                     ),
                 }
             )
+            self._attachFeederTrackInfo(result, role)
+            return result
+
+        if algorithm.startswith("hive:"):
+            # Route through _getFeederDynamicDetection so the tracker is
+            # always updated — running _runHiveDetection directly here would
+            # bypass _updateFeederTracker.
+            detection = self._getFeederDynamicDetection(role, force=force)
+            if detection is None:
+                result.update(
+                    {
+                        "found": False,
+                        "bbox": None,
+                        "candidate_bboxes": [],
+                        "bbox_count": 0,
+                        "score": None,
+                        "message": "Hive model failed to load or returned no result.",
+                    }
+                )
+                self._attachFeederTrackInfo(result, role)
+                return result
+            result.update(
+                {
+                    "found": bool(detection.bboxes),
+                    "bbox": list(detection.bbox) if detection.bbox is not None else None,
+                    "candidate_bboxes": [list(b) for b in detection.bboxes],
+                    "bbox_count": len(detection.bboxes),
+                    "score": self._detectionScoreValue(detection),
+                    "message": (
+                        f"Hive model found {len(detection.bboxes)} candidate(s)."
+                        if detection.bboxes
+                        else "Hive model did not find a piece in the current frame."
+                    ),
+                }
+            )
+            self._attachFeederTrackInfo(result, role)
             return result
 
         analysis = self._per_channel_analysis.get(role)
@@ -1891,6 +2537,7 @@ class VisionManager:
                 ),
             }
         )
+        self._attachFeederTrackInfo(result, role)
         return result
 
     def debugFeederDetection(self, role: str, *, include_capture: bool = False) -> Dict[str, object]:
@@ -1981,6 +2628,36 @@ class VisionManager:
                         "Cloud vision found a carousel piece."
                         if detection.bbox is not None
                         else "Cloud vision did not find a piece on the carousel."
+                    ),
+                }
+            )
+            return result
+
+        if algorithm.startswith("hive:"):
+            detection = self._runHiveDetection(algorithm, frame.raw, scope="carousel", role="carousel")
+            if detection is None:
+                result.update(
+                    {
+                        "found": False,
+                        "bbox": None,
+                        "candidate_bboxes": [],
+                        "bbox_count": 0,
+                        "score": None,
+                        "message": "Hive model failed to load or returned no result.",
+                    }
+                )
+                return result
+            result.update(
+                {
+                    "found": bool(detection.bboxes),
+                    "bbox": list(detection.bbox) if detection.bbox is not None else None,
+                    "candidate_bboxes": [list(b) for b in detection.bboxes],
+                    "bbox_count": len(detection.bboxes),
+                    "score": self._detectionScoreValue(detection),
+                    "message": (
+                        f"Hive model found {len(detection.bboxes)} candidate(s) on the carousel."
+                        if detection.bboxes
+                        else "Hive model did not find a piece on the carousel."
                     ),
                 }
             )

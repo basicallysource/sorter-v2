@@ -16,7 +16,11 @@ from pydantic import BaseModel
 from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
 from local_state import start_new_sorting_session
 from server import shared_state
-from server.routers.hardware import clear_bin_category_assignments
+from server.routers.hardware import (
+    clear_bin_category_assignments,
+    _current_bin_categories,
+    _apply_and_persist_bin_categories,
+)
 
 router = APIRouter()
 
@@ -28,7 +32,14 @@ class ApplySortingProfilePayload(BaseModel):
     version_id: str
     version_number: int | None = None
     version_label: str | None = None
+    # Legacy flag; still supported. ``preassign_mode`` is the new name and
+    # carries richer semantics ("empty" vs. "rules").
     reset_bin_categories: bool = False
+    # "empty"  → clear all bin category assignments (dynamic assignment).
+    # "rules"  → walk the profile's rules in order and seed bin i with
+    #            rule i's id.
+    # ``None`` → do nothing to bin assignments.
+    preassign_mode: str | None = None
 
 
 def _load_targets() -> list[dict[str, Any]]:
@@ -72,6 +83,49 @@ def _safe_json(response: requests.Response) -> dict[str, Any]:
         return data if isinstance(data, dict) else {"data": data}
     except Exception:
         return {"error": response.text}
+
+
+def _preassign_bins_from_rules(artifact: dict[str, Any]) -> int:
+    """Seed bin category assignments from the artifact's rule order.
+
+    Walks top-level non-disabled rules in order; each rule's id gets
+    written to the next available bin (layer → section → bin). Rules
+    keep their ordering from the artifact so the operator can plan
+    physical placement ahead of time. Returns the number of bins that
+    received an assignment.
+    """
+    rules = artifact.get("rules") if isinstance(artifact, dict) else None
+    if not isinstance(rules, list):
+        return 0
+    rule_ids: list[str] = []
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        if rule.get("disabled"):
+            continue
+        rid = rule.get("id")
+        if isinstance(rid, str) and rid:
+            rule_ids.append(rid)
+    if not rule_ids:
+        return 0
+
+    categories = _current_bin_categories()
+    assigned = 0
+    for layer in categories:
+        for section in layer:
+            for bin_categories in section:
+                if assigned >= len(rule_ids):
+                    continue
+                bin_categories.clear()
+                bin_categories.append(rule_ids[assigned])
+                assigned += 1
+    # No MISC auto-reservation here — unmatched pieces fall through to the
+    # bottom tray via distribution's passthrough branch, which the UI now
+    # renders as a virtual bin. Reserving a real bin for MISC wastes a
+    # physical slot.
+    if assigned > 0:
+        _apply_and_persist_bin_categories(categories)
+    return assigned
 
 
 def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
@@ -217,8 +271,13 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized.")
 
+    # Normalize mode: legacy ``reset_bin_categories`` maps to "empty".
+    mode = payload.preassign_mode
+    if mode is None and payload.reset_bin_categories:
+        mode = "empty"
+
     reset_result: dict[str, Any] | None = None
-    if payload.reset_bin_categories:
+    if mode in ("empty", "rules"):
         reset_result = clear_bin_category_assignments(scope="all")
 
     assignment_response = session.put(
@@ -251,6 +310,10 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     artifact_hash = str(artifact.get("artifact_hash") or "")
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
     reloaded = _reload_runtime_profile()
+
+    preassigned_count = 0
+    if mode == "rules":
+        preassigned_count = _preassign_bins_from_rules(artifact)
 
     sync_state = {
         "target_id": payload.target_id,
@@ -306,6 +369,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         "reloaded": reloaded,
         "bin_categories_reset": bool(reset_result),
         "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
+        "preassigned_count": preassigned_count,
         "activation_error": activation_error,
         **status,
     }

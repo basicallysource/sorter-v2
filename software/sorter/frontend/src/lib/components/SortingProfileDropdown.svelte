@@ -10,6 +10,7 @@
 	} from '$lib/sorting-profiles/recent';
 	import { formatRelativeTime } from '$lib/sorting-profiles/format';
 	import { ChevronDown } from 'lucide-svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	type SortingProfileSyncState = {
 		target_id?: string | null;
@@ -166,7 +167,19 @@
 	function rebuildQuickProfiles() {
 		const byProfile = new Map<string, QuickSwitchProfileEntry>();
 
+		// Set of currently-known (target_id, profile_id) pairs from the live
+		// library — used to skip stale recent entries whose target_id no
+		// longer exists (e.g. after a hive re-registration).
+		const liveTargetIds = new Set<string>(
+			(profile_library?.targets ?? []).filter((t) => t.enabled && !t.error).map((t) => t.id)
+		);
+
 		for (const recent of recent_profiles) {
+			// Drop recent entries pointing at vanished targets — clicking
+			// them would just 404 ("Hive target not found.") on apply.
+			if (liveTargetIds.size > 0 && !liveTargetIds.has(recent.target_id)) {
+				continue;
+			}
 			const key = recentProfileKey(recent);
 			byProfile.set(key, {
 				...recent,
@@ -280,7 +293,22 @@
 		}
 	}
 
-	async function applyRecentProfile(entry: QuickSwitchProfileEntry) {
+	let pending_switch_entry = $state<QuickSwitchProfileEntry | null>(null);
+
+	function requestApplyRecentProfile(entry: QuickSwitchProfileEntry) {
+		pending_switch_entry = entry;
+		action_error = null;
+		action_message = null;
+	}
+
+	function cancelApplyRecentProfile() {
+		pending_switch_entry = null;
+	}
+
+	async function confirmApplyRecentProfile(mode: 'empty' | 'rules') {
+		const entry = pending_switch_entry;
+		if (entry === null) return;
+		pending_switch_entry = null;
 		applying_key = recentEntryKey(entry);
 		action_error = null;
 		action_message = null;
@@ -295,7 +323,7 @@
 					version_id: entry.version_id,
 					version_number: entry.version_number,
 					version_label: entry.version_label,
-					reset_bin_categories: true
+					preassign_mode: mode
 				})
 			});
 			if (!res.ok) {
@@ -306,9 +334,14 @@
 			recent_profiles = rememberRecentSortingProfile(currentMachineKey(), { ...entry, last_used_at: null });
 			await sortingProfileStore.reload(currentBackendBaseUrl()).catch(() => null);
 			await loadQuickProfileLibrary();
-			action_message = payload?.activation_error
-				? `Applied ${entry.profile_name} locally. Hive activation could not be confirmed.`
-				: `Switched to ${entry.profile_name}.`;
+			const preassigned = payload?.preassigned_count as number | undefined;
+			if (mode === 'rules' && preassigned) {
+				action_message = `Switched to ${entry.profile_name}, pre-assigned ${preassigned} bin${preassigned === 1 ? '' : 's'}.`;
+			} else {
+				action_message = payload?.activation_error
+					? `Applied ${entry.profile_name} locally. Hive activation could not be confirmed.`
+					: `Switched to ${entry.profile_name}.`;
+			}
 		} catch (e: unknown) {
 			action_error = e instanceof Error ? e.message : 'Failed to switch sorting profile';
 		} finally {
@@ -375,88 +408,91 @@
 
 	{#if dropdown_open}
 		<div class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]">
-			<div class="px-3 py-3">
-				<div class="flex items-center justify-between gap-3">
-					<div class="flex min-w-0 items-center gap-2">
-						<span class="min-w-0 truncate text-sm font-medium text-text">{current_profile_name}</span>
-					</div>
-					<div class="flex shrink-0 items-center gap-2">
+			<!-- Active profile header — tinted to stand out vs. recent list. -->
+			<div class="bg-primary/[0.05] px-3 py-2">
+				<div class="flex items-center justify-between gap-2">
+					<span class="min-w-0 truncate text-sm font-medium text-text">{current_profile_name}</span>
+					<div class="flex shrink-0 items-center gap-1.5">
 						{#if current_profile_version}
-							<span class="shrink-0 text-xs text-text-muted">
-								v{current_profile_version}{current_profile_version_label ? ` - ${current_profile_version_label}` : ''}
+							<span class="font-mono text-xs text-text-muted">
+								v{current_profile_version}{current_profile_version_label ? ` · ${current_profile_version_label}` : ''}
 							</span>
 						{/if}
 						<span class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success">Active</span>
 					</div>
 				</div>
-				<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
-					<span class="min-w-0 truncate">{current_profile_target}</span>
+				<div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-muted">
 					{#if status?.local_profile?.rule_count !== undefined && status.local_profile.rule_count !== null}
-						<span class="shrink-0">{status.local_profile.rule_count} rules</span>
+						<span>{status.local_profile.rule_count} rules</span>
+						<span aria-hidden="true">·</span>
+					{/if}
+					<span class="min-w-0 truncate">{current_profile_target}</span>
+					{#if current_profile_updated}
+						<span aria-hidden="true">·</span>
+						<span class="min-w-0 truncate">updated {current_profile_updated}</span>
 					{/if}
 				</div>
-				{#if current_profile_updated}
-					<div class="mt-1 text-sm text-text-muted">Updated {current_profile_updated}</div>
-				{/if}
 			</div>
 
-			<div class="mx-3 border-t border-[#C9C7C0]"></div>
-
-			<div class="px-3 pb-2 pt-4">
-				<div>
-					<div class="text-xs font-medium uppercase tracking-[0.08em] text-text-muted">Recent profiles</div>
+			{#if action_message}
+				<div class="mx-2 mt-2 border border-success/30 bg-success/10 px-2 py-1.5 text-xs text-success">
+					{action_message}
 				</div>
+			{/if}
+			{#if action_error}
+				<div class="mx-2 mt-2 border border-danger/30 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+					{action_error}
+				</div>
+			{/if}
+			{#if quick_profiles_error}
+				<div class="mx-2 mt-2 border border-danger/30 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+					{quick_profiles_error}
+				</div>
+			{/if}
+
+			<!-- Recent section — tight divider + small label. -->
+			<div class="border-t border-border bg-bg px-3 py-1.5">
+				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Recent</span>
 			</div>
 
 			<div>
-				{#if action_message}
-					<div class="mx-3 mb-2 border border-success/20 bg-success/8 px-2.5 py-2 text-xs text-success">
-						{action_message}
-					</div>
-				{/if}
-				{#if action_error}
-					<div class="mx-3 mb-2 border border-danger/20 bg-danger/8 px-2.5 py-2 text-xs text-danger">
-						{action_error}
-					</div>
-				{/if}
-				{#if quick_profiles_error}
-					<div class="mx-3 mb-2 border border-danger/20 bg-danger/8 px-2.5 py-2 text-xs text-danger">
-						{quick_profiles_error}
-					</div>
-				{/if}
-
 				{#if loading_quick_profiles && quick_profiles.length === 0}
-					<div class="px-3 pb-3 text-xs text-text-muted">Loading recent profiles...</div>
+					<div class="px-3 py-2 text-xs text-text-muted">Loading…</div>
 				{:else if quick_profiles.length === 0}
-					<div class="px-3 pb-3 text-xs text-text-muted">Recently used and newly updated profiles will appear here.</div>
+					<div class="px-3 py-2 text-xs text-text-muted">No recent profiles yet.</div>
 				{:else}
-					<div class="divide-y divide-border px-3">
+					<div class="divide-y divide-border">
 						{#each quick_profiles as entry}
 							{@const used = usedSummary(entry)}
 							{@const updated = updatedSummary(entry)}
 							<button
 								type="button"
-								onclick={() => void applyRecentProfile(entry)}
+								onclick={() => requestApplyRecentProfile(entry)}
 								disabled={applying_key === recentEntryKey(entry)}
-								class="block w-full px-2 py-2.5 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+								class="block w-full px-3 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								<div class="flex items-center justify-between gap-3">
+								<div class="flex items-center justify-between gap-2">
 									<span class="min-w-0 truncate text-sm font-medium text-text">{entry.profile_name}</span>
-									<span class="shrink-0 text-xs text-text-muted">
+									<span class="shrink-0 font-mono text-xs text-text-muted">
 										{#if applying_key === recentEntryKey(entry)}
-											Switching...
+											switching…
 										{:else if entry.version_number}
 											v{entry.version_number}
 										{/if}
 									</span>
 								</div>
-								<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
-									<span class="min-w-0 truncate">{entry.target_name}</span>
-									<span class="shrink-0">{entry.rule_count ?? '?'} rules</span>
-								</div>
-								<div class="mt-1 flex items-center justify-between gap-3 text-xs text-text-muted">
-									<span class="min-w-0 truncate">{used}</span>
-									<span class="min-w-0 truncate text-right">{updated}</span>
+								<div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-muted">
+									{#if entry.rule_count != null}
+										<span>{entry.rule_count} rules</span>
+										<span aria-hidden="true">·</span>
+									{/if}
+									{#if used}
+										<span class="min-w-0 truncate">{used}</span>
+										{#if updated}<span aria-hidden="true">·</span>{/if}
+									{/if}
+									{#if updated}
+										<span class="min-w-0 truncate">{updated}</span>
+									{/if}
 								</div>
 							</button>
 						{/each}
@@ -466,3 +502,51 @@
 		</div>
 	{/if}
 </div>
+
+<Modal open={pending_switch_entry !== null} title="Switch sorting profile">
+	{#if pending_switch_entry !== null}
+		{@const entry = pending_switch_entry}
+		<div class="flex flex-col gap-4">
+			<p class="text-sm text-text">
+				Switch to <span class="font-semibold">{entry.profile_name}</span>?
+			</p>
+			<p class="text-sm text-text-muted">
+				Choose how bins should be initialized for the new profile.
+			</p>
+			<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
+				<div>
+					<span class="font-medium text-text">Reset (dynamic)</span> — clear every
+					bin; categories will be assigned dynamically as pieces arrive.
+				</div>
+				<div>
+					<span class="font-medium text-text">Pre-assign (rule order)</span> —
+					seed bins in order of the profile's rules (rule 1 → bin 1, rule 2 →
+					bin 2, …).
+				</div>
+			</div>
+			<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={cancelApplyRecentProfile}
+					class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmApplyRecentProfile('empty')}
+					class="border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
+				>
+					Reset bins
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmApplyRecentProfile('rules')}
+					class="border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+				>
+					Pre-assign from rules
+				</button>
+			</div>
+		</div>
+	{/if}
+</Modal>

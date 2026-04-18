@@ -1032,40 +1032,79 @@ def debug_feeder_detection(role: str) -> Dict[str, Any]:
     )
 
 
-@router.post("/api/feeder/tracking/recognize")
-def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Send a single tracked-piece crop to the Brickognize classifier
-    synchronously and return what it thinks the piece is. Used from the
-    tracked-pieces detail modal to manually test a crop.
-    """
-    import base64
-    import numpy as np
-    import cv2
-    from classification.brickognize import _classifyImage, _pickBestColor, _pickBestItem
+def _decode_jpeg_b64(b64: str):
+    import base64 as _b
+    import numpy as _np
+    import cv2 as _cv2
 
-    jpeg_b64 = body.get("jpeg_b64")
-    if not isinstance(jpeg_b64, str) or not jpeg_b64:
-        raise HTTPException(status_code=400, detail="jpeg_b64 required")
     try:
-        raw = base64.b64decode(jpeg_b64)
+        raw = _b.b64decode(b64)
     except Exception:
         raise HTTPException(status_code=400, detail="invalid base64")
-    arr = np.frombuffer(raw, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    arr = _np.frombuffer(raw, dtype=_np.uint8)
+    img = _cv2.imdecode(arr, _cv2.IMREAD_COLOR)
     if img is None:
         raise HTTPException(status_code=400, detail="could not decode image")
+    return img
+
+
+@router.post("/api/feeder/tracking/recognize")
+def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Send one or more tracked-piece crops to the Brickognize classifier
+    synchronously. Pass ``jpeg_b64`` for a single image or ``jpegs_b64``
+    for a multi-image query — Brickognize uses all views as evidence for
+    a single final prediction, which is much more robust on a tracked
+    piece where we have 5–12 angles of the same part.
+    """
+    from classification.brickognize import (
+        _classifyImages,
+        _pickBestColor,
+        _pickBestItem,
+    )
+
+    single = body.get("jpeg_b64")
+    multi = body.get("jpegs_b64")
+    images = []
+    if isinstance(multi, list) and multi:
+        images = [_decode_jpeg_b64(b) for b in multi if isinstance(b, str) and b]
+    elif isinstance(single, str) and single:
+        images = [_decode_jpeg_b64(single)]
+    if not images:
+        raise HTTPException(
+            status_code=400, detail="jpeg_b64 or jpegs_b64 required"
+        )
     try:
-        result = _classifyImage(img)
+        result = _classifyImages(images)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
     best_item, best_view = _pickBestItem(result, None)
     best_color = _pickBestColor(result, None)
     return {
+        "image_count": len(images),
         "best_item": best_item,
         "best_view": best_view,
         "best_color": best_color,
         "items": result.get("items", []),
     }
+
+
+@router.delete("/api/feeder/tracking/history")
+def feeder_tracking_history_clear() -> Dict[str, Any]:
+    """Tabula-rasa — wipe all persisted + in-memory tracked pieces.
+
+    Drops every completed track, deletes the JSON files under
+    ``blob/tracked_history/``, and clears the in-process ring buffer.
+    Live tracks that are still being tracked are untouched — they'll be
+    archived next time they die.
+    """
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "_piece_history"):
+        raise HTTPException(status_code=503, detail="Tracker history not available.")
+    try:
+        vm._piece_history.reset()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to clear history: {exc}")
+    return {"ok": True}
 
 
 @router.get("/api/feeder/tracking/history")

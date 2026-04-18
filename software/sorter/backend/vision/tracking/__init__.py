@@ -8,11 +8,18 @@ channel geometry isn't available.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .base import PendingHandoff, TrackedPiece, Tracker
 from .bytetrack_tracker import ByteTrackFeederTracker
 from .handoff import PieceHandoffManager
 from .history import PieceHistoryBuffer, TrackHistoryEntry, TrackSegment
 from .polar_tracker import PolarFeederTracker
+
+
+DEFAULT_HISTORY_PERSIST_DIR = (
+    Path(__file__).resolve().parent.parent.parent / "blob" / "tracked_history"
+)
 
 
 # Backwards-compatible alias for call sites / tests that still import the
@@ -41,7 +48,14 @@ def build_feeder_tracker_system(
     chain = {roles[i]: roles[i + 1] for i in range(len(roles) - 1)}
     manager = PieceHandoffManager(handoff_chain=chain, handoff_window_s=handoff_window_s)
     if history is None:
-        history = PieceHistoryBuffer()
+        history = PieceHistoryBuffer(persist_dir=DEFAULT_HISTORY_PERSIST_DIR)
+    # Seed the id counter past any persisted global_id so fresh tracks
+    # after a restart don't append segments to an existing (and unrelated)
+    # history entry.
+    try:
+        manager.seed_id_counter(history.max_global_id())
+    except Exception:
+        pass
     trackers = {
         role: PolarFeederTracker(
             role=role,

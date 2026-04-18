@@ -115,20 +115,39 @@ def _doClassify(
 
 
 def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    img = Image.fromarray(rgb_image)
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format="JPEG")
-    payload_bytes = img_bytes.getvalue()
+    return _classifyImages([image])
 
-    files = {"query_image": ("image.jpg", io.BytesIO(payload_bytes), "image/jpeg")}
+
+def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
+    """Post multiple query_images in a single request.
+
+    Brickognize uses all of them as evidence for one final prediction —
+    great for tracked pieces where we have 5–12 angles of the same part.
+    """
+    if not images:
+        raise ValueError("at least one image required")
+    files: list[tuple[str, tuple[str, io.BytesIO, str]]] = []
+    for i, image in enumerate(images):
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(rgb_image)
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG")
+        payload_bytes = img_bytes.getvalue()
+        files.append(
+            ("query_image", (f"image_{i}.jpg", io.BytesIO(payload_bytes), "image/jpeg"))
+        )
+
     headers = {"accept": "application/json"}
-
+    # Multi-image queries need proportionally more time — Brickognize runs
+    # inference per view before combining. Add ~2 s read-timeout per
+    # additional image on top of the single-image baseline.
+    connect_timeout, read_timeout = API_TIMEOUT_S
+    read_timeout = read_timeout + max(0, len(files) - 1) * 2.0
     response = requests.post(
         API_URL,
         headers=headers,
         files=files,
-        timeout=API_TIMEOUT_S,
+        timeout=(connect_timeout, read_timeout),
     )
     response.raise_for_status()
     result = cast(BrickognizeResponse, response.json())

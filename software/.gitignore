@@ -119,3 +119,4 @@ android-camera-app/local.properties
 
 # Model checkpoints directory
 sorter/backend/models/checkpoints/
+sorter/backend/blob/tracked_history/

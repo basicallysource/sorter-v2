@@ -33,12 +33,13 @@ from .history import (
     SectorSnapshot,
     TrackSegment,
     encode_snapshot,
+    pick_sharpest_piece_jpeg,
     render_sector_composite,
     render_snapshot_thumb,
 )
 
 
-DEFAULT_SECTOR_COUNT = 12
+DEFAULT_SECTOR_COUNT = 18
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +190,10 @@ class _LiveTrack:
     thumb_sector_count_at_build: int = -1
     kalman: _PolarKalman | None = None
     embedding: "np.ndarray | None" = None
+    # Filled asynchronously once the exit-trigger fires on this track.
+    # Shared-by-reference with the eventual TrackSegment so browser reloads
+    # after the background thread completes still see the classifier result.
+    auto_recognition: "dict | None" = None
 
 
 def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
@@ -691,6 +696,65 @@ class PolarFeederTracker(Tracker):
         track.last_capture_angle_rad = center_angle_rad
         track.last_capture_span_rad = new_span_rad
 
+        # Exit trigger: once the piece has covered enough of the annulus to
+        # confidently say "this track represents one complete journey across
+        # c_channel_3", kick off the auto-recognition so the operator sees
+        # a result before the track even dies. Runs once per track.
+        self._maybe_fire_auto_recognize(track)
+
+    def _maybe_fire_auto_recognize(self, track: _LiveTrack) -> None:
+        """Trigger the Brickognize auto-recognition once this track has
+        traveled far enough across c_channel_3 to have covered a useful
+        range of viewing angles. Fires once per track (the run_async
+        helper is idempotent).
+        """
+        if self.role != "c_channel_3":
+            return
+        if track.auto_recognition is not None:
+            return
+        if len(track.sector_snapshots) < 5:
+            return
+        geom = self._channel_geom
+        if geom is None or not track.path:
+            return
+        # Circular angular span of the path — fire when we've covered
+        # roughly half the ring, i.e. the piece is well past the entry and
+        # close to the exit on a normal run.
+        import math as _m
+        anchor = _m.atan2(
+            track.path[0][2] - geom.center_y,
+            track.path[0][1] - geom.center_x,
+        )
+        unwrapped: list[float] = []
+        for _ts, x, y in track.path:
+            a = _m.atan2(y - geom.center_y, x - geom.center_x)
+            d = a - anchor
+            while d > _m.pi:
+                d -= 2 * _m.pi
+            while d < -_m.pi:
+                d += 2 * _m.pi
+            unwrapped.append(anchor + d)
+        span = max(unwrapped) - min(unwrapped)
+        if abs(span) < _m.radians(150.0):
+            return
+        piece_crops = [
+            s.piece_jpeg_b64 for s in track.sector_snapshots if s.piece_jpeg_b64
+        ]
+        if len(piece_crops) < 8:
+            return
+        try:
+            from classification.auto_recognize import run_async as _auto_run
+            _gid = track.global_id
+            _flush = (
+                (lambda: self._history.flush(_gid))
+                if self._history is not None and hasattr(self._history, "flush")
+                else None
+            )
+            _auto_run(track, piece_crops, min_crops=5, on_complete=_flush)
+        except Exception:
+            # Never break the tracker over a recognize hookup.
+            pass
+
     def _build_segment(self, track: _LiveTrack) -> TrackSegment:
         geom = self._channel_geom
         composite_b64 = ""
@@ -716,7 +780,7 @@ class PolarFeederTracker(Tracker):
             composite_b64, composite_w, composite_h = render_snapshot_thumb(
                 track.snapshot_jpeg_b64
             )
-        return TrackSegment(
+        segment = TrackSegment(
             source_role=self.role,
             handoff_from=track.handoff_from,
             first_seen_ts=track.first_seen_ts,
@@ -735,4 +799,32 @@ class PolarFeederTracker(Tracker):
             composite_jpeg_b64=composite_b64,
             composite_width=composite_w,
             composite_height=composite_h,
+            best_piece_jpeg_b64=pick_sharpest_piece_jpeg(track.sector_snapshots),
+            # Share the live track's auto_recognition dict by reference so
+            # the background thread's final mutation propagates here too.
+            auto_recognition=track.auto_recognition,
         )
+
+        # Fallback: the piece died before hitting our angular-span exit
+        # trigger, but we still have enough crops to classify. Fire on the
+        # segment (idempotent — no-op if the exit trigger already ran).
+        if self.role == "c_channel_3" and segment.auto_recognition is None:
+            piece_crops = [
+                s.piece_jpeg_b64
+                for s in track.sector_snapshots
+                if s.piece_jpeg_b64
+            ]
+            if len(piece_crops) >= 5:
+                try:
+                    from classification.auto_recognize import run_async as _auto_run
+                    _gid = track.global_id
+                    _flush = (
+                        (lambda: self._history.flush(_gid))
+                        if self._history is not None and hasattr(self._history, "flush")
+                        else None
+                    )
+                    _auto_run(segment, piece_crops, min_crops=5, on_complete=_flush)
+                except Exception:
+                    pass
+
+        return segment

@@ -13,17 +13,21 @@ are kept. Snapshots are base64-JPEG in memory to keep the API stateless
 from __future__ import annotations
 
 import base64
+import json
 import math
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Iterable
 
 import cv2
 import numpy as np
 
 
-DEFAULT_MAX_ENTRIES = 300
+# ``0`` disables trimming — we keep every completed track until the
+# process exits. Set a positive integer to cap the ring buffer again.
+DEFAULT_MAX_ENTRIES = 0
 DEFAULT_MAX_PATH_POINTS = 400
 SNAPSHOT_JPEG_QUALITY = 88
 COMPOSITE_THUMB_SIZE = 640
@@ -92,6 +96,15 @@ class TrackSegment:
     composite_jpeg_b64: str = ""
     composite_width: int = 0
     composite_height: int = 0
+    # Sharpest piece crop across all sector snapshots — used in the list
+    # overview as a third thumbnail between the composite and the
+    # Brickognize reference. Empty if no piece crops were captured.
+    best_piece_jpeg_b64: str = ""
+    # Auto-recognize result filled asynchronously once the segment is
+    # archived. ``None`` means no attempt was made yet; a dict carries
+    # ``status`` (``pending``/``ok``/``insufficient_consistency``/``error``),
+    # the chosen best_item + best_color, and image_count actually sent.
+    auto_recognition: "dict | None" = None
 
     def to_summary(self) -> dict:
         return {
@@ -109,6 +122,8 @@ class TrackSegment:
             "composite_jpeg_b64": self.composite_jpeg_b64,
             "composite_width": self.composite_width,
             "composite_height": self.composite_height,
+            "best_piece_jpeg_b64": self.best_piece_jpeg_b64,
+            "auto_recognition": self.auto_recognition,
         }
 
     def to_detail(self) -> dict:
@@ -171,9 +186,22 @@ class TrackHistoryEntry:
         # Pick the segment with the most sector snapshots as the thumb source
         # — it's the richest view of the piece's trajectory.
         thumb = ""
+        best_piece = ""
+        top_pieces: list[str] = []
+        auto_recognition = None
         if self.segments:
             richest = max(self.segments, key=lambda s: len(s.sector_snapshots))
             thumb = richest.composite_jpeg_b64
+            best_piece = richest.best_piece_jpeg_b64
+            top_pieces = pick_top_piece_jpegs(richest.sector_snapshots, limit=8)
+            # Surface any segment's auto-recognition result (there's usually
+            # one per track; prefer the segment with the actual classifier
+            # response over a "pending" placeholder).
+            for seg in self.segments:
+                if seg.auto_recognition is not None:
+                    auto_recognition = seg.auto_recognition
+                    if auto_recognition.get("status") == "ok":
+                        break
         return {
             "global_id": self.global_id,
             "created_at": self.created_at,
@@ -185,6 +213,9 @@ class TrackHistoryEntry:
             "total_hit_count": sum(seg.hit_count for seg in self.segments),
             "max_sector_snapshots": self.max_sector_snapshots,
             "composite_jpeg_b64": thumb,
+            "best_piece_jpeg_b64": best_piece,
+            "top_piece_jpegs": top_pieces,
+            "auto_recognition": auto_recognition,
         }
 
     def to_detail(self) -> dict:
@@ -318,6 +349,61 @@ def render_sector_composite(
     return base64.b64encode(buf.tobytes()).decode("ascii"), target_size, target_size
 
 
+def _score_piece_crop_sharpness(b64: str) -> float:
+    """Laplacian-variance sharpness of a base64 piece crop. ``-1.0`` on
+    decode failure so callers can filter with a positive threshold.
+    """
+    if not b64:
+        return -1.0
+    try:
+        raw = base64.b64decode(b64)
+    except (ValueError, TypeError):
+        return -1.0
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None or img.size == 0:
+        return -1.0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
+def pick_sharpest_piece_jpeg(sector_snapshots: list) -> str:
+    """Scan all sector snapshots, pick the piece-crop JPEG with the
+    highest Laplacian variance (sharpness proxy). Used for the list-view
+    "best crop" thumbnail. Returns empty string when nothing usable is
+    available.
+    """
+    best_score = -1.0
+    best_b64 = ""
+    for snap in sector_snapshots:
+        b64 = getattr(snap, "piece_jpeg_b64", "") or ""
+        score = _score_piece_crop_sharpness(b64)
+        if score > best_score:
+            best_score = score
+            best_b64 = b64
+    return best_b64
+
+
+def pick_top_piece_jpegs(sector_snapshots: list, limit: int = 8) -> list[str]:
+    """Top-N sharpest piece crops across all sector snapshots.
+
+    Used for the compact-view 3×3 "recognized + surrounding crops"
+    layout — we ship the strongest ``limit`` crops so the UI can render
+    them without a separate detail fetch per card.
+    """
+    scored: list[tuple[float, str]] = []
+    for snap in sector_snapshots:
+        b64 = getattr(snap, "piece_jpeg_b64", "") or ""
+        if not b64:
+            continue
+        score = _score_piece_crop_sharpness(b64)
+        if score < 0:
+            continue
+        scored.append((score, b64))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [b64 for _s, b64 in scored[: max(0, int(limit))]]
+
+
 def render_snapshot_thumb(
     jpeg_b64: str,
     *,
@@ -362,6 +448,93 @@ def encode_snapshot(frame_bgr: np.ndarray) -> tuple[str, int, int]:
     return base64.b64encode(buf.tobytes()).decode("ascii"), int(w), int(h)
 
 
+def _entry_from_dict(raw: dict) -> "TrackHistoryEntry | None":
+    """Rehydrate a persisted ``to_detail()`` dict back into domain dataclasses."""
+    try:
+        global_id = int(raw.get("global_id"))
+    except (TypeError, ValueError):
+        return None
+    segments_raw = raw.get("segments") or []
+    segments: list[TrackSegment] = []
+    for seg in segments_raw:
+        if not isinstance(seg, dict):
+            continue
+        sector_snaps = []
+        for s in seg.get("sector_snapshots") or []:
+            if not isinstance(s, dict):
+                continue
+            try:
+                sector_snaps.append(
+                    SectorSnapshot(
+                        sector_index=int(s.get("sector_index", 0)),
+                        start_angle_deg=float(s.get("start_angle_deg", 0.0)),
+                        end_angle_deg=float(s.get("end_angle_deg", 0.0)),
+                        captured_ts=float(s.get("captured_ts", 0.0)),
+                        bbox_x=int(s.get("bbox_x", 0)),
+                        bbox_y=int(s.get("bbox_y", 0)),
+                        width=int(s.get("width", 0)),
+                        height=int(s.get("height", 0)),
+                        jpeg_b64=str(s.get("jpeg_b64", "")),
+                        r_inner=float(s.get("r_inner", 0.0)),
+                        r_outer=float(s.get("r_outer", 0.0)),
+                        piece_jpeg_b64=str(s.get("piece_jpeg_b64", "")),
+                        piece_bbox_x=int(s.get("piece_bbox_x", 0)),
+                        piece_bbox_y=int(s.get("piece_bbox_y", 0)),
+                        piece_width=int(s.get("piece_width", 0)),
+                        piece_height=int(s.get("piece_height", 0)),
+                    )
+                )
+            except Exception:
+                continue
+        path_raw = seg.get("path") or []
+        path: list[tuple[float, float, float]] = []
+        for p in path_raw:
+            if not isinstance(p, (list, tuple)) or len(p) < 3:
+                continue
+            try:
+                path.append((float(p[0]), float(p[1]), float(p[2])))
+            except Exception:
+                continue
+        try:
+            segments.append(
+                TrackSegment(
+                    source_role=str(seg.get("source_role", "")),
+                    handoff_from=seg.get("handoff_from"),
+                    first_seen_ts=float(seg.get("first_seen_ts", 0.0)),
+                    last_seen_ts=float(seg.get("last_seen_ts", 0.0)),
+                    snapshot_jpeg_b64=str(seg.get("snapshot_jpeg_b64", "")),
+                    snapshot_width=int(seg.get("snapshot_width", 0)),
+                    snapshot_height=int(seg.get("snapshot_height", 0)),
+                    path=path,
+                    hit_count=int(seg.get("hit_count", 0)),
+                    channel_center_x=seg.get("channel_center_x"),
+                    channel_center_y=seg.get("channel_center_y"),
+                    channel_radius_inner=seg.get("channel_radius_inner"),
+                    channel_radius_outer=seg.get("channel_radius_outer"),
+                    sector_count=int(seg.get("sector_count", 0)),
+                    sector_snapshots=sector_snaps,
+                    composite_jpeg_b64=str(seg.get("composite_jpeg_b64", "")),
+                    composite_width=int(seg.get("composite_width", 0)),
+                    composite_height=int(seg.get("composite_height", 0)),
+                    best_piece_jpeg_b64=str(seg.get("best_piece_jpeg_b64", "")),
+                    auto_recognition=seg.get("auto_recognition"),
+                )
+            )
+        except Exception:
+            continue
+    if not segments:
+        return None
+    try:
+        return TrackHistoryEntry(
+            global_id=global_id,
+            created_at=float(raw.get("created_at", 0.0)),
+            finished_at=float(raw.get("finished_at", 0.0)),
+            segments=segments,
+        )
+    except Exception:
+        return None
+
+
 class PieceHistoryBuffer:
     """Thread-safe in-memory ring buffer keyed by ``global_id``.
 
@@ -374,12 +547,17 @@ class PieceHistoryBuffer:
         self,
         max_entries: int = DEFAULT_MAX_ENTRIES,
         max_path_points: int = DEFAULT_MAX_PATH_POINTS,
+        persist_dir: "Path | None" = None,
     ) -> None:
         self._max_entries = int(max_entries)
         self._max_path_points = int(max_path_points)
         self._lock = threading.Lock()
         # OrderedDict → O(1) LRU-style trimming by insertion order.
         self._entries: "OrderedDict[int, TrackHistoryEntry]" = OrderedDict()
+        self._persist_dir = Path(persist_dir) if persist_dir is not None else None
+        if self._persist_dir is not None:
+            self._persist_dir.mkdir(parents=True, exist_ok=True)
+            self._load_from_disk()
 
     def record_segment(self, segment: TrackSegment, global_id: int) -> None:
         with self._lock:
@@ -402,8 +580,72 @@ class PieceHistoryBuffer:
                 existing.finished_at = max(existing.finished_at, segment.last_seen_ts)
             # Re-insert at the end — keeps the most-recently-updated entry newest.
             self._entries[global_id] = existing
-            while len(self._entries) > self._max_entries:
-                self._entries.popitem(last=False)
+            # max_entries <= 0 disables trimming entirely — keep the full run.
+            if self._max_entries > 0:
+                while len(self._entries) > self._max_entries:
+                    popped_id, _popped = self._entries.popitem(last=False)
+                    self._delete_from_disk(popped_id)
+            self._write_to_disk(existing)
+
+    def max_global_id(self) -> int:
+        """Highest ``global_id`` currently in the buffer (0 if empty).
+        Used to seed the handoff manager's id counter after a restart so
+        fresh tracks don't collide with persisted history.
+        """
+        with self._lock:
+            if not self._entries:
+                return 0
+            return max(self._entries.keys())
+
+    def flush(self, global_id: int) -> None:
+        """Re-serialize a single entry — used when the async
+        auto-recognize thread finishes and mutates the shared dict."""
+        with self._lock:
+            entry = self._entries.get(global_id)
+            if entry is not None:
+                self._write_to_disk(entry)
+
+    def _entry_path(self, global_id: int) -> "Path | None":
+        if self._persist_dir is None:
+            return None
+        return self._persist_dir / f"{int(global_id)}.json"
+
+    def _write_to_disk(self, entry: TrackHistoryEntry) -> None:
+        path = self._entry_path(entry.global_id)
+        if path is None:
+            return
+        try:
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(entry.to_detail(), separators=(",", ":")))
+            tmp.replace(path)
+        except Exception:
+            # Persistence is best-effort — a full disk or permission issue
+            # should never take the tracker with it.
+            pass
+
+    def _delete_from_disk(self, global_id: int) -> None:
+        path = self._entry_path(int(global_id))
+        if path is None:
+            return
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    def _load_from_disk(self) -> None:
+        if self._persist_dir is None or not self._persist_dir.exists():
+            return
+        for path in sorted(self._persist_dir.glob("*.json")):
+            try:
+                raw = json.loads(path.read_text())
+            except Exception:
+                continue
+            entry = _entry_from_dict(raw)
+            if entry is not None:
+                self._entries[entry.global_id] = entry
+        # Re-sort by finished_at so most-recent is at the end.
+        ordered = sorted(self._entries.items(), key=lambda kv: kv[1].finished_at)
+        self._entries = OrderedDict(ordered)
 
     def list_summaries(
         self,
@@ -428,5 +670,12 @@ class PieceHistoryBuffer:
         return entry.to_detail()
 
     def reset(self) -> None:
+        """Clear in-memory history AND the persisted JSON files on disk."""
         with self._lock:
             self._entries.clear()
+            if self._persist_dir is not None and self._persist_dir.exists():
+                for path in self._persist_dir.glob("*.json"):
+                    try:
+                        path.unlink()
+                    except Exception:
+                        pass

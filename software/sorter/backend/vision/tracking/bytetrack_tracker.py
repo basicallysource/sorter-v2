@@ -31,7 +31,7 @@ from .history import (
 )
 
 
-DEFAULT_SECTOR_COUNT = 12
+DEFAULT_SECTOR_COUNT = 18
 
 
 @dataclass

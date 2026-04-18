@@ -62,6 +62,14 @@ class PieceHandoffManager:
         self._entry_zones: dict[str, list[tuple[float, float]]] = {}
         self._exit_zones: dict[str, list[tuple[float, float]]] = {}
 
+    def seed_id_counter(self, last_used_global_id: int) -> None:
+        """Bump the counter past an already-used id so future tracks
+        don't collide with persisted history after a backend restart.
+        """
+        with self._lock:
+            if int(last_used_global_id) > self._id_counter:
+                self._id_counter = int(last_used_global_id)
+
     # ---- Config --------------------------------------------------------
 
     def set_zones(
@@ -135,8 +143,12 @@ class PieceHandoffManager:
                 bucket.popleft()
 
     def reset(self) -> None:
+        """Clear pending handoff queues. Intentionally keeps ``_id_counter``
+        monotonic across the process lifetime — zeroing it here meant
+        every profile switch / pause cycle handed out ``global_id=1``
+        again and ``record_segment`` appended to the wrong history entry.
+        """
         with self._lock:
-            self._id_counter = 0
             for bucket in self._pending.values():
                 bucket.clear()
 

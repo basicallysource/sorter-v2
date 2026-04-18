@@ -698,7 +698,7 @@ class VisionManager:
             rs = (sx + sy) / 2.0
             r_in = arc.inner_radius * rs
             r_out = arc.outer_radius * rs
-            tracker.set_channel_geometry((cx, cy), r_in, r_out, sector_count=12)
+            tracker.set_channel_geometry((cx, cy), r_in, r_out, sector_count=18)
 
     def _configureHandoffZonesFromSaved(self, polygon_data: dict, saved_res) -> None:
         """Set up c_channel_2 exit / c_channel_3 entry zones from saved polygons.

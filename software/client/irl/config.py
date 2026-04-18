@@ -155,6 +155,7 @@ class IRLInterface:
     first_c_channel_rotor_stepper: "StepperMotor"
     second_c_channel_rotor_stepper: "StepperMotor"
     third_c_channel_rotor_stepper: "StepperMotor"
+    fifth_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
@@ -170,6 +171,7 @@ class IRLInterface:
             "third_c_channel_rotor",
             "carousel",
             "chute",
+            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
@@ -182,6 +184,7 @@ class IRLInterface:
             "third_c_channel_rotor",
             "carousel",
             "chute",
+            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
@@ -370,7 +373,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             servo_source = sorter_interface
         if "chute_stepper" in stepper_names:
             distribution_board = sorter_interface
-            servo_source = sorter_interface
 
     gc.logger.info(
         f"Global actuator inventory: steppers={[name for name, _, _, _, _ in stepper_entries]}"
@@ -433,8 +435,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
     for i in range(len(irl_interface.distribution_layout.layers)):
         if i >= len(servo_source.servos):
-            gc.logger.error(f"Not enough servos! Layer {i} requested but only {len(servo_source.servos)} servos available")
-            raise IndexError(f"Layer {i} servo not available. Only {len(servo_source.servos)} servos configured.")
+            gc.logger.warning(f"Layer {i} servo not available (only {len(servo_source.servos)} servos detected); skipping remaining layers")
+            break
         servo = servo_source.servos[i]
         servo.set_name(f"layer_{i}_servo")
         open_angle = machine_config.servo_open_angle_overrides.get(i, machine_config.servo_open_angle)

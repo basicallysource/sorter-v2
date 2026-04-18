@@ -407,24 +407,32 @@ def main() -> None:
     irl: IRLInterface = mkIRLInterface(irl_config, gc)
     irl.enableSteppers()
 
-    steppers: dict[str, StepperMotor] = {
-        "carousel": irl.carousel_stepper,
-        "chute": irl.chute_stepper,
-        "c_channel_1": irl.first_c_channel_rotor_stepper,
-        "c_channel_2": irl.second_c_channel_rotor_stepper,
-        "c_channel_3": irl.third_c_channel_rotor_stepper,
-    }
+    default_stepper_config: StepperConfig = StepperConfig(default_steps_per_second=2000, microsteps=8)
+    stepper_bindings: list[tuple[str, str, StepperConfig | None]] = [
+        ("carousel", "carousel_stepper", getattr(irl_config, "carousel_stepper", None)),
+        ("chute", "chute_stepper", getattr(irl_config, "chute_stepper", None)),
+        ("c_channel_1", "first_c_channel_rotor_stepper", getattr(irl_config, "first_c_channel_rotor_stepper", None)),
+        ("c_channel_2", "second_c_channel_rotor_stepper", getattr(irl_config, "second_c_channel_rotor_stepper", None)),
+        ("c_channel_3", "third_c_channel_rotor_stepper", getattr(irl_config, "third_c_channel_rotor_stepper", None)),
+        ("fifth", "fifth_stepper", None),
+        ("distribution_aux_1", "distribution_aux_1_stepper", None),
+        ("distribution_aux_2", "distribution_aux_2_stepper", None),
+        ("distribution_aux_3", "distribution_aux_3_stepper", None),
+    ]
+    steppers: dict[str, StepperMotor] = {}
+    stepper_config_map: dict[str, StepperConfig] = {}
+    for label, attr, cfg in stepper_bindings:
+        motor = getattr(irl, attr, None)
+        if motor is None:
+            continue
+        steppers[label] = motor
+        stepper_config_map[label] = cfg if cfg is not None else default_stepper_config
+    if not steppers:
+        gc.logger.error("No steppers detected — is the firmware running?")
+        return
     stepper_names: list[str] = list(steppers.keys())
     selected_idx: int = 0
     step_count_idx: int = 1
-
-    stepper_config_map: dict[str, StepperConfig] = {
-        "carousel": irl_config.carousel_stepper,
-        "chute": irl_config.chute_stepper,
-        "c_channel_1": irl_config.first_c_channel_rotor_stepper,
-        "c_channel_2": irl_config.second_c_channel_rotor_stepper,
-        "c_channel_3": irl_config.third_c_channel_rotor_stepper,
-    }
 
     def _closestSpeedIdx(target: int) -> int:
         best = 0

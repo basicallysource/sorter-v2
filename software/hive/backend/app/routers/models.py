@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.deps import (
-    get_current_user_or_api_key,
+    API_KEY_SCOPE_MODELS_READ,
+    API_KEY_SCOPE_MODELS_WRITE,
     get_db,
+    require_api_key_scopes,
     require_role_flex,
     verify_csrf,
 )
@@ -65,7 +67,7 @@ def list_models(
     family: str | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_READ)),
 ):
     query = _apply_visibility(db.query(DetectionModel), current_user)
     if family:
@@ -102,7 +104,7 @@ def list_models(
 def get_model(
     model_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_READ)),
 ):
     model = _apply_visibility(db.query(DetectionModel), current_user).filter(DetectionModel.id == model_id).first()
     if model is None:
@@ -115,7 +117,7 @@ def download_model_variant(
     model_id: UUID,
     variant_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_READ)),
 ):
     model = _apply_visibility(db.query(DetectionModel), current_user).filter(DetectionModel.id == model_id).first()
     if model is None:
@@ -144,6 +146,7 @@ def create_model(
     payload: DetectionModelCreateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
     prev = (
@@ -177,6 +180,7 @@ def upload_variant(
     format_meta: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
     model = db.query(DetectionModel).filter(DetectionModel.id == model_id).first()
@@ -244,6 +248,7 @@ def delete_model(
     model_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
     model = db.query(DetectionModel).filter(DetectionModel.id == model_id).first()

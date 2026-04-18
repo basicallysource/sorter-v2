@@ -13,6 +13,18 @@ from app.models.user_api_key import UserApiKey
 from app.services.auth import decode_access_token
 
 API_KEY_PREFIX = "hv_"
+API_KEY_SCOPE_MODELS_READ = "models:read"
+API_KEY_SCOPE_MODELS_WRITE = "models:write"
+API_KEY_SCOPE_SAMPLES_READ = "samples:read"
+API_KEY_SCOPE_SAMPLES_WRITE = "samples:write"
+VALID_API_KEY_SCOPES = frozenset(
+    {
+        API_KEY_SCOPE_MODELS_READ,
+        API_KEY_SCOPE_MODELS_WRITE,
+        API_KEY_SCOPE_SAMPLES_READ,
+        API_KEY_SCOPE_SAMPLES_WRITE,
+    }
+)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -81,7 +93,29 @@ def verify_csrf(
         raise HTTPException(status_code=403, detail="CSRF token mismatch")
 
 
-def _resolve_api_key(db: Session, raw_token: str) -> User | None:
+def normalize_api_key_scopes(scopes: list[str] | None) -> list[str] | None:
+    if not scopes:
+        return None
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_scope in scopes:
+        if not isinstance(raw_scope, str):
+            raise HTTPException(status_code=400, detail="API key scopes must be strings")
+        scope = raw_scope.strip().lower()
+        if not scope:
+            continue
+        if scope not in VALID_API_KEY_SCOPES:
+            raise HTTPException(status_code=400, detail=f"Unknown API key scope: {raw_scope}")
+        if scope in seen:
+            continue
+        seen.add(scope)
+        normalized.append(scope)
+
+    return normalized or None
+
+
+def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str] | None] | None:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     key = (
         db.query(UserApiKey)
@@ -99,10 +133,15 @@ def _resolve_api_key(db: Session, raw_token: str) -> User | None:
     key.last_used_at = datetime.now(timezone.utc)
     db.add(key)
     db.commit()
-    return user
+    return user, (
+        frozenset(normalized)
+        if (normalized := normalize_api_key_scopes(key.scopes))
+        else None
+    )
 
 
 def get_current_user_or_api_key(
+    request: Request,
     db: Session = Depends(get_db),
     access_token: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
@@ -111,12 +150,18 @@ def get_current_user_or_api_key(
 
     Machine tokens (raw hex) are rejected here — this dep is for human users only.
     """
+    request.state.auth_via_api_key = False
+    request.state.api_key_scopes = None
+
     if authorization and authorization.startswith("Bearer "):
         raw = authorization[7:].strip()
         if raw.startswith(API_KEY_PREFIX):
-            user = _resolve_api_key(db, raw)
-            if user is None:
+            resolved = _resolve_api_key(db, raw)
+            if resolved is None:
                 raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+            user, scopes = resolved
+            request.state.auth_via_api_key = True
+            request.state.api_key_scopes = scopes
             return user
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -139,6 +184,35 @@ def require_role_flex(*roles: str):
     def dependency(current_user: User = Depends(get_current_user_or_api_key)) -> User:
         if current_user.role not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+
+    return dependency
+
+
+def require_api_key_scopes(*required_scopes: str):
+    normalized_required = tuple(
+        scope
+        for scope in (normalize_api_key_scopes(list(required_scopes)) or [])
+        if isinstance(scope, str)
+    )
+
+    def dependency(
+        request: Request,
+        current_user: User = Depends(get_current_user_or_api_key),
+    ) -> User:
+        if not getattr(request.state, "auth_via_api_key", False):
+            return current_user
+
+        granted_scopes: frozenset[str] | None = getattr(request.state, "api_key_scopes", None)
+        if granted_scopes is None:
+            return current_user
+
+        missing = [scope for scope in normalized_required if scope not in granted_scopes]
+        if missing:
+            raise HTTPException(
+                status_code=403,
+                detail=f"API key is missing required scopes: {', '.join(missing)}",
+            )
         return current_user
 
     return dependency

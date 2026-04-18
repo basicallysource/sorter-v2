@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_user, get_db, require_role, verify_csrf
+from app.deps import get_current_user, get_db, normalize_api_key_scopes, require_role, verify_csrf
 from app.errors import APIError
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
@@ -55,12 +55,13 @@ def create_api_key(
     _csrf: None = Depends(verify_csrf),
 ):
     raw_token, token_hash, token_prefix = _generate_token()
+    scopes = normalize_api_key_scopes(payload.scopes)
     key = UserApiKey(
         user_id=current_user.id,
         name=payload.name.strip(),
         token_prefix=token_prefix,
         token_hash=token_hash,
-        scopes=payload.scopes or [],
+        scopes=scopes,
     )
     db.add(key)
     db.commit()

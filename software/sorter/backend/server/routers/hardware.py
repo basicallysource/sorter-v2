@@ -8,12 +8,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getBinCategories
+from blob_manager import getBinCategories, setBinCategories
 from irl.bin_layout import (
     getBinLayout,
     saveBinLayout,
     BinLayoutConfig,
     LayerConfig,
+    extractCategories,
+    applyCategories,
     layoutMatchesCategories,
     mkLayoutFromConfig,
 )
@@ -1768,6 +1770,29 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
         return
 
     setBinCategories(categories)
+
+
+def _clear_passthrough_alert_if_owned() -> None:
+    """Clear the bins-full / misc-passthrough banner when the operator
+    explicitly resets or empties bins. Otherwise the alert sticks around
+    (it only auto-clears on the next successful bin assignment)."""
+    try:
+        from subsystems.distribution.positioning import (
+            BINS_FULL_ALERT_PREFIX,
+            MISC_PASSTHROUGH_ALERT_PREFIX,
+        )
+    except Exception:
+        return
+    try:
+        with shared_state.hardware_lifecycle_lock:
+            err = shared_state.hardware_error
+            if isinstance(err, str) and (
+                err.startswith(BINS_FULL_ALERT_PREFIX)
+                or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
+            ):
+                shared_state.setHardwareStatus(clear_error=True)
+    except Exception:
+        pass
 
 
 def clear_bin_category_assignments(

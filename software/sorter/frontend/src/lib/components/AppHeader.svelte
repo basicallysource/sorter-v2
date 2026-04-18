@@ -145,6 +145,14 @@
 		return Boolean(message && message.startsWith('No SorterInterface devices found on buses'));
 	}
 
+	function isMiscPassthrough(message: string | null): boolean {
+		return Boolean(message && message.startsWith('Misc passthrough'));
+	}
+
+	function isChuteJam(message: string | null): boolean {
+		return Boolean(message && message.startsWith('Chute jam'));
+	}
+
 	function hardwareAlertBody(message: string | null): string {
 		if (!message) return '';
 		if (isFeederTransportBlocked(message)) {
@@ -195,6 +203,8 @@
 				? 'Feeder Cameras Not Ready'
 			: isControlBoardConnectionError(hardwareError)
 				? 'Control Boards Not Reachable'
+			: isChuteJam(hardwareError)
+				? 'Chute Jammed'
 				: 'Machine Alert'
 	);
 	const blockingHardwareAlert = $derived(
@@ -387,14 +397,26 @@
 	{/if}
 
 	{#if showHardwareBanner}
-		<div class="border-t border-danger/30 bg-danger/[0.06] px-4 py-3 sm:px-6">
+		{@const isMisc = isMiscPassthrough(hardwareError)}
+		<div class={isMisc
+			? 'border-t border-warning/40 bg-warning/[0.08] px-4 py-3 sm:px-6'
+			: 'border-t border-danger/30 bg-danger/[0.06] px-4 py-3 sm:px-6'}
+		>
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="flex min-w-0 gap-3">
-					<div class="flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]">
+					<div class={isMisc
+						? 'flex h-8 w-8 shrink-0 items-center justify-center border border-warning/40 bg-warning/20 text-warning-dark'
+						: 'flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]'}
+					>
 						<AlertTriangle size={16} />
 					</div>
 					<div class="min-w-0">
-						<div class="text-xs font-semibold uppercase tracking-wider text-[#B11618]">Machine Alert</div>
+						<div class={isMisc
+							? 'text-xs font-semibold uppercase tracking-wider text-warning-dark'
+							: 'text-xs font-semibold uppercase tracking-wider text-[#B11618]'}
+						>
+							{isMisc ? 'Passthrough Notice' : 'Machine Alert'}
+						</div>
 						<div class="mt-1 text-sm text-text">{hardwareAlertBody(hardwareError)}</div>
 					</div>
 				</div>
@@ -403,7 +425,9 @@
 					<button
 						type="button"
 						onclick={() => void retryHardwareAction()}
-						class="inline-flex items-center gap-1.5 border border-danger/30 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white"
+						class={isMisc
+							? 'inline-flex items-center gap-1.5 border border-warning/40 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white'
+							: 'inline-flex items-center gap-1.5 border border-danger/30 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white'}
 					>
 						{#if hardwareState === 'standby' || hardwareState === 'error'}
 							<Home size={14} />

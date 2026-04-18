@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from irl.bin_layout import BinLayoutConfig, LayerConfig
+from irl.bin_layout import BinLayoutConfig, LayerConfig, mkLayoutFromConfig
 from server.routers import hardware
 
 
@@ -117,6 +117,37 @@ class BinResetActionTests(unittest.TestCase):
             "Emptied bin 2 on layer 1 without changing its assignment.",
             result["message"],
         )
+
+    def test_reset_all_uses_runtime_layout_categories_without_name_error(self) -> None:
+        runtime_stats = SimpleNamespace(clearBinContents=unittest.mock.Mock())
+        gc_ref = SimpleNamespace(runtime_stats=runtime_stats)
+        layout = mkLayoutFromConfig(BinLayoutConfig(layers=[LayerConfig(sections=[["medium", "medium"]])]))
+        layout.layers[0].sections[0].bins[0].category_ids[:] = ["rule-1"]
+        layout.layers[0].sections[0].bins[1].category_ids[:] = ["rule-2"]
+
+        with (
+            patch("server.routers.hardware._runtime_distribution_layout", return_value=layout),
+            patch("server.routers.hardware.setBinCategories") as set_categories_mock,
+            patch(
+                "server.routers.hardware.clear_current_session_bins",
+                return_value={"ok": True, "cleared_bins": 2},
+            ) as clear_mock,
+            patch.object(hardware.shared_state, "gc_ref", gc_ref),
+        ):
+            result = hardware.clear_bin_category_assignments(scope="all")
+
+        self.assertEqual([], layout.layers[0].sections[0].bins[0].category_ids)
+        self.assertEqual([], layout.layers[0].sections[0].bins[1].category_ids)
+        set_categories_mock.assert_called_once_with([[[[], []]]])
+        clear_mock.assert_called_once_with(scope="all")
+        runtime_stats.clearBinContents.assert_called_once_with(
+            scope="all",
+            layer_index=None,
+            section_index=None,
+            bin_index=None,
+        )
+        self.assertEqual("Reset all bins and cleared their assignments.", result["message"])
+        self.assertEqual(2, result["cleared_bins"])
 
 
 if __name__ == "__main__":

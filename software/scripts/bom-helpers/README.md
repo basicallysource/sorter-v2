@@ -11,8 +11,8 @@ Exists for two reasons:
 
 Given the main assembly BOM + the interface layer BOM + the main assembly STL zip (extracted into `stl-downloads/`), produces:
 
-- `bom-outputs/per_layer.csv` — screws, nuts, heat-set inserts, and aluminum extrusions for one layer.
-- `bom-outputs/per_machine.csv` — same categories totaled for a whole machine (interface + feeder + one layer).
+- `bom-outputs/cad_export_bom_just_hardware_per_layer.csv` — screws, nuts, heat-set inserts, and aluminum extrusions for one layer.
+- `bom-outputs/cad_export_bom_just_hardware_per_machine.csv` — same categories totaled for a whole machine (interface + feeder + one layer).
 
 3D-printed parts and electronics are not in scope and are dropped from the output.
 

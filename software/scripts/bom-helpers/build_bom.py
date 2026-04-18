@@ -72,6 +72,10 @@ def categorize(name, description):
         return 'screw'
     if 'nut' in text:
         return 'nut'
+    # "Aluminum boss" = gear boss (e.g. 20t_Aluminum_ Boss), not an
+    # extrusion. Drop from the output.
+    if 'boss' in name_l:
+        return None
     if name in ALUMINUM_EXTRUSION_NAMES or 'aluminum' in name_l or 'aluminium' in name_l:
         return 'aluminum'
     return None
@@ -241,13 +245,31 @@ def parse_nut(name):
     return {'size': f'M{m.group(1)}', 'pitch': m.group(2) or '', 'type': nut_type}
 
 
+# Hardcoded depth fallback for heat inserts whose names don't carry the
+# depth suffix. Right now this only covers M5 because the three "Ruthex
+# M5" rows in the interface BOM all lack the depth token.
+#
+# Why this happens: the assemblies pull the M5 insert part from more than
+# one source part studio. The interface "modified top bracket" sources
+# its insert from the original Sorter V2 document, where the part wasn't
+# renamed with its depth. Meanwhile the interface idler gear assembly
+# uses the shared-document version where the part is named properly
+# (e.g. "Ruthex M4x8.1mm"). Fix by re-linking the modified top bracket
+# to the shared-document part in Onshape; then this fallback can go.
+HEAT_INSERT_DEPTH_FALLBACK_MM = {
+    'M5': '9.5',
+}
+
+
 def parse_heat_insert(name):
     rx = RUTHEX_RX_RE.search(name)
     if rx:
         return {'size': f'M{rx.group(1)}', 'depth_mm': rx.group(2).replace(',', '.')}
     m = RUTHEX_M_RE.search(name)
     if m:
-        return {'size': f'M{m.group(1)}', 'depth_mm': m.group(2) or ''}
+        size = f'M{m.group(1)}'
+        depth = m.group(2) or HEAT_INSERT_DEPTH_FALLBACK_MM.get(size, '')
+        return {'size': size, 'depth_mm': depth}
     raise BOMNameParseError(
         f"heat insert size (M<n>) not found in name: {name!r}. "
         f"Expected 'Ruthex M<n>...' or 'RX-M<n>-<depth>'."
@@ -372,13 +394,15 @@ def main():
     )
     per_machine_descs = {**interface_descs, **feeder_descs, **layer_descs}
 
-    write_csv(os.path.join(out_dir, 'per_layer.csv'),
+    layer_csv = 'cad_export_bom_just_hardware_per_layer.csv'
+    machine_csv = 'cad_export_bom_just_hardware_per_machine.csv'
+    write_csv(os.path.join(out_dir, layer_csv),
               layer_totals, layer_descs, 'per_layer', lengths)
-    write_csv(os.path.join(out_dir, 'per_machine.csv'),
+    write_csv(os.path.join(out_dir, machine_csv),
               per_machine_totals, per_machine_descs,
               'per_machine', lengths)
 
-    print(f"wrote per_layer.csv and per_machine.csv to {out_dir}")
+    print(f"wrote {layer_csv} and {machine_csv} to {out_dir}")
     print(f"  interface rows: {len(interface_totals)}")
     print(f"  feeder rows: {len(feeder_totals)}")
     print(f"  layer rows: {len(layer_totals)}")

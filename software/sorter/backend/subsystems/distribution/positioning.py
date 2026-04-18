@@ -385,27 +385,24 @@ class Positioning(BaseState):
             return False
 
         target_servo = self.irl.servos[target_layer_index]
-        try:
-            target_is_closed = target_servo.isClosed()
-        except Exception as exc:
-            self._markLayerUnavailable(
-                target_layer_index,
-                f"target servo status check failed: {exc}",
-            )
-            return False
 
-        if not target_is_closed:
-            for i, servo in enumerate(self.irl.servos):
-                if i == target_layer_index or not self._isLayerUsable(i):
-                    continue
-                try:
-                    if servo.isClosed():
-                        servo.open()
-                except Exception as exc:
-                    self._markLayerUnavailable(
-                        i,
-                        f"opening parked servo failed: {exc}",
-                    )
+        # Never trust shadow state: re-issue the full door configuration
+        # before every dispense. Open every other usable layer (park), then
+        # command the target closed — even if we stayed on the same layer
+        # or the shadow flags claim the door is already in the right spot.
+        # A dropped serial write, a partial move, or a mid-flight power
+        # glitch can leave the physical flap out of sync without us
+        # noticing until a piece lands in the wrong bin.
+        for i, servo in enumerate(self.irl.servos):
+            if i == target_layer_index or not self._isLayerUsable(i):
+                continue
+            try:
+                servo.open()
+            except Exception as exc:
+                self._markLayerUnavailable(
+                    i,
+                    f"opening parked servo failed: {exc}",
+                )
 
         try:
             target_servo.close()
@@ -471,7 +468,12 @@ class Positioning(BaseState):
             )
             return None, False
 
-        if first_unassigned is not None:
+        # MISC must never claim an unassigned bin on its own. The discard
+        # bucket below the chute (rendered in the UI as the virtual
+        # Discard Bin) is what catches misc passthrough — taking a real
+        # slot would silently swap that behavior. A bin only carries MISC
+        # if the operator explicitly tagged it that way.
+        if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]
             setBinCategories(extractCategories(self.layout))
@@ -481,11 +483,16 @@ class Positioning(BaseState):
             return address, True
 
         if category_id != MISC_CATEGORY:
+            # No bin slot available for this category; fall back to MISC,
+            # which will only succeed if the operator pre-assigned a bin
+            # to MISC. Otherwise it returns None and the piece passes
+            # through to the discard bucket.
             return self._findOrAssignBinForCategory(MISC_CATEGORY)
 
-        self.logger.warning(
-            f"Positioning: no bin even for MISC — enabled_layers={enabled_layers}, "
-            f"blocked={blocked_layer_idxs}, unreachable_bins={unreachable_bins}, "
-            f"full_bins={full_bins}, bins_with_cats={bins_with_cats}, skipped={skipped}"
+        self.logger.info(
+            f"Positioning: MISC has no assigned bin — passthrough to discard bucket "
+            f"(enabled_layers={enabled_layers}, blocked={blocked_layer_idxs}, "
+            f"unreachable_bins={unreachable_bins}, full_bins={full_bins}, "
+            f"bins_with_cats={bins_with_cats}, skipped={skipped})"
         )
         return None, False

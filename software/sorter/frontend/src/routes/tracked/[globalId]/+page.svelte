@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { ArrowLeft, RefreshCw } from 'lucide-svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { X } from 'lucide-svelte';
 
-	type PathPoint = [number, number, number]; // ts, x, y
+	type PathPoint = [number, number, number];
 
 	type SectorSnapshot = {
 		sector_index: number;
@@ -25,19 +27,6 @@
 		piece_height?: number;
 	};
 
-	function pieceJpeg(s: SectorSnapshot): string {
-		return s.piece_jpeg_b64 && s.piece_jpeg_b64.length > 0 ? s.piece_jpeg_b64 : s.jpeg_b64;
-	}
-
-	function channelViewBox(seg: Segment): string {
-		// Crop the big view tight around the annular channel so half the
-		// image isn't empty backdrop. Adds a small padding beyond r_outer.
-		const cx = seg.channel_center_x ?? seg.snapshot_width / 2;
-		const cy = seg.channel_center_y ?? seg.snapshot_height / 2;
-		const r = (seg.channel_radius_outer ?? Math.min(seg.snapshot_width, seg.snapshot_height) / 3) + 12;
-		return `${cx - r} ${cy - r} ${r * 2} ${r * 2}`;
-	}
-
 	type Segment = {
 		source_role: string;
 		handoff_from: string | null;
@@ -56,7 +45,67 @@
 		channel_radius_outer: number | null;
 		sector_count: number;
 		sector_snapshots: SectorSnapshot[];
+		auto_recognition?: AutoRecognition | null;
 	};
+
+	type AutoRecognition = {
+		status: 'pending' | 'ok' | 'insufficient_consistency' | 'insufficient_quality' | 'error';
+		image_count?: number;
+		total_crops?: number;
+		inlier_count?: number;
+		queued_count?: number;
+		kept_count?: number;
+		rejected_for_quality?: number;
+		error?: string;
+		best_item?: { id: string; name: string; score: number; img_url?: string } | null;
+		best_color?: { id: string; name: string } | null;
+	};
+
+	type Detail = {
+		global_id: number;
+		created_at: number;
+		finished_at: number;
+		duration_s: number;
+		roles: string[];
+		handoff_count: number;
+		segment_count: number;
+		total_hit_count: number;
+		segments: Segment[];
+		live?: boolean;
+	};
+
+	type RecognizeResult = {
+		best_item?: { id: string; name: string; score: number; img_url?: string } | null;
+		best_color?: { id: string; name: string } | null;
+		error?: string;
+		loading?: boolean;
+	};
+
+	const ctx = getMachineContext();
+
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+	}
+
+	let globalId = $derived(Number(page.params.globalId));
+	let detail = $state<Detail | null>(null);
+	let error = $state<string | null>(null);
+	let loading = $state(false);
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+	let recognizeResults = $state<Record<string, RecognizeResult>>({});
+	let recognizeAllResults = $state<Record<number, RecognizeResult>>({});
+
+	function pieceJpeg(s: SectorSnapshot): string {
+		return s.piece_jpeg_b64 && s.piece_jpeg_b64.length > 0 ? s.piece_jpeg_b64 : s.jpeg_b64;
+	}
+
+	function channelViewBox(seg: Segment): string {
+		const cx = seg.channel_center_x ?? seg.snapshot_width / 2;
+		const cy = seg.channel_center_y ?? seg.snapshot_height / 2;
+		const r = (seg.channel_radius_outer ?? Math.min(seg.snapshot_width, seg.snapshot_height) / 3) + 12;
+		return `${cx - r} ${cy - r} ${r * 2} ${r * 2}`;
+	}
 
 	function wedgePath(cx: number, cy: number, rIn: number, rOut: number, a0Deg: number, a1Deg: number): string {
 		const a0 = (a0Deg * Math.PI) / 180;
@@ -87,17 +136,45 @@
 		return seg.sector_snapshots ?? [];
 	}
 
-	type RecognizeResult = {
-		best_item?: { id: string; name: string; score: number; img_url?: string } | null;
-		best_color?: { id: string; name: string } | null;
-		error?: string;
-		loading?: boolean;
-	};
+	function nearestPathPoint(path: PathPoint[], ts: number): PathPoint | null {
+		if (!path || path.length === 0) return null;
+		let best = path[0];
+		let bestDiff = Math.abs(path[0][0] - ts);
+		for (let i = 1; i < path.length; i++) {
+			const d = Math.abs(path[i][0] - ts);
+			if (d < bestDiff) {
+				bestDiff = d;
+				best = path[i];
+			}
+		}
+		return best;
+	}
 
-	// Keyed by the crop's stable signature so repeat clicks don't reshuffle.
-	let recognizeResults = $state<Record<string, RecognizeResult>>({});
-	// Per-segment combined-multi-crop result. Keyed by segment idx.
-	let recognizeAllResults = $state<Record<number, RecognizeResult>>({});
+	function pathPolylinePoints(seg: Segment): string {
+		return seg.path.map((p) => `${p[1]},${p[2]}`).join(' ');
+	}
+
+	function formatHashId(id: number): string {
+		const mixed = (id * 2654435761) >>> 0;
+		return (mixed % 10000).toString().padStart(4, '0');
+	}
+
+	async function load() {
+		loading = true;
+		try {
+			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
+			if (!res.ok) {
+				error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
+				return;
+			}
+			detail = await res.json();
+			error = null;
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to load';
+		} finally {
+			loading = false;
+		}
+	}
 
 	async function recognizeCrop(key: string, jpegB64: string) {
 		recognizeResults = { ...recognizeResults, [key]: { loading: true } };
@@ -109,10 +186,7 @@
 			});
 			if (!res.ok) {
 				const text = await res.text();
-				recognizeResults = {
-					...recognizeResults,
-					[key]: { error: text.slice(0, 200) }
-				};
+				recognizeResults = { ...recognizeResults, [key]: { error: text.slice(0, 200) } };
 				return;
 			}
 			const data = await res.json();
@@ -121,10 +195,7 @@
 				[key]: { best_item: data.best_item ?? null, best_color: data.best_color ?? null }
 			};
 		} catch (e: any) {
-			recognizeResults = {
-				...recognizeResults,
-				[key]: { error: e?.message ?? 'failed' }
-			};
+			recognizeResults = { ...recognizeResults, [key]: { error: e?.message ?? 'failed' } };
 		}
 	}
 
@@ -158,130 +229,13 @@
 		}
 	}
 
-	function nearestPathPoint(path: PathPoint[], ts: number): PathPoint | null {
-		if (!path || path.length === 0) return null;
-		let best = path[0];
-		let bestDiff = Math.abs(path[0][0] - ts);
-		for (let i = 1; i < path.length; i++) {
-			const d = Math.abs(path[i][0] - ts);
-			if (d < bestDiff) {
-				bestDiff = d;
-				best = path[i];
-			}
-		}
-		return best;
-	}
-
-	function pathPolylinePoints(seg: Segment): string {
-		return seg.path.map((p) => `${p[1]},${p[2]}`).join(' ');
-	}
-
-	type Detail = {
-		global_id: number;
-		created_at: number;
-		finished_at: number;
-		duration_s: number;
-		roles: string[];
-		handoff_count: number;
-		segment_count: number;
-		total_hit_count: number;
-		segments: Segment[];
-		live?: boolean;
-	};
-
-	let { globalId, onClose }: { globalId: number; onClose: () => void } = $props();
-
-	const ctx = getMachineContext();
-
-	function effectiveBase(): string {
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
-	}
-
-	let detail = $state<Detail | null>(null);
-	let error = $state<string | null>(null);
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
-
-	async function load() {
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
-			if (!res.ok) {
-				error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
-				return;
-			}
-			detail = await res.json();
-			error = null;
-		} catch (e: any) {
-			error = e?.message ?? 'Failed to load';
-		}
-	}
-
-	function formatHashId(id: number): string {
-		const mixed = (id * 2654435761) >>> 0;
-		return (mixed % 10000).toString().padStart(4, '0');
-	}
-
-	function handleKey(event: KeyboardEvent) {
-		if (event.key === 'Escape') onClose();
-	}
-
-	function drawSegment(canvas: HTMLCanvasElement, segment: Segment) {
-		const ctx2d = canvas.getContext('2d');
-		if (!ctx2d) return;
-		const img = new Image();
-		img.onload = () => {
-			canvas.width = segment.snapshot_width;
-			canvas.height = segment.snapshot_height;
-			ctx2d.drawImage(img, 0, 0);
-			if (segment.path.length > 1) {
-				ctx2d.strokeStyle = segment.handoff_from ? 'rgba(220, 80, 220, 0.9)' : 'rgba(0, 220, 0, 0.9)';
-				ctx2d.lineWidth = 3;
-				ctx2d.lineJoin = 'round';
-				ctx2d.beginPath();
-				ctx2d.moveTo(segment.path[0][1], segment.path[0][2]);
-				for (let i = 1; i < segment.path.length; i++) {
-					ctx2d.lineTo(segment.path[i][1], segment.path[i][2]);
-				}
-				ctx2d.stroke();
-				// Start marker
-				const [, sx, sy] = segment.path[0];
-				ctx2d.fillStyle = 'rgba(255, 255, 255, 0.95)';
-				ctx2d.beginPath();
-				ctx2d.arc(sx, sy, 7, 0, Math.PI * 2);
-				ctx2d.fill();
-				ctx2d.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-				ctx2d.lineWidth = 2;
-				ctx2d.stroke();
-				// End marker
-				const [, ex, ey] = segment.path[segment.path.length - 1];
-				ctx2d.fillStyle = segment.handoff_from ? 'rgba(220, 80, 220, 0.95)' : 'rgba(0, 220, 0, 0.95)';
-				ctx2d.beginPath();
-				ctx2d.arc(ex, ey, 7, 0, Math.PI * 2);
-				ctx2d.fill();
-				ctx2d.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-				ctx2d.lineWidth = 2;
-				ctx2d.stroke();
-			}
-		};
-		img.src = `data:image/jpeg;base64,${segment.snapshot_jpeg_b64}`;
-	}
-
-	$effect(() => {
-		if (!detail) return;
-		// Draw after DOM updates.
-		queueMicrotask(() => {
-			detail?.segments.forEach((segment, idx) => {
-				const canvas = document.querySelector(
-					`[data-segment-canvas="${globalId}-${idx}"]`
-				) as HTMLCanvasElement | null;
-				if (canvas) drawSegment(canvas, segment);
-			});
-		});
-	});
-
 	onMount(() => {
 		void load();
-		// Live tracks: keep polling so the path extends while the piece is still moving.
-		pollTimer = setInterval(() => void load(), 1500);
+		// For LIVE tracks the path keeps extending — poll while that's the
+		// case, but stop as soon as detail.live becomes false.
+		pollTimer = setInterval(() => {
+			if (detail?.live) void load();
+		}, 1500);
 	});
 
 	onDestroy(() => {
@@ -289,77 +243,123 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKey} />
+<svelte:head>
+	<title>Track #{globalId} · Sorter</title>
+</svelte:head>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-	class="fixed inset-0 z-50 flex items-stretch justify-stretch bg-black/90"
-	onclick={onClose}
-	role="dialog"
-	aria-modal="true"
-	aria-label="Tracked piece detail"
-	tabindex="-1"
->
-	<div
-		class="relative flex h-screen w-screen flex-col overflow-y-auto bg-surface"
-		onclick={(e) => e.stopPropagation()}
-	>
-		<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-3">
+<div class="min-h-screen bg-bg">
+	<AppHeader />
+	<div class="flex flex-col gap-4 p-4 sm:p-6">
+		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
 			<div class="flex items-center gap-3">
+				<a
+					href="/tracked"
+					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
+				>
+					<ArrowLeft size={14} />
+					Back
+				</a>
 				<span class="font-mono text-lg font-semibold text-text">
 					#{formatHashId(globalId)}
 				</span>
 				{#if detail}
-					<span class="text-xs text-text-muted">
+					<span class="text-sm text-text-muted">
 						{detail.roles.map((r) => r.replace('c_channel_', 'C')).join(' → ')}
 						· {detail.total_hit_count} frames
 						· {detail.duration_s.toFixed(2)}s
-						{#if detail.live}
-							<span class="ml-2 border border-success px-1 text-success">LIVE</span>
-						{/if}
-						{#if detail.handoff_count > 0}
-							<span class="ml-2 border border-primary px-1 text-primary">
-								{detail.handoff_count} handoff{detail.handoff_count === 1 ? '' : 's'}
-							</span>
-						{/if}
 					</span>
+					{#if detail.live}
+						<span class="border border-success px-1.5 text-sm text-success">LIVE</span>
+					{/if}
+					{#if detail.handoff_count > 0}
+						<span class="border border-primary px-1.5 text-sm text-primary">
+							{detail.handoff_count} handoff{detail.handoff_count === 1 ? '' : 's'}
+						</span>
+					{/if}
 				{/if}
 			</div>
 			<button
 				type="button"
-				onclick={onClose}
-				aria-label="Close"
-				class="p-1 text-text-muted hover:text-text"
+				onclick={() => void load()}
+				disabled={loading}
+				aria-label="Reload"
+				title="Reload"
+				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text disabled:opacity-50"
 			>
-				<X size={18} />
+				<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
 			</button>
-		</div>
+		</header>
 
-		<div class="p-4">
-			{#if error}
-				<div class="border border-danger bg-danger/10 p-3 text-sm text-danger">{error}</div>
-			{:else if !detail}
-				<div class="text-sm text-text-muted">Loading…</div>
-			{:else}
-				<div class="flex flex-col gap-4">
-					{#each detail.segments as segment, idx (idx)}
-						<div class="border border-border">
-							<div class="flex items-center justify-between bg-bg px-3 py-1.5 text-xs">
-								<span class="font-medium text-text">
-									{segment.source_role.replace('c_channel_', 'C-Channel ')}
-									{#if segment.handoff_from}
-										<span class="ml-2 text-primary">← handoff from {segment.handoff_from.replace('c_channel_', 'C-Channel ')}</span>
+		{#if error}
+			<div class="border border-danger bg-danger/10 p-3 text-sm text-danger">{error}</div>
+		{:else if !detail}
+			<div class="text-sm text-text-muted">Loading…</div>
+		{:else}
+			<div class="flex flex-col gap-4">
+				{#each detail.segments as segment, idx (idx)}
+					<div class="border border-border bg-surface">
+						{#if segment.auto_recognition}
+							{@const auto = segment.auto_recognition}
+							<div class="flex items-start gap-3 border-b border-border bg-bg px-3 py-2">
+								{#if auto.status === 'ok' && auto.best_item}
+									{#if auto.best_item.img_url}
+										<img
+											src={auto.best_item.img_url}
+											alt="Brickognize auto result"
+											class="h-16 w-16 flex-shrink-0 border border-border bg-white object-contain"
+											loading="lazy"
+										/>
 									{/if}
-								</span>
-								<span class="text-text-muted">
-									{segment.hit_count} frames · {segment.path_points} path points · {segment.duration_s.toFixed(2)}s
-									{#if sectorSnapshots(segment).length > 0}
-										· {sectorSnapshots(segment).length}/{segment.sector_count ?? 0} sectors
-									{/if}
-								</span>
+									<div class="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
+										<span class="text-xs font-medium uppercase tracking-wider text-text-muted">
+											Auto-recognized from {auto.image_count} crops
+										</span>
+										<span class="font-mono text-base font-semibold text-text">
+											{auto.best_item.id} · {(auto.best_item.score * 100).toFixed(0)}%
+										</span>
+										<span class="text-text-muted" title={auto.best_item.name}>
+											{auto.best_item.name}
+										</span>
+										{#if auto.best_color}
+											<span class="text-text-muted">{auto.best_color.name}</span>
+										{/if}
+									</div>
+								{:else if auto.status === 'pending'}
+									<span class="text-sm text-text-muted">
+										Auto-recognize pending ({auto.queued_count ?? ''} crops in queue)…
+									</span>
+								{:else if auto.status === 'insufficient_consistency'}
+									<span class="text-sm text-warning-dark" title="Crops didn't cluster around one piece">
+										Auto-recognize skipped: mixed crops ({auto.inlier_count}/{auto.total_crops})
+									</span>
+								{:else if auto.status === 'insufficient_quality'}
+									<span class="text-sm text-warning-dark" title="Too many crops were blurry / overexposed">
+										Auto-recognize skipped: low quality ({auto.kept_count}/{auto.total_crops})
+									</span>
+								{:else if auto.status === 'error'}
+									<span class="text-sm text-danger" title={auto.error}>
+										Auto-recognize failed
+									</span>
+								{/if}
 							</div>
-							<div class="flex min-h-0 flex-col lg:flex-row">
+						{/if}
+						<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+							<span class="font-medium text-text">
+								{segment.source_role.replace('c_channel_', 'C-Channel ')}
+								{#if segment.handoff_from}
+									<span class="ml-2 text-primary">
+										← handoff from {segment.handoff_from.replace('c_channel_', 'C-Channel ')}
+									</span>
+								{/if}
+							</span>
+							<span class="text-text-muted">
+								{segment.hit_count} frames · {segment.path_points} path points · {segment.duration_s.toFixed(2)}s
+								{#if sectorSnapshots(segment).length > 0}
+									· {sectorSnapshots(segment).length}/{segment.sector_count ?? 0} sectors
+								{/if}
+							</span>
+						</div>
+						<div class="flex min-h-0 flex-col lg:flex-row">
 							<div class="relative flex-1 bg-bg">
 								{#if hasSectorGeom(segment)}
 									<svg
@@ -444,17 +444,13 @@
 											{/if}
 										{/each}
 									</svg>
-								{:else}
-									<canvas
-										data-segment-canvas={`${globalId}-${idx}`}
-										class="block h-auto w-full"
-									></canvas>
 								{/if}
 							</div>
+
 							{#if sectorSnapshots(segment).length > 0}
 								{@const allJpegs = sectorSnapshots(segment).map((s) => pieceJpeg(s))}
 								{@const allRecog = recognizeAllResults[idx]}
-								<aside class="flex w-full flex-col border-t border-border bg-bg/50 lg:w-[320px] lg:border-t-0 lg:border-l">
+								<aside class="flex w-full flex-col border-t border-border bg-bg/50 lg:w-[360px] lg:border-t-0 lg:border-l">
 									<div class="flex flex-col gap-2 border-b border-border px-3 py-2">
 										<div class="flex items-center justify-between gap-2">
 											<span class="text-sm font-medium uppercase tracking-wider text-text-muted">
@@ -472,7 +468,10 @@
 										{#if allRecog && !allRecog.loading}
 											<div class="flex flex-col gap-2 border border-border bg-surface p-2 text-sm">
 												{#if allRecog.error}
-													<span class="text-danger" title={allRecog.error}>failed</span>
+													<div class="flex flex-col gap-1 text-danger">
+														<span class="font-medium">Recognize failed</span>
+														<span class="break-words text-xs text-danger/80">{allRecog.error}</span>
+													</div>
 												{:else if allRecog.best_item}
 													{#if allRecog.best_item.img_url}
 														<img
@@ -502,7 +501,7 @@
 											</div>
 										{/if}
 									</div>
-									<div class="flex flex-col gap-3 overflow-y-auto p-3" style="max-height: calc(100vh - 12rem);">
+									<div class="flex flex-col gap-3 p-3">
 										{#each sectorSnapshots(segment) as s, sIdx (sIdx)}
 											{@const cropKey = `${globalId}-${idx}-${sIdx}-${s.captured_ts}`}
 											{@const recog = recognizeResults[cropKey]}
@@ -531,7 +530,10 @@
 												{#if recog && !recog.loading}
 													<div class="flex flex-col gap-1.5 border-t border-border px-2 py-2 text-sm">
 														{#if recog.error}
-															<span class="text-danger" title={recog.error}>failed</span>
+															<div class="flex flex-col gap-0.5 text-danger">
+																<span class="font-medium">Recognize failed</span>
+																<span class="break-words text-xs text-danger/80">{recog.error}</span>
+															</div>
 														{:else if recog.best_item}
 															{#if recog.best_item.img_url}
 																<img
@@ -562,11 +564,10 @@
 									</div>
 								</aside>
 							{/if}
-							</div>
 						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 </div>

@@ -137,13 +137,6 @@ def _pause() -> None:
     requests.post(f"{BASE}/pause", timeout=10).raise_for_status()
 
 
-def _resume() -> None:
-    try:
-        requests.post(f"{BASE}/resume", timeout=10).raise_for_status()
-    except Exception as exc:
-        print(f"[warn] resume failed: {exc}", file=sys.stderr)
-
-
 def _pair_distances(bboxes: Iterable[list[int]]) -> list[float]:
     centers = [((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0) for b in bboxes]
     out: list[float] = []
@@ -201,53 +194,50 @@ def run(params: RunParams) -> Path:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "params.json").write_text(json.dumps(asdict(params), indent=2))
 
-    print(f"[{params.run_id}] pause machine")
+    print(f"[{params.run_id}] pause machine (stays paused after test — resume manually)")
     _pause()
     time.sleep(0.5)
 
-    try:
-        print(f"[{params.run_id}] snapshot before")
-        _snapshot(run_dir / "snap_before.jpg")
+    print(f"[{params.run_id}] snapshot before")
+    _snapshot(run_dir / "snap_before.jpg")
 
-        print(f"[{params.run_id}] reverse {params.clump_output_deg}° output → clump")
-        _move_blocking(-_stepper_deg(params.clump_output_deg), params.clump_speed)
-        time.sleep(0.3)
-        _snapshot(run_dir / "snap_clumped.jpg")
+    print(f"[{params.run_id}] reverse {params.clump_output_deg}° output → clump")
+    _move_blocking(-_stepper_deg(params.clump_output_deg), params.clump_speed)
+    time.sleep(0.3)
+    _snapshot(run_dir / "snap_clumped.jpg")
 
-        print(f"[{params.run_id}] forward {params.center_output_deg}° output → start position")
-        _move_blocking(_stepper_deg(params.center_output_deg), params.center_speed)
-        time.sleep(0.5)
-        _snapshot(run_dir / "snap_start.jpg")
+    print(f"[{params.run_id}] forward {params.center_output_deg}° output → start position")
+    _move_blocking(_stepper_deg(params.center_output_deg), params.center_speed)
+    time.sleep(0.5)
+    _snapshot(run_dir / "snap_start.jpg")
 
-        print(f"[{params.run_id}] baseline detection")
-        t0 = time.monotonic()
-        timeline: list[dict[str, Any]] = [_sample(t0)]
+    print(f"[{params.run_id}] baseline detection")
+    t0 = time.monotonic()
+    timeline: list[dict[str, Any]] = [_sample(t0)]
 
-        stop = threading.Event()
-        t = threading.Thread(target=_shake_loop, args=(params, stop), daemon=True)
-        t.start()
+    stop = threading.Event()
+    t = threading.Thread(target=_shake_loop, args=(params, stop), daemon=True)
+    t.start()
 
-        deadline = t0 + params.shake_duration_s
-        next_sample = t0 + DETECT_SAMPLE_PERIOD_S
-        while time.monotonic() < deadline:
-            sleep_for = min(next_sample, deadline) - time.monotonic()
-            if sleep_for > 0:
-                time.sleep(sleep_for)
-            timeline.append(_sample(t0))
-            next_sample += DETECT_SAMPLE_PERIOD_S
-
-        stop.set()
-        t.join(timeout=2.0)
-        time.sleep(0.3)
-
-        print(f"[{params.run_id}] snapshot after + final detection")
+    deadline = t0 + params.shake_duration_s
+    next_sample = t0 + DETECT_SAMPLE_PERIOD_S
+    while time.monotonic() < deadline:
+        sleep_for = min(next_sample, deadline) - time.monotonic()
+        if sleep_for > 0:
+            time.sleep(sleep_for)
         timeline.append(_sample(t0))
-        _snapshot(run_dir / "snap_after.jpg")
+        next_sample += DETECT_SAMPLE_PERIOD_S
 
-        (run_dir / "timeline.json").write_text(json.dumps(timeline, indent=2))
-        print(f"[{params.run_id}] {len(timeline)} samples saved → {run_dir}")
-    finally:
-        _resume()
+    stop.set()
+    t.join(timeout=2.0)
+    time.sleep(0.3)
+
+    print(f"[{params.run_id}] snapshot after + final detection")
+    timeline.append(_sample(t0))
+    _snapshot(run_dir / "snap_after.jpg")
+
+    (run_dir / "timeline.json").write_text(json.dumps(timeline, indent=2))
+    print(f"[{params.run_id}] {len(timeline)} samples saved → {run_dir} (machine still paused)")
 
     return run_dir
 

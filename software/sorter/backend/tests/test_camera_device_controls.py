@@ -144,6 +144,7 @@ class CameraDeviceControlsTests(unittest.TestCase):
             1,
             method="target_plate",
             openrouter_model=None,
+            apply_color_profile=True,
         )
         thread_cls.assert_called_once()
         self.assertEqual("target_plate", response["method"])
@@ -183,6 +184,7 @@ class CameraDeviceControlsTests(unittest.TestCase):
             1,
             method="llm_guided",
             openrouter_model="google/gemini-3.1-pro-preview",
+            apply_color_profile=True,
         )
         thread_kwargs = thread_cls.call_args.kwargs
         self.assertEqual("llm_guided", thread_kwargs["kwargs"]["method"])

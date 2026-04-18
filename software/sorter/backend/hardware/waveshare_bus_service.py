@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import logging
 import threading
+import time
 from typing import Any, Callable, TypeVar
 
 from hardware.waveshare_servo import ScServoBus, calibrate_servo as calibrate_servo_impl
 
 T = TypeVar("T")
+
+# After this many consecutive failed bus operations the service attempts a
+# soft recovery — close the serial port, wait briefly, reopen, ping. Most
+# Feetech / SCServo bus hiccups (framing errors, collision lockups, a
+# half-cycled Waveshare dongle) come back after a clean close+reopen.
+_SOFT_RECOVERY_FAILURE_THRESHOLD = 3
+_SOFT_RECOVERY_REOPEN_DELAY_S = 0.4
 
 
 class WaveshareBusService:
@@ -16,6 +25,9 @@ class WaveshareBusService:
         self._lock = threading.RLock()
         self._bus: ScServoBus | None = None
         self._persistent_users = 0
+        self._consecutive_failures = 0
+        self._recovery_attempts = 0
+        self._logger = logging.getLogger("waveshare_bus")
 
     @property
     def port(self) -> str:
@@ -88,11 +100,43 @@ class WaveshareBusService:
     def calibrate_servo(self, servo_id: int) -> tuple[int, int]:
         return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id))
 
+    def soft_reset(self) -> bool:
+        """Force a close + reopen of the underlying serial port and ping a
+        known servo (id=1) to verify the bus is alive. Returns ``True``
+        when the bus responds after reopening.
+        """
+        with self._lock:
+            return self._soft_recover_locked("explicit")
+
+    @property
+    def consecutive_failures(self) -> int:
+        return self._consecutive_failures
+
+    @property
+    def recovery_attempts(self) -> int:
+        return self._recovery_attempts
+
     def _execute(self, operation: Callable[[ScServoBus], T]) -> T:
         with self._lock:
             bus = self._ensure_open_locked()
             try:
-                return operation(bus)
+                result = operation(bus)
+            except Exception as exc:
+                self._consecutive_failures += 1
+                self._logger.warning(
+                    "waveshare bus op failed on %s (consecutive=%d): %s",
+                    self._port,
+                    self._consecutive_failures,
+                    exc,
+                )
+                if self._consecutive_failures >= _SOFT_RECOVERY_FAILURE_THRESHOLD:
+                    self._soft_recover_locked(reason=f"{self._consecutive_failures} failures")
+                raise
+            else:
+                # Success — reset the failure counter so a single fluke
+                # doesn't accumulate toward a recovery trigger.
+                self._consecutive_failures = 0
+                return result
             finally:
                 if self._persistent_users == 0:
                     self._close_locked()
@@ -109,6 +153,52 @@ class WaveshareBusService:
             self._bus.close()
         finally:
             self._bus = None
+
+    def _soft_recover_locked(self, reason: str) -> bool:
+        """Close the port, pause briefly, reopen, and verify we can still
+        talk to the bus. Caller must hold ``self._lock``.
+        """
+        self._recovery_attempts += 1
+        self._logger.warning(
+            "waveshare bus soft-recovery on %s (attempt=%d, reason=%s)",
+            self._port,
+            self._recovery_attempts,
+            reason,
+        )
+        self._close_locked()
+        try:
+            time.sleep(_SOFT_RECOVERY_REOPEN_DELAY_S)
+        except Exception:
+            pass
+        try:
+            bus = self._ensure_open_locked()
+        except Exception as exc:
+            self._logger.error("waveshare bus reopen on %s failed: %s", self._port, exc)
+            return False
+        try:
+            alive = False
+            # Try a small range; the first responding id is proof the bus works.
+            for servo_id in (1, 2, 3, 4, 5):
+                try:
+                    if bus.ping(servo_id):
+                        alive = True
+                        break
+                except Exception:
+                    continue
+            if alive:
+                self._consecutive_failures = 0
+                self._logger.info(
+                    "waveshare bus soft-recovery on %s succeeded", self._port
+                )
+            else:
+                self._logger.error(
+                    "waveshare bus soft-recovery on %s did not get a ping response",
+                    self._port,
+                )
+            return alive
+        except Exception as exc:
+            self._logger.error("waveshare bus ping after recovery failed: %s", exc)
+            return False
 
 
 class WaveshareBusRegistry:

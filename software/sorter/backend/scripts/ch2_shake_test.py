@@ -111,7 +111,12 @@ def _detect() -> dict[str, Any]:
 
 
 def _snapshot(dest: Path, layer: str = "annotated") -> None:
-    url = f"{BASE}/api/cameras/feed/c_channel_2?layer={layer}&dashboard=false"
+    # show_regions=false → keep detection overlays / bboxes but drop the
+    # channel polygon so the snapshots aren't dominated by the zone outline.
+    url = (
+        f"{BASE}/api/cameras/feed/c_channel_2"
+        f"?layer={layer}&dashboard=false&show_regions=false"
+    )
     with requests.get(url, stream=True, timeout=15) as r:
         r.raise_for_status()
         buf = bytearray()
@@ -277,34 +282,34 @@ _REPORT_HTML = """<!doctype html>
 __RUNS__
 <script>
 const runs = __RUNS_JSON__;
-for (const r of runs) {{
+for (const r of runs) {
   if (!r.timeline || !r.timeline.length) continue;
   const labels = r.timeline.map(s => s.t.toFixed(2));
-  new Chart(document.getElementById('count_' + r.run_id), {{
+  new Chart(document.getElementById('count_' + r.run_id), {
     type: 'line',
-    data: {{
+    data: {
       labels,
       datasets: [
-        {{ label: 'pieces detected', data: r.timeline.map(s => s.piece_count), borderColor: '#7cc36e', backgroundColor: 'transparent', tension: 0.25 }},
-        {{ label: 'tracks', data: r.timeline.map(s => s.track_count), borderColor: '#9cdcfe', backgroundColor: 'transparent', tension: 0.25, borderDash: [4, 4] }},
+        { label: 'pieces detected', data: r.timeline.map(s => s.piece_count), borderColor: '#7cc36e', backgroundColor: 'transparent', tension: 0.25 },
+        { label: 'tracks', data: r.timeline.map(s => s.track_count), borderColor: '#9cdcfe', backgroundColor: 'transparent', tension: 0.25, borderDash: [4, 4] },
       ]
-    }},
-    options: {{ responsive: true, animation: false, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#aaa' }} }}, x: {{ ticks: {{ color: '#aaa' }} }} }}, plugins: {{ legend: {{ labels: {{ color: '#ddd' }} }} }} }},
-  }});
-  new Chart(document.getElementById('dist_' + r.run_id), {{
+    },
+    options: { responsive: true, animation: false, scales: { y: { beginAtZero: true, ticks: { color: '#aaa' } }, x: { ticks: { color: '#aaa' } } }, plugins: { legend: { labels: { color: '#ddd' } } } },
+  });
+  new Chart(document.getElementById('dist_' + r.run_id), {
     type: 'line',
-    data: {{
+    data: {
       labels,
       datasets: [
-        {{ label: 'min', data: r.timeline.map(s => s.distances.min), borderColor: '#e06c75', tension: 0.25, backgroundColor: 'transparent' }},
-        {{ label: 'avg', data: r.timeline.map(s => s.distances.avg), borderColor: '#c29b20', tension: 0.25, backgroundColor: 'transparent' }},
-        {{ label: 'median', data: r.timeline.map(s => s.distances.median), borderColor: '#7cc36e', tension: 0.25, backgroundColor: 'transparent' }},
-        {{ label: 'max', data: r.timeline.map(s => s.distances.max), borderColor: '#9cdcfe', tension: 0.25, backgroundColor: 'transparent' }},
+        { label: 'min', data: r.timeline.map(s => s.distances.min), borderColor: '#e06c75', tension: 0.25, backgroundColor: 'transparent' },
+        { label: 'avg', data: r.timeline.map(s => s.distances.avg), borderColor: '#c29b20', tension: 0.25, backgroundColor: 'transparent' },
+        { label: 'median', data: r.timeline.map(s => s.distances.median), borderColor: '#7cc36e', tension: 0.25, backgroundColor: 'transparent' },
+        { label: 'max', data: r.timeline.map(s => s.distances.max), borderColor: '#9cdcfe', tension: 0.25, backgroundColor: 'transparent' },
       ]
-    }},
-    options: {{ responsive: true, animation: false, scales: {{ y: {{ beginAtZero: true, ticks: {{ color: '#aaa' }} }}, x: {{ ticks: {{ color: '#aaa' }} }} }}, plugins: {{ legend: {{ labels: {{ color: '#ddd' }} }} }} }},
-  }});
-}}
+    },
+    options: { responsive: true, animation: false, scales: { y: { beginAtZero: true, ticks: { color: '#aaa' } }, x: { ticks: { color: '#aaa' } } }, plugins: { legend: { labels: { color: '#ddd' } } } },
+  });
+}
 </script>
 </body>
 </html>

@@ -15,6 +15,12 @@ from urllib import error as urllib_error
 from urllib import request as urllib_request
 
 from dotenv import load_dotenv
+from server.security import (
+    compute_allowed_ui_origins,
+    is_loopback_client_address,
+    normalize_origin,
+    origin_allowed,
+)
 
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -27,6 +33,7 @@ DEFAULT_HEALTH_INTERVAL_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_INTERVAL_
 DEFAULT_HEALTH_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_TIMEOUT_S", "1.5"))
 DEFAULT_RESTART_BACKOFF_S = float(os.getenv("BACKEND_SUPERVISOR_RESTART_BACKOFF_S", "1.0"))
 DEFAULT_STOP_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_STOP_TIMEOUT_S", "5.0"))
+ALLOWED_UI_ORIGINS = tuple(compute_allowed_ui_origins())
 
 
 def _timestamp() -> float:
@@ -248,19 +255,31 @@ class BackendSupervisor:
 def _handler_factory(supervisor: BackendSupervisor):
     class SupervisorHandler(BaseHTTPRequestHandler):
         def do_OPTIONS(self) -> None:
-            self._send_json(204, {"ok": True})
+            if not self.path.startswith("/api/supervisor/"):
+                self._send_json(404, {"ok": False, "message": "Not found"})
+                return
+            authorized, origin = self._authorize_request(require_origin=True)
+            if not authorized:
+                return
+            self._send_json(204, {"ok": True}, origin=origin)
 
         def do_GET(self) -> None:
             if self.path == "/health":
                 self._send_json(200, {"status": "ok"})
                 return
             if self.path == "/api/supervisor/status":
-                self._send_json(200, supervisor.status())
+                authorized, origin = self._authorize_request(require_origin=False)
+                if not authorized:
+                    return
+                self._send_json(200, supervisor.status(), origin=origin)
                 return
             self._send_json(404, {"ok": False, "message": "Not found"})
 
         def do_POST(self) -> None:
             if self.path == "/api/supervisor/restart":
+                authorized, origin = self._authorize_request(require_origin=True)
+                if not authorized:
+                    return
                 accepted = supervisor.request_restart(reason="hard restart requested")
                 self._send_json(
                     202,
@@ -269,15 +288,30 @@ def _handler_factory(supervisor: BackendSupervisor):
                         "accepted": accepted,
                         "message": "Hard restart requested.",
                     },
+                    origin=origin,
                 )
                 return
             if self.path == "/api/supervisor/start":
+                authorized, origin = self._authorize_request(require_origin=True)
+                if not authorized:
+                    return
                 supervisor._start_backend(reason="manual start requested")
-                self._send_json(200, {"ok": True, "message": "Backend start requested."})
+                self._send_json(
+                    200,
+                    {"ok": True, "message": "Backend start requested."},
+                    origin=origin,
+                )
                 return
             if self.path == "/api/supervisor/stop":
+                authorized, origin = self._authorize_request(require_origin=True)
+                if not authorized:
+                    return
                 supervisor._stop_backend(reason="manual stop requested")
-                self._send_json(200, {"ok": True, "message": "Backend stop requested."})
+                self._send_json(
+                    200,
+                    {"ok": True, "message": "Backend stop requested."},
+                    origin=origin,
+                )
                 return
             self._send_json(404, {"ok": False, "message": "Not found"})
 
@@ -285,14 +319,37 @@ def _handler_factory(supervisor: BackendSupervisor):
             message = format % args
             print(f"[supervisor] {self.address_string()} {message}", flush=True)
 
-        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+        def _authorize_request(self, *, require_origin: bool) -> tuple[bool, str | None]:
+            client_host = self.client_address[0] if self.client_address else None
+            if not is_loopback_client_address(client_host):
+                self._send_json(403, {"ok": False, "message": "Supervisor control is restricted to loopback clients."})
+                return False, None
+
+            origin = normalize_origin(self.headers.get("Origin"))
+            if origin is not None and not origin_allowed(origin, ALLOWED_UI_ORIGINS):
+                self._send_json(403, {"ok": False, "message": "Origin not allowed for supervisor control."})
+                return False, None
+            if require_origin and origin is None:
+                self._send_json(403, {"ok": False, "message": "Supervisor control requests must include an allowed Origin header."})
+                return False, None
+            return True, origin
+
+        def _send_json(
+            self,
+            status: int,
+            payload: dict[str, Any],
+            *,
+            origin: str | None = None,
+        ) -> None:
             body = json.dumps(payload).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            if origin is not None and origin_allowed(origin, ALLOWED_UI_ORIGINS):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Vary", "Origin")
             self.end_headers()
             if status != 204:
                 self.wfile.write(body)

@@ -5,7 +5,6 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
-import socket
 from pathlib import Path
 
 from defs.events import (
@@ -28,6 +27,7 @@ from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
+from server.security import compute_allowed_ui_origins
 
 from server.shared_state import (
     active_connections,
@@ -63,49 +63,9 @@ app = FastAPI(title="Sorter API", version="0.0.1")
 #   SORTER_API_ALLOWED_ORIGINS comma-separated full origins override
 #                              (e.g. "https://sorter.lan,http://192.168.1.42:5173")
 #
-# Setting SORTER_API_HOST=0.0.0.0 exposes the API to the whole LAN — be sure
-# you trust every device on that network before doing so.
-def _compute_allowed_origins() -> List[str]:
-    override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
-    if override:
-        return [origin.strip() for origin in override.split(",") if origin.strip()]
-
-    bind_host = os.getenv("SORTER_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    ui_port = os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
-
-    origins = [
-        f"http://localhost:{ui_port}",
-        f"http://127.0.0.1:{ui_port}",
-    ]
-
-    # If the API is exposed beyond loopback, also allow the LAN hostname so
-    # another device on the network can open the UI from its own browser.
-    if bind_host not in ("127.0.0.1", "localhost", ""):
-        try:
-            hostname = socket.gethostname()
-            if hostname:
-                origins.append(f"http://{hostname}:{ui_port}")
-                if not hostname.endswith(".local"):
-                    origins.append(f"http://{hostname}.local:{ui_port}")
-        except Exception:
-            pass
-        # If a specific IP was pinned, allow it too.
-        if bind_host != "0.0.0.0":
-            origins.append(f"http://{bind_host}:{ui_port}")
-
-    # De-duplicate while preserving order.
-    seen: set[str] = set()
-    unique: List[str] = []
-    for origin in origins:
-        if origin not in seen:
-            seen.add(origin)
-            unique.append(origin)
-    return unique
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_compute_allowed_origins(),
+    allow_origins=compute_allowed_ui_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

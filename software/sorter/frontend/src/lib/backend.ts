@@ -44,6 +44,21 @@ export function supervisorHttpBaseUrlFromBackendHttpBaseUrl(
 	}
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+	const normalized = hostname.trim().toLowerCase();
+	return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+}
+
+function shouldUseDirectSupervisor(backendBaseUrl: string): boolean {
+	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
+	if (!supervisorBaseUrl) return false;
+	try {
+		return isLoopbackHostname(new URL(supervisorBaseUrl).hostname);
+	} catch {
+		return false;
+	}
+}
+
 export type BackendRestartRequestResult = {
 	ok: boolean;
 	mode: 'supervisor' | 'backend' | 'none';
@@ -63,7 +78,7 @@ export async function requestBackendRestart(
 	timeoutMs = 4000
 ): Promise<BackendRestartRequestResult> {
 	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
-	if (supervisorBaseUrl) {
+	if (supervisorBaseUrl && shouldUseDirectSupervisor(backendBaseUrl)) {
 		try {
 			const response = await fetch(`${supervisorBaseUrl}/api/supervisor/restart`, {
 				method: 'POST',
@@ -121,7 +136,7 @@ export async function probeBackendConnection(
 	}
 
 	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
-	if (supervisorBaseUrl) {
+	if (supervisorBaseUrl && shouldUseDirectSupervisor(backendBaseUrl)) {
 		try {
 			const response = await fetch(`${supervisorBaseUrl}/api/supervisor/status`, {
 				signal: AbortSignal.timeout(supervisorTimeoutMs)

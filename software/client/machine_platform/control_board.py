@@ -62,10 +62,11 @@ BASICALLY_FEEDER_PROFILE = BoardProfile(
     family="basically_rp2040",
     role="feeder",
     physical_to_canonical_stepper_names={
-        "first_c_channel_rotor": "c_channel_1_rotor",
-        "second_c_channel_rotor": "c_channel_2_rotor",
-        "third_c_channel_rotor": "c_channel_3_rotor",
         "carousel": "carousel",
+        "c_channel_1_rotor": "c_channel_1_rotor",
+        "c_channel_2_rotor": "c_channel_2_rotor",
+        "c_channel_3_rotor": "c_channel_3_rotor",
+        "aux_stepper": "aux_stepper",
     },
     input_aliases={},
 )
@@ -78,6 +79,7 @@ BASICALLY_DISTRIBUTION_PROFILE = BoardProfile(
         "distribution_aux_1": "distribution_aux_1",
         "distribution_aux_2": "distribution_aux_2",
         "distribution_aux_3": "distribution_aux_3",
+        "distribution_aux_4": "distribution_aux_4",
     },
     input_aliases={},
 )

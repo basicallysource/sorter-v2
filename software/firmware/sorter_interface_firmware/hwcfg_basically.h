@@ -1,12 +1,13 @@
-const uint8_t STEPPER_COUNT = 4;
-const uint8_t STEPPER_STEP_PINS[] = {28, 26, 21, 19};
-const uint8_t STEPPER_DIR_PINS[] = {27, 22, 20, 18};
+const uint8_t STEPPER_COUNT = 5;
+const uint8_t STEPPER_STEP_PINS[] = {28, 26, 21, 19, 8};
+const uint8_t STEPPER_DIR_PINS[] = {27, 22, 20, 18, 7};
 
 // Stepper channel wiring for this board family (Basically / FEEDER MB layout)
 // Channel 0: pins 28/27
 // Channel 1: pins 26/22
 // Channel 2: pins 21/20
 // Channel 3: pins 19/18
+// Channel 4: pins  8/ 7  (A6, rev 1.0 — TMC2209 sits on uart1 GPIO4/5, not wired here yet)
 
 // Default build is for feeder role
 // Uncomment the following line to build for distribution role:
@@ -23,19 +24,22 @@ const char* const STEPPER_NAMES[] = {
     "chute_stepper",
     "distribution_aux_1",
     "distribution_aux_2",
-    "distribution_aux_3"
+    "distribution_aux_3",
+    "distribution_aux_4"
 };
 #else
 // Feeder role
 // Channel 0: carousel
-// Channel 1: third_c_channel_rotor
-// Channel 2: second_c_channel_rotor
-// Channel 3: first_c_channel_rotor
+// Channel 1: c_channel_3_rotor
+// Channel 2: c_channel_2_rotor
+// Channel 3: c_channel_1_rotor
+// Channel 4: aux_stepper
 const char* const STEPPER_NAMES[] = {
     "carousel",
-    "third_c_channel_rotor",
-    "second_c_channel_rotor",
-    "first_c_channel_rotor"
+    "c_channel_3_rotor",
+    "c_channel_2_rotor",
+    "c_channel_1_rotor",
+    "aux_stepper"
 };
 #endif
 
@@ -44,12 +48,12 @@ const int TMC_UART_TX_PIN = 16;
 const int TMC_UART_RX_PIN = 17;
 const int TMC_UART_BAUDRATE = 400000;
 // TMC2209 UART slave addresses per channel (sequential on Basically board)
-const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3};
+const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3, 0};
 
-const int STEPPER_nEN_PINS[] = {0, 0, 0, 0};
+const int STEPPER_nEN_PINS[] = {0, 0, 0, 0, 0};
 
-const uint8_t DIGITAL_INPUT_COUNT = 4;
-const int digital_input_pins[] = {9, 8, 13, 12};
+const uint8_t DIGITAL_INPUT_COUNT = 3;
+const int digital_input_pins[] = {9, 13, 12};
 
 const uint8_t DIGITAL_OUTPUT_COUNT = 2;
 const int digital_output_pins[] = {14, 15};

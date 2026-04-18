@@ -201,6 +201,22 @@ std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first S
  * \param buf_size Size of the buffer in bytes
  * \return Number of bytes written to the buffer, excluding the null terminator
  */
+static int append_stepper_names_json(char *buf, size_t buf_size) {
+    int off = 0;
+    int n = snprintf(buf + off, buf_size - off, "[");
+    if (n < 0 || (size_t)(off + n) >= buf_size) return -1;
+    off += n;
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        n = snprintf(buf + off, buf_size - off, "%s\"%s\"", i == 0 ? "" : ",", STEPPER_NAMES[i]);
+        if (n < 0 || (size_t)(off + n) >= buf_size) return -1;
+        off += n;
+    }
+    n = snprintf(buf + off, buf_size - off, "]");
+    if (n < 0 || (size_t)(off + n) >= buf_size) return -1;
+    off += n;
+    return off;
+}
+
 int dump_configuration(char *buf, size_t buf_size) {
     if (buf_size == 0) {
         return 0;
@@ -209,46 +225,45 @@ int dump_configuration(char *buf, size_t buf_size) {
     // Keep detect response compact to stay within bus frame limits.
     // Try richest payload first (with names), then progressively smaller valid JSON fallbacks.
 
+    char names_json[160];
+    int names_len = append_stepper_names_json(names_json, sizeof(names_json));
+
+    if (names_len > 0) {
+        int n_bytes = snprintf(
+            buf,
+            buf_size,
+            "{\"device_name\":\"%s\",\"stepper_count\":%d,"
+            "\"stepper_names\":%s,"
+            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            DEVICE_NAME,
+            STEPPER_COUNT,
+            names_json,
+            DIGITAL_INPUT_COUNT,
+            DIGITAL_OUTPUT_COUNT,
+            SERVO_COUNT.load());
+
+        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+            return n_bytes;
+        }
+
+        n_bytes = snprintf(
+            buf,
+            buf_size,
+            "{\"stepper_count\":%d,"
+            "\"stepper_names\":%s,"
+            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            STEPPER_COUNT,
+            names_json,
+            DIGITAL_INPUT_COUNT,
+            DIGITAL_OUTPUT_COUNT,
+            SERVO_COUNT.load());
+
+        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+            return n_bytes;
+        }
+    }
+
     int n_bytes = snprintf(
-        buf,
-        buf_size,
-        "{\"device_name\":\"%s\",\"stepper_count\":%d,"
-        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
-        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
-        DEVICE_NAME,
-        STEPPER_COUNT,
-        STEPPER_NAMES[0],
-        STEPPER_NAMES[1],
-        STEPPER_NAMES[2],
-        STEPPER_NAMES[3],
-        DIGITAL_INPUT_COUNT,
-        DIGITAL_OUTPUT_COUNT,
-        SERVO_COUNT.load());
-
-    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
-        return n_bytes;
-    }
-
-    n_bytes = snprintf(
-        buf,
-        buf_size,
-        "{\"stepper_count\":%d,"
-        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
-        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
-        STEPPER_COUNT,
-        STEPPER_NAMES[0],
-        STEPPER_NAMES[1],
-        STEPPER_NAMES[2],
-        STEPPER_NAMES[3],
-        DIGITAL_INPUT_COUNT,
-        DIGITAL_OUTPUT_COUNT,
-        SERVO_COUNT.load());
-
-    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
-        return n_bytes;
-    }
-
-    n_bytes = snprintf(
         buf,
         buf_size,
         "{\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",

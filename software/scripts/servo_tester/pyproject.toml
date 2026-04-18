@@ -1,0 +1,14 @@
+[project]
+name = "servo-tester"
+version = "0.1.0"
+description = "Little htmx web UI to poke all 16 servos on a Distribution/Feeder board over USB."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pyserial>=3.5",
+    "python-multipart>=0.0.12",
+]
+
+[tool.uv]
+package = false

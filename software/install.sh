@@ -247,7 +247,7 @@ ok "Install complete."
 echo
 if [[ "$AS_SERVICE" == "true" ]]; then
     echo "Sorter is running as a systemd service."
-    echo "Open  http://$(hostname).local:5173/  in a browser."
+    echo "Open  http://localhost:5173/  in a browser on the sorter host."
 else
     echo "Run the dev runner from $SOFTWARE_DIR:"
     echo "  ./dev.sh"

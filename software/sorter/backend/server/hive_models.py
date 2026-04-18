@@ -23,7 +23,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 from blob_manager import getHiveConfig
@@ -546,8 +546,7 @@ class DownloadJobManager:
         # Post-processing: extract ncnn tarballs so the model is usable in-place.
         if runtime == "ncnn" and self._looks_like_tarball(dest_path):
             try:
-                with tarfile.open(dest_path, "r:*") as tar:
-                    tar.extractall(exports_dir)
+                self._safe_extract_tarball(dest_path, exports_dir)
             except Exception as exc:
                 self._update(
                     job_id,
@@ -589,6 +588,22 @@ class DownloadJobManager:
             return tarfile.is_tarfile(path)
         except Exception:
             return False
+
+    @staticmethod
+    def _safe_extract_tarball(archive_path: Path, dest_dir: Path) -> None:
+        dest_root = dest_dir.resolve()
+        with tarfile.open(archive_path, "r:*") as tar:
+            members = tar.getmembers()
+            for member in members:
+                member_path = PurePosixPath(member.name)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    raise ValueError(f"unsafe archive member: {member.name}")
+
+                resolved_target = (dest_root / Path(*member_path.parts)).resolve()
+                if resolved_target != dest_root and dest_root not in resolved_target.parents:
+                    raise ValueError(f"unsafe archive member: {member.name}")
+
+            tar.extractall(dest_root, filter="data")
 
     @staticmethod
     def _write_run_json(

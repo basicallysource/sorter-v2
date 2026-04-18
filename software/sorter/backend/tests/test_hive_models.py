@@ -6,9 +6,11 @@ These tests never hit the network — ``HiveClient.get_model`` and
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
+import tarfile
 import threading
 import time
 from pathlib import Path
@@ -246,6 +248,105 @@ class TestDownloadJobManager:
 
         # No run.json should have been written on mismatch.
         assert not (tmp_path / "hive-model-1" / "run.json").exists()
+
+    def test_ncnn_tarball_is_extracted_in_place(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _configure_target(monkeypatch)
+
+        detail = _make_detail()
+        detail["variants"] = [
+            {
+                "id": "variant-ncnn",
+                "runtime": "ncnn",
+                "file_name": "detector.tar.gz",
+                "file_size": 1234,
+                "sha256": "expected-sha",
+                "format_meta": {},
+                "uploaded_at": "2026-04-01T00:00:00Z",
+            }
+        ]
+
+        def _downloader(
+            model_id: str,
+            variant_id: str,
+            dest_path: Path,
+            on_progress: Callable[[int, int], None] | None,
+            expected_sha256: str | None,
+        ) -> str:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(dest_path, "w:gz") as tar:
+                payload = b"fake-ncnn-model"
+                model_info = tarfile.TarInfo("best_ncnn_model/model.bin")
+                model_info.size = len(payload)
+                tar.addfile(model_info, io.BytesIO(payload))
+            if on_progress is not None:
+                size = dest_path.stat().st_size
+                on_progress(size, size)
+            assert expected_sha256 == "expected-sha"
+            return "expected-sha"
+
+        stub = _StubClient(detail=detail, downloader=_downloader)
+        _install_stub_client(monkeypatch, stub)
+
+        manager = hive_models.DownloadJobManager()
+        job_id = manager.enqueue("hive-a", "model-1")
+
+        final = manager.wait_for_terminal(job_id, timeout=5.0)
+        assert final.get("status") == "done", final
+        assert (tmp_path / "hive-model-1" / "exports" / "best_ncnn_model" / "model.bin").exists()
+
+    def test_ncnn_tarball_rejects_path_traversal(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _configure_target(monkeypatch)
+
+        detail = _make_detail()
+        detail["variants"] = [
+            {
+                "id": "variant-ncnn",
+                "runtime": "ncnn",
+                "file_name": "detector.tar.gz",
+                "file_size": 1234,
+                "sha256": "expected-sha",
+                "format_meta": {},
+                "uploaded_at": "2026-04-01T00:00:00Z",
+            }
+        ]
+
+        outside_target = tmp_path / "outside.txt"
+
+        def _downloader(
+            model_id: str,
+            variant_id: str,
+            dest_path: Path,
+            on_progress: Callable[[int, int], None] | None,
+            expected_sha256: str | None,
+        ) -> str:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(dest_path, "w:gz") as tar:
+                payload = b"nope"
+                member = tarfile.TarInfo("../outside.txt")
+                member.size = len(payload)
+                tar.addfile(member, io.BytesIO(payload))
+            if on_progress is not None:
+                size = dest_path.stat().st_size
+                on_progress(size, size)
+            assert expected_sha256 == "expected-sha"
+            return "expected-sha"
+
+        stub = _StubClient(detail=detail, downloader=_downloader)
+        _install_stub_client(monkeypatch, stub)
+
+        manager = hive_models.DownloadJobManager()
+        job_id = manager.enqueue("hive-a", "model-1")
+
+        final = manager.wait_for_terminal(job_id, timeout=5.0)
+        assert final.get("status") == "failed", final
+        assert "unsafe archive member" in (final.get("error") or "")
+        assert not outside_target.exists()
 
     def test_no_matching_variant_fails_fast(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

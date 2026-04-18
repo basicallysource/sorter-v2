@@ -126,13 +126,9 @@ def _detect() -> dict[str, Any]:
     return resp.json()
 
 
-def _snapshot(dest: Path, layer: str = "annotated") -> None:
-    # show_regions=false → keep detection overlays / bboxes but drop the
-    # channel polygon so the snapshots aren't dominated by the zone outline.
-    url = (
-        f"{BASE}/api/cameras/feed/c_channel_2"
-        f"?layer={layer}&dashboard=false&show_regions=false"
-    )
+def _fetch_raw_jpeg() -> bytes:
+    """Grab one raw JPEG frame from c_channel_2's MJPEG feed."""
+    url = f"{BASE}/api/cameras/feed/c_channel_2?layer=raw&dashboard=false"
     with requests.get(url, stream=True, timeout=15) as r:
         r.raise_for_status()
         buf = bytearray()
@@ -147,11 +143,38 @@ def _snapshot(dest: Path, layer: str = "annotated") -> None:
             if start >= 0:
                 end = buf.find(b"\xff\xd9", start + 2)
                 if end >= 0:
-                    dest.write_bytes(bytes(buf[start:end + 2]))
-                    return
+                    return bytes(buf[start:end + 2])
             if len(buf) > 3_000_000:
                 break
     raise RuntimeError(f"could not capture a complete JPEG from {url}")
+
+
+def _snapshot_with_bboxes(dest: Path, bboxes: list[list[int]]) -> None:
+    """Fetch a raw frame, draw the supplied bboxes in green, save as JPEG.
+
+    Works around the live MJPEG feed drawing persistent *tracks* rather
+    than raw detections — with the machine paused during a test run, the
+    tracker never stabilizes (track_count stays at 0) so the annotated
+    stream is blank. Instead we grab the raw frame and paint the bboxes
+    we already collected via the detection endpoint.
+    """
+    import cv2
+    import numpy as np
+
+    jpeg = _fetch_raw_jpeg()
+    arr = np.frombuffer(jpeg, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise RuntimeError("could not decode fetched JPEG")
+    for b in bboxes:
+        if not isinstance(b, (list, tuple)) or len(b) < 4:
+            continue
+        x1, y1, x2, y2 = [int(v) for v in b[:4]]
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 230, 0), 2, cv2.LINE_AA)
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if not ok:
+        raise RuntimeError("JPEG encode failed")
+    dest.write_bytes(buf.tobytes())
 
 
 def _pause() -> None:
@@ -223,7 +246,8 @@ def run(params: RunParams) -> Path:
         print(f"[{params.run_id}] reverse {params.clump_output_deg}° output → clump")
         _move_blocking(-_stepper_deg(params.clump_output_deg), params.clump_speed)
         time.sleep(0.3)
-        _snapshot(run_dir / "snap_clumped.jpg")
+        clumped_sample = _sample(time.monotonic())
+        _snapshot_with_bboxes(run_dir / "snap_clumped.jpg", clumped_sample["bboxes"])
     else:
         print(f"[{params.run_id}] clump-output-deg=0 → skipping reverse (operator-placed start)")
 
@@ -231,13 +255,14 @@ def run(params: RunParams) -> Path:
         print(f"[{params.run_id}] forward {params.center_output_deg}° output → start position")
         _move_blocking(_stepper_deg(params.center_output_deg), params.center_speed)
         time.sleep(0.5)
-        _snapshot(run_dir / "snap_start.jpg")
     else:
         print(f"[{params.run_id}] center-output-deg=0 → skipping forward priming")
 
-    print(f"[{params.run_id}] baseline detection")
+    print(f"[{params.run_id}] baseline detection + start snapshot")
     t0 = time.monotonic()
-    timeline: list[dict[str, Any]] = [_sample(t0)]
+    start_sample = _sample(t0)
+    timeline: list[dict[str, Any]] = [start_sample]
+    _snapshot_with_bboxes(run_dir / "snap_start.jpg", start_sample["bboxes"])
 
     stop = threading.Event()
     t = threading.Thread(target=_shake_loop, args=(params, stop), daemon=True)
@@ -256,9 +281,10 @@ def run(params: RunParams) -> Path:
     t.join(timeout=2.0)
     time.sleep(0.3)
 
-    print(f"[{params.run_id}] snapshot after + final detection")
-    timeline.append(_sample(t0))
-    _snapshot(run_dir / "snap_after.jpg")
+    print(f"[{params.run_id}] final detection + after snapshot")
+    after_sample = _sample(t0)
+    timeline.append(after_sample)
+    _snapshot_with_bboxes(run_dir / "snap_after.jpg", after_sample["bboxes"])
 
     (run_dir / "timeline.json").write_text(json.dumps(timeline, indent=2))
     print(f"[{params.run_id}] {len(timeline)} samples saved → {run_dir} (machine still paused)")

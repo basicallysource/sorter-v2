@@ -5,6 +5,7 @@ from server.security import (
     is_loopback_client_address,
     normalize_origin,
     origin_allowed,
+    websocket_connection_allowed,
 )
 
 
@@ -41,3 +42,18 @@ def test_compute_allowed_ui_origins_honors_override(monkeypatch) -> None:
         "http://localhost:5173",
         "http://sorter.local:5173",
     ]
+
+
+def test_websocket_connection_allows_approved_origin_from_remote_client() -> None:
+    allowed = ["http://localhost:5173", "http://sorter.local:5173"]
+    assert websocket_connection_allowed(
+        "http://sorter.local:5173/",
+        "192.168.1.42",
+        allowed,
+    ) is True
+
+
+def test_websocket_connection_without_origin_requires_loopback_client() -> None:
+    allowed = ["http://localhost:5173"]
+    assert websocket_connection_allowed(None, "127.0.0.1", allowed) is True
+    assert websocket_connection_allowed(None, "192.168.1.42", allowed) is False

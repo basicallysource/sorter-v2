@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -27,7 +27,7 @@ from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
-from server.security import compute_allowed_ui_origins
+from server.security import compute_allowed_ui_origins, websocket_connection_allowed
 
 from server.shared_state import (
     active_connections,
@@ -456,6 +456,18 @@ def updateSortingProfileSetViewPartState(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
+    client_host = websocket.client.host if websocket.client is not None else None
+    if not websocket_connection_allowed(
+        websocket.headers.get("Origin"),
+        client_host,
+        compute_allowed_ui_origins(),
+    ):
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="WebSocket origin not allowed.",
+        )
+        return
+
     await websocket.accept()
     active_connections.append(websocket)
 

@@ -41,6 +41,17 @@ def is_loopback_client_address(host: str | None) -> bool:
         return False
 
 
+def websocket_connection_allowed(
+    origin: str | None,
+    client_host: str | None,
+    allowed_origins: list[str] | tuple[str, ...],
+) -> bool:
+    normalized = normalize_origin(origin)
+    if normalized is None:
+        return is_loopback_client_address(client_host)
+    return origin_allowed(normalized, allowed_origins)
+
+
 def compute_allowed_ui_origins() -> list[str]:
     override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
     if override:

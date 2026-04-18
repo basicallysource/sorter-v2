@@ -47,7 +47,21 @@ import requests
 BASE = "http://localhost:8000"
 OUT_ROOT = Path("/tmp/ch2_shake_tests")
 GEAR = 130.0 / 12.0  # output wheel -> stepper shaft multiplier
+# c_channel_2 runs 200 full steps × 8 microsteps per stepper rev — the
+# /stepper/pulse endpoint's `speed` parameter is microsteps per second, so
+# a pulse's travel distance in stepper-degrees is
+#   duration_s * speed / MICROSTEPS_PER_STEPPER_DEG
+STEPS_PER_REV = 200
+MICROSTEPS = 8
+MICROSTEPS_PER_STEPPER_REV = STEPS_PER_REV * MICROSTEPS  # 1600
+MICROSTEPS_PER_STEPPER_DEG = MICROSTEPS_PER_STEPPER_REV / 360.0  # ≈ 4.444
 DETECT_SAMPLE_PERIOD_S = 0.25
+
+
+def _pulse_duration_ms_for_output_deg(output_deg: float, speed_usteps_per_s: int) -> int:
+    stepper_deg = output_deg * GEAR
+    microsteps = stepper_deg * MICROSTEPS_PER_STEPPER_DEG
+    return max(40, int(round(microsteps / max(speed_usteps_per_s, 1) * 1000)))
 
 
 @dataclass
@@ -82,7 +96,9 @@ def _move_blocking(stepper_deg: float, speed: int, timeout_s: float = 60.0) -> N
             time.sleep(0.1)
             continue
         resp.raise_for_status()
-    expected_s = abs(stepper_deg) / max(speed, 1) * 1.2 + 0.4
+    # speed is in microsteps/s; total µsteps = |stepper_deg| * MICROSTEPS_PER_STEPPER_DEG.
+    microsteps = abs(stepper_deg) * MICROSTEPS_PER_STEPPER_DEG
+    expected_s = microsteps / max(speed, 1) * 1.15 + 0.4
     time.sleep(expected_s)
 
 
@@ -203,18 +219,21 @@ def run(params: RunParams) -> Path:
     _pause()
     time.sleep(0.5)
 
-    print(f"[{params.run_id}] snapshot before")
-    _snapshot(run_dir / "snap_before.jpg")
+    if params.clump_output_deg > 0:
+        print(f"[{params.run_id}] reverse {params.clump_output_deg}° output → clump")
+        _move_blocking(-_stepper_deg(params.clump_output_deg), params.clump_speed)
+        time.sleep(0.3)
+        _snapshot(run_dir / "snap_clumped.jpg")
+    else:
+        print(f"[{params.run_id}] clump-output-deg=0 → skipping reverse (operator-placed start)")
 
-    print(f"[{params.run_id}] reverse {params.clump_output_deg}° output → clump")
-    _move_blocking(-_stepper_deg(params.clump_output_deg), params.clump_speed)
-    time.sleep(0.3)
-    _snapshot(run_dir / "snap_clumped.jpg")
-
-    print(f"[{params.run_id}] forward {params.center_output_deg}° output → start position")
-    _move_blocking(_stepper_deg(params.center_output_deg), params.center_speed)
-    time.sleep(0.5)
-    _snapshot(run_dir / "snap_start.jpg")
+    if params.center_output_deg > 0:
+        print(f"[{params.run_id}] forward {params.center_output_deg}° output → start position")
+        _move_blocking(_stepper_deg(params.center_output_deg), params.center_speed)
+        time.sleep(0.5)
+        _snapshot(run_dir / "snap_start.jpg")
+    else:
+        print(f"[{params.run_id}] center-output-deg=0 → skipping forward priming")
 
     print(f"[{params.run_id}] baseline detection")
     t0 = time.monotonic()
@@ -267,11 +286,11 @@ _REPORT_HTML = """<!doctype html>
   table.params { border-collapse: collapse; font-size: 13px; margin: 8px 0 12px; }
   table.params td { padding: 2px 10px 2px 0; }
   table.params td:first-child { color: #888; }
-  .snap-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .snap-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; margin-bottom: 12px; }
   .snap-row figure { margin: 0; background: #000; border: 1px solid #333; }
   .snap-row img { width: 100%; display: block; }
   .snap-row figcaption { padding: 4px 6px; font-size: 11px; color: #aaa; font-family: ui-monospace, monospace; }
-  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .charts { display: grid; grid-template-columns: 1fr; gap: 16px; }
   .chart-box { background: #0a0a0a; border: 1px solid #333; padding: 8px; }
   .chart-box canvas { max-height: 260px; }
   .note { background: #222; border-left: 3px solid #c29b20; padding: 6px 10px; font-size: 13px; color: #ddd; margin-bottom: 12px; }
@@ -327,7 +346,7 @@ def _render_run(run_dir: Path) -> tuple[str, dict[str, Any]] | None:
     except Exception:
         pass
 
-    snaps = ["before", "clumped", "start", "after"]
+    snaps = ["clumped", "start", "after"]
     snap_html = "\n".join(
         f'<figure><img src="{run_dir.name}/snap_{key}.jpg" alt="{key}" /><figcaption>{key}</figcaption></figure>'
         for key in snaps
@@ -414,9 +433,13 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.cycle_fwd_ms == 0:
-        args.cycle_fwd_ms = max(40, int(round(args.amplitude_output_deg * GEAR / args.speed_fwd * 1000)))
+        args.cycle_fwd_ms = _pulse_duration_ms_for_output_deg(
+            args.amplitude_output_deg, args.speed_fwd
+        )
     if args.cycle_rev_ms == 0:
-        args.cycle_rev_ms = max(40, int(round(args.amplitude_output_deg * GEAR / args.speed_rev * 1000)))
+        args.cycle_rev_ms = _pulse_duration_ms_for_output_deg(
+            args.amplitude_output_deg, args.speed_rev
+        )
 
     params = RunParams(
         run_id=args.run_id,

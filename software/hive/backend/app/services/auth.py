@@ -34,7 +34,7 @@ def create_access_token(user_id: str, role: str) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         "type": "access",
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+    return jwt.encode(payload, settings.jwt_signing_key, algorithm="HS256")
 
 
 def create_refresh_token(user_id: str) -> tuple[str, str]:
@@ -45,7 +45,7 @@ def create_refresh_token(user_id: str) -> tuple[str, str]:
 
 def decode_access_token(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.jwt_signing_key, algorithms=["HS256"])
         if payload.get("type") != "access":
             return None
         return payload

@@ -16,7 +16,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 os.environ["DATABASE_URL"] = "sqlite:///test.db"
+os.environ["ENVIRONMENT"] = "test"
 os.environ["JWT_SECRET"] = "test-secret-key-not-for-production"
+os.environ["SECRET_ENCRYPTION_KEY"] = "9s1Gq4oh7GJzLvXEUiHLQ-wZsJRldj4czAigUYayKwE="
 os.environ["SORTING_PROFILE_PARTS_DB_PATH"] = "test-profile-parts.db"
 os.environ["SORTING_PROFILE_BRICKSTORE_DB_PATH"] = "test-brickstore.db"
 

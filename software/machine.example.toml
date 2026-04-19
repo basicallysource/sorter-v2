@@ -82,14 +82,16 @@ sections = [
 #   Carousel and classification cameras may also use a URL source
 #   (e.g. MJPEG stream from IP Webcam app via ADB or a local scrcpy bridge).
 
-# [cameras]
-# layout = "split_feeder"
-# c_channel_2 = 0
-# c_channel_3 = 2
-# carousel = 4
+# required to boot
+[cameras]
+layout = "split_feeder"
+feeder = 0
+carousel = 1
+classification_top = 2
+c_channel_2 = 3
+c_channel_3 = 4
 # carousel = "http://127.0.0.1:18081/carousel.mjpg"
 # classification_top = "http://localhost:8080/video"
-# classification_bottom = 3
 
 # [camera_picture_settings.c_channel_2]
 # rotation = 0

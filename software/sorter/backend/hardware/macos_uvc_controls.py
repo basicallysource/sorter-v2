@@ -76,6 +76,41 @@ CONTROL_LABEL_OVERRIDES = {
     "autofocus": "Autofocus",
 }
 
+# Vendor-specific UVC Extension Units. Each entry maps (vid, pid) to the
+# Extension Unit ID the camera firmware uses for its private controls.
+# Values here were verified empirically on real hardware (USB capture +
+# /tmp/probe_insta360_extunit.py round-trip).
+VENDOR_EXTENSION_UNITS: dict[tuple[int, int], int] = {
+    # Insta360 Link 2 AI webcam — exposure hides in Extension Unit 9.
+    (0x2E1A, 0x4C04): 9,
+}
+
+
+# Vendor-specific control spec overrides, keyed on (vid, pid). These are
+# merged on top of the standard ``CONTROL_SPECS`` table inside each
+# ``UvcCameraController`` instance — identical keys (e.g. ``exposure``)
+# override the standard spec for matching devices only.
+VENDOR_CONTROL_OVERRIDES: dict[tuple[int, int], dict[str, dict[str, Any]]] = {
+    (0x2E1A, 0x4C04): {
+        # Insta360 Link 2 exposes exposure via Extension Unit 9 / selector
+        # 0x19 (2-byte little-endian, UVC 100-µs convention). GET_MIN / MAX
+        # return 0 from the firmware, so we fix a practical range here.
+        "exposure": {
+            "display": "Exposure (100 µs)",
+            "kind": "int",
+            "selector": 0x19,
+            "size": 2,
+            "unit_key": "extension_unit_id",
+            "clamp": True,
+            "min_override": 1,
+            "max_override": 20000,
+            "resolution_override": 1,
+            "default_override": 125,
+        },
+    },
+}
+
+
 CONTROL_SPECS = {
     "exposure_mode": {
         "display": "Exposure Mode",
@@ -266,6 +301,11 @@ class UvcCameraDescriptor:
     camera_terminal_id: int
     product_name: str | None
     manufacturer_name: str | None
+    # Optional vendor-specific UVC Extension Unit. Populated from
+    # ``VENDOR_EXTENSION_UNITS`` at enumeration time when a known
+    # (vid, pid) pair is matched; stays ``None`` for devices that only
+    # expose standard Camera Terminal / Processing Unit controls.
+    extension_unit_id: int | None = None
 
     @property
     def display_name(self) -> str:
@@ -300,6 +340,19 @@ class UvcCameraController:
         self._lib = _get_libusb()
         self._handle = c_void_p()
         self._interface_claimed = False
+        # Merge vendor overrides on top of the global control spec table so
+        # that ``exposure`` (or anything else) can point at an Extension
+        # Unit instead of the standard Camera Terminal when the attached
+        # camera needs it.
+        vendor_key = (camera_descriptor.vendor_id, camera_descriptor.product_id)
+        self._control_specs: dict[str, dict[str, Any]] = dict(CONTROL_SPECS)
+        for key, spec in VENDOR_CONTROL_OVERRIDES.get(vendor_key, {}).items():
+            self._control_specs[key] = dict(spec)
+
+    def _spec(self, control_id: str) -> dict[str, Any]:
+        if control_id not in self._control_specs:
+            raise UvcControllerError(f"Unknown control: {control_id}")
+        return self._control_specs[control_id]
 
     def open(self) -> None:
         result = self._lib.libusb_open(self.camera_descriptor.libusb_dev, byref(self._handle))
@@ -347,7 +400,7 @@ class UvcCameraController:
         return supported
 
     def get_control_info(self, control_id: str) -> UvcControlInfo:
-        control_spec = _get_control_spec(control_id if control_id != "auto_exposure" else "exposure_mode")
+        control_spec = self._spec(control_id if control_id != "auto_exposure" else "exposure_mode")
         try:
             info_flags = self._get_raw(control_spec, UVC_GET_INFO, 1)[0]
         except UvcControllerError:
@@ -386,10 +439,30 @@ class UvcCameraController:
                 "bool",
             )
 
-        minimum = _safe_get_value(self, control_spec, UVC_GET_MIN, current)
-        maximum = _safe_get_value(self, control_spec, UVC_GET_MAX, current)
-        resolution = _safe_get_value(self, control_spec, UVC_GET_RES, 1)
-        default_value = _safe_get_value(self, control_spec, UVC_GET_DEF, current)
+        min_override = control_spec.get("min_override")
+        max_override = control_spec.get("max_override")
+        res_override = control_spec.get("resolution_override")
+        def_override = control_spec.get("default_override")
+        minimum = (
+            min_override
+            if isinstance(min_override, int)
+            else _safe_get_value(self, control_spec, UVC_GET_MIN, current)
+        )
+        maximum = (
+            max_override
+            if isinstance(max_override, int)
+            else _safe_get_value(self, control_spec, UVC_GET_MAX, current)
+        )
+        resolution = (
+            res_override
+            if isinstance(res_override, int)
+            else _safe_get_value(self, control_spec, UVC_GET_RES, 1)
+        )
+        default_value = (
+            def_override
+            if isinstance(def_override, int)
+            else _safe_get_value(self, control_spec, UVC_GET_DEF, current)
+        )
         return UvcControlInfo(
             int(minimum),
             int(maximum),
@@ -405,7 +478,7 @@ class UvcCameraController:
         if control_id == "auto_exposure":
             return self.get_control("exposure_mode") != AE_MODE_MANUAL
 
-        control_spec = _get_control_spec(control_id)
+        control_spec = self._spec(control_id)
         raw = self._get_raw(control_spec, UVC_GET_CUR, control_spec["size"])
         return _decode_control_value(control_spec, raw)
 
@@ -413,7 +486,7 @@ class UvcCameraController:
         if control_id == "auto_exposure":
             return self.set_control("exposure_mode", AE_MODE_AUTO if bool(value) else AE_MODE_MANUAL)
 
-        control_spec = _get_control_spec(control_id)
+        control_spec = self._spec(control_id)
         if control_spec["kind"] == "int" and control_spec.get("clamp", False):
             value = _clamp_int_control(self, control_id, int(value))
         elif control_spec["kind"] == "bool":
@@ -503,11 +576,13 @@ def list_uvc_cameras() -> list[UvcCameraDescriptor]:
 
                 product_name = _read_usb_string(lib, dev, int(descriptor.iProduct))
                 manufacturer_name = _read_usb_string(lib, dev, int(descriptor.iManufacturer))
+                vendor_key = (int(descriptor.idVendor), int(descriptor.idProduct))
+                extension_unit_id = VENDOR_EXTENSION_UNITS.get(vendor_key)
                 cameras.append(
                     UvcCameraDescriptor(
                         libusb_dev=dev,
-                        vendor_id=int(descriptor.idVendor),
-                        product_id=int(descriptor.idProduct),
+                        vendor_id=vendor_key[0],
+                        product_id=vendor_key[1],
                         bus_number=bus_number,
                         device_address=device_address,
                         location_id=location_id,
@@ -516,6 +591,7 @@ def list_uvc_cameras() -> list[UvcCameraDescriptor]:
                         camera_terminal_id=camera_terminal_id,
                         product_name=product_name,
                         manufacturer_name=manufacturer_name,
+                        extension_unit_id=extension_unit_id,
                     )
                 )
                 lib.libusb_ref_device(dev)
@@ -558,7 +634,7 @@ def describe_controls_for_index(index: int) -> tuple[list[dict[str, Any]], dict[
                 info = controller.get_control_info(control_id)
                 if not info.is_capable:
                     continue
-                spec = CONTROL_SPECS["exposure_mode" if control_id == "auto_exposure" else control_id]
+                spec = controller._spec("exposure_mode" if control_id == "auto_exposure" else control_id)
                 control = {
                     "key": control_id,
                     "label": CONTROL_LABEL_OVERRIDES.get(control_id, spec["display"]),
@@ -651,6 +727,14 @@ def apply_controls_for_index(
                     except Exception:
                         pass
                 applied[key] = int(controller.set_control(key, settings[key]))
+
+            # Vendor Extension Unit controls (e.g. Insta360 Link 2 exposure)
+            # take ~200 ms to settle inside the camera firmware. Without a
+            # small pause the refresh loop below reads a stale pre-set
+            # value and the GUI round-trips the wrong number back.
+            if descriptor.extension_unit_id is not None:
+                import time as _time
+                _time.sleep(0.25)
 
             # Refresh current values for any exposed controls.
             for control_id in controller.get_supported_control_ids():
@@ -786,8 +870,13 @@ def _get_control_spec(control_id: str) -> dict[str, Any]:
 
 
 def _build_windex(camera_descriptor: UvcCameraDescriptor, control_spec: dict[str, Any]) -> int:
-    unit_id = getattr(camera_descriptor, control_spec["unit_key"])
-    return ((unit_id & 0xFF) << 8) | (camera_descriptor.interface_number & 0xFF)
+    unit_id = getattr(camera_descriptor, control_spec["unit_key"], None)
+    if unit_id is None:
+        raise UvcControllerError(
+            f"Descriptor is missing unit_key '{control_spec['unit_key']}' "
+            "for this control — vendor-specific override not applicable to this device."
+        )
+    return ((int(unit_id) & 0xFF) << 8) | (camera_descriptor.interface_number & 0xFF)
 
 
 def _decode_control_value(control_spec: dict[str, Any], raw_bytes: bytes) -> int | bool:

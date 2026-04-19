@@ -81,7 +81,3 @@ On startup, the backend automatically runs Alembic migrations and bootstraps an 
 - **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8002)
 - **Frontend**: SvelteKit + Tailwind CSS (port 5174)
 - **Storage**: Local filesystem for uploaded images
-
-## Design Docs
-
-- [Unified Sample Payload v1](./SAMPLE_PAYLOAD_V1.md)

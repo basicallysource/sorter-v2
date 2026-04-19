@@ -63,14 +63,12 @@ class HanddrawnRegionProvider:
         saved = getChannelPolygons()
         if saved is None:
             raise RuntimeError(
-                "No handdrawn regions found. Run the polygon editor first:\n"
-                "  uv run python scripts/polygon_editor.py"
+                "No handdrawn regions found. Draw them from the Settings → Zones editor in the UI."
             )
         polygons = saved.get("polygons", {})
         if not polygons:
             raise RuntimeError(
-                "Handdrawn regions are empty. Run the polygon editor first:\n"
-                "  uv run python scripts/polygon_editor.py"
+                "Handdrawn regions are empty. Draw them from the Settings → Zones editor in the UI."
             )
         self._polygons = polygons
         self._channel_angles = saved.get("channel_angles", {})

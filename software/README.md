@@ -41,13 +41,7 @@ Edit `.env` and update:
 - Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
 - `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `sorter/backend/irl/example_configs/machine_specific_params_example.toml` for an example)
 
-Run camera setup from `client/`. A window will open showing each camera — press **F**, **B**, or **T** to assign it as feeder, classification bottom, or classification top. Press **N** to skip, **Q** to quit and save.
-```bash
-cd sorter/backend
-uv run python scripts/camera_setup.py
-```
-
-
+Camera assignment happens in the UI: open the running frontend and use the Settings → Cameras page to map each OpenCV device index to its role (feeder, classification top/bottom, carousel, etc). The resulting assignments are written back to `machine_params.toml` under `[cameras]`.
 
 ## UI Dependencies
 

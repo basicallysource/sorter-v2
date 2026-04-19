@@ -827,7 +827,8 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         if feeder_camera_index is None and classification_camera_top_index is None:
             raise RuntimeError(
                 "No camera setup found in TOML [cameras] section. "
-                "Run client/scripts/camera_setup.py or configure cameras in machine_params.toml."
+                "Assign cameras from the Settings → Cameras page in the UI, or edit "
+                "machine_params.toml directly."
             )
 
         if not isinstance(feeder_camera_index, int):

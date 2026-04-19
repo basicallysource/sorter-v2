@@ -766,7 +766,7 @@ class VisionManager:
 
         saved = getChannelPolygons()
         if saved is None:
-            self.gc.logger.warn("Channel polygons not found. Run: scripts/polygon_editor.py")
+            self.gc.logger.warn("Channel polygons not found. Draw them from the Settings → Zones editor.")
             return False
 
         polygon_data = saved.get("polygons", {})
@@ -817,7 +817,7 @@ class VisionManager:
             return carousel_ready
 
         if not polys:
-            self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
+            self.gc.logger.warn("Channel polygons empty. Draw them from the Settings → Zones editor.")
             return False
 
         self._channel_polygons = polys
@@ -1106,7 +1106,7 @@ class VisionManager:
             else:
                 result = self._loadPngBaseline(baseline_dir, cam_key, mode)
                 if result is None:
-                    self.gc.logger.warn(f"Classification {cam_key} {mode} baseline not found. Run: scripts/calibrate_classification_baseline.py")
+                    self.gc.logger.warn(f"Classification {cam_key} {mode} baseline not found. Capture a baseline from the Settings → Classification page.")
                     continue
                 baseline_min, baseline_max = result
 

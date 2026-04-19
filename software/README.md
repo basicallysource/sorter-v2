@@ -37,7 +37,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and update:
-- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
+- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
 - Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
 - `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `sorter/backend/irl/example_configs/machine_specific_params_example.toml` for an example)
 

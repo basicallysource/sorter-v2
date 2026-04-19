@@ -171,13 +171,9 @@ else
     cat > "$ENV_FILE" <<EOF
 export DEBUG_LEVEL=2
 
-export PARTS_WITH_CATEGORIES_FILE_PATH="$SOFTWARE_DIR/sorter/backend/parts_with_categories.json"
 export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/sorter/backend/irl/example_configs/machine_specific_params_example.toml"
 export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
-export FEEDER_CAMERA_INDEX=0
-export CLASSIFICATION_CAMERA_BOTTOM_INDEX=2
-export CLASSIFICATION_CAMERA_TOP_INDEX=1
 
 export TELEMETRY_ENABLED=0
 export TELEMETRY_URL="https://api.basically.website"

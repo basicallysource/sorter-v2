@@ -130,7 +130,7 @@ else
     cat > "$ENV_FILE" <<EOF
 export DEBUG_LEVEL=2
 
-export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/sorter/backend/irl/example_configs/machine_specific_params_example.toml"
+export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/machine.example.toml"
 export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
 export BL_CONSUMER_KEY="no"

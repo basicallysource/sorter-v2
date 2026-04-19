@@ -87,7 +87,7 @@ class MachineProfile:
     capabilities: MachineCapabilities
 ```
 
-Built from auto-discovered control boards over USB serial + the user's `machine_specific_params.toml`. `stepper_bindings` is the escape hatch for wiring mistakes — rebind a logical name like `carousel` to whichever physical channel the motor is actually wired to.
+Built from auto-discovered control boards over USB serial + the user's `machine.example.toml`. `stepper_bindings` is the escape hatch for wiring mistakes — rebind a logical name like `carousel` to whichever physical channel the motor is actually wired to.
 
 ## Configuration layers
 
@@ -96,7 +96,7 @@ Four sources, in increasing user-editability:
 | Layer | Where | Owns |
 |---|---|---|
 | **Code defaults** | Python constants | Things that are the same on every machine. |
-| **TOML** | `machine_specific_params.toml` (env: `MACHINE_SPECIFIC_PARAMS_PATH`) | Servo angles, layer layout, chute calibration, camera indices, feeding mode. |
+| **TOML** | `machine.example.toml` (env: `MACHINE_SPECIFIC_PARAMS_PATH`) | Servo angles, layer layout, chute calibration, camera indices, feeding mode. |
 | **Blob storage** | `software/sorter/backend/blob/*.json` (via `blob_manager`) | Detection configs, classification polygons, Hive credentials, ArUco calibrations. Most of this is UI-edited. |
 | **SQLite** | `local_state.sqlite` | API keys, recent known objects, lifecycle state across restarts. |
 

@@ -261,6 +261,7 @@ class VisionManager:
             ClassificationOverlay,
             TrackOverlay,
         )
+        from .overlays.telemetry import TelemetryOverlay
 
         _ROLE_TO_POLY_KEY = {
             "c_channel_2": "second_channel",
@@ -339,6 +340,24 @@ class VisionManager:
                 get_diff_config=lambda: self._diff_config,
                 get_annotation_label=self._classificationAnnotationLabel,
             ))
+
+        # Telemetry overlay on every feed — res / fps / exposure / gain /
+        # focus / wb / auto-modes rendered bottom-right. Category "telemetry"
+        # so the frontend can hide it via show_regions=false style filters.
+        for role, feed in self._camera_service.feeds().items():
+            if feed is None:
+                continue
+
+            def _stats_for(r=role):
+                capture = self.getCaptureThreadForRole(r)
+                if capture is None:
+                    return None
+                try:
+                    return capture.getTelemetrySnapshot()
+                except Exception:
+                    return None
+
+            feed.add_overlay(TelemetryOverlay(_stats_for))
 
     def start(self) -> None:
         self._started = True

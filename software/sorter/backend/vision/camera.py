@@ -519,6 +519,44 @@ class CaptureThread:
         with self._device_settings_lock:
             return dict(self._device_settings)
 
+    def getTelemetrySnapshot(self) -> dict[str, object]:
+        """Return a small dict of currently-known runtime stats for the
+        camera — resolution, fps (actual, not requested), exposure, gain,
+        focus, white-balance temperature, auto-exposure / auto-wb flags.
+        Used by the TelemetryOverlay to paint a corner indicator; also
+        safe for general telemetry consumers. Missing values are simply
+        absent from the returned dict.
+        """
+        stats: dict[str, object] = {}
+        with self._cap_lock:
+            cap = self._cap
+            if cap is not None:
+                try:
+                    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+                    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                    if w > 0 and h > 0:
+                        stats["resolution"] = (w, h)
+                except Exception:
+                    pass
+                try:
+                    fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+                    if fps > 0:
+                        stats["fps"] = fps
+                except Exception:
+                    pass
+        settings = self.getDeviceSettings()
+        for src_key, out_key in (
+            ("exposure", "exposure"),
+            ("gain", "gain"),
+            ("focus", "focus"),
+            ("white_balance_temperature", "wb"),
+            ("auto_exposure", "auto_exposure"),
+            ("auto_white_balance", "auto_wb"),
+        ):
+            if src_key in settings and settings[src_key] is not None:
+                stats[out_key] = settings[src_key]
+        return stats
+
     def describeDeviceControls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
         source = self.getCameraSource()
         if not isinstance(source, int):

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Git](https://git-scm.com/) with [Git LFS](https://git-lfs.github.com/)
+- [Git](https://git-scm.com/)
 - [Node.js](https://nodejs.org/) (v20+) and npm
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk) (for firmware builds)
@@ -10,12 +10,9 @@
 ## Clone
 
 ```bash
-git lfs install
 git clone https://github.com/basicallysource/sorter-v2.git
 cd sorter-v2/software
 ```
-
-Git LFS files (models, `parts_with_categories.json`) should download automatically. If not, run `git lfs pull`. You can verify by checking that `software/models/` contains `.pt` files (not small text pointers).
 
 ## Firmware
 
@@ -37,7 +34,6 @@ cp .env.example .env
 ```
 
 Edit `.env` and update:
-- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
 - Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
 - `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `sorter/backend/irl/example_configs/machine_specific_params_example.toml` for an example)
 

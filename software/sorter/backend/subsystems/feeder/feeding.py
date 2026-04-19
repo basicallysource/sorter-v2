@@ -5,6 +5,7 @@ from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import FeederState
 from .analysis import ChannelAction, analyzeFeederChannels
+from .ch2_separation import Ch2SeparationDriver
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
@@ -26,7 +27,11 @@ MAX_CH2_PIECES_FOR_CH1_FEED = 5
 # piece onto c_channel_2, use the idle time to jog the channel back-and-
 # forth a little so piled-up pieces separate.
 # ---------------------------------------------------------------------------
-CH2_AGITATION_ENABLED = True
+# Legacy jog-agitation — superseded by the Ch2SeparationDriver slip-stick
+# pattern below, which runs whenever ch2 carries pieces but nothing is at the
+# exit yet. Flip back to True to restore the old jog-back-then-forward
+# behavior in an emergency.
+CH2_AGITATION_ENABLED = False
 # Output-shaft (LEGO wheel) degrees for the reverse / forward jog. A slight
 # net-forward bias (forward > reverse) keeps pieces drifting toward the
 # exit so agitation doesn't undo real progress.
@@ -80,6 +85,13 @@ class Feeding(BaseState):
         self._ch1_pause_enqueued: bool = False
         self._feeder_detection_unavailable_since: float | None = None
         self._feeder_detection_pause_enqueued: bool = False
+        # Slip-stick separation driver for idle-time c_channel_2 agitation.
+        # Owns the ch2 rotor in short windows where a piece is on the ring
+        # but not yet at the exit; hard-cancels the instant anything else
+        # needs the rotor or a piece reaches the exit zone.
+        self._ch2_separation = Ch2SeparationDriver(
+            self.irl.c_channel_2_rotor_stepper, self.gc.logger
+        )
 
     def _resetCh1JamTracking(self) -> None:
         self._ch1_pulses_since_ch2_activity = 0
@@ -624,6 +636,22 @@ class Feeding(BaseState):
                         self.gc.logger.warning(f"Feeder: ch2 agitation failed: {exc}")
                     self._next_ch2_agitation_at = now + CH2_AGITATION_MIN_INTERVAL_S
 
+                # Slip-stick separation — runs whenever ch2 is carrying a
+                # piece but nothing is at the exit yet, so clumps on the
+                # ring have a continuous idle-time window to be pulled
+                # apart by inertial slip. Hard-cancels on PULSE_PRECISE
+                # (piece reached the exit zone) or whenever the feeder
+                # wants the rotor for a real pulse, so this never hands a
+                # piece off to ch3 unintentionally.
+                separation_allowed = (
+                    not pulse_sent
+                    and not ch1_jam_recovery_triggered
+                    and ch2_action == ChannelAction.PULSE_NORMAL
+                    and not analysis.ch2_dropzone_occupied
+                    and (self._ch2_separation.active or not ch2_stepper_busy)
+                )
+                self._ch2_separation.step(now, separation_allowed)
+
                 if ch1_jam_recovery_triggered:
                     self._setOccupancyState(
                         "feeder.ch1",
@@ -676,4 +704,8 @@ class Feeding(BaseState):
     def cleanup(self) -> None:
         self._ch1_pause_enqueued = False
         self._feeder_detection_pause_enqueued = False
+        # Always halt the separation driver when leaving the feeding state
+        # — otherwise move_at_speed would keep the rotor running after the
+        # tick loop exits.
+        self._ch2_separation.cancel("feeder cleanup")
         super().cleanup()

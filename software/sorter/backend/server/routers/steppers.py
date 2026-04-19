@@ -411,11 +411,32 @@ def move_stepper_degrees(
     stepper: str,
     degrees: float,
     speed: int = 800,
+    min_speed: int | None = None,
+    acceleration: int | None = None,
 ) -> StepperMoveDegreesResponse:
+    """Blocking-style move to a relative position.
+
+    When ``min_speed`` and ``acceleration`` are both supplied, the firmware
+    ramps from ``min_speed`` up to ``speed`` (and back down) using the
+    supplied acceleration (µsteps/s²). Leave them unset for a hard-stop
+    constant-velocity move.
+    """
     if degrees == 0:
         raise HTTPException(status_code=400, detail="degrees must be non-zero")
     if speed <= 0:
         raise HTTPException(status_code=400, detail="speed must be > 0")
+    if min_speed is not None and min_speed <= 0:
+        raise HTTPException(status_code=400, detail="min_speed must be > 0 when supplied")
+    if min_speed is not None and min_speed > speed:
+        raise HTTPException(status_code=400, detail="min_speed must be <= speed")
+    if acceleration is not None and acceleration <= 0:
+        raise HTTPException(status_code=400, detail="acceleration must be > 0 when supplied")
+    want_ramp = min_speed is not None and acceleration is not None
+    if (min_speed is None) ^ (acceleration is None):
+        raise HTTPException(
+            status_code=400,
+            detail="min_speed and acceleration must be supplied together for ramped motion",
+        )
 
     target = _resolve_stepper(stepper)
 
@@ -425,7 +446,11 @@ def move_stepper_degrees(
 
     try:
         target.enabled = True
-        target.set_speed_limits(min_speed=speed, max_speed=speed)
+        if want_ramp:
+            target.set_acceleration(int(acceleration))
+            target.set_speed_limits(min_speed=int(min_speed), max_speed=int(speed))
+        else:
+            target.set_speed_limits(min_speed=int(speed), max_speed=int(speed))
         target.move_degrees(degrees)
     except Exception as e:
         lock.release()

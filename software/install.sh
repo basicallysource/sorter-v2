@@ -178,8 +178,6 @@ export BL_CONSUMER_KEY="no"
 export BL_CONSUMER_SECRET="no"
 export BL_TOKEN_VALUE="no"
 export BL_TOKEN_SECRET="no"
-
-export LOG_BUFFER_SIZE=100
 EOF
     ok ".env written"
 fi

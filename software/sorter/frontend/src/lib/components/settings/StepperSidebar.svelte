@@ -20,11 +20,13 @@
 	let {
 		stepperKey,
 		label = undefined,
+		gearRatioOverride = undefined,
 		endstop = undefined,
 		keyboardShortcuts = false
 	}: {
 		stepperKey: StepperKey;
 		label?: string;
+		gearRatioOverride?: number;
 		endstop?: EndstopConfig;
 		keyboardShortcuts?: boolean;
 	} = $props();
@@ -91,7 +93,7 @@
 		persistStoredStepperPulseSetting(stepperKey, 'pulseDegrees', pulseDegrees);
 	});
 
-	const gearRatio = $derived(STEPPER_GEAR_RATIOS[stepperKey]);
+	const gearRatio = $derived(gearRatioOverride ?? STEPPER_GEAR_RATIOS[stepperKey]);
 
 	// --- Endstop settings ---
 	let endstopActiveHigh = $state(false);
@@ -165,6 +167,50 @@
 		return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName);
 	}
 
+	function findStepperDirectionEntry(payload: any): Record<string, any> | null {
+		if (!Array.isArray(payload?.steppers)) return null;
+		return (
+			payload.steppers.find(
+				(entry: any) => entry && typeof entry === 'object' && entry.name === stepperKey
+			) ?? null
+		);
+	}
+
+	function applyStepperDirectionEntry(entry: Record<string, any> | null) {
+		if (driverSettingsOpen || !entry) return;
+		if (typeof entry.live_inverted === 'boolean') {
+			stepperDirectionInverted = entry.live_inverted;
+			return;
+		}
+		if (typeof entry.inverted === 'boolean') {
+			stepperDirectionInverted = entry.inverted;
+		}
+	}
+
+	async function loadStepperDirection() {
+		const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard/stepper-directions`);
+		if (!res.ok) throw new Error(await readErrorMessage(res));
+		const payload = await res.json();
+		applyStepperDirectionEntry(findStepperDirectionEntry(payload));
+	}
+
+	async function saveStepperDirection() {
+		const res = await fetch(
+			`${currentBackendBaseUrl()}/api/setup-wizard/stepper-directions/${stepperKey}`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ inverted: stepperDirectionInverted })
+			}
+		);
+		if (!res.ok) throw new Error(await readErrorMessage(res));
+		const payload = await res.json();
+		applyStepperDirectionEntry(findStepperDirectionEntry(payload));
+		if (typeof payload?.inverted === 'boolean' && !driverSettingsOpen) {
+			stepperDirectionInverted = payload.inverted;
+		}
+	}
+
 	// --- Live status (endstop polling) ---
 
 	function applyLiveStatus(payload: any) {
@@ -191,23 +237,27 @@
 	}
 
 	async function loadSettings() {
-		if (!endstop) return;
 		loading = true;
 		errorMsg = null;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`);
-			if (!res.ok) throw new Error(await res.text());
-			const payload = await res.json();
-			endstopActiveHigh = Boolean(payload?.endstop_active_high ?? false);
-			if (stepperKey === 'chute') {
-				chuteFirstBinCenter = Number(payload?.first_bin_center ?? chuteFirstBinCenter);
-				chutePillarWidthDeg = Number(payload?.pillar_width_deg ?? chutePillarWidthDeg);
-				chuteOperatingSpeed = Number(
-					payload?.operating_speed_microsteps_per_second ?? chuteOperatingSpeed
+			if (endstop) {
+				const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`);
+				if (!res.ok) throw new Error(await readErrorMessage(res));
+				const payload = await res.json();
+				endstopActiveHigh = Boolean(payload?.endstop_active_high ?? false);
+				if (stepperKey === 'chute') {
+					chuteFirstBinCenter = Number(payload?.first_bin_center ?? chuteFirstBinCenter);
+					chutePillarWidthDeg = Number(payload?.pillar_width_deg ?? chutePillarWidthDeg);
+					chuteOperatingSpeed = Number(
+						payload?.operating_speed_microsteps_per_second ?? chuteOperatingSpeed
+					);
+				}
+				stepperDirectionInverted = Boolean(
+					payload?.stepper_direction_inverted ?? stepperDirectionInverted
 				);
+				void loadLiveStatus();
 			}
-			stepperDirectionInverted = Boolean(payload?.stepper_direction_inverted ?? false);
-			void loadLiveStatus();
+			await loadStepperDirection();
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load settings';
 		} finally {
@@ -483,21 +533,7 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			// Save direction invert via config endpoint if endstop is set
-			if (endstop) {
-				const dirRes = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						endstop_active_high: endstopActiveHigh,
-						stepper_direction_inverted: stepperDirectionInverted
-					})
-				});
-				if (!dirRes.ok) {
-					errorMsg = await readErrorMessage(dirRes);
-					return;
-				}
-			}
+			await saveStepperDirection();
 
 			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`, {
 				method: 'POST',
@@ -559,14 +595,14 @@
 			'__local__';
 		if (machineKey !== loadedMachineKey) {
 			loadedMachineKey = machineKey;
-			if (endstop) void loadSettings();
+			void loadSettings();
 			tmcLoaded = false;
 			if (driverSettingsOpen) void loadTmcSettings();
 		}
 	});
 
 	onMount(() => {
-		if (endstop) void loadSettings();
+		void loadSettings();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
 			void refreshDrvStatus();

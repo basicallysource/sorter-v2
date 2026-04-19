@@ -95,9 +95,18 @@
 
 	let recognizeResults = $state<Record<string, RecognizeResult>>({});
 	let recognizeAllResults = $state<Record<number, RecognizeResult>>({});
+	let recognizeCombinedResult = $state<RecognizeResult | null>(null);
+	let combinedTrackCrops = $derived.by(() => combinedRecognizeCrops(detail));
 
 	function pieceJpeg(s: SectorSnapshot): string {
 		return s.piece_jpeg_b64 && s.piece_jpeg_b64.length > 0 ? s.piece_jpeg_b64 : s.jpeg_b64;
+	}
+
+	function formatRoleLabel(role: string): string {
+		if (role === 'carousel') return 'Classification Channel';
+		if (role === 'c_channel_2') return 'C-Channel 2';
+		if (role === 'c_channel_3') return 'C-Channel 3';
+		return role.replace('c_channel_', 'C-Channel ');
 	}
 
 	function channelViewBox(seg: Segment): string {
@@ -157,6 +166,25 @@
 	function formatHashId(id: number): string {
 		const mixed = (id * 2654435761) >>> 0;
 		return (mixed % 10000).toString().padStart(4, '0');
+	}
+
+	function combinedRecognizeCrops(track: Detail | null, perSegmentLimit = 4, totalLimit = 8): string[] {
+		if (!track) return [];
+		const selected: string[] = [];
+		const seen = new Set<string>();
+		for (const segment of track.segments) {
+			let taken = 0;
+			for (const snapshot of sectorSnapshots(segment)) {
+				const jpeg = pieceJpeg(snapshot);
+				if (!jpeg || seen.has(jpeg)) continue;
+				selected.push(jpeg);
+				seen.add(jpeg);
+				taken += 1;
+				if (taken >= perSegmentLimit || selected.length >= totalLimit) break;
+			}
+			if (selected.length >= totalLimit) break;
+		}
+		return selected;
 	}
 
 	async function load() {
@@ -229,6 +257,30 @@
 		}
 	}
 
+	async function recognizeCombined(jpegs: string[]) {
+		if (jpegs.length === 0) return;
+		recognizeCombinedResult = { loading: true };
+		try {
+			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/recognize`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ jpegs_b64: jpegs })
+			});
+			if (!res.ok) {
+				const text = await res.text();
+				recognizeCombinedResult = { error: text.slice(0, 200) };
+				return;
+			}
+			const data = await res.json();
+			recognizeCombinedResult = {
+				best_item: data.best_item ?? null,
+				best_color: data.best_color ?? null
+			};
+		} catch (e: any) {
+			recognizeCombinedResult = { error: e?.message ?? 'failed' };
+		}
+	}
+
 	onMount(() => {
 		void load();
 		// For LIVE tracks the path keeps extending — poll while that's the
@@ -264,7 +316,7 @@
 				</span>
 				{#if detail}
 					<span class="text-sm text-text-muted">
-						{detail.roles.map((r) => r.replace('c_channel_', 'C')).join(' → ')}
+						{detail.roles.map((role) => formatRoleLabel(role)).join(' → ')}
 						· {detail.total_hit_count} frames
 						· {detail.duration_s.toFixed(2)}s
 					</span>
@@ -296,6 +348,59 @@
 			<div class="text-sm text-text-muted">Loading…</div>
 		{:else}
 			<div class="flex flex-col gap-4">
+				{#if detail.segment_count > 1 && combinedTrackCrops.length > 0}
+					<div class="border border-border bg-surface">
+						<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+							<div class="flex flex-col gap-0.5">
+								<span class="font-medium text-text">Combined Handoff Recognition</span>
+								<span class="text-text-muted">
+									Using crops from {detail.roles.map((role) => formatRoleLabel(role)).join(' → ')}
+								</span>
+							</div>
+							<button
+								type="button"
+								onclick={() => void recognizeCombined(combinedTrackCrops)}
+								disabled={recognizeCombinedResult?.loading}
+								class="border border-primary/50 bg-primary/10 px-2 py-1 text-sm font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{recognizeCombinedResult?.loading ? 'Recognizing…' : `Recognize combined (${combinedTrackCrops.length})`}
+							</button>
+						</div>
+						{#if recognizeCombinedResult && !recognizeCombinedResult.loading}
+							<div class="flex items-start gap-3 px-3 py-3 text-sm">
+								{#if recognizeCombinedResult.error}
+									<div class="text-danger">
+										<div class="font-medium">Combined recognize failed</div>
+										<div class="mt-1 break-words text-xs text-danger/80">{recognizeCombinedResult.error}</div>
+									</div>
+								{:else if recognizeCombinedResult.best_item}
+									{#if recognizeCombinedResult.best_item.img_url}
+										<img
+											src={recognizeCombinedResult.best_item.img_url}
+											alt="Combined Brickognize result"
+											class="h-20 w-20 flex-shrink-0 border border-border bg-white object-contain"
+											loading="lazy"
+										/>
+									{/if}
+									<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+										<span class="font-mono text-base font-semibold text-text">
+											{recognizeCombinedResult.best_item.id} · {(recognizeCombinedResult.best_item.score * 100).toFixed(0)}%
+										</span>
+										<span class="text-text-muted" title={recognizeCombinedResult.best_item.name}>
+											{recognizeCombinedResult.best_item.name}
+										</span>
+										{#if recognizeCombinedResult.best_color}
+											<span class="text-text-muted">{recognizeCombinedResult.best_color.name}</span>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-text-muted">no match</span>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				{/if}
+
 				{#each detail.segments as segment, idx (idx)}
 					<div class="border border-border bg-surface">
 						{#if segment.auto_recognition}
@@ -345,10 +450,10 @@
 						{/if}
 						<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
 							<span class="font-medium text-text">
-								{segment.source_role.replace('c_channel_', 'C-Channel ')}
+								{formatRoleLabel(segment.source_role)}
 								{#if segment.handoff_from}
 									<span class="ml-2 text-primary">
-										← handoff from {segment.handoff_from.replace('c_channel_', 'C-Channel ')}
+										← handoff from {formatRoleLabel(segment.handoff_from)}
 									</span>
 								{/if}
 							</span>

@@ -242,6 +242,8 @@ class ClassificationTrainingManager:
         piece_uuid: str,
         machine_id: str,
         run_id: str,
+        source_role: str = "classification_chamber",
+        preferred_camera: str | None = None,
         detection_found: bool,
         detection_algorithm: str | None,
         detection_openrouter_model: str | None,
@@ -264,7 +266,7 @@ class ClassificationTrainingManager:
 
         metadata = {
             "source": "live_classification",
-            "source_role": "classification_chamber",
+            "source_role": source_role if isinstance(source_role, str) and source_role else "classification_chamber",
             "capture_reason": "live_classification",
             "detection_scope": "classification",
             "piece_uuid": piece_uuid,
@@ -301,7 +303,11 @@ class ClassificationTrainingManager:
         return self._archiveSample(
             session_dir=session_dir,
             processor=processor,
-            preferred_camera="top" if top_zone is not None else "bottom",
+            preferred_camera=(
+                preferred_camera
+                if isinstance(preferred_camera, str) and preferred_camera
+                else ("top" if top_zone is not None else "bottom")
+            ),
             top_zone=top_zone,
             bottom_zone=bottom_zone,
             top_frame=top_frame,

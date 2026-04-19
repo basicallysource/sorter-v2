@@ -89,7 +89,13 @@ class HanddrawnRegionProvider:
         poly_key: str,
         pts_list: list[list[int]],
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, tuple[float, float], float]:
-        channel_key = "second" if poly_key == "second_channel" else "third"
+        channel_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+        )
         arc = parseSavedChannelArcZones(channel_key, self._channel_angles, self._arc_params)
         if arc is not None and arc.outer_radius > arc.inner_radius > 0:
             segment_count = 96
@@ -292,7 +298,13 @@ class HanddrawnRegionProvider:
 
     def _scaledChannelMask(self, h, w, poly_key, pts_list, sx, sy):
         """Like _channelMask but scales coordinates from saved resolution to frame size."""
-        channel_key = "second" if poly_key == "second_channel" else "third"
+        channel_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+        )
         arc = parseSavedChannelArcZones(channel_key, self._channel_angles, self._arc_params)
         if arc is not None and arc.outer_radius > arc.inner_radius > 0:
             cx = arc.center[0] * sx
@@ -329,7 +341,7 @@ class HanddrawnRegionProvider:
     def annotateFrameForChannel(self, frame: np.ndarray, poly_key: str) -> np.ndarray:
         """Annotate a frame with zone overlays for a single channel.
 
-        poly_key: 'second_channel', 'third_channel', or 'carousel'
+        poly_key: 'second_channel', 'third_channel', 'classification_channel', or 'carousel'
         """
         sx, sy = self._scaleForFrame(frame)
 
@@ -345,10 +357,28 @@ class HanddrawnRegionProvider:
                 cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
             return annotated
 
-        region_name = RegionName.CHANNEL_2 if poly_key == "second_channel" else RegionName.CHANNEL_3
-        label = "Ch2" if poly_key == "second_channel" else "Ch3"
-        angle_key = "second" if poly_key == "second_channel" else "third"
-        channel_id = 2 if poly_key == "second_channel" else 3
+        region_name = (
+            RegionName.CHANNEL_2
+            if poly_key == "second_channel"
+            else RegionName.CHANNEL_3
+            if poly_key == "third_channel"
+            else RegionName.CAROUSEL_PLATFORM
+        )
+        label = (
+            "Ch2"
+            if poly_key == "second_channel"
+            else "Ch3"
+            if poly_key == "third_channel"
+            else "Cls"
+        )
+        angle_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+        )
+        channel_id = 2 if poly_key == "second_channel" else 3 if poly_key == "third_channel" else 4
 
         pts_list = self._polygons.get(poly_key)
         if not pts_list or len(pts_list) < 3:

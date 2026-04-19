@@ -82,6 +82,7 @@ class SetupWizardConfigTests(unittest.TestCase):
         response = setup.get_feeding_mode()
 
         self.assertEqual("auto_channels", response["mode"])
+        self.assertEqual("standard_carousel", response["machine_setup"]["key"])
         self.assertTrue(response["requires_rehome"])
 
     def test_feeding_mode_roundtrip_is_reflected_in_setup_summary(self) -> None:
@@ -110,6 +111,56 @@ class SetupWizardConfigTests(unittest.TestCase):
             summary = setup.get_setup_wizard_summary()
 
         self.assertEqual("manual_carousel", summary["config"]["feeding"]["mode"])
+        self.assertEqual("manual_carousel", summary["config"]["machine_setup"]["key"])
+
+    def test_machine_setup_defaults_to_standard_carousel(self) -> None:
+        response = setup.get_machine_setup()
+
+        self.assertEqual("standard_carousel", response["setup"])
+        self.assertEqual("standard_carousel", response["machine_setup"]["key"])
+        self.assertTrue(response["requires_rehome"])
+
+    def test_machine_setup_roundtrip_is_reflected_in_setup_summary(self) -> None:
+        setup.set_machine_setup(
+            setup.MachineSetupPayload(setup="classification_channel")
+        )
+
+        discovery_payload = {
+            "scanned_at_ms": 0,
+            "source": "scan",
+            "mcu_ports": [],
+            "boards": [],
+            "roles": {"feeder": True, "distribution": True},
+            "missing_required_steppers": [],
+            "pca_available": False,
+            "waveshare_ports": [],
+            "issues": [],
+        }
+
+        with (
+            patch("server.routers.setup._discover_control_board_summary", return_value=discovery_payload),
+            patch("server.routers.setup.getMachineNickname", return_value="Bench A"),
+            patch("server.routers.setup.shared_state.hardware_state", "standby"),
+            patch("server.routers.setup.shared_state.hardware_error", None),
+            patch("server.routers.setup.shared_state.hardware_homing_step", None),
+            patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
+        ):
+            summary = setup.get_setup_wizard_summary()
+
+        self.assertEqual("classification_channel", summary["config"]["machine_setup"]["key"])
+        self.assertEqual("auto_channels", summary["config"]["feeding"]["mode"])
+
+    def test_feeding_mode_auto_preserves_classification_channel_setup(self) -> None:
+        setup.set_machine_setup(
+            setup.MachineSetupPayload(setup="classification_channel")
+        )
+
+        response = setup.set_feeding_mode(
+            setup.FeedingModePayload(mode="auto_channels")
+        )
+
+        self.assertEqual("auto_channels", response["mode"])
+        self.assertEqual("classification_channel", response["machine_setup"]["key"])
 
     def test_setup_summary_requires_explicit_camera_layout_selection(self) -> None:
         discovery_payload = {
@@ -184,6 +235,13 @@ class SetupWizardConfigTests(unittest.TestCase):
             self.assertEqual(200, feeding_response.status_code)
             self.assertEqual("manual_carousel", feeding_response.json()["mode"])
 
+            machine_setup_response = client.post(
+                "/api/machine-setup",
+                json={"setup": "classification_channel"},
+            )
+            self.assertEqual(200, machine_setup_response.status_code)
+            self.assertEqual("classification_channel", machine_setup_response.json()["setup"])
+
             summary_response = client.get("/api/setup-wizard")
             self.assertEqual(200, summary_response.status_code)
             self.assertEqual(
@@ -191,8 +249,8 @@ class SetupWizardConfigTests(unittest.TestCase):
                 summary_response.json()["config"]["camera_assignments"]["layout"],
             )
             self.assertEqual(
-                "manual_carousel",
-                summary_response.json()["config"]["feeding"]["mode"],
+                "classification_channel",
+                summary_response.json()["config"]["machine_setup"]["key"],
             )
 
 

@@ -25,8 +25,14 @@
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 
-	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
-	type ArcChannel = 'second' | 'third';
+	type Channel =
+		| 'second'
+		| 'third'
+		| 'carousel'
+		| 'classification_channel'
+		| 'class_top'
+		| 'class_bottom';
+	type ArcChannel = 'second' | 'third' | 'classification_channel';
 	type RectChannel = 'carousel' | 'class_top' | 'class_bottom';
 	type Point = [number, number];
 	type QuadParams = {
@@ -61,18 +67,30 @@
 		innerRadius: number;
 		outerRadius: number;
 		dropZone: AngularZone;
+		waitZone: AngularZone | null;
 		exitZone: AngularZone;
 	};
 	type AngularZone = {
 		startAngle: number;
 		endAngle: number;
 	};
-	type ArcHandle = 'center' | 'inner' | 'outer' | 'dropStart' | 'dropEnd' | 'exitStart' | 'exitEnd';
+	type ArcHandle =
+		| 'center'
+		| 'inner'
+		| 'outer'
+		| 'dropStart'
+		| 'dropEnd'
+		| 'waitStart'
+		| 'transfer'
+		| 'waitEnd'
+		| 'exitStart'
+		| 'exitEnd';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
 		outer_radius: number;
 		drop_zone?: AngularZonePayload;
+		wait_zone?: AngularZonePayload;
 		exit_zone?: AngularZonePayload;
 	};
 	type AngularZonePayload = {
@@ -117,10 +135,13 @@
 					| 'arc-outer'
 					| 'arc-drop-start'
 					| 'arc-drop-end'
+					| 'arc-wait-start'
+					| 'arc-transfer'
+					| 'arc-wait-end'
 					| 'arc-exit-start'
 					| 'arc-exit-end';
 				channel: ArcChannel;
-				orig: ArcParams;
+			orig: ArcParams;
 		 }
 		| {
 				kind: 'section-zero';
@@ -138,18 +159,19 @@
 				cornerIdx: QuadHandle;
 		 };
 
-	const ARC_CHANNELS: ArcChannel[] = ['second', 'third'];
+	const ARC_CHANNELS: ArcChannel[] = ['second', 'third', 'classification_channel'];
 	const RECT_CHANNELS: RectChannel[] = ['carousel', 'class_top', 'class_bottom'];
-	const FEEDER_CHANNELS: Channel[] = ['second', 'third', 'carousel'];
+	const TRANSPORT_CHANNELS: Channel[] = ['second', 'third', 'carousel', 'classification_channel'];
 	const CLASSIFICATION_CHANNELS: Channel[] = ['class_top', 'class_bottom'];
 	const DETECTION_CHANNELS: Channel[] = [
 		'second',
 		'third',
 		'carousel',
+		'classification_channel',
 		'class_top',
 		'class_bottom'
 	];
-	const ALL_CHANNELS: Channel[] = [...FEEDER_CHANNELS, ...CLASSIFICATION_CHANNELS];
+	const ALL_CHANNELS: Channel[] = [...TRANSPORT_CHANNELS, ...CLASSIFICATION_CHANNELS];
 	const HANDLE_HIT_RADIUS = 22;
 	const HANDLE_DRAW_RADIUS = 9;
 	const VERTEX_HIT_RADIUS = 18;
@@ -159,6 +181,8 @@
 	const MIN_ARC_THICKNESS = 20;
 	const CHANNEL_SECTION_COUNT = 360;
 	const CHANNEL_SECTION_DEG = 360 / CHANNEL_SECTION_COUNT;
+	const ARC_ANGLE_HANDLE_RADIUS_RATIO = 0.56;
+	const HANDLE_CANVAS_PADDING = 20;
 	const ALL_CAMERA_ROLES: CameraRole[] = [
 		'c_channel_2',
 		'c_channel_3',
@@ -171,6 +195,7 @@
 		second: 'C-Channel 2',
 		third: 'C-Channel 3',
 		carousel: 'Carousel',
+		classification_channel: 'Classification Channel',
 		class_top: 'Class. Top',
 		class_bottom: 'Class. Bottom'
 	};
@@ -179,6 +204,7 @@
 		second: '#ffc800',
 		third: '#00c8ff',
 		carousel: '#00ff80',
+		classification_channel: '#ff8a2a',
 		class_top: '#ff6090',
 		class_bottom: '#b060ff'
 	};
@@ -187,6 +213,7 @@
 		second: 'c_channel_2',
 		third: 'c_channel_3',
 		carousel: 'carousel',
+		classification_channel: 'carousel',
 		class_top: 'classification_top',
 		class_bottom: 'classification_bottom'
 	};
@@ -209,7 +236,7 @@
 
 	const LEGACY_ZONE_SECTION_RANGES: Record<
 		ArcChannel,
-		{ drop: [number, number]; exit: [number, number] }
+		{ drop: [number, number]; wait?: [number, number]; exit: [number, number] }
 	> = {
 		second: {
 			drop: [101, 180],
@@ -218,21 +245,31 @@
 		third: {
 			drop: [45, 119],
 			exit: [315, 360]
+		},
+		classification_channel: {
+			drop: [44, 118],
+			wait: [274, 314],
+			exit: [314, 350]
 		}
 	};
 
 	const DROP_ZONE_COLOR = '#22c55e';
+	const WAIT_ZONE_COLOR = '#f59e0b';
 	const EXIT_ZONE_COLOR = '#ef4444';
 
 	let {
 		channels = ALL_CHANNELS,
 		stepperKey = undefined,
 		stepperEndstop = undefined,
+		stepperLabel = undefined,
+		stepperGearRatio = undefined,
 		wizardMode = false
 	}: {
 		channels?: Channel[];
 		stepperKey?: StepperKey;
 		stepperEndstop?: EndstopConfig;
+		stepperLabel?: string;
+		stepperGearRatio?: number;
 		wizardMode?: boolean;
 	} = $props();
 
@@ -245,16 +282,19 @@
 		second: [],
 		third: [],
 		carousel: [],
+		classification_channel: [],
 		class_top: [],
 		class_bottom: []
 	});
 	let arcParams = $state<Record<ArcChannel, ArcParams | null>>({
 		second: null,
-		third: null
+		third: null,
+		classification_channel: null
 	});
 	let sectionZeroPoints = $state<Record<ArcChannel, Point | null>>({
 		second: null,
-		third: null
+		third: null,
+		classification_channel: null
 	});
 	let quadParams = $state<Record<RectChannel, QuadParams | null>>({
 		carousel: null,
@@ -381,7 +421,9 @@
 	}
 
 	function detectionScopeForChannel(channel: Channel): 'classification' | 'feeder' | 'carousel' {
-		if (channel === 'second' || channel === 'third') return 'feeder';
+		if (channel === 'second' || channel === 'third' || channel === 'classification_channel') {
+			return 'feeder';
+		}
 		if (channel === 'carousel') return 'carousel';
 		return 'classification';
 	}
@@ -391,7 +433,7 @@
 	): 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel' {
 		if (channel === 'second') return 'c_channel_2';
 		if (channel === 'third') return 'c_channel_3';
-		if (channel === 'carousel') return 'carousel';
+		if (channel === 'carousel' || channel === 'classification_channel') return 'carousel';
 		return channel === 'class_top' ? 'top' : 'bottom';
 	}
 
@@ -434,6 +476,12 @@
 				startAngle: params.dropZone.startAngle,
 				endAngle: params.dropZone.endAngle
 			},
+			waitZone: params.waitZone
+				? {
+						startAngle: params.waitZone.startAngle,
+						endAngle: params.waitZone.endAngle
+					}
+				: null,
 			exitZone: {
 				startAngle: params.exitZone.startAngle,
 				endAngle: params.exitZone.endAngle
@@ -441,12 +489,39 @@
 		};
 	}
 
+	function normalizeArcParamsForChannel(channel: ArcChannel, params: ArcParams): ArcParams {
+		const normalized: ArcParams = {
+			center: [params.center[0], params.center[1]],
+			innerRadius: params.innerRadius,
+			outerRadius: params.outerRadius,
+			dropZone: clampZone(params.dropZone),
+			waitZone: params.waitZone ? clampZone(params.waitZone) : null,
+			exitZone: clampZone(params.exitZone)
+		};
+
+		if (channel === 'classification_channel' && normalized.waitZone) {
+			const sharedAngle = normalizeAngle(normalized.waitZone.endAngle);
+			normalized.waitZone = {
+				...normalized.waitZone,
+				endAngle: sharedAngle
+			};
+			normalized.exitZone = {
+				...normalized.exitZone,
+				startAngle: sharedAngle
+			};
+		}
+
+		return normalized;
+	}
+
 	function sectionRangeToZone(
 		channel: ArcChannel,
-		zoneKey: 'drop' | 'exit',
+		zoneKey: 'drop' | 'wait' | 'exit',
 		sectionZeroAngle = 0
-	): AngularZone {
-		const [startSection, endSection] = LEGACY_ZONE_SECTION_RANGES[channel][zoneKey];
+	): AngularZone | null {
+		const range = LEGACY_ZONE_SECTION_RANGES[channel][zoneKey];
+		if (!range) return null;
+		const [startSection, endSection] = range;
 		return clampZone({
 			startAngle: normalizeAngle(sectionZeroAngle + startSection * CHANNEL_SECTION_DEG),
 			endAngle: normalizeAngle(sectionZeroAngle + endSection * CHANNEL_SECTION_DEG)
@@ -475,16 +550,19 @@
 				second: [],
 				third: [],
 				carousel: [],
+				classification_channel: [],
 				class_top: [],
 				class_bottom: []
 			},
 			arcParams: {
 				second: null,
-				third: null
+				third: null,
+				classification_channel: null
 			},
 			sectionZeroPoints: {
 				second: null,
-				third: null
+				third: null,
+				classification_channel: null
 			},
 			quadParams: {
 				carousel: null,
@@ -500,16 +578,21 @@
 				second: clonePointList(userPoints.second),
 				third: clonePointList(userPoints.third),
 				carousel: clonePointList(userPoints.carousel),
+				classification_channel: clonePointList(userPoints.classification_channel),
 				class_top: clonePointList(userPoints.class_top),
 				class_bottom: clonePointList(userPoints.class_bottom)
 			},
 			arcParams: {
 				second: arcParams.second ? copyArcParams(arcParams.second) : null,
-				third: arcParams.third ? copyArcParams(arcParams.third) : null
+				third: arcParams.third ? copyArcParams(arcParams.third) : null,
+				classification_channel: arcParams.classification_channel
+					? copyArcParams(arcParams.classification_channel)
+					: null
 			},
 			sectionZeroPoints: {
 				second: clonePoint(sectionZeroPoints.second),
-				third: clonePoint(sectionZeroPoints.third)
+				third: clonePoint(sectionZeroPoints.third),
+				classification_channel: clonePoint(sectionZeroPoints.classification_channel)
 			},
 			quadParams: {
 				carousel: quadParams.carousel ? copyQuadParams(quadParams.carousel) : null,
@@ -524,16 +607,21 @@
 			second: clonePointList(snapshot.userPoints.second),
 			third: clonePointList(snapshot.userPoints.third),
 			carousel: clonePointList(snapshot.userPoints.carousel),
+			classification_channel: clonePointList(snapshot.userPoints.classification_channel),
 			class_top: clonePointList(snapshot.userPoints.class_top),
 			class_bottom: clonePointList(snapshot.userPoints.class_bottom)
 		};
 		arcParams = {
 			second: snapshot.arcParams.second ? copyArcParams(snapshot.arcParams.second) : null,
-			third: snapshot.arcParams.third ? copyArcParams(snapshot.arcParams.third) : null
+			third: snapshot.arcParams.third ? copyArcParams(snapshot.arcParams.third) : null,
+			classification_channel: snapshot.arcParams.classification_channel
+				? copyArcParams(snapshot.arcParams.classification_channel)
+				: null
 		};
 		sectionZeroPoints = {
 			second: clonePoint(snapshot.sectionZeroPoints.second),
-			third: clonePoint(snapshot.sectionZeroPoints.third)
+			third: clonePoint(snapshot.sectionZeroPoints.third),
+			classification_channel: clonePoint(snapshot.sectionZeroPoints.classification_channel)
 		};
 		quadParams = {
 			carousel: snapshot.quadParams.carousel ? copyQuadParams(snapshot.quadParams.carousel) : null,
@@ -807,10 +895,17 @@
 	function defaultZoneLayout(
 		channel: ArcChannel,
 		sectionZeroAngle = 0
-	): Pick<ArcParams, 'dropZone' | 'exitZone'> {
+	): Pick<ArcParams, 'dropZone' | 'waitZone' | 'exitZone'> {
 		return {
-			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle),
-			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle)
+			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle) ?? clampZone({
+				startAngle: 40,
+				endAngle: 120
+			}),
+			waitZone: sectionRangeToZone(channel, 'wait', sectionZeroAngle),
+			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? clampZone({
+				startAngle: 300,
+				endAngle: 340
+			})
 		};
 	}
 
@@ -818,13 +913,15 @@
 		const center: Point =
 			channel === 'second'
 				? [CANVAS_W * 0.46, CANVAS_H * 0.55]
-				: [CANVAS_W * 0.54, CANVAS_H * 0.55];
-		return {
+				: channel === 'third'
+					? [CANVAS_W * 0.54, CANVAS_H * 0.55]
+					: [CANVAS_W * 0.52, CANVAS_H * 0.54];
+		return normalizeArcParamsForChannel(channel, {
 			center,
-			innerRadius: 180,
-			outerRadius: 360,
+			innerRadius: channel === 'classification_channel' ? 210 : 180,
+			outerRadius: channel === 'classification_channel' ? 390 : 360,
 			...defaultZoneLayout(channel)
-		};
+		});
 	}
 
 	function serializeArcParams(params: ArcParams): ArcParamsPayload {
@@ -836,6 +933,12 @@
 				start_angle: params.dropZone.startAngle,
 				end_angle: params.dropZone.endAngle
 			},
+			wait_zone: params.waitZone
+				? {
+						start_angle: params.waitZone.startAngle,
+						end_angle: params.waitZone.endAngle
+					}
+				: undefined,
 			exit_zone: {
 				start_angle: params.exitZone.startAngle,
 				end_angle: params.exitZone.endAngle
@@ -875,17 +978,23 @@
 		}
 		const dropZone =
 			parseAngularZone((raw as ArcParamsPayload).drop_zone) ??
-			sectionRangeToZone(channel, 'drop', sectionZeroAngle);
+			sectionRangeToZone(channel, 'drop', sectionZeroAngle) ??
+			clampZone({ startAngle: 40, endAngle: 120 });
+		const waitZone =
+			parseAngularZone((raw as ArcParamsPayload).wait_zone) ??
+			sectionRangeToZone(channel, 'wait', sectionZeroAngle);
 		const exitZone =
 			parseAngularZone((raw as ArcParamsPayload).exit_zone) ??
-			sectionRangeToZone(channel, 'exit', sectionZeroAngle);
-		return {
+			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ??
+			clampZone({ startAngle: 300, endAngle: 340 });
+		return normalizeArcParamsForChannel(channel, {
 			center: [center[0], center[1]],
 			innerRadius: Math.max(10, innerRadius),
 			outerRadius: Math.max(innerRadius + MIN_ARC_THICKNESS, outerRadius),
 			dropZone,
+			waitZone,
 			exitZone
-		};
+		});
 	}
 
 	function deriveArcParamsFromPolygon(
@@ -900,12 +1009,12 @@
 		const distances = points.map((pt) => pointDistance([pt[0], pt[1]], [center[0], center[1]]));
 		const innerRadius = Math.max(10, Math.min(...distances));
 		const outerRadius = Math.max(innerRadius + MIN_ARC_THICKNESS, Math.max(...distances));
-		return {
+		return normalizeArcParamsForChannel(channel, {
 			center: [center[0], center[1]],
 			innerRadius,
 			outerRadius,
 			...defaultZoneLayout(channel, sectionZeroAngle)
-		};
+		});
 	}
 
 	function zoneMidAngle(zone: AngularZone): number {
@@ -936,6 +1045,19 @@
 			pts.push(polarPoint(center, radius, angle));
 		}
 		return pts;
+	}
+
+	function constrainHandlePoint(point: Point): Point {
+		return [
+			clamp(point[0], HANDLE_CANVAS_PADDING, CANVAS_W - HANDLE_CANVAS_PADDING),
+			clamp(point[1], HANDLE_CANVAS_PADDING, CANVAS_H - HANDLE_CANVAS_PADDING)
+		];
+	}
+
+	function zoneHandlePoint(params: ArcParams, angleDeg: number): Point {
+		const controlRadius =
+			params.innerRadius + (params.outerRadius - params.innerRadius) * ARC_ANGLE_HANDLE_RADIUS_RATIO;
+		return constrainHandlePoint(polarPoint(params.center, controlRadius, angleDeg));
 	}
 
 	function buildRingStoragePoints(params: ArcParams): Point[] {
@@ -1028,6 +1150,8 @@
 		const occupiedAngles = [
 			params.dropZone.startAngle,
 			params.dropZone.endAngle,
+			params.waitZone?.startAngle ?? params.exitZone.startAngle,
+			params.waitZone?.endAngle ?? params.exitZone.endAngle,
 			params.exitZone.startAngle,
 			params.exitZone.endAngle
 		];
@@ -1041,25 +1165,51 @@
 						: best,
 				270
 			) ?? 270;
+		const sharedTransferAngle = params.waitZone?.endAngle ?? params.exitZone.startAngle;
 		return {
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
 			outer: polarPoint(params.center, params.outerRadius, ringHandleAngle),
-			dropStart: polarPoint(params.center, params.outerRadius, params.dropZone.startAngle),
-			dropEnd: polarPoint(params.center, params.outerRadius, params.dropZone.endAngle),
-			exitStart: polarPoint(params.center, params.outerRadius, params.exitZone.startAngle),
-			exitEnd: polarPoint(params.center, params.outerRadius, params.exitZone.endAngle)
+			dropStart: zoneHandlePoint(params, params.dropZone.startAngle),
+			dropEnd: zoneHandlePoint(params, params.dropZone.endAngle),
+			waitStart: zoneHandlePoint(
+				params,
+				params.waitZone?.startAngle ?? params.exitZone.startAngle
+			),
+			transfer: zoneHandlePoint(params, sharedTransferAngle),
+			waitEnd: zoneHandlePoint(
+				params,
+				params.waitZone?.endAngle ?? params.exitZone.endAngle
+			),
+			exitStart: zoneHandlePoint(params, params.exitZone.startAngle),
+			exitEnd: zoneHandlePoint(params, params.exitZone.endAngle)
 		};
 	}
 
+	function arcEditableHandles(channel: ArcChannel): ArcHandle[] {
+		const params = arcParams[channel];
+		return [
+			'dropStart',
+			'dropEnd',
+			...(params?.waitZone
+				? channel === 'classification_channel'
+					? (['waitStart', 'transfer'] as ArcHandle[])
+					: (['waitStart', 'waitEnd'] as ArcHandle[])
+				: []),
+			...(channel === 'classification_channel' && params?.waitZone ? [] : (['exitStart'] as ArcHandle[])),
+			'exitEnd',
+			'outer',
+			'inner',
+			'center'
+		];
+	}
+
 	function setArc(channel: ArcChannel, next: ArcParams) {
-		const clamped = {
+		const clamped = normalizeArcParamsForChannel(channel, {
 			...next,
 			innerRadius: Math.max(10, Math.min(next.innerRadius, next.outerRadius - MIN_ARC_THICKNESS)),
-			outerRadius: Math.max(next.innerRadius + MIN_ARC_THICKNESS, next.outerRadius),
-			dropZone: clampZone(next.dropZone),
-			exitZone: clampZone(next.exitZone)
-		};
+			outerRadius: Math.max(next.innerRadius + MIN_ARC_THICKNESS, next.outerRadius)
+		});
 		arcParams[channel] = clamped;
 	}
 
@@ -1080,6 +1230,13 @@
 			? 'direct-raw'
 			: `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${previewZones ? 'z' : 'nz'}`;
 		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
+	}
+
+	function channelStorageKey(channel: Channel): string {
+		if (channel === 'second') return 'second_channel';
+		if (channel === 'third') return 'third_channel';
+		if (channel === 'classification_channel') return 'classification_channel';
+		return channel;
 	}
 
 	async function loadCameraConfig() {
@@ -1283,15 +1440,7 @@
 	function hitArcHandle(channel: ArcChannel, point: Point): ArcHandle | null {
 		const handles = getArcHandles(channel);
 		if (!handles) return null;
-		const order: ArcHandle[] = [
-			'dropStart',
-			'dropEnd',
-			'exitStart',
-			'exitEnd',
-			'outer',
-			'inner',
-			'center'
-		];
+		const order = arcEditableHandles(channel);
 		for (const handle of order) {
 			if (pointDistance(point, handles[handle]) <= HANDLE_HIT_RADIUS) {
 				return handle;
@@ -1398,6 +1547,12 @@
 									? 'arc-drop-start'
 									: handle === 'dropEnd'
 										? 'arc-drop-end'
+										: handle === 'waitStart'
+											? 'arc-wait-start'
+											: handle === 'transfer'
+												? 'arc-transfer'
+											: handle === 'waitEnd'
+												? 'arc-wait-end'
 										: handle === 'exitStart'
 											? 'arc-exit-start'
 											: 'arc-exit-end',
@@ -1544,6 +1699,47 @@
 					dropZone: {
 						...dragState.orig.dropZone,
 						endAngle: angleFromCenter(point, dragState.orig.center)
+					}
+				});
+				break;
+			}
+			case 'arc-wait-start': {
+				if (!dragState.orig.waitZone) break;
+				didDrag = true;
+				setArc(dragState.channel, {
+					...dragState.orig,
+					waitZone: {
+						...dragState.orig.waitZone,
+						startAngle: angleFromCenter(point, dragState.orig.center)
+					}
+				});
+				break;
+			}
+			case 'arc-wait-end': {
+				if (!dragState.orig.waitZone) break;
+				didDrag = true;
+				setArc(dragState.channel, {
+					...dragState.orig,
+					waitZone: {
+						...dragState.orig.waitZone,
+						endAngle: angleFromCenter(point, dragState.orig.center)
+					}
+				});
+				break;
+			}
+			case 'arc-transfer': {
+				if (!dragState.orig.waitZone) break;
+				didDrag = true;
+				const nextAngle = angleFromCenter(point, dragState.orig.center);
+				setArc(dragState.channel, {
+					...dragState.orig,
+					waitZone: {
+						...dragState.orig.waitZone,
+						endAngle: nextAngle
+					},
+					exitZone: {
+						...dragState.orig.exitZone,
+						startAngle: nextAngle
 					}
 				});
 				break;
@@ -1777,6 +1973,7 @@
 		const outerCircle = buildCirclePoints(params.center, params.outerRadius);
 		const innerCircle = buildCirclePoints(params.center, params.innerRadius);
 		const dropPolygon = buildZonePolygon(params, params.dropZone);
+		const waitPolygon = params.waitZone ? buildZonePolygon(params, params.waitZone) : null;
 		const exitPolygon = buildZonePolygon(params, params.exitZone);
 
 		ctx.beginPath();
@@ -1793,10 +1990,15 @@
 		ctx.fillStyle = active ? `${color}14` : `${color}0a`;
 		ctx.fill('evenodd');
 
-		for (const [zonePolygon, zoneColor, zoneAlpha] of [
-			[dropPolygon, DROP_ZONE_COLOR, active ? 0.22 : 0.1],
-			[exitPolygon, EXIT_ZONE_COLOR, active ? 0.22 : 0.1]
-		] as const) {
+		const zoneOverlays: Array<{ polygon: Point[]; color: string; alpha: number }> = [
+			{ polygon: dropPolygon, color: DROP_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
+			...(waitPolygon
+				? [{ polygon: waitPolygon, color: WAIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }]
+				: []),
+			{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }
+		];
+
+		for (const { polygon: zonePolygon, color: zoneColor, alpha: zoneAlpha } of zoneOverlays) {
 			ctx.beginPath();
 			ctx.moveTo(zonePolygon[0][0], zonePolygon[0][1]);
 			for (let i = 1; i < zonePolygon.length; i++) {
@@ -1831,9 +2033,9 @@
 		const handles = getArcHandles(channel);
 		if (!handles) return;
 
-		if (active && editingZone) {
-			ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
-			ctx.lineWidth = 1.25;
+			if (active && editingZone) {
+				ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
+				ctx.lineWidth = 1.25;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.dropStart[0], handles.dropStart[1]);
@@ -1841,11 +2043,28 @@
 			ctx.lineTo(handles.dropEnd[0], handles.dropEnd[1]);
 			ctx.stroke();
 
+			if (params.waitZone) {
+				ctx.strokeStyle = `${WAIT_ZONE_COLOR}cc`;
+				ctx.lineWidth = 1.1;
+				ctx.beginPath();
+				ctx.moveTo(params.center[0], params.center[1]);
+				ctx.lineTo(handles.waitStart[0], handles.waitStart[1]);
+				ctx.moveTo(params.center[0], params.center[1]);
+				ctx.lineTo(
+					channel === 'classification_channel' ? handles.transfer[0] : handles.waitEnd[0],
+					channel === 'classification_channel' ? handles.transfer[1] : handles.waitEnd[1]
+				);
+				ctx.stroke();
+			}
+
 			ctx.strokeStyle = `${EXIT_ZONE_COLOR}cc`;
 			ctx.lineWidth = 1;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.exitStart[0], handles.exitStart[1]);
+			ctx.lineTo(
+				channel === 'classification_channel' ? handles.transfer[0] : handles.exitStart[0],
+				channel === 'classification_channel' ? handles.transfer[1] : handles.exitStart[1]
+			);
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.exitEnd[0], handles.exitEnd[1]);
 			ctx.stroke();
@@ -1863,7 +2082,17 @@
 			drawHandle(ctx, handles.outer, color, '#111', 'Outer');
 			drawHandle(ctx, handles.dropStart, DROP_ZONE_COLOR, '#111', 'Drop Start', [-40, -20]);
 			drawHandle(ctx, handles.dropEnd, DROP_ZONE_COLOR, '#111', 'Drop End', [40, -20]);
-			drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
+			if (params.waitZone) {
+				drawHandle(ctx, handles.waitStart, WAIT_ZONE_COLOR, '#111', 'Wait Start', [-42, 2]);
+				if (channel === 'classification_channel') {
+					drawHandle(ctx, handles.transfer, WAIT_ZONE_COLOR, '#111', 'Transfer', [0, 28]);
+				} else {
+					drawHandle(ctx, handles.waitEnd, WAIT_ZONE_COLOR, '#111', 'Wait End', [42, 2]);
+				}
+			}
+			if (channel !== 'classification_channel' || !params.waitZone) {
+				drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
+			}
 			drawHandle(ctx, handles.exitEnd, EXIT_ZONE_COLOR, '#111', 'Exit End', [40, 24]);
 		}
 
@@ -2000,7 +2229,7 @@
 				if (savedArc) {
 					arcParams[channel] = savedArc;
 				} else {
-					const polygonKey = `${channel}_channel`;
+					const polygonKey = channelStorageKey(channel);
 					const fallbackPts = savedUserPts ?? channelPolygons[polygonKey];
 					const derived = Array.isArray(fallbackPts)
 						? deriveArcParamsFromPolygon(fallbackPts, channel, savedAngle)
@@ -2074,13 +2303,37 @@
 	async function saveAll(): Promise<boolean> {
 		saving = true;
 		try {
-			const polygons: Record<string, number[][]> = {};
-			const user_pts: Record<string, number[][]> = {};
-			const arc_params: Record<string, ArcParamsPayload> = {};
-			const quad_params_channel: Record<string, Record<string, any>> = {};
+			let existingPayload: Record<string, any> = {};
+			try {
+				const existingRes = await fetch(`${backendHttpBaseUrl}/api/polygons`);
+				if (existingRes.ok) {
+					existingPayload = await existingRes.json();
+				}
+			} catch {
+				// Fall back to saving from the current in-memory state only.
+			}
 
-			for (const channel of FEEDER_CHANNELS) {
-				const key = channel === 'carousel' ? 'carousel' : `${channel}_channel`;
+			const existingChannel = existingPayload.channel ?? {};
+			const existingClassification = existingPayload.classification ?? {};
+
+			const polygons: Record<string, number[][]> = { ...(existingChannel.polygons ?? {}) };
+			const user_pts: Record<string, number[][]> = { ...(existingChannel.user_pts ?? {}) };
+			const arc_params: Record<string, ArcParamsPayload> = { ...(existingChannel.arc_params ?? {}) };
+			const quad_params_channel: Record<string, Record<string, any>> = {
+				...(existingChannel.quad_params ?? {})
+			};
+			const channel_angles: Record<string, number> = { ...(existingChannel.channel_angles ?? {}) };
+			const section_zero_pts: Record<string, number[]> = {
+				...(existingChannel.section_zero_pts ?? {})
+			};
+
+			const visibleTransportChannels = channels.filter(
+				(channel): channel is (typeof TRANSPORT_CHANNELS)[number] =>
+					TRANSPORT_CHANNELS.includes(channel as (typeof TRANSPORT_CHANNELS)[number])
+			);
+
+			for (const channel of visibleTransportChannels) {
+				const key = channelStorageKey(channel);
 				if (isArcChannel(channel) && arcParams[channel]) {
 					polygons[key] = buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map(
 						(pt) => [Math.round(pt[0]), Math.round(pt[1])]
@@ -2090,36 +2343,45 @@
 						Math.round(pt[1])
 					]);
 					arc_params[channel] = serializeArcParams(arcParams[channel]);
+					delete quad_params_channel[channel];
 				} else if (isRectChannel(channel) && quadParams[channel]) {
 					const q = quadParams[channel]!;
 					const cornerPts = quadAsPolygon(q);
 					polygons[key] = cornerPts;
 					user_pts[channel] = cornerPts;
 					quad_params_channel[channel] = serializeQuadParams(q);
+					delete arc_params[channel];
 				} else {
 					const points = getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
 					polygons[key] = points;
 					user_pts[channel] = points;
+					delete arc_params[channel];
+					delete quad_params_channel[channel];
+				}
+				if (isArcChannel(channel)) {
+					const angle = computeAngle(channel);
+					channel_angles[channel] = angle ?? 0;
+					if (sectionZeroPoints[channel]) {
+						section_zero_pts[channel] = sectionZeroPoints[channel]!.map(Math.round);
+					} else {
+						delete section_zero_pts[channel];
+					}
 				}
 			}
 
-			const channel_angles: Record<string, number> = {};
-			for (const channel of ARC_CHANNELS) {
-				const angle = computeAngle(channel);
-				channel_angles[channel] = angle ?? 0;
-			}
-
-			const section_zero_pts: Record<string, number[]> = {};
-			for (const channel of ARC_CHANNELS) {
-				if (sectionZeroPoints[channel]) {
-					section_zero_pts[channel] = sectionZeroPoints[channel]!.map(Math.round);
-				}
-			}
-
-			const class_polygons: Record<string, number[][]> = {};
-			const class_user_pts: Record<string, number[][]> = {};
-			const quad_params_class: Record<string, Record<string, any>> = {};
-			for (const channel of CLASSIFICATION_CHANNELS) {
+			const class_polygons: Record<string, number[][]> = {
+				...(existingClassification.polygons ?? {})
+			};
+			const class_user_pts: Record<string, number[][]> = {
+				...(existingClassification.user_pts ?? {})
+			};
+			const quad_params_class: Record<string, Record<string, any>> = {
+				...(existingClassification.quad_params ?? {})
+			};
+			const visibleClassificationChannels = channels.filter(
+				(channel): channel is (typeof CLASSIFICATION_CHANNELS)[number] => isClassificationChannel(channel)
+			);
+			for (const channel of visibleClassificationChannels) {
 				const key = channel === 'class_top' ? 'top' : 'bottom';
 				if (isRectChannel(channel) && quadParams[channel]) {
 					const q = quadParams[channel]!;
@@ -2137,6 +2399,7 @@
 						Math.round(pt[0]),
 						Math.round(pt[1])
 					]);
+					delete quad_params_class[channel];
 				}
 			}
 
@@ -2577,6 +2840,8 @@
 				<ZoneEditingSidebar
 					label={CHANNEL_LABELS[currentChannel]}
 					isArc={isArcChannel(currentChannel)}
+					hasWaitZone={Boolean(isArcChannel(currentChannel) && arcParams[currentChannel]?.waitZone)}
+					sharedTransitionHandle={currentChannel === 'classification_channel'}
 					statusMessage={statusMsg}
 				/>
 			{/if}
@@ -2629,7 +2894,13 @@
 			{/if}
 
 			{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
-				<StepperSidebar {stepperKey} endstop={stepperEndstop} keyboardShortcuts={true} />
+				<StepperSidebar
+					{stepperKey}
+					endstop={stepperEndstop}
+					label={stepperLabel}
+					gearRatioOverride={stepperGearRatio}
+					keyboardShortcuts={true}
+				/>
 			{/if}
 		</div>
 

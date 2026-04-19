@@ -1,16 +1,14 @@
 from subsystems import (
     SharedVariables,
-    FeederStateMachine,
-    ClassificationStateMachine,
-    DistributionStateMachine,
 )
-from subsystems.classification.carousel import Carousel
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
 from vision import VisionManager
 from sorting_profile import mkSortingProfile
 import queue
+from machine_setup import get_machine_setup_definition
+from machine_runtime import build_machine_runtime
 
 
 class Coordinator:
@@ -31,30 +29,61 @@ class Coordinator:
         self.event_queue = event_queue
         self.shared = SharedVariables()
         self.feeding_mode = getattr(irl_config, "feeding_mode", "auto_channels")
-        self.manual_feed_mode = self.feeding_mode == "manual_carousel"
+        self.machine_setup = getattr(
+            irl_config,
+            "machine_setup",
+            get_machine_setup_definition(None),
+        )
+        self.machine_runtime = build_machine_runtime(self.machine_setup.key)
+        self.manual_feed_mode = self.machine_setup.manual_feed_mode
         self.sorting_profile = mkSortingProfile(gc)
         self._sync_set_progress_tracker()
 
         self.distribution_layout = irl.distribution_layout
 
-        self.carousel = Carousel(gc.logger, event_queue)
-        self.shared.carousel = self.carousel
+        self.transport = self.machine_runtime.create_transport(
+            gc=gc,
+            event_queue=event_queue,
+        )
+        self.shared.transport = self.transport
+        self.shared.carousel = (
+            self.transport if hasattr(self.transport, "rotate") else None
+        )
 
-        self.distribution = DistributionStateMachine(
-            irl,
-            gc,
-            self.shared,
-            self.sorting_profile,
-            self.distribution_layout,
-            event_queue,
+        self.distribution = self.machine_runtime.create_distribution(
+            irl=irl,
+            gc=gc,
+            shared=self.shared,
+            sorting_profile=self.sorting_profile,
+            distribution_layout=self.distribution_layout,
+            event_queue=event_queue,
         )
-        self.classification = ClassificationStateMachine(
-            irl, gc, self.shared, vision, event_queue, self.carousel
+        self.classification = self.machine_runtime.create_classification(
+            irl=irl,
+            irl_config=irl_config,
+            gc=gc,
+            shared=self.shared,
+            vision=vision,
+            event_queue=event_queue,
+            telemetry=telemetry,
+            transport=self.transport,
         )
-        self.feeder = FeederStateMachine(irl, irl_config, gc, self.shared, vision)
+        self.feeder = self.machine_runtime.create_feeder(
+            irl=irl,
+            irl_config=irl_config,
+            gc=gc,
+            shared=self.shared,
+            vision=vision,
+        )
         if self.manual_feed_mode:
             self.logger.info(
                 "Coordinator: manual carousel feed mode enabled; automatic C-channel feeding is disabled."
+            )
+        elif not self.machine_setup.runtime_supported:
+            self.logger.warning(
+                "Coordinator: machine setup %r is persisted, but runtime orchestration "
+                "is not implemented yet."
+                % self.machine_setup.key
             )
 
     def _sync_set_progress_tracker(self) -> None:

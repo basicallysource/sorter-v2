@@ -9,6 +9,11 @@ import tomllib
 from global_config import GlobalConfig
 from hardware.bus import MCUBusError
 from hardware.cobs import DecodeError
+from machine_setup import (
+    get_machine_setup_definition,
+    machine_setup_key_from_feeding_mode,
+    normalize_machine_setup_key,
+)
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -55,17 +60,10 @@ def normalizePhysicalStepperBindingName(stepper_name: str) -> str:
 VALID_FEEDING_MODES = {"auto_channels", "manual_carousel"}
 
 
-def loadFeedingModeConfig(
+def _loadLegacyFeedingModeConfig(
     gc: GlobalConfig,
-    machine_specific_params: dict[str, object] | None = None,
+    raw: dict[str, object],
 ) -> str:
-    raw: object = machine_specific_params
-    if raw is None:
-        raw = loadMachineSpecificParams(gc)
-
-    if not isinstance(raw, dict):
-        return "auto_channels"
-
     feeding_params = raw.get("feeding")
     if feeding_params is None:
         return "auto_channels"
@@ -82,6 +80,63 @@ def loadFeedingModeConfig(
         return "auto_channels"
 
     return mode
+
+
+def loadMachineSetupConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> str:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return machine_setup_key_from_feeding_mode("auto_channels")
+
+    machine_setup_params = raw.get("machine_setup")
+    if machine_setup_params is None:
+        return machine_setup_key_from_feeding_mode(_loadLegacyFeedingModeConfig(gc, raw))
+    if not isinstance(machine_setup_params, dict):
+        gc.logger.warning(
+            "Ignoring invalid machine_setup config: expected object. Falling back to feeding mode."
+        )
+        return machine_setup_key_from_feeding_mode(_loadLegacyFeedingModeConfig(gc, raw))
+
+    setup_key = normalize_machine_setup_key(machine_setup_params.get("type"))
+    if setup_key is None:
+        fallback_key = machine_setup_key_from_feeding_mode(_loadLegacyFeedingModeConfig(gc, raw))
+        gc.logger.warning(
+            "Ignoring invalid machine_setup.type=%r; falling back to %r."
+            % (machine_setup_params.get("type"), fallback_key)
+        )
+        return fallback_key
+
+    return setup_key
+
+
+def loadFeedingModeConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> str:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return "auto_channels"
+
+    machine_setup_params = raw.get("machine_setup")
+    if machine_setup_params is not None:
+        if not isinstance(machine_setup_params, dict):
+            gc.logger.warning(
+                "Ignoring invalid machine_setup config for feeding mode: expected object."
+            )
+        else:
+            setup_key = normalize_machine_setup_key(machine_setup_params.get("type"))
+            if setup_key is not None:
+                return get_machine_setup_definition(setup_key).feeding_mode
+
+    return _loadLegacyFeedingModeConfig(gc, raw)
 
 
 @dataclass

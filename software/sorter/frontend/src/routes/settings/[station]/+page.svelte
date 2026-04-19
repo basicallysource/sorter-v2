@@ -9,12 +9,21 @@
 
 <div class="flex flex-col gap-6">
 	{#if data.station.zoneChannels.length > 0}
+		{@const primaryStepperKey = data.station.stepperKeys[0]}
 		<SectionCard>
 			{#key data.station.slug}
 				<ZoneSection
 					channels={data.station.zoneChannels}
-					stepperKey={data.station.stepperKeys[0]}
-					stepperEndstop={data.station.stepperEndstops?.[data.station.stepperKeys[0]]}
+					stepperKey={primaryStepperKey}
+					stepperEndstop={primaryStepperKey
+						? data.station.stepperEndstops?.[primaryStepperKey]
+						: undefined}
+					stepperLabel={primaryStepperKey
+						? data.station.stepperDisplay?.[primaryStepperKey]?.label
+						: undefined}
+					stepperGearRatio={primaryStepperKey
+						? data.station.stepperDisplay?.[primaryStepperKey]?.gearRatio
+						: undefined}
 				/>
 			{/key}
 		</SectionCard>
@@ -25,6 +34,8 @@
 				<StepperSidebar
 					stepperKey={key}
 					endstop={data.station.stepperEndstops?.[key]}
+					label={data.station.stepperDisplay?.[key]?.label}
+					gearRatioOverride={data.station.stepperDisplay?.[key]?.gearRatio}
 					keyboardShortcuts={i === 0}
 				/>
 			{/each}

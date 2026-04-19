@@ -140,9 +140,14 @@
 			if (!res.ok) return;
 			const json = await res.json();
 			const raw: HistoryItem[] = Array.isArray(json?.items) ? json.items : [];
-			// c_channel_2 is too noisy — only show pieces that actually
-			// reached the classification-adjacent c_channel_3.
-			items = raw.filter((it) => Array.isArray(it.roles) && it.roles.includes('c_channel_3'));
+			// c_channel_2 is too noisy on its own, but in the classification-
+			// channel setup we also want to surface pieces that are currently
+			// or historically visible on the Classification Channel itself.
+			items = raw.filter(
+				(it) =>
+					Array.isArray(it.roles) &&
+					it.roles.some((role) => role === 'c_channel_3' || role === 'carousel')
+			);
 		} catch {
 			// ignore
 		} finally {
@@ -162,8 +167,15 @@
 		return `${m}m ${Math.floor(seconds % 60)}s`;
 	}
 
+	function formatRole(role: string): string {
+		if (role === 'carousel') return 'Classification Channel';
+		if (role === 'c_channel_2') return 'C2';
+		if (role === 'c_channel_3') return 'C3';
+		return role.replace('c_channel_', 'C');
+	}
+
 	function formatRoles(roles: string[]): string {
-		return roles.map((r) => r.replace('c_channel_', 'C')).join(' → ');
+		return roles.map((role) => formatRole(role)).join(' → ');
 	}
 
 	onMount(() => {
@@ -513,4 +525,3 @@
 	{/if}
 	</div>
 </div>
-

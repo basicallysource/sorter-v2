@@ -85,16 +85,14 @@
 				CoolStep
 			</label>
 
-			{#if hasEndstop}
-				<label class="flex items-center gap-2 text-sm text-text">
-					<input
-						type="checkbox"
-						checked={stepperDirectionInverted}
-						onchange={(event) => (stepperDirectionInverted = event.currentTarget.checked)}
-					/>
-					Invert stepper direction
-				</label>
-			{/if}
+			<label class="flex items-center gap-2 text-sm text-text">
+				<input
+					type="checkbox"
+					checked={stepperDirectionInverted}
+					onchange={(event) => (stepperDirectionInverted = event.currentTarget.checked)}
+				/>
+				Invert stepper direction
+			</label>
 
 			<button
 				onclick={onSave}

@@ -123,8 +123,11 @@ def getDetectionConfig(scope: str) -> dict[str, Any] | None:
     section = detection.get(scope)
     if not isinstance(section, dict):
         return None
-    # Flatten sample_collection_enabled_by_role sub-table into the dict
+    # Flatten role-specific sub-tables into the dict.
     result = dict(section)
+    algorithm_by_role = result.pop("algorithm_by_role", None)
+    if isinstance(algorithm_by_role, dict):
+        result["algorithm_by_role"] = algorithm_by_role
     by_role = result.pop("sample_collection_enabled_by_role", None)
     if isinstance(by_role, dict):
         result["sample_collection_enabled_by_role"] = by_role
@@ -137,9 +140,12 @@ def setDetectionConfig(scope: str, cfg: dict[str, Any]) -> None:
         if "detection" not in config:
             config["detection"] = {}
         section = dict(cfg)
-        # Separate sample_collection_enabled_by_role into a sub-table
+        # Separate role-specific keys into sub-tables.
+        algorithm_by_role = section.pop("algorithm_by_role", None)
         by_role = section.pop("sample_collection_enabled_by_role", None)
         config["detection"][scope] = section
+        if isinstance(algorithm_by_role, dict):
+            config["detection"][scope]["algorithm_by_role"] = algorithm_by_role
         if isinstance(by_role, dict):
             config["detection"][scope]["sample_collection_enabled_by_role"] = by_role
 

@@ -43,6 +43,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
+FEEDER_DETECTION_ROLES = ("c_channel_2", "c_channel_3", "carousel")
 
 # ---------------------------------------------------------------------------
 # Detection algorithm helper functions
@@ -109,9 +110,24 @@ def _normalize_feeder_role(value: str | None) -> str | None:
     candidate = value.strip()
     if not candidate:
         return None
-    if candidate not in {"c_channel_2", "c_channel_3"}:
+    if candidate not in FEEDER_DETECTION_ROLES:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
     return candidate
+
+
+def _feeder_algorithm_by_role_from_config(
+    config: dict[str, Any] | None,
+) -> dict[str, str]:
+    saved_by_role = (
+        config.get("algorithm_by_role")
+        if isinstance(config, dict) and isinstance(config.get("algorithm_by_role"), dict)
+        else {}
+    )
+    fallback = config.get("algorithm") if isinstance(config, dict) else None
+    return {
+        role: _normalize_feeder_detection_algorithm(saved_by_role.get(role) or fallback)
+        for role in FEEDER_DETECTION_ROLES
+    }
 
 
 def _feeder_role_label(role: str | None) -> str:
@@ -119,6 +135,8 @@ def _feeder_role_label(role: str | None) -> str:
         return "C-channel 2"
     if role == "c_channel_3":
         return "C-channel 3"
+    if role == "carousel":
+        return "Classification channel"
     return "C-channel"
 
 
@@ -591,8 +609,13 @@ def save_classification_detection_config(
 def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
     saved = getFeederDetectionConfig()
-    algorithm = _normalize_feeder_detection_algorithm(
-        saved.get("algorithm") if isinstance(saved, dict) else None
+    algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
+    algorithm = (
+        algorithm_by_role.get(role)
+        if role is not None
+        else _normalize_feeder_detection_algorithm(
+            saved.get("algorithm") if isinstance(saved, dict) else None
+        )
     )
     openrouter_model = _normalize_openrouter_model(
         saved.get("openrouter_model") if isinstance(saved, dict) else None
@@ -606,7 +629,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
         channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
         if isinstance(saved, dict)
         else False
-        for channel_role in ("c_channel_2", "c_channel_3")
+        for channel_role in FEEDER_DETECTION_ROLES
     }
     sample_collection_enabled = (
         bool(sample_collection_enabled_by_role.get(role))
@@ -615,7 +638,25 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
     )
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getFeederDetectionAlgorithm"):
         try:
-            algorithm = _normalize_feeder_detection_algorithm(shared_state.vision_manager.getFeederDetectionAlgorithm())
+            if hasattr(shared_state.vision_manager, "getFeederDetectionAlgorithms"):
+                algorithm_by_role = {
+                    channel_role: _normalize_feeder_detection_algorithm(algo)
+                    for channel_role, algo in shared_state.vision_manager.getFeederDetectionAlgorithms().items()
+                    if channel_role in FEEDER_DETECTION_ROLES
+                }
+                algorithm = (
+                    algorithm_by_role.get(role)
+                    if role is not None
+                    else _normalize_feeder_detection_algorithm(
+                        shared_state.vision_manager.getFeederDetectionAlgorithm()
+                    )
+                )
+            else:
+                algorithm = _normalize_feeder_detection_algorithm(
+                    shared_state.vision_manager.getFeederDetectionAlgorithm(role)
+                    if role is not None
+                    else shared_state.vision_manager.getFeederDetectionAlgorithm()
+                )
         except Exception:
             pass
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getFeederOpenRouterModel"):
@@ -627,7 +668,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
         try:
             sample_collection_enabled_by_role = {
                 channel_role: bool(shared_state.vision_manager.isFeederSampleCollectionEnabled(channel_role))
-                for channel_role in ("c_channel_2", "c_channel_3")
+                for channel_role in FEEDER_DETECTION_ROLES
             }
             sample_collection_enabled = (
                 bool(sample_collection_enabled_by_role.get(role))
@@ -641,6 +682,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
         "ok": True,
         "role": role,
         "algorithm": algorithm,
+        "algorithm_by_role": algorithm_by_role,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
         "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
@@ -661,6 +703,7 @@ def save_feeder_detection_config(
     algorithm = _normalize_feeder_detection_algorithm(payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
     saved = getFeederDetectionConfig()
+    algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
     saved_by_role = (
         saved.get("sample_collection_enabled_by_role")
         if isinstance(saved, dict) and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
@@ -670,17 +713,25 @@ def save_feeder_detection_config(
         channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
         if isinstance(saved, dict)
         else False
-        for channel_role in ("c_channel_2", "c_channel_3")
+        for channel_role in FEEDER_DETECTION_ROLES
     }
+    if role is not None:
+        algorithm_by_role[role] = algorithm
+    else:
+        for channel_role in FEEDER_DETECTION_ROLES:
+            algorithm_by_role[channel_role] = algorithm
     if isinstance(payload.sample_collection_enabled, bool):
         if role is not None:
             sample_collection_enabled_by_role[role] = bool(payload.sample_collection_enabled)
         else:
-            for channel_role in ("c_channel_2", "c_channel_3"):
+            for channel_role in FEEDER_DETECTION_ROLES:
                 sample_collection_enabled_by_role[channel_role] = bool(payload.sample_collection_enabled)
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setFeederDetectionAlgorithm"):
         try:
-            shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm)
+            if role is not None:
+                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm, role)
+            else:
+                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm)
             if hasattr(shared_state.vision_manager, "setFeederOpenRouterModel"):
                 shared_state.vision_manager.setFeederOpenRouterModel(openrouter_model)
             if hasattr(shared_state.vision_manager, "setFeederSampleCollectionEnabled"):
@@ -691,7 +742,7 @@ def save_feeder_detection_config(
                         )
                     )
                 else:
-                    for channel_role in ("c_channel_2", "c_channel_3"):
+                    for channel_role in FEEDER_DETECTION_ROLES:
                         sample_collection_enabled_by_role[channel_role] = bool(
                             shared_state.vision_manager.setFeederSampleCollectionEnabled(
                                 sample_collection_enabled_by_role[channel_role],
@@ -709,7 +760,14 @@ def save_feeder_detection_config(
     )
     setFeederDetectionConfig(
         {
-            "algorithm": algorithm,
+            "algorithm": (
+                algorithm
+                if role is None
+                else _normalize_feeder_detection_algorithm(
+                    saved.get("algorithm") if isinstance(saved, dict) else None
+                )
+            ),
+            "algorithm_by_role": algorithm_by_role,
             "openrouter_model": openrouter_model,
             "sample_collection_enabled": sample_collection_enabled,
             "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
@@ -729,6 +787,7 @@ def save_feeder_detection_config(
         "ok": True,
         "role": role,
         "algorithm": algorithm,
+        "algorithm_by_role": algorithm_by_role,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
         "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
@@ -1003,7 +1062,8 @@ def _finalize_aux_detection_debug_payload(
 
 @router.post("/api/feeder/detect/{role}")
 def debug_feeder_detection(role: str) -> Dict[str, Any]:
-    if role not in {"c_channel_2", "c_channel_3"}:
+    role = _normalize_feeder_role(role)
+    if role is None:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
     if shared_state.vision_manager is None:
         raise HTTPException(status_code=503, detail="Vision manager not initialized.")

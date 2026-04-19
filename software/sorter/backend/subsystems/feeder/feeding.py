@@ -21,6 +21,8 @@ FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
 # bulk feeder from piling up the transport channel — c_channel_3 can only
 # swallow one piece at a time so anything beyond this number is dead weight.
 MAX_CH2_PIECES_FOR_CH1_FEED = 5
+MAX_CLASSIFICATION_CHANNEL_PIECES = 1
+CLASSIFICATION_CHANNEL_ID = 4
 
 # ---------------------------------------------------------------------------
 # c_channel_2 agitation — when c_channel_3 is busy and we recently fed a
@@ -53,6 +55,47 @@ CH1_RECOVERY_PUSH_OUTPUT_DEGREES = (15.0, 45.0, 90.0, 180.0, 360.0)
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
     from irl.config import RotorPulseConfig
+
+
+def _estimate_piece_count_for_channel(
+    detections: list,
+    *,
+    channel_id: int,
+    track_count: int,
+) -> int:
+    """Estimate feeder occupancy robustly from both tracks and raw detections.
+
+    The live tracker is the best signal when it is warm, but dynamic feeder
+    detection can briefly deliver fresh candidate boxes before the track cache
+    catches up. Using the larger of the two keeps ch1 from overfeeding ch2
+    during those windows.
+    """
+    detection_count = 0
+    for detection in detections:
+        if getattr(detection, "channel_id", None) == channel_id:
+            detection_count += 1
+    return max(int(track_count), detection_count)
+
+
+def _classification_channel_admission_blocked(
+    detections: list,
+    *,
+    track_count: int,
+    transport_piece_count: int,
+) -> bool:
+    """Allow at most one live piece on the classification channel.
+
+    Vision is the primary signal because it sees pieces before they are
+    formally admitted into the logical transport. The transport count acts as
+    a safety net if detection briefly drops while a piece is still staged.
+    """
+    vision_piece_count = _estimate_piece_count_for_channel(
+        detections,
+        channel_id=CLASSIFICATION_CHANNEL_ID,
+        track_count=track_count,
+    )
+    return max(vision_piece_count, int(transport_piece_count)) >= MAX_CLASSIFICATION_CHANNEL_PIECES
+
 
 class Feeding(BaseState):
     def __init__(
@@ -439,10 +482,45 @@ class Feeding(BaseState):
                 can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                     not self.shared.chute_move_in_progress
                 )
-                ch3_held = (
+                classification_ready_block = (
                     not self.shared.classification_ready
                     and ch3_action == ChannelAction.PULSE_PRECISE
                 )
+                classification_channel_block = False
+                classification_channel_piece_count = 0
+                machine_setup = getattr(self.irl_config, "machine_setup", None)
+                classification_channel_setup = bool(
+                    machine_setup is not None
+                    and getattr(machine_setup, "uses_classification_channel", False)
+                )
+                if classification_channel_setup:
+                    try:
+                        classification_channel_track_count = len(
+                            self.vision.getFeederTracks("carousel")
+                        )
+                    except Exception:
+                        classification_channel_track_count = 0
+                    transport_piece_count = 0
+                    transport = self.shared.transport
+                    if transport is not None:
+                        try:
+                            transport_piece_count = int(transport.getActivePieceCount())
+                        except Exception:
+                            transport_piece_count = 0
+                    classification_channel_piece_count = max(
+                        _estimate_piece_count_for_channel(
+                            detections,
+                            channel_id=CLASSIFICATION_CHANNEL_ID,
+                            track_count=classification_channel_track_count,
+                        ),
+                        transport_piece_count,
+                    )
+                    classification_channel_block = _classification_channel_admission_blocked(
+                        detections,
+                        track_count=classification_channel_track_count,
+                        transport_piece_count=transport_piece_count,
+                    )
+                ch3_held = classification_ready_block or classification_channel_block
                 ch1_pulse_intent = not analysis.ch2_dropzone_occupied
                 ch2_pulse_intent = (
                     not analysis.ch3_dropzone_occupied
@@ -505,8 +583,16 @@ class Feeding(BaseState):
 
                 # channel 3 — hold precise pulses if carousel not ready to receive
                 if ch3_held:
-                    prof.hit("feeder.skip.ch3_held_for_carousel")
-                    self.gc.runtime_stats.observeBlockedReason("feeder", "ch3_held_for_carousel")
+                    if classification_channel_block:
+                        prof.hit("feeder.skip.classification_channel_occupied")
+                        self.gc.runtime_stats.observeBlockedReason(
+                            "feeder", "classification_channel_occupied"
+                        )
+                    else:
+                        prof.hit("feeder.skip.ch3_held_for_carousel")
+                        self.gc.runtime_stats.observeBlockedReason(
+                            "feeder", "ch3_held_for_carousel"
+                        )
                 elif ch3_action == ChannelAction.PULSE_PRECISE:
                     prof.hit("feeder.path.ch3_precise")
                     if self._sendPulse("ch3_precise", self.irl.c_channel_3_rotor_stepper, fc.third_rotor_precision):
@@ -545,9 +631,14 @@ class Feeding(BaseState):
                 # of ch2 isn't already saturated with tracked pieces.
                 ch1_jam_recovery_triggered = False
                 try:
-                    ch2_piece_count = len(self.vision.getFeederTracks("c_channel_2"))
+                    ch2_track_count = len(self.vision.getFeederTracks("c_channel_2"))
                 except Exception:
-                    ch2_piece_count = 0
+                    ch2_track_count = 0
+                ch2_piece_count = _estimate_piece_count_for_channel(
+                    detections,
+                    channel_id=2,
+                    track_count=ch2_track_count,
+                )
                 ch2_saturated = ch2_piece_count >= MAX_CH2_PIECES_FOR_CH1_FEED
                 if not analysis.ch2_dropzone_occupied and ch2_saturated:
                     prof.hit("feeder.skip.ch2_saturated")
@@ -671,8 +762,16 @@ class Feeding(BaseState):
                 else:
                     self._setOccupancyState("feeder.ch2", "feeding.pulse_ch2_normal")
 
-                if ch3_held:
-                    self._setOccupancyState("feeder.ch3", "feeding.wait_classification_ready_for_ch3_precise")
+                if classification_channel_block:
+                    self._setOccupancyState(
+                        "feeder.ch3",
+                        f"feeding.wait_classification_channel_clear_{classification_channel_piece_count}_pieces",
+                    )
+                elif ch3_held:
+                    self._setOccupancyState(
+                        "feeder.ch3",
+                        "feeding.wait_classification_ready_for_ch3_precise",
+                    )
                 elif ch3_action == ChannelAction.IDLE:
                     self._setOccupancyState("feeder.ch3", "feeding.idle_no_piece_in_ch3")
                 elif ch3_action == ChannelAction.PULSE_PRECISE:

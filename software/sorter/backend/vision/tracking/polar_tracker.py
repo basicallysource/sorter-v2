@@ -40,6 +40,12 @@ from .history import (
 
 
 DEFAULT_SECTOR_COUNT = 18
+DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S = 3.0
+DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX = 18.0
+DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX = 28.0
+DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
+DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
+DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +200,17 @@ class _LiveTrack:
     # Shared-by-reference with the eventual TrackSegment so browser reloads
     # after the background thread completes still see the classifier result.
     auto_recognition: "dict | None" = None
+    birth_center_px: tuple[float, float] = (0.0, 0.0)
+    path_length_px: float = 0.0
+    max_displacement_px: float = 0.0
+    motion_confirmed: bool = False
+
+
+@dataclass
+class _IgnoredStaticRegion:
+    center_px: tuple[float, float]
+    expires_at: float
+    radius_px: float
 
 
 def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
@@ -242,6 +259,12 @@ class PolarFeederTracker(Tracker):
         # Toggle to hard-disable ReID (falls back to position-only matching).
         enable_appearance: bool = True,
         history: PieceHistoryBuffer | None = None,
+        stagnant_false_track_max_age_s: float = DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S,
+        stagnant_false_track_min_displacement_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX,
+        stagnant_false_track_min_path_length_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX,
+        stagnant_false_track_step_jitter_px: float = DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX,
+        stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
+        stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
     ) -> None:
         self.role = role
         self._handoff = handoff_manager
@@ -255,11 +278,28 @@ class PolarFeederTracker(Tracker):
         self._min_appearance_sim = float(min_appearance_similarity)
         self._appearance_cost_weight = float(appearance_cost_weight)
         self._embedder = get_embedder() if enable_appearance else None
+        self._stagnant_false_track_max_age_s = max(0.0, float(stagnant_false_track_max_age_s))
+        self._stagnant_false_track_min_displacement_px = max(
+            0.0, float(stagnant_false_track_min_displacement_px)
+        )
+        self._stagnant_false_track_min_path_length_px = max(
+            0.0, float(stagnant_false_track_min_path_length_px)
+        )
+        self._stagnant_false_track_step_jitter_px = max(
+            0.0, float(stagnant_false_track_step_jitter_px)
+        )
+        self._stagnant_false_track_suppression_radius_px = max(
+            0.0, float(stagnant_false_track_suppression_radius_px)
+        )
+        self._stagnant_false_track_suppression_ttl_s = max(
+            0.0, float(stagnant_false_track_suppression_ttl_s)
+        )
         self._tracks: dict[int, _LiveTrack] = {}
         self._next_internal_id = 0
         self._last_ts: float | None = None
         self._last_active: list[TrackedPiece] = []
         self._channel_geom: _ChannelGeometry | None = None
+        self._ignored_static_regions: list[_IgnoredStaticRegion] = []
 
     # ---- Channel geometry ---------------------------------------------
 
@@ -310,6 +350,7 @@ class PolarFeederTracker(Tracker):
 
         dt = 0.2 if self._last_ts is None else max(0.0, timestamp - self._last_ts)
         self._last_ts = timestamp
+        self._prune_ignored_static_regions(timestamp)
 
         # Predict all tracks forward
         for track in self._tracks.values():
@@ -399,6 +440,7 @@ class PolarFeederTracker(Tracker):
                 vdt = max(1e-3, float(timestamp) - float(track.last_seen_ts))
                 new_vx = (cx - prev_cx) / vdt
                 new_vy = (cy - prev_cy) / vdt
+                step_distance_px = math.hypot(cx - prev_cx, cy - prev_cy)
                 a = 0.5
                 track.velocity_px = (
                     a * new_vx + (1 - a) * track.velocity_px[0],
@@ -414,6 +456,18 @@ class PolarFeederTracker(Tracker):
                 track.coast_count = 0
                 track.last_seen_ts = timestamp
                 track.path.append((float(timestamp), float(cx), float(cy)))
+                if step_distance_px >= self._stagnant_false_track_step_jitter_px:
+                    track.path_length_px += step_distance_px
+                birth_cx, birth_cy = track.birth_center_px
+                track.max_displacement_px = max(
+                    track.max_displacement_px,
+                    math.hypot(cx - birth_cx, cy - birth_cy),
+                )
+                if (
+                    track.max_displacement_px >= self._stagnant_false_track_min_displacement_px
+                    or track.path_length_px >= self._stagnant_false_track_min_path_length_px
+                ):
+                    track.motion_confirmed = True
                 # EMA-update the reference embedding so tracks adapt to
                 # slow lighting/angle drift without being dominated by one
                 # noisy frame. Renormalize so cosine similarity stays well-
@@ -428,6 +482,15 @@ class PolarFeederTracker(Tracker):
                         if norm > 0.0:
                             track.embedding = (blended / norm).astype(np.float32)
                 self._maybe_capture_sector(track, frame_bgr, timestamp)
+
+        stagnant_ids: list[int] = []
+        for tid, track in self._tracks.items():
+            if tid in matched_track_ids and self._should_ignore_stagnant_false_track(track, timestamp):
+                stagnant_ids.append(tid)
+        for tid in stagnant_ids:
+            track = self._tracks.pop(tid, None)
+            if track is not None:
+                self._suppress_stagnant_false_track(track, timestamp)
 
         # Coast unmatched tracks
         dead_ids: list[int] = []
@@ -461,6 +524,8 @@ class PolarFeederTracker(Tracker):
             if idx in matched_det_indices:
                 continue
             cx, cy = _bbox_center(bbox)
+            if self._is_inside_ignored_static_region((cx, cy), timestamp):
+                continue
             global_id, handoff_from = self._handoff.register_track(
                 self.role, (cx, cy), timestamp
             )
@@ -490,6 +555,7 @@ class PolarFeederTracker(Tracker):
                 path=[(float(timestamp), float(cx), float(cy))],
                 kalman=kalman,
                 embedding=det_embeddings[idx],
+                birth_center_px=(float(cx), float(cy)),
             )
             self._tracks[internal] = new_track
             self._maybe_capture_sector(new_track, frame_bgr, timestamp)
@@ -535,6 +601,7 @@ class PolarFeederTracker(Tracker):
         self._last_ts = None
         self._last_active = []
         self._next_internal_id = 0
+        self._ignored_static_regions.clear()
 
     def get_live_thumb(self, global_id: int) -> str:
         track = next(
@@ -828,3 +895,56 @@ class PolarFeederTracker(Tracker):
                     pass
 
         return segment
+
+    def _prune_ignored_static_regions(self, timestamp: float) -> None:
+        self._ignored_static_regions = [
+            region for region in self._ignored_static_regions if region.expires_at > float(timestamp)
+        ]
+
+    def _is_inside_ignored_static_region(
+        self,
+        center_px: tuple[float, float],
+        timestamp: float,
+    ) -> bool:
+        self._prune_ignored_static_regions(timestamp)
+        cx, cy = center_px
+        for region in self._ignored_static_regions:
+            rx, ry = region.center_px
+            if math.hypot(cx - rx, cy - ry) <= region.radius_px:
+                return True
+        return False
+
+    def _should_ignore_stagnant_false_track(
+        self,
+        track: _LiveTrack,
+        timestamp: float,
+    ) -> bool:
+        if self.role != "carousel":
+            return False
+        if track.handoff_from is not None:
+            return False
+        if track.motion_confirmed:
+            return False
+        age_s = float(timestamp) - float(track.first_seen_ts)
+        if age_s < self._stagnant_false_track_max_age_s:
+            return False
+        if track.max_displacement_px >= self._stagnant_false_track_min_displacement_px:
+            return False
+        if track.path_length_px >= self._stagnant_false_track_min_path_length_px:
+            return False
+        return True
+
+    def _suppress_stagnant_false_track(
+        self,
+        track: _LiveTrack,
+        timestamp: float,
+    ) -> None:
+        if self._stagnant_false_track_suppression_ttl_s <= 0.0:
+            return
+        self._ignored_static_regions.append(
+            _IgnoredStaticRegion(
+                center_px=track.center_px,
+                expires_at=float(timestamp) + self._stagnant_false_track_suppression_ttl_s,
+                radius_px=self._stagnant_false_track_suppression_radius_px,
+            )
+        )

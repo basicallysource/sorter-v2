@@ -177,6 +177,10 @@ class TrackHistoryEntry:
         return sum(1 for seg in self.segments if seg.handoff_from is not None)
 
     @property
+    def touches_classification_channel(self) -> bool:
+        return any(seg.source_role == "carousel" for seg in self.segments)
+
+    @property
     def max_sector_snapshots(self) -> int:
         if not self.segments:
             return 0
@@ -193,7 +197,7 @@ class TrackHistoryEntry:
             richest = max(self.segments, key=lambda s: len(s.sector_snapshots))
             thumb = richest.composite_jpeg_b64
             best_piece = richest.best_piece_jpeg_b64
-            top_pieces = pick_top_piece_jpegs(richest.sector_snapshots, limit=8)
+            top_pieces = pick_top_piece_jpegs_across_segments(self.segments, limit=8)
             # Surface any segment's auto-recognition result (there's usually
             # one per track; prefer the segment with the actual classifier
             # response over a "pending" placeholder).
@@ -402,6 +406,63 @@ def pick_top_piece_jpegs(sector_snapshots: list, limit: int = 8) -> list[str]:
         scored.append((score, b64))
     scored.sort(key=lambda t: t[0], reverse=True)
     return [b64 for _s, b64 in scored[: max(0, int(limit))]]
+
+
+def pick_top_piece_jpegs_across_segments(
+    segments: list[TrackSegment],
+    *,
+    limit: int = 8,
+    per_segment_quota: int = 2,
+) -> list[str]:
+    """Top-N piece crops across the full handoff chain.
+
+    Reserve a small quota per segment first so summary cards expose both the
+    upstream c_channel_3 view and the downstream classification-channel view
+    after a handoff. Remaining slots are filled globally by sharpness.
+    """
+    ranked_by_segment: list[list[tuple[float, str]]] = []
+    for segment in sorted(segments, key=lambda seg: float(seg.first_seen_ts)):
+        ranked: list[tuple[float, str]] = []
+        for snap in segment.sector_snapshots:
+            b64 = getattr(snap, "piece_jpeg_b64", "") or ""
+            if not b64:
+                continue
+            score = _score_piece_crop_sharpness(b64)
+            if score < 0:
+                continue
+            ranked.append((score, b64))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        if ranked:
+            ranked_by_segment.append(ranked)
+
+    if not ranked_by_segment:
+        return []
+
+    selected: list[str] = []
+    seen: set[str] = set()
+    quota = max(0, int(per_segment_quota))
+    max_items = max(0, int(limit))
+
+    for ranked in ranked_by_segment:
+        for _score, b64 in ranked[:quota]:
+            if b64 in seen:
+                continue
+            selected.append(b64)
+            seen.add(b64)
+            if len(selected) >= max_items:
+                return selected[:max_items]
+
+    all_ranked = [item for ranked in ranked_by_segment for item in ranked]
+    all_ranked.sort(key=lambda item: item[0], reverse=True)
+    for _score, b64 in all_ranked:
+        if b64 in seen:
+            continue
+        selected.append(b64)
+        seen.add(b64)
+        if len(selected) >= max_items:
+            break
+
+    return selected[:max_items]
 
 
 def render_snapshot_thumb(
@@ -656,7 +717,11 @@ class PieceHistoryBuffer:
         with self._lock:
             entries = list(self._entries.values())
         if min_sectors > 0:
-            entries = [e for e in entries if e.max_sector_snapshots >= min_sectors]
+            entries = [
+                e
+                for e in entries
+                if e.touches_classification_channel or e.max_sector_snapshots >= min_sectors
+            ]
         entries.sort(key=lambda e: e.finished_at, reverse=True)
         if limit is not None:
             entries = entries[:limit]

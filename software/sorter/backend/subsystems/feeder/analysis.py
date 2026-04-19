@@ -21,6 +21,8 @@ class ChannelArcZones:
     outer_radius: float
     drop_start_angle: float
     drop_end_angle: float
+    wait_start_angle: float | None
+    wait_end_angle: float | None
     exit_start_angle: float
     exit_end_angle: float
 
@@ -56,7 +58,9 @@ def sectionsForAngleRange(
 def legacyChannelZoneSections(channel_id: int) -> tuple[set[int], set[int]]:
     if channel_id == 3:
         return set(CH3_DROPZONE_SECTIONS), set(CH3_PRECISE_SECTIONS)
-    return set(CH2_DROPZONE_SECTIONS), set(CH2_PRECISE_SECTIONS)
+    if channel_id == 2:
+        return set(CH2_DROPZONE_SECTIONS), set(CH2_PRECISE_SECTIONS)
+    return set(), set()
 
 
 def legacyChannelArcZones(channel_key: str, section_zero_angle: float) -> ChannelArcZones | None:
@@ -75,6 +79,8 @@ def legacyChannelArcZones(channel_key: str, section_zero_angle: float) -> Channe
         outer_radius=0.0,
         drop_start_angle=normalizeAngle(section_zero_angle + drop_sections.start * CHANNEL_SECTION_DEG),
         drop_end_angle=normalizeAngle(section_zero_angle + drop_sections.stop * CHANNEL_SECTION_DEG),
+        wait_start_angle=None,
+        wait_end_angle=None,
         exit_start_angle=normalizeAngle(section_zero_angle + exit_sections.start * CHANNEL_SECTION_DEG),
         exit_end_angle=normalizeAngle(section_zero_angle + exit_sections.stop * CHANNEL_SECTION_DEG),
     )
@@ -115,14 +121,42 @@ def parseSavedChannelArcZones(
             normalizeAngle(section_zero_angle + legacy_sections.stop * CHANNEL_SECTION_DEG),
         )
 
+    def _optional_zone(zone_key: str) -> tuple[float, float] | None:
+        raw_zone = raw.get(zone_key)
+        if not isinstance(raw_zone, dict):
+            return None
+        start_angle = raw_zone.get("start_angle")
+        end_angle = raw_zone.get("end_angle")
+        if isinstance(start_angle, (int, float)) and isinstance(end_angle, (int, float)):
+            return normalizeAngle(float(start_angle)), normalizeAngle(float(end_angle))
+        return None
+
     if channel_key == "third":
         legacy_drop = CH3_DROPZONE_SECTIONS
         legacy_exit = CH3_PRECISE_SECTIONS
-    else:
+    elif channel_key == "second":
         legacy_drop = CH2_DROPZONE_SECTIONS
         legacy_exit = CH2_PRECISE_SECTIONS
+    else:
+        drop_zone = _optional_zone("drop_zone")
+        exit_zone = _optional_zone("exit_zone")
+        if drop_zone is None or exit_zone is None:
+            return None
+        wait_zone = _optional_zone("wait_zone")
+        return ChannelArcZones(
+            center=(float(center[0]), float(center[1])),
+            inner_radius=float(inner_radius),
+            outer_radius=float(outer_radius),
+            drop_start_angle=drop_zone[0],
+            drop_end_angle=drop_zone[1],
+            wait_start_angle=wait_zone[0] if wait_zone is not None else None,
+            wait_end_angle=wait_zone[1] if wait_zone is not None else None,
+            exit_start_angle=exit_zone[0],
+            exit_end_angle=exit_zone[1],
+        )
 
     drop_start, drop_end = _zone("drop_zone", legacy_drop)
+    wait_zone = _optional_zone("wait_zone")
     exit_start, exit_end = _zone("exit_zone", legacy_exit)
     return ChannelArcZones(
         center=(float(center[0]), float(center[1])),
@@ -130,6 +164,8 @@ def parseSavedChannelArcZones(
         outer_radius=float(outer_radius),
         drop_start_angle=drop_start,
         drop_end_angle=drop_end,
+        wait_start_angle=wait_zone[0] if wait_zone is not None else None,
+        wait_end_angle=wait_zone[1] if wait_zone is not None else None,
         exit_start_angle=exit_start,
         exit_end_angle=exit_end,
     )

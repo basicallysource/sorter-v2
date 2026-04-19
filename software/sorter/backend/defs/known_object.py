@@ -33,6 +33,7 @@ class KnownObject:
     category_id: Optional[str] = None
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
+    tracked_global_id: Optional[int] = None
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None

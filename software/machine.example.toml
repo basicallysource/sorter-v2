@@ -60,11 +60,22 @@ sections = [
 # home_pin_channel = 2
 # endstop_active_high = false
 
+# --- Machine setup / topology ---
+# type = "standard_carousel" (default): FIDA + carousel + classification chamber.
+# type = "classification_channel": experimental setup with a dedicated
+# classification C-channel instead of the carousel/chamber handoff.
+# type = "manual_carousel": operators place parts directly into the carousel.
+# Changing the setup requires reset + re-home.
+
+# [machine_setup]
+# type = "classification_channel"
+
 # --- Feeding mode ---
+# Legacy compatibility field. The UI now persists [machine_setup] and derives
+# feeding.mode from it automatically.
 # mode = "auto_channels" (default): use the full automatic feeder path.
 # mode = "manual_carousel": operators place parts directly into the carousel
-# dropzone and the machine takes over from there. Requires reset + re-home after
-# changing the mode.
+# dropzone and the machine takes over from there.
 
 # [feeding]
 # mode = "manual_carousel"

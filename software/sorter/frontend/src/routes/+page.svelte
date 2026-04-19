@@ -23,6 +23,9 @@
 	let startSystemError = $state<string | null>(null);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
+	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
+		'standard_carousel'
+	);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
@@ -92,6 +95,23 @@
 		}
 	}
 
+	async function loadMachineSetup(baseUrl: string) {
+		try {
+			const res = await fetch(`${baseUrl}/api/machine-setup`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			if (
+				payload?.setup === 'classification_channel' ||
+				payload?.setup === 'manual_carousel' ||
+				payload?.setup === 'standard_carousel'
+			) {
+				machineSetup = payload.setup;
+			}
+		} catch {
+			// ignore transient shell fetch issues
+		}
+	}
+
 	$effect(() => {
 		if (!machine.machine) {
 			dashboardCrops = {};
@@ -103,6 +123,7 @@
 		if (cropBaseUrl === baseUrl) return;
 		cropBaseUrl = baseUrl;
 		void fetchDashboardCrops(baseUrl);
+		void loadMachineSetup(baseUrl);
 	});
 
 	const CAMERA_LABELS: Record<string, string> = {
@@ -114,9 +135,18 @@
 		classification_bottom: 'Classification Bottom'
 	};
 
+	function cameraLabel(role: string): string {
+		if (role === 'carousel' && machineSetup === 'classification_channel') {
+			return 'Classification Channel';
+		}
+		return CAMERA_LABELS[role] ?? role;
+	}
+
 	onMount(() => {
 		if (machine.machine) {
-			void fetchDashboardCrops(currentBackendBaseUrl());
+			const baseUrl = currentBackendBaseUrl();
+			void fetchDashboardCrops(baseUrl);
+			void loadMachineSetup(baseUrl);
 		}
 	});
 </script>
@@ -136,7 +166,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera="c_channel_2"
-									label={CAMERA_LABELS.c_channel_2}
+									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -145,7 +175,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera="c_channel_3"
-									label={CAMERA_LABELS.c_channel_3}
+									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -156,7 +186,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera="carousel"
-									label={CAMERA_LABELS.carousel}
+									label={cameraLabel('carousel')}
 									crop={cropFor('carousel')}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -203,7 +233,7 @@
 										<div class="min-h-0 flex-1">
 											<CameraFeed
 												camera={classification_camera}
-												label={CAMERA_LABELS[classification_camera]}
+												label={cameraLabel(classification_camera)}
 												crop={cropFor(classification_camera)}
 												showHeader={false}
 												source="ws"
@@ -225,7 +255,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera="feeder"
-									label={CAMERA_LABELS.feeder}
+									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -234,7 +264,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera={classification_camera}
-									label={CAMERA_LABELS[classification_camera]}
+									label={cameraLabel(classification_camera)}
 									crop={cropFor(classification_camera)}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -246,7 +276,7 @@
 							<div class="flex-1 min-w-0">
 								<CameraFeed
 									camera="feeder"
-									label={CAMERA_LABELS.feeder}
+									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
 									source="ws"
 									controls={["annotations", "crop", "fullscreen"]}
@@ -292,7 +322,7 @@
 									<div class="min-h-0 flex-1">
 										<CameraFeed
 											camera={classification_camera}
-											label={CAMERA_LABELS[classification_camera]}
+											label={cameraLabel(classification_camera)}
 											crop={cropFor(classification_camera)}
 											showHeader={false}
 											controls={[]}

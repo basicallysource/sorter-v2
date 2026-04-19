@@ -1,4 +1,13 @@
 import { Camera, Cloud, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
+import {
+	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
+	CLASSIFICATION_CHANNEL_STEPPER_LABEL
+} from '$lib/settings/stepper-control';
+
+export type MachineSetupKey =
+	| 'standard_carousel'
+	| 'classification_channel'
+	| 'manual_carousel';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -7,7 +16,13 @@ export type CameraRole =
 	| 'classification_top'
 	| 'classification_bottom';
 
-export type ZoneChannel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
+export type ZoneChannel =
+	| 'second'
+	| 'third'
+	| 'carousel'
+	| 'classification_channel'
+	| 'class_top'
+	| 'class_bottom';
 
 export type StepperKey = 'c_channel_1' | 'c_channel_2' | 'c_channel_3' | 'carousel' | 'chute';
 
@@ -24,6 +39,7 @@ export type StationSlug =
 	| 'c-channel-2'
 	| 'c-channel-3'
 	| 'carousel'
+	| 'classification-channel'
 	| 'classification-chamber';
 
 export type SettingsNavItem = {
@@ -39,6 +55,7 @@ export type StationPageConfig = SettingsNavItem & {
 	zoneChannels: ZoneChannel[];
 	stepperKeys: StepperKey[];
 	stepperEndstops?: Partial<Record<StepperKey, EndstopConfig>>;
+	stepperDisplay?: Partial<Record<StepperKey, { label?: string; gearRatio?: number }>>;
 };
 
 export const generalNavItem: SettingsNavItem = {
@@ -116,6 +133,23 @@ export const stationPageConfigs: StationPageConfig[] = [
 		}
 	},
 	{
+		slug: 'classification-channel',
+		href: '/settings/classification-channel',
+		label: 'Classification Channel',
+		icon: Camera,
+		description:
+			'Configure the fourth C-channel camera, arc zones, and the shared stepper on the former carousel port.',
+		cameraRoles: ['carousel'],
+		zoneChannels: ['classification_channel'],
+		stepperKeys: ['carousel'],
+		stepperDisplay: {
+			carousel: {
+				label: CLASSIFICATION_CHANNEL_STEPPER_LABEL,
+				gearRatio: CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO
+			}
+		}
+	},
+	{
 		slug: 'classification-chamber',
 		href: '/settings/classification-chamber',
 		label: 'Classification Chamber',
@@ -135,7 +169,7 @@ export type SettingsNavHeading = {
 
 export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 
-export const settingsNavItems: SettingsNavEntry[] = [
+const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
 	{ type: 'heading', label: 'Hardware' },
@@ -143,6 +177,22 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem
 ];
+
+export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {
+	const hiddenSlugs =
+		setup === 'classification_channel'
+			? new Set<StationSlug>(['carousel', 'classification-chamber'])
+			: new Set<StationSlug>(['classification-channel']);
+
+	return baseSettingsNavItems.filter((entry) => {
+		if (!('href' in entry)) return true;
+		const station = stationPageConfigs.find((candidate) => candidate.href === entry.href);
+		if (!station) return true;
+		return !hiddenSlugs.has(station.slug);
+	});
+}
+
+export const settingsNavItems: SettingsNavEntry[] = settingsNavItemsForSetup('standard_carousel');
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);

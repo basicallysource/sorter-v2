@@ -8,6 +8,15 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import serial.tools.list_ports
 
+from machine_setup import (
+    CLASSIFICATION_CHANNEL_SETUP,
+    MANUAL_CAROUSEL_SETUP,
+    STANDARD_CAROUSEL_SETUP,
+    get_machine_setup_definition,
+    get_machine_setup_options,
+    machine_setup_key_from_feeding_mode,
+    normalize_machine_setup_key,
+)
 from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
 from irl.config import REQUIRED_STEPPER_NAMES
@@ -41,6 +50,10 @@ class CameraLayoutPayload(BaseModel):
 
 class FeedingModePayload(BaseModel):
     mode: Literal["auto_channels", "manual_carousel"]
+
+
+class MachineSetupPayload(BaseModel):
+    setup: Literal["standard_carousel", "classification_channel", "manual_carousel"]
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
@@ -99,7 +112,7 @@ def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
     return all(camera_assignments.get(role) is not None for role in required_roles)
 
 
-def _feeding_mode_from_config(config: Dict[str, Any]) -> str:
+def _legacy_feeding_mode_from_config(config: Dict[str, Any]) -> str:
     feeding = config.get("feeding", {})
     if not isinstance(feeding, dict):
         return "auto_channels"
@@ -107,6 +120,44 @@ def _feeding_mode_from_config(config: Dict[str, Any]) -> str:
     if mode not in {"auto_channels", "manual_carousel"}:
         return "auto_channels"
     return cast(str, mode)
+
+
+def _machine_setup_key_from_config(config: Dict[str, Any]) -> str:
+    machine_setup = config.get("machine_setup", {})
+    if isinstance(machine_setup, dict):
+        setup_key = normalize_machine_setup_key(machine_setup.get("type"))
+        if setup_key is not None:
+            return setup_key
+    return machine_setup_key_from_feeding_mode(_legacy_feeding_mode_from_config(config))
+
+
+def _machine_setup_payload(setup_key: str) -> dict[str, Any]:
+    return get_machine_setup_definition(setup_key).to_dict()
+
+
+def _feeding_mode_from_config(config: Dict[str, Any]) -> str:
+    return get_machine_setup_definition(_machine_setup_key_from_config(config)).feeding_mode
+
+
+def _persist_machine_setup(config: Dict[str, Any], setup_key: str) -> Dict[str, Any]:
+    definition = get_machine_setup_definition(setup_key)
+
+    machine_setup = config.get("machine_setup", {})
+    if not isinstance(machine_setup, dict):
+        machine_setup = {}
+    config["machine_setup"] = {
+        **machine_setup,
+        "type": definition.key,
+    }
+
+    feeding = config.get("feeding", {})
+    if not isinstance(feeding, dict):
+        feeding = {}
+    config["feeding"] = {
+        **feeding,
+        "mode": definition.feeding_mode,
+    }
+    return config
 
 
 def _current_stepper_direction_payload() -> list[dict[str, Any]]:
@@ -500,6 +551,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
     camera_assignments = _camera_assignments_from_config(config)
     feeding_mode = _feeding_mode_from_config(config)
+    machine_setup_key = _machine_setup_key_from_config(config)
     servo_settings = _servo_settings_from_config(config)
     discovery = _discover_control_board_summary()
     active_irl = shared_state.getActiveIRL()
@@ -533,6 +585,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
             "feeding": {
                 "mode": feeding_mode,
             },
+            "machine_setup": _machine_setup_payload(machine_setup_key),
             "servo": {
                 "backend": servo_settings["backend"],
                 "layer_count": servo_settings["layer_count"],
@@ -551,8 +604,10 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
 @router.get("/api/feeding-mode")
 def get_feeding_mode() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
+    machine_setup_key = _machine_setup_key_from_config(config)
     return {
         "mode": _feeding_mode_from_config(config),
+        "machine_setup": _machine_setup_payload(machine_setup_key),
         "requires_rehome": True,
     }
 
@@ -560,13 +615,15 @@ def get_feeding_mode() -> Dict[str, Any]:
 @router.post("/api/feeding-mode")
 def set_feeding_mode(payload: FeedingModePayload) -> Dict[str, Any]:
     params_path, config = _read_machine_params_config()
-    feeding = config.get("feeding", {})
-    if not isinstance(feeding, dict):
-        feeding = {}
-    config["feeding"] = {
-        **feeding,
-        "mode": payload.mode,
-    }
+    current_setup_key = _machine_setup_key_from_config(config)
+    if payload.mode == "manual_carousel":
+        next_setup_key = MANUAL_CAROUSEL_SETUP
+    elif current_setup_key == CLASSIFICATION_CHANNEL_SETUP:
+        next_setup_key = CLASSIFICATION_CHANNEL_SETUP
+    else:
+        next_setup_key = STANDARD_CAROUSEL_SETUP
+
+    config = _persist_machine_setup(config, next_setup_key)
 
     try:
         _write_machine_params_config(params_path, config)
@@ -575,7 +632,39 @@ def set_feeding_mode(payload: FeedingModePayload) -> Dict[str, Any]:
 
     return {
         "ok": True,
-        "mode": payload.mode,
+        "mode": get_machine_setup_definition(next_setup_key).feeding_mode,
+        "machine_setup": _machine_setup_payload(next_setup_key),
+        "requires_rehome": True,
+    }
+
+
+@router.get("/api/machine-setup")
+def get_machine_setup() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    setup_key = _machine_setup_key_from_config(config)
+    return {
+        "setup": setup_key,
+        "machine_setup": _machine_setup_payload(setup_key),
+        "options": get_machine_setup_options(),
+        "requires_rehome": True,
+    }
+
+
+@router.post("/api/machine-setup")
+def set_machine_setup(payload: MachineSetupPayload) -> Dict[str, Any]:
+    params_path, config = _read_machine_params_config()
+    config = _persist_machine_setup(config, payload.setup)
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    return {
+        "ok": True,
+        "setup": payload.setup,
+        "machine_setup": _machine_setup_payload(payload.setup),
+        "options": get_machine_setup_options(),
         "requires_rehome": True,
     }
 

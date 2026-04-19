@@ -9,11 +9,13 @@ from .mog2_diff_configs import Mog2DiffConfig, DEFAULT_MOG2_DIFF_CONFIG
 CHANNEL_ID_MAP = {
     "second_channel": 2,
     "third_channel": 3,
+    "classification_channel": 4,
 }
 
 CHANNEL_COLORS = {
     "second_channel": (255, 200, 0),
     "third_channel": (0, 200, 255),
+    "classification_channel": (40, 160, 255),
 }
 
 BOOTSTRAP_FRAMES = 24
@@ -125,7 +127,13 @@ class Mog2ChannelDetector:
             channel_id = CHANNEL_ID_MAP.get(key)
             if channel_id is None:
                 continue
-            angle_key = key.replace("_channel", "")
+            angle_key = (
+                "second"
+                if key == "second_channel"
+                else "third"
+                    if key == "third_channel"
+                    else "classification_channel"
+            )
             center = tuple(np.mean(polygon, axis=0).tolist())
             pc = PolygonChannel(
                 channel_id=channel_id,

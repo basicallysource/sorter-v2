@@ -22,6 +22,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             category_id=obj.category_id,
             confidence=obj.confidence,
             destination_bin=obj.destination_bin,
+            tracked_global_id=obj.tracked_global_id,
             thumbnail=obj.thumbnail,
             top_image=obj.top_image,
             bottom_image=obj.bottom_image,

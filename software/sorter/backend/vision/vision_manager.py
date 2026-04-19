@@ -3,7 +3,7 @@ from pathlib import Path
 import base64
 import time
 import threading
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, is_dataclass, replace
 import cv2
 import numpy as np
 
@@ -127,11 +127,17 @@ class VisionManager:
         self._diff_config: ClassificationDiffConfig = DEFAULT_CLASSIFICATION_DIFF_CONFIG
         self._loadClassificationDetectionConfig()
         self._feeder_detection_algorithm: FeederDetectionAlgorithm = "mog2"
+        self._feeder_detection_algorithm_by_role: Dict[str, FeederDetectionAlgorithm] = {
+            "c_channel_2": "mog2",
+            "c_channel_3": "mog2",
+            "carousel": "mog2",
+        }
         self._feeder_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
         self._feeder_sample_collection_enabled: bool = False
         self._feeder_sample_collection_enabled_by_role: Dict[str, bool] = {
             "c_channel_2": False,
             "c_channel_3": False,
+            "carousel": False,
         }
         self._carousel_detection_algorithm: CarouselDetectionAlgorithm = "heatmap_diff"
         self._carousel_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
@@ -157,7 +163,7 @@ class VisionManager:
             self._piece_handoff_manager,
             self._feeder_trackers,
             self._piece_history,
-        ) = build_feeder_tracker_system()
+        ) = build_feeder_tracker_system(roles=self._feederTrackerRoles())
         self._feeder_track_cache: Dict[str, Tuple[float, list]] = {}
         # Gate: tracker updates only happen while the sorter is actually
         # running. Toggled from SorterController.resume/pause/stop so we
@@ -167,11 +173,43 @@ class VisionManager:
         self._aux_detection_thread: threading.Thread | None = None
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
         self._auxiliary_capture_lock = threading.Lock()
+        self._aux_feeder_refresh_cursor: int = 0
         self._openrouter_request_lock = threading.Lock()
         self._openrouter_next_allowed_at: float = 0.0
         self._openrouter_semaphore = threading.BoundedSemaphore(OPENROUTER_MAX_CONCURRENCY)
 
         self._started = False
+
+    def _usesClassificationChannelSetup(self) -> bool:
+        irl_config = getattr(self, "_irl_config", None)
+        machine_setup = getattr(irl_config, "machine_setup", None)
+        return bool(
+            machine_setup is not None
+            and getattr(machine_setup, "uses_classification_channel", False)
+        )
+
+    def _feederTrackerRoles(self) -> tuple[str, ...]:
+        if self._usesClassificationChannelSetup():
+            return ("c_channel_2", "c_channel_3", "carousel")
+        return ("c_channel_2", "c_channel_3")
+
+    def _channelPolygonKeyForRole(self, role: str) -> str | None:
+        if role == "c_channel_2":
+            return "second_channel"
+        if role == "c_channel_3":
+            return "third_channel"
+        if role == "carousel" and self._usesClassificationChannelSetup():
+            return "classification_channel"
+        return None
+
+    def _channelAngleKeyForPolygonKey(self, polygon_key: str) -> str | None:
+        if polygon_key == "second_channel":
+            return "second"
+        if polygon_key == "third_channel":
+            return "third"
+        if polygon_key == "classification_channel":
+            return "classification_channel"
+        return None
 
     # ---- Capture-thread property delegates (CameraService owns the threads) ----
 
@@ -253,17 +291,17 @@ class VisionManager:
             ClassificationOverlay,
             TrackOverlay,
         )
-        from .overlays.telemetry import TelemetryOverlay
+        from vision.overlays.telemetry import TelemetryOverlay
 
         _ROLE_TO_POLY_KEY = {
             "c_channel_2": "second_channel",
             "c_channel_3": "third_channel",
-            "carousel": "carousel",
+            "carousel": "classification_channel" if self._usesClassificationChannelSetup() else "carousel",
         }
 
         if self._camera_layout == "split_feeder":
             # Per-channel feeds
-            for role in ("c_channel_2", "c_channel_3"):
+            for role in self._feederTrackerRoles():
                 feed = self._camera_service.get_feed(role)
                 if feed is None:
                     continue
@@ -271,35 +309,49 @@ class VisionManager:
                 poly_key = _ROLE_TO_POLY_KEY.get(role)
                 if poly_key:
                     feed.add_overlay(ChannelRegionOverlay(self._region_provider, poly_key))
-                feeder_algo = self.getFeederDetectionAlgorithm()
-                if feeder_algo == "gemini_sam" or feeder_algo.startswith("hive:"):
+                feeder_algo = self.getFeederDetectionAlgorithm(role)
+                if self._isDynamicDetectionAlgorithm(feeder_algo):
+                    detection_cache: dict[str, object] = {"frame_ts": None, "result": None}
+
+                    def _ensure_detection(r=role, cache=detection_cache):
+                        capture = self.getCaptureThreadForRole(r)
+                        frame = capture.latest_frame if capture is not None else None
+                        frame_ts = frame.timestamp if frame is not None else None
+                        if cache["frame_ts"] != frame_ts:
+                            cache["frame_ts"] = frame_ts
+                            cache["result"] = self._getFeederDynamicDetection(
+                                r, force=False
+                            )
+                        return cache["result"]
+
                     # TrackOverlay replaces DynamicDetectionOverlay. Triggering
                     # _getFeederDynamicDetection on each render tick is what
                     # keeps the Hive inference (throttled) + tracker cache warm;
                     # the overlay itself reads the freshly-updated track list.
                     def _tracks_for(r=role):
-                        self._getFeederDynamicDetection(r, force=False)
+                        _ensure_detection(r)
                         return self.getFeederTracks(r)
 
+                    if role == "carousel" and self._usesClassificationChannelSetup():
+                        feed.add_overlay(DynamicDetectionOverlay(_ensure_detection))
                     feed.add_overlay(TrackOverlay(_tracks_for))
                 else:
                     detector = self._per_channel_detectors.get(role)
                     analysis = self._per_channel_analysis.get(role)
                     if detector is not None and analysis is not None:
                         feed.add_overlay(DetectorOverlay(detector, analysis.getDetections))
-
-            # Carousel feed
-            carousel_feed = self._camera_service.get_feed("carousel")
-            if carousel_feed is not None:
-                carousel_feed.clear_overlays()
-                carousel_feed.add_overlay(ChannelRegionOverlay(self._region_provider, "carousel"))
-                carousel_algo = self.getCarouselDetectionAlgorithm()
-                if carousel_algo == "gemini_sam" or carousel_algo.startswith("hive:"):
-                    carousel_feed.add_overlay(DynamicDetectionOverlay(
-                        lambda: self._getCarouselDynamicDetection(force=False)
-                    ))
-                elif self._carousel_heatmap.has_baseline:
-                    carousel_feed.add_overlay(HeatmapOverlay(self._carousel_heatmap, label="carousel", text_y=80))
+            if not self._usesClassificationChannelSetup():
+                carousel_feed = self._camera_service.get_feed("carousel")
+                if carousel_feed is not None:
+                    carousel_feed.clear_overlays()
+                    carousel_feed.add_overlay(ChannelRegionOverlay(self._region_provider, "carousel"))
+                    carousel_algo = self.getCarouselDetectionAlgorithm()
+                    if carousel_algo == "gemini_sam" or carousel_algo.startswith("hive:"):
+                        carousel_feed.add_overlay(DynamicDetectionOverlay(
+                            lambda: self._getCarouselDynamicDetection(force=False)
+                        ))
+                    elif self._carousel_heatmap.has_baseline:
+                        carousel_feed.add_overlay(HeatmapOverlay(self._carousel_heatmap, label="carousel", text_y=80))
         else:
             # Default layout — feeder feed
             feeder_feed = self._camera_service.get_feed("feeder")
@@ -393,18 +445,31 @@ class VisionManager:
         config = getFeederDetectionConfig()
         candidate = config.get("algorithm") if isinstance(config, dict) else None
         self._feeder_detection_algorithm = self._normalizeFeederDetectionAlgorithm(candidate)
+        by_role = (
+            config.get("algorithm_by_role")
+            if isinstance(config, dict) and isinstance(config.get("algorithm_by_role"), dict)
+            else None
+        )
         model = config.get("openrouter_model") if isinstance(config, dict) else None
         self._feeder_openrouter_model = normalize_openrouter_model(model)
         enabled = config.get("sample_collection_enabled") if isinstance(config, dict) else None
-        by_role = (
+        sample_collection_by_role = (
             config.get("sample_collection_enabled_by_role")
             if isinstance(config, dict) and isinstance(config.get("sample_collection_enabled_by_role"), dict)
             else None
         )
+        resolved_algorithms: Dict[str, FeederDetectionAlgorithm] = {}
         resolved_by_role: Dict[str, bool] = {}
-        for role in ("c_channel_2", "c_channel_3"):
-            role_value = by_role.get(role) if isinstance(by_role, dict) else enabled
+        for role in self._feederTrackerRoles():
+            role_algorithm = by_role.get(role) if isinstance(by_role, dict) else candidate
+            resolved_algorithms[role] = self._normalizeFeederDetectionAlgorithm(role_algorithm)
+            role_value = (
+                sample_collection_by_role.get(role)
+                if isinstance(sample_collection_by_role, dict)
+                else enabled
+            )
             resolved_by_role[role] = False if role_value is None else bool(role_value)
+        self._feeder_detection_algorithm_by_role = resolved_algorithms
         self._feeder_sample_collection_enabled_by_role = resolved_by_role
         self._feeder_sample_collection_enabled = any(resolved_by_role.values())
 
@@ -489,6 +554,16 @@ class VisionManager:
         )
 
     @staticmethod
+    def _isDynamicDetectionAlgorithm(algorithm: str | None) -> bool:
+        return bool(
+            isinstance(algorithm, str)
+            and (algorithm == "gemini_sam" or algorithm.startswith("hive:"))
+        )
+
+    def _feederRoleUsesDynamicDetection(self, role: str) -> bool:
+        return self._isDynamicDetectionAlgorithm(self.getFeederDetectionAlgorithm(role))
+
+    @staticmethod
     def _detectionScoreValue(
         detection: ClassificationDetectionResult | None,
         *,
@@ -498,8 +573,18 @@ class VisionManager:
             return default
         return float(detection.score)
 
-    def getFeederDetectionAlgorithm(self) -> FeederDetectionAlgorithm:
+    def getFeederDetectionAlgorithm(self, role: str | None = None) -> FeederDetectionAlgorithm:
+        if role in self._feederTrackerRoles():
+            return self._normalizeFeederDetectionAlgorithm(
+                self._feeder_detection_algorithm_by_role.get(role)
+            )
         return self._normalizeFeederDetectionAlgorithm(self._feeder_detection_algorithm)
+
+    def getFeederDetectionAlgorithms(self) -> Dict[str, FeederDetectionAlgorithm]:
+        return {
+            role: self.getFeederDetectionAlgorithm(role)
+            for role in self._feederTrackerRoles()
+        }
 
     def getFeederOpenRouterModel(self) -> str:
         return normalize_openrouter_model(self._feeder_openrouter_model)
@@ -511,10 +596,15 @@ class VisionManager:
             return self._c_channel_2_capture is not None
         if role == "c_channel_3":
             return self._c_channel_3_capture is not None
-        return self._c_channel_2_capture is not None or self._c_channel_3_capture is not None
+        if role == "carousel":
+            return self._usesClassificationChannelSetup() and self._carousel_capture is not None
+        return any(
+            self.supportsFeederSampleCollection(channel_role)
+            for channel_role in self._feederTrackerRoles()
+        )
 
     def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
-        if role in {"c_channel_2", "c_channel_3"}:
+        if role in self._feederTrackerRoles():
             return self.supportsFeederSampleCollection(role) and bool(
                 self._feeder_sample_collection_enabled_by_role.get(role)
             )
@@ -522,7 +612,7 @@ class VisionManager:
             return False
         return any(
             self.isFeederSampleCollectionEnabled(channel_role)
-            for channel_role in ("c_channel_2", "c_channel_3")
+            for channel_role in self._feederTrackerRoles()
         )
 
     def getCarouselDetectionAlgorithm(self) -> CarouselDetectionAlgorithm:
@@ -561,10 +651,22 @@ class VisionManager:
             self._gemini_sam_detector.setOpenRouterModel(normalized)
         return normalized
 
-    def setFeederDetectionAlgorithm(self, algorithm: FeederDetectionAlgorithm) -> None:
+    def setFeederDetectionAlgorithm(
+        self,
+        algorithm: FeederDetectionAlgorithm,
+        role: str | None = None,
+    ) -> None:
         if not scope_supports_detection_algorithm("feeder", algorithm):
             raise ValueError(f"Unsupported feeder detection algorithm '{algorithm}'")
-        self._feeder_detection_algorithm = self._normalizeFeederDetectionAlgorithm(algorithm)
+        normalized = self._normalizeFeederDetectionAlgorithm(algorithm)
+        if role is not None and role not in self._feederTrackerRoles():
+            raise ValueError(f"Unsupported feeder role '{role}'")
+        if role in self._feederTrackerRoles():
+            self._feeder_detection_algorithm_by_role[role] = normalized
+        else:
+            self._feeder_detection_algorithm = normalized
+            for channel_role in self._feederTrackerRoles():
+                self._feeder_detection_algorithm_by_role[channel_role] = normalized
         self._feeder_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
         self.resetFeederTrackers()
@@ -579,9 +681,10 @@ class VisionManager:
         return normalized
 
     def setFeederSampleCollectionEnabled(self, enabled: bool, role: str | None = None) -> bool:
-        if role is not None and role not in {"c_channel_2", "c_channel_3"}:
+        feeder_roles = self._feederTrackerRoles()
+        if role is not None and role not in feeder_roles:
             raise ValueError(f"Unsupported feeder role '{role}'")
-        if role in {"c_channel_2", "c_channel_3"}:
+        if role in feeder_roles:
             self._feeder_sample_collection_enabled_by_role[role] = (
                 bool(enabled) if self.supportsFeederSampleCollection(role) else False
             )
@@ -590,7 +693,7 @@ class VisionManager:
             )
             return self._feeder_sample_collection_enabled_by_role[role]
         resolved_enabled = bool(enabled) if self.supportsFeederSampleCollection() else False
-        for channel_role in ("c_channel_2", "c_channel_3"):
+        for channel_role in feeder_roles:
             self._feeder_sample_collection_enabled_by_role[channel_role] = (
                 resolved_enabled if self.supportsFeederSampleCollection(channel_role) else False
             )
@@ -628,7 +731,8 @@ class VisionManager:
         source_resolution: tuple[int, int],
     ) -> bool:
         self._carousel_polygon = None
-        carousel_pts = polygon_data.get("carousel")
+        polygon_key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
+        carousel_pts = polygon_data.get(polygon_key)
         if not carousel_pts or len(carousel_pts) < 3:
             return False
 
@@ -688,6 +792,8 @@ class VisionManager:
         channel_angles = saved.get("channel_angles") or {}
         arc_params = saved.get("arc_params") or {}
         role_to_key = {"c_channel_2": "second", "c_channel_3": "third"}
+        if self._usesClassificationChannelSetup():
+            role_to_key["carousel"] = "classification_channel"
         for role, channel_key in role_to_key.items():
             arc = parseSavedChannelArcZones(channel_key, channel_angles, arc_params)
             if arc is None or arc.outer_radius <= arc.inner_radius or arc.inner_radius <= 0:
@@ -726,6 +832,8 @@ class VisionManager:
         if src_w <= 0 or src_h <= 0:
             return
         role_to_key = {"c_channel_2": "second_channel", "c_channel_3": "third_channel"}
+        if self._usesClassificationChannelSetup():
+            role_to_key["carousel"] = "classification_channel"
 
         def _rect_to_polygon(x1, y1, x2, y2):
             return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
@@ -764,6 +872,22 @@ class VisionManager:
                         x * sx, y * sy, en2, (y + h) * sy
                     ),
                 )
+                if self._usesClassificationChannelSetup():
+                    ex1 = (x + w // 2) * sx
+                    self._piece_handoff_manager.set_zones(
+                        role,
+                        exit_polygon=_rect_to_polygon(
+                            ex1, y * sy, (x + w) * sx, (y + h) * sy
+                        ),
+                    )
+            elif role == "carousel":
+                en2 = (x + w // 2) * sx
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    entry_polygon=_rect_to_polygon(
+                        x * sx, y * sy, en2, (y + h) * sy
+                    ),
+                )
 
     def initFeederDetection(self, *, manual_feed_mode: bool = False) -> bool:
         from blob_manager import getChannelPolygons
@@ -784,9 +908,14 @@ class VisionManager:
         raw_arc_params = saved.get("arc_params", {})
         polys: Dict[str, np.ndarray] = {}
         inner_polys: Dict[str, np.ndarray] = {}
-        for key in ("second_channel", "third_channel"):
+        channel_polygon_keys = ["second_channel", "third_channel"]
+        if self._usesClassificationChannelSetup():
+            channel_polygon_keys.append("classification_channel")
+        for key in channel_polygon_keys:
             pts = polygon_data.get(key)
-            channel_key = "second" if key == "second_channel" else "third"
+            channel_key = self._channelAngleKeyForPolygonKey(key)
+            if channel_key is None:
+                continue
             arc = parseSavedChannelArcZones(channel_key, saved.get("channel_angles", {}), raw_arc_params)
             if arc is not None and arc.outer_radius > arc.inner_radius > 0:
                 segment_count = 96
@@ -842,6 +971,8 @@ class VisionManager:
             "second_channel": self._irl.c_channel_2_rotor_stepper,
             "third_channel": self._irl.c_channel_3_rotor_stepper,
         }
+        if self._usesClassificationChannelSetup():
+            channel_steppers["classification_channel"] = self._irl.carousel_stepper
 
         def is_channel_rotating(name: str) -> bool:
             stepper = channel_steppers.get(name)
@@ -865,10 +996,12 @@ class VisionManager:
             if key in inner_polys:
                 cv2.fillPoly(ch_mask, [inner_polys[key]], 0)
             channel_masks[key] = ch_mask
-            channel_key = "second" if key == "second_channel" else "third"
+            channel_key = self._channelAngleKeyForPolygonKey(key)
+            if channel_key is None:
+                continue
             arc = parseSavedChannelArcZones(channel_key, self._channel_angles, raw_arc_params)
             drop_sections, exit_sections = zoneSectionsForChannel(
-                2 if channel_key == "second" else 3,
+                2 if channel_key == "second" else 3 if channel_key == "third" else 4,
                 float(self._channel_angles.get(channel_key, 0.0)),
                 arc,
             )
@@ -917,6 +1050,8 @@ class VisionManager:
             "second_channel": ("c_channel_2", self._c_channel_2_capture),
             "third_channel": ("c_channel_3", self._c_channel_3_capture),
         }
+        if self._usesClassificationChannelSetup():
+            channel_map["classification_channel"] = ("carousel", self._carousel_capture)
 
         for key, (role, capture) in channel_map.items():
             if key not in polys or capture is None:
@@ -955,7 +1090,9 @@ class VisionManager:
             if scaled_inner is not None:
                 cv2.fillPoly(ch_mask, [scaled_inner], 0)
 
-            channel_key = "second" if key == "second_channel" else "third"
+            channel_key = self._channelAngleKeyForPolygonKey(key)
+            if channel_key is None:
+                continue
 
             # Scale arc params for zone section computation
             scaled_arc_params = dict(raw_arc_params)
@@ -978,7 +1115,7 @@ class VisionManager:
 
             arc = parseSavedChannelArcZones(channel_key, scaled_channel_angles, scaled_arc_params)
             drop_sections, exit_sections = zoneSectionsForChannel(
-                2 if channel_key == "second" else 3,
+                2 if channel_key == "second" else 3 if channel_key == "third" else 4,
                 float(scaled_channel_angles.get(channel_key, 0.0)),
                 arc,
             )
@@ -1495,9 +1632,31 @@ class VisionManager:
         return masked[y:y2, x:x2].copy(), (int(x), int(y))
 
     def _channelInfoForRole(self, role: str) -> PolygonChannel | None:
-        detector = self._per_channel_detectors.get(role)
+        detector = getattr(self, "_per_channel_detectors", {}).get(role)
         if detector is None:
-            return None
+            key = self._channelPolygonKeyForRole(role)
+            capture = self.getCaptureThreadForRole(role)
+            frame = capture.latest_frame if capture is not None else None
+            if key is None or frame is None:
+                return None
+            h, w = frame.raw.shape[:2]
+            polygon = self._loadSavedPolygon(key, w, h)
+            if polygon is None or len(polygon) < 3:
+                return None
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
+            channel_id = 2 if key == "second_channel" else 3 if key == "third_channel" else 4
+            center = tuple(np.mean(polygon, axis=0).tolist())
+            angle_key = self._channelAngleKeyForPolygonKey(key)
+            return PolygonChannel(
+                channel_id=channel_id,
+                polygon=polygon.astype(np.int32),
+                center=center,
+                radius1_angle_image=float(
+                    getattr(self, "_channel_angles", {}).get(angle_key or "", 0.0)
+                ),
+                mask=mask,
+            )
         return detector.primaryChannel()
 
     def _feederRegionCrop(
@@ -1536,6 +1695,101 @@ class VisionManager:
             score=detection.score,
             algorithm=detection.algorithm,
         )
+
+    def _isPointInsideChannelMask(
+        self,
+        channel: PolygonChannel | None,
+        point: tuple[float, float],
+    ) -> bool:
+        if channel is None:
+            return True
+        mask = getattr(channel, "mask", None)
+        if not isinstance(mask, np.ndarray) or mask.ndim < 2:
+            return True
+        x = int(round(float(point[0])))
+        y = int(round(float(point[1])))
+        if x < 0 or y < 0 or y >= mask.shape[0] or x >= mask.shape[1]:
+            return False
+        return bool(mask[y, x] > 0)
+
+    def _bboxCenterPoint(
+        self,
+        bbox: tuple[int, int, int, int],
+    ) -> tuple[float, float]:
+        x1, y1, x2, y2 = bbox
+        return ((float(x1) + float(x2)) / 2.0, (float(y1) + float(y2)) / 2.0)
+
+    def _isFeederDetectionBboxPlausibleForRole(
+        self,
+        role: str,
+        bbox: tuple[int, int, int, int],
+    ) -> bool:
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+        width = max(0, x2 - x1)
+        height = max(0, y2 - y1)
+        if width <= 0 or height <= 0:
+            return False
+        if role == "carousel":
+            # Classification-channel ghosts frequently show up as paper-thin
+            # strips on the frame edge. Real LEGO parts under the hood are
+            # much larger than that, so reject implausibly skinny boxes.
+            if min(width, height) < 10:
+                return False
+            if (width * height) < 180:
+                return False
+        return True
+
+    def _filterFeederDetectionResultToChannel(
+        self,
+        role: str,
+        detection: ClassificationDetectionResult | None,
+    ) -> ClassificationDetectionResult | None:
+        if detection is None:
+            return None
+        channel = self._channelInfoForRole(role)
+        if channel is None:
+            return detection
+        kept = tuple(
+            bbox
+            for bbox in detection.bboxes
+            if (
+                self._isPointInsideChannelMask(channel, self._bboxCenterPoint(bbox))
+                and self._isFeederDetectionBboxPlausibleForRole(role, bbox)
+            )
+        )
+        if kept == detection.bboxes:
+            return detection
+        updated_bbox = kept[0] if kept else None
+        updated_found = bool(kept)
+        if is_dataclass(detection):
+            return replace(
+                detection,
+                bbox=updated_bbox,
+                bboxes=kept,
+                found=updated_found,
+            )
+        return type(detection)(
+            **{
+                **getattr(detection, "__dict__", {}),
+                "bbox": updated_bbox,
+                "bboxes": kept,
+                "found": updated_found,
+            }
+        )
+
+    def _filterLiveFeederTracksToChannel(
+        self,
+        role: str,
+        tracks: list,
+    ) -> list:
+        channel = self._channelInfoForRole(role)
+        if channel is None:
+            return list(tracks)
+        return [
+            track
+            for track in tracks
+            if self._isPointInsideChannelMask(channel, getattr(track, "center", (0.0, 0.0)))
+        ]
 
     def _geminiDetectorForRequest(self, request: DetectionRequest) -> GeminiSamDetector:
         model = self._openRouterModelForScope(request.scope)
@@ -1669,7 +1923,7 @@ class VisionManager:
             channel = self._channelInfoForRole(role)
             if channel is not None and channel.polygon is not None and len(channel.polygon) >= 3:
                 return np.asarray(channel.polygon, dtype=np.int32)
-            key = "second_channel" if role == "c_channel_2" else "third_channel" if role == "c_channel_3" else None
+            key = self._channelPolygonKeyForRole(role)
             if key is None:
                 return None
             return self._loadSavedPolygon(key, w, h)
@@ -1726,10 +1980,17 @@ class VisionManager:
         """
         entry_roles = set(self._piece_handoff_manager._entry_zones.keys())
         exit_roles = set(self._piece_handoff_manager._exit_zones.keys())
-        if "c_channel_2" in exit_roles and "c_channel_3" in entry_roles:
+        required_ready = (
+            ("c_channel_2" in exit_roles and "c_channel_3" in entry_roles)
+            and (
+                not self._usesClassificationChannelSetup()
+                or ("c_channel_3" in exit_roles and "carousel" in entry_roles)
+            )
+        )
+        if required_ready:
             return
         # Both cameras must have produced a frame so we know their resolution.
-        for role in ("c_channel_2", "c_channel_3"):
+        for role in self._feederTrackerRoles():
             capture = self.getCaptureThreadForRole(role)
             if capture is None or capture.latest_frame is None:
                 return
@@ -1772,8 +2033,9 @@ class VisionManager:
     ) -> None:
         """Push the latest detection bboxes into the per-role SORT tracker.
 
-        Runs ONLY for feeder roles (``c_channel_2``/``c_channel_3``) because
-        the handoff manager only knows that chain. Safe to call with
+        Runs for the configured feeder-tracker chain (normally
+        ``c_channel_2``/``c_channel_3`` and, in classification-channel
+        setup, also ``carousel``). Safe to call with
         ``detection=None`` — tracker still ticks with an empty detection list
         so coasting/death logic runs. ``frame_bgr`` is used to snapshot the
         first sighting of each new track for the history panel.
@@ -1794,7 +2056,10 @@ class VisionManager:
             uniform_score = float(detection.score) if detection.score is not None else 0.9
             scores = [uniform_score] * len(bboxes)
             tracks = tracker.update(bboxes, scores, float(timestamp), frame_bgr=frame_bgr)
-        self._feeder_track_cache[role] = (float(timestamp), tracks)
+        self._feeder_track_cache[role] = (
+            float(timestamp),
+            self._filterLiveFeederTracksToChannel(role, tracks),
+        )
         self._piece_handoff_manager.prune(float(timestamp))
 
     def getFeederTracks(self, role: str) -> list:
@@ -1802,6 +2067,78 @@ class VisionManager:
         if cached is None:
             return []
         return list(cached[1])
+
+    def _liveTrackPayload(self, role: str, global_id: int) -> dict | None:
+        tracker = self._feeder_trackers.get(role)
+        if tracker is None:
+            return None
+        live_track = next(
+            (internal for internal in tracker._tracks.values() if internal.global_id == global_id),
+            None,
+        )
+        if live_track is None:
+            return None
+        geom = tracker._channel_geom if tracker is not None else None
+        sector_snaps_payload = [
+            {
+                "sector_index": s.sector_index,
+                "start_angle_deg": s.start_angle_deg,
+                "end_angle_deg": s.end_angle_deg,
+                "captured_ts": s.captured_ts,
+                "bbox_x": s.bbox_x,
+                "bbox_y": s.bbox_y,
+                "width": s.width,
+                "height": s.height,
+                "jpeg_b64": s.jpeg_b64,
+                "r_inner": getattr(s, "r_inner", 0.0),
+                "r_outer": getattr(s, "r_outer", 0.0),
+                "piece_jpeg_b64": getattr(s, "piece_jpeg_b64", ""),
+                "piece_bbox_x": getattr(s, "piece_bbox_x", 0),
+                "piece_bbox_y": getattr(s, "piece_bbox_y", 0),
+                "piece_width": getattr(s, "piece_width", 0),
+                "piece_height": getattr(s, "piece_height", 0),
+            }
+            for s in live_track.sector_snapshots
+        ]
+        return {
+            "source_role": role,
+            "handoff_from": live_track.handoff_from,
+            "first_seen_ts": live_track.first_seen_ts,
+            "last_seen_ts": live_track.last_seen_ts,
+            "duration_s": max(0.0, live_track.last_seen_ts - live_track.first_seen_ts),
+            "hit_count": live_track.hit_count,
+            "path_points": len(live_track.path),
+            "snapshot_width": live_track.snapshot_width,
+            "snapshot_height": live_track.snapshot_height,
+            "snapshot_jpeg_b64": live_track.snapshot_jpeg_b64,
+            "path": [list(p) for p in live_track.path],
+            "channel_center_x": geom.center_x if geom is not None else None,
+            "channel_center_y": geom.center_y if geom is not None else None,
+            "channel_radius_inner": geom.r_inner if geom is not None else None,
+            "channel_radius_outer": geom.r_outer if geom is not None else None,
+            "sector_count": geom.sector_count if geom is not None else 0,
+            "sector_snapshot_count": len(sector_snaps_payload),
+            "sector_snapshots": sector_snaps_payload,
+            "composite_jpeg_b64": "",
+            "composite_width": 0,
+            "composite_height": 0,
+        }
+
+    def getLatestFeederTrack(self, role: str, *, max_age_s: float = 1.0) -> dict | None:
+        cached = self._feeder_track_cache.get(role)
+        if cached is None:
+            return None
+        _ts, tracks = cached
+        now = time.time()
+        candidates = [
+            track
+            for track in tracks
+            if now - float(track.last_seen_ts) <= max(0.0, max_age_s)
+        ]
+        if not candidates:
+            return None
+        latest = max(candidates, key=lambda track: (float(track.last_seen_ts), int(track.hit_count)))
+        return latest.to_dict()
 
     def _attachFeederTrackInfo(self, result: Dict[str, object], role: str) -> None:
         """Append serialized tracks + count to a feeder debug payload."""
@@ -1842,8 +2179,11 @@ class VisionManager:
                     continue
                 # Apply the same sector-count filter to live tracks so the
                 # sidebar only surfaces pieces that have traveled far enough
-                # to produce meaningful snapshots.
-                if min_sectors > 0 and tracker is not None:
+                # to produce meaningful snapshots. Classification-channel
+                # tracks should still show up even before they have covered
+                # several sectors, otherwise the live overview hides exactly
+                # the new setup the operator is debugging.
+                if min_sectors > 0 and tracker is not None and role != "carousel":
                     live_track = next(
                         (lt for lt in tracker._tracks.values() if lt.global_id == t.global_id),
                         None,
@@ -1873,82 +2213,68 @@ class VisionManager:
         return combined
 
     def getFeederTrackHistoryDetail(self, global_id: int) -> dict | None:
-        """Detail from history buffer, falling back to live track if not archived yet."""
+        """Detail from history buffer, augmented with any still-live segment."""
         detail = self._piece_history.get_detail(global_id)
+        live_segments = [
+            payload
+            for role in self._feeder_trackers.keys()
+            for payload in [self._liveTrackPayload(role, global_id)]
+            if payload is not None
+        ]
         if detail is not None:
-            return detail
-        # Fabricate a detail record for a still-live track from the current caches.
-        for role, (_ts, tracks) in self._feeder_track_cache.items():
-            for t in tracks:
-                if t.global_id != global_id:
-                    continue
-                tracker = self._feeder_trackers.get(t.source_role)
-                live_track = None
-                if tracker is not None:
-                    for internal in tracker._tracks.values():
-                        if internal.global_id == global_id:
-                            live_track = internal
-                            break
-                if live_track is None:
-                    continue
-                geom = tracker._channel_geom if tracker is not None else None
-                sector_snaps_payload = [
-                    {
-                        "sector_index": s.sector_index,
-                        "start_angle_deg": s.start_angle_deg,
-                        "end_angle_deg": s.end_angle_deg,
-                        "captured_ts": s.captured_ts,
-                        "bbox_x": s.bbox_x,
-                        "bbox_y": s.bbox_y,
-                        "width": s.width,
-                        "height": s.height,
-                        "jpeg_b64": s.jpeg_b64,
-                        "r_inner": getattr(s, "r_inner", 0.0),
-                        "r_outer": getattr(s, "r_outer", 0.0),
-                        "piece_jpeg_b64": getattr(s, "piece_jpeg_b64", ""),
-                        "piece_bbox_x": getattr(s, "piece_bbox_x", 0),
-                        "piece_bbox_y": getattr(s, "piece_bbox_y", 0),
-                        "piece_width": getattr(s, "piece_width", 0),
-                        "piece_height": getattr(s, "piece_height", 0),
-                    }
-                    for s in live_track.sector_snapshots
-                ]
-                return {
-                    "global_id": global_id,
-                    "created_at": live_track.origin_seen_ts,
-                    "finished_at": live_track.last_seen_ts,
-                    "duration_s": max(0.0, live_track.last_seen_ts - live_track.origin_seen_ts),
-                    "roles": [t.source_role],
-                    "handoff_count": 1 if live_track.handoff_from else 0,
-                    "segment_count": 1,
-                    "total_hit_count": live_track.hit_count,
+            existing_roles = {
+                segment.get("source_role")
+                for segment in detail.get("segments", [])
+                if isinstance(segment, dict)
+            }
+            appended = [
+                payload for payload in live_segments
+                if payload.get("source_role") not in existing_roles
+            ]
+            if appended:
+                next_segments = list(detail.get("segments", [])) + appended
+                next_segments.sort(key=lambda segment: float(segment.get("first_seen_ts", 0.0)))
+                detail = {
+                    **detail,
+                    "segments": next_segments,
+                    "roles": [segment.get("source_role") for segment in next_segments],
+                    "segment_count": len(next_segments),
+                    "handoff_count": sum(
+                        1
+                        for segment in next_segments
+                        if isinstance(segment, dict) and segment.get("handoff_from") is not None
+                    ),
+                    "total_hit_count": sum(
+                        int(segment.get("hit_count", 0))
+                        for segment in next_segments
+                        if isinstance(segment, dict)
+                    ),
+                    "finished_at": max(
+                        float(segment.get("last_seen_ts", detail.get("finished_at", 0.0)))
+                        for segment in next_segments
+                        if isinstance(segment, dict)
+                    ),
                     "live": True,
-                    "segments": [
-                        {
-                            "source_role": t.source_role,
-                            "handoff_from": live_track.handoff_from,
-                            "first_seen_ts": live_track.first_seen_ts,
-                            "last_seen_ts": live_track.last_seen_ts,
-                            "duration_s": max(0.0, live_track.last_seen_ts - live_track.first_seen_ts),
-                            "hit_count": live_track.hit_count,
-                            "path_points": len(live_track.path),
-                            "snapshot_width": live_track.snapshot_width,
-                            "snapshot_height": live_track.snapshot_height,
-                            "snapshot_jpeg_b64": live_track.snapshot_jpeg_b64,
-                            "path": [list(p) for p in live_track.path],
-                            "channel_center_x": geom.center_x if geom is not None else None,
-                            "channel_center_y": geom.center_y if geom is not None else None,
-                            "channel_radius_inner": geom.r_inner if geom is not None else None,
-                            "channel_radius_outer": geom.r_outer if geom is not None else None,
-                            "sector_count": geom.sector_count if geom is not None else 0,
-                            "sector_snapshot_count": len(sector_snaps_payload),
-                            "sector_snapshots": sector_snaps_payload,
-                            "composite_jpeg_b64": "",
-                            "composite_width": 0,
-                            "composite_height": 0,
-                        }
-                    ],
                 }
+            return detail
+        if live_segments:
+            live_segments.sort(key=lambda segment: float(segment.get("first_seen_ts", 0.0)))
+            created_at = min(float(segment.get("first_seen_ts", 0.0)) for segment in live_segments)
+            finished_at = max(float(segment.get("last_seen_ts", 0.0)) for segment in live_segments)
+            return {
+                "global_id": global_id,
+                "created_at": created_at,
+                "finished_at": finished_at,
+                "duration_s": max(0.0, finished_at - created_at),
+                "roles": [segment.get("source_role") for segment in live_segments],
+                "handoff_count": sum(
+                    1 for segment in live_segments if segment.get("handoff_from") is not None
+                ),
+                "segment_count": len(live_segments),
+                "total_hit_count": sum(int(segment.get("hit_count", 0)) for segment in live_segments),
+                "live": True,
+                "segments": live_segments,
+            }
         return None
 
     def _configureFeederHandoffZones(self, polys: Dict[str, np.ndarray]) -> None:
@@ -1969,6 +2295,8 @@ class VisionManager:
         # ``_initOverlays``. We duplicate the tiny dict because this method is
         # called before that one runs.
         role_to_key = {"c_channel_2": "second_channel", "c_channel_3": "third_channel"}
+        if self._usesClassificationChannelSetup():
+            role_to_key["carousel"] = "classification_channel"
 
         def _rect_to_polygon(x1: float, y1: float, x2: float, y2: float) -> list[tuple[float, float]]:
             return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
@@ -1989,6 +2317,18 @@ class VisionManager:
                 )
             elif role == "c_channel_3":
                 # Entry = left HALF mirrors c_channel_2's exit.
+                en2 = x + w // 2
+                self._piece_handoff_manager.set_zones(
+                    role,
+                    entry_polygon=_rect_to_polygon(x, y, en2, y + h),
+                )
+                if self._usesClassificationChannelSetup():
+                    ex1 = x + w // 2
+                    self._piece_handoff_manager.set_zones(
+                        role,
+                        exit_polygon=_rect_to_polygon(ex1, y, x + w, y + h),
+                    )
+            elif role == "carousel":
                 en2 = x + w // 2
                 self._piece_handoff_manager.set_zones(
                     role,
@@ -2084,7 +2424,7 @@ class VisionManager:
         frame = capture.latest_frame
         if frame is None:
             return None
-        algorithm = self.getFeederDetectionAlgorithm()
+        algorithm = self.getFeederDetectionAlgorithm(role)
         if algorithm.startswith("hive:"):
             # Hive inference is local but ~30-50ms per 320 crop on CPU. If we
             # ran it inline per frame-encode (10fps target), the encode thread
@@ -2095,15 +2435,67 @@ class VisionManager:
             if cached is not None and not force:
                 last_ts, last_det = cached
                 if now - float(last_ts) < HIVE_INFERENCE_MIN_INTERVAL_S:
-                    return last_det
-            detection = self._runHiveDetection(algorithm, frame.raw, scope="feeder", role=role)
+                    return self._filterFeederDetectionResultToChannel(role, last_det)
+            detection = self._filterFeederDetectionResultToChannel(
+                role,
+                self._runHiveDetection(algorithm, frame.raw, scope="feeder", role=role),
+            )
             self._feeder_dynamic_detection_cache[role] = (now, detection)
             self._updateFeederTracker(role, detection, now, frame_bgr=frame.raw)
             return detection
-        cached = self._getCachedFeederDynamicDetection(role, frame.timestamp)
-        if not force:
+        cached = self._filterFeederDetectionResultToChannel(
+            role,
+            self._getCachedFeederDynamicDetection(role, frame.timestamp),
+        )
+        if algorithm == "gemini_sam" and not force:
+            track_cache = self._feeder_track_cache.get(role)
+            if (
+                cached is not None
+                and track_cache is not None
+                and float(track_cache[0]) != float(frame.timestamp)
+            ):
+                self._updateFeederTracker(
+                    role,
+                    cached,
+                    frame.timestamp,
+                    frame_bgr=frame.raw,
+                )
+            elif cached is not None and track_cache is None:
+                self._updateFeederTracker(
+                    role,
+                    cached,
+                    frame.timestamp,
+                    frame_bgr=frame.raw,
+                )
+            # Cloud Gemini must stay off the hot render path. Live overlays and
+            # frame encoding consume the most recent cached result; the
+            # auxiliary detection loop refreshes that cache asynchronously.
             return cached
-        detection = self._computeFeederGeminiDetection(role, frame, force_call=True)
+        if not force:
+            track_cache = self._feeder_track_cache.get(role)
+            if (
+                cached is not None
+                and track_cache is not None
+                and float(track_cache[0]) != float(frame.timestamp)
+            ):
+                self._updateFeederTracker(
+                    role,
+                    cached,
+                    frame.timestamp,
+                    frame_bgr=frame.raw,
+                )
+            elif cached is not None and track_cache is None:
+                self._updateFeederTracker(
+                    role,
+                    cached,
+                    frame.timestamp,
+                    frame_bgr=frame.raw,
+                )
+            return cached
+        detection = self._filterFeederDetectionResultToChannel(
+            role,
+            self._computeFeederGeminiDetection(role, frame, force_call=True),
+        )
         self._feeder_dynamic_detection_cache[role] = (frame.timestamp, detection)
         self._updateFeederTracker(role, detection, frame.timestamp, frame_bgr=frame.raw)
         return detection
@@ -2114,6 +2506,7 @@ class VisionManager:
         detection: ClassificationDetectionResult | None,
     ) -> list[ChannelDetection]:
         channel = self._channelInfoForRole(role)
+        detection = self._filterFeederDetectionResultToChannel(role, detection)
         if channel is None or detection is None:
             return []
         return [
@@ -2177,7 +2570,7 @@ class VisionManager:
         return detection
 
     def _captureAuxiliarySampleFromFrame(self, role: str, frame_raw: np.ndarray) -> dict[str, np.ndarray | None]:
-        if role in {"c_channel_2", "c_channel_3"}:
+        if role in self._feederTrackerRoles():
             crop, _ = self._feederRegionCrop(role, frame_raw)
         elif role == "carousel":
             crop, _ = self._carouselRegionCrop(frame_raw)
@@ -2196,14 +2589,14 @@ class VisionManager:
         return self._captureAuxiliarySampleFromFrame(role, frame.raw)
 
     def _sampleRoleScope(self, role: str) -> str:
-        if role in {"c_channel_2", "c_channel_3"}:
+        if role in self._feederTrackerRoles():
             return "feeder"
         if role == "carousel":
             return "carousel"
         return "classification"
 
     def _sampleCollectionEnabledForRole(self, role: str) -> bool:
-        if role in {"c_channel_2", "c_channel_3"}:
+        if role in self._feederTrackerRoles():
             return self.isFeederSampleCollectionEnabled(role)
         if role == "carousel":
             return self.isCarouselSampleCollectionEnabled()
@@ -2243,13 +2636,13 @@ class VisionManager:
         move_label: str,
         pulse_degrees: float,
     ) -> None:
-        if role not in {"c_channel_2", "c_channel_3"}:
+        if role not in self._feederTrackerRoles():
             return
         self._queueAuxiliaryTeacherCapture(
             role=role,
             capture_reason="channel_move_complete",
             due_at=time.time() + max(0.0, delay_s),
-            trigger_algorithm=self.getFeederDetectionAlgorithm(),
+            trigger_algorithm=self.getFeederDetectionAlgorithm(role),
             trigger_metadata={
                 "trigger_move_label": move_label,
                 "trigger_move_delay_ms": int(round(max(0.0, delay_s) * 1000.0)),
@@ -2282,19 +2675,21 @@ class VisionManager:
         )
 
     def getFeederHeatmapDetections(self) -> list[ChannelDetection]:
-        if self.getFeederDetectionAlgorithm() == "gemini_sam":
-            if self._camera_layout != "split_feeder":
-                return []
+        if self._camera_layout == "split_feeder":
             detections: list[ChannelDetection] = []
-            for role in ("c_channel_2", "c_channel_3"):
-                detections.extend(
-                    self._channelDetectionsFromDynamicResult(role, self._getFeederDynamicDetection(role, force=False))
-                )
-            return detections
-        if self._per_channel_analysis:
-            detections: list[ChannelDetection] = []
-            for analysis in self._per_channel_analysis.values():
-                detections.extend(analysis.getDetections())
+            for role in self._feederTrackerRoles():
+                algorithm = self.getFeederDetectionAlgorithm(role)
+                if self._isDynamicDetectionAlgorithm(algorithm):
+                    detections.extend(
+                        self._channelDetectionsFromDynamicResult(
+                            role,
+                            self._getFeederDynamicDetection(role, force=False),
+                        )
+                    )
+                    continue
+                analysis = self._per_channel_analysis.get(role)
+                if analysis is not None:
+                    detections.extend(analysis.getDetections())
             return detections
         if self._feeder_analysis is None:
             return []
@@ -2302,12 +2697,11 @@ class VisionManager:
 
     def getFeederDetectionAvailability(self, *, max_frame_age_s: float = 1.5) -> tuple[bool, str | None]:
         now = time.time()
-        algorithm = self.getFeederDetectionAlgorithm()
 
         if self._camera_layout == "split_feeder":
             required_roles = {
-                "c_channel_2": self._c_channel_2_capture,
-                "c_channel_3": self._c_channel_3_capture,
+                role: self.getCaptureThreadForRole(role)
+                for role in self._feederTrackerRoles()
             }
             for role, capture in required_roles.items():
                 if capture is None:
@@ -2317,10 +2711,12 @@ class VisionManager:
                     return False, f"{role} camera has no live frame."
                 if now - frame.timestamp > max_frame_age_s:
                     return False, f"{role} camera frame is stale."
-                if algorithm != "gemini_sam" and role not in self._per_channel_analysis:
+                algorithm = self.getFeederDetectionAlgorithm(role)
+                if (not self._isDynamicDetectionAlgorithm(algorithm)) and role not in self._per_channel_analysis:
                     return False, f"{role} feeder detector is not running."
             return True, None
 
+        algorithm = self.getFeederDetectionAlgorithm()
         if self._feeder_capture is None:
             return False, "feeder camera is not configured."
         frame = self._feeder_capture.latest_frame
@@ -2328,7 +2724,7 @@ class VisionManager:
             return False, "feeder camera has no live frame."
         if now - frame.timestamp > max_frame_age_s:
             return False, "feeder camera frame is stale."
-        if algorithm != "gemini_sam" and self._feeder_analysis is None:
+        if (not self._isDynamicDetectionAlgorithm(algorithm)) and self._feeder_analysis is None:
             return False, "feeder detector is not running."
         return True, None
 
@@ -2415,7 +2811,7 @@ class VisionManager:
         *,
         force: bool,
     ) -> Dict[str, object]:
-        algorithm = self.getFeederDetectionAlgorithm()
+        algorithm = self.getFeederDetectionAlgorithm(role)
         frame_h, frame_w = frame.raw.shape[:2]
         channel = self._channelInfoForRole(role)
         zone_bbox: Tuple[int, int, int, int] | None = None
@@ -2527,13 +2923,13 @@ class VisionManager:
         return result
 
     def debugFeederDetection(self, role: str, *, include_capture: bool = False) -> Dict[str, object]:
-        if role not in {"c_channel_2", "c_channel_3"}:
+        if role not in self._feederTrackerRoles():
             raise ValueError(f"Unsupported feeder role '{role}'")
         capture = self.getCaptureThreadForRole(role)
         if capture is None:
             return {
                 "camera": role,
-                "algorithm": self.getFeederDetectionAlgorithm(),
+                "algorithm": self.getFeederDetectionAlgorithm(role),
                 "found": False,
                 "message": "No camera is configured for this channel.",
             }
@@ -2541,7 +2937,7 @@ class VisionManager:
         if frame is None:
             return {
                 "camera": role,
-                "algorithm": self.getFeederDetectionAlgorithm(),
+                "algorithm": self.getFeederDetectionAlgorithm(role),
                 "found": False,
                 "message": "No live frame is available yet.",
             }
@@ -2818,17 +3214,42 @@ class VisionManager:
             )
 
     def _refreshAuxiliaryDetections(self) -> None:
-        if self.getFeederDetectionAlgorithm() == "gemini_sam":
-            for role in ("c_channel_2", "c_channel_3"):
-                capture = self.getCaptureThreadForRole(role)
-                frame = capture.latest_frame if capture is not None else None
-                if frame is None:
-                    continue
-                cached = self._feeder_dynamic_detection_cache.get(role)
-                if cached is not None and cached[0] == frame.timestamp:
-                    continue
-                detection = self._computeFeederGeminiDetection(role, frame, force_call=False)
-                self._feeder_dynamic_detection_cache[role] = (frame.timestamp, detection)
+        gemini_roles = [
+            role
+            for role in self._feederTrackerRoles()
+            if self.getFeederDetectionAlgorithm(role) == "gemini_sam"
+        ]
+        pending_refresh: list[tuple[str, Any]] = []
+        for role in gemini_roles:
+            capture = self.getCaptureThreadForRole(role)
+            frame = capture.latest_frame if capture is not None else None
+            if frame is None:
+                continue
+            cached = self._feeder_dynamic_detection_cache.get(role)
+            if cached is not None and cached[0] == frame.timestamp:
+                track_cache = self._feeder_track_cache.get(role)
+                if track_cache is None or float(track_cache[0]) != float(frame.timestamp):
+                    self._updateFeederTracker(
+                        role,
+                        cached[1],
+                        frame.timestamp,
+                        frame_bgr=frame.raw,
+                    )
+                continue
+            pending_refresh.append((role, frame))
+
+        if pending_refresh:
+            cursor = self._aux_feeder_refresh_cursor % len(pending_refresh)
+            role, frame = pending_refresh[cursor]
+            self._aux_feeder_refresh_cursor = (cursor + 1) % len(pending_refresh)
+            detection = self._filterFeederDetectionResultToChannel(
+                role,
+                self._computeFeederGeminiDetection(role, frame, force_call=False),
+            )
+            self._feeder_dynamic_detection_cache[role] = (frame.timestamp, detection)
+            self._updateFeederTracker(role, detection, frame.timestamp, frame_bgr=frame.raw)
+        else:
+            self._aux_feeder_refresh_cursor = 0
 
         if self.getCarouselDetectionAlgorithm() == "gemini_sam" and self._carousel_capture is not None:
             frame = self._carousel_capture.latest_frame
@@ -3022,6 +3443,20 @@ class VisionManager:
             self._classification_bottom_capture.latest_frame if self._classification_bottom_capture else None,
         )
 
+    def captureFreshClassificationChannelFrame(
+        self,
+        timeout_s: float = 1.0,
+    ) -> Optional[CameraFrame]:
+        if self._carousel_capture is None:
+            return None
+        start_time = time.time()
+        while time.time() - start_time < timeout_s:
+            frame = self._carousel_capture.latest_frame
+            if frame is not None and frame.timestamp > start_time:
+                return frame
+            time.sleep(0.05)
+        return self._carousel_capture.latest_frame
+
     def _loadClassificationPolygons(self) -> None:
         saved = getClassificationPolygons()
         if saved is None:
@@ -3151,6 +3586,96 @@ class VisionManager:
                 bottom_crop = self._cropToBbox(bottom_frame.raw, bbox, margins)
 
         return (top_crop, bottom_crop)
+
+    def getClassificationChannelDetectionCandidates(
+        self,
+        *,
+        force: bool = False,
+        frame: CameraFrame | None = None,
+    ) -> List[Tuple[int, int, int, int]]:
+        if frame is None:
+            capture = self._carousel_capture
+            frame = capture.latest_frame if capture is not None else None
+        if frame is None:
+            return []
+
+        payload = self._buildCarouselDetectionPayload(frame, force=force)
+        raw_candidates = payload.get("candidate_bboxes")
+        if not isinstance(raw_candidates, list):
+            return []
+
+        candidates: List[Tuple[int, int, int, int]] = []
+        for candidate in raw_candidates:
+            if not isinstance(candidate, list) or len(candidate) < 4:
+                continue
+            try:
+                candidates.append(tuple(int(value) for value in candidate[:4]))
+            except (TypeError, ValueError):
+                continue
+        return candidates
+
+    def getClassificationChannelCombinedBbox(
+        self,
+        *,
+        force: bool = False,
+        frame: CameraFrame | None = None,
+    ) -> Tuple[int, int, int, int] | None:
+        if frame is None:
+            capture = self._carousel_capture
+            frame = capture.latest_frame if capture is not None else None
+        if frame is None:
+            return None
+
+        payload = self._buildCarouselDetectionPayload(frame, force=force)
+        bbox = payload.get("bbox")
+        if isinstance(bbox, list) and len(bbox) >= 4:
+            try:
+                return tuple(int(value) for value in bbox[:4])
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def getClassificationChannelSampleFromFrame(
+        self,
+        frame: CameraFrame | None,
+    ) -> Dict[str, np.ndarray | None]:
+        zone_crop: np.ndarray | None = None
+        if frame is not None:
+            zone_crop, _ = self._carouselRegionCrop(frame.raw)
+        return {
+            "zone": zone_crop,
+            "frame": frame.raw.copy() if frame is not None else None,
+        }
+
+    def getClassificationChannelCrop(
+        self,
+        *,
+        force: bool = False,
+        frame: CameraFrame | None = None,
+    ) -> np.ndarray | None:
+        if frame is None:
+            capture = self._carousel_capture
+            frame = capture.latest_frame if capture is not None else None
+        if frame is None:
+            return None
+
+        bbox = self.getClassificationChannelCombinedBbox(force=force, frame=frame)
+        if bbox is None:
+            return None
+
+        x1, y1, x2, y2 = bbox
+        width = max(1, x2 - x1)
+        height = max(1, y2 - y1)
+        margin_x = max(18, int(round(width * 0.14)))
+        margin_y = max(18, int(round(height * 0.14)))
+        h, w = frame.raw.shape[:2]
+        crop_x1 = max(0, x1 - margin_x)
+        crop_y1 = max(0, y1 - margin_y)
+        crop_x2 = min(w, x2 + margin_x)
+        crop_y2 = min(h, y2 + margin_y)
+        if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
+            return None
+        return frame.raw[crop_y1:crop_y2, crop_x1:crop_x2].copy()
 
     def getClassificationZoneCrop(
         self,

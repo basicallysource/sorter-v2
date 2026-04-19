@@ -73,11 +73,15 @@ class Positioning(BaseState):
             self._blocked_layers.clear()
             self._setOccupancyState("positioning.select_target_bin")
             self._state_entered_at = now
-            carousel = self.shared.carousel
-            piece = carousel.getPieceAtIntermediate() if carousel else None
+            transport = self.shared.transport
+            piece = (
+                transport.getPieceForDistributionPositioning()
+                if transport is not None
+                else None
+            )
             if piece is None:
-                self.logger.warn("Positioning: no piece at intermediate")
-                self._setOccupancyState("positioning.wait_piece_at_intermediate")
+                self.logger.warn("Positioning: no piece ready for distribution")
+                self._setOccupancyState("positioning.wait_piece_for_distribution")
                 return DistributionState.IDLE
 
             if piece.part_id is not None:

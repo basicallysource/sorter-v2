@@ -20,6 +20,7 @@ def _make_single_tracker(
     score_threshold: float = 0.1,
     pixel_fallback_distance_px: float = 200.0,
     coast_limit_ticks: int = 5,
+    stagnant_false_track_max_age_s: float = 3.0,
 ) -> tuple[PolarFeederTracker, PieceHandoffManager]:
     manager = PieceHandoffManager(handoff_chain={})
     tracker = PolarFeederTracker(
@@ -28,6 +29,7 @@ def _make_single_tracker(
         pixel_fallback_distance_px=pixel_fallback_distance_px,
         detection_score_threshold=score_threshold,
         coast_limit_ticks=coast_limit_ticks,
+        stagnant_false_track_max_age_s=stagnant_false_track_max_age_s,
     )
     return tracker, manager
 
@@ -106,6 +108,71 @@ def test_score_threshold_filters_low():
     tracker, _ = _make_single_tracker(score_threshold=0.5)
     tracks = tracker.update([_bbox_around(100.0, 200.0, size=60)], [0.2], 0.0)
     assert tracks == []
+
+
+def test_stagnant_false_track_is_ignored_after_grace_period():
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    last_tracks = []
+    for i in range(8):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert last_tracks == [], "static false detection should be ignored after aging out"
+
+    suppressed = tracker.update([_bbox_around(202.0, 242.0, size=60)], [0.9], 1.8)
+    assert suppressed == [], "ignored static region should suppress immediate re-spawn"
+
+
+def test_real_track_survives_later_pause_once_motion_was_confirmed():
+    tracker, _ = _make_single_tracker(stagnant_false_track_max_age_s=1.0)
+
+    moving_points = [100.0, 116.0, 134.0, 156.0]
+    last_tracks = []
+    for i, cx in enumerate(moving_points):
+        last_tracks = tracker.update([_bbox_around(cx, 200.0, size=60)], [0.9], i * 0.2)
+    assert len(last_tracks) == 1
+
+    paused_tracks = []
+    for j in range(4, 11):
+        paused_tracks = tracker.update([_bbox_around(156.0, 200.0, size=60)], [0.9], j * 0.2)
+
+    assert len(paused_tracks) == 1, "legit track should remain after later pause"
+
+
+def test_stagnant_filter_is_not_applied_to_c_channel_3():
+    tracker, _ = _make_single_tracker(
+        role="c_channel_3",
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    last_tracks = []
+    for i in range(8):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert len(last_tracks) == 1, "stagnant suppression should stay scoped off c_channel_3"
+
+
+def test_stagnant_filter_skips_handoff_tracks_on_classification_channel():
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
+    internal_track = next(iter(tracker._tracks.values()))
+    internal_track.handoff_from = "c_channel_3"
+
+    last_tracks = []
+    for i in range(1, 8):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert len(last_tracks) == 1, "handoff-backed classification track should not be suppressed"
 
 
 # ---------------------------------------------------------------------------

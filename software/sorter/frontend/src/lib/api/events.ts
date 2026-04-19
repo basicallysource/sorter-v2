@@ -53,6 +53,7 @@ export interface KnownObjectData {
   category_id?: string | null;
   confidence?: number | null;
   destination_bin?: [unknown, unknown, unknown] | null;
+  tracked_global_id?: number | null;
   thumbnail?: string | null;
   top_image?: string | null;
   bottom_image?: string | null;

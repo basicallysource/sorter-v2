@@ -56,15 +56,26 @@ def build_feeder_tracker_system(
         manager.seed_id_counter(history.max_global_id())
     except Exception:
         pass
-    trackers = {
-        role: PolarFeederTracker(
-            role=role,
-            handoff_manager=manager,
-            detection_score_threshold=detection_score_threshold,
-            history=history,
-        )
-        for role in roles
-    }
+    trackers = {}
+    for role in roles:
+        tracker_kwargs = {
+            "role": role,
+            "handoff_manager": manager,
+            "detection_score_threshold": detection_score_threshold,
+            "history": history,
+        }
+        if role == "carousel":
+            # The dedicated classification channel is especially sensitive to
+            # static ghost boxes when the plate is empty. Be more aggressive
+            # there, while leaving c_channel_2 / c_channel_3 unchanged.
+            tracker_kwargs.update(
+                stagnant_false_track_max_age_s=1.5,
+                stagnant_false_track_min_displacement_px=24.0,
+                stagnant_false_track_min_path_length_px=60.0,
+                stagnant_false_track_suppression_radius_px=56.0,
+                stagnant_false_track_suppression_ttl_s=5.0,
+            )
+        trackers[role] = PolarFeederTracker(**tracker_kwargs)
     return manager, trackers, history
 
 

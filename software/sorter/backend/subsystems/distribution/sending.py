@@ -40,8 +40,12 @@ class Sending(BaseState):
 
     def step(self) -> Optional[DistributionState]:
         if self.piece is None:
-            carousel = self.shared.carousel
-            self.piece = carousel.getPieceAtExit() if carousel else None
+            transport = self.shared.transport
+            self.piece = (
+                transport.getPieceForDistributionDrop()
+                if transport is not None
+                else None
+            )
             self.start_time = time.time()
 
         elapsed_ms = (time.time() - self.start_time) * 1000

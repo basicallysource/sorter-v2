@@ -1,4 +1,4 @@
-import type { StepperKey } from '$lib/settings/stations';
+import type { MachineSetupKey, StepperKey } from '$lib/settings/stations';
 
 export type StepperPulseMode = 'duration' | 'degrees';
 
@@ -23,6 +23,19 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	carousel: 1,
 	chute: 120 / 25
 };
+
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification Channel';
+export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_3;
+
+export function stepperGearRatioForSetup(
+	stepperKey: StepperKey,
+	machineSetup?: MachineSetupKey
+): number {
+	if (stepperKey === 'carousel' && machineSetup === 'classification_channel') {
+		return CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO;
+	}
+	return STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
+}
 
 export function stepperPulseStorageKey(stepperKey: StepperKey, field: string): string {
 	return `stepper:${stepperKey}:${field}`;
@@ -85,15 +98,17 @@ export function loadStoredStepperPulseSettings(stepperKey: StepperKey): StoredSt
 export async function triggerStoredStepperPulse(
 	baseUrl: string,
 	stepperKey: StepperKey,
-	direction: 'cw' | 'ccw'
+	direction: 'cw' | 'ccw',
+	options?: {
+		gearRatio?: number;
+	}
 ): Promise<string> {
 	const settings = loadStoredStepperPulseSettings(stepperKey);
 
 	if (settings.pulseMode === 'degrees') {
+		const gearRatio = options?.gearRatio ?? STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
 		const motorDegrees =
-			settings.pulseDegrees *
-			(STEPPER_GEAR_RATIOS[stepperKey] ?? 1) *
-			(direction === 'ccw' ? -1 : 1);
+			settings.pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
 		const params = new URLSearchParams({
 			stepper: stepperKey,
 			degrees: String(motorDegrees),

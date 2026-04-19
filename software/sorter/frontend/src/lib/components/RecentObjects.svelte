@@ -72,6 +72,29 @@ import Spinner from './Spinner.svelte';
 	function isMinimized(obj: KnownObjectData): boolean {
 		return obj.classification_status === 'unknown' || obj.classification_status === 'not_found';
 	}
+
+	function dataImageUrl(payload: string | null | undefined): string | null {
+		return payload ? `data:image/jpeg;base64,${payload}` : null;
+	}
+
+	function primaryLocalPreviewUrl(obj: KnownObjectData): string | null {
+		return (
+			dataImageUrl(obj.thumbnail) ??
+			dataImageUrl(obj.top_image) ??
+			dataImageUrl(obj.bottom_image)
+		);
+	}
+
+	function primaryLocalPreviewLabel(obj: KnownObjectData): string {
+		if (obj.thumbnail) {
+			return obj.brickognize_source_view
+				? `Attempted Crop (${obj.brickognize_source_view})`
+				: 'Attempted Crop';
+		}
+		if (obj.top_image) return 'Channel Snapshot';
+		if (obj.bottom_image) return 'Fallback Snapshot';
+		return 'Local Preview';
+	}
 </script>
 
 <div
@@ -93,6 +116,15 @@ import Spinner from './Spinner.svelte';
 					{@const is_expanded = expanded_id === obj.uuid}
 					{@const minimized = isMinimized(obj)}
 					{@const preview_url = obj.brickognize_preview_url ?? null}
+					{@const local_preview_url = primaryLocalPreviewUrl(obj)}
+					{@const local_preview_label = primaryLocalPreviewLabel(obj)}
+					{@const primary_local_source = obj.thumbnail
+						? 'thumbnail'
+						: obj.top_image
+							? 'top'
+							: obj.bottom_image
+								? 'bottom'
+								: null}
 					{@const category_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 					{#if minimized}
 						<button
@@ -100,6 +132,13 @@ import Spinner from './Spinner.svelte';
 							onclick={() => toggleExpand(obj.uuid)}
 							class="flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
 						>
+							{#if local_preview_url}
+								<img
+									src={local_preview_url}
+									alt={local_preview_label}
+									class="h-10 w-10 flex-shrink-0 border border-border bg-white object-contain"
+								/>
+							{/if}
 							{#if obj.classification_status === 'not_found' || obj.classification_status === 'multi_drop_fail'}
 								<TriangleAlert
 									size={14}
@@ -136,7 +175,13 @@ import Spinner from './Spinner.svelte';
 							class="w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
 						>
 							<div class="flex gap-2">
-								{#if preview_url}
+								{#if local_preview_url}
+									<img
+										src={local_preview_url}
+										alt={local_preview_label}
+										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
+									/>
+								{:else if preview_url}
 									<img
 										src={preview_url}
 										alt="Brickognize preview"
@@ -185,15 +230,15 @@ import Spinner from './Spinner.svelte';
 								</div>
 							</div>
 
-							{#if is_expanded && (obj.thumbnail || preview_url)}
+							{#if is_expanded && (local_preview_url || preview_url)}
 								<div class="mt-2 grid gap-2 border-t border-border pt-2 sm:grid-cols-2">
-									{#if obj.thumbnail}
+									{#if local_preview_url}
 										<div>
 											<div class="mb-1 text-xs text-text-muted">
-												Local Crop{#if obj.brickognize_source_view} ({obj.brickognize_source_view}){/if}
+												{local_preview_label}
 											</div>
 											<img
-												src={`data:image/jpeg;base64,${obj.thumbnail}`}
+												src={local_preview_url}
 												alt="classification crop"
 												class="w-full bg-white object-contain"
 											/>
@@ -214,9 +259,11 @@ import Spinner from './Spinner.svelte';
 								</div>
 							{/if}
 
-							{#if is_expanded && (obj.top_image || obj.bottom_image)}
+							{#if is_expanded &&
+								((obj.top_image && primary_local_source !== 'top') ||
+									(obj.bottom_image && primary_local_source !== 'bottom'))}
 								<div class="mt-2 flex gap-2 border-t border-border pt-2">
-									{#if obj.top_image}
+									{#if obj.top_image && primary_local_source !== 'top'}
 										<div class="flex-1">
 											<div class="mb-1 text-xs text-text-muted">Top</div>
 											<img
@@ -226,7 +273,7 @@ import Spinner from './Spinner.svelte';
 											/>
 										</div>
 									{/if}
-									{#if obj.bottom_image}
+									{#if obj.bottom_image && primary_local_source !== 'bottom'}
 										<div class="flex-1">
 											<div class="mb-1 text-xs text-text-muted">
 												Bottom

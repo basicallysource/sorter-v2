@@ -10,6 +10,11 @@ from machine_platform import (
     build_servo_controller,
     discover_control_boards,
 )
+from machine_setup import (
+    DEFAULT_MACHINE_SETUP,
+    MachineSetupDefinition,
+    get_machine_setup_definition,
+)
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -30,7 +35,7 @@ from .bin_layout import (
 )
 from .parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
-    loadFeedingModeConfig,
+    loadMachineSetupConfig,
     loadMachineConfig,
     loadMachineSpecificParams,
     loadStepperBindingOverrides,
@@ -255,6 +260,7 @@ class FeederConfig:
     second_rotor_precision: RotorPulseConfig
     third_rotor_normal: RotorPulseConfig
     third_rotor_precision: RotorPulseConfig
+    classification_channel_eject: RotorPulseConfig
     first_rotor_jam_timeout_s: float
     first_rotor_jam_min_pulses: int
     first_rotor_jam_retry_cooldown_s: float
@@ -288,6 +294,11 @@ class FeederConfig:
             microsteps_per_second=3000,
             delay_between_ms=1000,
         )
+        self.classification_channel_eject = RotorPulseConfig(
+            steps=1000,
+            microsteps_per_second=5000,
+            delay_between_ms=400,
+        )
         self.first_rotor_jam_timeout_s = 10.0
         self.first_rotor_jam_min_pulses = 6
         self.first_rotor_jam_retry_cooldown_s = 8.0
@@ -316,6 +327,7 @@ class IRLConfig:
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
     feeding_mode: str
+    machine_setup: MachineSetupDefinition
 
     def __init__(self):
         self.camera_layout = "default"
@@ -324,6 +336,7 @@ class IRLConfig:
         self.carousel_camera = None
         self.feeder_config = FeederConfig()
         self.feeding_mode = "auto_channels"
+        self.machine_setup = get_machine_setup_definition(DEFAULT_MACHINE_SETUP)
 
 
 class IRLInterface:
@@ -666,6 +679,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     from toml_config import loadTomlFile
     camera_layout_type = "default"
     feeding_mode = "auto_channels"
+    machine_setup_key = DEFAULT_MACHINE_SETUP
     raw_toml: dict[str, object] = {}
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
@@ -687,7 +701,9 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         def __init__(self) -> None:
             self.logger = _SilentLogger()
 
-    feeding_mode = loadFeedingModeConfig(cast(Any, _SilentGlobalConfig()), raw_toml)
+    machine_setup_key = loadMachineSetupConfig(cast(Any, _SilentGlobalConfig()), raw_toml)
+    machine_setup = get_machine_setup_definition(machine_setup_key)
+    feeding_mode = machine_setup.feeding_mode
 
     picture_settings_section = {}
     if isinstance(raw_toml, dict):
@@ -716,6 +732,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
 
     irl_config.camera_layout = camera_layout_type
     irl_config.feeding_mode = feeding_mode
+    irl_config.machine_setup = machine_setup
 
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
@@ -1055,6 +1072,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
         feeding_mode=config.feeding_mode,
+        machine_setup=config.machine_setup.key,
         servo_backend=irl_interface.servo_controller.backend_name if irl_interface.servo_controller else "none",
         stepper_bindings=stepper_binding_overrides,
         stepper_direction_inverts=stepper_direction_inverts,

@@ -13,10 +13,10 @@ class Idle(BaseState):
         self.shared = shared
 
     def step(self) -> Optional[DistributionState]:
-        carousel = self.shared.carousel
-        if carousel is None:
+        transport = self.shared.transport
+        if transport is None:
             return None
-        piece = carousel.getPieceAtIntermediate()
+        piece = transport.getPieceForDistributionPositioning()
         if piece is None:
             return None
 
@@ -29,14 +29,14 @@ class Idle(BaseState):
 
         if can_distribute and is_unhandled:
             self.logger.info(
-                f"Idle: preparing distribution for intermediate piece {piece.uuid[:8]}"
+                f"Idle: preparing distribution for piece {piece.uuid[:8]}"
             )
             self.shared.distribution_ready = False
             return DistributionState.POSITIONING
 
         if can_distribute and not is_unhandled:
             self.logger.info(
-                f"Idle: intermediate piece {piece.uuid[:8]} already prepared"
+                f"Idle: piece {piece.uuid[:8]} already prepared"
             )
         return None
 

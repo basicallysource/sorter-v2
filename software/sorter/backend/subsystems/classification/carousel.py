@@ -4,6 +4,7 @@ import queue
 from defs.known_object import KnownObject, ClassificationStatus
 from utils.event import knownObjectToEvent
 from logger import Logger
+from piece_transport import PieceTransport, TransportAdvanceResult
 
 NUM_PLATFORMS = 4
 FEEDER_POSITION = 0
@@ -12,7 +13,7 @@ INTERMEDIATE_POSITION = 2
 EXIT_POSITION = 3
 
 
-class Carousel:
+class Carousel(PieceTransport):
     def __init__(
         self,
         logger: Logger,
@@ -38,12 +39,23 @@ class Carousel:
         self.event_queue.put(knownObjectToEvent(obj))
         return obj
 
+    def registerIncomingPiece(self) -> KnownObject:
+        return self.addPieceAtFeeder()
+
     def rotate(self) -> Optional[KnownObject]:
         exiting = self.platforms[EXIT_POSITION]
         self.platforms = [None] + self.platforms[: NUM_PLATFORMS - 1]
         exit_str = exiting.uuid[:8] if exiting else "none"
         self._log(f"rotated, exiting={exit_str} -> {self._platformSummary()}")
         return exiting
+
+    def advanceTransport(self) -> TransportAdvanceResult:
+        exiting = self.rotate()
+        return TransportAdvanceResult(
+            exiting_piece=exiting,
+            piece_at_classification=self.getPieceAtClassification(),
+            piece_for_distribution_drop=self.getPieceForDistributionDrop(),
+        )
 
     def getPieceAtClassification(self) -> Optional[KnownObject]:
         return self.platforms[CLASSIFICATION_POSITION]
@@ -56,6 +68,12 @@ class Carousel:
 
     def getPieceAtExit(self) -> Optional[KnownObject]:
         return self.platforms[EXIT_POSITION]
+
+    def getPieceForDistributionPositioning(self) -> Optional[KnownObject]:
+        return self.getPieceAtIntermediate()
+
+    def getPieceForDistributionDrop(self) -> Optional[KnownObject]:
+        return self.getPieceAtExit()
 
     def markPendingClassification(self, obj: KnownObject) -> None:
         self.pending_classifications[obj.uuid] = obj
@@ -95,3 +113,6 @@ class Carousel:
 
     def hasPieceAtFeeder(self) -> bool:
         return self.platforms[FEEDER_POSITION] is not None
+
+    def getActivePieceCount(self) -> int:
+        return sum(1 for piece in self.platforms if piece is not None)

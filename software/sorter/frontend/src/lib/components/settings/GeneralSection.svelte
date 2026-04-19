@@ -4,7 +4,40 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
-	type FeedingMode = 'auto_channels' | 'manual_carousel';
+	type MachineSetup = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+
+	type MachineSetupCard = {
+		key: MachineSetup;
+		title: string;
+		description: string;
+		detail: string;
+		experimental?: boolean;
+	};
+
+	const MACHINE_SETUP_CARDS: MachineSetupCard[] = [
+		{
+			key: 'standard_carousel',
+			title: 'Standard Setup',
+			description: 'FIDA + Carousel + Classification Chamber',
+			detail:
+				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
+		},
+		{
+			key: 'classification_channel',
+			title: 'Classification Channel',
+			description: 'C-Channels + Classification Channel',
+			detail:
+				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.',
+			experimental: true
+		},
+		{
+			key: 'manual_carousel',
+			title: 'Manual Carousel Feed',
+			description: 'Operator-fed carousel',
+			detail:
+				'Skips automatic feeder orchestration and waits for manual part placement into the carousel dropzone.'
+		}
+	];
 
 	const manager = getMachinesContext();
 
@@ -14,11 +47,11 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
-	let feedingMode = $state<FeedingMode>('auto_channels');
-	let loadingFeedingMode = $state(false);
-	let savingFeedingMode = $state(false);
-	let feedingModeError = $state<string | null>(null);
-	let feedingModeStatus = $state('');
+	let machineSetup = $state<MachineSetup>('standard_carousel');
+	let loadingMachineSetup = $state(false);
+	let savingMachineSetup = $state(false);
+	let machineSetupError = $state<string | null>(null);
+	let machineSetupStatus = $state('');
 
 	function handleConnect() {
 		manager.connect(url);
@@ -70,54 +103,63 @@
 		}
 	}
 
-	async function loadFeedingMode() {
+	function normalizeMachineSetup(value: unknown): MachineSetup {
+		return value === 'classification_channel' || value === 'manual_carousel'
+			? value
+			: 'standard_carousel';
+	}
+
+	async function loadMachineSetup() {
 		const machine = manager.selectedMachine;
 		const httpBase = machineHttpBase(machine);
 		if (!machine || !httpBase) {
-			feedingMode = 'auto_channels';
+			machineSetup = 'standard_carousel';
 			return;
 		}
 
-		loadingFeedingMode = true;
-		feedingModeError = null;
-		feedingModeStatus = '';
+		loadingMachineSetup = true;
+		machineSetupError = null;
+		machineSetupStatus = '';
 		try {
-			const res = await fetch(`${httpBase}/api/feeding-mode`);
+			const res = await fetch(`${httpBase}/api/machine-setup`);
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
-			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
+			machineSetup = normalizeMachineSetup(data.setup);
 		} catch (e: any) {
-			feedingModeError = e.message ?? 'Failed to load feeding mode';
+			machineSetupError = e.message ?? 'Failed to load machine setup';
 		} finally {
-			loadingFeedingMode = false;
+			loadingMachineSetup = false;
 		}
 	}
 
-	async function saveFeedingMode(nextMode: FeedingMode) {
+	async function saveMachineSetup(nextSetup: MachineSetup) {
 		const machine = manager.selectedMachine;
 		const httpBase = machineHttpBase(machine);
 		if (!machine || !httpBase) {
-			feedingModeError = 'Select a connected machine before changing the feeding mode.';
+			machineSetupError = 'Select a connected machine before changing the machine setup.';
 			return;
 		}
 
-		savingFeedingMode = true;
-		feedingModeError = null;
-		feedingModeStatus = '';
+		savingMachineSetup = true;
+		machineSetupError = null;
+		machineSetupStatus = '';
 		try {
-			const res = await fetch(`${httpBase}/api/feeding-mode`, {
+			const res = await fetch(`${httpBase}/api/machine-setup`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ mode: nextMode })
+				body: JSON.stringify({ setup: nextSetup })
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
-			feedingMode = data.mode === 'manual_carousel' ? 'manual_carousel' : 'auto_channels';
-			feedingModeStatus = 'Feeding mode saved. Reset and re-home the machine before running.';
+			machineSetup = normalizeMachineSetup(data.setup);
+			machineSetupStatus =
+				data?.machine_setup?.runtime_supported === false
+					? 'Machine setup saved. Reset and re-home the machine before running. Runtime support for this experimental setup is still in progress.'
+					: 'Machine setup saved. Reset and re-home the machine before running.';
 		} catch (e: any) {
-			feedingModeError = e.message ?? 'Failed to save feeding mode';
+			machineSetupError = e.message ?? 'Failed to save machine setup';
 		} finally {
-			savingFeedingMode = false;
+			savingMachineSetup = false;
 		}
 	}
 
@@ -129,13 +171,13 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
-			feedingMode = 'auto_channels';
-			loadingFeedingMode = false;
-			savingFeedingMode = false;
-			feedingModeError = null;
-			feedingModeStatus = '';
+			machineSetup = 'standard_carousel';
+			loadingMachineSetup = false;
+			savingMachineSetup = false;
+			machineSetupError = null;
+			machineSetupStatus = '';
 			if (machineId) {
-				void loadFeedingMode();
+				void loadMachineSetup();
 			}
 		}
 	});
@@ -246,59 +288,54 @@
 	</div>
 
 	<div>
-		<h3 class="mb-2 text-sm font-medium text-text">Feeding Mode</h3>
+		<h3 class="mb-2 text-sm font-medium text-text">Machine Setup</h3>
 		{#if manager.selectedMachine}
 			<div class="flex flex-col gap-3">
 				<div class="text-xs text-text-muted">
-					Choose whether this machine feeds parts through the C-Channels automatically or waits for
-					an operator to place a part directly into the carousel dropzone.
+					Choose which physical sorter topology this machine is currently wired and built for. The
+					selected setup controls which hardware path is expected and which homing rules apply.
 				</div>
-				<div class="grid gap-2 sm:grid-cols-2">
-					<button
-						onclick={() => saveFeedingMode('auto_channels')}
-						disabled={loadingFeedingMode || savingFeedingMode}
-						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-							feedingMode === 'auto_channels'
-								? 'border-primary bg-primary/10 text-text'
-								: 'border-border bg-bg text-text hover:bg-surface'
-						}`}
-					>
-						<span class="text-sm font-medium">Automatic Feed</span>
-						<span class="text-xs text-text-muted">
-							Use the normal C-Channel feeder automation path.
-						</span>
-					</button>
-					<button
-						onclick={() => saveFeedingMode('manual_carousel')}
-						disabled={loadingFeedingMode || savingFeedingMode}
-						class={`flex flex-col items-start gap-1 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-							feedingMode === 'manual_carousel'
-								? 'border-primary bg-primary/10 text-text'
-								: 'border-border bg-bg text-text hover:bg-surface'
-						}`}
-					>
-						<span class="text-sm font-medium">Manual Carousel Feed</span>
-						<span class="text-xs text-text-muted">
-							Operators place a part into the carousel dropzone and the machine takes over from
-							there.
-						</span>
-					</button>
+				<div class="grid gap-2 lg:grid-cols-3">
+					{#each MACHINE_SETUP_CARDS as card}
+						<button
+							onclick={() => saveMachineSetup(card.key)}
+							disabled={loadingMachineSetup || savingMachineSetup}
+							class={`flex flex-col items-start gap-2 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+								machineSetup === card.key
+									? 'border-primary bg-primary/10 text-text'
+									: 'border-border bg-bg text-text hover:bg-surface'
+							}`}
+						>
+							<div class="flex w-full items-start justify-between gap-3">
+								<div class="text-sm font-medium">{card.title}</div>
+								{#if card.experimental}
+									<span class="border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+										Experimental
+									</span>
+								{/if}
+							</div>
+							<div class="text-xs font-medium text-text">{card.description}</div>
+							<div class="text-xs text-text-muted">
+								{card.detail}
+							</div>
+						</button>
+					{/each}
 				</div>
 				<div class="text-xs text-text-muted">
-					This setting is persisted in the machine TOML and takes effect after `Reset` and
+					Changing the machine setup persists to the machine TOML and takes effect after `Reset` and
 					`Re-Home`.
 				</div>
-				{#if feedingModeError}
-					<div class="text-sm text-danger dark:text-red-400">{feedingModeError}</div>
-				{:else if feedingModeStatus}
-					<div class="text-sm text-text-muted">{feedingModeStatus}</div>
-				{:else if loadingFeedingMode}
-					<div class="text-sm text-text-muted">Loading current feeding mode...</div>
+				{#if machineSetupError}
+					<div class="text-sm text-danger dark:text-red-400">{machineSetupError}</div>
+				{:else if machineSetupStatus}
+					<div class="text-sm text-text-muted">{machineSetupStatus}</div>
+				{:else if loadingMachineSetup}
+					<div class="text-sm text-text-muted">Loading current machine setup...</div>
 				{/if}
 			</div>
 		{:else}
 			<div class="text-sm text-text-muted">
-				Connect to a machine before changing the feeding mode.
+				Connect to a machine before changing the machine setup.
 			</div>
 		{/if}
 	</div>

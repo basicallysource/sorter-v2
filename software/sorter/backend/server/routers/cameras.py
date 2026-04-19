@@ -69,7 +69,13 @@ _DASHBOARD_CROP_MIN_PADDING_PX = 48.0
 _DASHBOARD_QUAD_PADDING_FACTOR = 0.1
 CALIBRATION_METHOD_TARGET_PLATE = "target_plate"
 CALIBRATION_METHOD_LLM_GUIDED = "llm_guided"
+CALIBRATION_METHOD_EXPOSURE_HISTOGRAM = "exposure_histogram"
 DEFAULT_CAMERA_CALIBRATION_METHOD = CALIBRATION_METHOD_TARGET_PLATE
+EXPOSURE_HISTOGRAM_TARGET_LUMA = 128.0
+EXPOSURE_HISTOGRAM_TOLERANCE_LUMA = 3.0
+EXPOSURE_HISTOGRAM_MAX_ITERATIONS = 20
+EXPOSURE_HISTOGRAM_P_GAIN = 1.4
+EXPOSURE_HISTOGRAM_SETTLE_S = 0.35
 DEFAULT_LLM_CALIBRATION_MODEL = "google/gemini-3.1-pro-preview"
 DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS = 10
 
@@ -802,6 +808,8 @@ def _normalize_camera_calibration_method(value: str | None) -> str:
         normalized = value.strip().lower()
         if normalized == CALIBRATION_METHOD_LLM_GUIDED:
             return CALIBRATION_METHOD_LLM_GUIDED
+        if normalized == CALIBRATION_METHOD_EXPOSURE_HISTOGRAM:
+            return CALIBRATION_METHOD_EXPOSURE_HISTOGRAM
     return CALIBRATION_METHOD_TARGET_PLATE
 
 
@@ -2074,6 +2082,160 @@ def _run_llm_final_review(
     }
 
 
+def _calibrate_exposure_via_histogram(
+    role: str,
+    source: int | str | None,
+    controls: List[Dict[str, Any]],
+    current_settings: Dict[str, int | float | bool],
+    *,
+    report_progress: Callable[[str, float, str, Dict[str, Any] | None], None] | None = None,
+    gallery_dir: Path | None = None,
+    target_luma: float = EXPOSURE_HISTOGRAM_TARGET_LUMA,
+    tolerance: float = EXPOSURE_HISTOGRAM_TOLERANCE_LUMA,
+    max_iterations: int = EXPOSURE_HISTOGRAM_MAX_ITERATIONS,
+) -> tuple[Dict[str, int | float | bool], Dict[str, Any]]:
+    """Proportional-gain exposure calibration driven by frame-luma histogram.
+
+    Captures a frame, measures mean grayscale brightness, adjusts the
+    ``exposure`` device control proportionally toward ``target_luma`` (default
+    128 = middle gray), settles, captures again, repeats. Converges fast
+    on typical Classification-chamber scenes (4 – 8 iterations). No colour
+    profile, no LLM round-trip, no target plate — just "make the scene
+    middle-gray". Returns the winning settings + an analysis dict for the
+    calling task to attach to the progress report.
+    """
+
+    if not isinstance(controls, list):
+        raise HTTPException(status_code=400, detail="Camera controls are not available for exposure calibration.")
+
+    exposure_spec: Dict[str, Any] | None = None
+    for ctrl in controls:
+        if isinstance(ctrl, dict) and ctrl.get("key") == "exposure":
+            exposure_spec = ctrl
+            break
+    if exposure_spec is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This camera does not expose a manual exposure control we can drive.",
+        )
+
+    exposure_min = float(exposure_spec.get("min") or 1)
+    exposure_max = float(exposure_spec.get("max") or 20000)
+    exposure_step = max(1.0, float(exposure_spec.get("step") or 1))
+    current_exposure = float(current_settings.get("exposure") or exposure_spec.get("value") or exposure_min)
+    current_exposure = max(exposure_min, min(exposure_max, current_exposure))
+
+    # Make sure auto_exposure is off before we start poking manual exposure,
+    # otherwise the camera may override every write on the very next frame.
+    settings = dict(current_settings)
+    settings["auto_exposure"] = False
+    settings["exposure"] = current_exposure
+
+    if report_progress is not None:
+        report_progress(
+            "calibrating",
+            0.1,
+            f"Starting exposure-histogram calibration (target luma ≈ {int(target_luma)}).",
+            None,
+        )
+
+    trace: list[Dict[str, float]] = []
+    best_delta = float("inf")
+    best_settings = dict(settings)
+    best_luma = 0.0
+
+    for iteration in range(1, max_iterations + 1):
+        before = time.time()
+        applied, _, frame = _analyze_candidate_settings(role, source, settings)
+        frame_to_use = frame
+        if frame_to_use is None:
+            frame_to_use = _capture_frame_for_calibration(
+                role, source, fallback_settings=settings, after_timestamp=before,
+            )
+        if frame_to_use is None:
+            raise HTTPException(status_code=500, detail="Could not capture a frame for histogram calibration.")
+
+        gray = cv2.cvtColor(frame_to_use, cv2.COLOR_BGR2GRAY) if frame_to_use.ndim == 3 else frame_to_use
+        mean_luma = float(np.mean(gray))
+        delta = target_luma - mean_luma
+        trace.append({
+            "iteration": iteration,
+            "exposure": float(settings["exposure"]),
+            "mean_luma": round(mean_luma, 2),
+            "delta": round(delta, 2),
+        })
+
+        if gallery_dir is not None:
+            try:
+                stamp = f"hist_{iteration:02d}_exp{int(settings['exposure'])}_l{int(mean_luma)}.jpg"
+                cv2.imwrite(str(gallery_dir / stamp), frame_to_use)
+            except Exception:
+                pass
+
+        if abs(delta) < best_delta:
+            best_delta = abs(delta)
+            best_settings = dict(applied) if isinstance(applied, dict) else dict(settings)
+            best_settings.setdefault("auto_exposure", False)
+            best_luma = mean_luma
+
+        if report_progress is not None:
+            progress = 0.1 + 0.78 * (iteration / max_iterations)
+            report_progress(
+                "calibrating",
+                min(0.9, progress),
+                (
+                    f"Iter {iteration}/{max_iterations}: "
+                    f"exposure={int(settings['exposure'])} → luma={mean_luma:.0f} "
+                    f"(target {int(target_luma)}, Δ={delta:+.1f})."
+                ),
+                {"iteration": iteration, "mean_luma": mean_luma, "exposure": settings["exposure"]},
+            )
+
+        if abs(delta) <= tolerance:
+            break
+
+        # Proportional gain — exposure scales roughly linearly with light at
+        # moderate values, so a gain just above 1 gets us to target in a handful
+        # of steps without overshoot. Clamped to the control's advertised range.
+        ratio = target_luma / max(mean_luma, 1.0)
+        ratio = max(0.3, min(3.0, ratio))  # per-step safety bound
+        new_exposure = float(settings["exposure"]) * (1.0 + (ratio - 1.0) * EXPOSURE_HISTOGRAM_P_GAIN)
+        new_exposure = max(exposure_min, min(exposure_max, new_exposure))
+        new_exposure = round(new_exposure / exposure_step) * exposure_step
+        if abs(new_exposure - settings["exposure"]) < exposure_step:
+            # P-controller wants a move smaller than the control resolution —
+            # no further progress possible at this setting.
+            break
+        settings["exposure"] = int(new_exposure) if float(int(new_exposure)) == new_exposure else new_exposure
+
+    analysis = {
+        "method": CALIBRATION_METHOD_EXPOSURE_HISTOGRAM,
+        "target_luma": target_luma,
+        "final_luma": best_luma,
+        "final_delta": best_delta,
+        "final_exposure": best_settings.get("exposure"),
+        "iterations": len(trace),
+        "converged": best_delta <= tolerance,
+        "trace": trace,
+    }
+
+    if report_progress is not None:
+        report_progress(
+            "saving",
+            0.9,
+            (
+                f"Converged at exposure={best_settings.get('exposure')} "
+                f"(luma {best_luma:.0f}, target {int(target_luma)})."
+                if best_delta <= tolerance
+                else f"Stopped at exposure={best_settings.get('exposure')} "
+                f"(luma {best_luma:.0f}, target {int(target_luma)} — not fully converged)."
+            ),
+            analysis,
+        )
+
+    return best_settings, analysis
+
+
 def _calibrate_usb_camera_device_settings(
     role: str,
     source: int,
@@ -2603,7 +2765,36 @@ def _run_camera_calibration_sync(
         calibration_metadata: Dict[str, Any] = {"method": normalized_method}
 
         live_color_profile_disabled = False
-        if normalized_method == CALIBRATION_METHOD_LLM_GUIDED:
+        if normalized_method == CALIBRATION_METHOD_EXPOSURE_HISTOGRAM:
+            controls = current_response.get("controls")
+            if not isinstance(controls, list):
+                raise HTTPException(
+                    status_code=400,
+                    detail="This camera does not expose a control list required for histogram exposure calibration.",
+                )
+            if report_progress is not None:
+                report_progress(
+                    "preparing",
+                    0.05,
+                    "Preparing histogram-driven exposure calibration.",
+                    None,
+                )
+            best_settings, analysis = _calibrate_exposure_via_histogram(
+                role,
+                source,
+                controls,
+                original_settings,
+                report_progress=report_progress,
+                gallery_dir=gallery_dir,
+            )
+            calibration_metadata = {
+                "method": normalized_method,
+                "target_luma": EXPOSURE_HISTOGRAM_TARGET_LUMA,
+                "final_luma": analysis.get("final_luma"),
+                "iterations": analysis.get("iterations"),
+                "converged": analysis.get("converged"),
+            }
+        elif normalized_method == CALIBRATION_METHOD_LLM_GUIDED:
             if report_progress is not None:
                 report_progress("preparing", 0.05, "Preparing LLM-guided camera calibration.", None)
             # Push a disabled color profile to the live capture thread so the
@@ -2659,6 +2850,28 @@ def _run_camera_calibration_sync(
             report_progress("saving", 0.91, "Saving calibrated exposure and white balance.", analysis)
         saved = save_camera_device_settings(role, best_settings)
         time.sleep(1.5 if isinstance(source, str) else 0.2)
+
+        # Histogram mode is exposure-only — we don't look at the 6-colour target
+        # and we don't touch the camera's color profile. Leave whatever CCM the
+        # operator already persisted alone and short-circuit the color-plate
+        # path below.
+        if normalized_method == CALIBRATION_METHOD_EXPOSURE_HISTOGRAM:
+            return {
+                "ok": True,
+                "method": normalized_method,
+                "task_id": task_id,
+                "role": role,
+                "provider": provider,
+                "source": source,
+                "applied_settings": saved,
+                "calibration": calibration_metadata,
+                "analysis": analysis,
+                "message": (
+                    "Exposure-histogram calibration saved. "
+                    f"Final exposure {best_settings.get('exposure')}, "
+                    f"final luma {int(analysis.get('final_luma', 0))}."
+                ),
+            }
 
         raw_frame = _capture_frame_for_calibration(
             role,
@@ -3249,11 +3462,17 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+        classification_channel_setup = bool(
+            shared_state.vision_manager is not None
+            and hasattr(shared_state.vision_manager, "_usesClassificationChannelSetup")
+            and shared_state.vision_manager._usesClassificationChannelSetup()
+        )
+        carousel_polygon_key = "classification_channel" if classification_channel_setup else "carousel"
 
         if role == "carousel":
             quad_points = _dashboard_quad_points(quad_table.get("carousel"))
             if len(quad_points) != 4:
-                quad_points = _dashboard_points(polygons_table.get("carousel"))
+                quad_points = _dashboard_points(polygons_table.get(carousel_polygon_key))
             scaled_quad = (
                 _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
                 if len(quad_points) == 4 else None
@@ -3272,10 +3491,10 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
                 }
 
         polygon_keys = {
-            "feeder": ["second_channel", "third_channel", "carousel"],
+            "feeder": ["second_channel", "third_channel", carousel_polygon_key],
             "c_channel_2": ["second_channel"],
             "c_channel_3": ["third_channel"],
-            "carousel": ["carousel"],
+            "carousel": [carousel_polygon_key],
         }.get(role, [])
         scaled_polygons = [
             scaled

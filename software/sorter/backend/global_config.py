@@ -37,8 +37,6 @@ class GlobalConfig:
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
-    telemetry_enabled: bool
-    telemetry_url: str
     log_buffer_size: int
     disable_chute: bool
     disable_servos: bool
@@ -83,17 +81,11 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
-    gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"
-    gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
-
     gc.disable_chute = "chute" in args.disable
     gc.disable_servos = "servos" in args.disable
     gc.region_provider = RegionProviderType.HANDDRAWN
 
-    from telemetry import Telemetry
-
-    telemetry = Telemetry(gc)
-    gc.logger = Logger(gc.debug_level, gc.log_buffer_size, telemetry.uploadLogs)
+    gc.logger = Logger(gc.debug_level, gc.log_buffer_size)
     gc.profiler = Profiler(
         enabled=os.getenv("PROFILER_ENABLED", "0") == "1",
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),

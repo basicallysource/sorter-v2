@@ -1,7 +1,7 @@
 from datetime import datetime
 import threading
 import atexit
-from typing import Optional, Callable, List, Dict, Any
+from typing import Optional, List
 import time
 
 
@@ -21,12 +21,10 @@ class Logger:
         self,
         debug_level: int,
         buffer_size: int = 100,
-        upload_callback: Optional[Callable[[List[LogEntry]], None]] = None,
         log_file: Optional[str] = None,
     ):
         self.debug_level = debug_level
         self.buffer_size = buffer_size
-        self.upload_callback = upload_callback
         self._buffer: List[LogEntry] = []
         self._buffer_lock = threading.Lock()
         self._log_file = None
@@ -63,22 +61,6 @@ class Logger:
     def _addToBuffer(self, entry: LogEntry) -> None:
         with self._buffer_lock:
             self._buffer.append(entry)
-            if len(self._buffer) >= self.buffer_size:
-                self._flushBuffer()
-
-    def _flushBuffer(self) -> None:
-        if not self._buffer or self.upload_callback is None:
-            return
-
-        entries_to_upload = self._buffer.copy()
-        self._buffer.clear()
-
-        thread = threading.Thread(
-            target=self.upload_callback,
-            args=(entries_to_upload,),
-            daemon=True,
-        )
-        thread.start()
 
     def error(self, msg: str, *args, **kwargs) -> None:
         msg = self._formatMessage(msg, *args, **kwargs)
@@ -111,11 +93,8 @@ class Logger:
             self._log("DEBUG", msg)
 
     def flushLogs(self) -> None:
-        with self._buffer_lock:
-            self._flushBuffer()
+        pass
 
     def _cleanup(self) -> None:
-        # bug: at exit not all remaining logs get flushed
-        self.flushLogs()
         if self._log_file:
             self._log_file.close()

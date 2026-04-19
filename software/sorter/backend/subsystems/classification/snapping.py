@@ -12,7 +12,6 @@ from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from utils.event import knownObjectToEvent
-from telemetry import Telemetry
 from defs.known_object import ClassificationStatus
 from classification import classify
 from blob_manager import BLOB_DIR
@@ -36,14 +35,12 @@ class Snapping(BaseState):
         carousel: Carousel,
         vision: "VisionManager",
         event_queue: queue.Queue,
-        telemetry: Telemetry,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.carousel = carousel
         self.vision = vision
         self.event_queue = event_queue
-        self.telemetry = telemetry
         self.snapped = False
         self._entered_at: Optional[float] = None
         self._snap_dir = BLOB_DIR / gc.run_id
@@ -138,23 +135,6 @@ class Snapping(BaseState):
             preferred_candidate_bboxes,
             preferred_zone_bbox,
         )
-
-        if top_frame and top_frame.annotated is not None:
-            self.telemetry.saveCapture(
-                "classification_chamber_top",
-                top_frame.raw,
-                top_frame.annotated,
-                "capture",
-                segmentation_map=top_frame.segmentation_map,
-            )
-        if bottom_frame and bottom_frame.annotated is not None:
-            self.telemetry.saveCapture(
-                "classification_chamber_bottom",
-                bottom_frame.raw,
-                bottom_frame.annotated,
-                "capture",
-                segmentation_map=bottom_frame.segmentation_map,
-            )
 
         detection_algorithm = self.vision.getClassificationDetectionAlgorithm()
         detection_openrouter_model = (

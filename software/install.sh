@@ -174,10 +174,6 @@ export DEBUG_LEVEL=2
 export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/sorter/backend/irl/example_configs/machine_specific_params_example.toml"
 export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
-
-export TELEMETRY_ENABLED=0
-export TELEMETRY_URL="https://api.basically.website"
-
 export BL_CONSUMER_KEY="no"
 export BL_CONSUMER_SECRET="no"
 export BL_TOKEN_VALUE="no"

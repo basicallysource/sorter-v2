@@ -121,14 +121,7 @@ def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
         )
         return {}
 
-    raw: object
-    try:
-        raw = tomllib.loads(raw_text)
-    except Exception as e:
-        gc.logger.warning(
-            f"Failed to parse machine-specific params TOML at {stepper_current_config_path}: {e}. Using defaults."
-        )
-        return {}
+    raw: object = tomllib.loads(raw_text)
 
     if not isinstance(raw, dict):
         gc.logger.warning(

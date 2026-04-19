@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 import threading
 import time
-import tomllib
 from typing import Any, Dict, List, Optional
+
+from toml_config import loadTomlFile
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -86,12 +87,8 @@ def _getCameraLayout() -> str:
     # Fallback: read directly from TOML
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
-        try:
-            with open(params_path, "rb") as f:
-                raw = tomllib.load(f)
-            return raw.get("cameras", {}).get("layout", "default")
-        except Exception:
-            pass
+        raw = loadTomlFile(params_path)
+        return raw.get("cameras", {}).get("layout", "default")
     return "default"
 
 

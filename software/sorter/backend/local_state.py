@@ -6,10 +6,11 @@ import os
 import sqlite3
 import threading
 import time
-import tomllib
 import uuid
 from pathlib import Path
 from typing import Any
+
+from toml_config import loadTomlFile
 
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
@@ -110,11 +111,7 @@ def _read_machine_params() -> dict[str, Any]:
     path = _legacy_machine_params_path()
     if not path.exists():
         return {}
-    try:
-        with open(path, "rb") as handle:
-            data = tomllib.load(handle)
-    except Exception:
-        return {}
+    data = loadTomlFile(path)
     return data if isinstance(data, dict) else {}
 
 

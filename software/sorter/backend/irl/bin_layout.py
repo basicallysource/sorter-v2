@@ -136,16 +136,12 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
 
 def _loadFromToml() -> BinLayoutConfig | None:
     import os
-    import tomllib
+    from toml_config import loadTomlFile
 
     path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if not path or not os.path.exists(path):
         return None
-    try:
-        with open(path, "rb") as f:
-            config = tomllib.load(f)
-    except Exception:
-        return None
+    config = loadTomlFile(path)
 
     layers_table = config.get("layers")
     if not isinstance(layers_table, dict):

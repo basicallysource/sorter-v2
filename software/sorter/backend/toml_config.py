@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import threading
 import tomllib
@@ -17,6 +18,16 @@ from typing import Any
 from urllib.parse import urlparse
 
 from server.config_helpers import write_machine_params_config
+
+
+def loadTomlFile(path: str | Path) -> dict[str, Any]:
+    path_str = str(path)
+    try:
+        with open(path_str, "rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        print(f"[config] malformed TOML at {path_str}: {e}", file=sys.stderr)
+        sys.exit(1)
 
 _TOML_LOCK = threading.Lock()
 _POLYGONS_LOCK = threading.Lock()
@@ -47,15 +58,11 @@ def _polygons_path() -> str:
 
 
 def _read_toml() -> dict[str, Any]:
-    """Read and parse the TOML file. Returns {} if missing or invalid."""
+    """Read and parse the TOML file. Returns {} if missing. Malformed TOML exits the program."""
     path = _toml_path()
     if not os.path.exists(path):
         return {}
-    try:
-        with open(path, "rb") as f:
-            return tomllib.load(f)
-    except Exception:
-        return {}
+    return loadTomlFile(path)
 
 
 def _update_toml(updater: Any) -> None:

@@ -22,6 +22,12 @@
 			label: 'Smart LLM Calibration',
 			description:
 				'Sends the live frame plus current device settings to OpenRouter and iteratively applies suggested tuning changes.'
+		},
+		{
+			value: 'exposure_histogram',
+			label: 'Exposure (Histogram)',
+			description:
+				'Proportional-gain loop that drives the manual exposure until the frame mean luminance hits middle-gray (≈128). No color target, no LLM — converges in 4 – 8 iterations. Leaves the existing color profile untouched.'
 		}
 	];
 
@@ -283,6 +289,10 @@
 				{#if calibrationMethod === 'llm_guided'}
 					Place the Color Check fully inside the live preview, keep it flat and well lit, and
 					the LLM will iterate on the current frame plus device settings until it is satisfied.
+				{:else if calibrationMethod === 'exposure_histogram'}
+					Point the camera at the scene you want to photograph normally — no color target is
+					needed. The loop drives the manual exposure until the frame's mean luminance reaches
+					middle-gray (~128) and leaves the existing color profile alone.
 				{:else}
 					Place the Color Check fully inside the live preview, keep it flat and well lit, and
 					use the preview to tune exposure, white balance, and orientation before you calibrate.
@@ -386,6 +396,8 @@
 			Calibrating...
 		{:else if calibrationMethod === 'llm_guided'}
 			Calibrate with LLM
+		{:else if calibrationMethod === 'exposure_histogram'}
+			Calibrate Exposure
 		{:else}
 			Calibrate
 		{/if}

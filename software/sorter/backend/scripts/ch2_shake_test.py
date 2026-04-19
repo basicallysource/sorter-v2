@@ -69,6 +69,7 @@ class RunParams:
     run_id: str
     pattern: str
     amplitude_output_deg: float
+    amplitude_rev_output_deg: float
     speed_fwd: int
     speed_rev: int
     cycle_fwd_ms: int
@@ -79,14 +80,57 @@ class RunParams:
     clump_speed: int
     center_speed: int
     note: str
+    single_forward_output_deg: float
+    single_forward_speed: int
+    # Rest time between fwd/rev half-cycles (0 = back-to-back). Lets pieces
+    # settle after an inertial slip before the next impulse.
+    inter_pulse_pause_ms: int
+    # Gentle pre-move before each main pulse to take up gear backlash — the
+    # gear has a hair of play that slams into the far tooth when we launch
+    # at 8000 sp from a dead stop. A slow tiny move "cuddles" into the
+    # new-direction tooth first so the main pulse starts in contact.
+    backlash_takeup_output_deg: float
+    backlash_takeup_speed: int
+    # When > 0, replace the static pause with a slow opposite-direction
+    # drift that runs for the full inter_pulse_pause_ms window. That single
+    # slow move also closes backlash gently (friction-coupled), so separate
+    # backlash-takeup is not needed when active_pause_speed is set.
+    active_pause_speed: int
+    # --- dance-mode fields (only used when pattern starts with "dance") ---
+    dance_mode: bool
+    dance_amp_min: float
+    dance_amp_max: float
+    dance_speed_min: int
+    dance_speed_max: int
+    dance_balance_bound_deg: float
+    dance_seed: int
+    # --- ramp fields: drive each shake stroke with move-degrees+ramp instead
+    # of constant-velocity pulse. Both must be set to enable ramped motion.
+    ramp_min_speed: int  # 0 disables ramp
+    ramp_acceleration: int  # 0 disables ramp
 
 
 def _stepper_deg(output_deg: float) -> float:
     return output_deg * GEAR
 
 
-def _move_blocking(stepper_deg: float, speed: int, timeout_s: float = 60.0) -> None:
-    params = {"stepper": "c_channel_2", "degrees": stepper_deg, "speed": speed}
+def _move_blocking(
+    stepper_deg: float,
+    speed: int,
+    timeout_s: float = 60.0,
+    *,
+    min_speed: int | None = None,
+    acceleration: int | None = None,
+) -> None:
+    """POST /stepper/move-degrees and wait long enough for the stepper to
+    finish. When ``min_speed`` and ``acceleration`` are both given, the
+    firmware ramps from min_speed up to ``speed`` and back down (trapezoid
+    profile). Falls back to hard-stop constant speed otherwise.
+    """
+    params: dict[str, Any] = {"stepper": "c_channel_2", "degrees": stepper_deg, "speed": speed}
+    if min_speed is not None and acceleration is not None:
+        params["min_speed"] = int(min_speed)
+        params["acceleration"] = int(acceleration)
     deadline = time.monotonic() + timeout_s
     while True:
         resp = requests.post(f"{BASE}/stepper/move-degrees", params=params, timeout=10)
@@ -96,9 +140,16 @@ def _move_blocking(stepper_deg: float, speed: int, timeout_s: float = 60.0) -> N
             time.sleep(0.1)
             continue
         resp.raise_for_status()
-    # speed is in microsteps/s; total µsteps = |stepper_deg| * MICROSTEPS_PER_STEPPER_DEG.
+    # Estimate motion duration. Without a ramp the move is constant speed at
+    # ``speed`` µsteps/s. With a ramp, average speed is (min+max)/2 across
+    # the travel (trapezoid with short ramp shoulders); add a safety margin
+    # because the firmware also spends time on the ramp itself.
     microsteps = abs(stepper_deg) * MICROSTEPS_PER_STEPPER_DEG
-    expected_s = microsteps / max(speed, 1) * 1.15 + 0.4
+    if min_speed is not None and acceleration is not None:
+        avg_speed = (min_speed + speed) / 2.0
+        expected_s = microsteps / max(avg_speed, 1) * 1.25 + 0.3
+    else:
+        expected_s = microsteps / max(speed, 1) * 1.15 + 0.4
     time.sleep(expected_s)
 
 
@@ -218,18 +269,130 @@ def _sample(t0: float) -> dict[str, Any]:
 
 
 def _shake_loop(params: RunParams, stop: threading.Event) -> None:
+    ramp = params.ramp_min_speed > 0 and params.ramp_acceleration > 0
+    fwd_stepper_deg = params.amplitude_output_deg * GEAR
+    rev_stepper_deg = params.amplitude_rev_output_deg * GEAR
+    backlash_deg = (
+        params.backlash_takeup_output_deg * GEAR
+        if params.backlash_takeup_output_deg > 0
+        else 0.0
+    )
+
+    def _backlash_takeup(sign: int) -> None:
+        if backlash_deg <= 0:
+            return
+        try:
+            _move_blocking(
+                sign * backlash_deg, params.backlash_takeup_speed
+            )
+        except Exception as exc:
+            print(f"[warn] backlash takeup failed: {exc}", file=sys.stderr)
+
+    def _active_pause(opposite_sign: int) -> bool:
+        """Slow counter-direction drift during the pause window. The motor
+        moves at ``active_pause_speed`` for ``inter_pulse_pause_ms``, which
+        both closes backlash gently (friction-coupled) and keeps the rotor
+        doing *something* during the rest window. Returns True if stop
+        fired mid-drift.
+        """
+        if params.active_pause_speed <= 0:
+            return params.inter_pulse_pause_ms > 0 and stop.wait(
+                timeout=params.inter_pulse_pause_ms / 1000.0
+            )
+        if params.inter_pulse_pause_ms <= 0:
+            return False
+        duration_s = params.inter_pulse_pause_ms / 1000.0
+        microsteps = params.active_pause_speed * duration_s
+        stepper_deg = (opposite_sign * microsteps) / MICROSTEPS_PER_STEPPER_DEG
+        try:
+            _move_blocking(stepper_deg, params.active_pause_speed)
+        except Exception as exc:
+            print(f"[warn] active pause drift failed: {exc}", file=sys.stderr)
+        return stop.is_set()
+
     while not stop.is_set():
+        if ramp:
+            try:
+                _move_blocking(
+                    fwd_stepper_deg,
+                    params.speed_fwd,
+                    min_speed=params.ramp_min_speed,
+                    acceleration=params.ramp_acceleration,
+                )
+            except Exception as exc:
+                print(f"[warn] cw ramped move failed: {exc}", file=sys.stderr)
+            if stop.is_set():
+                return
+            try:
+                _move_blocking(
+                    -rev_stepper_deg,
+                    params.speed_rev,
+                    min_speed=params.ramp_min_speed,
+                    acceleration=params.ramp_acceleration,
+                )
+            except Exception as exc:
+                print(f"[warn] ccw ramped move failed: {exc}", file=sys.stderr)
+            continue
+        if params.active_pause_speed <= 0:
+            _backlash_takeup(+1)
         try:
             _pulse("cw", params.cycle_fwd_ms, params.speed_fwd)
         except Exception as exc:
             print(f"[warn] cw pulse failed: {exc}", file=sys.stderr)
         if stop.wait(timeout=params.cycle_fwd_ms / 1000.0):
             return
+        # Pause after cw: drift slowly in ccw to close backlash for upcoming ccw pulse.
+        if _active_pause(-1):
+            return
+        if params.active_pause_speed <= 0:
+            _backlash_takeup(-1)
         try:
             _pulse("ccw", params.cycle_rev_ms, params.speed_rev)
         except Exception as exc:
             print(f"[warn] ccw pulse failed: {exc}", file=sys.stderr)
         if stop.wait(timeout=params.cycle_rev_ms / 1000.0):
+            return
+        # Pause after ccw: drift slowly in cw to close backlash for upcoming cw pulse.
+        if _active_pause(+1):
+            return
+
+
+def _dance_loop(params: RunParams, stop: threading.Event, step_log: list[dict[str, Any]]) -> None:
+    """Random-but-balanced dance: each step picks a fresh (amp, speed) from the
+    configured ranges and a direction that keeps the cumulative drift inside
+    ``dance_balance_bound_deg``. Net result — unpredictable rhythm, no net
+    drift, pieces stay on the plate but never fall into the same groove.
+    """
+    import random
+
+    rng = random.Random(params.dance_seed)
+    balance_deg = 0.0  # running fwd(+) - rev(-) imbalance in output degrees
+    while not stop.is_set():
+        amp = rng.uniform(params.dance_amp_min, params.dance_amp_max)
+        speed = rng.randint(params.dance_speed_min, params.dance_speed_max)
+        # Force direction when we're drifting past the allowed bound so the
+        # plate never walks off; otherwise pick direction uniformly.
+        if balance_deg > params.dance_balance_bound_deg:
+            direction = "ccw"
+        elif balance_deg < -params.dance_balance_bound_deg:
+            direction = "cw"
+        else:
+            direction = rng.choice(("cw", "ccw"))
+        duration_ms = _pulse_duration_ms_for_output_deg(amp, speed)
+        try:
+            _pulse(direction, duration_ms, speed)
+        except Exception as exc:
+            print(f"[warn] {direction} dance pulse failed: {exc}", file=sys.stderr)
+        signed = amp if direction == "cw" else -amp
+        balance_deg += signed
+        step_log.append({
+            "direction": direction,
+            "amp_output_deg": round(amp, 2),
+            "speed_usteps_per_s": speed,
+            "duration_ms": duration_ms,
+            "balance_after_deg": round(balance_deg, 2),
+        })
+        if stop.wait(timeout=duration_ms / 1000.0):
             return
 
 
@@ -264,8 +427,30 @@ def run(params: RunParams) -> Path:
     timeline: list[dict[str, Any]] = [start_sample]
     _snapshot_with_bboxes(run_dir / "snap_start.jpg", start_sample["bboxes"])
 
+    if params.single_forward_output_deg > 0:
+        print(
+            f"[{params.run_id}] single forward move {params.single_forward_output_deg}° @ {params.single_forward_speed}sp"
+        )
+        _move_blocking(
+            _stepper_deg(params.single_forward_output_deg),
+            params.single_forward_speed,
+        )
+        time.sleep(0.4)
+        after_sample = _sample(t0)
+        timeline.append(after_sample)
+        _snapshot_with_bboxes(run_dir / "snap_after.jpg", after_sample["bboxes"])
+        (run_dir / "timeline.json").write_text(json.dumps(timeline, indent=2))
+        print(f"[{params.run_id}] single-forward run done → {run_dir} (machine still paused)")
+        return run_dir
+
     stop = threading.Event()
-    t = threading.Thread(target=_shake_loop, args=(params, stop), daemon=True)
+    dance_steps: list[dict[str, Any]] = []
+    if params.dance_mode:
+        t = threading.Thread(
+            target=_dance_loop, args=(params, stop, dance_steps), daemon=True
+        )
+    else:
+        t = threading.Thread(target=_shake_loop, args=(params, stop), daemon=True)
     t.start()
 
     deadline = t0 + params.shake_duration_s
@@ -287,6 +472,9 @@ def run(params: RunParams) -> Path:
     _snapshot_with_bboxes(run_dir / "snap_after.jpg", after_sample["bboxes"])
 
     (run_dir / "timeline.json").write_text(json.dumps(timeline, indent=2))
+    if params.dance_mode and dance_steps:
+        (run_dir / "dance_log.json").write_text(json.dumps(dance_steps, indent=2))
+        print(f"[{params.run_id}] dance: {len(dance_steps)} steps, final balance {dance_steps[-1]['balance_after_deg']:.1f}°")
     print(f"[{params.run_id}] {len(timeline)} samples saved → {run_dir} (machine still paused)")
 
     return run_dir
@@ -445,6 +633,7 @@ def main() -> int:
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--pattern", required=True, help="free-form label, e.g. symmetric-hard")
     ap.add_argument("--amplitude-output-deg", type=float, default=15.0)
+    ap.add_argument("--amplitude-rev-output-deg", type=float, default=-1.0, help="reverse amplitude (defaults to fwd amplitude)")
     ap.add_argument("--speed-fwd", type=int, default=2000)
     ap.add_argument("--speed-rev", type=int, default=2000)
     ap.add_argument("--cycle-fwd-ms", type=int, default=0, help="0 = derive from amplitude/speed")
@@ -455,22 +644,52 @@ def main() -> int:
     ap.add_argument("--clump-speed", type=int, default=2500)
     ap.add_argument("--center-speed", type=int, default=2500)
     ap.add_argument("--note", default="")
+    ap.add_argument("--dance", action="store_true", help="enable random-but-balanced dance pattern")
+    ap.add_argument("--dance-amp-min", type=float, default=5.0)
+    ap.add_argument("--dance-amp-max", type=float, default=20.0)
+    ap.add_argument("--dance-speed-min", type=int, default=1000)
+    ap.add_argument("--dance-speed-max", type=int, default=2500)
+    ap.add_argument("--dance-balance-bound-deg", type=float, default=25.0, help="max cumulative net drift before direction is forced back")
+    ap.add_argument("--dance-seed", type=int, default=42)
+    ap.add_argument("--ramp-min-speed", type=int, default=0, help="enable ramp: start/end speed (µsteps/s). 0 = no ramp")
+    ap.add_argument("--ramp-acceleration", type=int, default=0, help="enable ramp: acceleration (µsteps/s²). 0 = no ramp")
+    ap.add_argument("--single-forward-output-deg", type=float, default=0.0, help="instead of shake, do one forward move of this many output deg after priming")
+    ap.add_argument("--single-forward-speed", type=int, default=2000)
+    ap.add_argument("--inter-pulse-pause-ms", type=int, default=0, help="rest period between each fwd/rev half-cycle (0 = back-to-back)")
+    ap.add_argument("--backlash-takeup-output-deg", type=float, default=0.0, help="gentle pre-move before each main pulse to take up gear backlash (0 = off)")
+    ap.add_argument("--backlash-takeup-speed", type=int, default=500)
+    ap.add_argument("--active-pause-speed", type=int, default=0, help="if > 0, use the inter-pulse pause for a slow opposite-direction drift at this speed (µsteps/s)")
     ap.add_argument("--report-only", action="store_true", help="skip the run, just rebuild index.html")
     args = ap.parse_args()
 
+    amp_rev = (
+        args.amplitude_rev_output_deg
+        if args.amplitude_rev_output_deg >= 0
+        else args.amplitude_output_deg
+    )
     if args.cycle_fwd_ms == 0:
         args.cycle_fwd_ms = _pulse_duration_ms_for_output_deg(
             args.amplitude_output_deg, args.speed_fwd
         )
     if args.cycle_rev_ms == 0:
         args.cycle_rev_ms = _pulse_duration_ms_for_output_deg(
-            args.amplitude_output_deg, args.speed_rev
+            amp_rev, args.speed_rev
         )
 
     params = RunParams(
         run_id=args.run_id,
         pattern=args.pattern,
+        dance_mode=bool(args.dance),
+        dance_amp_min=args.dance_amp_min,
+        dance_amp_max=args.dance_amp_max,
+        dance_speed_min=args.dance_speed_min,
+        dance_speed_max=args.dance_speed_max,
+        dance_balance_bound_deg=args.dance_balance_bound_deg,
+        dance_seed=args.dance_seed,
+        ramp_min_speed=args.ramp_min_speed,
+        ramp_acceleration=args.ramp_acceleration,
         amplitude_output_deg=args.amplitude_output_deg,
+        amplitude_rev_output_deg=amp_rev,
         speed_fwd=args.speed_fwd,
         speed_rev=args.speed_rev,
         cycle_fwd_ms=args.cycle_fwd_ms,
@@ -481,6 +700,12 @@ def main() -> int:
         clump_speed=args.clump_speed,
         center_speed=args.center_speed,
         note=args.note,
+        single_forward_output_deg=args.single_forward_output_deg,
+        single_forward_speed=args.single_forward_speed,
+        inter_pulse_pause_ms=args.inter_pulse_pause_ms,
+        backlash_takeup_output_deg=args.backlash_takeup_output_deg,
+        backlash_takeup_speed=args.backlash_takeup_speed,
+        active_pause_speed=args.active_pause_speed,
     )
 
     if not args.report_only:

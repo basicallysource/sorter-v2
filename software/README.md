@@ -16,26 +16,25 @@ cd sorter-v2/software
 
 ## Firmware
 
-Build and flash the `sorter_interface_firmware` for each Raspberry Pi Pico. See `firmware/sorter_interface_firmware/README.md` for full build instructions, including role-based build variants (feeder vs distribution).
+Flash firmware to each Raspberry Pi Pico using the Makefile in `firmware/sorter_interface_firmware/`. Put one Pico into BOOTSEL mode at a time (so it mounts as `RPI-RP2`), then run the appropriate target — the build happens automatically:
 
-Quick example (feeder role):
 ```bash
 cd firmware/sorter_interface_firmware
-mkdir -p build && cd build
-cmake -DFIRMWARE_ROLE=feeder ..
-ninja
-picotool load -f sorter_interface_firmware.uf2
+make flash-feeder       # builds and flashes feeder firmware
+make flash-distribution # builds and flashes distribution firmware
 ```
+
+Flash each Pico separately, one at a time in BOOTSEL mode.
 
 ## Environment
 
 ```bash
 cp .env.example .env
+cp machine.example.toml machine.toml
 ```
 
-Edit `.env` and update:
-- Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
-- `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `machine.example.toml` for an example)
+Edit the path in `.env` to match the real path to `machine.toml`.
+
 
 Camera assignment happens in the UI: open the running frontend and use the Settings → Cameras page to map each OpenCV device index to its role (feeder, classification top/bottom, carousel, etc). The resulting assignments are written back to `machine_params.toml` under `[cameras]`.
 

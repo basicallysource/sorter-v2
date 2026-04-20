@@ -30,6 +30,16 @@ sections = [
 # servo_open_angles = {1 = 25}
 # servo_closed_angles = {1 = 110}
 
+# [layers.servo_open_angles]
+# 0 = 25
+# 3 = 0
+# 4 = 28
+
+# [layers.servo_closed_angles]
+# 0 = 105
+# 3 = 65
+# 4 = 78
+
 # --- Chute positioning calibration ---
 # These values define where the first bin center sits after homing and how much
 # angular width each divider pillar consumes. They directly affect how the chute
@@ -112,5 +122,8 @@ c_channel_3 = 4
 [stepper_current_overrides]
 # default = 16, max = 31
 
-[stepper_current_overrides.chute_stepper]
-irun = 16
+# [stepper_current_overrides.chute_stepper]
+# irun = 16
+
+[stepper_direction_inverts]
+carousel = true

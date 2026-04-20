@@ -273,6 +273,8 @@ class GeminiSamDetector:
     """Detects objects in scoped frames using an OpenRouter vision model."""
 
     def __init__(self, openrouter_model: str = DEFAULT_OPENROUTER_MODEL, zone: str = "classification_chamber") -> None:
+        if not os.getenv("OPENROUTER_API_KEY"):
+            raise RuntimeError("OPENROUTER_API_KEY is not set.")
         self._last_call_time: float = 0.0
         self._last_result: ClassificationDetectionResult | None = None
         self._last_error: str | None = None

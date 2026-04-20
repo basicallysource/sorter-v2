@@ -336,7 +336,7 @@ class VisionManager:
         # Telemetry overlay on every feed — res / fps / exposure / gain /
         # focus / wb / auto-modes rendered bottom-right. Category "telemetry"
         # so the frontend can hide it via show_regions=false style filters.
-        for role, feed in self._camera_service.feeds().items():
+        for role, feed in self._camera_service.feeds.items():
             if feed is None:
                 continue
 

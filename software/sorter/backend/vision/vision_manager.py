@@ -46,8 +46,6 @@ from .diff_configs import (
     DEFAULT_CAROUSEL_DIFF_CONFIG,
     DEFAULT_CLASSIFICATION_DIFF_CONFIG,
 )
-
-TELEMETRY_INTERVAL_S = 30
 AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.25
 OPENROUTER_MAX_CONCURRENCY = 10
 OPENROUTER_FAILURE_BACKOFF_S = 2.0
@@ -98,9 +96,6 @@ class VisionManager:
         # (kept so the hundreds of existing self._*_capture references keep working)
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
-
-        self._telemetry = None
-        self._last_telemetry_save = 0.0
 
         if gc.region_provider == RegionProviderType.HANDDRAWN:
             try:
@@ -240,9 +235,6 @@ class VisionManager:
     def _carousel_capture(self, value):
         pass
 
-    def setTelemetry(self, telemetry) -> None:
-        self._telemetry = telemetry
-
     def setArucoSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
         if isinstance(self._region_provider, ArucoRegionProvider):
             self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
@@ -344,7 +336,7 @@ class VisionManager:
         # Telemetry overlay on every feed — res / fps / exposure / gain /
         # focus / wb / auto-modes rendered bottom-right. Category "telemetry"
         # so the frontend can hide it via show_regions=false style filters.
-        for role, feed in self._camera_service.feeds().items():
+        for role, feed in self._camera_service.feeds.items():
             if feed is None:
                 continue
 
@@ -2395,38 +2387,6 @@ class VisionManager:
                             self._video_recorder.writeFrame(
                                 cam.value, frame.raw, frame.annotated
                             )
-            with prof.timer("vision.record_frames.save_telemetry_frames_ms"):
-                self._saveTelemetryFrames()
-
-    def _saveTelemetryFrames(self) -> None:
-        if self._telemetry is None:
-            return
-        now = time.time()
-        if now - self._last_telemetry_save < TELEMETRY_INTERVAL_S:
-            return
-        self._last_telemetry_save = now
-
-        if self._camera_layout == "split_feeder":
-            camera_name_map = {
-                "c_channel_2": "c_channel_2",
-                "c_channel_3": "c_channel_3",
-                "carousel": "carousel",
-            }
-        else:
-            camera_name_map = {
-                "feeder": "c_channel",
-                "classification_bottom": "classification_chamber_bottom",
-                "classification_top": "classification_chamber_top",
-            }
-        for internal_name, telemetry_name in camera_name_map.items():
-            frame = self.getFrame(internal_name)
-            if frame and frame.raw is not None:
-                self._telemetry.saveCapture(
-                    telemetry_name,
-                    frame.raw,
-                    frame.annotated,
-                    "interval",
-                )
 
     @property
     def feeder_frame(self) -> Optional[CameraFrame]:

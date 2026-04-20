@@ -9,7 +9,6 @@ from .carousel import Carousel
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from vision import VisionManager
-from telemetry import Telemetry
 import queue
 
 
@@ -21,7 +20,6 @@ class ClassificationStateMachine(BaseSubsystem):
         shared: SharedVariables,
         vision: VisionManager,
         event_queue: queue.Queue,
-        telemetry: Telemetry,
         carousel: Carousel,
     ):
         super().__init__()
@@ -43,7 +41,7 @@ class ClassificationStateMachine(BaseSubsystem):
                 irl, gc, shared, self.carousel, irl.carousel_stepper, event_queue
             ),
             ClassificationState.SNAPPING: Snapping(
-                irl, gc, shared, self.carousel, vision, event_queue, telemetry
+                irl, gc, shared, self.carousel, vision, event_queue
             ),
         }
         self.gc.profiler.enterState("classification", self.current_state.value)

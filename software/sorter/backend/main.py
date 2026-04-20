@@ -31,7 +31,6 @@ from server.shared_state import (
 )
 from aruco_config_manager import ArucoConfigManager
 from sorter_controller import SorterController
-from telemetry import Telemetry
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
@@ -158,8 +157,6 @@ def main() -> None:
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)
 
-    with gc.profiler.timer("startup.telemetry_init_ms"):
-        telemetry = Telemetry(gc)
     with gc.profiler.timer("startup.camera_service_init_ms"):
         from vision.camera_service import CameraService
         from defs.events import CameraHealthEvent, CameraHealthData
@@ -176,7 +173,6 @@ def main() -> None:
         camera_service.set_health_event_callback(_on_camera_health_change)
     with gc.profiler.timer("startup.vision_init_ms"):
         vision = VisionManager(irl_config, gc, irl, camera_service)
-        vision.setTelemetry(telemetry)
         setVisionManager(vision)
     # Controller is deferred until hardware is started
     controller = None
@@ -342,7 +338,7 @@ def main() -> None:
         shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
-            irl, irl_config, gc, vision, main_to_server_queue, rv, telemetry
+            irl, irl_config, gc, vision, main_to_server_queue, rv
         )
         with controller_lock:
             controller = next_controller

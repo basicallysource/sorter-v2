@@ -5,20 +5,17 @@
 # Usage:
 #   ./install.sh                 # install everything in dev mode
 #   ./install.sh --as-service    # also build UI and install systemd units
-#   ./install.sh --skip-lfs      # skip git lfs pull (useful in CI / Docker)
 #   ./install.sh --skip-apt      # skip apt-get steps (when packages already installed)
 #   ./install.sh --help
 
 set -euo pipefail
 
 AS_SERVICE=false
-SKIP_LFS=false
 SKIP_APT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --as-service) AS_SERVICE=true; shift;;
-        --skip-lfs)   SKIP_LFS=true;   shift;;
         --skip-apt)   SKIP_APT=true;   shift;;
         --help|-h)
             sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
@@ -55,7 +52,7 @@ if [[ "$SKIP_APT" == "false" ]]; then
     log "Installing system packages via apt..."
     sudo apt-get update -qq
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-        git git-lfs \
+        git \
         curl ca-certificates \
         build-essential pkg-config \
         libgl1 libglib2.0-0 \
@@ -123,45 +120,7 @@ fi
 ok "pnpm: $(pnpm --version)"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. Git LFS payloads
-# ─────────────────────────────────────────────────────────────────────────────
-if [[ "$SKIP_LFS" == "false" ]]; then
-    # Pre-check: git-lfs must be installed, otherwise `git lfs pull` silently
-    # leaves pointer files on disk and the backend later fails importing a
-    # 200-byte ".onnx" file with a cryptic error. This is the #1 support ticket.
-    if ! command -v git-lfs &>/dev/null && ! git lfs version &>/dev/null 2>&1; then
-        err "git-lfs not found. Install it first:"
-        err "  Debian/Ubuntu/Pi OS:  sudo apt-get install git-lfs"
-        err "  macOS:                brew install git-lfs"
-        err "Or re-run this installer without --skip-apt so apt installs it."
-        exit 1
-    fi
-
-    log "Pulling Git LFS payloads (parts catalogue, ~10 MB)..."
-    if ! ( cd "$REPO_ROOT" && git lfs install --local && git lfs pull ); then
-        err "git lfs pull failed. Check network connectivity and LFS bandwidth quota."
-        exit 1
-    fi
-
-    # Post-verify: confirm the largest known LFS file is a real blob, not a
-    # pointer. LFS pointers are ~130 bytes; the real file is ~10 MB.
-    PARTS_FILE="$SOFTWARE_DIR/sorter/backend/parts_with_categories.json"
-    if [[ -f "$PARTS_FILE" ]]; then
-        PARTS_SIZE=$(wc -c < "$PARTS_FILE" | tr -d ' ')
-        if [[ "$PARTS_SIZE" -lt 1000000 ]]; then
-            err "LFS payload verification failed: $PARTS_FILE is only $PARTS_SIZE bytes."
-            err "This usually means LFS is not configured for this clone."
-            err "Try:  cd $REPO_ROOT && git lfs fetch --all && git lfs checkout"
-            exit 1
-        fi
-    fi
-    ok "LFS payloads pulled and verified"
-else
-    warn "Skipping git lfs pull (--skip-lfs) — models may be 200-byte pointers"
-fi
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 6. .env files with discovered repo paths
+# 5. .env files with discovered repo paths
 # ─────────────────────────────────────────────────────────────────────────────
 ENV_FILE="$SOFTWARE_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
@@ -171,23 +130,9 @@ else
     cat > "$ENV_FILE" <<EOF
 export DEBUG_LEVEL=2
 
-export PARTS_WITH_CATEGORIES_FILE_PATH="$SOFTWARE_DIR/sorter/backend/parts_with_categories.json"
-export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/sorter/backend/irl/example_configs/machine_specific_params_example.toml"
+export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/machine.example.toml"
 export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
-export FEEDER_CAMERA_INDEX=0
-export CLASSIFICATION_CAMERA_BOTTOM_INDEX=2
-export CLASSIFICATION_CAMERA_TOP_INDEX=1
-
-export TELEMETRY_ENABLED=0
-export TELEMETRY_URL="https://api.basically.website"
-
-export BL_CONSUMER_KEY="no"
-export BL_CONSUMER_SECRET="no"
-export BL_TOKEN_VALUE="no"
-export BL_TOKEN_SECRET="no"
-
-export LOG_BUFFER_SIZE=100
 EOF
     ok ".env written"
 fi
@@ -199,21 +144,21 @@ if [[ ! -f "$UI_ENV" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. Python dependencies (slow on first run — uv fetches Python 3.13)
+# 6. Python dependencies (slow on first run — uv fetches Python 3.13)
 # ─────────────────────────────────────────────────────────────────────────────
 log "Running uv sync (this is the slow one on a clean install)..."
 ( cd "$SOFTWARE_DIR/sorter/backend" && uv sync )
 ok "Python deps installed"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. UI dependencies
+# 7. UI dependencies
 # ─────────────────────────────────────────────────────────────────────────────
 log "Running pnpm install..."
 ( cd "$SOFTWARE_DIR/sorter/frontend" && pnpm install --frozen-lockfile )
 ok "UI deps installed"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 9. systemd service install (optional)
+# 8. systemd service install (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$AS_SERVICE" == "true" ]]; then
     log "Building UI for production..."

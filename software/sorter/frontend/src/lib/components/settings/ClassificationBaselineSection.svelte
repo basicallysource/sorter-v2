@@ -79,6 +79,15 @@
 	let sampleCollectionEnabled = $state(true);
 	let sampleCollectionSupported = $state(true);
 
+	async function extractErrorMessage(res: Response): Promise<string> {
+		const text = await res.text();
+		try {
+			const json = JSON.parse(text);
+			if (typeof json?.detail === 'string') return json.detail;
+		} catch {}
+		return text;
+	}
+
 	function currentBackendBaseUrl(): string {
 		return (
 			machineHttpBaseUrlFromWsUrl(
@@ -160,7 +169,7 @@
 		errorMsg = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}${configPath()}`);
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) throw new Error(await extractErrorMessage(res));
 			const payload = await res.json();
 			if (typeof payload?.algorithm === 'string') {
 				algorithm = payload.algorithm as DetectionAlgorithm;
@@ -228,7 +237,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(configBody(nextAlgorithm, nextModel, nextSampleCollection))
 			});
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) throw new Error(await extractErrorMessage(res));
 			const payload = await res.json();
 			algorithm = nextAlgorithm;
 			openrouterModel =
@@ -299,7 +308,7 @@
 		statusMsg = '';
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}${path}`, { method: 'POST' });
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) throw new Error(await extractErrorMessage(res));
 			const payload = await res.json();
 			captureResult =
 				payload?.cameras && typeof payload.cameras === 'object'
@@ -320,7 +329,7 @@
 		statusMsg = '';
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}${testPath()}`, { method: 'POST' });
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) throw new Error(await extractErrorMessage(res));
 			const payload = (await res.json()) as DetectionDebugResult;
 			applyDebugResult(payload);
 			statusMsg = payload.message;

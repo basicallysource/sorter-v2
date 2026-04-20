@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Git](https://git-scm.com/) with [Git LFS](https://git-lfs.github.com/)
+- [Git](https://git-scm.com/)
 - [Node.js](https://nodejs.org/) (v20+) and npm
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk) (for firmware builds)
@@ -10,36 +10,31 @@
 ## Clone
 
 ```bash
-git lfs install
 git clone https://github.com/basicallysource/sorter-v2.git
 cd sorter-v2/software
 ```
 
-Git LFS files (models, `parts_with_categories.json`) should download automatically. If not, run `git lfs pull`. You can verify by checking that `software/models/` contains `.pt` files (not small text pointers).
-
 ## Firmware
 
-Build and flash the `sorter_interface_firmware` for each Raspberry Pi Pico. See `firmware/sorter_interface_firmware/README.md` for full build instructions, including role-based build variants (feeder vs distribution).
+Flash firmware to each Raspberry Pi Pico using the Makefile in `firmware/sorter_interface_firmware/`. Put one Pico into BOOTSEL mode at a time (so it mounts as `RPI-RP2`), then run the appropriate target — the build happens automatically:
 
-Quick example (feeder role):
 ```bash
 cd firmware/sorter_interface_firmware
-mkdir -p build && cd build
-cmake -DFIRMWARE_ROLE=feeder ..
-ninja
-picotool load -f sorter_interface_firmware.uf2
+make flash-feeder       # builds and flashes feeder firmware
+make flash-distribution # builds and flashes distribution firmware
 ```
+
+Flash each Pico separately, one at a time in BOOTSEL mode.
 
 ## Environment
 
 ```bash
 cp .env.example .env
+cp machine.example.toml machine.toml
 ```
 
-Edit `.env` and update:
-- `CLASSIFICATION_CHAMBER_MODEL_PATH`, `FEEDER_MODEL_PATH`, `PARTS_WITH_CATEGORIES_FILE_PATH` — set these to the absolute paths where the repo was cloned (the files are pulled via Git LFS)
-- Pico devices are auto-detected via USB. Override with `MCU_PATH` if needed.
-- `MACHINE_SPECIFIC_PARAMS_PATH` — optional path to a TOML file with machine-specific overrides (see `sorter/backend/irl/example_configs/machine_specific_params_example.toml` for an example)
+Edit the path in `.env` to match the real path to `machine.toml`.
+
 
 Camera assignment happens in the UI: open the running frontend and use the Settings → Cameras page to map each OpenCV device index to its role (feeder, classification top/bottom, carousel, etc). The resulting assignments are written back to `machine_params.toml` under `[cameras]`.
 

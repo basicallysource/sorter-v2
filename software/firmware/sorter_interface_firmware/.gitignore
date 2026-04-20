@@ -1,2 +1,4 @@
 build
+build-*/
+.pico-deps/
 !.vscode/*

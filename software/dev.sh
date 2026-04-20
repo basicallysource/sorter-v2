@@ -10,6 +10,7 @@
 #   ./dev.sh backend    # full machine backend only
 #   ./dev.sh api        # API-only backend (no controller / hardware)
 #   ./dev.sh frontend   # frontend only
+#   ./dev.sh --dump     # also write all output to logs/<datetime>.log
 
 set -euo pipefail
 
@@ -151,7 +152,26 @@ run_frontend() {
 
 # --- Main ---
 
+DUMP=false
+PARSED_ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --dump) DUMP=true ;;
+        *) PARSED_ARGS+=("$arg") ;;
+    esac
+done
+set -- ${PARSED_ARGS[@]+"${PARSED_ARGS[@]}"}
+
 MODE="${1:-all}"
+
+if $DUMP; then
+    LOG_DIR="$ROOT/logs"
+    mkdir -p "$LOG_DIR"
+    LOG_FILE="$LOG_DIR/$(date +%Y-%m-%d_%H-%M-%S).log"
+    # Tee everything: keep colors on terminal, strip ANSI codes in the file
+    exec > >(tee >(sed -u $'s/\033\\[[0-9;]*[a-zA-Z]//g' >> "$LOG_FILE")) 2>&1
+    log "${CYAN}Dumping logs to $LOG_FILE${RESET}"
+fi
 
 log "${CYAN}LEGO Sorter Dev Runner${RESET}"
 log "Mode: $MODE"

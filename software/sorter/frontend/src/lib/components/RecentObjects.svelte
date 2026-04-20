@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData, ClassificationStatus, PieceStage } from '$lib/api/events';
-	import type { components } from '$lib/api/rest';
-	import Spinner from './Spinner.svelte';
+import Spinner from './Spinner.svelte';
 	import Badge from './Badge.svelte';
 	import { CircleHelp, TriangleAlert } from 'lucide-svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
-	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	type BadgeColor = 'gray' | 'yellow' | 'blue' | 'orange' | 'green' | 'red';
 
 	const ctx = getMachineContext();
@@ -17,29 +15,6 @@
 	sortingProfileStore.load();
 
 	let expanded_id = $state<string | null>(null);
-	let bricklink_cache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
-
-	async function fetchBricklinkData(part_id: string) {
-		if (bricklink_cache.has(part_id)) return;
-		bricklink_cache.set(part_id, null);
-		try {
-			const res = await fetch(`/bricklink/part/${part_id}`);
-			if (res.ok) {
-				const data: BricklinkPartResponse = await res.json();
-				bricklink_cache = new Map(bricklink_cache).set(part_id, data);
-			}
-		} catch {
-			// ignore errors
-		}
-	}
-
-	$effect(() => {
-		for (const obj of objects) {
-			if (obj.part_id && !bricklink_cache.has(obj.part_id)) {
-				fetchBricklinkData(obj.part_id);
-			}
-		}
-	});
 
 	function toggleExpand(uuid: string) {
 		expanded_id = expanded_id === uuid ? null : uuid;
@@ -117,8 +92,6 @@
 				{#each objects as obj (obj.uuid)}
 					{@const is_expanded = expanded_id === obj.uuid}
 					{@const minimized = isMinimized(obj)}
-					{@const bl_data = obj.part_id ? bricklink_cache.get(obj.part_id) : null}
-					{@const bl_thumb = bl_data?.thumbnail_url ? `https:${bl_data.thumbnail_url}` : null}
 					{@const preview_url = obj.brickognize_preview_url ?? null}
 					{@const category_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 					{#if minimized}
@@ -163,21 +136,15 @@
 							class="w-full border border-border bg-bg p-2 text-left transition-colors hover:bg-surface"
 						>
 							<div class="flex gap-2">
-								{#if obj.thumbnail}
-									<img
-										src={`data:image/jpeg;base64,${obj.thumbnail}`}
-										alt="piece"
-										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
-									/>
-								{:else if preview_url}
+								{#if preview_url}
 									<img
 										src={preview_url}
 										alt="Brickognize preview"
 										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
 									/>
-								{:else if bl_thumb}
+								{:else if obj.thumbnail}
 									<img
-										src={bl_thumb}
+										src={`data:image/jpeg;base64,${obj.thumbnail}`}
 										alt="piece"
 										class="h-12 w-12 flex-shrink-0 bg-white object-contain"
 									/>
@@ -192,11 +159,6 @@
 									<span class="truncate font-mono text-text">
 										{obj.part_id ?? obj.uuid.slice(0, 8)}
 									</span>
-									{#if bl_data?.name}
-										<div class="truncate text-text-muted">
-											{bl_data.name}
-										</div>
-									{/if}
 									{#if obj.color_name && obj.color_name !== 'Any Color'}
 										<div class="truncate text-text-muted">
 											{obj.color_name}

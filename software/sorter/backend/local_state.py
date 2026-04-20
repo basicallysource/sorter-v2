@@ -6,12 +6,13 @@ import os
 import sqlite3
 import threading
 import time
-import tomllib
 import uuid
 from pathlib import Path
 from typing import Any
 
-CLIENT_DIR = Path(__file__).resolve().parent
+from toml_config import loadTomlFile
+
+SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
 _SCHEMA_VERSION = 3
@@ -42,18 +43,14 @@ def local_state_db_path() -> Path:
     if isinstance(env_path, str) and env_path.strip():
         return Path(env_path).expanduser()
 
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if isinstance(params_path, str) and params_path.strip():
-        return Path(params_path).expanduser().resolve().parent / "local_state.sqlite"
-
-    return CLIENT_DIR / "local_state.sqlite"
+    return SOFTWARE_DIR / "local_state.sqlite"
 
 
 def _legacy_machine_params_path() -> Path:
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if isinstance(params_path, str) and params_path.strip():
         return Path(params_path).expanduser().resolve()
-    return CLIENT_DIR / "machine_params.toml"
+    return SOFTWARE_DIR / "machine_params.toml"
 
 
 def _legacy_state_dir() -> Path:
@@ -114,11 +111,7 @@ def _read_machine_params() -> dict[str, Any]:
     path = _legacy_machine_params_path()
     if not path.exists():
         return {}
-    try:
-        with open(path, "rb") as handle:
-            data = tomllib.load(handle)
-    except Exception:
-        return {}
+    data = loadTomlFile(path)
     return data if isinstance(data, dict) else {}
 
 

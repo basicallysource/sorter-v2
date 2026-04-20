@@ -13,7 +13,6 @@ from defs.events import (
     KnownObjectData,
     KnownObjectEvent,
 )
-from bricklink.api import getPartInfo
 from blob_manager import (
     getApiKeys,
     getMachineId,
@@ -564,34 +563,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         if websocket in active_connections:
             active_connections.remove(websocket)
-
-
-# ---------------------------------------------------------------------------
-# Bricklink
-# ---------------------------------------------------------------------------
-
-
-class BricklinkPartResponse(BaseModel):
-    no: str
-    name: str
-    type: str
-    category_id: Optional[int] = None
-    image_url: Optional[str] = None
-    thumbnail_url: Optional[str] = None
-    weight: Optional[str] = None
-    dim_x: Optional[str] = None
-    dim_y: Optional[str] = None
-    dim_z: Optional[str] = None
-    year_released: Optional[int] = None
-    is_obsolete: Optional[bool] = None
-
-
-@app.get("/bricklink/part/{part_id}", response_model=BricklinkPartResponse)
-def getBricklinkPart(part_id: str) -> BricklinkPartResponse:
-    data = getPartInfo(part_id)
-    if data is None:
-        raise HTTPException(status_code=404, detail="Part not found")
-    return BricklinkPartResponse(**data)
 
 
 # ---------------------------------------------------------------------------

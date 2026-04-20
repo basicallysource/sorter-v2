@@ -662,22 +662,19 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
     # Check for TOML camera layout override
-    import os, tomllib
+    import os
+    from toml_config import loadTomlFile
     camera_layout_type = "default"
     feeding_mode = "auto_channels"
     raw_toml: dict[str, object] = {}
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
-        try:
-            with open(params_path, "rb") as f:
-                raw_toml = tomllib.load(f)
-            cameras_section = raw_toml.get("cameras", {})
-            if isinstance(cameras_section, dict):
-                camera_layout_type = cameras_section.get("layout", "default")
-            if camera_layout_type not in ("default", "split_feeder"):
-                camera_layout_type = "default"
-        except Exception:
-            pass
+        raw_toml = loadTomlFile(params_path)
+        cameras_section = raw_toml.get("cameras", {})
+        if isinstance(cameras_section, dict):
+            camera_layout_type = cameras_section.get("layout", "default")
+        if camera_layout_type not in ("default", "split_feeder"):
+            camera_layout_type = "default"
 
     class _SilentLogger:
         def warning(self, *args: object, **kwargs: object) -> None:

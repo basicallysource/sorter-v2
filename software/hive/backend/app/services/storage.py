@@ -1,11 +1,12 @@
 import hashlib
-import shutil
+import os
+import tempfile
 import uuid
-from pathlib import Path
 
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException, Response, UploadFile
 
 from app.config import settings
+from app.services.storage_backend import get_backend
 
 ALLOWED_MAGIC = {
     b"\xff\xd8\xff": "jpg",
@@ -15,10 +16,6 @@ ALLOWED_MAGIC = {
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
-def _upload_base() -> Path:
-    return Path(settings.UPLOAD_DIR)
-
-
 def _safe_path_component(value: str, field_name: str) -> str:
     component = value.strip()
     if not component or component in {".", ".."} or "/" in component or "\\" in component:
@@ -26,47 +23,46 @@ def _safe_path_component(value: str, field_name: str) -> str:
     return component
 
 
+def _join_key(*parts: str) -> str:
+    return "/".join(part.strip("/") for part in parts if part)
+
+
 def save_upload_file(
     machine_id: str, session_id: str, sample_id: str, file: UploadFile, suffix: str
 ) -> str:
-    directory = (
-        _upload_base()
-        / _safe_path_component(machine_id, "machine id")
-        / _safe_path_component(session_id, "session id")
-        / _safe_path_component(sample_id, "sample id")
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        _safe_path_component(session_id, "session id"),
+        _safe_path_component(sample_id, "sample id"),
+        f"{uuid.uuid4().hex}{suffix}",
     )
-    directory.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}{suffix}"
-    dest = directory / filename
-    with open(dest, "wb") as out:
-        content = file.file.read()
-        out.write(content)
-    return str(dest.relative_to(_upload_base()))
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
 
 
 def delete_sample_files(sample) -> None:
-    if sample.image_path:
-        _remove_file(sample.image_path)
-    if sample.full_frame_path:
-        _remove_file(sample.full_frame_path)
-    if sample.overlay_path:
-        _remove_file(sample.overlay_path)
+    backend = get_backend()
+    for path in (sample.image_path, sample.full_frame_path, sample.overlay_path):
+        if path:
+            backend.delete(path)
 
 
 def delete_machine_files(machine_id: str) -> None:
-    machine_dir = _upload_base() / machine_id
-    if machine_dir.exists():
-        shutil.rmtree(machine_dir)
+    safe_id = _safe_path_component(machine_id, "machine id")
+    get_backend().delete_prefix(safe_id)
 
 
-def get_file_path(stored_path: str) -> Path:
-    full = (_upload_base() / stored_path).resolve()
-    base = _upload_base().resolve()
-    if not str(full).startswith(str(base)):
-        raise HTTPException(status_code=400, detail="Invalid file path")
-    if not full.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-    return full
+def serve_stored_file(
+    stored_path: str,
+    *,
+    headers: dict[str, str] | None = None,
+    filename: str | None = None,
+    media_type: str | None = None,
+) -> Response:
+    return get_backend().serve(
+        stored_path, headers=headers, filename=filename, media_type=media_type
+    )
 
 
 def validate_image(file: UploadFile) -> str:
@@ -103,50 +99,63 @@ def save_model_variant(
         raise HTTPException(status_code=400, detail="Unsupported runtime")
     model_safe = _safe_path_component(str(model_id), "model id")
     name_safe = _safe_path_component(file_name, "file name")
-    directory = _upload_base() / "models" / model_safe / runtime_safe
-    directory.mkdir(parents=True, exist_ok=True)
-    dest = directory / name_safe
 
     hasher = hashlib.sha256()
-    total = 0
     max_size = settings.MAX_MODEL_FILE_SIZE
     chunk_size = 1024 * 1024
+    total = 0
+
+    tmp = tempfile.NamedTemporaryFile(delete=False)
     try:
-        with open(dest, "wb") as out:
+        try:
             while True:
                 chunk = file.file.read(chunk_size)
                 if not chunk:
                     break
                 total += len(chunk)
                 if total > max_size:
-                    out.close()
-                    dest.unlink(missing_ok=True)
                     raise HTTPException(status_code=413, detail="Model file exceeds size limit")
                 hasher.update(chunk)
-                out.write(chunk)
-    except HTTPException:
-        raise
-    except Exception:
-        dest.unlink(missing_ok=True)
-        raise
-    return str(dest.relative_to(_upload_base())), hasher.hexdigest(), total
+                tmp.write(chunk)
+        finally:
+            tmp.close()
+
+        key = _join_key("models", model_safe, runtime_safe, name_safe)
+        with open(tmp.name, "rb") as staged:
+            get_backend().write_stream(key, staged, content_type="application/octet-stream")
+        return key, hasher.hexdigest(), total
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
 
 
-def get_model_variant_file(stored_path: str) -> Path:
-    return get_file_path(stored_path)
+def serve_model_variant(
+    stored_path: str,
+    *,
+    filename: str,
+    sha256: str,
+    file_size: int,
+) -> Response:
+    headers = {
+        "X-Model-SHA256": sha256,
+        "Content-Length": str(file_size),
+    }
+    return serve_stored_file(
+        stored_path,
+        headers=headers,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 def delete_model_files(model_id) -> None:
     model_safe = _safe_path_component(str(model_id), "model id")
-    directory = _upload_base() / "models" / model_safe
-    if directory.exists():
-        shutil.rmtree(directory)
+    get_backend().delete_prefix(_join_key("models", model_safe))
 
 
-def _remove_file(stored_path: str) -> None:
-    full = (_upload_base() / stored_path).resolve()
-    base = _upload_base().resolve()
-    if not str(full).startswith(str(base)):
+def delete_stored_file(stored_path: str) -> None:
+    if not stored_path:
         return
-    if full.exists():
-        full.unlink()
+    get_backend().delete(stored_path)

@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://hive:hive_dev@localhost:5432/hive"
     JWT_SECRET: str | None = None
     UPLOAD_DIR: str = "data/uploads"
+    STORAGE_BACKEND: str = "local"
+    S3_BUCKET: str = ""
+    S3_ENDPOINT_URL: str = ""
+    S3_REGION: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_SERVE_MODE: str = "redirect"
+    S3_PRESIGNED_EXPIRY_SECONDS: int = 3600
     CORS_ORIGIN: str = "http://localhost:5174"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30

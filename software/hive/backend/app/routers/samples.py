@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.deps import (
@@ -27,7 +26,7 @@ from app.schemas.sample import (
     SaveSampleClassificationRequest,
     SaveSampleClassificationResponse,
 )
-from app.services.storage import delete_sample_files, get_file_path
+from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.sample_payloads import (
     is_classification_payload,
     set_manual_annotations,
@@ -272,8 +271,7 @@ def get_sample_image(
 ):
     sample = _get_sample_for_user(db, sample_id, current_user)
 
-    path = get_file_path(sample.image_path)
-    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.image_path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/{sample_id}/assets/full-frame")
@@ -286,8 +284,7 @@ def get_sample_full_frame(
     if not sample or not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
-    path = get_file_path(sample.full_frame_path)
-    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.full_frame_path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/{sample_id}/assets/overlay")
@@ -300,5 +297,4 @@ def get_sample_overlay(
     if not sample or not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 
-    path = get_file_path(sample.overlay_path)
-    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.overlay_path, headers={"Cache-Control": "public, max-age=86400"})

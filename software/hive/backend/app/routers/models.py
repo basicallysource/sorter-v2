@@ -1,11 +1,8 @@
 import math
-import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -32,8 +29,9 @@ from app.schemas.model import (
 )
 from app.services.storage import (
     delete_model_files,
-    get_model_variant_file,
+    delete_stored_file,
     save_model_variant,
+    serve_model_variant,
 )
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -129,15 +127,11 @@ def download_model_variant(
     )
     if variant is None:
         raise APIError(404, "Variant not found", "VARIANT_NOT_FOUND")
-    path = get_model_variant_file(variant.file_path)
-    return FileResponse(
-        path,
+    return serve_model_variant(
+        variant.file_path,
         filename=variant.file_name,
-        headers={
-            "X-Model-SHA256": variant.sha256,
-            "Content-Length": str(variant.file_size),
-        },
-        media_type="application/octet-stream",
+        sha256=variant.sha256,
+        file_size=variant.file_size,
     )
 
 
@@ -207,7 +201,7 @@ def upload_variant(
         .first()
     )
     if existing:
-        old_path = (Path(settings.UPLOAD_DIR) / existing.file_path).resolve()
+        old_file_path = existing.file_path
         existing.file_path = relative_path
         existing.file_name = file_name
         existing.file_size = size
@@ -215,11 +209,8 @@ def upload_variant(
         existing.format_meta = format_meta_data
         existing.uploaded_at = datetime.now(timezone.utc)
         variant = existing
-        if old_path.exists() and str(old_path) != str((Path(settings.UPLOAD_DIR) / relative_path).resolve()):
-            try:
-                old_path.unlink()
-            except OSError:
-                pass
+        if old_file_path and old_file_path != relative_path:
+            delete_stored_file(old_file_path)
     else:
         variant = DetectionModelVariant(
             model_id=model.id,

@@ -9,6 +9,7 @@ from sorting_profile import mkSortingProfile
 import queue
 from machine_setup import get_machine_setup_definition
 from machine_runtime import build_machine_runtime
+from subsystems.bus import TickBus
 
 
 class Coordinator:
@@ -27,7 +28,9 @@ class Coordinator:
         self.logger = gc.logger
         self.vision = vision
         self.event_queue = event_queue
-        self.shared = SharedVariables()
+        self.bus = TickBus()
+        self.gc.runtime_stats.setBusProvider(self.bus)
+        self.shared = SharedVariables(gc=gc, bus=self.bus)
         self.feeding_mode = getattr(irl_config, "feeding_mode", "auto_channels")
         self.machine_setup = getattr(
             irl_config,
@@ -36,6 +39,10 @@ class Coordinator:
         )
         self.machine_runtime = build_machine_runtime(self.machine_setup.key)
         self.manual_feed_mode = self.machine_setup.manual_feed_mode
+        self.gc.use_channel_bus = bool(
+            getattr(self.gc, "use_channel_bus", False)
+            or getattr(self.machine_setup, "uses_classification_channel", False)
+        )
         self.sorting_profile = mkSortingProfile(gc)
         self._sync_set_progress_tracker()
 
@@ -117,15 +124,16 @@ class Coordinator:
         prof.mark("coordinator.step.interval_ms")
 
         with prof.timer("coordinator.step.total_ms"):
+            self.bus.begin_tick()
+            with prof.timer("coordinator.step.distribution_ms"):
+                self.distribution.step()
+            with prof.timer("coordinator.step.classification_ms"):
+                self.classification.step()
             with prof.timer("coordinator.step.feeder_ms"):
                 if self.manual_feed_mode:
                     prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
                 else:
                     self.feeder.step()
-            with prof.timer("coordinator.step.classification_ms"):
-                self.classification.step()
-            with prof.timer("coordinator.step.distribution_ms"):
-                self.distribution.step()
 
     def cleanup(self) -> None:
         self.feeder.cleanup()

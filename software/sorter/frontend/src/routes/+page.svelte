@@ -4,9 +4,11 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
+	import BusMessageTicker from '$lib/components/BusMessageTicker.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
+	import StateMachineLive from '$lib/components/StateMachineLive.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { Eye, EyeOff } from 'lucide-svelte';
@@ -385,6 +387,12 @@
 				</div>
 				<div class="shrink-0">
 					<SortingStatusCard />
+				</div>
+				<div class="h-56 shrink-0">
+					<StateMachineLive />
+				</div>
+				<div class="h-56 shrink-0">
+					<BusMessageTicker />
 				</div>
 				<div class="min-h-0 flex-1 overflow-y-auto">
 					<RuntimeStats />

@@ -187,7 +187,7 @@ class Positioning(BaseState):
                     # start a new move on top of the stuck one.
                     return None
                 return None
-            self.shared.chute_move_in_progress = False
+            self.shared.set_chute_motion(False, target_bin=self._target_address)
             if self._piece is not None and self._piece.distribution_positioned_at is None:
                 self._piece.distribution_positioned_at = time.time()
             move_ms = (now - self._moving_started_at) * 1000
@@ -202,7 +202,7 @@ class Positioning(BaseState):
 
     def _startChuteMove(self) -> None:
         assert self._target_address is not None
-        self.shared.chute_move_in_progress = True
+        self.shared.set_chute_motion(True, target_bin=self._target_address)
         if self._piece is not None and self._piece.distribution_motion_started_at is None:
             self._piece.distribution_motion_started_at = time.time()
         estimated_ms = self.chute.moveToBin(self._target_address)
@@ -214,13 +214,14 @@ class Positioning(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
+        target_address = self._target_address
         self._phase = "init"
         self._target_address = None
         self._door_servo_index = None
         self._state_entered_at = 0.0
         self._moving_started_at = 0.0
         self._piece = None
-        self.shared.chute_move_in_progress = False
+        self.shared.set_chute_motion(False, target_bin=target_address)
 
     def _isLayerUsable(self, layer_index: int) -> bool:
         """Check whether this layer is currently usable for a sort move.

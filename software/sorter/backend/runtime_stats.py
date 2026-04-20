@@ -95,7 +95,11 @@ class RuntimeStatsCollector:
         self._all_bins_cleared_after_s: float | None = None
         self._layer_bins_cleared_after_s: dict[int, float] = {}
         self._bin_cleared_after_s: dict[tuple[int, int, int], float] = {}
+        self._bus_provider: Any | None = None
         self._last_updated_at = time.time()
+
+    def setBusProvider(self, bus_provider: Any | None) -> None:
+        self._bus_provider = bus_provider
 
     def setLifecycleState(
         self,
@@ -794,6 +798,16 @@ class RuntimeStatsCollector:
             },
             "state_machines": state_machines,
             "timeline_recent": list(self._state_timeline),
+            "bus_recent": (
+                list(self._bus_provider.recent())
+                if self._bus_provider is not None and hasattr(self._bus_provider, "recent")
+                else []
+            ),
+            "bus_publish_counts": (
+                dict(self._bus_provider.publish_counts())
+                if self._bus_provider is not None and hasattr(self._bus_provider, "publish_counts")
+                else {}
+            ),
             "blocked_reason_counts": dict(sorted(self._blocked_reason_counts.items())),
             "pieces_cached": len(self._piece_by_uuid),
             "last_update_age_s": max(0.0, now - self._last_updated_at),

@@ -31,7 +31,7 @@ class Idle(BaseState):
             self.logger.info(
                 f"Idle: preparing distribution for piece {piece.uuid[:8]}"
             )
-            self.shared.distribution_ready = False
+            self.shared.set_distribution_gate(False, reason="positioning")
             return DistributionState.POSITIONING
 
         if can_distribute and not is_unhandled:

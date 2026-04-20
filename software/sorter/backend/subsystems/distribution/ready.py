@@ -17,7 +17,7 @@ class Ready(BaseState):
     def step(self) -> Optional[DistributionState]:
         if not self.signaled:
             self.logger.info("Ready: distribution positioned, signaling ready")
-            self.shared.distribution_ready = True
+            self.shared.set_distribution_gate(True, reason=None)
             self.signaled = True
             self._signaled_at = time.monotonic()
 

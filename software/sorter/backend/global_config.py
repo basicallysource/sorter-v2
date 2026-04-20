@@ -42,6 +42,7 @@ class GlobalConfig:
     region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
+    use_channel_bus: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
@@ -53,6 +54,7 @@ class GlobalConfig:
         self.disable_chute = False
         self.disable_servos = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
+        self.use_channel_bus = False
         self.disable_video_streams = ["classification_bottom"]
         self.runtime_stats = RuntimeStatsCollector()
 
@@ -80,6 +82,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.run_id = str(uuid.uuid4())
     gc.disable_chute = "chute" in args.disable
     gc.disable_servos = "servos" in args.disable
+    gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN
 
     gc.logger = Logger(gc.debug_level)

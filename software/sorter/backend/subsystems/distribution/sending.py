@@ -70,7 +70,7 @@ class Sending(BaseState):
                     getSetProgressSyncWorker().notify()
                 except Exception:
                     pass
-        self.shared.distribution_ready = True
+        self.shared.set_distribution_gate(True, reason=None)
         return DistributionState.IDLE
 
     def cleanup(self) -> None:

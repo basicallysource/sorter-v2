@@ -7,6 +7,7 @@ from global_config import GlobalConfig
 from irl.config import IRLInterface
 from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
+from subsystems.bus import StationId
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
@@ -72,11 +73,16 @@ class Detecting(BaseState):
             self._baseline_pending = False
 
         if not self.shared.classification_ready:
-            if wait_piece is not None and self.shared.distribution_ready:
+            if self._waitPieceReadyToDrop(wait_piece):
                 self._setOccupancyState("classification_channel.flush_wait_zone")
-                self.shared.classification_ready = False
+                self.shared.set_classification_gate(False, reason="flush_wait_zone")
                 return ClassificationChannelState.EJECTING
-            self.shared.classification_ready = True
+            self.shared.set_classification_gate(True, reason=None)
+            self.shared.publish_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                sent_at_mono=time.monotonic(),
+            )
             self._ready_at = now
             self._setOccupancyState("classification_channel.wait_piece_trigger")
             return None
@@ -91,7 +97,7 @@ class Detecting(BaseState):
                     f"(score={score:.1f}, hot_px={hot_px}), settling {DEBOUNCE_MS}ms"
                 )
             elif (now - self._detected_at) * 1000 >= DEBOUNCE_MS:
-                self.shared.classification_ready = False
+                self.shared.set_classification_gate(False, reason="piece_in_hood")
                 obj = self.transport.registerIncomingPiece()
                 obj.feeding_started_at = self._ready_at
                 obj.carousel_detected_confirmed_at = now
@@ -103,16 +109,18 @@ class Detecting(BaseState):
                             obj.tracked_global_id = track_id
                 except Exception:
                     obj.tracked_global_id = None
-                self.event_queue.put(knownObjectToEvent(obj))
+                # Intentionally no event emit here — the piece becomes
+                # visible to the frontend only once it reaches the wait
+                # zone and Brickognize fires (handled in Ejecting).
                 self.logger.info(
                     "ClassificationChannel: confirmed incoming piece %s"
                     % obj.uuid[:8]
                 )
                 return ClassificationChannelState.SNAPPING
         else:
-            if wait_piece is not None and self.shared.distribution_ready:
+            if self._waitPieceReadyToDrop(wait_piece):
                 self._setOccupancyState("classification_channel.flush_wait_zone")
-                self.shared.classification_ready = False
+                self.shared.set_classification_gate(False, reason="flush_wait_zone")
                 return ClassificationChannelState.EJECTING
             self._setOccupancyState("classification_channel.wait_piece_trigger")
             self._detected_at = None
@@ -123,10 +131,22 @@ class Detecting(BaseState):
         )
         return None
 
+    def _waitPieceReadyToDrop(self, wait_piece) -> bool:
+        if wait_piece is None:
+            return False
+        if not self.shared.distribution_ready:
+            return False
+        return wait_piece.classification_status in (
+            ClassificationStatus.classified,
+            ClassificationStatus.unknown,
+            ClassificationStatus.not_found,
+            ClassificationStatus.multi_drop_fail,
+        )
+
     def cleanup(self) -> None:
         super().cleanup()
         self.vision.clearCarouselBaseline()
-        self.shared.classification_ready = False
+        self.shared.set_classification_gate(False, reason="cleanup")
         self._baseline_pending = True
         self._entered_at = None
         self._detected_at = None

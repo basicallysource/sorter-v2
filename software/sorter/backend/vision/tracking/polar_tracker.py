@@ -99,6 +99,19 @@ CAROUSEL_RECENT_STATIC_MIN_COVERAGE_S = 0.8
 CAROUSEL_RECENT_STATIC_MAX_DISPLACEMENT_PX = 24.0
 CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD = math.radians(3.0)
 CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX = 10.0
+# Role-agnostic fallback used to "un-stick" ``motion_confirmed`` tracks that
+# briefly jittered past the displacement threshold at birth (autoexposure
+# settle, detector jitter) and then froze on apparatus. Without this the
+# stagnant-false-track filter is disarmed for life on that track — the
+# feeder stalls behind an apparatus ghost until backend restart. A track
+# whose cartesian footprint stayed within ``MAX_DISPLACEMENT_PX`` over a
+# coverage window of ``MIN_COVERAGE_S`` seconds is treated as "no longer in
+# motion" so the stagnant-filter can fire even though ``motion_confirmed``
+# was once latched. Window intentionally longer than the carousel polar
+# check because conveyor pieces can pause briefly mid-travel.
+RECENT_STATIONARY_WINDOW_S = 2.5
+RECENT_STATIONARY_MIN_COVERAGE_S = 1.8
+RECENT_STATIONARY_MAX_DISPLACEMENT_PX = 6.0
 CAROUSEL_MATCH_IGNORED_REGION_MAX_RADIUS_PX = 120.0
 CAROUSEL_GHOST_SUPPRESSION_MAX_RADIUS_PX = 160.0
 
@@ -1521,7 +1534,20 @@ class PolarFeederTracker(Tracker):
             return False
         if self._is_recently_polar_stationary(track, timestamp):
             return True
+        # ``motion_confirmed`` is a sticky latch — once a track briefly
+        # displaced past the birth-threshold it was exempted from the
+        # stagnant filter forever. That latch blocks recovery when a detector
+        # ghost wiggles at startup and then freezes: the feeder pipeline
+        # stalls behind the phantom. Allow the filter to fire anyway when
+        # the track has been cartesian-stationary for a sustained window,
+        # regardless of role — the cumulative-displacement gates below use
+        # birth-anchored max_displacement/path_length totals that never
+        # decrease, so they would otherwise always pass for a track that
+        # once moved. Legit pieces that pause briefly mid-travel (well
+        # under ``RECENT_STATIONARY_MIN_COVERAGE_S``) are unaffected.
         if track.motion_confirmed:
+            if self._is_recently_stationary(track, timestamp):
+                return True
             return False
         if track.max_displacement_px >= self._stagnant_false_track_min_displacement_px:
             return False
@@ -1591,6 +1617,39 @@ class PolarFeederTracker(Tracker):
             and angular_span_rad <= CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD
             and radial_span_px <= CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX
         )
+
+    def _is_recently_stationary(
+        self,
+        track: _LiveTrack,
+        timestamp: float,
+    ) -> bool:
+        """Return True when the track's cartesian footprint has been tiny recently.
+
+        Role-agnostic un-latch for ``motion_confirmed``. Applies to every role
+        because any tracker can pick up a wiggling apparatus ghost that
+        briefly passes the birth-displacement threshold and then freezes.
+        Inspects only a short recent window so a real piece that has just
+        briefly paused mid-travel (sub-second) still survives.
+        """
+        if len(track.path) < 4:
+            return False
+        cutoff_ts = float(timestamp) - RECENT_STATIONARY_WINDOW_S
+        recent = [sample for sample in track.path if float(sample[0]) >= cutoff_ts]
+        if len(recent) < 4:
+            return False
+        window_coverage_s = float(recent[-1][0]) - float(recent[0][0])
+        if window_coverage_s < RECENT_STATIONARY_MIN_COVERAGE_S:
+            return False
+        anchor_x = float(recent[0][1])
+        anchor_y = float(recent[0][2])
+        max_displacement_px = 0.0
+        for _ts, x, y in recent[1:]:
+            dx = float(x) - anchor_x
+            dy = float(y) - anchor_y
+            d = math.hypot(dx, dy)
+            if d > max_displacement_px:
+                max_displacement_px = d
+        return max_displacement_px <= RECENT_STATIONARY_MAX_DISPLACEMENT_PX
 
     def _suppress_stagnant_false_track(
         self,

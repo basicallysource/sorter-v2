@@ -350,6 +350,87 @@ def test_real_track_survives_later_pause_once_motion_was_confirmed():
     assert len(paused_tracks) == 1, "legit track should remain after later pause"
 
 
+def test_motion_confirmed_track_can_be_killed_after_sustained_stationary():
+    """Apparatus ghost that wiggled >18px at birth then froze must recover.
+
+    Without this recovery path, ``motion_confirmed`` is sticky-latched and the
+    stagnant-false-track filter is disarmed for life — the phantom blocks the
+    dropzone forever (see Phase-7 / Ghost-Elimination motion-memory fix).
+    """
+    from vision.tracking.polar_tracker import PolarFeederTracker
+
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="c_channel_3",
+        handoff_manager=manager,
+        pixel_fallback_distance_px=200.0,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=5,
+        enable_stagnant_false_track_filter=True,
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    # Startup wiggle: move 20 px in the first two frames so ``motion_confirmed``
+    # latches to True. Birth-displacement threshold is 18 px.
+    tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
+    tracker.update([_bbox_around(220.0, 240.0, size=60)], [0.9], 0.2)
+
+    # Confirm the latch fired.
+    track = next(iter(tracker._tracks.values()))
+    assert track.motion_confirmed is True, "setup: startup wiggle should have latched"
+
+    # Freeze the detection at the wiggled position for > 3 s so the recent-
+    # stationary window (2.5 s, 1.8 s min coverage) fully populates.
+    last_tracks = [object()]
+    for i in range(2, 22):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(220.0, 240.0, size=60)], [0.9], ts)
+        if last_tracks == []:
+            break
+
+    assert last_tracks == [], (
+        "motion_confirmed track that has been cartesian-stationary for "
+        "> RECENT_STATIONARY_MIN_COVERAGE_S must be killable by the "
+        "stagnant-false-track filter"
+    )
+
+
+def test_real_piece_brief_pause_is_not_killed():
+    """A legit C3 piece that pauses briefly mid-travel stays alive."""
+    from vision.tracking.polar_tracker import PolarFeederTracker
+
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="c_channel_3",
+        handoff_manager=manager,
+        pixel_fallback_distance_px=200.0,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=5,
+        enable_stagnant_false_track_filter=True,
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    # Sustained travel: 8 frames advancing 16 px per tick → 128 px total over
+    # 1.4 s. ``motion_confirmed`` latches long before the brief pause.
+    last_tracks = []
+    for i in range(8):
+        cx = 100.0 + i * 16.0
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(cx, 240.0, size=60)], [0.9], ts)
+    assert len(last_tracks) == 1, "setup: real piece should be tracked after travel"
+
+    # Brief 0.5 s pause at the current position — well under the 1.8 s coverage
+    # threshold, so the track must survive.
+    for j in range(8, 11):
+        ts = j * 0.2
+        last_tracks = tracker.update([_bbox_around(212.0, 240.0, size=60)], [0.9], ts)
+
+    assert len(last_tracks) == 1, (
+        "real piece with brief sub-second pause must not be killed by the "
+        "recent-stationary recovery path"
+    )
+
+
 def test_stagnant_filter_is_not_applied_to_c_channel_3():
     tracker, _ = _make_single_tracker(
         role="c_channel_3",

@@ -25,5 +25,6 @@
 /data/
 /test.db
 /test-profile-parts.db
+/software/sorter/backend/local_state.sqlite.backup-*
 
 .DS_Store

@@ -3,10 +3,7 @@
 	import { page } from '$app/state';
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
-	// TODO: re-import TrackPathComposite once it's rebuilt from the wedge
-	// SVG code in the surviving [globalId] page. Same deletion event took
-	// this page and the composite; splitting the restore into two commits
-	// so the recreation of each is easier to review.
+	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
@@ -635,10 +632,7 @@
 				</div>
 			</section>
 
-			<!-- Track path (pie-chart composite) — section restored alongside
-			     TrackPathComposite in the follow-up commit. Keep the header
-			     + link to the tracker record visible so the page is still
-			     useful while the composite is being rebuilt. -->
+			<!-- Track path (pie-chart composite) -->
 			{#if piece.tracked_global_id != null}
 				<section class="border border-border bg-surface">
 					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
@@ -652,9 +646,11 @@
 							Track #{piece.tracked_global_id}
 						</a>
 					</div>
-					<div class="p-3 text-sm text-text-muted">
-						Track-path composite rebuild pending.
-						<!-- TODO: <TrackPathComposite globalId={piece.tracked_global_id} usedCropTs={usedCropTs} /> -->
+					<div class="p-3">
+						<TrackPathComposite
+							globalId={piece.tracked_global_id}
+							usedCropTs={usedCropTs}
+						/>
 					</div>
 				</section>
 			{/if}

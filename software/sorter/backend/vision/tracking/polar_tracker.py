@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import threading
+import time
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -293,6 +294,7 @@ class PolarFeederTracker(Tracker):
         stagnant_false_track_step_jitter_px: float = DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX,
         stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
         stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
+        stagnant_false_track_pending_drop_protect_s: float = 4.0,
         id_switch_suspect_observer: "callable | None" = None,
     ) -> None:
         self.role = role
@@ -334,6 +336,10 @@ class PolarFeederTracker(Tracker):
         self._stagnant_false_track_suppression_ttl_s = max(
             0.0, float(stagnant_false_track_suppression_ttl_s)
         )
+        self._pending_drop_protect_s = max(
+            0.0, float(stagnant_false_track_pending_drop_protect_s)
+        )
+        self._pending_drop_ids: dict[int, float] = {}
         self._id_switch_suspect_observer = id_switch_suspect_observer
         self._tracks: dict[int, _LiveTrack] = {}
         self._next_internal_id = 0
@@ -381,6 +387,28 @@ class PolarFeederTracker(Tracker):
         return math.atan2(dy, dx), math.hypot(dx, dy)
 
     # ---- Public API ----------------------------------------------------
+
+    def mark_pending_drop(
+        self,
+        global_id: int,
+        protect_for_s: float | None = None,
+    ) -> None:
+        """Pin this global_id's track against stagnant-false-track culling
+        for up to protect_for_s seconds (default: self._pending_drop_protect_s).
+        Called by the classification channel state machine once the piece is
+        committed to drop — prevents the stagnant filter from killing the
+        track while the piece is physically waiting at the drop zone for
+        distribution_ready. Pending-drop protection can never be claimed by
+        a ghost detection because the caller (state machine) only invokes
+        this for pieces backed by a KnownObject."""
+        now = time.time()
+        duration = (
+            float(protect_for_s)
+            if protect_for_s is not None
+            else float(self._pending_drop_protect_s)
+        )
+        with self._lock:
+            self._pending_drop_ids[int(global_id)] = now + duration
 
     def update(
         self,
@@ -1113,6 +1141,14 @@ class PolarFeederTracker(Tracker):
         self._ignored_static_regions = [
             region for region in self._ignored_static_regions if region.expires_at > float(timestamp)
         ]
+        if self._pending_drop_ids:
+            expired = [
+                gid
+                for gid, expires_at in self._pending_drop_ids.items()
+                if expires_at <= float(timestamp)
+            ]
+            for gid in expired:
+                self._pending_drop_ids.pop(gid, None)
 
     def _is_inside_ignored_static_region(
         self,
@@ -1153,6 +1189,11 @@ class PolarFeederTracker(Tracker):
     ) -> bool:
         if not self._enable_stagnant_false_track_filter:
             return False
+        if track.global_id is not None and int(track.global_id) in self._pending_drop_ids:
+            if self._pending_drop_ids[int(track.global_id)] > float(timestamp):
+                return False
+            # expired — drop from map
+            self._pending_drop_ids.pop(int(track.global_id), None)
         if track.handoff_from is not None:
             return False
         if track.motion_confirmed:

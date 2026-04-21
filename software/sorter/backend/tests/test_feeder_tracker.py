@@ -217,6 +217,73 @@ def test_stagnant_filter_skips_handoff_tracks_on_classification_channel():
     assert len(last_tracks) == 1, "handoff-backed classification track should not be suppressed"
 
 
+def test_pending_drop_exempts_stagnant_track_from_kill(monkeypatch):
+    """A piece physically parked at the drop zone (e.g. waiting for
+    distribution_ready) must not be culled by the stagnant filter once the
+    state machine has marked it as pending drop — otherwise
+    live_global_ids("carousel") drops the id mid-wait and the drop handoff
+    breaks."""
+    import vision.tracking.polar_tracker as pt_module
+
+    fake_now = [1000.0]
+    monkeypatch.setattr(pt_module.time, "time", lambda: fake_now[0])
+
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.5,
+    )
+
+    # Bring a track into existence at t=0.0.
+    first = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
+    assert len(first) == 1
+    gid = first[0].global_id
+
+    # State machine commits the piece to drop — align fake wall clock with
+    # tracker timeline so the 4s protection maps cleanly onto tracker ts.
+    fake_now[0] = 0.0
+    tracker.mark_pending_drop(gid)
+
+    last_tracks = []
+    for i in range(1, 10):
+        ts = i * 0.2  # crosses max_age_s=1.5s by tick 8
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert len(last_tracks) == 1, (
+        "pending-drop-pinned track must survive the stagnant-false-track filter"
+    )
+    assert last_tracks[0].global_id == gid
+
+
+def test_pending_drop_protection_expires(monkeypatch):
+    """Protection is time-bounded — once ``protect_for_s`` elapses, the track
+    goes back to normal stagnant-filter treatment."""
+    import vision.tracking.polar_tracker as pt_module
+
+    fake_now = [0.0]
+    monkeypatch.setattr(pt_module.time, "time", lambda: fake_now[0])
+
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+
+    first = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
+    assert len(first) == 1
+    gid = first[0].global_id
+
+    # Short protection window — shorter than the time we'll stay static for.
+    tracker.mark_pending_drop(gid, protect_for_s=0.5)
+
+    last_tracks = []
+    for i in range(1, 12):
+        ts = i * 0.2  # well past both 0.5s protection and 1.0s max_age
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert last_tracks == [], (
+        "expired pending-drop protection should fall back to normal stagnant culling"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Handoff semantics
 # ---------------------------------------------------------------------------

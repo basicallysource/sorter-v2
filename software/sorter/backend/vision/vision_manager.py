@@ -2227,6 +2227,38 @@ class VisionManager:
         except Exception:
             return set()
 
+    def markCarouselPendingDrop(
+        self,
+        global_id: int,
+        *,
+        protect_for_s: float | None = None,
+    ) -> None:
+        """Pin a carousel track against the stagnant-false-track filter while
+        the piece is physically waiting at the drop zone.
+
+        Called by the classification-channel state machine once a piece is
+        committed to drop. Without this, the carousel tracker's aggressive
+        stagnant filter (``max_age_s=1.5``, ``min_displacement_px=24``) would
+        kill the track mid-wait — stranding ``live_global_ids("carousel")``
+        and breaking both the distribution gate check and the drop handoff.
+
+        No-op if the tracker has no ``mark_pending_drop`` accessor (e.g. a
+        ByteTrack fallback) or is unavailable.
+        """
+        tracker = self._feeder_trackers.get("carousel")
+        if tracker is None:
+            return
+        accessor = getattr(tracker, "mark_pending_drop", None)
+        if accessor is None:
+            return
+        try:
+            if protect_for_s is None:
+                accessor(int(global_id))
+            else:
+                accessor(int(global_id), protect_for_s=float(protect_for_s))
+        except Exception:
+            pass
+
     def getFeederTrackGeometry(self, role: str) -> dict[str, float] | None:
         tracker = self._feeder_trackers.get(role)
         geom = getattr(tracker, "_channel_geom", None)

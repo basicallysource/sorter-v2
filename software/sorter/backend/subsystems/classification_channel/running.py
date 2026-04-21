@@ -620,6 +620,12 @@ class Running(BaseState):
                 point_of_no_return_deg
                 + zone.body_half_width_deg
             )
+            if near_drop_deadline:
+                gid = getattr(piece, "tracked_global_id", None)
+                if isinstance(gid, int) and self.vision is not None:
+                    marker = getattr(self.vision, "markCarouselPendingDrop", None)
+                    if marker is not None:
+                        marker(gid)
             interferers: list[tuple[str, float]] = []
             if zone_manager is not None:
                 interferers = zone_manager.pieces_in_body_window_with_offsets(
@@ -748,6 +754,14 @@ class Running(BaseState):
             ClassificationStatus.multi_drop_fail,
         }:
             return None
+        # Pin the carousel track against the stagnant-false-track filter so
+        # the piece — which will stop at the drop zone for up to a few
+        # seconds waiting for distribution_ready — is not culled mid-wait.
+        gid = getattr(piece, "tracked_global_id", None)
+        if isinstance(gid, int) and self.vision is not None:
+            marker = getattr(self.vision, "markCarouselPendingDrop", None)
+            if marker is not None:
+                marker(gid)
         return piece_uuid
 
     def _applyFallback(

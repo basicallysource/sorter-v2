@@ -116,6 +116,12 @@ def build_feeder_tracker_system(
                 stagnant_false_track_min_path_length_px=60.0,
                 stagnant_false_track_suppression_radius_px=56.0,
                 stagnant_false_track_suppression_ttl_s=5.0,
+                # Pieces physically parked at the drop zone waiting for
+                # distribution_ready would otherwise be killed by the
+                # stagnant filter (1.5s max age, 24px min displacement).
+                # The classification channel state machine pins them via
+                # mark_pending_drop() until the chute actually fires.
+                stagnant_false_track_pending_drop_protect_s=4.0,
             )
         elif role == "c_channel_2":
             # The upstream singulation channel can briefly park real pieces,

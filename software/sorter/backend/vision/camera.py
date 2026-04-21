@@ -600,7 +600,7 @@ class CaptureThread:
                 return self._config.device_index
             return None
 
-    def _get_config_snapshot(self) -> tuple[int | str | None, bool, int, int, int]:
+    def _get_config_snapshot(self) -> tuple[int | str | None, bool, int, int, int, str | None]:
         with self._config_lock:
             source: int | str | None = self._config.url if self._config.url else self._config.device_index
             if isinstance(source, int) and source < 0:
@@ -611,7 +611,35 @@ class CaptureThread:
                 self._config.width,
                 self._config.height,
                 self._config.fps,
+                getattr(self._config, "fourcc", None),
             )
+
+    def setCaptureMode(
+        self,
+        width: int | None = None,
+        height: int | None = None,
+        fps: int | None = None,
+        fourcc: str | None = None,
+    ) -> None:
+        with self._config_lock:
+            if isinstance(width, int) and width > 0:
+                self._config.width = width
+            if isinstance(height, int) and height > 0:
+                self._config.height = height
+            if isinstance(fps, int) and fps > 0:
+                self._config.fps = fps
+            if isinstance(fourcc, str) and fourcc.strip():
+                self._config.fourcc = fourcc.strip()
+        self._reopen_event.set()
+
+    def getCaptureMode(self) -> dict[str, int | str | None]:
+        with self._config_lock:
+            return {
+                "width": int(self._config.width),
+                "height": int(self._config.height),
+                "fps": int(self._config.fps),
+                "fourcc": getattr(self._config, "fourcc", None),
+            }
 
     def start(self) -> None:
         self._stop_event.clear()
@@ -632,7 +660,7 @@ class CaptureThread:
         previous_source: int | str | None = None
 
         while not self._stop_event.is_set():
-            source, is_url, width, height, fps = self._get_config_snapshot()
+            source, is_url, width, height, fps, fourcc = self._get_config_snapshot()
 
             if source != previous_source:
                 previous_source = source
@@ -687,6 +715,14 @@ class CaptureThread:
                     next_open_attempt_at = 0.0
 
                     if not is_url:
+                        if isinstance(fourcc, str) and len(fourcc) >= 4:
+                            try:
+                                cap.set(
+                                    cv2.CAP_PROP_FOURCC,
+                                    cv2.VideoWriter_fourcc(*fourcc[:4].upper()),
+                                )
+                            except Exception:
+                                pass
                         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                         cap.set(cv2.CAP_PROP_FPS, fps)

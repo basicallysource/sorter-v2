@@ -112,3 +112,17 @@ class CameraDevice:
 
     def describe_device_controls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
         return self._capture.describeDeviceControls()
+
+    # ---- Capture mode ----
+
+    def set_capture_mode(
+        self,
+        width: int | None = None,
+        height: int | None = None,
+        fps: int | None = None,
+        fourcc: str | None = None,
+    ) -> None:
+        self._capture.setCaptureMode(width=width, height=height, fps=fps, fourcc=fourcc)
+
+    def get_capture_mode(self) -> dict[str, int | str | None]:
+        return self._capture.getCaptureMode()

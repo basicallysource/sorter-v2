@@ -43,6 +43,8 @@
 	import { RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
 	import { Alert } from '$lib/components/primitives';
 	import CalibrationPanel, { hasTileDetails } from './picture/CalibrationPanel.svelte';
+	import CaptureModePanel from './picture/CaptureModePanel.svelte';
+	import DriftDetection from './picture/DriftDetection.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
 	import OrientationPanel from './picture/OrientationPanel.svelte';
 	import LLMCalibrationTrace from '$lib/components/calibration/LLMCalibrationTrace.svelte';
@@ -924,6 +926,14 @@
 							/>
 						{/if}
 					{/if}
+
+					<CaptureModePanel {role} />
+					<DriftDetection
+						{role}
+						onAction={() => {
+							void loadDeviceSettings();
+						}}
+					/>
 
 					<DeviceControlsPanel
 						{deviceProvider}

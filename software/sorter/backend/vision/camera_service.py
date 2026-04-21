@@ -267,6 +267,35 @@ class CameraService:
                 config.device_settings = dict(settings or {})
         return device.set_device_settings(settings, persist=persist)
 
+    def set_capture_mode_for_role(
+        self,
+        role: str,
+        *,
+        width: int,
+        height: int,
+        fps: int,
+        fourcc: str | None = None,
+    ) -> bool:
+        device = self._device_for_role(role)
+        if device is None:
+            return False
+        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
+        if config_attr is not None:
+            config = getattr(self._irl_config, config_attr, None)
+            if config is not None:
+                config.width = width
+                config.height = height
+                config.fps = fps
+                config.fourcc = fourcc
+        device.set_capture_mode(width=width, height=height, fps=fps, fourcc=fourcc)
+        return True
+
+    def get_capture_mode_for_role(self, role: str) -> dict[str, int | str | None] | None:
+        device = self._device_for_role(role)
+        if device is None:
+            return None
+        return device.get_capture_mode()
+
     def set_color_profile_for_role(
         self, role: str, profile: CameraColorProfile | None
     ) -> bool:

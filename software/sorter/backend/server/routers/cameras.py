@@ -4045,6 +4045,325 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
 
 
 # ---------------------------------------------------------------------------
+# Drift detection (device settings)
+# ---------------------------------------------------------------------------
+
+
+def _device_setting_diff(
+    key: str,
+    saved_value: Any,
+    live_value: Any,
+    control: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if saved_value is None:
+        return None
+    if live_value is None:
+        return None
+
+    if isinstance(saved_value, bool) or isinstance(live_value, bool):
+        if bool(saved_value) == bool(live_value):
+            return None
+        return {"key": key, "saved": bool(saved_value), "live": bool(live_value), "kind": "boolean"}
+
+    try:
+        saved_num = float(saved_value)
+        live_num = float(live_value)
+    except (TypeError, ValueError):
+        return None
+
+    step = 1.0
+    tol_pct = 0.01
+    if isinstance(control, dict):
+        step_raw = control.get("step")
+        if isinstance(step_raw, (int, float)) and step_raw > 0:
+            step = float(step_raw)
+        min_raw = control.get("min")
+        max_raw = control.get("max")
+        if isinstance(min_raw, (int, float)) and isinstance(max_raw, (int, float)) and max_raw > min_raw:
+            tol_pct = max(tol_pct, 0.01 * (float(max_raw) - float(min_raw)))
+    tolerance = max(step, abs(saved_num) * 0.01, tol_pct * 0.01)
+    if abs(saved_num - live_num) <= tolerance:
+        return None
+    return {"key": key, "saved": saved_num, "live": live_num, "kind": "number"}
+
+
+@router.get("/api/cameras/device-settings/{role}/diff")
+def get_camera_device_settings_diff(role: str) -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        return {
+            "ok": True,
+            "role": role,
+            "source": None,
+            "supported": False,
+            "saved": {},
+            "live": {},
+            "diffs": [],
+            "message": "No camera is assigned to this role.",
+        }
+
+    saved_settings = cameraDeviceSettingsToDict(
+        parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
+    )
+
+    controls: List[Dict[str, Any]] = []
+    live_settings: Dict[str, Any] = {}
+    if isinstance(source, int):
+        controls, live_settings = _camera_service_usb_device_controls(role, source, saved_settings)
+    else:
+        # Network-stream (Android) — proxied read
+        try:
+            android_data = _android_camera_request(source, "/camera-settings")
+            raw_settings = android_data.get("settings") or {}
+            if isinstance(raw_settings, dict):
+                live_settings = {k: v for k, v in raw_settings.items() if isinstance(v, (int, float, bool))}
+        except HTTPException as exc:
+            return {
+                "ok": True,
+                "role": role,
+                "source": source,
+                "supported": False,
+                "saved": saved_settings,
+                "live": {},
+                "diffs": [],
+                "message": str(exc.detail),
+            }
+
+    controls_by_key: Dict[str, Dict[str, Any]] = {}
+    for control in controls:
+        key = control.get("key")
+        if isinstance(key, str):
+            controls_by_key[key] = control
+
+    diffs: List[Dict[str, Any]] = []
+    keys = set(saved_settings.keys()) | set(live_settings.keys())
+    for key in sorted(keys):
+        diff = _device_setting_diff(
+            key,
+            saved_settings.get(key),
+            live_settings.get(key),
+            controls_by_key.get(key),
+        )
+        if diff is not None:
+            diffs.append(diff)
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "supported": bool(controls) or bool(live_settings),
+        "saved": saved_settings,
+        "live": live_settings,
+        "diffs": diffs,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Capture modes (resolution / fps)
+# ---------------------------------------------------------------------------
+
+
+def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, Any]], str]:
+    """Return (modes, backend) for a given source. Modes: {width,height,fps,fourcc,label}."""
+    if not isinstance(source, int):
+        return [], "none"
+
+    if platform.system() == "Darwin":
+        try:
+            from hardware.macos_camera_modes import list_modes_for_unique_id
+            from hardware.macos_camera_registry import refresh_macos_cameras as _refresh
+
+            cam = next((c for c in _refresh() if c.index == source), None)
+            unique_id = cam.path if (cam is not None and isinstance(cam.path, str)) else None
+            if unique_id:
+                modes = list_modes_for_unique_id(unique_id)
+                return (
+                    [
+                        {
+                            "width": m.width,
+                            "height": m.height,
+                            "fps": int(round(m.max_fps)),
+                            "fourcc": _avf_to_opencv_fourcc(m.fourcc),
+                            "native_fourcc": m.fourcc,
+                        }
+                        for m in modes
+                    ],
+                    "avfoundation",
+                )
+        except Exception:
+            pass
+
+    # Fallback: probe common modes
+    common = [
+        (640, 480),
+        (800, 600),
+        (1024, 768),
+        (1280, 720),
+        (1280, 960),
+        (1600, 1200),
+        (1920, 1080),
+        (2048, 1536),
+        (2560, 1440),
+        (2592, 1944),
+        (3840, 2160),
+    ]
+    return (
+        [
+            {"width": w, "height": h, "fps": 30, "fourcc": "MJPG", "native_fourcc": "MJPG"}
+            for (w, h) in common
+        ],
+        "probe-fallback",
+    )
+
+
+def _avf_to_opencv_fourcc(native: str) -> str:
+    """AVFoundation subtype → OpenCV fourcc hint. 420v/420f/yuvs → MJPG (USB cams compress)."""
+    native = (native or "").strip()
+    if native in {"420v", "420f", "yuvs", "YUY2", "YUYV", "MJPG"}:
+        # Prefer MJPG for maximum FPS at high res on USB UVC cams
+        return "MJPG"
+    return "MJPG"
+
+
+class CaptureModePayload(BaseModel):
+    width: int
+    height: int
+    fps: int | None = None
+    fourcc: str | None = None
+
+
+@router.get("/api/cameras/capture-modes/{role}")
+def get_camera_capture_modes(role: str) -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        return {
+            "ok": True,
+            "role": role,
+            "source": None,
+            "supported": False,
+            "modes": [],
+            "current": None,
+            "message": "No camera is assigned to this role.",
+        }
+
+    if isinstance(source, str):
+        return {
+            "ok": True,
+            "role": role,
+            "source": source,
+            "supported": False,
+            "modes": [],
+            "current": None,
+            "message": "Resolution selection is not available for network-stream cameras.",
+        }
+
+    modes, backend = _capture_modes_for_source(source)
+    svc = shared_state.camera_service
+    current: Dict[str, Any] | None = None
+    if svc is not None and hasattr(svc, "get_capture_mode_for_role"):
+        current = svc.get_capture_mode_for_role(role)
+    if current is None:
+        saved_section = config.get("camera_capture_modes", {}) if isinstance(config.get("camera_capture_modes"), dict) else {}
+        saved_entry = saved_section.get(role) if isinstance(saved_section, dict) else None
+        if isinstance(saved_entry, dict):
+            current = {
+                "width": int(saved_entry.get("width", 0)) or None,
+                "height": int(saved_entry.get("height", 0)) or None,
+                "fps": int(saved_entry.get("fps", 0)) or None,
+                "fourcc": saved_entry.get("fourcc") if isinstance(saved_entry.get("fourcc"), str) else None,
+            }
+
+    # Enrich current with actual live resolution from telemetry
+    live: Dict[str, Any] | None = None
+    if svc is not None:
+        device = svc.get_device(role) if hasattr(svc, "get_device") else None
+        if device is not None:
+            try:
+                telemetry = device.capture_thread.getTelemetrySnapshot()
+                res = telemetry.get("resolution")
+                if isinstance(res, tuple) and len(res) == 2:
+                    live = {
+                        "width": int(res[0]),
+                        "height": int(res[1]),
+                        "fps": int(round(float(telemetry.get("fps", 0)))) or None,
+                    }
+            except Exception:
+                pass
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "supported": bool(modes),
+        "backend": backend,
+        "modes": modes,
+        "current": current,
+        "live": live,
+    }
+
+
+@router.post("/api/cameras/capture-modes/{role}")
+def save_camera_capture_mode(role: str, payload: CaptureModePayload) -> Dict[str, Any]:
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    if payload.width <= 0 or payload.height <= 0:
+        raise HTTPException(status_code=400, detail="Width and height must be positive.")
+
+    params_path, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if not isinstance(source, int):
+        raise HTTPException(status_code=400, detail="Resolution selection requires a USB camera.")
+
+    modes, _ = _capture_modes_for_source(source)
+    mode_match = next(
+        (m for m in modes if m["width"] == payload.width and m["height"] == payload.height),
+        None,
+    )
+    if mode_match is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Resolution {payload.width}x{payload.height} is not supported by this camera.",
+        )
+
+    fps = int(payload.fps) if payload.fps else int(mode_match["fps"])
+    fourcc = (payload.fourcc or mode_match["fourcc"] or "MJPG").upper()[:4]
+
+    entry = {"width": int(payload.width), "height": int(payload.height), "fps": fps, "fourcc": fourcc}
+    capture_modes = config.get("camera_capture_modes", {})
+    if not isinstance(capture_modes, dict):
+        capture_modes = {}
+    capture_modes[role] = entry
+    config["camera_capture_modes"] = capture_modes
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    svc = shared_state.camera_service
+    applied_live = False
+    if svc is not None and hasattr(svc, "set_capture_mode_for_role"):
+        try:
+            applied_live = svc.set_capture_mode_for_role(
+                role, width=entry["width"], height=entry["height"], fps=fps, fourcc=fourcc
+            )
+        except Exception:
+            applied_live = False
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "mode": entry,
+        "persisted": True,
+        "applied_live": applied_live,
+        "message": "Capture mode saved. Camera will reopen at the new resolution.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Calibrate from target
 # ---------------------------------------------------------------------------
 

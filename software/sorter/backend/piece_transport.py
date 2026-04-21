@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import math
 import time
 from typing import Optional, TYPE_CHECKING
 
-from defs.known_object import ClassificationStatus, KnownObject, PieceStage
+from defs.known_object import (
+    CarouselMotionSample,
+    ClassificationStatus,
+    KnownObject,
+    PieceStage,
+)
 
 if TYPE_CHECKING:
     from irl.config import ClassificationChannelConfig
@@ -13,6 +19,27 @@ if TYPE_CHECKING:
         TrackAngularExtent,
         ZoneManager,
     )
+
+
+MOTION_SYNC_EMA_ALPHA = 0.35
+MOTION_SYNC_LOW_RATIO = 0.85
+MOTION_SYNC_HIGH_RATIO = 1.15
+MOTION_SYNC_MAX_ABS_RATIO = 3.0
+MOTION_SYNC_MIN_DT_S = 0.05
+MOTION_SYNC_MIN_PLATTER_DELTA_DEG = 0.75
+MOTION_SYNC_SAMPLE_LIMIT = 24
+MOTION_SYNC_RESET_CAROUSEL_JUMP_DEG = 120.0
+
+
+def _normalize_deg(value: float) -> float:
+    normalized = float(value) % 360.0
+    if normalized < 0.0:
+        normalized += 360.0
+    return normalized
+
+
+def _circular_diff_deg(a: float, b: float) -> float:
+    return (_normalize_deg(a) - _normalize_deg(b) + 540.0) % 360.0 - 180.0
 
 
 @dataclass(frozen=True)
@@ -96,6 +123,7 @@ class ClassificationChannelTransport(PieceTransport):
         self._pending_classifications: dict[str, KnownObject] = {}
         self._active_pieces: dict[str, KnownObject] = {}
         self._piece_uuid_by_track_id: dict[int, str] = {}
+        self._recently_dropped_track_origins: dict[int, float] = {}
         self._hood_piece_uuid: str | None = None
         self._positioning_piece_uuid: str | None = None
 
@@ -126,6 +154,7 @@ class ClassificationChannelTransport(PieceTransport):
         self._pending_classifications = {}
         self._active_pieces = {}
         self._piece_uuid_by_track_id = {}
+        self._recently_dropped_track_origins = {}
         self._hood_piece_uuid = None
         self._positioning_piece_uuid = None
         if self._zone_manager is not None:
@@ -163,6 +192,17 @@ class ClassificationChannelTransport(PieceTransport):
             dropped_piece = None
             if dropped_uuid is not None:
                 dropped_piece = self.removePiece(dropped_uuid)
+                if dropped_piece is not None and dropped_piece.tracked_global_id is not None:
+                    origin_ts = (
+                        dropped_piece.feeding_started_at
+                        or dropped_piece.carousel_detected_confirmed_at
+                        or dropped_piece.first_carousel_seen_ts
+                        or dropped_piece.created_at
+                        or time.time()
+                    )
+                    self._recently_dropped_track_origins[
+                        int(dropped_piece.tracked_global_id)
+                    ] = float(origin_ts)
             self._exit_piece = dropped_piece
             self._hood_piece_uuid = None
             if self._positioning_piece_uuid == dropped_uuid:
@@ -305,9 +345,39 @@ class ClassificationChannelTransport(PieceTransport):
             return None
         return self._active_pieces.get(piece_uuid)
 
+    def shouldIgnoreRecoveredTrack(
+        self,
+        track_global_id: int,
+        *,
+        first_seen_ts: float | None,
+        first_seen_grace_s: float = 1.0,
+    ) -> bool:
+        """Return True when ``track_global_id`` still belongs to a just-dropped piece.
+
+        Dynamic-mode recovery may try to "adopt" a still-visible tracker extent
+        after we removed the original KnownObject from ``_active_pieces`` during
+        drop commit. If that lingering extent still carries the same
+        ``first_seen_ts`` as the just-dropped track, re-adopting it creates a
+        duplicate KnownObject that can deadlock ``Sending`` forever.
+
+        Once the tracker reuses the numeric id for a truly new piece, its
+        ``first_seen_ts`` jumps forward and we release the guard automatically.
+        """
+        origin_ts = self._recently_dropped_track_origins.get(int(track_global_id))
+        if origin_ts is None:
+            return False
+        if not isinstance(first_seen_ts, (int, float)):
+            return True
+        if float(first_seen_ts) <= float(origin_ts) + max(0.0, float(first_seen_grace_s)):
+            return True
+        self._recently_dropped_track_origins.pop(int(track_global_id), None)
+        return False
+
     def updateTrackedPieces(
         self,
         track_extents: list[TrackAngularExtent],
+        *,
+        carousel_angle_deg: float | None = None,
     ) -> tuple[list, list[KnownObject]]:
         if not self._dynamic_mode or self._zone_manager is None:
             return [], []
@@ -366,7 +436,130 @@ class ClassificationChannelTransport(PieceTransport):
             piece.classification_channel_zone_half_width_deg = zone.body_half_width_deg
             piece.classification_channel_soft_guard_deg = zone.soft_guard_deg
             piece.classification_channel_hard_guard_deg = zone.hard_guard_deg
+            if carousel_angle_deg is not None and zone.track_global_id is not None:
+                extent = next(
+                    (
+                        item
+                        for item in track_extents
+                        if int(getattr(item, "global_id", -1)) == int(zone.track_global_id)
+                    ),
+                    None,
+                )
+                observed_at = (
+                    float(extent.last_seen_ts)
+                    if extent is not None and isinstance(extent.last_seen_ts, (int, float))
+                    else time.time()
+                )
+                piece.updated_at = observed_at
+                self._observeCarouselMotionSync(
+                    piece,
+                    piece_angle_deg=float(zone.center_deg),
+                    carousel_angle_deg=float(carousel_angle_deg),
+                    observed_at=observed_at,
+                )
+            else:
+                piece.updated_at = time.time()
         return zones, expired_pieces
+
+    def _observeCarouselMotionSync(
+        self,
+        piece: KnownObject,
+        *,
+        piece_angle_deg: float,
+        carousel_angle_deg: float,
+        observed_at: float,
+    ) -> None:
+        last_piece_angle = piece._carousel_motion_last_piece_angle_deg
+        last_carousel_angle = piece._carousel_motion_last_carousel_angle_deg
+        last_observed_at = piece._carousel_motion_last_observed_at
+
+        piece._carousel_motion_last_piece_angle_deg = float(piece_angle_deg)
+        piece._carousel_motion_last_carousel_angle_deg = float(carousel_angle_deg)
+        piece._carousel_motion_last_observed_at = float(observed_at)
+
+        if last_piece_angle is None or last_carousel_angle is None or last_observed_at is None:
+            return
+
+        dt_s = float(observed_at) - float(last_observed_at)
+        if not math.isfinite(dt_s) or dt_s < MOTION_SYNC_MIN_DT_S:
+            return
+
+        carousel_delta_deg = float(carousel_angle_deg) - float(last_carousel_angle)
+        if not math.isfinite(carousel_delta_deg):
+            return
+        if abs(carousel_delta_deg) >= MOTION_SYNC_RESET_CAROUSEL_JUMP_DEG:
+            return
+        if abs(carousel_delta_deg) < MOTION_SYNC_MIN_PLATTER_DELTA_DEG:
+            return
+
+        piece_delta_deg = _circular_diff_deg(float(piece_angle_deg), float(last_piece_angle))
+        if not math.isfinite(piece_delta_deg):
+            return
+
+        ratio = piece_delta_deg / carousel_delta_deg
+        if not math.isfinite(ratio) or abs(ratio) > MOTION_SYNC_MAX_ABS_RATIO:
+            return
+
+        piece_speed = piece_delta_deg / dt_s
+        carousel_speed = carousel_delta_deg / dt_s
+        if not math.isfinite(piece_speed) or not math.isfinite(carousel_speed):
+            return
+
+        piece.carousel_motion_sample_count = int(piece.carousel_motion_sample_count or 0) + 1
+        if ratio < MOTION_SYNC_LOW_RATIO:
+            piece.carousel_motion_under_sync_sample_count = int(
+                piece.carousel_motion_under_sync_sample_count or 0
+            ) + 1
+        if ratio > MOTION_SYNC_HIGH_RATIO:
+            piece.carousel_motion_over_sync_sample_count = int(
+                piece.carousel_motion_over_sync_sample_count or 0
+            ) + 1
+
+        piece.carousel_motion_piece_speed_deg_per_s = float(piece_speed)
+        piece.carousel_motion_platter_speed_deg_per_s = float(carousel_speed)
+
+        prev_ratio = piece.carousel_motion_sync_ratio
+        if isinstance(prev_ratio, (int, float)) and math.isfinite(float(prev_ratio)):
+            piece.carousel_motion_sync_ratio = (
+                MOTION_SYNC_EMA_ALPHA * float(ratio)
+                + (1.0 - MOTION_SYNC_EMA_ALPHA) * float(prev_ratio)
+            )
+        else:
+            piece.carousel_motion_sync_ratio = float(ratio)
+
+        piece.carousel_motion_sync_ratio_min = (
+            float(ratio)
+            if piece.carousel_motion_sync_ratio_min is None
+            else min(float(piece.carousel_motion_sync_ratio_min), float(ratio))
+        )
+        piece.carousel_motion_sync_ratio_max = (
+            float(ratio)
+            if piece.carousel_motion_sync_ratio_max is None
+            else max(float(piece.carousel_motion_sync_ratio_max), float(ratio))
+        )
+
+        piece._carousel_motion_piece_delta_sum_deg += float(piece_delta_deg)
+        piece._carousel_motion_platter_delta_sum_deg += float(carousel_delta_deg)
+        if abs(piece._carousel_motion_platter_delta_sum_deg) >= MOTION_SYNC_MIN_PLATTER_DELTA_DEG:
+            piece.carousel_motion_sync_ratio_avg = (
+                piece._carousel_motion_piece_delta_sum_deg
+                / piece._carousel_motion_platter_delta_sum_deg
+            )
+
+        samples = list(piece.carousel_motion_samples or [])
+        samples.append(
+            CarouselMotionSample(
+                observed_at=float(observed_at),
+                piece_angle_deg=float(piece_angle_deg),
+                carousel_angle_deg=float(carousel_angle_deg),
+                piece_speed_deg_per_s=float(piece_speed),
+                carousel_speed_deg_per_s=float(carousel_speed),
+                sync_ratio=float(ratio),
+            )
+        )
+        if len(samples) > MOTION_SYNC_SAMPLE_LIMIT:
+            samples = samples[-MOTION_SYNC_SAMPLE_LIMIT:]
+        piece.carousel_motion_samples = samples
 
     def setPositioningPiece(self, piece_uuid: str | None) -> None:
         self._positioning_piece_uuid = piece_uuid

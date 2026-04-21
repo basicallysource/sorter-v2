@@ -19,9 +19,10 @@
 		 *  Any sector snapshot whose captured_ts is within a ~5ms tolerance of
 		 *  any entry gets a primary-color outline. */
 		usedCropTs?: number[];
+		detailSnapshot?: unknown | null;
 	};
 
-	let { globalId, usedCropTs = [] }: Props = $props();
+	let { globalId, usedCropTs = [], detailSnapshot = null }: Props = $props();
 
 	type PathPoint = [number, number, number];
 
@@ -88,7 +89,8 @@
 	}
 
 	function formatRoleLabel(role: string): string {
-		if (role === 'carousel') return 'Classification Channel';
+		if (role === 'classification_channel') return 'Classification C-Channel (C4)';
+		if (role === 'carousel') return 'Carousel';
 		if (role === 'c_channel_2') return 'C-Channel 2';
 		if (role === 'c_channel_3') return 'C-Channel 3';
 		return role.replace('c_channel_', 'C-Channel ');
@@ -110,8 +112,10 @@
 		a0Deg: number,
 		a1Deg: number
 	): string {
+		const deltaDeg = ((((a1Deg - a0Deg) % 360) + 360) % 360) || 360;
+		const endDeg = a0Deg + deltaDeg;
 		const a0 = (a0Deg * Math.PI) / 180;
-		const a1 = (a1Deg * Math.PI) / 180;
+		const a1 = (endDeg * Math.PI) / 180;
 		const x0o = cx + rOut * Math.cos(a0);
 		const y0o = cy + rOut * Math.sin(a0);
 		const x1o = cx + rOut * Math.cos(a1);
@@ -120,7 +124,7 @@
 		const y0i = cy + rIn * Math.sin(a0);
 		const x1i = cx + rIn * Math.cos(a1);
 		const y1i = cy + rIn * Math.sin(a1);
-		const largeArc = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
+		const largeArc = deltaDeg > 180 ? 1 : 0;
 		return `M ${x0i} ${y0i} L ${x0o} ${y0o} A ${rOut} ${rOut} 0 ${largeArc} 1 ${x1o} ${y1o} L ${x1i} ${y1i} A ${rIn} ${rIn} 0 ${largeArc} 0 ${x0i} ${y0i} Z`;
 	}
 
@@ -162,13 +166,24 @@
 		return `${d.live ? 1 : 0}|${counts}`;
 	}
 
+	$effect(() => {
+		const snapshot = detailSnapshot as Detail | null;
+		if (!snapshot) return;
+		if (detailSignature(snapshot) !== detailSignature(detail)) {
+			detail = snapshot;
+		}
+		error = null;
+	});
+
 	async function load() {
 		if (!Number.isFinite(globalId)) return;
 		loading = true;
 		try {
 			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
 			if (!res.ok) {
-				error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
+				if (!detail) {
+					error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
+				}
 				return;
 			}
 			const next = (await res.json()) as Detail;

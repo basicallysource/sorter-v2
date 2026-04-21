@@ -34,6 +34,7 @@ DROP_SNAPSHOT_JPEG_QUALITY = 78
 MIN_INTAKE_TRACK_HITS = 2
 RECOVERY_MIN_TRACK_HITS = 4
 RECOVERY_MIN_TRACK_AGE_S = 0.35
+RECOVERY_DROPPED_TRACK_FIRST_SEEN_GRACE_S = 1.0
 RECOGNITION_RETRY_INTERVAL_S = 0.75
 INTAKE_FRESHNESS_GRACE_S = 0.35
 
@@ -115,9 +116,13 @@ class Running(BaseState):
             return None
 
         track_extents = self._getTrackExtents()
+        carousel_angle_deg = self._currentCarouselAngleDeg()
         self._registerNewIntakePiece(track_extents, now_wall, now_mono)
         self._recoverExistingTrackedPieces(track_extents, now_wall)
-        zones, expired_pieces = self.transport.updateTrackedPieces(track_extents)
+        zones, expired_pieces = self.transport.updateTrackedPieces(
+            track_extents,
+            carousel_angle_deg=carousel_angle_deg,
+        )
         self._emitExpiredPieceEvents(expired_pieces)
         self._publishOverlay(zones)
 
@@ -196,6 +201,19 @@ class Running(BaseState):
             )
             return []
 
+    def _currentCarouselAngleDeg(self) -> float | None:
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if stepper is None:
+            return None
+        current_steps = getattr(stepper, "current_position_steps", None)
+        to_degrees = getattr(stepper, "degrees_for_microsteps", None)
+        if not isinstance(current_steps, (int, float)) or not callable(to_degrees):
+            return None
+        try:
+            return float(to_degrees(int(current_steps)))
+        except Exception:
+            return None
+
     def _registerNewIntakePiece(
         self,
         track_extents: list[TrackAngularExtent],
@@ -264,7 +282,11 @@ class Running(BaseState):
                 self.vision.triggerDropZoneBurst(int(extent.global_id))
             except Exception:
                 pass
-        _zones, expired = self.transport.updateTrackedPieces(track_extents)
+        _zones, expired = self.transport.updateTrackedPieces(
+            track_extents,
+            carousel_angle_deg=self._currentCarouselAngleDeg(),
+        )
+        self._seedRecentPreview(obj, extent.global_id)
         self._emitExpiredPieceEvents(expired)
         self._awaiting_intake_piece = False
         self._intake_requested_at_mono = None
@@ -293,6 +315,16 @@ class Running(BaseState):
         candidates: list[TrackAngularExtent] = []
         for extent in track_extents:
             if self.transport.pieceForTrack(extent.global_id) is not None:
+                continue
+            if self.transport.shouldIgnoreRecoveredTrack(
+                extent.global_id,
+                first_seen_ts=(
+                    float(extent.first_seen_ts)
+                    if isinstance(extent.first_seen_ts, (int, float))
+                    else None
+                ),
+                first_seen_grace_s=RECOVERY_DROPPED_TRACK_FIRST_SEEN_GRACE_S,
+            ):
                 continue
             if int(extent.hit_count) < RECOVERY_MIN_TRACK_HITS:
                 continue
@@ -332,6 +364,7 @@ class Running(BaseState):
             obj.feeding_started_at = confirmed_at
             obj.carousel_detected_confirmed_at = confirmed_at
             obj.updated_at = now_wall
+            self._seedRecentPreview(obj, extent.global_id)
             if self.event_queue is not None:
                 self.event_queue.put(knownObjectToEvent(obj))
             adopted += 1
@@ -339,7 +372,10 @@ class Running(BaseState):
         if adopted <= 0:
             return
 
-        _zones, expired = self.transport.updateTrackedPieces(track_extents)
+        _zones, expired = self.transport.updateTrackedPieces(
+            track_extents,
+            carousel_angle_deg=self._currentCarouselAngleDeg(),
+        )
         self._emitExpiredPieceEvents(expired)
         self._awaiting_intake_piece = False
         self._intake_requested_at_mono = None
@@ -375,6 +411,7 @@ class Running(BaseState):
                 getattr(piece, "part_id", None)
                 or getattr(piece, "classified_at", None)
                 or getattr(piece, "thumbnail", None)
+                or getattr(piece, "drop_snapshot", None)
             )
             if self.event_queue is not None and was_meaningful:
                 self.event_queue.put(knownObjectToEvent(piece))
@@ -998,6 +1035,25 @@ class Running(BaseState):
                 "ClassificationChannel: drop snapshot capture failed for %s: %s"
                 % (drop_uuid[:8], exc)
             )
+
+    def _seedRecentPreview(self, piece: KnownObject, tracked_global_id: int | None) -> None:
+        if piece.thumbnail:
+            return
+        if not isinstance(tracked_global_id, int) or self.vision is None:
+            return
+        getter = getattr(self.vision, "getFeederTrackPreview", None)
+        if getter is None:
+            return
+        try:
+            preview = getter(int(tracked_global_id))
+        except Exception as exc:
+            self.logger.debug(
+                "ClassificationChannel: preview seed failed for %s/%s: %s"
+                % (piece.uuid[:8], tracked_global_id, exc)
+            )
+            return
+        if isinstance(preview, str) and preview:
+            piece.thumbnail = preview
 
     def _sendPulse(self, drop_uuid: str | None) -> bool:
         if self._pulse_in_flight:

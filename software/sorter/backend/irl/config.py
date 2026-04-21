@@ -16,6 +16,11 @@ from machine_setup import (
     MachineSetupDefinition,
     get_machine_setup_definition,
 )
+from role_aliases import (
+    lookup_camera_role_keys,
+    public_aux_camera_role,
+    stored_camera_role_key,
+)
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -865,10 +870,26 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     if isinstance(raw_toml, dict):
         capture_modes_section = raw_toml.get("camera_capture_modes", {})
 
+    aux_camera_role = public_aux_camera_role(raw_toml)
+
+    def _config_role(role: str) -> str:
+        if role == "carousel":
+            return stored_camera_role_key(role, raw_toml)
+        return role
+
+    def _camera_source(
+        cameras_section: dict[str, object],
+        role: str,
+    ) -> object | None:
+        for lookup_role in lookup_camera_role_keys(role, raw_toml):
+            if lookup_role in cameras_section:
+                return cameras_section.get(lookup_role)
+        return None
+
     def _capture_mode(role: str) -> dict[str, int | str]:
         if not isinstance(capture_modes_section, dict):
             return {}
-        entry = capture_modes_section.get(role)
+        entry = capture_modes_section.get(_config_role(role))
         if not isinstance(entry, dict):
             return {}
         out: dict[str, int | str] = {}
@@ -884,17 +905,17 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     def _picture_settings(role: str) -> CameraPictureSettings:
         if not isinstance(picture_settings_section, dict):
             return mkCameraPictureSettings()
-        return parseCameraPictureSettings(picture_settings_section.get(role))
+        return parseCameraPictureSettings(picture_settings_section.get(_config_role(role)))
 
     def _device_settings(role: str) -> dict[str, int | float | bool]:
         if not isinstance(device_settings_section, dict):
             return {}
-        return parseCameraDeviceSettings(device_settings_section.get(role))
+        return parseCameraDeviceSettings(device_settings_section.get(_config_role(role)))
 
     def _color_profile(role: str) -> CameraColorProfile:
         if not isinstance(color_profiles_section, dict):
             return mkCameraColorProfile()
-        return parseCameraColorProfile(color_profiles_section.get(role))
+        return parseCameraColorProfile(color_profiles_section.get(_config_role(role)))
 
     def _mkCameraConfigForRole(role: str, **kwargs) -> CameraConfig:
         mode = _capture_mode(role)
@@ -912,9 +933,9 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
         cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}
 
-        c_ch2_idx = cameras_section.get("c_channel_2")
-        c_ch3_idx = cameras_section.get("c_channel_3")
-        carousel_source = cameras_section.get("carousel")
+        c_ch2_idx = _camera_source(cameras_section, "c_channel_2")
+        c_ch3_idx = _camera_source(cameras_section, "c_channel_3")
+        carousel_source = _camera_source(cameras_section, aux_camera_role)
 
         if isinstance(c_ch2_idx, int):
             irl_config.c_channel_2_camera = _mkCameraConfigForRole(

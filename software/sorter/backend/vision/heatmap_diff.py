@@ -5,6 +5,8 @@ from typing import Optional, List, Tuple, TYPE_CHECKING
 import cv2
 import numpy as np
 
+from .overlays.scaling import overlay_scale_for_frame, scaled_px
+
 if TYPE_CHECKING:
     from global_config import GlobalConfig
 
@@ -348,10 +350,26 @@ class HeatmapDiff:
 
         triggered = score >= self._trigger_score
         color = (0, 0, 255) if triggered else (0, 255, 0)
-        cv2.putText(out, f"{label}: {score:.1f} px:{hot_count}", (30, text_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+        scale = overlay_scale_for_frame(out)
+        cv2.putText(
+            out,
+            f"{label}: {score:.1f} px:{hot_count}",
+            (30, text_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8 * scale,
+            color,
+            scaled_px(2, scale),
+            cv2.LINE_AA,
+        )
 
         for x1, y1, x2, y2 in self.computeBboxes():
-            cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(
+                out,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                scaled_px(2, scale),
+                cv2.LINE_AA,
+            )
 
         return out

@@ -158,6 +158,82 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
 
         self.assertEqual([inside], filtered)
 
+    def test_filter_feeder_detection_result_discards_bboxes_inside_tracker_ghost_regions(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        mask = np.ones((20, 20), dtype=np.uint8) * 255
+        channel = SimpleNamespace(mask=mask)
+        detection = DetectionResult(
+            bbox=(0, 0, 10, 20),
+            bboxes=((0, 0, 10, 20), (8, 2, 20, 18)),
+            score=0.8,
+            algorithm="hive:test",
+            found=True,
+        )
+
+        vm._channelInfoForRole = lambda role: channel
+        vm.getCaptureThreadForRole = lambda role: None
+        vm._feeder_trackers = {
+            "carousel": SimpleNamespace(
+                is_detection_center_ignored=lambda center, timestamp=None: center[0] < 6
+            )
+        }
+
+        filtered = VisionManager._filterFeederDetectionResultToChannel(vm, "carousel", detection)
+
+        self.assertEqual(((8, 2, 20, 18),), filtered.bboxes)
+        self.assertEqual((8, 2, 20, 18), filtered.bbox)
+
+    def test_filter_live_feeder_tracks_discards_tracks_inside_tracker_ghost_regions(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        mask = np.ones((20, 20), dtype=np.uint8) * 255
+        channel = SimpleNamespace(mask=mask)
+        ignored = SimpleNamespace(center=(3.0, 3.0), bbox=(1, 1, 5, 5), last_seen_ts=10.0)
+        kept = SimpleNamespace(center=(12.0, 12.0), bbox=(10, 10, 14, 14), last_seen_ts=10.0)
+
+        vm._channelInfoForRole = lambda role: channel
+        vm.getCaptureThreadForRole = lambda role: None
+        vm._feeder_trackers = {
+            "carousel": SimpleNamespace(
+                is_detection_center_ignored=lambda center, timestamp=None: center[0] < 6
+            )
+        }
+
+        filtered = VisionManager._filterLiveFeederTracksToChannel(
+            vm,
+            "carousel",
+            [ignored, kept],
+        )
+
+        self.assertEqual([kept], filtered)
+
+    def test_feeder_ignored_overlay_includes_tracker_ghost_regions(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        frame = np.zeros((100, 120, 3), dtype=np.uint8)
+        vm.getCaptureThreadForRole = lambda role: SimpleNamespace(
+            latest_frame=SimpleNamespace(raw=frame, timestamp=12.0)
+        )
+        vm._feeder_trackers = {
+            "carousel": SimpleNamespace(
+                get_ignored_static_regions=lambda timestamp=None: [
+                    {
+                        "center_px": (30.0, 40.0),
+                        "radius_px": 10.0,
+                        "persistent": True,
+                    }
+                ]
+            )
+        }
+
+        data = VisionManager.getFeederIgnoredDetectionOverlayData(vm, "carousel")
+
+        self.assertIn(
+            {
+                "label": "ghost",
+                "bbox": [20, 30, 40, 50],
+            },
+            data,
+        )
+
     def test_channel_detections_from_tracks_ignores_flaky_upstream_tracks(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         channel = SimpleNamespace(channel_id=3)
@@ -277,7 +353,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
             ],
         )
         sparse_classification = TrackSegment(
-            source_role="carousel",
+            source_role="classification_channel",
             handoff_from="c_channel_3",
             first_seen_ts=3.0,
             last_seen_ts=4.0,

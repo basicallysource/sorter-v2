@@ -1,7 +1,12 @@
 import queue
 import unittest
 
-from defs.known_object import ClassificationStatus, KnownObject, PieceStage
+from defs.known_object import (
+    CarouselMotionSample,
+    ClassificationStatus,
+    KnownObject,
+    PieceStage,
+)
 from irl.config import ClassificationChannelConfig
 from piece_transport import ClassificationChannelTransport
 from subsystems.classification.carousel import Carousel
@@ -172,6 +177,48 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertIsNone(next_advance.piece_for_distribution_drop)
         self.assertIsNone(transport.getPieceForDistributionDrop())
 
+    def test_dynamic_mode_marks_dropped_track_as_lingering_until_tracker_first_seen_changes(self) -> None:
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+
+        piece = transport.registerIncomingPiece(tracked_global_id=77)
+        piece.feeding_started_at = 123.4
+        transport.updateTrackedPieces(
+            [
+                TrackAngularExtent(
+                    global_id=77,
+                    center_deg=30.0,
+                    half_width_deg=6.0,
+                    last_seen_ts=1.0,
+                    hit_count=4,
+                    first_seen_ts=123.4,
+                )
+            ]
+        )
+        transport.setPositioningPiece(piece.uuid)
+
+        transport.advanceTransport(dropped_uuid=piece.uuid)
+
+        self.assertTrue(
+            transport.shouldIgnoreRecoveredTrack(
+                77,
+                first_seen_ts=123.4,
+            )
+        )
+        self.assertTrue(
+            transport.shouldIgnoreRecoveredTrack(
+                77,
+                first_seen_ts=124.1,
+            )
+        )
+        self.assertFalse(
+            transport.shouldIgnoreRecoveredTrack(
+                77,
+                first_seen_ts=130.0,
+            )
+        )
+
     def test_fallback_classification_clears_previous_distribution_target(self) -> None:
         transport = ClassificationChannelTransport()
         config = ClassificationChannelConfig()
@@ -253,6 +300,61 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertIsNone(transport.getPieceAtClassification())
         self.assertIsNone(transport.getPieceForDistributionPositioning())
 
+    def test_dynamic_mode_tracks_piece_motion_sync_against_carousel_rotation(self) -> None:
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+
+        piece = transport.registerIncomingPiece(tracked_global_id=91)
+        transport.updateTrackedPieces(
+            [
+                TrackAngularExtent(
+                    global_id=91,
+                    center_deg=10.0,
+                    half_width_deg=6.0,
+                    last_seen_ts=1.0,
+                    hit_count=4,
+                )
+            ],
+            carousel_angle_deg=100.0,
+        )
+        transport.updateTrackedPieces(
+            [
+                TrackAngularExtent(
+                    global_id=91,
+                    center_deg=16.0,
+                    half_width_deg=6.0,
+                    last_seen_ts=2.0,
+                    hit_count=5,
+                )
+            ],
+            carousel_angle_deg=106.0,
+        )
+        transport.updateTrackedPieces(
+            [
+                TrackAngularExtent(
+                    global_id=91,
+                    center_deg=19.0,
+                    half_width_deg=6.0,
+                    last_seen_ts=3.0,
+                    hit_count=6,
+                )
+            ],
+            carousel_angle_deg=112.0,
+        )
+
+        self.assertEqual(2, piece.carousel_motion_sample_count)
+        self.assertEqual(1, piece.carousel_motion_under_sync_sample_count)
+        self.assertEqual(0, piece.carousel_motion_over_sync_sample_count)
+        self.assertAlmostEqual(0.75, piece.carousel_motion_sync_ratio_avg)
+        self.assertAlmostEqual(0.5, piece.carousel_motion_sync_ratio_min)
+        self.assertAlmostEqual(1.0, piece.carousel_motion_sync_ratio_max)
+        self.assertAlmostEqual(0.825, piece.carousel_motion_sync_ratio)
+        self.assertAlmostEqual(3.0, piece.carousel_motion_piece_speed_deg_per_s)
+        self.assertAlmostEqual(6.0, piece.carousel_motion_platter_speed_deg_per_s)
+        self.assertEqual(2, len(piece.carousel_motion_samples))
+        self.assertAlmostEqual(0.5, piece.carousel_motion_samples[-1].sync_ratio)
+
 
 class CarouselTransportTests(unittest.TestCase):
     def test_carousel_transport_interface_maps_existing_positions(self) -> None:
@@ -296,6 +398,37 @@ class KnownObjectDropSnapshotTests(unittest.TestCase):
         piece = KnownObject()
         event = knownObjectToEvent(piece)
         self.assertIsNone(event.data.drop_snapshot)
+
+    def test_carousel_motion_metrics_propagate_to_event(self) -> None:
+        piece = KnownObject(
+            carousel_motion_sync_ratio=0.92,
+            carousel_motion_sync_ratio_avg=0.88,
+            carousel_motion_sync_ratio_min=0.61,
+            carousel_motion_sync_ratio_max=1.08,
+            carousel_motion_piece_speed_deg_per_s=5.5,
+            carousel_motion_platter_speed_deg_per_s=6.0,
+            carousel_motion_sample_count=4,
+            carousel_motion_under_sync_sample_count=2,
+            carousel_motion_over_sync_sample_count=0,
+        )
+        piece.carousel_motion_samples.append(
+            CarouselMotionSample(
+                observed_at=123.0,
+                piece_angle_deg=41.0,
+                carousel_angle_deg=84.0,
+                piece_speed_deg_per_s=5.5,
+                carousel_speed_deg_per_s=6.0,
+                sync_ratio=0.92,
+            )
+        )
+
+        event = knownObjectToEvent(piece)
+
+        self.assertAlmostEqual(0.92, event.data.carousel_motion_sync_ratio)
+        self.assertAlmostEqual(0.88, event.data.carousel_motion_sync_ratio_avg)
+        self.assertEqual(4, event.data.carousel_motion_sample_count)
+        self.assertEqual(1, len(event.data.carousel_motion_samples))
+        self.assertAlmostEqual(0.92, event.data.carousel_motion_samples[0].sync_ratio)
 
 
 if __name__ == "__main__":

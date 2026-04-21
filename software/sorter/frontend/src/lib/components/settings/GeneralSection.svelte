@@ -24,8 +24,8 @@
 		},
 		{
 			key: 'classification_channel',
-			title: 'Classification Channel',
-			description: 'C-Channels + Classification Channel',
+			title: 'Classification C-Channel (C4)',
+			description: 'C-Channels + Classification C-Channel (C4)',
 			detail:
 				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.',
 			experimental: true

@@ -4,9 +4,17 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
 	import { getMachineContext } from '$lib/machines/context';
+	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+	import {
+		capturedCropUrl,
+		lifecyclePhase,
+		type LifecyclePhase
+	} from '$lib/recent-pieces';
 
 	type AutoRecognition = {
 		status: 'pending' | 'ok' | 'insufficient_consistency' | 'insufficient_quality' | 'error';
@@ -54,6 +62,10 @@
 
 	const ctx = getMachineContext();
 
+	onMount(() => {
+		void sortingProfileStore.load().catch(() => {});
+	});
+
 	function effectiveBase(): string {
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
@@ -62,18 +74,16 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	function previewSrc(row: TrackedPieceRow): string | null {
+	function capturedFor(row: TrackedPieceRow): string | null {
 		return (
-			dataImageUrl(row.piece.top_image) ??
-			dataImageUrl(row.piece.bottom_image) ??
-			dataImageUrl(row.piece.thumbnail) ??
+			capturedCropUrl(row.piece) ??
 			dataImageUrl(row.track_summary?.best_piece_jpeg_b64) ??
 			dataImageUrl(row.track_summary?.composite_jpeg_b64)
 		);
 	}
 
-	function topStrip(row: TrackedPieceRow): string[] {
-		return (row.track_summary?.top_piece_jpegs ?? []).slice(0, 4);
+	function referenceFor(row: TrackedPieceRow): string | null {
+		return row.piece.brickognize_preview_url ?? null;
 	}
 
 	function formatRelativeTime(ts: number | null | undefined): string {
@@ -109,61 +119,103 @@
 			.join(' → ');
 	}
 
-	function statusLabel(piece: KnownObjectData): string {
-		if (piece.classification_channel_zone_state === 'lost' && piece.stage !== 'distributed') {
-			return 'Track Lost';
-		}
-		if (piece.classification_status === 'multi_drop_fail') return 'Multi-drop';
-		if (piece.stage === 'distributed') return 'Distributed';
-		if (piece.stage === 'distributing') return 'Distributing';
-		if (piece.classification_status === 'classified') return 'Classified';
-		if (piece.classification_status === 'unknown') return 'Unknown';
-		if (piece.classification_status === 'not_found') return 'Not Found';
-		if (piece.classification_status === 'classifying') return 'Classifying';
-		if (piece.carousel_snapping_started_at || piece.first_carousel_seen_ts) return 'Capturing';
-		return 'Tracking';
+	function formatSyncPercent(ratio: number | null | undefined): string {
+		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
+		return `${(ratio * 100).toFixed(0)}%`;
 	}
 
-	function statusClass(piece: KnownObjectData): string {
+	function motionSyncRatio(piece: KnownObjectData): number | null {
+		if (typeof piece.carousel_motion_sync_ratio_avg === 'number') {
+			return piece.carousel_motion_sync_ratio_avg;
+		}
+		if (typeof piece.carousel_motion_sync_ratio === 'number') {
+			return piece.carousel_motion_sync_ratio;
+		}
+		return null;
+	}
+
+	function motionSyncClass(piece: KnownObjectData): string {
+		const ratio = motionSyncRatio(piece);
+		if (ratio == null) return 'text-text-muted';
+		if (ratio < 0.5) return 'text-danger';
+		if (ratio < 0.85 || ratio > 1.15) return 'text-warning-dark';
+		return 'text-success';
+	}
+
+	const PHASE_LABEL: Record<LifecyclePhase, string> = {
+		tracking: 'Tracking',
+		capturing: 'Capturing',
+		classified: 'Classified',
+		distributed: 'Distributed'
+	};
+
+	function phaseChipClass(phase: LifecyclePhase): string {
+		if (phase === 'tracking') return 'border-text-muted bg-text-muted/10 text-text-muted';
+		if (phase === 'capturing') return 'border-primary bg-primary/10 text-primary';
+		if (phase === 'classified') return 'border-success bg-success/10 text-success';
+		return 'border-border bg-surface text-text-muted';
+	}
+
+	function statusOverrideChip(piece: KnownObjectData): { label: string; cls: string } | null {
 		if (piece.classification_channel_zone_state === 'lost' && piece.stage !== 'distributed') {
-			return 'border-warning bg-warning/10 text-warning-dark';
+			return {
+				label: 'Track Lost',
+				cls: 'border-warning bg-warning/10 text-warning-dark'
+			};
 		}
 		if (piece.classification_status === 'multi_drop_fail') {
-			return 'border-danger bg-danger/10 text-danger';
+			return { label: 'Multi-drop', cls: 'border-danger bg-danger/10 text-danger' };
 		}
-		if (piece.stage === 'distributed') return 'border-border bg-surface text-text-muted';
-		if (piece.stage === 'distributing') return 'border-primary bg-primary/10 text-primary';
-		if (piece.classification_status === 'classified') return 'border-success bg-success/10 text-success';
-		if (
-			piece.classification_status === 'unknown' ||
-			piece.classification_status === 'not_found'
-		) {
-			return 'border-warning bg-warning/10 text-warning-dark';
+		if (piece.classification_status === 'unknown' || piece.classification_status === 'not_found') {
+			return {
+				label: piece.classification_status === 'not_found' ? 'Not Found' : 'Unknown',
+				cls: 'border-warning bg-warning/10 text-warning-dark'
+			};
 		}
-		return 'border-border bg-bg text-text-muted';
+		return null;
+	}
+
+	function lookupLegoColor(
+		color_id: string | null | undefined,
+		color_name: string | null | undefined
+	): LegoColor | null {
+		if (color_id) {
+			const by_id = LEGO_COLORS.find((c) => c.id === color_id);
+			if (by_id) return by_id;
+		}
+		if (color_name) {
+			const lower = color_name.toLowerCase();
+			const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
+			if (by_name) return by_name;
+		}
+		return null;
+	}
+
+	function confidenceClass(conf: number): string {
+		const pct = conf * 100;
+		if (pct >= 90) return 'text-success';
+		if (pct >= 80) return 'text-warning';
+		if (pct >= 60) return 'text-warning/70';
+		return 'text-danger';
 	}
 
 	function primaryLabel(row: TrackedPieceRow): string {
 		const piece = row.piece;
-		if (piece.classification_status === 'multi_drop_fail') return 'Multi-drop failure';
-		if (piece.classification_status === 'unknown' || piece.classification_status === 'not_found') {
-			return 'Unrecognized piece';
-		}
+		if (piece.classification_status === 'multi_drop_fail') return 'Multi drop — rejected';
+		if (piece.classification_status === 'not_found') return 'Not recognized by Brickognize';
+		if (piece.classification_status === 'unknown') return 'Unknown piece';
 		if (piece.part_name) return piece.part_name;
 		if (piece.part_id) return piece.part_id;
 		if (row.active) return 'Tracked piece in flight';
 		return 'Tracked piece';
 	}
 
-	function secondaryLabel(row: TrackedPieceRow): string {
-		const piece = row.piece;
-		const parts: string[] = [];
-		if (piece.part_id && piece.part_name) parts.push(piece.part_id);
-		if (piece.color_name && piece.color_name !== 'Any Color') parts.push(piece.color_name);
-		if (piece.category_id) parts.push(piece.category_id);
-		if (parts.length > 0) return parts.join(' · ');
-		if (row.track_summary?.roles?.length) return formatRoles(row.track_summary.roles);
-		return 'Classification channel dossier';
+	function primaryClass(piece: KnownObjectData): string {
+		if (piece.classification_status === 'multi_drop_fail') return 'text-danger';
+		if (piece.classification_status === 'unknown' || piece.classification_status === 'not_found') {
+			return 'text-text-muted';
+		}
+		return 'text-text';
 	}
 
 	function recognitionLine(row: TrackedPieceRow): string | null {
@@ -257,6 +309,16 @@
 		return () => clearInterval(id);
 	});
 
+	// Refresh relative timestamps every second.
+	let now_tick = $state(0);
+	$effect(() => {
+		const id = setInterval(() => (now_tick += 1), 1000);
+		return () => clearInterval(id);
+	});
+	$effect(() => {
+		void now_tick;
+	});
+
 	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
 		if (filter === 'all') return items;
 		if (filter === 'active') return items.filter((item) => item.active);
@@ -307,6 +369,192 @@
 		return next;
 	});
 </script>
+
+{#snippet pieceRow(row: TrackedPieceRow)}
+	{@const piece = row.piece}
+	{@const phase = lifecyclePhase(piece)}
+	{@const captured = capturedFor(row)}
+	{@const reference = referenceFor(row)}
+	{@const is_unknown =
+		piece.classification_status === 'unknown' || piece.classification_status === 'not_found'}
+	{@const is_multi_drop = piece.classification_status === 'multi_drop_fail'}
+	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference)}
+	{@const cat_name = piece.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null}
+	{@const lego_color =
+		!is_unknown && !is_multi_drop && piece.color_name && piece.color_name !== 'Any Color'
+			? lookupLegoColor(piece.color_id, piece.color_name)
+			: null}
+	{@const status_override = statusOverrideChip(piece)}
+	{@const rec_line = recognitionLine(row)}
+	{@const finished_ts =
+		(piece.distributed_at as number | null | undefined) ??
+		(row.history_finished_at as number | null | undefined) ??
+		piece.classified_at ??
+		piece.updated_at}
+
+	<a
+		href={`/tracked/${row.uuid}`}
+		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+	>
+		<div class="flex items-stretch gap-3 p-3">
+			<div class="group relative h-32 w-32 flex-shrink-0 border border-border bg-white">
+				{#if is_classified_ok && captured}
+					<img
+						src={reference}
+						alt="Reference"
+						class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 group-hover:opacity-0"
+					/>
+					<img
+						src={captured}
+						alt="Captured"
+						class="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+					/>
+				{:else if is_classified_ok && !captured}
+					<img src={reference} alt="Reference" class="h-full w-full object-contain" />
+				{:else if captured}
+					<img src={captured} alt="Captured" class="h-full w-full object-contain" />
+				{:else}
+					<div class="flex h-full w-full items-center justify-center">
+						<Spinner />
+					</div>
+				{/if}
+				{#if row.live}
+					<span class="absolute top-1 left-1 border border-success bg-bg/90 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success">
+						Live
+					</span>
+				{/if}
+				{#if row.tracked_global_id != null}
+					<span class="absolute bottom-1 right-1 border border-border bg-bg/90 px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
+						#{row.tracked_global_id}
+					</span>
+				{/if}
+				{#if phase === 'capturing' || phase === 'tracking'}
+					<div class="absolute -top-1 -right-1">
+						<Spinner />
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex min-w-0 flex-1 flex-col gap-2">
+				<div class="flex items-baseline justify-between gap-3">
+					<span class="truncate text-base font-semibold {primaryClass(piece)}">
+						{primaryLabel(row)}
+					</span>
+					{#if typeof piece.confidence === 'number' && !is_unknown && !is_multi_drop}
+						<span class="flex-shrink-0 text-base font-semibold tabular-nums {confidenceClass(piece.confidence)}">
+							{(piece.confidence * 100).toFixed(0)}%
+						</span>
+					{/if}
+				</div>
+
+				{#if piece.part_name && piece.part_id}
+					<div class="truncate font-mono text-sm text-text-muted">{piece.part_id}</div>
+				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
+					<div class="text-sm text-text-muted">Tracked on carousel…</div>
+				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
+					<div class="text-sm text-text-muted">Capturing on C4…</div>
+				{/if}
+
+				<div class="flex flex-wrap items-center gap-1.5">
+					{#if status_override}
+						<span class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {status_override.cls}">
+							{status_override.label}
+						</span>
+					{:else}
+						<span class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
+							{PHASE_LABEL[phase]}
+						</span>
+					{/if}
+
+					{#if lego_color}
+						<span
+							class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
+							style:background-color={lego_color.hex}
+							style:color={lego_color.contrast === 'white' ? '#ffffff' : '#000000'}
+						>
+							{lego_color.name}
+						</span>
+					{:else if piece.color_name && piece.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
+						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+							{piece.color_name}
+						</span>
+					{/if}
+
+					{#if cat_name && !is_unknown && !is_multi_drop}
+						<span class="text-xs text-text-muted">{cat_name}</span>
+					{/if}
+
+					{#if piece.destination_bin && phase === 'distributed'}
+						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
+							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(piece.destination_bin)}
+						</span>
+					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
+						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
+							discard bin
+						</span>
+					{/if}
+				</div>
+
+				<div class="mt-auto grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Path</span>
+						<span class="text-sm text-text">{formatRoles(row.track_summary?.roles)}</span>
+					</div>
+					{#if row.active}
+						<div class="flex items-baseline justify-between gap-2">
+							<span class="text-xs uppercase tracking-wider text-text-muted">Drop Δ</span>
+							<span class="tabular-nums text-sm text-text">
+								{row.polar_offset_deg != null ? `${row.polar_offset_deg.toFixed(1)}°` : '—'}
+							</span>
+						</div>
+					{:else}
+						<div class="flex items-baseline justify-between gap-2">
+							<span class="text-xs uppercase tracking-wider text-text-muted">Bin</span>
+							<span class="tabular-nums text-sm text-text">{formatBin(piece.destination_bin)}</span>
+						</div>
+					{/if}
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Duration</span>
+						<span class="tabular-nums text-sm text-text">{formatDuration(row.track_summary?.duration_s)}</span>
+					</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">
+							{row.active ? 'Updated' : 'Finished'}
+						</span>
+						<span class="tabular-nums text-sm text-text">
+							{formatRelativeTime(row.active ? piece.updated_at : finished_ts)}
+						</span>
+					</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Crops</span>
+						<span class="tabular-nums text-sm text-text">{row.track_summary?.max_sector_snapshots ?? 0}</span>
+					</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Handoffs</span>
+						<span class="tabular-nums text-sm text-text">{row.track_summary?.handoff_count ?? 0}</span>
+					</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Hits</span>
+						<span class="tabular-nums text-sm text-text">{row.track_summary?.total_hit_count ?? 0}</span>
+					</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-xs uppercase tracking-wider text-text-muted">Sync</span>
+						<span class="tabular-nums text-sm {motionSyncClass(piece)}">
+							{formatSyncPercent(motionSyncRatio(piece))}
+						</span>
+					</div>
+				</div>
+
+				{#if rec_line}
+					<div class="text-sm text-text-muted">
+						<span class="font-medium text-text">Recognition</span>
+						<span class="ml-2">{rec_line}</span>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</a>
+{/snippet}
 
 <svelte:head>
 	<title>Tracked Pieces · Sorter</title>
@@ -363,7 +611,7 @@
 					type="button"
 					onclick={() => void clearAll()}
 					disabled={clearing || items.length === 0}
-					class="inline-flex items-center gap-1.5 border border-danger/40 bg-danger/10 px-2 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-40"
+					class="inline-flex items-center gap-1.5 border border-danger/40 bg-danger/10 px-2 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					<Trash2 size={14} />
 					<span>{clearing ? 'Clearing…' : 'Clear all'}</span>
@@ -399,7 +647,7 @@
 		</div>
 
 		{#if dropAngleDeg != null}
-			<div class="border border-border bg-surface px-3 py-2 text-xs text-text-muted">
+			<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">
 				Active pieces are ordered by polar offset to the C4 drop angle
 				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>, not by arrival time.
 			</div>
@@ -415,112 +663,15 @@
 					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
 						<div>
 							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">On Ring</h3>
-							<p class="mt-1 text-xs text-text-muted">
+							<p class="mt-1 text-sm text-text-muted">
 								Current pieces in flight, ordered along the classification channel path.
 							</p>
 						</div>
-						<span class="tabular-nums text-xs text-text-muted">{activeItems.length} visible</span>
+						<span class="tabular-nums text-sm text-text-muted">{activeItems.length} visible</span>
 					</div>
-					<div class="grid gap-3 xl:grid-cols-2">
+					<div class="grid gap-2 xl:grid-cols-2">
 						{#each activeItems as row (row.uuid)}
-							<a
-								href={`/tracked/${row.uuid}`}
-								class="grid gap-px border border-border bg-border text-left transition-colors hover:border-primary/70 sm:grid-cols-[176px,1fr]"
-							>
-								<div class="flex flex-col bg-bg">
-									<div class="relative aspect-square bg-black">
-										{#if previewSrc(row)}
-											<img
-												src={previewSrc(row) as string}
-												alt="Piece preview"
-												class="block h-full w-full object-contain"
-												loading="lazy"
-											/>
-										{:else}
-											<div class="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
-												No image yet
-											</div>
-										{/if}
-										<span class="absolute top-2 left-2 border border-success bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
-											Live
-										</span>
-										{#if row.tracked_global_id != null}
-											<span class="absolute top-2 right-2 border border-border bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text tabular-nums">
-												Track {row.tracked_global_id}
-											</span>
-										{/if}
-									</div>
-									{#if topStrip(row).length > 0}
-										<div class="grid grid-cols-4 gap-px bg-border">
-											{#each topStrip(row) as crop, idx (`${row.uuid}-${idx}`)}
-												<div class="aspect-square bg-bg">
-													<img
-														src={`data:image/jpeg;base64,${crop}`}
-														alt="Tracked crop"
-														class="block h-full w-full object-contain"
-														loading="lazy"
-													/>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-								<div class="flex flex-col gap-3 bg-surface px-4 py-3">
-									<div class="flex flex-wrap items-start justify-between gap-2">
-										<div class="min-w-0">
-											<div class="text-base font-semibold text-text">{primaryLabel(row)}</div>
-											<div class="mt-0.5 text-sm text-text-muted">{secondaryLabel(row)}</div>
-										</div>
-										<span class={`inline-flex items-center border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusClass(row.piece)}`}>
-											{statusLabel(row.piece)}
-										</span>
-									</div>
-
-									<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Path</span>
-											<span class="text-text">{formatRoles(row.track_summary?.roles)}</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Drop offset</span>
-											<span class="tabular-nums text-text">
-												{row.polar_offset_deg != null ? `${row.polar_offset_deg.toFixed(1)}°` : '—'}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Crops</span>
-											<span class="tabular-nums text-text">
-												{row.track_summary?.max_sector_snapshots ?? 0}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Last update</span>
-											<span class="tabular-nums text-text">
-												{formatRelativeTime(row.piece.updated_at)}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Duration</span>
-											<span class="tabular-nums text-text">
-												{formatDuration(row.track_summary?.duration_s)}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Handoffs</span>
-											<span class="tabular-nums text-text">
-												{row.track_summary?.handoff_count ?? 0}
-											</span>
-										</div>
-									</div>
-
-									{#if recognitionLine(row)}
-										<div class="border-t border-border pt-2 text-sm text-text-muted">
-											<span class="font-medium text-text">Recognition</span>
-											<span class="ml-2">{recognitionLine(row)}</span>
-										</div>
-									{/if}
-								</div>
-							</a>
+							{@render pieceRow(row)}
 						{/each}
 					</div>
 				</section>
@@ -531,116 +682,15 @@
 					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
 						<div>
 							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">Session History</h3>
-							<p class="mt-1 text-xs text-text-muted">
+							<p class="mt-1 text-sm text-text-muted">
 								Persistent dossiers from this sorting session, newest confirmed activity first.
 							</p>
 						</div>
-						<span class="tabular-nums text-xs text-text-muted">{historyItems.length} visible</span>
+						<span class="tabular-nums text-sm text-text-muted">{historyItems.length} visible</span>
 					</div>
-					<div class="grid gap-3 xl:grid-cols-2">
+					<div class="grid gap-2 xl:grid-cols-2">
 						{#each historyItems as row (row.uuid)}
-							<a
-								href={`/tracked/${row.uuid}`}
-								class="grid gap-px border border-border bg-border text-left transition-colors hover:border-primary/70 sm:grid-cols-[176px,1fr]"
-							>
-								<div class="flex flex-col bg-bg">
-									<div class="relative aspect-square bg-black">
-										{#if previewSrc(row)}
-											<img
-												src={previewSrc(row) as string}
-												alt="Piece preview"
-												class="block h-full w-full object-contain"
-												loading="lazy"
-											/>
-										{:else}
-											<div class="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
-												No stored preview
-											</div>
-										{/if}
-										<span class={`absolute top-2 left-2 inline-flex border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusClass(row.piece)}`}>
-											{statusLabel(row.piece)}
-										</span>
-										{#if row.tracked_global_id != null}
-											<span class="absolute top-2 right-2 border border-border bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text tabular-nums">
-												Track {row.tracked_global_id}
-											</span>
-										{/if}
-									</div>
-									{#if topStrip(row).length > 0}
-										<div class="grid grid-cols-4 gap-px bg-border">
-											{#each topStrip(row) as crop, idx (`${row.uuid}-history-${idx}`)}
-												<div class="aspect-square bg-bg">
-													<img
-														src={`data:image/jpeg;base64,${crop}`}
-														alt="Tracked crop"
-														class="block h-full w-full object-contain"
-														loading="lazy"
-													/>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-								<div class="flex flex-col gap-3 bg-surface px-4 py-3">
-									<div class="flex flex-wrap items-start justify-between gap-2">
-										<div class="min-w-0">
-											<div class="text-base font-semibold text-text">{primaryLabel(row)}</div>
-											<div class="mt-0.5 text-sm text-text-muted">{secondaryLabel(row)}</div>
-										</div>
-										{#if row.piece.confidence != null}
-											<span class="tabular-nums text-sm text-text-muted">
-												{(row.piece.confidence * 100).toFixed(0)}%
-											</span>
-										{/if}
-									</div>
-
-									<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Path</span>
-											<span class="text-text">{formatRoles(row.track_summary?.roles)}</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Bin</span>
-											<span class="tabular-nums text-text">{formatBin(row.piece.destination_bin)}</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Finished</span>
-											<span class="tabular-nums text-text">
-												{formatRelativeTime(
-													(row.piece.distributed_at as number | null | undefined) ??
-														(row.history_finished_at as number | null | undefined) ??
-														row.piece.updated_at
-												)}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Duration</span>
-											<span class="tabular-nums text-text">
-												{formatDuration(row.track_summary?.duration_s)}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Segments</span>
-											<span class="tabular-nums text-text">
-												{row.track_summary?.segment_count ?? 0}
-											</span>
-										</div>
-										<div class="flex flex-col">
-											<span class="text-[11px] uppercase tracking-wider text-text-muted">Hits</span>
-											<span class="tabular-nums text-text">
-												{row.track_summary?.total_hit_count ?? 0}
-											</span>
-										</div>
-									</div>
-
-									{#if recognitionLine(row)}
-										<div class="border-t border-border pt-2 text-sm text-text-muted">
-											<span class="font-medium text-text">Recognition</span>
-											<span class="ml-2">{recognitionLine(row)}</span>
-										</div>
-									{/if}
-								</div>
-							</a>
+							{@render pieceRow(row)}
 						{/each}
 					</div>
 				</section>

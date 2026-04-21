@@ -14,10 +14,12 @@ from defs.channel import ChannelDetection, PolygonChannel
 from blob_manager import (
     VideoRecorder,
     getCarouselDetectionConfig,
+    getClassificationChannelDetectionConfig,
     getClassificationDetectionConfig,
     getClassificationPolygons,
     getFeederDetectionConfig,
 )
+from role_aliases import CLASSIFICATION_CHANNEL_ROLE
 from .camera import CaptureThread
 from .burst_store import BurstFrameStore
 from .types import CameraFrame, VisionResult, DetectedMask
@@ -210,6 +212,16 @@ class VisionManager:
         if self._usesClassificationChannelSetup():
             return ("c_channel_2", "c_channel_3", "carousel")
         return ("c_channel_2", "c_channel_3")
+
+    def _publicFeederRole(self, role: str) -> str:
+        if role == "carousel" and self._usesClassificationChannelSetup():
+            return CLASSIFICATION_CHANNEL_ROLE
+        return role
+
+    def _internalFeederRole(self, role: str | None) -> str | None:
+        if role == CLASSIFICATION_CHANNEL_ROLE:
+            return "carousel"
+        return role
 
     def _channelPolygonKeyForRole(self, role: str) -> str | None:
         if role == "c_channel_2":
@@ -492,20 +504,33 @@ class VisionManager:
         resolved_algorithms: Dict[str, FeederDetectionAlgorithm] = {}
         resolved_by_role: Dict[str, bool] = {}
         for role in self._feederTrackerRoles():
-            role_algorithm = by_role.get(role) if isinstance(by_role, dict) else candidate
+            public_role = self._publicFeederRole(role)
+            role_algorithm = (
+                by_role.get(role) if isinstance(by_role, dict) and role in by_role else None
+            )
+            if role_algorithm is None and isinstance(by_role, dict):
+                role_algorithm = by_role.get(public_role)
+            if role_algorithm is None:
+                role_algorithm = candidate
             resolved_algorithms[role] = self._normalizeFeederDetectionAlgorithm(role_algorithm)
             role_value = (
                 sample_collection_by_role.get(role)
                 if isinstance(sample_collection_by_role, dict)
                 else enabled
             )
+            if role_value is None and isinstance(sample_collection_by_role, dict):
+                role_value = sample_collection_by_role.get(public_role)
             resolved_by_role[role] = False if role_value is None else bool(role_value)
         self._feeder_detection_algorithm_by_role = resolved_algorithms
         self._feeder_sample_collection_enabled_by_role = resolved_by_role
         self._feeder_sample_collection_enabled = any(resolved_by_role.values())
 
     def _loadCarouselDetectionConfig(self) -> None:
-        config = getCarouselDetectionConfig()
+        config = (
+            getClassificationChannelDetectionConfig()
+            if self._usesClassificationChannelSetup()
+            else getCarouselDetectionConfig()
+        )
         candidate = config.get("algorithm") if isinstance(config, dict) else None
         self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(candidate)
         model = config.get("openrouter_model") if isinstance(config, dict) else None
@@ -605,15 +630,16 @@ class VisionManager:
         return float(detection.score)
 
     def getFeederDetectionAlgorithm(self, role: str | None = None) -> FeederDetectionAlgorithm:
-        if role in self._feederTrackerRoles():
+        normalized_role = self._internalFeederRole(role)
+        if normalized_role in self._feederTrackerRoles():
             return self._normalizeFeederDetectionAlgorithm(
-                self._feeder_detection_algorithm_by_role.get(role)
+                self._feeder_detection_algorithm_by_role.get(normalized_role)
             )
         return self._normalizeFeederDetectionAlgorithm(self._feeder_detection_algorithm)
 
     def getFeederDetectionAlgorithms(self) -> Dict[str, FeederDetectionAlgorithm]:
         return {
-            role: self.getFeederDetectionAlgorithm(role)
+            self._publicFeederRole(role): self.getFeederDetectionAlgorithm(role)
             for role in self._feederTrackerRoles()
         }
 
@@ -621,13 +647,14 @@ class VisionManager:
         return normalize_openrouter_model(self._feeder_openrouter_model)
 
     def supportsFeederSampleCollection(self, role: str | None = None) -> bool:
+        normalized_role = self._internalFeederRole(role)
         if self._camera_layout != "split_feeder":
             return False
-        if role == "c_channel_2":
+        if normalized_role == "c_channel_2":
             return self._c_channel_2_capture is not None
-        if role == "c_channel_3":
+        if normalized_role == "c_channel_3":
             return self._c_channel_3_capture is not None
-        if role == "carousel":
+        if normalized_role == "carousel":
             return self._usesClassificationChannelSetup() and self._carousel_capture is not None
         return any(
             self.supportsFeederSampleCollection(channel_role)
@@ -635,9 +662,10 @@ class VisionManager:
         )
 
     def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
-        if role in self._feederTrackerRoles():
-            return self.supportsFeederSampleCollection(role) and bool(
-                self._feeder_sample_collection_enabled_by_role.get(role)
+        normalized_role = self._internalFeederRole(role)
+        if normalized_role in self._feederTrackerRoles():
+            return self.supportsFeederSampleCollection(normalized_role) and bool(
+                self._feeder_sample_collection_enabled_by_role.get(normalized_role)
             )
         if not self.supportsFeederSampleCollection():
             return False
@@ -690,10 +718,11 @@ class VisionManager:
         if not scope_supports_detection_algorithm("feeder", algorithm):
             raise ValueError(f"Unsupported feeder detection algorithm '{algorithm}'")
         normalized = self._normalizeFeederDetectionAlgorithm(algorithm)
-        if role is not None and role not in self._feederTrackerRoles():
+        normalized_role = self._internalFeederRole(role)
+        if normalized_role is not None and normalized_role not in self._feederTrackerRoles():
             raise ValueError(f"Unsupported feeder role '{role}'")
-        if role in self._feederTrackerRoles():
-            self._feeder_detection_algorithm_by_role[role] = normalized
+        if normalized_role in self._feederTrackerRoles():
+            self._feeder_detection_algorithm_by_role[normalized_role] = normalized
         else:
             self._feeder_detection_algorithm = normalized
             for channel_role in self._feederTrackerRoles():
@@ -713,16 +742,17 @@ class VisionManager:
 
     def setFeederSampleCollectionEnabled(self, enabled: bool, role: str | None = None) -> bool:
         feeder_roles = self._feederTrackerRoles()
-        if role is not None and role not in feeder_roles:
+        normalized_role = self._internalFeederRole(role)
+        if normalized_role is not None and normalized_role not in feeder_roles:
             raise ValueError(f"Unsupported feeder role '{role}'")
-        if role in feeder_roles:
-            self._feeder_sample_collection_enabled_by_role[role] = (
-                bool(enabled) if self.supportsFeederSampleCollection(role) else False
+        if normalized_role in feeder_roles:
+            self._feeder_sample_collection_enabled_by_role[normalized_role] = (
+                bool(enabled) if self.supportsFeederSampleCollection(normalized_role) else False
             )
             self._feeder_sample_collection_enabled = any(
                 self._feeder_sample_collection_enabled_by_role.values()
             )
-            return self._feeder_sample_collection_enabled_by_role[role]
+            return self._feeder_sample_collection_enabled_by_role[normalized_role]
         resolved_enabled = bool(enabled) if self.supportsFeederSampleCollection() else False
         for channel_role in feeder_roles:
             self._feeder_sample_collection_enabled_by_role[channel_role] = (
@@ -1811,11 +1841,66 @@ class VisionManager:
     def _ignoredFeederDetectionZoneSpecs(self, role: str) -> list[dict[str, object]]:
         return []
 
+    def _trackerIgnoredStaticRegions(
+        self,
+        role: str,
+        *,
+        timestamp: float | None = None,
+    ) -> list[dict[str, object]]:
+        normalized_role = self._internalFeederRole(role)
+        tracker = getattr(self, "_feeder_trackers", {}).get(normalized_role)
+        if tracker is None:
+            return []
+        accessor = getattr(tracker, "get_ignored_static_regions", None)
+        if accessor is None:
+            return []
+        try:
+            regions = accessor(timestamp=timestamp)
+        except TypeError:
+            regions = accessor()
+        except Exception:
+            return []
+        return [item for item in regions if isinstance(item, dict)]
+
+    def _isFeederDetectionBboxIgnoredByTracker(
+        self,
+        role: str,
+        bbox: Tuple[int, int, int, int],
+        *,
+        timestamp: float | None = None,
+    ) -> bool:
+        normalized_role = self._internalFeederRole(role)
+        tracker = getattr(self, "_feeder_trackers", {}).get(normalized_role)
+        if tracker is None:
+            return False
+        accessor = getattr(tracker, "is_detection_center_ignored", None)
+        if accessor is None:
+            return False
+        try:
+            return bool(
+                accessor(
+                    self._bboxCenterPoint(bbox),
+                    timestamp=timestamp,
+                )
+            )
+        except TypeError:
+            try:
+                return bool(accessor(self._bboxCenterPoint(bbox)))
+            except Exception:
+                return False
+        except Exception:
+            return False
+
     def getFeederIgnoredDetectionOverlayData(self, role: str) -> list[dict[str, object]]:
         capture = self.getCaptureThreadForRole(role)
         frame = capture.latest_frame.raw if capture is not None and capture.latest_frame is not None else None
         if frame is None:
             return []
+        frame_timestamp = (
+            float(capture.latest_frame.timestamp)
+            if capture is not None and capture.latest_frame is not None
+            else None
+        )
         frame_h, frame_w = frame.shape[:2]
         data: list[dict[str, object]] = []
         for spec in self._ignoredFeederDetectionZoneSpecs(role):
@@ -1827,6 +1912,30 @@ class VisionManager:
                         int(round(float(spec["y1"]) * frame_h)),
                         int(round(float(spec["x2"]) * frame_w)),
                         int(round(float(spec["y2"]) * frame_h)),
+                    ],
+                }
+            )
+        for region in self._trackerIgnoredStaticRegions(role, timestamp=frame_timestamp):
+            center = region.get("center_px")
+            radius_px = region.get("radius_px")
+            if (
+                not isinstance(center, (list, tuple))
+                or len(center) != 2
+                or not all(isinstance(value, (int, float)) for value in center)
+                or not isinstance(radius_px, (int, float))
+            ):
+                continue
+            cx = float(center[0])
+            cy = float(center[1])
+            radius = max(1.0, float(radius_px))
+            data.append(
+                {
+                    "label": "ghost",
+                    "bbox": [
+                        max(0, int(round(cx - radius))),
+                        max(0, int(round(cy - radius))),
+                        min(frame_w, int(round(cx + radius))),
+                        min(frame_h, int(round(cy + radius))),
                     ],
                 }
             )
@@ -1849,6 +1958,7 @@ class VisionManager:
                 self._isPointInsideChannelMask(channel, self._bboxCenterPoint(bbox))
                 and self._isFeederDetectionBboxPlausibleForRole(role, bbox)
                 and not self._isFeederDetectionBboxIgnoredForRole(role, bbox)
+                and not self._isFeederDetectionBboxIgnoredByTracker(role, bbox)
             )
         )
         if kept == detection.bboxes:
@@ -1891,6 +2001,16 @@ class VisionManager:
                 and self._isFeederDetectionBboxIgnoredForRole(
                     role,
                     (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),
+                )
+            ):
+                continue
+            if (
+                isinstance(bbox, (list, tuple))
+                and len(bbox) >= 4
+                and self._isFeederDetectionBboxIgnoredByTracker(
+                    role,
+                    (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),
+                    timestamp=float(getattr(track, "last_seen_ts", 0.0) or 0.0),
                 )
             ):
                 continue
@@ -2574,6 +2694,61 @@ class VisionManager:
                 "segments": live_segments,
                 "burst_frames": burst_frames,
             }
+        return None
+
+    def getFeederTrackPreview(
+        self,
+        global_id: int,
+        *,
+        preferred_roles: tuple[str, ...] = ("carousel", "c_channel_3", "c_channel_2"),
+    ) -> str | None:
+        if not isinstance(global_id, int):
+            return None
+        for role in preferred_roles:
+            tracker = self._feeder_trackers.get(role)
+            if tracker is None:
+                continue
+            crop_accessor = getattr(tracker, "get_live_piece_crop", None)
+            if crop_accessor is not None:
+                try:
+                    piece_crop = crop_accessor(global_id)
+                except Exception:
+                    piece_crop = ""
+                if isinstance(piece_crop, str) and piece_crop:
+                    return piece_crop
+            if not hasattr(tracker, "get_live_thumb"):
+                continue
+            try:
+                thumb = tracker.get_live_thumb(global_id)
+            except Exception:
+                thumb = ""
+            if isinstance(thumb, str) and thumb:
+                return thumb
+        detail = self.getFeederTrackHistoryDetail(global_id)
+        if not isinstance(detail, dict):
+            return None
+        segments = detail.get("segments") or []
+        for role in preferred_roles:
+            role_segments = [
+                segment for segment in segments
+                if isinstance(segment, dict) and segment.get("source_role") == role
+            ]
+            role_segments.sort(
+                key=lambda segment: float(segment.get("last_seen_ts", segment.get("first_seen_ts", 0.0))),
+                reverse=True,
+            )
+            for segment in role_segments:
+                sector_snapshots = segment.get("sector_snapshots") or []
+                for snap in reversed(sector_snapshots):
+                    piece_jpeg = snap.get("piece_jpeg_b64") if isinstance(snap, dict) else None
+                    if isinstance(piece_jpeg, str) and piece_jpeg:
+                        return piece_jpeg
+                composite = segment.get("composite_jpeg_b64")
+                if isinstance(composite, str) and composite:
+                    return composite
+        composite = detail.get("composite_jpeg_b64")
+        if isinstance(composite, str) and composite:
+            return composite
         return None
 
     # -- Drop-zone burst capture -------------------------------------------------
@@ -3470,7 +3645,10 @@ class VisionManager:
         }
 
         if algorithm == "gemini_sam":
-            detection = self._getCarouselDynamicDetection(force=force)
+            detection = self._filterFeederDetectionResultToChannel(
+                "carousel",
+                self._getCarouselDynamicDetection(force=force),
+            )
             if detection is None:
                 error_detail = self._carousel_gemini_detector._last_error if self._carousel_gemini_detector else None
                 message = "Cloud vision did not find a piece on the carousel."
@@ -3505,7 +3683,10 @@ class VisionManager:
             return result
 
         if algorithm.startswith("hive:"):
-            detection = self._runHiveDetection(algorithm, frame.raw, scope="carousel", role="carousel")
+            detection = self._filterFeederDetectionResultToChannel(
+                "carousel",
+                self._runHiveDetection(algorithm, frame.raw, scope="carousel", role="carousel"),
+            )
             if detection is None:
                 result.update(
                     {

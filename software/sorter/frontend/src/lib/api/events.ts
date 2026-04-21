@@ -5,7 +5,7 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
-export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
+export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel" | "classification_channel";
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
@@ -41,6 +41,14 @@ export interface MachineIdentityData {
   machine_id: string;
   nickname: string | null;
 }
+export interface CarouselMotionSampleData {
+  observed_at: number;
+  piece_angle_deg: number;
+  carousel_angle_deg: number;
+  piece_speed_deg_per_s: number;
+  carousel_speed_deg_per_s: number;
+  sync_ratio: number;
+}
 export interface KnownObjectData {
   uuid: string;
   created_at: number;
@@ -73,6 +81,16 @@ export interface KnownObjectData {
   classification_channel_zone_half_width_deg?: number | null;
   classification_channel_soft_guard_deg?: number | null;
   classification_channel_hard_guard_deg?: number | null;
+  carousel_motion_sync_ratio?: number | null;
+  carousel_motion_sync_ratio_avg?: number | null;
+  carousel_motion_sync_ratio_min?: number | null;
+  carousel_motion_sync_ratio_max?: number | null;
+  carousel_motion_piece_speed_deg_per_s?: number | null;
+  carousel_motion_platter_speed_deg_per_s?: number | null;
+  carousel_motion_sample_count?: number;
+  carousel_motion_under_sync_sample_count?: number;
+  carousel_motion_over_sync_sample_count?: number;
+  carousel_motion_samples?: CarouselMotionSampleData[];
   carousel_rotate_started_at?: number | null;
   carousel_rotated_at?: number | null;
   carousel_snapping_started_at?: number | null;

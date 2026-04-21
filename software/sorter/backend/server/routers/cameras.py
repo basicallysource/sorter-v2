@@ -39,6 +39,12 @@ from irl.config import (
     parseCameraDeviceSettings,
     parseCameraPictureSettings,
 )
+from role_aliases import (
+    lookup_camera_role_keys,
+    public_aux_camera_role,
+    publicize_camera_role,
+    stored_camera_role_key,
+)
 from server import shared_state
 from server.calibration_reference import REFERENCE_TILE_RGB
 from server.camera_calibration import (
@@ -60,6 +66,7 @@ CAMERA_SETUP_ROLES = {
     "c_channel_2",
     "c_channel_3",
     "carousel",
+    "classification_channel",
     "classification_top",
     "classification_bottom",
 }
@@ -126,16 +133,28 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
 
     cameras = config.get("cameras", {})
     if isinstance(cameras, dict):
-        source = _normalized_source(cameras.get(role))
-        if source is not None:
-            return source
+        for lookup_role in lookup_camera_role_keys(role, config):
+            source = _normalized_source(cameras.get(lookup_role))
+            if source is not None:
+                return source
 
-    if role in {"feeder", "classification_top", "classification_bottom"}:
+    if role in {"feeder", "classification_top", "classification_bottom", "classification_channel", "carousel"}:
         camera_setup = getCameraSetup()
         if isinstance(camera_setup, dict):
-            fallback_source = _normalized_source(camera_setup.get(role))
-            if fallback_source is not None:
-                return fallback_source
+            for lookup_role in lookup_camera_role_keys(role, config):
+                fallback_source = _normalized_source(camera_setup.get(lookup_role))
+                if fallback_source is not None:
+                    return fallback_source
+    return None
+
+
+def _camera_config_value(config: Dict[str, Any], table_name: str, role: str) -> Any:
+    table = config.get(table_name, {})
+    if not isinstance(table, dict):
+        return None
+    for lookup_role in lookup_camera_role_keys(role, config):
+        if lookup_role in table:
+            return table.get(lookup_role)
     return None
 
 
@@ -391,15 +410,17 @@ def _usb_control_defaults(
 def _picture_settings_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:
     if role not in CAMERA_SETUP_ROLES:
         raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-    picture_settings = _get_picture_settings_table(config)
-    return cameraPictureSettingsToDict(parseCameraPictureSettings(picture_settings.get(role)))
+    return cameraPictureSettingsToDict(
+        parseCameraPictureSettings(_camera_config_value(config, "camera_picture_settings", role))
+    )
 
 
 def _camera_color_profile_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:
     if role not in CAMERA_SETUP_ROLES:
         raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-    profiles = _get_camera_color_profile_table(config)
-    return cameraColorProfileToDict(parseCameraColorProfile(profiles.get(role)))
+    return cameraColorProfileToDict(
+        parseCameraColorProfile(_camera_config_value(config, "camera_color_profiles", role))
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3116,10 +3137,15 @@ def _save_camera_color_profile(
     parsed = parseCameraColorProfile(payload)
     profile_dict = cameraColorProfileToDict(parsed)
     profiles = _get_camera_color_profile_table(config)
+    config_role = stored_camera_role_key(role, config)
     if parsed.enabled:
-        profiles[role] = profile_dict
+        if config_role == "classification_channel":
+            profiles.pop("carousel", None)
+        elif config_role == "carousel":
+            profiles.pop("classification_channel", None)
+        profiles[config_role] = profile_dict
     else:
-        profiles.pop(role, None)
+        profiles.pop(config_role, None)
     config["camera_color_profiles"] = profiles
 
     try:
@@ -3185,6 +3211,7 @@ class CameraAssignment(BaseModel):
     c_channel_2: Optional[int | str] = None
     c_channel_3: Optional[int | str] = None
     carousel: Optional[int | str] = None
+    classification_channel: Optional[int | str] = None
     classification_top: Optional[int | str] = None
     classification_bottom: Optional[int | str] = None
 
@@ -3239,22 +3266,24 @@ def get_camera_config() -> Dict[str, Any]:
         cameras = raw.get("cameras", {}) if isinstance(raw, dict) else {}
         if not isinstance(cameras, dict):
             cameras = {}
+        aux_role = public_aux_camera_role(raw if isinstance(raw, dict) else {})
         return {
             "layout": cameras.get("layout", "default"),
             "feeder": _camera_source_for_role(raw, "feeder"),
             "c_channel_2": _camera_source_for_role(raw, "c_channel_2"),
             "c_channel_3": _camera_source_for_role(raw, "c_channel_3"),
-            "carousel": _camera_source_for_role(raw, "carousel"),
+            aux_role: _camera_source_for_role(raw, aux_role),
             "classification_top": _camera_source_for_role(raw, "classification_top"),
             "classification_bottom": _camera_source_for_role(raw, "classification_bottom"),
         }
     except HTTPException:
+        aux_role = public_aux_camera_role({})
         return {
             "layout": "default",
             "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
-            "carousel": None,
+            aux_role: None,
             "classification_top": None,
             "classification_bottom": None,
         }
@@ -3457,7 +3486,7 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 
 
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
-    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel"}:
+    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
         source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
@@ -3495,6 +3524,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             "c_channel_2": ["second_channel"],
             "c_channel_3": ["third_channel"],
             "carousel": [carousel_polygon_key],
+            "classification_channel": ["classification_channel"],
         }.get(role, [])
         scaled_polygons = [
             scaled
@@ -3605,6 +3635,7 @@ def camera_feed_by_role(
     dashboard: bool = False,
     color_correct: bool = True,
     show_regions: bool = True,
+    show_ghosts: bool = False,
 ):
     """MJPEG stream for a camera role.
 
@@ -3613,6 +3644,7 @@ def camera_feed_by_role(
     ``color_correct=false`` bypasses the color profile; falls back to the
     direct capture path since the live service bakes the profile into frames.
     ``show_regions=false`` keeps detections but hides zone polygons/labels.
+    ``show_ghosts=true`` opt-in shows tracker-learned ghost regions.
     """
     from vision.camera import (
         apply_camera_color_profile,
@@ -3623,24 +3655,32 @@ def camera_feed_by_role(
 
     # Resolve layer — legacy `annotated` param maps into `layer`
     want_annotated = layer == "annotated" and annotated
-    exclude_categories = frozenset({"regions"}) if not show_regions else None
+    excluded: set[str] = set()
+    if not show_regions:
+        excluded.add("regions")
+    if not show_ghosts:
+        excluded.add("ghosts")
+    exclude_categories = frozenset(excluded) if excluded else None
     # Color correction toggle requires bypassing the live service (raw frames
     # in the service are already color-corrected at capture time).
     if not color_correct:
         direct = True
 
     _, raw = _read_machine_params_config(require_exists=True)
-    cameras_section = raw.get("cameras", {})
-    picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(role))
-    color_profile = parseCameraColorProfile(_get_camera_color_profile_table(raw).get(role))
+    picture_settings = parseCameraPictureSettings(
+        _camera_config_value(raw, "camera_picture_settings", role)
+    )
+    color_profile = parseCameraColorProfile(
+        _camera_config_value(raw, "camera_color_profiles", role)
+    )
     saved_device_settings = parseCameraDeviceSettings(
-        _get_camera_device_settings_table(raw).get(role)
+        _camera_config_value(raw, "camera_device_settings", role)
     )
     preview_device_settings = shared_state.camera_device_preview_overrides.get(role)
     device_settings = cameraDeviceSettingsToDict(
         preview_device_settings if preview_device_settings is not None else saved_device_settings
     )
-    source = cameras_section.get(role)
+    source = _camera_source_for_role(raw, role)
     if source is None or not isinstance(source, (int, str)):
         raise HTTPException(404, f"Camera role '{role}' not configured")
 
@@ -3716,6 +3756,7 @@ def camera_feed_by_role(
 def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     """Save camera role assignments to the machine TOML config."""
     params_path, config = _read_machine_params_config()
+    aux_role = public_aux_camera_role(config)
 
     # Update cameras section
     cameras = config.get("cameras", {})
@@ -3733,13 +3774,18 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     elif "layout" not in cameras:
         if "feeder" in updates:
             cameras["layout"] = "default"
-        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel")):
+        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")):
             cameras["layout"] = "split_feeder"
     for key, value in updates.items():
+        target_key = stored_camera_role_key(key, config)
+        if target_key == "classification_channel":
+            cameras.pop("carousel", None)
+        elif target_key == "carousel":
+            cameras.pop("classification_channel", None)
         if value is None:
-            cameras.pop(key, None)
+            cameras.pop(target_key, None)
         else:
-            cameras[key] = value
+            cameras[target_key] = value
     config["cameras"] = cameras
 
     try:
@@ -3760,7 +3806,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
         "feeder": cameras.get("feeder"),
         "c_channel_2": cameras.get("c_channel_2"),
         "c_channel_3": cameras.get("c_channel_3"),
-        "carousel": cameras.get("carousel"),
+        aux_role: _camera_source_for_role(config, aux_role),
         "classification_top": cameras.get("classification_top"),
         "classification_bottom": cameras.get("classification_bottom"),
     }
@@ -3805,7 +3851,12 @@ def save_camera_picture_settings(
     params_path, config = _read_machine_params_config()
     picture_settings = _get_picture_settings_table(config)
     parsed = parseCameraPictureSettings(payload.model_dump())
-    picture_settings[role] = cameraPictureSettingsToDict(parsed)
+    config_role = stored_camera_role_key(role, config)
+    if config_role == "classification_channel":
+        picture_settings.pop("carousel", None)
+    elif config_role == "carousel":
+        picture_settings.pop("classification_channel", None)
+    picture_settings[config_role] = cameraPictureSettingsToDict(parsed)
     config["camera_picture_settings"] = picture_settings
 
     try:
@@ -3961,7 +4012,7 @@ def get_camera_device_settings(role: str) -> Dict[str, Any]:
         }
 
     saved_settings = cameraDeviceSettingsToDict(
-        parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
+        parseCameraDeviceSettings(_camera_config_value(config, "camera_device_settings", role))
     )
     controls, live_settings = _camera_service_usb_device_controls(role, source, saved_settings)
     current_settings = live_settings or saved_settings
@@ -4051,10 +4102,15 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
 
     parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(payload))
     device_settings = _get_camera_device_settings_table(config)
+    config_role = stored_camera_role_key(role, config)
     if parsed:
-        device_settings[role] = dict(parsed)
+        if config_role == "classification_channel":
+            device_settings.pop("carousel", None)
+        elif config_role == "carousel":
+            device_settings.pop("classification_channel", None)
+        device_settings[config_role] = dict(parsed)
     else:
-        device_settings.pop(role, None)
+        device_settings.pop(config_role, None)
     config["camera_device_settings"] = device_settings
 
     try:
@@ -4138,7 +4194,7 @@ def get_camera_device_settings_diff(role: str) -> Dict[str, Any]:
         }
 
     saved_settings = cameraDeviceSettingsToDict(
-        parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
+        parseCameraDeviceSettings(_camera_config_value(config, "camera_device_settings", role))
     )
 
     controls: List[Dict[str, Any]] = []
@@ -4299,8 +4355,7 @@ def get_camera_capture_modes(role: str) -> Dict[str, Any]:
     if svc is not None and hasattr(svc, "get_capture_mode_for_role"):
         current = svc.get_capture_mode_for_role(role)
     if current is None:
-        saved_section = config.get("camera_capture_modes", {}) if isinstance(config.get("camera_capture_modes"), dict) else {}
-        saved_entry = saved_section.get(role) if isinstance(saved_section, dict) else None
+        saved_entry = _camera_config_value(config, "camera_capture_modes", role)
         if isinstance(saved_entry, dict):
             current = {
                 "width": int(saved_entry.get("width", 0)) or None,
@@ -4368,7 +4423,12 @@ def save_camera_capture_mode(role: str, payload: CaptureModePayload) -> Dict[str
     capture_modes = config.get("camera_capture_modes", {})
     if not isinstance(capture_modes, dict):
         capture_modes = {}
-    capture_modes[role] = entry
+    config_role = stored_camera_role_key(role, config)
+    if config_role == "classification_channel":
+        capture_modes.pop("carousel", None)
+    elif config_role == "carousel":
+        capture_modes.pop("classification_channel", None)
+    capture_modes[config_role] = entry
     config["camera_capture_modes"] = capture_modes
 
     try:

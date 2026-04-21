@@ -65,6 +65,7 @@ class _Transport:
     def __init__(self) -> None:
         self.zone_manager = object()
         self._pieces_by_track: dict[int, SimpleNamespace] = {}
+        self._ignored_recovery_tracks: set[int] = set()
         self.register_calls: list[int | None] = []
         self._pending = False
 
@@ -85,8 +86,17 @@ class _Transport:
         self.register_calls.append(tracked_global_id)
         return piece
 
-    def updateTrackedPieces(self, track_extents):
+    def updateTrackedPieces(self, track_extents, *, carousel_angle_deg=None):
         return [], []
+
+    def shouldIgnoreRecoveredTrack(
+        self,
+        track_global_id: int,
+        *,
+        first_seen_ts: float | None,
+        first_seen_grace_s: float = 1.0,
+    ) -> bool:
+        return int(track_global_id) in self._ignored_recovery_tracks
 
     def isPendingClassification(self, uuid: str) -> bool:
         return False
@@ -226,6 +236,79 @@ def test_running_registers_piece_from_confirmed_track_when_awaiting_handoff() ->
     assert len(events.items) == 1
 
 
+def test_running_seeds_recent_preview_from_live_track_thumb() -> None:
+    transport = _Transport()
+    shared = _Shared()
+    event_queue = _EventQueue()
+    stepper = _Stepper()
+
+    class _Vision:
+        def __init__(self) -> None:
+            self.preview_calls: list[int] = []
+
+        def getFeederTrackPreview(self, global_id: int) -> str | None:
+            self.preview_calls.append(global_id)
+            return "seeded-thumb-b64"
+
+    vision = _Vision()
+    running = Running(
+        irl=SimpleNamespace(carousel_stepper=stepper),
+        irl_config=SimpleNamespace(
+            classification_channel_config=SimpleNamespace(
+                intake_angle_deg=0.0,
+                intake_body_half_width_deg=10.0,
+                intake_guard_deg=28.0,
+                drop_angle_deg=30.0,
+                drop_tolerance_deg=14.0,
+                point_of_no_return_deg=18.0,
+                recognition_window_deg=60.0,
+                max_zones=4,
+                hood_dwell_ms=1200,
+                min_carousel_crops_for_recognize=0,
+                min_carousel_dwell_ms=0,
+                min_carousel_traversal_deg=0.0,
+                exit_release_overlap_ratio=0.5,
+                exit_release_shimmy_amplitude_deg=1.5,
+                exit_release_shimmy_cycles=2,
+                exit_release_shimmy_microsteps_per_second=4200,
+                exit_release_shimmy_acceleration_microsteps_per_second_sq=9000,
+            ),
+            feeder_config=SimpleNamespace(
+                classification_channel_eject=SimpleNamespace(
+                    steps_per_pulse=90,
+                    microsteps_per_second=3400,
+                    acceleration_microsteps_per_second_sq=2500,
+                )
+            ),
+        ),
+        gc=SimpleNamespace(
+            logger=_Logger(),
+            runtime_stats=_RuntimeStats(),
+        ),
+        shared=shared,
+        transport=transport,
+        vision=vision,
+        event_queue=event_queue,
+    )
+    running._awaiting_intake_piece = True
+    running._intake_requested_at_mono = 19.0
+    running._intake_requested_at_wall = 9.8
+    strong_track = TrackAngularExtent(
+        global_id=41,
+        center_deg=1.5,
+        half_width_deg=6.0,
+        last_seen_ts=10.0,
+        hit_count=3,
+        first_seen_ts=9.9,
+    )
+
+    running._registerNewIntakePiece([strong_track], now_wall=10.0, now_mono=20.0)
+
+    assert vision.preview_calls == [41]
+    assert len(event_queue.items) == 1
+    assert event_queue.items[0].data.thumbnail == "seeded-thumb-b64"
+
+
 def test_running_ignores_stale_track_that_predates_handoff_request() -> None:
     running, transport, shared, _events = _make_running()
     running._awaiting_intake_piece = True
@@ -264,6 +347,26 @@ def test_running_recovers_existing_tracks_without_waiting_for_new_handoff() -> N
     assert len(transport.activePieces()) == 1
     assert shared.classification_gate_calls[-1] == (False, "recover_existing_piece")
     assert len(events.items) == 1
+
+
+def test_running_does_not_recover_track_that_was_just_dropped() -> None:
+    running, transport, shared, events = _make_running()
+    transport._ignored_recovery_tracks.add(52)
+    lingering_track = TrackAngularExtent(
+        global_id=52,
+        center_deg=146.0,
+        half_width_deg=8.0,
+        last_seen_ts=20.0,
+        hit_count=6,
+        first_seen_ts=10.0,
+    )
+
+    running._recoverExistingTrackedPieces([lingering_track], now_wall=20.0)
+
+    assert transport.register_calls == []
+    assert transport.activePieces() == []
+    assert shared.classification_gate_calls == []
+    assert events.items == []
 
 
 def test_running_fires_recognition_for_oldest_pending_piece() -> None:

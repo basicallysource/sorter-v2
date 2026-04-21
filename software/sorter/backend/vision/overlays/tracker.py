@@ -12,6 +12,8 @@ from typing import Callable
 import cv2
 import numpy as np
 
+from .scaling import overlay_scale_for_frame, scaled_px
+
 
 # BGR to match OpenCV.
 COLOR_ACTIVE = (0, 200, 0)       # green
@@ -68,6 +70,12 @@ class TrackOverlay:
 
     def annotate(self, frame: np.ndarray) -> np.ndarray:
         tracks = self._get_tracks() or []
+        scale = overlay_scale_for_frame(frame)
+        label_scale = LABEL_SCALE * scale
+        label_thickness = scaled_px(LABEL_THICKNESS, scale)
+        box_thickness = scaled_px(BOX_THICKNESS, scale)
+        label_pad = scaled_px(LABEL_PAD_PX, scale)
+        arrow_thickness = scaled_px(1, scale)
         for track in tracks:
             bbox = getattr(track, "bbox", None)
             if bbox is None:
@@ -75,11 +83,11 @@ class TrackOverlay:
             x1, y1, x2, y2 = [int(round(v)) for v in bbox]
             color = _label_color_for(track)
 
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, BOX_THICKNESS, cv2.LINE_AA)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, box_thickness, cv2.LINE_AA)
 
             label = f"#{format_track_label(track.global_id)}"
-            (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, LABEL_SCALE, LABEL_THICKNESS)
-            pad = LABEL_PAD_PX
+            (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, label_scale, label_thickness)
+            pad = label_pad
             pill_w = tw + pad * 2
             pill_h = th + pad * 2
             pill_x1 = x1
@@ -94,9 +102,9 @@ class TrackOverlay:
                 label,
                 (pill_x1 + pad, pill_y2 - pad - 1),
                 LABEL_FONT,
-                LABEL_SCALE,
+                label_scale,
                 color,
-                LABEL_THICKNESS,
+                label_thickness,
                 cv2.LINE_AA,
             )
 
@@ -111,7 +119,7 @@ class TrackOverlay:
                     (int(round(cx)), int(round(cy))),
                     (end_x, end_y),
                     color,
-                    1,
+                    arrow_thickness,
                     cv2.LINE_AA,
                     tipLength=0.3,
                 )

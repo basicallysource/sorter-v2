@@ -505,6 +505,25 @@ def _tracked_history_summary_map(limit: int) -> dict[int, dict[str, Any]]:
     return out
 
 
+def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    enriched = dict(payload)
+    tracked_global_id = enriched.get("tracked_global_id")
+    if not isinstance(tracked_global_id, int):
+        return enriched
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "getFeederTrackHistoryDetail"):
+        return enriched
+    try:
+        live_detail = vm.getFeederTrackHistoryDetail(int(tracked_global_id))
+    except Exception:
+        live_detail = None
+    if isinstance(live_detail, dict):
+        enriched["track_detail"] = live_detail
+    return enriched
+
+
 @app.get("/api/tracked/pieces")
 def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
     limit = max(10, min(int(limit), 500))
@@ -591,6 +610,22 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
         return KnownObjectData.model_validate(payload)
     except Exception:
         raise HTTPException(status_code=404, detail="not found")
+
+
+@app.get("/api/tracked/pieces/{uuid}")
+def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
+    payload = get_piece_dossier(uuid)
+    if payload is None:
+        try:
+            payload = get_piece_dossier_by_tracked_global_id(int(uuid))
+        except Exception:
+            payload = None
+    if payload is None and shared_state.gc_ref is not None and shared_state.gc_ref.runtime_stats is not None:
+        payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+    enriched = _piece_dossier_with_track_detail(payload)
+    if enriched is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return enriched
 
 
 # ---------------------------------------------------------------------------

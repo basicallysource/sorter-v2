@@ -24,7 +24,7 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	chute: 120 / 25
 };
 
-export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification Channel';
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_3;
 
 export function stepperGearRatioForSetup(

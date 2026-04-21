@@ -1,3 +1,5 @@
+import { browser } from '$app/environment';
+
 export interface SortingProfileCategory {
 	name: string;
 }
@@ -69,6 +71,24 @@ let in_flight: Promise<SortingProfileMetadata> | null = null;
 let cachedBaseUrl = '';
 
 async function load(baseUrl = ''): Promise<SortingProfileMetadata> {
+	if (!browser) {
+		if (cached) return cached;
+		return Promise.resolve({
+			id: '',
+			name: '',
+			description: '',
+			created_at: '',
+			updated_at: '',
+			default_category_id: '',
+			categories: {},
+			rules: [],
+			fallback_mode: {
+				rebrickable_categories: false,
+				by_color: false
+			},
+			sync_state: null
+		});
+	}
 	if (cached && cachedBaseUrl === baseUrl) return cached;
 	if (cachedBaseUrl !== baseUrl) {
 		cached = null;

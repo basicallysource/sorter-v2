@@ -12,8 +12,14 @@
 		error?: string;
 	};
 
-	type DetectionScope = 'classification' | 'feeder' | 'carousel';
-	type DetectionCamera = 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel';
+	type DetectionScope = 'classification' | 'feeder' | 'carousel' | 'classification_channel';
+	type DetectionCamera =
+		| 'top'
+		| 'bottom'
+		| 'c_channel_2'
+		| 'c_channel_3'
+		| 'carousel'
+		| 'classification_channel';
 	type DetectionAlgorithm = string;
 	type DetectionAlgorithmOption = {
 		id: DetectionAlgorithm;
@@ -98,30 +104,35 @@
 
 	function configPath(): string {
 		if (scope === 'feeder') return `/api/feeder/detection-config?role=${encodeURIComponent(camera)}`;
+		if (scope === 'classification_channel') return '/api/classification-channel/detection-config';
 		if (scope === 'carousel') return '/api/carousel/detection-config';
 		return '/api/classification/detection-config';
 	}
 
 	function defaultAlgorithmForScope(currentScope: DetectionScope): DetectionAlgorithm {
 		if (currentScope === 'feeder') return 'mog2';
-		if (currentScope === 'carousel') return 'heatmap_diff';
+		if (currentScope === 'carousel' || currentScope === 'classification_channel') return 'heatmap_diff';
 		return 'baseline_diff';
 	}
 
 	function testPath(): string {
 		if (scope === 'feeder') return `/api/feeder/detect/${camera}`;
+		if (scope === 'classification_channel') return '/api/classification-channel/detect/current';
 		if (scope === 'carousel') return '/api/carousel/detect/current';
 		return `/api/classification/detect/${camera}`;
 	}
 
 	function baselineCapturePath(): string | null {
 		if (scope === 'classification') return '/api/classification/baseline/capture';
+		if (scope === 'classification_channel')
+			return '/api/classification-channel/detection/baseline/capture';
 		if (scope === 'carousel') return '/api/carousel/detection/baseline/capture';
 		return null;
 	}
 
 	function scopeTitle(): string {
 		if (scope === 'feeder') return 'C-Channel Tools';
+		if (scope === 'classification_channel') return 'Classification C-Channel (C4) Tools';
 		if (scope === 'carousel') return 'Carousel Tools';
 		return 'Chamber Tools';
 	}
@@ -130,14 +141,17 @@
 		if (scope === 'feeder') {
 			return `Compare detection methods on the live ${label} frame and optionally archive Gemini teacher captures after completed ${label} moves.`;
 		}
+		if (scope === 'classification_channel') {
+			return 'Compare C4 trigger methods on the live classification-channel drop frame and optionally archive Gemini teacher captures when the classic trigger fires.';
+		}
 		if (scope === 'carousel') {
-			return 'Compare carousel trigger methods on the live drop frame and optionally archive Gemini teacher captures when the classic trigger fires.';
+			return 'Compare carousel trigger methods on the live handoff frame and optionally archive Gemini teacher captures when the classic trigger fires.';
 		}
 		return `Compare detection methods on the live ${label} frame and save chamber samples for later review and retesting.`;
 	}
 
 	function baselineButtonLabel(): string {
-		if (scope === 'carousel') return 'Capture Current Baseline';
+		if (scope === 'carousel' || scope === 'classification_channel') return 'Capture Current Baseline';
 		return 'Capture Empty Baseline';
 	}
 
@@ -395,6 +409,12 @@
 		}
 		if (scope === 'feeder') {
 			return `After each completed ${label} move, capture the scoped image, run Gemini on it, and save the result as a sample.`;
+		}
+		if (scope === 'classification_channel') {
+			if (algorithm === 'gemini_sam') {
+				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classic C4 triggers.';
+			}
+			return 'When the classic C4 trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
 		}
 		if (scope === 'carousel') {
 			if (algorithm === 'gemini_sam') {

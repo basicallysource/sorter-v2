@@ -10,6 +10,12 @@
 /detail-requests.txt
 /samples-nav-requests.txt
 /sample-detail-blank.png
+/tmp-*.png
+/dashboard-*.png
+/live-dashboard-*.png
+/machine-dashboard-*.png
+/sorter-dashboard-*.png
+/tracked-now.png
 /software/sorter/backend/calibration_image_sample_data_20x128x128x3_float32.npy
 /docs/_site/
 /docs/.jekyll-cache/

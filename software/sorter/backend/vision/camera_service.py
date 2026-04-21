@@ -17,6 +17,7 @@ from irl.config import (
     CameraConfig,
     mkCameraConfig,
 )
+from role_aliases import CLASSIFICATION_CHANNEL_ROLE, internalize_camera_role, public_aux_camera_role
 from .camera import CaptureThread, probe_camera_device_controls
 from .camera_device import CameraDevice, DeviceHealth
 from .camera_feed import CameraFeed
@@ -109,6 +110,36 @@ class CameraService:
         self._devices[role] = device
         self._feeds[role] = CameraFeed(role, device)
 
+    def _public_aux_role(self) -> str:
+        return public_aux_camera_role(
+            {
+                "machine_setup": {
+                    "type": getattr(getattr(self._irl_config, "machine_setup", None), "key", None),
+                }
+            }
+        )
+
+    def _normalize_role(self, role: str) -> str:
+        normalized = internalize_camera_role(role)
+        if normalized == CLASSIFICATION_CHANNEL_ROLE:
+            return "carousel"
+        return normalized
+
+    def _active_public_roles(self) -> list[str]:
+        if self._camera_layout == "split_feeder":
+            roles = ["c_channel_2", "c_channel_3", self._public_aux_role()]
+            if "classification_top" in self._devices:
+                roles.append("classification_top")
+            if "classification_bottom" in self._devices:
+                roles.append("classification_bottom")
+            return roles
+        roles = ["feeder"]
+        if "classification_bottom" in self._devices:
+            roles.append("classification_bottom")
+        if "classification_top" in self._devices:
+            roles.append("classification_top")
+        return roles
+
     # ---- Public accessors ----
 
     @property
@@ -124,16 +155,17 @@ class CameraService:
         return self._camera_layout
 
     def get_feed(self, role: str) -> Optional[CameraFeed]:
-        return self._feeds.get(role)
+        return self._feeds.get(self._normalize_role(role))
 
     def get_device(self, role: str) -> Optional[CameraDevice]:
-        return self._devices.get(role)
+        return self._devices.get(self._normalize_role(role))
 
     def _device_for_role(self, role: str) -> Optional[CameraDevice]:
-        device = self._devices.get(role)
+        normalized_role = self._normalize_role(role)
+        device = self._devices.get(normalized_role)
         if device is not None:
             return device
-        feed = self._feeds.get(role)
+        feed = self._feeds.get(normalized_role)
         if feed is not None:
             return feed.device
         return None
@@ -178,7 +210,10 @@ class CameraService:
 
     def get_health_status(self) -> dict[str, dict]:
         result: dict[str, dict] = {}
-        for role, feed in self._feeds.items():
+        for role in self._active_public_roles():
+            feed = self.get_feed(role)
+            if feed is None:
+                continue
             device = feed.device
             result[role] = {
                 "status": device.health.value,
@@ -187,7 +222,12 @@ class CameraService:
         return result
 
     def get_health_map(self) -> dict[str, str]:
-        return {role: feed.device.health.value for role, feed in self._feeds.items()}
+        return {
+            role: feed.device.health.value
+            for role in self._active_public_roles()
+            for feed in [self.get_feed(role)]
+            if feed is not None
+        }
 
     def set_health_event_callback(self, callback) -> None:
         self._health_event_callback = callback
@@ -205,7 +245,8 @@ class CameraService:
     def set_camera_source_for_role(
         self, role: str, source: int | str | None
     ) -> bool:
-        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
+        normalized_role = self._normalize_role(role)
+        config_attr = _ROLE_TO_CONFIG_ATTR.get(normalized_role)
         if config_attr is None:
             return False
 
@@ -224,19 +265,19 @@ class CameraService:
             config.url = None
             config.device_index = -1
 
-        device = self._devices.get(role)
+        device = self._devices.get(normalized_role)
         if device is None:
             if source is None:
                 return True
-            self._add_device_feed(role, config)
-            device = self._devices[role]
+            self._add_device_feed(normalized_role, config)
+            device = self._devices[normalized_role]
             if self._started:
                 device.start()
         else:
             device.set_source(source)
 
         # feeder alias in split_feeder mode
-        if self._camera_layout == "split_feeder" and role == "c_channel_2":
+        if self._camera_layout == "split_feeder" and normalized_role == "c_channel_2":
             self._feeds["feeder"] = CameraFeed("feeder", device)
 
         return True
@@ -260,7 +301,7 @@ class CameraService:
         device = self._device_for_role(role)
         if device is None:
             return None
-        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
+        config_attr = _ROLE_TO_CONFIG_ATTR.get(self._normalize_role(role))
         if persist and config_attr is not None:
             config = getattr(self._irl_config, config_attr, None)
             if config is not None:
@@ -279,7 +320,7 @@ class CameraService:
         device = self._device_for_role(role)
         if device is None:
             return False
-        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
+        config_attr = _ROLE_TO_CONFIG_ATTR.get(self._normalize_role(role))
         if config_attr is not None:
             config = getattr(self._irl_config, config_attr, None)
             if config is not None:
@@ -302,7 +343,7 @@ class CameraService:
         device = self._device_for_role(role)
         if device is None:
             return False
-        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
+        config_attr = _ROLE_TO_CONFIG_ATTR.get(self._normalize_role(role))
         if config_attr is not None:
             config = getattr(self._irl_config, config_attr, None)
             if config is not None:
@@ -315,7 +356,12 @@ class CameraService:
     @property
     def active_cameras(self) -> List[CameraName]:
         if self._camera_layout == "split_feeder":
-            cams: list[CameraName] = [CameraName.c_channel_2, CameraName.c_channel_3, CameraName.carousel]
+            aux_camera = (
+                CameraName.classification_channel
+                if self._public_aux_role() == CLASSIFICATION_CHANNEL_ROLE
+                else CameraName.carousel
+            )
+            cams: list[CameraName] = [CameraName.c_channel_2, CameraName.c_channel_3, aux_camera]
             if "classification_top" in self._devices:
                 cams.append(CameraName.classification_top)
             if "classification_bottom" in self._devices:
@@ -335,12 +381,15 @@ class CameraService:
         prof.hit(f"camera_service.get_frame_event.calls.{camera_name.value}")
         prof.startTimer("camera_service.get_frame_event.total_ms")
 
-        feed = self._feeds.get(camera_name.value)
+        feed = self.get_feed(camera_name.value)
         if feed is None:
             prof.endTimer("camera_service.get_frame_event.total_ms")
             return None
 
-        frame = feed.get_frame(annotated=True)
+        frame = feed.get_frame(
+            annotated=True,
+            exclude_categories=frozenset({"ghosts"}),
+        )
         if frame is None:
             prof.endTimer("camera_service.get_frame_event.total_ms")
             return None

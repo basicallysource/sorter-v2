@@ -9,6 +9,7 @@ from vision.tracking import (
     PolarFeederTracker,
     build_feeder_tracker_system,
 )
+from vision.tracking.history import SectorSnapshot
 
 
 def _bbox_around(cx: float, cy: float, size: int = 40) -> tuple[int, int, int, int]:
@@ -23,6 +24,7 @@ def _make_single_tracker(
     pixel_fallback_distance_px: float = 200.0,
     coast_limit_ticks: int = 5,
     stagnant_false_track_max_age_s: float = 3.0,
+    persist_static_ghost_regions: bool = False,
 ) -> tuple[PolarFeederTracker, PieceHandoffManager]:
     manager = PieceHandoffManager(handoff_chain={})
     tracker = PolarFeederTracker(
@@ -32,6 +34,7 @@ def _make_single_tracker(
         detection_score_threshold=score_threshold,
         coast_limit_ticks=coast_limit_ticks,
         stagnant_false_track_max_age_s=stagnant_false_track_max_age_s,
+        persist_static_ghost_regions=persist_static_ghost_regions,
     )
     return tracker, manager
 
@@ -151,6 +154,131 @@ def test_polar_ghost_suppression_releases_when_object_moves_along_arc():
     # object is no longer stationary in polar space.
     revived = tracker.update([_bbox_around(279.0, 214.0, size=40)], [0.9], 2.0)
     assert len(revived) == 1
+
+
+def test_persistent_stagnant_ghost_regions_survive_restart_and_clear_on_revival(
+    tmp_path,
+    monkeypatch,
+):
+    machine_params = tmp_path / "machine_params.toml"
+    machine_params.write_text("", encoding="utf-8")
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(machine_params))
+
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+        persist_static_ghost_regions=True,
+    )
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    last_tracks = []
+    for i in range(8):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
+    assert last_tracks == []
+
+    reloaded, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+        persist_static_ghost_regions=True,
+    )
+    reloaded.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    suppressed = reloaded.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
+    assert suppressed == []
+
+    revived = reloaded.update([_bbox_around(279.0, 214.0, size=40)], [0.9], 0.2)
+    assert len(revived) == 1
+
+
+def test_carousel_jitter_ghost_is_suppressed_even_after_accumulating_path_length():
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    # Fixed structure with a jumpy detector center: enough historical travel
+    # to look "motion confirmed" if we only trust path length, but its recent
+    # polar position stays essentially fixed.
+    centers = [
+        (280.0, 200.0),
+        (292.0, 206.0),
+        (272.0, 197.0),
+        (288.0, 204.0),
+        (281.0, 201.0),
+        (280.0, 200.0),
+        (281.0, 200.0),
+        (279.0, 199.0),
+        (280.0, 200.0),
+    ]
+    last_tracks = []
+    for i, (cx, cy) in enumerate(centers):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(cx, cy, size=40)], [0.9], ts)
+
+    assert last_tracks == [], (
+        "recently-stationary carousel ghost should age out even if jitter "
+        "previously accumulated enough path length to look mobile"
+    )
+
+
+def test_large_carousel_ghost_region_expands_suppression_radius():
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 140.0)
+
+    # A large static guide-like box should create a suppression region larger
+    # than the fixed default radius so later center jumps along the same
+    # structure still merge into one persistent ghost.
+    for i in range(8):
+        ts = i * 0.2
+        tracker.update([_bbox_around(280.0, 220.0, size=120)], [0.9], ts)
+
+    regions = tracker.get_ignored_static_regions(timestamp=1.6)
+    assert len(regions) == 1
+    assert regions[0]["radius_px"] > 56.0
+
+
+def test_live_piece_crop_prefers_latest_real_crop_over_composite_thumb():
+    tracker, _ = _make_single_tracker(role="carousel")
+    first = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
+    assert len(first) == 1
+    gid = first[0].global_id
+    track = next(iter(tracker._tracks.values()))
+    track.thumb_jpeg_b64 = "composite-thumb"
+    track.sector_snapshots = [
+        SectorSnapshot(
+            sector_index=1,
+            start_angle_deg=10.0,
+            end_angle_deg=20.0,
+            captured_ts=1.0,
+            bbox_x=0,
+            bbox_y=0,
+            width=10,
+            height=10,
+            jpeg_b64="sector-1",
+            piece_jpeg_b64="crop-older",
+        ),
+        SectorSnapshot(
+            sector_index=2,
+            start_angle_deg=20.0,
+            end_angle_deg=30.0,
+            captured_ts=2.0,
+            bbox_x=0,
+            bbox_y=0,
+            width=10,
+            height=10,
+            jpeg_b64="sector-2",
+            piece_jpeg_b64="crop-latest",
+        ),
+    ]
+
+    assert tracker.get_live_piece_crop(gid) == "crop-latest"
+    assert tracker.get_live_thumb(gid) == "composite-thumb"
 
 
 def test_real_track_survives_later_pause_once_motion_was_confirmed():

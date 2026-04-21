@@ -1,61 +1,23 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
-
-	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
+	import {
+		capturedCropUrl,
+		recentPhysicalKey,
+		lifecyclePhase,
+		shouldShowInRecentPieces,
+		type LifecyclePhase
+	} from '$lib/recent-pieces';
 
 	const ctx = getMachineContext();
-	sortingProfileStore.load();
 
-	function hasLocalPreview(obj: KnownObjectData): boolean {
-		return Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
-	}
-
-	function hasCapturingEvidence(obj: KnownObjectData): boolean {
-		// Anything proving the capture/classify pipeline has engaged: a snap
-		// timestamp, a locally-stored crop or thumbnail, or any part data.
-		return Boolean(
-			obj.carousel_snapping_started_at ||
-				obj.classified_at ||
-				obj.part_id ||
-				hasLocalPreview(obj)
-		);
-	}
-
-	function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
-		// "Distributing" (in motion) still renders as Classified. Only fully-
-		// delivered pieces flip to 'distributed'.
-		if (obj.stage === 'distributed' || obj.distributed_at) return 'distributed';
-		if (
-			obj.classification_status === 'classified' ||
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail' ||
-			obj.classified_at
-		) {
-			return 'classified';
-		}
-		if (hasCapturingEvidence(obj)) return 'capturing';
-		// Reliably tracked by the carousel tracker but no capture has started
-		// yet — show the piece as soon as we have an identity for it.
-		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) {
-			return 'tracking';
-		}
-		return 'capturing';
-	}
-
-	function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
-		if (obj.stage !== 'created') return true;
-		// Reliable tracking on the classification channel → surface
-		// immediately, before any capture/classify evidence exists.
-		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) return true;
-		if (obj.classified_at || obj.carousel_snapping_started_at || obj.part_id) return true;
-		if (obj.first_carousel_seen_ts || hasLocalPreview(obj)) return true;
-		return false;
-	}
+	onMount(() => {
+		void sortingProfileStore.load().catch(() => {});
+	});
 
 	const upcoming = $derived.by(() => {
 		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
@@ -88,19 +50,20 @@
 			}
 			if (typeof aPolar === 'number') return -1;
 			if (typeof bPolar === 'number') return 1;
-			return (b.first_carousel_seen_ts ?? b.created_at ?? 0) - (a.first_carousel_seen_ts ?? a.created_at ?? 0);
+			return (
+				(b.first_carousel_seen_ts ?? b.created_at ?? 0) -
+				(a.first_carousel_seen_ts ?? a.created_at ?? 0)
+			);
 		});
-		// Dedupe identity splits within upcoming: same tracked_global_id seen
-		// more than once means the tracker re-spawned a KnownObject for the
-		// same physical piece — keep only the newest entry.
-		const seen_gids = new Set<number | string>();
+		// Collapse identity splits: same physical piece may briefly surface as
+		// multiple KnownObjects while C4 tracking settles. Prefer tracked_global_id,
+		// then fall back to the latest live crop / C4 timing signature.
+		const seen_keys = new Set<string>();
 		const deduped: typeof list = [];
 		for (const o of list) {
-			const gid = o.tracked_global_id;
-			if (gid !== null && gid !== undefined) {
-				if (seen_gids.has(gid)) continue;
-				seen_gids.add(gid);
-			}
+			const key = recentPhysicalKey(o);
+			if (seen_keys.has(key)) continue;
+			seen_keys.add(key);
 			deduped.push(o);
 		}
 		return deduped.slice(0, 5);
@@ -111,23 +74,11 @@
 			.filter(shouldShowInRecentPieces)
 			.filter((o) => lifecyclePhase(o) === 'distributed');
 		// Newest-first (most recently delivered directly under the exit line).
-		list.sort((a, b) => (b.distributed_at ?? b.updated_at ?? 0) - (a.distributed_at ?? a.updated_at ?? 0));
+		list.sort(
+			(a, b) => (b.distributed_at ?? b.updated_at ?? 0) - (a.distributed_at ?? a.updated_at ?? 0)
+		);
 		return list.slice(0, 5);
 	});
-
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
-	}
-
-	function capturedCropUrl(obj: KnownObjectData): string | null {
-		// Prefer the most recent sharp crop; top/bottom beat thumbnail which is
-		// often the earliest C4-detection thumb.
-		return (
-			dataImageUrl(obj.top_image) ??
-			dataImageUrl(obj.bottom_image) ??
-			dataImageUrl(obj.thumbnail)
-		);
-	}
 
 	function formatBin(bin: [unknown, unknown, unknown]): string {
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
@@ -203,12 +154,9 @@
 	{@const captured = capturedCropUrl(obj)}
 	{@const preview = obj.brickognize_preview_url ?? null}
 	{@const reference_src = preview}
-	{@const cat_name = obj.category_id
-		? sortingProfileStore.getCategoryName(obj.category_id)
-		: null}
+	{@const cat_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 	{@const is_unknown =
-		obj.classification_status === 'unknown' ||
-		obj.classification_status === 'not_found'}
+		obj.classification_status === 'unknown' || obj.classification_status === 'not_found'}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference_src)}
 	{@const ts =
@@ -247,7 +195,7 @@
 	>
 		<div class="flex items-start gap-3 p-2">
 			<!-- Primary image well (hover-swap only on classified+recognized) -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white group">
+			<div class="group relative h-20 w-20 flex-shrink-0 border border-border bg-white">
 				{#if is_classified_ok && captured}
 					<!-- Brickognize reference is primary; captured crop on hover -->
 					<img
@@ -270,7 +218,7 @@
 					</div>
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -right-1 -top-1">
+					<div class="absolute -top-1 -right-1">
 						<Spinner />
 					</div>
 				{/if}
@@ -282,7 +230,11 @@
 						{primary_text}
 					</span>
 					{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+						<span
+							class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(
+								obj.confidence
+							)}"
+						>
 							{(obj.confidence * 100).toFixed(0)}%
 						</span>
 					{/if}
@@ -299,7 +251,7 @@
 				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
 					<!-- Phase chip -->
 					<span
-						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(
+						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold tracking-wider uppercase {phaseChipClass(
 							phase
 						)}"
 					>
@@ -316,7 +268,9 @@
 							{lego_color.name}
 						</span>
 					{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+						<span
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+						>
 							{obj.color_name}
 						</span>
 					{/if}
@@ -329,12 +283,14 @@
 					<!-- Bin chip — monospace, neutral surface -->
 					{#if obj.destination_bin && phase === 'distributed'}
 						<span
-							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs tabular-nums text-text"
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums"
 						>
 							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(obj.destination_bin)}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
+						<span
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
+						>
 							discard bin
 						</span>
 					{/if}
@@ -359,7 +315,9 @@
 				<!-- Exit divider -->
 				<div class="flex items-center gap-2 py-1 select-none">
 					<div class="h-px flex-1 bg-border"></div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">distributed</span>
+					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase"
+						>distributed</span
+					>
 					<div class="h-px flex-1 bg-border"></div>
 				</div>
 

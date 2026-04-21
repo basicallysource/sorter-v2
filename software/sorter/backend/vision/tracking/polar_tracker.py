@@ -64,6 +64,13 @@ DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX = 10.0
 DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
+CAROUSEL_RECENT_STATIC_WINDOW_S = 1.2
+CAROUSEL_RECENT_STATIC_MIN_COVERAGE_S = 0.8
+CAROUSEL_RECENT_STATIC_MAX_DISPLACEMENT_PX = 24.0
+CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD = math.radians(3.0)
+CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX = 10.0
+CAROUSEL_MATCH_IGNORED_REGION_MAX_RADIUS_PX = 120.0
+CAROUSEL_GHOST_SUPPRESSION_MAX_RADIUS_PX = 160.0
 
 
 # ---------------------------------------------------------------------------
@@ -231,12 +238,14 @@ class _LiveTrack:
 @dataclass
 class _IgnoredStaticRegion:
     center_px: tuple[float, float]
-    expires_at: float
+    expires_at: float | None
     radius_px: float
     center_angle_rad: float | None = None
     center_radius_px: float | None = None
     angle_tolerance_rad: float | None = None
     radius_tolerance_px: float | None = None
+    persistent: bool = False
+    suppression_count: int = 1
 
 
 def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
@@ -295,6 +304,7 @@ class PolarFeederTracker(Tracker):
         stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
         stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
         stagnant_false_track_pending_drop_protect_s: float = 4.0,
+        persist_static_ghost_regions: bool = False,
         id_switch_suspect_observer: "callable | None" = None,
     ) -> None:
         self.role = role
@@ -339,6 +349,7 @@ class PolarFeederTracker(Tracker):
         self._pending_drop_protect_s = max(
             0.0, float(stagnant_false_track_pending_drop_protect_s)
         )
+        self._persist_static_ghost_regions = bool(persist_static_ghost_regions)
         self._pending_drop_ids: dict[int, float] = {}
         self._id_switch_suspect_observer = id_switch_suspect_observer
         self._tracks: dict[int, _LiveTrack] = {}
@@ -355,6 +366,8 @@ class PolarFeederTracker(Tracker):
         # when another thread's concurrent update() prunes dead tracks in
         # between. A single reentrant lock serializes all external mutators.
         self._lock = threading.RLock()
+        if self._persist_static_ghost_regions:
+            self._load_persistent_ignored_static_regions()
 
     # ---- Channel geometry ---------------------------------------------
 
@@ -788,6 +801,37 @@ class PolarFeederTracker(Tracker):
                 )
             return extents
 
+    def is_detection_center_ignored(
+        self,
+        center_px: tuple[float, float],
+        *,
+        timestamp: float | None = None,
+    ) -> bool:
+        with self._lock:
+            check_ts = time.time() if timestamp is None else float(timestamp)
+            return self._is_inside_ignored_static_region(center_px, check_ts)
+
+    def get_ignored_static_regions(
+        self,
+        *,
+        timestamp: float | None = None,
+    ) -> list[dict[str, float | int | bool | tuple[float, float]]]:
+        with self._lock:
+            check_ts = time.time() if timestamp is None else float(timestamp)
+            self._prune_ignored_static_regions(check_ts)
+            return [
+                {
+                    "center_px": (
+                        float(region.center_px[0]),
+                        float(region.center_px[1]),
+                    ),
+                    "radius_px": float(region.radius_px),
+                    "persistent": bool(region.persistent),
+                    "suppression_count": max(1, int(region.suppression_count)),
+                }
+                for region in self._ignored_static_regions
+            ]
+
     def reset(self) -> None:
         with self._lock:
             if self._history is not None:
@@ -806,6 +850,8 @@ class PolarFeederTracker(Tracker):
             self._last_active = []
             self._next_internal_id = 0
             self._ignored_static_regions.clear()
+            if self._persist_static_ghost_regions:
+                self._load_persistent_ignored_static_regions()
 
     def get_live_thumb(self, global_id: int) -> str:
         track = next(
@@ -846,6 +892,19 @@ class PolarFeederTracker(Tracker):
                 track.thumb_jpeg_b64 = b64
                 track.thumb_sector_count_at_build = sector_n
                 return b64
+        return ""
+
+    def get_live_piece_crop(self, global_id: int) -> str:
+        track = next(
+            (t for t in self._tracks.values() if t.global_id == global_id),
+            None,
+        )
+        if track is None:
+            return ""
+        for snap in reversed(track.sector_snapshots):
+            piece_jpeg = getattr(snap, "piece_jpeg_b64", "") or ""
+            if piece_jpeg:
+                return piece_jpeg
         return ""
 
     def _track_angular_extent(
@@ -1137,9 +1196,144 @@ class PolarFeederTracker(Tracker):
 
         return segment
 
+    def _load_persistent_ignored_static_regions(self) -> None:
+        try:
+            from local_state import get_persistent_tracker_ignored_regions
+        except Exception:
+            return
+        try:
+            payloads = get_persistent_tracker_ignored_regions(self.role)
+        except Exception:
+            return
+        loaded: list[_IgnoredStaticRegion] = []
+        for item in payloads:
+            if not isinstance(item, dict):
+                continue
+            center = item.get("center_px")
+            if (
+                not isinstance(center, (list, tuple))
+                or len(center) != 2
+                or not all(isinstance(v, (int, float)) for v in center)
+            ):
+                continue
+            loaded.append(
+                _IgnoredStaticRegion(
+                    center_px=(float(center[0]), float(center[1])),
+                    expires_at=None,
+                    radius_px=float(item.get("radius_px", 0.0)),
+                    center_angle_rad=(
+                        float(item["center_angle_rad"])
+                        if isinstance(item.get("center_angle_rad"), (int, float))
+                        else None
+                    ),
+                    center_radius_px=(
+                        float(item["center_radius_px"])
+                        if isinstance(item.get("center_radius_px"), (int, float))
+                        else None
+                    ),
+                    angle_tolerance_rad=(
+                        float(item["angle_tolerance_rad"])
+                        if isinstance(item.get("angle_tolerance_rad"), (int, float))
+                        else None
+                    ),
+                    radius_tolerance_px=(
+                        float(item["radius_tolerance_px"])
+                        if isinstance(item.get("radius_tolerance_px"), (int, float))
+                        else None
+                    ),
+                    persistent=True,
+                    suppression_count=max(
+                        1,
+                        int(item["suppression_count"])
+                        if isinstance(item.get("suppression_count"), (int, float))
+                        else 1,
+                    ),
+                )
+            )
+        self._ignored_static_regions = [
+            region for region in self._ignored_static_regions if not region.persistent
+        ] + loaded
+
+    def _persist_persistent_ignored_static_regions(self) -> None:
+        if not self._persist_static_ghost_regions:
+            return
+        try:
+            from local_state import set_persistent_tracker_ignored_regions
+        except Exception:
+            return
+        payloads = [
+            {
+                "center_px": [float(region.center_px[0]), float(region.center_px[1])],
+                "radius_px": float(region.radius_px),
+                "center_angle_rad": (
+                    float(region.center_angle_rad)
+                    if region.center_angle_rad is not None
+                    else None
+                ),
+                "center_radius_px": (
+                    float(region.center_radius_px)
+                    if region.center_radius_px is not None
+                    else None
+                ),
+                "angle_tolerance_rad": (
+                    float(region.angle_tolerance_rad)
+                    if region.angle_tolerance_rad is not None
+                    else None
+                ),
+                "radius_tolerance_px": (
+                    float(region.radius_tolerance_px)
+                    if region.radius_tolerance_px is not None
+                    else None
+                ),
+                "suppression_count": max(1, int(region.suppression_count)),
+            }
+            for region in self._ignored_static_regions
+            if region.persistent
+        ]
+        try:
+            set_persistent_tracker_ignored_regions(self.role, payloads)
+        except Exception:
+            return
+
+    def _matching_ignored_static_region(
+        self,
+        center_px: tuple[float, float],
+        *,
+        center_angle_rad: float | None,
+        center_radius_px: float | None,
+    ) -> _IgnoredStaticRegion | None:
+        cx, cy = center_px
+        for region in self._ignored_static_regions:
+            match_radius_px = max(
+                18.0,
+                min(
+                    float(region.radius_px) * 0.75,
+                    CAROUSEL_MATCH_IGNORED_REGION_MAX_RADIUS_PX,
+                ),
+            )
+            if math.hypot(cx - region.center_px[0], cy - region.center_px[1]) > match_radius_px:
+                continue
+            if (
+                center_angle_rad is not None
+                and center_radius_px is not None
+                and region.center_angle_rad is not None
+                and region.center_radius_px is not None
+            ):
+                if (
+                    abs(_circular_diff(center_angle_rad, region.center_angle_rad))
+                    > max(region.angle_tolerance_rad or 0.0, math.radians(6.0))
+                    or abs(center_radius_px - region.center_radius_px)
+                    > max(region.radius_tolerance_px or 0.0, 16.0)
+                ):
+                    continue
+            return region
+        return None
+
     def _prune_ignored_static_regions(self, timestamp: float) -> None:
         self._ignored_static_regions = [
-            region for region in self._ignored_static_regions if region.expires_at > float(timestamp)
+            region
+            for region in self._ignored_static_regions
+            if region.expires_at is None or region.expires_at > float(timestamp)
         ]
         if self._pending_drop_ids:
             expired = [
@@ -1161,7 +1355,7 @@ class PolarFeederTracker(Tracker):
         polar_center: tuple[float, float] | None = None
         if geom is not None:
             polar_center = self._to_polar(center_px)
-        for region in self._ignored_static_regions:
+        for region in list(self._ignored_static_regions):
             rx, ry = region.center_px
             if math.hypot(cx - rx, cy - ry) > region.radius_px:
                 continue
@@ -1178,6 +1372,12 @@ class PolarFeederTracker(Tracker):
                     > region.angle_tolerance_rad
                     or abs(radius - region.center_radius_px) > region.radius_tolerance_px
                 ):
+                    if region.persistent:
+                        try:
+                            self._ignored_static_regions.remove(region)
+                        except ValueError:
+                            pass
+                        self._persist_persistent_ignored_static_regions()
                     continue
             return True
         return False
@@ -1196,10 +1396,12 @@ class PolarFeederTracker(Tracker):
             self._pending_drop_ids.pop(int(track.global_id), None)
         if track.handoff_from is not None:
             return False
-        if track.motion_confirmed:
-            return False
         age_s = float(timestamp) - float(track.first_seen_ts)
         if age_s < self._stagnant_false_track_max_age_s:
+            return False
+        if self._is_recently_polar_stationary(track, timestamp):
+            return True
+        if track.motion_confirmed:
             return False
         if track.max_displacement_px >= self._stagnant_false_track_min_displacement_px:
             return False
@@ -1217,6 +1419,59 @@ class PolarFeederTracker(Tracker):
             return False
         return True
 
+    def _is_recently_polar_stationary(
+        self,
+        track: _LiveTrack,
+        timestamp: float,
+    ) -> bool:
+        """Return True when a no-handoff carousel track stayed near-fixed recently.
+
+        Static C4 ghosts can accumulate plenty of historical path length from
+        detection-box jitter or box-center jumps along a fixed guide. That can
+        incorrectly flip ``motion_confirmed`` forever even though the structure
+        is still stationary in polar space. We therefore inspect only a short
+        recent window for the classification carousel and suppress tracks whose
+        recent angular/radial span stayed tiny.
+        """
+        if self.role != "carousel":
+            return False
+        geom = self._channel_geom
+        if geom is None or len(track.path) < 4:
+            return False
+        cutoff_ts = float(timestamp) - CAROUSEL_RECENT_STATIC_WINDOW_S
+        recent = [sample for sample in track.path if float(sample[0]) >= cutoff_ts]
+        if len(recent) < 4:
+            return False
+        window_coverage_s = float(recent[-1][0]) - float(recent[0][0])
+        if window_coverage_s < CAROUSEL_RECENT_STATIC_MIN_COVERAGE_S:
+            return False
+
+        anchor_x = float(recent[0][1])
+        anchor_y = float(recent[0][2])
+        anchor_angle_rad, anchor_radius_px = self._to_polar((anchor_x, anchor_y))
+
+        angular_offsets: list[float] = [0.0]
+        radial_offsets: list[float] = [0.0]
+        max_cartesian_displacement_px = 0.0
+        for _ts, x, y in recent[1:]:
+            px = float(x)
+            py = float(y)
+            angle_rad, radius_px = self._to_polar((px, py))
+            angular_offsets.append(_circular_diff(angle_rad, anchor_angle_rad))
+            radial_offsets.append(float(radius_px - anchor_radius_px))
+            max_cartesian_displacement_px = max(
+                max_cartesian_displacement_px,
+                math.hypot(px - anchor_x, py - anchor_y),
+            )
+
+        angular_span_rad = max(angular_offsets) - min(angular_offsets)
+        radial_span_px = max(radial_offsets) - min(radial_offsets)
+        return (
+            max_cartesian_displacement_px <= CAROUSEL_RECENT_STATIC_MAX_DISPLACEMENT_PX
+            and angular_span_rad <= CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD
+            and radial_span_px <= CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX
+        )
+
     def _suppress_stagnant_false_track(
         self,
         track: _LiveTrack,
@@ -1233,20 +1488,57 @@ class PolarFeederTracker(Tracker):
             center_angle_rad, center_radius_px = self._to_polar(track.center_px)
             angle_tolerance_rad = max(
                 self._stagnant_false_track_min_angular_displacement_rad,
-                math.radians(2.0),
+                math.radians(6.0),
             )
             radius_tolerance_px = max(
                 self._stagnant_false_track_min_radial_displacement_px,
-                8.0,
+                16.0,
             )
-        self._ignored_static_regions.append(
-            _IgnoredStaticRegion(
-                center_px=track.center_px,
-                expires_at=float(timestamp) + self._stagnant_false_track_suppression_ttl_s,
-                radius_px=self._stagnant_false_track_suppression_radius_px,
-                center_angle_rad=center_angle_rad,
-                center_radius_px=center_radius_px,
-                angle_tolerance_rad=angle_tolerance_rad,
-                radius_tolerance_px=radius_tolerance_px,
-            )
+        x1, y1, x2, y2 = track.bbox
+        bbox_diag_px = math.hypot(float(x2 - x1), float(y2 - y1))
+        suppression_radius_px = max(
+            self._stagnant_false_track_suppression_radius_px,
+            min(
+                bbox_diag_px * 0.75,
+                CAROUSEL_GHOST_SUPPRESSION_MAX_RADIUS_PX,
+            ),
         )
+        existing = self._matching_ignored_static_region(
+            track.center_px,
+            center_angle_rad=center_angle_rad,
+            center_radius_px=center_radius_px,
+        )
+        if existing is not None:
+            existing.center_px = track.center_px
+            existing.radius_px = suppression_radius_px
+            existing.center_angle_rad = center_angle_rad
+            existing.center_radius_px = center_radius_px
+            existing.angle_tolerance_rad = angle_tolerance_rad
+            existing.radius_tolerance_px = radius_tolerance_px
+            existing.suppression_count = max(1, int(existing.suppression_count)) + 1
+            if self._persist_static_ghost_regions:
+                existing.persistent = True
+                existing.expires_at = None
+                self._persist_persistent_ignored_static_regions()
+            else:
+                existing.expires_at = (
+                    float(timestamp) + self._stagnant_false_track_suppression_ttl_s
+                )
+            return
+        region = _IgnoredStaticRegion(
+            center_px=track.center_px,
+            expires_at=(
+                None
+                if self._persist_static_ghost_regions
+                else float(timestamp) + self._stagnant_false_track_suppression_ttl_s
+            ),
+            radius_px=suppression_radius_px,
+            center_angle_rad=center_angle_rad,
+            center_radius_px=center_radius_px,
+            angle_tolerance_rad=angle_tolerance_rad,
+            radius_tolerance_px=radius_tolerance_px,
+            persistent=self._persist_static_ghost_regions,
+        )
+        self._ignored_static_regions.append(region)
+        if region.persistent:
+            self._persist_persistent_ignored_static_regions()

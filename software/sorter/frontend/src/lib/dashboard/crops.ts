@@ -69,7 +69,7 @@ function nearestAxisAlignedRotation(angleDeg: number): number {
 }
 
 function straightenRotationForRole(role: string, polygons: Point[][]): number {
-	if (!['carousel', 'classification_top', 'classification_bottom'].includes(role)) return 0;
+	if (!['carousel', 'classification_channel', 'classification_top', 'classification_bottom'].includes(role)) return 0;
 	if (polygons.length !== 1 || polygons[0].length < 4) return 0;
 
 	const polygon = polygons[0];
@@ -206,7 +206,13 @@ export function buildDashboardFeedCrops(payload: unknown): Record<string, Dashbo
 	const c2 = polygonsForKeys(channelPolygons, ['second_channel']);
 	const c3 = polygonsForKeys(channelPolygons, ['third_channel']);
 	const carousel = polygonsForKeys(channelPolygons, ['carousel']);
-	const feeder = polygonsForKeys(channelPolygons, ['second_channel', 'third_channel', 'carousel']);
+	const classificationChannel = polygonsForKeys(channelPolygons, ['classification_channel']);
+	const feeder = polygonsForKeys(channelPolygons, [
+		'second_channel',
+		'third_channel',
+		'carousel',
+		'classification_channel'
+	]);
 	const classificationTop = polygonsForKeys(classificationPolygons, ['top']);
 	const classificationBottom = polygonsForKeys(classificationPolygons, ['bottom']);
 
@@ -215,6 +221,12 @@ export function buildDashboardFeedCrops(payload: unknown): Record<string, Dashbo
 		c_channel_2: buildCrop('c_channel_2', c2, channelResolution.width, channelResolution.height),
 		c_channel_3: buildCrop('c_channel_3', c3, channelResolution.width, channelResolution.height),
 		carousel: buildCrop('carousel', carousel, channelResolution.width, channelResolution.height),
+		classification_channel: buildCrop(
+			'classification_channel',
+			classificationChannel,
+			channelResolution.width,
+			channelResolution.height
+		),
 		classification_top: buildCrop(
 			'classification_top',
 			classificationTop,

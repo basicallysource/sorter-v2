@@ -3,6 +3,8 @@ from typing import Callable, Dict, List
 import cv2
 import numpy as np
 
+from .overlays.scaling import overlay_scale_for_frame, scaled_px
+
 from defs.channel import PolygonChannel, ChannelDetection
 from .mog2_diff_configs import Mog2DiffConfig, DEFAULT_MOG2_DIFF_CONFIG
 
@@ -256,18 +258,42 @@ class Mog2ChannelDetector:
             hot_count = int(np.count_nonzero(hot))
             color = (0, 0, 255) if hot_count > 0 else (0, 255, 0)
             label = f"feeder fg_px: {hot_count}"
-            cv2.putText(out, label, (30, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            scale = overlay_scale_for_frame(out)
+            cv2.putText(
+                out,
+                label,
+                (30, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8 * scale,
+                color,
+                scaled_px(2, scale),
+                cv2.LINE_AA,
+            )
+        else:
+            scale = overlay_scale_for_frame(out)
 
         for det in self._last_detections:
             x1, y1, x2, y2 = det.bbox
-            cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(
+                out,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                scaled_px(2, scale),
+                cv2.LINE_AA,
+            )
 
         for ch in self._channels.values():
             ch_color = CHANNEL_COLORS.get(ch.name, (200, 200, 200))
-            cv2.polylines(out, [ch.polygon_channel.polygon], True, ch_color, 2)
+            cv2.polylines(out, [ch.polygon_channel.polygon], True, ch_color, scaled_px(2, scale))
             if ch.polygon_channel.inner_polygon is not None and len(ch.polygon_channel.inner_polygon) >= 3:
-                cv2.polylines(out, [ch.polygon_channel.inner_polygon], True, ch_color, 2)
+                cv2.polylines(
+                    out,
+                    [ch.polygon_channel.inner_polygon],
+                    True,
+                    ch_color,
+                    scaled_px(2, scale),
+                )
 
         return out
 

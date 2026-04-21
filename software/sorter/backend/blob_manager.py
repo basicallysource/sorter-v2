@@ -8,6 +8,8 @@ from typing import Any, Optional
 import cv2
 import numpy as np
 
+from role_aliases import auxiliary_detection_scope
+
 BLOB_DIR = Path(__file__).parent / "blob"
 
 
@@ -257,12 +259,22 @@ def setFeederDetectionConfig(config: dict) -> None:
 
 def getCarouselDetectionConfig() -> dict | None:
     from toml_config import getDetectionConfig
-    return getDetectionConfig("carousel")
+    return getDetectionConfig(auxiliary_detection_scope(loadTomlConfig()))
 
 
 def setCarouselDetectionConfig(config: dict) -> None:
     from toml_config import setDetectionConfig
-    setDetectionConfig("carousel", config)
+    setDetectionConfig(auxiliary_detection_scope(loadTomlConfig()), config)
+
+
+def getClassificationChannelDetectionConfig() -> dict | None:
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("classification_channel")
+
+
+def setClassificationChannelDetectionConfig(config: dict) -> None:
+    from toml_config import setDetectionConfig
+    setDetectionConfig("classification_channel", config)
 
 
 def getClassificationTrainingConfig() -> dict | None:
@@ -326,6 +338,12 @@ def setApiKeys(keys: dict) -> None:
 
 
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
+
+
+def loadTomlConfig() -> dict[str, Any]:
+    from toml_config import _read_toml
+
+    return _read_toml()
 
 
 class VideoRecorder:

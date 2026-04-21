@@ -14,6 +14,7 @@ from machine_setup import (
     machine_setup_key_from_feeding_mode,
     normalize_machine_setup_key,
 )
+from role_aliases import CLASSIFICATION_CHANNEL_ROLE
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
@@ -672,10 +673,10 @@ class CameraLayoutConfig:
     """Camera layout from TOML [cameras] section.
 
     layout = "default" (single feeder camera + classification cameras)
-    layout = "split_feeder" (separate cameras per c-channel + carousel)
+    layout = "split_feeder" (separate cameras per c-channel + classification channel)
     """
     layout: str = "default"
-    # split_feeder cameras: c-channels are indices, carousel may be index or URL
+    # split_feeder cameras: c-channels are indices, C4 may be index or URL
     c_channel_2: int | None = None
     c_channel_3: int | None = None
     carousel: int | str | None = None
@@ -708,14 +709,18 @@ def loadCameraLayoutConfig(
     if layout == "split_feeder":
         c_channel_2 = cameras_params.get("c_channel_2")
         c_channel_3 = cameras_params.get("c_channel_3")
-        carousel = cameras_params.get("carousel")
+        carousel = cameras_params.get(CLASSIFICATION_CHANNEL_ROLE)
+        if carousel is None:
+            carousel = cameras_params.get("carousel")
 
         for name, val in [("c_channel_2", c_channel_2), ("c_channel_3", c_channel_3)]:
             if val is not None and not isinstance(val, int):
                 gc.logger.warning(f"cameras.{name}={val!r} must be an integer camera index.")
 
         if carousel is not None and not isinstance(carousel, (int, str)):
-            gc.logger.warning("cameras.carousel must be an integer index or URL string.")
+            gc.logger.warning(
+                "cameras.classification_channel must be an integer index or URL string."
+            )
 
         # Classification cameras: int (device index) or str (URL)
         classification_top = cameras_params.get("classification_top")

@@ -5,6 +5,8 @@ from typing import Callable
 import cv2
 import numpy as np
 
+from .scaling import overlay_scale_for_frame, scaled_px
+
 
 class ClassificationChannelZoneOverlay:
     category = "detections"
@@ -33,6 +35,7 @@ class ClassificationChannelZoneOverlay:
             return frame
 
         annotated = frame.copy()
+        scale = overlay_scale_for_frame(frame)
         # The classification pieces travel close to the outer rim. Drawing the
         # reservation wedges across the whole platter makes the overlay look
         # chaotic and much harder to read, so we deliberately compress it into
@@ -42,23 +45,6 @@ class ClassificationChannelZoneOverlay:
         annulus_inner = max(0, annulus_outer - lane_width)
         rim_outer = annulus_outer
         rim_inner = max(annulus_inner, rim_outer - max(18, int((annulus_outer - annulus_inner) * 0.18)))
-
-        self._draw_intake_window(
-            annotated,
-            center=center,
-            annulus_inner=rim_inner,
-            annulus_outer=rim_outer,
-            angle_deg=payload.get("intake_angle_deg"),
-        )
-        self._draw_drop_window(
-            annotated,
-            center=center,
-            annulus_inner=rim_inner,
-            annulus_outer=rim_outer,
-            angle_deg=payload.get("drop_angle_deg"),
-            tolerance_deg=payload.get("drop_tolerance_deg"),
-            point_of_no_return_deg=payload.get("point_of_no_return_deg"),
-        )
 
         for zone in zones:
             if not isinstance(zone, dict):
@@ -94,7 +80,7 @@ class ClassificationChannelZoneOverlay:
                 start_deg=body_start,
                 end_deg=body_end,
                 color=colors["body_line"],
-                thickness=1,
+                thickness=scaled_px(1, scale),
             )
             if hard_collision or status in {"pending", "classifying", "unknown", "not_found", "multi_drop_fail"}:
                 self._draw_label(
@@ -109,127 +95,10 @@ class ClassificationChannelZoneOverlay:
                         hard_collision=hard_collision,
                     ),
                     color=colors["body_line"],
+                    scale=scale,
                 )
 
         return annotated
-
-    def _draw_intake_window(
-        self,
-        frame: np.ndarray,
-        *,
-        center: tuple[int, int],
-        annulus_inner: int,
-        annulus_outer: int,
-        angle_deg: object,
-    ) -> None:
-        if not isinstance(angle_deg, (int, float)):
-            return
-        start_deg = float(angle_deg) - 10.0
-        end_deg = float(angle_deg) + 10.0
-        self._blend_annulus_sector(
-            frame,
-            center=center,
-            annulus_inner=annulus_inner,
-            annulus_outer=annulus_outer,
-            start_deg=start_deg,
-            end_deg=end_deg,
-            color=(255, 255, 0),
-            alpha=0.09,
-        )
-        self._draw_sector_outline(
-            frame,
-            center=center,
-            annulus_inner=annulus_inner,
-            annulus_outer=annulus_outer,
-            start_deg=start_deg,
-            end_deg=end_deg,
-            color=(255, 255, 0),
-            thickness=2,
-        )
-        self._draw_label(
-            frame,
-            center=center,
-            annulus_inner=annulus_inner,
-            annulus_outer=annulus_outer,
-            angle_deg=float(angle_deg),
-            text="IN",
-            color=(255, 255, 0),
-        )
-
-    def _draw_drop_window(
-        self,
-        frame: np.ndarray,
-        *,
-        center: tuple[int, int],
-        annulus_inner: int,
-        annulus_outer: int,
-        angle_deg: object,
-        tolerance_deg: object,
-        point_of_no_return_deg: object,
-    ) -> None:
-        if not isinstance(angle_deg, (int, float)):
-            return
-        drop_angle = float(angle_deg)
-        tolerance = float(tolerance_deg) if isinstance(tolerance_deg, (int, float)) else 0.0
-        point_no_return = (
-            float(point_of_no_return_deg)
-            if isinstance(point_of_no_return_deg, (int, float))
-            else 0.0
-        )
-
-        if point_no_return > 0.0:
-            self._blend_annulus_sector(
-                frame,
-                center=center,
-                annulus_inner=annulus_inner,
-                annulus_outer=annulus_outer,
-                start_deg=drop_angle - point_no_return,
-                end_deg=drop_angle + point_no_return,
-                color=(70, 80, 255),
-                alpha=0.06,
-            )
-            self._draw_sector_outline(
-                frame,
-                center=center,
-                annulus_inner=annulus_inner,
-                annulus_outer=annulus_outer,
-                start_deg=drop_angle - point_no_return,
-                end_deg=drop_angle + point_no_return,
-                color=(70, 80, 255),
-                thickness=1,
-            )
-
-        if tolerance > 0.0:
-            self._blend_annulus_sector(
-                frame,
-                center=center,
-                annulus_inner=annulus_inner,
-                annulus_outer=annulus_outer,
-                start_deg=drop_angle - tolerance,
-                end_deg=drop_angle + tolerance,
-                color=(255, 255, 255),
-                alpha=0.07,
-            )
-            self._draw_sector_outline(
-                frame,
-                center=center,
-                annulus_inner=annulus_inner,
-                annulus_outer=annulus_outer,
-                start_deg=drop_angle - tolerance,
-                end_deg=drop_angle + tolerance,
-                color=(255, 255, 255),
-                thickness=2,
-            )
-
-        self._draw_label(
-            frame,
-            center=center,
-            annulus_inner=annulus_inner,
-            annulus_outer=annulus_outer,
-            angle_deg=drop_angle,
-            text="DROP",
-            color=(255, 255, 255),
-        )
 
     def _zone_label(
         self,
@@ -299,17 +168,19 @@ class ClassificationChannelZoneOverlay:
         angle_deg: float,
         text: str,
         color: tuple[int, int, int],
+        scale: float,
     ) -> None:
         radius = int(round((annulus_inner + annulus_outer) / 2.0))
         point = self._point_on_circle(center, radius, angle_deg)
+        offset = scaled_px(4, scale)
         cv2.putText(
             frame,
             text,
-            (point[0] + 4, point[1] - 4),
+            (point[0] + offset, point[1] - offset),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.42,
+            0.42 * scale,
             color,
-            1,
+            scaled_px(1, scale),
             cv2.LINE_AA,
         )
 
@@ -405,13 +276,13 @@ class ClassificationChannelZoneOverlay:
                 center,
                 (annulus_inner, annulus_inner),
                 0,
-                int(round(seg_end)),
                 int(round(seg_start)),
+                int(round(seg_end)),
                 delta,
             )
             if outer_arc.size == 0 or inner_arc.size == 0:
                 continue
-            polygon = np.concatenate((outer_arc, inner_arc), axis=0)
+            polygon = np.concatenate((outer_arc, inner_arc[::-1]), axis=0)
             polygons.append(np.asarray(polygon, dtype=np.int32))
         return polygons
 

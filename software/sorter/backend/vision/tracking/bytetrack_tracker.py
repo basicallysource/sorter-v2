@@ -386,6 +386,19 @@ class ByteTrackFeederTracker(Tracker):
                 return b64
         return ""
 
+    def get_live_piece_crop(self, global_id: int) -> str:
+        track = next(
+            (t for t in self._tracks.values() if t.global_id == global_id),
+            None,
+        )
+        if track is None:
+            return ""
+        for snap in reversed(track.sector_snapshots):
+            piece_jpeg = getattr(snap, "piece_jpeg_b64", "") or ""
+            if piece_jpeg:
+                return piece_jpeg
+        return ""
+
     # ---- Internal helpers ---------------------------------------------
 
     def _maybe_capture_sector(

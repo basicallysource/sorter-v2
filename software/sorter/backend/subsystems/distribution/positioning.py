@@ -103,8 +103,10 @@ class Positioning(BaseState):
             if address is None:
                 # Pass-through: no bin available for this category. Open
                 # every usable layer door so the piece falls straight
-                # through to the bottom tray. Finalize the piece record
-                # via SENDING so stats/events stay consistent.
+                # through to the bottom tray. Still move the chute back
+                # to a known passthrough angle first; otherwise an
+                # unknown / discard piece inherits the previous bin's
+                # chute alignment and can hang half out of the exit.
                 self.logger.warning(
                     f"Positioning: no bin for category {category_id} — passthrough to bottom"
                 )
@@ -119,7 +121,10 @@ class Positioning(BaseState):
                 self._piece = piece
                 self.event_queue.put(knownObjectToEvent(piece))
                 self._setOccupancyState("positioning.passthrough_no_bin")
-                return DistributionState.READY
+                self._door_servo_index = None
+                self._moving_started_at = now
+                self._startChuteMove()
+                return None
 
             self._clearBinsFullAlertIfOwned()
             self._clearChuteJamAlertIfOwned()
@@ -219,15 +224,22 @@ class Positioning(BaseState):
         return None
 
     def _startChuteMove(self) -> None:
-        assert self._target_address is not None
         self.shared.set_chute_motion(True, target_bin=self._target_address)
         if self._piece is not None and self._piece.distribution_motion_started_at is None:
             self._piece.distribution_motion_started_at = time.time()
-        estimated_ms = self.chute.moveToBin(self._target_address)
+        if self._target_address is None:
+            passthrough_angle = float(getattr(self.chute, "first_bin_center", 0.0) or 0.0)
+            estimated_ms = self.chute.moveToAngle(passthrough_angle)
+            self.logger.info(
+                "Positioning: passthrough chute move started "
+                f"(angle={passthrough_angle:.2f}°, est_ms={estimated_ms})"
+            )
+        else:
+            estimated_ms = self.chute.moveToBin(self._target_address)
+            self.logger.info(
+                f"Positioning: chute move started (est_ms={estimated_ms})"
+            )
         self._chute_move_estimated_ms = int(estimated_ms)
-        self.logger.info(
-            f"Positioning: chute move started (est_ms={estimated_ms})"
-        )
         self._phase = "moving"
 
     def cleanup(self) -> None:

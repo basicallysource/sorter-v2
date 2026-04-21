@@ -70,6 +70,10 @@
 		return dashboardCrops[role] ?? null;
 	}
 
+	function auxiliaryCameraRole(): 'carousel' | 'classification_channel' {
+		return machineSetup === 'classification_channel' ? 'classification_channel' : 'carousel';
+	}
+
 	function preferredClassificationCamera(hasTop: boolean, hasBottom: boolean): 'classification_top' | 'classification_bottom' | null {
 		if (classification_view === 'bottom' && hasBottom) return 'classification_bottom';
 		if (hasTop) return 'classification_top';
@@ -132,14 +136,12 @@
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
 		carousel: 'Carousel',
+		classification_channel: 'Classification C-Channel (C4)',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
 
 	function cameraLabel(role: string): string {
-		if (role === 'carousel' && machineSetup === 'classification_channel') {
-			return 'Classification Channel';
-		}
 		return CAMERA_LABELS[role] ?? role;
 	}
 
@@ -170,7 +172,7 @@
 									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -179,18 +181,18 @@
 									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
 						<div class="flex min-h-0 flex-1 gap-3">
 							<div class="flex-1 min-w-0">
 								<CameraFeed
-									camera="carousel"
-									label={cameraLabel('carousel')}
-									crop={cropFor('carousel')}
+									camera={auxiliaryCameraRole()}
+									label={cameraLabel(auxiliaryCameraRole())}
+									crop={cropFor(auxiliaryCameraRole())}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}
@@ -238,7 +240,7 @@
 												crop={cropFor(classification_camera)}
 												showHeader={false}
 												source="ws"
-												controls={[]}
+												controls={["ghosts"]}
 												bind:layer={classification_layer}
 											/>
 										</div>
@@ -259,7 +261,7 @@
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -268,7 +270,7 @@
 									label={cameraLabel(classification_camera)}
 									crop={cropFor(classification_camera)}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
@@ -280,7 +282,7 @@
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
 									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}
@@ -326,7 +328,7 @@
 											label={cameraLabel(classification_camera)}
 											crop={cropFor(classification_camera)}
 											showHeader={false}
-											controls={[]}
+											controls={["ghosts"]}
 											source="ws"
 											bind:layer={classification_layer}
 										/>

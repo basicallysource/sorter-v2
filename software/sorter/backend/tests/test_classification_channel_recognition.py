@@ -120,6 +120,7 @@ class _Vision:
         before_ts: float,
         max_age_s: float = 6.0,
         limit: int = 40,
+        required_global_id: int | None = None,
     ):
         return self._fallback_by_role.get(source_role)
 
@@ -219,6 +220,29 @@ def test_recognizer_fires_once_carousel_crop_is_present() -> None:
     assert runtime_stats.recognizer_counts.get("recognize_fired_total") == 1
 
 
+def test_recognizer_fires_once_classification_channel_crop_is_present() -> None:
+    transport = _Transport()
+    runtime_stats = _RuntimeStats()
+    recognizer = _Recognizer(
+        crops=[
+            (_sharp_crop(seed=1), "c_channel_3"),
+            (_sharp_crop(seed=2), "classification_channel"),
+        ],
+        transport=transport,
+        runtime_stats=runtime_stats,
+    )
+    piece = _piece()
+
+    fired = recognizer.fire(piece)
+
+    assert fired is True
+    assert (
+        runtime_stats.recognizer_counts.get("recognize_skipped_no_carousel_crops", 0)
+        == 0
+    )
+    assert runtime_stats.recognizer_counts.get("recognize_fired_total") == 1
+
+
 def test_recognizer_bumps_empty_and_timeout_counters() -> None:
     transport = _Transport()
     runtime_stats = _RuntimeStats()
@@ -288,6 +312,38 @@ def test_collect_tracked_images_adds_c2_fallback_when_direct_detail_lacks_it() -
         assert entry[1] in {"c_channel_2", "c_channel_3", "carousel"}
         # captured_ts is carried through verbatim.
         assert isinstance(entry[2], float)
+
+
+def test_collect_tracked_images_accepts_classification_channel_segments() -> None:
+    crop = np.zeros((10, 10, 3), dtype=np.uint8)
+    payload = ClassificationChannelRecognizer._encodeImageBase64(crop)
+    assert payload is not None
+
+    direct_detail = {
+        "global_id": 17,
+        "segments": [
+            {
+                "source_role": "classification_channel",
+                "first_seen_ts": 112.0,
+                "sector_snapshots": [
+                    {"captured_ts": 112.0, "piece_jpeg_b64": payload},
+                ],
+            },
+        ],
+    }
+    recognizer = ClassificationChannelRecognizer(
+        gc=SimpleNamespace(runtime_stats=SimpleNamespace(observeBlockedReason=lambda *a, **k: None)),
+        logger=_Logger(),
+        vision=_Vision({17: direct_detail}, {"c_channel_2": None, "c_channel_3": None}),
+        transport=_Transport(),
+        event_queue=None,
+    )
+    piece = _piece()
+
+    images = recognizer._collectTrackedImages(piece)
+
+    assert len(images) == 1
+    assert images[0][1] == "classification_channel"
 
 
 def _make_crop(sharpness_seed: int) -> np.ndarray:

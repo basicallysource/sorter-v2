@@ -13,6 +13,7 @@ export type CameraRole =
 	| 'c_channel_2'
 	| 'c_channel_3'
 	| 'carousel'
+	| 'classification_channel'
 	| 'classification_top'
 	| 'classification_bottom';
 
@@ -135,11 +136,11 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'classification-channel',
 		href: '/settings/classification-channel',
-		label: 'Classification Channel',
+		label: 'Classification C-Channel (C4)',
 		icon: Camera,
 		description:
 			'Configure the fourth C-channel camera, arc zones, and the shared stepper on the former carousel port.',
-		cameraRoles: ['carousel'],
+		cameraRoles: ['classification_channel'],
 		zoneChannels: ['classification_channel'],
 		stepperKeys: ['carousel'],
 		stepperDisplay: {

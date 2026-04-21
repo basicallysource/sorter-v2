@@ -6,7 +6,7 @@
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import type { KnownObjectData } from '$lib/api/events';
+	import type { CarouselMotionSampleData, KnownObjectData } from '$lib/api/events';
 	import type { components } from '$lib/api/rest';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
@@ -36,14 +36,16 @@
 	// To fix the flicker we cache the last known piece for this UUID in state.
 	// It survives transient null lookups and only gets cleared when the UUID
 	// itself changes (the user navigates to a different piece).
-	let _stickyPiece = $state<KnownObjectData | null>(null);
+	type TrackedPieceDetailData = KnownObjectData & { track_detail?: TrackDetail | null };
+
+	let _stickyPiece = $state<TrackedPieceDetailData | null>(null);
 
 	// Fallback hydration for pieces that have already aged out of the WS
 	// `recentObjects` ring. We fetch from the backend's persistent-lookup
 	// endpoint (`/api/known-objects/<uuid>`) exactly once per route UUID,
 	// and `piece` prefers the live ring if the WS ever re-surfaces it (the
 	// live payload keeps updating; the fetched snapshot is frozen).
-	let _fetchedPiece = $state<KnownObjectData | null>(null);
+	let _fetchedPiece = $state<TrackedPieceDetailData | null>(null);
 	let _fetchStatus = $state<'idle' | 'loading' | 'ok' | 'not_found' | 'error'>('idle');
 
 	$effect(() => {
@@ -70,7 +72,7 @@
 		if (_fetchStatus !== 'idle') return;
 		const targetUuid = uuid;
 		_fetchStatus = 'loading';
-		void fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(targetUuid)}`)
+		void fetch(`${effectiveBase()}/api/tracked/pieces/${encodeURIComponent(targetUuid)}`)
 			.then(async (res) => {
 				// Ignore stale responses — the user may have navigated away.
 				if (targetUuid !== uuid) return;
@@ -82,7 +84,7 @@
 					_fetchStatus = 'error';
 					return;
 				}
-				_fetchedPiece = (await res.json()) as KnownObjectData;
+				_fetchedPiece = (await res.json()) as TrackedPieceDetailData;
 				_fetchStatus = 'ok';
 			})
 			.catch(() => {
@@ -91,7 +93,7 @@
 			});
 	});
 
-	let piece = $derived(_stickyPiece ?? _fetchedPiece);
+	let piece = $derived<TrackedPieceDetailData | null>(_stickyPiece ?? _fetchedPiece);
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 
@@ -142,14 +144,36 @@
 	// `piece.recognition_used_crop_ts`.
 	type PathPoint = [number, number, number];
 	type SectorSnapshot = {
+		sector_index?: number;
 		captured_ts: number;
 		start_angle_deg?: number;
 		end_angle_deg?: number;
+		bbox_x?: number;
+		bbox_y?: number;
+		width?: number;
+		height?: number;
 		jpeg_b64: string;
 		piece_jpeg_b64?: string;
+		r_inner?: number;
+		r_outer?: number;
 	};
 	type Segment = {
 		source_role: string;
+		handoff_from: string | null;
+		first_seen_ts: number;
+		last_seen_ts: number;
+		duration_s: number;
+		hit_count: number;
+		path_points: number;
+		snapshot_width: number;
+		snapshot_height: number;
+		snapshot_jpeg_b64: string;
+		path: PathPoint[];
+		channel_center_x: number | null;
+		channel_center_y: number | null;
+		channel_radius_inner: number | null;
+		channel_radius_outer: number | null;
+		sector_count: number;
 		sector_snapshots?: SectorSnapshot[];
 	};
 	type BurstFrame = {
@@ -159,6 +183,13 @@
 	};
 	type TrackDetail = {
 		global_id: number;
+		created_at?: number;
+		finished_at?: number;
+		duration_s?: number;
+		roles?: string[];
+		handoff_count?: number;
+		segment_count?: number;
+		total_hit_count?: number;
 		segments: Segment[];
 		live?: boolean;
 		burst_frames?: BurstFrame[];
@@ -209,6 +240,16 @@
 		trackDetail = null;
 		_trackSig = '';
 		void loadTrack(gid);
+	});
+
+	$effect(() => {
+		const embedded = piece?.track_detail ?? null;
+		if (!embedded) return;
+		const nextSig = trackSignature(embedded);
+		if (nextSig !== _trackSig) {
+			_trackSig = nextSig;
+			trackDetail = embedded;
+		}
 	});
 
 	onMount(() => {
@@ -311,6 +352,18 @@
 			});
 		}
 
+		if (entries.length === 0) {
+			const thumb = dataImageUrl(piece.thumbnail);
+			if (thumb) {
+				entries.push({
+					src: thumb,
+					role: 'classification_preview',
+					ts: piece.carousel_detected_confirmed_at ?? piece.classified_at ?? piece.updated_at ?? null,
+					used: false
+				});
+			}
+		}
+
 		// Sort by timestamp so the gallery reads chronologically.
 		entries.sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
 
@@ -406,6 +459,7 @@
 	}
 
 	function formatRole(role: string): string {
+		if (role === 'classification_preview') return 'C4 preview';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
@@ -422,6 +476,21 @@
 		if (pct >= 60) return 'text-warning/70';
 		return 'text-danger';
 	}
+
+	function formatSyncPercent(ratio: number | null | undefined): string {
+		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
+		return `${(ratio * 100).toFixed(0)}%`;
+	}
+
+	function motionSyncClass(ratio: number | null | undefined): string {
+		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return 'text-text-muted';
+		if (ratio < 0.5) return 'text-danger';
+		if (ratio < 0.85 || ratio > 1.15) return 'text-warning-dark';
+		return 'text-success';
+	}
+
+	const motionSamples = $derived<CarouselMotionSampleData[]>(piece?.carousel_motion_samples ?? []);
+	const recentMotionSamples = $derived<CarouselMotionSampleData[]>(motionSamples.slice(-8).reverse());
 
 	// Timeline: piece lifecycle events with absolute timestamps. We only show
 	// events that actually happened.
@@ -620,6 +689,104 @@
 				</div>
 			</section>
 
+			<section class="flex flex-col border border-border bg-surface">
+				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+					Carousel motion
+				</div>
+				<div class="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+					<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+						<div class="flex flex-col">
+							<span class="text-text-muted">Current sync</span>
+							<span class={`font-semibold tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}>
+								{formatSyncPercent(piece.carousel_motion_sync_ratio)}
+							</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Average sync</span>
+							<span class={`font-semibold tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio_avg)}`}>
+								{formatSyncPercent(piece.carousel_motion_sync_ratio_avg)}
+							</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Samples</span>
+							<span class="tabular-nums text-text">{piece.carousel_motion_sample_count ?? 0}</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Range</span>
+							<span class="tabular-nums text-text">
+								{#if piece.carousel_motion_sync_ratio_min != null && piece.carousel_motion_sync_ratio_max != null}
+									{formatSyncPercent(piece.carousel_motion_sync_ratio_min)} to {formatSyncPercent(piece.carousel_motion_sync_ratio_max)}
+								{:else}
+									—
+								{/if}
+							</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Piece speed</span>
+							<span class="tabular-nums text-text">
+								{typeof piece.carousel_motion_piece_speed_deg_per_s === 'number'
+									? `${piece.carousel_motion_piece_speed_deg_per_s.toFixed(1)} deg/s`
+									: '—'}
+							</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Platter speed</span>
+							<span class="tabular-nums text-text">
+								{typeof piece.carousel_motion_platter_speed_deg_per_s === 'number'
+									? `${piece.carousel_motion_platter_speed_deg_per_s.toFixed(1)} deg/s`
+									: '—'}
+							</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Slow samples</span>
+							<span class="tabular-nums text-text">{piece.carousel_motion_under_sync_sample_count ?? 0}</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">Fast samples</span>
+							<span class="tabular-nums text-text">{piece.carousel_motion_over_sync_sample_count ?? 0}</span>
+						</div>
+						<div class="flex flex-col">
+							<span class="text-text-muted">First sighting</span>
+							<span class="tabular-nums text-text">
+								{typeof piece.first_carousel_seen_angle_deg === 'number'
+									? `${piece.first_carousel_seen_angle_deg.toFixed(1)}°`
+									: '—'}
+							</span>
+						</div>
+					</div>
+
+					<div class="border border-border/70 bg-bg/40 p-3">
+						<div class="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+							Recent sync samples
+						</div>
+						{#if recentMotionSamples.length === 0}
+							<div class="text-sm text-text-muted">
+								No motion samples captured yet for this piece.
+							</div>
+						{:else}
+							<div class="grid gap-2 sm:grid-cols-2">
+								{#each recentMotionSamples as sample (`${sample.observed_at}-${sample.sync_ratio}`)}
+									<div class="border border-border bg-surface px-2.5 py-2 text-sm">
+										<div class="flex items-center justify-between gap-2">
+											<span class={`font-semibold tabular-nums ${motionSyncClass(sample.sync_ratio)}`}>
+												{formatSyncPercent(sample.sync_ratio)}
+											</span>
+											<span class="tabular-nums text-xs text-text-muted">
+												{formatRelSec(sample.observed_at, piece.first_carousel_seen_ts ?? piece.created_at)}
+											</span>
+										</div>
+										<div class="mt-1 flex items-center justify-between gap-2 text-xs text-text-muted">
+											<span>{sample.piece_speed_deg_per_s.toFixed(1)} deg/s piece</span>
+											<span>{sample.carousel_speed_deg_per_s.toFixed(1)} deg/s platter</span>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</section>
+
 			<!-- Arrival snapshot: full carousel frame at the instant the piece
 			     first appeared on C4 (dropping in from C3), side-by-side with
 			     the Brickognize reference so the operator can eyeball whether
@@ -800,6 +967,7 @@
 						<TrackPathComposite
 							globalId={piece.tracked_global_id}
 							usedCropTs={usedCropTs}
+							detailSnapshot={trackDetail}
 						/>
 					</div>
 				</section>

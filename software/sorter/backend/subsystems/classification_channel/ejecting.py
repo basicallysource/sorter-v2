@@ -17,6 +17,7 @@ from defs.known_object import ClassificationStatus
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
+from role_aliases import is_auxiliary_classification_role
 from states.base_state import BaseState
 from subsystems.bus import StationId
 from subsystems.classification_channel.states import ClassificationChannelState
@@ -232,7 +233,10 @@ class Ejecting(BaseState):
         for segment in detail.get("segments", []):
             if not isinstance(segment, dict):
                 continue
-            if segment.get("source_role") not in {"c_channel_3", "carousel"}:
+            source_role = segment.get("source_role")
+            if source_role != "c_channel_3" and not is_auxiliary_classification_role(
+                source_role
+            ):
                 continue
             for snap in segment.get("sector_snapshots", []):
                 if not isinstance(snap, dict):

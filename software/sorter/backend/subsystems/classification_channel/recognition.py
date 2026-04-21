@@ -17,6 +17,7 @@ from classification.brickognize import (
     _pickBestItem,
 )
 from defs.known_object import ClassificationStatus
+from role_aliases import is_auxiliary_classification_role
 from utils.event import knownObjectToEvent
 
 MIN_RECOGNIZE_CROPS = 1
@@ -81,7 +82,7 @@ class ClassificationChannelRecognizer:
         # The Running state's _fireRecognition also enforces the carousel
         # quota/dwell; this is belt-and-suspenders for callers that bypass it.
         carousel_crop_count = sum(
-            1 for _image, role, _ts in crops if role == "carousel"
+            1 for _image, role, _ts in crops if is_auxiliary_classification_role(role)
         )
         if carousel_crop_count <= 0:
             self._bumpRecognizerCounter("recognize_skipped_no_carousel_crops")
@@ -147,7 +148,9 @@ class ClassificationChannelRecognizer:
         """
         crops = self._collectTrackedImages(piece)
         return sum(
-            1 for _image, role, _ts in crops if role in ("carousel", "c_channel_3")
+            1
+            for _image, role, _ts in crops
+            if role == "c_channel_3" or is_auxiliary_classification_role(role)
         )
 
     def _bumpRecognizerCounter(self, name: str) -> None:
@@ -214,11 +217,9 @@ class ClassificationChannelRecognizer:
                 if not isinstance(segment, dict):
                     continue
                 source_role = segment.get("source_role")
-                if source_role not in {
-                    "c_channel_2",
-                    "c_channel_3",
-                    "carousel",
-                }:
+                if source_role not in {"c_channel_2", "c_channel_3"} and not is_auxiliary_classification_role(
+                    source_role
+                ):
                     continue
                 for snap in segment.get("sector_snapshots", []):
                     if not isinstance(snap, dict):
@@ -276,10 +277,7 @@ class ClassificationChannelRecognizer:
 
     @staticmethod
     def _reference_ts(piece, details: list[dict]) -> float:
-        detail_ts = ClassificationChannelRecognizer._earliest_role_timestamp(
-            details,
-            "carousel",
-        )
+        detail_ts = ClassificationChannelRecognizer._earliest_role_timestamp(details, "carousel")
         if detail_ts is not None:
             return detail_ts
         return float(
@@ -298,7 +296,11 @@ class ClassificationChannelRecognizer:
             for segment in detail.get("segments", []):
                 if not isinstance(segment, dict):
                     continue
-                if segment.get("source_role") != source_role:
+                segment_role = segment.get("source_role")
+                if source_role == "carousel":
+                    if not is_auxiliary_classification_role(segment_role):
+                        continue
+                elif segment_role != source_role:
                     continue
                 first_seen_ts = segment.get("first_seen_ts")
                 if not isinstance(first_seen_ts, (int, float)):
@@ -311,7 +313,12 @@ class ClassificationChannelRecognizer:
     @staticmethod
     def _detailHasRole(detail: dict, source_role: str) -> bool:
         return any(
-            isinstance(segment, dict) and segment.get("source_role") == source_role
+            isinstance(segment, dict)
+            and (
+                is_auxiliary_classification_role(segment.get("source_role"))
+                if source_role == "carousel"
+                else segment.get("source_role") == source_role
+            )
             for segment in detail.get("segments", [])
         )
 

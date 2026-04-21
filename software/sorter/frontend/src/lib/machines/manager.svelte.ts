@@ -22,30 +22,13 @@ import {
 	isCamerasConfigEvent,
 	isSortingProfileStatusEvent
 } from './types';
+import { shouldShowInRecentPieces } from '$lib/recent-pieces';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 
 function shouldKeepRecentObject(obj: KnownObjectData): boolean {
-	const hasLocalPreview = Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
-	if (obj.stage !== 'created') return true;
-	if (obj.classification_status !== 'pending') {
-		if (
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail'
-		) {
-			return hasLocalPreview || Boolean(obj.carousel_snapping_started_at);
-		}
-		return true;
-	}
-	return Boolean(
-		obj.carousel_snapping_started_at ||
-			obj.carousel_snapping_completed_at ||
-			obj.classified_at ||
-			obj.part_id ||
-			hasLocalPreview
-	);
+	return shouldShowInRecentPieces(obj);
 }
 
 export class MachineManager {
@@ -307,8 +290,7 @@ export class MachineManager {
 		if (!machine) return;
 		const shouldClearRecentObjects =
 			data.hardware_state === 'homing' ||
-			(data.hardware_state === 'standby' &&
-				machine.systemStatus?.hardware_state !== 'standby');
+			(data.hardware_state === 'standby' && machine.systemStatus?.hardware_state !== 'standby');
 		const updated = new Map(this.machines);
 		updated.set(machineId, {
 			...machine,

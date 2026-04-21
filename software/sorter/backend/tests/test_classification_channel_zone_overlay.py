@@ -7,6 +7,19 @@ from vision.overlays.classification_zones import ClassificationChannelZoneOverla
 
 
 class ClassificationChannelZoneOverlayTests(unittest.TestCase):
+    def _window_sum(
+        self,
+        frame: np.ndarray,
+        point: tuple[int, int],
+        radius: int = 2,
+    ) -> int:
+        x, y = point
+        y0 = max(0, y - radius)
+        y1 = min(frame.shape[0], y + radius + 1)
+        x0 = max(0, x - radius)
+        x1 = min(frame.shape[1], x + radius + 1)
+        return int(frame[y0:y1, x0:x1].sum())
+
     def _sample_point(
         self,
         center: tuple[int, int],
@@ -51,10 +64,16 @@ class ClassificationChannelZoneOverlayTests(unittest.TestCase):
 
         annotated = overlay.annotate(frame)
 
-        body_point = self._sample_point(center, 72.0, 30.0)
+        body_point = self._sample_point(center, 96.0, 30.0)
         hole_point = center
-        self.assertGreater(int(annotated[body_point[1], body_point[0]].sum()), 0)
+        middle_bleed_point = self._sample_point(center, 36.0, 30.0)
+        self.assertGreater(self._window_sum(annotated, body_point), 0)
         self.assertEqual(0, int(annotated[hole_point[1], hole_point[0]].sum()))
+        self.assertEqual(
+            0,
+            self._window_sum(annotated, middle_bleed_point),
+            "annulus-sector fill must stay out of the platter middle",
+        )
 
     def test_overlay_handles_wraparound_sector(self) -> None:
         center = (100, 100)

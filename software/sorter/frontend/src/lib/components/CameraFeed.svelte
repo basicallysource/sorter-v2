@@ -6,7 +6,7 @@
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 
-	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'fullscreen';
+	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'fullscreen';
 	type FeedSource = 'ws' | 'mjpeg';
 
 	let {
@@ -88,6 +88,8 @@
 	let cropped = $state(readPersisted('cropped', defaultCropped ?? crop !== null));
 	/* svelte-ignore state_referenced_locally */
 	let zones = $state(readPersisted('zones', defaultZones));
+	/* svelte-ignore state_referenced_locally */
+	let ghosts = $state(readPersisted('ghosts', false));
 
 	// Keep legacy `layer` prop synced with new `annotated` state so existing
 	// consumers (e.g. dashboard) binding to `layer` keep working.
@@ -103,11 +105,13 @@
 	$effect(() => { writePersisted('colorCorrect', colorCorrect); });
 	$effect(() => { writePersisted('cropped', cropped); });
 	$effect(() => { writePersisted('zones', zones); });
+	$effect(() => { writePersisted('ghosts', ghosts); });
 
 	const showAnnotations = $derived(controls.includes('annotations'));
 	const showColor = $derived(controls.includes('color'));
 	const showCrop = $derived(controls.includes('crop'));
 	const showZones = $derived(controls.includes('zones'));
+	const showGhosts = $derived(controls.includes('ghosts'));
 	const showFullscreen = $derived(controls.includes('fullscreen'));
 
 	let fullscreenOpen = $state(false);
@@ -118,8 +122,12 @@
 		}
 	}
 
+	const effectiveSource = $derived(
+		source === 'ws' && annotated && ghosts ? 'mjpeg' : source
+	);
+
 	const mjpeg_src = $derived(
-		`${effectiveBaseUrl()}/api/cameras/feed/${camera}?annotated=${annotated}&color_correct=${colorCorrect}&dashboard=${cropped}&show_regions=${zones}&_=${mountId}`
+		`${effectiveBaseUrl()}/api/cameras/feed/${camera}?annotated=${annotated}&color_correct=${colorCorrect}&dashboard=${cropped}&show_regions=${zones}&show_ghosts=${ghosts}&_=${mountId}`
 	);
 
 	// WS source reads the latest FrameData from the machine context and emits a
@@ -155,7 +163,7 @@
 		</div>
 	{/if}
 	<div class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}>
-		{#if source === 'ws'}
+		{#if effectiveSource === 'ws'}
 			{#if cropped && crop}
 				{@const box = crop.viewBox}
 				{@const rc = crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2]}
@@ -217,11 +225,13 @@
 			bind:colorCorrect
 			bind:cropped
 			bind:zones
+			bind:ghosts
 			bind:fullscreen={fullscreenOpen}
 			{showAnnotations}
 			{showColor}
 			{showCrop}
 			{showZones}
+			{showGhosts}
 			{showFullscreen}
 		/>
 

@@ -18,18 +18,29 @@ from blob_manager import (
     BLOB_DIR,
     getApiKeys,
     getCarouselDetectionConfig,
+    getClassificationChannelDetectionConfig,
     getClassificationDetectionConfig,
     getFeederDetectionConfig,
     getHiveConfig,
     setApiKeys,
     setCarouselDetectionConfig,
+    setClassificationChannelDetectionConfig,
     setClassificationDetectionConfig,
     setFeederDetectionConfig,
     setHiveConfig,
 )
 from local_state import clear_piece_dossiers
+from role_aliases import (
+    CLASSIFICATION_CHANNEL_ROLE,
+    auxiliary_detection_scope,
+    internalize_feeder_role,
+    lookup_auxiliary_detection_scopes,
+    public_feeder_detection_roles,
+    publicize_feeder_role,
+)
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
+from server.config_helpers import read_machine_params_config as _read_machine_params_config
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -44,7 +55,6 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
-FEEDER_DETECTION_ROLES = ("c_channel_2", "c_channel_3", "carousel")
 
 # ---------------------------------------------------------------------------
 # Detection algorithm helper functions
@@ -96,10 +106,23 @@ def _auxiliary_sample_collection_supported() -> bool:
     return True
 
 
+def _machine_params_config() -> dict[str, Any]:
+    _, config = _read_machine_params_config()
+    return config if isinstance(config, dict) else {}
+
+
+def _public_feeder_roles() -> tuple[str, ...]:
+    return public_feeder_detection_roles(_machine_params_config())
+
+
+def _public_aux_scope() -> str:
+    return auxiliary_detection_scope(_machine_params_config())
+
+
 def _feeder_sample_collection_supported(role: str | None = None) -> bool:
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "supportsFeederSampleCollection"):
         try:
-            return bool(shared_state.vision_manager.supportsFeederSampleCollection(role))
+            return bool(shared_state.vision_manager.supportsFeederSampleCollection(internalize_feeder_role(role) if role else None))
         except Exception:
             return False
     return True
@@ -111,9 +134,17 @@ def _normalize_feeder_role(value: str | None) -> str | None:
     candidate = value.strip()
     if not candidate:
         return None
-    if candidate not in FEEDER_DETECTION_ROLES:
+    if candidate in {CLASSIFICATION_CHANNEL_ROLE, "carousel"}:
+        candidate = CLASSIFICATION_CHANNEL_ROLE
+    if candidate not in _public_feeder_roles() and candidate != CLASSIFICATION_CHANNEL_ROLE:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
     return candidate
+
+
+def _internal_feeder_role(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return internalize_feeder_role(value)
 
 
 def _feeder_algorithm_by_role_from_config(
@@ -126,8 +157,12 @@ def _feeder_algorithm_by_role_from_config(
     )
     fallback = config.get("algorithm") if isinstance(config, dict) else None
     return {
-        role: _normalize_feeder_detection_algorithm(saved_by_role.get(role) or fallback)
-        for role in FEEDER_DETECTION_ROLES
+        role: _normalize_feeder_detection_algorithm(
+            saved_by_role.get(role)
+            or saved_by_role.get(_internal_feeder_role(role) or role)
+            or fallback
+        )
+        for role in _public_feeder_roles()
     }
 
 
@@ -136,8 +171,8 @@ def _feeder_role_label(role: str | None) -> str:
         return "C-channel 2"
     if role == "c_channel_3":
         return "C-channel 3"
-    if role == "carousel":
-        return "Classification channel"
+    if role == CLASSIFICATION_CHANNEL_ROLE:
+        return "Classification C-channel (C4)"
     return "C-channel"
 
 
@@ -609,6 +644,7 @@ def save_classification_detection_config(
 @router.get("/api/feeder/detection-config")
 def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
+    internal_role = _internal_feeder_role(role)
     saved = getFeederDetectionConfig()
     algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
     algorithm = (
@@ -630,7 +666,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
         channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
         if isinstance(saved, dict)
         else False
-        for channel_role in FEEDER_DETECTION_ROLES
+        for channel_role in _public_feeder_roles()
     }
     sample_collection_enabled = (
         bool(sample_collection_enabled_by_role.get(role))
@@ -643,7 +679,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
                 algorithm_by_role = {
                     channel_role: _normalize_feeder_detection_algorithm(algo)
                     for channel_role, algo in shared_state.vision_manager.getFeederDetectionAlgorithms().items()
-                    if channel_role in FEEDER_DETECTION_ROLES
+                    if channel_role in _public_feeder_roles()
                 }
                 algorithm = (
                     algorithm_by_role.get(role)
@@ -654,7 +690,7 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
                 )
             else:
                 algorithm = _normalize_feeder_detection_algorithm(
-                    shared_state.vision_manager.getFeederDetectionAlgorithm(role)
+                    shared_state.vision_manager.getFeederDetectionAlgorithm(internal_role)
                     if role is not None
                     else shared_state.vision_manager.getFeederDetectionAlgorithm()
                 )
@@ -668,8 +704,12 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "isFeederSampleCollectionEnabled"):
         try:
             sample_collection_enabled_by_role = {
-                channel_role: bool(shared_state.vision_manager.isFeederSampleCollectionEnabled(channel_role))
-                for channel_role in FEEDER_DETECTION_ROLES
+                channel_role: bool(
+                    shared_state.vision_manager.isFeederSampleCollectionEnabled(
+                        _internal_feeder_role(channel_role)
+                    )
+                )
+                for channel_role in _public_feeder_roles()
             }
             sample_collection_enabled = (
                 bool(sample_collection_enabled_by_role.get(role))
@@ -699,6 +739,7 @@ def save_feeder_detection_config(
     role: str | None = Query(default=None),
 ) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
+    internal_role = _internal_feeder_role(role)
     if not scope_supports_detection_algorithm("feeder", payload.algorithm):
         raise HTTPException(status_code=400, detail="Unsupported feeder detection algorithm.")
     algorithm = _normalize_feeder_detection_algorithm(payload.algorithm)
@@ -714,23 +755,23 @@ def save_feeder_detection_config(
         channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
         if isinstance(saved, dict)
         else False
-        for channel_role in FEEDER_DETECTION_ROLES
+        for channel_role in _public_feeder_roles()
     }
     if role is not None:
         algorithm_by_role[role] = algorithm
     else:
-        for channel_role in FEEDER_DETECTION_ROLES:
+        for channel_role in _public_feeder_roles():
             algorithm_by_role[channel_role] = algorithm
     if isinstance(payload.sample_collection_enabled, bool):
         if role is not None:
             sample_collection_enabled_by_role[role] = bool(payload.sample_collection_enabled)
         else:
-            for channel_role in FEEDER_DETECTION_ROLES:
+            for channel_role in _public_feeder_roles():
                 sample_collection_enabled_by_role[channel_role] = bool(payload.sample_collection_enabled)
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setFeederDetectionAlgorithm"):
         try:
             if role is not None:
-                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm, role)
+                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm, internal_role)
             else:
                 shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm)
             if hasattr(shared_state.vision_manager, "setFeederOpenRouterModel"):
@@ -739,15 +780,15 @@ def save_feeder_detection_config(
                 if role is not None:
                     sample_collection_enabled_by_role[role] = bool(
                         shared_state.vision_manager.setFeederSampleCollectionEnabled(
-                            sample_collection_enabled_by_role[role], role
+                            sample_collection_enabled_by_role[role], internal_role
                         )
                     )
                 else:
-                    for channel_role in FEEDER_DETECTION_ROLES:
+                    for channel_role in _public_feeder_roles():
                         sample_collection_enabled_by_role[channel_role] = bool(
                             shared_state.vision_manager.setFeederSampleCollectionEnabled(
                                 sample_collection_enabled_by_role[channel_role],
-                                channel_role,
+                                _internal_feeder_role(channel_role),
                             )
                         )
         except ValueError as exc:
@@ -768,10 +809,10 @@ def save_feeder_detection_config(
                     saved.get("algorithm") if isinstance(saved, dict) else None
                 )
             ),
-            "algorithm_by_role": algorithm_by_role,
+            "algorithm_by_role": dict(algorithm_by_role),
             "openrouter_model": openrouter_model,
             "sample_collection_enabled": sample_collection_enabled,
-            "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
+            "sample_collection_enabled_by_role": dict(sample_collection_enabled_by_role),
         }
     )
     role_label = _feeder_role_label(role)
@@ -798,13 +839,18 @@ def save_feeder_detection_config(
 
 
 # ---------------------------------------------------------------------------
-# Carousel detection config
+# Classification C-channel (C4) detection config
 # ---------------------------------------------------------------------------
 
 
 @router.get("/api/carousel/detection-config")
+@router.get("/api/classification-channel/detection-config")
 def get_carousel_detection_config() -> Dict[str, Any]:
-    saved = getCarouselDetectionConfig()
+    saved = (
+        getClassificationChannelDetectionConfig()
+        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        else getCarouselDetectionConfig()
+    )
     algorithm = _normalize_carousel_detection_algorithm(
         saved.get("algorithm") if isinstance(saved, dict) else None
     )
@@ -835,10 +881,12 @@ def get_carousel_detection_config() -> Dict[str, Any]:
         "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "available_algorithms": detection_algorithm_options("carousel"),
         "available_openrouter_models": _openrouter_model_options(),
+        "scope": _public_aux_scope(),
     }
 
 
 @router.post("/api/carousel/detection-config")
+@router.post("/api/classification-channel/detection-config")
 def save_carousel_detection_config(
     payload: AuxiliaryDetectionConfigPayload,
 ) -> Dict[str, Any]:
@@ -846,7 +894,11 @@ def save_carousel_detection_config(
         raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
     algorithm = _normalize_carousel_detection_algorithm(payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    saved = getCarouselDetectionConfig()
+    saved = (
+        getClassificationChannelDetectionConfig()
+        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        else getCarouselDetectionConfig()
+    )
     sample_collection_enabled = (
         bool(payload.sample_collection_enabled)
         if isinstance(payload.sample_collection_enabled, bool)
@@ -865,15 +917,22 @@ def save_carousel_detection_config(
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to apply carousel detection config: {exc}")
-    setCarouselDetectionConfig(
-        {
-            "algorithm": algorithm,
-            "openrouter_model": openrouter_model,
-            "sample_collection_enabled": sample_collection_enabled,
-        }
-    )
+    target_config = {
+        "algorithm": algorithm,
+        "openrouter_model": openrouter_model,
+        "sample_collection_enabled": sample_collection_enabled,
+    }
+    if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE:
+        setClassificationChannelDetectionConfig(target_config)
+    else:
+        setCarouselDetectionConfig(target_config)
     algorithm_label = _detection_algorithm_label("carousel", algorithm)
     uses_baseline = _detection_algorithm_uses_baseline("carousel", algorithm)
+    scope_label = (
+        "Classification C-channel (C4)"
+        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        else "Carousel"
+    )
     return {
         "ok": True,
         "algorithm": algorithm,
@@ -881,22 +940,23 @@ def save_carousel_detection_config(
         "sample_collection_enabled": sample_collection_enabled,
         "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "uses_baseline": uses_baseline,
+        "scope": _public_aux_scope(),
         "message": (
-            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is enabled for classical carousel triggers."
+            f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is enabled for classical triggers."
             if uses_baseline and sample_collection_enabled and _auxiliary_sample_collection_supported()
             else (
-                f"Carousel detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is enabled and will take effect when Heatmap Diff is active."
+                f"{scope_label} detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is enabled and will take effect when Heatmap Diff is active."
                 if sample_collection_enabled and _auxiliary_sample_collection_supported()
                 else (
-                    f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
+                    f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
                     if uses_baseline and not _auxiliary_sample_collection_supported()
                     else (
-                        f"Carousel detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
+                        f"{scope_label} detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
                         if not _auxiliary_sample_collection_supported()
                         else (
-                            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable."
+                            f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable."
                             if uses_baseline
-                            else f"Carousel detection switched to {algorithm_label}."
+                            else f"{scope_label} detection switched to {algorithm_label}."
                         )
                     )
                 )
@@ -906,19 +966,25 @@ def save_carousel_detection_config(
 
 
 # ---------------------------------------------------------------------------
-# Carousel baseline capture
+# Classification C-channel (C4) baseline capture
 # ---------------------------------------------------------------------------
 
 
 @router.post("/api/carousel/detection/baseline/capture")
+@router.post("/api/classification-channel/detection/baseline/capture")
 def capture_carousel_detection_baseline() -> Dict[str, Any]:
     if shared_state.vision_manager is None:
         raise HTTPException(status_code=503, detail="Vision manager not initialized.")
     ok = bool(shared_state.vision_manager.captureCarouselBaseline())
     if not ok:
+        scope_label = (
+            "classification-channel"
+            if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+            else "carousel"
+        )
         raise HTTPException(
             status_code=409,
-            detail="Could not capture a carousel baseline. Check the live carousel frame and saved zone first.",
+            detail=f"Could not capture a {scope_label} baseline. Check the live frame and saved zone first.",
         )
     resolution = None
     capture = shared_state.vision_manager.getCaptureThreadForRole("carousel") if hasattr(shared_state.vision_manager, "getCaptureThreadForRole") else None
@@ -927,9 +993,13 @@ def capture_carousel_detection_baseline() -> Dict[str, Any]:
         resolution = [int(frame.raw.shape[1]), int(frame.raw.shape[0])]
     return {
         "ok": True,
-        "message": "Carousel baseline captured from the current live frame.",
+        "message": (
+            "Classification C-channel (C4) baseline captured from the current live frame."
+            if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+            else "Carousel baseline captured from the current live frame."
+        ),
         "cameras": {
-            "carousel": {
+            _public_aux_scope(): {
                 "available": True,
                 "captured_frames": 1,
                 "resolution": resolution,
@@ -1066,19 +1136,22 @@ def debug_feeder_detection(role: str) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
     if role is None:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
+    internal_role = _internal_feeder_role(role)
     if shared_state.vision_manager is None:
         raise HTTPException(status_code=503, detail="Vision manager not initialized.")
     if not hasattr(shared_state.vision_manager, "debugFeederDetection"):
         raise HTTPException(status_code=503, detail="Feeder detection debug is unavailable.")
 
     try:
-        payload = shared_state.vision_manager.debugFeederDetection(role, include_capture=True)
+        payload = shared_state.vision_manager.debugFeederDetection(internal_role, include_capture=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to test feeder detection: {exc}")
 
     sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
+    if isinstance(payload, dict):
+        payload["camera"] = role
     save_model = None
     if payload.get("algorithm") == "gemini_sam" and hasattr(shared_state.vision_manager, "getFeederOpenRouterModel"):
         try:
@@ -1350,6 +1423,7 @@ def classification_channel_debug() -> Dict[str, Any]:
 
 
 @router.post("/api/carousel/detect/current")
+@router.post("/api/classification-channel/detect/current")
 def debug_carousel_detection() -> Dict[str, Any]:
     if shared_state.vision_manager is None:
         raise HTTPException(status_code=503, detail="Vision manager not initialized.")

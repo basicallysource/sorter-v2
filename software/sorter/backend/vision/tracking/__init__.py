@@ -110,6 +110,7 @@ def build_feeder_tracker_system(
             # static ghost boxes when the plate is empty. Be more aggressive
             # there, while leaving c_channel_2 / c_channel_3 unchanged.
             tracker_kwargs.update(
+                persist_static_ghost_regions=True,
                 enable_stagnant_false_track_filter=True,
                 stagnant_false_track_max_age_s=1.5,
                 stagnant_false_track_min_displacement_px=24.0,

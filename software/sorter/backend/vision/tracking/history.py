@@ -24,6 +24,8 @@ from typing import Any, Iterable
 import cv2
 import numpy as np
 
+from role_aliases import is_auxiliary_classification_role
+
 
 # ``0`` disables trimming — we keep every completed track until the
 # process exits. Set a positive integer to cap the ring buffer again.
@@ -196,7 +198,7 @@ class TrackHistoryEntry:
 
     @property
     def touches_classification_channel(self) -> bool:
-        return any(seg.source_role == "carousel" for seg in self.segments)
+        return any(is_auxiliary_classification_role(seg.source_role) for seg in self.segments)
 
     @property
     def max_sector_snapshots(self) -> int:

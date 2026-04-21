@@ -10,6 +10,7 @@ class CameraName(str, Enum):
     c_channel_2 = "c_channel_2"
     c_channel_3 = "c_channel_3"
     carousel = "carousel"
+    classification_channel = "classification_channel"
 
 
 class PieceStage(str, Enum):
@@ -66,6 +67,15 @@ class IdentityEvent(BaseModel):
     data: MachineIdentityData
 
 
+class CarouselMotionSampleData(BaseModel):
+    observed_at: float
+    piece_angle_deg: float
+    carousel_angle_deg: float
+    piece_speed_deg_per_s: float
+    carousel_speed_deg_per_s: float
+    sync_ratio: float
+
+
 class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
@@ -99,6 +109,16 @@ class KnownObjectData(BaseModel):
     classification_channel_zone_half_width_deg: Optional[float] = None
     classification_channel_soft_guard_deg: Optional[float] = None
     classification_channel_hard_guard_deg: Optional[float] = None
+    carousel_motion_sync_ratio: Optional[float] = None
+    carousel_motion_sync_ratio_avg: Optional[float] = None
+    carousel_motion_sync_ratio_min: Optional[float] = None
+    carousel_motion_sync_ratio_max: Optional[float] = None
+    carousel_motion_piece_speed_deg_per_s: Optional[float] = None
+    carousel_motion_platter_speed_deg_per_s: Optional[float] = None
+    carousel_motion_sample_count: int = 0
+    carousel_motion_under_sync_sample_count: int = 0
+    carousel_motion_over_sync_sample_count: int = 0
+    carousel_motion_samples: List[CarouselMotionSampleData] = Field(default_factory=list)
     carousel_rotate_started_at: Optional[float] = None
     carousel_rotated_at: Optional[float] = None
     carousel_snapping_started_at: Optional[float] = None

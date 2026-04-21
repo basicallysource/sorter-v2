@@ -69,6 +69,9 @@ export type WizardSummary = {
 		feeding: {
 			mode: 'auto_channels' | 'manual_carousel';
 		};
+		machine_setup: {
+			key: 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+		};
 		servo: {
 			backend: string;
 			layer_count: number;

@@ -21,6 +21,7 @@ from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
 from irl.config import REQUIRED_STEPPER_NAMES
 from irl.parse_user_toml import LOGICAL_STEPPER_BINDING_BASES
+from role_aliases import lookup_camera_role_keys, public_aux_camera_role, stored_camera_role_key
 from machine_platform.control_board import discover_control_boards
 from server import shared_state
 from server.config_helpers import (
@@ -90,14 +91,22 @@ def _camera_assignments_from_config(config: Dict[str, Any]) -> dict[str, Any]:
     layout = cameras.get("layout")
     if layout not in {"default", "split_feeder"}:
         layout = None
+    aux_role = public_aux_camera_role(config)
+
+    def _camera_source(role: str) -> Any:
+        for lookup_role in lookup_camera_role_keys(role, config):
+            if lookup_role in cameras:
+                return cameras.get(lookup_role)
+        return None
+
     return {
         "layout": layout,
-        "feeder": cameras.get("feeder"),
-        "c_channel_2": cameras.get("c_channel_2"),
-        "c_channel_3": cameras.get("c_channel_3"),
-        "carousel": cameras.get("carousel"),
-        "classification_top": cameras.get("classification_top"),
-        "classification_bottom": cameras.get("classification_bottom"),
+        "feeder": _camera_source("feeder"),
+        "c_channel_2": _camera_source("c_channel_2"),
+        "c_channel_3": _camera_source("c_channel_3"),
+        aux_role: _camera_source(aux_role),
+        "classification_top": _camera_source("classification_top"),
+        "classification_bottom": _camera_source("classification_bottom"),
     }
 
 
@@ -106,7 +115,11 @@ def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
     if layout not in {"default", "split_feeder"}:
         return False
     if layout == "split_feeder":
-        required_roles = ("c_channel_2", "c_channel_3", "carousel")
+        aux_role = next(
+            (role for role in ("classification_channel", "carousel") if role in camera_assignments),
+            "carousel",
+        )
+        required_roles = ("c_channel_2", "c_channel_3", aux_role)
     else:
         required_roles = ("feeder",)
     return all(camera_assignments.get(role) is not None for role in required_roles)
@@ -190,12 +203,13 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
 
 def _recommended_layout(config: Dict[str, Any], board_summaries: list[dict[str, Any]]) -> str:
     camera_assignments = _camera_assignments_from_config(config)
+    aux_role = public_aux_camera_role(config)
     configured = camera_assignments.get("layout")
     if configured in {"default", "split_feeder"}:
         return configured
     if any(
         camera_assignments.get(role) is not None
-        for role in ("c_channel_2", "c_channel_3", "carousel")
+        for role in ("c_channel_2", "c_channel_3", aux_role)
     ):
         return "split_feeder"
     if camera_assignments.get("feeder") is not None:

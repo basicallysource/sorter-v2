@@ -24,11 +24,13 @@ from local_state import (
     get_hive_config,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
+    get_persistent_tracker_ignored_regions,
     initialize_local_state,
     list_piece_dossiers,
     record_piece_distribution,
     remember_piece_dossier,
     remember_recent_known_object,
+    set_persistent_tracker_ignored_regions,
     start_new_sorting_session,
 )
 
@@ -275,6 +277,30 @@ class LocalStateMigrationTests(unittest.TestCase):
                 self.assertFalse(fake_conn.closed)
 
         self.assertTrue(fake_conn.closed)
+
+    def test_persistent_tracker_ignored_regions_roundtrip(self) -> None:
+        initialize_local_state()
+
+        set_persistent_tracker_ignored_regions(
+            "carousel",
+            [
+                {
+                    "center_px": [120.0, 240.0],
+                    "radius_px": 48.0,
+                    "center_angle_rad": 1.5,
+                    "center_radius_px": 210.0,
+                    "angle_tolerance_rad": 0.12,
+                    "radius_tolerance_px": 9.0,
+                    "suppression_count": 3,
+                }
+            ],
+        )
+
+        regions = get_persistent_tracker_ignored_regions("carousel")
+        self.assertEqual(1, len(regions))
+        self.assertEqual([120.0, 240.0], regions[0]["center_px"])
+        self.assertEqual(48.0, regions[0]["radius_px"])
+        self.assertEqual(3, regions[0]["suppression_count"])
 
 
 if __name__ == "__main__":

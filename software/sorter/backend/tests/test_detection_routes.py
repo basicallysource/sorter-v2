@@ -42,7 +42,7 @@ class DetectionRouteTests(unittest.TestCase):
         payload = detection.debug_feeder_detection("carousel")
 
         self.assertTrue(payload["ok"])
-        self.assertEqual("carousel", payload["camera"])
+        self.assertEqual("classification_channel", payload["camera"])
         self.assertEqual([("carousel", True)], fake_vision.calls)
 
     def test_debug_feeder_detection_rejects_unknown_role(self) -> None:

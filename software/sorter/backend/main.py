@@ -140,6 +140,20 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         for command in pending_commands:
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
+                tracked_global_id = obj_payload.get("tracked_global_id")
+                if (
+                    isinstance(tracked_global_id, int)
+                    and shared_state.vision_manager is not None
+                    and hasattr(shared_state.vision_manager, "getFeederTrackHistoryDetail")
+                ):
+                    try:
+                        track_detail = shared_state.vision_manager.getFeederTrackHistoryDetail(
+                            int(tracked_global_id)
+                        )
+                    except Exception:
+                        track_detail = None
+                    if isinstance(track_detail, dict):
+                        obj_payload["track_detail"] = track_detail
                 gc.runtime_stats.observeKnownObject(obj_payload)
                 remember_piece_dossier(obj_payload)
                 remember_recent_known_object(obj_payload)

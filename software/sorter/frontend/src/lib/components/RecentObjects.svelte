@@ -7,7 +7,7 @@
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import {
 		capturedCropUrl,
-		recentPhysicalKey,
+		recentPhysicalKeyOrNull,
 		lifecyclePhase,
 		shouldShowInRecentPieces,
 		type LifecyclePhase
@@ -56,12 +56,15 @@
 			);
 		});
 		// Collapse identity splits: same physical piece may briefly surface as
-		// multiple KnownObjects while C4 tracking settles. Prefer tracked_global_id,
-		// then fall back to the latest live crop / C4 timing signature.
+		// multiple KnownObjects while C4 tracking settles. Phase 6 (unified
+		// dossier) makes this a strict uuid / tracked_global_id lookup — an
+		// item without either is not a real piece we can navigate to, so we
+		// drop it rather than invent a synthetic key.
 		const seen_keys = new Set<string>();
 		const deduped: typeof list = [];
 		for (const o of list) {
-			const key = recentPhysicalKey(o);
+			const key = recentPhysicalKeyOrNull(o);
+			if (key === null) continue;
 			if (seen_keys.has(key)) continue;
 			seen_keys.add(key);
 			deduped.push(o);

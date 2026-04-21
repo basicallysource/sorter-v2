@@ -133,6 +133,40 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
+	// Phase 6: piece-crop JPEGs are served from disk via
+	// `GET /api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. The SQLite
+	// segment payload stores the disk-relative path
+	// `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` — convert it to the
+	// API URL by stripping the leading `piece_crops/` prefix, splitting the
+	// `<kind>_<idx>` filename, and prepending the machine base. Returns
+	// `null` for anything that doesn't match the expected shape (the caller
+	// falls back to the b64 payload).
+	function pieceCropUrl(disk_path: string | null | undefined): string | null {
+		if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
+		const stripped = disk_path.replace(/^piece_crops\//, '');
+		// Expect: "<uuid>/seg<seq>/<kind>_<idx>.jpg". Bail on anything else.
+		const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
+		if (!m) return null;
+		const [, piece_uuid, seq, kind, idx] = m;
+		return `${effectiveBase()}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;
+	}
+
+	function snapshotImageSrc(snap: SectorSnapshot, prefer: 'piece' | 'wedge'): string | null {
+		// Prefer the disk-backed URL (long-cached), fall back to any b64 the
+		// live tracker still has in memory. For the "piece" crop we additionally
+		// fall back to the wedge path/b64 because older data may only have the
+		// wedge variant.
+		if (prefer === 'piece') {
+			return (
+				pieceCropUrl(snap.piece_jpeg_path) ??
+				pieceCropUrl(snap.jpeg_path) ??
+				dataImageUrl(snap.piece_jpeg_b64) ??
+				dataImageUrl(snap.jpeg_b64)
+			);
+		}
+		return pieceCropUrl(snap.jpeg_path) ?? dataImageUrl(snap.jpeg_b64);
+	}
+
 	type CropEntry = { src: string; role: string; ts: number | null; used: boolean };
 
 	// --- Tracker-backed crop fetch ----------------------------------------
@@ -152,13 +186,22 @@
 		bbox_y?: number;
 		width?: number;
 		height?: number;
-		jpeg_b64: string;
+		// Phase 3+: crops live on disk and are referenced by relative path
+		// (e.g. "piece_crops/<uuid>/seg<seq>/wedge_000.jpg"). The legacy
+		// b64 payload is still populated for the live-tracker path where the
+		// snapshot hasn't been flushed yet.
+		jpeg_path?: string | null;
+		piece_jpeg_path?: string | null;
+		jpeg_b64?: string;
 		piece_jpeg_b64?: string;
 		r_inner?: number;
 		r_outer?: number;
 	};
 	type Segment = {
-		source_role: string;
+		// Live tracker uses `source_role`; DB-backed segments use `role`.
+		// Accept either and fall back to `role` in the consumers.
+		source_role?: string;
+		role?: string;
 		handoff_from: string | null;
 		first_seen_ts: number;
 		last_seen_ts: number;
@@ -167,7 +210,8 @@
 		path_points: number;
 		snapshot_width: number;
 		snapshot_height: number;
-		snapshot_jpeg_b64: string;
+		snapshot_jpeg_b64?: string;
+		snapshot_path?: string | null;
 		path: PathPoint[];
 		channel_center_x: number | null;
 		channel_center_y: number | null;
@@ -230,18 +274,22 @@
 		}
 	}
 
-	// Only refetch when the *global id* actually changes. `piece` is reassigned
-	// on every WS event so a naive dependency would clear+refetch the track on
-	// every tick, re-rendering the whole crops gallery and composite.
+	// Phase 6 (unified dossier): the piece detail response already embeds
+	// `track_detail` — segments from the DB plus a `live` flag. We prefer
+	// that as the source of truth and only hit /api/feeder/tracking/history
+	// when the piece is still actively tracked (live === true), where the
+	// live manager may have more current sector snapshots / burst frames
+	// than what has been flushed to the DB yet.
 	$effect(() => {
 		const gid = piece?.tracked_global_id ?? null;
 		if (gid === _loadedGlobalId) return;
 		_loadedGlobalId = gid;
-		trackDetail = null;
-		_trackSig = '';
-		void loadTrack(gid);
+		// Don't wipe `trackDetail` here — the embedded `piece.track_detail`
+		// effect below will seed it from the DB-backed response. Live merge
+		// happens on top.
 	});
 
+	// Primary: seed `trackDetail` from the embedded piece response.
 	$effect(() => {
 		const embedded = piece?.track_detail ?? null;
 		if (!embedded) return;
@@ -252,9 +300,21 @@
 		}
 	});
 
+	// Secondary: when the embedded detail says the piece is still live on
+	// the tracker, fetch the fresher live manager detail. The DB-backed
+	// segments are a snapshot and miss burst frames / sectors added after
+	// the last segment flush.
+	$effect(() => {
+		if (!piece?.track_detail?.live) return;
+		const gid = piece?.tracked_global_id;
+		if (gid == null || !Number.isFinite(gid)) return;
+		void loadTrack(gid);
+	});
+
 	onMount(() => {
-		// While the piece is still live on the tracker, sector snapshots keep
-		// arriving. Poll at the same cadence the track page uses.
+		// While the piece is still live on the tracker, sector snapshots
+		// keep arriving. Only poll in that case — the DB-backed detail for
+		// a finished piece is immutable and doesn't need refreshing.
 		trackPollTimer = setInterval(() => {
 			if (trackDetail?.live && piece?.tracked_global_id != null) {
 				void loadTrack(piece.tracked_global_id);
@@ -318,11 +378,11 @@
 		if (trackDetail) {
 			for (const seg of trackDetail.segments ?? []) {
 				for (const snap of seg.sector_snapshots ?? []) {
-					const src = dataImageUrl(snap.piece_jpeg_b64 ?? snap.jpeg_b64);
+					const src = snapshotImageSrc(snap, 'piece');
 					if (!src) continue;
 					entries.push({
 						src,
-						role: seg.source_role,
+						role: seg.source_role ?? seg.role ?? 'unknown',
 						ts: snap.captured_ts ?? null,
 						used: snap.captured_ts != null ? tsWasUsed(snap.captured_ts, usedList) : false
 					});
@@ -599,19 +659,17 @@
 		{#if !piece}
 			{#if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					Loading piece…
+					Loading piece detail…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					This piece is no longer cached. The backend keeps the last ~1000
-					pieces in memory per session — once a piece ages out, its per-piece
-					data is gone. Go back to the
+					This piece is not in our records. Go back to the
 					<a href="/tracked" class="text-primary underline">tracker list</a>
-					for persistent track records.
+					to pick another.
 				</div>
 			{:else}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					Could not load this piece. Check the backend connection and try again.
+					Could not load this piece — check backend connection.
 				</div>
 			{/if}
 		{:else}

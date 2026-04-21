@@ -56,6 +56,7 @@
 		track_summary?: TrackSummary | null;
 		sort_ts: number;
 		history_finished_at?: number | null;
+		has_track_segments?: boolean;
 	};
 
 	type FilterMode = 'all' | 'active' | 'distributed' | 'classified' | 'lost';
@@ -319,14 +320,41 @@
 		void now_tick;
 	});
 
-	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
-		if (filter === 'all') return items;
-		if (filter === 'active') return items.filter((item) => item.active);
-		if (filter === 'distributed') return items.filter((item) => item.piece.stage === 'distributed');
-		if (filter === 'classified') {
-			return items.filter((item) => item.piece.classification_status === 'classified');
+	// Phase 6 dedupe: keep rows keyed by uuid (primary) or tracked_global_id
+	// (fallback). Rows without either cannot be navigated to and are dropped.
+	// In practice the backend guarantees uuid after Phase 4 — this is a
+	// defensive filter, not an expected code path.
+	function rowKey(row: TrackedPieceRow): string | null {
+		if (row.uuid) return `uuid:${row.uuid}`;
+		if (row.tracked_global_id !== null && row.tracked_global_id !== undefined) {
+			return `gid:${row.tracked_global_id}`;
 		}
-		return items.filter(
+		return null;
+	}
+
+	let dedupedItems = $derived.by<TrackedPieceRow[]>(() => {
+		const seen = new Set<string>();
+		const out: TrackedPieceRow[] = [];
+		for (const row of items) {
+			const key = rowKey(row);
+			if (key === null) continue;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			out.push(row);
+		}
+		return out;
+	});
+
+	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
+		if (filter === 'all') return dedupedItems;
+		if (filter === 'active') return dedupedItems.filter((item) => item.active);
+		if (filter === 'distributed') {
+			return dedupedItems.filter((item) => item.piece.stage === 'distributed');
+		}
+		if (filter === 'classified') {
+			return dedupedItems.filter((item) => item.piece.classification_status === 'classified');
+		}
+		return dedupedItems.filter(
 			(item) =>
 				item.piece.classification_channel_zone_state === 'lost' &&
 				item.piece.stage !== 'distributed'
@@ -347,14 +375,14 @@
 
 	let stats = $derived.by<Stats>(() => {
 		const next: Stats = {
-			total: items.length,
+			total: dedupedItems.length,
 			active: 0,
 			live: 0,
 			classified: 0,
 			distributed: 0,
 			lost: 0
 		};
-		for (const item of items) {
+		for (const item of dedupedItems) {
 			if (item.active) next.active++;
 			if (item.live) next.live++;
 			if (item.piece.classification_status === 'classified') next.classified++;
@@ -482,6 +510,15 @@
 
 					{#if cat_name && !is_unknown && !is_multi_drop}
 						<span class="text-xs text-text-muted">{cat_name}</span>
+					{/if}
+
+					{#if row.has_track_segments}
+						<span
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
+							title="Persisted segment dossier available"
+						>
+							Segments
+						</span>
 					{/if}
 
 					{#if piece.destination_bin && phase === 'distributed'}
@@ -670,7 +707,7 @@
 						<span class="tabular-nums text-sm text-text-muted">{activeItems.length} visible</span>
 					</div>
 					<div class="grid gap-2 xl:grid-cols-2">
-						{#each activeItems as row (row.uuid)}
+						{#each activeItems as row (rowKey(row) ?? row.uuid)}
 							{@render pieceRow(row)}
 						{/each}
 					</div>
@@ -689,7 +726,7 @@
 						<span class="tabular-nums text-sm text-text-muted">{historyItems.length} visible</span>
 					</div>
 					<div class="grid gap-2 xl:grid-cols-2">
-						{#each historyItems as row (row.uuid)}
+						{#each historyItems as row (rowKey(row) ?? row.uuid)}
 							{@render pieceRow(row)}
 						{/each}
 					</div>

@@ -35,14 +35,21 @@
 		bbox_y: number;
 		width: number;
 		height: number;
-		jpeg_b64: string;
+		// Phase 3+: disk-backed paths. Either `*_path` or `*_b64` is present
+		// — live tracker still ships b64 payloads, DB-flushed segments only
+		// carry paths.
+		jpeg_path?: string | null;
+		piece_jpeg_path?: string | null;
+		jpeg_b64?: string;
+		piece_jpeg_b64?: string;
 		r_inner?: number;
 		r_outer?: number;
-		piece_jpeg_b64?: string;
 	};
 
 	type Segment = {
-		source_role: string;
+		// Live tracker uses `source_role`; DB uses `role`.
+		source_role?: string;
+		role?: string;
 		handoff_from: string | null;
 		first_seen_ts: number;
 		last_seen_ts: number;
@@ -51,7 +58,8 @@
 		path_points: number;
 		snapshot_width: number;
 		snapshot_height: number;
-		snapshot_jpeg_b64: string;
+		snapshot_jpeg_b64?: string;
+		snapshot_path?: string | null;
 		path: PathPoint[];
 		channel_center_x: number | null;
 		channel_center_y: number | null;
@@ -71,6 +79,37 @@
 
 	function effectiveBase(): string {
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+	}
+
+	// Phase 6: map the DB-stored disk-relative path
+	// `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` to the API URL served
+	// by `/api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. Returns null
+	// on any malformed input so callers fall back to the b64 payload.
+	function pieceCropUrl(disk_path: string | null | undefined): string | null {
+		if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
+		const stripped = disk_path.replace(/^piece_crops\//, '');
+		const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
+		if (!m) return null;
+		const [, piece_uuid, seq, kind, idx] = m;
+		return `${effectiveBase()}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;
+	}
+
+	function dataImageUrl(payload: string | null | undefined): string | null {
+		return payload ? `data:image/jpeg;base64,${payload}` : null;
+	}
+
+	function wedgeSrc(snap: SectorSnapshot): string | null {
+		return pieceCropUrl(snap.jpeg_path) ?? dataImageUrl(snap.jpeg_b64);
+	}
+
+	function segmentSnapshotSrc(seg: Segment): string | null {
+		return (
+			pieceCropUrl(seg.snapshot_path) ?? dataImageUrl(seg.snapshot_jpeg_b64)
+		);
+	}
+
+	function segmentRole(seg: Segment): string {
+		return seg.source_role ?? seg.role ?? 'unknown';
 	}
 
 	let detail = $state<Detail | null>(null);
@@ -223,10 +262,11 @@
 {:else}
 	<div class="flex flex-col gap-3">
 		{#each detail.segments as segment, idx (idx)}
+			{@const seg_snapshot_src = segmentSnapshotSrc(segment)}
 			<div class="border border-border bg-bg">
 				<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-sm">
 					<span class="font-medium text-text">
-						{formatRoleLabel(segment.source_role)}
+						{formatRoleLabel(segmentRole(segment))}
 						{#if segment.handoff_from}
 							<span class="ml-2 text-primary">
 								← handoff from {formatRoleLabel(segment.handoff_from)}
@@ -266,23 +306,28 @@
 								</clipPath>
 							{/each}
 						</defs>
-						<image
-							href={`data:image/jpeg;base64,${segment.snapshot_jpeg_b64}`}
-							x="0"
-							y="0"
-							width={segment.snapshot_width}
-							height={segment.snapshot_height}
-							opacity="0.22"
-						/>
-						{#each segment.sector_snapshots as s (s.captured_ts)}
+						{#if seg_snapshot_src}
 							<image
-								href={`data:image/jpeg;base64,${s.jpeg_b64}`}
-								x={s.bbox_x}
-								y={s.bbox_y}
-								width={s.width}
-								height={s.height}
-								clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
+								href={seg_snapshot_src}
+								x="0"
+								y="0"
+								width={segment.snapshot_width}
+								height={segment.snapshot_height}
+								opacity="0.22"
 							/>
+						{/if}
+						{#each segment.sector_snapshots as s (s.captured_ts)}
+							{@const wedge_src = wedgeSrc(s)}
+							{#if wedge_src}
+								<image
+									href={wedge_src}
+									x={s.bbox_x}
+									y={s.bbox_y}
+									width={s.width}
+									height={s.height}
+									clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
+								/>
+							{/if}
 						{/each}
 						<circle
 							cx={segment.channel_center_x as number}

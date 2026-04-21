@@ -63,25 +63,24 @@ export function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
 	);
 }
 
+// Stable identity for a physical piece. Phase 6 (unified dossier) switched
+// this from best-effort heuristics to a strict uuid-first / tracked_global_id
+// fallback. Timestamp / preview / angle-based fallbacks are collision-prone
+// and are no longer needed now that the backend always assigns a uuid on
+// C3-entry.
 export function recentPhysicalKey(obj: KnownObjectData): string {
-	if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) {
+	// Kept for back-compat: always returns *some* string. Prefer
+	// `recentPhysicalKeyOrNull` in new code so callers can drop items without
+	// a stable identity instead of inventing a random key.
+	return recentPhysicalKeyOrNull(obj) ?? `fallback:${obj.uuid ?? Math.random()}`;
+}
+
+export function recentPhysicalKeyOrNull(obj: KnownObjectData): string | null {
+	if (obj?.uuid) return `uuid:${obj.uuid}`;
+	if (obj?.tracked_global_id !== null && obj?.tracked_global_id !== undefined) {
 		return `gid:${obj.tracked_global_id}`;
 	}
-	const preview = obj.thumbnail ?? obj.top_image ?? obj.bottom_image ?? obj.drop_snapshot;
-	if (preview) return `preview:${preview.slice(0, 96)}`;
-	const c4Ts =
-		obj.carousel_detected_confirmed_at ??
-		obj.first_carousel_seen_ts ??
-		obj.classified_at ??
-		obj.distributed_at ??
-		obj.updated_at ??
-		obj.created_at ??
-		0;
-	const angle =
-		typeof obj.classification_channel_zone_center_deg === 'number'
-			? Math.round(obj.classification_channel_zone_center_deg)
-			: 'na';
-	return `c4:${Math.round(c4Ts * 4)}:${angle}:${obj.part_id ?? obj.classification_status ?? 'pending'}`;
+	return null;
 }
 
 export function dataImageUrl(payload: string | null | undefined): string | null {

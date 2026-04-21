@@ -47,6 +47,22 @@
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
 
+	// Per-row link resolution: the tracker-history feed (HistoryItem) is the
+	// authoritative list source — it has persistent records, composites,
+	// recognition stats — but it does not carry the KnownObject UUID the
+	// lifecycle detail page is keyed by. For rows whose piece is still in
+	// the live `recentObjects` ring (most recent ~10), we resolve the UUID
+	// and link directly to the lifecycle detail. Older rows fall back to
+	// /tracked/${global_id}, which the [uuid] route accepts but renders
+	// with the "not in live buffer" fallback. Once the backend exposes a
+	// global_id → uuid lookup (or a full KnownObject history endpoint) the
+	// fallback branch can be removed.
+	function detailHrefFor(global_id: number): string {
+		const recent = ctx.machine?.recentObjects ?? [];
+		const match = recent.find((o) => o.tracked_global_id === global_id);
+		return match ? `/tracked/${match.uuid}` : `/tracked/${global_id}`;
+	}
+
 	let items = $state<HistoryItem[]>([]);
 
 	// Seed filter state from URL so reload / back-button preserves what the
@@ -353,7 +369,7 @@
 				{@const crops = item.top_piece_jpegs ?? []}
 				{@const showRecognitionGrid = hasRecognitionAttempt(item)}
 				<a
-					href={`/tracked/${item.global_id}`}
+					href={detailHrefFor(item.global_id)}
 					class="flex flex-col border border-border bg-surface text-left transition-colors hover:border-primary/70"
 				>
 					{#if showRecognitionGrid}
@@ -478,7 +494,7 @@
 		<div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(660px, 1fr));">
 			{#each filteredItems as item (item.global_id)}
 				<a
-					href={`/tracked/${item.global_id}`}
+					href={detailHrefFor(item.global_id)}
 					class="group flex flex-col border border-border bg-surface text-left transition-colors hover:border-primary/70"
 				>
 					<div class="relative aspect-square w-full bg-black">

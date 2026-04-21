@@ -2202,10 +2202,19 @@ class VisionManager:
     def getFeederTrackerLiveGlobalIds(self, role: str) -> set[int]:
         """Return the set of ``global_id``s currently alive on ``role``'s tracker.
 
-        Used by the classification-channel Running state to verify that a
-        piece claimed to be on the carousel is no longer tracked upstream
-        (c_channel_3) before committing Brickognize. Returns an empty set if
-        the tracker or the ``live_global_ids`` accessor is unavailable.
+        Used by:
+
+        * the classification-channel Running state to verify that a piece
+          claimed to be on the carousel is no longer tracked upstream
+          (``c_channel_3``) before committing Brickognize;
+        * the distribution Sending state to verify that a dropped piece has
+          physically left the classification channel (``carousel``) before
+          reopening the downstream distribution gate.
+
+        Returns an empty set if the tracker or the ``live_global_ids``
+        accessor is unavailable — callers must treat "empty / unavailable"
+        as "no tracker evidence" and fall back to the configured cooldown
+        rather than assuming the piece has exited.
         """
         tracker = self._feeder_trackers.get(role)
         if tracker is None:

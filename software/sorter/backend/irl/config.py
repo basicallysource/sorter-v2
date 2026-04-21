@@ -298,6 +298,7 @@ class ClassificationChannelConfig:
     size_classes: tuple[ClassificationChannelSizeClassConfig, ...]
     leader_wins_policy: bool
     leader_wins_requires_classified: bool
+    post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
@@ -355,6 +356,14 @@ class ClassificationChannelConfig:
         # "both fail" behavior for pending/classifying leaders where the
         # carousel pulse would otherwise burn through an unrecognized piece.
         self.leader_wins_requires_classified = False
+        # Minimum cooldown (seconds) the distribution Sending state waits
+        # *after* the chute-settle timer before it reopens the downstream
+        # distribution gate. Used as the fallback when the live carousel
+        # tracker can't confirm that the dropped piece has physically
+        # left the classification channel. Physical transit measures at
+        # ~400-600ms; 0.8s adds margin while keeping throughput impact
+        # below ~5%.
+        self.post_distribute_cooldown_s = 0.8
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

@@ -864,6 +864,55 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Camera preview WebSocket
+# ---------------------------------------------------------------------------
+#
+# WebSocket fan-out for the settings-modal camera picker. Each tile in the
+# grid opens one WS connection against a single shared broadcaster thread
+# per device — this avoids the 6-per-host HTTP/1.1 connection-pool
+# exhaustion that MJPEG caused when six tiles were open simultaneously,
+# and also avoids opening a duplicate ``cv2.VideoCapture`` for devices
+# that vision manager already owns.
+#
+# Not to be confused with the main ``/ws`` control websocket above.
+
+
+@app.websocket("/ws/camera-preview/{index}")
+async def camera_preview_ws(websocket: WebSocket, index: int) -> None:
+    client_host = websocket.client.host if websocket.client is not None else None
+    if not websocket_connection_allowed(
+        websocket.headers.get("Origin"),
+        client_host,
+        compute_allowed_ui_origins(),
+    ):
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="WebSocket origin not allowed.",
+        )
+        return
+
+    await websocket.accept()
+
+    from server.camera_preview_hub import get_camera_preview_hub
+
+    loop = asyncio.get_running_loop()
+    hub = get_camera_preview_hub()
+    queue = hub.subscribe(index, loop=loop)
+
+    try:
+        while True:
+            frame = await queue.get()
+            await websocket.send_bytes(frame)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        # Keep cleanup deterministic even on unexpected errors.
+        pass
+    finally:
+        hub.unsubscribe(index, queue)
+
+
+# ---------------------------------------------------------------------------
 # Runtime stats
 # ---------------------------------------------------------------------------
 

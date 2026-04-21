@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { mjpegStream as resilientMjpegStream } from '$lib/actions/mjpegStream';
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { wsJpegStream } from '$lib/actions/wsJpegStream';
+	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
@@ -870,6 +871,13 @@
 
 	function cameraIndexPreviewUrl(index: number): string {
 		return `${backendHttpBaseUrl}/api/cameras/stream/${index}`;
+	}
+
+	// WebSocket preview URL for the picker modal tiles. The legacy MJPEG
+	// URL above is kept for the main zone feed (one stream at a time, no
+	// pool-exhaustion risk) and as a server-side fallback route.
+	function cameraIndexPreviewWsUrl(index: number): string {
+		return `${backendWsBaseUrl}/ws/camera-preview/${index}`;
 	}
 
 	function discoveredCameraBySource(source: CameraSource): NetworkCameraInfo | null {
@@ -2938,10 +2946,9 @@
 										</div>
 									{:else}
 										<img
-											use:resilientMjpegStream={{
-												url: cameraIndexPreviewUrl(cam.index),
+											use:wsJpegStream={{
+												url: cameraIndexPreviewWsUrl(cam.index),
 												firstFrameTimeoutMs: 6000,
-												stallTimeoutMs: 4000,
 												maxAttempts: 3,
 												onStatusChange: (status) => {
 													tileStreamStatus[cam.index] = status;

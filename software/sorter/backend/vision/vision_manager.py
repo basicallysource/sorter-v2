@@ -2633,7 +2633,12 @@ class VisionManager:
         import time as _time
 
         from blob_manager import write_piece_crop
-        from local_state import remember_piece_dossier, remember_piece_segment
+        from local_state import (
+            get_piece_dossier_by_tracked_global_id,
+            remember_piece_dossier,
+            remember_piece_segment,
+        )
+        from vision.tracking.history import segment_sector_angular_span_deg
 
         transport = self._piece_transport
         piece_uuid: str | None = None
@@ -2645,7 +2650,50 @@ class VisionManager:
             except Exception:
                 piece_uuid = None
 
+        # Transport-cache miss → fall back to the SQLite dossier index
+        # before minting a fresh uuid. The C3 early-bind (Phase 4) already
+        # persists a dossier keyed by ``tracked_global_id`` as soon as a
+        # piece clears the motion-gate, so repeated archival calls on the
+        # same gid must reuse that uuid instead of minting duplicates.
         if not piece_uuid:
+            try:
+                existing = get_piece_dossier_by_tracked_global_id(
+                    int(tracked_global_id)
+                )
+            except Exception:
+                existing = None
+            if isinstance(existing, dict):
+                candidate = existing.get("uuid") or existing.get("piece_uuid")
+                if isinstance(candidate, str) and candidate.strip():
+                    piece_uuid = candidate.strip()
+                    if transport is not None and hasattr(transport, "bindStubPieceUuid"):
+                        try:
+                            transport.bindStubPieceUuid(
+                                int(tracked_global_id), piece_uuid
+                            )
+                        except Exception:
+                            pass
+
+        if not piece_uuid:
+            # Motion-gate on segment archival: a segment whose sector
+            # snapshots barely span a few degrees is almost certainly a
+            # static apparatus ghost that slipped past the early-bind
+            # filter. Refuse to mint a stub dossier for it; the segment
+            # stays unarchived and the ghost leaves no DB trace.
+            span_deg = segment_sector_angular_span_deg(
+                getattr(segment, "sector_snapshots", None)
+            )
+            if span_deg < 3.0:
+                try:
+                    self.gc.logger.info(
+                        f"_archive_segment_to_dossier_impl: skipping stationary "
+                        f"ghost segment gid={tracked_global_id} "
+                        f"angular_span_deg={span_deg:.2f}"
+                    )
+                except Exception:
+                    pass
+                return
+
             piece_uuid = str(_uuid.uuid4())
             now = _time.time()
             first_seen_ts = (

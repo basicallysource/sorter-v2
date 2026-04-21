@@ -570,6 +570,140 @@ class SegmentArchivalTests(unittest.TestCase):
         self.assertIsNone(sectors[0]["jpeg_path"])
         self.assertIsNone(sectors[0]["piece_jpeg_path"])
 
+    def test_segment_archival_reuses_db_dossier_for_known_gid(self) -> None:
+        """Transport cache misses must fall back to the SQLite dossier
+        index before minting a fresh uuid. When ``tracked_global_id`` is
+        already persisted (C3 early-bind), the archival callback must
+        reuse that uuid and push it back into the transport map."""
+
+        vm = self._make_vm()
+        bind_calls: list[tuple] = []
+        transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: None,
+            bindStubPieceUuid=lambda gid, uuid: (
+                bind_calls.append((int(gid), str(uuid))) or True
+            ),
+        )
+        vm._piece_transport = transport
+
+        existing_uuid = "persisted-uuid-42"
+        dossier_calls: list[dict] = []
+        segment_calls: list[dict] = []
+
+        def _fake_dossier(obj):
+            dossier_calls.append(dict(obj))
+
+        def _fake_segment(*, piece_uuid, role, sequence, payload):
+            segment_calls.append({"piece_uuid": piece_uuid, "sequence": sequence})
+
+        segment = self._make_segment(sector_count=2)
+
+        with mock.patch(
+            "blob_manager.write_piece_crop", side_effect=lambda *a, **k: "rel.jpg"
+        ), mock.patch(
+            "local_state.remember_piece_dossier", side_effect=_fake_dossier
+        ), mock.patch(
+            "local_state.remember_piece_segment", side_effect=_fake_segment
+        ), mock.patch(
+            "local_state.get_piece_dossier_by_tracked_global_id",
+            return_value={"uuid": existing_uuid, "tracked_global_id": 42},
+        ):
+            VisionManager._archive_segment_to_dossier(vm, 42, segment)
+
+        # No new dossier should have been minted; the persisted uuid wins.
+        self.assertEqual([], dossier_calls)
+        # Transport binding must have been refreshed with the reused uuid.
+        self.assertEqual([(42, existing_uuid)], bind_calls)
+        # Segment persistence targets the reused uuid.
+        self.assertEqual(1, len(segment_calls))
+        self.assertEqual(existing_uuid, segment_calls[0]["piece_uuid"])
+
+    def test_segment_archival_skips_stationary_ghost(self) -> None:
+        """Segments whose sector snapshots barely cover a couple of
+        degrees (static apparatus ghost that clipped past the early-bind
+        filter) must not produce a stub dossier or segment row."""
+
+        vm = self._make_vm()
+        transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: None,
+            bindStubPieceUuid=lambda *a, **k: True,
+        )
+        vm._piece_transport = transport
+
+        import base64
+
+        wedge_b64 = base64.b64encode(b"\xff\xd8\xff\xe0wedge").decode("ascii")
+        piece_b64 = base64.b64encode(b"\xff\xd8\xff\xe0piece").decode("ascii")
+        # Two snapshots, both parked in the same ~1° sliver — angular
+        # span ≈ 1.0° which is below the 3° motion-gate.
+        snapshots = [
+            SectorSnapshot(
+                sector_index=0,
+                start_angle_deg=45.0,
+                end_angle_deg=45.5,
+                captured_ts=100.0,
+                bbox_x=0,
+                bbox_y=0,
+                width=4,
+                height=4,
+                jpeg_b64=wedge_b64,
+                r_inner=50.0,
+                r_outer=100.0,
+                piece_jpeg_b64=piece_b64,
+            ),
+            SectorSnapshot(
+                sector_index=0,
+                start_angle_deg=45.2,
+                end_angle_deg=46.0,
+                captured_ts=101.0,
+                bbox_x=0,
+                bbox_y=0,
+                width=4,
+                height=4,
+                jpeg_b64=wedge_b64,
+                r_inner=50.0,
+                r_outer=100.0,
+                piece_jpeg_b64=piece_b64,
+            ),
+        ]
+        segment = TrackSegment(
+            source_role="c_channel_3",
+            handoff_from=None,
+            first_seen_ts=100.0,
+            last_seen_ts=105.0,
+            snapshot_jpeg_b64="",
+            snapshot_width=640,
+            snapshot_height=480,
+            hit_count=2,
+            channel_center_x=320.0,
+            channel_center_y=240.0,
+            channel_radius_inner=50.0,
+            channel_radius_outer=100.0,
+            sector_count=2,
+            sector_snapshots=snapshots,
+        )
+
+        dossier_calls: list[dict] = []
+        segment_calls: list[dict] = []
+
+        with mock.patch(
+            "blob_manager.write_piece_crop", side_effect=lambda *a, **k: "rel.jpg"
+        ), mock.patch(
+            "local_state.remember_piece_dossier",
+            side_effect=lambda obj: dossier_calls.append(dict(obj)),
+        ), mock.patch(
+            "local_state.remember_piece_segment",
+            side_effect=lambda **kw: segment_calls.append(kw),
+        ), mock.patch(
+            "local_state.get_piece_dossier_by_tracked_global_id",
+            return_value=None,
+        ):
+            VisionManager._archive_segment_to_dossier(vm, 777, segment)
+
+        # Nothing persisted — the motion-gate refused the stub.
+        self.assertEqual([], dossier_calls)
+        self.assertEqual([], segment_calls)
+
     def test_archival_callback_swallows_exceptions_from_write_piece_crop(self) -> None:
         """Defence in depth: even if ``write_piece_crop`` (wrongly) leaks an
         OSError, the archival callback must not propagate it upstream to

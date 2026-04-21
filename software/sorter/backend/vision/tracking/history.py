@@ -182,6 +182,45 @@ class TrackSegment:
         }
 
 
+def segment_sector_angular_span_deg(
+    sector_snapshots: Iterable[Any] | None,
+) -> float:
+    """Return the maximum angular span (in degrees) covered by the given
+    sector snapshots.
+
+    Each ``SectorSnapshot`` carries ``start_angle_deg`` / ``end_angle_deg``
+    describing the angular bounds of the wedge. The span is the difference
+    between the largest ``end_angle_deg`` and the smallest ``start_angle_deg``
+    observed across the list, so a single stationary wedge returns its own
+    width (typically ~10°) and a swept sequence returns the full coverage.
+
+    Used by :func:`VisionManager._archive_segment_to_dossier_impl` as a
+    motion-gate: segments whose span is below a few degrees are almost
+    certainly from stationary apparatus ghosts that clipped past the
+    early-bind filter, and should not trigger a stub dossier.
+    Returns ``0.0`` for an empty / missing input.
+    """
+    if not sector_snapshots:
+        return 0.0
+    starts: list[float] = []
+    ends: list[float] = []
+    for snap in sector_snapshots:
+        start = getattr(snap, "start_angle_deg", None)
+        end = getattr(snap, "end_angle_deg", None)
+        if isinstance(start, (int, float)):
+            starts.append(float(start))
+        if isinstance(end, (int, float)):
+            ends.append(float(end))
+    if not starts or not ends:
+        return 0.0
+    span = max(ends) - min(starts)
+    # Normalise tiny negative wrap-arounds to zero; callers compare against
+    # a small positive threshold so a negative would break the gate.
+    if span < 0.0:
+        return 0.0
+    return float(span)
+
+
 @dataclass
 class TrackHistoryEntry:
     """Aggregates all segments belonging to a single global_id."""

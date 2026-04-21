@@ -1,5 +1,6 @@
 import threading
 import time
+from collections import deque
 from typing import Any, Optional
 import platform
 import cv2
@@ -459,6 +460,9 @@ class CaptureThread:
         self._reopen_event = threading.Event()
         self._cap = None
         self.latest_frame = None
+        # 90-frame ring buffer (~3 s at 30 FPS) for burst-capture replay. The
+        # GIL + deque.append atomicity lets us push without holding a lock.
+        self._ring_buffer: deque[CameraFrame] = deque(maxlen=90)
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
         self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
         self._color_profile = clampCameraColorProfile(config.color_profile)
@@ -467,6 +471,21 @@ class CaptureThread:
         self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
+
+    def drain_ring_buffer(self, max_frames: int) -> list[CameraFrame]:
+        """Return up to ``max_frames`` most-recent frames from the ring buffer.
+
+        The buffer is NOT cleared — this is a non-destructive snapshot used by
+        the drop-zone burst capture to replay the pre-trigger seconds. Returns
+        a chronologically-ordered list (oldest → newest). ``list(deque)`` is a
+        safe shallow copy under the GIL.
+        """
+        if max_frames <= 0:
+            return []
+        frames = list(self._ring_buffer)
+        if len(frames) <= max_frames:
+            return frames
+        return frames[-max_frames:]
 
     def setPictureSettings(self, settings: CameraPictureSettings) -> None:
         clamped = clampCameraPictureSettings(settings)
@@ -741,9 +760,12 @@ class CaptureThread:
                 read_failures = 0
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
-                self.latest_frame = CameraFrame(
+                camera_frame = CameraFrame(
                     raw=frame, annotated=None, results=[], timestamp=time.time()
                 )
+                self.latest_frame = camera_frame
+                # deque.append is atomic under the GIL — no lock needed.
+                self._ring_buffer.append(camera_frame)
             else:
                 read_failures += 1
                 # For URL sources, briefly wait then retry (stream may reconnect)

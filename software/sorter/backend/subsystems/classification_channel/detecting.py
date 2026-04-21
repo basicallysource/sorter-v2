@@ -109,6 +109,10 @@ class Detecting(BaseState):
                             obj.tracked_global_id = track_id
                 except Exception:
                     obj.tracked_global_id = None
+                self.vision.scheduleCarouselTeacherCaptureOnClassicTrigger(
+                    score=score,
+                    hot_pixels=hot_px,
+                )
                 # Intentionally no event emit here — the piece becomes
                 # visible to the frontend only once it reaches the wait
                 # zone and Brickognize fires (handled in Ejecting).

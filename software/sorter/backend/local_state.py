@@ -1633,6 +1633,76 @@ def clear_piece_segments_for_session(session_id: str) -> int:
         return int(cursor.rowcount or 0)
 
 
+def get_piece_segment_counts(
+    piece_uuids: list[str] | tuple[str, ...] | None = None,
+    *,
+    session_id: str | None = None,
+) -> dict[str, int]:
+    """Return ``{piece_uuid: segment_count}`` in one SELECT.
+
+    Used by the tracked-pieces list endpoint to populate ``has_track_segments``
+    without issuing N+1 segment queries. Either pass an explicit list of
+    ``piece_uuids`` (preferred when the caller already fetched the dossiers) or
+    a ``session_id`` to scope to every piece in that session. Missing pieces
+    return 0 implicitly by omission.
+    """
+    if piece_uuids is not None:
+        uuids = [u for u in piece_uuids if isinstance(u, str) and u.strip()]
+        if not uuids:
+            return {}
+        initialize_local_state()
+        out: dict[str, int] = {}
+        with _connection() as conn:
+            # SQLite has a default host-parameter limit of 999. Chunk to be
+            # safe; in practice the list endpoint caps at 500 pieces.
+            chunk_size = 500
+            for start in range(0, len(uuids), chunk_size):
+                chunk = uuids[start : start + chunk_size]
+                placeholders = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    "SELECT piece_uuid, COUNT(*) AS c FROM piece_segments "
+                    f"WHERE piece_uuid IN ({placeholders}) GROUP BY piece_uuid",
+                    tuple(chunk),
+                ).fetchall()
+                for row in rows:
+                    out[str(row["piece_uuid"])] = int(row["c"])
+        return out
+
+    if isinstance(session_id, str) and session_id.strip():
+        initialize_local_state()
+        with _connection() as conn:
+            rows = conn.execute(
+                "SELECT piece_uuid, COUNT(*) AS c FROM piece_segments "
+                "WHERE session_id = ? GROUP BY piece_uuid",
+                (session_id,),
+            ).fetchall()
+            return {str(row["piece_uuid"]): int(row["c"]) for row in rows}
+
+    return {}
+
+
+def build_piece_detail_payload(piece_uuid: str) -> dict[str, Any] | None:
+    """Return merged dossier + segments payload for the detail endpoint.
+
+    Reads the dossier from :func:`get_piece_dossier` and its segments from
+    :func:`list_piece_segments` and merges them into a single response dict
+    shaped as ``{**dossier, "track_detail": {"segments": [...], "live": False}}``.
+    ``live`` is always ``False`` here (DB source); the API layer flips it to
+    ``True`` when live-tracker data is merged on top. Returns ``None`` when no
+    dossier row exists — segments without a dossier row are ignored (cannot
+    occur thanks to FK cascade but handled defensively).
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
+    dossier = get_piece_dossier(piece_uuid)
+    if dossier is None:
+        return None
+    segments = list_piece_segments(piece_uuid)
+    payload: dict[str, Any] = dict(dossier)
+    payload["track_detail"] = {"segments": segments, "live": False}
+    return payload
+
+
 def _ensure_bin_state_row_conn(
     conn: sqlite3.Connection,
     *,

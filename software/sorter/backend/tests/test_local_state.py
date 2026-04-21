@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from local_state import (
+    build_piece_detail_payload,
     clear_current_session_bins,
     clear_piece_segments_for_session,
     get_api_keys,
@@ -18,6 +19,7 @@ from local_state import (
     get_classification_polygons,
     get_classification_training_state,
     get_machine_id,
+    get_piece_segment_counts,
     get_recent_known_objects,
     get_active_sorting_session,
     get_set_progress_state,
@@ -695,6 +697,99 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         remaining = list_piece_segments("piece-b")
         self.assertEqual(1, len(remaining))
         self.assertEqual(session_b["id"], remaining[0]["session_id"])
+
+    def test_get_piece_segment_counts_bulk(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="segment_counts")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-with-segs",
+                "tracked_global_id": 11,
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_dossier(
+            {
+                "uuid": "piece-without-segs",
+                "tracked_global_id": 12,
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        for seq in range(3):
+            remember_piece_segment(
+                "piece-with-segs",
+                "c_channel_3" if seq % 2 == 0 else "carousel",
+                seq,
+                self._make_segment_payload(tracked_global_id=11, first_seen_ts=float(seq)),
+            )
+
+        counts = get_piece_segment_counts(
+            piece_uuids=["piece-with-segs", "piece-without-segs", "piece-unknown"]
+        )
+        self.assertEqual(3, counts.get("piece-with-segs"))
+        # Omitted keys mean zero; the list endpoint treats that as False.
+        self.assertNotIn("piece-without-segs", counts)
+        self.assertNotIn("piece-unknown", counts)
+
+        # Empty / None inputs must not blow up.
+        self.assertEqual({}, get_piece_segment_counts(piece_uuids=[]))
+        self.assertEqual({}, get_piece_segment_counts())
+
+    def test_build_piece_detail_payload_merges_dossier_and_segments(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="build_detail_payload")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-detail",
+                "tracked_global_id": 9000,
+                "created_at": 50.0,
+                "updated_at": 55.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_segment(
+            "piece-detail",
+            "c_channel_3",
+            0,
+            self._make_segment_payload(tracked_global_id=9000, first_seen_ts=50.0),
+        )
+        remember_piece_segment(
+            "piece-detail",
+            "carousel",
+            1,
+            self._make_segment_payload(
+                tracked_global_id=9000,
+                first_seen_ts=60.0,
+                last_seen_ts=65.0,
+            ),
+        )
+
+        payload = build_piece_detail_payload("piece-detail")
+        self.assertIsNotNone(payload)
+        assert payload is not None  # for type narrowing
+        self.assertEqual("piece-detail", payload.get("uuid"))
+        self.assertEqual(9000, payload.get("tracked_global_id"))
+        self.assertIn("track_detail", payload)
+        track_detail = payload["track_detail"]
+        self.assertFalse(track_detail["live"])
+        self.assertEqual(
+            [0, 1], [seg["sequence"] for seg in track_detail["segments"]]
+        )
+        self.assertEqual("c_channel_3", track_detail["segments"][0]["role"])
+        self.assertEqual("carousel", track_detail["segments"][1]["role"])
+
+    def test_build_piece_detail_payload_returns_none_without_dossier(self) -> None:
+        initialize_local_state()
+        self.assertIsNone(build_piece_detail_payload("no-such-piece"))
+        self.assertIsNone(build_piece_detail_payload(""))
+        self.assertIsNone(build_piece_detail_payload("   "))
 
 
 if __name__ == "__main__":

@@ -27,8 +27,10 @@ from blob_manager import (
     setMachineNickname,
 )
 from local_state import (
+    build_piece_detail_payload,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
+    get_piece_segment_counts,
     list_piece_dossiers,
 )
 from runtime_variables import VARIABLE_DEFS
@@ -511,6 +513,22 @@ def _tracked_history_summary_map(limit: int) -> dict[int, dict[str, Any]]:
 
 
 def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    """DB-first detail enrichment for ``GET /api/tracked/pieces/{uuid}``.
+
+    ``payload`` is a dossier dict — either from :func:`build_piece_detail_payload`
+    (already carrying ``track_detail.segments`` from the DB and ``live=False``)
+    or from a legacy path (no ``track_detail`` yet). This helper merges any
+    still-live tracker detail on top:
+
+    - DB segments are preserved under ``track_detail.segments``.
+    - If the vision manager still knows the ``tracked_global_id``, its live
+      detail dict is merged in (live fields like ``segments``, ``roles``,
+      ``finished_at``, ``burst_frames`` overwrite the DB fields) and
+      ``live`` is flipped to ``True``.
+    - No vision manager or no live detail → ``track_detail`` stays as-is
+      (``live=False`` with DB segments, or absent when caller gave a bare
+      dossier).
+    """
     if not isinstance(payload, dict):
         return None
     enriched = dict(payload)
@@ -525,7 +543,13 @@ def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str
     except Exception:
         live_detail = None
     if isinstance(live_detail, dict):
-        enriched["track_detail"] = live_detail
+        base = enriched.get("track_detail")
+        merged: dict[str, Any] = {}
+        if isinstance(base, dict):
+            merged.update(base)
+        merged.update(live_detail)
+        merged["live"] = True
+        enriched["track_detail"] = merged
     return enriched
 
 
@@ -536,6 +560,15 @@ def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
     dossiers = list_piece_dossiers(limit=load_limit)
     history_by_gid = _tracked_history_summary_map(load_limit)
     drop_angle_deg = _current_classification_drop_angle_deg()
+
+    # Bulk segment-count lookup: one SELECT instead of N+1 calls to
+    # list_piece_segments per row. Key'd by piece_uuid, default 0.
+    dossier_uuids = [
+        str(piece.get("uuid"))
+        for piece in dossiers
+        if isinstance(piece, dict) and isinstance(piece.get("uuid"), str)
+    ]
+    segment_counts = get_piece_segment_counts(piece_uuids=dossier_uuids)
 
     rows: list[dict[str, Any]] = []
     for piece in dossiers:
@@ -564,9 +597,14 @@ def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
             sort_ts = history.get("finished_at")
         if not isinstance(sort_ts, (int, float)):
             sort_ts = piece.get("created_at")
+        piece_uuid = piece.get("uuid")
+        has_track_segments = bool(
+            isinstance(piece_uuid, str)
+            and segment_counts.get(piece_uuid, 0) > 0
+        )
         rows.append(
             {
-                "uuid": piece.get("uuid"),
+                "uuid": piece_uuid,
                 "piece": piece,
                 "tracked_global_id": tracked_global_id,
                 "global_id": tracked_global_id,
@@ -579,6 +617,7 @@ def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
                 "stage": piece.get("stage"),
                 "classification_status": piece.get("classification_status"),
                 "track_summary": history,
+                "has_track_segments": has_track_segments,
                 "sort_ts": float(sort_ts) if isinstance(sort_ts, (int, float)) else 0.0,
                 "history_finished_at": history.get("finished_at") if isinstance(history, dict) else None,
             }
@@ -619,13 +658,27 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
 
 @app.get("/api/tracked/pieces/{uuid}")
 def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
-    payload = get_piece_dossier(uuid)
+    # Phase 5: DB-first. Build the merged dossier+segments payload from
+    # SQLite so detail pages survive restarts, then fold live-tracker detail
+    # on top when the piece is still active. 404 is reserved for pieces
+    # that are unknown to BOTH the DB and the runtime LRU — otherwise the
+    # frontend used to see a spurious "Track Not Found" for pieces that
+    # had simply aged out of the live buffer.
+    payload = build_piece_detail_payload(uuid)
     if payload is None:
+        # Legacy-compat: if ``uuid`` is numeric, it was likely a raw
+        # ``tracked_global_id``. Resolve via the DB before giving up.
         try:
-            payload = get_piece_dossier_by_tracked_global_id(int(uuid))
+            legacy = get_piece_dossier_by_tracked_global_id(int(uuid))
         except Exception:
-            payload = None
+            legacy = None
+        if legacy is not None:
+            payload = build_piece_detail_payload(str(legacy.get("uuid") or ""))
+            if payload is None:
+                payload = legacy
     if payload is None and shared_state.gc_ref is not None and shared_state.gc_ref.runtime_stats is not None:
+        # Last resort: the in-process runtime-stats LRU. No segments here —
+        # just the bare dossier dict kept for the gallery ring.
         payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
     enriched = _piece_dossier_with_track_detail(payload)
     if enriched is None:

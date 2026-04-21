@@ -1,348 +1,242 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
-	import { LayoutDashboard, Copy, Check } from 'lucide-svelte';
-
-	let just_copied = $state(false);
-
-	async function copyStats() {
-		if (!ctx.machine?.runtimeStats) return;
-		await navigator.clipboard.writeText(JSON.stringify(ctx.machine.runtimeStats, null, 2));
-		just_copied = true;
-		setTimeout(() => (just_copied = false), 1500);
-	}
-
-	type Summary = {
-		n?: number;
-		avg_s?: number;
-		med_s?: number;
-		p90_s?: number;
-		min_s?: number;
-		max_s?: number;
-	};
-
-	type ThroughputSummary = {
-		n?: number;
-		avg?: number;
-		med?: number;
-		p90?: number;
-		min?: number;
-		max?: number;
-	};
+	import { LayoutDashboard } from 'lucide-svelte';
 
 	const ctx = getMachineContext();
+
+	type ChannelThroughputEntry = {
+		exit_count?: number;
+		overall_ppm?: number;
+		active_ppm?: number;
+		outcomes?: Record<string, { count?: number; active_ppm?: number }>;
+	};
+
 	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
-	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, unknown>);
-	const timings = $derived((runtime_stats.timings ?? {}) as Record<string, Summary>);
+	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, number>);
 	const throughput = $derived((runtime_stats.throughput ?? {}) as Record<string, unknown>);
-	const inter_piece_ppm = $derived((throughput.inter_piece_ppm ?? {}) as ThroughputSummary);
-	const feeder = $derived((runtime_stats.feeder ?? {}) as Record<string, unknown>);
-	const pulse_counts = $derived((feeder.pulse_counts ?? {}) as Record<string, Record<string, number>>);
+	const channel_throughput = $derived(
+		(runtime_stats.channel_throughput ?? {}) as Record<string, ChannelThroughputEntry>
+	);
+	const c4 = $derived(channel_throughput.classification_channel ?? {});
 	const state_machines = $derived(
 		(runtime_stats.state_machines ?? {}) as Record<
 			string,
-			{
-				current_state?: string;
-				state_share_pct?: Record<string, number>;
-			}
+			{ current_state?: string }
 		>
 	);
-	const blocked_reasons = $derived(
-		(runtime_stats.blocked_reason_counts ?? {}) as Record<string, number>
-	);
-	const updated_at = $derived(typeof runtime_stats.updated_at === 'number' ? runtime_stats.updated_at : null);
 
-	function fmtTime(summary: Summary | undefined): string {
-		if (!summary || !summary.n) return '-';
-		const avg = summary.avg_s ?? 0;
-		const med = summary.med_s ?? 0;
-		const p90 = summary.p90_s ?? 0;
-		return `${avg.toFixed(2)} / ${med.toFixed(2)} / ${p90.toFixed(2)}`;
-	}
+	// Derived metrics
+	const pieces_seen = $derived(counts.pieces_seen ?? 0);
+	const classified_n = $derived(counts.classified ?? 0);
+	const distributed_n = $derived(counts.distributed ?? 0);
+	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
+	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
 
-	function fmtCount(value: unknown): string {
-		return typeof value === 'number' ? `${value}` : '-';
-	}
+	// Distribution rate (target 10/min). Prefer the C4 classification channel's
+	// active_ppm for a "current rate" signal; fall back to overall.
+	const dist_rate_ppm = $derived.by(() => {
+		const outcomes = c4.outcomes ?? {};
+		const classified = outcomes.classified?.active_ppm;
+		if (typeof classified === 'number' && classified > 0) return classified;
+		const overall = throughput.overall_ppm;
+		return typeof overall === 'number' ? overall : 0;
+	});
 
-	function fmtDuration(value: unknown): string {
-		if (typeof value !== 'number') return '-';
-		if (value < 60) return `${value.toFixed(1)}s`;
-		if (value < 3600) return `${(value / 60).toFixed(1)}m`;
-		return `${(value / 3600).toFixed(1)}h`;
-	}
+	// Classification success rate (classified vs. total finished classifications).
+	const classification_success_pct = $derived.by(() => {
+		const finished = classified_n + unknown_n + multi_drop_n;
+		if (finished === 0) return null;
+		return (classified_n / finished) * 100;
+	});
 
-	function fmtPpm(value: unknown): string {
-		return typeof value === 'number' ? value.toFixed(2) : '-';
-	}
+	// Multi-drop rate: multi_drop_fail / pieces_seen.
+	const multi_drop_pct = $derived.by(() => {
+		if (pieces_seen === 0) return null;
+		return (multi_drop_n / pieces_seen) * 100;
+	});
 
-	function fmtPpmSummary(summary: ThroughputSummary | undefined): string {
-		if (!summary || !summary.n) return '-';
-		const avg = summary.avg ?? 0;
-		const med = summary.med ?? 0;
-		const p90 = summary.p90 ?? 0;
-		return `${avg.toFixed(2)} / ${med.toFixed(2)} / ${p90.toFixed(2)}`;
-	}
+	const c4_active_ppm = $derived(typeof c4.active_ppm === 'number' ? c4.active_ppm : 0);
 
-	function machineGroup(machine_name: string): string {
-		if (machine_name.startsWith('feeder.')) return 'feeder';
-		if (machine_name.startsWith('classification.')) return 'classification';
-		if (machine_name.startsWith('distribution.')) return 'distribution';
-		return 'other';
-	}
+	// Feed rate: pieces_seen / running_time_s.
+	const feed_rate_ppm = $derived.by(() => {
+		const running_s = throughput.running_time_s;
+		if (typeof running_s !== 'number' || running_s <= 0) return 0;
+		return (pieces_seen * 60) / running_s;
+	});
 
-	function stateColor(machine_name: string, state_name: string): string {
-		const group_offsets: Record<string, number> = {
-			feeder: 0,
-			classification: 120,
-			distribution: 240,
-			other: 60
-		};
-		const base_offset = group_offsets[machineGroup(machine_name)] ?? group_offsets.other;
-		let hash = 0;
-		const key = `${machine_name}::${state_name}`;
-		for (let i = 0; i < key.length; i += 1) {
-			hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+	// Active pieces in C4 (pieces past feeding, pre-distributed).
+	const active_in_c4 = $derived.by(() => {
+		const recent = ctx.machine?.recentObjects ?? [];
+		return recent.filter(
+			(o) =>
+				o.first_carousel_seen_ts != null &&
+				o.stage !== 'distributed' &&
+				!o.distributed_at
+		).length;
+	});
+
+	// ── Local rolling 60 s sparkline ────────────────────────────────────────
+	// We track classified_n over time locally so we can show the last 60 s of
+	// classification throughput in 10 s buckets (6 bars).
+	const BUCKET_S = 10;
+	const N_BUCKETS = 6;
+	let samples = $state<{ t: number; classified: number }[]>([]);
+	let now_tick = $state(0);
+	$effect(() => {
+		const id = setInterval(() => {
+			now_tick += 1;
+			const now = Date.now() / 1000;
+			samples = [
+				...samples.filter((s) => now - s.t <= BUCKET_S * N_BUCKETS + BUCKET_S),
+				{ t: now, classified: classified_n }
+			];
+		}, 1000);
+		return () => clearInterval(id);
+	});
+
+	const buckets = $derived.by(() => {
+		void now_tick;
+		const now = Date.now() / 1000;
+		const out: number[] = new Array(N_BUCKETS).fill(0);
+		for (let i = 0; i < N_BUCKETS; i += 1) {
+			const lo = now - BUCKET_S * (N_BUCKETS - i);
+			const hi = now - BUCKET_S * (N_BUCKETS - i - 1);
+			const earliest = samples.find((s) => s.t >= lo);
+			const latest = [...samples].reverse().find((s) => s.t <= hi);
+			if (earliest && latest && latest.classified >= earliest.classified) {
+				out[i] = latest.classified - earliest.classified;
+			}
 		}
-		const slot = hash % 16;
-		const hue = (base_offset + slot * 23) % 360;
-		const sat = 58 + (slot % 3) * 4;
-		const light = slot % 2 === 0 ? 56 : 62;
-		return `hsl(${hue} ${sat}% ${light}%)`;
+		return out;
+	});
+
+	const peak_bucket = $derived(Math.max(1, ...buckets));
+
+	function fmtInt(n: number): string {
+		return Number.isFinite(n) ? Math.round(n).toString() : '–';
+	}
+
+	function fmtPct(n: number | null, digits = 0): string {
+		if (n == null || !Number.isFinite(n)) return '–';
+		return `${n.toFixed(digits)}%`;
+	}
+
+	function fmtPpm(n: number | null | undefined): string {
+		if (typeof n !== 'number' || !Number.isFinite(n)) return '–';
+		return n.toFixed(1);
 	}
 </script>
 
-<div
-	class="setup-card-shell flex h-full flex-col border"
->
-	<div
-		class="setup-card-header flex items-center justify-between px-3 py-2 text-sm font-medium text-text"
-	>
-		<span>Runtime Stats</span>
-		<div class="flex items-center gap-2">
-			<button
-				onclick={copyStats}
-				class="text-text-muted transition-colors"
-				title="Copy as JSON"
-			>
-				{#if just_copied}
-					<Check size={12} />
-				{:else}
-					<Copy size={12} />
-				{/if}
-			</button>
-			<a
-				href="/dashboard/runtime"
-				class="flex items-center gap-1 text-xs font-normal text-text-muted transition-colors"
-				title="Dashboard"
-			>
-				<LayoutDashboard size={12} />
-				<span>Dashboard</span>
-			</a>
-		</div>
-	</div>
-	<div class="flex-1 overflow-y-auto p-2 text-xs font-mono">
+<div class="flex h-full flex-col">
+	<div class="flex-1 overflow-y-auto p-2">
 		{#if !ctx.machine || !ctx.machine.runtimeStats}
-			<div class="text-text-muted">No runtime stats yet</div>
+			<div class="text-sm text-text-muted">No runtime stats yet</div>
 		{:else}
-			{#if updated_at}
-				<div class="mb-2 text-xs text-text-muted">
-					Updated {new Date(updated_at * 1000).toLocaleTimeString()}
+			<!-- Primary tile: distribution rate (neutral, no target indicator) -->
+			<div class="grid grid-cols-2 gap-2">
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						Distributed / min
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-3xl font-semibold tabular-nums text-text">
+							{fmtPpm(dist_rate_ppm)}
+						</span>
+						<span class="text-xs text-text-muted">ppm</span>
+					</div>
 				</div>
-			{/if}
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						Classify success
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-3xl font-semibold tabular-nums text-text">
+							{fmtPct(classification_success_pct)}
+						</span>
+						<span class="text-xs text-text-muted tabular-nums">
+							{classified_n}/{classified_n + unknown_n + multi_drop_n}
+						</span>
+					</div>
+				</div>
 
-			<!-- Counts -->
-			<div class="mb-3">
-				<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Counts</div>
-				<table class="w-full">
-					<tbody>
-						<tr class="text-text-muted">
-							<td class="pr-3">Seen</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.pieces_seen)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-3">Classified</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.classified)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-3">Unknown</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.unknown)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-3">Not found</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.not_found)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-3">Multi drop fail</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.multi_drop_fail)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-3">Distributed</td>
-							<td class="text-right tabular-nums">{fmtCount(counts.distributed)}</td>
-						</tr>
-					</tbody>
-				</table>
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						Multi-drop rate
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-2xl font-semibold tabular-nums text-text">
+							{fmtPct(multi_drop_pct, 1)}
+						</span>
+						<span class="text-xs text-text-muted tabular-nums">
+							{multi_drop_n}/{pieces_seen}
+						</span>
+					</div>
+				</div>
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						Feed rate
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-2xl font-semibold tabular-nums text-text">
+							{fmtPpm(feed_rate_ppm)}
+						</span>
+						<span class="text-xs text-text-muted">ppm seen</span>
+					</div>
+				</div>
+
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						C4 active ppm
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-2xl font-semibold tabular-nums text-text">
+							{fmtPpm(c4_active_ppm)}
+						</span>
+					</div>
+				</div>
+				<div class="border border-border bg-bg p-2">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						In C4
+					</div>
+					<div class="flex items-baseline gap-1">
+						<span class="text-2xl font-semibold tabular-nums text-text">
+							{fmtInt(active_in_c4)}
+						</span>
+						<span class="text-xs text-text-muted">pieces</span>
+					</div>
+				</div>
 			</div>
 
-			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
-					<span>Throughput</span>
-					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">ppm</span>
+			<!-- 60 s sparkline of classifications in 10 s buckets -->
+			<div class="mt-2 border border-border bg-bg p-2">
+				<div class="flex items-baseline justify-between">
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						Last 60 s classifications
+					</div>
+					<div class="text-xs text-text-muted tabular-nums">
+						peak {peak_bucket}
+					</div>
 				</div>
-				<table class="w-full">
-					<tbody>
-						<tr class="text-text-muted">
-							<td class="pr-2">overall (running)</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpm(throughput.overall_ppm)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">inter-piece avg / med / p90</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtPpmSummary(inter_piece_ppm)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">running time</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtDuration(throughput.running_time_s)}</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-
-			<!-- Timings -->
-			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
-					<span>Carousel</span>
-					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
-				</div>
-				<table class="w-full">
-					<tbody>
-						<tr class="text-text-muted">
-							<td class="pr-2">found→rotated</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.found_to_rotated_s)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">found→next rdy</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.found_to_next_ready_s)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">snap window</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.snap_window_s)}</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-
-			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
-					<span>Distribution</span>
-					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
-				</div>
-				<table class="w-full">
-					<tbody>
-						<tr class="text-text-muted">
-							<td class="pr-2">target→positioned</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.target_selected_to_positioned_s)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">motion→positioned</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.motion_started_to_positioned_s)}</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-
-			<!-- State Machines -->
-			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">States</div>
-				{#if Object.keys(state_machines).length === 0}
-					<div class="text-text-muted">-</div>
-				{:else}
-					{#each Object.entries(state_machines) as [machine_name, machine_data]}
-						<div class="mb-1.5">
-							<div class="flex items-baseline justify-between text-text">
-								<span>{machine_name}</span>
-								<span class="text-xs text-text-muted">{machine_data.current_state ?? '-'}</span>
-							</div>
-							{#if machine_data.state_share_pct}
-								<div class="mt-0.5 flex h-1.5 overflow-hidden rounded-sm">
-									{#each Object.entries(machine_data.state_share_pct) as [state_name, share]}
-										<div
-											class="h-full"
-											title={`${state_name}: ${share.toFixed(1)}%`}
-											style="width: {share}%; background: {stateColor(machine_name, state_name)};"
-										></div>
-									{/each}
-								</div>
-							{/if}
-						</div>
+				<div class="mt-1 flex h-10 items-end gap-0.5">
+					{#each buckets as v, i (i)}
+						<div
+							class="flex-1 bg-primary/80"
+							style="height: {peak_bucket > 0 ? (v / peak_bucket) * 100 : 0}%; min-height: 1px;"
+							title="{v} classified ({(N_BUCKETS - i) * BUCKET_S}s ago)"
+						></div>
 					{/each}
-				{/if}
+				</div>
 			</div>
 
-			<!-- C-Channels -->
-			<div class="mb-3 border-t border-border pt-3">
-				<div class="mb-1 flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-text">
-					<span>C-Channels</span>
-					<span class="text-xs font-normal normal-case tracking-normal text-text-muted">avg / med / p90 (s)</span>
+			<!-- Totals footer strip -->
+			<div class="mt-2 flex items-baseline justify-between border border-border bg-bg px-2 py-1.5 text-sm">
+				<span class="text-text-muted">Totals</span>
+				<div class="flex items-baseline gap-3 tabular-nums">
+					<span class="text-text-muted">seen <span class="text-text">{fmtInt(pieces_seen)}</span></span>
+					<span class="text-text-muted">cls <span class="text-text">{fmtInt(classified_n)}</span></span>
+					<span class="text-text-muted">dist <span class="text-text">{fmtInt(distributed_n)}</span></span>
 				</div>
-				<table class="w-full">
-					<tbody>
-						<tr class="text-text-muted">
-							<td class="pr-2">ch2 clr→ch1 pulse</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch2_clear_to_ch1_pulse_s)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">ch3 clr→ch2 pulse</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch3_clear_to_ch2_pulse_s)}</td>
-						</tr>
-						<tr class="text-text-muted">
-							<td class="pr-2">ch3 precise held</td>
-							<td class="text-right tabular-nums whitespace-nowrap">{fmtTime(timings.ch3_precise_held_s)}</td>
-						</tr>
-					</tbody>
-				</table>
 			</div>
-
-			<!-- Pulse Counts -->
-			{#if Object.keys(pulse_counts).length > 0}
-				<div class="mb-3 border-t border-border pt-3">
-					<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Pulses</div>
-					<table class="w-full">
-						<thead>
-							<tr class="text-xs text-text-muted">
-								<th class="text-left font-normal"></th>
-								<th class="text-right font-normal">sent</th>
-								<th class="text-right font-normal">busy</th>
-								<th class="text-right font-normal">fail</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each Object.entries(pulse_counts) as [label, c]}
-								<tr class="text-text-muted">
-									<td class="pr-2">{label}</td>
-									<td class="text-right tabular-nums">{c.sent ?? 0}</td>
-									<td class="text-right tabular-nums">{c.busy_skip ?? 0}</td>
-									<td class="text-right tabular-nums">{c.failed ?? 0}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
-
-			<!-- Blocked Reasons -->
-			{#if Object.keys(blocked_reasons).length > 0}
-				<div class="border-t border-border pt-3">
-					<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text">Blocked</div>
-					<table class="w-full">
-						<tbody>
-							{#each Object.entries(blocked_reasons) as [reason, count]}
-								<tr class="text-text-muted">
-									<td class="pr-3">{reason}</td>
-									<td class="text-right tabular-nums">{count}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
 		{/if}
 	</div>
 </div>

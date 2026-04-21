@@ -6,6 +6,21 @@ from typing import Any
 from subsystems.feeder.analysis import ChannelAction
 
 
+# ---------------------------------------------------------------------------
+# Exit-zone wiggle defaults — small forward/reverse jog to break static
+# friction when a piece is parked on the exit boundary and the downstream
+# gate is closed so the normal pulse would be rejected anyway. Defaults
+# chosen to be conservative: only fires after the piece has been stuck with
+# >=50% bbox coverage on the exit-sections for at least 600 ms, and at most
+# once every 800 ms.
+# ---------------------------------------------------------------------------
+EXIT_WIGGLE_OVERLAP_THRESHOLD: float = 0.5
+EXIT_WIGGLE_STALL_MS: int = 600
+EXIT_WIGGLE_REVERSE_DEG: float = 1.5
+EXIT_WIGGLE_FORWARD_DEG: float = 2.0
+EXIT_WIGGLE_COOLDOWN_MS: int = 800
+
+
 @dataclass
 class FeederTickContext:
     now_mono: float

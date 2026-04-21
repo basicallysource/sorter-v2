@@ -279,12 +279,25 @@ class Snapping(BaseState):
                 next_thumbnail = bottom_crop_b64
             elif brickognize_source_view == "top" and top_crop_b64 is not None:
                 next_thumbnail = top_crop_b64
+            best_item = (
+                brickognize_result.get("best_item")
+                if isinstance(brickognize_result, dict)
+                else None
+            )
+            part_name = (
+                best_item.get("name") if isinstance(best_item, dict) else None
+            )
+            part_category = (
+                best_item.get("category") if isinstance(best_item, dict) else None
+            )
             resolved = self.carousel.resolveClassification(
                 piece.uuid,
                 part_id,
                 color_id,
                 color_name,
                 confidence,
+                part_name=part_name,
+                part_category=part_category,
             )
             if not resolved:
                 self.logger.warning(

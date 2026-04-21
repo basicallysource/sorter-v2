@@ -158,13 +158,23 @@ class VisionManager:
         self._feeder_gemini_detectors: Dict[str, GeminiSamDetector] = {}
         self._carousel_gemini_detector: GeminiSamDetector | None = None
         self._hive_ml_processors: Dict[str, Any] = {}
-        from .tracking import build_feeder_tracker_system, TrackedPiece  # noqa: F401
+        from .tracking import build_feeder_tracker_system, TrackedPiece, DropZoneBurstCollector  # noqa: F401
         (
             self._piece_handoff_manager,
             self._feeder_trackers,
             self._piece_history,
-        ) = build_feeder_tracker_system(roles=self._feederTrackerRoles())
+        ) = build_feeder_tracker_system(
+            roles=self._feederTrackerRoles(),
+            exit_observer=getattr(gc.runtime_stats, "observeChannelExit", None),
+            ghost_reject_observer=getattr(gc.runtime_stats, "observeHandoffGhostReject", None),
+            embedding_rebind_observer=getattr(gc.runtime_stats, "observeHandoffEmbeddingRebind", None),
+            stale_pending_observer=getattr(gc.runtime_stats, "observeHandoffStalePendingDropped", None),
+            id_switch_suspect_observer=getattr(gc.runtime_stats, "observeTrackerIdSwitchSuspect", None),
+        )
+        self._drop_zone_burst_collector = DropZoneBurstCollector(self._piece_history)
         self._feeder_track_cache: Dict[str, Tuple[float, list]] = {}
+        self._classification_channel_zone_overlay: list[dict[str, Any]] = []
+        self._classification_channel_zone_overlay_meta: dict[str, Any] = {}
         # Gate: tracker updates only happen while the sorter is actually
         # running. Toggled from SorterController.resume/pause/stop so we
         # don't accumulate tracks while the operator is calibrating or idle.
@@ -289,6 +299,8 @@ class VisionManager:
             DynamicDetectionOverlay,
             HeatmapOverlay,
             ClassificationOverlay,
+            ClassificationChannelZoneOverlay,
+            IgnoredRegionOverlay,
             TrackOverlay,
         )
         from vision.overlays.telemetry import TelemetryOverlay
@@ -334,7 +346,18 @@ class VisionManager:
 
                     if role == "carousel" and self._usesClassificationChannelSetup():
                         feed.add_overlay(DynamicDetectionOverlay(_ensure_detection))
+                    feed.add_overlay(
+                        IgnoredRegionOverlay(
+                            lambda r=role: self.getFeederIgnoredDetectionOverlayData(r)
+                        )
+                    )
                     feed.add_overlay(TrackOverlay(_tracks_for))
+                    if role == "carousel" and self._usesClassificationChannelSetup():
+                        feed.add_overlay(
+                            ClassificationChannelZoneOverlay(
+                                self.getClassificationChannelZoneOverlayData
+                            )
+                        )
                 else:
                     detector = self._per_channel_detectors.get(role)
                     analysis = self._per_channel_analysis.get(role)
@@ -1739,6 +1762,68 @@ class VisionManager:
                 return False
         return True
 
+    def _isFeederDetectionBboxIgnoredForRole(
+        self,
+        role: str,
+        bbox: tuple[int, int, int, int],
+    ) -> bool:
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+        width = max(0, x2 - x1)
+        height = max(0, y2 - y1)
+        area = width * height
+        cx, cy = self._bboxCenterPoint(bbox)
+        capture = self.getCaptureThreadForRole(role)
+        frame = (
+            capture.latest_frame.raw
+            if capture is not None and capture.latest_frame is not None
+            else None
+        )
+        if frame is None:
+            return False
+        frame_h, frame_w = frame.shape[:2]
+        if frame_w <= 0 or frame_h <= 0:
+            return False
+        cx_norm = float(cx) / float(frame_w)
+        cy_norm = float(cy) / float(frame_h)
+        for spec in self._ignoredFeederDetectionZoneSpecs(role):
+            if not (
+                float(spec["x1"]) <= cx_norm <= float(spec["x2"])
+                and float(spec["y1"]) <= cy_norm <= float(spec["y2"])
+            ):
+                continue
+            min_area = spec.get("min_area")
+            max_area = spec.get("max_area")
+            if min_area is not None and area < int(min_area):
+                continue
+            if max_area is not None and area > int(max_area):
+                continue
+            return True
+        return False
+
+    def _ignoredFeederDetectionZoneSpecs(self, role: str) -> list[dict[str, object]]:
+        return []
+
+    def getFeederIgnoredDetectionOverlayData(self, role: str) -> list[dict[str, object]]:
+        capture = self.getCaptureThreadForRole(role)
+        frame = capture.latest_frame.raw if capture is not None and capture.latest_frame is not None else None
+        if frame is None:
+            return []
+        frame_h, frame_w = frame.shape[:2]
+        data: list[dict[str, object]] = []
+        for spec in self._ignoredFeederDetectionZoneSpecs(role):
+            data.append(
+                {
+                    "label": spec.get("label") or "ignored",
+                    "bbox": [
+                        int(round(float(spec["x1"]) * frame_w)),
+                        int(round(float(spec["y1"]) * frame_h)),
+                        int(round(float(spec["x2"]) * frame_w)),
+                        int(round(float(spec["y2"]) * frame_h)),
+                    ],
+                }
+            )
+        return data
+
     def _filterFeederDetectionResultToChannel(
         self,
         role: str,
@@ -1755,6 +1840,7 @@ class VisionManager:
             if (
                 self._isPointInsideChannelMask(channel, self._bboxCenterPoint(bbox))
                 and self._isFeederDetectionBboxPlausibleForRole(role, bbox)
+                and not self._isFeederDetectionBboxIgnoredForRole(role, bbox)
             )
         )
         if kept == detection.bboxes:
@@ -1785,11 +1871,23 @@ class VisionManager:
         channel = self._channelInfoForRole(role)
         if channel is None:
             return list(tracks)
-        return [
-            track
-            for track in tracks
-            if self._isPointInsideChannelMask(channel, getattr(track, "center", (0.0, 0.0)))
-        ]
+        kept: list = []
+        for track in tracks:
+            center = getattr(track, "center", (0.0, 0.0))
+            if not self._isPointInsideChannelMask(channel, center):
+                continue
+            bbox = getattr(track, "bbox", None)
+            if (
+                isinstance(bbox, (list, tuple))
+                and len(bbox) >= 4
+                and self._isFeederDetectionBboxIgnoredForRole(
+                    role,
+                    (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),
+                )
+            ):
+                continue
+            kept.append(track)
+        return kept
 
     def _geminiDetectorForRequest(self, request: DetectionRequest) -> GeminiSamDetector:
         model = self._openRouterModelForScope(request.scope)
@@ -2061,12 +2159,133 @@ class VisionManager:
             self._filterLiveFeederTracksToChannel(role, tracks),
         )
         self._piece_handoff_manager.prune(float(timestamp))
+        # Keep the rolling pre-buffer fed for drop-zone burst capture.
+        if role == "carousel" and frame_bgr is not None:
+            self._drop_zone_burst_collector.rolling_buffer.push(frame_bgr, float(timestamp))
 
     def getFeederTracks(self, role: str) -> list:
         cached = self._feeder_track_cache.get(role)
         if cached is None:
             return []
         return list(cached[1])
+
+    def getFeederTrackAngularExtents(
+        self,
+        role: str,
+        *,
+        force_detection: bool = False,
+    ) -> list:
+        tracker = self._feeder_trackers.get(role)
+        if tracker is None:
+            return []
+        if role in self._feederTrackerRoles():
+            algorithm = self.getFeederDetectionAlgorithm(role)
+            if self._isDynamicDetectionAlgorithm(algorithm):
+                self._getFeederDynamicDetection(role, force=force_detection)
+        if not hasattr(tracker, "get_live_track_angular_extents"):
+            return []
+        from subsystems.classification_channel.zone_manager import TrackAngularExtent
+
+        extents = tracker.get_live_track_angular_extents()
+        return [
+            TrackAngularExtent(
+                global_id=int(item["global_id"]),
+                center_deg=float(item["center_deg"]),
+                half_width_deg=float(item["half_width_deg"]),
+                last_seen_ts=float(item["last_seen_ts"]),
+                hit_count=int(item["hit_count"]),
+                first_seen_ts=float(item.get("first_seen_ts", item["last_seen_ts"])),
+            )
+            for item in extents
+        ]
+
+    def getFeederTrackerLiveGlobalIds(self, role: str) -> set[int]:
+        """Return the set of ``global_id``s currently alive on ``role``'s tracker.
+
+        Used by the classification-channel Running state to verify that a
+        piece claimed to be on the carousel is no longer tracked upstream
+        (c_channel_3) before committing Brickognize. Returns an empty set if
+        the tracker or the ``live_global_ids`` accessor is unavailable.
+        """
+        tracker = self._feeder_trackers.get(role)
+        if tracker is None:
+            return set()
+        accessor = getattr(tracker, "live_global_ids", None)
+        if accessor is None:
+            return set()
+        try:
+            return set(accessor())
+        except Exception:
+            return set()
+
+    def getFeederTrackGeometry(self, role: str) -> dict[str, float] | None:
+        tracker = self._feeder_trackers.get(role)
+        geom = getattr(tracker, "_channel_geom", None)
+        if geom is None:
+            return None
+        return {
+            "center_x": float(geom.center_x),
+            "center_y": float(geom.center_y),
+            "r_inner": float(geom.r_inner),
+            "r_outer": float(geom.r_outer),
+            "sector_count": float(geom.sector_count),
+        }
+
+    def triggerDropZoneBurst(self, global_id: int) -> None:
+        """Trigger ±2s burst capture for a newly-arrived C4 piece.
+
+        Grabs the rolling pre-buffer snapshot plus ~30 live post-trigger
+        frames, runs the carousel detector on each, and attaches the results
+        to the piece's history entry. Fires in a background thread — returns
+        immediately.
+        """
+        algorithm = self.getCarouselDetectionAlgorithm()
+
+        def detect_fn(frame_bgr: "np.ndarray") -> "tuple[tuple[int,int,int,int] | None, float | None]":
+            try:
+                result = self._runHiveDetection(algorithm, frame_bgr, scope="carousel", role="carousel")
+                if result is None or not result.found or result.bbox is None:
+                    return None, None
+                bb = result.bbox
+                return (int(bb[0]), int(bb[1]), int(bb[2]), int(bb[3])), result.score
+            except Exception:
+                return None, None
+
+        def get_latest_frame() -> "tuple[np.ndarray, float] | None":
+            capture = self._carousel_capture
+            if capture is None:
+                return None
+            frame = capture.latest_frame
+            if frame is None:
+                return None
+            return frame.raw.copy(), float(frame.timestamp)
+
+        if algorithm.startswith("hive:"):
+            self._drop_zone_burst_collector.trigger(global_id, detect_fn, get_latest_frame)
+
+    def setClassificationChannelZoneOverlay(
+        self,
+        zones: list[dict[str, object]],
+        *,
+        intake_angle_deg: float | None = None,
+        drop_angle_deg: float | None = None,
+        drop_tolerance_deg: float | None = None,
+        point_of_no_return_deg: float | None = None,
+    ) -> None:
+        self._classification_channel_zone_overlay = list(zones)
+        self._classification_channel_zone_overlay_meta = {
+            "intake_angle_deg": intake_angle_deg,
+            "drop_angle_deg": drop_angle_deg,
+            "drop_tolerance_deg": drop_tolerance_deg,
+            "point_of_no_return_deg": point_of_no_return_deg,
+        }
+
+    def getClassificationChannelZoneOverlayData(self) -> dict[str, object]:
+        return {
+            "zones": list(self._classification_channel_zone_overlay),
+            "geometry": self.getFeederTrackGeometry("carousel"),
+            **self._classification_channel_zone_overlay_meta,
+        }
 
     def _liveTrackPayload(self, role: str, global_id: int) -> dict | None:
         tracker = self._feeder_trackers.get(role)
@@ -2145,6 +2364,34 @@ class VisionManager:
         tracks = self.getFeederTracks(role)
         result["tracks"] = [track.to_dict() for track in tracks]
         result["track_count"] = len(tracks)
+
+    def _channelDetectionsFromTracks(
+        self,
+        role: str,
+        tracks: list,
+    ) -> list[ChannelDetection]:
+        channel = self._channelInfoForRole(role)
+        if channel is None:
+            return []
+        detections: list[ChannelDetection] = []
+        for track in tracks:
+            if getattr(track, "coasting", False):
+                continue
+            if role in {"c_channel_2", "c_channel_3"} and int(
+                getattr(track, "hit_count", 0) or 0
+            ) < 2:
+                continue
+            bbox = getattr(track, "bbox", None)
+            if not isinstance(bbox, tuple) or len(bbox) < 4:
+                continue
+            detections.append(
+                ChannelDetection(
+                    bbox=cast(Tuple[int, int, int, int], tuple(int(value) for value in bbox[:4])),
+                    channel_id=channel.channel_id,
+                    channel=channel,
+                )
+            )
+        return detections
 
     def resetFeederTrackers(self) -> None:
         # Tracker.reset() flushes live confirmed tracks into the history buffer
@@ -2277,19 +2524,51 @@ class VisionManager:
             }
         return None
 
+    def findRecentFeederTrackHistoryDetailByRole(
+        self,
+        *,
+        source_role: str,
+        before_ts: float,
+        max_age_s: float = 6.0,
+        limit: int = 40,
+        required_global_id: int | None = None,
+    ) -> dict | None:
+        summaries = self._piece_history.list_summaries(limit=limit, min_sectors=1)
+        best_global_id: int | None = None
+        best_age_s = float("inf")
+        for entry in summaries:
+            roles = entry.get("roles") or []
+            if source_role not in roles:
+                continue
+            finished_at = entry.get("finished_at")
+            if not isinstance(finished_at, (int, float)):
+                continue
+            age_s = float(before_ts) - float(finished_at)
+            if age_s < -0.25 or age_s > max_age_s or age_s >= best_age_s:
+                continue
+            candidate_id = int(entry.get("global_id"))
+            if required_global_id is not None and candidate_id != int(required_global_id):
+                continue
+            best_global_id = candidate_id
+            best_age_s = age_s
+        if best_global_id is None:
+            return None
+        return self.getFeederTrackHistoryDetail(best_global_id)
+
     def _configureFeederHandoffZones(self, polys: Dict[str, np.ndarray]) -> None:
         """Derive exit/entry polygons from the loaded channel polygons.
 
         Phase-1 heuristic: take the channel polygon's bounding-rect and carve
-        the right third as ``exit_zone`` for c_channel_2, the left third as
-        ``entry_zone`` for c_channel_3. This only needs to be roughly correct
+        the visible outlet side for each channel into a simple rectangular
+        handoff zone. This only needs to be roughly correct
         — the tracker just asks "did the track die near the border?" and
         "did the new track appear near the entry?" within the 2 s handoff
         window. Tight geometry is not required.
 
         If the rig has the cameras oriented differently we may need TOML
-        overrides later — for now the rig is c_channel_2 pours into
-        c_channel_3 from right to left.
+        overrides later. On the current live mount c_channel_2 hands off from
+        the left / lower-left side into c_channel_3, while c_channel_3 still
+        exits toward the classification channel on the right.
         """
         # Role-to-polygon-key mapping mirrors ``_ROLE_TO_POLY_KEY`` in
         # ``_initOverlays``. We duplicate the tiny dict because this method is
@@ -2307,13 +2586,14 @@ class VisionManager:
                 continue
             x, y, w, h = cv2.boundingRect(np.asarray(poly, dtype=np.int32))
             if role == "c_channel_2":
-                # Exit = right HALF of the channel polygon. A tighter third
-                # missed too many pieces that coasted into the edge but
-                # expired before dying fully within the small sliver.
-                ex1 = x + w // 2
+                # Live camera-D shows the real c_channel_2 outlet on the left
+                # / lower-left side of the ring. The old right-half heuristic
+                # never saw exiting tracks there, which completely killed the
+                # c_channel_2 -> c_channel_3 handoff history.
+                ex2 = x + w // 2
                 self._piece_handoff_manager.set_zones(
                     role,
-                    exit_polygon=_rect_to_polygon(ex1, y, x + w, y + h),
+                    exit_polygon=_rect_to_polygon(x, y, ex2, y + h),
                 )
             elif role == "c_channel_3":
                 # Entry = left HALF mirrors c_channel_2's exit.
@@ -2329,10 +2609,17 @@ class VisionManager:
                         exit_polygon=_rect_to_polygon(ex1, y, x + w, y + h),
                     )
             elif role == "carousel":
-                en2 = x + w // 2
+                # The dedicated classification channel now intakes on the
+                # upper-right / right-hand side of the platter, but the exact
+                # birth position of a new carousel track still varies with
+                # camera mounting and how the piece lands after handoff.
+                # Using the full channel rect as the entry region makes the
+                # c_channel_3 -> carousel identity claim much more robust on
+                # the live machine while still staying bounded to the actual
+                # classification platter.
                 self._piece_handoff_manager.set_zones(
                     role,
-                    entry_polygon=_rect_to_polygon(x, y, en2, y + h),
+                    entry_polygon=_rect_to_polygon(x, y, x + w, y + h),
                 )
 
     def _runHiveDetection(
@@ -2680,10 +2967,16 @@ class VisionManager:
             for role in self._feederTrackerRoles():
                 algorithm = self.getFeederDetectionAlgorithm(role)
                 if self._isDynamicDetectionAlgorithm(algorithm):
+                    # For dynamic split-feeder channels, drive the feeder
+                    # state machine from tracker-confirmed live tracks rather
+                    # than raw detector blobs. This filters out static guide /
+                    # mount ghosts that the detector may repeatedly see even
+                    # though the track layer has already aged them out.
+                    self._getFeederDynamicDetection(role, force=False)
                     detections.extend(
-                        self._channelDetectionsFromDynamicResult(
+                        self._channelDetectionsFromTracks(
                             role,
-                            self._getFeederDynamicDetection(role, force=False),
+                            self.getFeederTracks(role),
                         )
                     )
                     continue

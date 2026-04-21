@@ -21,6 +21,7 @@ still works before the polygons are loaded.
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -40,9 +41,25 @@ from .history import (
 
 
 DEFAULT_SECTOR_COUNT = 18
+
+# When either the track or detection has no embedding, the cosine term is
+# undefined and the match cost degenerates to position-only. Require a much
+# tighter geometric fit than the normal 1.0 step thresholds in that case so
+# an OSNet hiccup on a busy tick cannot cross-bind nearby pieces.
+GEOM_STRICT_THRESHOLD = 0.25
+
+# If the Hungarian solver accepts a pair whose cosine similarity is below
+# this and whose geometric cost is above this, flag it as a likely
+# intra-tracker id switch. Both thresholds are permissive — the signal fires
+# only on clearly-suspect matches so operators notice real trouble.
+ID_SWITCH_SIM_SUSPECT = 0.3
+ID_SWITCH_GEOM_SUSPECT = 0.5
+
 DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S = 3.0
 DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX = 18.0
 DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX = 28.0
+DEFAULT_STAGNANT_FALSE_TRACK_MIN_ANGULAR_DISPLACEMENT_DEG = 4.0
+DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX = 10.0
 DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
@@ -201,8 +218,12 @@ class _LiveTrack:
     # after the background thread completes still see the classifier result.
     auto_recognition: "dict | None" = None
     birth_center_px: tuple[float, float] = (0.0, 0.0)
+    birth_angle_rad: float | None = None
+    birth_radius_px: float | None = None
     path_length_px: float = 0.0
     max_displacement_px: float = 0.0
+    max_angular_displacement_rad: float = 0.0
+    max_radial_displacement_px: float = 0.0
     motion_confirmed: bool = False
 
 
@@ -211,6 +232,10 @@ class _IgnoredStaticRegion:
     center_px: tuple[float, float]
     expires_at: float
     radius_px: float
+    center_angle_rad: float | None = None
+    center_radius_px: float | None = None
+    angle_tolerance_rad: float | None = None
+    radius_tolerance_px: float | None = None
 
 
 def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
@@ -259,12 +284,16 @@ class PolarFeederTracker(Tracker):
         # Toggle to hard-disable ReID (falls back to position-only matching).
         enable_appearance: bool = True,
         history: PieceHistoryBuffer | None = None,
+        enable_stagnant_false_track_filter: bool | None = None,
         stagnant_false_track_max_age_s: float = DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S,
         stagnant_false_track_min_displacement_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX,
         stagnant_false_track_min_path_length_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX,
+        stagnant_false_track_min_angular_displacement_deg: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_ANGULAR_DISPLACEMENT_DEG,
+        stagnant_false_track_min_radial_displacement_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX,
         stagnant_false_track_step_jitter_px: float = DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX,
         stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
         stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
+        id_switch_suspect_observer: "callable | None" = None,
     ) -> None:
         self.role = role
         self._handoff = handoff_manager
@@ -278,12 +307,23 @@ class PolarFeederTracker(Tracker):
         self._min_appearance_sim = float(min_appearance_similarity)
         self._appearance_cost_weight = float(appearance_cost_weight)
         self._embedder = get_embedder() if enable_appearance else None
+        self._enable_stagnant_false_track_filter = (
+            bool(enable_stagnant_false_track_filter)
+            if enable_stagnant_false_track_filter is not None
+            else role == "carousel"
+        )
         self._stagnant_false_track_max_age_s = max(0.0, float(stagnant_false_track_max_age_s))
         self._stagnant_false_track_min_displacement_px = max(
             0.0, float(stagnant_false_track_min_displacement_px)
         )
         self._stagnant_false_track_min_path_length_px = max(
             0.0, float(stagnant_false_track_min_path_length_px)
+        )
+        self._stagnant_false_track_min_angular_displacement_rad = math.radians(
+            max(0.0, float(stagnant_false_track_min_angular_displacement_deg))
+        )
+        self._stagnant_false_track_min_radial_displacement_px = max(
+            0.0, float(stagnant_false_track_min_radial_displacement_px)
         )
         self._stagnant_false_track_step_jitter_px = max(
             0.0, float(stagnant_false_track_step_jitter_px)
@@ -294,12 +334,21 @@ class PolarFeederTracker(Tracker):
         self._stagnant_false_track_suppression_ttl_s = max(
             0.0, float(stagnant_false_track_suppression_ttl_s)
         )
+        self._id_switch_suspect_observer = id_switch_suspect_observer
         self._tracks: dict[int, _LiveTrack] = {}
         self._next_internal_id = 0
         self._last_ts: float | None = None
         self._last_active: list[TrackedPiece] = []
         self._channel_geom: _ChannelGeometry | None = None
         self._ignored_static_regions: list[_IgnoredStaticRegion] = []
+        # update() and reset() can be invoked concurrently — overlays on
+        # HTTP-streaming threads, camera-service encode threads, and the
+        # coordinator's main-loop detection path all end up here. The
+        # matching code in update() captures a ``list(self._tracks.keys())``
+        # snapshot and then dereferences each id later, which races hard
+        # when another thread's concurrent update() prunes dead tracks in
+        # between. A single reentrant lock serializes all external mutators.
+        self._lock = threading.RLock()
 
     # ---- Channel geometry ---------------------------------------------
 
@@ -334,6 +383,16 @@ class PolarFeederTracker(Tracker):
     # ---- Public API ----------------------------------------------------
 
     def update(
+        self,
+        bboxes: list[tuple[int, int, int, int]],
+        scores: list[float],
+        timestamp: float,
+        frame_bgr: "np.ndarray | None" = None,
+    ) -> list[TrackedPiece]:
+        with self._lock:
+            return self._update_locked(bboxes, scores, timestamp, frame_bgr)
+
+    def _update_locked(
         self,
         bboxes: list[tuple[int, int, int, int]],
         scores: list[float],
@@ -386,6 +445,25 @@ class PolarFeederTracker(Tracker):
 
             det_centers = [_bbox_center(bb) for bb, _ in filtered]
 
+            # Record per-pair appearance evidence so we can split the final
+            # cost back into geometric/appearance parts when flagging id
+            # switches after the Hungarian assignment runs.
+            sim_grid: list[list["float | None"]] = [
+                [None] * cols for _ in range(rows)
+            ]
+
+            # If the embedder isn't running this tick (disabled by config,
+            # BoxMOT unavailable, or caller didn't pass a frame), fall back
+            # to the pre-fix contract — we have no reid evidence on any
+            # tick and tightening geometry would just break position-only
+            # tracking. The strict threshold is only useful for the
+            # transient-null case: embedder running + frame present, but a
+            # specific detection row came back empty (e.g. degenerate bbox
+            # or zero-norm OSNet output).
+            appearance_active = (
+                self._embedder is not None and frame_bgr is not None
+            )
+
             if geom is not None:
                 det_polar = [self._to_polar(c) for c in det_centers]
                 for ri, tid in enumerate(track_ids):
@@ -402,12 +480,27 @@ class PolarFeederTracker(Tracker):
                         if ang_cost >= 1.0 or rad_cost >= 1.0:
                             continue
                         sim = cosine_similarity(track.embedding, det_embeddings[ci])
-                        if sim < self._min_appearance_sim:
-                            continue
-                        app_cost = 1.0 - sim
-                        cost[ri, ci] = (
-                            ang_cost + 0.5 * rad_cost + self._appearance_cost_weight * app_cost
-                        )
+                        if sim is not None:
+                            if sim < self._min_appearance_sim:
+                                continue
+                            app_cost = self._appearance_cost_weight * (1.0 - sim)
+                        elif appearance_active:
+                            # No appearance evidence on at least one side
+                            # even though the embedder is running — require
+                            # a tight geometric fit instead of the normal
+                            # 1.0 step tolerance, otherwise a nearby piece
+                            # can silently steal this track's id when OSNet
+                            # hiccups.
+                            if (
+                                ang_cost > GEOM_STRICT_THRESHOLD
+                                or rad_cost > GEOM_STRICT_THRESHOLD
+                            ):
+                                continue
+                            app_cost = 0.0
+                        else:
+                            app_cost = 0.0
+                        sim_grid[ri][ci] = sim
+                        cost[ri, ci] = ang_cost + 0.5 * rad_cost + app_cost
             else:
                 # Cartesian fallback
                 for ri, tid in enumerate(track_ids):
@@ -417,14 +510,20 @@ class PolarFeederTracker(Tracker):
                         d = math.hypot(dx - tx, dy - ty)
                         if d >= self._pixel_fallback_distance:
                             continue
+                        geom_cost = d / self._pixel_fallback_distance
                         sim = cosine_similarity(track.embedding, det_embeddings[ci])
-                        if sim < self._min_appearance_sim:
-                            continue
-                        app_cost = 1.0 - sim
-                        cost[ri, ci] = (
-                            d / self._pixel_fallback_distance
-                            + self._appearance_cost_weight * app_cost
-                        )
+                        if sim is not None:
+                            if sim < self._min_appearance_sim:
+                                continue
+                            app_cost = self._appearance_cost_weight * (1.0 - sim)
+                        elif appearance_active:
+                            if geom_cost > GEOM_STRICT_THRESHOLD:
+                                continue
+                            app_cost = 0.0
+                        else:
+                            app_cost = 0.0
+                        sim_grid[ri][ci] = sim
+                        cost[ri, ci] = geom_cost + app_cost
 
             row_ind, col_ind = linear_sum_assignment(cost)
             for r, c in zip(row_ind, col_ind):
@@ -435,6 +534,27 @@ class PolarFeederTracker(Tracker):
                 matched_det_indices.add(int(c))
                 bbox, score = filtered[c]
                 track = self._tracks[tid]
+                # Flag matches that Hungarian accepted only because there
+                # was no better pairing available — low appearance support
+                # combined with loose geometry is the classic intra-tracker
+                # id-switch signature.
+                pair_sim = sim_grid[r][c]
+                if pair_sim is not None and pair_sim < ID_SWITCH_SIM_SUSPECT:
+                    geom_cost = float(
+                        cost[r, c] - self._appearance_cost_weight * (1.0 - pair_sim)
+                    )
+                    if geom_cost > ID_SWITCH_GEOM_SUSPECT:
+                        observer = self._id_switch_suspect_observer
+                        if observer is not None:
+                            try:
+                                observer(
+                                    role=self.role,
+                                    global_id=int(track.global_id),
+                                    similarity=float(pair_sim),
+                                    geom_cost=float(geom_cost),
+                                )
+                            except Exception:
+                                pass
                 cx, cy = _bbox_center(bbox)
                 prev_cx, prev_cy = track.center_px
                 vdt = max(1e-3, float(timestamp) - float(track.last_seen_ts))
@@ -463,9 +583,23 @@ class PolarFeederTracker(Tracker):
                     track.max_displacement_px,
                     math.hypot(cx - birth_cx, cy - birth_cy),
                 )
+                if geom is not None:
+                    if track.birth_angle_rad is None or track.birth_radius_px is None:
+                        track.birth_angle_rad = da
+                        track.birth_radius_px = dr
+                    track.max_angular_displacement_rad = max(
+                        track.max_angular_displacement_rad,
+                        abs(_circular_diff(da, track.birth_angle_rad)),
+                    )
+                    track.max_radial_displacement_px = max(
+                        track.max_radial_displacement_px,
+                        abs(dr - track.birth_radius_px),
+                    )
                 if (
                     track.max_displacement_px >= self._stagnant_false_track_min_displacement_px
                     or track.path_length_px >= self._stagnant_false_track_min_path_length_px
+                    or track.max_angular_displacement_rad >= self._stagnant_false_track_min_angular_displacement_rad
+                    or track.max_radial_displacement_px >= self._stagnant_false_track_min_radial_displacement_px
                 ):
                     track.motion_confirmed = True
                 # EMA-update the reference embedding so tracks adapt to
@@ -508,6 +642,8 @@ class PolarFeederTracker(Tracker):
                 track.center_px,
                 track.last_seen_ts,
                 death_ts=timestamp,
+                last_displacement_px=float(track.max_displacement_px),
+                embedding=track.embedding,
             )
             if (
                 self._history is not None
@@ -527,7 +663,7 @@ class PolarFeederTracker(Tracker):
             if self._is_inside_ignored_static_region((cx, cy), timestamp):
                 continue
             global_id, handoff_from = self._handoff.register_track(
-                self.role, (cx, cy), timestamp
+                self.role, (cx, cy), timestamp, embedding=det_embeddings[idx]
             )
             self._next_internal_id += 1
             internal = self._next_internal_id
@@ -535,9 +671,13 @@ class PolarFeederTracker(Tracker):
             if frame_bgr is not None and self._history is not None:
                 snap_b64, snap_w, snap_h = encode_snapshot(frame_bgr)
             kalman: _PolarKalman | None = None
+            birth_angle_rad: float | None = None
+            birth_radius_px: float | None = None
             if geom is not None:
                 ang, rad = self._to_polar((cx, cy))
                 kalman = _PolarKalman(ang, rad)
+                birth_angle_rad = ang
+                birth_radius_px = rad
             new_track = _LiveTrack(
                 internal_id=internal,
                 global_id=global_id,
@@ -556,6 +696,8 @@ class PolarFeederTracker(Tracker):
                 kalman=kalman,
                 embedding=det_embeddings[idx],
                 birth_center_px=(float(cx), float(cy)),
+                birth_angle_rad=birth_angle_rad,
+                birth_radius_px=birth_radius_px,
             )
             self._tracks[internal] = new_track
             self._maybe_capture_sector(new_track, frame_bgr, timestamp)
@@ -585,23 +727,57 @@ class PolarFeederTracker(Tracker):
     def active_tracks(self) -> list[TrackedPiece]:
         return list(self._last_active)
 
-    def reset(self) -> None:
-        if self._history is not None:
+    def live_global_ids(self) -> set[int]:
+        """Snapshot of ``global_id``s for currently-alive tracks.
+
+        Used by :class:`PieceHandoffManager` to skip pending handoffs whose
+        upstream piece is still physically on camera — that piece hasn't
+        actually left, so a downstream claim for its id would be a misbind.
+        """
+        with self._lock:
+            return {int(t.global_id) for t in self._tracks.values()}
+
+    def get_live_track_angular_extents(self) -> list[dict[str, float | int]]:
+        with self._lock:
+            geom = self._channel_geom
+            if geom is None:
+                return []
+            extents: list[dict[str, float | int]] = []
             for track in self._tracks.values():
-                if (
-                    not track.snapshot_jpeg_b64
-                    or track.hit_count < self._min_hits_for_history
-                ):
+                extent = self._track_angular_extent(track, geom)
+                if extent is None:
                     continue
-                self._history.record_segment(
-                    self._build_segment(track),
-                    global_id=track.global_id,
+                center_angle_rad, half_width_rad = extent
+                extents.append(
+                    {
+                        "global_id": int(track.global_id),
+                        "center_deg": math.degrees(center_angle_rad) % 360.0,
+                        "half_width_deg": math.degrees(half_width_rad),
+                        "first_seen_ts": float(track.first_seen_ts),
+                        "last_seen_ts": float(track.last_seen_ts),
+                        "hit_count": int(track.hit_count),
+                    }
                 )
-        self._tracks.clear()
-        self._last_ts = None
-        self._last_active = []
-        self._next_internal_id = 0
-        self._ignored_static_regions.clear()
+            return extents
+
+    def reset(self) -> None:
+        with self._lock:
+            if self._history is not None:
+                for track in self._tracks.values():
+                    if (
+                        not track.snapshot_jpeg_b64
+                        or track.hit_count < self._min_hits_for_history
+                    ):
+                        continue
+                    self._history.record_segment(
+                        self._build_segment(track),
+                        global_id=track.global_id,
+                    )
+            self._tracks.clear()
+            self._last_ts = None
+            self._last_active = []
+            self._next_internal_id = 0
+            self._ignored_static_regions.clear()
 
     def get_live_thumb(self, global_id: int) -> str:
         track = next(
@@ -643,6 +819,43 @@ class PolarFeederTracker(Tracker):
                 track.thumb_sector_count_at_build = sector_n
                 return b64
         return ""
+
+    def _track_angular_extent(
+        self,
+        track: _LiveTrack,
+        geom: _ChannelGeometry,
+    ) -> tuple[float, float] | None:
+        cx_t, cy_t = track.center_px
+        dx = cx_t - geom.center_x
+        dy = cy_t - geom.center_y
+        dist_center = math.hypot(dx, dy)
+        if dist_center < geom.r_inner * 0.4 or dist_center > geom.r_outer * 1.6:
+            return None
+
+        center_angle_rad = math.atan2(dy, dx)
+        x1, y1, x2, y2 = track.bbox
+        corners = ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+        corner_angles = [
+            math.atan2(cy - geom.center_y, cx - geom.center_x) for cx, cy in corners
+        ]
+
+        anchor = center_angle_rad
+        unwrapped: list[float] = []
+        for angle in corner_angles:
+            diff = angle - anchor
+            while diff > math.pi:
+                diff -= 2 * math.pi
+            while diff < -math.pi:
+                diff += 2 * math.pi
+            unwrapped.append(anchor + diff)
+        a_min = min(unwrapped)
+        a_max = max(unwrapped)
+        raw_half_width_rad = max(0.0, (a_max - a_min) / 2.0)
+        half_width_rad = raw_half_width_rad + max(
+            math.radians(2.0),
+            raw_half_width_rad * 0.15,
+        )
+        return center_angle_rad, half_width_rad
 
     # ---- Internal helpers ---------------------------------------------
 
@@ -908,10 +1121,29 @@ class PolarFeederTracker(Tracker):
     ) -> bool:
         self._prune_ignored_static_regions(timestamp)
         cx, cy = center_px
+        geom = self._channel_geom
+        polar_center: tuple[float, float] | None = None
+        if geom is not None:
+            polar_center = self._to_polar(center_px)
         for region in self._ignored_static_regions:
             rx, ry = region.center_px
-            if math.hypot(cx - rx, cy - ry) <= region.radius_px:
-                return True
+            if math.hypot(cx - rx, cy - ry) > region.radius_px:
+                continue
+            if (
+                polar_center is not None
+                and region.center_angle_rad is not None
+                and region.center_radius_px is not None
+                and region.angle_tolerance_rad is not None
+                and region.radius_tolerance_px is not None
+            ):
+                angle, radius = polar_center
+                if (
+                    abs(_circular_diff(angle, region.center_angle_rad))
+                    > region.angle_tolerance_rad
+                    or abs(radius - region.center_radius_px) > region.radius_tolerance_px
+                ):
+                    continue
+            return True
         return False
 
     def _should_ignore_stagnant_false_track(
@@ -919,7 +1151,7 @@ class PolarFeederTracker(Tracker):
         track: _LiveTrack,
         timestamp: float,
     ) -> bool:
-        if self.role != "carousel":
+        if not self._enable_stagnant_false_track_filter:
             return False
         if track.handoff_from is not None:
             return False
@@ -932,6 +1164,16 @@ class PolarFeederTracker(Tracker):
             return False
         if track.path_length_px >= self._stagnant_false_track_min_path_length_px:
             return False
+        if (
+            track.max_angular_displacement_rad
+            >= self._stagnant_false_track_min_angular_displacement_rad
+        ):
+            return False
+        if (
+            track.max_radial_displacement_px
+            >= self._stagnant_false_track_min_radial_displacement_px
+        ):
+            return False
         return True
 
     def _suppress_stagnant_false_track(
@@ -941,10 +1183,29 @@ class PolarFeederTracker(Tracker):
     ) -> None:
         if self._stagnant_false_track_suppression_ttl_s <= 0.0:
             return
+        geom = self._channel_geom
+        center_angle_rad: float | None = None
+        center_radius_px: float | None = None
+        angle_tolerance_rad: float | None = None
+        radius_tolerance_px: float | None = None
+        if geom is not None:
+            center_angle_rad, center_radius_px = self._to_polar(track.center_px)
+            angle_tolerance_rad = max(
+                self._stagnant_false_track_min_angular_displacement_rad,
+                math.radians(2.0),
+            )
+            radius_tolerance_px = max(
+                self._stagnant_false_track_min_radial_displacement_px,
+                8.0,
+            )
         self._ignored_static_regions.append(
             _IgnoredStaticRegion(
                 center_px=track.center_px,
                 expires_at=float(timestamp) + self._stagnant_false_track_suppression_ttl_s,
                 radius_px=self._stagnant_false_track_suppression_radius_px,
+                center_angle_rad=center_angle_rad,
+                center_radius_px=center_radius_px,
+                angle_tolerance_rad=angle_tolerance_rad,
+                radius_tolerance_px=radius_tolerance_px,
             )
         )

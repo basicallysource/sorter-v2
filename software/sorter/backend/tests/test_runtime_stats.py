@@ -83,6 +83,103 @@ class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
         self.assertNotIn("0:0:0", by_key)
         self.assertEqual(1, by_key["0:0:1"]["piece_count"])
 
+    def test_snapshot_includes_channel_throughput_and_active_ppm(self) -> None:
+        collector = RuntimeStatsCollector()
+        collector.setLifecycleState("running", now_wall=100.0, now_monotonic=10.0)
+
+        collector.observeFeederSignals(
+            {"stepper_busy_ch2": True},
+            now_wall=101.0,
+            now_monotonic=11.0,
+        )
+        collector.observeStateTransition(
+            "classification.occupancy",
+            None,
+            "classification_channel.rotate_pipeline",
+            now_wall=101.0,
+            now_monotonic=11.0,
+        )
+        collector.observeChannelExit("c_channel_2", exited_at=105.0, global_id=101)
+        collector.observeChannelExit(
+            "classification_channel",
+            exited_at=112.0,
+            piece_uuid="piece-classified",
+            global_id=202,
+        )
+        collector.observeKnownObject(
+            {
+                "uuid": "piece-classified",
+                "classification_status": "classified",
+                "classified_at": 111.0,
+                "distributed_at": 114.0,
+            }
+        )
+        collector.observeKnownObject(
+            {
+                "uuid": "piece-unknown",
+                "classification_status": "unknown",
+                "classified_at": 115.0,
+            }
+        )
+        collector.observeFeederSignals(
+            {"stepper_busy_ch2": False},
+            now_wall=111.0,
+            now_monotonic=21.0,
+        )
+        collector.observeStateTransition(
+            "classification.occupancy",
+            "classification_channel.rotate_pipeline",
+            "classification_channel.wait_piece_trigger",
+            now_wall=121.0,
+            now_monotonic=31.0,
+        )
+        collector.setLifecycleState("ready", now_wall=160.0, now_monotonic=70.0)
+
+        snapshot = collector.snapshot()
+        channels = snapshot["channel_throughput"]
+
+        self.assertEqual(1, channels["c_channel_2"]["exit_count"])
+        self.assertAlmostEqual(1.0, channels["c_channel_2"]["overall_ppm"])
+        self.assertAlmostEqual(6.0, channels["c_channel_2"]["active_ppm"])
+        self.assertAlmostEqual(10.0, channels["c_channel_2"]["active_time_s"])
+
+        c4 = channels["classification_channel"]
+        self.assertEqual(1, c4["exit_count"])
+        self.assertAlmostEqual(20.0, c4["active_time_s"])
+        self.assertEqual(1, c4["outcomes"]["classified_success"]["count"])
+        self.assertEqual(1, c4["outcomes"]["distributed_success"]["count"])
+        self.assertEqual(1, c4["outcomes"]["unknown"]["count"])
+        self.assertEqual(0, c4["outcomes"]["multi_drop_fail"]["count"])
+
+
+class RuntimeStatsRecognizerCountersTests(unittest.TestCase):
+    def test_snapshot_exposes_recognizer_counters_under_counts(self) -> None:
+        collector = RuntimeStatsCollector()
+        collector.setLifecycleState("running", now_wall=1.0, now_monotonic=1.0)
+
+        collector.observeRecognizerCounter("recognize_fired_total")
+        collector.observeRecognizerCounter("recognize_fired_total")
+        collector.observeRecognizerCounter("recognize_skipped_no_crops")
+        collector.observeRecognizerCounter("brickognize_empty_result")
+        collector.observeRecognizerCounter("brickognize_timeout_total")
+        collector.observeRecognizerCounter("unknown_counter_name")  # ignored
+
+        counts = collector.snapshot()["counts"]
+        self.assertEqual(2, counts["recognize_fired_total"])
+        self.assertEqual(1, counts["recognize_skipped_no_crops"])
+        self.assertEqual(1, counts["brickognize_empty_result"])
+        self.assertEqual(1, counts["brickognize_timeout_total"])
+
+    def test_classification_zone_lost_counter_bumps_and_surfaces_in_snapshot(self) -> None:
+        collector = RuntimeStatsCollector()
+        collector.setLifecycleState("running", now_wall=1.0, now_monotonic=1.0)
+
+        for _ in range(3):
+            collector.observeClassificationZoneLost()
+
+        feeder = collector.snapshot()["feeder"]
+        self.assertEqual(3, feeder["classification_zone_lost_total"])
+
 
 if __name__ == "__main__":
     unittest.main()

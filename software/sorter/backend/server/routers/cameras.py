@@ -3830,6 +3830,40 @@ def save_camera_picture_settings(
 
 
 # ---------------------------------------------------------------------------
+# Color profile (CCM)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/cameras/color-profile/{role}")
+def get_camera_color_profile(role: str) -> Dict[str, Any]:
+    """Return persisted color correction profile (CCM) for a camera role."""
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    _, config = _read_machine_params_config()
+    profile = _camera_color_profile_for_role(config, role)
+    return {
+        "ok": True,
+        "role": role,
+        "profile": profile,
+    }
+
+
+@router.delete("/api/cameras/color-profile/{role}")
+def delete_camera_color_profile(role: str) -> Dict[str, Any]:
+    """Remove persisted color correction profile for a camera role and disable live correction."""
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    saved = _save_camera_color_profile(role, {"enabled": False})
+    return {
+        "ok": True,
+        "role": role,
+        "profile": saved.get("profile"),
+        "applied_live": saved.get("applied_live", False),
+        "message": "Color correction removed.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Live histogram
 # ---------------------------------------------------------------------------
 

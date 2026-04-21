@@ -267,6 +267,8 @@ class Ejecting(BaseState):
                 color_name = best_color["name"] if best_color else ANY_COLOR_NAME
                 confidence = best_item.get("score") if best_item else None
                 preview_url = best_item.get("img_url") if best_item else None
+                part_name = best_item.get("name") if best_item else None
+                part_category = best_item.get("category") if best_item else None
             except Exception as exc:
                 logger.error(
                     f"ClassificationChannel: Brickognize call failed: {exc}"
@@ -277,6 +279,8 @@ class Ejecting(BaseState):
                 confidence = None
                 preview_url = None
                 best_view = None
+                part_name = None
+                part_category = None
 
             resolved = transport.resolveClassification(
                 piece_uuid,
@@ -284,6 +288,8 @@ class Ejecting(BaseState):
                 color_id,
                 color_name,
                 confidence,
+                part_name=part_name,
+                part_category=part_category,
             )
             if not resolved:
                 logger.warning(

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Union, Optional, Tuple, List
 from enum import Enum
 
@@ -73,6 +73,8 @@ class KnownObjectData(BaseModel):
     stage: PieceStage
     classification_status: ClassificationStatus
     part_id: Optional[str] = None
+    part_name: Optional[str] = None
+    part_category: Optional[str] = None
     color_id: str = "any_color"
     color_name: str = "Any Color"
     category_id: Optional[str] = None
@@ -82,10 +84,14 @@ class KnownObjectData(BaseModel):
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    # Captured timestamps of crops shipped to Brickognize for this piece.
+    recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
+    first_carousel_seen_ts: Optional[float] = None
     carousel_rotate_started_at: Optional[float] = None
     carousel_rotated_at: Optional[float] = None
     carousel_snapping_started_at: Optional[float] = None

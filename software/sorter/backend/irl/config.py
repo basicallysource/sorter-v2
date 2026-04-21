@@ -1,5 +1,6 @@
 import os
 import time
+from dataclasses import dataclass
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -244,16 +245,146 @@ class RotorPulseConfig:
     steps_per_pulse: int
     microsteps_per_second: int
     delay_between_pulse_ms: int
+    acceleration_microsteps_per_second_sq: int | None
 
     def __init__(
         self,
         steps: int,
         microsteps_per_second: int,
         delay_between_ms: int,
+        acceleration_microsteps_per_second_sq: int | None = None,
     ):
         self.steps_per_pulse = steps
         self.microsteps_per_second = microsteps_per_second
         self.delay_between_pulse_ms = delay_between_ms
+        self.acceleration_microsteps_per_second_sq = (
+            int(acceleration_microsteps_per_second_sq)
+            if acceleration_microsteps_per_second_sq is not None
+            else None
+        )
+
+
+@dataclass(frozen=True)
+class ClassificationChannelSizeClassConfig:
+    name: str
+    max_measured_half_width_deg: float
+    body_half_width_deg: float
+    soft_guard_deg: float
+    hard_guard_deg: float
+
+
+class ClassificationChannelConfig:
+    use_dynamic_zones: bool
+    max_zones: int
+    intake_angle_deg: float
+    intake_body_half_width_deg: float
+    intake_guard_deg: float
+    drop_angle_deg: float
+    drop_tolerance_deg: float
+    point_of_no_return_deg: float
+    recognition_window_deg: float
+    positioning_window_deg: float
+    exit_release_overlap_ratio: float
+    exit_release_shimmy_amplitude_deg: float
+    exit_release_shimmy_cycles: int
+    exit_release_shimmy_microsteps_per_second: int | None
+    exit_release_shimmy_acceleration_microsteps_per_second_sq: int | None
+    stale_zone_timeout_s: float
+    hood_dwell_ms: int
+    min_carousel_crops_for_recognize: int
+    min_carousel_dwell_ms: int
+    min_carousel_traversal_deg: float
+    size_downgrade_confirmations: int
+    size_classes: tuple[ClassificationChannelSizeClassConfig, ...]
+    leader_wins_policy: bool
+    leader_wins_requires_classified: bool
+
+    def __init__(self) -> None:
+        self.use_dynamic_zones = True
+        # Raised from 2 -> 4 after pipeline stabilization (OSNet fix,
+        # liveness probe, leader-wins). Physical safety (arc-clear check,
+        # hard-collision guards, leader-wins) still prevents double-drops;
+        # this cap only governs how many pieces C4 accepts before throttling
+        # C3. Upstream gates (admission.py, running.py) pick this up
+        # automatically — no other call sites hardcode the old value.
+        self.max_zones = 4
+        self.intake_angle_deg = 305.0
+        self.intake_body_half_width_deg = 10.0
+        self.intake_guard_deg = 28.0
+        # Live calibration on the dedicated classification channel shows the
+        # real guide / point-of-no-return on the lower-right quadrant, not on
+        # the legacy left-side position from the old chamber model.
+        self.drop_angle_deg = 30.0
+        self.drop_tolerance_deg = 14.0
+        self.point_of_no_return_deg = 18.0
+        self.recognition_window_deg = 170.0
+        self.positioning_window_deg = 48.0
+        self.exit_release_overlap_ratio = 0.5
+        self.exit_release_shimmy_amplitude_deg = 1.5
+        self.exit_release_shimmy_cycles = 2
+        self.exit_release_shimmy_microsteps_per_second = 4200
+        self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
+        self.stale_zone_timeout_s = 3.0
+        self.hood_dwell_ms = 300
+        # Minimum number of carousel-source crops required before the
+        # recognizer may fire for a piece. Prevents recognition from
+        # committing using only c_channel_2/c_channel_3 history (which, if
+        # misbound, can belong to a different piece still upstream).
+        self.min_carousel_crops_for_recognize = 2
+        # Minimum elapsed time since the piece's first carousel-source
+        # observation before recognition may fire. Guards against a
+        # freshly-spawned carousel track that briefly stacks 2+ crops in
+        # quick succession but hasn't yet stabilized on the physical C4 tray.
+        self.min_carousel_dwell_ms = 300
+        # Minimum angular traversal on the carousel (degrees) since the
+        # piece was first observed there before recognition may fire.
+        # Time-based gates don't guarantee viewing-angle diversity when the
+        # carousel rotates fast; this ensures the piece has physically
+        # rotated enough to present multiple sides to the C4 camera, so the
+        # accumulated crops cover meaningfully different viewpoints.
+        self.min_carousel_traversal_deg = 30.0
+        self.size_downgrade_confirmations = 3
+        # Leader-wins drop policy: when the drop candidate has an interferer
+        # inside the clearance window, only flip the *leader* to
+        # ``multi_drop_fail`` if the interferer is strictly trailing (hasn't
+        # reached drop yet). Spares the trailer so it can take its own drop
+        # cycle next rotation instead of being discarded with the leader.
+        self.leader_wins_policy = True
+        # When True, the spare-the-trailer path only activates if the leader
+        # already has a part_id (i.e. status == classified). Keeps the old
+        # "both fail" behavior for pending/classifying leaders where the
+        # carousel pulse would otherwise burn through an unrecognized piece.
+        self.leader_wins_requires_classified = False
+        self.size_classes = (
+            ClassificationChannelSizeClassConfig(
+                name="S",
+                max_measured_half_width_deg=6.0,
+                body_half_width_deg=7.0,
+                soft_guard_deg=8.0,
+                hard_guard_deg=11.0,
+            ),
+            ClassificationChannelSizeClassConfig(
+                name="M",
+                max_measured_half_width_deg=11.0,
+                body_half_width_deg=11.0,
+                soft_guard_deg=10.0,
+                hard_guard_deg=14.0,
+            ),
+            ClassificationChannelSizeClassConfig(
+                name="L",
+                max_measured_half_width_deg=18.0,
+                body_half_width_deg=17.0,
+                soft_guard_deg=14.0,
+                hard_guard_deg=18.0,
+            ),
+            ClassificationChannelSizeClassConfig(
+                name="XL",
+                max_measured_half_width_deg=360.0,
+                body_half_width_deg=24.0,
+                soft_guard_deg=18.0,
+                hard_guard_deg=24.0,
+            ),
+        )
 
 
 class FeederConfig:
@@ -298,8 +429,9 @@ class FeederConfig:
         )
         self.classification_channel_eject = RotorPulseConfig(
             steps=1000,
-            microsteps_per_second=5000,
+            microsteps_per_second=3400,
             delay_between_ms=400,
+            acceleration_microsteps_per_second_sq=2500,
         )
         self.first_rotor_jam_timeout_s = 10.0
         self.first_rotor_jam_min_pulses = 6
@@ -328,6 +460,7 @@ class IRLConfig:
     aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
+    classification_channel_config: ClassificationChannelConfig
     feeding_mode: str
     machine_setup: MachineSetupDefinition
 
@@ -337,6 +470,7 @@ class IRLConfig:
         self.c_channel_3_camera = None
         self.carousel_camera = None
         self.feeder_config = FeederConfig()
+        self.classification_channel_config = ClassificationChannelConfig()
         self.feeding_mode = "auto_channels"
         self.machine_setup = get_machine_setup_definition(DEFAULT_MACHINE_SETUP)
 
@@ -920,7 +1054,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
+    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=1000, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

@@ -7,6 +7,7 @@ MAX_TIMING_SAMPLES = 5000
 MAX_STATE_TIMELINE_EVENTS = 5000
 MAX_FEEDER_SIGNAL_TIMELINE_EVENTS = 10000
 MAX_FEEDER_COMBO_TIMELINE_EVENTS = 5000
+MAX_CHANNEL_EXIT_EVENTS = 10000
 
 FEEDER_BLOCKER_SIGNAL_NAMES = [
     "wait_chute",
@@ -15,6 +16,14 @@ FEEDER_BLOCKER_SIGNAL_NAMES = [
     "wait_ch3_dropzone_clear",
     "wait_stepper_busy",
 ]
+
+CLASSIFICATION_ACTIVE_OCCUPANCY_STATES = {
+    "classification_channel.rotate_pipeline",
+    "classification_channel.hood_dwell",
+    "classification_channel.drop_commit",
+    "classification_channel.exit_release_shimmy",
+    "classification_channel.wait_transport_motion_complete",
+}
 
 
 def _appendSample(samples: list[float], value: float) -> None:
@@ -55,6 +64,12 @@ def _calcValueSummary(samples: list[float]) -> dict[str, float | int]:
     }
 
 
+def _calcPpm(count: int, duration_s: float) -> float | None:
+    if count <= 0 or duration_s <= 0:
+        return None
+    return (float(count) * 60.0) / float(duration_s)
+
+
 @dataclass
 class _PulseCounts:
     attempts: int = 0
@@ -92,14 +107,58 @@ class RuntimeStatsCollector:
         self._feeder_blocker_combo_entered_at_monotonic: float | None = None
         self._feeder_blocker_combo_totals_s: dict[str, float] = {}
         self._feeder_blocker_combo_timeline: list[dict[str, Any]] = []
+        self._channel_exit_events: list[dict[str, Any]] = []
+        self._recognizer_counts: dict[str, int] = {
+            "recognize_fired_total": 0,
+            "recognize_skipped_no_crops": 0,
+            "recognize_skipped_no_carousel_crops": 0,
+            "recognize_skipped_not_on_carousel": 0,
+            "recognize_skipped_carousel_quota": 0,
+            "recognize_skipped_carousel_dwell": 0,
+            "recognize_skipped_carousel_traversal": 0,
+            "recognize_c3_slots_used": 0,
+            "brickognize_empty_result": 0,
+            "brickognize_timeout_total": 0,
+        }
+        self._handoff_ghost_rejected_total: int = 0
+        self._handoff_embedding_rebind_total: int = 0
+        self._handoff_stale_pending_dropped_total: int = 0
+        self._multi_drop_leader_wins_total: int = 0
+        self._classification_zone_lost_total: int = 0
+        self._exit_wiggle_triggered_c2_total: int = 0
+        self._exit_wiggle_triggered_c3_total: int = 0
+        self._c2_idle_skipped_no_cluster_total: int = 0
+        self._tracker_id_switch_suspect_total: int = 0
         self._all_bins_cleared_after_s: float | None = None
         self._layer_bins_cleared_after_s: dict[int, float] = {}
         self._bin_cleared_after_s: dict[tuple[int, int, int], float] = {}
+        self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
         self._bus_provider = bus_provider
+
+    def setServoBusOffline(self, ts: float | None = None) -> None:
+        """Mark the Waveshare servo bus as offline.
+
+        Idempotent — only updates the timestamp on the first fault so the UI
+        can display how long the bus has been unreachable without the stamp
+        getting reset by repeat observations.
+        """
+        if self._servo_bus_offline_since_ts is None:
+            self._servo_bus_offline_since_ts = float(time.time() if ts is None else ts)
+            self._last_updated_at = time.time()
+
+    def clearServoBusOffline(self) -> None:
+        """Clear the servo-bus-offline timestamp once the bus recovers."""
+        if self._servo_bus_offline_since_ts is not None:
+            self._servo_bus_offline_since_ts = None
+            self._last_updated_at = time.time()
+
+    @property
+    def servo_bus_offline_since_ts(self) -> float | None:
+        return self._servo_bus_offline_since_ts
 
     def setLifecycleState(
         self,
@@ -170,6 +229,137 @@ class RuntimeStatsCollector:
                 record_piece_distribution(current)
             except Exception:
                 pass
+
+    def observeChannelExit(
+        self,
+        channel: str,
+        *,
+        exited_at: float | None = None,
+        piece_uuid: str | None = None,
+        global_id: int | None = None,
+        **meta: Any,
+    ) -> None:
+        if not self._is_running:
+            return
+        event: dict[str, Any] = {
+            "channel": str(channel),
+            "exited_at": float(time.time() if exited_at is None else exited_at),
+        }
+        if piece_uuid:
+            event["piece_uuid"] = str(piece_uuid)
+        if global_id is not None:
+            event["global_id"] = int(global_id)
+        for key, value in meta.items():
+            if value is not None:
+                event[key] = value
+        self._channel_exit_events.append(event)
+        if len(self._channel_exit_events) > MAX_CHANNEL_EXIT_EVENTS:
+            del self._channel_exit_events[0]
+        self._last_updated_at = event["exited_at"]
+
+    def observeHandoffGhostReject(self, **_meta: Any) -> None:
+        """Increment the cumulative cross-camera ghost-reject counter.
+
+        Called by the handoff manager whenever a downstream claim is rejected
+        because the dying upstream track was stationary and the new detection
+        landed on the same pixel region — i.e. almost certainly the same
+        static detector artefact leaking between cameras. Counted regardless
+        of lifecycle state so pre-run ghosts show up too.
+        """
+        self._handoff_ghost_rejected_total += 1
+        self._last_updated_at = time.time()
+
+    def observeHandoffEmbeddingRebind(self, **_meta: Any) -> None:
+        """Increment cross-camera embedding-rebind counter.
+
+        Called by the handoff manager when an OSNet cosine-similarity pick
+        beat the FIFO head for a pending-bucket claim — i.e. two pieces
+        in flight and the physical order swapped vs. FIFO order. Counted
+        regardless of lifecycle state to mirror the ghost-reject counter.
+        """
+        self._handoff_embedding_rebind_total += 1
+        self._last_updated_at = time.time()
+
+    def observeHandoffStalePendingDropped(self, **_meta: Any) -> None:
+        """Increment cross-camera stale-pending-dropped counter.
+
+        Called by the handoff manager when a pending ``global_id`` is
+        discarded because the upstream tracker still has a live track with
+        that id — i.e. the piece never physically left, but a coast-death
+        prematurely queued the handoff. Dropping the pending prevents a
+        downstream track (e.g. the carousel) from misbinding to the still-
+        alive upstream piece. Counted regardless of lifecycle state to
+        mirror the ghost-reject counter.
+        """
+        self._handoff_stale_pending_dropped_total += 1
+        self._last_updated_at = time.time()
+
+    def observeExitWiggleTriggered(self, channel: str, **_meta: Any) -> None:
+        """Increment per-channel exit-zone wiggle trigger counter.
+
+        Called by C2/C3 stations when a piece has been stuck with its bbox
+        mostly overlapping the channel's exit-sections and the downstream
+        gate is closed, so a short forward/reverse jog is applied to break
+        static friction. Counted regardless of lifecycle state.
+        """
+        if channel == "c2":
+            self._exit_wiggle_triggered_c2_total += 1
+        elif channel == "c3":
+            self._exit_wiggle_triggered_c3_total += 1
+        else:
+            return
+        self._last_updated_at = time.time()
+
+    def observeC2IdleSkippedNoCluster(self, **_meta: Any) -> None:
+        """Increment the C2 idle-strategy skipped-no-cluster counter.
+
+        Called by C2Station.run_idle_strategies when the gating conditions
+        for the forward/reverse spread jog are all satisfied *except* that
+        C2 doesn't actually host a piece-cluster — so the jog would waste
+        motion. Counted regardless of lifecycle state to mirror the other
+        feeder diagnostic counters.
+        """
+        self._c2_idle_skipped_no_cluster_total += 1
+        self._last_updated_at = time.time()
+
+    def observeTrackerIdSwitchSuspect(self, **_meta: Any) -> None:
+        """Increment the tracker id-switch-suspect counter.
+
+        Called by the polar tracker when the Hungarian solver accepts a pair
+        whose cosine similarity is very low *and* whose geometric cost is
+        high — i.e. the match was made only because there was no better
+        pairing available, which is the usual fingerprint of an intra-
+        tracker id switch ("piece suddenly becomes another piece"). Counted
+        regardless of lifecycle state so warm-up glitches show up too.
+        """
+        self._tracker_id_switch_suspect_total += 1
+        self._last_updated_at = time.time()
+
+    def observeMultiDropLeaderWins(self, **_meta: Any) -> None:
+        """Increment the leader-wins spare-the-trailer counter.
+
+        Called by the classification channel whenever a drop-window conflict
+        would have flipped both the leader and a trailing interferer to
+        ``multi_drop_fail`` under the old "both fail" rule, but the leader
+        was classified and the interferer strictly trailing — so we drop
+        the leader cleanly and keep the trailer pending for its own cycle.
+        Counted regardless of lifecycle state.
+        """
+        self._multi_drop_leader_wins_total += 1
+        self._last_updated_at = time.time()
+
+    def observeClassificationZoneLost(self, **_meta: Any) -> None:
+        """Increment the classification-channel stale-zone expiry counter.
+
+        Called by the classification-channel Running state whenever a piece is
+        dropped from the transport because its carousel track went stale for
+        longer than ``stale_zone_timeout_s`` — usually because the same
+        physical piece got re-acquired under a fresh ``global_id`` after a
+        brief occlusion. Counted regardless of lifecycle state so pre-run
+        glitches show up too.
+        """
+        self._classification_zone_lost_total += 1
+        self._last_updated_at = time.time()
 
     def clearBinContents(
         self,
@@ -422,6 +612,15 @@ class RuntimeStatsCollector:
         self._blocked_reason_counts[key] = self._blocked_reason_counts.get(key, 0) + 1
         self._last_updated_at = time.time()
 
+    def observeRecognizerCounter(self, name: str) -> None:
+        # Cumulative diagnostic counters for the classification-channel recognizer.
+        # Incremented regardless of lifecycle state so baselines capture pre-run
+        # warm-up and paused-state timeouts too; snapshots are absolute.
+        if name not in self._recognizer_counts:
+            return
+        self._recognizer_counts[name] = self._recognizer_counts.get(name, 0) + 1
+        self._last_updated_at = time.time()
+
     def observeStateTransition(
         self,
         machine: str,
@@ -636,6 +835,27 @@ class RuntimeStatsCollector:
             "stage_created": 0,
             "stage_distributing": 0,
             "stage_distributed": 0,
+            "recognize_fired_total": int(self._recognizer_counts.get("recognize_fired_total", 0)),
+            "recognize_skipped_no_crops": int(self._recognizer_counts.get("recognize_skipped_no_crops", 0)),
+            "recognize_skipped_no_carousel_crops": int(
+                self._recognizer_counts.get("recognize_skipped_no_carousel_crops", 0)
+            ),
+            "recognize_skipped_not_on_carousel": int(
+                self._recognizer_counts.get("recognize_skipped_not_on_carousel", 0)
+            ),
+            "recognize_skipped_carousel_quota": int(
+                self._recognizer_counts.get("recognize_skipped_carousel_quota", 0)
+            ),
+            "recognize_skipped_carousel_dwell": int(
+                self._recognizer_counts.get("recognize_skipped_carousel_dwell", 0)
+            ),
+            "recognize_skipped_carousel_traversal": int(
+                self._recognizer_counts.get("recognize_skipped_carousel_traversal", 0)
+            ),
+            "recognize_c3_slots_used": int(self._recognizer_counts.get("recognize_c3_slots_used", 0)),
+            "brickognize_empty_result": int(self._recognizer_counts.get("brickognize_empty_result", 0)),
+            "brickognize_timeout_total": int(self._recognizer_counts.get("brickognize_timeout_total", 0)),
+            "tracker_id_switch_suspect_total": int(self._tracker_id_switch_suspect_total),
         }
         timing_samples: dict[str, list[float]] = {
             "feed_ready_to_landed_s": [],
@@ -655,8 +875,8 @@ class RuntimeStatsCollector:
         }
 
         for piece in all_pieces:
-            status = piece.get("classification_status")
-            stage = piece.get("stage")
+            status = getattr(piece.get("classification_status"), "value", piece.get("classification_status"))
+            stage = getattr(piece.get("stage"), "value", piece.get("stage"))
             if status == "classified":
                 counts["classified"] += 1
             elif status == "unknown":
@@ -751,6 +971,7 @@ class RuntimeStatsCollector:
 
 
         state_machines: dict[str, Any] = {}
+        state_totals_snapshot: dict[str, dict[str, float]] = {}
         for machine, current in self._state_current.items():
             totals = dict(self._state_totals_s.get(machine, {}))
             current_state = str(current.get("state"))
@@ -764,6 +985,7 @@ class RuntimeStatsCollector:
             if total_s > 0:
                 for state_name, state_s in totals.items():
                     shares[state_name] = (state_s / total_s) * 100.0
+            state_totals_snapshot[machine] = dict(totals)
             state_machines[machine] = {
                 "current_state": current_state,
                 "entered_at": current.get("entered_at_wall"),
@@ -773,6 +995,93 @@ class RuntimeStatsCollector:
                     sorted(self._state_transition_counts.get(machine, {}).items())
                 ),
             }
+
+        channel_exit_counts = {
+            "c_channel_2": 0,
+            "c_channel_3": 0,
+            "classification_channel": 0,
+        }
+        channel_exit_timestamps: dict[str, list[float]] = {
+            channel: [] for channel in channel_exit_counts
+        }
+        for event in self._channel_exit_events:
+            channel = str(event.get("channel") or "")
+            if channel not in channel_exit_counts:
+                continue
+            channel_exit_counts[channel] += 1
+            exited_at = event.get("exited_at")
+            if isinstance(exited_at, (int, float)):
+                channel_exit_timestamps[channel].append(float(exited_at))
+
+        channel_active_time_s = {
+            "c_channel_2": float(feeder_signal_totals_s.get("stepper_busy_ch2", 0.0) or 0.0),
+            "c_channel_3": float(feeder_signal_totals_s.get("stepper_busy_ch3", 0.0) or 0.0),
+            "classification_channel": sum(
+                float(state_totals_snapshot.get("classification.occupancy", {}).get(state_name, 0.0) or 0.0)
+                for state_name in CLASSIFICATION_ACTIVE_OCCUPANCY_STATES
+            ),
+        }
+
+        classification_outcome_timestamps: dict[str, list[float]] = {
+            "classified_success": [],
+            "distributed_success": [],
+            "unknown": [],
+            "multi_drop_fail": [],
+            "not_found": [],
+        }
+        for piece in all_pieces:
+            status = getattr(piece.get("classification_status"), "value", piece.get("classification_status"))
+            classified_at = piece.get("classified_at")
+            distributed_at = piece.get("distributed_at")
+            if status == "classified" and isinstance(classified_at, (int, float)):
+                classification_outcome_timestamps["classified_success"].append(float(classified_at))
+            if (
+                status == "classified"
+                and isinstance(distributed_at, (int, float))
+            ):
+                classification_outcome_timestamps["distributed_success"].append(float(distributed_at))
+            if status == "unknown" and isinstance(classified_at, (int, float)):
+                classification_outcome_timestamps["unknown"].append(float(classified_at))
+            if status == "multi_drop_fail" and isinstance(classified_at, (int, float)):
+                classification_outcome_timestamps["multi_drop_fail"].append(float(classified_at))
+            if status == "not_found" and isinstance(classified_at, (int, float)):
+                classification_outcome_timestamps["not_found"].append(float(classified_at))
+
+        channel_throughput: dict[str, Any] = {}
+        for channel, exit_count in channel_exit_counts.items():
+            active_time_s = float(channel_active_time_s.get(channel, 0.0) or 0.0)
+            inter_exit_ppm_samples: list[float] = []
+            timestamps = sorted(channel_exit_timestamps.get(channel, []))
+            for idx in range(1, len(timestamps)):
+                dt_s = timestamps[idx] - timestamps[idx - 1]
+                if dt_s > 0:
+                    inter_exit_ppm_samples.append(60.0 / dt_s)
+            channel_entry: dict[str, Any] = {
+                "exit_count": exit_count,
+                "running_time_s": running_time_s,
+                "active_time_s": active_time_s,
+                "waiting_time_s": max(0.0, running_time_s - active_time_s),
+                "overall_ppm": _calcPpm(exit_count, running_time_s),
+                "active_ppm": _calcPpm(exit_count, active_time_s),
+                "inter_exit_ppm": _calcValueSummary(inter_exit_ppm_samples),
+            }
+            if channel == "classification_channel":
+                outcomes: dict[str, Any] = {}
+                for outcome_key, ts_list in classification_outcome_timestamps.items():
+                    count = len(ts_list)
+                    outcomes[outcome_key] = {
+                        "count": count,
+                        "overall_ppm": _calcPpm(count, running_time_s),
+                        "active_ppm": _calcPpm(count, active_time_s),
+                    }
+                channel_entry["outcomes"] = outcomes
+                channel_entry["active_state_time_s"] = {
+                    state_name: float(
+                        state_totals_snapshot.get("classification.occupancy", {}).get(state_name, 0.0) or 0.0
+                    )
+                    for state_name in sorted(CLASSIFICATION_ACTIVE_OCCUPANCY_STATES)
+                }
+            channel_throughput[channel] = channel_entry
 
         return {
             "updated_at": now,
@@ -786,9 +1095,18 @@ class RuntimeStatsCollector:
                 "overall_ppm": throughput_overall_ppm,
                 "inter_piece_ppm": _calcValueSummary(inter_piece_ppm_samples),
             },
+            "channel_throughput": channel_throughput,
             "feeder": {
                 "pulse_counts": pulse_counts,
                 "skip_counts": dict(sorted(self._skip_counts.items())),
+                "handoff_ghost_rejected_total": int(self._handoff_ghost_rejected_total),
+                "handoff_embedding_rebind_total": int(self._handoff_embedding_rebind_total),
+                "handoff_stale_pending_dropped_total": int(self._handoff_stale_pending_dropped_total),
+                "multi_drop_leader_wins_total": int(self._multi_drop_leader_wins_total),
+                "classification_zone_lost_total": int(self._classification_zone_lost_total),
+                "exit_wiggle_triggered_c2_total": int(self._exit_wiggle_triggered_c2_total),
+                "exit_wiggle_triggered_c3_total": int(self._exit_wiggle_triggered_c3_total),
+                "c2_idle_skipped_no_cluster_total": int(self._c2_idle_skipped_no_cluster_total),
                 "ch3_precise_held_count": self._ch3_precise_held_count,
                 "signals_current": dict(sorted(self._feeder_signal_current.items())),
                 "signal_time_s": dict(sorted(feeder_signal_totals_s.items())),
@@ -810,5 +1128,6 @@ class RuntimeStatsCollector:
             ),
             "blocked_reason_counts": dict(sorted(self._blocked_reason_counts.items())),
             "pieces_cached": len(self._piece_by_uuid),
+            "servo_bus_offline_since_ts": self._servo_bus_offline_since_ts,
             "last_update_age_s": max(0.0, now - self._last_updated_at),
         }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from vision.tracking import (
     PieceHandoffManager,
     PolarFeederTracker,
@@ -127,6 +129,30 @@ def test_stagnant_false_track_is_ignored_after_grace_period():
     assert suppressed == [], "ignored static region should suppress immediate re-spawn"
 
 
+def test_polar_ghost_suppression_releases_when_object_moves_along_arc():
+    tracker, _ = _make_single_tracker(
+        role="carousel",
+        stagnant_false_track_max_age_s=1.0,
+    )
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    last_tracks = []
+    for i in range(8):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
+    assert last_tracks == []
+
+    # Still essentially the same polar position -> remain suppressed.
+    suppressed = tracker.update([_bbox_around(278.0, 205.0, size=40)], [0.9], 1.8)
+    assert suppressed == []
+
+    # Move along the arc by ~10 degrees while staying within the broad
+    # cartesian suppression radius. That should revive the track because the
+    # object is no longer stationary in polar space.
+    revived = tracker.update([_bbox_around(279.0, 214.0, size=40)], [0.9], 2.0)
+    assert len(revived) == 1
+
+
 def test_real_track_survives_later_pause_once_motion_was_confirmed():
     tracker, _ = _make_single_tracker(stagnant_false_track_max_age_s=1.0)
 
@@ -155,6 +181,22 @@ def test_stagnant_filter_is_not_applied_to_c_channel_3():
         last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
 
     assert len(last_tracks) == 1, "stagnant suppression should stay scoped off c_channel_3"
+
+
+def test_split_feeder_system_filters_long_lived_c3_static_ghosts():
+    _manager, trackers, _history = build_feeder_tracker_system(
+        roles=("c_channel_2", "c_channel_3", "carousel"),
+        handoff_window_s=2.0,
+        frame_rate=5,
+    )
+    tracker = trackers["c_channel_3"]
+
+    last_tracks = []
+    for i in range(40):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
+
+    assert last_tracks == [], "split-feeder c_channel_3 ghost should age out"
 
 
 def test_stagnant_filter_skips_handoff_tracks_on_classification_channel():
@@ -209,7 +251,12 @@ def _feed_until_dead(tracker, role: str, start_ts: float, max_ticks: int = 60) -
     return ts
 
 
-def test_handoff_c2_to_c3_inherits_global_id():
+def test_c2_handoff_disabled_fresh_id_on_c3():
+    """C2 clumps too much — the c_channel_2 → c_channel_3 handoff edge was
+    removed (user decision). A piece that dies in C2's exit zone must NOT
+    queue a pending handoff, and a downstream C3 birth must get a fresh
+    ``global_id`` instead of inheriting from C2.
+    """
     manager, trackers = _make_two_camera_system()
     c2 = trackers["c_channel_2"]
     c3 = trackers["c_channel_3"]
@@ -221,70 +268,294 @@ def test_handoff_c2_to_c3_inherits_global_id():
 
     # Let the track die by feeding c2 empty frames.
     death_ts = _feed_until_dead(c2, "c_channel_2", start_ts=0.0)
-    # Piece should now be pending in the handoff manager.
-    pending = manager.pending_snapshot()
-    assert len(pending) == 1, pending
-    assert pending[0]["global_id"] == original_id
+    # No pending handoff should be queued — C2 is no longer an upstream.
+    assert manager.pending_snapshot() == []
 
     # Tick shortly after: the piece appears on c_channel_3's entry zone.
+    # It must get a fresh id, NOT inherit from c_channel_2.
     new_tracks = c3.update(
         [_bbox_around(100.0, 360.0, size=60)],
         [0.9],
         death_ts + 0.2,
     )
     assert len(new_tracks) == 1
-    assert new_tracks[0].global_id == original_id
-    assert new_tracks[0].handoff_from == "c_channel_2"
+    assert new_tracks[0].global_id != original_id
+    assert new_tracks[0].handoff_from is None
 
 
-def test_handoff_expires_after_window():
-    manager, trackers = _make_two_camera_system()
-    c2 = trackers["c_channel_2"]
-    c3 = trackers["c_channel_3"]
-
-    c2.update([_bbox_around(700.0, 360.0, size=60)], [0.9], 0.0)
-    death_ts = _feed_until_dead(c2, "c_channel_2", start_ts=0.0)
-    original_id = manager.pending_snapshot()[0]["global_id"]
-
-    # New detection on c_channel_3 AFTER the handoff window.
-    too_late_ts = death_ts + 2.0 + 0.5
-    fresh = c3.update([_bbox_around(100.0, 360.0, size=60)], [0.9], too_late_ts)
-    assert len(fresh) == 1
-    assert fresh[0].global_id != original_id
-    assert fresh[0].handoff_from is None
-
-
-def test_handoff_fifo_matches_multiple_pending():
-    manager, trackers = _make_two_camera_system()
-    c2 = trackers["c_channel_2"]
-    c3 = trackers["c_channel_3"]
-
-    # Two pieces on c_channel_2, then let both die.
-    c2.update(
-        [_bbox_around(700.0, 300.0, size=60), _bbox_around(800.0, 400.0, size=60)],
-        [0.9, 0.9],
-        0.0,
+def test_handoff_notifies_exit_observer_when_track_dies_in_exit_zone():
+    seen: list[dict] = []
+    manager = PieceHandoffManager(
+        handoff_chain={"c_channel_2": "c_channel_3"},
+        exit_observer=lambda **payload: seen.append(payload),
     )
-    _feed_until_dead(c2, "c_channel_2", start_ts=0.0)
-    pending = manager.pending_snapshot()
-    assert len(pending) == 2
-    first_pending_id = pending[0]["global_id"]
-    second_pending_id = pending[1]["global_id"]
+    manager.set_zones(
+        "c_channel_2",
+        exit_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
+    )
 
-    # First new arrival on c_channel_3.
-    first = c3.update([_bbox_around(100.0, 360.0, size=60)], [0.9], 2.6)
-    assert first[0].global_id == first_pending_id
+    manager.notify_track_death(
+        "c_channel_2",
+        42,
+        (700.0, 360.0),
+        1.0,
+        death_ts=1.4,
+    )
 
-    # Second new arrival on c_channel_3 — spaced far enough that ByteTrack
-    # won't merge the new bbox with the already-tracked first one. ByteTrack
-    # needs one extra tick to activate a newly-seen detection, so we feed
-    # it two frames before asserting.
-    second_bboxes = [
-        _bbox_around(100.0, 300.0, size=60),
-        _bbox_around(160.0, 500.0, size=60),
-    ]
-    c3.update(second_bboxes, [0.9, 0.9], 2.8)
-    second = c3.update(second_bboxes, [0.9, 0.9], 3.0)
-    second_ids = {t.global_id for t in second}
-    assert first_pending_id in second_ids
-    assert second_pending_id in second_ids
+    assert len(seen) == 1
+    assert seen[0]["channel"] == "c_channel_2"
+    assert seen[0]["global_id"] == 42
+    assert seen[0]["exited_at"] == 1.4
+
+
+# NOTE: the former c2→c3 window-expiry and FIFO tests were deleted — the
+# C2→C3 handoff edge is gone entirely (user decision: C2 clumping made the
+# cross-camera identity transfer unreliable). The equivalent behaviours are
+# still validated on the C3→carousel edge in test_c3_to_c4_handoff.py.
+
+
+# ---------------------------------------------------------------------------
+# Cross-camera ghost-track rejection
+# ---------------------------------------------------------------------------
+
+
+def test_handoff_rejects_stationary_ghost_claim_at_same_pixel():
+    """A stationary C2 detection that dies in the exit zone must not hand its
+    global_id to a C3 track born at the same pixel position — that is almost
+    certainly the same static detector artefact, not a real piece in motion.
+    """
+    rejects: list[dict] = []
+    manager = PieceHandoffManager(
+        handoff_chain={"c_channel_2": "c_channel_3"},
+        handoff_window_s=6.0,
+        ghost_reject_radius_px=25.0,
+        ghost_stationary_threshold_px=8.0,
+        ghost_reject_observer=lambda **payload: rejects.append(payload),
+    )
+    manager.set_zones(
+        "c_channel_2",
+        exit_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
+    )
+    # C3's entry zone covers the ghost pixel so the claim actually reaches
+    # the pending queue — the reject check is what must short-circuit it.
+    manager.set_zones(
+        "c_channel_3",
+        entry_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
+    )
+
+    ghost_center = (700.0, 360.0)
+    # Seed a fresh id for the ghost, then kill it with ~zero displacement.
+    ghost_id, _ = manager.register_track("c_channel_2", ghost_center, 0.0)
+    manager.notify_track_death(
+        "c_channel_2",
+        ghost_id,
+        ghost_center,
+        last_seen_ts=1.0,
+        death_ts=1.2,
+        last_displacement_px=2.0,  # well under the 8 px stationary threshold
+    )
+    assert len(manager.pending_snapshot()) == 1
+
+    # Shortly after: a C3 detection pops up at essentially the same pixel.
+    new_id, handoff_from = manager.register_track(
+        "c_channel_3",
+        (702.0, 361.0),  # ~2 px away, inside the 25 px reject radius
+        1.4,
+    )
+
+    assert handoff_from is None, "stationary ghost must not transfer global_id"
+    assert new_id != ghost_id
+    # Pending should be drained so it cannot block future real claims.
+    assert manager.pending_snapshot() == []
+    # Counter + observer both fired exactly once.
+    assert manager.ghost_rejected_total == 1
+    assert len(rejects) == 1
+    assert rejects[0]["ghost_global_id"] == ghost_id
+
+
+def test_handoff_accepts_moving_track_even_at_similar_pixel():
+    """The reject gate must only fire for stationary ghosts — a track that
+    actually moved must still hand off, even if the downstream rebirth lands
+    close to its last observed center.
+    """
+    manager = PieceHandoffManager(
+        handoff_chain={"c_channel_2": "c_channel_3"},
+        handoff_window_s=6.0,
+    )
+    manager.set_zones(
+        "c_channel_2",
+        exit_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
+    )
+    manager.set_zones(
+        "c_channel_3",
+        entry_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
+    )
+
+    real_id, _ = manager.register_track("c_channel_2", (620.0, 360.0), 0.0)
+    manager.notify_track_death(
+        "c_channel_2",
+        real_id,
+        (700.0, 360.0),
+        last_seen_ts=1.0,
+        death_ts=1.2,
+        last_displacement_px=80.0,  # clearly moving
+    )
+
+    new_id, handoff_from = manager.register_track(
+        "c_channel_3",
+        (702.0, 361.0),
+        1.4,
+    )
+
+    assert handoff_from == "c_channel_2"
+    assert new_id == real_id
+    assert manager.ghost_rejected_total == 0
+
+
+# ---------------------------------------------------------------------------
+# Appearance-gate safety (id-switch regression guard)
+# ---------------------------------------------------------------------------
+
+
+def _unit_vec(seed: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    v = rng.standard_normal(32).astype(np.float32)
+    return v / float(np.linalg.norm(v))
+
+
+def _seed_track_with_embedding(
+    tracker: PolarFeederTracker,
+    *,
+    start: tuple[float, float],
+    embedding: np.ndarray,
+) -> int:
+    """Place a track at ``start`` and manually stamp its embedding."""
+    tracks = tracker.update([_bbox_around(*start, size=40)], [0.9], 0.0)
+    assert tracks, "seed frame should produce a track"
+    gid = tracks[0].global_id
+    live = next(t for t in tracker._tracks.values() if t.global_id == gid)
+    live.embedding = embedding.copy()
+    return gid
+
+
+class _FixedEmbedder:
+    """Stub BoxMOT embedder that returns a caller-supplied matrix.
+
+    Used in tracker tests so we can precisely control what the tracker
+    sees on each tick without touching the real BoxMOT model.
+    """
+
+    def __init__(self, vec: np.ndarray | None) -> None:
+        self._vec = vec
+
+    def extract(self, _frame, bboxes):
+        if self._vec is None or not bboxes:
+            return None
+        return np.stack([self._vec for _ in bboxes]).astype(np.float32)
+
+
+def test_missing_detection_embedding_allows_tight_geometric_match():
+    """Track has an embedding, detection yields no embedding this tick, and
+    the two are geometrically very close — should still match."""
+    tracker, _ = _make_single_tracker()
+    # Embedder is running, but returns "no row" (as if bbox was degenerate).
+    tracker._embedder = _FixedEmbedder(None)  # type: ignore[attr-defined]
+    emb = _unit_vec(1)
+    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    # Detection 6 px away -> geom_cost = 0.03, well under 0.25.
+    tracks = tracker.update(
+        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
+    )
+    assert len(tracks) == 1
+    assert tracks[0].global_id == gid
+
+
+def test_missing_detection_embedding_rejects_loose_geometric_match():
+    """Track has an embedding, detection yields no embedding this tick, and
+    the two are far apart — must NOT inherit the id."""
+    tracker, _ = _make_single_tracker(pixel_fallback_distance_px=200.0)
+    tracker._embedder = _FixedEmbedder(None)  # type: ignore[attr-defined]
+    emb = _unit_vec(2)
+    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    # Detection 120 px away -> geom_cost = 0.6 > 0.25 strict threshold.
+    tracks = tracker.update(
+        [_bbox_around(320.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
+    )
+    assert len(tracks) == 2, "expect old track coasting + new track"
+    new_track = next(t for t in tracks if not t.coasting)
+    assert new_track.global_id != gid
+
+
+def test_low_cosine_similarity_rejects_even_with_close_geometry():
+    tracker, _ = _make_single_tracker()
+    emb_a = _unit_vec(10)
+    emb_b = -emb_a  # cosine similarity = -1, well below the 0.55 gate.
+    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb_a)
+    tracker._embedder = _FixedEmbedder(emb_b)  # type: ignore[attr-defined]
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    tracks = tracker.update(
+        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
+    )
+    assert len(tracks) == 2, "gate must reject; both tracks alive this tick"
+    new_track = next(t for t in tracks if not t.coasting)
+    assert new_track.global_id != gid
+
+
+def test_high_cosine_similarity_matches_without_bumping_suspect_counter():
+    events: list[dict] = []
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="c_channel_2",
+        handoff_manager=manager,
+        pixel_fallback_distance_px=200.0,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=5,
+        id_switch_suspect_observer=lambda **kw: events.append(kw),
+    )
+    emb = _unit_vec(20)
+    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
+    tracker._embedder = _FixedEmbedder(emb)  # type: ignore[attr-defined]
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    tracks = tracker.update(
+        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
+    )
+    assert len(tracks) == 1
+    assert tracks[0].global_id == gid
+    assert events == [], "high-similarity match must not flag id switch"
+
+
+def test_hungarian_suspect_pair_increments_counter():
+    events: list[dict] = []
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="c_channel_2",
+        handoff_manager=manager,
+        pixel_fallback_distance_px=200.0,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=5,
+        # Drop the hard appearance gate so Hungarian actually gets to
+        # accept the suspect pair we construct. Keep a non-1.0 value so
+        # float-precision wobble doesn't re-enable it accidentally.
+        min_appearance_similarity=-10.0,
+        id_switch_suspect_observer=lambda **kw: events.append(kw),
+    )
+    emb_a = _unit_vec(30)
+    emb_b = -emb_a  # sim ≈ -1, far below ID_SWITCH_SIM_SUSPECT (0.3)
+
+    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb_a)
+    tracker._embedder = _FixedEmbedder(emb_b)  # type: ignore[attr-defined]
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    # Geometry cost ~120/200 = 0.6 which exceeds the 0.5 suspect threshold.
+    tracks = tracker.update(
+        [_bbox_around(320.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame
+    )
+    # Match should happen (gate is disabled) and the suspect observer fires.
+    assert len(tracks) == 1
+    assert tracks[0].global_id == gid
+    assert len(events) == 1, f"expected one suspect event, got {events}"
+    assert events[0]["similarity"] < 0.3
+    assert events[0]["geom_cost"] > 0.5

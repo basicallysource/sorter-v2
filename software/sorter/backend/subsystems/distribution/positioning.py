@@ -19,6 +19,7 @@ from utils.event import knownObjectToEvent
 BINS_FULL_ALERT_PREFIX = "No bin available"
 MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
 CHUTE_JAM_ALERT_PREFIX = "Chute jam"
+SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 # Beyond how many ms after the estimated move time do we conclude the
 # chute / servo is stuck? 3× the expected move is generous but catches
 # a real jam reliably.
@@ -50,7 +51,9 @@ class Positioning(BaseState):
         self._piece = None
         self._occupancy_state: str | None = None
         self._blocked_layers: set[int] = set()
+        self._servo_offline_layers: set[int] = set()
         self._jam_pause_enqueued: bool = False
+        self._servo_bus_pause_enqueued: bool = False
         self._chute_move_estimated_ms: int = 0
 
     def _setOccupancyState(self, state_name: str) -> None:
@@ -71,6 +74,7 @@ class Positioning(BaseState):
             # Fresh evaluation per piece — an earlier transient servo
             # glitch must not permanently disable a layer.
             self._blocked_layers.clear()
+            self._servo_offline_layers.clear()
             self._setOccupancyState("positioning.select_target_bin")
             self._state_entered_at = now
             transport = self.shared.transport
@@ -89,6 +93,13 @@ class Positioning(BaseState):
             else:
                 category_id = MISC_CATEGORY
             address, _ = self._findOrAssignBinForCategory(category_id)
+            if address is None and self._servo_bus_pause_enqueued:
+                # Fatal: the servo bus is offline, so every layer is
+                # unusable. ``_findOrAssignBinForCategory`` already set
+                # the red banner and enqueued a pause — do NOT fall
+                # through to the passthrough path, which would silently
+                # send this piece to the discard bucket.
+                return DistributionState.IDLE
             if address is None:
                 # Pass-through: no bin available for this category. Open
                 # every usable layer door so the piece falls straight
@@ -119,19 +130,26 @@ class Positioning(BaseState):
                 self.logger.warning(
                     f"Positioning: layer {address.layer_index} is unavailable for distribution, retrying with remaining layers"
                 )
-                # If every layer is now blocked by servo failures, treat
-                # the whole distribution subsystem as jammed — pause and
-                # alert rather than silently falling through on every
-                # future piece.
+                # If every layer is now blocked AND the root cause is that
+                # every configured servo is offline, this is the fatal
+                # servo-bus case: the controller can no longer dispense
+                # anything. Pause + red banner. Fall back to the generic
+                # chute-jam alert only if blocks came from other causes
+                # (e.g. transient close-timeouts on a live bus).
                 usable_count = sum(
                     1
                     for li, layer in enumerate(self.layout.layers)
                     if getattr(layer, "enabled", True) and li not in self._blocked_layers
                 )
                 if usable_count == 0:
-                    self._raiseChuteJamAlert(
-                        "all layer servos are offline"
-                    )
+                    if self._allEnabledLayersServoOffline():
+                        self._raiseServoBusOfflineAlert(
+                            "no layer servo responded during door selection"
+                        )
+                    else:
+                        self._raiseChuteJamAlert(
+                            "all layer servos are offline"
+                        )
                 return DistributionState.IDLE
 
             piece.stage = PieceStage.distributing
@@ -241,15 +259,22 @@ class Positioning(BaseState):
             return False
         servo_available = bool(getattr(self.irl.servos[layer_index], "available", True))
         if not servo_available:
+            self._servo_offline_layers.add(layer_index)
             self._markLayerUnavailable(layer_index, "its servo backend is offline")
             return False
         if layer_index in self._blocked_layers:
             # Servo has recovered — clear the cached block so positioning
             # starts considering this layer again.
             self._blocked_layers.discard(layer_index)
+            self._servo_offline_layers.discard(layer_index)
             self.logger.info(
                 f"Positioning: layer {layer_index} servo is back online, re-enabling"
             )
+        # A healthy servo read means the Waveshare bus is talking again, so
+        # clear any stale servo-bus banner regardless of whether the layer
+        # was previously in the local block list. (The block list is
+        # per-step and may have just been reset at the top of ``step``.)
+        self._clearServoBusOfflineAlertIfOwned()
         return True
 
     def _markLayerUnavailable(self, layer_index: int, reason: str) -> None:
@@ -273,40 +298,78 @@ class Positioning(BaseState):
             return True
 
     def _raiseBinsFullAlert(self, category_id: str) -> None:
-        """Route the passthrough notice into the header banner.
+        return
 
-        The severity is split by cause:
-        * A **real** rule-matched category with no bin is a genuine error
-          — it means sorting output is degrading. Red banner, stays
-          visible per-category until the operator empties a bin.
-        * **MISC** passthrough is legitimate (catch-all for pieces the
-          profile didn't classify). Yellow banner, always the same
-          message so the existing per-message dismiss means once the
-          operator acknowledges it the banner stays silent for the rest
-          of the session.
+    def _allEnabledLayersServoOffline(self) -> bool:
+        """True iff every enabled layer's servo is currently flagged as
+        offline. Used to separate the fatal servo-bus case from a soft
+        "one layer jammed" case.
         """
-        is_misc = category_id == MISC_CATEGORY
-        if is_misc:
-            message = (
-                f"{MISC_PASSTHROUGH_ALERT_PREFIX}: a piece without a matching rule "
-                "fell through to the bottom tray. This is expected for pieces "
-                "that don't match any sorting rule — dismiss to hide for this session."
+        if self.gc.disable_servos:
+            return False
+        enabled_indices = [
+            li
+            for li, layer in enumerate(self.layout.layers)
+            if getattr(layer, "enabled", True)
+        ]
+        if not enabled_indices:
+            return False
+        for li in enabled_indices:
+            if li >= len(self.irl.servos):
+                # Treat missing entries as offline so a half-configured
+                # machine trips the alert too.
+                continue
+            if bool(getattr(self.irl.servos[li], "available", True)):
+                return False
+        return True
+
+    def _raiseServoBusOfflineAlert(self, detail: str) -> None:
+        """Fatal: the Waveshare bus is unreachable so no piece can be
+        routed. Sets the red banner once, records the fault timestamp in
+        runtime_stats, and pauses the controller. Cleared only when a
+        servo comes back online via ``_isLayerUsable``.
+        """
+        if self._servo_bus_pause_enqueued:
+            return
+        self._servo_bus_pause_enqueued = True
+        message = (
+            f"{SERVO_BUS_ALERT_PREFIX} — {detail}. "
+            "Check Waveshare USB + power, then press Resume."
+        )
+        self.logger.error(message)
+        try:
+            self.gc.profiler.hit("distribution.servo_bus_offline")
+            self.gc.runtime_stats.observeBlockedReason(
+                "distribution", "servo_bus_offline"
             )
-            prefix = MISC_PASSTHROUGH_ALERT_PREFIX
-        else:
-            message = (
-                f"{BINS_FULL_ALERT_PREFIX}: the last piece (category {category_id}) "
-                "had no matching bin and fell through to the bottom tray. "
-                "Empty a bin to stop the passthrough."
-            )
-            prefix = BINS_FULL_ALERT_PREFIX
+            self.gc.runtime_stats.setServoBusOffline()
+        except Exception:
+            pass
         try:
             with shared_state.hardware_lifecycle_lock:
-                existing = shared_state.hardware_error
-                if not (isinstance(existing, str) and existing.startswith(prefix)):
-                    shared_state.setHardwareStatus(error=message)
+                shared_state.setHardwareStatus(error=message)
         except Exception:
-            # Alerting is best-effort; never block distribution on it.
+            pass
+        try:
+            if shared_state.command_queue is not None:
+                shared_state.command_queue.put(
+                    PauseCommandEvent(tag="pause", data=PauseCommandData())
+                )
+        except Exception:
+            pass
+
+    def _clearServoBusOfflineAlertIfOwned(self) -> None:
+        try:
+            with shared_state.hardware_lifecycle_lock:
+                err = shared_state.hardware_error
+                if isinstance(err, str) and err.startswith(SERVO_BUS_ALERT_PREFIX):
+                    shared_state.setHardwareStatus(clear_error=True)
+        except Exception:
+            pass
+        self._servo_bus_pause_enqueued = False
+        try:
+            self.gc.runtime_stats.clearServoBusOffline()
+        except Exception:
             pass
 
     def _raiseChuteJamAlert(self, detail: str) -> None:
@@ -471,6 +534,15 @@ class Positioning(BaseState):
                 f"Positioning: no usable storage layers (enabled={enabled_layers}, "
                 f"blocked={blocked_layer_idxs}, skipped={skipped})"
             )
+            # If every enabled layer is blocked because its servo backend is
+            # offline (vs. e.g. an occasional close-timeout on a live bus),
+            # this is the fatal case — raise the red banner + pause. We
+            # raise here rather than inside ``_selectDoor`` because this
+            # path catches bin-lookup before we ever commit to a layer.
+            if enabled_layers > 0 and self._allEnabledLayersServoOffline():
+                self._raiseServoBusOfflineAlert(
+                    "every layer servo is unreachable"
+                )
             return None, False
 
         # MISC must never claim an unassigned bin on its own. The discard

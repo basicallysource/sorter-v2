@@ -176,6 +176,17 @@
 		return seg.path.map((p) => `${p[1]},${p[2]}`).join(' ');
 	}
 
+	type BurstFrame = {
+		frame_index: number;
+		timestamp: number;
+		phase: 'pre' | 'post';
+		detected: boolean;
+		jpeg_b64: string;
+		crop_jpeg_b64: string;
+		bbox: [number, number, number, number] | null;
+		score: number | null;
+	};
+
 	type Detail = {
 		global_id: number;
 		created_at: number;
@@ -186,6 +197,7 @@
 		segment_count: number;
 		total_hit_count: number;
 		segments: Segment[];
+		drop_zone_burst?: BurstFrame[];
 		live?: boolean;
 	};
 
@@ -343,6 +355,46 @@
 				<div class="text-sm text-text-muted">Loading…</div>
 			{:else}
 				<div class="flex flex-col gap-4">
+					{#if detail.drop_zone_burst && detail.drop_zone_burst.length > 0}
+						{@const burstFrames = detail.drop_zone_burst}
+						{@const detectedCount = burstFrames.filter((f) => f.detected).length}
+						<div class="border border-border">
+							<div class="flex items-center justify-between bg-bg px-3 py-1.5 text-xs">
+								<span class="font-medium text-text">Drop-zone burst</span>
+								<span class="text-text-muted">
+									{burstFrames.length} frames · {detectedCount} detections · ±2s around C4 entry
+								</span>
+							</div>
+							<div class="p-3">
+								<div class="grid grid-cols-6 gap-1 sm:grid-cols-10">
+									{#each burstFrames as frame, fIdx (fIdx)}
+										<div
+											class="relative border {frame.phase === 'pre'
+												? 'border-border'
+												: 'border-primary/40'} bg-bg"
+											title="Frame {frame.frame_index} · {frame.phase} · {frame.detected ? 'detected' : 'no detection'}{frame.score != null ? ' · ' + (frame.score * 100).toFixed(0) + '%' : ''}"
+										>
+											<img
+												src={`data:image/jpeg;base64,${frame.detected && frame.crop_jpeg_b64 ? frame.crop_jpeg_b64 : frame.jpeg_b64}`}
+												alt=""
+												class="block h-auto w-full object-contain"
+												loading="lazy"
+											/>
+											{#if !frame.detected}
+												<div class="absolute inset-0 bg-black/40"></div>
+											{/if}
+											<div class="absolute bottom-0 left-0 right-0 bg-black/60 px-0.5 text-center text-xs leading-tight">
+												<span class={frame.phase === 'pre' ? 'text-text-muted' : 'text-primary'}>
+													{frame.phase === 'pre' ? 'pre' : 'post'}
+												</span>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						</div>
+					{/if}
+
 					{#each detail.segments as segment, idx (idx)}
 						<div class="border border-border">
 							<div class="flex items-center justify-between bg-bg px-3 py-1.5 text-xs">

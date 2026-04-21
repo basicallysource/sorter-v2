@@ -270,7 +270,7 @@ class HanddrawnRegionProvider:
                     ))
                 cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
             overlay[ch_mask == 0] = annotated[ch_mask == 0]
-            annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
+            annotated = cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0)
 
             cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
@@ -422,7 +422,7 @@ class HanddrawnRegionProvider:
                 ))
             cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
         overlay[ch_mask == 0] = annotated[ch_mask == 0]
-        annotated = cv2.addWeighted(overlay, 0.36, annotated, 0.64, 0)
+        annotated = cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0)
 
         cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)

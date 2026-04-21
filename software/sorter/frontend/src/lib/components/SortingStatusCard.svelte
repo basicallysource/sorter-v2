@@ -101,15 +101,7 @@
 	});
 </script>
 
-<div class="setup-card-shell border">
-	<div class="setup-card-header flex items-center justify-between px-3 py-2">
-		<h3 class="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]">Sorting</h3>
-		<div class="flex gap-3">
-			<a href="/profiles" class="text-xs text-text-muted hover:text-text">Profiles</a>
-			<a href="/bins" class="text-xs text-text-muted hover:text-text">Bins</a>
-		</div>
-	</div>
-
+<div class="flex h-full min-h-0 flex-col overflow-auto">
 	<!-- Compact Bin Grid -->
 	{#if binsLoading}
 		<div class="px-3 py-3 text-center text-xs text-text-muted">Loading bins...</div>

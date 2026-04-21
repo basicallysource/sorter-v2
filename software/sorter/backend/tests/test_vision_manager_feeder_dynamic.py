@@ -132,6 +132,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         )
 
         vm._channelInfoForRole = lambda role: channel
+        vm.getCaptureThreadForRole = lambda role: None
 
         filtered = VisionManager._filterFeederDetectionResultToChannel(vm, "c_channel_2", detection)
 
@@ -156,6 +157,35 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         )
 
         self.assertEqual([inside], filtered)
+
+    def test_channel_detections_from_tracks_ignores_flaky_upstream_tracks(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        channel = SimpleNamespace(channel_id=3)
+        stable = SimpleNamespace(
+            bbox=(10, 10, 20, 20),
+            hit_count=2,
+            coasting=False,
+        )
+        newborn = SimpleNamespace(
+            bbox=(20, 20, 30, 30),
+            hit_count=1,
+            coasting=False,
+        )
+        coasting = SimpleNamespace(
+            bbox=(30, 30, 40, 40),
+            hit_count=9,
+            coasting=True,
+        )
+
+        vm._channelInfoForRole = lambda role: channel
+
+        detections = VisionManager._channelDetectionsFromTracks(
+            vm,
+            "c_channel_3",
+            [stable, newborn, coasting],
+        )
+
+        self.assertEqual([(10, 10, 20, 20)], [det.bbox for det in detections])
 
     def test_channel_info_for_role_falls_back_to_saved_polygon_when_detector_missing(self) -> None:
         vm = VisionManager.__new__(VisionManager)
@@ -190,6 +220,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         )
 
         vm._channelInfoForRole = lambda role: channel
+        vm.getCaptureThreadForRole = lambda role: None
 
         filtered = VisionManager._filterFeederDetectionResultToChannel(vm, "carousel", detection)
 

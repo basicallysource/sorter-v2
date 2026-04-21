@@ -4,11 +4,10 @@
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
-	import BusMessageTicker from '$lib/components/BusMessageTicker.svelte';
+	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
-	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
-	import StateMachineLive from '$lib/components/StateMachineLive.svelte';
+	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { Eye, EyeOff } from 'lucide-svelte';
@@ -382,21 +381,19 @@
 						{/if}
 					</div>
 				{/if}
-				<div class="min-h-0 flex-1">
+				<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 					<RecentObjects />
-				</div>
-				<div class="shrink-0">
+				</CollapsibleSection>
+				<CollapsibleSection title="Bins" storageKey="bins">
+					{#snippet actions()}
+						<a href="/profiles" class="text-xs text-text-muted hover:text-text">Profiles</a>
+						<a href="/bins" class="text-xs text-text-muted hover:text-text">Bins</a>
+					{/snippet}
 					<SortingStatusCard />
-				</div>
-				<div class="h-56 shrink-0">
-					<StateMachineLive />
-				</div>
-				<div class="h-56 shrink-0">
-					<BusMessageTicker />
-				</div>
-				<div class="min-h-0 flex-1 overflow-y-auto">
-					<RuntimeStats />
-				</div>
+				</CollapsibleSection>
+				<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
+					<SidebarBottomTabs />
+				</CollapsibleSection>
 			</div>
 		</div>
 	{:else}

@@ -17,7 +17,10 @@ import cv2
 import numpy as np
 
 
-# Bottom-right layout
+# Bottom-right layout — baseline values calibrated for 1280x720 frames.
+# Scale up proportionally at higher resolutions so the overlay stays legible
+# on a 4K feed without blowing up on the 1280x720 feeds.
+_BASELINE_WIDTH = 1280
 _PAD_PX = 8
 _LINE_HEIGHT_PX = 18
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -133,19 +136,25 @@ class TelemetryOverlay:
     def _draw(frame: np.ndarray, lines: list[tuple[str, str]]) -> None:
         h, w = frame.shape[:2]
 
+        scale = max(1.0, float(w) / float(_BASELINE_WIDTH))
+        pad_px = max(1, int(round(_PAD_PX * scale)))
+        line_height_px = max(1, int(round(_LINE_HEIGHT_PX * scale)))
+        font_scale = _FONT_SCALE * scale
+        font_thickness = max(1, int(round(_FONT_THICKNESS * scale)))
+
         # Measure widest line first to size the background plate.
         widths: list[int] = []
         for key, val in lines:
             text = f"{key}: {val}"
-            (tw, _), _ = cv2.getTextSize(text, _FONT, _FONT_SCALE, _FONT_THICKNESS)
+            (tw, _), _ = cv2.getTextSize(text, _FONT, font_scale, font_thickness)
             widths.append(tw)
         text_w = max(widths) if widths else 0
-        text_h = len(lines) * _LINE_HEIGHT_PX
+        text_h = len(lines) * line_height_px
 
-        box_x2 = w - _PAD_PX
-        box_y2 = h - _PAD_PX
-        box_x1 = box_x2 - text_w - 2 * _PAD_PX
-        box_y1 = box_y2 - text_h - _PAD_PX
+        box_x2 = w - pad_px
+        box_y2 = h - pad_px
+        box_x1 = box_x2 - text_w - 2 * pad_px
+        box_y1 = box_y2 - text_h - pad_px
         if box_x1 < 0 or box_y1 < 0:
             return
 
@@ -155,15 +164,16 @@ class TelemetryOverlay:
         cv2.addWeighted(overlay, _BG_ALPHA, frame, 1.0 - _BG_ALPHA, 0, frame)
 
         # Lines, drawn bottom-up from baseline.
+        baseline_drop = max(2, int(round(5 * scale)))
         for i, (key, val) in enumerate(lines):
-            y = box_y1 + _PAD_PX // 2 + (i + 1) * _LINE_HEIGHT_PX - 5
-            x = box_x1 + _PAD_PX
+            y = box_y1 + pad_px // 2 + (i + 1) * line_height_px - baseline_drop
+            x = box_x1 + pad_px
             cv2.putText(
-                frame, f"{key}:", (x, y), _FONT, _FONT_SCALE, _KEY_COLOR,
-                _FONT_THICKNESS, cv2.LINE_AA,
+                frame, f"{key}:", (x, y), _FONT, font_scale, _KEY_COLOR,
+                font_thickness, cv2.LINE_AA,
             )
-            (kw, _), _ = cv2.getTextSize(f"{key}: ", _FONT, _FONT_SCALE, _FONT_THICKNESS)
+            (kw, _), _ = cv2.getTextSize(f"{key}: ", _FONT, font_scale, font_thickness)
             cv2.putText(
-                frame, val, (x + kw, y), _FONT, _FONT_SCALE, _TEXT_COLOR,
-                _FONT_THICKNESS, cv2.LINE_AA,
+                frame, val, (x + kw, y), _FONT, font_scale, _TEXT_COLOR,
+                font_thickness, cv2.LINE_AA,
             )

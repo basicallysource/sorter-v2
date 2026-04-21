@@ -32,6 +32,23 @@ DEFAULT_MAX_PATH_POINTS = 400
 SNAPSHOT_JPEG_QUALITY = 88
 COMPOSITE_THUMB_SIZE = 640
 
+BURST_JPEG_QUALITY = 80
+BURST_MAX_EDGE_PX = 640
+
+
+@dataclass
+class DropZoneBurstFrame:
+    """One YOLO-detected crop from the ±2s burst captured around first C4 entry."""
+
+    frame_index: int
+    timestamp: float
+    phase: str  # "pre" | "post"
+    detected: bool
+    jpeg_b64: str
+    crop_jpeg_b64: str
+    bbox: tuple[int, int, int, int] | None
+    score: float | None
+
 
 @dataclass
 class SectorSnapshot:
@@ -167,6 +184,7 @@ class TrackHistoryEntry:
     created_at: float
     finished_at: float
     segments: list[TrackSegment] = field(default_factory=list)
+    drop_zone_burst: list[DropZoneBurstFrame] = field(default_factory=list)
 
     @property
     def roles(self) -> tuple[str, ...]:
@@ -226,6 +244,19 @@ class TrackHistoryEntry:
         return {
             **self.to_summary(),
             "segments": [seg.to_detail() for seg in self.segments],
+            "drop_zone_burst": [
+                {
+                    "frame_index": f.frame_index,
+                    "timestamp": f.timestamp,
+                    "phase": f.phase,
+                    "detected": f.detected,
+                    "jpeg_b64": f.jpeg_b64,
+                    "crop_jpeg_b64": f.crop_jpeg_b64,
+                    "bbox": list(f.bbox) if f.bbox is not None else None,
+                    "score": f.score,
+                }
+                for f in self.drop_zone_burst
+            ],
         }
 
 
@@ -585,12 +616,36 @@ def _entry_from_dict(raw: dict) -> "TrackHistoryEntry | None":
             continue
     if not segments:
         return None
+    burst_frames: list[DropZoneBurstFrame] = []
+    for bf in raw.get("drop_zone_burst") or []:
+        if not isinstance(bf, dict):
+            continue
+        try:
+            raw_bbox = bf.get("bbox")
+            bbox: tuple[int, int, int, int] | None = None
+            if isinstance(raw_bbox, (list, tuple)) and len(raw_bbox) == 4:
+                bbox = (int(raw_bbox[0]), int(raw_bbox[1]), int(raw_bbox[2]), int(raw_bbox[3]))
+            burst_frames.append(
+                DropZoneBurstFrame(
+                    frame_index=int(bf.get("frame_index", 0)),
+                    timestamp=float(bf.get("timestamp", 0.0)),
+                    phase=str(bf.get("phase", "post")),
+                    detected=bool(bf.get("detected", False)),
+                    jpeg_b64=str(bf.get("jpeg_b64", "")),
+                    crop_jpeg_b64=str(bf.get("crop_jpeg_b64", "")),
+                    bbox=bbox,
+                    score=float(bf["score"]) if isinstance(bf.get("score"), (int, float)) else None,
+                )
+            )
+        except Exception:
+            continue
     try:
         return TrackHistoryEntry(
             global_id=global_id,
             created_at=float(raw.get("created_at", 0.0)),
             finished_at=float(raw.get("finished_at", 0.0)),
             segments=segments,
+            drop_zone_burst=burst_frames,
         )
     except Exception:
         return None
@@ -646,6 +701,31 @@ class PieceHistoryBuffer:
                 while len(self._entries) > self._max_entries:
                     popped_id, _popped = self._entries.popitem(last=False)
                     self._delete_from_disk(popped_id)
+            self._write_to_disk(existing)
+
+    def attach_burst(self, global_id: int, burst_frames: list[DropZoneBurstFrame]) -> None:
+        """Attach drop-zone burst frames to an existing or newly-created entry.
+
+        Called from the background burst-collector thread once all frames are
+        ready. Creates a stub entry if the track hasn't been archived yet —
+        the next ``record_segment`` call will merge into it.
+        """
+        with self._lock:
+            existing = self._entries.get(global_id)
+            if existing is None:
+                if not burst_frames:
+                    return
+                now = burst_frames[0].timestamp if burst_frames else 0.0
+                existing = TrackHistoryEntry(
+                    global_id=global_id,
+                    created_at=now,
+                    finished_at=now,
+                    segments=[],
+                    drop_zone_burst=burst_frames,
+                )
+                self._entries[global_id] = existing
+            else:
+                existing.drop_zone_burst = burst_frames
             self._write_to_disk(existing)
 
     def max_global_id(self) -> int:

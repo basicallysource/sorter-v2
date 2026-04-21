@@ -1,17 +1,13 @@
 <script lang="ts">
 	import { PencilRuler } from 'lucide-svelte';
 
-	let {
+let {
 		label,
 		isArc = false,
-		hasWaitZone = false,
-		sharedTransitionHandle = false,
 		statusMessage = ''
 	}: {
 		label: string;
 		isArc?: boolean;
-		hasWaitZone?: boolean;
-		sharedTransitionHandle?: boolean;
 		statusMessage?: string;
 	} = $props();
 </script>
@@ -57,17 +53,7 @@
 					Drag the
 					<span class="font-medium text-text">Drop Start</span>,
 					<span class="font-medium text-text">Drop End</span>,
-					{#if hasWaitZone}
-						<span class="font-medium text-text">Wait Start</span>,
-						{#if sharedTransitionHandle}
-							<span class="font-medium text-text">Transfer</span>,
-						{:else}
-							<span class="font-medium text-text">Wait End</span>,
-						{/if}
-					{/if}
-					{#if !sharedTransitionHandle}
-						<span class="font-medium text-text">Exit Start</span>,
-					{/if}
+					<span class="font-medium text-text">Exit Start</span>,
 					<span class="font-medium text-text">Exit End</span>,
 					<span class="font-medium text-text">Center</span>,
 					<span class="font-medium text-text">Inner</span>, and

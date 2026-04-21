@@ -26,6 +26,28 @@ import {
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 
+function shouldKeepRecentObject(obj: KnownObjectData): boolean {
+	const hasLocalPreview = Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
+	if (obj.stage !== 'created') return true;
+	if (obj.classification_status !== 'pending') {
+		if (
+			obj.classification_status === 'unknown' ||
+			obj.classification_status === 'not_found' ||
+			obj.classification_status === 'multi_drop_fail'
+		) {
+			return hasLocalPreview || Boolean(obj.carousel_snapping_started_at);
+		}
+		return true;
+	}
+	return Boolean(
+		obj.carousel_snapping_started_at ||
+			obj.carousel_snapping_completed_at ||
+			obj.classified_at ||
+			obj.part_id ||
+			hasLocalPreview
+	);
+}
+
 export class MachineManager {
 	machines = $state(new Map<string, MachineState>());
 	selectedMachineId = $state<string | null>(null);
@@ -242,13 +264,20 @@ export class MachineManager {
 		if (!machine) return;
 
 		const existing_idx = machine.recentObjects.findIndex((o) => o.uuid === obj.uuid);
+		const keep = shouldKeepRecentObject(obj);
 		let updated_objects: KnownObjectData[];
 
 		if (existing_idx >= 0) {
 			updated_objects = [...machine.recentObjects];
-			updated_objects[existing_idx] = obj;
-		} else {
+			if (keep) {
+				updated_objects[existing_idx] = obj;
+			} else {
+				updated_objects.splice(existing_idx, 1);
+			}
+		} else if (keep) {
 			updated_objects = [obj, ...machine.recentObjects].slice(0, 10);
+		} else {
+			return;
 		}
 
 		const updated = new Map(this.machines);
@@ -276,8 +305,16 @@ export class MachineManager {
 	private handleSystemStatus(machineId: string, data: SystemStatusData): void {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
+		const shouldClearRecentObjects =
+			data.hardware_state === 'homing' ||
+			(data.hardware_state === 'standby' &&
+				machine.systemStatus?.hardware_state !== 'standby');
 		const updated = new Map(this.machines);
-		updated.set(machineId, { ...machine, systemStatus: data });
+		updated.set(machineId, {
+			...machine,
+			systemStatus: data,
+			recentObjects: shouldClearRecentObjects ? [] : machine.recentObjects
+		});
 		this.machines = updated;
 	}
 

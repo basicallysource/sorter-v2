@@ -275,6 +275,18 @@ class FeederAnalysis:
         self.ch3_action = ChannelAction.IDLE
         self.ch3_dropzone_occupied = False
         self.ch2_dropzone_occupied = False
+        # Max overlap-ratio (len(bbox_sections & exit_sections) /
+        # len(bbox_sections)) of any detection in the channel. Used by the
+        # exit-zone wiggle strategy to spot pieces that are straddling or
+        # parked on the exit boundary.
+        self.ch2_exit_overlap_max: float = 0.0
+        self.ch3_exit_overlap_max: float = 0.0
+
+
+def _exitOverlapRatio(sections: set[int], exit_sections: set[int]) -> float:
+    if not sections or not exit_sections:
+        return 0.0
+    return float(len(sections & exit_sections)) / float(len(sections))
 
 
 def analyzeFeederChannels(
@@ -289,6 +301,9 @@ def analyzeFeederChannels(
         if det.channel_id == 3:
             if sections & det.channel.dropzone_sections:
                 result.ch3_dropzone_occupied = True
+            overlap = _exitOverlapRatio(sections, det.channel.exit_sections)
+            if overlap > result.ch3_exit_overlap_max:
+                result.ch3_exit_overlap_max = overlap
             if sections & det.channel.exit_sections:
                 result.ch3_action = ChannelAction.PULSE_PRECISE
             elif result.ch3_action == ChannelAction.IDLE:
@@ -296,6 +311,9 @@ def analyzeFeederChannels(
         elif det.channel_id == 2:
             if sections & det.channel.dropzone_sections:
                 result.ch2_dropzone_occupied = True
+            overlap = _exitOverlapRatio(sections, det.channel.exit_sections)
+            if overlap > result.ch2_exit_overlap_max:
+                result.ch2_exit_overlap_max = overlap
             if sections & det.channel.exit_sections:
                 result.ch2_action = ChannelAction.PULSE_PRECISE
             elif result.ch2_action == ChannelAction.IDLE:

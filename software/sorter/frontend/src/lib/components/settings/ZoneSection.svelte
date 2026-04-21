@@ -81,7 +81,6 @@
 		| 'dropStart'
 		| 'dropEnd'
 		| 'waitStart'
-		| 'transfer'
 		| 'waitEnd'
 		| 'exitStart'
 		| 'exitEnd';
@@ -136,7 +135,6 @@
 					| 'arc-drop-start'
 					| 'arc-drop-end'
 					| 'arc-wait-start'
-					| 'arc-transfer'
 					| 'arc-wait-end'
 					| 'arc-exit-start'
 					| 'arc-exit-end';
@@ -248,7 +246,6 @@
 		},
 		classification_channel: {
 			drop: [44, 118],
-			wait: [274, 314],
 			exit: [314, 350]
 		}
 	};
@@ -495,21 +492,14 @@
 			innerRadius: params.innerRadius,
 			outerRadius: params.outerRadius,
 			dropZone: clampZone(params.dropZone),
-			waitZone: params.waitZone ? clampZone(params.waitZone) : null,
+			waitZone:
+				channel === 'classification_channel'
+					? null
+					: params.waitZone
+						? clampZone(params.waitZone)
+						: null,
 			exitZone: clampZone(params.exitZone)
 		};
-
-		if (channel === 'classification_channel' && normalized.waitZone) {
-			const sharedAngle = normalizeAngle(normalized.waitZone.endAngle);
-			normalized.waitZone = {
-				...normalized.waitZone,
-				endAngle: sharedAngle
-			};
-			normalized.exitZone = {
-				...normalized.exitZone,
-				startAngle: sharedAngle
-			};
-		}
 
 		return normalized;
 	}
@@ -901,7 +891,10 @@
 				startAngle: 40,
 				endAngle: 120
 			}),
-			waitZone: sectionRangeToZone(channel, 'wait', sectionZeroAngle),
+			waitZone:
+				channel === 'classification_channel'
+					? null
+					: sectionRangeToZone(channel, 'wait', sectionZeroAngle),
 			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? clampZone({
 				startAngle: 300,
 				endAngle: 340
@@ -981,8 +974,10 @@
 			sectionRangeToZone(channel, 'drop', sectionZeroAngle) ??
 			clampZone({ startAngle: 40, endAngle: 120 });
 		const waitZone =
-			parseAngularZone((raw as ArcParamsPayload).wait_zone) ??
-			sectionRangeToZone(channel, 'wait', sectionZeroAngle);
+			channel === 'classification_channel'
+				? null
+				: parseAngularZone((raw as ArcParamsPayload).wait_zone) ??
+					sectionRangeToZone(channel, 'wait', sectionZeroAngle);
 		const exitZone =
 			parseAngularZone((raw as ArcParamsPayload).exit_zone) ??
 			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ??
@@ -1165,7 +1160,6 @@
 						: best,
 				270
 			) ?? 270;
-		const sharedTransferAngle = params.waitZone?.endAngle ?? params.exitZone.startAngle;
 		return {
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
@@ -1176,7 +1170,6 @@
 				params,
 				params.waitZone?.startAngle ?? params.exitZone.startAngle
 			),
-			transfer: zoneHandlePoint(params, sharedTransferAngle),
 			waitEnd: zoneHandlePoint(
 				params,
 				params.waitZone?.endAngle ?? params.exitZone.endAngle
@@ -1191,12 +1184,8 @@
 		return [
 			'dropStart',
 			'dropEnd',
-			...(params?.waitZone
-				? channel === 'classification_channel'
-					? (['waitStart', 'transfer'] as ArcHandle[])
-					: (['waitStart', 'waitEnd'] as ArcHandle[])
-				: []),
-			...(channel === 'classification_channel' && params?.waitZone ? [] : (['exitStart'] as ArcHandle[])),
+			...(params?.waitZone ? (['waitStart', 'waitEnd'] as ArcHandle[]) : []),
+			'exitStart',
 			'exitEnd',
 			'outer',
 			'inner',
@@ -1549,10 +1538,8 @@
 										? 'arc-drop-end'
 										: handle === 'waitStart'
 											? 'arc-wait-start'
-											: handle === 'transfer'
-												? 'arc-transfer'
-											: handle === 'waitEnd'
-												? 'arc-wait-end'
+										: handle === 'waitEnd'
+											? 'arc-wait-end'
 										: handle === 'exitStart'
 											? 'arc-exit-start'
 											: 'arc-exit-end',
@@ -1723,23 +1710,6 @@
 					waitZone: {
 						...dragState.orig.waitZone,
 						endAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-transfer': {
-				if (!dragState.orig.waitZone) break;
-				didDrag = true;
-				const nextAngle = angleFromCenter(point, dragState.orig.center);
-				setArc(dragState.channel, {
-					...dragState.orig,
-					waitZone: {
-						...dragState.orig.waitZone,
-						endAngle: nextAngle
-					},
-					exitZone: {
-						...dragState.orig.exitZone,
-						startAngle: nextAngle
 					}
 				});
 				break;
@@ -2050,10 +2020,7 @@
 				ctx.moveTo(params.center[0], params.center[1]);
 				ctx.lineTo(handles.waitStart[0], handles.waitStart[1]);
 				ctx.moveTo(params.center[0], params.center[1]);
-				ctx.lineTo(
-					channel === 'classification_channel' ? handles.transfer[0] : handles.waitEnd[0],
-					channel === 'classification_channel' ? handles.transfer[1] : handles.waitEnd[1]
-				);
+				ctx.lineTo(handles.waitEnd[0], handles.waitEnd[1]);
 				ctx.stroke();
 			}
 
@@ -2061,10 +2028,7 @@
 			ctx.lineWidth = 1;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(
-				channel === 'classification_channel' ? handles.transfer[0] : handles.exitStart[0],
-				channel === 'classification_channel' ? handles.transfer[1] : handles.exitStart[1]
-			);
+			ctx.lineTo(handles.exitStart[0], handles.exitStart[1]);
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.exitEnd[0], handles.exitEnd[1]);
 			ctx.stroke();
@@ -2084,15 +2048,9 @@
 			drawHandle(ctx, handles.dropEnd, DROP_ZONE_COLOR, '#111', 'Drop End', [40, -20]);
 			if (params.waitZone) {
 				drawHandle(ctx, handles.waitStart, WAIT_ZONE_COLOR, '#111', 'Wait Start', [-42, 2]);
-				if (channel === 'classification_channel') {
-					drawHandle(ctx, handles.transfer, WAIT_ZONE_COLOR, '#111', 'Transfer', [0, 28]);
-				} else {
-					drawHandle(ctx, handles.waitEnd, WAIT_ZONE_COLOR, '#111', 'Wait End', [42, 2]);
-				}
+				drawHandle(ctx, handles.waitEnd, WAIT_ZONE_COLOR, '#111', 'Wait End', [42, 2]);
 			}
-			if (channel !== 'classification_channel' || !params.waitZone) {
-				drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
-			}
+			drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
 			drawHandle(ctx, handles.exitEnd, EXIT_ZONE_COLOR, '#111', 'Exit End', [40, 24]);
 		}
 
@@ -2840,8 +2798,6 @@
 				<ZoneEditingSidebar
 					label={CHANNEL_LABELS[currentChannel]}
 					isArc={isArcChannel(currentChannel)}
-					hasWaitZone={Boolean(isArcChannel(currentChannel) && arcParams[currentChannel]?.waitZone)}
-					sharedTransitionHandle={currentChannel === 'classification_channel'}
 					statusMessage={statusMsg}
 				/>
 			{/if}

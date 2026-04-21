@@ -45,6 +45,10 @@
 	import CalibrationPanel, { hasTileDetails } from './picture/CalibrationPanel.svelte';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DriftDetection from './picture/DriftDetection.svelte';
+	import ColorProfilePanel, {
+		normalizeCameraColorProfile,
+		type CameraColorProfile
+	} from './picture/ColorProfilePanel.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
 	import OrientationPanel from './picture/OrientationPanel.svelte';
 	import LLMCalibrationTrace from '$lib/components/calibration/LLMCalibrationTrace.svelte';
@@ -158,6 +162,9 @@
 	let calibrationMethod = $state<CameraCalibrationMethod>(loadStoredCalibrationMethod());
 	let calibrationOpenrouterModel = $state(loadStoredCalibrationOpenrouterModel());
 	let calibrationApplyColorProfile = $state(loadStoredCalibrationApplyColorProfile());
+	let colorProfile = $state<CameraColorProfile | null>(null);
+	let colorProfileLoading = $state(false);
+	let colorProfileRemoving = $state(false);
 	let calibrationTraceEnlarged = $state(false);
 	let calibrationTaskId = $state<string | null>(null);
 	let calibrationAdvisorTrace = $state<CameraCalibrationAdvisorIteration[]>([]);
@@ -417,6 +424,41 @@
 		applyDeviceResponse(data);
 	}
 
+	async function loadColorProfile() {
+		colorProfileLoading = true;
+		try {
+			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/color-profile/${role}`, {
+				cache: 'no-store'
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			colorProfile = normalizeCameraColorProfile(data.profile);
+		} catch {
+			colorProfile = null;
+		} finally {
+			colorProfileLoading = false;
+		}
+	}
+
+	async function removeColorProfile() {
+		if (colorProfileRemoving) return;
+		colorProfileRemoving = true;
+		error = null;
+		try {
+			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/color-profile/${role}`, {
+				method: 'DELETE'
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			colorProfile = normalizeCameraColorProfile(data.profile);
+			status = data.message ?? 'Color correction removed.';
+		} catch (e: any) {
+			error = e.message ?? 'Failed to remove color correction';
+		} finally {
+			colorProfileRemoving = false;
+		}
+	}
+
 	async function loadSettings() {
 		invalidateDevicePreview();
 		loading = true;
@@ -432,7 +474,7 @@
 		calibrationGalleryEntries = [];
 		emitCalibrationHighlight(null);
 		try {
-			await Promise.all([loadLocalSettings(), loadDeviceSettings()]);
+			await Promise.all([loadLocalSettings(), loadDeviceSettings(), loadColorProfile()]);
 			emitPreview(role, savedSettings, savedSettings);
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load picture settings';
@@ -717,7 +759,7 @@
 
 				if (task.status === 'completed') {
 					taskDone = true;
-					await loadDeviceSettings();
+					await Promise.all([loadDeviceSettings(), loadColorProfile()]);
 					calibrationNeedsSave = true;
 					status =
 						task.result?.message ??
@@ -925,6 +967,13 @@
 								onEnlarge={() => (calibrationTraceEnlarged = true)}
 							/>
 						{/if}
+
+						<ColorProfilePanel
+							profile={colorProfile}
+							loading={colorProfileLoading}
+							removing={colorProfileRemoving}
+							onReset={removeColorProfile}
+						/>
 					{/if}
 
 					<CaptureModePanel {role} />

@@ -105,6 +105,8 @@ class Feeding(BaseState):
             stepper=self.irl.c_channel_3_rotor_stepper,
             send_pulse=self._sendPulse,
             feeder_config=self.irl_config.feeder_config,
+            irl=self.irl,
+            gear_ratio=CHANNEL_OUTPUT_GEAR_RATIO,
         )
         self._c2_station = C2Station(
             gc=self.gc,
@@ -344,24 +346,34 @@ class Feeding(BaseState):
                 except Exception:
                     classification_channel_track_count = 0
                 transport_piece_count = 0
+                zone_manager = None
+                classification_channel_config = getattr(
+                    self.irl_config,
+                    "classification_channel_config",
+                    None,
+                )
                 transport = self.shared.transport
                 if transport is not None:
                     try:
                         transport_piece_count = int(transport.getActivePieceCount())
                     except Exception:
                         transport_piece_count = 0
+                    zone_manager = getattr(transport, "zone_manager", None)
                 classification_channel_piece_count = max(
                     _estimate_piece_count_for_channel(
                         detections,
                         channel_id=CLASSIFICATION_CHANNEL_ID,
                         track_count=classification_channel_track_count,
                     ),
+                    int(zone_manager.zone_count()) if zone_manager is not None else 0,
                     transport_piece_count,
                 )
                 classification_channel_block = _classification_channel_admission_blocked(
                     detections,
                     track_count=classification_channel_track_count,
                     transport_piece_count=transport_piece_count,
+                    zone_manager=zone_manager,
+                    config=classification_channel_config,
                 )
             ch3_held = classification_ready_block or classification_channel_block
             ch1_pulse_intent = not analysis.ch2_dropzone_occupied
@@ -448,6 +460,8 @@ class Feeding(BaseState):
             if ctx.abort_tick:
                 return
             self._c2_station.run_idle_strategies(ctx)
+            self._c2_station.run_exit_wiggle(ctx)
+            self._c3_station.run_exit_wiggle(ctx)
 
             self.gc.runtime_stats.observeFeederSignals(
                 {

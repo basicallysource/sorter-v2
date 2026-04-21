@@ -48,6 +48,8 @@ export interface KnownObjectData {
   stage: PieceStage;
   classification_status: ClassificationStatus;
   part_id?: string | null;
+  part_name?: string | null;
+  part_category?: string | null;
   color_id?: string;
   color_name?: string;
   category_id?: string | null;
@@ -57,10 +59,13 @@ export interface KnownObjectData {
   thumbnail?: string | null;
   top_image?: string | null;
   bottom_image?: string | null;
+  drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
+  recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;
+  first_carousel_seen_ts?: number | null;
   carousel_rotate_started_at?: number | null;
   carousel_rotated_at?: number | null;
   carousel_snapping_started_at?: number | null;

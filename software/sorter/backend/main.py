@@ -62,8 +62,46 @@ def _mkIRLInterfaceStandby(config, gc):
 FRAME_BROADCAST_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
+SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
+
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
+
+
+def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
+    """After ``servo.open()``, surface a fatal hardware banner if every
+    configured layer servo reports ``available=False``. This flips the
+    boot path from "warn once and silently pass pieces through" to a
+    red-banner paused state that forces an operator check (USB, power,
+    cabling) before the controller is allowed to accept pieces.
+
+    The banner clears automatically the next time ``Positioning`` finds
+    any layer's servo back online, so a subsequent Resume after
+    reconnecting the bus recovers without a full restart.
+    """
+    import server.shared_state as shared_state
+
+    servos = list(getattr(irl, "servos", []) or [])
+    if not servos:
+        return
+    available = [bool(getattr(s, "available", True)) for s in servos]
+    if any(available):
+        return
+
+    message = (
+        f"{SERVO_BUS_ALERT_PREFIX} — no layer servos responded at boot. "
+        "Check Waveshare USB + power, then press Resume."
+    )
+    gc.logger.error(message)
+    try:
+        gc.runtime_stats.setServoBusOffline()
+    except Exception:
+        pass
+    try:
+        with shared_state.hardware_lifecycle_lock:
+            shared_state.setHardwareStatus(error=message)
+    except Exception:
+        pass
 
 
 def runServer() -> None:
@@ -306,6 +344,7 @@ def main() -> None:
                     servo.open()
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+            _checkServoBusHealth(gc, irl)
 
         feeder_detection_ready = vision.initFeederDetection(manual_feed_mode=manual_feed_mode)
         if manual_feed_mode:
@@ -443,6 +482,7 @@ def main() -> None:
                     servo.open()
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+            _checkServoBusHealth(gc, irl)
 
         shared_state.setHardwareStatus(clear_homing_step=True)
         gc.logger.info("Hardware initialized (steppers ready, no homing performed).")

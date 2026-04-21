@@ -1087,6 +1087,47 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
     }
 
 
+@router.get("/api/hardware/servo-status")
+def get_servo_status() -> Dict[str, Any]:
+    """Per-layer servo online state for debugging the red
+    "Servo bus offline" banner. Returns one entry per layer with its
+    live ``available`` flag plus the aggregate ``bus_online`` status —
+    useful when the operator has reconnected the Waveshare USB and
+    wants to verify the bus is back before pressing Resume.
+    """
+    active_irl = _active_irl()
+    layers: list[dict[str, Any]] = []
+    any_online = False
+    if active_irl is not None:
+        servos = list(getattr(active_irl, "servos", []) or [])
+        for index, servo in enumerate(servos):
+            available = bool(getattr(servo, "available", True))
+            if available:
+                any_online = True
+            layers.append(
+                {
+                    "layer_index": index,
+                    "available": available,
+                    "channel": getattr(servo, "channel", None),
+                    "name": getattr(servo, "_name", f"layer_{index}_servo"),
+                }
+            )
+    stats = None
+    try:
+        if shared_state.gc_ref is not None:
+            stats = getattr(
+                shared_state.gc_ref.runtime_stats, "servo_bus_offline_since_ts", None
+            )
+    except Exception:
+        stats = None
+    return {
+        "ok": True,
+        "bus_online": any_online,
+        "layers": layers,
+        "offline_since_ts": stats,
+    }
+
+
 @router.get("/api/hardware-config/waveshare/ports")
 def get_waveshare_ports() -> Dict[str, Any]:
     status = _waveshare_inventory_status()

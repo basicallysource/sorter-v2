@@ -37,6 +37,10 @@
 		auto_recognition?: AutoRecognition | null;
 	};
 
+	function hasRecognitionAttempt(item: HistoryItem): boolean {
+		return item.auto_recognition != null;
+	}
+
 	const ctx = getMachineContext();
 
 	function effectiveBase(): string {
@@ -347,63 +351,102 @@
 		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));">
 			{#each filteredItems as item (item.global_id)}
 				{@const crops = item.top_piece_jpegs ?? []}
+				{@const showRecognitionGrid = hasRecognitionAttempt(item)}
 				<a
 					href={`/tracked/${item.global_id}`}
 					class="flex flex-col border border-border bg-surface text-left transition-colors hover:border-primary/70"
 				>
-					<!-- 3×3 grid: Brickognize match in the middle, up to 8
-					     piece crops surrounding it. -->
-					<div class="relative grid grid-cols-3 gap-px bg-border">
-						{#each Array(9) as _, cellIdx (cellIdx)}
-							{#if cellIdx === 4}
-								{@const auto = item.auto_recognition}
-								{@const hasMatch = auto?.status === 'ok' && !!auto.best_item?.img_url}
-								{@const notChecked = auto == null || auto.status === 'pending'}
-								<div
-									class="relative z-10 flex aspect-square items-center justify-center border-4 border-primary bg-white shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-								>
-									{#if hasMatch}
-										<img
-											src={auto!.best_item!.img_url}
-											alt="Brickognize match"
-											class="block h-full w-full object-contain"
-											loading="lazy"
-										/>
-									{:else if notChecked}
-										<HelpCircle size={72} class="text-text-muted" strokeWidth={1.5} />
-									{:else}
-										<CircleSlash size={72} class="text-warning-dark" strokeWidth={1.5} />
-									{/if}
-								</div>
+					{#if showRecognitionGrid}
+						<!-- After a recognition attempt, switch to the 3x3 view:
+						     Brickognize match in the middle, up to 8 crops around it. -->
+						<div class="relative grid grid-cols-3 gap-px bg-border">
+							{#each Array(9) as _, cellIdx (cellIdx)}
+								{#if cellIdx === 4}
+									{@const auto = item.auto_recognition}
+									{@const hasMatch = auto?.status === 'ok' && !!auto.best_item?.img_url}
+									{@const notChecked = auto == null || auto.status === 'pending'}
+									<div
+										class="relative z-10 flex aspect-square items-center justify-center border-4 border-primary bg-white shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
+									>
+										{#if hasMatch}
+											<img
+												src={auto!.best_item!.img_url}
+												alt="Brickognize match"
+												class="block h-full w-full object-contain"
+												loading="lazy"
+											/>
+										{:else if notChecked}
+											<HelpCircle size={72} class="text-text-muted" strokeWidth={1.5} />
+										{:else}
+											<CircleSlash size={72} class="text-warning-dark" strokeWidth={1.5} />
+										{/if}
+									</div>
+								{:else}
+									{@const cropIdx = cellIdx < 4 ? cellIdx : cellIdx - 1}
+									{@const cropB64 = crops[cropIdx]}
+									<div class="flex aspect-square items-center justify-center bg-bg">
+										{#if cropB64}
+											<img
+												src={`data:image/jpeg;base64,${cropB64}`}
+												alt="Piece crop"
+												class="block h-full w-full object-contain"
+												loading="lazy"
+											/>
+										{:else}
+											<span class="text-xs text-text-muted">·</span>
+										{/if}
+									</div>
+								{/if}
+							{/each}
+							<span
+								class={`absolute top-1.5 left-1.5 z-10 inline-flex h-2 w-2 rounded-full ${
+									item.live ? 'bg-success' : 'bg-text-muted/70'
+								}`}
+								aria-hidden="true"
+							></span>
+							{#if item.handoff_count > 0}
+								<span class="absolute top-1.5 right-1.5 z-10 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
+									H
+								</span>
+							{/if}
+						</div>
+					{:else}
+						<div class="relative aspect-square w-full bg-black">
+							{#if item.composite_jpeg_b64}
+								<img
+									src={`data:image/jpeg;base64,${item.composite_jpeg_b64}`}
+									alt="Tracked piece composite"
+									class="block h-full w-full object-cover"
+									loading="lazy"
+								/>
+							{:else if item.best_piece_jpeg_b64}
+								<img
+									src={`data:image/jpeg;base64,${item.best_piece_jpeg_b64}`}
+									alt="Tracked piece crop"
+									class="block h-full w-full object-contain bg-white"
+									loading="lazy"
+								/>
 							{:else}
-								{@const cropIdx = cellIdx < 4 ? cellIdx : cellIdx - 1}
-								{@const cropB64 = crops[cropIdx]}
-								<div class="flex aspect-square items-center justify-center bg-bg">
-									{#if cropB64}
-										<img
-											src={`data:image/jpeg;base64,${cropB64}`}
-											alt="Piece crop"
-											class="block h-full w-full object-contain"
-											loading="lazy"
-										/>
-									{:else}
-										<span class="text-xs text-text-muted">·</span>
-									{/if}
+								<div class="flex h-full w-full items-center justify-center text-xs text-text-muted">
+									{item.live ? 'Tracking…' : '—'}
 								</div>
 							{/if}
-						{/each}
-						<span
-							class={`absolute top-1.5 left-1.5 z-10 inline-flex h-2 w-2 rounded-full ${
-								item.live ? 'bg-success' : 'bg-text-muted/70'
-							}`}
-							aria-hidden="true"
-						></span>
-						{#if item.handoff_count > 0}
-							<span class="absolute top-1.5 right-1.5 z-10 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
-								H
-							</span>
-						{/if}
-					</div>
+							<span
+								class={`absolute top-1.5 left-1.5 z-10 inline-flex h-2 w-2 rounded-full ${
+									item.live ? 'bg-success' : 'bg-text-muted/70'
+								}`}
+								aria-hidden="true"
+							></span>
+							{#if item.handoff_count > 0}
+								<span class="absolute top-1.5 right-1.5 z-10 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
+									H
+								</span>
+							{/if}
+							<div class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-xs text-white">
+								trajectory composite
+							</div>
+						</div>
+					{/if}
 					<div class="flex flex-col gap-0.5 px-2.5 py-2 text-sm">
 						<div class="flex items-center justify-between">
 							<span class="font-mono font-semibold text-text">#{formatHashId(item.global_id)}</span>

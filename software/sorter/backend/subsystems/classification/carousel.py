@@ -39,7 +39,12 @@ class Carousel(PieceTransport):
         self.event_queue.put(knownObjectToEvent(obj))
         return obj
 
-    def registerIncomingPiece(self) -> KnownObject:
+    def registerIncomingPiece(
+        self,
+        *,
+        tracked_global_id: int | None = None,
+    ) -> KnownObject:
+        _ = tracked_global_id
         return self.addPieceAtFeeder()
 
     def rotate(self) -> Optional[KnownObject]:
@@ -49,7 +54,11 @@ class Carousel(PieceTransport):
         self._log(f"rotated, exiting={exit_str} -> {self._platformSummary()}")
         return exiting
 
-    def advanceTransport(self) -> TransportAdvanceResult:
+    def advanceTransport(
+        self,
+        dropped_uuid: str | None = None,
+    ) -> TransportAdvanceResult:
+        _ = dropped_uuid
         exiting = self.rotate()
         return TransportAdvanceResult(
             exiting_piece=exiting,
@@ -88,12 +97,17 @@ class Carousel(PieceTransport):
         color_id: str,
         color_name: str,
         confidence: Optional[float] = None,
+        *,
+        part_name: Optional[str] = None,
+        part_category: Optional[str] = None,
     ) -> bool:
         if uuid not in self.pending_classifications:
             return False
 
         obj = self.pending_classifications[uuid]
         obj.part_id = part_id
+        obj.part_name = part_name
+        obj.part_category = part_category
         obj.color_id = color_id
         obj.color_name = color_name
         obj.confidence = confidence

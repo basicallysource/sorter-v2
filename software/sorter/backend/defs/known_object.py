@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 from enum import Enum
 import uuid
 import time
@@ -28,19 +28,43 @@ class KnownObject:
     stage: PieceStage = PieceStage.created
     classification_status: ClassificationStatus = ClassificationStatus.pending
     part_id: Optional[str] = None
+    part_name: Optional[str] = None
+    part_category: Optional[str] = None
     color_id: str = "any_color"
     color_name: str = "Any Color"
     category_id: Optional[str] = None
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
-    tracked_global_id: Optional[int] = None
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    # Full classification chamber (carousel) frame captured at the instant
+    # this piece was locked for drop — base64 JPEG, max 1024 px wide so the
+    # event payload stays bounded. Used on the detail page to visually verify
+    # the classification against the Brickognize reference image.
+    drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    # Captured timestamps of the crops actually shipped to Brickognize for
+    # classification (subset of the tracker's sector snapshots). The frontend
+    # uses these to highlight which crops participated in the final call.
+    recognition_used_crop_ts: List[float] = field(default_factory=list)
+    tracked_global_id: Optional[int] = None
+    classification_channel_size_class: Optional[str] = None
+    classification_channel_zone_state: Optional[str] = None
+    classification_channel_zone_center_deg: Optional[float] = None
+    classification_channel_zone_half_width_deg: Optional[float] = None
+    classification_channel_soft_guard_deg: Optional[float] = None
+    classification_channel_hard_guard_deg: Optional[float] = None
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
+    first_carousel_seen_ts: Optional[float] = None
+    # Polar angle on the carousel (degrees) at the instant the piece was
+    # first observed in a carousel-source zone. Used by the classification
+    # channel recognizer to gate firing until the piece has traversed a
+    # minimum angular distance, guaranteeing viewing-angle diversity for
+    # the accumulated crops independent of rotation speed.
+    first_carousel_seen_angle_deg: Optional[float] = None
     carousel_rotate_started_at: Optional[float] = None
     carousel_rotated_at: Optional[float] = None
     carousel_snapping_started_at: Optional[float] = None

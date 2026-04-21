@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 	return {
 		plugins: [tailwindcss(), sveltekit()],
 		server: {
+			hmr: { overlay: false },
 			proxy: {
 				'/bricklink': backendBaseUrl,
 				'/health': backendBaseUrl,

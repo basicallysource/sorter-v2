@@ -106,14 +106,19 @@ def get_embedder() -> "_OsnetEmbedder | None":
         return _EMBEDDER if _EMBEDDER is not None else None
 
 
-def cosine_similarity(a: "np.ndarray | None", b: "np.ndarray | None") -> float:
-    """Cosine similarity between two L2-normalized vectors. Returns 1.0 if
-    either is missing — callers treat missing evidence as neutral.
+def cosine_similarity(a: "np.ndarray | None", b: "np.ndarray | None") -> "float | None":
+    """Cosine similarity between two L2-normalized vectors.
+
+    Returns ``None`` when either input is missing or has zero norm, so
+    callers can explicitly treat "no appearance evidence" differently from
+    a real (possibly low) similarity. Previously this returned ``1.0`` for
+    missing inputs, which silently turned the data-association cost into a
+    free pass and caused intra-tracker id switches whenever OSNet hiccupped.
     """
     if a is None or b is None:
-        return 1.0
+        return None
     n1 = float(np.linalg.norm(a))
     n2 = float(np.linalg.norm(b))
     if n1 == 0.0 or n2 == 0.0:
-        return 1.0
+        return None
     return float(np.dot(a, b) / (n1 * n2))

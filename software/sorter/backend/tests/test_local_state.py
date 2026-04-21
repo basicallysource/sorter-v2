@@ -1,6 +1,7 @@
 import json
 import local_state
 import os
+import sqlite3
 from pathlib import Path
 import tempfile
 import tomllib
@@ -9,6 +10,7 @@ from unittest.mock import patch
 
 from local_state import (
     clear_current_session_bins,
+    clear_piece_segments_for_session,
     get_api_keys,
     get_bin_categories,
     get_current_bin_contents_snapshot,
@@ -27,8 +29,10 @@ from local_state import (
     get_persistent_tracker_ignored_regions,
     initialize_local_state,
     list_piece_dossiers,
+    list_piece_segments,
     record_piece_distribution,
     remember_piece_dossier,
+    remember_piece_segment,
     remember_recent_known_object,
     set_persistent_tracker_ignored_regions,
     start_new_sorting_session,
@@ -301,6 +305,396 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual([120.0, 240.0], regions[0]["center_px"])
         self.assertEqual(48.0, regions[0]["radius_px"])
         self.assertEqual(3, regions[0]["suppression_count"])
+
+
+class PieceSegmentsSchemaTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._old_machine_params = os.environ.get("MACHINE_SPECIFIC_PARAMS_PATH")
+        self._old_local_state_db = os.environ.get("LOCAL_STATE_DB_PATH")
+        self._tmpdir = tempfile.TemporaryDirectory()
+        tmp_dir = Path(self._tmpdir.name)
+        self.machine_params_path = tmp_dir / "machine_params.toml"
+        self.local_state_db_path = tmp_dir / "local_state.sqlite"
+
+        # Minimal machine_params.toml so migrations have a source file.
+        self.machine_params_path.write_text(
+            "\n".join(
+                [
+                    "[machine]",
+                    'nickname = "SegmentBench"',
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        os.environ["MACHINE_SPECIFIC_PARAMS_PATH"] = str(self.machine_params_path)
+        os.environ["LOCAL_STATE_DB_PATH"] = str(self.local_state_db_path)
+
+    def tearDown(self) -> None:
+        if self._old_machine_params is None:
+            os.environ.pop("MACHINE_SPECIFIC_PARAMS_PATH", None)
+        else:
+            os.environ["MACHINE_SPECIFIC_PARAMS_PATH"] = self._old_machine_params
+        if self._old_local_state_db is None:
+            os.environ.pop("LOCAL_STATE_DB_PATH", None)
+        else:
+            os.environ["LOCAL_STATE_DB_PATH"] = self._old_local_state_db
+        self._tmpdir.cleanup()
+
+    def _make_segment_payload(
+        self,
+        *,
+        tracked_global_id: int = 77,
+        first_seen_ts: float = 100.0,
+        last_seen_ts: float = 105.0,
+        hit_count: int = 4,
+        path: list | None = None,
+        sector_snapshots: list | None = None,
+        recognize_result: dict | None = None,
+        snapshot_path: str | None = "piece_crops/xyz/seg0/snapshot.jpg",
+    ) -> dict:
+        return {
+            "tracked_global_id": tracked_global_id,
+            "first_seen_ts": first_seen_ts,
+            "last_seen_ts": last_seen_ts,
+            "hit_count": hit_count,
+            "channel_center_x": 320.0,
+            "channel_center_y": 240.0,
+            "channel_radius_inner": 80.0,
+            "channel_radius_outer": 160.0,
+            "snapshot_width": 640,
+            "snapshot_height": 480,
+            "snapshot_path": snapshot_path,
+            "path": path if path is not None else [[100.0, 300.0, 240.0], [101.0, 320.0, 250.0]],
+            "sector_snapshots": (
+                sector_snapshots
+                if sector_snapshots is not None
+                else [
+                    {
+                        "captured_ts": 100.5,
+                        "start_angle_deg": 10.0,
+                        "end_angle_deg": 30.0,
+                        "r_inner": 80.0,
+                        "r_outer": 160.0,
+                        "jpeg_path": "piece_crops/xyz/seg0/wedge0.jpg",
+                        "piece_jpeg_path": "piece_crops/xyz/seg0/piece0.jpg",
+                        "bbox": {"x": 10, "y": 20, "w": 30, "h": 40},
+                    }
+                ]
+            ),
+            "recognize_result": recognize_result,
+        }
+
+    def test_schema_v5_migration_additive_only(self) -> None:
+        # Seed a schema_version=4 database with a minimal piece_dossiers row,
+        # mimicking a pre-v5 install.
+        db_path = self.local_state_db_path
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        seed_conn = sqlite3.connect(db_path)
+        seed_conn.row_factory = sqlite3.Row
+        seed_conn.executescript(
+            """
+            CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE sorting_sessions (
+                id TEXT PRIMARY KEY,
+                machine_id TEXT NOT NULL,
+                profile_id TEXT,
+                profile_name TEXT,
+                version_id TEXT,
+                version_number INTEGER,
+                version_label TEXT,
+                artifact_hash TEXT,
+                started_at REAL NOT NULL,
+                ended_at REAL,
+                status TEXT NOT NULL,
+                reason TEXT
+            );
+            CREATE TABLE piece_dossiers (
+                piece_uuid TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                tracked_global_id INTEGER,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                last_event_at REAL NOT NULL,
+                stage TEXT NOT NULL,
+                classification_status TEXT NOT NULL,
+                first_carousel_seen_ts REAL,
+                classification_channel_zone_center_deg REAL,
+                distributed_at REAL,
+                payload_json TEXT NOT NULL
+            );
+            """
+        )
+        seed_conn.execute(
+            "INSERT INTO metadata(key, value) VALUES(?, ?)",
+            ("schema_version", "4"),
+        )
+        seed_conn.execute(
+            "INSERT INTO sorting_sessions(id, machine_id, started_at, status) "
+            "VALUES(?, ?, ?, ?)",
+            ("session-legacy", "bench", 50.0, "active"),
+        )
+        seed_conn.execute(
+            "INSERT INTO metadata(key, value) VALUES(?, ?)",
+            ("active_sorting_session_id", "session-legacy"),
+        )
+        seed_conn.execute(
+            "INSERT INTO piece_dossiers("
+            "piece_uuid, session_id, tracked_global_id, created_at, updated_at, "
+            "last_event_at, stage, classification_status, "
+            "first_carousel_seen_ts, classification_channel_zone_center_deg, "
+            "distributed_at, payload_json) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-piece",
+                "session-legacy",
+                11,
+                50.0,
+                51.0,
+                51.0,
+                "created",
+                "pending",
+                None,
+                None,
+                None,
+                json.dumps({"uuid": "legacy-piece", "tracked_global_id": 11}),
+            ),
+        )
+        seed_conn.commit()
+        seed_conn.close()
+
+        # Run the real initializer — should perform additive migration to v5.
+        initialize_local_state()
+
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            version_row = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'schema_version'"
+            ).fetchone()
+            self.assertEqual("5", str(version_row["value"]))
+
+            # piece_dossiers row must be untouched.
+            dossier_row = conn.execute(
+                "SELECT piece_uuid, tracked_global_id FROM piece_dossiers "
+                "WHERE piece_uuid = 'legacy-piece'"
+            ).fetchone()
+            self.assertIsNotNone(dossier_row)
+            self.assertEqual(11, dossier_row["tracked_global_id"])
+
+            # New piece_segments table must exist and be empty.
+            table_row = conn.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name='piece_segments'"
+            ).fetchone()
+            self.assertIsNotNone(table_row)
+            count_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM piece_segments"
+            ).fetchone()
+            self.assertEqual(0, int(count_row["c"]))
+
+            # Indexes must exist.
+            idx_rows = {
+                str(row["name"])
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='index' AND tbl_name='piece_segments'"
+                ).fetchall()
+            }
+            self.assertIn("piece_segments_piece_seq_idx", idx_rows)
+            self.assertIn("piece_segments_session_role_idx", idx_rows)
+        finally:
+            conn.close()
+
+    def test_remember_and_list_piece_segments(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="segments_test")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-seg-1",
+                "tracked_global_id": 77,
+                "created_at": 100.0,
+                "updated_at": 100.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+
+        for seq in (1, 0, 2):
+            payload = self._make_segment_payload(
+                first_seen_ts=100.0 + seq,
+                last_seen_ts=105.0 + seq,
+                hit_count=4 + seq,
+                path=[[100.0 + seq, 300.0, 240.0]],
+                sector_snapshots=[
+                    {
+                        "captured_ts": 100.0 + seq,
+                        "start_angle_deg": float(seq * 10),
+                        "end_angle_deg": float(seq * 10 + 20),
+                        "r_inner": 80.0,
+                        "r_outer": 160.0,
+                        "jpeg_path": f"piece_crops/seg{seq}.jpg",
+                        "piece_jpeg_path": f"piece_crops/piece{seq}.jpg",
+                        "bbox": {"x": seq, "y": seq, "w": 10, "h": 10},
+                    }
+                ],
+                recognize_result={"part_id": "3001", "score": 0.9},
+            )
+            remember_piece_segment(
+                "piece-seg-1",
+                "c_channel_3" if seq % 2 == 0 else "carousel",
+                seq,
+                payload,
+            )
+
+        segments = list_piece_segments("piece-seg-1")
+        self.assertEqual([0, 1, 2], [entry["sequence"] for entry in segments])
+
+        first = segments[0]
+        self.assertEqual("c_channel_3", first["role"])
+        self.assertEqual(77, first["tracked_global_id"])
+        self.assertEqual(4, first["hit_count"])
+        self.assertEqual(100.0, first["first_seen_ts"])
+        self.assertEqual(105.0, first["last_seen_ts"])
+        self.assertEqual([[100.0, 300.0, 240.0]], first["path"])
+        self.assertEqual(1, len(first["sector_snapshots"]))
+        self.assertEqual(0.0, first["sector_snapshots"][0]["start_angle_deg"])
+        self.assertEqual({"part_id": "3001", "score": 0.9}, first["recognize_result"])
+
+        second = segments[1]
+        self.assertEqual("carousel", second["role"])
+        self.assertEqual(1, second["sequence"])
+
+        third = segments[2]
+        self.assertEqual("c_channel_3", third["role"])
+        self.assertEqual(6, third["hit_count"])
+
+    def test_remember_piece_segment_upsert_preserves_created_at(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="segments_upsert")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-upsert",
+                "tracked_global_id": 42,
+                "created_at": 10.0,
+                "updated_at": 10.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+
+        first_payload = self._make_segment_payload(
+            tracked_global_id=42,
+            first_seen_ts=100.0,
+            last_seen_ts=101.0,
+            hit_count=2,
+        )
+        first_payload["created_at"] = 100.0
+        remember_piece_segment("piece-upsert", "c_channel_3", 0, first_payload)
+
+        conn = sqlite3.connect(self.local_state_db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT id, created_at FROM piece_segments "
+                "WHERE piece_uuid = 'piece-upsert' AND sequence = 0"
+            ).fetchone()
+            self.assertIsNotNone(row)
+            original_id = int(row["id"])
+            self.assertEqual(100.0, float(row["created_at"]))
+        finally:
+            conn.close()
+
+        second_payload = self._make_segment_payload(
+            tracked_global_id=42,
+            first_seen_ts=99.0,
+            last_seen_ts=200.0,
+            hit_count=9,
+            path=[[200.0, 350.0, 260.0], [201.0, 360.0, 270.0]],
+            recognize_result={"part_id": "3002"},
+        )
+        # created_at in payload should NOT overwrite existing.
+        second_payload["created_at"] = 999.0
+        remember_piece_segment("piece-upsert", "carousel", 0, second_payload)
+
+        segments = list_piece_segments("piece-upsert")
+        self.assertEqual(1, len(segments))
+        entry = segments[0]
+        self.assertEqual(100.0, entry["created_at"])  # preserved
+        self.assertEqual(9, entry["hit_count"])
+        self.assertEqual("carousel", entry["role"])
+        self.assertEqual(200.0, entry["last_seen_ts"])
+        self.assertEqual({"part_id": "3002"}, entry["recognize_result"])
+        self.assertEqual(
+            [[200.0, 350.0, 260.0], [201.0, 360.0, 270.0]],
+            entry["path"],
+        )
+
+        # Row id must remain the same (in-place update, not replace).
+        conn = sqlite3.connect(self.local_state_db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT id FROM piece_segments "
+                "WHERE piece_uuid = 'piece-upsert' AND sequence = 0"
+            ).fetchone()
+            self.assertEqual(original_id, int(row["id"]))
+        finally:
+            conn.close()
+
+    def test_clear_piece_segments_for_session(self) -> None:
+        initialize_local_state()
+
+        session_a = start_new_sorting_session(reason="sess_a")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-a",
+                "tracked_global_id": 1,
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_segment(
+            "piece-a",
+            "c_channel_3",
+            0,
+            self._make_segment_payload(tracked_global_id=1, first_seen_ts=1.0),
+        )
+        remember_piece_segment(
+            "piece-a",
+            "carousel",
+            1,
+            self._make_segment_payload(tracked_global_id=1, first_seen_ts=2.0),
+        )
+
+        session_b = start_new_sorting_session(reason="sess_b")
+        remember_piece_dossier(
+            {
+                "uuid": "piece-b",
+                "tracked_global_id": 2,
+                "created_at": 10.0,
+                "updated_at": 10.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_segment(
+            "piece-b",
+            "c_channel_3",
+            0,
+            self._make_segment_payload(tracked_global_id=2, first_seen_ts=10.0),
+        )
+
+        removed = clear_piece_segments_for_session(session_a["id"])
+        self.assertEqual(2, removed)
+
+        self.assertEqual([], list_piece_segments("piece-a"))
+        remaining = list_piece_segments("piece-b")
+        self.assertEqual(1, len(remaining))
+        self.assertEqual(session_b["id"], remaining[0]["session_id"])
 
 
 if __name__ == "__main__":

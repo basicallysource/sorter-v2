@@ -15,7 +15,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 4
+_SCHEMA_VERSION = 5
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -432,6 +432,40 @@ def initialize_local_state() -> None:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS piece_dossiers_tracked_gid_idx "
                 "ON piece_dossiers(tracked_global_id)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_segments ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "piece_uuid TEXT NOT NULL, "
+                "session_id TEXT NOT NULL, "
+                "role TEXT NOT NULL, "
+                "tracked_global_id INTEGER, "
+                "sequence INTEGER NOT NULL, "
+                "first_seen_ts REAL NOT NULL, "
+                "last_seen_ts REAL NOT NULL, "
+                "hit_count INTEGER NOT NULL DEFAULT 0, "
+                "channel_center_x REAL, "
+                "channel_center_y REAL, "
+                "channel_radius_inner REAL, "
+                "channel_radius_outer REAL, "
+                "snapshot_width INTEGER, "
+                "snapshot_height INTEGER, "
+                "snapshot_path TEXT, "
+                "path_json TEXT NOT NULL, "
+                "sector_snapshots_json TEXT NOT NULL, "
+                "recognize_result_json TEXT, "
+                "created_at REAL NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE, "
+                "FOREIGN KEY(piece_uuid) REFERENCES piece_dossiers(piece_uuid) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_piece_seq_idx "
+                "ON piece_segments(piece_uuid, sequence)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_session_role_idx "
+                "ON piece_segments(session_id, role, first_seen_ts DESC)"
             )
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS bin_events ("
@@ -1290,6 +1324,313 @@ def clear_piece_dossiers(*, clear_recent_known_objects: bool = True) -> None:
         if clear_recent_known_objects:
             _set_json(conn, _STATE_KEY_RECENT_KNOWN_OBJECTS, [])
         conn.commit()
+
+
+def _coerce_optional_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != value:  # NaN
+            return None
+        return int(value)
+    return None
+
+
+def _coerce_optional_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        float_value = float(value)
+        if float_value != float_value:  # NaN
+            return None
+        return float_value
+    return None
+
+
+def _piece_segment_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        path = json.loads(str(row["path_json"]))
+    except Exception:
+        path = None
+    if not isinstance(path, list):
+        path = []
+    try:
+        sector_snapshots = json.loads(str(row["sector_snapshots_json"]))
+    except Exception:
+        sector_snapshots = None
+    if not isinstance(sector_snapshots, list):
+        sector_snapshots = []
+    recognize_result: Any | None = None
+    raw_recognize = row["recognize_result_json"]
+    if raw_recognize is not None:
+        try:
+            recognize_result = json.loads(str(raw_recognize))
+        except Exception:
+            recognize_result = None
+    return {
+        "id": int(row["id"]),
+        "piece_uuid": str(row["piece_uuid"]),
+        "session_id": str(row["session_id"]),
+        "role": str(row["role"]),
+        "tracked_global_id": (
+            int(row["tracked_global_id"])
+            if row["tracked_global_id"] is not None
+            else None
+        ),
+        "sequence": int(row["sequence"]),
+        "first_seen_ts": float(row["first_seen_ts"]),
+        "last_seen_ts": float(row["last_seen_ts"]),
+        "hit_count": int(row["hit_count"]),
+        "channel_center_x": (
+            float(row["channel_center_x"])
+            if row["channel_center_x"] is not None
+            else None
+        ),
+        "channel_center_y": (
+            float(row["channel_center_y"])
+            if row["channel_center_y"] is not None
+            else None
+        ),
+        "channel_radius_inner": (
+            float(row["channel_radius_inner"])
+            if row["channel_radius_inner"] is not None
+            else None
+        ),
+        "channel_radius_outer": (
+            float(row["channel_radius_outer"])
+            if row["channel_radius_outer"] is not None
+            else None
+        ),
+        "snapshot_width": (
+            int(row["snapshot_width"])
+            if row["snapshot_width"] is not None
+            else None
+        ),
+        "snapshot_height": (
+            int(row["snapshot_height"])
+            if row["snapshot_height"] is not None
+            else None
+        ),
+        "snapshot_path": (
+            str(row["snapshot_path"])
+            if row["snapshot_path"] is not None
+            else None
+        ),
+        "path": path,
+        "sector_snapshots": sector_snapshots,
+        "recognize_result": recognize_result,
+        "created_at": float(row["created_at"]),
+    }
+
+
+def remember_piece_segment(
+    piece_uuid: str,
+    role: str,
+    sequence: int,
+    payload: dict[str, Any],
+) -> None:
+    """Persist (or upsert) a per-segment tracking record for a piece.
+
+    ``payload`` carries the segment fields — see the ``piece_segments``
+    schema for the accepted keys. List-valued keys (``path``,
+    ``sector_snapshots``) and ``recognize_result`` are serialized into their
+    respective ``*_json`` columns. On upsert over an existing
+    ``(piece_uuid, sequence)`` row, ``created_at`` is preserved.
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+    if not isinstance(role, str) or not role.strip():
+        return
+    if not isinstance(payload, dict):
+        payload = {}
+    try:
+        sequence_int = int(sequence)
+    except (TypeError, ValueError):
+        return
+
+    initialize_local_state()
+    with _connection() as conn:
+        existing = conn.execute(
+            "SELECT id, created_at FROM piece_segments "
+            "WHERE piece_uuid = ? AND sequence = ?",
+            (piece_uuid, sequence_int),
+        ).fetchone()
+
+        tracked_global_id = _coerce_optional_int(payload.get("tracked_global_id"))
+        first_seen_ts = _coerce_optional_float(payload.get("first_seen_ts")) or 0.0
+        last_seen_ts = _coerce_optional_float(payload.get("last_seen_ts")) or first_seen_ts
+        hit_count = _coerce_optional_int(payload.get("hit_count")) or 0
+        channel_center_x = _coerce_optional_float(payload.get("channel_center_x"))
+        channel_center_y = _coerce_optional_float(payload.get("channel_center_y"))
+        channel_radius_inner = _coerce_optional_float(payload.get("channel_radius_inner"))
+        channel_radius_outer = _coerce_optional_float(payload.get("channel_radius_outer"))
+        snapshot_width = _coerce_optional_int(payload.get("snapshot_width"))
+        snapshot_height = _coerce_optional_int(payload.get("snapshot_height"))
+        snapshot_path_raw = payload.get("snapshot_path")
+        snapshot_path = (
+            str(snapshot_path_raw)
+            if isinstance(snapshot_path_raw, str) and snapshot_path_raw
+            else None
+        )
+
+        path_value = payload.get("path")
+        if not isinstance(path_value, list):
+            path_value = []
+        sector_snapshots_value = payload.get("sector_snapshots")
+        if not isinstance(sector_snapshots_value, list):
+            sector_snapshots_value = []
+        recognize_result_value = payload.get("recognize_result")
+
+        path_json = json.dumps(path_value, sort_keys=True)
+        sector_snapshots_json = json.dumps(sector_snapshots_value, sort_keys=True)
+        recognize_result_json = (
+            json.dumps(recognize_result_value, sort_keys=True)
+            if recognize_result_value is not None
+            else None
+        )
+
+        if existing is not None:
+            # Preserve original created_at on upsert.
+            session_row = conn.execute(
+                "SELECT session_id FROM piece_segments WHERE id = ?",
+                (int(existing["id"]),),
+            ).fetchone()
+            session_id = str(session_row["session_id"]) if session_row is not None else ""
+            if not session_id:
+                dossier_row = conn.execute(
+                    "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+                    (piece_uuid,),
+                ).fetchone()
+                if dossier_row is not None:
+                    session_id = str(dossier_row["session_id"])
+                else:
+                    session = _ensure_active_sorting_session_conn(conn, force_new=False)
+                    session_id = str(session["id"])
+            created_at = float(existing["created_at"])
+            conn.execute(
+                "UPDATE piece_segments SET "
+                "session_id = ?, "
+                "role = ?, "
+                "tracked_global_id = ?, "
+                "first_seen_ts = ?, "
+                "last_seen_ts = ?, "
+                "hit_count = ?, "
+                "channel_center_x = ?, "
+                "channel_center_y = ?, "
+                "channel_radius_inner = ?, "
+                "channel_radius_outer = ?, "
+                "snapshot_width = ?, "
+                "snapshot_height = ?, "
+                "snapshot_path = ?, "
+                "path_json = ?, "
+                "sector_snapshots_json = ?, "
+                "recognize_result_json = ? "
+                "WHERE id = ?",
+                (
+                    session_id,
+                    role,
+                    tracked_global_id,
+                    first_seen_ts,
+                    last_seen_ts,
+                    hit_count,
+                    channel_center_x,
+                    channel_center_y,
+                    channel_radius_inner,
+                    channel_radius_outer,
+                    snapshot_width,
+                    snapshot_height,
+                    snapshot_path,
+                    path_json,
+                    sector_snapshots_json,
+                    recognize_result_json,
+                    int(existing["id"]),
+                ),
+            )
+            conn.commit()
+            return
+
+        # New row: bind to the dossier's session if available, else the
+        # active session (creating one if needed).
+        dossier_row = conn.execute(
+            "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        if dossier_row is not None:
+            session_id = str(dossier_row["session_id"])
+        else:
+            session = _ensure_active_sorting_session_conn(conn, force_new=False)
+            session_id = str(session["id"])
+
+        created_at = _coerce_optional_float(payload.get("created_at")) or time.time()
+        conn.execute(
+            "INSERT INTO piece_segments("
+            "piece_uuid, session_id, role, tracked_global_id, sequence, "
+            "first_seen_ts, last_seen_ts, hit_count, "
+            "channel_center_x, channel_center_y, "
+            "channel_radius_inner, channel_radius_outer, "
+            "snapshot_width, snapshot_height, snapshot_path, "
+            "path_json, sector_snapshots_json, recognize_result_json, "
+            "created_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                piece_uuid,
+                session_id,
+                role,
+                tracked_global_id,
+                sequence_int,
+                first_seen_ts,
+                last_seen_ts,
+                hit_count,
+                channel_center_x,
+                channel_center_y,
+                channel_radius_inner,
+                channel_radius_outer,
+                snapshot_width,
+                snapshot_height,
+                snapshot_path,
+                path_json,
+                sector_snapshots_json,
+                recognize_result_json,
+                created_at,
+            ),
+        )
+        conn.commit()
+
+
+def list_piece_segments(piece_uuid: str) -> list[dict[str, Any]]:
+    """Return all segments for ``piece_uuid`` ordered by ``sequence`` asc."""
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return []
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM piece_segments "
+            "WHERE piece_uuid = ? ORDER BY sequence ASC",
+            (piece_uuid,),
+        ).fetchall()
+        return [
+            entry
+            for entry in (_piece_segment_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
+
+
+def clear_piece_segments_for_session(session_id: str) -> int:
+    """Delete all segments belonging to ``session_id``. Returns rowcount."""
+    if not isinstance(session_id, str) or not session_id.strip():
+        return 0
+    initialize_local_state()
+    with _connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM piece_segments WHERE session_id = ?",
+            (session_id,),
+        )
+        conn.commit()
+        return int(cursor.rowcount or 0)
 
 
 def _ensure_bin_state_row_conn(

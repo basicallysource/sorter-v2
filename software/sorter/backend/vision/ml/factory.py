@@ -17,6 +17,24 @@ from .base import BaseProcessor
 log = logging.getLogger(__name__)
 
 
+def _resolve_ncnn_use_vulkan() -> bool:
+    """Consult ``blob/runtime_preferences.json`` for the NCNN option choice.
+
+    Returns ``True`` iff the user selected ``ncnn-vulkan``. Any other value
+    (including ``ncnn-cpu``, a missing file, or a malformed entry) resolves
+    to ``False`` so the live inference path stays on the safe CPU default.
+    The processor itself double-checks ``ncnn.get_gpu_count()`` before
+    enabling Vulkan and logs a warning if the GPU is missing.
+    """
+    try:
+        from runtime_preferences import preferred_option
+    except Exception as exc:  # pragma: no cover - defensive import
+        log.warning("runtime_preferences import failed (%s) — defaulting NCNN to CPU", exc)
+        return False
+    option = preferred_option("ncnn", default="ncnn-cpu")
+    return option == "ncnn-vulkan"
+
+
 def create_processor(
     *,
     model_path: Path,
@@ -50,12 +68,14 @@ def create_processor(
     if runtime == "ncnn":
         from .ncnn import NcnnNanodetProcessor, NcnnYoloProcessor
 
+        use_vulkan = _resolve_ncnn_use_vulkan()
         if family == "yolo":
             return NcnnYoloProcessor(
                 model_path,
                 imgsz=imgsz,
                 conf_threshold=conf_threshold,
                 iou_threshold=iou_threshold,
+                use_vulkan=use_vulkan,
             )
         if family == "nanodet":
             return NcnnNanodetProcessor(
@@ -63,6 +83,7 @@ def create_processor(
                 imgsz=imgsz,
                 conf_threshold=conf_threshold,
                 iou_threshold=iou_threshold,
+                use_vulkan=use_vulkan,
             )
 
     if runtime == "hailo":

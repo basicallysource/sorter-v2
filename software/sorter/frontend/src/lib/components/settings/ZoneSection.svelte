@@ -1339,9 +1339,7 @@
 			return;
 		}
 		await saveCameraRole(role, cameraIndex);
-		if (!cameraError) {
-			cameraModalOpen = false;
-		}
+		cameraModalOpen = false;
 	}
 
 	let reassignConfirming = $state(false);
@@ -2946,7 +2944,7 @@
 												stallTimeoutMs: 4000,
 												maxAttempts: 3,
 												onStatusChange: (status) => {
-													tileStreamStatus = { ...tileStreamStatus, [cam.index]: status };
+													tileStreamStatus[cam.index] = status;
 												}
 											}}
 											alt={cam.name ?? `Camera ${cam.index}`}
@@ -3007,7 +3005,7 @@
 												return;
 											}
 											saveCameraRole(role, cam.source).then(() => {
-												if (!cameraError) cameraModalOpen = false;
+												cameraModalOpen = false;
 											});
 										}}
 										disabled={cameraSaving}

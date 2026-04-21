@@ -1,10 +1,12 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 
 from defs.events import (
@@ -14,6 +16,9 @@ from defs.events import (
     KnownObjectEvent,
 )
 from blob_manager import (
+    BLOB_DIR,
+    PIECE_CROPS_DIR_NAME,
+    PIECE_CROP_KINDS,
     getApiKeys,
     getMachineId,
     getMachineNickname,
@@ -626,6 +631,66 @@ def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
     if enriched is None:
         raise HTTPException(status_code=404, detail="not found")
     return enriched
+
+
+# ---------------------------------------------------------------------------
+# Piece crop archive — Phase 3
+# ---------------------------------------------------------------------------
+
+# UUIDs (proper + stub) use [-A-Za-z0-9_]; be liberal but reject any path
+# separator so ``piece_uuid`` can never escape the blob root.
+_PIECE_UUID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+
+
+@app.get("/api/piece-crops/{piece_uuid}/seg{sequence}/{kind}/{idx}.jpg")
+def get_piece_crop_jpeg(
+    piece_uuid: str,
+    sequence: int,
+    kind: str,
+    idx: int,
+) -> FileResponse:
+    """Serve a piece-segment crop JPEG written by ``blob_manager.write_piece_crop``.
+
+    Path-traversal guard: ``piece_uuid`` must match ``_PIECE_UUID_RE`` and
+    ``kind`` must be one of :data:`PIECE_CROP_KINDS`. The resolved path is
+    additionally forced to live under ``BLOB_DIR/piece_crops`` — anything
+    outside yields 404. Content-addressed, so the long ``immutable``
+    cache header is safe.
+    """
+    if not _PIECE_UUID_RE.match(piece_uuid or ""):
+        raise HTTPException(status_code=404, detail="not found")
+    if kind not in PIECE_CROP_KINDS:
+        raise HTTPException(status_code=404, detail="not found")
+    try:
+        sequence_int = int(sequence)
+        idx_int = int(idx)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404, detail="not found")
+    if sequence_int < 0 or idx_int < 0:
+        raise HTTPException(status_code=404, detail="not found")
+
+    filename = f"{kind}_{idx_int:03d}.jpg"
+    candidate = (
+        BLOB_DIR
+        / PIECE_CROPS_DIR_NAME
+        / piece_uuid
+        / f"seg{sequence_int}"
+        / filename
+    )
+    try:
+        resolved = candidate.resolve()
+        allowed_root = (BLOB_DIR / PIECE_CROPS_DIR_NAME).resolve()
+    except Exception:
+        raise HTTPException(status_code=404, detail="not found")
+    if not str(resolved).startswith(str(allowed_root)):
+        raise HTTPException(status_code=404, detail="not found")
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(
+        path=str(resolved),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 # ---------------------------------------------------------------------------

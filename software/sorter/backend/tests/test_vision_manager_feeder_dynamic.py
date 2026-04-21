@@ -2,6 +2,7 @@ import unittest
 import sys
 import types
 from types import SimpleNamespace
+from unittest import mock
 
 import numpy as np
 
@@ -368,6 +369,230 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         items = history.list_summaries(min_sectors=3)
 
         self.assertEqual([2], [item["global_id"] for item in items])
+
+
+class SegmentArchivalTests(unittest.TestCase):
+    """Phase 3: ``VisionManager._archive_segment_to_dossier`` side-channel."""
+
+    def _make_vm(self) -> SimpleNamespace:
+        # The archival callback uses ``self.gc.logger`` for WARNINGs; give
+        # it a no-op logger so errors don't explode during the tests.
+        vm = VisionManager.__new__(VisionManager)
+        vm.gc = SimpleNamespace(
+            logger=SimpleNamespace(warning=lambda *a, **k: None, info=lambda *a, **k: None)
+        )
+        vm._piece_transport = None
+        return vm
+
+    def _make_segment(self, *, sector_count: int = 2) -> TrackSegment:
+        # "ffd8ffe0" is a minimal JPEG SOI+APP0 header; the tests only ever
+        # decode these back to bytes, so the payload doesn't need to be a
+        # valid image — just non-empty and round-trippable via b64.
+        import base64
+
+        wedge_b64 = base64.b64encode(b"\xff\xd8\xff\xe0wedge").decode("ascii")
+        piece_b64 = base64.b64encode(b"\xff\xd8\xff\xe0piece").decode("ascii")
+        snapshots = [
+            SectorSnapshot(
+                sector_index=i,
+                start_angle_deg=float(i * 10),
+                end_angle_deg=float(i * 10 + 9),
+                captured_ts=100.0 + i,
+                bbox_x=i,
+                bbox_y=i,
+                width=4,
+                height=4,
+                jpeg_b64=wedge_b64,
+                r_inner=50.0,
+                r_outer=100.0,
+                piece_jpeg_b64=piece_b64,
+            )
+            for i in range(sector_count)
+        ]
+        return TrackSegment(
+            source_role="c_channel_3",
+            handoff_from=None,
+            first_seen_ts=100.0,
+            last_seen_ts=105.0,
+            snapshot_jpeg_b64="",
+            snapshot_width=640,
+            snapshot_height=480,
+            hit_count=sector_count,
+            channel_center_x=320.0,
+            channel_center_y=240.0,
+            channel_radius_inner=50.0,
+            channel_radius_outer=100.0,
+            sector_count=sector_count,
+            sector_snapshots=snapshots,
+        )
+
+    def test_segment_archival_writes_crops_and_dossier(self) -> None:
+        vm = self._make_vm()
+        transport_calls: list[int] = []
+        transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: (
+                transport_calls.append(int(gid)) or "test-uuid"
+            ),
+            bindStubPieceUuid=lambda *a, **k: True,
+        )
+        vm._piece_transport = transport
+
+        write_calls: list[tuple] = []
+        segment_calls: list[dict] = []
+
+        def _fake_write(piece_uuid, sequence, kind, idx, jpeg_bytes):
+            write_calls.append(
+                (piece_uuid, int(sequence), kind, int(idx), bytes(jpeg_bytes))
+            )
+            return f"piece_crops/{piece_uuid}/seg{int(sequence)}/{kind}_{int(idx):03d}.jpg"
+
+        def _fake_segment(*, piece_uuid, role, sequence, payload):
+            segment_calls.append(
+                {
+                    "piece_uuid": piece_uuid,
+                    "role": role,
+                    "sequence": int(sequence),
+                    "payload": payload,
+                }
+            )
+
+        segment = self._make_segment(sector_count=2)
+
+        with mock.patch("blob_manager.write_piece_crop", side_effect=_fake_write), \
+             mock.patch("local_state.remember_piece_segment", side_effect=_fake_segment), \
+             mock.patch("local_state.remember_piece_dossier"):
+            VisionManager._archive_segment_to_dossier(vm, 42, segment)
+
+        self.assertEqual([42], transport_calls)
+        # 2 wedges + 2 piece crops = 4 total. No snapshot (empty b64).
+        self.assertEqual(4, len(write_calls))
+        kinds = [call[2] for call in write_calls]
+        self.assertEqual(sorted(kinds), ["piece", "piece", "wedge", "wedge"])
+        self.assertEqual(1, len(segment_calls))
+        call = segment_calls[0]
+        self.assertEqual("test-uuid", call["piece_uuid"])
+        self.assertEqual("c_channel_3", call["role"])
+        sectors = call["payload"]["sector_snapshots"]
+        self.assertEqual(2, len(sectors))
+        for entry in sectors:
+            self.assertIn("jpeg_path", entry)
+            self.assertIn("piece_jpeg_path", entry)
+            self.assertNotIn("jpeg_b64", entry)
+            self.assertNotIn("piece_jpeg_b64", entry)
+            self.assertTrue(str(entry["jpeg_path"]).startswith("piece_crops/test-uuid/"))
+
+    def test_segment_archival_creates_stub_dossier_for_unknown_gid(self) -> None:
+        vm = self._make_vm()
+        bind_calls: list[tuple] = []
+        transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: None,
+            bindStubPieceUuid=lambda gid, uuid: (
+                bind_calls.append((int(gid), str(uuid))) or True
+            ),
+        )
+        vm._piece_transport = transport
+
+        dossier_calls: list[dict] = []
+        segment_calls: list[dict] = []
+
+        def _fake_dossier(obj):
+            dossier_calls.append(dict(obj))
+
+        def _fake_segment(*, piece_uuid, role, sequence, payload):
+            segment_calls.append({"piece_uuid": piece_uuid, "sequence": sequence})
+
+        segment = self._make_segment(sector_count=1)
+
+        with mock.patch(
+            "blob_manager.write_piece_crop", side_effect=lambda *a, **k: "rel.jpg"
+        ), mock.patch(
+            "local_state.remember_piece_dossier", side_effect=_fake_dossier
+        ), mock.patch(
+            "local_state.remember_piece_segment", side_effect=_fake_segment
+        ):
+            VisionManager._archive_segment_to_dossier(vm, 99, segment)
+
+        self.assertEqual(1, len(dossier_calls))
+        new_uuid = dossier_calls[0]["uuid"]
+        self.assertTrue(isinstance(new_uuid, str) and new_uuid)
+        self.assertEqual("created", dossier_calls[0]["stage"])
+        self.assertEqual("pending", dossier_calls[0]["classification_status"])
+        self.assertEqual(99, dossier_calls[0]["tracked_global_id"])
+
+        self.assertEqual(1, len(bind_calls))
+        self.assertEqual((99, new_uuid), bind_calls[0])
+
+        self.assertEqual(1, len(segment_calls))
+        self.assertEqual(new_uuid, segment_calls[0]["piece_uuid"])
+
+    def test_archival_callback_never_raises_on_write_error(self) -> None:
+        vm = self._make_vm()
+        transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: "x-uuid",
+            bindStubPieceUuid=lambda *a, **k: True,
+        )
+        vm._piece_transport = transport
+
+        segment_calls: list[dict] = []
+
+        def _return_none(*args, **kwargs):
+            # In prod ``write_piece_crop`` maps OSError -> None internally
+            # (see blob_manager). The archival callback then persists a
+            # segment row with ``jpeg_path=None``. This simulates that
+            # degraded path.
+            return None
+
+        def _capture(*, piece_uuid, role, sequence, payload):
+            segment_calls.append({"piece_uuid": piece_uuid, "payload": payload})
+
+        segment = self._make_segment(sector_count=1)
+
+        with mock.patch(
+            "blob_manager.write_piece_crop", side_effect=_return_none
+        ), mock.patch(
+            "local_state.remember_piece_segment", side_effect=_capture
+        ), mock.patch(
+            "local_state.remember_piece_dossier"
+        ):
+            try:
+                VisionManager._archive_segment_to_dossier(vm, 7, segment)
+            except Exception as exc:  # noqa: BLE001
+                self.fail(
+                    f"_archive_segment_to_dossier must never raise, got: {exc!r}"
+                )
+
+        # remember_piece_segment still fires — just with empty crop paths.
+        # The SQLite row lets the UI know the segment existed even when
+        # disk writes were rejected.
+        self.assertEqual(1, len(segment_calls))
+        sectors = segment_calls[0]["payload"]["sector_snapshots"]
+        self.assertEqual(1, len(sectors))
+        self.assertIsNone(sectors[0]["jpeg_path"])
+        self.assertIsNone(sectors[0]["piece_jpeg_path"])
+
+    def test_archival_callback_swallows_exceptions_from_write_piece_crop(self) -> None:
+        """Defence in depth: even if ``write_piece_crop`` (wrongly) leaks an
+        OSError, the archival callback must not propagate it upstream to
+        the tracker thread that produced the segment."""
+        vm = self._make_vm()
+        vm._piece_transport = SimpleNamespace(
+            get_piece_uuid_for_tracked_global_id=lambda gid: "x-uuid",
+            bindStubPieceUuid=lambda *a, **k: True,
+        )
+
+        def _boom(*args, **kwargs):
+            raise OSError("simulated disk full")
+
+        segment = self._make_segment(sector_count=1)
+        with mock.patch("blob_manager.write_piece_crop", side_effect=_boom), \
+             mock.patch("local_state.remember_piece_segment"), \
+             mock.patch("local_state.remember_piece_dossier"):
+            try:
+                VisionManager._archive_segment_to_dossier(vm, 7, segment)
+            except Exception as exc:  # noqa: BLE001
+                self.fail(
+                    f"_archive_segment_to_dossier must never raise, got: {exc!r}"
+                )
 
 
 if __name__ == "__main__":

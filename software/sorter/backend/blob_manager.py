@@ -1,3 +1,4 @@
+import logging
 import queue
 import threading
 import time
@@ -11,6 +12,81 @@ import numpy as np
 from role_aliases import auxiliary_detection_scope
 
 BLOB_DIR = Path(__file__).parent / "blob"
+PIECE_CROPS_DIR_NAME = "piece_crops"
+PIECE_CROP_KINDS: frozenset[str] = frozenset({"wedge", "piece", "snapshot"})
+
+_logger = logging.getLogger(__name__)
+
+
+def piece_crops_dir(piece_uuid: str) -> Path:
+    """Return (and lazily create) the on-disk directory for a piece's crops.
+
+    Layout: ``BLOB_DIR/piece_crops/<piece_uuid>/``. Parent directories are
+    created on demand — the sorter may persist to a fresh machine where
+    ``BLOB_DIR`` hasn't been touched yet.
+    """
+    target = BLOB_DIR / PIECE_CROPS_DIR_NAME / str(piece_uuid)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def write_piece_crop(
+    piece_uuid: str,
+    sequence: int,
+    kind: str,
+    idx: int,
+    jpeg_bytes: bytes,
+) -> Optional[Path]:
+    """Persist a single piece-crop JPEG to disk, best-effort.
+
+    Layout: ``BLOB_DIR/piece_crops/<piece_uuid>/seg<sequence>/<kind>_<idx>.jpg``
+    where ``kind`` is one of ``wedge`` / ``piece`` / ``snapshot``.
+
+    Returns the **relative** path (relative to :data:`BLOB_DIR`) on success
+    so callers can store it in SQLite without baking in an absolute
+    filesystem location. On any :class:`OSError` (disk full, permission
+    denied, …) the error is logged and ``None`` is returned — segment
+    archival must never take the tracker thread with it.
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
+    if not isinstance(kind, str) or kind not in PIECE_CROP_KINDS:
+        _logger.warning("write_piece_crop: refusing unknown kind=%r", kind)
+        return None
+    try:
+        sequence_int = int(sequence)
+        idx_int = int(idx)
+    except (TypeError, ValueError):
+        _logger.warning(
+            "write_piece_crop: invalid sequence/idx sequence=%r idx=%r",
+            sequence,
+            idx,
+        )
+        return None
+    if not isinstance(jpeg_bytes, (bytes, bytearray)) or not jpeg_bytes:
+        return None
+    try:
+        segment_dir = piece_crops_dir(piece_uuid) / f"seg{sequence_int}"
+        segment_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{kind}_{idx_int:03d}.jpg"
+        abs_path = segment_dir / filename
+        tmp_path = abs_path.with_suffix(".jpg.tmp")
+        tmp_path.write_bytes(bytes(jpeg_bytes))
+        tmp_path.replace(abs_path)
+    except OSError as exc:
+        _logger.warning(
+            "write_piece_crop: failed for uuid=%s seg=%s kind=%s idx=%s: %s",
+            piece_uuid,
+            sequence,
+            kind,
+            idx,
+            exc,
+        )
+        return None
+    try:
+        return abs_path.relative_to(BLOB_DIR)
+    except ValueError:
+        return abs_path
 
 
 def loadData() -> dict[str, Any]:

@@ -175,6 +175,14 @@ class VisionManager:
             id_switch_suspect_observer=getattr(gc.runtime_stats, "observeTrackerIdSwitchSuspect", None),
         )
         self._drop_zone_burst_collector = DropZoneBurstCollector(self._piece_history)
+        # Phase 3: segment-archival side-channel. VisionManager creates the
+        # buffer before piece_transport exists (transport lives inside the
+        # classification-channel runtime), so we stash ``None`` here and
+        # let ``attachPieceTransportForSegmentArchival`` set it later. The
+        # callback is thread-safe: it only reads ``_piece_transport`` via
+        # a local and uses piece_transport's own locking.
+        self._piece_transport: Any | None = None
+        self._piece_history.set_on_segment_archived(self._archive_segment_to_dossier)
         # Fresh burst store for the C3→C4 drop-zone "fashion-shoot" feature.
         # Pre-event frames from the c_channel_3 + carousel capture-thread ring
         # buffers are drained at trigger time; post-event frames are merged in
@@ -2323,6 +2331,12 @@ class VisionManager:
                 last_seen_ts=float(item["last_seen_ts"]),
                 hit_count=int(item["hit_count"]),
                 first_seen_ts=float(item.get("first_seen_ts", item["last_seen_ts"])),
+                piece_uuid=(
+                    item["piece_uuid"]
+                    if isinstance(item.get("piece_uuid"), str)
+                    and item["piece_uuid"].strip()
+                    else None
+                ),
             )
             for item in extents
         ]
@@ -2569,6 +2583,225 @@ class VisionManager:
             tracker.reset()
         self._piece_handoff_manager.reset()
         self._feeder_track_cache.clear()
+
+    # ------------------------------------------------------------------
+    # Phase 3: Piece-dossier segment archival
+    # ------------------------------------------------------------------
+
+    def attachPieceTransportForSegmentArchival(self, transport: Any) -> None:
+        """Wire a :class:`PieceTransport` so archived segments resolve their
+        owning ``piece_uuid`` via ``get_piece_uuid_for_tracked_global_id``.
+
+        Called from the machine-runtime bring-up once transport exists.
+        ``None`` unbinds; segments will still land in SQLite under a
+        stub uuid keyed by ``tracked_global_id`` but won't link back to
+        the live classification-channel dossier.
+        """
+        self._piece_transport = transport
+
+    def _archive_segment_to_dossier(self, tracked_global_id: int, segment: Any) -> None:
+        """Side-channel callback fired by :class:`PieceHistoryBuffer` every
+        time a segment gets recorded.
+
+        Pulls the owning ``piece_uuid`` from the transport, writes the
+        per-sector wedge/piece crops + any baseline snapshot to
+        ``blob/piece_crops/<uuid>/seg<seq>/`` as JPEGs, then persists a
+        ``piece_segments`` row via :func:`remember_piece_segment` with
+        crop paths (relative to ``BLOB_DIR``) instead of base64 blobs.
+
+        If the transport doesn't know about ``tracked_global_id`` yet
+        (carousel track archived before C4 adopted it), a fresh stub
+        dossier is minted so the segment has somewhere to hang off of.
+        All I/O is best-effort — any exception just emits a WARNING and
+        returns; the tracker must never be blocked by archival.
+        """
+        try:
+            self._archive_segment_to_dossier_impl(int(tracked_global_id), segment)
+        except Exception as exc:  # noqa: BLE001 — archival must not propagate
+            try:
+                self.gc.logger.warning(
+                    f"_archive_segment_to_dossier: failed for gid="
+                    f"{tracked_global_id}: {exc}"
+                )
+            except Exception:
+                pass
+
+    def _archive_segment_to_dossier_impl(
+        self, tracked_global_id: int, segment: Any
+    ) -> None:
+        import uuid as _uuid
+        import time as _time
+
+        from blob_manager import write_piece_crop
+        from local_state import remember_piece_dossier, remember_piece_segment
+
+        transport = self._piece_transport
+        piece_uuid: str | None = None
+        if transport is not None:
+            try:
+                piece_uuid = transport.get_piece_uuid_for_tracked_global_id(
+                    int(tracked_global_id)
+                )
+            except Exception:
+                piece_uuid = None
+
+        if not piece_uuid:
+            piece_uuid = str(_uuid.uuid4())
+            now = _time.time()
+            first_seen_ts = (
+                float(getattr(segment, "first_seen_ts", now) or now)
+                if isinstance(getattr(segment, "first_seen_ts", None), (int, float))
+                else now
+            )
+            try:
+                remember_piece_dossier(
+                    {
+                        "uuid": piece_uuid,
+                        "tracked_global_id": int(tracked_global_id),
+                        "stage": "created",
+                        "classification_status": "pending",
+                        "created_at": first_seen_ts,
+                        "updated_at": now,
+                        "first_carousel_seen_ts": first_seen_ts,
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — best effort
+                try:
+                    self.gc.logger.warning(
+                        f"_archive_segment_to_dossier_impl: stub dossier "
+                        f"failed for uuid={piece_uuid}: {exc}"
+                    )
+                except Exception:
+                    pass
+            # Expose the mapping to the transport so subsequent archival
+            # calls (next segment on the same gid) reuse the same uuid.
+            if transport is not None and hasattr(transport, "bindStubPieceUuid"):
+                try:
+                    transport.bindStubPieceUuid(int(tracked_global_id), piece_uuid)
+                except Exception:
+                    pass
+
+        sequence = int(getattr(segment, "sector_count", 0) or 0)
+        # sequence on disk needs to be a monotonically-increasing integer
+        # per piece_uuid. Fall back to a derived value from first_seen_ts
+        # if the segment doesn't carry one — same piece + same timestamp
+        # is idempotent on the (piece_uuid, sequence) upsert key.
+        if sequence <= 0:
+            raw_fs = getattr(segment, "first_seen_ts", None)
+            if isinstance(raw_fs, (int, float)) and raw_fs > 0:
+                sequence = int(raw_fs * 1000) % 2_000_000_000
+            else:
+                sequence = 0
+
+        # Persist the baseline snapshot (frame at track birth) once per
+        # segment under ``snapshot_000.jpg`` so the detail page can draw
+        # the wedge overlay over the same background the sector crops
+        # came from.
+        snapshot_b64 = getattr(segment, "snapshot_jpeg_b64", "") or ""
+        snapshot_path: str | None = None
+        if snapshot_b64:
+            try:
+                raw = base64.b64decode(snapshot_b64)
+            except (ValueError, TypeError):
+                raw = b""
+            if raw:
+                written = write_piece_crop(
+                    piece_uuid, sequence, "snapshot", 0, raw
+                )
+                if written is not None:
+                    snapshot_path = str(written)
+
+        sector_payloads: list[dict[str, Any]] = []
+        for idx, snap in enumerate(getattr(segment, "sector_snapshots", []) or []):
+            wedge_path: str | None = None
+            piece_path: str | None = None
+            wedge_b64 = getattr(snap, "jpeg_b64", "") or ""
+            piece_b64 = getattr(snap, "piece_jpeg_b64", "") or ""
+            if wedge_b64:
+                try:
+                    wedge_raw = base64.b64decode(wedge_b64)
+                except (ValueError, TypeError):
+                    wedge_raw = b""
+                if wedge_raw:
+                    written = write_piece_crop(
+                        piece_uuid, sequence, "wedge", idx, wedge_raw
+                    )
+                    if written is not None:
+                        wedge_path = str(written)
+            if piece_b64:
+                try:
+                    piece_raw = base64.b64decode(piece_b64)
+                except (ValueError, TypeError):
+                    piece_raw = b""
+                if piece_raw:
+                    written = write_piece_crop(
+                        piece_uuid, sequence, "piece", idx, piece_raw
+                    )
+                    if written is not None:
+                        piece_path = str(written)
+            sector_payloads.append(
+                {
+                    "sector_index": int(getattr(snap, "sector_index", idx) or idx),
+                    "start_angle_deg": float(getattr(snap, "start_angle_deg", 0.0) or 0.0),
+                    "end_angle_deg": float(getattr(snap, "end_angle_deg", 0.0) or 0.0),
+                    "captured_ts": float(getattr(snap, "captured_ts", 0.0) or 0.0),
+                    "bbox_x": int(getattr(snap, "bbox_x", 0) or 0),
+                    "bbox_y": int(getattr(snap, "bbox_y", 0) or 0),
+                    "width": int(getattr(snap, "width", 0) or 0),
+                    "height": int(getattr(snap, "height", 0) or 0),
+                    "r_inner": float(getattr(snap, "r_inner", 0.0) or 0.0),
+                    "r_outer": float(getattr(snap, "r_outer", 0.0) or 0.0),
+                    "jpeg_path": wedge_path,
+                    "piece_bbox_x": int(getattr(snap, "piece_bbox_x", 0) or 0),
+                    "piece_bbox_y": int(getattr(snap, "piece_bbox_y", 0) or 0),
+                    "piece_width": int(getattr(snap, "piece_width", 0) or 0),
+                    "piece_height": int(getattr(snap, "piece_height", 0) or 0),
+                    "piece_jpeg_path": piece_path,
+                }
+            )
+
+        path_serialized: list[list[float]] = []
+        for sample in getattr(segment, "path", []) or []:
+            try:
+                if isinstance(sample, (list, tuple)) and len(sample) >= 3:
+                    path_serialized.append(
+                        [float(sample[0]), float(sample[1]), float(sample[2])]
+                    )
+            except Exception:
+                continue
+
+        payload: dict[str, Any] = {
+            "tracked_global_id": int(tracked_global_id),
+            "first_seen_ts": float(getattr(segment, "first_seen_ts", 0.0) or 0.0),
+            "last_seen_ts": float(getattr(segment, "last_seen_ts", 0.0) or 0.0),
+            "hit_count": int(getattr(segment, "hit_count", 0) or 0),
+            "channel_center_x": getattr(segment, "channel_center_x", None),
+            "channel_center_y": getattr(segment, "channel_center_y", None),
+            "channel_radius_inner": getattr(segment, "channel_radius_inner", None),
+            "channel_radius_outer": getattr(segment, "channel_radius_outer", None),
+            "snapshot_width": int(getattr(segment, "snapshot_width", 0) or 0),
+            "snapshot_height": int(getattr(segment, "snapshot_height", 0) or 0),
+            "snapshot_path": snapshot_path,
+            "path": path_serialized,
+            "sector_snapshots": sector_payloads,
+            "recognize_result": getattr(segment, "auto_recognition", None),
+        }
+        role = str(getattr(segment, "source_role", "") or "")
+        try:
+            remember_piece_segment(
+                piece_uuid=piece_uuid,
+                role=role,
+                sequence=int(sequence),
+                payload=payload,
+            )
+        except Exception as exc:  # noqa: BLE001 — persistence is best-effort
+            try:
+                self.gc.logger.warning(
+                    f"remember_piece_segment failed piece_uuid={piece_uuid} "
+                    f"seq={sequence}: {exc}"
+                )
+            except Exception:
+                pass
 
     def listFeederTrackHistory(
         self,

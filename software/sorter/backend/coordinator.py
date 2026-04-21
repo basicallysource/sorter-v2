@@ -56,6 +56,19 @@ class Coordinator:
         self.shared.carousel = (
             self.transport if hasattr(self.transport, "rotate") else None
         )
+        # Phase 3: let the vision-side segment archiver resolve a live
+        # ``tracked_global_id -> piece_uuid`` mapping. Optional — unit
+        # tests construct a VisionManager without this wiring.
+        if vision is not None and hasattr(
+            vision, "attachPieceTransportForSegmentArchival"
+        ):
+            try:
+                vision.attachPieceTransportForSegmentArchival(self.transport)
+            except Exception as exc:
+                self.logger.warning(
+                    f"Coordinator: failed to attach piece transport to vision "
+                    f"for segment archival: {exc}"
+                )
 
         self.distribution = self.machine_runtime.create_distribution(
             irl=irl,

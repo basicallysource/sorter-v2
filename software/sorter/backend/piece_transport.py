@@ -263,6 +263,44 @@ class ClassificationChannelTransport(PieceTransport):
             return None
         return self._piece_uuid_by_track_id.get(gid)
 
+    def bindStubPieceUuid(
+        self,
+        tracked_global_id: int,
+        piece_uuid: str,
+    ) -> bool:
+        """Record a ``tracked_global_id -> piece_uuid`` binding without creating
+        a :class:`KnownObject`.
+
+        Phase 3 segment archival needs this when it encounters a fresh
+        ``tracked_global_id`` on the carousel that has no piece_transport
+        entry yet (e.g. the C4 state machine hasn't observed it). The
+        mapping is a one-way hint so subsequent segment flushes reuse the
+        same dossier uuid without the archiver having to stash state
+        elsewhere. Returns ``True`` if a new binding was established,
+        ``False`` if a different uuid already claimed the gid (the
+        existing binding is **not** overwritten).
+        """
+        if tracked_global_id is None or not isinstance(piece_uuid, str):
+            return False
+        if not piece_uuid.strip():
+            return False
+        try:
+            gid = int(tracked_global_id)
+        except (TypeError, ValueError):
+            return False
+        existing = self._piece_uuid_by_track_id.get(gid)
+        if existing is not None and existing != piece_uuid:
+            _logger.warning(
+                "piece_transport.bindStubPieceUuid: gid=%s already bound to "
+                "uuid=%s; refusing to rebind to %s",
+                gid,
+                existing,
+                piece_uuid,
+            )
+            return False
+        self._piece_uuid_by_track_id[gid] = piece_uuid
+        return True
+
     def _bindTrackToPiece(
         self,
         tracked_global_id: int | None,

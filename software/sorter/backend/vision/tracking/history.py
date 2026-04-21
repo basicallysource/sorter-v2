@@ -14,17 +14,21 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import math
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import cv2
 import numpy as np
 
 from role_aliases import is_auxiliary_classification_role
+
+
+_logger = logging.getLogger(__name__)
 
 
 # ``0`` disables trimming — we keep every completed track until the
@@ -666,6 +670,7 @@ class PieceHistoryBuffer:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         max_path_points: int = DEFAULT_MAX_PATH_POINTS,
         persist_dir: "Path | None" = None,
+        on_segment_archived: "Callable[[int, TrackSegment], None] | None" = None,
     ) -> None:
         self._max_entries = int(max_entries)
         self._max_path_points = int(max_path_points)
@@ -673,9 +678,21 @@ class PieceHistoryBuffer:
         # OrderedDict → O(1) LRU-style trimming by insertion order.
         self._entries: "OrderedDict[int, TrackHistoryEntry]" = OrderedDict()
         self._persist_dir = Path(persist_dir) if persist_dir is not None else None
+        self._on_segment_archived = on_segment_archived
         if self._persist_dir is not None:
             self._persist_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_disk()
+
+    def set_on_segment_archived(
+        self,
+        callback: "Callable[[int, TrackSegment], None] | None",
+    ) -> None:
+        """Swap (or clear) the archival callback after construction.
+
+        VisionManager creates the buffer before the piece_transport exists,
+        so we set the callback once transport wiring is known.
+        """
+        self._on_segment_archived = callback
 
     def record_segment(self, segment: TrackSegment, global_id: int) -> None:
         with self._lock:
@@ -704,6 +721,21 @@ class PieceHistoryBuffer:
                     popped_id, _popped = self._entries.popitem(last=False)
                     self._delete_from_disk(popped_id)
             self._write_to_disk(existing)
+        # Fire the archival side-channel outside the main lock — the
+        # callback does its own I/O (SQLite + disk) and we don't want a
+        # slow disk to back up the tracker thread. The b64 RAM ring above
+        # is already updated, so readers don't block on us either.
+        callback = self._on_segment_archived
+        if callback is not None:
+            try:
+                callback(int(global_id), segment)
+            except Exception as exc:  # noqa: BLE001 — archival is best-effort
+                _logger.warning(
+                    "PieceHistoryBuffer: on_segment_archived callback raised "
+                    "for global_id=%s: %s",
+                    global_id,
+                    exc,
+                )
 
     def attach_burst(self, global_id: int, burst_frames: list[DropZoneBurstFrame]) -> None:
         """Attach drop-zone burst frames to an existing or newly-created entry.

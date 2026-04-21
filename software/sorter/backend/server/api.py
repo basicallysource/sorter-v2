@@ -449,6 +449,31 @@ def updateSortingProfileSetViewPartState(
 
 
 # ---------------------------------------------------------------------------
+# Known-object lookup by uuid
+# ---------------------------------------------------------------------------
+#
+# The WS recent-objects ring and frontend `recentObjects` buffer are both
+# intentionally tiny (10 entries) — they're for the gallery, not for
+# persistence. The detail page at ``/tracked/<uuid>`` needs to render a
+# piece even after it's aged out of that ring, so this endpoint surfaces
+# the last observed KnownObject payload from the runtime-stats collector's
+# bounded in-memory LRU (~1000 entries) as the fallback source.
+
+
+@app.get("/api/known-objects/{uuid}", response_model=KnownObjectData)
+def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
+    if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
+        raise HTTPException(status_code=404, detail="not found")
+    payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="not found")
+    try:
+        return KnownObjectData.model_validate(payload)
+    except Exception:
+        raise HTTPException(status_code=404, detail="not found")
+
+
+# ---------------------------------------------------------------------------
 # WebSocket
 # ---------------------------------------------------------------------------
 

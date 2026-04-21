@@ -1,5 +1,6 @@
 import statistics
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +9,7 @@ MAX_STATE_TIMELINE_EVENTS = 5000
 MAX_FEEDER_SIGNAL_TIMELINE_EVENTS = 10000
 MAX_FEEDER_COMBO_TIMELINE_EVENTS = 5000
 MAX_CHANNEL_EXIT_EVENTS = 10000
+MAX_KNOWN_OBJECT_LOOKUP_ENTRIES = 1000
 
 FEEDER_BLOCKER_SIGNAL_NAMES = [
     "wait_chute",
@@ -85,6 +87,12 @@ class RuntimeStatsCollector:
         self._running_total_s = 0.0
         self._running_started_at_monotonic: float | None = None
         self._piece_by_uuid: dict[str, dict[str, Any]] = {}
+        # Bounded LRU of every KnownObject payload we've ever observed in this
+        # process, keyed by uuid. Populated unconditionally (even when the
+        # machine is not running) so the frontend can look up a piece by
+        # uuid on the detail page long after it ages out of the 10-item WS
+        # ring buffer. Evicted FIFO once the cap is reached.
+        self._known_object_lookup: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
         self._pulse_counts: dict[str, _PulseCounts] = {}
         self._ch2_clear_wait_start_mono: float | None = None
         self._ch3_clear_wait_start_mono: float | None = None
@@ -212,10 +220,21 @@ class RuntimeStatsCollector:
                 current["entered_at_wall"] = now_wall
 
     def observeKnownObject(self, obj: dict[str, Any]) -> None:
-        if not self._is_running:
-            return
         obj_uuid = obj.get("uuid")
         if not obj_uuid:
+            return
+        # Keep the long-lived lookup fresh for every observation, even while
+        # not running — so the detail page can hydrate a piece by uuid even
+        # after lifecycle transitions. LRU-evicted once bounded.
+        lookup_entry = self._known_object_lookup.pop(obj_uuid, None)
+        if lookup_entry is None:
+            lookup_entry = {}
+        lookup_entry.update(obj)
+        self._known_object_lookup[obj_uuid] = lookup_entry
+        while len(self._known_object_lookup) > MAX_KNOWN_OBJECT_LOOKUP_ENTRIES:
+            self._known_object_lookup.popitem(last=False)
+
+        if not self._is_running:
             return
         current = self._piece_by_uuid.get(obj_uuid, {})
         current.update(obj)
@@ -229,6 +248,18 @@ class RuntimeStatsCollector:
                 record_piece_distribution(current)
             except Exception:
                 pass
+
+    def lookupKnownObject(self, obj_uuid: str) -> dict[str, Any] | None:
+        """Return the last observed KnownObject payload for ``obj_uuid``.
+
+        Returns ``None`` if the piece has aged out of the bounded LRU or
+        was never observed in this process. Returned dict is a shallow copy
+        so the caller can mutate it safely.
+        """
+        entry = self._known_object_lookup.get(obj_uuid)
+        if entry is None:
+            return None
+        return dict(entry)
 
     def observeChannelExit(
         self,

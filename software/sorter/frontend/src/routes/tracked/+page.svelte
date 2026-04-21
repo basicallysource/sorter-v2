@@ -246,12 +246,14 @@
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 	let limit = $state(Number(initialParams?.get('limit') ?? 120));
 	let filter = $state<FilterMode>((initialParams?.get('show') as FilterMode) ?? 'all');
+	let showStubs = $state(initialParams?.get('stubs') === '1');
 
 	function syncUrl() {
 		if (typeof window === 'undefined') return;
 		const params = new URLSearchParams();
 		if (limit !== 120) params.set('limit', String(limit));
 		if (filter !== 'all') params.set('show', filter);
+		if (showStubs) params.set('stubs', '1');
 		const next = params.toString();
 		const current = page.url?.search?.replace(/^\?/, '') ?? '';
 		if (next === current) return;
@@ -261,13 +263,16 @@
 	$effect(() => {
 		limit;
 		filter;
+		showStubs;
 		untrack(syncUrl);
 	});
 
 	async function load(): Promise<void> {
 		loading = true;
 		try {
-			const res = await fetch(`${effectiveBase()}/api/tracked/pieces?limit=${limit}`);
+			const query = new URLSearchParams({ limit: String(limit) });
+			if (showStubs) query.set('include_stubs', 'true');
+			const res = await fetch(`${effectiveBase()}/api/tracked/pieces?${query.toString()}`);
 			if (!res.ok) return;
 			const json = await res.json();
 			items = Array.isArray(json?.items) ? (json.items as TrackedPieceRow[]) : [];
@@ -345,16 +350,29 @@
 		return out;
 	});
 
+	// Defense-in-depth against ghost-stub dossiers. The backend filters these
+	// out by default (see API include_stubs), but if one slips through we
+	// still hide it from the UI. Operators can flip "Show stubs" to inspect.
+	function isGhostStub(row: TrackedPieceRow): boolean {
+		if (row.has_track_segments === true) return false;
+		return row.piece.classification_status === 'pending';
+	}
+
+	let visibleItems = $derived.by<TrackedPieceRow[]>(() => {
+		if (showStubs) return dedupedItems;
+		return dedupedItems.filter((item) => !isGhostStub(item));
+	});
+
 	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
-		if (filter === 'all') return dedupedItems;
-		if (filter === 'active') return dedupedItems.filter((item) => item.active);
+		if (filter === 'all') return visibleItems;
+		if (filter === 'active') return visibleItems.filter((item) => item.active);
 		if (filter === 'distributed') {
-			return dedupedItems.filter((item) => item.piece.stage === 'distributed');
+			return visibleItems.filter((item) => item.piece.stage === 'distributed');
 		}
 		if (filter === 'classified') {
-			return dedupedItems.filter((item) => item.piece.classification_status === 'classified');
+			return visibleItems.filter((item) => item.piece.classification_status === 'classified');
 		}
-		return dedupedItems.filter(
+		return visibleItems.filter(
 			(item) =>
 				item.piece.classification_channel_zone_state === 'lost' &&
 				item.piece.stage !== 'distributed'
@@ -633,6 +651,18 @@
 						<option value="classified">classified</option>
 						<option value="lost">track lost</option>
 					</select>
+				</label>
+				<label
+					class="flex items-center gap-1.5 text-sm text-text-muted"
+					title="Debug: include pending ghost-stub dossiers (no track segments yet)"
+				>
+					<input
+						type="checkbox"
+						bind:checked={showStubs}
+						onchange={() => void load()}
+						class="h-3.5 w-3.5 border border-border bg-bg"
+					/>
+					<span>stubs</span>
 				</label>
 				<button
 					type="button"

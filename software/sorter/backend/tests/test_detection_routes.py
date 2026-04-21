@@ -269,9 +269,42 @@ class TrackedPieceDetailRouteTests(unittest.TestCase):
             if isinstance(item, dict)
         }
         self.assertIn("piece-has-segs", flags)
-        self.assertIn("piece-no-segs", flags)
+        self.assertNotIn("piece-no-segs", flags)
         self.assertTrue(flags["piece-has-segs"])
-        self.assertFalse(flags["piece-no-segs"])
+
+    def test_api_tracked_pieces_default_filters_stubs(self) -> None:
+        """Ghost stubs (pending + no segments) must not appear by default."""
+        from server.api import get_tracked_pieces
+
+        # Stub: pending, no segments, no distributed_at.
+        self._seed_piece("piece-ghost-stub", 601, segment_count=0)
+        # Real piece: has a segment.
+        self._seed_piece("piece-real", 602, segment_count=1)
+
+        resp = get_tracked_pieces()
+        uuids = {
+            item.get("uuid")
+            for item in resp.get("items", [])
+            if isinstance(item, dict)
+        }
+        self.assertIn("piece-real", uuids)
+        self.assertNotIn("piece-ghost-stub", uuids)
+
+    def test_api_tracked_pieces_include_stubs_param_shows_all(self) -> None:
+        """?include_stubs=true must re-expose the hidden ghost stubs."""
+        from server.api import get_tracked_pieces
+
+        self._seed_piece("piece-ghost-stub", 701, segment_count=0)
+        self._seed_piece("piece-real", 702, segment_count=1)
+
+        resp = get_tracked_pieces(include_stubs=True)
+        uuids = {
+            item.get("uuid")
+            for item in resp.get("items", [])
+            if isinstance(item, dict)
+        }
+        self.assertIn("piece-real", uuids)
+        self.assertIn("piece-ghost-stub", uuids)
 
 
 if __name__ == "__main__":

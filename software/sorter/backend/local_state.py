@@ -1293,6 +1293,7 @@ def list_piece_dossiers(
     *,
     limit: int = 200,
     session_id: str | None = None,
+    include_stubs: bool = False,
 ) -> list[dict[str, Any]]:
     initialize_local_state()
     with _connection() as conn:
@@ -1306,10 +1307,32 @@ def list_piece_dossiers(
                 resolved_session_id = str(latest["id"]) if latest is not None else None
         if not resolved_session_id:
             return []
-        rows = conn.execute(
-            "SELECT * FROM piece_dossiers WHERE session_id = ? ORDER BY last_event_at DESC LIMIT ?",
-            (resolved_session_id, max(1, int(limit))),
-        ).fetchall()
+        if include_stubs:
+            rows = conn.execute(
+                "SELECT * FROM piece_dossiers WHERE session_id = ? "
+                "ORDER BY last_event_at DESC LIMIT ?",
+                (resolved_session_id, max(1, int(limit))),
+            ).fetchall()
+        else:
+            # Exclude "ghost-stub" rows: classification_status contains
+            # 'pending' AND distributed_at is NULL AND no piece_segments
+            # row references the piece_uuid. Real pieces always end up
+            # with either a segment row, a terminal classification_status,
+            # or a distributed_at timestamp — stubs have none of those.
+            rows = conn.execute(
+                "SELECT d.* FROM piece_dossiers d "
+                "WHERE d.session_id = ? "
+                "  AND ("
+                "    d.distributed_at IS NOT NULL"
+                "    OR d.classification_status NOT LIKE '%pending%'"
+                "    OR EXISTS ("
+                "      SELECT 1 FROM piece_segments s "
+                "      WHERE s.piece_uuid = d.piece_uuid"
+                "    )"
+                "  ) "
+                "ORDER BY d.last_event_at DESC LIMIT ?",
+                (resolved_session_id, max(1, int(limit))),
+            ).fetchall()
         return [
             entry
             for entry in (_piece_dossier_row_to_dict(row) for row in rows)

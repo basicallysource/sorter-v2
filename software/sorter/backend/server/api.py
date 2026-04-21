@@ -554,10 +554,13 @@ def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str
 
 
 @app.get("/api/tracked/pieces")
-def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
+def get_tracked_pieces(
+    limit: int = 120,
+    include_stubs: bool = False,
+) -> Dict[str, Any]:
     limit = max(10, min(int(limit), 500))
     load_limit = max(limit * 4, 500)
-    dossiers = list_piece_dossiers(limit=load_limit)
+    dossiers = list_piece_dossiers(limit=load_limit, include_stubs=include_stubs)
     history_by_gid = _tracked_history_summary_map(load_limit)
     drop_angle_deg = _current_classification_drop_angle_deg()
 

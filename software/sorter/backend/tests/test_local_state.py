@@ -791,6 +791,78 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         self.assertIsNone(build_piece_detail_payload(""))
         self.assertIsNone(build_piece_detail_payload("   "))
 
+    def test_list_piece_dossiers_excludes_stubs_by_default(self) -> None:
+        """Ghost-stub rows (pending + no distributed_at + no segments) are
+        hidden from the default list_piece_dossiers() call but still available
+        via include_stubs=True for debug tooling."""
+        initialize_local_state()
+        start_new_sorting_session(reason="stub_filter")
+
+        # Two pure ghost stubs: pending, no distributed_at, no segments.
+        remember_piece_dossier(
+            {
+                "uuid": "stub-1",
+                "tracked_global_id": 101,
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_dossier(
+            {
+                "uuid": "stub-2",
+                "tracked_global_id": 102,
+                "created_at": 2.0,
+                "updated_at": 2.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+
+        # One pending piece that has an attached segment → not a stub.
+        remember_piece_dossier(
+            {
+                "uuid": "with-segment",
+                "tracked_global_id": 103,
+                "created_at": 3.0,
+                "updated_at": 3.0,
+                "stage": "created",
+                "classification_status": "pending",
+            }
+        )
+        remember_piece_segment(
+            "with-segment",
+            "c_channel_3",
+            0,
+            self._make_segment_payload(tracked_global_id=103, first_seen_ts=3.0),
+        )
+
+        # One classified piece (terminal status, no segment needed).
+        remember_piece_dossier(
+            {
+                "uuid": "classified",
+                "tracked_global_id": 104,
+                "created_at": 4.0,
+                "updated_at": 4.0,
+                "stage": "distributed",
+                "classification_status": "classified",
+                "distributed_at": 4.5,
+            }
+        )
+
+        default_uuids = {entry["uuid"] for entry in list_piece_dossiers(limit=50)}
+        self.assertEqual({"with-segment", "classified"}, default_uuids)
+
+        all_uuids = {
+            entry["uuid"]
+            for entry in list_piece_dossiers(limit=50, include_stubs=True)
+        }
+        self.assertEqual(
+            {"stub-1", "stub-2", "with-segment", "classified"},
+            all_uuids,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

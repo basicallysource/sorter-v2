@@ -59,6 +59,20 @@ DEFAULT_SECTOR_COUNT = 18
 # across the channel.
 MIN_C3_HITS_FOR_PIECE_UUID = 4
 
+# Motion-gate for piece_uuid binding (Phase 7 ghost-elimination).
+#
+# A track must have crossed at least one of these thresholds in addition to
+# clearing ``MIN_C3_HITS_FOR_PIECE_UUID`` before we mint a piece dossier
+# uuid for it. Static ghosts (mount screws, lighting reflections, etc.)
+# routinely accumulate 4+ hits from detector jitter within 0.4 s but stay
+# parked in a tight polar region, so before this gate they would grab a
+# uuid and pollute the DB with stub dossiers. Real LEGO parts on C3 either
+# wander monotonically along the polar path (≥ 3° angular span) or cut
+# across the ring radially (≥ 12 px cartesian displacement) well before
+# they reach 4 hits.
+MIN_ANGULAR_DISPLACEMENT_FOR_PIECE_UUID_DEG = 3.0
+MIN_PIECE_UUID_DISPLACEMENT_PX = 12.0
+
 # When either the track or detection has no embedding, the cosine term is
 # undefined and the match cost degenerates to position-only. Require a much
 # tighter geometric fit than the normal 1.0 step thresholds in that case so
@@ -1184,6 +1198,15 @@ class PolarFeederTracker(Tracker):
         if track.piece_uuid is not None:
             return
         if track.hit_count < MIN_C3_HITS_FOR_PIECE_UUID:
+            return
+        min_angular_rad = math.radians(MIN_ANGULAR_DISPLACEMENT_FOR_PIECE_UUID_DEG)
+        if (
+            track.max_angular_displacement_rad < min_angular_rad
+            and track.max_displacement_px < MIN_PIECE_UUID_DISPLACEMENT_PX
+        ):
+            # Track cleared the hit-count gate but hasn't moved — looks like
+            # a static ghost (screw, reflection, guide). Skip the uuid bind;
+            # the stagnant-false-track filter will finish it off shortly.
             return
         new_uuid = str(uuid_mod.uuid4())
         track.piece_uuid = new_uuid

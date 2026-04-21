@@ -850,6 +850,132 @@ def test_c3_track_below_threshold_no_piece_uuid(tmp_path, monkeypatch):
         assert tracks[0].piece_uuid is None, (i, tracks[0].piece_uuid)
 
 
+def test_stationary_track_does_not_bind_piece_uuid(tmp_path, monkeypatch):
+    """A C3 track that clears the hit-count gate but stays parked inside
+    the motion-gate (< 3° angular span AND < 12 px displacement) must not
+    mint a piece_uuid or persist a stub dossier. These are the signatures
+    of static apparatus ghosts (screws, reflections, mounts)."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    import importlib
+    import local_state
+
+    importlib.reload(local_state)
+    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
+
+    tracker, _ = _make_c3_tracker()
+    # Wire channel geometry so angular-displacement metrics are populated.
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    # Detections jitter within a 4 px radius around a fixed point — well
+    # under both thresholds (12 px cartesian, 3° angular).
+    anchor_cx, anchor_cy = 280.0, 200.0
+    jitter = [
+        (0.0, 0.0),
+        (1.0, -1.0),
+        (-1.5, 0.5),
+        (0.5, 1.0),
+        (-0.5, -0.5),
+        (1.0, 0.0),
+    ]
+    for i in range(MIN_C3_HITS_FOR_PIECE_UUID + 1):
+        dx, dy = jitter[i % len(jitter)]
+        tracker.update(
+            [_bbox_around(anchor_cx + dx, anchor_cy + dy, size=40)],
+            [0.9],
+            i * 0.2,
+        )
+
+    tracks = list(tracker._tracks.values())
+    assert len(tracks) == 1, tracks
+    track = tracks[0]
+    assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
+    assert track.max_displacement_px < 12.0, track.max_displacement_px
+    import math as _math
+
+    assert track.max_angular_displacement_rad < _math.radians(3.0), (
+        track.max_angular_displacement_rad
+    )
+    assert track.piece_uuid is None, "stationary ghost must not get a uuid"
+
+
+def test_moving_track_binds_piece_uuid(tmp_path, monkeypatch):
+    """A C3 track whose detections sweep through ≥ 5° of polar angle must
+    bind a piece_uuid once hit_count clears the threshold."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    import importlib
+    import math as _math
+
+    import local_state
+
+    importlib.reload(local_state)
+    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
+
+    tracker, _ = _make_c3_tracker()
+    center_x, center_y = 200.0, 200.0
+    radius_px = 80.0
+    tracker.set_channel_geometry((center_x, center_y), 40.0, 120.0)
+
+    # Spread detections over ~5° of arc at fixed radius.
+    total_arc_deg = 5.0
+    start_angle_deg = 0.0
+    steps = MIN_C3_HITS_FOR_PIECE_UUID + 1
+    for i in range(steps):
+        frac = i / max(1, steps - 1)
+        angle_rad = _math.radians(start_angle_deg + frac * total_arc_deg)
+        cx = center_x + radius_px * _math.cos(angle_rad)
+        cy = center_y + radius_px * _math.sin(angle_rad)
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
+
+    tracks = list(tracker._tracks.values())
+    assert len(tracks) == 1, tracks
+    track = tracks[0]
+    assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
+    assert track.max_angular_displacement_rad >= _math.radians(3.0)
+    assert isinstance(track.piece_uuid, str) and len(track.piece_uuid) >= 8
+
+    dossier = local_state.get_piece_dossier(track.piece_uuid)
+    assert dossier is not None
+
+
+def test_radial_motion_only_still_binds_uuid(tmp_path, monkeypatch):
+    """Pieces that cut radially across the ring (≥ 12 px cartesian
+    displacement) but cover < 1° angular span still must receive a
+    piece_uuid — the motion-gate uses OR semantics, not AND."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    import importlib
+    import math as _math
+
+    import local_state
+
+    importlib.reload(local_state)
+    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
+
+    tracker, _ = _make_c3_tracker()
+    center_x, center_y = 200.0, 200.0
+    tracker.set_channel_geometry((center_x, center_y), 40.0, 160.0)
+
+    # Sit on the +x axis and walk outward — angular offset stays 0,
+    # radial (cartesian) displacement grows past 12 px.
+    base_radius_px = 60.0
+    steps = MIN_C3_HITS_FOR_PIECE_UUID + 1
+    for i in range(steps):
+        radius_px = base_radius_px + i * 5.0
+        cx = center_x + radius_px
+        cy = center_y  # stays on the axis — angular_span ~ 0
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
+
+    tracks = list(tracker._tracks.values())
+    assert len(tracks) == 1, tracks
+    track = tracks[0]
+    assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
+    assert track.max_displacement_px >= 12.0, track.max_displacement_px
+    assert track.max_angular_displacement_rad < _math.radians(1.0)
+    assert isinstance(track.piece_uuid, str) and len(track.piece_uuid) >= 8
+
+
 def test_c3_to_carousel_handoff_preserves_piece_uuid(tmp_path, monkeypatch):
     """A C3 track with an early-bound uuid must hand that uuid through
     the handoff manager into the carousel rebirth so the downstream

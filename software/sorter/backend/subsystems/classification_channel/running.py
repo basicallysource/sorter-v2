@@ -243,6 +243,17 @@ class Running(BaseState):
         obj.carousel_detected_confirmed_at = now_wall
         obj.tracked_global_id = extent.global_id
         obj.updated_at = now_wall
+        # "Fashion-shoot" burst: drain ring-buffered frames from C3 + carousel
+        # right now (pre-event) and schedule post-event frames 2 s out. Runs
+        # before the legacy drop-snapshot / trigger so even a slow snapshot
+        # call can't delay the ring-buffer drain past a few frames of drift.
+        if self.vision is not None and hasattr(self.vision, "captureBurst") and extent.global_id is not None:
+            try:
+                self.vision.captureBurst(int(extent.global_id))
+            except Exception as exc:
+                self.logger.debug(
+                    f"burst capture failed for piece {obj.uuid[:8]}: {exc}"
+                )
         # Snapshot the chamber the instant the piece is first seen on C4 —
         # i.e. right as it falls in from C3. This beats the old drop-moment
         # capture because the piece is still isolated at the intake angle.

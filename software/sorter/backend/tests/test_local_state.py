@@ -308,6 +308,41 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual(48.0, regions[0]["radius_px"])
         self.assertEqual(3, regions[0]["suppression_count"])
 
+    def test_persistent_tracker_ignored_regions_c_channel_3_key(self) -> None:
+        """Regions must roundtrip under the c_channel_3 role key without
+        colliding with other roles. Each role lives in its own state_entry
+        (``persistent_tracker_ignored_regions:<role>``) so C2 / C3 / carousel
+        ghosts don't contaminate each other once Phase-7 enables
+        persistence on every feeder role."""
+
+        initialize_local_state()
+
+        set_persistent_tracker_ignored_regions(
+            "c_channel_3",
+            [
+                {
+                    "center_px": [640.0, 360.0],
+                    "radius_px": 72.0,
+                    "center_angle_rad": 0.5,
+                    "center_radius_px": 180.0,
+                    "angle_tolerance_rad": 0.15,
+                    "radius_tolerance_px": 14.0,
+                    "suppression_count": 2,
+                }
+            ],
+        )
+
+        regions = get_persistent_tracker_ignored_regions("c_channel_3")
+        self.assertEqual(1, len(regions))
+        self.assertEqual([640.0, 360.0], regions[0]["center_px"])
+        self.assertEqual(72.0, regions[0]["radius_px"])
+        self.assertAlmostEqual(0.5, regions[0]["center_angle_rad"])
+        self.assertEqual(2, regions[0]["suppression_count"])
+
+        # And must not leak into the other roles.
+        self.assertEqual([], get_persistent_tracker_ignored_regions("c_channel_2"))
+        self.assertEqual([], get_persistent_tracker_ignored_regions("carousel"))
+
 
 class PieceSegmentsSchemaTests(unittest.TestCase):
     def setUp(self) -> None:

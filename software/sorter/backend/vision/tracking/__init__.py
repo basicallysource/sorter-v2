@@ -127,7 +127,11 @@ def build_feeder_tracker_system(
         elif role == "c_channel_2":
             # The upstream singulation channel can briefly park real pieces,
             # so keep the stagnant-track suppression conservative here.
+            # Persist ghost regions across sessions so stationary apparatus
+            # artefacts (screws, reflections, guides) stay suppressed after
+            # a restart instead of having to re-learn them each run.
             tracker_kwargs.update(
+                persist_static_ghost_regions=True,
                 enable_stagnant_false_track_filter=True,
                 stagnant_false_track_max_age_s=6.0,
                 stagnant_false_track_min_displacement_px=14.0,
@@ -139,8 +143,11 @@ def build_feeder_tracker_system(
             # C3 tends to see mount / guide ghosts that can block the whole
             # feeder if they linger. Cull non-moving tracks sooner than on
             # C2, and keep a wider suppression bubble around them so they do
-            # not immediately respawn on the next frame.
+            # not immediately respawn on the next frame. Persist the
+            # learned regions so apparatus-bound ghosts (which never move)
+            # survive restarts.
             tracker_kwargs.update(
+                persist_static_ghost_regions=True,
                 enable_stagnant_false_track_filter=True,
                 stagnant_false_track_max_age_s=3.0,
                 stagnant_false_track_min_displacement_px=18.0,

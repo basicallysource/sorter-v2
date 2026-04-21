@@ -192,6 +192,59 @@ def test_persistent_stagnant_ghost_regions_survive_restart_and_clear_on_revival(
     assert len(revived) == 1
 
 
+def test_c3_ghost_region_persists_across_tracker_restart(tmp_path, monkeypatch):
+    """A stationary C3 detection held for >3 s must be learned as a
+    persistent ghost region that survives a tracker rebuild. The new
+    tracker instance must load the state_entries row and filter the same
+    detection on its very first update call."""
+
+    machine_params = tmp_path / "machine_params.toml"
+    machine_params.write_text("", encoding="utf-8")
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(machine_params))
+
+    import importlib
+
+    import local_state
+
+    importlib.reload(local_state)
+
+    def _make() -> PolarFeederTracker:
+        manager = PieceHandoffManager(handoff_chain={})
+        t = PolarFeederTracker(
+            role="c_channel_3",
+            handoff_manager=manager,
+            pixel_fallback_distance_px=200.0,
+            detection_score_threshold=0.1,
+            coast_limit_ticks=5,
+            enable_stagnant_false_track_filter=True,
+            stagnant_false_track_max_age_s=1.0,
+            persist_static_ghost_regions=True,
+        )
+        t.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+        return t
+
+    tracker = _make()
+
+    last_tracks = []
+    # Feed a single fixed detection for ≥ 3 s worth of ticks at 5 Hz so
+    # the stagnant-false-track filter kicks in and suppresses the track,
+    # emitting a persistent ignore region along the way.
+    for i in range(16):
+        ts = i * 0.2
+        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
+    assert last_tracks == []
+
+    persisted = local_state.get_persistent_tracker_ignored_regions("c_channel_3")
+    assert len(persisted) >= 1, "c_channel_3 ghost region must be persisted"
+
+    reloaded = _make()
+
+    # First call on the new tracker must already filter the ghost.
+    suppressed = reloaded.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
+    assert suppressed == []
+
+
 def test_carousel_jitter_ghost_is_suppressed_even_after_accumulating_path_length():
     tracker, _ = _make_single_tracker(
         role="carousel",

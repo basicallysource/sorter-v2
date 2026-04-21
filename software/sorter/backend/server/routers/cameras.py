@@ -3469,7 +3469,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         )
         carousel_polygon_key = "classification_channel" if classification_channel_setup else "carousel"
 
-        if role == "carousel":
+        if role == "carousel" and not classification_channel_setup:
             quad_points = _dashboard_quad_points(quad_table.get("carousel"))
             if len(quad_points) != 4:
                 quad_points = _dashboard_points(polygons_table.get(carousel_polygon_key))

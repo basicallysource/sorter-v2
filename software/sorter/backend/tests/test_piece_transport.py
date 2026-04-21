@@ -1,5 +1,6 @@
 import queue
 import unittest
+from unittest import mock
 
 from defs.known_object import (
     CarouselMotionSample,
@@ -8,6 +9,7 @@ from defs.known_object import (
     PieceStage,
 )
 from irl.config import ClassificationChannelConfig
+import piece_transport
 from piece_transport import ClassificationChannelTransport
 from subsystems.classification.carousel import Carousel
 from subsystems.classification_channel.zone_manager import TrackAngularExtent
@@ -354,6 +356,146 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertAlmostEqual(6.0, piece.carousel_motion_platter_speed_deg_per_s)
         self.assertEqual(2, len(piece.carousel_motion_samples))
         self.assertAlmostEqual(0.5, piece.carousel_motion_samples[-1].sync_ratio)
+
+
+class RegisterIncomingPieceIdempotencyTests(unittest.TestCase):
+    """Phase 1: registerIncomingPiece must not mint a second uuid for the
+    same physical piece across tracker glitches."""
+
+    def _make_dynamic_transport(self) -> ClassificationChannelTransport:
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+        return transport
+
+    def test_register_same_global_id_returns_same_piece(self) -> None:
+        transport = self._make_dynamic_transport()
+        # No DB dossier; make both helpers return None so the cascade
+        # falls through to the active-pieces lookup / fresh-uuid branch.
+        with mock.patch.object(
+            piece_transport.ClassificationChannelTransport,
+            "_rehydrateFromDossierByTrackedGlobalId",
+            return_value=None,
+        ), mock.patch.object(
+            piece_transport.ClassificationChannelTransport,
+            "_rehydrateFromDossierByPieceUuid",
+            return_value=None,
+        ):
+            first = transport.registerIncomingPiece(tracked_global_id=42)
+            second = transport.registerIncomingPiece(tracked_global_id=42)
+
+        self.assertIs(first, second)
+        self.assertEqual(first.uuid, second.uuid)
+        self.assertEqual(1, len(transport.activePieces()))
+
+    def test_recover_existing_piece_rehydrates_from_dossier(self) -> None:
+        transport = self._make_dynamic_transport()
+        dossier_payload = {
+            "uuid": "abc",
+            "tracked_global_id": 7,
+            "created_at": 1000.0,
+            "updated_at": 1100.0,
+            "stage": "created",
+            "classification_status": "classified",
+            "part_id": "3001",
+            "part_name": "Brick 2 x 4",
+            "color_id": "4",
+            "color_name": "Red",
+            "confidence": 0.91,
+            "destination_bin": [1, 2, 3],
+            "first_carousel_seen_ts": 1050.0,
+            "first_carousel_seen_angle_deg": 42.5,
+            "carousel_motion_samples": [
+                {
+                    "observed_at": 1060.0,
+                    "piece_angle_deg": 10.0,
+                    "carousel_angle_deg": 20.0,
+                    "piece_speed_deg_per_s": 1.0,
+                    "carousel_speed_deg_per_s": 2.0,
+                    "sync_ratio": 0.5,
+                }
+            ],
+        }
+
+        def _by_gid(gid: int):
+            return dossier_payload if int(gid) == 7 else None
+
+        def _by_uuid(piece_uuid: str):
+            return dossier_payload if piece_uuid == "abc" else None
+
+        with mock.patch.object(
+            piece_transport.ClassificationChannelTransport,
+            "_rehydrateFromDossierByPieceUuid",
+            side_effect=lambda self_, piece_uuid: None,
+            autospec=True,
+        ):
+            with mock.patch(
+                "local_state.get_piece_dossier_by_tracked_global_id",
+                side_effect=_by_gid,
+            ):
+                obj = transport.registerIncomingPiece(tracked_global_id=7)
+
+        self.assertEqual("abc", obj.uuid)
+        self.assertEqual(7, obj.tracked_global_id)
+        self.assertEqual("3001", obj.part_id)
+        self.assertEqual("Brick 2 x 4", obj.part_name)
+        self.assertEqual((1, 2, 3), obj.destination_bin)
+        self.assertEqual(
+            ClassificationStatus.classified, obj.classification_status
+        )
+        self.assertAlmostEqual(1050.0, obj.first_carousel_seen_ts)
+        self.assertAlmostEqual(42.5, obj.first_carousel_seen_angle_deg)
+        self.assertEqual(1, len(obj.carousel_motion_samples))
+        self.assertAlmostEqual(0.5, obj.carousel_motion_samples[0].sync_ratio)
+        self.assertIs(obj, transport.pieceForTrack(7))
+        self.assertEqual(1, len(transport.activePieces()))
+
+    def test_resume_existing_piece_hydrates_from_db(self) -> None:
+        transport = self._make_dynamic_transport()
+        dossier_payload = {
+            "uuid": "abc",
+            "tracked_global_id": 11,
+            "created_at": 500.0,
+            "updated_at": 600.0,
+            "stage": "created",
+            "classification_status": "pending",
+            "feeding_started_at": 510.0,
+        }
+
+        with mock.patch(
+            "local_state.get_piece_dossier",
+            return_value=dossier_payload,
+        ):
+            obj = transport.resumeExistingPiece("abc")
+
+        self.assertIsNotNone(obj)
+        assert obj is not None
+        self.assertEqual("abc", obj.uuid)
+        self.assertEqual(11, obj.tracked_global_id)
+        self.assertAlmostEqual(510.0, obj.feeding_started_at)
+        self.assertIs(obj, transport.pieceForTrack(11))
+        self.assertEqual(
+            "abc", transport.get_piece_uuid_for_tracked_global_id(11)
+        )
+
+        # Subsequent registerIncomingPiece(gid=11) must NOT mint a new uuid.
+        with mock.patch(
+            "local_state.get_piece_dossier_by_tracked_global_id",
+            return_value=dossier_payload,
+        ):
+            repeated = transport.registerIncomingPiece(tracked_global_id=11)
+        self.assertIs(obj, repeated)
+        self.assertEqual(1, len(transport.activePieces()))
+
+    def test_resume_existing_piece_returns_none_when_dossier_missing(
+        self,
+    ) -> None:
+        transport = self._make_dynamic_transport()
+        with mock.patch(
+            "local_state.get_piece_dossier",
+            return_value=None,
+        ):
+            self.assertIsNone(transport.resumeExistingPiece("no-such-uuid"))
 
 
 class CarouselTransportTests(unittest.TestCase):

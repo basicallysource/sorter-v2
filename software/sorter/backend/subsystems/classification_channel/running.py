@@ -256,11 +256,46 @@ class Running(BaseState):
             return
 
         extent = unmatched[0]
-        obj = self.transport.registerIncomingPiece(tracked_global_id=extent.global_id)
-        obj.feeding_started_at = now_wall
-        obj.carousel_detected_confirmed_at = now_wall
-        obj.tracked_global_id = extent.global_id
-        obj.updated_at = now_wall
+        # Call-site guard: registerIncomingPiece has its own lookup cascade,
+        # but prefer ``resumeExistingPiece`` when we can see a persisted
+        # dossier for this physical piece — that path doesn't mint a new
+        # uuid and rehydrates full lifecycle state, which the downstream
+        # side-effects here (burst capture etc.) then treat idempotently.
+        obj: KnownObject | None = None
+        resumer = getattr(self.transport, "resumeExistingPiece", None)
+        if callable(resumer):
+            try:
+                from local_state import get_piece_dossier_by_tracked_global_id
+            except Exception:
+                get_piece_dossier_by_tracked_global_id = None  # type: ignore
+            if get_piece_dossier_by_tracked_global_id is not None:
+                try:
+                    persisted = get_piece_dossier_by_tracked_global_id(
+                        int(extent.global_id)
+                    )
+                except Exception:
+                    persisted = None
+                persisted_uuid = (
+                    persisted.get("uuid")
+                    if isinstance(persisted, dict)
+                    else None
+                )
+                if isinstance(persisted_uuid, str) and persisted_uuid.strip():
+                    try:
+                        obj = resumer(persisted_uuid)
+                    except Exception:
+                        obj = None
+                    if obj is not None:
+                        obj.tracked_global_id = extent.global_id
+                        obj.updated_at = now_wall
+        if obj is None:
+            obj = self.transport.registerIncomingPiece(
+                tracked_global_id=extent.global_id
+            )
+            obj.feeding_started_at = now_wall
+            obj.carousel_detected_confirmed_at = now_wall
+            obj.tracked_global_id = extent.global_id
+            obj.updated_at = now_wall
         # "Fashion-shoot" burst: drain ring-buffered frames from C3 + carousel
         # right now (pre-event) and schedule post-event frames 2 s out. Runs
         # before the legacy drop-snapshot / trigger so even a slow snapshot
@@ -354,15 +389,47 @@ class Running(BaseState):
 
         adopted = 0
         for extent in candidates[:available_slots]:
-            obj = self.transport.registerIncomingPiece(tracked_global_id=extent.global_id)
-            obj.tracked_global_id = extent.global_id
+            obj: KnownObject | None = None
+            # Prefer DB-hit rehydration so a brief tracker glitch doesn't
+            # mint a second uuid for a physical piece we've already
+            # registered during this session. Fall back to a fresh
+            # registerIncomingPiece only when neither the live cache nor
+            # the persisted dossier know about this ``tracked_global_id``.
+            resumer = getattr(self.transport, "resumeExistingPiece", None)
+            if callable(resumer):
+                try:
+                    from local_state import get_piece_dossier_by_tracked_global_id
+                except Exception:
+                    get_piece_dossier_by_tracked_global_id = None  # type: ignore
+                if get_piece_dossier_by_tracked_global_id is not None:
+                    try:
+                        persisted = get_piece_dossier_by_tracked_global_id(
+                            int(extent.global_id)
+                        )
+                    except Exception:
+                        persisted = None
+                    persisted_uuid = (
+                        persisted.get("uuid")
+                        if isinstance(persisted, dict)
+                        else None
+                    )
+                    if isinstance(persisted_uuid, str) and persisted_uuid.strip():
+                        try:
+                            obj = resumer(persisted_uuid)
+                        except Exception:
+                            obj = None
             confirmed_at = (
                 float(extent.first_seen_ts)
                 if isinstance(extent.first_seen_ts, (int, float)) and float(extent.first_seen_ts) > 0.0
                 else now_wall
             )
-            obj.feeding_started_at = confirmed_at
-            obj.carousel_detected_confirmed_at = confirmed_at
+            if obj is None:
+                obj = self.transport.registerIncomingPiece(
+                    tracked_global_id=extent.global_id
+                )
+                obj.feeding_started_at = confirmed_at
+                obj.carousel_detected_confirmed_at = confirmed_at
+            obj.tracked_global_id = extent.global_id
             obj.updated_at = now_wall
             self._seedRecentPreview(obj, extent.global_id)
             if self.event_queue is not None:

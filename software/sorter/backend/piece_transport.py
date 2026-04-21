@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import logging
 import math
 import time
 from typing import Optional, TYPE_CHECKING
@@ -12,6 +13,8 @@ from defs.known_object import (
     KnownObject,
     PieceStage,
 )
+
+_logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from irl.config import ClassificationChannelConfig
@@ -55,6 +58,7 @@ class PieceTransport(ABC):
         self,
         *,
         tracked_global_id: int | None = None,
+        piece_uuid: str | None = None,
     ) -> KnownObject:
         """Create and stage a new piece at this setup's classification input."""
 
@@ -164,13 +168,53 @@ class ClassificationChannelTransport(PieceTransport):
         self,
         *,
         tracked_global_id: int | None = None,
+        piece_uuid: str | None = None,
     ) -> KnownObject:
         if self._dynamic_mode:
-            obj = KnownObject(tracked_global_id=tracked_global_id)
+            # Lookup cascade so a brief tracker glitch doesn't mint a second
+            # UUID for the same physical piece:
+            #   (a) already-active piece for this ``tracked_global_id``
+            #   (b) DB dossier keyed by ``tracked_global_id`` (rehydrate)
+            #   (c) explicit ``piece_uuid`` — DB-first, else fresh with uuid
+            #   (d) brand-new uuid (pre-dossier-binding default)
+            if tracked_global_id is not None:
+                existing_uuid = self._piece_uuid_by_track_id.get(
+                    int(tracked_global_id)
+                )
+                if existing_uuid is not None:
+                    existing_obj = self._active_pieces.get(existing_uuid)
+                    if existing_obj is not None:
+                        return existing_obj
+                    # Stale mapping — drop it and fall through.
+                    self._piece_uuid_by_track_id.pop(
+                        int(tracked_global_id), None
+                    )
+
+                rehydrated = self._rehydrateFromDossierByTrackedGlobalId(
+                    int(tracked_global_id)
+                )
+                if rehydrated is not None:
+                    return rehydrated
+
+            if piece_uuid is not None:
+                existing_obj = self._active_pieces.get(piece_uuid)
+                if existing_obj is not None:
+                    self._bindTrackToPiece(tracked_global_id, existing_obj.uuid)
+                    return existing_obj
+                rehydrated = self._rehydrateFromDossierByPieceUuid(piece_uuid)
+                if rehydrated is not None:
+                    self._bindTrackToPiece(tracked_global_id, rehydrated.uuid)
+                    return rehydrated
+                obj = KnownObject(
+                    uuid=piece_uuid,
+                    tracked_global_id=tracked_global_id,
+                )
+            else:
+                obj = KnownObject(tracked_global_id=tracked_global_id)
+
             self._active_pieces[obj.uuid] = obj
             self._hood_piece_uuid = obj.uuid
-            if tracked_global_id is not None:
-                self._piece_uuid_by_track_id[int(tracked_global_id)] = obj.uuid
+            self._bindTrackToPiece(tracked_global_id, obj.uuid)
             if self._zone_manager is not None:
                 self._zone_manager.register_provisional_piece(
                     piece_uuid=obj.uuid,
@@ -181,6 +225,153 @@ class ClassificationChannelTransport(PieceTransport):
             return obj
         obj = KnownObject()
         self._classification_piece = obj
+        return obj
+
+    def resumeExistingPiece(self, piece_uuid: str) -> KnownObject | None:
+        """Rehydrate a persisted piece dossier into the active-pieces map.
+
+        Returns the hydrated ``KnownObject`` (or the already-active instance
+        if one exists for the same uuid). ``None`` if no dossier is on disk
+        and no live instance is cached. Never allocates a fresh uuid — call
+        ``registerIncomingPiece`` for that path.
+        """
+        if not self._dynamic_mode:
+            return None
+        if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+            return None
+        existing = self._active_pieces.get(piece_uuid)
+        if existing is not None:
+            self._bindTrackToPiece(existing.tracked_global_id, existing.uuid)
+            return existing
+        rehydrated = self._rehydrateFromDossierByPieceUuid(piece_uuid)
+        return rehydrated
+
+    def get_piece_uuid_for_tracked_global_id(
+        self, tracked_global_id: int
+    ) -> str | None:
+        """Expose the internal ``tracked_global_id -> piece_uuid`` map.
+
+        Phase 3 vision-side segment archiver needs the live mapping without
+        grabbing the ``KnownObject`` itself (which may have extra lifecycle
+        baggage). Returns ``None`` if no piece is currently bound.
+        """
+        if tracked_global_id is None:
+            return None
+        try:
+            gid = int(tracked_global_id)
+        except (TypeError, ValueError):
+            return None
+        return self._piece_uuid_by_track_id.get(gid)
+
+    def _bindTrackToPiece(
+        self,
+        tracked_global_id: int | None,
+        piece_uuid: str,
+    ) -> None:
+        if tracked_global_id is None:
+            return
+        try:
+            gid = int(tracked_global_id)
+        except (TypeError, ValueError):
+            return
+        existing = self._piece_uuid_by_track_id.get(gid)
+        if existing is not None and existing != piece_uuid:
+            _logger.warning(
+                "piece_transport: refusing to remap tracked_global_id=%s "
+                "from uuid=%s to uuid=%s; keeping original",
+                gid,
+                existing,
+                piece_uuid,
+            )
+            return
+        for other_gid, other_uuid in self._piece_uuid_by_track_id.items():
+            if other_uuid == piece_uuid and other_gid != gid:
+                _logger.warning(
+                    "piece_transport: piece_uuid=%s already bound to "
+                    "tracked_global_id=%s; also binding to %s",
+                    piece_uuid,
+                    other_gid,
+                    gid,
+                )
+                break
+        self._piece_uuid_by_track_id[gid] = piece_uuid
+
+    def _rehydrateFromDossierByTrackedGlobalId(
+        self, tracked_global_id: int
+    ) -> KnownObject | None:
+        try:
+            from local_state import get_piece_dossier_by_tracked_global_id
+        except Exception:
+            return None
+        try:
+            payload = get_piece_dossier_by_tracked_global_id(int(tracked_global_id))
+        except Exception as exc:
+            _logger.debug(
+                "piece_transport: dossier lookup by gid %s failed: %s",
+                tracked_global_id,
+                exc,
+            )
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return self._hydrateDossierPayload(
+            payload, fallback_tracked_global_id=int(tracked_global_id)
+        )
+
+    def _rehydrateFromDossierByPieceUuid(
+        self, piece_uuid: str
+    ) -> KnownObject | None:
+        try:
+            from local_state import get_piece_dossier
+        except Exception:
+            return None
+        try:
+            payload = get_piece_dossier(piece_uuid)
+        except Exception as exc:
+            _logger.debug(
+                "piece_transport: dossier lookup by uuid %s failed: %s",
+                piece_uuid,
+                exc,
+            )
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return self._hydrateDossierPayload(payload)
+
+    def _hydrateDossierPayload(
+        self,
+        payload: dict,
+        *,
+        fallback_tracked_global_id: int | None = None,
+    ) -> KnownObject | None:
+        try:
+            obj = KnownObject.from_dossier(payload)
+        except Exception as exc:
+            _logger.warning(
+                "piece_transport: failed to rehydrate dossier: %s", exc
+            )
+            return None
+        if obj.tracked_global_id is None and fallback_tracked_global_id is not None:
+            obj.tracked_global_id = int(fallback_tracked_global_id)
+        self._active_pieces[obj.uuid] = obj
+        if self._hood_piece_uuid is None:
+            self._hood_piece_uuid = obj.uuid
+        self._bindTrackToPiece(obj.tracked_global_id, obj.uuid)
+        if self._zone_manager is not None:
+            try:
+                self._zone_manager.register_provisional_piece(
+                    piece_uuid=obj.uuid,
+                    track_global_id=obj.tracked_global_id,
+                    classification_status=obj.classification_status,
+                    now_mono=time.monotonic(),
+                )
+            except Exception as exc:
+                _logger.debug(
+                    "piece_transport: zone manager refused rehydrated piece "
+                    "%s: %s",
+                    obj.uuid,
+                    exc,
+                )
         return obj
 
     def advanceTransport(

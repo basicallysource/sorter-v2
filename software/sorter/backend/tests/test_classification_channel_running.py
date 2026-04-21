@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest import mock
 
 from defs.known_object import ClassificationStatus, KnownObject
 from subsystems.classification_channel.running import Running
@@ -65,9 +66,13 @@ class _Transport:
     def __init__(self) -> None:
         self.zone_manager = object()
         self._pieces_by_track: dict[int, SimpleNamespace] = {}
+        self._pieces_by_uuid: dict[str, KnownObject] = {}
+        self._track_uuid_by_gid: dict[int, str] = {}
         self._ignored_recovery_tracks: set[int] = set()
         self.register_calls: list[int | None] = []
+        self.resume_calls: list[str] = []
         self._pending = False
+        self._next_register_index = 0
 
     def pieceForTrack(self, track_global_id: int):
         return self._pieces_by_track.get(int(track_global_id))
@@ -75,16 +80,53 @@ class _Transport:
     def activePieces(self):
         return list(self._pieces_by_track.values())
 
-    def registerIncomingPiece(self, *, tracked_global_id: int | None = None):
+    def registerIncomingPiece(
+        self,
+        *,
+        tracked_global_id: int | None = None,
+        piece_uuid: str | None = None,
+    ):
+        if tracked_global_id is not None:
+            existing = self._pieces_by_track.get(int(tracked_global_id))
+            if existing is not None:
+                self.register_calls.append(tracked_global_id)
+                return existing
+        if piece_uuid is None:
+            # Ensure every fresh register mints a distinct uuid even when
+            # multiple calls share ``tracked_global_id`` (would-be bug case).
+            self._next_register_index += 1
+            piece_uuid = f"piece-{tracked_global_id}-{self._next_register_index}"
         piece = KnownObject(
-            uuid=f"piece-{tracked_global_id}",
+            uuid=piece_uuid,
             tracked_global_id=tracked_global_id,
             classification_status=ClassificationStatus.pending,
         )
+        self._pieces_by_uuid[piece.uuid] = piece
         if tracked_global_id is not None:
             self._pieces_by_track[int(tracked_global_id)] = piece
+            self._track_uuid_by_gid[int(tracked_global_id)] = piece.uuid
         self.register_calls.append(tracked_global_id)
         return piece
+
+    def resumeExistingPiece(self, piece_uuid: str):
+        self.resume_calls.append(piece_uuid)
+        piece = self._pieces_by_uuid.get(piece_uuid)
+        if piece is None:
+            return None
+        if piece.tracked_global_id is not None:
+            self._pieces_by_track[int(piece.tracked_global_id)] = piece
+            self._track_uuid_by_gid[int(piece.tracked_global_id)] = piece.uuid
+        return piece
+
+    def get_piece_uuid_for_tracked_global_id(self, tracked_global_id: int):
+        if tracked_global_id is None:
+            return None
+        return self._track_uuid_by_gid.get(int(tracked_global_id))
+
+    def simulateTrackLoss(self, tracked_global_id: int) -> None:
+        """Remove the live-zone link but keep the piece retrievable by uuid,
+        mimicking what a tracker glitch does in production."""
+        self._pieces_by_track.pop(int(tracked_global_id), None)
 
     def updateTrackedPieces(self, track_extents, *, carousel_angle_deg=None):
         return [], []
@@ -668,3 +710,73 @@ def test_start_exit_release_shimmy_builds_small_returning_motion_plan() -> None:
     assert running.irl.carousel_stepper.moves[:1] == [-1.5]
     assert running._exit_release_drop_uuid == piece.uuid
     assert running._exit_release_plan_deg == [3.0, -1.5, -1.5, 3.0, -1.5]
+
+
+def test_intake_then_recovery_keeps_single_uuid_on_tracker_glitch() -> None:
+    """Phase 1 guarantee: intake registers a piece for gid=5 → brief
+    tracker loss (piece not in live extents) → recovery sees gid=5 again
+    → the same uuid is reused (no second KnownObject, no second event)."""
+    running, transport, shared, events = _make_running()
+
+    # Step 1: intake path registers piece for gid=5.
+    running._awaiting_intake_piece = True
+    running._intake_requested_at_mono = 19.0
+    running._intake_requested_at_wall = 9.8
+    intake_track = TrackAngularExtent(
+        global_id=5,
+        center_deg=1.5,
+        half_width_deg=6.0,
+        last_seen_ts=10.0,
+        hit_count=3,
+        first_seen_ts=9.9,
+    )
+    running._registerNewIntakePiece(
+        [intake_track], now_wall=10.0, now_mono=20.0
+    )
+
+    original_piece = transport.pieceForTrack(5)
+    assert original_piece is not None
+    original_uuid = original_piece.uuid
+    assert transport.register_calls == [5]
+    events_emitted_after_intake = len(events.items)
+    assert events_emitted_after_intake == 1
+    assert events.items[0].data.uuid == original_uuid
+
+    # Step 2: simulate tracker glitch — piece vanishes from live extents
+    # but its dossier remains persisted. Recovery must rehydrate, NOT
+    # mint a fresh uuid.
+    transport.simulateTrackLoss(5)
+    dossier_payload = {
+        "uuid": original_uuid,
+        "tracked_global_id": 5,
+        "stage": "created",
+        "classification_status": "pending",
+    }
+
+    recovered_track = TrackAngularExtent(
+        global_id=5,
+        center_deg=146.0,
+        half_width_deg=8.0,
+        last_seen_ts=20.0,
+        hit_count=6,
+        first_seen_ts=10.0,
+    )
+    with mock.patch(
+        "local_state.get_piece_dossier_by_tracked_global_id",
+        return_value=dossier_payload,
+    ):
+        running._recoverExistingTrackedPieces(
+            [recovered_track], now_wall=20.0
+        )
+
+    # No fresh register call — uuid was reused via resumeExistingPiece.
+    assert transport.register_calls == [5]
+    assert transport.resume_calls == [original_uuid]
+    assert len(transport.activePieces()) == 1
+    recovered_piece = transport.pieceForTrack(5)
+    assert recovered_piece is not None
+    assert recovered_piece.uuid == original_uuid
+    # Exactly two events total: one from intake, one from the recovery
+    # re-emit. Critically, the recovery event carries the SAME uuid.
+    assert len(events.items) == 2
+    assert events.items[1].data.uuid == original_uuid

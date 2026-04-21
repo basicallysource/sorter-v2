@@ -63,6 +63,12 @@ class PendingHandoff:
     # when multiple pendings are competing for the same downstream claim
     # (e.g. two pieces in flight C3→C4 whose physical order swapped).
     embedding: "np.ndarray | None" = None
+    # Piece dossier uuid bound to the dying upstream track (Phase 4). When
+    # present, the downstream rebirth inherits it so the same physical
+    # LEGO part keeps one stable ``piece_uuid`` across the C3→Carousel
+    # handoff. ``None`` when the upstream track never reached the stable-hit
+    # threshold that triggers early UUID binding.
+    piece_uuid: str | None = None
 
 
 class Tracker(Protocol):

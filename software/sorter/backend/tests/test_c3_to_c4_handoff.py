@@ -175,14 +175,14 @@ def test_c3_to_c4_order_swap_rebinds_by_embedding_similarity():
 
     # First claim: carries B's embedding. Should pop B (id=202), NOT
     # the FIFO head A.
-    gid1, src1 = manager.register_track("carousel", (400.0, 300.0), 2.0, embedding=emb_B)
+    gid1, src1, _ = manager.register_track("carousel", (400.0, 300.0), 2.0, embedding=emb_B)
     assert gid1 == 202
     assert src1 == "c_channel_3"
     assert manager.embedding_rebind_total == 1
 
     # Second claim: carries A's embedding — only one pending left, FIFO
     # fall-through, no further rebind.
-    gid2, src2 = manager.register_track("carousel", (500.0, 400.0), 2.1, embedding=emb_A)
+    gid2, src2, _ = manager.register_track("carousel", (500.0, 400.0), 2.1, embedding=emb_A)
     assert gid2 == 101
     assert src2 == "c_channel_3"
     assert manager.embedding_rebind_total == 1
@@ -202,7 +202,7 @@ def test_handoff_falls_back_to_fifo_when_no_embedding():
         last_displacement_px=200.0, embedding=_unit_vector(2),
     )
 
-    gid, src = manager.register_track("carousel", (400.0, 300.0), 2.0)
+    gid, src, _ = manager.register_track("carousel", (400.0, 300.0), 2.0)
     assert gid == 11
     assert src == "c_channel_3"
     assert manager.embedding_rebind_total == 0
@@ -240,7 +240,7 @@ def test_handoff_falls_back_to_fifo_when_below_similarity_threshold():
         last_displacement_px=200.0, embedding=emb_pending_B,
     )
 
-    gid, _src = manager.register_track(
+    gid, _src, _ = manager.register_track(
         "carousel", (400.0, 300.0), 2.0, embedding=emb_claim,
     )
     # Similarity below threshold → FIFO head wins.
@@ -317,7 +317,7 @@ def test_handoff_rejects_claim_when_upstream_still_alive():
     )
     assert [p["global_id"] for p in manager.pending_snapshot()] == [42]
 
-    gid, src = manager.register_track(
+    gid, src, _ = manager.register_track(
         "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(1),
     )
     # Fresh id — NOT the stale 42.
@@ -340,7 +340,7 @@ def test_handoff_happy_path_when_upstream_not_alive():
         "c_channel_3", 42, (700.0, 300.0), 1.0, death_ts=1.0,
         last_displacement_px=200.0, embedding=_unit_vector(1),
     )
-    gid, src = manager.register_track(
+    gid, src, _ = manager.register_track(
         "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(1),
     )
     assert gid == 42
@@ -366,7 +366,7 @@ def test_handoff_picks_non_stale_among_multiple_pendings():
     )
     assert [p["global_id"] for p in manager.pending_snapshot()] == [42, 43]
 
-    gid, src = manager.register_track(
+    gid, src, _ = manager.register_track(
         "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(2),
     )
     assert gid == 43

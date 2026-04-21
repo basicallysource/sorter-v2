@@ -20,12 +20,16 @@ still works before the polygons are loaded.
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 import time
+import uuid as uuid_mod
 from dataclasses import dataclass, field
 
 import numpy as np
+
+_logger = logging.getLogger(__name__)
 
 from .appearance import cosine_similarity, get_embedder
 from .base import TrackedPiece, Tracker
@@ -42,6 +46,18 @@ from .history import (
 
 
 DEFAULT_SECTOR_COUNT = 18
+
+# Phase 4 — early UUID binding on c_channel_3.
+#
+# Once a track on c_channel_3 has been observed for at least this many
+# consecutive detection ticks we consider it "stable" and mint a piece
+# dossier uuid for it. The uuid is then inherited via the handoff manager
+# into the carousel-side rebirth, so the same physical LEGO part keeps a
+# single ``piece_uuid`` across C3 → C4 → distribution. The threshold of 4
+# hits is just high enough to filter single-frame YOLO false positives
+# without delaying the bind until the piece has already traveled far
+# across the channel.
+MIN_C3_HITS_FOR_PIECE_UUID = 4
 
 # When either the track or detection has no embedding, the cosine term is
 # undefined and the match cost degenerates to position-only. Require a much
@@ -233,6 +249,12 @@ class _LiveTrack:
     max_angular_displacement_rad: float = 0.0
     max_radial_displacement_px: float = 0.0
     motion_confirmed: bool = False
+    # Piece dossier uuid bound to this track once it passes
+    # ``MIN_C3_HITS_FOR_PIECE_UUID`` stable hits on ``c_channel_3`` (Phase 4).
+    # Inherited via ``PieceHandoffManager`` when the C3 track dies and a
+    # carousel track is born inside the entry zone; stays ``None`` on tracks
+    # that never cross the threshold (feeder glitches, C2, etc.).
+    piece_uuid: str | None = None
 
 
 @dataclass
@@ -656,6 +678,7 @@ class PolarFeederTracker(Tracker):
                         norm = float(np.linalg.norm(blended))
                         if norm > 0.0:
                             track.embedding = (blended / norm).astype(np.float32)
+                self._maybe_bind_piece_uuid(track, timestamp)
                 self._maybe_capture_sector(track, frame_bgr, timestamp)
 
         stagnant_ids: list[int] = []
@@ -685,6 +708,7 @@ class PolarFeederTracker(Tracker):
                 death_ts=timestamp,
                 last_displacement_px=float(track.max_displacement_px),
                 embedding=track.embedding,
+                piece_uuid=track.piece_uuid,
             )
             if (
                 self._history is not None
@@ -703,8 +727,13 @@ class PolarFeederTracker(Tracker):
             cx, cy = _bbox_center(bbox)
             if self._is_inside_ignored_static_region((cx, cy), timestamp):
                 continue
-            global_id, handoff_from = self._handoff.register_track(
-                self.role, (cx, cy), timestamp, embedding=det_embeddings[idx]
+            global_id, handoff_from, inherited_piece_uuid = (
+                self._handoff.register_track(
+                    self.role,
+                    (cx, cy),
+                    timestamp,
+                    embedding=det_embeddings[idx],
+                )
             )
             self._next_internal_id += 1
             internal = self._next_internal_id
@@ -739,8 +768,13 @@ class PolarFeederTracker(Tracker):
                 birth_center_px=(float(cx), float(cy)),
                 birth_angle_rad=birth_angle_rad,
                 birth_radius_px=birth_radius_px,
+                piece_uuid=inherited_piece_uuid,
             )
             self._tracks[internal] = new_track
+            # If this was a C3 birth that already crosses the stable-hit
+            # threshold (doesn't normally happen on hit_count=1 but keeps
+            # the contract consistent), attempt to bind immediately.
+            self._maybe_bind_piece_uuid(new_track, timestamp)
             self._maybe_capture_sector(new_track, frame_bgr, timestamp)
 
         # Emit active list
@@ -797,6 +831,7 @@ class PolarFeederTracker(Tracker):
                         "first_seen_ts": float(track.first_seen_ts),
                         "last_seen_ts": float(track.last_seen_ts),
                         "hit_count": int(track.hit_count),
+                        "piece_uuid": track.piece_uuid,
                     }
                 )
             return extents
@@ -1121,6 +1156,68 @@ class PolarFeederTracker(Tracker):
         except Exception:
             # Never break the tracker over a recognize hookup.
             pass
+
+    def _maybe_bind_piece_uuid(
+        self,
+        track: _LiveTrack,
+        now_ts: float,
+    ) -> None:
+        """Early-bind a piece dossier uuid to a stable c_channel_3 track.
+
+        Phase 4: once a C3 track has been observed ``MIN_C3_HITS_FOR_PIECE_UUID``
+        times (the same gate we already use elsewhere to filter one-frame
+        YOLO blips), allocate a fresh uuid and persist a stub dossier so
+        downstream lookups (``get_piece_dossier_by_tracked_global_id``) can
+        find the record from the moment the piece becomes reliably tracked.
+        The uuid rides on through ``PieceHandoffManager`` into the carousel
+        rebirth, preventing Phase-1's lookup cascade from minting a second
+        uuid for the same physical piece.
+
+        Thread-safety: this helper runs from the tracker's update thread;
+        ``remember_piece_dossier`` serialises to SQLite via the WAL-mode
+        connection pool, so contention is handled there. We swallow any
+        dossier-write failure with a WARNING log — a dropped stub must not
+        break tracking itself.
+        """
+        if self.role != "c_channel_3":
+            return
+        if track.piece_uuid is not None:
+            return
+        if track.hit_count < MIN_C3_HITS_FOR_PIECE_UUID:
+            return
+        new_uuid = str(uuid_mod.uuid4())
+        track.piece_uuid = new_uuid
+        try:
+            from local_state import remember_piece_dossier
+        except Exception as exc:
+            _logger.warning(
+                "polar_tracker: local_state import failed while binding "
+                "piece_uuid %s to track gid=%s: %s",
+                new_uuid,
+                track.global_id,
+                exc,
+            )
+            return
+        now_wall = float(now_ts) if now_ts > 0.0 else time.time()
+        stub = {
+            "uuid": new_uuid,
+            "tracked_global_id": int(track.global_id),
+            "stage": "created",
+            "classification_status": "pending",
+            "created_at": now_wall,
+            "updated_at": now_wall,
+            "first_c_channel_3_seen_ts": float(track.first_seen_ts),
+        }
+        try:
+            remember_piece_dossier(stub)
+        except Exception as exc:
+            _logger.warning(
+                "polar_tracker: remember_piece_dossier failed for uuid=%s "
+                "gid=%s: %s",
+                new_uuid,
+                track.global_id,
+                exc,
+            )
 
     def _build_segment(self, track: _LiveTrack) -> TrackSegment:
         geom = self._channel_geom

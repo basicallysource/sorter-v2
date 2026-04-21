@@ -540,7 +540,7 @@ def test_handoff_rejects_stationary_ghost_claim_at_same_pixel():
 
     ghost_center = (700.0, 360.0)
     # Seed a fresh id for the ghost, then kill it with ~zero displacement.
-    ghost_id, _ = manager.register_track("c_channel_2", ghost_center, 0.0)
+    ghost_id, _, _ = manager.register_track("c_channel_2", ghost_center, 0.0)
     manager.notify_track_death(
         "c_channel_2",
         ghost_id,
@@ -552,7 +552,7 @@ def test_handoff_rejects_stationary_ghost_claim_at_same_pixel():
     assert len(manager.pending_snapshot()) == 1
 
     # Shortly after: a C3 detection pops up at essentially the same pixel.
-    new_id, handoff_from = manager.register_track(
+    new_id, handoff_from, _ = manager.register_track(
         "c_channel_3",
         (702.0, 361.0),  # ~2 px away, inside the 25 px reject radius
         1.4,
@@ -586,7 +586,7 @@ def test_handoff_accepts_moving_track_even_at_similar_pixel():
         entry_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
     )
 
-    real_id, _ = manager.register_track("c_channel_2", (620.0, 360.0), 0.0)
+    real_id, _, _ = manager.register_track("c_channel_2", (620.0, 360.0), 0.0)
     manager.notify_track_death(
         "c_channel_2",
         real_id,
@@ -596,7 +596,7 @@ def test_handoff_accepts_moving_track_even_at_similar_pixel():
         last_displacement_px=80.0,  # clearly moving
     )
 
-    new_id, handoff_from = manager.register_track(
+    new_id, handoff_from, _ = manager.register_track(
         "c_channel_3",
         (702.0, 361.0),
         1.4,
@@ -754,3 +754,141 @@ def test_hungarian_suspect_pair_increments_counter():
     assert len(events) == 1, f"expected one suspect event, got {events}"
     assert events[0]["similarity"] < 0.3
     assert events[0]["geom_cost"] > 0.5
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: early UUID binding on c_channel_3 + handoff inheritance
+# ---------------------------------------------------------------------------
+
+
+def _make_c3_tracker(
+    manager: PieceHandoffManager | None = None,
+    *,
+    pixel_fallback_distance_px: float = 200.0,
+    coast_limit_ticks: int = 5,
+) -> tuple[PolarFeederTracker, PieceHandoffManager]:
+    """Build a polar tracker wired up as ``c_channel_3`` for the
+    early-bind tests. A handoff manager is required so the tracker can
+    call through to ``register_track`` / ``notify_track_death``; tests
+    only need the default chain (``c_channel_3 → carousel``)."""
+
+    if manager is None:
+        manager = PieceHandoffManager(handoff_chain={"c_channel_3": "carousel"})
+    tracker = PolarFeederTracker(
+        role="c_channel_3",
+        handoff_manager=manager,
+        pixel_fallback_distance_px=pixel_fallback_distance_px,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=coast_limit_ticks,
+        # Disable the stagnant-track filter — it only kicks in for
+        # carousel by default but being explicit keeps these tests
+        # insensitive to future default changes.
+        enable_stagnant_false_track_filter=False,
+    )
+    return tracker, manager
+
+
+def test_c3_track_gets_piece_uuid_after_stable_hits(tmp_path, monkeypatch):
+    """After ``MIN_C3_HITS_FOR_PIECE_UUID`` consecutive C3 hits a stable
+    uuid must be minted and a stub dossier persisted. Below the threshold
+    the track must stay ``piece_uuid=None``."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+
+    # Import happens lazily inside the tracker — clear cached modules so
+    # the env override takes effect.
+    import importlib
+    import local_state
+
+    importlib.reload(local_state)
+    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
+
+    tracker, _ = _make_c3_tracker()
+
+    observed_uuids: list[str | None] = []
+    for i in range(MIN_C3_HITS_FOR_PIECE_UUID + 1):
+        cx = 100.0 + i * 30.0
+        tracker.update([_bbox_around(cx, 200.0, size=60)], [0.9], i * 0.2)
+        # Read the live internal state — the tracker only has one track.
+        tracks = list(tracker._tracks.values())
+        assert len(tracks) == 1, tracks
+        observed_uuids.append(tracks[0].piece_uuid)
+
+    # Below threshold: no uuid yet. Threshold == 4 -> indices 0..2 are None,
+    # index 3 (4th hit) first gets a uuid, index 4 same uuid.
+    assert all(uid is None for uid in observed_uuids[: MIN_C3_HITS_FOR_PIECE_UUID - 1])
+    minted_uuid = observed_uuids[MIN_C3_HITS_FOR_PIECE_UUID - 1]
+    assert isinstance(minted_uuid, str) and len(minted_uuid) >= 8, observed_uuids
+    # Stable across subsequent ticks.
+    assert observed_uuids[MIN_C3_HITS_FOR_PIECE_UUID] == minted_uuid
+
+    # Dossier is persisted and points back at the same tracked_global_id.
+    dossier = local_state.get_piece_dossier(minted_uuid)
+    assert dossier is not None, "stub dossier must be persisted"
+    assert dossier["uuid"] == minted_uuid
+    assert dossier["stage"] == "created"
+    assert dossier["classification_status"] == "pending"
+
+
+def test_c3_track_below_threshold_no_piece_uuid(tmp_path, monkeypatch):
+    """Hit counts 1..threshold-1 must never mint a uuid."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    import importlib
+    import local_state
+
+    importlib.reload(local_state)
+    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
+
+    tracker, _ = _make_c3_tracker()
+
+    for i in range(MIN_C3_HITS_FOR_PIECE_UUID - 1):
+        cx = 100.0 + i * 30.0
+        tracker.update([_bbox_around(cx, 200.0, size=60)], [0.9], i * 0.2)
+        tracks = list(tracker._tracks.values())
+        assert len(tracks) == 1
+        assert tracks[0].piece_uuid is None, (i, tracks[0].piece_uuid)
+
+
+def test_c3_to_carousel_handoff_preserves_piece_uuid(tmp_path, monkeypatch):
+    """A C3 track with an early-bound uuid must hand that uuid through
+    the handoff manager into the carousel rebirth so the downstream
+    classification-channel intake reuses the same dossier."""
+
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
+    import importlib
+    import local_state
+
+    importlib.reload(local_state)
+
+    manager = PieceHandoffManager(handoff_chain={"c_channel_3": "carousel"})
+    # Exit zone covers the whole frame on C3 so the dying track queues a
+    # pending, entry zone likewise on carousel so the claim resolves.
+    manager.set_zones(
+        "c_channel_3",
+        exit_polygon=[(0, 0), (1280, 0), (1280, 720), (0, 720)],
+    )
+    manager.set_zones(
+        "carousel",
+        entry_polygon=[(0, 0), (1280, 0), (1280, 720), (0, 720)],
+    )
+
+    manual_uuid = "phase4-abc-1234"
+    c3_gid = 42
+    # Simulate a C3 track death that already early-bound a uuid.
+    manager.notify_track_death(
+        "c_channel_3",
+        c3_gid,
+        (700.0, 360.0),
+        last_seen_ts=1.0,
+        death_ts=1.1,
+        last_displacement_px=200.0,  # moved, avoids ghost-reject
+        piece_uuid=manual_uuid,
+    )
+
+    new_gid, handoff_from, inherited = manager.register_track(
+        "carousel", (400.0, 360.0), 1.3,
+    )
+    assert new_gid == c3_gid
+    assert handoff_from == "c_channel_3"
+    assert inherited == manual_uuid

@@ -53,6 +53,12 @@ class TrackAngularExtent:
     last_seen_ts: float
     hit_count: int
     first_seen_ts: float = 0.0
+    # Piece dossier uuid, if the upstream tracker already early-bound one
+    # (Phase 4 — currently only c_channel_3 stable tracks + their carousel
+    # handoffs set this). Classification-channel intake forwards this to
+    # ``registerIncomingPiece`` so the idempotent cascade can reuse the
+    # uuid instead of minting a fresh one at C4 arrival.
+    piece_uuid: str | None = None
 
 
 @dataclass

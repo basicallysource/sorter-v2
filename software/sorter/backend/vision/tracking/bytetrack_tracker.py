@@ -229,8 +229,10 @@ class ByteTrackFeederTracker(Tracker):
 
             track = self._tracks.get(tid)
             if track is None:
-                global_id, handoff_from = self._handoff.register_track(
-                    self.role, (cx, cy), timestamp
+                global_id, handoff_from, _inherited_piece_uuid = (
+                    self._handoff.register_track(
+                        self.role, (cx, cy), timestamp
+                    )
                 )
                 snap_b64, snap_w, snap_h = "", 0, 0
                 if frame_bgr is not None and self._history is not None:

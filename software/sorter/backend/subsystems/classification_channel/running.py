@@ -289,8 +289,13 @@ class Running(BaseState):
                         obj.tracked_global_id = extent.global_id
                         obj.updated_at = now_wall
         if obj is None:
+            # Phase 4: if the tracker early-bound a piece_uuid to this
+            # extent (stable C3 track survived the carousel handoff), pass
+            # it through so ``registerIncomingPiece``'s lookup cascade can
+            # reuse the existing dossier instead of minting a fresh uuid.
             obj = self.transport.registerIncomingPiece(
-                tracked_global_id=extent.global_id
+                tracked_global_id=extent.global_id,
+                piece_uuid=getattr(extent, "piece_uuid", None),
             )
             obj.feeding_started_at = now_wall
             obj.carousel_detected_confirmed_at = now_wall
@@ -425,7 +430,8 @@ class Running(BaseState):
             )
             if obj is None:
                 obj = self.transport.registerIncomingPiece(
-                    tracked_global_id=extent.global_id
+                    tracked_global_id=extent.global_id,
+                    piece_uuid=getattr(extent, "piece_uuid", None),
                 )
                 obj.feeding_started_at = confirmed_at
                 obj.carousel_detected_confirmed_at = confirmed_at

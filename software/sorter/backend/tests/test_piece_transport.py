@@ -497,6 +497,34 @@ class RegisterIncomingPieceIdempotencyTests(unittest.TestCase):
         ):
             self.assertIsNone(transport.resumeExistingPiece("no-such-uuid"))
 
+    def test_register_with_explicit_piece_uuid_uses_it(self) -> None:
+        """Phase 4: when the C3 tracker early-bound a piece_uuid and passes
+        it through the extent, ``registerIncomingPiece`` must reuse that
+        uuid instead of minting a fresh one."""
+        transport = self._make_dynamic_transport()
+        # No DB dossier for this gid / uuid — the cascade must fall through
+        # to the explicit-uuid branch and create the piece with that uuid.
+        with mock.patch.object(
+            piece_transport.ClassificationChannelTransport,
+            "_rehydrateFromDossierByTrackedGlobalId",
+            return_value=None,
+        ), mock.patch.object(
+            piece_transport.ClassificationChannelTransport,
+            "_rehydrateFromDossierByPieceUuid",
+            return_value=None,
+        ):
+            obj = transport.registerIncomingPiece(
+                tracked_global_id=99,
+                piece_uuid="phase4-uuid",
+            )
+
+        self.assertEqual("phase4-uuid", obj.uuid)
+        self.assertEqual(99, obj.tracked_global_id)
+        self.assertEqual(
+            "phase4-uuid", transport.get_piece_uuid_for_tracked_global_id(99)
+        )
+        self.assertEqual(1, len(transport.activePieces()))
+
 
 class CarouselTransportTests(unittest.TestCase):
     def test_carousel_transport_interface_maps_existing_positions(self) -> None:

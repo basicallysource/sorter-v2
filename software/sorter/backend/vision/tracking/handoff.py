@@ -146,8 +146,15 @@ class PieceHandoffManager:
         center: tuple[float, float],
         timestamp: float,
         embedding: "np.ndarray | None" = None,
-    ) -> tuple[int, str | None]:
-        """Called on new-track birth. Returns ``(global_id, handoff_from)``.
+    ) -> tuple[int, str | None, str | None]:
+        """Called on new-track birth. Returns
+        ``(global_id, handoff_from, piece_uuid)``.
+
+        ``piece_uuid`` is populated when a pending handoff claim is picked
+        up AND the dying upstream track already had an early-bound piece
+        dossier uuid (Phase 4). Otherwise ``None``. The polar tracker uses
+        this third element to inherit the same dossier across the
+        C3→Carousel transition.
 
         When multiple pendings are queued on the same upstream bucket and
         the claim carries an OSNet embedding, the manager picks the pending
@@ -158,7 +165,7 @@ class PieceHandoffManager:
         ghost_reject_payload: dict[str, object] | None = None
         rebind_payload: dict[str, object] | None = None
         stale_payloads: list[dict[str, object]] = []
-        claimed_result: tuple[int, str] | None = None
+        claimed_result: tuple[int, str, str | None] | None = None
         new_id: int | None = None
 
         with self._lock:
@@ -230,7 +237,11 @@ class PieceHandoffManager:
                                     "claim_center": (float(center[0]), float(center[1])),
                                     "timestamp": float(timestamp),
                                 }
-                            claimed_result = (int(claimed.global_id), upstream)
+                            claimed_result = (
+                                int(claimed.global_id),
+                                upstream,
+                                claimed.piece_uuid,
+                            )
             if claimed_result is None:
                 self._id_counter += 1
                 new_id = self._id_counter
@@ -253,7 +264,7 @@ class PieceHandoffManager:
                     pass
         if claimed_result is not None:
             return claimed_result
-        return int(new_id), None  # type: ignore[arg-type]
+        return int(new_id), None, None  # type: ignore[arg-type]
 
     def _pick_pending_idx(
         self,
@@ -319,6 +330,7 @@ class PieceHandoffManager:
         death_ts: float | None = None,
         last_displacement_px: float = 0.0,
         embedding: "np.ndarray | None" = None,
+        piece_uuid: str | None = None,
     ) -> None:
         """Called when a tracker loses a track. Queue it for downstream pickup if in exit zone.
 
@@ -343,6 +355,7 @@ class PieceHandoffManager:
                 expires_at=anchor + self._window_s,
                 last_displacement_px=max(0.0, float(last_displacement_px)),
                 embedding=embedding,
+                piece_uuid=piece_uuid,
             )
             self._pending.setdefault(role, deque()).append(pending)
             callback = self._exit_observer

@@ -729,6 +729,14 @@ class VisionManager:
         normalized_role = self._internalFeederRole(role)
         if normalized_role is not None and normalized_role not in self._feederTrackerRoles():
             raise ValueError(f"Unsupported feeder role '{role}'")
+
+        # Capture previous algorithms BEFORE mutating state — we diff old vs new
+        # per-role to decide which MOG2 threads to spawn/tear-down.
+        prev_by_role: Dict[str, FeederDetectionAlgorithm] = {
+            channel_role: self.getFeederDetectionAlgorithm(channel_role)
+            for channel_role in self._feederTrackerRoles()
+        }
+
         if normalized_role in self._feederTrackerRoles():
             self._feeder_detection_algorithm_by_role[normalized_role] = normalized
         else:
@@ -738,7 +746,128 @@ class VisionManager:
         self._feeder_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
         self.resetFeederTrackers()
+        self._syncSplitFeederMog2Threads(prev_by_role)
         self._initOverlays()
+
+    def _syncSplitFeederMog2Threads(
+        self,
+        prev_by_role: Dict[str, FeederDetectionAlgorithm],
+    ) -> None:
+        """After mutating ``_feeder_detection_algorithm_by_role``, bring the
+        live MOG2 thread pool in line with the new config: stop threads for
+        roles that just turned dynamic, spawn threads for roles that just
+        turned static. Only applies to split_feeder layout — the non-split
+        layout uses a single fused detector driven by ``initFeederDetection``
+        and a dedicated re-init is invoked by the caller when needed."""
+        if self._camera_layout != "split_feeder":
+            return
+
+        from blob_manager import getChannelPolygons
+        from subsystems.feeder.analysis import parseSavedChannelArcZones  # noqa: F401
+
+        channel_map = {
+            "second_channel": ("c_channel_2", self._c_channel_2_capture),
+            "third_channel": ("c_channel_3", self._c_channel_3_capture),
+        }
+        if self._usesClassificationChannelSetup():
+            channel_map["classification_channel"] = ("carousel", self._carousel_capture)
+
+        for role in self._feederTrackerRoles():
+            prev_algo = prev_by_role.get(role)
+            new_algo = self.getFeederDetectionAlgorithm(role)
+            prev_dynamic = self._isDynamicDetectionAlgorithm(prev_algo)
+            new_dynamic = self._isDynamicDetectionAlgorithm(new_algo)
+            if prev_dynamic == new_dynamic:
+                # dynamic->dynamic or static->static: nothing to change.
+                continue
+            if new_dynamic:
+                # static -> dynamic: free the MOG2 thread + detector.
+                self._stopSplitFeederMog2ForRole(role)
+                self.gc.logger.info(
+                    f"Stopped MOG2 analysis thread for {role} (algorithm={new_algo})"
+                )
+                continue
+
+            # dynamic -> static(mog2): spawn the thread lazily.
+            polygon_key = self._channelPolygonKeyForRole(role)
+            if polygon_key is None:
+                continue
+            map_entry = channel_map.get(polygon_key)
+            if map_entry is None:
+                continue
+            _role, capture = map_entry
+            if capture is None:
+                self.gc.logger.warning(
+                    f"Cannot spawn MOG2 analysis for {role}: capture thread missing"
+                )
+                continue
+
+            saved = getChannelPolygons()
+            if saved is None:
+                self.gc.logger.warning(
+                    f"Cannot spawn MOG2 analysis for {role}: channel polygons not saved"
+                )
+                continue
+            polygons = self._channel_polygons
+            if polygon_key not in polygons:
+                self.gc.logger.warning(
+                    f"Cannot spawn MOG2 analysis for {role}: polygon for {polygon_key} missing"
+                )
+                continue
+
+            polygon_data = saved.get("polygons", {}) if isinstance(saved, dict) else {}
+            raw_arc_params = saved.get("arc_params", {}) if isinstance(saved, dict) else {}
+            inner_polys: Dict[str, np.ndarray] = {}
+            # Re-derive inner polygon the same way ``initFeederDetection`` does.
+            # For brevity we only need the outer poly to already be in
+            # ``self._channel_polygons`` (stored at init-time); the inner
+            # polygon is reconstructed from the arc params if available.
+            from subsystems.feeder.analysis import parseSavedChannelArcZones
+            channel_key = self._channelAngleKeyForPolygonKey(polygon_key)
+            arc = (
+                parseSavedChannelArcZones(
+                    channel_key, saved.get("channel_angles", {}), raw_arc_params
+                )
+                if channel_key is not None
+                else None
+            )
+            if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                segment_count = 96
+                inner_pts = np.array([
+                    [
+                        int(round(arc.center[0] + arc.inner_radius * np.cos((2 * np.pi * i) / segment_count))),
+                        int(round(arc.center[1] + arc.inner_radius * np.sin((2 * np.pi * i) / segment_count))),
+                    ]
+                    for i in range(segment_count)
+                ], dtype=np.int32)
+                inner_polys[polygon_key] = inner_pts
+
+            channel_steppers = {
+                "second_channel": self._irl.c_channel_2_rotor_stepper,
+                "third_channel": self._irl.c_channel_3_rotor_stepper,
+            }
+            if self._usesClassificationChannelSetup():
+                channel_steppers["classification_channel"] = self._irl.carousel_stepper
+
+            def is_channel_rotating(name: str, _steppers=channel_steppers) -> bool:
+                stepper = _steppers.get(name)
+                if stepper is None:
+                    return False
+                return not stepper.stopped
+
+            spawned = self._spawnSplitFeederMog2ForRole(
+                key=polygon_key,
+                role=role,
+                capture=capture,
+                polys=polygons,
+                inner_polys=inner_polys,
+                raw_arc_params=raw_arc_params,
+                is_channel_rotating=is_channel_rotating,
+            )
+            if spawned:
+                self.gc.logger.info(
+                    f"Spawned MOG2 analysis thread for {role} (algorithm={new_algo})"
+                )
 
     def setFeederOpenRouterModel(self, model: str) -> str:
         normalized = normalize_openrouter_model(model)
@@ -1080,6 +1209,24 @@ class VisionManager:
             }
         self._channel_masks = channel_masks
 
+        # If every feeder role is currently on a dynamic algorithm the fused
+        # MOG2 detector has no consumer (``getFeederHeatmapDetections`` drives
+        # detections from the tracker instead), so don't spin the analysis
+        # thread at all. As soon as any role flips back to ``mog2`` a full
+        # ``initFeederDetection`` re-run is what restores the detector.
+        tracker_roles = self._feederTrackerRoles()
+        all_roles_dynamic = bool(tracker_roles) and all(
+            self._isDynamicDetectionAlgorithm(self.getFeederDetectionAlgorithm(role))
+            for role in tracker_roles
+        )
+        if all_roles_dynamic:
+            self.gc.logger.info(
+                "Skipping fused feeder MOG2 detection — all roles on dynamic algorithms"
+            )
+            if self._camera_service is not None:
+                self._initOverlays()
+            return True
+
         self._feeder_detector = Mog2ChannelDetector(
             channel_polygons=polys,
             channel_masks=channel_masks,
@@ -1108,13 +1255,6 @@ class VisionManager:
         channel_steppers: dict,
         is_channel_rotating,
     ) -> bool:
-        from blob_manager import getChannelPolygons
-        from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
-
-        saved = getChannelPolygons()
-        saved_res = saved.get("resolution", [1920, 1080]) if saved else [1920, 1080]
-        src_w, src_h = int(saved_res[0]), int(saved_res[1])
-
         channel_map = {
             "second_channel": ("c_channel_2", self._c_channel_2_capture),
             "third_channel": ("c_channel_3", self._c_channel_3_capture),
@@ -1125,109 +1265,168 @@ class VisionManager:
         for key, (role, capture) in channel_map.items():
             if key not in polys or capture is None:
                 continue
-
-            # Wait briefly for first frame to get actual camera resolution
-            frame = capture.latest_frame
-            if frame is None:
-                for _ in range(20):
-                    time.sleep(0.1)
-                    frame = capture.latest_frame
-                    if frame is not None:
-                        break
-
-            if frame is not None:
-                cam_h, cam_w = frame.raw.shape[:2]
-            else:
-                cam_h, cam_w = src_h, src_w
-                self.gc.logger.warning(f"No frame from {role} yet, using saved resolution {src_w}x{src_h}")
-
-            # Scale polygon coordinates from editor resolution to camera resolution
-            scale_x = cam_w / src_w
-            scale_y = cam_h / src_h
-
-            def _scale_poly(pts: np.ndarray) -> np.ndarray:
-                scaled = pts.astype(np.float64).copy()
-                scaled[:, 0] *= scale_x
-                scaled[:, 1] *= scale_y
-                return scaled.astype(np.int32)
-
-            scaled_poly = _scale_poly(polys[key])
-            scaled_inner = _scale_poly(inner_polys[key]) if key in inner_polys else None
-
-            ch_mask = np.zeros((cam_h, cam_w), dtype=np.uint8)
-            cv2.fillPoly(ch_mask, [scaled_poly], 255)
-            if scaled_inner is not None:
-                cv2.fillPoly(ch_mask, [scaled_inner], 0)
-
-            channel_key = self._channelAngleKeyForPolygonKey(key)
-            if channel_key is None:
+            algorithm = self.getFeederDetectionAlgorithm(role)
+            if self._isDynamicDetectionAlgorithm(algorithm):
+                self.gc.logger.info(
+                    f"Skipping MOG2 analysis thread for {role} (algorithm={algorithm})"
+                )
                 continue
-
-            # Scale arc params for zone section computation
-            scaled_arc_params = dict(raw_arc_params)
-            raw_arc = raw_arc_params.get(channel_key)
-            if raw_arc and (scale_x != 1.0 or scale_y != 1.0):
-                scaled_arc = dict(raw_arc)
-                c = raw_arc.get("center", [0, 0])
-                scaled_arc["center"] = [c[0] * scale_x, c[1] * scale_y]
-                # Scale radii by average of scale factors (approximation for uniform scaling)
-                r_scale = (scale_x + scale_y) / 2.0
-                if "inner_radius" in scaled_arc:
-                    scaled_arc["inner_radius"] = scaled_arc["inner_radius"] * r_scale
-                if "outer_radius" in scaled_arc:
-                    scaled_arc["outer_radius"] = scaled_arc["outer_radius"] * r_scale
-                scaled_arc_params = dict(raw_arc_params)
-                scaled_arc_params[channel_key] = scaled_arc
-
-            # Scale channel angles (angles don't need scaling, but center offset does)
-            scaled_channel_angles = dict(self._channel_angles)
-
-            arc = parseSavedChannelArcZones(channel_key, scaled_channel_angles, scaled_arc_params)
-            drop_sections, exit_sections = zoneSectionsForChannel(
-                2 if channel_key == "second" else 3 if channel_key == "third" else 4,
-                float(scaled_channel_angles.get(channel_key, 0.0)),
-                arc,
+            self._spawnSplitFeederMog2ForRole(
+                key=key,
+                role=role,
+                capture=capture,
+                polys=polys,
+                inner_polys=inner_polys,
+                raw_arc_params=raw_arc_params,
+                is_channel_rotating=is_channel_rotating,
             )
 
-            single_polys = {key: scaled_poly}
-            single_masks = {key: ch_mask}
-            single_inner = {key: scaled_inner} if scaled_inner is not None else {}
-            single_zone_sections = {channel_key: {"drop": drop_sections, "exit": exit_sections}}
-
-            def _make_rotating_check(name: str):
-                return lambda n: is_channel_rotating(name)
-
-            detector = Mog2ChannelDetector(
-                channel_polygons=single_polys,
-                channel_masks=single_masks,
-                channel_angles=scaled_channel_angles,
-                channel_inner_polygons=single_inner,
-                channel_zone_sections=single_zone_sections,
-                is_channel_rotating=_make_rotating_check(key),
-            )
-            self._per_channel_detectors[role] = detector
-
-            def _make_frame_getter(cap: CaptureThread):
-                def _get_frame() -> np.ndarray | None:
-                    f = cap.latest_frame
-                    if f is None:
-                        return None
-                    return f.raw
-                return _get_frame
-
-            analysis = FeederAnalysisThread(
-                detector=detector,
-                get_gray=_make_frame_getter(capture),
-                profiler=self.gc.profiler,
-            )
-            analysis.start()
-            self._per_channel_analysis[role] = analysis
-            self.gc.logger.info(f"Split-feeder MOG2 detection initialized for {role} ({cam_w}x{cam_h}, scale={scale_x:.2f}x{scale_y:.2f})")
-
-        result = bool(self._per_channel_detectors)
-        if result and self._camera_service is not None:
+        # ``result`` used to require at least one detector to return True. Now
+        # that all roles can legitimately be dynamic, an empty-detector
+        # split-feeder setup is still a successful init — the tracker layer
+        # handles everything via ``_getFeederDynamicDetection``.
+        any_role_present = any(
+            key in polys and cap is not None for key, (_role, cap) in channel_map.items()
+        )
+        if any_role_present and self._camera_service is not None:
             self._initOverlays()
-        return result
+        return any_role_present
+
+    def _spawnSplitFeederMog2ForRole(
+        self,
+        *,
+        key: str,
+        role: str,
+        capture: CaptureThread,
+        polys: Dict[str, np.ndarray],
+        inner_polys: Dict[str, np.ndarray],
+        raw_arc_params: dict,
+        is_channel_rotating,
+    ) -> bool:
+        """Create the per-role ``Mog2ChannelDetector`` + ``FeederAnalysisThread``
+        for one split-feeder channel. Used at init-time (from
+        ``_initSplitFeederDetection``) and at runtime when switching a role
+        from a dynamic algorithm back to ``mog2``.
+        Returns True on success."""
+        from blob_manager import getChannelPolygons
+        from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
+
+        if key not in polys:
+            return False
+
+        saved = getChannelPolygons()
+        saved_res = saved.get("resolution", [1920, 1080]) if saved else [1920, 1080]
+        src_w, src_h = int(saved_res[0]), int(saved_res[1])
+
+        # Wait briefly for first frame to get actual camera resolution
+        frame = capture.latest_frame
+        if frame is None:
+            for _ in range(20):
+                time.sleep(0.1)
+                frame = capture.latest_frame
+                if frame is not None:
+                    break
+
+        if frame is not None:
+            cam_h, cam_w = frame.raw.shape[:2]
+        else:
+            cam_h, cam_w = src_h, src_w
+            self.gc.logger.warning(f"No frame from {role} yet, using saved resolution {src_w}x{src_h}")
+
+        # Scale polygon coordinates from editor resolution to camera resolution
+        scale_x = cam_w / src_w
+        scale_y = cam_h / src_h
+
+        def _scale_poly(pts: np.ndarray) -> np.ndarray:
+            scaled = pts.astype(np.float64).copy()
+            scaled[:, 0] *= scale_x
+            scaled[:, 1] *= scale_y
+            return scaled.astype(np.int32)
+
+        scaled_poly = _scale_poly(polys[key])
+        scaled_inner = _scale_poly(inner_polys[key]) if key in inner_polys else None
+
+        ch_mask = np.zeros((cam_h, cam_w), dtype=np.uint8)
+        cv2.fillPoly(ch_mask, [scaled_poly], 255)
+        if scaled_inner is not None:
+            cv2.fillPoly(ch_mask, [scaled_inner], 0)
+
+        channel_key = self._channelAngleKeyForPolygonKey(key)
+        if channel_key is None:
+            return False
+
+        # Scale arc params for zone section computation
+        scaled_arc_params = dict(raw_arc_params)
+        raw_arc = raw_arc_params.get(channel_key)
+        if raw_arc and (scale_x != 1.0 or scale_y != 1.0):
+            scaled_arc = dict(raw_arc)
+            c = raw_arc.get("center", [0, 0])
+            scaled_arc["center"] = [c[0] * scale_x, c[1] * scale_y]
+            # Scale radii by average of scale factors (approximation for uniform scaling)
+            r_scale = (scale_x + scale_y) / 2.0
+            if "inner_radius" in scaled_arc:
+                scaled_arc["inner_radius"] = scaled_arc["inner_radius"] * r_scale
+            if "outer_radius" in scaled_arc:
+                scaled_arc["outer_radius"] = scaled_arc["outer_radius"] * r_scale
+            scaled_arc_params = dict(raw_arc_params)
+            scaled_arc_params[channel_key] = scaled_arc
+
+        # Scale channel angles (angles don't need scaling, but center offset does)
+        scaled_channel_angles = dict(self._channel_angles)
+
+        arc = parseSavedChannelArcZones(channel_key, scaled_channel_angles, scaled_arc_params)
+        drop_sections, exit_sections = zoneSectionsForChannel(
+            2 if channel_key == "second" else 3 if channel_key == "third" else 4,
+            float(scaled_channel_angles.get(channel_key, 0.0)),
+            arc,
+        )
+
+        single_polys = {key: scaled_poly}
+        single_masks = {key: ch_mask}
+        single_inner = {key: scaled_inner} if scaled_inner is not None else {}
+        single_zone_sections = {channel_key: {"drop": drop_sections, "exit": exit_sections}}
+
+        def _make_rotating_check(name: str):
+            return lambda n: is_channel_rotating(name)
+
+        detector = Mog2ChannelDetector(
+            channel_polygons=single_polys,
+            channel_masks=single_masks,
+            channel_angles=scaled_channel_angles,
+            channel_inner_polygons=single_inner,
+            channel_zone_sections=single_zone_sections,
+            is_channel_rotating=_make_rotating_check(key),
+        )
+        self._per_channel_detectors[role] = detector
+
+        def _make_frame_getter(cap: CaptureThread):
+            def _get_frame() -> np.ndarray | None:
+                f = cap.latest_frame
+                if f is None:
+                    return None
+                return f.raw
+            return _get_frame
+
+        analysis = FeederAnalysisThread(
+            detector=detector,
+            get_gray=_make_frame_getter(capture),
+            profiler=self.gc.profiler,
+        )
+        analysis.start()
+        self._per_channel_analysis[role] = analysis
+        self.gc.logger.info(
+            f"Split-feeder MOG2 detection initialized for {role} ({cam_w}x{cam_h}, scale={scale_x:.2f}x{scale_y:.2f})"
+        )
+        return True
+
+    def _stopSplitFeederMog2ForRole(self, role: str) -> None:
+        """Tear down a single split-feeder MOG2 detector + analysis thread.
+        Used when switching a role from ``mog2`` to a dynamic algorithm at
+        runtime, so the thread stops burning CPU on an output nobody reads."""
+        analysis = self._per_channel_analysis.pop(role, None)
+        if analysis is not None:
+            analysis.stop()
+        self._per_channel_detectors.pop(role, None)
 
     def _makeCarouselHeatmap(self) -> HeatmapDiff:
         c = self._carousel_diff_config
@@ -1632,12 +1831,6 @@ class VisionManager:
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
-
-    def getLatestFeederLab(self) -> np.ndarray | None:
-        frame = self._feeder_capture.latest_frame
-        if frame is None:
-            return None
-        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2LAB)
 
     def getLatestFeederRaw(self) -> np.ndarray | None:
         frame = self._feeder_capture.latest_frame

@@ -38,12 +38,22 @@
 	// itself changes (the user navigates to a different piece).
 	let _stickyPiece = $state<KnownObjectData | null>(null);
 
+	// Fallback hydration for pieces that have already aged out of the WS
+	// `recentObjects` ring. We fetch from the backend's persistent-lookup
+	// endpoint (`/api/known-objects/<uuid>`) exactly once per route UUID,
+	// and `piece` prefers the live ring if the WS ever re-surfaces it (the
+	// live payload keeps updating; the fetched snapshot is frozen).
+	let _fetchedPiece = $state<KnownObjectData | null>(null);
+	let _fetchStatus = $state<'idle' | 'loading' | 'ok' | 'not_found' | 'error'>('idle');
+
 	$effect(() => {
 		// Reset whenever the route UUID changes. Reading `uuid` registers the
 		// dependency; the body clears the sticky cache so a different route
 		// doesn't briefly show the previous piece's crops.
 		void uuid;
 		_stickyPiece = null;
+		_fetchedPiece = null;
+		_fetchStatus = 'idle';
 	});
 
 	$effect(() => {
@@ -52,7 +62,36 @@
 		if (found !== null) _stickyPiece = found;
 	});
 
-	let piece = $derived(_stickyPiece);
+	// Kick off the persistent-lookup fetch when the piece isn't in the live
+	// buffer. We avoid refetching by gating on `_fetchStatus === 'idle'` —
+	// the UUID-change effect resets it back to 'idle'.
+	$effect(() => {
+		if (_stickyPiece !== null) return;
+		if (_fetchStatus !== 'idle') return;
+		const targetUuid = uuid;
+		_fetchStatus = 'loading';
+		void fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(targetUuid)}`)
+			.then(async (res) => {
+				// Ignore stale responses — the user may have navigated away.
+				if (targetUuid !== uuid) return;
+				if (res.status === 404) {
+					_fetchStatus = 'not_found';
+					return;
+				}
+				if (!res.ok) {
+					_fetchStatus = 'error';
+					return;
+				}
+				_fetchedPiece = (await res.json()) as KnownObjectData;
+				_fetchStatus = 'ok';
+			})
+			.catch(() => {
+				if (targetUuid !== uuid) return;
+				_fetchStatus = 'error';
+			});
+	});
+
+	let piece = $derived(_stickyPiece ?? _fetchedPiece);
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 
@@ -441,13 +480,23 @@
 		</header>
 
 		{#if !piece}
-			<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-				This piece is no longer in the live buffer. Recent Pieces only keeps the
-				last handful — once a piece scrolls off, its per-piece data is not
-				re-hydrated from history. Go back to the
-				<a href="/tracked" class="text-primary underline">tracker list</a>
-				for persistent records.
-			</div>
+			{#if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+					Loading piece…
+				</div>
+			{:else if _fetchStatus === 'not_found'}
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+					This piece is no longer cached. The backend keeps the last ~1000
+					pieces in memory per session — once a piece ages out, its per-piece
+					data is gone. Go back to the
+					<a href="/tracked" class="text-primary underline">tracker list</a>
+					for persistent track records.
+				</div>
+			{:else}
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+					Could not load this piece. Check the backend connection and try again.
+				</div>
+			{/if}
 		{:else}
 			<!-- Identity & classification summary -->
 			<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">

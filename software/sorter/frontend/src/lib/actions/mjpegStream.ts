@@ -3,6 +3,8 @@ export type MjpegStreamOptions = {
 	reconnectDelayMs?: number;
 	stallTimeoutMs?: number;
 	firstFrameTimeoutMs?: number;
+	maxAttempts?: number;
+	onStatusChange?: (status: 'pending' | 'streaming' | 'failed') => void;
 };
 
 const DEFAULT_RECONNECT_DELAY_MS = 350;
@@ -16,7 +18,9 @@ function normalizeOptions(options: string | MjpegStreamOptions) {
 			url: options,
 			reconnectDelayMs: DEFAULT_RECONNECT_DELAY_MS,
 			stallTimeoutMs: DEFAULT_STALL_TIMEOUT_MS,
-			firstFrameTimeoutMs: DEFAULT_FIRST_FRAME_TIMEOUT_MS
+			firstFrameTimeoutMs: DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+			maxAttempts: Number.POSITIVE_INFINITY,
+			onStatusChange: undefined as ((status: 'pending' | 'streaming' | 'failed') => void) | undefined
 		};
 	}
 
@@ -24,7 +28,9 @@ function normalizeOptions(options: string | MjpegStreamOptions) {
 		url: options.url,
 		reconnectDelayMs: options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS,
 		stallTimeoutMs: options.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS,
-		firstFrameTimeoutMs: options.firstFrameTimeoutMs ?? DEFAULT_FIRST_FRAME_TIMEOUT_MS
+		firstFrameTimeoutMs: options.firstFrameTimeoutMs ?? DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+		maxAttempts: options.maxAttempts ?? Number.POSITIVE_INFINITY,
+		onStatusChange: options.onStatusChange
 	};
 }
 
@@ -59,6 +65,15 @@ export function mjpegStream(node: HTMLImageElement, initialOptions: string | Mjp
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
 	let blobUrl: string | null = null;
+	let attempts = 0;
+	let gotFirstFrame = false;
+	let lastStatus: 'pending' | 'streaming' | 'failed' = 'pending';
+
+	function setStatus(next: 'pending' | 'streaming' | 'failed') {
+		if (next === lastStatus) return;
+		lastStatus = next;
+		options.onStatusChange?.(next);
+	}
 
 	function clearBlobUrl() {
 		if (blobUrl) {
@@ -90,6 +105,11 @@ export function mjpegStream(node: HTMLImageElement, initialOptions: string | Mjp
 			window.clearTimeout(watchdogTimer);
 		}
 		watchdogTimer = setTimeout(() => {
+			if (!gotFirstFrame && attempts >= options.maxAttempts) {
+				setStatus('failed');
+				stopCurrentStream();
+				return;
+			}
 			restart();
 		}, timeoutMs);
 	}
@@ -99,11 +119,17 @@ export function mjpegStream(node: HTMLImageElement, initialOptions: string | Mjp
 		const bytes = Uint8Array.from(jpeg);
 		blobUrl = URL.createObjectURL(new Blob([bytes.buffer], { type: 'image/jpeg' }));
 		node.src = blobUrl;
+		gotFirstFrame = true;
+		setStatus('streaming');
 		scheduleWatchdog(options.stallTimeoutMs);
 	}
 
 	function scheduleReconnect() {
 		if (destroyed) return;
+		if (!gotFirstFrame && attempts >= options.maxAttempts) {
+			setStatus('failed');
+			return;
+		}
 		if (reconnectTimer !== null) {
 			window.clearTimeout(reconnectTimer);
 		}
@@ -114,6 +140,8 @@ export function mjpegStream(node: HTMLImageElement, initialOptions: string | Mjp
 
 	async function start(token: number) {
 		controller = new AbortController();
+		attempts += 1;
+		if (!gotFirstFrame) setStatus('pending');
 		scheduleWatchdog(options.firstFrameTimeoutMs);
 
 		try {
@@ -187,12 +215,19 @@ export function mjpegStream(node: HTMLImageElement, initialOptions: string | Mjp
 	return {
 		update(nextOptions: string | MjpegStreamOptions) {
 			const normalized = normalizeOptions(nextOptions);
+			const urlChanged = normalized.url !== options.url;
 			const changed =
-				normalized.url !== options.url ||
+				urlChanged ||
 				normalized.reconnectDelayMs !== options.reconnectDelayMs ||
 				normalized.stallTimeoutMs !== options.stallTimeoutMs ||
-				normalized.firstFrameTimeoutMs !== options.firstFrameTimeoutMs;
+				normalized.firstFrameTimeoutMs !== options.firstFrameTimeoutMs ||
+				normalized.maxAttempts !== options.maxAttempts;
 			options = normalized;
+			if (urlChanged) {
+				attempts = 0;
+				gotFirstFrame = false;
+				setStatus('pending');
+			}
 			if (changed) {
 				restart();
 			}

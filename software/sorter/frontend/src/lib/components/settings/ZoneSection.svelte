@@ -342,6 +342,7 @@
 	$effect(() => {
 		if (!reassignModalOpen) reassignConfirm = null;
 	});
+	let tileStreamStatus = $state<Record<number, 'pending' | 'streaming' | 'failed'>>({});
 	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar || hasStepper));
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
@@ -1267,6 +1268,7 @@
 		}
 		cameraLoading = true;
 		cameraError = null;
+		tileStreamStatus = {};
 		const abort = new AbortController();
 		cameraAbort = abort;
 		try {
@@ -1332,6 +1334,7 @@
 				currentRole: otherRole,
 				cameraLabel: cam?.name ?? `Camera ${cameraIndex}`
 			};
+			cameraModalOpen = false;
 			reassignModalOpen = true;
 			return;
 		}
@@ -1341,17 +1344,32 @@
 		}
 	}
 
+	let reassignConfirming = $state(false);
+
 	async function confirmReassign() {
 		if (!reassignConfirm) return;
 		const { source, targetRole, currentRole: fromRole } = reassignConfirm;
+		reassignConfirming = true;
 		reassignConfirm = null;
 		reassignModalOpen = false;
 		await saveCameraRole(fromRole, null);
-		if (cameraError) return;
-		await saveCameraRole(targetRole, source);
-		if (!cameraError) {
-			cameraModalOpen = false;
+		if (cameraError) {
+			cameraModalOpen = true;
+			reassignConfirming = false;
+			return;
 		}
+		await saveCameraRole(targetRole, source);
+		if (cameraError) {
+			cameraModalOpen = true;
+		}
+		reassignConfirming = false;
+	}
+
+	function cancelReassign() {
+		if (reassignConfirming) return;
+		reassignConfirm = null;
+		reassignModalOpen = false;
+		cameraModalOpen = true;
 	}
 
 	function sortPolygon(pts: number[][]): number[][] {
@@ -2902,7 +2920,7 @@
 								<button
 									onclick={() => selectCamera(role, cam.index)}
 									disabled={cameraSaving}
-									class="group relative overflow-hidden text-left transition-all {isSelected
+									class="group relative cursor-pointer overflow-hidden text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 {isSelected
 										? 'ring-2 ring-primary'
 										: usedByOther
 											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
@@ -2910,16 +2928,26 @@
 								>
 									{#if cam.preview_available === false}
 										<div
-											class="flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
+											class="flex aspect-video items-center justify-center bg-bg text-center text-sm text-text-muted"
 										>
 											No preview
+										</div>
+									{:else if tileStreamStatus[cam.index] === 'failed'}
+										<div
+											class="flex aspect-video items-center justify-center bg-bg text-center text-sm text-text-muted"
+										>
+											Preview unavailable
 										</div>
 									{:else}
 										<img
 											use:resilientMjpegStream={{
 												url: cameraIndexPreviewUrl(cam.index),
 												firstFrameTimeoutMs: 6000,
-												stallTimeoutMs: 4000
+												stallTimeoutMs: 4000,
+												maxAttempts: 3,
+												onStatusChange: (status) => {
+													tileStreamStatus = { ...tileStreamStatus, [cam.index]: status };
+												}
 											}}
 											alt={cam.name ?? `Camera ${cam.index}`}
 											class="block aspect-video w-full object-cover"
@@ -2974,13 +3002,16 @@
 													currentRole: otherRole,
 													cameraLabel: cam.name
 												};
+												cameraModalOpen = false;
 												reassignModalOpen = true;
 												return;
 											}
-											saveCameraRole(role, cam.source);
+											saveCameraRole(role, cam.source).then(() => {
+												if (!cameraError) cameraModalOpen = false;
+											});
 										}}
 										disabled={cameraSaving}
-										class="group relative overflow-hidden text-left transition-all {isSelected
+										class="group relative cursor-pointer overflow-hidden text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 {isSelected
 											? 'ring-2 ring-primary'
 											: usedByOther
 												? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
@@ -3063,6 +3094,7 @@
 			<Modal
 				bind:open={reassignModalOpen}
 				title="Reassign Camera"
+				on:close={cancelReassign}
 			>
 				<div class="flex flex-col gap-4">
 					<p class="text-sm text-text">
@@ -3072,7 +3104,7 @@
 					</p>
 					<div class="flex items-center justify-end gap-2">
 						<button
-							onclick={() => { reassignConfirm = null; reassignModalOpen = false; }}
+							onclick={cancelReassign}
 							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface"
 						>
 							Cancel

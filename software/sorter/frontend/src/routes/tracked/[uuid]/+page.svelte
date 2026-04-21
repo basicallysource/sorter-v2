@@ -152,10 +152,16 @@
 		source_role: string;
 		sector_snapshots?: SectorSnapshot[];
 	};
+	type BurstFrame = {
+		role: string;
+		captured_ts: number;
+		jpeg_b64: string;
+	};
 	type TrackDetail = {
 		global_id: number;
 		segments: Segment[];
 		live?: boolean;
+		burst_frames?: BurstFrame[];
 	};
 
 	let trackDetail = $state<TrackDetail | null>(null);
@@ -168,7 +174,8 @@
 	function trackSignature(d: TrackDetail | null): string {
 		if (!d) return '';
 		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		return `${d.live ? 1 : 0}|${counts}`;
+		const burstCount = d.burst_frames?.length ?? 0;
+		return `${d.live ? 1 : 0}|${counts}|b${burstCount}`;
 	}
 	let _trackSig = '';
 
@@ -324,6 +331,47 @@
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
 	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
+
+	// --- Drop-zone burst --------------------------------------------------
+	// Pre+post-event frames from C3 + carousel captured when the piece fell
+	// into the classification chamber. Rendered as a filmstrip + enlarged
+	// preview. Chronologically pre-sorted on the backend.
+	const burstFrames = $derived<BurstFrame[]>(trackDetail?.burst_frames ?? []);
+	let selectedBurstIdx = $state(0);
+	// Reset the selection whenever the underlying global_id changes so we
+	// don't index past the end of a different piece's burst.
+	$effect(() => {
+		void _loadedGlobalId;
+		selectedBurstIdx = 0;
+	});
+	// Clamp if the frame list shrank (shouldn't happen — entries only grow —
+	// but defensive).
+	$effect(() => {
+		if (selectedBurstIdx >= burstFrames.length) {
+			selectedBurstIdx = Math.max(0, burstFrames.length - 1);
+		}
+	});
+	const selectedBurstFrame = $derived<BurstFrame | null>(
+		burstFrames[selectedBurstIdx] ?? null
+	);
+	const burstDurationLabel = $derived.by<string>(() => {
+		if (burstFrames.length < 2) return '';
+		const first = burstFrames[0].captured_ts;
+		const last = burstFrames[burstFrames.length - 1].captured_ts;
+		const span = Math.max(0, last - first);
+		if (span < 1) return `${(span * 1000).toFixed(0)}ms`;
+		return `${span.toFixed(2)}s`;
+	});
+
+	function burstRoleClass(role: string): string {
+		return role === 'carousel' ? 'text-primary' : 'text-text-muted';
+	}
+
+	function burstRoleLabel(role: string): string {
+		if (role === 'carousel') return 'C4';
+		if (role === 'c_channel_3') return 'C3';
+		return role.toUpperCase();
+	}
 
 	function formatAbsTs(ts: number | null | undefined): string {
 		if (!ts) return '—';
@@ -680,6 +728,59 @@
 					{/if}
 				</div>
 			</section>
+
+			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
+			{#if burstFrames.length > 0}
+				<section class="border border-border bg-surface">
+					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+						<span class="font-medium text-text">Drop Burst</span>
+						<span class="text-text-muted">
+							<span class="tabular-nums">{burstFrames.length}</span>
+							<span class="mx-1">frames</span>
+							{#if burstDurationLabel}
+								<span class="mx-1">·</span>
+								<span class="tabular-nums">{burstDurationLabel}</span>
+							{/if}
+						</span>
+					</div>
+					{#if selectedBurstFrame}
+						<div class="flex flex-col items-center gap-1 border-b border-border bg-bg p-3">
+							<img
+								src={`data:image/jpeg;base64,${selectedBurstFrame.jpeg_b64}`}
+								alt="burst frame {selectedBurstIdx + 1} of {burstFrames.length}"
+								class="max-h-[480px] max-w-full object-contain"
+								loading="lazy"
+							/>
+							<div class="flex items-center gap-2 text-sm text-text-muted">
+								<span class={`font-semibold uppercase tracking-wider ${burstRoleClass(selectedBurstFrame.role)}`}>
+									{burstRoleLabel(selectedBurstFrame.role)}
+								</span>
+								<span class="tabular-nums">{formatAbsTs(selectedBurstFrame.captured_ts)}</span>
+								<span class="text-text-muted">· frame {selectedBurstIdx + 1} / {burstFrames.length}</span>
+							</div>
+						</div>
+					{/if}
+					<div class="flex flex-row gap-1 overflow-x-auto px-3 py-2">
+						{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
+							<button
+								type="button"
+								class={`flex h-32 flex-col flex-shrink-0 bg-bg text-left hover:border-primary/70 ${
+									idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
+								}`}
+								onclick={() => (selectedBurstIdx = idx)}
+								title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
+							>
+								<img
+									src={`data:image/jpeg;base64,${frame.jpeg_b64}`}
+									alt="burst frame {idx + 1}"
+									class="h-full w-auto flex-shrink-0 object-contain"
+									loading="lazy"
+								/>
+							</button>
+						{/each}
+					</div>
+				</section>
+			{/if}
 
 			<!-- Track path (pie-chart composite) -->
 			{#if piece.tracked_global_id != null}

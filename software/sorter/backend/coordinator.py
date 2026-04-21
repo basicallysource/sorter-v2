@@ -59,11 +59,13 @@ class Coordinator:
 
         self.distribution = self.machine_runtime.create_distribution(
             irl=irl,
+            irl_config=irl_config,
             gc=gc,
             shared=self.shared,
             sorting_profile=self.sorting_profile,
             distribution_layout=self.distribution_layout,
             event_queue=event_queue,
+            vision=vision,
         )
         self.classification = self.machine_runtime.create_classification(
             irl=irl,

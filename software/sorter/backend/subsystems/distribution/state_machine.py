@@ -21,6 +21,9 @@ class DistributionStateMachine(BaseSubsystem):
         sorting_profile: SortingProfile,
         layout: DistributionLayout,
         event_queue: queue.Queue,
+        *,
+        vision=None,
+        post_distribute_cooldown_s: float = 0.0,
     ):
         super().__init__()
         self.irl = irl
@@ -38,7 +41,14 @@ class DistributionStateMachine(BaseSubsystem):
                 irl, gc, shared, self.chute, layout, sorting_profile, event_queue
             ),
             DistributionState.READY: Ready(irl, gc, shared),
-            DistributionState.SENDING: Sending(irl, gc, shared, event_queue),
+            DistributionState.SENDING: Sending(
+                irl,
+                gc,
+                shared,
+                event_queue,
+                vision=vision,
+                post_distribute_cooldown_s=post_distribute_cooldown_s,
+            ),
         }
         self.gc.profiler.enterState("distribution", self.current_state.value)
         if hasattr(self.gc, "runtime_stats"):

@@ -60,13 +60,20 @@ class MachineRuntime(ABC):
         self,
         *,
         irl: IRLInterface,
+        irl_config: IRLConfig,
         gc: GlobalConfig,
         shared,
         sorting_profile: SortingProfile,
         distribution_layout: DistributionLayout,
         event_queue: queue.Queue,
+        vision: VisionManager | None = None,
     ):
         from subsystems.distribution.state_machine import DistributionStateMachine
+
+        cooldown_s = 0.0
+        cfg = getattr(irl_config, "classification_channel_config", None)
+        if cfg is not None:
+            cooldown_s = float(getattr(cfg, "post_distribute_cooldown_s", 0.0) or 0.0)
 
         return DistributionStateMachine(
             irl,
@@ -75,4 +82,6 @@ class MachineRuntime(ABC):
             sorting_profile,
             distribution_layout,
             event_queue,
+            vision=vision,
+            post_distribute_cooldown_s=cooldown_s,
         )

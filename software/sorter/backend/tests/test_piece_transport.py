@@ -133,6 +133,45 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertEqual(0, transport.getActivePieceCount())
         self.assertIsNone(transport.getPieceForDistributionPositioning())
 
+    def test_dynamic_mode_exit_piece_clears_on_next_advance(self) -> None:
+        """``_exit_piece`` must survive until the NEXT advanceTransport.
+
+        The distribution Sending state reads
+        ``getPieceForDistributionDrop()`` after the chute-settle timer to
+        commit the drop. That read must keep returning the dropped piece
+        until the next carousel pulse advances the transport — otherwise
+        Sending races against its own commit and loses the reference to
+        the piece it was dropping.
+        """
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+
+        piece = transport.registerIncomingPiece(tracked_global_id=77)
+        transport.updateTrackedPieces(
+            [
+                TrackAngularExtent(
+                    global_id=77,
+                    center_deg=30.0,
+                    half_width_deg=6.0,
+                    last_seen_ts=1.0,
+                    hit_count=4,
+                )
+            ]
+        )
+        transport.setPositioningPiece(piece.uuid)
+
+        advance = transport.advanceTransport(dropped_uuid=piece.uuid)
+        self.assertIs(piece, advance.piece_for_distribution_drop)
+        self.assertIs(piece, transport.getPieceForDistributionDrop())
+
+        # Second advance with no new drop: exit buffer must clear on the
+        # very next pulse so a subsequent piece's getPieceForDistributionDrop
+        # doesn't resurface the already-dropped uuid.
+        next_advance = transport.advanceTransport()
+        self.assertIsNone(next_advance.piece_for_distribution_drop)
+        self.assertIsNone(transport.getPieceForDistributionDrop())
+
     def test_fallback_classification_clears_previous_distribution_target(self) -> None:
         transport = ClassificationChannelTransport()
         config = ClassificationChannelConfig()

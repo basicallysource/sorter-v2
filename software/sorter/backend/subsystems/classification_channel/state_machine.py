@@ -9,7 +9,6 @@ from subsystems.classification_channel.running import Running
 from subsystems.classification_channel.snapping import Snapping
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
-from telemetry import Telemetry
 
 
 class ClassificationChannelStateMachine(BaseSubsystem):
@@ -22,7 +21,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         shared: SharedVariables,
         vision,
         event_queue,
-        telemetry: Telemetry,
         transport: ClassificationChannelTransport,
     ):
         super().__init__()
@@ -61,7 +59,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                         irl, gc, shared, transport, vision, event_queue
                     ),
                     ClassificationChannelState.SNAPPING: Snapping(
-                        irl, gc, shared, transport, vision, event_queue, telemetry
+                        irl, gc, shared, transport, vision, event_queue
                     ),
                     ClassificationChannelState.EJECTING: Ejecting(
                         irl, irl_config, gc, shared, transport, vision, event_queue

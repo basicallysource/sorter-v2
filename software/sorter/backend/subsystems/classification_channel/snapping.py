@@ -8,7 +8,6 @@ from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
-from telemetry import Telemetry
 
 # Minimum dwell so the classification-channel tracker has a chance to
 # accumulate a few piece crops before we advance the piece into the wait
@@ -32,14 +31,12 @@ class Snapping(BaseState):
         transport: ClassificationChannelTransport,
         vision,
         event_queue,
-        telemetry: Telemetry,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.transport = transport
         self.vision = vision
         self.event_queue = event_queue
-        self.telemetry = telemetry
         self._entered_at: Optional[float] = None
         self._occupancy_state: str | None = None
 

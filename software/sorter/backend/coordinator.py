@@ -72,7 +72,6 @@ class Coordinator:
             shared=self.shared,
             vision=vision,
             event_queue=event_queue,
-            telemetry=telemetry,
             transport=self.transport,
         )
         self.feeder = self.machine_runtime.create_feeder(

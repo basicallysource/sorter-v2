@@ -9,7 +9,6 @@ from irl.config import IRLConfig, IRLInterface
 from machine_setup import MachineSetupDefinition
 from piece_transport import PieceTransport
 from sorting_profile import SortingProfile
-from telemetry import Telemetry
 from vision import VisionManager
 
 
@@ -53,7 +52,6 @@ class MachineRuntime(ABC):
         shared,
         vision: VisionManager,
         event_queue: queue.Queue,
-        telemetry: Telemetry,
         transport: PieceTransport,
     ):
         pass

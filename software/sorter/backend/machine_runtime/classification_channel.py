@@ -6,7 +6,6 @@ from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from machine_runtime.base import MachineRuntime
 from piece_transport import ClassificationChannelTransport, PieceTransport
-from telemetry import Telemetry
 from vision import VisionManager
 
 
@@ -29,7 +28,6 @@ class ClassificationChannelRuntime(MachineRuntime):
         shared,
         vision: VisionManager,
         event_queue: queue.Queue,
-        telemetry: Telemetry,
         transport: PieceTransport,
     ):
         from subsystems.classification_channel.state_machine import (
@@ -47,6 +45,5 @@ class ClassificationChannelRuntime(MachineRuntime):
             shared=shared,
             vision=vision,
             event_queue=event_queue,
-            telemetry=telemetry,
             transport=transport,
         )

@@ -7,7 +7,6 @@ from irl.config import IRLConfig, IRLInterface
 from machine_runtime.base import MachineRuntime
 from piece_transport import PieceTransport
 from subsystems.classification.carousel import Carousel
-from telemetry import Telemetry
 from vision import VisionManager
 
 
@@ -29,7 +28,6 @@ class StandardCarouselRuntime(MachineRuntime):
         shared,
         vision: VisionManager,
         event_queue: queue.Queue,
-        telemetry: Telemetry,
         transport: PieceTransport,
     ):
         from subsystems.classification.state_machine import ClassificationStateMachine
@@ -43,6 +41,5 @@ class StandardCarouselRuntime(MachineRuntime):
             shared,
             vision,
             event_queue,
-            telemetry,
             transport,
         )

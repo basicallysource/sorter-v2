@@ -88,7 +88,6 @@ class CoordinatorOrderTests(unittest.TestCase):
                 vision=SimpleNamespace(),
                 event_queue=queue.Queue(),
                 rv=SimpleNamespace(),
-                telemetry=SimpleNamespace(),
             )
 
         coordinator.step()

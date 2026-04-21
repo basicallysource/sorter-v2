@@ -5,9 +5,9 @@
 	// piece's sector snapshots clipped into their original angular wedges on
 	// top of a dimmed snapshot of the channel.
 	//
-	// Extracted from routes/tracked/[globalId]/+page.svelte so the per-piece
-	// detail page (`/tracked/[uuid]`) can reuse it. The integer page retains
-	// its full classroom interface (manual recognize, per-segment
+	// Extracted from routes/tracked/[globalId=integer]/+page.svelte so the
+	// per-piece detail page (`/tracked/[uuid]`) can reuse it. The integer page
+	// retains its full classroom interface (manual recognize, per-segment
 	// reclassification); this component is intentionally "render-only".
 	import { onDestroy, onMount } from 'svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -43,6 +43,11 @@
 	type Segment = {
 		source_role: string;
 		handoff_from: string | null;
+		first_seen_ts: number;
+		last_seen_ts: number;
+		duration_s: number;
+		hit_count: number;
+		path_points: number;
 		snapshot_width: number;
 		snapshot_height: number;
 		snapshot_jpeg_b64: string;
@@ -68,66 +73,32 @@
 	}
 
 	let detail = $state<Detail | null>(null);
+	let error = $state<string | null>(null);
+	let loading = $state(false);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
-	let _loadedId: number | null = null;
-
-	// Signature of the fetched track: "live|seg0_snaps,seg1_snaps,..." — used
-	// to gate `detail` reassignment so polls that return identical data don't
-	// trigger a re-render of the composite SVG.
-	function trackSignature(d: Detail | null): string {
-		if (!d) return '';
-		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		return `${d.live ? 1 : 0}|${counts}`;
-	}
-	let _sig = '';
-
-	async function load(): Promise<void> {
-		if (!Number.isFinite(globalId)) return;
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
-			if (!res.ok) return;
-			const next = (await res.json()) as Detail;
-			const nextSig = trackSignature(next);
-			if (nextSig !== _sig) {
-				_sig = nextSig;
-				detail = next;
-			}
-		} catch {
-			// Silent — the caller still renders without the composite.
-		}
-	}
-
-	$effect(() => {
-		if (globalId === _loadedId) return;
-		_loadedId = globalId;
-		detail = null;
-		_sig = '';
-		void load();
-	});
-
-	onMount(() => {
-		pollTimer = setInterval(() => {
-			if (detail?.live) void load();
-		}, 1500);
-	});
-
-	onDestroy(() => {
-		if (pollTimer !== null) clearInterval(pollTimer);
-	});
 
 	const TS_TOLERANCE_S = 0.005;
 
-	function tsWasUsed(captured_ts: number): boolean {
-		for (const t of usedCropTs) {
-			if (Math.abs(t - captured_ts) <= TS_TOLERANCE_S) return true;
+	function isUsedCrop(captured_ts: number): boolean {
+		if (!usedCropTs || usedCropTs.length === 0) return false;
+		for (const ts of usedCropTs) {
+			if (Math.abs(ts - captured_ts) <= TS_TOLERANCE_S) return true;
 		}
 		return false;
+	}
+
+	function formatRoleLabel(role: string): string {
+		if (role === 'carousel') return 'Classification Channel';
+		if (role === 'c_channel_2') return 'C-Channel 2';
+		if (role === 'c_channel_3') return 'C-Channel 3';
+		return role.replace('c_channel_', 'C-Channel ');
 	}
 
 	function channelViewBox(seg: Segment): string {
 		const cx = seg.channel_center_x ?? seg.snapshot_width / 2;
 		const cy = seg.channel_center_y ?? seg.snapshot_height / 2;
-		const r = (seg.channel_radius_outer ?? Math.min(seg.snapshot_width, seg.snapshot_height) / 3) + 12;
+		const r =
+			(seg.channel_radius_outer ?? Math.min(seg.snapshot_width, seg.snapshot_height) / 3) + 12;
 		return `${cx - r} ${cy - r} ${r * 2} ${r * 2}`;
 	}
 
@@ -163,8 +134,8 @@
 		);
 	}
 
-	function sectorSnapshots(seg: Segment): SectorSnapshot[] {
-		return seg.sector_snapshots ?? [];
+	function pathPolylinePoints(seg: Segment): string {
+		return seg.path.map((p) => `${p[1]},${p[2]}`).join(' ');
 	}
 
 	function nearestPathPoint(path: PathPoint[], ts: number): PathPoint | null {
@@ -181,44 +152,88 @@
 		return best;
 	}
 
-	function pathPolylinePoints(seg: Segment): string {
-		return seg.path.map((p) => `${p[1]},${p[2]}`).join(' ');
+	// Signature of the current detail: "live|seg0_snaps,seg1_snaps,...". When
+	// a poll returns the same signature we keep the existing `detail` object
+	// so Svelte doesn't re-diff the SVG (which would reload every <image>
+	// href even though the b64 payload hasn't changed).
+	function detailSignature(d: Detail | null): string {
+		if (!d) return '';
+		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
+		return `${d.live ? 1 : 0}|${counts}`;
 	}
 
-	function formatRoleLabel(role: string): string {
-		if (role === 'carousel') return 'Classification Channel';
-		if (role === 'c_channel_2') return 'C-Channel 2';
-		if (role === 'c_channel_3') return 'C-Channel 3';
-		return role.replace('c_channel_', 'C-Channel ');
+	async function load() {
+		if (!Number.isFinite(globalId)) return;
+		loading = true;
+		try {
+			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
+			if (!res.ok) {
+				error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
+				return;
+			}
+			const next = (await res.json()) as Detail;
+			if (detailSignature(next) !== detailSignature(detail)) {
+				detail = next;
+			} else if (detail && next.live !== detail.live) {
+				// Snapshot count unchanged but live flag flipped — update in place
+				// without replacing the object so the SVG doesn't re-mount.
+				detail.live = next.live;
+			}
+			error = null;
+		} catch (e: any) {
+			error = e?.message ?? 'Failed to load';
+		} finally {
+			loading = false;
+		}
 	}
+
+	onMount(() => {
+		void load();
+		// LIVE tracks keep extending while the piece is still moving — poll
+		// until the backend flips detail.live to false.
+		pollTimer = setInterval(() => {
+			if (detail?.live) void load();
+		}, 1500);
+	});
+
+	onDestroy(() => {
+		if (pollTimer !== null) clearInterval(pollTimer);
+	});
 </script>
 
-{#if detail}
+{#if error}
+	<div class="border border-danger bg-danger/10 p-3 text-sm text-danger">{error}</div>
+{:else if !detail}
+	<div class="text-sm text-text-muted">{loading ? 'Loading track…' : 'No track data.'}</div>
+{:else}
 	<div class="flex flex-col gap-3">
 		{#each detail.segments as segment, idx (idx)}
-			{#if hasSectorGeom(segment)}
-				<div class="flex flex-col border border-border bg-bg">
-					<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-1.5 text-sm text-text-muted">
-						<span>
-							{formatRoleLabel(segment.source_role)}
-							{#if segment.handoff_from}
-								<span class="ml-1 text-primary">
-									← handoff from {formatRoleLabel(segment.handoff_from)}
-								</span>
-							{/if}
-						</span>
-						<span>
-							{sectorSnapshots(segment).length}/{segment.sector_count ?? 0} sectors
-						</span>
-					</div>
+			<div class="border border-border bg-bg">
+				<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-sm">
+					<span class="font-medium text-text">
+						{formatRoleLabel(segment.source_role)}
+						{#if segment.handoff_from}
+							<span class="ml-2 text-primary">
+								← handoff from {formatRoleLabel(segment.handoff_from)}
+							</span>
+						{/if}
+					</span>
+					<span class="text-text-muted">
+						{segment.hit_count} frames · {segment.duration_s.toFixed(2)}s
+						{#if segment.sector_snapshots && segment.sector_snapshots.length > 0}
+							· {segment.sector_snapshots.length}/{segment.sector_count ?? 0} sectors
+						{/if}
+					</span>
+				</div>
+				{#if hasSectorGeom(segment)}
 					<svg
 						viewBox={channelViewBox(segment)}
 						class="block h-auto w-full"
 						preserveAspectRatio="xMidYMid meet"
 					>
 						<defs>
-							{#each sectorSnapshots(segment) as s, sIdx (sIdx)}
-								<clipPath id={`tpc-sec-${globalId}-${idx}-${sIdx}`}>
+							{#each segment.sector_snapshots as s (s.captured_ts)}
+								<clipPath id={`detail-sec-${globalId}-${idx}-${s.captured_ts}`}>
 									<path
 										d={wedgePath(
 											segment.channel_center_x as number,
@@ -244,14 +259,14 @@
 							height={segment.snapshot_height}
 							opacity="0.22"
 						/>
-						{#each sectorSnapshots(segment) as s, sIdx (sIdx)}
+						{#each segment.sector_snapshots as s (s.captured_ts)}
 							<image
 								href={`data:image/jpeg;base64,${s.jpeg_b64}`}
 								x={s.bbox_x}
 								y={s.bbox_y}
 								width={s.width}
 								height={s.height}
-								clip-path={`url(#tpc-sec-${globalId}-${idx}-${sIdx})`}
+								clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
 							/>
 						{/each}
 						<circle
@@ -279,23 +294,25 @@
 								stroke-linejoin="round"
 							/>
 						{/if}
-						{#each sectorSnapshots(segment) as s (s.captured_ts)}
+						{#each segment.sector_snapshots as s (s.captured_ts)}
 							{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
 							{#if hit}
-								{@const used = tsWasUsed(s.captured_ts)}
+								{@const used = isUsedCrop(s.captured_ts)}
 								<circle
 									cx={hit[1]}
 									cy={hit[2]}
-									r="32"
+									r={used ? 40 : 28}
 									fill="none"
-									stroke={used ? 'var(--color-primary)' : 'rgba(255,220,0,0.95)'}
-									stroke-width={used ? 4 : 3}
+									stroke={used ? 'var(--color-primary, #D01012)' : 'rgba(255,220,0,0.75)'}
+									stroke-width={used ? 5 : 2}
 								/>
 							{/if}
 						{/each}
 					</svg>
-				</div>
-			{/if}
+				{:else}
+					<div class="p-3 text-sm text-text-muted">Segment has no sector geometry yet.</div>
+				{/if}
+			</div>
 		{/each}
 	</div>
 {/if}

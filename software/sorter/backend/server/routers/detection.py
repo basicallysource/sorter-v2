@@ -27,6 +27,7 @@ from blob_manager import (
     setFeederDetectionConfig,
     setHiveConfig,
 )
+from local_state import clear_piece_dossiers
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from vision.detection_registry import (
@@ -1162,6 +1163,7 @@ def feeder_tracking_history_clear() -> Dict[str, Any]:
         raise HTTPException(status_code=503, detail="Tracker history not available.")
     try:
         vm._piece_history.reset()
+        clear_piece_dossiers()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to clear history: {exc}")
     return {"ok": True}

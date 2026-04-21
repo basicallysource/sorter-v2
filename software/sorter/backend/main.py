@@ -7,7 +7,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import get_api_keys, remember_recent_known_object
+from local_state import get_api_keys, remember_piece_dossier, remember_recent_known_object
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
@@ -141,6 +141,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
                 gc.runtime_stats.observeKnownObject(obj_payload)
+                remember_piece_dossier(obj_payload)
                 remember_recent_known_object(obj_payload)
             if (
                 command.tag != "frame"

@@ -332,15 +332,12 @@ class ClassificationChannelTransport(PieceTransport):
         for piece_uuid in expired_piece_uuids:
             piece = self._active_pieces.get(piece_uuid)
             if piece is not None:
-                # Flip terminal timestamps/stage BEFORE removing so callers can
-                # broadcast the final KnownObject event to the frontend — this
-                # drops the stale-zone piece from the "upcoming" list rather
-                # than leaving its old uuid orphaned when the track is
-                # re-acquired under a new global_id after occlusion.
+                # A zone expiry means tracking truth was lost, not that the
+                # piece physically exited. Keep the lifecycle state intact so
+                # downstream persistence and throughput metrics do not misread
+                # a tracker glitch as a successful distribution.
                 now_wall = time.time()
-                piece.stage = PieceStage.distributed
-                if piece.distributed_at is None:
-                    piece.distributed_at = now_wall
+                piece.classification_channel_zone_state = "lost"
                 piece.updated_at = now_wall
             removed = self.removePiece(piece_uuid)
             if removed is not None:

@@ -80,7 +80,16 @@
 				if (gid === null || gid === undefined) return true;
 				return !recent_delivered_global_ids.has(gid);
 			});
-		list.sort((a, b) => (b.first_carousel_seen_ts ?? b.created_at ?? 0) - (a.first_carousel_seen_ts ?? a.created_at ?? 0));
+		list.sort((a, b) => {
+			const aPolar = a.classification_channel_zone_center_deg;
+			const bPolar = b.classification_channel_zone_center_deg;
+			if (typeof aPolar === 'number' && typeof bPolar === 'number') {
+				return bPolar - aPolar;
+			}
+			if (typeof aPolar === 'number') return -1;
+			if (typeof bPolar === 'number') return 1;
+			return (b.first_carousel_seen_ts ?? b.created_at ?? 0) - (a.first_carousel_seen_ts ?? a.created_at ?? 0);
+		});
 		// Dedupe identity splits within upcoming: same tracked_global_id seen
 		// more than once means the tracker re-spawned a KnownObject for the
 		// same physical piece — keep only the newest entry.

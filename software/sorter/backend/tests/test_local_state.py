@@ -22,8 +22,12 @@ from local_state import (
     get_servo_states,
     get_sorting_profile_sync_state,
     get_hive_config,
+    get_piece_dossier,
+    get_piece_dossier_by_tracked_global_id,
     initialize_local_state,
+    list_piece_dossiers,
     record_piece_distribution,
+    remember_piece_dossier,
     remember_recent_known_object,
     start_new_sorting_session,
 )
@@ -208,6 +212,52 @@ class LocalStateMigrationTests(unittest.TestCase):
         clear_current_session_bins(scope="bin", layer_index=0, section_index=0, bin_index=0)
         cleared = get_current_bin_contents_snapshot()
         self.assertEqual([], cleared["bins"])
+
+    def test_piece_dossiers_merge_and_lookup_by_uuid_and_track(self) -> None:
+        initialize_local_state()
+        session = start_new_sorting_session(reason="test_piece_dossier")
+
+        remember_piece_dossier(
+            {
+                "uuid": "piece-1",
+                "tracked_global_id": 41,
+                "created_at": 10.0,
+                "updated_at": 12.0,
+                "stage": "created",
+                "classification_status": "pending",
+                "thumbnail": "thumb-1",
+                "classification_channel_zone_center_deg": 123.4,
+            }
+        )
+        remember_piece_dossier(
+            {
+                "uuid": "piece-1",
+                "tracked_global_id": 41,
+                "created_at": 10.0,
+                "updated_at": 15.0,
+                "stage": "distributed",
+                "classification_status": "classified",
+                "part_id": "3001",
+                "part_name": "Brick 2 x 4",
+                "distributed_at": 15.0,
+            }
+        )
+
+        piece = get_piece_dossier("piece-1")
+        self.assertIsNotNone(piece)
+        self.assertEqual("piece-1", piece["uuid"])
+        self.assertEqual(session["id"], piece["session_id"])
+        self.assertEqual("3001", piece["part_id"])
+        self.assertEqual("thumb-1", piece["thumbnail"])
+        self.assertEqual("distributed", piece["stage"])
+        self.assertEqual(15.0, piece["distributed_at"])
+
+        by_track = get_piece_dossier_by_tracked_global_id(41)
+        self.assertIsNotNone(by_track)
+        self.assertEqual("piece-1", by_track["uuid"])
+
+        listed = list_piece_dossiers(limit=20)
+        self.assertEqual(["piece-1"], [entry["uuid"] for entry in listed])
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
         class FakeConnection:

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { RefreshCw, HelpCircle, CircleSlash, Trash2 } from 'lucide-svelte';
+	import { RefreshCw, Trash2 } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import type { KnownObjectData } from '$lib/api/events';
 	import { getMachineContext } from '$lib/machines/context';
 
 	type AutoRecognition = {
@@ -20,26 +21,36 @@
 		best_color?: { id: string; name: string } | null;
 	};
 
-	type HistoryItem = {
-		global_id: number;
-		created_at: number;
-		finished_at: number;
-		duration_s: number;
-		roles: string[];
-		handoff_count: number;
-		segment_count: number;
-		total_hit_count: number;
-		live: boolean;
+	type TrackSummary = {
+		roles?: string[];
+		handoff_count?: number;
+		segment_count?: number;
+		total_hit_count?: number;
+		max_sector_snapshots?: number;
 		composite_jpeg_b64?: string;
 		best_piece_jpeg_b64?: string;
 		top_piece_jpegs?: string[];
-		max_sector_snapshots?: number;
 		auto_recognition?: AutoRecognition | null;
+		finished_at?: number;
+		duration_s?: number;
+		live?: boolean;
 	};
 
-	function hasRecognitionAttempt(item: HistoryItem): boolean {
-		return item.auto_recognition != null;
-	}
+	type TrackedPieceRow = {
+		uuid: string;
+		piece: KnownObjectData;
+		tracked_global_id?: number | null;
+		global_id?: number | null;
+		live: boolean;
+		active: boolean;
+		polar_angle_deg?: number | null;
+		polar_offset_deg?: number | null;
+		track_summary?: TrackSummary | null;
+		sort_ts: number;
+		history_finished_at?: number | null;
+	};
+
+	type FilterMode = 'all' | 'active' | 'distributed' | 'classified' | 'lost';
 
 	const ctx = getMachineContext();
 
@@ -47,127 +58,168 @@
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
 
-	// Per-row link resolution: the tracker-history feed (HistoryItem) is the
-	// authoritative list source — it has persistent records, composites,
-	// recognition stats — but it does not carry the KnownObject UUID the
-	// lifecycle detail page is keyed by. For rows whose piece is still in
-	// the live `recentObjects` ring (most recent ~10), we resolve the UUID
-	// and link directly to the lifecycle detail. Older rows fall back to
-	// /tracked/${global_id}, which the [uuid] route accepts but renders
-	// with the "not in live buffer" fallback. Once the backend exposes a
-	// global_id → uuid lookup (or a full KnownObject history endpoint) the
-	// fallback branch can be removed.
-	function detailHrefFor(global_id: number): string {
-		const recent = ctx.machine?.recentObjects ?? [];
-		const match = recent.find((o) => o.tracked_global_id === global_id);
-		return match ? `/tracked/${match.uuid}` : `/tracked/${global_id}`;
+	function dataImageUrl(payload: string | null | undefined): string | null {
+		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	let items = $state<HistoryItem[]>([]);
+	function previewSrc(row: TrackedPieceRow): string | null {
+		return (
+			dataImageUrl(row.piece.top_image) ??
+			dataImageUrl(row.piece.bottom_image) ??
+			dataImageUrl(row.piece.thumbnail) ??
+			dataImageUrl(row.track_summary?.best_piece_jpeg_b64) ??
+			dataImageUrl(row.track_summary?.composite_jpeg_b64)
+		);
+	}
 
-	// Seed filter state from URL so reload / back-button preserves what the
-	// user was looking at. Pushing updates back to the URL happens in a
-	// dedicated effect below.
+	function topStrip(row: TrackedPieceRow): string[] {
+		return (row.track_summary?.top_piece_jpegs ?? []).slice(0, 4);
+	}
+
+	function formatRelativeTime(ts: number | null | undefined): string {
+		if (!ts) return '—';
+		const diff = Math.max(0, Date.now() / 1000 - ts);
+		if (diff < 60) return `${Math.round(diff)}s ago`;
+		if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+		return `${Math.round(diff / 3600)}h ago`;
+	}
+
+	function formatDuration(seconds: number | null | undefined): string {
+		if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return '—';
+		if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
+		if (seconds < 60) return `${seconds.toFixed(1)}s`;
+		const mins = Math.floor(seconds / 60);
+		return `${mins}m ${Math.floor(seconds % 60)}s`;
+	}
+
+	function formatBin(bin: [unknown, unknown, unknown] | null | undefined): string {
+		if (!bin) return '—';
+		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
+	}
+
+	function formatRoles(roles: string[] | undefined): string {
+		if (!roles || roles.length === 0) return '—';
+		return roles
+			.map((role) => {
+				if (role === 'carousel') return 'C4';
+				if (role === 'c_channel_3') return 'C3';
+				if (role === 'c_channel_2') return 'C2';
+				return role;
+			})
+			.join(' → ');
+	}
+
+	function statusLabel(piece: KnownObjectData): string {
+		if (piece.classification_channel_zone_state === 'lost' && piece.stage !== 'distributed') {
+			return 'Track Lost';
+		}
+		if (piece.classification_status === 'multi_drop_fail') return 'Multi-drop';
+		if (piece.stage === 'distributed') return 'Distributed';
+		if (piece.stage === 'distributing') return 'Distributing';
+		if (piece.classification_status === 'classified') return 'Classified';
+		if (piece.classification_status === 'unknown') return 'Unknown';
+		if (piece.classification_status === 'not_found') return 'Not Found';
+		if (piece.classification_status === 'classifying') return 'Classifying';
+		if (piece.carousel_snapping_started_at || piece.first_carousel_seen_ts) return 'Capturing';
+		return 'Tracking';
+	}
+
+	function statusClass(piece: KnownObjectData): string {
+		if (piece.classification_channel_zone_state === 'lost' && piece.stage !== 'distributed') {
+			return 'border-warning bg-warning/10 text-warning-dark';
+		}
+		if (piece.classification_status === 'multi_drop_fail') {
+			return 'border-danger bg-danger/10 text-danger';
+		}
+		if (piece.stage === 'distributed') return 'border-border bg-surface text-text-muted';
+		if (piece.stage === 'distributing') return 'border-primary bg-primary/10 text-primary';
+		if (piece.classification_status === 'classified') return 'border-success bg-success/10 text-success';
+		if (
+			piece.classification_status === 'unknown' ||
+			piece.classification_status === 'not_found'
+		) {
+			return 'border-warning bg-warning/10 text-warning-dark';
+		}
+		return 'border-border bg-bg text-text-muted';
+	}
+
+	function primaryLabel(row: TrackedPieceRow): string {
+		const piece = row.piece;
+		if (piece.classification_status === 'multi_drop_fail') return 'Multi-drop failure';
+		if (piece.classification_status === 'unknown' || piece.classification_status === 'not_found') {
+			return 'Unrecognized piece';
+		}
+		if (piece.part_name) return piece.part_name;
+		if (piece.part_id) return piece.part_id;
+		if (row.active) return 'Tracked piece in flight';
+		return 'Tracked piece';
+	}
+
+	function secondaryLabel(row: TrackedPieceRow): string {
+		const piece = row.piece;
+		const parts: string[] = [];
+		if (piece.part_id && piece.part_name) parts.push(piece.part_id);
+		if (piece.color_name && piece.color_name !== 'Any Color') parts.push(piece.color_name);
+		if (piece.category_id) parts.push(piece.category_id);
+		if (parts.length > 0) return parts.join(' · ');
+		if (row.track_summary?.roles?.length) return formatRoles(row.track_summary.roles);
+		return 'Classification channel dossier';
+	}
+
+	function recognitionLine(row: TrackedPieceRow): string | null {
+		const rec = row.track_summary?.auto_recognition;
+		if (rec?.status === 'ok' && rec.best_item) {
+			return `${rec.best_item.id} · ${(rec.best_item.score * 100).toFixed(0)}%`;
+		}
+		if (rec?.status === 'pending') {
+			return `Recognizing${rec.queued_count ? ` · ${rec.queued_count} crops queued` : '…'}`;
+		}
+		if (rec?.status === 'insufficient_consistency') {
+			return `Mixed crops${rec.inlier_count && rec.total_crops ? ` · ${rec.inlier_count}/${rec.total_crops}` : ''}`;
+		}
+		if (rec?.status === 'insufficient_quality') {
+			return `Low quality${rec.kept_count && rec.total_crops ? ` · ${rec.kept_count}/${rec.total_crops}` : ''}`;
+		}
+		if (rec?.status === 'error') return 'Recognition failed';
+		return null;
+	}
+
+	let items = $state<TrackedPieceRow[]>([]);
+	let loading = $state(false);
+	let clearing = $state(false);
+	let dropAngleDeg = $state<number | null>(null);
+
 	const initialParams =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-	let minSectors = $state(Number(initialParams?.get('min') ?? 3));
 	let limit = $state(Number(initialParams?.get('limit') ?? 120));
-	let loading = $state(false);
-	let viewMode = $state<'large' | 'compact'>(
-		(initialParams?.get('view') as 'large' | 'compact') ?? 'compact'
-	);
-	let filter = $state<'all' | 'attempted' | 'recognized'>(
-		(initialParams?.get('show') as 'all' | 'attempted' | 'recognized') ?? 'all'
-	);
+	let filter = $state<FilterMode>((initialParams?.get('show') as FilterMode) ?? 'all');
 
 	function syncUrl() {
 		if (typeof window === 'undefined') return;
 		const params = new URLSearchParams();
-		if (minSectors !== 3) params.set('min', String(minSectors));
 		if (limit !== 120) params.set('limit', String(limit));
-		if (viewMode !== 'compact') params.set('view', viewMode);
 		if (filter !== 'all') params.set('show', filter);
-		const search = params.toString();
+		const next = params.toString();
 		const current = page.url?.search?.replace(/^\?/, '') ?? '';
-		if (search === current) return;
-		void goto(`?${search}`, { replaceState: true, keepFocus: true, noScroll: true });
+		if (next === current) return;
+		void goto(next ? `?${next}` : '?', { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	$effect(() => {
-		minSectors;
 		limit;
-		viewMode;
 		filter;
 		untrack(syncUrl);
 	});
 
-	let filteredItems = $derived.by<HistoryItem[]>(() => {
-		if (filter === 'all') return items;
-		if (filter === 'attempted') {
-			return items.filter((it) => it.auto_recognition != null);
-		}
-		// recognized
-		return items.filter((it) => it.auto_recognition?.status === 'ok');
-	});
-
-	type Stats = {
-		total: number;
-		attempted: number;
-		recognized: number;
-		mixed: number;
-		lowQuality: number;
-		failed: number;
-		avgSectors: number;
-		live: number;
-	};
-
-	let stats = $derived.by<Stats>(() => {
-		const s: Stats = {
-			total: items.length,
-			attempted: 0,
-			recognized: 0,
-			mixed: 0,
-			lowQuality: 0,
-			failed: 0,
-			avgSectors: 0,
-			live: 0
-		};
-		let sectorSum = 0;
-		let sectorCount = 0;
-		for (const it of items) {
-			if (it.live) s.live++;
-			if (it.max_sector_snapshots != null) {
-				sectorSum += it.max_sector_snapshots;
-				sectorCount++;
-			}
-			const st = it.auto_recognition?.status;
-			if (st != null) s.attempted++;
-			if (st === 'ok') s.recognized++;
-			else if (st === 'insufficient_consistency') s.mixed++;
-			else if (st === 'insufficient_quality') s.lowQuality++;
-			else if (st === 'error') s.failed++;
-		}
-		s.avgSectors = sectorCount > 0 ? sectorSum / sectorCount : 0;
-		return s;
-	});
-
-	async function load() {
+	async function load(): Promise<void> {
 		loading = true;
 		try {
-			const res = await fetch(
-				`${effectiveBase()}/api/feeder/tracking/history?limit=${limit}&min_sectors=${minSectors}`
-			);
+			const res = await fetch(`${effectiveBase()}/api/tracked/pieces?limit=${limit}`);
 			if (!res.ok) return;
 			const json = await res.json();
-			const raw: HistoryItem[] = Array.isArray(json?.items) ? json.items : [];
-			// c_channel_2 is too noisy on its own, but in the classification-
-			// channel setup we also want to surface pieces that are currently
-			// or historically visible on the Classification Channel itself.
-			items = raw.filter(
-				(it) =>
-					Array.isArray(it.roles) &&
-					it.roles.some((role) => role === 'c_channel_3' || role === 'carousel')
-			);
+			items = Array.isArray(json?.items) ? (json.items as TrackedPieceRow[]) : [];
+			dropAngleDeg =
+				typeof json?.drop_angle_deg === 'number' ? (json.drop_angle_deg as number) : null;
 		} catch {
 			// ignore
 		} finally {
@@ -175,47 +227,11 @@
 		}
 	}
 
-	function formatHashId(id: number): string {
-		const mixed = (id * 2654435761) >>> 0;
-		return (mixed % 10000).toString().padStart(4, '0');
-	}
-
-	function formatDuration(seconds: number): string {
-		if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-		if (seconds < 60) return `${seconds.toFixed(1)}s`;
-		const m = Math.floor(seconds / 60);
-		return `${m}m ${Math.floor(seconds % 60)}s`;
-	}
-
-	function formatRole(role: string): string {
-		if (role === 'carousel') return 'Classification Channel';
-		if (role === 'c_channel_2') return 'C2';
-		if (role === 'c_channel_3') return 'C3';
-		return role.replace('c_channel_', 'C');
-	}
-
-	function formatRoles(roles: string[]): string {
-		return roles.map((role) => formatRole(role)).join(' → ');
-	}
-
-	onMount(() => {
-		void load();
-	});
-
-	// Filter changes trigger an explicit fetch — no $effect, because
-	// capturing reactive context reads (e.g. ctx.machine.url heartbeats)
-	// would silently re-trigger the load on every websocket event.
-	function onFilterChange() {
-		void load();
-	}
-
-	let clearing = $state(false);
-
-	async function clearAll() {
+	async function clearAll(): Promise<void> {
 		if (clearing) return;
 		if (
 			!window.confirm(
-				'Delete all tracked pieces? This wipes the persisted history on disk and cannot be undone.'
+				'Delete all tracked pieces? This wipes the persisted dossier history and the tracker archive for this session.'
 			)
 		) {
 			return;
@@ -234,6 +250,62 @@
 			void load();
 		}
 	}
+
+	onMount(() => {
+		void load();
+		const id = setInterval(() => void load(), 2000);
+		return () => clearInterval(id);
+	});
+
+	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
+		if (filter === 'all') return items;
+		if (filter === 'active') return items.filter((item) => item.active);
+		if (filter === 'distributed') return items.filter((item) => item.piece.stage === 'distributed');
+		if (filter === 'classified') {
+			return items.filter((item) => item.piece.classification_status === 'classified');
+		}
+		return items.filter(
+			(item) =>
+				item.piece.classification_channel_zone_state === 'lost' &&
+				item.piece.stage !== 'distributed'
+		);
+	});
+
+	let activeItems = $derived(filteredItems.filter((item) => item.active));
+	let historyItems = $derived(filteredItems.filter((item) => !item.active));
+
+	type Stats = {
+		total: number;
+		active: number;
+		live: number;
+		classified: number;
+		distributed: number;
+		lost: number;
+	};
+
+	let stats = $derived.by<Stats>(() => {
+		const next: Stats = {
+			total: items.length,
+			active: 0,
+			live: 0,
+			classified: 0,
+			distributed: 0,
+			lost: 0
+		};
+		for (const item of items) {
+			if (item.active) next.active++;
+			if (item.live) next.live++;
+			if (item.piece.classification_status === 'classified') next.classified++;
+			if (item.piece.stage === 'distributed') next.distributed++;
+			if (
+				item.piece.classification_channel_zone_state === 'lost' &&
+				item.piece.stage !== 'distributed'
+			) {
+				next.lost++;
+			}
+		}
+		return next;
+	});
 </script>
 
 <svelte:head>
@@ -242,345 +314,337 @@
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
-	<div class="flex flex-col gap-4 p-4 sm:p-6">
+	<div class="flex flex-col gap-5 p-4 sm:p-6">
 		<header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-			<div>
+			<div class="max-w-3xl">
 				<h2 class="text-xl font-bold text-text">Tracked Pieces</h2>
 				<p class="mt-1 text-sm text-text-muted">
-					Each card is a piece the tracker followed across the feeder ring. Click to open the full trajectory.
+					Session-persistent piece dossiers: lifecycle, tracking path, crops, burst shots and
+					distribution outcome in one place.
 				</p>
 			</div>
-		<div class="flex flex-wrap items-center gap-4 text-sm text-text-muted">
-			<label class="flex items-center gap-2">
-				<span>min sectors</span>
-				<input
-					type="number"
-					min="0"
-					max="12"
-					bind:value={minSectors}
-					onchange={onFilterChange}
-					class="w-16 border border-border bg-bg px-2 py-1 text-text"
-				/>
-			</label>
-			<label class="flex items-center gap-2">
-				<span>limit</span>
-				<input
-					type="number"
-					min="10"
-					max="300"
-					step="10"
-					bind:value={limit}
-					onchange={onFilterChange}
-					class="w-20 border border-border bg-bg px-2 py-1 text-text"
-				/>
-			</label>
-			<label class="flex items-center gap-2">
-				<span>show</span>
-				<select
-					bind:value={filter}
-					class="border border-border bg-bg px-2 py-1 text-sm text-text"
-				>
-					<option value="all">all</option>
-					<option value="attempted">attempted</option>
-					<option value="recognized">recognized</option>
-				</select>
-			</label>
-			<div class="flex border border-border">
+			<div class="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+				<label class="flex items-center gap-2">
+					<span>limit</span>
+					<input
+						type="number"
+						min="20"
+						max="500"
+						step="20"
+						bind:value={limit}
+						onchange={() => void load()}
+						class="w-20 border border-border bg-bg px-2 py-1 text-text tabular-nums"
+					/>
+				</label>
+				<label class="flex items-center gap-2">
+					<span>show</span>
+					<select
+						bind:value={filter}
+						class="border border-border bg-bg px-2 py-1 text-sm text-text"
+					>
+						<option value="all">all</option>
+						<option value="active">active</option>
+						<option value="distributed">distributed</option>
+						<option value="classified">classified</option>
+						<option value="lost">track lost</option>
+					</select>
+				</label>
 				<button
 					type="button"
-					onclick={() => (viewMode = 'compact')}
-					class={`border-r border-border px-2 py-1 text-sm ${viewMode === 'compact' ? 'bg-primary/20 text-primary' : 'bg-surface text-text-muted hover:text-text'}`}
+					onclick={() => void load()}
+					disabled={loading}
+					aria-label="Reload tracked pieces"
+					title="Reload tracked pieces"
+					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:text-text disabled:opacity-50"
 				>
-					Compact
+					<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
 				</button>
 				<button
 					type="button"
-					onclick={() => (viewMode = 'large')}
-					class={`px-2 py-1 text-sm ${viewMode === 'large' ? 'bg-primary/20 text-primary' : 'bg-surface text-text-muted hover:text-text'}`}
+					onclick={() => void clearAll()}
+					disabled={clearing || items.length === 0}
+					class="inline-flex items-center gap-1.5 border border-danger/40 bg-danger/10 px-2 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-40"
 				>
-					Large
+					<Trash2 size={14} />
+					<span>{clearing ? 'Clearing…' : 'Clear all'}</span>
 				</button>
 			</div>
-			<span class="text-text-muted">{filteredItems.length} shown</span>
-			<button
-				type="button"
-				onclick={() => void load()}
-				disabled={loading}
-				aria-label="Reload"
-				title="Reload tracked pieces"
-				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text disabled:opacity-50"
-			>
-				<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
-			</button>
-			<button
-				type="button"
-				onclick={() => void clearAll()}
-				disabled={clearing || items.length === 0}
-				aria-label="Clear all tracked pieces"
-				title="Clear all tracked pieces"
-				class="inline-flex items-center gap-1.5 border border-danger/40 bg-danger/10 px-2 py-1.5 text-xs font-medium text-danger hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-40"
-			>
-				<Trash2 size={14} />
-				<span>{clearing ? 'Clearing…' : 'Clear all'}</span>
-			</button>
-		</div>
-	</header>
+		</header>
 
-	{#if stats.total > 0}
-		<div class="grid grid-cols-2 gap-px border border-border bg-border text-sm sm:grid-cols-4 lg:grid-cols-7">
+		<div class="grid grid-cols-2 gap-px border border-border bg-border text-sm sm:grid-cols-3 xl:grid-cols-6">
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Tracks</span>
-				<span class="font-mono text-base font-semibold text-text">{stats.total}</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Pieces</span>
+				<span class="tabular-nums text-base font-semibold text-text">{stats.total}</span>
+			</div>
+			<div class="flex flex-col bg-surface px-3 py-2">
+				<span class="text-xs uppercase tracking-wider text-text-muted">Active</span>
+				<span class="tabular-nums text-base font-semibold text-primary">{stats.active}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
 				<span class="text-xs uppercase tracking-wider text-text-muted">Live</span>
-				<span class="font-mono text-base font-semibold text-text">{stats.live}</span>
+				<span class="tabular-nums text-base font-semibold text-success-dark">{stats.live}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Attempted</span>
-				<span class="font-mono text-base font-semibold text-text">{stats.attempted}</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Classified</span>
+				<span class="tabular-nums text-base font-semibold text-success-dark">{stats.classified}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Recognized</span>
-				<span class="font-mono text-base font-semibold text-success-dark">{stats.recognized}</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Distributed</span>
+				<span class="tabular-nums text-base font-semibold text-text">{stats.distributed}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Mixed</span>
-				<span class="font-mono text-base font-semibold text-warning-dark">{stats.mixed}</span>
-			</div>
-			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Low quality</span>
-				<span class="font-mono text-base font-semibold text-warning-dark">{stats.lowQuality}</span>
-			</div>
-			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Avg crops</span>
-				<span class="font-mono text-base font-semibold text-text">{stats.avgSectors.toFixed(1)}</span>
+				<span class="text-xs uppercase tracking-wider text-text-muted">Track lost</span>
+				<span class="tabular-nums text-base font-semibold text-warning-dark">{stats.lost}</span>
 			</div>
 		</div>
-	{/if}
 
-	{#if filteredItems.length === 0}
-		<div class="flex min-h-40 items-center justify-center border border-dashed border-border bg-surface text-sm text-text-muted">
-			{items.length === 0 ? 'No pieces tracked yet.' : 'No pieces match the current filter.'}
-		</div>
-	{:else if viewMode === 'compact'}
-		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));">
-			{#each filteredItems as item (item.global_id)}
-				{@const crops = item.top_piece_jpegs ?? []}
-				{@const showRecognitionGrid = hasRecognitionAttempt(item)}
-				<a
-					href={detailHrefFor(item.global_id)}
-					class="flex flex-col border border-border bg-surface text-left transition-colors hover:border-primary/70"
-				>
-					{#if showRecognitionGrid}
-						<!-- After a recognition attempt, switch to the 3x3 view:
-						     Brickognize match in the middle, up to 8 crops around it. -->
-						<div class="relative grid grid-cols-3 gap-px bg-border">
-							{#each Array(9) as _, cellIdx (cellIdx)}
-								{#if cellIdx === 4}
-									{@const auto = item.auto_recognition}
-									{@const hasMatch = auto?.status === 'ok' && !!auto.best_item?.img_url}
-									{@const notChecked = auto == null || auto.status === 'pending'}
-									<div
-										class="relative z-10 flex aspect-square items-center justify-center border-4 border-primary bg-white shadow-[0_0_0_2px_rgba(255,255,255,0.95)]"
-									>
-										{#if hasMatch}
+		{#if dropAngleDeg != null}
+			<div class="border border-border bg-surface px-3 py-2 text-xs text-text-muted">
+				Active pieces are ordered by polar offset to the C4 drop angle
+				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>, not by arrival time.
+			</div>
+		{/if}
+
+		{#if filteredItems.length === 0}
+			<div class="flex min-h-40 items-center justify-center border border-dashed border-border bg-surface text-sm text-text-muted">
+				{items.length === 0 ? 'No tracked pieces yet.' : 'No pieces match the current filter.'}
+			</div>
+		{:else}
+			{#if activeItems.length > 0}
+				<section class="flex flex-col gap-3">
+					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
+						<div>
+							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">On Ring</h3>
+							<p class="mt-1 text-xs text-text-muted">
+								Current pieces in flight, ordered along the classification channel path.
+							</p>
+						</div>
+						<span class="tabular-nums text-xs text-text-muted">{activeItems.length} visible</span>
+					</div>
+					<div class="grid gap-3 xl:grid-cols-2">
+						{#each activeItems as row (row.uuid)}
+							<a
+								href={`/tracked/${row.uuid}`}
+								class="grid gap-px border border-border bg-border text-left transition-colors hover:border-primary/70 sm:grid-cols-[176px,1fr]"
+							>
+								<div class="flex flex-col bg-bg">
+									<div class="relative aspect-square bg-black">
+										{#if previewSrc(row)}
 											<img
-												src={auto!.best_item!.img_url}
-												alt="Brickognize match"
-												class="block h-full w-full object-contain"
-												loading="lazy"
-											/>
-										{:else if notChecked}
-											<HelpCircle size={72} class="text-text-muted" strokeWidth={1.5} />
-										{:else}
-											<CircleSlash size={72} class="text-warning-dark" strokeWidth={1.5} />
-										{/if}
-									</div>
-								{:else}
-									{@const cropIdx = cellIdx < 4 ? cellIdx : cellIdx - 1}
-									{@const cropB64 = crops[cropIdx]}
-									<div class="flex aspect-square items-center justify-center bg-bg">
-										{#if cropB64}
-											<img
-												src={`data:image/jpeg;base64,${cropB64}`}
-												alt="Piece crop"
+												src={previewSrc(row) as string}
+												alt="Piece preview"
 												class="block h-full w-full object-contain"
 												loading="lazy"
 											/>
 										{:else}
-											<span class="text-xs text-text-muted">·</span>
+											<div class="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+												No image yet
+											</div>
+										{/if}
+										<span class="absolute top-2 left-2 border border-success bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
+											Live
+										</span>
+										{#if row.tracked_global_id != null}
+											<span class="absolute top-2 right-2 border border-border bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text tabular-nums">
+												Track {row.tracked_global_id}
+											</span>
 										{/if}
 									</div>
-								{/if}
-							{/each}
-							<span
-								class={`absolute top-1.5 left-1.5 z-10 inline-flex h-2 w-2 rounded-full ${
-									item.live ? 'bg-success' : 'bg-text-muted/70'
-								}`}
-								aria-hidden="true"
-							></span>
-							{#if item.handoff_count > 0}
-								<span class="absolute top-1.5 right-1.5 z-10 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
-									H
-								</span>
-							{/if}
-						</div>
-					{:else}
-						<div class="relative aspect-square w-full bg-black">
-							{#if item.composite_jpeg_b64}
-								<img
-									src={`data:image/jpeg;base64,${item.composite_jpeg_b64}`}
-									alt="Tracked piece composite"
-									class="block h-full w-full object-cover"
-									loading="lazy"
-								/>
-							{:else if item.best_piece_jpeg_b64}
-								<img
-									src={`data:image/jpeg;base64,${item.best_piece_jpeg_b64}`}
-									alt="Tracked piece crop"
-									class="block h-full w-full object-contain bg-white"
-									loading="lazy"
-								/>
-							{:else}
-								<div class="flex h-full w-full items-center justify-center text-xs text-text-muted">
-									{item.live ? 'Tracking…' : '—'}
-								</div>
-							{/if}
-							<span
-								class={`absolute top-1.5 left-1.5 z-10 inline-flex h-2 w-2 rounded-full ${
-									item.live ? 'bg-success' : 'bg-text-muted/70'
-								}`}
-								aria-hidden="true"
-							></span>
-							{#if item.handoff_count > 0}
-								<span class="absolute top-1.5 right-1.5 z-10 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
-									H
-								</span>
-							{/if}
-							<div class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-xs text-white">
-								trajectory composite
-							</div>
-						</div>
-					{/if}
-					<div class="flex flex-col gap-0.5 px-2.5 py-2 text-sm">
-						<div class="flex items-center justify-between">
-							<span class="font-mono font-semibold text-text">#{formatHashId(item.global_id)}</span>
-							<span class="text-text-muted">{formatDuration(item.duration_s)}</span>
-						</div>
-						{#if item.auto_recognition?.status === 'ok' && item.auto_recognition.best_item}
-							<span class="font-mono font-medium text-text">
-								{item.auto_recognition.best_item.id} · {(item.auto_recognition.best_item.score * 100).toFixed(0)}%
-							</span>
-							<span class="truncate text-text-muted" title={item.auto_recognition.best_item.name}>
-								{item.auto_recognition.best_item.name}
-							</span>
-						{:else if item.auto_recognition?.status === 'pending'}
-							<span class="text-text-muted">Recognizing…</span>
-						{:else if item.auto_recognition?.status === 'insufficient_consistency'}
-							<span class="text-warning-dark">Mixed crops</span>
-						{:else if item.auto_recognition?.status === 'insufficient_quality'}
-							<span class="text-warning-dark">Low quality</span>
-						{:else if item.auto_recognition?.status === 'error'}
-							<span class="text-danger">Recognize failed</span>
-						{:else}
-							<span class="text-text-muted">{formatRoles(item.roles)}</span>
-						{/if}
-					</div>
-				</a>
-			{/each}
-		</div>
-	{:else}
-		<div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(660px, 1fr));">
-			{#each filteredItems as item (item.global_id)}
-				<a
-					href={detailHrefFor(item.global_id)}
-					class="group flex flex-col border border-border bg-surface text-left transition-colors hover:border-primary/70"
-				>
-					<div class="relative aspect-square w-full bg-black">
-						{#if item.composite_jpeg_b64}
-							<img
-								src={`data:image/jpeg;base64,${item.composite_jpeg_b64}`}
-								alt=""
-								class="block h-full w-full object-cover"
-							/>
-						{:else}
-							<div class="flex h-full w-full items-center justify-center text-sm text-text-muted">
-								{item.live ? '…' : '—'}
-							</div>
-						{/if}
-						<span
-							class={`absolute top-2 left-2 inline-flex h-2 w-2 rounded-full ${
-								item.live ? 'bg-success' : 'bg-text-muted/70'
-							}`}
-							aria-hidden="true"
-						></span>
-						{#if item.handoff_count > 0}
-							<span class="absolute top-2 right-2 border border-primary bg-bg/80 px-1.5 py-0.5 text-xs font-medium text-primary">
-								handoff
-							</span>
-						{/if}
-						{#if item.live}
-							<span class="absolute bottom-2 left-2 border border-success bg-bg/80 px-1.5 py-0.5 text-xs font-medium text-success">
-								LIVE
-							</span>
-						{/if}
-					</div>
-					<div class="flex flex-col gap-1 px-3 py-2 text-sm text-text">
-						<div class="flex items-center justify-between">
-							<span class="font-mono text-sm font-semibold">#{formatHashId(item.global_id)}</span>
-							<span class="text-text-muted">{formatDuration(item.duration_s)}</span>
-						</div>
-						<div class="flex items-center justify-between text-text-muted">
-							<span>{formatRoles(item.roles)}</span>
-							{#if item.max_sector_snapshots != null}
-								<span>{item.max_sector_snapshots} sec.</span>
-							{/if}
-						</div>
-						{#if item.auto_recognition}
-							{@const rec = item.auto_recognition}
-							<div class="mt-1 flex items-start gap-2 border-t border-border pt-2">
-								{#if rec.status === 'ok' && rec.best_item}
-									{#if rec.best_item.img_url}
-										<img
-											src={rec.best_item.img_url}
-											alt=""
-											class="h-10 w-10 flex-shrink-0 border border-border bg-white object-contain"
-											loading="lazy"
-										/>
+									{#if topStrip(row).length > 0}
+										<div class="grid grid-cols-4 gap-px bg-border">
+											{#each topStrip(row) as crop, idx (`${row.uuid}-${idx}`)}
+												<div class="aspect-square bg-bg">
+													<img
+														src={`data:image/jpeg;base64,${crop}`}
+														alt="Tracked crop"
+														class="block h-full w-full object-contain"
+														loading="lazy"
+													/>
+												</div>
+											{/each}
+										</div>
 									{/if}
-									<div class="flex min-w-0 flex-1 flex-col">
-										<span class="font-mono font-medium text-text">
-											{rec.best_item.id} · {(rec.best_item.score * 100).toFixed(0)}%
+								</div>
+								<div class="flex flex-col gap-3 bg-surface px-4 py-3">
+									<div class="flex flex-wrap items-start justify-between gap-2">
+										<div class="min-w-0">
+											<div class="text-base font-semibold text-text">{primaryLabel(row)}</div>
+											<div class="mt-0.5 text-sm text-text-muted">{secondaryLabel(row)}</div>
+										</div>
+										<span class={`inline-flex items-center border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusClass(row.piece)}`}>
+											{statusLabel(row.piece)}
 										</span>
-										<span class="truncate text-text-muted" title={rec.best_item.name}>
-											{rec.best_item.name}
+									</div>
+
+									<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Path</span>
+											<span class="text-text">{formatRoles(row.track_summary?.roles)}</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Drop offset</span>
+											<span class="tabular-nums text-text">
+												{row.polar_offset_deg != null ? `${row.polar_offset_deg.toFixed(1)}°` : '—'}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Crops</span>
+											<span class="tabular-nums text-text">
+												{row.track_summary?.max_sector_snapshots ?? 0}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Last update</span>
+											<span class="tabular-nums text-text">
+												{formatRelativeTime(row.piece.updated_at)}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Duration</span>
+											<span class="tabular-nums text-text">
+												{formatDuration(row.track_summary?.duration_s)}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Handoffs</span>
+											<span class="tabular-nums text-text">
+												{row.track_summary?.handoff_count ?? 0}
+											</span>
+										</div>
+									</div>
+
+									{#if recognitionLine(row)}
+										<div class="border-t border-border pt-2 text-sm text-text-muted">
+											<span class="font-medium text-text">Recognition</span>
+											<span class="ml-2">{recognitionLine(row)}</span>
+										</div>
+									{/if}
+								</div>
+							</a>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			{#if historyItems.length > 0}
+				<section class="flex flex-col gap-3">
+					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
+						<div>
+							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">Session History</h3>
+							<p class="mt-1 text-xs text-text-muted">
+								Persistent dossiers from this sorting session, newest confirmed activity first.
+							</p>
+						</div>
+						<span class="tabular-nums text-xs text-text-muted">{historyItems.length} visible</span>
+					</div>
+					<div class="grid gap-3 xl:grid-cols-2">
+						{#each historyItems as row (row.uuid)}
+							<a
+								href={`/tracked/${row.uuid}`}
+								class="grid gap-px border border-border bg-border text-left transition-colors hover:border-primary/70 sm:grid-cols-[176px,1fr]"
+							>
+								<div class="flex flex-col bg-bg">
+									<div class="relative aspect-square bg-black">
+										{#if previewSrc(row)}
+											<img
+												src={previewSrc(row) as string}
+												alt="Piece preview"
+												class="block h-full w-full object-contain"
+												loading="lazy"
+											/>
+										{:else}
+											<div class="flex h-full items-center justify-center px-4 text-center text-xs text-text-muted">
+												No stored preview
+											</div>
+										{/if}
+										<span class={`absolute top-2 left-2 inline-flex border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusClass(row.piece)}`}>
+											{statusLabel(row.piece)}
 										</span>
-										{#if rec.best_color}
-											<span class="text-text-muted">{rec.best_color.name}</span>
+										{#if row.tracked_global_id != null}
+											<span class="absolute top-2 right-2 border border-border bg-bg/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text tabular-nums">
+												Track {row.tracked_global_id}
+											</span>
 										{/if}
 									</div>
-								{:else if rec.status === 'pending'}
-									<span class="text-text-muted">Recognizing… ({rec.queued_count ?? ''} crops)</span>
-								{:else if rec.status === 'insufficient_consistency'}
-									<span class="text-warning-dark" title="Crops don't look like one piece — skipped Brickognize">
-										Mixed crops ({rec.inlier_count}/{rec.total_crops})
-									</span>
-								{:else if rec.status === 'insufficient_quality'}
-									<span class="text-warning-dark" title="Too many crops were blurry / overexposed">
-										Low quality ({rec.kept_count}/{rec.total_crops})
-									</span>
-								{:else if rec.status === 'error'}
-									<span class="text-danger" title={rec.error}>Recognize failed</span>
-								{:else}
-									<span class="text-text-muted">No match</span>
-								{/if}
-							</div>
-						{/if}
+									{#if topStrip(row).length > 0}
+										<div class="grid grid-cols-4 gap-px bg-border">
+											{#each topStrip(row) as crop, idx (`${row.uuid}-history-${idx}`)}
+												<div class="aspect-square bg-bg">
+													<img
+														src={`data:image/jpeg;base64,${crop}`}
+														alt="Tracked crop"
+														class="block h-full w-full object-contain"
+														loading="lazy"
+													/>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</div>
+								<div class="flex flex-col gap-3 bg-surface px-4 py-3">
+									<div class="flex flex-wrap items-start justify-between gap-2">
+										<div class="min-w-0">
+											<div class="text-base font-semibold text-text">{primaryLabel(row)}</div>
+											<div class="mt-0.5 text-sm text-text-muted">{secondaryLabel(row)}</div>
+										</div>
+										{#if row.piece.confidence != null}
+											<span class="tabular-nums text-sm text-text-muted">
+												{(row.piece.confidence * 100).toFixed(0)}%
+											</span>
+										{/if}
+									</div>
+
+									<div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Path</span>
+											<span class="text-text">{formatRoles(row.track_summary?.roles)}</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Bin</span>
+											<span class="tabular-nums text-text">{formatBin(row.piece.destination_bin)}</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Finished</span>
+											<span class="tabular-nums text-text">
+												{formatRelativeTime(
+													(row.piece.distributed_at as number | null | undefined) ??
+														(row.history_finished_at as number | null | undefined) ??
+														row.piece.updated_at
+												)}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Duration</span>
+											<span class="tabular-nums text-text">
+												{formatDuration(row.track_summary?.duration_s)}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Segments</span>
+											<span class="tabular-nums text-text">
+												{row.track_summary?.segment_count ?? 0}
+											</span>
+										</div>
+										<div class="flex flex-col">
+											<span class="text-[11px] uppercase tracking-wider text-text-muted">Hits</span>
+											<span class="tabular-nums text-text">
+												{row.track_summary?.total_hit_count ?? 0}
+											</span>
+										</div>
+									</div>
+
+									{#if recognitionLine(row)}
+										<div class="border-t border-border pt-2 text-sm text-text-muted">
+											<span class="font-medium text-text">Recognition</span>
+											<span class="ml-2">{recognitionLine(row)}</span>
+										</div>
+									{/if}
+								</div>
+							</a>
+						{/each}
 					</div>
-				</a>
-			{/each}
-		</div>
-	{/if}
+				</section>
+			{/if}
+		{/if}
 	</div>
 </div>

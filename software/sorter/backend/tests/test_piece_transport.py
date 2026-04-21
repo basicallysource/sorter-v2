@@ -228,13 +228,13 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertIsNone(transport.pieceForTrack(33))
         self.assertIsNone(transport.getPieceAtClassification())
         # The expired piece must be returned so the caller can broadcast a
-        # terminal KnownObject event; ``stage`` + ``distributed_at`` are
-        # already stamped so the frontend drops it from the upcoming list
-        # the moment the re-acquired track spawns a fresh uuid.
+        # terminal KnownObject event, but a zone-loss must NOT masquerade as
+        # a successful physical distribution.
         self.assertEqual(1, len(expired))
         self.assertIs(piece, expired[0])
-        self.assertEqual(PieceStage.distributed, expired[0].stage)
-        self.assertIsNotNone(expired[0].distributed_at)
+        self.assertEqual(PieceStage.created, expired[0].stage)
+        self.assertIsNone(expired[0].distributed_at)
+        self.assertEqual("lost", expired[0].classification_channel_zone_state)
 
     def test_dynamic_mode_reset_clears_virtual_transport_state(self) -> None:
         transport = ClassificationChannelTransport()

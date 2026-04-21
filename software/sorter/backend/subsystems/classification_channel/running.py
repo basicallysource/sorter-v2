@@ -353,12 +353,10 @@ class Running(BaseState):
     def _emitExpiredPieceEvents(self, expired_pieces: list[KnownObject]) -> None:
         """Broadcast a terminal KnownObject event for each stale-zone drop.
 
-        The transport has already flipped ``stage`` to ``distributed`` and
-        stamped ``distributed_at`` — all we do here is emit a single event per
-        expired piece so the frontend removes the stale uuid from the upcoming
-        list when the same physical piece is re-acquired under a fresh
-        ``global_id`` after occlusion. Counter bump feeds the diagnostics
-        snapshot so we can measure how often this happens.
+        Zone expiry means tracking truth was lost, not that the piece was
+        successfully distributed. Emit a final event with ``zone_state=lost``
+        so the UI and persisted dossier preserve the evidence without
+        fabricating a physical exit.
         """
         if not expired_pieces:
             return

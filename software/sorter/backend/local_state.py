@@ -15,7 +15,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -404,6 +404,35 @@ def initialize_local_state() -> None:
                 ")"
             )
             conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_dossiers ("
+                "piece_uuid TEXT PRIMARY KEY, "
+                "session_id TEXT NOT NULL, "
+                "tracked_global_id INTEGER, "
+                "created_at REAL NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "last_event_at REAL NOT NULL, "
+                "stage TEXT NOT NULL, "
+                "classification_status TEXT NOT NULL, "
+                "first_carousel_seen_ts REAL, "
+                "classification_channel_zone_center_deg REAL, "
+                "distributed_at REAL, "
+                "payload_json TEXT NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_session_last_event_idx "
+                "ON piece_dossiers(session_id, last_event_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_session_stage_idx "
+                "ON piece_dossiers(session_id, stage, distributed_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_tracked_gid_idx "
+                "ON piece_dossiers(tracked_global_id)"
+            )
+            conn.execute(
                 "CREATE TABLE IF NOT EXISTS bin_events ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "session_id TEXT NOT NULL, "
@@ -782,6 +811,28 @@ def _session_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     }
 
 
+def _latest_sorting_session_conn(conn: sqlite3.Connection) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM sorting_sessions ORDER BY started_at DESC LIMIT 1"
+    ).fetchone()
+    return _session_row_to_dict(row)
+
+
+def _piece_dossier_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        payload = json.loads(str(row["payload_json"]))
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        payload = {}
+    payload["uuid"] = str(payload.get("uuid") or row["piece_uuid"])
+    payload["session_id"] = row["session_id"]
+    payload["last_event_at"] = float(row["last_event_at"])
+    return payload
+
+
 def _close_active_sorting_session_conn(conn: sqlite3.Connection, *, reason: str | None = None) -> None:
     active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
     if not active_session_id:
@@ -858,6 +909,89 @@ def _ensure_active_sorting_session_conn(
     return _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
 
 
+def _payload_value(payload: dict[str, Any], key: str) -> Any:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    if isinstance(value, list) and len(value) == 0:
+        return None
+    return value
+
+
+def _min_positive_timestamp(*values: Any) -> float | None:
+    candidates = [
+        float(value)
+        for value in values
+        if isinstance(value, (int, float)) and float(value) > 0.0
+    ]
+    if not candidates:
+        return None
+    return min(candidates)
+
+
+def _max_positive_timestamp(*values: Any) -> float | None:
+    candidates = [
+        float(value)
+        for value in values
+        if isinstance(value, (int, float)) and float(value) > 0.0
+    ]
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def _merge_piece_payload(
+    existing: dict[str, Any] | None,
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(existing or {})
+    for key, value in incoming.items():
+        if not isinstance(key, str):
+            continue
+        normalized = value
+        if isinstance(value, str) and not value.strip():
+            normalized = None
+        if isinstance(value, list) and len(value) == 0:
+            normalized = None
+        if normalized is None and key in merged:
+            continue
+        merged[key] = value
+
+    created_at = _min_positive_timestamp(
+        _payload_value(existing or {}, "created_at"),
+        _payload_value(incoming, "created_at"),
+    )
+    if created_at is not None:
+        merged["created_at"] = created_at
+
+    updated_at = _max_positive_timestamp(
+        _payload_value(existing or {}, "updated_at"),
+        _payload_value(incoming, "updated_at"),
+        _payload_value(existing or {}, "distributed_at"),
+        _payload_value(incoming, "distributed_at"),
+    )
+    if updated_at is not None:
+        merged["updated_at"] = updated_at
+
+    first_seen_ts = _min_positive_timestamp(
+        _payload_value(existing or {}, "first_carousel_seen_ts"),
+        _payload_value(incoming, "first_carousel_seen_ts"),
+    )
+    if first_seen_ts is not None:
+        merged["first_carousel_seen_ts"] = first_seen_ts
+
+    distributed_at = _max_positive_timestamp(
+        _payload_value(existing or {}, "distributed_at"),
+        _payload_value(incoming, "distributed_at"),
+    )
+    if distributed_at is not None:
+        merged["distributed_at"] = distributed_at
+
+    return merged
+
+
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:
@@ -877,6 +1011,169 @@ def get_active_sorting_session() -> dict[str, Any] | None:
             (active_session_id,),
         ).fetchone()
         return _session_row_to_dict(row)
+
+
+def remember_piece_dossier(obj: dict[str, Any]) -> None:
+    if not isinstance(obj, dict):
+        return
+    piece_uuid = obj.get("uuid")
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+
+    initialize_local_state()
+    with _connection() as conn:
+        existing_row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        existing_payload = _piece_dossier_row_to_dict(existing_row)
+        merged = _merge_piece_payload(existing_payload, obj)
+        if existing_row is not None:
+            session_id = str(existing_row["session_id"])
+        else:
+            session = _ensure_active_sorting_session_conn(conn, force_new=False)
+            session_id = str(session["id"])
+
+        created_at = _min_positive_timestamp(
+            _payload_value(merged, "created_at"),
+            _payload_value(merged, "feeding_started_at"),
+            _payload_value(merged, "first_carousel_seen_ts"),
+            _payload_value(merged, "updated_at"),
+        ) or time.time()
+        updated_at = _max_positive_timestamp(
+            _payload_value(merged, "updated_at"),
+            _payload_value(merged, "distributed_at"),
+            _payload_value(merged, "distribution_positioned_at"),
+            _payload_value(merged, "classified_at"),
+            _payload_value(merged, "first_carousel_seen_ts"),
+            created_at,
+        ) or created_at
+        merged["created_at"] = created_at
+        merged["updated_at"] = updated_at
+
+        stage = str(
+            _payload_value(merged, "stage")
+            or (existing_row["stage"] if existing_row is not None else "created")
+        )
+        classification_status = str(
+            _payload_value(merged, "classification_status")
+            or (
+                existing_row["classification_status"]
+                if existing_row is not None
+                else "pending"
+            )
+        )
+        tracked_global_id = _payload_value(merged, "tracked_global_id")
+        tracked_global_id = (
+            int(tracked_global_id)
+            if isinstance(tracked_global_id, int)
+            or (
+                isinstance(tracked_global_id, float)
+                and float(tracked_global_id).is_integer()
+            )
+            else None
+        )
+        first_carousel_seen_ts = _min_positive_timestamp(
+            _payload_value(merged, "first_carousel_seen_ts")
+        )
+        zone_center_deg = _payload_value(merged, "classification_channel_zone_center_deg")
+        zone_center_deg = (
+            float(zone_center_deg)
+            if isinstance(zone_center_deg, (int, float))
+            else None
+        )
+        distributed_at = _max_positive_timestamp(_payload_value(merged, "distributed_at"))
+
+        conn.execute(
+            "INSERT INTO piece_dossiers(piece_uuid, session_id, tracked_global_id, created_at, updated_at, last_event_at, stage, classification_status, first_carousel_seen_ts, classification_channel_zone_center_deg, distributed_at, payload_json) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(piece_uuid) DO UPDATE SET "
+            "session_id = excluded.session_id, "
+            "tracked_global_id = excluded.tracked_global_id, "
+            "created_at = excluded.created_at, "
+            "updated_at = excluded.updated_at, "
+            "last_event_at = excluded.last_event_at, "
+            "stage = excluded.stage, "
+            "classification_status = excluded.classification_status, "
+            "first_carousel_seen_ts = excluded.first_carousel_seen_ts, "
+            "classification_channel_zone_center_deg = excluded.classification_channel_zone_center_deg, "
+            "distributed_at = excluded.distributed_at, "
+            "payload_json = excluded.payload_json",
+            (
+                piece_uuid,
+                session_id,
+                tracked_global_id,
+                created_at,
+                updated_at,
+                updated_at,
+                stage,
+                classification_status,
+                first_carousel_seen_ts,
+                zone_center_deg,
+                distributed_at,
+                json.dumps(merged, sort_keys=True),
+            ),
+        )
+        conn.commit()
+
+
+def get_piece_dossier(piece_uuid: str) -> dict[str, Any] | None:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        return _piece_dossier_row_to_dict(row)
+
+
+def get_piece_dossier_by_tracked_global_id(tracked_global_id: int) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE tracked_global_id = ? ORDER BY last_event_at DESC LIMIT 1",
+            (int(tracked_global_id),),
+        ).fetchone()
+        return _piece_dossier_row_to_dict(row)
+
+
+def list_piece_dossiers(
+    *,
+    limit: int = 200,
+    session_id: str | None = None,
+) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        resolved_session_id = session_id
+        if not resolved_session_id:
+            active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+            if active_session_id:
+                resolved_session_id = active_session_id
+            else:
+                latest = _latest_sorting_session_conn(conn)
+                resolved_session_id = str(latest["id"]) if latest is not None else None
+        if not resolved_session_id:
+            return []
+        rows = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE session_id = ? ORDER BY last_event_at DESC LIMIT ?",
+            (resolved_session_id, max(1, int(limit))),
+        ).fetchall()
+        return [
+            entry
+            for entry in (_piece_dossier_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
+
+
+def clear_piece_dossiers(*, clear_recent_known_objects: bool = True) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute("DELETE FROM piece_dossiers")
+        if clear_recent_known_objects:
+            _set_json(conn, _STATE_KEY_RECENT_KNOWN_OBJECTS, [])
+        conn.commit()
 
 
 def _ensure_bin_state_row_conn(

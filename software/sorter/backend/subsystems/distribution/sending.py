@@ -59,15 +59,28 @@ class Sending(BaseState):
         if elapsed_ms < CHUTE_SETTLE_MS:
             return None
 
-        # Commit the piece once (stats, event, recorder) — must not repeat
-        # even if we decide to hold the gate for additional cooldown below.
+        # Chute-settle timer elapsed; now gate the downstream reopen on either:
+        #   (a) the carousel tracker no longer showing the dropped piece's
+        #       global_id (physical exit confirmed by vision), or
+        #   (b) a minimum cooldown after drop commit, used as a fallback
+        #       when the tracker signal is unavailable.
+        # Root cause of ~63% multi_drop_fail rate was a fixed 1500ms
+        # wall-clock reopen that didn't wait for the piece to physically
+        # leave the chute.
+        if not self._shouldReopenGate():
+            self._setOccupancyState("sending.wait_piece_exit")
+            return None
+
+        # Commit the piece once (stats, event, recorder) only after the
+        # tracker/cooldown gate says the piece has physically exited.
         if not self._committed:
-            self.logger.info(f"Sending: settle complete ({elapsed_ms:.0f}ms)")
+            self.logger.info(f"Sending: exit confirmed ({elapsed_ms:.0f}ms)")
             self._setOccupancyState("sending.commit_piece")
             if self.piece:
+                now_wall = time.time()
                 self.piece.stage = PieceStage.distributed
-                self.piece.distributed_at = time.time()
-                self.piece.updated_at = time.time()
+                self.piece.distributed_at = now_wall
+                self.piece.updated_at = now_wall
                 self.event_queue.put(knownObjectToEvent(self.piece))
                 self.gc.run_recorder.recordPiece(self.piece)
                 tracker = getattr(self.gc, 'set_progress_tracker', None)
@@ -84,19 +97,6 @@ class Sending(BaseState):
                     except Exception:
                         pass
             self._committed = True
-
-        # Chute-settle timer elapsed and the piece has been committed. Now
-        # gate the downstream reopen on either:
-        #   (a) the carousel tracker no longer showing the dropped piece's
-        #       global_id (physical exit confirmed by vision), or
-        #   (b) a minimum cooldown after drop commit, used as a fallback
-        #       when the tracker signal is unavailable.
-        # Root cause of ~63% multi_drop_fail rate was a fixed 1500ms
-        # wall-clock reopen that didn't wait for the piece to physically
-        # leave the chute.
-        if not self._shouldReopenGate():
-            self._setOccupancyState("sending.wait_piece_exit")
-            return None
 
         self.shared.set_distribution_gate(True, reason=None)
         return DistributionState.IDLE

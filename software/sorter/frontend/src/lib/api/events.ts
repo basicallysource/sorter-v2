@@ -66,6 +66,13 @@ export interface KnownObjectData {
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;
   first_carousel_seen_ts?: number | null;
+  first_carousel_seen_angle_deg?: number | null;
+  classification_channel_size_class?: string | null;
+  classification_channel_zone_state?: string | null;
+  classification_channel_zone_center_deg?: number | null;
+  classification_channel_zone_half_width_deg?: number | null;
+  classification_channel_soft_guard_deg?: number | null;
+  classification_channel_hard_guard_deg?: number | null;
   carousel_rotate_started_at?: number | null;
   carousel_rotated_at?: number | null;
   carousel_snapping_started_at?: number | null;

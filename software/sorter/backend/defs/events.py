@@ -92,6 +92,13 @@ class KnownObjectData(BaseModel):
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
     first_carousel_seen_ts: Optional[float] = None
+    first_carousel_seen_angle_deg: Optional[float] = None
+    classification_channel_size_class: Optional[str] = None
+    classification_channel_zone_state: Optional[str] = None
+    classification_channel_zone_center_deg: Optional[float] = None
+    classification_channel_zone_half_width_deg: Optional[float] = None
+    classification_channel_soft_guard_deg: Optional[float] = None
+    classification_channel_hard_guard_deg: Optional[float] = None
     carousel_rotate_started_at: Optional[float] = None
     carousel_rotated_at: Optional[float] = None
     carousel_snapping_started_at: Optional[float] = None

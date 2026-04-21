@@ -21,6 +21,11 @@ from blob_manager import (
     getSortingProfileSyncState,
     setMachineNickname,
 )
+from local_state import (
+    get_piece_dossier,
+    get_piece_dossier_by_tracked_global_id,
+    list_piece_dossiers,
+)
 from runtime_variables import VARIABLE_DEFS
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
@@ -455,16 +460,131 @@ def updateSortingProfileSetViewPartState(
 # The WS recent-objects ring and frontend `recentObjects` buffer are both
 # intentionally tiny (10 entries) — they're for the gallery, not for
 # persistence. The detail page at ``/tracked/<uuid>`` needs to render a
-# piece even after it's aged out of that ring, so this endpoint surfaces
-# the last observed KnownObject payload from the runtime-stats collector's
-# bounded in-memory LRU (~1000 entries) as the fallback source.
+# piece even after it's aged out of that ring, so this endpoint resolves
+# from the persistent local SQLite dossier first and only falls back to the
+# in-process runtime-stats LRU if needed.
+
+
+def _normalize_deg(value: float) -> float:
+    normalized = float(value) % 360.0
+    if normalized < 0.0:
+        normalized += 360.0
+    return normalized
+
+
+def _circular_diff_deg(a: float, b: float) -> float:
+    return (_normalize_deg(a) - _normalize_deg(b) + 540.0) % 360.0 - 180.0
+
+
+def _current_classification_drop_angle_deg() -> float | None:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    irl_config = getattr(coordinator, "irl_config", None) if coordinator is not None else None
+    cc_cfg = getattr(irl_config, "classification_channel_config", None)
+    value = getattr(cc_cfg, "drop_angle_deg", None)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _tracked_history_summary_map(limit: int) -> dict[int, dict[str, Any]]:
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "listFeederTrackHistory"):
+        return {}
+    try:
+        raw_items = vm.listFeederTrackHistory(limit=max(1, int(limit)), min_sectors=0)
+    except Exception:
+        return {}
+    items = raw_items if isinstance(raw_items, list) else []
+    out: dict[int, dict[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        global_id = item.get("global_id")
+        if not isinstance(global_id, int):
+            continue
+        out[global_id] = item
+    return out
+
+
+@app.get("/api/tracked/pieces")
+def get_tracked_pieces(limit: int = 120) -> Dict[str, Any]:
+    limit = max(10, min(int(limit), 500))
+    load_limit = max(limit * 4, 500)
+    dossiers = list_piece_dossiers(limit=load_limit)
+    history_by_gid = _tracked_history_summary_map(load_limit)
+    drop_angle_deg = _current_classification_drop_angle_deg()
+
+    rows: list[dict[str, Any]] = []
+    for piece in dossiers:
+        if not isinstance(piece, dict):
+            continue
+        tracked_global_id = piece.get("tracked_global_id")
+        if not isinstance(tracked_global_id, int):
+            tracked_global_id = None
+        history = history_by_gid.get(tracked_global_id) if tracked_global_id is not None else None
+        live = bool(history.get("live")) if isinstance(history, dict) else False
+        stage = str(piece.get("stage") or "created")
+        distributed_at = piece.get("distributed_at")
+        is_distributed = stage == "distributed" or isinstance(distributed_at, (int, float))
+        is_active = not is_distributed
+        zone_center_deg = piece.get("classification_channel_zone_center_deg")
+        zone_center_deg = float(zone_center_deg) if isinstance(zone_center_deg, (int, float)) else None
+        polar_offset_deg = (
+            _circular_diff_deg(zone_center_deg, drop_angle_deg)
+            if zone_center_deg is not None and drop_angle_deg is not None
+            else None
+        )
+        sort_ts = piece.get("distributed_at")
+        if not isinstance(sort_ts, (int, float)):
+            sort_ts = piece.get("updated_at")
+        if not isinstance(sort_ts, (int, float)) and isinstance(history, dict):
+            sort_ts = history.get("finished_at")
+        if not isinstance(sort_ts, (int, float)):
+            sort_ts = piece.get("created_at")
+        rows.append(
+            {
+                "uuid": piece.get("uuid"),
+                "piece": piece,
+                "tracked_global_id": tracked_global_id,
+                "global_id": tracked_global_id,
+                "live": live or is_active,
+                "active": is_active,
+                "polar_angle_deg": zone_center_deg,
+                "polar_offset_deg": polar_offset_deg,
+                "created_at": piece.get("created_at"),
+                "updated_at": piece.get("updated_at"),
+                "stage": piece.get("stage"),
+                "classification_status": piece.get("classification_status"),
+                "track_summary": history,
+                "sort_ts": float(sort_ts) if isinstance(sort_ts, (int, float)) else 0.0,
+                "history_finished_at": history.get("finished_at") if isinstance(history, dict) else None,
+            }
+        )
+
+    active_rows = [row for row in rows if row["active"]]
+    historical_rows = [row for row in rows if not row["active"]]
+
+    active_rows.sort(
+        key=lambda row: (
+            row["polar_offset_deg"] is None,
+            -(float(row["polar_offset_deg"]) if isinstance(row["polar_offset_deg"], (int, float)) else -9999.0),
+            -float(row["sort_ts"]),
+        )
+    )
+    historical_rows.sort(key=lambda row: -float(row["sort_ts"]))
+    ordered = active_rows + historical_rows
+    return {"items": ordered[:limit], "drop_angle_deg": drop_angle_deg}
 
 
 @app.get("/api/known-objects/{uuid}", response_model=KnownObjectData)
 def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
-    if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
-        raise HTTPException(status_code=404, detail="not found")
-    payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+    payload = get_piece_dossier(uuid)
+    if payload is None:
+        try:
+            payload = get_piece_dossier_by_tracked_global_id(int(uuid))
+        except Exception:
+            payload = None
+    if payload is None and shared_state.gc_ref is not None and shared_state.gc_ref.runtime_stats is not None:
+        payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
     if payload is None:
         raise HTTPException(status_code=404, detail="not found")
     try:

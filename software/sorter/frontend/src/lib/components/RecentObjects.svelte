@@ -5,13 +5,24 @@
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 
-	type LifecyclePhase = 'capturing' | 'classified' | 'distributed';
+	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
 
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
 
 	function hasLocalPreview(obj: KnownObjectData): boolean {
 		return Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
+	}
+
+	function hasCapturingEvidence(obj: KnownObjectData): boolean {
+		// Anything proving the capture/classify pipeline has engaged: a snap
+		// timestamp, a locally-stored crop or thumbnail, or any part data.
+		return Boolean(
+			obj.carousel_snapping_started_at ||
+				obj.classified_at ||
+				obj.part_id ||
+				hasLocalPreview(obj)
+		);
 	}
 
 	function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
@@ -27,11 +38,20 @@
 		) {
 			return 'classified';
 		}
+		if (hasCapturingEvidence(obj)) return 'capturing';
+		// Reliably tracked by the carousel tracker but no capture has started
+		// yet — show the piece as soon as we have an identity for it.
+		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) {
+			return 'tracking';
+		}
 		return 'capturing';
 	}
 
 	function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
 		if (obj.stage !== 'created') return true;
+		// Reliable tracking on the classification channel → surface
+		// immediately, before any capture/classify evidence exists.
+		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) return true;
 		if (obj.classified_at || obj.carousel_snapping_started_at || obj.part_id) return true;
 		if (obj.first_carousel_seen_ts || hasLocalPreview(obj)) return true;
 		return false;
@@ -124,6 +144,7 @@
 	}
 
 	const PHASE_LABEL: Record<LifecyclePhase, string> = {
+		tracking: 'Tracking',
 		capturing: 'Capturing',
 		classified: 'Classified',
 		distributed: 'Distributed'
@@ -131,6 +152,7 @@
 
 	function phaseChipClass(phase: LifecyclePhase): string {
 		// Sharp-edged chip, border + faint tinted bg + solid text. No rounded-*.
+		if (phase === 'tracking') return 'border-text-muted bg-text-muted/10 text-text-muted';
 		if (phase === 'capturing') return 'border-primary bg-primary/10 text-primary';
 		if (phase === 'classified') return 'border-success bg-success/10 text-success';
 		return 'border-border bg-surface text-text-muted';
@@ -238,7 +260,7 @@
 						<Spinner />
 					</div>
 				{/if}
-				{#if phase === 'capturing'}
+				{#if phase === 'capturing' || phase === 'tracking'}
 					<div class="absolute -right-1 -top-1">
 						<Spinner />
 					</div>
@@ -259,6 +281,8 @@
 
 				{#if has_name && obj.part_id}
 					<div class="truncate font-mono text-xs text-text-muted">{obj.part_id}</div>
+				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
+					<div class="text-xs text-text-muted">Tracked on carousel…</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
 					<div class="text-xs text-text-muted">Capturing on C4…</div>
 				{/if}

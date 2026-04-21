@@ -19,6 +19,7 @@ from blob_manager import (
     getFeederDetectionConfig,
 )
 from .camera import CaptureThread
+from .burst_store import BurstFrameStore
 from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
 from .aruco_region_provider import ArucoRegionProvider
@@ -172,6 +173,13 @@ class VisionManager:
             id_switch_suspect_observer=getattr(gc.runtime_stats, "observeTrackerIdSwitchSuspect", None),
         )
         self._drop_zone_burst_collector = DropZoneBurstCollector(self._piece_history)
+        # Fresh burst store for the C3→C4 drop-zone "fashion-shoot" feature.
+        # Pre-event frames from the c_channel_3 + carousel capture-thread ring
+        # buffers are drained at trigger time; post-event frames are merged in
+        # 2 s later via a threading.Timer.
+        self._burst_store = BurstFrameStore(max_pieces=50)
+        self._burst_timers: Dict[int, threading.Timer] = {}
+        self._burst_lock = threading.Lock()
         self._feeder_track_cache: Dict[str, Tuple[float, list]] = {}
         self._classification_channel_zone_overlay: list[dict[str, Any]] = []
         self._classification_channel_zone_overlay_meta: dict[str, Any] = {}
@@ -2509,6 +2517,7 @@ class VisionManager:
             for payload in [self._liveTrackPayload(role, global_id)]
             if payload is not None
         ]
+        burst_frames = self.getBurstFrames(global_id) or []
         if detail is not None:
             existing_roles = {
                 segment.get("source_role")
@@ -2544,6 +2553,7 @@ class VisionManager:
                     ),
                     "live": True,
                 }
+            detail["burst_frames"] = burst_frames
             return detail
         if live_segments:
             live_segments.sort(key=lambda segment: float(segment.get("first_seen_ts", 0.0)))
@@ -2562,8 +2572,153 @@ class VisionManager:
                 "total_hit_count": sum(int(segment.get("hit_count", 0)) for segment in live_segments),
                 "live": True,
                 "segments": live_segments,
+                "burst_frames": burst_frames,
             }
         return None
+
+    # -- Drop-zone burst capture -------------------------------------------------
+
+    _BURST_MAX_EDGE_PX = 640
+    _BURST_JPEG_QUALITY = 75
+
+    def _encodeBurstFrame(self, frame: np.ndarray) -> str | None:
+        """Downscale-and-JPEG-encode one raw camera frame for the burst store."""
+        if frame is None or not hasattr(frame, "shape") or frame.size == 0:
+            return None
+        h, w = frame.shape[:2]
+        longest = max(h, w)
+        if longest > self._BURST_MAX_EDGE_PX:
+            scale = self._BURST_MAX_EDGE_PX / float(longest)
+            try:
+                frame = cv2.resize(
+                    frame,
+                    (int(round(w * scale)), int(round(h * scale))),
+                    interpolation=cv2.INTER_AREA,
+                )
+            except Exception:
+                return None
+        try:
+            ok, buf = cv2.imencode(
+                ".jpg",
+                frame,
+                [cv2.IMWRITE_JPEG_QUALITY, self._BURST_JPEG_QUALITY],
+            )
+        except Exception:
+            return None
+        if not ok:
+            return None
+        return base64.b64encode(buf.tobytes()).decode("ascii")
+
+    def _burstCaptureThreadsByRole(self) -> list[tuple[str, "CaptureThread | None"]]:
+        """Ordered list of (role, capture) pairs to drain for burst capture."""
+        return [
+            ("c_channel_3", self._c_channel_3_capture),
+            ("carousel", self._carousel_capture),
+        ]
+
+    def _drainBurstFrames(
+        self,
+        role: str,
+        capture: "CaptureThread | None",
+        count: int,
+    ) -> list[dict]:
+        if capture is None or count <= 0:
+            return []
+        drain = getattr(capture, "drain_ring_buffer", None)
+        if drain is None:
+            return []
+        try:
+            frames = drain(count) or []
+        except Exception:
+            return []
+        encoded: list[dict] = []
+        for cf in frames:
+            raw = getattr(cf, "raw", None)
+            if raw is None:
+                continue
+            jpeg_b64 = self._encodeBurstFrame(raw)
+            if not jpeg_b64:
+                continue
+            encoded.append(
+                {
+                    "role": role,
+                    "captured_ts": float(getattr(cf, "timestamp", 0.0) or 0.0),
+                    "jpeg_b64": jpeg_b64,
+                }
+            )
+        return encoded
+
+    def captureBurst(
+        self,
+        global_id: int,
+        pre_count: int = 30,
+        post_count: int = 30,
+        post_window_s: float = 2.0,
+    ) -> None:
+        """Drain pre-event frames now, schedule post-event frames in ``post_window_s``.
+
+        Pre-event frames are stored IMMEDIATELY so the detail page can surface
+        the free-fall moments even if the post-event timer never fires (e.g.
+        the process is shut down between the trigger and the landing).
+        """
+        try:
+            if not isinstance(global_id, int) or global_id <= 0:
+                return
+            pre_frames: list[dict] = []
+            for role, capture in self._burstCaptureThreadsByRole():
+                pre_frames.extend(self._drainBurstFrames(role, capture, pre_count))
+            if pre_frames:
+                # Pre-event frames may span both cameras — sort chronologically
+                # so the filmstrip reads left-to-right as time progresses.
+                pre_frames.sort(key=lambda f: float(f.get("captured_ts") or 0.0))
+                self._burst_store.store(global_id, pre_frames)
+
+            if post_count <= 0 or post_window_s <= 0.0:
+                return
+
+            with self._burst_lock:
+                existing = self._burst_timers.pop(global_id, None)
+            if existing is not None:
+                try:
+                    existing.cancel()
+                except Exception:
+                    pass
+
+            timer = threading.Timer(
+                float(post_window_s),
+                self._finalizeBurst,
+                args=(global_id, post_count),
+            )
+            timer.daemon = True
+            with self._burst_lock:
+                self._burst_timers[global_id] = timer
+            timer.start()
+        except Exception as exc:
+            try:
+                self.gc.logger.warning(f"captureBurst({global_id}) failed: {exc}")
+            except Exception:
+                pass
+
+    def _finalizeBurst(self, global_id: int, post_count: int) -> None:
+        """Collect post-event frames from the ring buffers and merge them in."""
+        try:
+            post_frames: list[dict] = []
+            for role, capture in self._burstCaptureThreadsByRole():
+                post_frames.extend(self._drainBurstFrames(role, capture, post_count))
+            if post_frames:
+                post_frames.sort(key=lambda f: float(f.get("captured_ts") or 0.0))
+                self._burst_store.store(global_id, post_frames)
+        except Exception as exc:
+            try:
+                self.gc.logger.warning(f"_finalizeBurst({global_id}) failed: {exc}")
+            except Exception:
+                pass
+        finally:
+            with self._burst_lock:
+                self._burst_timers.pop(global_id, None)
+
+    def getBurstFrames(self, global_id: int) -> list[dict] | None:
+        return self._burst_store.get(global_id)
 
     def findRecentFeederTrackHistoryDetailByRole(
         self,

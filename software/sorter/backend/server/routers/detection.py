@@ -1541,19 +1541,23 @@ def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
 def feeder_tracking_history_clear() -> Dict[str, Any]:
     """Tabula-rasa — wipe all persisted + in-memory tracked pieces.
 
-    Drops every completed track, deletes the JSON files under
-    ``blob/tracked_history/``, and clears the in-process ring buffer.
-    Live tracks that are still being tracked are untouched — they'll be
-    archived next time they die.
+    Drops every completed track, clears the in-process ring buffer, and
+    deletes the persisted piece dossiers from SQLite. The legacy
+    VisionManager's ``_piece_history`` is reset when it's still around;
+    otherwise the SQLite purge alone is authoritative (the new rt
+    pipeline reads from the DB).
     """
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "_piece_history"):
-        raise HTTPException(status_code=503, detail="Tracker history not available.")
     try:
-        vm._piece_history.reset()
         clear_piece_dossiers()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to clear history: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear dossiers: {exc}")
+    vm = shared_state.vision_manager
+    history = getattr(vm, "_piece_history", None) if vm is not None else None
+    if history is not None and hasattr(history, "reset"):
+        try:
+            history.reset()
+        except Exception:
+            pass
     return {"ok": True}
 
 

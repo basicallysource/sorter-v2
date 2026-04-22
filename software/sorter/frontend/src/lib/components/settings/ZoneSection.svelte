@@ -70,6 +70,11 @@
 		dropZone: AngularZone;
 		waitZone: AngularZone | null;
 		exitZone: AngularZone;
+		// When null, getArcHandles auto-picks a ring-handle angle that avoids
+		// zone boundaries. When set, the operator has dragged the handles
+		// tangentially and we honor their chosen angle (still clamped away
+		// from zone edges).
+		ringHandleAngleDeg: number | null;
 	};
 	type AngularZone = {
 		startAngle: number;
@@ -92,6 +97,7 @@
 		drop_zone?: AngularZonePayload;
 		wait_zone?: AngularZonePayload;
 		exit_zone?: AngularZonePayload;
+		ring_handle_angle_deg?: number | null;
 	};
 	type AngularZonePayload = {
 		start_angle: number;
@@ -130,9 +136,14 @@
 				origSec0: Point | null;
 		 }
 		| {
+				kind: 'arc-inner' | 'arc-outer';
+				channel: ArcChannel;
+				start: Point;
+				startAngleDeg: number;
+				orig: ArcParams;
+		 }
+		| {
 				kind:
-					| 'arc-inner'
-					| 'arc-outer'
 					| 'arc-drop-start'
 					| 'arc-drop-end'
 					| 'arc-wait-start'
@@ -365,6 +376,20 @@
 	let CANVAS_W = $state(DEFAULT_CANVAS_W);
 	let CANVAS_H = $state(DEFAULT_CANVAS_H);
 
+	// Overlay drawing scale, mirrored from backend overlays/scaling.py. All
+	// handle/line/font sizes in the editor are authored at the 1280-wide
+	// baseline; at higher camera resolutions we multiply so the operator sees
+	// roughly the same visual density. Never downscales (cameras smaller than
+	// 1280 keep baseline readable sizes).
+	const EDITOR_BASELINE_WIDTH = 1280;
+	const editorScale = $derived(Math.max(1, CANVAS_W / EDITOR_BASELINE_WIDTH));
+	const handleHitRadius = $derived(HANDLE_HIT_RADIUS * editorScale);
+	const vertexHitRadius = $derived(VERTEX_HIT_RADIUS * editorScale);
+	const handleCanvasPadding = $derived(HANDLE_CANVAS_PADDING * editorScale);
+	const labelEdgePadding = $derived(LABEL_EDGE_PADDING * editorScale);
+	// Minimum allowed ring-handle clearance from any zone boundary.
+	const RING_HANDLE_CLEARANCE_DEG = 8;
+
 	$effect(() => {
 		const nextKey = channels.join('|');
 		if (nextKey !== channelSetKey) {
@@ -501,7 +526,8 @@
 			exitZone: {
 				startAngle: params.exitZone.startAngle,
 				endAngle: params.exitZone.endAngle
-			}
+			},
+			ringHandleAngleDeg: params.ringHandleAngleDeg
 		};
 	}
 
@@ -517,7 +543,11 @@
 					: params.waitZone
 						? clampZone(params.waitZone)
 						: null,
-			exitZone: clampZone(params.exitZone)
+			exitZone: clampZone(params.exitZone),
+			ringHandleAngleDeg:
+				typeof params.ringHandleAngleDeg === 'number'
+					? normalizeAngle(params.ringHandleAngleDeg)
+					: null
 		};
 
 		return normalized;
@@ -939,7 +969,8 @@
 			center,
 			innerRadius: channel === 'classification_channel' ? 210 : 180,
 			outerRadius: channel === 'classification_channel' ? 390 : 360,
-			...defaultZoneLayout(channel)
+			...defaultZoneLayout(channel),
+			ringHandleAngleDeg: null
 		});
 	}
 
@@ -961,7 +992,9 @@
 			exit_zone: {
 				start_angle: params.exitZone.startAngle,
 				end_angle: params.exitZone.endAngle
-			}
+			},
+			ring_handle_angle_deg:
+				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null
 		};
 	}
 
@@ -1008,13 +1041,19 @@
 			parseAngularZone((raw as ArcParamsPayload).exit_zone) ??
 			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ??
 			clampZone({ startAngle: 300, endAngle: 340 });
+		const ringHandleRaw = (raw as ArcParamsPayload).ring_handle_angle_deg;
+		const ringHandleAngleDeg =
+			typeof ringHandleRaw === 'number' && Number.isFinite(ringHandleRaw)
+				? ringHandleRaw
+				: null;
 		return normalizeArcParamsForChannel(channel, {
 			center: [center[0], center[1]],
 			innerRadius: Math.max(10, innerRadius),
 			outerRadius: Math.max(innerRadius + MIN_ARC_THICKNESS, outerRadius),
 			dropZone,
 			waitZone,
-			exitZone
+			exitZone,
+			ringHandleAngleDeg
 		});
 	}
 
@@ -1034,7 +1073,8 @@
 			center: [center[0], center[1]],
 			innerRadius,
 			outerRadius,
-			...defaultZoneLayout(channel, sectionZeroAngle)
+			...defaultZoneLayout(channel, sectionZeroAngle),
+			ringHandleAngleDeg: null
 		});
 	}
 
@@ -1069,9 +1109,10 @@
 	}
 
 	function constrainHandlePoint(point: Point): Point {
+		const pad = handleCanvasPadding;
 		return [
-			clamp(point[0], HANDLE_CANVAS_PADDING, CANVAS_W - HANDLE_CANVAS_PADDING),
-			clamp(point[1], HANDLE_CANVAS_PADDING, CANVAS_H - HANDLE_CANVAS_PADDING)
+			clamp(point[0], pad, CANVAS_W - pad),
+			clamp(point[1], pad, CANVAS_H - pad)
 		];
 	}
 
@@ -1133,7 +1174,7 @@
 		const q = quadParams[channel];
 		if (!q) return null;
 		for (let i = 0; i < 4; i++) {
-			if (pointDistance(point, q.corners[i]) <= HANDLE_HIT_RADIUS) return i as QuadHandle;
+			if (pointDistance(point, q.corners[i]) <= handleHitRadius) return i as QuadHandle;
 		}
 		return null;
 	}
@@ -1164,11 +1205,8 @@
 
 	// ---- End quad helpers ----
 
-	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
-		const params = arcParams[channel];
-		if (!params) return null;
-		const ringHandleCandidates = Array.from({ length: 12 }, (_, index) => index * 30);
-		const occupiedAngles = [
+	function ringHandleOccupiedAngles(params: ArcParams): number[] {
+		return [
 			params.dropZone.startAngle,
 			params.dropZone.endAngle,
 			params.waitZone?.startAngle ?? params.exitZone.startAngle,
@@ -1176,16 +1214,63 @@
 			params.exitZone.startAngle,
 			params.exitZone.endAngle
 		];
-		const ringHandleAngle =
+	}
+
+	function autoRingHandleAngle(params: ArcParams): number {
+		const ringHandleCandidates = Array.from({ length: 12 }, (_, index) => index * 30);
+		const occupiedAngles = ringHandleOccupiedAngles(params);
+		return (
 			ringHandleCandidates.reduce(
 				(best, candidate) =>
-					ringHandleCandidates.length === 0 ||
 					Math.min(...occupiedAngles.map((angle) => angularDistance(candidate, angle))) >
-						Math.min(...occupiedAngles.map((angle) => angularDistance(best, angle)))
+					Math.min(...occupiedAngles.map((angle) => angularDistance(best, angle)))
 						? candidate
 						: best,
 				270
-			) ?? 270;
+			) ?? 270
+		);
+	}
+
+	// Clamp a desired ring-handle angle away from any occupied zone boundary
+	// by at least RING_HANDLE_CLEARANCE_DEG. We keep the angle on whichever
+	// side of the nearest boundary it started, so dragging into a zone edge
+	// "stops" at the clearance line rather than snapping past it.
+	function clampRingHandleAngle(params: ArcParams, desiredDeg: number): number {
+		const occupiedAngles = ringHandleOccupiedAngles(params);
+		let current = normalizeAngle(desiredDeg);
+		// Iterate a couple of times — clamping against one edge can push the
+		// angle closer to a different edge, but with 6 occupied angles and an
+		// 8° clearance this converges in at most a few passes.
+		for (let pass = 0; pass < 4; pass++) {
+			let worstOffender: { angle: number; delta: number } | null = null;
+			for (const edge of occupiedAngles) {
+				const edgeNorm = normalizeAngle(edge);
+				let delta = current - edgeNorm;
+				delta = ((delta + 540) % 360) - 180; // signed shortest-path delta in [-180, 180]
+				if (Math.abs(delta) < RING_HANDLE_CLEARANCE_DEG) {
+					if (!worstOffender || Math.abs(delta) < Math.abs(worstOffender.delta)) {
+						worstOffender = { angle: edgeNorm, delta };
+					}
+				}
+			}
+			if (!worstOffender) return current;
+			const sign = worstOffender.delta >= 0 ? 1 : -1;
+			current = normalizeAngle(worstOffender.angle + sign * RING_HANDLE_CLEARANCE_DEG);
+		}
+		return current;
+	}
+
+	function effectiveRingHandleAngle(params: ArcParams): number {
+		if (typeof params.ringHandleAngleDeg === 'number') {
+			return clampRingHandleAngle(params, params.ringHandleAngleDeg);
+		}
+		return autoRingHandleAngle(params);
+	}
+
+	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
+		const params = arcParams[channel];
+		if (!params) return null;
+		const ringHandleAngle = effectiveRingHandleAngle(params);
 		return {
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
@@ -1362,7 +1447,9 @@
 			outerRadius: params.outerRadius * rs,
 			dropZone: { ...params.dropZone },
 			waitZone: params.waitZone ? { ...params.waitZone } : null,
-			exitZone: { ...params.exitZone }
+			exitZone: { ...params.exitZone },
+			// Angles are dimensionless — no rescale needed.
+			ringHandleAngleDeg: params.ringHandleAngleDeg
 		};
 	}
 
@@ -1635,7 +1722,7 @@
 		if (!handles) return null;
 		const order = arcEditableHandles(channel);
 		for (const handle of order) {
-			if (pointDistance(point, handles[handle]) <= HANDLE_HIT_RADIUS) {
+			if (pointDistance(point, handles[handle]) <= handleHitRadius) {
 				return handle;
 			}
 		}
@@ -1644,7 +1731,7 @@
 
 	function hitPolygonVertex(channel: Channel, point: Point): boolean {
 		return userPoints[channel].some(
-			(vertex: number[]) => pointDistance(point, [vertex[0], vertex[1]]) <= VERTEX_HIT_RADIUS
+			(vertex: number[]) => pointDistance(point, [vertex[0], vertex[1]]) <= vertexHitRadius
 		);
 	}
 
@@ -1661,7 +1748,7 @@
 
 		if (isArcChannel(currentChannel)) {
 			const sectionZero = sectionZeroPoints[currentChannel];
-			if (sectionZero && pointDistance(point, sectionZero) <= HANDLE_HIT_RADIUS) {
+			if (sectionZero && pointDistance(point, sectionZero) <= handleHitRadius) {
 				canvasCursor = 'pointer';
 				return;
 			}
@@ -1710,7 +1797,7 @@
 
 		if (isArcChannel(currentChannel)) {
 			const sectionZero = sectionZeroPoints[currentChannel];
-			if (sectionZero && pointDistance(point, sectionZero) <= HANDLE_HIT_RADIUS) {
+			if (sectionZero && pointDistance(point, sectionZero) <= handleHitRadius) {
 				dragState = { kind: 'section-zero', channel: currentChannel };
 				canvasCursor = 'grabbing';
 				return;
@@ -1730,23 +1817,31 @@
 					canvasCursor = 'grabbing';
 					return;
 				}
+				if (handle === 'inner' || handle === 'outer') {
+					const origParams = copyArcParams(params);
+					dragState = {
+						kind: handle === 'inner' ? 'arc-inner' : 'arc-outer',
+						channel: currentChannel,
+						start: point,
+						startAngleDeg: effectiveRingHandleAngle(origParams),
+						orig: origParams
+					};
+					canvasCursor = 'grabbing';
+					return;
+				}
 				dragState = {
 					kind:
-						handle === 'inner'
-							? 'arc-inner'
-							: handle === 'outer'
-								? 'arc-outer'
-								: handle === 'dropStart'
-									? 'arc-drop-start'
-									: handle === 'dropEnd'
-										? 'arc-drop-end'
-										: handle === 'waitStart'
-											? 'arc-wait-start'
-										: handle === 'waitEnd'
-											? 'arc-wait-end'
-										: handle === 'exitStart'
-											? 'arc-exit-start'
-											: 'arc-exit-end',
+						handle === 'dropStart'
+							? 'arc-drop-start'
+							: handle === 'dropEnd'
+								? 'arc-drop-end'
+								: handle === 'waitStart'
+									? 'arc-wait-start'
+									: handle === 'waitEnd'
+										? 'arc-wait-end'
+									: handle === 'exitStart'
+										? 'arc-exit-start'
+										: 'arc-exit-end',
 					channel: currentChannel,
 					orig: copyArcParams(params)
 				};
@@ -1851,25 +1946,38 @@
 				}
 				break;
 			}
-			case 'arc-inner': {
-				didDrag = true;
-				const radius = pointDistance(point, dragState.orig.center);
-				setArc(dragState.channel, {
-					...dragState.orig,
-					innerRadius: Math.max(
-						10,
-						Math.min(radius, dragState.orig.outerRadius - MIN_ARC_THICKNESS)
-					)
-				});
-				break;
-			}
+			case 'arc-inner':
 			case 'arc-outer': {
 				didDrag = true;
-				const radius = pointDistance(point, dragState.orig.center);
-				setArc(dragState.channel, {
-					...dragState.orig,
-					outerRadius: Math.max(dragState.orig.innerRadius + MIN_ARC_THICKNESS, radius)
-				});
+				const center = dragState.orig.center;
+				const radius = pointDistance(point, center);
+				// The ring handles serve double duty: dragged radially they
+				// resize the ring, dragged tangentially they rotate the ring
+				// handle around the center. We decompose the pointer position
+				// directly — the current distance is the new radius and the
+				// current polar angle is the desired ring-handle angle (both
+				// always in lockstep, whichever interpretation the operator
+				// intended). clampRingHandleAngle keeps the handle away from
+				// zone boundaries so it can't collide with the drop/wait/exit
+				// edges.
+				const rawAngle = angleFromCenter(point, center);
+				const nextRingHandleAngle = clampRingHandleAngle(dragState.orig, rawAngle);
+				if (dragState.kind === 'arc-inner') {
+					setArc(dragState.channel, {
+						...dragState.orig,
+						innerRadius: Math.max(
+							10,
+							Math.min(radius, dragState.orig.outerRadius - MIN_ARC_THICKNESS)
+						),
+						ringHandleAngleDeg: nextRingHandleAngle
+					});
+				} else {
+					setArc(dragState.channel, {
+						...dragState.orig,
+						outerRadius: Math.max(dragState.orig.innerRadius + MIN_ARC_THICKNESS, radius),
+						ringHandleAngleDeg: nextRingHandleAngle
+					});
+				}
 				break;
 			}
 			case 'arc-drop-start': {
@@ -2077,44 +2185,46 @@
 		label: string,
 		offset: Point = [0, -20]
 	) {
+		const s = editorScale;
 		ctx.beginPath();
-		ctx.arc(point[0], point[1], HANDLE_DRAW_RADIUS, 0, Math.PI * 2);
+		ctx.arc(point[0], point[1], HANDLE_DRAW_RADIUS * s, 0, Math.PI * 2);
 		ctx.fillStyle = fill;
 		ctx.fill();
-		ctx.lineWidth = 2;
+		ctx.lineWidth = 2 * s;
 		ctx.strokeStyle = stroke;
 		ctx.stroke();
 
-		ctx.font = 'bold 13px sans-serif';
+		ctx.font = `bold ${Math.round(13 * s)}px sans-serif`;
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
 		const metrics = ctx.measureText(label);
 		const textWidth = metrics.width;
-		const paddingX = 9;
+		const paddingX = 9 * s;
 		const boxWidth = textWidth + paddingX * 2;
-		const boxHeight = 24;
-		const minLabelX = LABEL_EDGE_PADDING + boxWidth / 2;
-		const maxLabelX = CANVAS_W - LABEL_EDGE_PADDING - boxWidth / 2;
-		const minLabelY = LABEL_EDGE_PADDING + boxHeight / 2;
-		const maxLabelY = CANVAS_H - LABEL_EDGE_PADDING - boxHeight / 2;
-		const labelX = clamp(point[0] + offset[0], minLabelX, Math.max(minLabelX, maxLabelX));
-		const labelY = clamp(point[1] + offset[1], minLabelY, Math.max(minLabelY, maxLabelY));
+		const boxHeight = 24 * s;
+		const edgePad = labelEdgePadding;
+		const minLabelX = edgePad + boxWidth / 2;
+		const maxLabelX = CANVAS_W - edgePad - boxWidth / 2;
+		const minLabelY = edgePad + boxHeight / 2;
+		const maxLabelY = CANVAS_H - edgePad - boxHeight / 2;
+		const labelX = clamp(point[0] + offset[0] * s, minLabelX, Math.max(minLabelX, maxLabelX));
+		const labelY = clamp(point[1] + offset[1] * s, minLabelY, Math.max(minLabelY, maxLabelY));
 		const boxX = labelX - boxWidth / 2;
 		const boxY = labelY - boxHeight / 2;
 		ctx.save();
 		ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-		ctx.shadowBlur = 12;
+		ctx.shadowBlur = 12 * s;
 		ctx.shadowOffsetX = 0;
-		ctx.shadowOffsetY = 4;
+		ctx.shadowOffsetY = 4 * s;
 		ctx.beginPath();
-		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4);
+		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
 		ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
 		ctx.fill();
 		ctx.restore();
 		ctx.beginPath();
-		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4);
+		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
 		ctx.strokeStyle = 'rgba(17, 17, 17, 0.12)';
-		ctx.lineWidth = 1;
+		ctx.lineWidth = 1 * s;
 		ctx.stroke();
 		ctx.fillStyle = '#111';
 		ctx.fillText(label, labelX, labelY);
@@ -2126,12 +2236,13 @@
 		const ref = sectionZeroPoints[channel];
 		if (!center || !ref) return;
 
+		const s = editorScale;
 		ctx.beginPath();
 		ctx.moveTo(center[0], center[1]);
 		ctx.lineTo(ref[0], ref[1]);
 		ctx.strokeStyle = `rgba(255,255,255,${active ? 0.9 : 0.3})`;
-		ctx.lineWidth = active ? 2 : 1;
-		ctx.setLineDash([6, 4]);
+		ctx.lineWidth = (active ? 2 : 1) * s;
+		ctx.setLineDash([6 * s, 4 * s]);
 		ctx.stroke();
 		ctx.setLineDash([]);
 
@@ -2142,6 +2253,7 @@
 		const params = arcParams[channel];
 		if (!params) return;
 
+		const s = editorScale;
 		const color = CHANNEL_COLORS[channel];
 		const alpha = active ? 1 : 0.35;
 		const outerCircle = buildCirclePoints(params.center, params.outerRadius);
@@ -2193,7 +2305,7 @@
 		ctx.closePath();
 		ctx.strokeStyle = color;
 		ctx.globalAlpha = alpha;
-		ctx.lineWidth = active ? 2 : 1;
+		ctx.lineWidth = (active ? 2 : 1) * s;
 		ctx.stroke();
 		ctx.beginPath();
 		ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
@@ -2209,7 +2321,7 @@
 
 			if (active && editingZone) {
 				ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
-				ctx.lineWidth = 1.25;
+				ctx.lineWidth = 1.25 * s;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.dropStart[0], handles.dropStart[1]);
@@ -2219,7 +2331,7 @@
 
 			if (params.waitZone) {
 				ctx.strokeStyle = `${WAIT_ZONE_COLOR}cc`;
-				ctx.lineWidth = 1.1;
+				ctx.lineWidth = 1.1 * s;
 				ctx.beginPath();
 				ctx.moveTo(params.center[0], params.center[1]);
 				ctx.lineTo(handles.waitStart[0], handles.waitStart[1]);
@@ -2229,7 +2341,7 @@
 			}
 
 			ctx.strokeStyle = `${EXIT_ZONE_COLOR}cc`;
-			ctx.lineWidth = 1;
+			ctx.lineWidth = 1 * s;
 			ctx.beginPath();
 			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.exitStart[0], handles.exitStart[1]);
@@ -2264,6 +2376,7 @@
 	function drawPolygonChannel(ctx: CanvasRenderingContext2D, channel: Channel, active: boolean) {
 		const pts = sortPolygon(userPoints[channel]);
 		if (pts.length < 2) return;
+		const s = editorScale;
 		const color = CHANNEL_COLORS[channel];
 		const alpha = active ? 1 : 0.35;
 
@@ -2275,14 +2388,14 @@
 		ctx.fill();
 		ctx.strokeStyle = color;
 		ctx.globalAlpha = alpha;
-		ctx.lineWidth = active ? 2 : 1;
+		ctx.lineWidth = (active ? 2 : 1) * s;
 		ctx.stroke();
 		ctx.globalAlpha = 1;
 
 		if (active && editingZone) {
 			for (const pt of pts) {
 				ctx.beginPath();
-				ctx.arc(pt[0], pt[1], 6, 0, Math.PI * 2);
+				ctx.arc(pt[0], pt[1], 6 * s, 0, Math.PI * 2);
 				ctx.fillStyle = color;
 				ctx.fill();
 			}
@@ -2292,6 +2405,7 @@
 	function drawQuadChannel(ctx: CanvasRenderingContext2D, channel: RectChannel, active: boolean) {
 		const q = quadParams[channel];
 		if (!q) return;
+		const s = editorScale;
 		const color = CHANNEL_COLORS[channel];
 		const alpha = active ? 1 : 0.35;
 		const corners = q.corners;
@@ -2307,7 +2421,7 @@
 		// Stroke
 		ctx.strokeStyle = color;
 		ctx.globalAlpha = alpha;
-		ctx.lineWidth = active ? 2 : 1;
+		ctx.lineWidth = (active ? 2 : 1) * s;
 		ctx.stroke();
 		ctx.globalAlpha = 1;
 
@@ -2315,10 +2429,10 @@
 			// Corner handles
 			for (const corner of corners) {
 				ctx.beginPath();
-				ctx.arc(corner[0], corner[1], HANDLE_DRAW_RADIUS, 0, Math.PI * 2);
+				ctx.arc(corner[0], corner[1], HANDLE_DRAW_RADIUS * s, 0, Math.PI * 2);
 				ctx.fillStyle = color;
 				ctx.fill();
-				ctx.lineWidth = 2;
+				ctx.lineWidth = 2 * s;
 				ctx.strokeStyle = '#111';
 				ctx.stroke();
 			}

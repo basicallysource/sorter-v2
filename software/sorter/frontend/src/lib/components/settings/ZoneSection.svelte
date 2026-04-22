@@ -352,8 +352,18 @@
 	let persistedSnapshot: Snapshot = createSnapshot();
 	let channelSetKey = $state('');
 
-	const CANVAS_W = 1920;
-	const CANVAS_H = 1080;
+	// Canvas dimensions track the camera resolution of the currently-selected
+	// channel. They start at the historical default (1920x1080) and are updated
+	// when the editor mounts or the user changes the active channel/capture
+	// mode. See onMount for the per-role fetch and ``applyCanvasResolution``
+	// for the rescale path when the active camera's live resolution changes.
+	const DEFAULT_CANVAS_W = 1920;
+	const DEFAULT_CANVAS_H = 1080;
+	let cameraResolutions = $state<Partial<Record<CameraRole, { width: number; height: number }>>>(
+		{}
+	);
+	let CANVAS_W = $state(DEFAULT_CANVAS_W);
+	let CANVAS_H = $state(DEFAULT_CANVAS_H);
 
 	$effect(() => {
 		const nextKey = channels.join('|');
@@ -1258,6 +1268,151 @@
 		} finally {
 			cameraConfigLoaded = true;
 		}
+	}
+
+	function pickRoleResolution(
+		payload: unknown
+	): { width: number; height: number } | null {
+		if (!payload || typeof payload !== 'object') return null;
+		const sources = [
+			(payload as Record<string, unknown>).live,
+			(payload as Record<string, unknown>).current
+		];
+		for (const source of sources) {
+			if (!source || typeof source !== 'object') continue;
+			const width = Number((source as Record<string, unknown>).width);
+			const height = Number((source as Record<string, unknown>).height);
+			if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+				return { width: Math.round(width), height: Math.round(height) };
+			}
+		}
+		return null;
+	}
+
+	async function loadCameraResolutions(): Promise<void> {
+		const results = await Promise.all(
+			ALL_CAMERA_ROLES.map(async (role) => {
+				try {
+					const res = await fetch(
+						`${backendHttpBaseUrl}/api/cameras/capture-modes/${role}`,
+						{ cache: 'no-store' }
+					);
+					if (!res.ok) return [role, null] as const;
+					const payload = await res.json();
+					return [role, pickRoleResolution(payload)] as const;
+				} catch {
+					return [role, null] as const;
+				}
+			})
+		);
+		const next: Partial<Record<CameraRole, { width: number; height: number }>> = {};
+		for (const [role, dims] of results) {
+			if (dims) next[role] = dims;
+		}
+		cameraResolutions = next;
+	}
+
+	function rescalePoints(
+		points: number[][],
+		srcW: number,
+		srcH: number,
+		dstW: number,
+		dstH: number
+	): number[][] {
+		if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return points;
+		if (srcW === dstW && srcH === dstH) return points;
+		const sx = dstW / srcW;
+		const sy = dstH / srcH;
+		return points.map((pt) => [pt[0] * sx, pt[1] * sy]);
+	}
+
+	function rescalePoint(
+		point: Point,
+		srcW: number,
+		srcH: number,
+		dstW: number,
+		dstH: number
+	): Point {
+		if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return point;
+		if (srcW === dstW && srcH === dstH) return point;
+		return [point[0] * (dstW / srcW), point[1] * (dstH / srcH)];
+	}
+
+	function rescaleArcParams(
+		params: ArcParams,
+		srcW: number,
+		srcH: number,
+		dstW: number,
+		dstH: number
+	): ArcParams {
+		if (srcW === dstW && srcH === dstH) return params;
+		const sx = dstW / srcW;
+		const sy = dstH / srcH;
+		// Use the smaller factor for radii so the arc stays inside the frame
+		// even when the aspect ratio changes.
+		const rs = Math.min(sx, sy);
+		return {
+			center: [params.center[0] * sx, params.center[1] * sy],
+			innerRadius: params.innerRadius * rs,
+			outerRadius: params.outerRadius * rs,
+			dropZone: { ...params.dropZone },
+			waitZone: params.waitZone ? { ...params.waitZone } : null,
+			exitZone: { ...params.exitZone }
+		};
+	}
+
+	function rescaleQuadParams(
+		params: QuadParams,
+		srcW: number,
+		srcH: number,
+		dstW: number,
+		dstH: number
+	): QuadParams {
+		if (srcW === dstW && srcH === dstH) return params;
+		const sx = dstW / srcW;
+		const sy = dstH / srcH;
+		return {
+			corners: params.corners.map((c) => [c[0] * sx, c[1] * sy] as Point) as [
+				Point,
+				Point,
+				Point,
+				Point
+			]
+		};
+	}
+
+	function rescaleAllState(srcW: number, srcH: number, dstW: number, dstH: number) {
+		if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return;
+		if (srcW === dstW && srcH === dstH) return;
+		for (const ch of ALL_CHANNELS) {
+			const pts = userPoints[ch];
+			if (Array.isArray(pts) && pts.length > 0) {
+				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
+			}
+		}
+		for (const ch of ARC_CHANNELS) {
+			const params = arcParams[ch];
+			if (params) arcParams[ch] = rescaleArcParams(params, srcW, srcH, dstW, dstH);
+			const ref = sectionZeroPoints[ch];
+			if (ref) sectionZeroPoints[ch] = rescalePoint(ref, srcW, srcH, dstW, dstH);
+		}
+		for (const ch of RECT_CHANNELS) {
+			const params = quadParams[ch];
+			if (params) quadParams[ch] = rescaleQuadParams(params, srcW, srcH, dstW, dstH);
+		}
+	}
+
+	function applyCanvasResolution(role: CameraRole, { rescale } = { rescale: true }) {
+		const next = cameraResolutions[role];
+		if (!next) return;
+		const prevW = CANVAS_W;
+		const prevH = CANVAS_H;
+		if (next.width === prevW && next.height === prevH) return;
+		if (rescale) {
+			rescaleAllState(prevW, prevH, next.width, next.height);
+		}
+		CANVAS_W = next.width;
+		CANVAS_H = next.height;
 	}
 
 	function cancelCameraScan() {
@@ -2190,8 +2345,59 @@
 		void currentChannel;
 		void channels;
 		void editingZone;
+		void CANVAS_W;
+		void CANVAS_H;
 		drawCanvas();
 	});
+
+	function parseSavedResolution(
+		raw: unknown
+	): { width: number; height: number } | null {
+		if (!Array.isArray(raw) || raw.length < 2) return null;
+		const width = Number(raw[0]);
+		const height = Number(raw[1]);
+		if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+		if (width <= 0 || height <= 0) return null;
+		return { width, height };
+	}
+
+	function rescaleTransportState(srcW: number, srcH: number, dstW: number, dstH: number) {
+		if (srcW === dstW && srcH === dstH) return;
+		for (const ch of TRANSPORT_CHANNELS) {
+			const pts = userPoints[ch];
+			if (Array.isArray(pts) && pts.length > 0) {
+				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
+			}
+		}
+		for (const ch of ARC_CHANNELS) {
+			const params = arcParams[ch];
+			if (params) arcParams[ch] = rescaleArcParams(params, srcW, srcH, dstW, dstH);
+			const ref = sectionZeroPoints[ch];
+			if (ref) sectionZeroPoints[ch] = rescalePoint(ref, srcW, srcH, dstW, dstH);
+		}
+		const carouselQuad = quadParams.carousel;
+		if (carouselQuad) {
+			quadParams.carousel = rescaleQuadParams(carouselQuad, srcW, srcH, dstW, dstH);
+		}
+	}
+
+	function rescaleClassificationState(
+		srcW: number,
+		srcH: number,
+		dstW: number,
+		dstH: number
+	) {
+		if (srcW === dstW && srcH === dstH) return;
+		const classRectChannels: RectChannel[] = ['class_top', 'class_bottom'];
+		for (const ch of classRectChannels) {
+			const pts = userPoints[ch];
+			if (Array.isArray(pts) && pts.length > 0) {
+				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
+			}
+			const params = quadParams[ch];
+			if (params) quadParams[ch] = rescaleQuadParams(params, srcW, srcH, dstW, dstH);
+		}
+	}
 
 	async function loadPolygons() {
 		try {
@@ -2205,6 +2411,7 @@
 			const channelArcParams = channelData.arc_params ?? {};
 			const savedChannelAngles = channelData.channel_angles ?? {};
 			const sectionZero = channelData.section_zero_pts ?? {};
+			const channelSavedResolution = parseSavedResolution(channelData.resolution);
 
 			for (const channel of ARC_CHANNELS) {
 				const savedUserPts = channelUserPts[channel];
@@ -2250,6 +2457,9 @@
 			const classUserPts = classificationData.user_pts ?? {};
 			const classPolygons = classificationData.polygons ?? {};
 			const classQuadParams = classificationData.quad_params ?? {};
+			const classificationSavedResolution = parseSavedResolution(
+				classificationData.resolution
+			);
 
 			function loadQuad(saved: any, fallbackPts: any): QuadParams | null {
 				if (saved && Array.isArray(saved.corners) && saved.corners.length === 4) {
@@ -2274,6 +2484,48 @@
 			// Classification bottom
 			const bottomQuad = loadQuad(classQuadParams.class_bottom, classUserPts.class_bottom ?? classPolygons.bottom);
 			if (bottomQuad) quadParams.class_bottom = bottomQuad;
+
+			// Rescale from each group's saved resolution to the current canvas
+			// resolution. Missing/malformed ``resolution`` falls back to the
+			// historical default so legacy data still loads in-place.
+			const transportSrc = channelSavedResolution ?? {
+				width: DEFAULT_CANVAS_W,
+				height: DEFAULT_CANVAS_H
+			};
+			if (transportSrc.width !== CANVAS_W || transportSrc.height !== CANVAS_H) {
+				const transportSrcAspect = transportSrc.width / transportSrc.height;
+				const canvasAspect = CANVAS_W / CANVAS_H;
+				if (Math.abs(transportSrcAspect - canvasAspect) > 0.02) {
+					console.warn(
+						`[ZoneSection] transport polygons saved at ${transportSrc.width}x${transportSrc.height} but live camera resolution is ${CANVAS_W}x${CANVAS_H}; aspect ratios differ — polygons will stay at the normalized position but shapes may need to be redrawn.`
+					);
+				}
+				rescaleTransportState(
+					transportSrc.width,
+					transportSrc.height,
+					CANVAS_W,
+					CANVAS_H
+				);
+			}
+			const classSrc = classificationSavedResolution ?? {
+				width: DEFAULT_CANVAS_W,
+				height: DEFAULT_CANVAS_H
+			};
+			if (classSrc.width !== CANVAS_W || classSrc.height !== CANVAS_H) {
+				const classSrcAspect = classSrc.width / classSrc.height;
+				const canvasAspect = CANVAS_W / CANVAS_H;
+				if (Math.abs(classSrcAspect - canvasAspect) > 0.02) {
+					console.warn(
+						`[ZoneSection] classification polygons saved at ${classSrc.width}x${classSrc.height} but live camera resolution is ${CANVAS_W}x${CANVAS_H}; aspect ratios differ — polygons will stay at the normalized position but shapes may need to be redrawn.`
+					);
+				}
+				rescaleClassificationState(
+					classSrc.width,
+					classSrc.height,
+					CANVAS_W,
+					CANVAS_H
+				);
+			}
 		} catch {
 			// ignore
 		}
@@ -2496,9 +2748,30 @@
 
 	onMount(() => {
 		void loadCameraConfig();
-		void loadPolygons().finally(() => {
-			persistedSnapshot = snapshotCurrentState();
-		});
+		// Fetch per-role camera resolutions first so the canvas is sized to the
+		// live camera before polygons are scaled. If the fetch fails the canvas
+		// stays at the historical default (1920x1080) and loaded polygons
+		// remain un-scaled.
+		void loadCameraResolutions()
+			.then(() => {
+				applyCanvasResolution(currentRole(), { rescale: false });
+			})
+			.finally(() => {
+				void loadPolygons().finally(() => {
+					persistedSnapshot = snapshotCurrentState();
+				});
+			});
+	});
+
+	// When the user switches channels to one whose camera has a different
+	// resolution (or when per-role resolutions arrive after mount), adapt the
+	// canvas and rescale all in-memory points so the polygons stay in the
+	// same visual location.
+	$effect(() => {
+		void currentChannel;
+		void cameraResolutions;
+		const role = currentRole();
+		applyCanvasResolution(role, { rescale: true });
 	});
 </script>
 

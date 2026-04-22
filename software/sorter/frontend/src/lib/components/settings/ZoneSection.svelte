@@ -98,6 +98,7 @@
 		wait_zone?: AngularZonePayload;
 		exit_zone?: AngularZonePayload;
 		ring_handle_angle_deg?: number | null;
+		resolution?: number[];
 	};
 	type AngularZonePayload = {
 		start_angle: number;
@@ -354,6 +355,12 @@
 	$effect(() => {
 		if (!reassignModalOpen) reassignConfirm = null;
 	});
+
+	// Pending channel switch held while the user resolves unsaved zone edits.
+	// When set, a modal asks to Save / Discard / Cancel before performing
+	// ``selectChannel(pending.channel)``.
+	let pendingChannelSwitch = $state<{ channel: Channel } | null>(null);
+	let pendingSwitchSaving = $state(false);
 	let tileStreamStatus = $state<Record<number, 'pending' | 'streaming' | 'failed'>>({});
 	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar || hasStepper));
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
@@ -364,17 +371,22 @@
 	let channelSetKey = $state('');
 
 	// Canvas dimensions track the camera resolution of the currently-selected
-	// channel. They start at the historical default (1920x1080) and are updated
-	// when the editor mounts or the user changes the active channel/capture
-	// mode. See onMount for the per-role fetch and ``applyCanvasResolution``
-	// for the rescale path when the active camera's live resolution changes.
+	// channel. They are derived from ``cameraResolutions[currentRole()]`` so
+	// switching channels only changes the canvas size — polygon coordinates
+	// stay exactly as they were loaded (each channel lives in its own
+	// camera's coordinate space). The 1920×1080 fallback keeps the canvas
+	// sized while per-role resolutions are still loading.
 	const DEFAULT_CANVAS_W = 1920;
 	const DEFAULT_CANVAS_H = 1080;
 	let cameraResolutions = $state<Partial<Record<CameraRole, { width: number; height: number }>>>(
 		{}
 	);
-	let CANVAS_W = $state(DEFAULT_CANVAS_W);
-	let CANVAS_H = $state(DEFAULT_CANVAS_H);
+	const CANVAS_W = $derived(
+		cameraResolutions[CAMERA_FOR_CHANNEL[currentChannel]]?.width ?? DEFAULT_CANVAS_W
+	);
+	const CANVAS_H = $derived(
+		cameraResolutions[CAMERA_FOR_CHANNEL[currentChannel]]?.height ?? DEFAULT_CANVAS_H
+	);
 
 	// Overlay drawing scale, mirrored from backend overlays/scaling.py. All
 	// handle/line/font sizes in the editor are authored at the 1280-wide
@@ -673,6 +685,66 @@
 		};
 	}
 
+	// Structural equality for a Snapshot. Used by the mid-edit tab-switch
+	// guard so we can silently leave the editor when nothing has changed.
+	// Coordinates are kept at whatever precision was set by the user; a
+	// micro-drift (sub-pixel float noise) after re-entering edit mode should
+	// be treated as "unchanged", so we round to the nearest pixel before
+	// comparing.
+	function snapshotsEqual(a: Snapshot, b: Snapshot): boolean {
+		const ROUND = (v: number) => Math.round(v);
+		function samePoints(lhs: number[][], rhs: number[][]): boolean {
+			if (lhs.length !== rhs.length) return false;
+			for (let i = 0; i < lhs.length; i++) {
+				if (ROUND(lhs[i][0]) !== ROUND(rhs[i][0])) return false;
+				if (ROUND(lhs[i][1]) !== ROUND(rhs[i][1])) return false;
+			}
+			return true;
+		}
+		function samePoint(lhs: Point | null, rhs: Point | null): boolean {
+			if (lhs === null && rhs === null) return true;
+			if (lhs === null || rhs === null) return false;
+			return ROUND(lhs[0]) === ROUND(rhs[0]) && ROUND(lhs[1]) === ROUND(rhs[1]);
+		}
+		function sameZone(lhs: AngularZone | null, rhs: AngularZone | null): boolean {
+			if (lhs === null && rhs === null) return true;
+			if (lhs === null || rhs === null) return false;
+			return lhs.startAngle === rhs.startAngle && lhs.endAngle === rhs.endAngle;
+		}
+		function sameArc(lhs: ArcParams | null, rhs: ArcParams | null): boolean {
+			if (lhs === null && rhs === null) return true;
+			if (lhs === null || rhs === null) return false;
+			return (
+				samePoint(lhs.center, rhs.center) &&
+				ROUND(lhs.innerRadius) === ROUND(rhs.innerRadius) &&
+				ROUND(lhs.outerRadius) === ROUND(rhs.outerRadius) &&
+				sameZone(lhs.dropZone, rhs.dropZone) &&
+				sameZone(lhs.waitZone, rhs.waitZone) &&
+				sameZone(lhs.exitZone, rhs.exitZone) &&
+				(lhs.ringHandleAngleDeg ?? null) === (rhs.ringHandleAngleDeg ?? null)
+			);
+		}
+		function sameQuad(lhs: QuadParams | null, rhs: QuadParams | null): boolean {
+			if (lhs === null && rhs === null) return true;
+			if (lhs === null || rhs === null) return false;
+			for (let i = 0; i < 4; i++) {
+				if (!samePoint(lhs.corners[i], rhs.corners[i])) return false;
+			}
+			return true;
+		}
+		for (const ch of ALL_CHANNELS) {
+			if (!samePoints(a.userPoints[ch], b.userPoints[ch])) return false;
+		}
+		for (const ch of ARC_CHANNELS) {
+			if (!sameArc(a.arcParams[ch], b.arcParams[ch])) return false;
+			if (!samePoint(a.sectionZeroPoints[ch], b.sectionZeroPoints[ch])) return false;
+		}
+		for (const ch of RECT_CHANNELS) {
+			if (!sameQuad(a.quadParams[ch], b.quadParams[ch])) return false;
+		}
+		return true;
+	}
+
 	function currentRole(channel: Channel = currentChannel): CameraRole {
 		return CAMERA_FOR_CHANNEL[channel];
 	}
@@ -887,6 +959,27 @@
 	}
 
 	function selectChannel(channel: Channel) {
+		if (channel === currentChannel) return;
+		// Mid-edit tab switches are a common way to accidentally wipe the
+		// unsaved edit. Hold the tab switch and ask the operator what to do.
+		if (editingZone && !snapshotsEqual(snapshotCurrentState(), persistedSnapshot)) {
+			pendingChannelSwitch = { channel };
+			feedRevision += 1;
+			return;
+		}
+		// No pending edits (or not in edit mode): silently exit editing and
+		// switch. Exiting edit mode here also flips the stream back to the
+		// annotated view via ``streamUrl``.
+		if (editingZone) {
+			editingZone = false;
+			activeSidebar = null;
+			restoreSnapshot(persistedSnapshot);
+			feedRevision += 1;
+		}
+		performChannelSwitch(channel);
+	}
+
+	function performChannelSwitch(channel: Channel) {
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
 		}
@@ -898,6 +991,41 @@
 		didDrag = false;
 		canvasCursor = editingZone ? 'crosshair' : 'default';
 		statusMsg = '';
+	}
+
+	async function pendingSwitchSave() {
+		const pending = pendingChannelSwitch;
+		if (!pending) return;
+		pendingSwitchSaving = true;
+		try {
+			const ok = await saveAll();
+			if (!ok) return;
+			pendingChannelSwitch = null;
+			// saveAll clears editingZone; restart the feed and move.
+			feedRevision += 1;
+			performChannelSwitch(pending.channel);
+		} finally {
+			pendingSwitchSaving = false;
+		}
+	}
+
+	function pendingSwitchDiscard() {
+		const pending = pendingChannelSwitch;
+		if (!pending) return;
+		restoreSnapshot(persistedSnapshot);
+		editingZone = false;
+		activeSidebar = null;
+		dragState = null;
+		didDrag = false;
+		canvasCursor = 'default';
+		statusMsg = '';
+		pendingChannelSwitch = null;
+		feedRevision += 1;
+		performChannelSwitch(pending.channel);
+	}
+
+	function pendingSwitchCancel() {
+		pendingChannelSwitch = null;
 	}
 
 	function formatSource(source: CameraSource): string {
@@ -978,7 +1106,7 @@
 		});
 	}
 
-	function serializeArcParams(params: ArcParams): ArcParamsPayload {
+	function serializeArcParams(params: ArcParams, resolution: [number, number]): ArcParamsPayload {
 		return {
 			center: [Math.round(params.center[0]), Math.round(params.center[1])],
 			inner_radius: Math.round(params.innerRadius),
@@ -998,7 +1126,8 @@
 				end_angle: params.exitZone.endAngle
 			},
 			ring_handle_angle_deg:
-				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null
+				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null,
+			resolution
 		};
 	}
 
@@ -1475,40 +1604,6 @@
 				Point
 			]
 		};
-	}
-
-	function rescaleAllState(srcW: number, srcH: number, dstW: number, dstH: number) {
-		if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return;
-		if (srcW === dstW && srcH === dstH) return;
-		for (const ch of ALL_CHANNELS) {
-			const pts = userPoints[ch];
-			if (Array.isArray(pts) && pts.length > 0) {
-				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
-			}
-		}
-		for (const ch of ARC_CHANNELS) {
-			const params = arcParams[ch];
-			if (params) arcParams[ch] = rescaleArcParams(params, srcW, srcH, dstW, dstH);
-			const ref = sectionZeroPoints[ch];
-			if (ref) sectionZeroPoints[ch] = rescalePoint(ref, srcW, srcH, dstW, dstH);
-		}
-		for (const ch of RECT_CHANNELS) {
-			const params = quadParams[ch];
-			if (params) quadParams[ch] = rescaleQuadParams(params, srcW, srcH, dstW, dstH);
-		}
-	}
-
-	function applyCanvasResolution(role: CameraRole, { rescale } = { rescale: true }) {
-		const next = cameraResolutions[role];
-		if (!next) return;
-		const prevW = CANVAS_W;
-		const prevH = CANVAS_H;
-		if (next.width === prevW && next.height === prevH) return;
-		if (rescale) {
-			rescaleAllState(prevW, prevH, next.width, next.height);
-		}
-		CANVAS_W = next.width;
-		CANVAS_H = next.height;
 	}
 
 	function cancelCameraScan() {
@@ -2507,42 +2602,9 @@
 		return { width, height };
 	}
 
-	function rescaleTransportState(srcW: number, srcH: number, dstW: number, dstH: number) {
-		if (srcW === dstW && srcH === dstH) return;
-		for (const ch of TRANSPORT_CHANNELS) {
-			const pts = userPoints[ch];
-			if (Array.isArray(pts) && pts.length > 0) {
-				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
-			}
-		}
-		for (const ch of ARC_CHANNELS) {
-			const params = arcParams[ch];
-			if (params) arcParams[ch] = rescaleArcParams(params, srcW, srcH, dstW, dstH);
-			const ref = sectionZeroPoints[ch];
-			if (ref) sectionZeroPoints[ch] = rescalePoint(ref, srcW, srcH, dstW, dstH);
-		}
-		const carouselQuad = quadParams.carousel;
-		if (carouselQuad) {
-			quadParams.carousel = rescaleQuadParams(carouselQuad, srcW, srcH, dstW, dstH);
-		}
-	}
-
-	function rescaleClassificationState(
-		srcW: number,
-		srcH: number,
-		dstW: number,
-		dstH: number
-	) {
-		if (srcW === dstW && srcH === dstH) return;
-		const classRectChannels: RectChannel[] = ['class_top', 'class_bottom'];
-		for (const ch of classRectChannels) {
-			const pts = userPoints[ch];
-			if (Array.isArray(pts) && pts.length > 0) {
-				userPoints[ch] = rescalePoints(pts, srcW, srcH, dstW, dstH);
-			}
-			const params = quadParams[ch];
-			if (params) quadParams[ch] = rescaleQuadParams(params, srcW, srcH, dstW, dstH);
-		}
+	function channelCanvasSize(channel: Channel): { width: number; height: number } {
+		const role = CAMERA_FOR_CHANNEL[channel];
+		return cameraResolutions[role] ?? { width: DEFAULT_CANVAS_W, height: DEFAULT_CANVAS_H };
 	}
 
 	async function loadPolygons() {
@@ -2559,7 +2621,21 @@
 			const sectionZero = channelData.section_zero_pts ?? {};
 			const channelSavedResolution = parseSavedResolution(channelData.resolution);
 
+			// Per-channel rescale from whatever resolution the channel was last
+			// saved at to its live camera resolution. Each channel lives in its
+			// own camera's coordinate space; switching tabs does NOT rescale.
+			function resolveChannelSource(
+				perChannelRes: unknown,
+				fallback: { width: number; height: number } | null
+			): { width: number; height: number } {
+				return (
+					parseSavedResolution(perChannelRes) ??
+					fallback ?? { width: DEFAULT_CANVAS_W, height: DEFAULT_CANVAS_H }
+				);
+			}
+
 			for (const channel of ARC_CHANNELS) {
+				const rawArc = channelArcParams[channel] as { resolution?: unknown } | undefined;
 				const savedUserPts = channelUserPts[channel];
 				if (Array.isArray(savedUserPts)) {
 					userPoints[channel] = savedUserPts;
@@ -2595,6 +2671,40 @@
 						savedAngle
 					);
 				}
+
+				const src = resolveChannelSource(rawArc?.resolution, channelSavedResolution);
+				const dst = channelCanvasSize(channel);
+				if (src.width !== dst.width || src.height !== dst.height) {
+					if (Array.isArray(userPoints[channel]) && userPoints[channel].length > 0) {
+						userPoints[channel] = rescalePoints(
+							userPoints[channel],
+							src.width,
+							src.height,
+							dst.width,
+							dst.height
+						);
+					}
+					const params = arcParams[channel];
+					if (params) {
+						arcParams[channel] = rescaleArcParams(
+							params,
+							src.width,
+							src.height,
+							dst.width,
+							dst.height
+						);
+					}
+					const ref = sectionZeroPoints[channel];
+					if (ref) {
+						sectionZeroPoints[channel] = rescalePoint(
+							ref,
+							src.width,
+							src.height,
+							dst.width,
+							dst.height
+						);
+					}
+				}
 			}
 
 			// Load rect params for carousel, classification channels
@@ -2619,67 +2729,75 @@
 				return null;
 			}
 
+			function rescaleRectChannel(
+				channel: RectChannel,
+				rawQuad: { resolution?: unknown } | undefined,
+				groupFallback: { width: number; height: number } | null
+			) {
+				const src = resolveChannelSource(rawQuad?.resolution, groupFallback);
+				const dst = channelCanvasSize(channel);
+				if (src.width === dst.width && src.height === dst.height) return;
+				const pts = userPoints[channel];
+				if (Array.isArray(pts) && pts.length > 0) {
+					userPoints[channel] = rescalePoints(
+						pts,
+						src.width,
+						src.height,
+						dst.width,
+						dst.height
+					);
+				}
+				const params = quadParams[channel];
+				if (params) {
+					quadParams[channel] = rescaleQuadParams(
+						params,
+						src.width,
+						src.height,
+						dst.width,
+						dst.height
+					);
+				}
+			}
+
 			// Carousel
-			const carouselQuad = loadQuad(channelQuadParams.carousel, channelUserPts.carousel ?? channelPolygons.carousel);
+			const carouselQuad = loadQuad(
+				channelQuadParams.carousel,
+				channelUserPts.carousel ?? channelPolygons.carousel
+			);
 			if (carouselQuad) quadParams.carousel = carouselQuad;
+			rescaleRectChannel('carousel', channelQuadParams.carousel, channelSavedResolution);
 
 			// Classification top
-			const topQuad = loadQuad(classQuadParams.class_top, classUserPts.class_top ?? classPolygons.top);
+			const topQuad = loadQuad(
+				classQuadParams.class_top,
+				classUserPts.class_top ?? classPolygons.top
+			);
 			if (topQuad) quadParams.class_top = topQuad;
+			rescaleRectChannel('class_top', classQuadParams.class_top, classificationSavedResolution);
 
 			// Classification bottom
-			const bottomQuad = loadQuad(classQuadParams.class_bottom, classUserPts.class_bottom ?? classPolygons.bottom);
+			const bottomQuad = loadQuad(
+				classQuadParams.class_bottom,
+				classUserPts.class_bottom ?? classPolygons.bottom
+			);
 			if (bottomQuad) quadParams.class_bottom = bottomQuad;
-
-			// Rescale from each group's saved resolution to the current canvas
-			// resolution. Missing/malformed ``resolution`` falls back to the
-			// historical default so legacy data still loads in-place.
-			const transportSrc = channelSavedResolution ?? {
-				width: DEFAULT_CANVAS_W,
-				height: DEFAULT_CANVAS_H
-			};
-			if (transportSrc.width !== CANVAS_W || transportSrc.height !== CANVAS_H) {
-				const transportSrcAspect = transportSrc.width / transportSrc.height;
-				const canvasAspect = CANVAS_W / CANVAS_H;
-				if (Math.abs(transportSrcAspect - canvasAspect) > 0.02) {
-					console.warn(
-						`[ZoneSection] transport polygons saved at ${transportSrc.width}x${transportSrc.height} but live camera resolution is ${CANVAS_W}x${CANVAS_H}; aspect ratios differ — polygons will stay at the normalized position but shapes may need to be redrawn.`
-					);
-				}
-				rescaleTransportState(
-					transportSrc.width,
-					transportSrc.height,
-					CANVAS_W,
-					CANVAS_H
-				);
-			}
-			const classSrc = classificationSavedResolution ?? {
-				width: DEFAULT_CANVAS_W,
-				height: DEFAULT_CANVAS_H
-			};
-			if (classSrc.width !== CANVAS_W || classSrc.height !== CANVAS_H) {
-				const classSrcAspect = classSrc.width / classSrc.height;
-				const canvasAspect = CANVAS_W / CANVAS_H;
-				if (Math.abs(classSrcAspect - canvasAspect) > 0.02) {
-					console.warn(
-						`[ZoneSection] classification polygons saved at ${classSrc.width}x${classSrc.height} but live camera resolution is ${CANVAS_W}x${CANVAS_H}; aspect ratios differ — polygons will stay at the normalized position but shapes may need to be redrawn.`
-					);
-				}
-				rescaleClassificationState(
-					classSrc.width,
-					classSrc.height,
-					CANVAS_W,
-					CANVAS_H
-				);
-			}
+			rescaleRectChannel(
+				'class_bottom',
+				classQuadParams.class_bottom,
+				classificationSavedResolution
+			);
 		} catch {
 			// ignore
 		}
 	}
 
-	function serializeQuadParams(q: QuadParams): Record<string, any> {
+	function serializeQuadParams(
+		q: QuadParams,
+		resolution: [number, number]
+	): Record<string, any> {
 		return {
-			corners: q.corners.map((c) => [Math.round(c[0]), Math.round(c[1])])
+			corners: q.corners.map((c) => [Math.round(c[0]), Math.round(c[1])]),
+			resolution
 		};
 	}
 
@@ -2703,9 +2821,15 @@
 			const existingChannel = existingPayload.channel ?? {};
 			const existingClassification = existingPayload.classification ?? {};
 
+			// Start from the persisted payload so every other channel's data
+			// passes through unchanged. Only the currently-selected channel is
+			// overwritten from in-memory state — tab-switching and editing one
+			// channel can never corrupt another channel's coordinates.
 			const polygons: Record<string, number[][]> = { ...(existingChannel.polygons ?? {}) };
 			const user_pts: Record<string, number[][]> = { ...(existingChannel.user_pts ?? {}) };
-			const arc_params: Record<string, ArcParamsPayload> = { ...(existingChannel.arc_params ?? {}) };
+			const arc_params: Record<string, ArcParamsPayload> = {
+				...(existingChannel.arc_params ?? {})
+			};
 			const quad_params_channel: Record<string, Record<string, any>> = {
 				...(existingChannel.quad_params ?? {})
 			};
@@ -2713,49 +2837,6 @@
 			const section_zero_pts: Record<string, number[]> = {
 				...(existingChannel.section_zero_pts ?? {})
 			};
-
-			const visibleTransportChannels = channels.filter(
-				(channel): channel is (typeof TRANSPORT_CHANNELS)[number] =>
-					TRANSPORT_CHANNELS.includes(channel as (typeof TRANSPORT_CHANNELS)[number])
-			);
-
-			for (const channel of visibleTransportChannels) {
-				const key = channelStorageKey(channel);
-				if (isArcChannel(channel) && arcParams[channel]) {
-					polygons[key] = buildCirclePoints(arcParams[channel]!.center, arcParams[channel]!.outerRadius).map(
-						(pt) => [Math.round(pt[0]), Math.round(pt[1])]
-					);
-					user_pts[channel] = buildRingStoragePoints(arcParams[channel]!).map((pt) => [
-						Math.round(pt[0]),
-						Math.round(pt[1])
-					]);
-					arc_params[channel] = serializeArcParams(arcParams[channel]);
-					delete quad_params_channel[channel];
-				} else if (isRectChannel(channel) && quadParams[channel]) {
-					const q = quadParams[channel]!;
-					const cornerPts = quadAsPolygon(q);
-					polygons[key] = cornerPts;
-					user_pts[channel] = cornerPts;
-					quad_params_channel[channel] = serializeQuadParams(q);
-					delete arc_params[channel];
-				} else {
-					const points = getShapePoints(channel).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
-					polygons[key] = points;
-					user_pts[channel] = points;
-					delete arc_params[channel];
-					delete quad_params_channel[channel];
-				}
-				if (isArcChannel(channel)) {
-					const angle = computeAngle(channel);
-					channel_angles[channel] = angle ?? 0;
-					if (sectionZeroPoints[channel]) {
-						section_zero_pts[channel] = sectionZeroPoints[channel]!.map(Math.round);
-					} else {
-						delete section_zero_pts[channel];
-					}
-				}
-			}
-
 			const class_polygons: Record<string, number[][]> = {
 				...(existingClassification.polygons ?? {})
 			};
@@ -2765,28 +2846,67 @@
 			const quad_params_class: Record<string, Record<string, any>> = {
 				...(existingClassification.quad_params ?? {})
 			};
-			const visibleClassificationChannels = channels.filter(
-				(channel): channel is (typeof CLASSIFICATION_CHANNELS)[number] => isClassificationChannel(channel)
-			);
-			for (const channel of visibleClassificationChannels) {
-				const key = channel === 'class_top' ? 'top' : 'bottom';
-				if (isRectChannel(channel) && quadParams[channel]) {
-					const q = quadParams[channel]!;
+
+			const current = currentChannel;
+			const channelRes: [number, number] = [CANVAS_W, CANVAS_H];
+			if (TRANSPORT_CHANNELS.includes(current)) {
+				const key = channelStorageKey(current);
+				if (isArcChannel(current) && arcParams[current]) {
+					polygons[key] = buildCirclePoints(
+						arcParams[current]!.center,
+						arcParams[current]!.outerRadius
+					).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+					user_pts[current] = buildRingStoragePoints(arcParams[current]!).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
+					arc_params[current] = serializeArcParams(arcParams[current]!, channelRes);
+					delete quad_params_channel[current];
+				} else if (isRectChannel(current) && quadParams[current]) {
+					const q = quadParams[current]!;
+					const cornerPts = quadAsPolygon(q);
+					polygons[key] = cornerPts;
+					user_pts[current] = cornerPts;
+					quad_params_channel[current] = serializeQuadParams(q, channelRes);
+					delete arc_params[current];
+				} else {
+					const points = getShapePoints(current).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
+					polygons[key] = points;
+					user_pts[current] = points;
+					delete arc_params[current];
+					delete quad_params_channel[current];
+				}
+				if (isArcChannel(current)) {
+					const angle = computeAngle(current);
+					channel_angles[current] = angle ?? 0;
+					if (sectionZeroPoints[current]) {
+						section_zero_pts[current] = sectionZeroPoints[current]!.map(Math.round);
+					} else {
+						delete section_zero_pts[current];
+					}
+				}
+			} else if (isClassificationChannel(current)) {
+				const key = current === 'class_top' ? 'top' : 'bottom';
+				if (isRectChannel(current) && quadParams[current]) {
+					const q = quadParams[current]!;
 					const cornerPts = quadAsPolygon(q);
 					class_polygons[key] = cornerPts;
-					class_user_pts[channel] = cornerPts;
-					quad_params_class[channel] = serializeQuadParams(q);
+					class_user_pts[current] = cornerPts;
+					quad_params_class[current] = serializeQuadParams(q, channelRes);
 				} else {
-					const points = sortPolygon(userPoints[channel]).map((pt) => [
+					const points = sortPolygon(userPoints[current]).map((pt) => [
 						Math.round(pt[0]),
 						Math.round(pt[1])
 					]);
 					class_polygons[key] = points;
-					class_user_pts[channel] = userPoints[channel].map((pt) => [
+					class_user_pts[current] = userPoints[current].map((pt) => [
 						Math.round(pt[0]),
 						Math.round(pt[1])
 					]);
-					delete quad_params_class[channel];
+					delete quad_params_class[current];
 				}
 			}
 
@@ -2819,6 +2939,9 @@
 			didDrag = false;
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
+			// Force the <img> action to re-evaluate streamUrl() so the live
+			// feed switches back to the annotated view once we exit edit mode.
+			feedRevision += 1;
 			dispatch('saved');
 			return true;
 		} catch (e: any) {
@@ -2848,6 +2971,9 @@
 		didDrag = false;
 		canvasCursor = 'crosshair';
 		statusMsg = 'Zone editing enabled.';
+		// Force the <img> action to re-evaluate streamUrl() so the live feed
+		// switches to the raw (un-annotated, direct) camera path.
+		feedRevision += 1;
 	}
 
 	function cancelEditing() {
@@ -2858,6 +2984,9 @@
 		didDrag = false;
 		canvasCursor = 'default';
 		statusMsg = 'Zone changes discarded.';
+		// Force the <img> action to re-evaluate streamUrl() so the live feed
+		// switches back to the annotated/processed path.
+		feedRevision += 1;
 	}
 
 	function resetCurrentChannel() {
@@ -2895,29 +3024,14 @@
 	onMount(() => {
 		void loadCameraConfig();
 		// Fetch per-role camera resolutions first so the canvas is sized to the
-		// live camera before polygons are scaled. If the fetch fails the canvas
-		// stays at the historical default (1920x1080) and loaded polygons
-		// remain un-scaled.
-		void loadCameraResolutions()
-			.then(() => {
-				applyCanvasResolution(currentRole(), { rescale: false });
-			})
-			.finally(() => {
-				void loadPolygons().finally(() => {
-					persistedSnapshot = snapshotCurrentState();
-				});
+		// live camera before polygons are scaled. CANVAS_W/CANVAS_H is derived
+		// from cameraResolutions, so once this completes the canvas adopts the
+		// active channel's resolution automatically.
+		void loadCameraResolutions().finally(() => {
+			void loadPolygons().finally(() => {
+				persistedSnapshot = snapshotCurrentState();
 			});
-	});
-
-	// When the user switches channels to one whose camera has a different
-	// resolution (or when per-role resolutions arrive after mount), adapt the
-	// canvas and rescale all in-memory points so the polygons stay in the
-	// same visual location.
-	$effect(() => {
-		void currentChannel;
-		void cameraResolutions;
-		const role = currentRole();
-		applyCanvasResolution(role, { rescale: true });
+		});
 	});
 </script>
 
@@ -3539,6 +3653,46 @@
 							class="cursor-pointer border border-danger bg-danger px-3 py-1.5 text-sm text-white hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{cameraSaving ? 'Reassigning...' : 'Reassign Camera'}
+						</button>
+					</div>
+				</div>
+			</Modal>
+		{/if}
+
+		{#if pendingChannelSwitch}
+			{@const pendingSwitchOpen = pendingChannelSwitch !== null}
+			<Modal
+				open={pendingSwitchOpen}
+				title="Unsaved zone changes"
+				on:close={pendingSwitchCancel}
+			>
+				<div class="flex flex-col gap-4">
+					<p class="text-sm text-text">
+						You have unsaved changes on <span class="font-medium">{CHANNEL_LABELS[currentChannel]}</span>.
+						Switching to <span class="font-medium">{CHANNEL_LABELS[pendingChannelSwitch.channel]}</span>
+						will leave editing mode. What would you like to do?
+					</p>
+					<div class="flex flex-wrap items-center justify-end gap-2">
+						<button
+							onclick={pendingSwitchCancel}
+							disabled={pendingSwitchSaving}
+							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							Cancel
+						</button>
+						<button
+							onclick={pendingSwitchDiscard}
+							disabled={pendingSwitchSaving}
+							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							Discard
+						</button>
+						<button
+							onclick={pendingSwitchSave}
+							disabled={pendingSwitchSaving}
+							class="cursor-pointer border border-success bg-success/15 px-3 py-1.5 text-sm text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						>
+							{pendingSwitchSaving ? 'Saving...' : 'Save Zone'}
 						</button>
 					</div>
 				</div>

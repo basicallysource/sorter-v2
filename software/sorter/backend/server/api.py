@@ -113,6 +113,7 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
+from server.routers.rt_runtime import router as rt_runtime_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -125,6 +126,7 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
+app.include_router(rt_runtime_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

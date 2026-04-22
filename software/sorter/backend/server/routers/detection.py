@@ -175,6 +175,51 @@ def _feeder_role_label(role: str | None) -> str:
     return "C-channel"
 
 
+# rt-runtime role slugs used to rebuild the perception runner after the
+# user changes the detection dropdown. Mirrors the mapping in
+# ``rt/bootstrap.py`` (_ROLE_TO_FEEDER_ROLE_KEY inverted) so changing a
+# feeder channel's detector immediately rebuilds the live runner.
+_FEEDER_ROLE_KEY_TO_RT_ROLE: Dict[str, str] = {
+    "c_channel_2": "c2",
+    "c_channel_3": "c3",
+    CLASSIFICATION_CHANNEL_ROLE: "c4",
+}
+
+
+def _rebuild_rt_runner_for_feeder_role(feeder_role: str | None) -> None:
+    """Rebuild the rt perception runner for a feeder role, if applicable.
+
+    Called from the POST ``/api/feeder/detection-config`` and
+    ``/api/classification-channel/detection-config`` handlers so the
+    switch from the settings dropdown takes effect continuously — the new
+    detector starts running on its own thread, not only when the operator
+    clicks "Test Current Frame". Silent no-op when no rt handle exists.
+    """
+    handle = shared_state.rt_handle
+    if handle is None or not hasattr(handle, "rebuild_runner_for_role"):
+        return
+    targets: List[str] = []
+    if feeder_role is None:
+        # A null role means "apply to all feeder channels" (the legacy
+        # bulk path); keep that semantic by rebuilding both C2 and C3.
+        for key in ("c_channel_2", "c_channel_3"):
+            rt_role = _FEEDER_ROLE_KEY_TO_RT_ROLE.get(key)
+            if rt_role:
+                targets.append(rt_role)
+    else:
+        rt_role = _FEEDER_ROLE_KEY_TO_RT_ROLE.get(feeder_role)
+        if rt_role:
+            targets.append(rt_role)
+    for rt_role in targets:
+        try:
+            handle.rebuild_runner_for_role(rt_role)
+        except Exception:
+            # Rebuild is best-effort — a failure here must never prevent
+            # the config from persisting. The operator will see the
+            # failure reflected in /api/rt/status.skipped_roles.
+            pass
+
+
 def _openrouter_model_label(model: str) -> str:
     if model == "google/gemini-3-flash-preview":
         return "Gemini 3 Flash Preview"
@@ -748,6 +793,11 @@ def save_feeder_detection_config(
             "sample_collection_enabled_by_role": dict(sample_collection_enabled_by_role),
         }
     )
+    # The rt perception runner bakes the detector slug at pipeline-build
+    # time; rebuild the runner(s) for the affected feeder role so the
+    # selection takes effect continuously, not just on the next
+    # ``/api/*/detect/current`` request.
+    _rebuild_rt_runner_for_feeder_role(role)
     role_label = _feeder_role_label(role)
     message = f"{role_label} detection uses {_detection_algorithm_label('feeder', algorithm)}."
     sample_collection_supported = _feeder_sample_collection_supported(role)
@@ -857,6 +907,9 @@ def save_carousel_detection_config(
     }
     if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE:
         setClassificationChannelDetectionConfig(target_config)
+        # Classification C-channel is the rt "c4" role — rebuild its
+        # perception runner so the new detector slug is active immediately.
+        _rebuild_rt_runner_for_feeder_role(CLASSIFICATION_CHANNEL_ROLE)
     else:
         setCarouselDetectionConfig(target_config)
     algorithm_label = _detection_algorithm_label("carousel", algorithm)
@@ -920,10 +973,20 @@ def _baseline_not_supported_response(scope_label: str) -> HTTPException:
 
 
 def _find_rt_perception_runner(feed_id: str):
-    """Return the rt PerceptionRunner for ``feed_id`` or ``None``."""
+    """Return the rt PerceptionRunner for ``feed_id`` or ``None``.
+
+    Prefers the handle's ``runner_for_feed`` accessor (added with the
+    boot-race fix) so any rebuilt runner is picked up automatically;
+    falls back to linear scan for older handle shapes.
+    """
     handle = shared_state.rt_handle
     if handle is None:
         return None
+    accessor = getattr(handle, "runner_for_feed", None)
+    if callable(accessor):
+        runner = accessor(feed_id)
+        if runner is not None:
+            return runner
     for runner in getattr(handle, "perception_runners", []) or []:
         pipeline = getattr(runner, "_pipeline", None)
         if pipeline is None:

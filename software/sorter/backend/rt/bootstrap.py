@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -84,6 +85,12 @@ class RtRuntimeHandle:
     feed_zones: dict[str, Zone] = field(default_factory=dict)
     started: bool = False
     paused: bool = False
+    # (role, reason) entries populated at bootstrap when a perception runner
+    # could not be built. Observable via /api/rt/status; never fatal.
+    skipped_roles: list[dict[str, str]] = field(default_factory=list)
+    # Back-reference needed for runner rebuilds after config changes.
+    camera_service: Any | None = None
+    _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def start(self) -> None:
         if self.started:
@@ -144,6 +151,97 @@ class RtRuntimeHandle:
                     "RtRuntimeHandle: orchestrator.resume raised"
                 )
         self.paused = False
+
+    def runner_for_feed(self, feed_id: str) -> PerceptionRunner | None:
+        """Return the PerceptionRunner driving ``feed_id`` if registered."""
+        for runner in self.perception_runners:
+            pipeline = getattr(runner, "_pipeline", None)
+            if pipeline is None:
+                continue
+            feed = getattr(pipeline, "feed", None)
+            if feed is not None and getattr(feed, "feed_id", None) == feed_id:
+                return runner
+        return None
+
+    def rebuild_runner_for_role(
+        self,
+        role: str,
+        *,
+        logger: logging.Logger | None = None,
+    ) -> PerceptionRunner | None:
+        """Rebuild (or build-if-missing) the perception runner for ``role``.
+
+        Used when the user changes the detector dropdown for a channel: the
+        runner is torn down and replaced in-place so the freshly-configured
+        detector starts running continuously, not just on API requests.
+
+        Returns the new runner on success, ``None`` if the zone or camera
+        is still unavailable. Orchestrator state is preserved.
+        """
+        log = logger or logging.getLogger("rt.bootstrap")
+        if self.camera_service is None:
+            log.warning(
+                "rt.bootstrap.rebuild[%s]: no camera_service on handle",
+                role,
+            )
+            return None
+        with self._rebuild_lock:
+            feed_id = f"{role}_feed"
+            # Stop + drop any existing runner for this role.
+            existing = self.runner_for_feed(feed_id)
+            if existing is not None:
+                try:
+                    existing.stop(timeout=1.0)
+                except Exception:
+                    log.exception(
+                        "rt.bootstrap.rebuild[%s]: stop existing runner raised",
+                        role,
+                    )
+                self.perception_runners = [
+                    r for r in self.perception_runners if r is not existing
+                ]
+            # Remove any prior "skipped" entry; we're retrying now.
+            self.skipped_roles = [
+                entry for entry in self.skipped_roles if entry.get("role") != role
+            ]
+            # Build fresh.
+            runner, zone, reason = _build_perception_runner_for_role(
+                role,
+                camera_service=self.camera_service,
+                event_bus=self.event_bus,
+                logger=log,
+            )
+            if runner is None:
+                self.skipped_roles.append({"role": role, "reason": reason or "build_failed"})
+                # Ensure any lingering zone entry is cleared.
+                self.feed_zones.pop(feed_id, None)
+                return None
+            # Install and (if the runtime is live) start it so perception is
+            # continuous, not on-demand.
+            self.perception_runners.append(runner)
+            if zone is not None:
+                self.feed_zones[feed_id] = zone
+            if self.started:
+                try:
+                    runner.start()
+                except Exception:
+                    log.exception(
+                        "rt.bootstrap.rebuild[%s]: runner.start raised",
+                        role,
+                    )
+            # Re-register as a perception source on the orchestrator so
+            # downstream consumers see the new tracks.
+            try:
+                self.orchestrator.register_perception_source(feed_id, runner)
+            except Exception:
+                # Non-fatal: some orchestrator implementations ignore live
+                # re-registration (tests use stubs without this method).
+                log.debug(
+                    "rt.bootstrap.rebuild[%s]: orchestrator.register_perception_source unavailable",
+                    role,
+                    exc_info=True,
+                )
+            return runner
 
 
 # ----------------------------------------------------------------------
@@ -226,69 +324,248 @@ def _load_saved_polygon(key: str, target_w: int, target_h: int) -> Any:
         return None
 
 
+def _configured_resolution_for_role(
+    camera_service: Any,
+    legacy_role: str,
+) -> tuple[int, int] | None:
+    """Resolve ``(width, height)`` from the device config — no frame needed.
+
+    Returns ``None`` only if the camera_service has no device for the role,
+    or if the device has no configured capture resolution. Falls back to a
+    live frame probe as a last resort for test harnesses that don't wire a
+    real device graph.
+    """
+    w: int | None = None
+    h: int | None = None
+
+    get_device = getattr(camera_service, "get_device", None)
+    if callable(get_device):
+        try:
+            device = get_device(legacy_role)
+        except Exception:
+            device = None
+        config = getattr(device, "config", None) if device is not None else None
+        cfg_w = getattr(config, "width", None)
+        cfg_h = getattr(config, "height", None)
+        if isinstance(cfg_w, int) and isinstance(cfg_h, int) and cfg_w > 0 and cfg_h > 0:
+            w, h = cfg_w, cfg_h
+
+    if w is None or h is None:
+        # Fallback: probe the latest frame. Only exercised in tests or on
+        # exotic setups where the device doesn't expose a config object.
+        get_capture = getattr(camera_service, "get_capture_thread_for_role", None)
+        if callable(get_capture):
+            try:
+                capture = get_capture(legacy_role)
+            except Exception:
+                capture = None
+            frame = getattr(capture, "latest_frame", None) if capture is not None else None
+            raw = getattr(frame, "raw", None)
+            if raw is not None and hasattr(raw, "shape"):
+                h, w = int(raw.shape[0]), int(raw.shape[1])
+
+    if w is None or h is None:
+        return None
+    return int(w), int(h)
+
+
+# ----------------------------------------------------------------------
+# Role ↔ UI scope / feed-id / detector-config helpers.
+
+# Each rt-role (c2/c3/c4) maps onto one of the Svelte settings scopes so the
+# user-configured detector slug can be read from the right detection-config
+# blob at bootstrap and on rebuild.
+_ROLE_TO_UI_SCOPE: dict[str, str] = {
+    "c2": "feeder",
+    "c3": "feeder",
+    "c4": "classification_channel",
+}
+
+
+# Names used by the Svelte feeder dropdown to key into
+# ``getFeederDetectionConfig()["algorithm_by_role"]``. The two feeder
+# channels and the classification C-channel all share the feeder config.
+_ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
+    "c2": "c_channel_2",
+    "c3": "c_channel_3",
+    "c4": "classification_channel",
+}
+
+
+def _detector_slug_for_role(role: str, logger: logging.Logger) -> str:
+    """Return the detector slug the user has configured for ``role``.
+
+    Falls back to the per-scope default (see
+    ``default_detector_slug_for_ui_scope``) when no saved preference exists,
+    and finally to the global Hive default when even that yields ``None``.
+    """
+    from rt.contracts.registry import (
+        DETECTORS,
+        default_detector_slug_for_ui_scope,
+    )
+
+    ui_scope = _ROLE_TO_UI_SCOPE.get(role, "feeder")
+    feeder_role_key = _ROLE_TO_FEEDER_ROLE_KEY.get(role)
+    saved_slug: str | None = None
+    try:
+        if ui_scope == "feeder" or feeder_role_key == "classification_channel":
+            from blob_manager import getFeederDetectionConfig
+
+            cfg = getFeederDetectionConfig()
+            if isinstance(cfg, dict):
+                by_role = cfg.get("algorithm_by_role")
+                if isinstance(by_role, dict) and feeder_role_key:
+                    candidate = by_role.get(feeder_role_key)
+                    if isinstance(candidate, str) and candidate:
+                        saved_slug = candidate
+                if not saved_slug:
+                    candidate = cfg.get("algorithm")
+                    if isinstance(candidate, str) and candidate:
+                        saved_slug = candidate
+        elif ui_scope == "classification_channel":
+            from blob_manager import getClassificationChannelDetectionConfig
+
+            cfg = getClassificationChannelDetectionConfig()
+            if isinstance(cfg, dict):
+                candidate = cfg.get("algorithm")
+                if isinstance(candidate, str) and candidate:
+                    saved_slug = candidate
+    except Exception:
+        logger.debug(
+            "rt.bootstrap[%s]: detector slug lookup raised — using default",
+            role,
+            exc_info=True,
+        )
+        saved_slug = None
+
+    if saved_slug and saved_slug in DETECTORS.keys():
+        return saved_slug
+
+    preferred = default_detector_slug_for_ui_scope(ui_scope)
+    if preferred:
+        return preferred
+    # Final fallback — keeps C2/C3 working even on first boot when the
+    # dropdown has never been touched.
+    return default_hive_detector_slug()
+
+
+def _build_perception_runner_for_role(
+    role: str,
+    *,
+    camera_service: Any,
+    event_bus: InProcessEventBus,
+    logger: logging.Logger,
+) -> tuple[PerceptionRunner | None, Zone | None, str]:
+    """Build the perception runner (+ zone) for ``role``.
+
+    Returns ``(runner, zone, reason)``. ``runner`` is ``None`` on failure;
+    ``reason`` is an empty string on success or a slug-style label when the
+    runner could not be built. The returned runner has NOT been started.
+    """
+    zone, reason = _load_zone_for_role(role, camera_service, logger)
+    if zone is None:
+        return None, None, reason or "no_zone"
+
+    feed_id = f"{role}_feed"
+    camera_id = _ROLE_TO_LEGACY_CAMERA.get(role, role)
+    purpose = {"c2": "c2_feed", "c3": "c3_feed", "c4": "c4_feed"}.get(role)
+    if purpose is None:
+        logger.error("rt.bootstrap[%s]: unknown role — cannot build perception", role)
+        return None, zone, "unknown_role"
+    try:
+        feed = CameraFeed(
+            feed_id=feed_id,
+            purpose=purpose,  # type: ignore[arg-type]
+            camera_id=camera_id,
+            camera_service=camera_service,
+            zone=zone,
+            fps_target=10.0 if role != "c4" else 8.0,
+        )
+    except Exception:
+        logger.exception("rt.bootstrap[%s]: CameraFeed build failed", role)
+        return None, zone, "camera_feed_build_failed"
+
+    detector_slug = _detector_slug_for_role(role, logger)
+    pipeline_config = PipelineConfig(
+        feed_id=feed_id,
+        detector={
+            "key": detector_slug,
+            "params": {"conf_threshold": 0.25, "iou_threshold": 0.45},
+        },
+        tracker={"key": "polar", "params": {}},
+        filters=[
+            FilterConfig(key="size", params={"min_area_px": 400}),
+            FilterConfig(key="ghost", params={"confirmed_real_only": True}),
+        ],
+    )
+    try:
+        pipeline = build_pipeline_from_config(pipeline_config, feed, zone)
+    except Exception:
+        logger.exception(
+            "rt.bootstrap[%s]: pipeline build failed (detector=%s)",
+            role, detector_slug,
+        )
+        return None, zone, "pipeline_build_failed"
+    runner = PerceptionRunner(
+        pipeline=pipeline,
+        period_ms=200,
+        event_bus=event_bus,
+        name=f"RtPerception[{role}]",
+    )
+    logger.info(
+        "rt.bootstrap[%s]: perception runner ready (feed=%s, detector=%s)",
+        role, feed_id, detector_slug,
+    )
+    return runner, zone, ""
+
+
 def _load_zone_for_role(
     role: str,
     camera_service: Any,
     logger: logging.Logger,
-) -> Zone | None:
+) -> tuple[Zone | None, str]:
+    """Build the perception zone for ``role`` without waiting for a live frame.
+
+    Returns ``(zone, reason)``. ``zone`` is ``None`` on failure; ``reason``
+    is an empty string on success or a short slug describing the skip
+    cause (``"no_camera_config"``, ``"no_polygon_and_no_resolution"``, ...).
+
+    The polygon lookup uses the saved ``resolution`` metadata from the
+    channel_polygons blob, and the target frame resolution is read from the
+    camera device config. Both are available at bootstrap time independent
+    of frame delivery, so C4 and every other channel load their zones as
+    soon as the camera_service is built — no boot-race.
+    """
     legacy_role = _ROLE_TO_LEGACY_CAMERA.get(role, role)
-    h: int | None = None
-    w: int | None = None
 
-    get_capture = getattr(camera_service, "get_capture_thread_for_role", None)
-    if callable(get_capture):
-        try:
-            capture = get_capture(legacy_role)
-        except Exception:
-            capture = None
-        frame = getattr(capture, "latest_frame", None) if capture is not None else None
-        raw = getattr(frame, "raw", None)
-        if raw is not None and hasattr(raw, "shape"):
-            h, w = int(raw.shape[0]), int(raw.shape[1])
-
-    if h is None or w is None:
-        get_feed = getattr(camera_service, "get_feed", None)
-        if callable(get_feed):
-            try:
-                feed = get_feed(legacy_role)
-            except Exception:
-                feed = None
-            get_frame = getattr(feed, "get_frame", None) if feed is not None else None
-            if callable(get_frame):
-                try:
-                    cframe = get_frame(annotated=False)
-                except TypeError:
-                    cframe = get_frame()
-                except Exception:
-                    cframe = None
-                raw = getattr(cframe, "raw", None) if cframe is not None else None
-                if raw is not None and hasattr(raw, "shape"):
-                    h, w = int(raw.shape[0]), int(raw.shape[1])
-
-    if h is None or w is None:
-        logger.warning(
-            "rt.bootstrap[%s]: no live frame yet on %r — zone unavailable",
-            role, legacy_role,
-        )
-        return None
+    # Target frame resolution — pulled from the camera device config, no frame.
+    target_res = _configured_resolution_for_role(camera_service, legacy_role)
+    target_w, target_h = target_res if target_res is not None else (None, None)
 
     polygon_key = _channel_polygon_key_for_role(legacy_role)
     polygon = None
-    if polygon_key:
+    if polygon_key and target_w is not None and target_h is not None:
         try:
-            polygon = _load_saved_polygon(polygon_key, w, h)
+            polygon = _load_saved_polygon(polygon_key, target_w, target_h)
         except Exception:
             polygon = None
 
     if polygon is not None and len(polygon) >= 3:
         vertices = tuple((int(p[0]), int(p[1])) for p in polygon)
-        return PolygonZone(vertices=vertices)
+        return PolygonZone(vertices=vertices), ""
+
+    if target_w is None or target_h is None:
+        logger.warning(
+            "rt.bootstrap[%s]: no camera config resolution for %r — cannot build zone",
+            role, legacy_role,
+        )
+        return None, "no_camera_config"
 
     logger.warning(
-        "rt.bootstrap[%s]: no polygon for %r — falling back to full-frame %dx%d",
-        role, polygon_key, w, h,
+        "rt.bootstrap[%s]: no saved polygon for %r — using full-frame %dx%d",
+        role, polygon_key, target_w, target_h,
     )
-    return RectZone(x=0, y=0, w=w, h=h)
+    return RectZone(x=0, y=0, w=target_w, h=target_h), ""
 
 
 # ----------------------------------------------------------------------
@@ -599,65 +876,27 @@ def build_rt_runtime(
     perception_runners: list[PerceptionRunner] = []
     feed_zones: dict[str, Zone] = {}
     perception_sources: dict[str, PerceptionRunner] = {}
-
-    detector_slug = default_hive_detector_slug()
+    skipped_roles: list[dict[str, str]] = []
 
     for role in ("c2", "c3", "c4"):
-        zone = _load_zone_for_role(role, camera_service, log)
-        if zone is None:
+        runner, zone, reason = _build_perception_runner_for_role(
+            role,
+            camera_service=camera_service,
+            event_bus=bus,
+            logger=log,
+        )
+        if runner is None:
             log.warning(
-                "rt.bootstrap[%s]: no zone available — skipping perception runner",
-                role,
+                "rt.bootstrap[%s]: perception runner skipped (reason=%s)",
+                role, reason or "unknown",
             )
+            skipped_roles.append({"role": role, "reason": reason or "unknown"})
             continue
         feed_id = f"{role}_feed"
-        camera_id = _ROLE_TO_LEGACY_CAMERA.get(role, role)
-        purpose = {"c2": "c2_feed", "c3": "c3_feed", "c4": "c4_feed"}[role]
-        try:
-            feed = CameraFeed(
-                feed_id=feed_id,
-                purpose=purpose,  # type: ignore[arg-type]
-                camera_id=camera_id,
-                camera_service=camera_service,
-                zone=zone,
-                fps_target=10.0 if role != "c4" else 8.0,
-            )
-        except Exception:
-            log.exception("rt.bootstrap[%s]: CameraFeed build failed", role)
-            continue
-        pipeline_config = PipelineConfig(
-            feed_id=feed_id,
-            detector={
-                "key": detector_slug,
-                "params": {"conf_threshold": 0.25, "iou_threshold": 0.45},
-            },
-            tracker={"key": "polar", "params": {}},
-            filters=[
-                FilterConfig(key="size", params={"min_area_px": 400}),
-                FilterConfig(key="ghost", params={"confirmed_real_only": True}),
-            ],
-        )
-        try:
-            pipeline = build_pipeline_from_config(pipeline_config, feed, zone)
-        except Exception:
-            log.exception(
-                "rt.bootstrap[%s]: pipeline build failed (detector=%s)",
-                role, detector_slug,
-            )
-            continue
-        runner = PerceptionRunner(
-            pipeline=pipeline,
-            period_ms=200,
-            event_bus=bus,
-            name=f"RtPerception[{role}]",
-        )
         perception_runners.append(runner)
-        feed_zones[feed_id] = zone
+        if zone is not None:
+            feed_zones[feed_id] = zone
         perception_sources[feed_id] = runner
-        log.info(
-            "rt.bootstrap[%s]: perception runner ready (feed=%s, detector=%s)",
-            role, feed_id, detector_slug,
-        )
 
     # ------------------------------------------------------------------
     # Capacity slots
@@ -912,6 +1151,8 @@ def build_rt_runtime(
         c4=c4,
         distributor=distributor,
         feed_zones=feed_zones,
+        skipped_roles=skipped_roles,
+        camera_service=camera_service,
     )
 
 

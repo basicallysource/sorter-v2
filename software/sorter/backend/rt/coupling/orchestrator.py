@@ -111,6 +111,15 @@ class Orchestrator:
     def tick_count(self) -> int:
         return self._tick_count
 
+    def register_perception_source(self, feed_id: str, source: TrackSource) -> None:
+        """Install (or replace) a perception source after construction.
+
+        Used when the detection-config endpoint rebuilds a runner with a
+        new detector slug — the orchestrator tick must read from the fresh
+        source, not the old one. Safe to call while ``start()``-ed.
+        """
+        self._perception[str(feed_id)] = source
+
     def health(self) -> dict[str, dict[str, object]]:
         """Aggregate per-runtime health into a flat dict."""
         out: dict[str, dict[str, object]] = {}

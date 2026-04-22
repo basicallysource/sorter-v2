@@ -242,16 +242,25 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
             bbox=(10, 10, 20, 20),
             hit_count=2,
             coasting=False,
+            confirmed_real=True,
         )
         newborn = SimpleNamespace(
             bbox=(20, 20, 30, 30),
             hit_count=1,
             coasting=False,
+            confirmed_real=True,
         )
         coasting = SimpleNamespace(
             bbox=(30, 30, 40, 40),
             hit_count=9,
             coasting=True,
+            confirmed_real=True,
+        )
+        unconfirmed = SimpleNamespace(
+            bbox=(40, 40, 50, 50),
+            hit_count=9,
+            coasting=False,
+            confirmed_real=False,
         )
 
         vm._channelInfoForRole = lambda role: channel
@@ -259,9 +268,11 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         detections = VisionManager._channelDetectionsFromTracks(
             vm,
             "c_channel_3",
-            [stable, newborn, coasting],
+            [stable, newborn, coasting, unconfirmed],
         )
 
+        # Only ``stable`` survives: newborn fails the hit-count gate,
+        # coasting is filtered, unconfirmed fails the whitelist gate.
         self.assertEqual([(10, 10, 20, 20)], [det.bbox for det in detections])
 
     def test_channel_info_for_role_falls_back_to_saved_polygon_when_detector_missing(self) -> None:

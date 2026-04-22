@@ -40,7 +40,14 @@ class C1Station(BaseStation):
         prof = self.gc.profiler
 
         try:
-            ch2_track_count = len(self._vision.getFeederTracks("c_channel_2"))
+            # Whitelist gate: count only tracks that have demonstrated
+            # real motion. Otherwise an apparatus ghost on c_channel_2
+            # would falsely saturate the channel and pause bulk feed.
+            ch2_track_count = sum(
+                1
+                for track in self._vision.getFeederTracks("c_channel_2")
+                if bool(getattr(track, "confirmed_real", False))
+            )
         except Exception:
             ch2_track_count = 0
         ch2_piece_count = estimate_piece_count_for_channel(

@@ -340,8 +340,14 @@ class Feeding(BaseState):
             )
             if classification_channel_setup:
                 try:
-                    classification_channel_track_count = len(
-                        self.vision.getFeederTracks("carousel")
+                    # Whitelist gate: admission-control piece count must
+                    # exclude unconfirmed ghost tracks, otherwise an
+                    # apparatus artefact on the carousel would hold ch3
+                    # back indefinitely.
+                    classification_channel_track_count = sum(
+                        1
+                        for track in self.vision.getFeederTracks("carousel")
+                        if bool(getattr(track, "confirmed_real", False))
                     )
                 except Exception:
                     classification_channel_track_count = 0

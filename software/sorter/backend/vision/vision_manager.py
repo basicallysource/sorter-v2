@@ -2773,12 +2773,22 @@ class VisionManager:
         role: str,
         tracks: list,
     ) -> list[ChannelDetection]:
+        """Turn live tracks into ``ChannelDetection`` rows that drive the
+        feeder state machine (clump/massage, dropzone occupancy, exit
+        wiggle, ch3 admission control). The whitelist gate — only
+        ``confirmed_real`` tracks count — lives here, which means
+        apparatus ghosts never block the feeder from dropping, never
+        trigger the bulk-agitation massage, and never populate ch3's
+        admission estimate.
+        """
         channel = self._channelInfoForRole(role)
         if channel is None:
             return []
         detections: list[ChannelDetection] = []
         for track in tracks:
             if getattr(track, "coasting", False):
+                continue
+            if not bool(getattr(track, "confirmed_real", False)):
                 continue
             if role in {"c_channel_2", "c_channel_3"} and int(
                 getattr(track, "hit_count", 0) or 0

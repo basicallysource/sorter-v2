@@ -19,6 +19,10 @@ from .scaling import overlay_scale_for_frame, scaled_px
 COLOR_ACTIVE = (0, 200, 0)       # green
 COLOR_COASTING = (0, 200, 200)   # amber
 COLOR_HANDOFF = (220, 80, 220)   # magenta pop for fresh cross-camera pickup
+# Dim grey for tracks the whitelist has not yet confirmed as real — lets
+# operators see that the detector is firing on apparatus without the
+# overlay implying a real piece is present.
+COLOR_UNCONFIRMED = (120, 120, 120)
 COLOR_LABEL_BG = (0, 0, 0)
 
 LABEL_FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -50,6 +54,13 @@ def format_track_label(global_id: int) -> str:
 
 
 def _label_color_for(track) -> tuple[int, int, int]:
+    # Unconfirmed (whitelist-pending) tracks render in dim grey so
+    # operators can see the detector is firing without the overlay
+    # implying a real piece is there. Handoff-backed tracks inherit
+    # confirmed_real from the upstream so this branch only ever hits
+    # apparatus ghosts / very fresh births.
+    if not bool(getattr(track, "confirmed_real", False)):
+        return COLOR_UNCONFIRMED
     # Pieces that inherited their ID from an upstream camera stay magenta for
     # their whole lifetime — makes handoff events easy to spot while they ride
     # the downstream channel toward the carousel.
@@ -82,31 +93,38 @@ class TrackOverlay:
                 continue
             x1, y1, x2, y2 = [int(round(v)) for v in bbox]
             color = _label_color_for(track)
+            confirmed = bool(getattr(track, "confirmed_real", False))
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, box_thickness, cv2.LINE_AA)
 
-            label = f"#{format_track_label(track.global_id)}"
-            (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, label_scale, label_thickness)
-            pad = label_pad
-            pill_w = tw + pad * 2
-            pill_h = th + pad * 2
-            pill_x1 = x1
-            pill_y1 = max(0, y1 - pill_h - 1)
-            pill_x2 = pill_x1 + pill_w
-            pill_y2 = pill_y1 + pill_h
+            # Whitelist gate: only show the track-id chip for
+            # confirmed-real tracks. Unconfirmed boxes stay visible (so
+            # operators see the detector is still firing on the
+            # apparatus) but without a label that would imply a real
+            # tracked piece is there.
+            if confirmed:
+                label = f"#{format_track_label(track.global_id)}"
+                (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, label_scale, label_thickness)
+                pad = label_pad
+                pill_w = tw + pad * 2
+                pill_h = th + pad * 2
+                pill_x1 = x1
+                pill_y1 = max(0, y1 - pill_h - 1)
+                pill_x2 = pill_x1 + pill_w
+                pill_y2 = pill_y1 + pill_h
 
-            # Dark background pill → readable over any background.
-            cv2.rectangle(frame, (pill_x1, pill_y1), (pill_x2, pill_y2), COLOR_LABEL_BG, -1)
-            cv2.putText(
-                frame,
-                label,
-                (pill_x1 + pad, pill_y2 - pad - 1),
-                LABEL_FONT,
-                label_scale,
-                color,
-                label_thickness,
-                cv2.LINE_AA,
-            )
+                # Dark background pill → readable over any background.
+                cv2.rectangle(frame, (pill_x1, pill_y1), (pill_x2, pill_y2), COLOR_LABEL_BG, -1)
+                cv2.putText(
+                    frame,
+                    label,
+                    (pill_x1 + pad, pill_y2 - pad - 1),
+                    LABEL_FONT,
+                    label_scale,
+                    color,
+                    label_thickness,
+                    cv2.LINE_AA,
+                )
 
             vx, vy = track.velocity_px_per_s
             magnitude = float(np.hypot(vx, vy))

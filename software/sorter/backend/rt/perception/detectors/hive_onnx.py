@@ -376,18 +376,37 @@ def discover_and_register_hive_detectors(
             legacy_scopes=legacy_scopes,
         )
 
+        registration_metadata = {
+            "slug": slug,
+            "model_id": model_id,
+            "model_family": model_family,
+            "runtime": variant_runtime,
+            "imgsz": imgsz,
+            # Scopes as declared in the model's run.json (may be empty for
+            # legacy models with no scope declaration). The UI-scope mapping
+            # lives in rt/contracts/registry.py, not here.
+            "scopes": tuple(sorted(legacy_scopes)),
+            "run_dir": str(entry),
+        }
+
         try:
-            reg.register(key, factory)
+            reg.register(key, factory, metadata=registration_metadata)
         except ValueError:
-            # Already registered — normal on re-import. Keep tally.
-            log.debug("HiveDetector %s already registered — skipping", key)
+            # Already registered — normal on re-import. Refresh metadata so
+            # re-scan picks up run.json changes without a full restart.
+            log.debug("HiveDetector %s already registered — refreshing metadata", key)
+            try:
+                reg.set_metadata(key, registration_metadata)
+            except Exception:  # pragma: no cover - defensive
+                log.exception("HiveDetector %s set_metadata failed", key)
         else:
             log.info(
-                "Registered HiveDetector %s (family=%s runtime=%s imgsz=%d path=%s)",
+                "Registered HiveDetector %s (family=%s runtime=%s imgsz=%d scopes=%s path=%s)",
                 key,
                 model_family,
                 variant_runtime,
                 imgsz,
+                sorted(legacy_scopes) or "-",
                 model_path,
             )
 

@@ -318,10 +318,10 @@ def remove_installed_model(local_id: str) -> None:
         raise ValueError("local_id resolves outside LOCAL_MODELS_DIR")
     shutil.rmtree(target)
     try:
-        from vision.detection_registry import invalidate_registry
-        invalidate_registry()
+        from rt.perception.detector_metadata import invalidate_cache
+        invalidate_cache()
     except Exception:
-        log.debug("registry invalidation after remove failed", exc_info=True)
+        log.debug("detector metadata invalidation after remove failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -574,10 +574,10 @@ class DownloadJobManager:
             progress_bytes=int(dest_path.stat().st_size) if dest_path.exists() else snapshot.get("progress_bytes", 0),
         )
         try:
-            from vision.detection_registry import invalidate_registry
-            invalidate_registry()
+            from rt.perception.detector_metadata import invalidate_cache
+            invalidate_cache()
         except Exception:
-            log.debug("registry invalidation after download failed", exc_info=True)
+            log.debug("detector metadata invalidation after download failed", exc_info=True)
 
     @staticmethod
     def _looks_like_tarball(path: Path) -> bool:

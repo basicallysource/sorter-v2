@@ -151,13 +151,13 @@ def invalidate_cache() -> None:
 
 
 def _collapse_modes(entries: list[dict]) -> list[CameraMode]:
-    """Pick max FPS per (width, height). Prefer MJPEG/420v (compressed-decoded) over YUY2/yuvs."""
+    """Pick max FPS per (width, height). Prefer compressed (MJPG/420v) over YUY2/yuvs."""
 
     def score(fourcc: str) -> int:
         # Higher = preferred
         priority = {
             "MJPG": 4,
-            "420v": 3,  # AVFoundation's decoded NV12 — usually from MJPEG on USB
+            "420v": 3,  # AVFoundation's decoded NV12 — usually from compressed USB stream
             "420f": 3,
             "yuvs": 2,  # YUY2 — bandwidth-limited at high res
             "YUY2": 2,

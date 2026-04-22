@@ -1,18 +1,14 @@
 <script lang="ts">
-	import { mjpegStream } from '$lib/actions/mjpegStream';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 
 	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'fullscreen';
-	type FeedSource = 'ws' | 'mjpeg';
 
 	let {
 		camera,
 		label = '',
-		baseUrl = '',
 		showHeader = true,
 		framed = true,
 		crop = null,
@@ -22,12 +18,10 @@
 		defaultCropped = undefined,
 		defaultZones = true,
 		controls = ['annotations'],
-		source = 'mjpeg',
 		layer = $bindable('annotated')
 	}: {
 		camera: string;
 		label?: string;
-		baseUrl?: string;
 		showHeader?: boolean;
 		framed?: boolean;
 		crop?: DashboardFeedCrop | null;
@@ -37,20 +31,10 @@
 		defaultCropped?: boolean;
 		defaultZones?: boolean;
 		controls?: ControlKey[];
-		source?: FeedSource;
 		layer?: 'raw' | 'annotated';
 	} = $props();
 
 	const ctx = getMachineContext();
-
-	// Unique per mount so the browser never reuses a stale MJPEG connection
-	// when SvelteKit navigates back to a page with camera feeds.
-	const mountId = Date.now();
-
-	function effectiveBaseUrl(): string {
-		if (baseUrl) return baseUrl;
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
-	}
 
 	// Persistent per-camera toggle state — survives reloads via localStorage.
 	// Keyed by camera so e.g. c_channel_2's crop toggle doesn't leak into
@@ -122,14 +106,6 @@
 		}
 	}
 
-	const effectiveSource = $derived(
-		source === 'ws' && annotated && ghosts ? 'mjpeg' : source
-	);
-
-	const mjpeg_src = $derived(
-		`${effectiveBaseUrl()}/api/cameras/feed/${camera}?annotated=${annotated}&color_correct=${colorCorrect}&dashboard=${cropped}&show_regions=${zones}&show_ghosts=${ghosts}&_=${mountId}`
-	);
-
 	// WS source reads the latest FrameData from the machine context and emits a
 	// data:image URL. One shared WS connection feeds all cameras → no per-camera
 	// HTTP slot is consumed, so the 6-connection-per-origin browser limit stops
@@ -163,40 +139,31 @@
 		</div>
 	{/if}
 	<div class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}>
-		{#if effectiveSource === 'ws'}
-			{#if cropped && crop}
-				{@const box = crop.viewBox}
-				{@const rc = crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2]}
-				{@const rot = crop.rotationDeg ?? 0}
-				<svg
-					viewBox="{box.x} {box.y} {box.width} {box.height}"
-					preserveAspectRatio="xMidYMid meet"
-					class="absolute inset-0 h-full w-full"
-					class:opacity-30={!is_healthy}
-					aria-label={display_label}
-				>
-					<g transform="rotate({rot} {rc[0]} {rc[1]})">
-						<image
-							href={ws_src}
-							x="0"
-							y="0"
-							width={crop.sourceWidth}
-							height={crop.sourceHeight}
-							preserveAspectRatio="none"
-						/>
-					</g>
-				</svg>
-			{:else}
-				<img
-					src={ws_src}
-					alt={display_label}
-					class="absolute inset-0 h-full w-full object-contain"
-					class:opacity-30={!is_healthy}
-				/>
-			{/if}
+		{#if cropped && crop}
+			{@const box = crop.viewBox}
+			{@const rc = crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2]}
+			{@const rot = crop.rotationDeg ?? 0}
+			<svg
+				viewBox="{box.x} {box.y} {box.width} {box.height}"
+				preserveAspectRatio="xMidYMid meet"
+				class="absolute inset-0 h-full w-full"
+				class:opacity-30={!is_healthy}
+				aria-label={display_label}
+			>
+				<g transform="rotate({rot} {rc[0]} {rc[1]})">
+					<image
+						href={ws_src}
+						x="0"
+						y="0"
+						width={crop.sourceWidth}
+						height={crop.sourceHeight}
+						preserveAspectRatio="none"
+					/>
+				</g>
+			</svg>
 		{:else}
 			<img
-				use:mjpegStream={mjpeg_src}
+				src={ws_src}
 				alt={display_label}
 				class="absolute inset-0 h-full w-full object-contain"
 				class:opacity-30={!is_healthy}
@@ -247,7 +214,7 @@
 
 			<div class="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
 				<div class="rounded-full border border-white/12 bg-black/50 px-3 py-1 text-xs font-medium text-white/75 backdrop-blur-sm">
-					{annotated ? 'Annotated' : 'Raw'} — MJPEG
+					{annotated ? 'Annotated' : 'Raw'}
 				</div>
 			</div>
 		{/if}

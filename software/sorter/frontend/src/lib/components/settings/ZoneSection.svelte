@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { mjpegStream as resilientMjpegStream } from '$lib/actions/mjpegStream';
 	import { wsJpegStream } from '$lib/actions/wsJpegStream';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
+	import { getMachineContext } from '$lib/machines/context';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
@@ -289,6 +289,8 @@
 	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	const hasStepper = $derived(!!stepperKey);
+
+	const machineCtx = getMachineContext();
 
 	let currentChannel = $state<Channel>('second');
 	let userPoints = $state<Record<Channel, number[][]>>({
@@ -968,8 +970,8 @@
 			return;
 		}
 		// No pending edits (or not in edit mode): silently exit editing and
-		// switch. Exiting edit mode here also flips the stream back to the
-		// annotated view via ``streamUrl``.
+		// switch. Exiting edit mode here also flips the feed back to the
+		// annotated view via ``feedImageSrc``.
 		if (editingZone) {
 			editingZone = false;
 			activeSidebar = null;
@@ -1041,13 +1043,7 @@
 		return source;
 	}
 
-	function cameraIndexPreviewUrl(index: number): string {
-		return `${backendHttpBaseUrl}/api/cameras/stream/${index}`;
-	}
-
-	// WebSocket preview URL for the picker modal tiles. The legacy MJPEG
-	// URL above is kept for the main zone feed (one stream at a time, no
-	// pool-exhaustion risk) and as a server-side fallback route.
+	// WebSocket preview URL for the picker-modal tiles (per-device-index).
 	function cameraIndexPreviewWsUrl(index: number): string {
 		return `${backendWsBaseUrl}/ws/camera-preview/${index}`;
 	}
@@ -1446,33 +1442,26 @@
 		arcParams[channel] = clamped;
 	}
 
-	function streamUrl(channel: Channel): string {
-		// Always go through the CameraService-backed feed — it owns the one
-		// and only live VideoCapture per device. Never pass direct=true: on
-		// macOS AVFoundation that opens a SECOND VideoCapture on the same
-		// device, which fights the live service and produces a black stream
-		// at higher resolutions (C3 2592×1944, C4 3840×2160). annotated=false
-		// returns frame_obj.raw from the same live service — exactly the
-		// stream we use elsewhere, just without overlays.
-		if (editingZone) {
-			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=false&color_correct=true&dashboard=false&show_regions=false&v=${feedRevision}`;
-		}
-		const annotatedParam = previewAnnotated ? 'true' : 'false';
-		const colorParam = previewColorCorrect ? 'true' : 'false';
-		const dashboardParam = previewCropped ? 'true' : 'false';
-		const zonesParam = previewZones ? 'true' : 'false';
-		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=${annotatedParam}&color_correct=${colorParam}&dashboard=${dashboardParam}&show_regions=${zonesParam}&v=${feedRevision}`;
+	function feedImageSrc(channel: Channel): string {
+		// Role-based preview is delivered over the main control WebSocket:
+		// camera_service fans frames into ``ctx.machine.frames`` keyed by
+		// role. ``raw`` already has the color profile + picture settings
+		// baked in. When editing a zone we always use ``raw`` (no overlays
+		// over the handles); otherwise we honor ``previewAnnotated``.
+		const role = CAMERA_FOR_CHANNEL[channel];
+		const frame = machineCtx.frames.get(role as unknown as Parameters<typeof machineCtx.frames.get>[0]);
+		if (!frame) return '';
+		const wantAnnotated = !editingZone && previewAnnotated;
+		const payload = wantAnnotated && frame.annotated ? frame.annotated : frame.raw;
+		return payload ? `data:image/jpeg;base64,${payload}` : '';
 	}
 
 	function feedInstanceKey(channel: Channel): string {
 		// Key only on things that require a full element remount: camera
 		// identity (role + source). Do NOT include editingZone or the
-		// preview flags — those change the streamUrl but the mjpegStream
-		// action handles URL changes via its update() callback, retaining
-		// the last-rendered blob until the new stream delivers its first
-		// frame. Keying on them forced the <img> element to unmount on
-		// every Edit Zone toggle, which wiped src and produced a
-		// multi-second black screen while a high-res MJPEG stream started.
+		// preview flags — the WS frame source swaps on every new FrameEvent
+		// without needing the <img> to remount. Forcing remount on every
+		// Edit Zone toggle wiped src and caused flicker.
 		const assignment = currentAssignment(channel);
 		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${feedRevision}`;
 	}
@@ -2943,8 +2932,8 @@
 			didDrag = false;
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
-			// Force the <img> action to re-evaluate streamUrl() so the live
-			// feed switches back to the annotated view once we exit edit mode.
+			// Bump the instance key so the <img> remounts and picks up the
+			// annotated-vs-raw switch cleanly once we exit edit mode.
 			feedRevision += 1;
 			dispatch('saved');
 			return true;
@@ -2975,8 +2964,8 @@
 		didDrag = false;
 		canvasCursor = 'crosshair';
 		statusMsg = 'Zone editing enabled.';
-		// Force the <img> action to re-evaluate streamUrl() so the live feed
-		// switches to the raw (un-annotated, direct) camera path.
+		// Bump the instance key so the <img> remounts and switches to the raw
+		// (no-overlay) frame source for the editor.
 		feedRevision += 1;
 	}
 
@@ -2988,8 +2977,8 @@
 		didDrag = false;
 		canvasCursor = 'default';
 		statusMsg = 'Zone changes discarded.';
-		// Force the <img> action to re-evaluate streamUrl() so the live feed
-		// switches back to the annotated/processed path.
+		// Bump the instance key so the <img> remounts and switches back to
+		// the annotated frame source.
 		feedRevision += 1;
 	}
 
@@ -3220,7 +3209,7 @@
 								</div>
 							{:else if currentAssignment() !== null}
 								<img
-									use:resilientMjpegStream={streamUrl(currentChannel)}
+									src={feedImageSrc(currentChannel)}
 									alt={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}

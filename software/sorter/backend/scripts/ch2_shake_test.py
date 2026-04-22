@@ -178,32 +178,40 @@ def _detect() -> dict[str, Any]:
 
 
 def _fetch_raw_jpeg() -> bytes:
-    """Grab one raw JPEG frame from c_channel_2's MJPEG feed."""
-    url = f"{BASE}/api/cameras/feed/c_channel_2?layer=raw&dashboard=false"
-    with requests.get(url, stream=True, timeout=15) as r:
-        r.raise_for_status()
-        buf = bytearray()
-        start = -1
-        for chunk in r.iter_content(chunk_size=8192):
-            buf.extend(chunk)
-            if start < 0:
-                start = buf.find(b"\xff\xd8")
-                if start < 0 and len(buf) > 200_000:
-                    buf.clear()
-                    continue
-            if start >= 0:
-                end = buf.find(b"\xff\xd9", start + 2)
-                if end >= 0:
-                    return bytes(buf[start:end + 2])
-            if len(buf) > 3_000_000:
-                break
-    raise RuntimeError(f"could not capture a complete JPEG from {url}")
+    """Grab one raw JPEG frame from c_channel_2's camera preview WebSocket."""
+    import asyncio
+
+    try:
+        from websockets.sync.client import connect  # type: ignore
+    except Exception as exc:  # pragma: no cover — dev script only
+        raise RuntimeError(
+            "websockets package required — install via `uv add websockets`"
+        ) from exc
+
+    cfg = requests.get(f"{BASE}/api/cameras/config", timeout=10).json()
+    source = cfg.get("c_channel_2")
+    if not isinstance(source, int):
+        raise RuntimeError(
+            f"c_channel_2 is not a USB camera (got {source!r}); cannot WS-fetch"
+        )
+
+    ws_url = BASE.replace("http://", "ws://").replace("https://", "wss://")
+    ws_url = f"{ws_url}/ws/camera-preview/{source}"
+    deadline = time.time() + 10.0
+    with connect(ws_url, open_timeout=5.0) as ws:
+        while time.time() < deadline:
+            msg = ws.recv(timeout=5.0)
+            if isinstance(msg, (bytes, bytearray)) and len(msg) > 0:
+                return bytes(msg)
+        raise RuntimeError(f"could not capture a JPEG from {ws_url}")
+    # unreachable
+    _ = asyncio  # keep import referenced for potential future async variant
 
 
 def _snapshot_with_bboxes(dest: Path, bboxes: list[list[int]]) -> None:
     """Fetch a raw frame, draw the supplied bboxes in green, save as JPEG.
 
-    Works around the live MJPEG feed drawing persistent *tracks* rather
+    Works around the live annotated stream drawing persistent *tracks* rather
     than raw detections — with the machine paused during a test run, the
     tracker never stabilizes (track_count stays at 0) so the annotated
     stream is blank. Instead we grab the raw frame and paint the bboxes

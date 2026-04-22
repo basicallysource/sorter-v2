@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
 	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
@@ -229,6 +229,22 @@
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
 	}
 
+	function currentBackendWsBaseUrl(): string {
+		// Prefer the machine's own WS URL origin (strip path) so picker tiles
+		// hit the machine we're currently connected to; fall back to the
+		// globally configured WS base.
+		const url = machine.machine?.url;
+		if (url) {
+			try {
+				const parsed = new URL(url);
+				return `${parsed.protocol}//${parsed.host}`;
+			} catch {
+				// fall through
+			}
+		}
+		return backendWsBaseUrl;
+	}
+
 	function currentMachineId(): string {
 		return machine.machine?.identity?.machine_id ?? wizard?.machine.machine_id ?? '';
 	}
@@ -323,7 +339,7 @@
 	}
 
 	function cameraChoices(): CameraChoice[] {
-		return buildCameraChoices(usbCameras, networkCameras, roleSelections, currentBackendBaseUrl());
+		return buildCameraChoices(usbCameras, networkCameras, roleSelections, currentBackendWsBaseUrl());
 	}
 
 	function selectedCameraLabel(key: string | undefined): string {
@@ -1097,7 +1113,6 @@
 					label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
 					hasCamera={roleHasCamera(pictureSettingsRole)}
 					source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
-					backendBaseUrl={currentBackendBaseUrl()}
 					on:saved={() => {
 						const role = pictureSettingsRole;
 						if (!role) return;

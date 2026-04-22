@@ -838,9 +838,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 #
 # WebSocket fan-out for the settings-modal camera picker. Each tile in the
 # grid opens one WS connection against a single shared broadcaster thread
-# per device — this avoids the 6-per-host HTTP/1.1 connection-pool
-# exhaustion that MJPEG caused when six tiles were open simultaneously,
-# and also avoids opening a duplicate ``cv2.VideoCapture`` for devices
+# per device, and we never open a duplicate ``cv2.VideoCapture`` for devices
 # that vision manager already owns.
 #
 # Not to be confused with the main ``/ws`` control websocket above.

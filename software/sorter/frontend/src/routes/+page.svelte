@@ -171,7 +171,6 @@
 									camera="c_channel_2"
 									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -180,7 +179,6 @@
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -191,7 +189,6 @@
 									camera={auxiliaryCameraRole()}
 									label={cameraLabel(auxiliaryCameraRole())}
 									crop={cropFor(auxiliaryCameraRole())}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -239,7 +236,6 @@
 												label={cameraLabel(classification_camera)}
 												crop={cropFor(classification_camera)}
 												showHeader={false}
-												source="ws"
 												controls={["ghosts"]}
 												bind:layer={classification_layer}
 											/>
@@ -260,7 +256,6 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -269,7 +264,6 @@
 									camera={classification_camera}
 									label={cameraLabel(classification_camera)}
 									crop={cropFor(classification_camera)}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -281,7 +275,6 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									source="ws"
 									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
@@ -329,7 +322,6 @@
 											crop={cropFor(classification_camera)}
 											showHeader={false}
 											controls={["ghosts"]}
-											source="ws"
 											bind:layer={classification_layer}
 										/>
 									</div>

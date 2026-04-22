@@ -1,14 +1,13 @@
 // WebSocket JPEG preview action.
 //
-// Mirrors the surface of ``mjpegStream`` (status callback, reconnect,
-// destroy) but backs the stream with a WebSocket instead of a multipart
-// HTTP request. Used by the zone-section camera picker modal so we do not
-// consume 6+ concurrent HTTP/1.1 connections, which otherwise starves other
-// fetch() calls from the same origin and freezes the modal.
+// A Svelte action that wires an ``<img>`` element to a WebSocket JPEG
+// stream. Exposes a status callback, automatic reconnect, and a clean
+// destroy teardown. Used by the zone-section camera picker modal and by
+// the setup camera-area tiles.
 //
 // Server contract:
 //   - URL shape: ``ws(s)://host/ws/camera-preview/<device-index>``.
-//   - Each binary message is exactly one JPEG frame (no multipart framing).
+//   - Each binary message is exactly one JPEG frame.
 //   - Text messages are ignored.
 
 export type WsJpegStatus = 'pending' | 'streaming' | 'failed';

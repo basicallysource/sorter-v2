@@ -1,28 +1,22 @@
 """Fan-out JPEG preview broadcaster for modal camera-picker tiles.
 
 The camera picker in the zone editor shows a grid of live tiles so the
-operator can recognize which physical USB camera is which. Historically each
-tile opened its own ``/api/cameras/stream/{index}`` MJPEG request, which:
-
-- exhausted the browser's six-per-host HTTP/1.1 connection limit, freezing
-  subsequent ``POST /api/cameras/assign`` calls (hence this module), and
-- opened a second ``cv2.VideoCapture`` against a device already owned by the
-  vision manager on macOS/Linux, where the OS refuses the double-open.
-
-``CameraPreviewHub`` fixes both by keeping exactly one ``VideoCapture`` per
-device index across all subscribers, re-using the existing vision-manager
-capture thread when the device is already in use for a primary role, and
-broadcasting JPEG bytes to each subscriber through a small asyncio queue.
+operator can recognize which physical USB camera is which. ``CameraPreviewHub``
+keeps exactly one ``VideoCapture`` per device index across all subscribers,
+re-uses the existing vision-manager capture thread when the device is already
+in use for a primary role, and broadcasts JPEG bytes to each subscriber
+through a small asyncio queue.
 
 Design notes:
 
 - Hub is a module-level singleton accessed via :func:`get_camera_preview_hub`.
 - One background thread per device index. Thread starts on first subscribe,
   exits on last unsubscribe.
-- Subscribers receive raw JPEG bytes (no multipart framing) on an
-  ``asyncio.Queue(maxsize=2)``. On backpressure the thread drops the oldest
-  frame instead of blocking — previews are latency-sensitive, not
-  loss-sensitive.
+- Subscribers receive raw JPEG bytes over a WebSocket via
+  ``/ws/camera-preview/{index}``. Each binary message is exactly one JPEG
+  frame. The queue depth is ``asyncio.Queue(maxsize=2)`` — on backpressure
+  the thread drops the oldest frame instead of blocking, because previews
+  are latency-sensitive, not loss-sensitive.
 - If the device is already owned by the vision manager (primary role feed),
   we do NOT open a second capture. We encode the latest frame from the
   existing capture thread instead.
@@ -62,7 +56,7 @@ def _open_camera(index: int) -> cv2.VideoCapture:
     """Same ``VideoCapture`` selection as ``server.routers.cameras._open_camera``.
 
     Duplicated here to keep the hub independent from the router import graph
-    (the router file is huge and pulls vision/global deps we don't want in
+    (the router file is large and pulls vision/global deps we don't want in
     this module's import chain).
     """
     if platform.system() == "Darwin":

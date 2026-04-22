@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { mjpegStream } from '$lib/actions/mjpegStream';
+	import { getMachineContext } from '$lib/machines/context';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -21,17 +21,17 @@
 		role,
 		label,
 		source = null,
-		hasCamera = true,
-		backendBaseUrl
+		hasCamera = true
 	}: {
 		role: CameraRole;
 		label: string;
 		source?: number | string | null;
 		hasCamera?: boolean;
-		backendBaseUrl: string;
 	} = $props();
 
 	const dispatch = createEventDispatcher<{ saved: void }>();
+
+	const machineCtx = getMachineContext();
 
 	let picturePreview = $state<PicturePreviewState | null>(null);
 	let calibrationHighlight = $state<CalibrationHighlight | null>(null);
@@ -173,8 +173,12 @@
 		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
 	}
 
-	function streamUrl(): string {
-		return `${backendBaseUrl}/api/cameras/feed/${role}?annotated=false&v=${feedRevision}`;
+	function previewSrc(): string {
+		// Role-based preview comes from the shared control WebSocket via
+		// machine context. ``raw`` already has color profile + picture
+		// settings baked in — perfect for the picture-settings preview.
+		const frame = machineCtx.frames.get(role as unknown as Parameters<typeof machineCtx.frames.get>[0]);
+		return frame?.raw ? `data:image/jpeg;base64,${frame.raw}` : '';
 	}
 
 	function handleSidebarSaved() {
@@ -195,11 +199,7 @@
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
 						<img
-							use:mjpegStream={{
-								url: streamUrl(),
-								firstFrameTimeoutMs: 6000,
-								stallTimeoutMs: 4000
-							}}
+							src={previewSrc()}
 							alt={label}
 							class="absolute inset-0 h-full w-full object-contain"
 							style={previewTransformStyle()}

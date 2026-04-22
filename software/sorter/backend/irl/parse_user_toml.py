@@ -680,7 +680,7 @@ class CameraLayoutConfig:
     c_channel_2: int | None = None
     c_channel_3: int | None = None
     carousel: int | str | None = None
-    # classification cameras — int (device index) or str (URL, e.g. MJPEG stream)
+    # classification cameras — int (device index) or str (URL, e.g. IP camera stream)
     classification_top: int | str | None = None
     classification_bottom: int | str | None = None
 

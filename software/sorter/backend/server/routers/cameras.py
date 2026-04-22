@@ -25,7 +25,7 @@ from uuid import uuid4
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
@@ -552,12 +552,6 @@ def _open_camera(index: int) -> cv2.VideoCapture:
     if platform.system() == "Darwin":
         return cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
     return cv2.VideoCapture(index)
-
-
-def _open_camera_source(source: int | str) -> cv2.VideoCapture:
-    if isinstance(source, int):
-        return _open_camera(source)
-    return cv2.VideoCapture(source)
 
 
 def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
@@ -3239,12 +3233,7 @@ class CameraCalibrationStartPayload(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Video feed (MJPEG from VisionManager)
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Camera config / list / stream / feed / assign
+# Camera config / list / assign
 # ---------------------------------------------------------------------------
 
 
@@ -3326,33 +3315,6 @@ def list_cameras() -> Dict[str, Any]:
             "usb": usb_fut.result(),
             "network": net_fut.result(),
         }
-
-
-@router.get("/api/cameras/stream/{index}")
-def camera_stream(index: int):
-    """MJPEG stream for a single camera by index (thumbnail)."""
-    def generate():
-        cap = _open_camera(index)
-        if not cap.isOpened():
-            return
-        try:
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                thumb = cv2.resize(frame, (426, 240))
-                _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
-        finally:
-            cap.release()
-
-    return StreamingResponse(
-        generate(),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-    )
 
 
 _POLYGON_KEY_TO_CHANNEL_KEY: Dict[str, str] = {
@@ -3666,137 +3628,6 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
     if spec.get("square"):
         processed = _dashboard_pad_square(processed)
     return processed
-
-
-@router.get("/api/cameras/feed/{role}")
-def camera_feed_by_role(
-    role: str,
-    annotated: bool = True,
-    layer: str = "annotated",
-    direct: bool = False,
-    dashboard: bool = False,
-    color_correct: bool = True,
-    show_regions: bool = True,
-    show_ghosts: bool = False,
-):
-    """MJPEG stream for a camera role.
-
-    ``layer`` controls annotation: ``"annotated"`` (default) or ``"raw"``.
-    The legacy ``annotated`` bool param is supported for backward compat.
-    ``color_correct=false`` bypasses the color profile; falls back to the
-    direct capture path since the live service bakes the profile into frames.
-    ``show_regions=false`` keeps detections but hides zone polygons/labels.
-    ``show_ghosts=true`` opt-in shows tracker-learned ghost regions.
-    """
-    from vision.camera import (
-        apply_camera_color_profile,
-        apply_camera_device_settings,
-        apply_picture_settings,
-    )
-
-    def _mjpeg_chunk(frame: np.ndarray, quality: int = 70) -> bytes:
-        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        return (
-            b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
-            + buf.tobytes()
-            + b"\r\n"
-        )
-
-    # Resolve layer — legacy `annotated` param maps into `layer`
-    want_annotated = layer == "annotated" and annotated
-    excluded: set[str] = set()
-    if not show_regions:
-        excluded.add("regions")
-    if not show_ghosts:
-        excluded.add("ghosts")
-    exclude_categories = frozenset(excluded) if excluded else None
-    # Color correction toggle requires bypassing the live service (raw frames
-    # in the service are already color-corrected at capture time).
-    if not color_correct:
-        direct = True
-
-    _, raw = _read_machine_params_config(require_exists=True)
-    picture_settings = parseCameraPictureSettings(
-        _camera_config_value(raw, "camera_picture_settings", role)
-    )
-    color_profile = parseCameraColorProfile(
-        _camera_config_value(raw, "camera_color_profiles", role)
-    )
-    saved_device_settings = parseCameraDeviceSettings(
-        _camera_config_value(raw, "camera_device_settings", role)
-    )
-    preview_device_settings = shared_state.camera_device_preview_overrides.get(role)
-    device_settings = cameraDeviceSettingsToDict(
-        preview_device_settings if preview_device_settings is not None else saved_device_settings
-    )
-    source = _camera_source_for_role(raw, role)
-    if source is None or not isinstance(source, (int, str)):
-        raise HTTPException(404, f"Camera role '{role}' not configured")
-
-    cached_dashboard_shape: tuple[int, int] | None = None
-    cached_dashboard_spec: Dict[str, Any] | None = None
-
-    def _dashboard_frame(frame: np.ndarray) -> np.ndarray:
-        nonlocal cached_dashboard_shape, cached_dashboard_spec
-        if not dashboard:
-            return frame
-        frame_h, frame_w = frame.shape[:2]
-        shape = (frame_w, frame_h)
-        if cached_dashboard_shape != shape:
-            cached_dashboard_spec = _dashboard_crop_spec(role, frame_w, frame_h)
-            cached_dashboard_shape = shape
-        return _apply_dashboard_crop(frame, cached_dashboard_spec)
-
-    # Live path: use CameraService feed if available
-    if not direct and shared_state.camera_service is not None:
-        feed = shared_state.camera_service.get_feed(role)
-        if feed is not None:
-            def generate_live():
-                while True:
-                    frame_obj = feed.get_frame(
-                        annotated=want_annotated,
-                        exclude_categories=exclude_categories,
-                    )
-                    if frame_obj is None:
-                        time.sleep(0.05)
-                        continue
-                    frame = (
-                        frame_obj.annotated
-                        if want_annotated and frame_obj.annotated is not None
-                        else frame_obj.raw
-                    )
-                    frame = _dashboard_frame(frame)
-                    yield _mjpeg_chunk(frame, quality=70)
-                    time.sleep(0.03)
-
-            return StreamingResponse(
-                generate_live(),
-                media_type="multipart/x-mixed-replace; boundary=frame",
-            )
-
-    def generate_direct():
-        cap = _open_camera_source(source)
-        if not cap.isOpened():
-            return
-        try:
-            if isinstance(source, int) and device_settings:
-                apply_camera_device_settings(cap, device_settings, source=source)
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                if color_correct:
-                    frame = apply_camera_color_profile(frame, color_profile)
-                frame = apply_picture_settings(frame, picture_settings)
-                frame = _dashboard_frame(frame)
-                yield _mjpeg_chunk(frame, quality=70)
-        finally:
-            cap.release()
-
-    return StreamingResponse(
-        generate_direct(),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-    )
 
 
 @router.post("/api/cameras/assign")

@@ -3,7 +3,7 @@ export type CameraChoice = {
 	source: number | string | null;
 	label: string;
 	previewSrc: string | null;
-	previewKind: 'mjpeg' | 'image';
+	previewKind: 'stream' | 'image';
 };
 
 export type UsbCamera = {
@@ -36,7 +36,7 @@ export function buildCameraChoices(
 	usbCameras: UsbCamera[],
 	networkCameras: NetworkCamera[],
 	roleSelections: Record<string, string>,
-	backendBaseUrl: string
+	backendWsBaseUrl: string
 ): CameraChoice[] {
 	const base: CameraChoice[] = [
 		{
@@ -52,8 +52,8 @@ export function buildCameraChoices(
 			key: sourceKey(camera.index),
 			source: camera.index,
 			label: `${camera.name} (Camera ${camera.index})`,
-			previewSrc: `${backendBaseUrl}/api/cameras/stream/${camera.index}`,
-			previewKind: 'mjpeg'
+			previewSrc: `${backendWsBaseUrl}/ws/camera-preview/${camera.index}`,
+			previewKind: 'stream'
 		});
 	}
 	for (const camera of networkCameras) {
@@ -62,7 +62,7 @@ export function buildCameraChoices(
 			source: camera.source,
 			label: `${camera.name} (${camera.transport})`,
 			previewSrc: camera.preview_url ?? camera.source,
-			previewKind: camera.preview_url ? 'image' : 'mjpeg'
+			previewKind: camera.preview_url ? 'image' : 'stream'
 		});
 	}
 
@@ -79,8 +79,10 @@ export function buildCameraChoices(
 					? `Configured camera ${source}`
 					: `Configured stream ${source}`,
 			previewSrc:
-				typeof source === 'number' ? `${backendBaseUrl}/api/cameras/stream/${source}` : source,
-			previewKind: 'mjpeg'
+				typeof source === 'number'
+					? `${backendWsBaseUrl}/ws/camera-preview/${source}`
+					: source,
+			previewKind: 'stream'
 		});
 		seen.add(key);
 	}

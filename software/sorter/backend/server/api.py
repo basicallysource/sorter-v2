@@ -115,6 +115,7 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
+from rt.shadow.api import router as shadow_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -127,6 +128,10 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
+# Phase 2b: shadow-mode endpoints. Always mounted; the router returns an
+# "enabled=false" shape when no shadow runners are active, so the UI can
+# poll unconditionally.
+app.include_router(shadow_router, prefix="/api/rt/shadow", tags=["rt-shadow"])
 
 # ---------------------------------------------------------------------------
 # Lifecycle

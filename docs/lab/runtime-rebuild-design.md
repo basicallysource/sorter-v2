@@ -1021,6 +1021,8 @@ Create `rt/` tree, contracts (§2), strategy registry, Pydantic config schema + 
 Port MOG2 detector + PolarTracker + SizeFilter + GhostFilter for *one* feed (`c2_feed`). Build `PerceptionRunner` per-feed thread. Wire to the existing FastAPI through a minimal `WsBroadcaster` sink that publishes `perception.frame` events. Keep the old runtime running; new pipeline runs side-by-side on a `--shadow=rt` flag. UI shows the new overlay.
 **Done when:** Operator can toggle old/new overlays and see identical bboxes and tracks on `c2_feed`. Shadow-mode perception matches old detector output within 5% box-IoU on a recorded 5-minute clip.
 
+*Status (Phase 2b):* shadow-mode hooks **implemented** — `rt/shadow/` boots a `PerceptionRunner` per role listed in `RT_SHADOW_FEEDS`, the `/api/rt/shadow/{status,tracks/<role>}` endpoints expose live state, and `CameraFeed.svelte` renders a dashed-magenta overlay with a rolling-IoU readout when the `shadow` control is enabled.
+
 ### Phase 3 — Runtimes C1–C3 + pull coupling (≈6–8 PD)
 Port `RuntimeC1/C2/C3` with `CapacitySlot` wiring. `Orchestrator` drives them. Hardware workers operational. No C4 yet. Behind a `--runtime=rt` flag, `main.py` starts only the feeder runtimes; classification+distribution still run on the old path through a compatibility shim (`OldRuntimeAdapter` that reads from the new perception and exposes old-style interfaces).
 **Done when:** Dry sort cycle with empty bucket, capacity slots observably propagate, stall recovery runs on hardware worker thread, main-loop tick stays ≤5 ms 99th percentile (Profiler snapshot).

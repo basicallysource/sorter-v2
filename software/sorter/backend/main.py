@@ -252,6 +252,54 @@ def main() -> None:
         waveshare_inventory.start()
         waveshare_inventory.refresh()
 
+    # ------------------------------------------------------------------
+    # Phase 2b — rt/ shadow-mode runners
+    # ------------------------------------------------------------------
+    # Opt-in via RT_SHADOW_FEEDS=c2[,c3,...]. Each configured role spins
+    # up an rt/ PerceptionRunner alongside the legacy VisionManager. The
+    # runners publish TrackBatches on an in-process EventBus and feed a
+    # RollingIouTracker for parity measurement. Shadow failures NEVER
+    # stall the main startup — every error is caught and logged.
+    with gc.profiler.timer("startup.rt_shadow_ms"):
+        try:
+            from rt.shadow.config import parse_shadow_feeds_env
+            from rt.shadow.bootstrap import build_shadow_runner_from_live
+            from rt.shadow.iou import RollingIouTracker
+            from rt.events.bus import InProcessEventBus
+
+            shadow_feeds = parse_shadow_feeds_env()
+            if shadow_feeds:
+                shadow_bus = InProcessEventBus()
+                shadow_bus.start()
+                shared_state.shadow_bus = shadow_bus
+                for role in shadow_feeds:
+                    try:
+                        iou_tracker = RollingIouTracker(window_sec=10.0)
+                        shared_state.shadow_iou[role] = iou_tracker
+                        runner = build_shadow_runner_from_live(
+                            role,
+                            camera_service,
+                            vision,
+                            shadow_bus,
+                            iou_tracker=iou_tracker,
+                        )
+                        if runner is None:
+                            gc.logger.warning(
+                                f"rt shadow[{role}]: bootstrap returned no runner — skipping"
+                            )
+                            shared_state.shadow_iou.pop(role, None)
+                            continue
+                        runner.start()
+                        shared_state.shadow_runners[role] = runner
+                        gc.logger.info(f"rt shadow[{role}]: runner started")
+                    except Exception as exc:
+                        gc.logger.warning(
+                            f"rt shadow[{role}]: failed to start: {exc}"
+                        )
+                        shared_state.shadow_iou.pop(role, None)
+        except Exception as exc:
+            gc.logger.warning(f"rt shadow: bootstrap failed: {exc}")
+
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
     startup_report = gc.profiler.getReport()
@@ -574,6 +622,25 @@ def main() -> None:
         gc.logger.info("Shutting down...")
 
         gc.run_recorder.save()
+
+        # Stop rt/ shadow runners + bus first so they release any camera reads
+        # before we tear down VisionManager + CameraService below.
+        try:
+            for role, runner in list(shared_state.shadow_runners.items()):
+                try:
+                    runner.stop(timeout=1.0)
+                except Exception as exc:
+                    gc.logger.warning(f"rt shadow[{role}]: stop failed: {exc}")
+            shared_state.shadow_runners.clear()
+            shared_state.shadow_iou.clear()
+            if shared_state.shadow_bus is not None:
+                try:
+                    shared_state.shadow_bus.stop()
+                except Exception as exc:
+                    gc.logger.warning(f"rt shadow: bus stop failed: {exc}")
+                shared_state.shadow_bus = None
+        except Exception as exc:
+            gc.logger.warning(f"rt shadow: shutdown raised: {exc}")
 
         vision.stop()
         camera_service.stop()

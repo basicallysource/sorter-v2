@@ -31,6 +31,14 @@ gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
 camera_service: Optional[Any] = None
+
+# rt/ shadow-mode runtime state (Phase 2b). Populated by main.py when
+# ``RT_SHADOW_FEEDS`` is non-empty; empty dicts / None otherwise. The
+# ``rt.shadow.api`` router reads these via bridge-import to expose
+# runner status + latest TrackBatches without coupling to main.py.
+shadow_runners: Dict[str, Any] = {}
+shadow_iou: Dict[str, Any] = {}
+shadow_bus: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
 camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}

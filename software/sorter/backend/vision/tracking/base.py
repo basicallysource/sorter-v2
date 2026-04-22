@@ -25,6 +25,11 @@ class TrackedPiece:
     coasting: bool
     score: float | None
     handoff_from: str | None = None
+    # Whitelist flag from the tracker: True once the track has demonstrated
+    # motion consistent with a real LEGO piece (monotonic angular progress
+    # ≥ 5° or centroid drift ≥ 40 px). Sticky. Everything downstream —
+    # feeder clump detection, dropzone occupancy, handoff — gates on this.
+    confirmed_real: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -40,6 +45,7 @@ class TrackedPiece:
             "coasting": self.coasting,
             "score": self.score,
             "handoff_from": self.handoff_from,
+            "confirmed_real": self.confirmed_real,
         }
 
 

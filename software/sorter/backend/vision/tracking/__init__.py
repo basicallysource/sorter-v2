@@ -98,64 +98,20 @@ def build_feeder_tracker_system(
     except Exception:
         pass
     for role in roles:
-        tracker_kwargs = {
-            "role": role,
-            "handoff_manager": manager,
-            "detection_score_threshold": detection_score_threshold,
-            "history": history,
-            "id_switch_suspect_observer": id_switch_suspect_observer,
-        }
-        if role == "carousel":
-            # The dedicated classification channel is especially sensitive to
-            # static ghost boxes when the plate is empty. Be more aggressive
-            # there, while leaving c_channel_2 / c_channel_3 unchanged.
-            tracker_kwargs.update(
-                persist_static_ghost_regions=True,
-                enable_stagnant_false_track_filter=True,
-                stagnant_false_track_max_age_s=1.5,
-                stagnant_false_track_min_displacement_px=24.0,
-                stagnant_false_track_min_path_length_px=60.0,
-                stagnant_false_track_suppression_radius_px=56.0,
-                stagnant_false_track_suppression_ttl_s=5.0,
-                # Pieces physically parked at the drop zone waiting for
-                # distribution_ready would otherwise be killed by the
-                # stagnant filter (1.5s max age, 24px min displacement).
-                # The classification channel state machine pins them via
-                # mark_pending_drop() until the chute actually fires.
-                stagnant_false_track_pending_drop_protect_s=4.0,
-            )
-        elif role == "c_channel_2":
-            # The upstream singulation channel can briefly park real pieces,
-            # so keep the stagnant-track suppression conservative here.
-            # Persist ghost regions across sessions so stationary apparatus
-            # artefacts (screws, reflections, guides) stay suppressed after
-            # a restart instead of having to re-learn them each run.
-            tracker_kwargs.update(
-                persist_static_ghost_regions=True,
-                enable_stagnant_false_track_filter=True,
-                stagnant_false_track_max_age_s=6.0,
-                stagnant_false_track_min_displacement_px=14.0,
-                stagnant_false_track_min_path_length_px=24.0,
-                stagnant_false_track_suppression_radius_px=60.0,
-                stagnant_false_track_suppression_ttl_s=8.0,
-            )
-        elif role == "c_channel_3":
-            # C3 tends to see mount / guide ghosts that can block the whole
-            # feeder if they linger. Cull non-moving tracks sooner than on
-            # C2, and keep a wider suppression bubble around them so they do
-            # not immediately respawn on the next frame. Persist the
-            # learned regions so apparatus-bound ghosts (which never move)
-            # survive restarts.
-            tracker_kwargs.update(
-                persist_static_ghost_regions=True,
-                enable_stagnant_false_track_filter=True,
-                stagnant_false_track_max_age_s=3.0,
-                stagnant_false_track_min_displacement_px=18.0,
-                stagnant_false_track_min_path_length_px=30.0,
-                stagnant_false_track_suppression_radius_px=72.0,
-                stagnant_false_track_suppression_ttl_s=12.0,
-            )
-        trackers[role] = PolarFeederTracker(**tracker_kwargs)
+        # Whitelist refactor: every tracker is identical. Per-role stagnant
+        # filters and persistent ghost-region memories are gone. A track
+        # becomes "real" only after demonstrating monotonic angular
+        # progress or centroid drift — apparatus ghosts never clear that
+        # bar, so they ride along as unconfirmed tracks and downstream
+        # consumers (feeder clump detection, dropzone occupancy, handoff,
+        # dossier mint) filter on ``confirmed_real`` instead.
+        trackers[role] = PolarFeederTracker(
+            role=role,
+            handoff_manager=manager,
+            detection_score_threshold=detection_score_threshold,
+            history=history,
+            id_switch_suspect_observer=id_switch_suspect_observer,
+        )
     return manager, trackers, history
 
 

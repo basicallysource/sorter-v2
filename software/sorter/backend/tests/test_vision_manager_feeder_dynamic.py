@@ -618,10 +618,10 @@ class SegmentArchivalTests(unittest.TestCase):
         self.assertEqual(1, len(segment_calls))
         self.assertEqual(existing_uuid, segment_calls[0]["piece_uuid"])
 
-    def test_segment_archival_skips_stationary_ghost(self) -> None:
-        """Segments whose sector snapshots barely cover a couple of
-        degrees (static apparatus ghost that clipped past the early-bind
-        filter) must not produce a stub dossier or segment row."""
+    def test_segment_archival_skips_unconfirmed_track(self) -> None:
+        """Segments from a track that never flipped ``confirmed_real``
+        must not produce a stub dossier. Matches the whitelist gate —
+        apparatus ghosts stay out of the DB."""
 
         vm = self._make_vm()
         transport = SimpleNamespace(
@@ -629,13 +629,16 @@ class SegmentArchivalTests(unittest.TestCase):
             bindStubPieceUuid=lambda *a, **k: True,
         )
         vm._piece_transport = transport
+        # No feeder trackers → _trackedGlobalIdIsConfirmedReal returns
+        # False → falls back to segment-angular-span safety check.
+        vm._feeder_trackers = {}
 
         import base64
 
         wedge_b64 = base64.b64encode(b"\xff\xd8\xff\xe0wedge").decode("ascii")
         piece_b64 = base64.b64encode(b"\xff\xd8\xff\xe0piece").decode("ascii")
         # Two snapshots, both parked in the same ~1° sliver — angular
-        # span ≈ 1.0° which is below the 3° motion-gate.
+        # span ≈ 1.0° which is below the 5° safety-fallback threshold.
         snapshots = [
             SectorSnapshot(
                 sector_index=0,
@@ -700,7 +703,7 @@ class SegmentArchivalTests(unittest.TestCase):
         ):
             VisionManager._archive_segment_to_dossier(vm, 777, segment)
 
-        # Nothing persisted — the motion-gate refused the stub.
+        # Nothing persisted — the whitelist gate refused the stub.
         self.assertEqual([], dossier_calls)
         self.assertEqual([], segment_calls)
 

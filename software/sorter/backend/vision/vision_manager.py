@@ -2741,6 +2741,33 @@ class VisionManager:
         result["tracks"] = [track.to_dict() for track in tracks]
         result["track_count"] = len(tracks)
 
+    def _trackedGlobalIdIsConfirmedReal(self, tracked_global_id: int) -> bool:
+        """Return True when any live tracker holds a ``confirmed_real`` track
+        for ``tracked_global_id``. Returns False when the gid is unknown
+        (track already died) so the caller can fall back to the segment-
+        angular-span safety check.
+        """
+        try:
+            gid = int(tracked_global_id)
+        except (TypeError, ValueError):
+            return False
+        trackers = getattr(self, "_feeder_trackers", None) or {}
+        for tracker in trackers.values():
+            try:
+                internal = getattr(tracker, "_tracks", None)
+            except Exception:
+                internal = None
+            if not internal:
+                continue
+            for track in internal.values():
+                if int(getattr(track, "global_id", -1)) == gid:
+                    if bool(getattr(track, "confirmed_real", False)):
+                        return True
+                    # Found the track but it is not confirmed — no need to
+                    # keep searching other trackers.
+                    return False
+        return False
+
     def _channelDetectionsFromTracks(
         self,
         role: str,
@@ -2868,24 +2895,26 @@ class VisionManager:
                             pass
 
         if not piece_uuid:
-            # Motion-gate on segment archival: a segment whose sector
-            # snapshots barely span a few degrees is almost certainly a
-            # static apparatus ghost that slipped past the early-bind
-            # filter. Refuse to mint a stub dossier for it; the segment
-            # stays unarchived and the ghost leaves no DB trace.
-            span_deg = segment_sector_angular_span_deg(
-                getattr(segment, "sector_snapshots", None)
-            )
-            if span_deg < 3.0:
-                try:
-                    self.gc.logger.info(
-                        f"_archive_segment_to_dossier_impl: skipping stationary "
-                        f"ghost segment gid={tracked_global_id} "
-                        f"angular_span_deg={span_deg:.2f}"
-                    )
-                except Exception:
-                    pass
-                return
+            # Whitelist gate on segment archival: if the originating track
+            # is still live on any tracker and has not flipped
+            # ``confirmed_real``, refuse to mint a stub dossier. If the
+            # track is already dead, fall back to the segment's sector
+            # angular span as a safe-but-lax check (a segment that
+            # archived a meaningful arc is almost certainly a real piece).
+            if not self._trackedGlobalIdIsConfirmedReal(int(tracked_global_id)):
+                span_deg = segment_sector_angular_span_deg(
+                    getattr(segment, "sector_snapshots", None)
+                )
+                if span_deg < 5.0:
+                    try:
+                        self.gc.logger.info(
+                            f"_archive_segment_to_dossier_impl: skipping "
+                            f"unconfirmed track segment gid={tracked_global_id} "
+                            f"angular_span_deg={span_deg:.2f}"
+                        )
+                    except Exception:
+                        pass
+                    return
 
             piece_uuid = str(_uuid.uuid4())
             now = _time.time()

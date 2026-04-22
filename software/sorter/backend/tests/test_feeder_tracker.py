@@ -23,8 +23,6 @@ def _make_single_tracker(
     score_threshold: float = 0.1,
     pixel_fallback_distance_px: float = 200.0,
     coast_limit_ticks: int = 5,
-    stagnant_false_track_max_age_s: float = 3.0,
-    persist_static_ghost_regions: bool = False,
 ) -> tuple[PolarFeederTracker, PieceHandoffManager]:
     manager = PieceHandoffManager(handoff_chain={})
     tracker = PolarFeederTracker(
@@ -33,8 +31,6 @@ def _make_single_tracker(
         pixel_fallback_distance_px=pixel_fallback_distance_px,
         detection_score_threshold=score_threshold,
         coast_limit_ticks=coast_limit_ticks,
-        stagnant_false_track_max_age_s=stagnant_false_track_max_age_s,
-        persist_static_ghost_regions=persist_static_ghost_regions,
     )
     return tracker, manager
 
@@ -115,187 +111,6 @@ def test_score_threshold_filters_low():
     assert tracks == []
 
 
-def test_stagnant_false_track_is_ignored_after_grace_period():
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    last_tracks = []
-    for i in range(8):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert last_tracks == [], "static false detection should be ignored after aging out"
-
-    suppressed = tracker.update([_bbox_around(202.0, 242.0, size=60)], [0.9], 1.8)
-    assert suppressed == [], "ignored static region should suppress immediate re-spawn"
-
-
-def test_polar_ghost_suppression_releases_when_object_moves_along_arc():
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
-
-    last_tracks = []
-    for i in range(8):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
-    assert last_tracks == []
-
-    # Still essentially the same polar position -> remain suppressed.
-    suppressed = tracker.update([_bbox_around(278.0, 205.0, size=40)], [0.9], 1.8)
-    assert suppressed == []
-
-    # Move along the arc by ~10 degrees while staying within the broad
-    # cartesian suppression radius. That should revive the track because the
-    # object is no longer stationary in polar space.
-    revived = tracker.update([_bbox_around(279.0, 214.0, size=40)], [0.9], 2.0)
-    assert len(revived) == 1
-
-
-def test_persistent_stagnant_ghost_regions_survive_restart_and_clear_on_revival(
-    tmp_path,
-    monkeypatch,
-):
-    machine_params = tmp_path / "machine_params.toml"
-    machine_params.write_text("", encoding="utf-8")
-    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
-    monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(machine_params))
-
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-        persist_static_ghost_regions=True,
-    )
-    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
-
-    last_tracks = []
-    for i in range(8):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
-    assert last_tracks == []
-
-    reloaded, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-        persist_static_ghost_regions=True,
-    )
-    reloaded.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
-
-    suppressed = reloaded.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
-    assert suppressed == []
-
-    revived = reloaded.update([_bbox_around(279.0, 214.0, size=40)], [0.9], 0.2)
-    assert len(revived) == 1
-
-
-def test_c3_ghost_region_persists_across_tracker_restart(tmp_path, monkeypatch):
-    """A stationary C3 detection held for >3 s must be learned as a
-    persistent ghost region that survives a tracker rebuild. The new
-    tracker instance must load the state_entries row and filter the same
-    detection on its very first update call."""
-
-    machine_params = tmp_path / "machine_params.toml"
-    machine_params.write_text("", encoding="utf-8")
-    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
-    monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(machine_params))
-
-    import importlib
-
-    import local_state
-
-    importlib.reload(local_state)
-
-    def _make() -> PolarFeederTracker:
-        manager = PieceHandoffManager(handoff_chain={})
-        t = PolarFeederTracker(
-            role="c_channel_3",
-            handoff_manager=manager,
-            pixel_fallback_distance_px=200.0,
-            detection_score_threshold=0.1,
-            coast_limit_ticks=5,
-            enable_stagnant_false_track_filter=True,
-            stagnant_false_track_max_age_s=1.0,
-            persist_static_ghost_regions=True,
-        )
-        t.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
-        return t
-
-    tracker = _make()
-
-    last_tracks = []
-    # Feed a single fixed detection for ≥ 3 s worth of ticks at 5 Hz so
-    # the stagnant-false-track filter kicks in and suppresses the track,
-    # emitting a persistent ignore region along the way.
-    for i in range(16):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], ts)
-    assert last_tracks == []
-
-    persisted = local_state.get_persistent_tracker_ignored_regions("c_channel_3")
-    assert len(persisted) >= 1, "c_channel_3 ghost region must be persisted"
-
-    reloaded = _make()
-
-    # First call on the new tracker must already filter the ghost.
-    suppressed = reloaded.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
-    assert suppressed == []
-
-
-def test_carousel_jitter_ghost_is_suppressed_even_after_accumulating_path_length():
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
-
-    # Fixed structure with a jumpy detector center: enough historical travel
-    # to look "motion confirmed" if we only trust path length, but its recent
-    # polar position stays essentially fixed.
-    centers = [
-        (280.0, 200.0),
-        (292.0, 206.0),
-        (272.0, 197.0),
-        (288.0, 204.0),
-        (281.0, 201.0),
-        (280.0, 200.0),
-        (281.0, 200.0),
-        (279.0, 199.0),
-        (280.0, 200.0),
-    ]
-    last_tracks = []
-    for i, (cx, cy) in enumerate(centers):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(cx, cy, size=40)], [0.9], ts)
-
-    assert last_tracks == [], (
-        "recently-stationary carousel ghost should age out even if jitter "
-        "previously accumulated enough path length to look mobile"
-    )
-
-
-def test_large_carousel_ghost_region_expands_suppression_radius():
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-    tracker.set_channel_geometry((200.0, 200.0), 40.0, 140.0)
-
-    # A large static guide-like box should create a suppression region larger
-    # than the fixed default radius so later center jumps along the same
-    # structure still merge into one persistent ghost.
-    for i in range(8):
-        ts = i * 0.2
-        tracker.update([_bbox_around(280.0, 220.0, size=120)], [0.9], ts)
-
-    regions = tracker.get_ignored_static_regions(timestamp=1.6)
-    assert len(regions) == 1
-    assert regions[0]["radius_px"] > 56.0
-
-
 def test_live_piece_crop_prefers_latest_real_crop_over_composite_thumb():
     tracker, _ = _make_single_tracker(role="carousel")
     first = tracker.update([_bbox_around(280.0, 200.0, size=40)], [0.9], 0.0)
@@ -335,7 +150,7 @@ def test_live_piece_crop_prefers_latest_real_crop_over_composite_thumb():
 
 
 def test_real_track_survives_later_pause_once_motion_was_confirmed():
-    tracker, _ = _make_single_tracker(stagnant_false_track_max_age_s=1.0)
+    tracker, _ = _make_single_tracker()
 
     moving_points = [100.0, 116.0, 134.0, 156.0]
     last_tracks = []
@@ -348,202 +163,6 @@ def test_real_track_survives_later_pause_once_motion_was_confirmed():
         paused_tracks = tracker.update([_bbox_around(156.0, 200.0, size=60)], [0.9], j * 0.2)
 
     assert len(paused_tracks) == 1, "legit track should remain after later pause"
-
-
-def test_motion_confirmed_track_can_be_killed_after_sustained_stationary():
-    """Apparatus ghost that wiggled >18px at birth then froze must recover.
-
-    Without this recovery path, ``motion_confirmed`` is sticky-latched and the
-    stagnant-false-track filter is disarmed for life — the phantom blocks the
-    dropzone forever (see Phase-7 / Ghost-Elimination motion-memory fix).
-    """
-    from vision.tracking.polar_tracker import PolarFeederTracker
-
-    manager = PieceHandoffManager(handoff_chain={})
-    tracker = PolarFeederTracker(
-        role="c_channel_3",
-        handoff_manager=manager,
-        pixel_fallback_distance_px=200.0,
-        detection_score_threshold=0.1,
-        coast_limit_ticks=5,
-        enable_stagnant_false_track_filter=True,
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    # Startup wiggle: move 20 px in the first two frames so ``motion_confirmed``
-    # latches to True. Birth-displacement threshold is 18 px.
-    tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
-    tracker.update([_bbox_around(220.0, 240.0, size=60)], [0.9], 0.2)
-
-    # Confirm the latch fired.
-    track = next(iter(tracker._tracks.values()))
-    assert track.motion_confirmed is True, "setup: startup wiggle should have latched"
-
-    # Freeze the detection at the wiggled position for > 3 s so the recent-
-    # stationary window (2.5 s, 1.8 s min coverage) fully populates.
-    last_tracks = [object()]
-    for i in range(2, 22):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(220.0, 240.0, size=60)], [0.9], ts)
-        if last_tracks == []:
-            break
-
-    assert last_tracks == [], (
-        "motion_confirmed track that has been cartesian-stationary for "
-        "> RECENT_STATIONARY_MIN_COVERAGE_S must be killable by the "
-        "stagnant-false-track filter"
-    )
-
-
-def test_real_piece_brief_pause_is_not_killed():
-    """A legit C3 piece that pauses briefly mid-travel stays alive."""
-    from vision.tracking.polar_tracker import PolarFeederTracker
-
-    manager = PieceHandoffManager(handoff_chain={})
-    tracker = PolarFeederTracker(
-        role="c_channel_3",
-        handoff_manager=manager,
-        pixel_fallback_distance_px=200.0,
-        detection_score_threshold=0.1,
-        coast_limit_ticks=5,
-        enable_stagnant_false_track_filter=True,
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    # Sustained travel: 8 frames advancing 16 px per tick → 128 px total over
-    # 1.4 s. ``motion_confirmed`` latches long before the brief pause.
-    last_tracks = []
-    for i in range(8):
-        cx = 100.0 + i * 16.0
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(cx, 240.0, size=60)], [0.9], ts)
-    assert len(last_tracks) == 1, "setup: real piece should be tracked after travel"
-
-    # Brief 0.5 s pause at the current position — well under the 1.8 s coverage
-    # threshold, so the track must survive.
-    for j in range(8, 11):
-        ts = j * 0.2
-        last_tracks = tracker.update([_bbox_around(212.0, 240.0, size=60)], [0.9], ts)
-
-    assert len(last_tracks) == 1, (
-        "real piece with brief sub-second pause must not be killed by the "
-        "recent-stationary recovery path"
-    )
-
-
-def test_stagnant_filter_is_not_applied_to_c_channel_3():
-    tracker, _ = _make_single_tracker(
-        role="c_channel_3",
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    last_tracks = []
-    for i in range(8):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert len(last_tracks) == 1, "stagnant suppression should stay scoped off c_channel_3"
-
-
-def test_split_feeder_system_filters_long_lived_c3_static_ghosts():
-    _manager, trackers, _history = build_feeder_tracker_system(
-        roles=("c_channel_2", "c_channel_3", "carousel"),
-        handoff_window_s=2.0,
-        frame_rate=5,
-    )
-    tracker = trackers["c_channel_3"]
-
-    last_tracks = []
-    for i in range(40):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert last_tracks == [], "split-feeder c_channel_3 ghost should age out"
-
-
-def test_stagnant_filter_skips_handoff_tracks_on_classification_channel():
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
-    internal_track = next(iter(tracker._tracks.values()))
-    internal_track.handoff_from = "c_channel_3"
-
-    last_tracks = []
-    for i in range(1, 8):
-        ts = i * 0.2
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert len(last_tracks) == 1, "handoff-backed classification track should not be suppressed"
-
-
-def test_pending_drop_exempts_stagnant_track_from_kill(monkeypatch):
-    """A piece physically parked at the drop zone (e.g. waiting for
-    distribution_ready) must not be culled by the stagnant filter once the
-    state machine has marked it as pending drop — otherwise
-    live_global_ids("carousel") drops the id mid-wait and the drop handoff
-    breaks."""
-    import vision.tracking.polar_tracker as pt_module
-
-    fake_now = [1000.0]
-    monkeypatch.setattr(pt_module.time, "time", lambda: fake_now[0])
-
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.5,
-    )
-
-    # Bring a track into existence at t=0.0.
-    first = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
-    assert len(first) == 1
-    gid = first[0].global_id
-
-    # State machine commits the piece to drop — align fake wall clock with
-    # tracker timeline so the 4s protection maps cleanly onto tracker ts.
-    fake_now[0] = 0.0
-    tracker.mark_pending_drop(gid)
-
-    last_tracks = []
-    for i in range(1, 10):
-        ts = i * 0.2  # crosses max_age_s=1.5s by tick 8
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert len(last_tracks) == 1, (
-        "pending-drop-pinned track must survive the stagnant-false-track filter"
-    )
-    assert last_tracks[0].global_id == gid
-
-
-def test_pending_drop_protection_expires(monkeypatch):
-    """Protection is time-bounded — once ``protect_for_s`` elapses, the track
-    goes back to normal stagnant-filter treatment."""
-    import vision.tracking.polar_tracker as pt_module
-
-    fake_now = [0.0]
-    monkeypatch.setattr(pt_module.time, "time", lambda: fake_now[0])
-
-    tracker, _ = _make_single_tracker(
-        role="carousel",
-        stagnant_false_track_max_age_s=1.0,
-    )
-
-    first = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], 0.0)
-    assert len(first) == 1
-    gid = first[0].global_id
-
-    # Short protection window — shorter than the time we'll stay static for.
-    tracker.mark_pending_drop(gid, protect_for_s=0.5)
-
-    last_tracks = []
-    for i in range(1, 12):
-        ts = i * 0.2  # well past both 0.5s protection and 1.0s max_age
-        last_tracks = tracker.update([_bbox_around(200.0, 240.0, size=60)], [0.9], ts)
-
-    assert last_tracks == [], (
-        "expired pending-drop protection should fall back to normal stagnant culling"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -914,58 +533,59 @@ def _make_c3_tracker(
         pixel_fallback_distance_px=pixel_fallback_distance_px,
         detection_score_threshold=0.1,
         coast_limit_ticks=coast_limit_ticks,
-        # Disable the stagnant-track filter — it only kicks in for
-        # carousel by default but being explicit keeps these tests
-        # insensitive to future default changes.
-        enable_stagnant_false_track_filter=False,
     )
     return tracker, manager
 
 
 def test_c3_track_gets_piece_uuid_after_stable_hits(tmp_path, monkeypatch):
-    """After ``MIN_C3_HITS_FOR_PIECE_UUID`` consecutive C3 hits a stable
-    uuid must be minted and a stub dossier persisted. Below the threshold
-    the track must stay ``piece_uuid=None``."""
+    """After ``MIN_C3_HITS_FOR_PIECE_UUID`` consecutive C3 hits *and*
+    ``confirmed_real`` flipping true, a stable uuid must be minted and a
+    stub dossier persisted. Before the whitelist latches, no uuid."""
 
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
 
     # Import happens lazily inside the tracker — clear cached modules so
     # the env override takes effect.
     import importlib
+    import math as _math
     import local_state
 
     importlib.reload(local_state)
-    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
 
     tracker, _ = _make_c3_tracker()
+    # Channel geometry needed for the monotonic-angular-progress criterion.
+    center_x, center_y = 200.0, 200.0
+    radius_px = 80.0
+    tracker.set_channel_geometry((center_x, center_y), 40.0, 120.0)
 
-    observed_uuids: list[str | None] = []
-    for i in range(MIN_C3_HITS_FOR_PIECE_UUID + 1):
-        cx = 100.0 + i * 30.0
-        tracker.update([_bbox_around(cx, 200.0, size=60)], [0.9], i * 0.2)
-        # Read the live internal state — the tracker only has one track.
-        tracks = list(tracker._tracks.values())
-        assert len(tracks) == 1, tracks
-        observed_uuids.append(tracks[0].piece_uuid)
+    # Ten samples sweeping ~18° of arc — well past the 5° whitelist gate
+    # and plenty of hits for MIN_C3_HITS_FOR_PIECE_UUID.
+    steps = 10
+    total_arc_deg = 18.0
+    for i in range(steps):
+        frac = i / max(1, steps - 1)
+        angle_rad = _math.radians(frac * total_arc_deg)
+        cx = center_x + radius_px * _math.cos(angle_rad)
+        cy = center_y + radius_px * _math.sin(angle_rad)
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
 
-    # Below threshold: no uuid yet. Threshold == 4 -> indices 0..2 are None,
-    # index 3 (4th hit) first gets a uuid, index 4 same uuid.
-    assert all(uid is None for uid in observed_uuids[: MIN_C3_HITS_FOR_PIECE_UUID - 1])
-    minted_uuid = observed_uuids[MIN_C3_HITS_FOR_PIECE_UUID - 1]
-    assert isinstance(minted_uuid, str) and len(minted_uuid) >= 8, observed_uuids
-    # Stable across subsequent ticks.
-    assert observed_uuids[MIN_C3_HITS_FOR_PIECE_UUID] == minted_uuid
+    tracks = list(tracker._tracks.values())
+    assert len(tracks) == 1, tracks
+    track = tracks[0]
+    assert track.confirmed_real is True
+    assert isinstance(track.piece_uuid, str) and len(track.piece_uuid) >= 8
 
     # Dossier is persisted and points back at the same tracked_global_id.
-    dossier = local_state.get_piece_dossier(minted_uuid)
+    dossier = local_state.get_piece_dossier(track.piece_uuid)
     assert dossier is not None, "stub dossier must be persisted"
-    assert dossier["uuid"] == minted_uuid
+    assert dossier["uuid"] == track.piece_uuid
     assert dossier["stage"] == "created"
     assert dossier["classification_status"] == "pending"
 
 
 def test_c3_track_below_threshold_no_piece_uuid(tmp_path, monkeypatch):
-    """Hit counts 1..threshold-1 must never mint a uuid."""
+    """Hit counts 1..threshold-1 must never mint a uuid even if the
+    whitelist criterion is satisfied."""
 
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
     import importlib
@@ -984,11 +604,126 @@ def test_c3_track_below_threshold_no_piece_uuid(tmp_path, monkeypatch):
         assert tracks[0].piece_uuid is None, (i, tracks[0].piece_uuid)
 
 
-def test_stationary_track_does_not_bind_piece_uuid(tmp_path, monkeypatch):
-    """A C3 track that clears the hit-count gate but stays parked inside
-    the motion-gate (< 3° angular span AND < 12 px displacement) must not
-    mint a piece_uuid or persist a stub dossier. These are the signatures
-    of static apparatus ghosts (screws, reflections, mounts)."""
+def test_track_not_confirmed_until_monotonic_angular_progress_reached():
+    """A track that has only covered a few degrees of arc stays
+    unconfirmed; crossing the 5° mark flips ``confirmed_real``."""
+
+    import math as _math
+
+    tracker, _ = _make_single_tracker(role="c_channel_3")
+    center = (200.0, 200.0)
+    radius_px = 80.0
+    tracker.set_channel_geometry(center, 40.0, 120.0)
+
+    # 6 samples spanning only ~3° — below the gate.
+    for i in range(6):
+        frac = i / 5.0
+        angle_rad = _math.radians(frac * 3.0)
+        cx = center[0] + radius_px * _math.cos(angle_rad)
+        cy = center[1] + radius_px * _math.sin(angle_rad)
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
+    track = next(iter(tracker._tracks.values()))
+    assert track.confirmed_real is False
+
+
+def test_track_confirmed_after_sufficient_angular_progress():
+    """~10° monotonic arc with ≥ 6 samples flips confirmed_real."""
+
+    import math as _math
+
+    tracker, _ = _make_single_tracker(role="c_channel_3")
+    center = (200.0, 200.0)
+    radius_px = 80.0
+    tracker.set_channel_geometry(center, 40.0, 120.0)
+
+    for i in range(8):
+        frac = i / 7.0
+        angle_rad = _math.radians(frac * 10.0)
+        cx = center[0] + radius_px * _math.cos(angle_rad)
+        cy = center[1] + radius_px * _math.sin(angle_rad)
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
+    track = next(iter(tracker._tracks.values()))
+    assert track.confirmed_real is True
+
+
+def test_track_confirmed_after_centroid_drift():
+    """Pieces that cut radially across the ring (≥ 40 px centroid drift
+    between the first-5-sample median and the last-5-sample median) flip
+    ``confirmed_real`` even when angular progress stays tiny."""
+
+    tracker, _ = _make_single_tracker(role="c_channel_3")
+    # No channel geometry — only centroid-drift criterion applies.
+
+    # 10 samples stepping 12 px/frame → head median at frame 2 (x=124),
+    # tail median at frame 7 (x=184) → drift = 60 px, above the 40 px
+    # threshold.
+    for i in range(10):
+        cx = 100.0 + i * 12.0
+        tracker.update([_bbox_around(cx, 200.0, size=40)], [0.9], i * 0.2)
+    track = next(iter(tracker._tracks.values()))
+    assert track.confirmed_real is True
+
+
+def test_jittering_ghost_never_confirmed():
+    """60 frames of ±3 px cartesian jitter around a fixed center, 0.1°
+    angular wobble. Matches an apparatus ghost. Must stay unconfirmed
+    the whole way.
+    """
+
+    tracker, _ = _make_single_tracker(role="c_channel_3")
+    tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
+
+    # Deterministic small-amplitude jitter patterns — alternate sign
+    # pairs so cumulative displacement stays tiny.
+    anchor_cx, anchor_cy = 280.0, 200.0
+    jitter = [
+        (0.0, 0.0), (2.0, -1.0), (-1.5, 0.5), (1.0, 1.5), (-1.0, -0.5),
+        (0.5, 1.0), (-0.5, -1.5), (1.5, 0.5), (-2.0, 0.0), (0.5, -0.5),
+    ]
+    for i in range(60):
+        dx, dy = jitter[i % len(jitter)]
+        tracker.update(
+            [_bbox_around(anchor_cx + dx, anchor_cy + dy, size=40)],
+            [0.9],
+            i * 0.2,
+        )
+        tracks = list(tracker._tracks.values())
+        if not tracks:
+            continue
+        assert tracks[0].confirmed_real is False, f"flipped at tick {i}"
+
+
+def test_confirmed_real_is_sticky_across_pause():
+    """Once a track reaches the whitelist threshold, it stays confirmed
+    even if the piece goes stationary for many subsequent frames."""
+
+    import math as _math
+
+    tracker, _ = _make_single_tracker(role="c_channel_3")
+    center = (200.0, 200.0)
+    radius_px = 80.0
+    tracker.set_channel_geometry(center, 40.0, 120.0)
+
+    for i in range(8):
+        frac = i / 7.0
+        angle_rad = _math.radians(frac * 10.0)
+        cx = center[0] + radius_px * _math.cos(angle_rad)
+        cy = center[1] + radius_px * _math.sin(angle_rad)
+        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
+    track = next(iter(tracker._tracks.values()))
+    assert track.confirmed_real is True
+    parked_cx, parked_cy = track.center_px
+
+    for j in range(8, 20):
+        tracker.update(
+            [_bbox_around(parked_cx, parked_cy, size=40)], [0.9], j * 0.2,
+        )
+        assert track.confirmed_real is True, f"flipped at tick {j}"
+
+
+def test_dossier_not_minted_for_unconfirmed_track(tmp_path, monkeypatch):
+    """Jitter ghost that clears the hit-count gate but stays in a fixed
+    position must not mint a piece_uuid."""
 
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
     import importlib
@@ -998,21 +733,11 @@ def test_stationary_track_does_not_bind_piece_uuid(tmp_path, monkeypatch):
     from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
 
     tracker, _ = _make_c3_tracker()
-    # Wire channel geometry so angular-displacement metrics are populated.
     tracker.set_channel_geometry((200.0, 200.0), 40.0, 120.0)
 
-    # Detections jitter within a 4 px radius around a fixed point — well
-    # under both thresholds (12 px cartesian, 3° angular).
     anchor_cx, anchor_cy = 280.0, 200.0
-    jitter = [
-        (0.0, 0.0),
-        (1.0, -1.0),
-        (-1.5, 0.5),
-        (0.5, 1.0),
-        (-0.5, -0.5),
-        (1.0, 0.0),
-    ]
-    for i in range(MIN_C3_HITS_FOR_PIECE_UUID + 1):
+    jitter = [(0.0, 0.0), (1.0, -1.0), (-1.5, 0.5), (0.5, 1.0), (-0.5, -0.5), (1.0, 0.0)]
+    for i in range(MIN_C3_HITS_FOR_PIECE_UUID + 4):
         dx, dy = jitter[i % len(jitter)]
         tracker.update(
             [_bbox_around(anchor_cx + dx, anchor_cy + dy, size=40)],
@@ -1024,90 +749,38 @@ def test_stationary_track_does_not_bind_piece_uuid(tmp_path, monkeypatch):
     assert len(tracks) == 1, tracks
     track = tracks[0]
     assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
-    assert track.max_displacement_px < 12.0, track.max_displacement_px
-    import math as _math
-
-    assert track.max_angular_displacement_rad < _math.radians(3.0), (
-        track.max_angular_displacement_rad
-    )
-    assert track.piece_uuid is None, "stationary ghost must not get a uuid"
+    assert track.confirmed_real is False
+    assert track.piece_uuid is None, "unconfirmed ghost must not mint a uuid"
 
 
-def test_moving_track_binds_piece_uuid(tmp_path, monkeypatch):
-    """A C3 track whose detections sweep through ≥ 5° of polar angle must
-    bind a piece_uuid once hit_count clears the threshold."""
+def test_dossier_minted_once_track_confirmed(tmp_path, monkeypatch):
+    """After enough angular progress, the track flips confirmed_real and
+    the piece_uuid is minted on the next tick."""
 
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
     import importlib
     import math as _math
-
     import local_state
 
     importlib.reload(local_state)
-    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
 
     tracker, _ = _make_c3_tracker()
-    center_x, center_y = 200.0, 200.0
+    center = (200.0, 200.0)
     radius_px = 80.0
-    tracker.set_channel_geometry((center_x, center_y), 40.0, 120.0)
+    tracker.set_channel_geometry(center, 40.0, 120.0)
 
-    # Spread detections over ~5° of arc at fixed radius.
-    total_arc_deg = 5.0
-    start_angle_deg = 0.0
-    steps = MIN_C3_HITS_FOR_PIECE_UUID + 1
-    for i in range(steps):
-        frac = i / max(1, steps - 1)
-        angle_rad = _math.radians(start_angle_deg + frac * total_arc_deg)
-        cx = center_x + radius_px * _math.cos(angle_rad)
-        cy = center_y + radius_px * _math.sin(angle_rad)
+    for i in range(10):
+        frac = i / 9.0
+        angle_rad = _math.radians(frac * 18.0)
+        cx = center[0] + radius_px * _math.cos(angle_rad)
+        cy = center[1] + radius_px * _math.sin(angle_rad)
         tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
 
-    tracks = list(tracker._tracks.values())
-    assert len(tracks) == 1, tracks
-    track = tracks[0]
-    assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
-    assert track.max_angular_displacement_rad >= _math.radians(3.0)
+    track = next(iter(tracker._tracks.values()))
+    assert track.confirmed_real is True
     assert isinstance(track.piece_uuid, str) and len(track.piece_uuid) >= 8
-
     dossier = local_state.get_piece_dossier(track.piece_uuid)
     assert dossier is not None
-
-
-def test_radial_motion_only_still_binds_uuid(tmp_path, monkeypatch):
-    """Pieces that cut radially across the ring (≥ 12 px cartesian
-    displacement) but cover < 1° angular span still must receive a
-    piece_uuid — the motion-gate uses OR semantics, not AND."""
-
-    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
-    import importlib
-    import math as _math
-
-    import local_state
-
-    importlib.reload(local_state)
-    from vision.tracking.polar_tracker import MIN_C3_HITS_FOR_PIECE_UUID
-
-    tracker, _ = _make_c3_tracker()
-    center_x, center_y = 200.0, 200.0
-    tracker.set_channel_geometry((center_x, center_y), 40.0, 160.0)
-
-    # Sit on the +x axis and walk outward — angular offset stays 0,
-    # radial (cartesian) displacement grows past 12 px.
-    base_radius_px = 60.0
-    steps = MIN_C3_HITS_FOR_PIECE_UUID + 1
-    for i in range(steps):
-        radius_px = base_radius_px + i * 5.0
-        cx = center_x + radius_px
-        cy = center_y  # stays on the axis — angular_span ~ 0
-        tracker.update([_bbox_around(cx, cy, size=40)], [0.9], i * 0.2)
-
-    tracks = list(tracker._tracks.values())
-    assert len(tracks) == 1, tracks
-    track = tracks[0]
-    assert track.hit_count >= MIN_C3_HITS_FOR_PIECE_UUID
-    assert track.max_displacement_px >= 12.0, track.max_displacement_px
-    assert track.max_angular_displacement_rad < _math.radians(1.0)
-    assert isinstance(track.piece_uuid, str) and len(track.piece_uuid) >= 8
 
 
 def test_c3_to_carousel_handoff_preserves_piece_uuid(tmp_path, monkeypatch):

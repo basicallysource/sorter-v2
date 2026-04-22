@@ -32,7 +32,7 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
-_STATE_KEY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX = "persistent_tracker_ignored_regions:"
+_LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX = "persistent_tracker_ignored_regions:"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
@@ -502,6 +502,7 @@ def initialize_local_state() -> None:
             _migrate_misc_state_files(conn)
             _cleanup_machine_params_runtime_sections(conn)
             _migrate_renamed_state_keys(conn)
+            _drop_legacy_persistent_tracker_ignored_regions(conn)
             conn.commit()
 
 
@@ -832,119 +833,19 @@ def set_checklist_part_state(
     }
 
 
-def _persistent_tracker_ignored_regions_key(role: str) -> str:
-    normalized = role.strip() if isinstance(role, str) else ""
-    if not normalized:
-        raise ValueError("role must be a non-empty string")
-    return f"{_STATE_KEY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX}{normalized}"
-
-
-def get_persistent_tracker_ignored_regions(role: str) -> list[dict[str, Any]]:
-    key = _persistent_tracker_ignored_regions_key(role)
-    initialize_local_state()
-    with _connection() as conn:
-        raw = _get_json(conn, key)
-    if not isinstance(raw, list):
-        return []
-    out: list[dict[str, Any]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        center = item.get("center_px")
-        if (
-            not isinstance(center, (list, tuple))
-            or len(center) != 2
-            or not all(isinstance(v, (int, float)) for v in center)
-        ):
-            continue
-        out.append(
-            {
-                "center_px": [float(center[0]), float(center[1])],
-                "radius_px": float(item.get("radius_px", 0.0)),
-                "center_angle_rad": (
-                    float(item["center_angle_rad"])
-                    if isinstance(item.get("center_angle_rad"), (int, float))
-                    else None
-                ),
-                "center_radius_px": (
-                    float(item["center_radius_px"])
-                    if isinstance(item.get("center_radius_px"), (int, float))
-                    else None
-                ),
-                "angle_tolerance_rad": (
-                    float(item["angle_tolerance_rad"])
-                    if isinstance(item.get("angle_tolerance_rad"), (int, float))
-                    else None
-                ),
-                "radius_tolerance_px": (
-                    float(item["radius_tolerance_px"])
-                    if isinstance(item.get("radius_tolerance_px"), (int, float))
-                    else None
-                ),
-                "suppression_count": max(
-                    1,
-                    int(item["suppression_count"])
-                    if isinstance(item.get("suppression_count"), (int, float))
-                    else 1,
-                ),
-            }
-        )
-    return out
-
-
-def set_persistent_tracker_ignored_regions(
-    role: str,
-    regions: list[dict[str, Any]],
+def _drop_legacy_persistent_tracker_ignored_regions(
+    conn: sqlite3.Connection,
 ) -> None:
-    key = _persistent_tracker_ignored_regions_key(role)
-    normalized: list[dict[str, Any]] = []
-    if isinstance(regions, list):
-        for item in regions:
-            if not isinstance(item, dict):
-                continue
-            center = item.get("center_px")
-            if (
-                not isinstance(center, (list, tuple))
-                or len(center) != 2
-                or not all(isinstance(v, (int, float)) for v in center)
-            ):
-                continue
-            normalized.append(
-                {
-                    "center_px": [float(center[0]), float(center[1])],
-                    "radius_px": float(item.get("radius_px", 0.0)),
-                    "center_angle_rad": (
-                        float(item["center_angle_rad"])
-                        if isinstance(item.get("center_angle_rad"), (int, float))
-                        else None
-                    ),
-                    "center_radius_px": (
-                        float(item["center_radius_px"])
-                        if isinstance(item.get("center_radius_px"), (int, float))
-                        else None
-                    ),
-                    "angle_tolerance_rad": (
-                        float(item["angle_tolerance_rad"])
-                        if isinstance(item.get("angle_tolerance_rad"), (int, float))
-                        else None
-                    ),
-                    "radius_tolerance_px": (
-                        float(item["radius_tolerance_px"])
-                        if isinstance(item.get("radius_tolerance_px"), (int, float))
-                        else None
-                    ),
-                    "suppression_count": max(
-                        1,
-                        int(item["suppression_count"])
-                        if isinstance(item.get("suppression_count"), (int, float))
-                        else 1,
-                    ),
-                }
-            )
-    initialize_local_state()
-    with _connection() as conn:
-        _set_json(conn, key, normalized)
-        conn.commit()
+    """Drop rows from the whitelist refactor's removal of learned ghost
+    regions. These ``persistent_tracker_ignored_regions:<role>`` entries
+    were populated by the old blacklist tracker; the new tracker uses
+    ``confirmed_real`` and never looks at them, so leaving them in the
+    DB is just dead storage that users can't see or manage.
+    """
+    conn.execute(
+        "DELETE FROM state_entries WHERE key LIKE ?",
+        (f"{_LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX}%",),
+    )
 
 
 def _current_sync_state_from_conn(conn: sqlite3.Connection) -> dict[str, Any]:

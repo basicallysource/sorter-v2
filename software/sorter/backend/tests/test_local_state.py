@@ -28,7 +28,6 @@ from local_state import (
     get_hive_config,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
-    get_persistent_tracker_ignored_regions,
     initialize_local_state,
     list_piece_dossiers,
     list_piece_segments,
@@ -36,7 +35,6 @@ from local_state import (
     remember_piece_dossier,
     remember_piece_segment,
     remember_recent_known_object,
-    set_persistent_tracker_ignored_regions,
     start_new_sorting_session,
 )
 
@@ -284,64 +282,46 @@ class LocalStateMigrationTests(unittest.TestCase):
 
         self.assertTrue(fake_conn.closed)
 
-    def test_persistent_tracker_ignored_regions_roundtrip(self) -> None:
-        initialize_local_state()
-
-        set_persistent_tracker_ignored_regions(
-            "carousel",
-            [
-                {
-                    "center_px": [120.0, 240.0],
-                    "radius_px": 48.0,
-                    "center_angle_rad": 1.5,
-                    "center_radius_px": 210.0,
-                    "angle_tolerance_rad": 0.12,
-                    "radius_tolerance_px": 9.0,
-                    "suppression_count": 3,
-                }
-            ],
-        )
-
-        regions = get_persistent_tracker_ignored_regions("carousel")
-        self.assertEqual(1, len(regions))
-        self.assertEqual([120.0, 240.0], regions[0]["center_px"])
-        self.assertEqual(48.0, regions[0]["radius_px"])
-        self.assertEqual(3, regions[0]["suppression_count"])
-
-    def test_persistent_tracker_ignored_regions_c_channel_3_key(self) -> None:
-        """Regions must roundtrip under the c_channel_3 role key without
-        colliding with other roles. Each role lives in its own state_entry
-        (``persistent_tracker_ignored_regions:<role>``) so C2 / C3 / carousel
-        ghosts don't contaminate each other once Phase-7 enables
-        persistence on every feeder role."""
+    def test_drops_legacy_persistent_tracker_ignored_regions_on_boot(self) -> None:
+        """Whitelist refactor migration: any legacy ``persistent_tracker_
+        ignored_regions:<role>`` rows left behind by the old blacklist
+        tracker must be purged the first time ``initialize_local_state``
+        runs.
+        """
 
         initialize_local_state()
+        # Hand-write legacy rows directly so we don't depend on the old
+        # setter helpers that were removed.
+        with sqlite3.connect(local_state.local_state_db_path()) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO state_entries(key, json_value, updated_at) "
+                "VALUES (?, ?, ?)",
+                (
+                    "persistent_tracker_ignored_regions:c_channel_3",
+                    json.dumps([{"center_px": [640.0, 360.0], "radius_px": 72.0}]),
+                    1234.0,
+                ),
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO state_entries(key, json_value, updated_at) "
+                "VALUES (?, ?, ?)",
+                (
+                    "persistent_tracker_ignored_regions:carousel",
+                    json.dumps([{"center_px": [120.0, 240.0], "radius_px": 48.0}]),
+                    1234.0,
+                ),
+            )
+            conn.commit()
 
-        set_persistent_tracker_ignored_regions(
-            "c_channel_3",
-            [
-                {
-                    "center_px": [640.0, 360.0],
-                    "radius_px": 72.0,
-                    "center_angle_rad": 0.5,
-                    "center_radius_px": 180.0,
-                    "angle_tolerance_rad": 0.15,
-                    "radius_tolerance_px": 14.0,
-                    "suppression_count": 2,
-                }
-            ],
-        )
+        # Re-running initialize triggers the migration.
+        initialize_local_state()
 
-        regions = get_persistent_tracker_ignored_regions("c_channel_3")
-        self.assertEqual(1, len(regions))
-        self.assertEqual([640.0, 360.0], regions[0]["center_px"])
-        self.assertEqual(72.0, regions[0]["radius_px"])
-        self.assertAlmostEqual(0.5, regions[0]["center_angle_rad"])
-        self.assertEqual(2, regions[0]["suppression_count"])
-
-        # And must not leak into the other roles.
-        self.assertEqual([], get_persistent_tracker_ignored_regions("c_channel_2"))
-        self.assertEqual([], get_persistent_tracker_ignored_regions("carousel"))
+        with sqlite3.connect(local_state.local_state_db_path()) as conn:
+            remaining = conn.execute(
+                "SELECT key FROM state_entries WHERE key LIKE ?",
+                ("persistent_tracker_ignored_regions:%",),
+            ).fetchall()
+        self.assertEqual([], remaining)
 
 
 class PieceSegmentsSchemaTests(unittest.TestCase):

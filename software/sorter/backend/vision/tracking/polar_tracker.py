@@ -59,19 +59,17 @@ DEFAULT_SECTOR_COUNT = 18
 # across the channel.
 MIN_C3_HITS_FOR_PIECE_UUID = 4
 
-# Motion-gate for piece_uuid binding (Phase 7 ghost-elimination).
-#
-# A track must have crossed at least one of these thresholds in addition to
-# clearing ``MIN_C3_HITS_FOR_PIECE_UUID`` before we mint a piece dossier
-# uuid for it. Static ghosts (mount screws, lighting reflections, etc.)
-# routinely accumulate 4+ hits from detector jitter within 0.4 s but stay
-# parked in a tight polar region, so before this gate they would grab a
-# uuid and pollute the DB with stub dossiers. Real LEGO parts on C3 either
-# wander monotonically along the polar path (≥ 3° angular span) or cut
-# across the ring radially (≥ 12 px cartesian displacement) well before
-# they reach 4 hits.
-MIN_ANGULAR_DISPLACEMENT_FOR_PIECE_UUID_DEG = 3.0
-MIN_PIECE_UUID_DISPLACEMENT_PX = 12.0
+# Whitelist thresholds — a track must demonstrate at least ONE of these
+# before being flagged ``confirmed_real``. Apparatus ghosts (screws,
+# reflections, guides) physically cannot achieve these magnitudes; real
+# LEGO pieces traveling along the annulus or cutting radially across the
+# ring do so naturally within the first seconds of life. Once flipped True
+# the flag is sticky — real pieces are allowed to pause mid-travel without
+# losing their "real" status.
+CONFIRMED_MIN_MONOTONIC_ANGULAR_PROGRESS_DEG = 5.0
+CONFIRMED_MONOTONIC_REVERSAL_TOLERANCE_DEG = 1.0
+CONFIRMED_MIN_CENTROID_DRIFT_PX = 40.0
+CONFIRMED_WINDOW_MIN_SAMPLES = 6  # require at least 6 path samples before evaluating
 
 # When either the track or detection has no embedding, the cosine term is
 # undefined and the match cost degenerates to position-only. Require a much
@@ -85,35 +83,6 @@ GEOM_STRICT_THRESHOLD = 0.25
 # only on clearly-suspect matches so operators notice real trouble.
 ID_SWITCH_SIM_SUSPECT = 0.3
 ID_SWITCH_GEOM_SUSPECT = 0.5
-
-DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S = 3.0
-DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX = 18.0
-DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX = 28.0
-DEFAULT_STAGNANT_FALSE_TRACK_MIN_ANGULAR_DISPLACEMENT_DEG = 4.0
-DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX = 10.0
-DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
-DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
-DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
-CAROUSEL_RECENT_STATIC_WINDOW_S = 1.2
-CAROUSEL_RECENT_STATIC_MIN_COVERAGE_S = 0.8
-CAROUSEL_RECENT_STATIC_MAX_DISPLACEMENT_PX = 24.0
-CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD = math.radians(3.0)
-CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX = 10.0
-# Role-agnostic fallback used to "un-stick" ``motion_confirmed`` tracks that
-# briefly jittered past the displacement threshold at birth (autoexposure
-# settle, detector jitter) and then froze on apparatus. Without this the
-# stagnant-false-track filter is disarmed for life on that track — the
-# feeder stalls behind an apparatus ghost until backend restart. A track
-# whose cartesian footprint stayed within ``MAX_DISPLACEMENT_PX`` over a
-# coverage window of ``MIN_COVERAGE_S`` seconds is treated as "no longer in
-# motion" so the stagnant-filter can fire even though ``motion_confirmed``
-# was once latched. Window intentionally longer than the carousel polar
-# check because conveyor pieces can pause briefly mid-travel.
-RECENT_STATIONARY_WINDOW_S = 2.5
-RECENT_STATIONARY_MIN_COVERAGE_S = 1.8
-RECENT_STATIONARY_MAX_DISPLACEMENT_PX = 6.0
-CAROUSEL_MATCH_IGNORED_REGION_MAX_RADIUS_PX = 120.0
-CAROUSEL_GHOST_SUPPRESSION_MAX_RADIUS_PX = 160.0
 
 
 # ---------------------------------------------------------------------------
@@ -271,30 +240,28 @@ class _LiveTrack:
     birth_center_px: tuple[float, float] = (0.0, 0.0)
     birth_angle_rad: float | None = None
     birth_radius_px: float | None = None
-    path_length_px: float = 0.0
+    # Peak cartesian displacement from birth, retained so the handoff
+    # manager's ghost-reject check (``PendingHandoff.last_displacement_px``)
+    # still distinguishes "never moved" pendings from ones that actually
+    # traveled. Not used to gate piece_uuid binding anymore — that gate is
+    # now ``confirmed_real`` (whitelist).
     max_displacement_px: float = 0.0
-    max_angular_displacement_rad: float = 0.0
-    max_radial_displacement_px: float = 0.0
-    motion_confirmed: bool = False
+    # Whitelist flag — True once the track has demonstrated motion that
+    # matches a real LEGO piece (monotonic angular progress ≥ 5° or
+    # centroid drift ≥ 40 px). Sticky: a real piece that pauses mid-travel
+    # keeps the flag. Apparatus ghosts (screws, reflections, guides) have
+    # never crossed this bar in practice because their jitter is fixed-
+    # position, not monotonic. Everything downstream — dossier mint,
+    # archival, dropzone occupancy, handoff, feeder clump detection, UI
+    # on-ring — gates on this flag.
+    confirmed_real: bool = False
     # Piece dossier uuid bound to this track once it passes
-    # ``MIN_C3_HITS_FOR_PIECE_UUID`` stable hits on ``c_channel_3`` (Phase 4).
-    # Inherited via ``PieceHandoffManager`` when the C3 track dies and a
-    # carousel track is born inside the entry zone; stays ``None`` on tracks
-    # that never cross the threshold (feeder glitches, C2, etc.).
+    # ``MIN_C3_HITS_FOR_PIECE_UUID`` stable hits on ``c_channel_3`` AND
+    # ``confirmed_real`` is True (Phase 4 + whitelist). Inherited via
+    # :class:`PieceHandoffManager` when the C3 track dies and a carousel
+    # track is born inside the entry zone; stays ``None`` on tracks that
+    # never cross the whitelist.
     piece_uuid: str | None = None
-
-
-@dataclass
-class _IgnoredStaticRegion:
-    center_px: tuple[float, float]
-    expires_at: float | None
-    radius_px: float
-    center_angle_rad: float | None = None
-    center_radius_px: float | None = None
-    angle_tolerance_rad: float | None = None
-    radius_tolerance_px: float | None = None
-    persistent: bool = False
-    suppression_count: int = 1
 
 
 def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
@@ -343,17 +310,6 @@ class PolarFeederTracker(Tracker):
         # Toggle to hard-disable ReID (falls back to position-only matching).
         enable_appearance: bool = True,
         history: PieceHistoryBuffer | None = None,
-        enable_stagnant_false_track_filter: bool | None = None,
-        stagnant_false_track_max_age_s: float = DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S,
-        stagnant_false_track_min_displacement_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX,
-        stagnant_false_track_min_path_length_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX,
-        stagnant_false_track_min_angular_displacement_deg: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_ANGULAR_DISPLACEMENT_DEG,
-        stagnant_false_track_min_radial_displacement_px: float = DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX,
-        stagnant_false_track_step_jitter_px: float = DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX,
-        stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
-        stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
-        stagnant_false_track_pending_drop_protect_s: float = 4.0,
-        persist_static_ghost_regions: bool = False,
         id_switch_suspect_observer: "callable | None" = None,
     ) -> None:
         self.role = role
@@ -368,45 +324,12 @@ class PolarFeederTracker(Tracker):
         self._min_appearance_sim = float(min_appearance_similarity)
         self._appearance_cost_weight = float(appearance_cost_weight)
         self._embedder = get_embedder() if enable_appearance else None
-        self._enable_stagnant_false_track_filter = (
-            bool(enable_stagnant_false_track_filter)
-            if enable_stagnant_false_track_filter is not None
-            else role == "carousel"
-        )
-        self._stagnant_false_track_max_age_s = max(0.0, float(stagnant_false_track_max_age_s))
-        self._stagnant_false_track_min_displacement_px = max(
-            0.0, float(stagnant_false_track_min_displacement_px)
-        )
-        self._stagnant_false_track_min_path_length_px = max(
-            0.0, float(stagnant_false_track_min_path_length_px)
-        )
-        self._stagnant_false_track_min_angular_displacement_rad = math.radians(
-            max(0.0, float(stagnant_false_track_min_angular_displacement_deg))
-        )
-        self._stagnant_false_track_min_radial_displacement_px = max(
-            0.0, float(stagnant_false_track_min_radial_displacement_px)
-        )
-        self._stagnant_false_track_step_jitter_px = max(
-            0.0, float(stagnant_false_track_step_jitter_px)
-        )
-        self._stagnant_false_track_suppression_radius_px = max(
-            0.0, float(stagnant_false_track_suppression_radius_px)
-        )
-        self._stagnant_false_track_suppression_ttl_s = max(
-            0.0, float(stagnant_false_track_suppression_ttl_s)
-        )
-        self._pending_drop_protect_s = max(
-            0.0, float(stagnant_false_track_pending_drop_protect_s)
-        )
-        self._persist_static_ghost_regions = bool(persist_static_ghost_regions)
-        self._pending_drop_ids: dict[int, float] = {}
         self._id_switch_suspect_observer = id_switch_suspect_observer
         self._tracks: dict[int, _LiveTrack] = {}
         self._next_internal_id = 0
         self._last_ts: float | None = None
         self._last_active: list[TrackedPiece] = []
         self._channel_geom: _ChannelGeometry | None = None
-        self._ignored_static_regions: list[_IgnoredStaticRegion] = []
         # update() and reset() can be invoked concurrently — overlays on
         # HTTP-streaming threads, camera-service encode threads, and the
         # coordinator's main-loop detection path all end up here. The
@@ -415,8 +338,6 @@ class PolarFeederTracker(Tracker):
         # when another thread's concurrent update() prunes dead tracks in
         # between. A single reentrant lock serializes all external mutators.
         self._lock = threading.RLock()
-        if self._persist_static_ghost_regions:
-            self._load_persistent_ignored_static_regions()
 
     # ---- Channel geometry ---------------------------------------------
 
@@ -455,22 +376,16 @@ class PolarFeederTracker(Tracker):
         global_id: int,
         protect_for_s: float | None = None,
     ) -> None:
-        """Pin this global_id's track against stagnant-false-track culling
-        for up to protect_for_s seconds (default: self._pending_drop_protect_s).
-        Called by the classification channel state machine once the piece is
-        committed to drop — prevents the stagnant filter from killing the
-        track while the piece is physically waiting at the drop zone for
-        distribution_ready. Pending-drop protection can never be claimed by
-        a ghost detection because the caller (state machine) only invokes
-        this for pieces backed by a KnownObject."""
-        now = time.time()
-        duration = (
-            float(protect_for_s)
-            if protect_for_s is not None
-            else float(self._pending_drop_protect_s)
-        )
-        with self._lock:
-            self._pending_drop_ids[int(global_id)] = now + duration
+        """No-op under the whitelist tracker.
+
+        Historically this pinned a carousel track against the stagnant-
+        false-track filter while a piece was parked at the drop zone. The
+        whitelist refactor removed the stagnant filter entirely — a track
+        that demonstrated real motion stays ``confirmed_real`` forever, so
+        nothing can cull it mid-wait. Kept as a no-op so the classification-
+        channel state machine can keep calling it unchanged.
+        """
+        _ = global_id, protect_for_s
 
     def update(
         self,
@@ -499,7 +414,6 @@ class PolarFeederTracker(Tracker):
 
         dt = 0.2 if self._last_ts is None else max(0.0, timestamp - self._last_ts)
         self._last_ts = timestamp
-        self._prune_ignored_static_regions(timestamp)
 
         # Predict all tracks forward
         for track in self._tracks.values():
@@ -666,32 +580,19 @@ class PolarFeederTracker(Tracker):
                 track.coast_count = 0
                 track.last_seen_ts = timestamp
                 track.path.append((float(timestamp), float(cx), float(cy)))
-                if step_distance_px >= self._stagnant_false_track_step_jitter_px:
-                    track.path_length_px += step_distance_px
+                _ = step_distance_px  # kept for future velocity work
                 birth_cx, birth_cy = track.birth_center_px
                 track.max_displacement_px = max(
                     track.max_displacement_px,
                     math.hypot(cx - birth_cx, cy - birth_cy),
                 )
-                if geom is not None:
-                    if track.birth_angle_rad is None or track.birth_radius_px is None:
-                        track.birth_angle_rad = da
-                        track.birth_radius_px = dr
-                    track.max_angular_displacement_rad = max(
-                        track.max_angular_displacement_rad,
-                        abs(_circular_diff(da, track.birth_angle_rad)),
-                    )
-                    track.max_radial_displacement_px = max(
-                        track.max_radial_displacement_px,
-                        abs(dr - track.birth_radius_px),
-                    )
-                if (
-                    track.max_displacement_px >= self._stagnant_false_track_min_displacement_px
-                    or track.path_length_px >= self._stagnant_false_track_min_path_length_px
-                    or track.max_angular_displacement_rad >= self._stagnant_false_track_min_angular_displacement_rad
-                    or track.max_radial_displacement_px >= self._stagnant_false_track_min_radial_displacement_px
+                if geom is not None and (
+                    track.birth_angle_rad is None or track.birth_radius_px is None
                 ):
-                    track.motion_confirmed = True
+                    track.birth_angle_rad = da
+                    track.birth_radius_px = dr
+                if not track.confirmed_real:
+                    track.confirmed_real = self._evaluate_confirmed_real(track)
                 # EMA-update the reference embedding so tracks adapt to
                 # slow lighting/angle drift without being dominated by one
                 # noisy frame. Renormalize so cosine similarity stays well-
@@ -707,15 +608,6 @@ class PolarFeederTracker(Tracker):
                             track.embedding = (blended / norm).astype(np.float32)
                 self._maybe_bind_piece_uuid(track, timestamp)
                 self._maybe_capture_sector(track, frame_bgr, timestamp)
-
-        stagnant_ids: list[int] = []
-        for tid, track in self._tracks.items():
-            if tid in matched_track_ids and self._should_ignore_stagnant_false_track(track, timestamp):
-                stagnant_ids.append(tid)
-        for tid in stagnant_ids:
-            track = self._tracks.pop(tid, None)
-            if track is not None:
-                self._suppress_stagnant_false_track(track, timestamp)
 
         # Coast unmatched tracks
         dead_ids: list[int] = []
@@ -752,8 +644,6 @@ class PolarFeederTracker(Tracker):
             if idx in matched_det_indices:
                 continue
             cx, cy = _bbox_center(bbox)
-            if self._is_inside_ignored_static_region((cx, cy), timestamp):
-                continue
             global_id, handoff_from, inherited_piece_uuid = (
                 self._handoff.register_track(
                     self.role,
@@ -821,6 +711,7 @@ class PolarFeederTracker(Tracker):
                     coasting=track.coast_count > 0,
                     score=track.score,
                     handoff_from=track.handoff_from,
+                    confirmed_real=track.confirmed_real,
                 )
             )
         self._last_active = active
@@ -869,30 +760,25 @@ class PolarFeederTracker(Tracker):
         *,
         timestamp: float | None = None,
     ) -> bool:
-        with self._lock:
-            check_ts = time.time() if timestamp is None else float(timestamp)
-            return self._is_inside_ignored_static_region(center_px, check_ts)
+        """Always False under the whitelist tracker.
+
+        The old blacklist had a learned set of static ignore regions;
+        that machinery is gone — every detection now spawns a track, and
+        the track is gated downstream on ``confirmed_real``. Kept as a
+        stub so ``VisionManager`` callers that use ``getattr(...)`` can
+        keep their existing hook shape.
+        """
+        _ = center_px, timestamp
+        return False
 
     def get_ignored_static_regions(
         self,
         *,
         timestamp: float | None = None,
     ) -> list[dict[str, float | int | bool | tuple[float, float]]]:
-        with self._lock:
-            check_ts = time.time() if timestamp is None else float(timestamp)
-            self._prune_ignored_static_regions(check_ts)
-            return [
-                {
-                    "center_px": (
-                        float(region.center_px[0]),
-                        float(region.center_px[1]),
-                    ),
-                    "radius_px": float(region.radius_px),
-                    "persistent": bool(region.persistent),
-                    "suppression_count": max(1, int(region.suppression_count)),
-                }
-                for region in self._ignored_static_regions
-            ]
+        """Always empty under the whitelist tracker (no ignore regions)."""
+        _ = timestamp
+        return []
 
     def reset(self) -> None:
         with self._lock:
@@ -911,9 +797,6 @@ class PolarFeederTracker(Tracker):
             self._last_ts = None
             self._last_active = []
             self._next_internal_id = 0
-            self._ignored_static_regions.clear()
-            if self._persist_static_ghost_regions:
-                self._load_persistent_ignored_static_regions()
 
     def get_live_thumb(self, global_id: int) -> str:
         track = next(
@@ -1191,14 +1074,12 @@ class PolarFeederTracker(Tracker):
     ) -> None:
         """Early-bind a piece dossier uuid to a stable c_channel_3 track.
 
-        Phase 4: once a C3 track has been observed ``MIN_C3_HITS_FOR_PIECE_UUID``
-        times (the same gate we already use elsewhere to filter one-frame
-        YOLO blips), allocate a fresh uuid and persist a stub dossier so
-        downstream lookups (``get_piece_dossier_by_tracked_global_id``) can
-        find the record from the moment the piece becomes reliably tracked.
-        The uuid rides on through ``PieceHandoffManager`` into the carousel
-        rebirth, preventing Phase-1's lookup cascade from minting a second
-        uuid for the same physical piece.
+        Whitelist gate: the track must (a) be on c_channel_3, (b) have
+        cleared ``MIN_C3_HITS_FOR_PIECE_UUID`` consecutive hits, AND (c)
+        have flipped ``confirmed_real=True`` — meaning it demonstrated
+        monotonic angular progress ≥ 5° or centroid drift ≥ 40 px. Static
+        apparatus ghosts physically cannot clear (c), so they never
+        pollute the DB with stub dossiers.
 
         Thread-safety: this helper runs from the tracker's update thread;
         ``remember_piece_dossier`` serialises to SQLite via the WAL-mode
@@ -1212,14 +1093,7 @@ class PolarFeederTracker(Tracker):
             return
         if track.hit_count < MIN_C3_HITS_FOR_PIECE_UUID:
             return
-        min_angular_rad = math.radians(MIN_ANGULAR_DISPLACEMENT_FOR_PIECE_UUID_DEG)
-        if (
-            track.max_angular_displacement_rad < min_angular_rad
-            and track.max_displacement_px < MIN_PIECE_UUID_DISPLACEMENT_PX
-        ):
-            # Track cleared the hit-count gate but hasn't moved — looks like
-            # a static ghost (screw, reflection, guide). Skip the uuid bind;
-            # the stagnant-false-track filter will finish it off shortly.
+        if not track.confirmed_real:
             return
         new_uuid = str(uuid_mod.uuid4())
         track.piece_uuid = new_uuid
@@ -1329,395 +1203,78 @@ class PolarFeederTracker(Tracker):
 
         return segment
 
-    def _load_persistent_ignored_static_regions(self) -> None:
-        try:
-            from local_state import get_persistent_tracker_ignored_regions
-        except Exception:
-            return
-        try:
-            payloads = get_persistent_tracker_ignored_regions(self.role)
-        except Exception:
-            return
-        loaded: list[_IgnoredStaticRegion] = []
-        for item in payloads:
-            if not isinstance(item, dict):
-                continue
-            center = item.get("center_px")
-            if (
-                not isinstance(center, (list, tuple))
-                or len(center) != 2
-                or not all(isinstance(v, (int, float)) for v in center)
-            ):
-                continue
-            loaded.append(
-                _IgnoredStaticRegion(
-                    center_px=(float(center[0]), float(center[1])),
-                    expires_at=None,
-                    radius_px=float(item.get("radius_px", 0.0)),
-                    center_angle_rad=(
-                        float(item["center_angle_rad"])
-                        if isinstance(item.get("center_angle_rad"), (int, float))
-                        else None
-                    ),
-                    center_radius_px=(
-                        float(item["center_radius_px"])
-                        if isinstance(item.get("center_radius_px"), (int, float))
-                        else None
-                    ),
-                    angle_tolerance_rad=(
-                        float(item["angle_tolerance_rad"])
-                        if isinstance(item.get("angle_tolerance_rad"), (int, float))
-                        else None
-                    ),
-                    radius_tolerance_px=(
-                        float(item["radius_tolerance_px"])
-                        if isinstance(item.get("radius_tolerance_px"), (int, float))
-                        else None
-                    ),
-                    persistent=True,
-                    suppression_count=max(
-                        1,
-                        int(item["suppression_count"])
-                        if isinstance(item.get("suppression_count"), (int, float))
-                        else 1,
-                    ),
-                )
-            )
-        self._ignored_static_regions = [
-            region for region in self._ignored_static_regions if not region.persistent
-        ] + loaded
+    def _evaluate_confirmed_real(self, track: _LiveTrack) -> bool:
+        """Return True once this track has demonstrated motion consistent
+        with a real LEGO piece traveling along the apparatus.
 
-    def _persist_persistent_ignored_static_regions(self) -> None:
-        if not self._persist_static_ghost_regions:
-            return
-        try:
-            from local_state import set_persistent_tracker_ignored_regions
-        except Exception:
-            return
-        payloads = [
-            {
-                "center_px": [float(region.center_px[0]), float(region.center_px[1])],
-                "radius_px": float(region.radius_px),
-                "center_angle_rad": (
-                    float(region.center_angle_rad)
-                    if region.center_angle_rad is not None
-                    else None
-                ),
-                "center_radius_px": (
-                    float(region.center_radius_px)
-                    if region.center_radius_px is not None
-                    else None
-                ),
-                "angle_tolerance_rad": (
-                    float(region.angle_tolerance_rad)
-                    if region.angle_tolerance_rad is not None
-                    else None
-                ),
-                "radius_tolerance_px": (
-                    float(region.radius_tolerance_px)
-                    if region.radius_tolerance_px is not None
-                    else None
-                ),
-                "suppression_count": max(1, int(region.suppression_count)),
-            }
-            for region in self._ignored_static_regions
-            if region.persistent
-        ]
-        try:
-            set_persistent_tracker_ignored_regions(self.role, payloads)
-        except Exception:
-            return
+        Two independent criteria, either of which flips the flag (OR
+        semantics):
 
-    def _matching_ignored_static_region(
-        self,
-        center_px: tuple[float, float],
-        *,
-        center_angle_rad: float | None,
-        center_radius_px: float | None,
-    ) -> _IgnoredStaticRegion | None:
-        cx, cy = center_px
-        for region in self._ignored_static_regions:
-            match_radius_px = max(
-                18.0,
-                min(
-                    float(region.radius_px) * 0.75,
-                    CAROUSEL_MATCH_IGNORED_REGION_MAX_RADIUS_PX,
-                ),
-            )
-            if math.hypot(cx - region.center_px[0], cy - region.center_px[1]) > match_radius_px:
-                continue
-            if (
-                center_angle_rad is not None
-                and center_radius_px is not None
-                and region.center_angle_rad is not None
-                and region.center_radius_px is not None
-            ):
-                if (
-                    abs(_circular_diff(center_angle_rad, region.center_angle_rad))
-                    > max(region.angle_tolerance_rad or 0.0, math.radians(6.0))
-                    or abs(center_radius_px - region.center_radius_px)
-                    > max(region.radius_tolerance_px or 0.0, 16.0)
-                ):
-                    continue
-            return region
-        return None
+        (A) Monotonic polar-angular progress:
+            - ``|end_angle - start_angle| >= radians(5°)``
+            - AND no backward step in the path sequence exceeded
+              ``radians(1°)`` (small negative wobble allowed — real pieces
+              briefly stall from belt slip/jitter without reversing
+              direction). Evaluated in polar space when channel geometry
+              is set; otherwise this criterion is inactive and (B) has to
+              fire.
 
-    def _prune_ignored_static_regions(self, timestamp: float) -> None:
-        self._ignored_static_regions = [
-            region
-            for region in self._ignored_static_regions
-            if region.expires_at is None or region.expires_at > float(timestamp)
-        ]
-        if self._pending_drop_ids:
-            expired = [
-                gid
-                for gid, expires_at in self._pending_drop_ids.items()
-                if expires_at <= float(timestamp)
-            ]
-            for gid in expired:
-                self._pending_drop_ids.pop(gid, None)
+        (B) Centroid drift:
+            - Euclidean distance between the median centroid of the first
+              5 path samples and the median centroid of the last 5 path
+              samples ≥ 40 px. Catches pieces that cut radially across
+              the ring (e.g. C3 exit → C4 hand-off) without covering a
+              large arc.
 
-    def _is_inside_ignored_static_region(
-        self,
-        center_px: tuple[float, float],
-        timestamp: float,
-    ) -> bool:
-        self._prune_ignored_static_regions(timestamp)
-        cx, cy = center_px
-        geom = self._channel_geom
-        polar_center: tuple[float, float] | None = None
-        if geom is not None:
-            polar_center = self._to_polar(center_px)
-        for region in list(self._ignored_static_regions):
-            rx, ry = region.center_px
-            if math.hypot(cx - rx, cy - ry) > region.radius_px:
-                continue
-            if (
-                polar_center is not None
-                and region.center_angle_rad is not None
-                and region.center_radius_px is not None
-                and region.angle_tolerance_rad is not None
-                and region.radius_tolerance_px is not None
-            ):
-                angle, radius = polar_center
-                if (
-                    abs(_circular_diff(angle, region.center_angle_rad))
-                    > region.angle_tolerance_rad
-                    or abs(radius - region.center_radius_px) > region.radius_tolerance_px
-                ):
-                    if region.persistent:
-                        try:
-                            self._ignored_static_regions.remove(region)
-                        except ValueError:
-                            pass
-                        self._persist_persistent_ignored_static_regions()
-                    continue
-            return True
-        return False
+        Apparatus ghosts physically cannot achieve either: their jitter
+        is ±0.5° around a fixed mean and displacement stays under ~5 px.
+        Real pieces travel a full polar channel in seconds.
 
-    def _should_ignore_stagnant_false_track(
-        self,
-        track: _LiveTrack,
-        timestamp: float,
-    ) -> bool:
-        if not self._enable_stagnant_false_track_filter:
+        Requires at least ``CONFIRMED_WINDOW_MIN_SAMPLES`` path samples
+        so a single-frame blip can't accidentally flip the flag.
+        """
+        path = track.path
+        if len(path) < CONFIRMED_WINDOW_MIN_SAMPLES:
             return False
-        if track.global_id is not None and int(track.global_id) in self._pending_drop_ids:
-            if self._pending_drop_ids[int(track.global_id)] > float(timestamp):
+
+        # (B) Centroid drift — computed first because it works without
+        # channel geometry and is cheap.
+        head = path[:5]
+        tail = path[-5:]
+        head_x = sorted(float(s[1]) for s in head)[len(head) // 2]
+        head_y = sorted(float(s[2]) for s in head)[len(head) // 2]
+        tail_x = sorted(float(s[1]) for s in tail)[len(tail) // 2]
+        tail_y = sorted(float(s[2]) for s in tail)[len(tail) // 2]
+        if math.hypot(tail_x - head_x, tail_y - head_y) >= CONFIRMED_MIN_CENTROID_DRIFT_PX:
+            return True
+
+        # (A) Monotonic polar-angular progress — needs channel geometry.
+        geom = self._channel_geom
+        if geom is None:
+            return False
+        reversal_tolerance = math.radians(CONFIRMED_MONOTONIC_REVERSAL_TOLERANCE_DEG)
+        min_progress = math.radians(CONFIRMED_MIN_MONOTONIC_ANGULAR_PROGRESS_DEG)
+        start_angle, _ = self._to_polar((float(path[0][1]), float(path[0][2])))
+        # Unwrap angles relative to start so total progress is signed and
+        # cumulative, not wrap-aware. Check step reversal against the
+        # dominant travel direction.
+        unwrapped: list[float] = [0.0]
+        anchor = start_angle
+        accum = 0.0
+        for _ts, x, y in path[1:]:
+            angle, _ = self._to_polar((float(x), float(y)))
+            step = _circular_diff(angle, anchor)
+            accum += step
+            unwrapped.append(accum)
+            anchor = angle
+        net_progress = abs(unwrapped[-1])
+        if net_progress < min_progress:
+            return False
+        # Determine dominant direction from net progress and verify no
+        # step walked backwards by more than the reversal tolerance.
+        direction = 1.0 if unwrapped[-1] >= 0.0 else -1.0
+        for i in range(1, len(unwrapped)):
+            step = (unwrapped[i] - unwrapped[i - 1]) * direction
+            if step < -reversal_tolerance:
                 return False
-            # expired — drop from map
-            self._pending_drop_ids.pop(int(track.global_id), None)
-        if track.handoff_from is not None:
-            return False
-        age_s = float(timestamp) - float(track.first_seen_ts)
-        if age_s < self._stagnant_false_track_max_age_s:
-            return False
-        if self._is_recently_polar_stationary(track, timestamp):
-            return True
-        # ``motion_confirmed`` is a sticky latch — once a track briefly
-        # displaced past the birth-threshold it was exempted from the
-        # stagnant filter forever. That latch blocks recovery when a detector
-        # ghost wiggles at startup and then freezes: the feeder pipeline
-        # stalls behind the phantom. Allow the filter to fire anyway when
-        # the track has been cartesian-stationary for a sustained window,
-        # regardless of role — the cumulative-displacement gates below use
-        # birth-anchored max_displacement/path_length totals that never
-        # decrease, so they would otherwise always pass for a track that
-        # once moved. Legit pieces that pause briefly mid-travel (well
-        # under ``RECENT_STATIONARY_MIN_COVERAGE_S``) are unaffected.
-        if track.motion_confirmed:
-            if self._is_recently_stationary(track, timestamp):
-                return True
-            return False
-        if track.max_displacement_px >= self._stagnant_false_track_min_displacement_px:
-            return False
-        if track.path_length_px >= self._stagnant_false_track_min_path_length_px:
-            return False
-        if (
-            track.max_angular_displacement_rad
-            >= self._stagnant_false_track_min_angular_displacement_rad
-        ):
-            return False
-        if (
-            track.max_radial_displacement_px
-            >= self._stagnant_false_track_min_radial_displacement_px
-        ):
-            return False
         return True
-
-    def _is_recently_polar_stationary(
-        self,
-        track: _LiveTrack,
-        timestamp: float,
-    ) -> bool:
-        """Return True when a no-handoff carousel track stayed near-fixed recently.
-
-        Static C4 ghosts can accumulate plenty of historical path length from
-        detection-box jitter or box-center jumps along a fixed guide. That can
-        incorrectly flip ``motion_confirmed`` forever even though the structure
-        is still stationary in polar space. We therefore inspect only a short
-        recent window for the classification carousel and suppress tracks whose
-        recent angular/radial span stayed tiny.
-        """
-        if self.role != "carousel":
-            return False
-        geom = self._channel_geom
-        if geom is None or len(track.path) < 4:
-            return False
-        cutoff_ts = float(timestamp) - CAROUSEL_RECENT_STATIC_WINDOW_S
-        recent = [sample for sample in track.path if float(sample[0]) >= cutoff_ts]
-        if len(recent) < 4:
-            return False
-        window_coverage_s = float(recent[-1][0]) - float(recent[0][0])
-        if window_coverage_s < CAROUSEL_RECENT_STATIC_MIN_COVERAGE_S:
-            return False
-
-        anchor_x = float(recent[0][1])
-        anchor_y = float(recent[0][2])
-        anchor_angle_rad, anchor_radius_px = self._to_polar((anchor_x, anchor_y))
-
-        angular_offsets: list[float] = [0.0]
-        radial_offsets: list[float] = [0.0]
-        max_cartesian_displacement_px = 0.0
-        for _ts, x, y in recent[1:]:
-            px = float(x)
-            py = float(y)
-            angle_rad, radius_px = self._to_polar((px, py))
-            angular_offsets.append(_circular_diff(angle_rad, anchor_angle_rad))
-            radial_offsets.append(float(radius_px - anchor_radius_px))
-            max_cartesian_displacement_px = max(
-                max_cartesian_displacement_px,
-                math.hypot(px - anchor_x, py - anchor_y),
-            )
-
-        angular_span_rad = max(angular_offsets) - min(angular_offsets)
-        radial_span_px = max(radial_offsets) - min(radial_offsets)
-        return (
-            max_cartesian_displacement_px <= CAROUSEL_RECENT_STATIC_MAX_DISPLACEMENT_PX
-            and angular_span_rad <= CAROUSEL_RECENT_STATIC_MAX_ANGULAR_SPAN_RAD
-            and radial_span_px <= CAROUSEL_RECENT_STATIC_MAX_RADIAL_SPAN_PX
-        )
-
-    def _is_recently_stationary(
-        self,
-        track: _LiveTrack,
-        timestamp: float,
-    ) -> bool:
-        """Return True when the track's cartesian footprint has been tiny recently.
-
-        Role-agnostic un-latch for ``motion_confirmed``. Applies to every role
-        because any tracker can pick up a wiggling apparatus ghost that
-        briefly passes the birth-displacement threshold and then freezes.
-        Inspects only a short recent window so a real piece that has just
-        briefly paused mid-travel (sub-second) still survives.
-        """
-        if len(track.path) < 4:
-            return False
-        cutoff_ts = float(timestamp) - RECENT_STATIONARY_WINDOW_S
-        recent = [sample for sample in track.path if float(sample[0]) >= cutoff_ts]
-        if len(recent) < 4:
-            return False
-        window_coverage_s = float(recent[-1][0]) - float(recent[0][0])
-        if window_coverage_s < RECENT_STATIONARY_MIN_COVERAGE_S:
-            return False
-        anchor_x = float(recent[0][1])
-        anchor_y = float(recent[0][2])
-        max_displacement_px = 0.0
-        for _ts, x, y in recent[1:]:
-            dx = float(x) - anchor_x
-            dy = float(y) - anchor_y
-            d = math.hypot(dx, dy)
-            if d > max_displacement_px:
-                max_displacement_px = d
-        return max_displacement_px <= RECENT_STATIONARY_MAX_DISPLACEMENT_PX
-
-    def _suppress_stagnant_false_track(
-        self,
-        track: _LiveTrack,
-        timestamp: float,
-    ) -> None:
-        if self._stagnant_false_track_suppression_ttl_s <= 0.0:
-            return
-        geom = self._channel_geom
-        center_angle_rad: float | None = None
-        center_radius_px: float | None = None
-        angle_tolerance_rad: float | None = None
-        radius_tolerance_px: float | None = None
-        if geom is not None:
-            center_angle_rad, center_radius_px = self._to_polar(track.center_px)
-            angle_tolerance_rad = max(
-                self._stagnant_false_track_min_angular_displacement_rad,
-                math.radians(6.0),
-            )
-            radius_tolerance_px = max(
-                self._stagnant_false_track_min_radial_displacement_px,
-                16.0,
-            )
-        x1, y1, x2, y2 = track.bbox
-        bbox_diag_px = math.hypot(float(x2 - x1), float(y2 - y1))
-        suppression_radius_px = max(
-            self._stagnant_false_track_suppression_radius_px,
-            min(
-                bbox_diag_px * 0.75,
-                CAROUSEL_GHOST_SUPPRESSION_MAX_RADIUS_PX,
-            ),
-        )
-        existing = self._matching_ignored_static_region(
-            track.center_px,
-            center_angle_rad=center_angle_rad,
-            center_radius_px=center_radius_px,
-        )
-        if existing is not None:
-            existing.center_px = track.center_px
-            existing.radius_px = suppression_radius_px
-            existing.center_angle_rad = center_angle_rad
-            existing.center_radius_px = center_radius_px
-            existing.angle_tolerance_rad = angle_tolerance_rad
-            existing.radius_tolerance_px = radius_tolerance_px
-            existing.suppression_count = max(1, int(existing.suppression_count)) + 1
-            if self._persist_static_ghost_regions:
-                existing.persistent = True
-                existing.expires_at = None
-                self._persist_persistent_ignored_static_regions()
-            else:
-                existing.expires_at = (
-                    float(timestamp) + self._stagnant_false_track_suppression_ttl_s
-                )
-            return
-        region = _IgnoredStaticRegion(
-            center_px=track.center_px,
-            expires_at=(
-                None
-                if self._persist_static_ghost_regions
-                else float(timestamp) + self._stagnant_false_track_suppression_ttl_s
-            ),
-            radius_px=suppression_radius_px,
-            center_angle_rad=center_angle_rad,
-            center_radius_px=center_radius_px,
-            angle_tolerance_rad=angle_tolerance_rad,
-            radius_tolerance_px=radius_tolerance_px,
-            persistent=self._persist_static_ghost_regions,
-        )
-        self._ignored_static_regions.append(region)
-        if region.persistent:
-            self._persist_persistent_ignored_static_regions()

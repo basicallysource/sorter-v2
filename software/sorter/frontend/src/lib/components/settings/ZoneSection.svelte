@@ -389,6 +389,10 @@
 	const labelEdgePadding = $derived(LABEL_EDGE_PADDING * editorScale);
 	// Minimum allowed ring-handle clearance from any zone boundary.
 	const RING_HANDLE_CLEARANCE_DEG = 8;
+	// Ring-handle angle snaps to 10° so small pointer jitter does not keep
+	// flicking the handle between adjacent positions while the operator
+	// mostly wants to grow/shrink the radius.
+	const RING_HANDLE_SNAP_DEG = 10;
 
 	$effect(() => {
 		const nextKey = channels.join('|');
@@ -1957,11 +1961,14 @@
 				// directly — the current distance is the new radius and the
 				// current polar angle is the desired ring-handle angle (both
 				// always in lockstep, whichever interpretation the operator
-				// intended). clampRingHandleAngle keeps the handle away from
-				// zone boundaries so it can't collide with the drop/wait/exit
-				// edges.
+				// intended). Angle snaps to 10° intervals so small pointer
+				// jitter doesn't flicker the handle around a free axis, and
+				// clampRingHandleAngle keeps it clear of zone boundaries.
 				const rawAngle = angleFromCenter(point, center);
-				const nextRingHandleAngle = clampRingHandleAngle(dragState.orig, rawAngle);
+				const snappedAngle = normalizeAngle(
+					Math.round(rawAngle / RING_HANDLE_SNAP_DEG) * RING_HANDLE_SNAP_DEG
+				);
+				const nextRingHandleAngle = clampRingHandleAngle(dragState.orig, snappedAngle);
 				if (dragState.kind === 'arc-inner') {
 					setArc(dragState.channel, {
 						...dragState.orig,

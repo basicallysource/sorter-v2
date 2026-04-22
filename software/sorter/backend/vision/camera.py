@@ -678,6 +678,7 @@ class CaptureThread:
         self._cap = None
         open_failures = 0
         read_failures = 0
+        mode_mismatch_frames = 0
         next_open_attempt_at = 0.0
         previous_source: int | str | None = None
 
@@ -791,6 +792,40 @@ class CaptureThread:
                 ret, frame = cap.read()
             if ret:
                 read_failures = 0
+                # Frame shape is ground truth — cv2 cap.get() can lie about
+                # FRAME_WIDTH/HEIGHT while the driver silently streams at a
+                # lower default. If the actual delivered frame does not
+                # match the requested mode, release + schedule a reopen so
+                # the verify path at the top of the next open cycle gets
+                # another chance to apply it. Guard against pathological
+                # flap by tracking consecutive mismatches.
+                frame_h = int(frame.shape[0])
+                frame_w = int(frame.shape[1])
+                config_snapshot = self._get_config_snapshot()
+                expected_w = config_snapshot[2]
+                expected_h = config_snapshot[3]
+                if (
+                    isinstance(expected_w, int) and expected_w > 0
+                    and isinstance(expected_h, int) and expected_h > 0
+                    and (frame_w != expected_w or frame_h != expected_h)
+                ):
+                    mode_mismatch_frames += 1
+                    if mode_mismatch_frames >= 3:
+                        log.warning(
+                            "Camera %s: frame shape %dx%d drifted from "
+                            "requested %dx%d after %d frames — reopening.",
+                            self.name, frame_w, frame_h,
+                            expected_w, expected_h, mode_mismatch_frames,
+                        )
+                        self._reopen_event.set()
+                        cap.release()
+                        cap = None
+                        self._cap = None
+                        self.latest_frame = None
+                        mode_mismatch_frames = 0
+                        continue
+                else:
+                    mode_mismatch_frames = 0
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
                 camera_frame = CameraFrame(

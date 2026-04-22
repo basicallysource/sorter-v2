@@ -249,6 +249,48 @@ class VisionManager:
             return "classification_channel"
         return None
 
+    @staticmethod
+    def _saved_resolution_for_channel(saved: dict, channel_key: str | None) -> list:
+        """Return the capture resolution a polygon was saved at.
+
+        Prefers per-channel metadata embedded by the zone editor:
+
+        * ``saved["arc_params"][channel_key]["resolution"]`` — arc channels
+          (``second``, ``third``, ``classification_channel``).
+        * ``saved["quad_params"][channel_key]["resolution"]`` — rect channels
+          (``carousel``).
+        * Finally falls back to the legacy top-level ``saved["resolution"]``,
+          and then to the historical 1920x1080 default.
+
+        Supports heterogeneous camera resolutions (e.g. C2 at 1280x720 while
+        C3 runs at 3840x2160) — previously every polygon was rescaled from a
+        single shared ``resolution`` field, which drifted for any camera not
+        matching the channel that was most recently saved.
+        """
+        if not isinstance(saved, dict) or not channel_key:
+            raw = saved.get("resolution") if isinstance(saved, dict) else None
+            return list(raw) if raw else [1920, 1080]
+        arc_params = saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else None
+        if arc_params:
+            entry = arc_params.get(channel_key)
+            if isinstance(entry, dict):
+                res = entry.get("resolution")
+                if res and len(res) >= 2:
+                    return list(res)
+        quad_params = (
+            saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else None
+        )
+        if quad_params:
+            entry = quad_params.get(channel_key)
+            if isinstance(entry, dict):
+                res = entry.get("resolution")
+                if res and len(res) >= 2:
+                    return list(res)
+        res = saved.get("resolution")
+        if res and len(res) >= 2:
+            return list(res)
+        return [1920, 1080]
+
     # ---- Capture-thread property delegates (CameraService owns the threads) ----
 
     @property
@@ -960,12 +1002,16 @@ class VisionManager:
         saved = getChannelPolygons()
         if saved is not None:
             polygon_data = saved.get("polygons", {})
-            saved_res = saved.get("resolution", [1920, 1080])
-            src_w, src_h = int(saved_res[0]), int(saved_res[1])
+            carousel_res = self._saved_resolution_for_channel(saved, "carousel")
+            src_w, src_h = int(carousel_res[0]), int(carousel_res[1])
             self._loadCarouselPolygon(polygon_data, source_resolution=(src_w, src_h))
             # Configure handoff zones right away so the tracker works even
             # before the user runs System Home.
-            self._configureHandoffZonesFromSaved(polygon_data, saved_res)
+            self._configureHandoffZonesFromSaved(
+                polygon_data,
+                saved.get("resolution") or [1920, 1080],
+                saved=saved,
+            )
 
     def _configureChannelGeometryFromSaved(self, saved: dict) -> None:
         """Push channel center + inner/outer radii into feeder trackers.
@@ -973,19 +1019,13 @@ class VisionManager:
         The tracker uses this to slice the piece's trajectory into angular
         sectors and snapshot each sector as the piece passes through it.
         Radii/center are scaled from the saved capture resolution to each
-        role's live camera resolution.
+        role's live camera resolution — using the channel's own saved
+        resolution (embedded in ``arc_params[<key>].resolution``), not a
+        shared top-level default.
         """
         try:
             from subsystems.feeder.analysis import parseSavedChannelArcZones
         except Exception:
-            return
-        saved_res = saved.get("resolution") or [1920, 1080]
-        try:
-            src_w = int(saved_res[0])
-            src_h = int(saved_res[1])
-        except (TypeError, ValueError):
-            return
-        if src_w <= 0 or src_h <= 0:
             return
         channel_angles = saved.get("channel_angles") or {}
         arc_params = saved.get("arc_params") or {}
@@ -998,6 +1038,14 @@ class VisionManager:
                 continue
             tracker = self._feeder_trackers.get(role)
             if tracker is None:
+                continue
+            saved_res = self._saved_resolution_for_channel(saved, channel_key)
+            try:
+                src_w = int(saved_res[0])
+                src_h = int(saved_res[1])
+            except (TypeError, ValueError):
+                continue
+            if src_w <= 0 or src_h <= 0:
                 continue
             capture = self.getCaptureThreadForRole(role)
             frame = capture.latest_frame if capture is not None else None
@@ -1015,19 +1063,26 @@ class VisionManager:
             r_out = arc.outer_radius * rs
             tracker.set_channel_geometry((cx, cy), r_in, r_out, sector_count=18)
 
-    def _configureHandoffZonesFromSaved(self, polygon_data: dict, saved_res) -> None:
+    def _configureHandoffZonesFromSaved(
+        self, polygon_data: dict, saved_res, saved: dict | None = None
+    ) -> None:
         """Set up c_channel_2 exit / c_channel_3 entry zones from saved polygons.
 
         Polygon coordinates are stored in the capture resolution written to
         disk (``saved_res``); the active camera may run at a different
         resolution (e.g. 1280×720 on the live feed while the stored polygon
         is in 1920×1080). Rescale per role using the role's current capture.
+
+        When ``saved`` is provided we look up each channel's own saved
+        resolution (editor writes it into ``arc_params[<key>].resolution``),
+        falling back to ``saved_res`` otherwise. That keeps cameras running
+        at different resolutions from contaminating each other.
         """
         try:
-            src_w, src_h = int(saved_res[0]), int(saved_res[1])
+            fallback_src_w, fallback_src_h = int(saved_res[0]), int(saved_res[1])
         except (TypeError, ValueError):
             return
-        if src_w <= 0 or src_h <= 0:
+        if fallback_src_w <= 0 or fallback_src_h <= 0:
             return
         role_to_key = {"c_channel_2": "second_channel", "c_channel_3": "third_channel"}
         if self._usesClassificationChannelSetup():
@@ -1036,7 +1091,19 @@ class VisionManager:
         def _rect_to_polygon(x1, y1, x2, y2):
             return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
 
-        def _role_scale(role: str) -> tuple[float, float]:
+        def _src_for_key(polygon_key: str) -> tuple[int, int]:
+            if isinstance(saved, dict):
+                channel_key = self._channelAngleKeyForPolygonKey(polygon_key) or polygon_key
+                res = self._saved_resolution_for_channel(saved, channel_key)
+                try:
+                    sw, sh = int(res[0]), int(res[1])
+                except (TypeError, ValueError):
+                    return fallback_src_w, fallback_src_h
+                if sw > 0 and sh > 0:
+                    return sw, sh
+            return fallback_src_w, fallback_src_h
+
+        def _role_scale(role: str, src_w: int, src_h: int) -> tuple[float, float]:
             capture = self.getCaptureThreadForRole(role)
             frame = capture.latest_frame if capture is not None else None
             if frame is None:
@@ -1053,7 +1120,8 @@ class VisionManager:
             except (TypeError, ValueError):
                 continue
             x, y, w, h = cv2.boundingRect(poly)
-            sx, sy = _role_scale(role)
+            role_src_w, role_src_h = _src_for_key(key)
+            sx, sy = _role_scale(role, role_src_w, role_src_h)
             if role == "c_channel_2":
                 ex1 = (x + w // 2) * sx
                 self._piece_handoff_manager.set_zones(
@@ -1136,8 +1204,8 @@ class VisionManager:
             elif pts:
                 polys[key] = np.array(pts, dtype=np.int32)
 
-        saved_res = saved.get("resolution", [1920, 1080])
-        src_w, src_h = int(saved_res[0]), int(saved_res[1])
+        carousel_saved_res = self._saved_resolution_for_channel(saved, "carousel")
+        src_w, src_h = int(carousel_saved_res[0]), int(carousel_saved_res[1])
         carousel_ready = self._loadCarouselPolygon(
             polygon_data,
             source_resolution=(src_w, src_h),
@@ -1315,7 +1383,12 @@ class VisionManager:
             return False
 
         saved = getChannelPolygons()
-        saved_res = saved.get("resolution", [1920, 1080]) if saved else [1920, 1080]
+        channel_key_for_res = self._channelAngleKeyForPolygonKey(key) or key
+        saved_res = (
+            self._saved_resolution_for_channel(saved, channel_key_for_res)
+            if saved
+            else [1920, 1080]
+        )
         src_w, src_h = int(saved_res[0]), int(saved_res[1])
 
         # Wait briefly for first frame to get actual camera resolution
@@ -2380,7 +2453,8 @@ class VisionManager:
         pts = polygon_data.get(key)
         if not isinstance(pts, list) or len(pts) < 3:
             return None
-        saved_res = saved.get("resolution") or [1920, 1080]
+        channel_key_for_res = self._channelAngleKeyForPolygonKey(key) or key
+        saved_res = self._saved_resolution_for_channel(saved, channel_key_for_res)
         try:
             src_w, src_h = int(saved_res[0]), int(saved_res[1])
         except (TypeError, ValueError):
@@ -2431,6 +2505,7 @@ class VisionManager:
         self._configureHandoffZonesFromSaved(
             saved.get("polygons") or {},
             saved.get("resolution") or [1920, 1080],
+            saved=saved,
         )
         self._configureChannelGeometryFromSaved(saved)
 

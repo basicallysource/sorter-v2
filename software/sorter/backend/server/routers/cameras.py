@@ -3693,7 +3693,14 @@ def camera_feed_by_role(
         apply_camera_device_settings,
         apply_picture_settings,
     )
-    from vision.outputs.mjpeg import MjpegOutput
+
+    def _mjpeg_chunk(frame: np.ndarray, quality: int = 70) -> bytes:
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        return (
+            b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
+            + buf.tobytes()
+            + b"\r\n"
+        )
 
     # Resolve layer — legacy `annotated` param maps into `layer`
     want_annotated = layer == "annotated" and annotated
@@ -3725,8 +3732,6 @@ def camera_feed_by_role(
     source = _camera_source_for_role(raw, role)
     if source is None or not isinstance(source, (int, str)):
         raise HTTPException(404, f"Camera role '{role}' not configured")
-
-    encoder = MjpegOutput()
 
     cached_dashboard_shape: tuple[int, int] | None = None
     cached_dashboard_spec: Dict[str, Any] | None = None
@@ -3761,7 +3766,7 @@ def camera_feed_by_role(
                         else frame_obj.raw
                     )
                     frame = _dashboard_frame(frame)
-                    yield encoder.encode_chunk(frame, quality=70)
+                    yield _mjpeg_chunk(frame, quality=70)
                     time.sleep(0.03)
 
             return StreamingResponse(
@@ -3784,7 +3789,7 @@ def camera_feed_by_role(
                     frame = apply_camera_color_profile(frame, color_profile)
                 frame = apply_picture_settings(frame, picture_settings)
                 frame = _dashboard_frame(frame)
-                yield encoder.encode_chunk(frame, quality=70)
+                yield _mjpeg_chunk(frame, quality=70)
         finally:
             cap.release()
 

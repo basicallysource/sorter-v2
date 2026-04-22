@@ -483,6 +483,7 @@ class WaveshareServoMotor:
             self._current_position = pos
         else:
             self._current_position = (min_lim + max_lim) // 2
+        return (min_lim, max_lim)
 
     # -- ServoMotor-compatible interface ------------------------------------
 

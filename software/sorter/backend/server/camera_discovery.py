@@ -106,7 +106,7 @@ class CameraDiscoveryRegistry:
         path = _normalized_path(props.get("path", "/video"), "/video")
         snapshot_path = _normalized_path(props.get("snapshot", "/snapshot.jpg"), "/snapshot.jpg")
         health_path = _normalized_path(props.get("health", "/health"), "/health")
-        label = props.get("name") or info.server.rstrip(".") or name.split(".")[0]
+        label = props.get("name") or (info.server or "").rstrip(".") or name.split(".")[0]
 
         service = {
             "kind": "network",

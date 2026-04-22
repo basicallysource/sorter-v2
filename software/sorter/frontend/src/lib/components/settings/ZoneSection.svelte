@@ -1586,9 +1586,22 @@
 
 	function canvasCoords(e: MouseEvent): Point {
 		const rect = canvasEl.getBoundingClientRect();
+		// The canvas is styled with `object-fit: contain`, so when the
+		// canvas's intrinsic aspect ratio does not match the CSS box the
+		// content is letterboxed. `getBoundingClientRect()` reports the
+		// full CSS box, so a naive scale would drift by the letterbox
+		// padding on mismatched aspect ratios (e.g. a 4:3 camera inside a
+		// 16:9 container) and hit-testing would miss the drawn handles.
+		const scaleX = CANVAS_W / rect.width;
+		const scaleY = CANVAS_H / rect.height;
+		const scale = Math.max(scaleX, scaleY);
+		const contentW = CANVAS_W / scale;
+		const contentH = CANVAS_H / scale;
+		const padX = (rect.width - contentW) / 2;
+		const padY = (rect.height - contentH) / 2;
 		return [
-			((e.clientX - rect.left) * CANVAS_W) / rect.width,
-			((e.clientY - rect.top) * CANVAS_H) / rect.height
+			(e.clientX - rect.left - padX) * scale,
+			(e.clientY - rect.top - padY) * scale
 		];
 	}
 

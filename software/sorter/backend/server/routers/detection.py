@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-import cv2
-import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
@@ -41,7 +39,8 @@ from role_aliases import (
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.config_helpers import read_machine_params_config as _read_machine_params_config
-from vision.detection_registry import (
+from rt.contracts.registry import DETECTORS
+from rt.perception.detector_metadata import (
     detection_algorithm_definition,
     detection_algorithm_options,
     normalize_detection_algorithm,
@@ -264,72 +263,6 @@ class HiveBackfillPayload(BaseModel):
 
 class HivePurgePayload(BaseModel):
     target_ids: list[str] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Classification baseline helpers
-# ---------------------------------------------------------------------------
-
-
-def _collect_classification_baseline_frames(
-    capture: Any,
-    sample_count: int = shared_state.CLASSIFICATION_BASELINE_SAMPLES,
-    timeout_s: float = shared_state.CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S,
-    interval_s: float = shared_state.CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S,
-) -> list[np.ndarray]:
-    frames: list[np.ndarray] = []
-    deadline = time.monotonic() + timeout_s
-    last_timestamp: float | None = None
-    last_accept_at = 0.0
-
-    while len(frames) < sample_count and time.monotonic() < deadline:
-        frame = getattr(capture, "latest_frame", None)
-        now = time.monotonic()
-        if frame is None:
-            time.sleep(interval_s)
-            continue
-
-        timestamp = float(getattr(frame, "timestamp", 0.0) or 0.0)
-        if (
-            last_timestamp is not None
-            and timestamp == last_timestamp
-            and (now - last_accept_at) < interval_s * 1.5
-        ):
-            time.sleep(interval_s)
-            continue
-
-        gray = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
-        frames.append(gray.copy())
-        last_timestamp = timestamp
-        last_accept_at = now
-        time.sleep(interval_s)
-
-    return frames
-
-
-def _write_classification_baseline_frames(
-    baseline_dir: Path,
-    prefix: str,
-    frames: list[np.ndarray],
-) -> Dict[str, Any]:
-    for old_path in baseline_dir.glob(f"{prefix}_*.png"):
-        old_path.unlink(missing_ok=True)
-
-    for index, gray in enumerate(frames):
-        cv2.imwrite(str(baseline_dir / f"{prefix}_frame_{index:03d}.png"), gray)
-
-    stack = np.stack(frames, axis=0)
-    baseline_min = np.min(stack, axis=0).astype(np.uint8)
-    baseline_max = np.max(stack, axis=0).astype(np.uint8)
-    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_min.png"), baseline_min)
-    cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_max.png"), baseline_max)
-
-    height, width = baseline_min.shape[:2]
-    return {
-        "available": True,
-        "captured_frames": len(frames),
-        "resolution": [width, height],
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -966,46 +899,323 @@ def save_carousel_detection_config(
 
 
 # ---------------------------------------------------------------------------
-# Classification C-channel (C4) baseline capture
+# rt-runtime detection helpers
+# ---------------------------------------------------------------------------
+#
+# The Hive detectors in rt/ are baseline-free YOLO/NanoDet feature extractors,
+# so there is no legacy MOG2/heatmap-diff style baseline capture to port. The
+# baseline-capture endpoints below return HTTP 501 with a clean message; the
+# detect/current endpoints run the configured rt Hive detector on the latest
+# frame and return the Svelte settings dropdown payload shape.
+
+
+def _baseline_not_supported_response(scope_label: str) -> HTTPException:
+    return HTTPException(
+        status_code=501,
+        detail=(
+            f"{scope_label} baseline capture is not available in the new runtime — "
+            "the Hive detectors are baseline-free."
+        ),
+    )
+
+
+def _find_rt_perception_runner(feed_id: str):
+    """Return the rt PerceptionRunner for ``feed_id`` or ``None``."""
+    handle = shared_state.rt_handle
+    if handle is None:
+        return None
+    for runner in getattr(handle, "perception_runners", []) or []:
+        pipeline = getattr(runner, "_pipeline", None)
+        if pipeline is None:
+            continue
+        feed = getattr(pipeline, "feed", None)
+        if feed is not None and getattr(feed, "feed_id", None) == feed_id:
+            return runner
+    return None
+
+
+def _zone_bbox_and_points(zone: Any, frame_shape: tuple[int, int]) -> tuple[
+    list[int] | None, int, list[list[int]] | None
+]:
+    """Compute (zone_bbox_xyxy, point_count, polygon_points) for payload."""
+    from rt.contracts.feed import PolygonZone, RectZone
+
+    if zone is None:
+        return None, 0, None
+    h, w = int(frame_shape[0]), int(frame_shape[1])
+    if isinstance(zone, RectZone):
+        x1 = max(0, int(zone.x))
+        y1 = max(0, int(zone.y))
+        x2 = min(w, int(zone.x + zone.w))
+        y2 = min(h, int(zone.y + zone.h))
+        return [x1, y1, x2, y2], 4, [
+            [x1, y1], [x2, y1], [x2, y2], [x1, y2],
+        ]
+    if isinstance(zone, PolygonZone):
+        xs = [int(p[0]) for p in zone.vertices]
+        ys = [int(p[1]) for p in zone.vertices]
+        if not xs or not ys:
+            return None, 0, None
+        x1 = max(0, min(xs))
+        y1 = max(0, min(ys))
+        x2 = min(w, max(xs))
+        y2 = min(h, max(ys))
+        points = [[int(p[0]), int(p[1])] for p in zone.vertices]
+        return [x1, y1, x2, y2], len(points), points
+    return None, 0, None
+
+
+def _empty_detect_payload(
+    *,
+    algorithm: str,
+    message: str,
+    frame_resolution: list[int] | None = None,
+    zone_bbox: list[int] | None = None,
+    zone_point_count: int = 0,
+) -> Dict[str, Any]:
+    return {
+        "algorithm": algorithm,
+        "found": False,
+        "bbox": None,
+        "candidate_bboxes": [],
+        "bbox_count": 0,
+        "score": None,
+        "zone_bbox": zone_bbox,
+        "frame_resolution": frame_resolution,
+        "zone_point_count": zone_point_count,
+        "message": message,
+        "_sample_capture": None,
+    }
+
+
+def _detect_from_rt_pipeline(
+    *,
+    scope: str,
+    feed_id: str,
+    scope_label: str,
+) -> Dict[str, Any]:
+    """Run the pipeline's configured detector once on the latest feed frame.
+
+    Returns a payload matching the legacy ``debug*Detection`` contract:
+    ``algorithm``, ``found``, ``bbox``, ``candidate_bboxes``, ``bbox_count``,
+    ``score``, ``message``, ``zone_bbox``, ``frame_resolution``,
+    ``zone_point_count``, plus the ``_sample_capture`` bridge dict expected by
+    ``_finalize_aux_detection_debug_payload``.
+    """
+    runner = _find_rt_perception_runner(feed_id)
+    if runner is None:
+        return _empty_detect_payload(
+            algorithm=normalize_detection_algorithm(scope, None),
+            message=f"rt perception runner for {scope_label} is not available.",
+        )
+
+    pipeline = runner._pipeline  # type: ignore[attr-defined]
+    feed = pipeline.feed
+    zone = pipeline.zone
+    detector = pipeline.detector
+    slug = getattr(detector, "key", normalize_detection_algorithm(scope, None))
+
+    frame = feed.latest()
+    if frame is None or getattr(frame, "raw", None) is None:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"No frame available on the {scope_label} camera.",
+        )
+
+    raw = frame.raw
+    frame_h, frame_w = int(raw.shape[0]), int(raw.shape[1])
+    zone_bbox, point_count, _polygon_points = _zone_bbox_and_points(
+        zone, (frame_h, frame_w)
+    )
+
+    try:
+        batch = detector.detect(frame, zone)
+    except Exception as exc:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"Detector raised: {exc}",
+            frame_resolution=[frame_w, frame_h],
+            zone_bbox=zone_bbox,
+            zone_point_count=point_count,
+        )
+
+    detections = list(batch.detections)
+    candidate_bboxes = [list(det.bbox_xyxy) for det in detections]
+    best = max(detections, key=lambda det: float(det.score)) if detections else None
+    bbox = list(best.bbox_xyxy) if best is not None else None
+    score = float(best.score) if best is not None else None
+    definition = detection_algorithm_definition(slug)
+    label = definition.label if definition is not None else slug
+    message = (
+        f"{label}: {len(detections)} candidate(s) on the {scope_label} frame."
+        if detections
+        else f"{label}: no object detected on the {scope_label} frame."
+    )
+
+    sample_capture = {
+        "input_image": raw,
+        "frame": raw,
+    }
+
+    return {
+        "algorithm": slug,
+        "found": bool(detections),
+        "bbox": bbox,
+        "candidate_bboxes": candidate_bboxes,
+        "bbox_count": len(candidate_bboxes),
+        "score": score,
+        "zone_bbox": zone_bbox,
+        "frame_resolution": [frame_w, frame_h],
+        "zone_point_count": point_count,
+        "message": message,
+        "_sample_capture": sample_capture,
+    }
+
+
+def _detect_from_standalone_camera(
+    *,
+    scope: str,
+    camera_role: str,
+    scope_label: str,
+    slug: str,
+) -> Dict[str, Any]:
+    """Grab a frame directly from camera_service (no rt pipeline wired).
+
+    Used for classification chamber top/bottom cameras where the rt bootstrap
+    doesn't build a perception pipeline. Builds a detector ad-hoc, runs one
+    inference on a full-frame RectZone, and returns the same payload shape.
+    """
+    from rt.contracts.feed import FeedFrame, RectZone
+
+    service = shared_state.camera_service
+    if service is None:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message="Camera service not initialised.",
+        )
+    feed = service.get_feed(camera_role)
+    if feed is None:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"No camera assigned to {scope_label}.",
+        )
+
+    cframe = None
+    get_frame = getattr(feed, "get_frame", None)
+    if callable(get_frame):
+        try:
+            cframe = get_frame(annotated=False)
+        except TypeError:
+            cframe = get_frame()
+    raw = getattr(cframe, "raw", None) if cframe is not None else None
+    if raw is None:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"No frame available on the {scope_label} camera.",
+        )
+
+    h, w = int(raw.shape[0]), int(raw.shape[1])
+    zone = RectZone(x=0, y=0, w=w, h=h)
+    frame_seq = int(getattr(cframe, "frame_seq", 0) or 0)
+    timestamp = float(getattr(cframe, "timestamp", 0.0) or 0.0)
+    monotonic_ts = float(getattr(cframe, "monotonic_ts", 0.0) or 0.0)
+    frame = FeedFrame(
+        feed_id=f"{camera_role}_adhoc",
+        camera_id=camera_role,
+        raw=raw,
+        gray=None,
+        timestamp=timestamp,
+        monotonic_ts=monotonic_ts or time.monotonic(),
+        frame_seq=frame_seq,
+    )
+
+    try:
+        detector = DETECTORS.create(slug)
+    except LookupError:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"Detector '{slug}' is not registered.",
+            frame_resolution=[w, h],
+            zone_bbox=[0, 0, w, h],
+            zone_point_count=4,
+        )
+    except Exception as exc:
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"Detector '{slug}' failed to load: {exc}",
+            frame_resolution=[w, h],
+            zone_bbox=[0, 0, w, h],
+            zone_point_count=4,
+        )
+
+    try:
+        batch = detector.detect(frame, zone)
+    except Exception as exc:
+        try:
+            detector.stop()
+        except Exception:
+            pass
+        return _empty_detect_payload(
+            algorithm=slug,
+            message=f"Detector raised: {exc}",
+            frame_resolution=[w, h],
+            zone_bbox=[0, 0, w, h],
+            zone_point_count=4,
+        )
+    try:
+        detector.stop()
+    except Exception:
+        pass
+
+    detections = list(batch.detections)
+    candidate_bboxes = [list(det.bbox_xyxy) for det in detections]
+    best = max(detections, key=lambda det: float(det.score)) if detections else None
+    bbox = list(best.bbox_xyxy) if best is not None else None
+    score = float(best.score) if best is not None else None
+    definition = detection_algorithm_definition(slug)
+    label = definition.label if definition is not None else slug
+    message = (
+        f"{label}: {len(detections)} candidate(s) on the {scope_label} frame."
+        if detections
+        else f"{label}: no object detected on the {scope_label} frame."
+    )
+    sample_capture = {
+        "input_image": raw,
+        "frame": raw,
+        "top_frame": raw if camera_role == "classification_top" else None,
+        "bottom_frame": raw if camera_role == "classification_bottom" else None,
+        "top_zone": zone if camera_role == "classification_top" else None,
+        "bottom_zone": zone if camera_role == "classification_bottom" else None,
+    }
+    return {
+        "algorithm": slug,
+        "found": bool(detections),
+        "bbox": bbox,
+        "candidate_bboxes": candidate_bboxes,
+        "bbox_count": len(candidate_bboxes),
+        "score": score,
+        "zone_bbox": [0, 0, w, h],
+        "frame_resolution": [w, h],
+        "zone_point_count": 4,
+        "message": message,
+        "_sample_capture": sample_capture,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Classification C-channel (C4) baseline capture — rt detectors are baseline-free
 # ---------------------------------------------------------------------------
 
 
 @router.post("/api/carousel/detection/baseline/capture")
 @router.post("/api/classification-channel/detection/baseline/capture")
 def capture_carousel_detection_baseline() -> Dict[str, Any]:
-    if shared_state.vision_manager is None:
-        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
-    ok = bool(shared_state.vision_manager.captureCarouselBaseline())
-    if not ok:
-        scope_label = (
-            "classification-channel"
-            if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
-            else "carousel"
-        )
-        raise HTTPException(
-            status_code=409,
-            detail=f"Could not capture a {scope_label} baseline. Check the live frame and saved zone first.",
-        )
-    resolution = None
-    capture = shared_state.vision_manager.getCaptureThreadForRole("carousel") if hasattr(shared_state.vision_manager, "getCaptureThreadForRole") else None
-    frame = capture.latest_frame if capture is not None else None
-    if frame is not None:
-        resolution = [int(frame.raw.shape[1]), int(frame.raw.shape[0])]
-    return {
-        "ok": True,
-        "message": (
-            "Classification C-channel (C4) baseline captured from the current live frame."
-            if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
-            else "Carousel baseline captured from the current live frame."
-        ),
-        "cameras": {
-            _public_aux_scope(): {
-                "available": True,
-                "captured_frames": 1,
-                "resolution": resolution,
-            }
-        },
-    }
+    scope_label = (
+        "Classification C-channel (C4)"
+        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        else "Carousel"
+    )
+    raise _baseline_not_supported_response(scope_label)
 
 
 # ---------------------------------------------------------------------------
@@ -1017,17 +1227,19 @@ def capture_carousel_detection_baseline() -> Dict[str, Any]:
 def debug_classification_detection(camera: str) -> Dict[str, Any]:
     if camera not in {"top", "bottom"}:
         raise HTTPException(status_code=400, detail="Unsupported classification camera.")
-    if shared_state.vision_manager is None:
-        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
-    if not hasattr(shared_state.vision_manager, "debugClassificationDetection"):
-        raise HTTPException(status_code=503, detail="Classification detection debug is unavailable.")
 
-    try:
-        payload = shared_state.vision_manager.debugClassificationDetection(camera, include_capture=True)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to test classification detection: {exc}")
+    camera_role = "classification_top" if camera == "top" else "classification_bottom"
+    saved = getClassificationDetectionConfig()
+    slug = _normalize_classification_detection_algorithm(
+        saved.get("algorithm") if isinstance(saved, dict) else None
+    )
+    scope_label = f"classification {camera}"
+    payload = _detect_from_standalone_camera(
+        scope="classification",
+        camera_role=camera_role,
+        scope_label=scope_label,
+        slug=slug,
+    )
 
     sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
     frame_resolution = payload.get("frame_resolution")
@@ -1050,17 +1262,11 @@ def debug_classification_detection(camera: str) -> Dict[str, Any]:
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
     if isinstance(sample_capture, dict):
-        save_model = None
-        if payload.get("algorithm") == "gemini_sam" and hasattr(shared_state.vision_manager, "getClassificationOpenRouterModel"):
-            try:
-                save_model = shared_state.vision_manager.getClassificationOpenRouterModel()
-            except Exception:
-                save_model = None
         try:
-            saved = getClassificationTrainingManager().saveDetectionDebugCapture(
+            getClassificationTrainingManager().saveDetectionDebugCapture(
                 camera=camera,
                 algorithm=str(payload.get("algorithm") or ""),
-                openrouter_model=save_model,
+                openrouter_model=None,
                 debug_result=payload,
                 top_zone=sample_capture.get("top_zone"),
                 bottom_zone=sample_capture.get("bottom_zone"),
@@ -1136,33 +1342,31 @@ def debug_feeder_detection(role: str) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
     if role is None:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
-    internal_role = _internal_feeder_role(role)
-    if shared_state.vision_manager is None:
-        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
-    if not hasattr(shared_state.vision_manager, "debugFeederDetection"):
-        raise HTTPException(status_code=503, detail="Feeder detection debug is unavailable.")
 
-    try:
-        payload = shared_state.vision_manager.debugFeederDetection(internal_role, include_capture=True)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to test feeder detection: {exc}")
+    # UI role -> rt feed_id (c_channel_2 → c2_feed, c_channel_3 → c3_feed,
+    # classification_channel → c4_feed).
+    feed_id = {
+        "c_channel_2": "c2_feed",
+        "c_channel_3": "c3_feed",
+        CLASSIFICATION_CHANNEL_ROLE: "c4_feed",
+    }.get(role)
+    if feed_id is None:
+        raise HTTPException(status_code=400, detail="Unsupported feeder role.")
 
+    scope_label = _feeder_role_label(role)
+    payload = _detect_from_rt_pipeline(
+        scope="feeder",
+        feed_id=feed_id,
+        scope_label=scope_label,
+    )
     sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
     if isinstance(payload, dict):
         payload["camera"] = role
-    save_model = None
-    if payload.get("algorithm") == "gemini_sam" and hasattr(shared_state.vision_manager, "getFeederOpenRouterModel"):
-        try:
-            save_model = shared_state.vision_manager.getFeederOpenRouterModel()
-        except Exception:
-            save_model = None
     return _finalize_aux_detection_debug_payload(
         role=role,
         payload=payload,
         sample_capture=sample_capture,
-        openrouter_model=save_model,
+        openrouter_model=None,
     )
 
 
@@ -1400,92 +1604,34 @@ def classification_channel_debug() -> Dict[str, Any]:
 @router.post("/api/carousel/detect/current")
 @router.post("/api/classification-channel/detect/current")
 def debug_carousel_detection() -> Dict[str, Any]:
-    if shared_state.vision_manager is None:
-        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
-    if not hasattr(shared_state.vision_manager, "debugCarouselDetection"):
-        raise HTTPException(status_code=503, detail="Carousel detection debug is unavailable.")
-
-    try:
-        payload = shared_state.vision_manager.debugCarouselDetection(include_capture=True)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to test carousel detection: {exc}")
-
+    aux_scope = _public_aux_scope()  # "carousel" or "classification_channel"
+    scope_label = (
+        "Classification C-channel (C4)"
+        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
+        else "carousel"
+    )
+    payload = _detect_from_rt_pipeline(
+        scope="carousel",
+        feed_id="c4_feed",
+        scope_label=scope_label,
+    )
     sample_capture = payload.pop("_sample_capture", None) if isinstance(payload, dict) else None
-    save_model = None
-    if payload.get("algorithm") == "gemini_sam" and hasattr(shared_state.vision_manager, "getCarouselOpenRouterModel"):
-        try:
-            save_model = shared_state.vision_manager.getCarouselOpenRouterModel()
-        except Exception:
-            save_model = None
     return _finalize_aux_detection_debug_payload(
         role="carousel",
         payload=payload,
         sample_capture=sample_capture,
-        openrouter_model=save_model,
+        openrouter_model=None,
     )
 
 
 # ---------------------------------------------------------------------------
-# Classification baseline capture
+# Classification baseline capture — rt detectors are baseline-free
 # ---------------------------------------------------------------------------
 
 
 @router.post("/api/classification/baseline/capture")
 def capture_classification_baseline() -> Dict[str, Any]:
-    if shared_state.vision_manager is None:
-        raise HTTPException(status_code=503, detail="Vision manager not initialized.")
-
-    baseline_dir = BLOB_DIR / "classification_baseline"
-    baseline_dir.mkdir(parents=True, exist_ok=True)
-
-    captures = {
-        "top": shared_state.vision_manager.getCaptureThreadForRole("classification_top"),
-        "bottom": shared_state.vision_manager.getCaptureThreadForRole("classification_bottom"),
-    }
-    available = {name: capture for name, capture in captures.items() if capture is not None}
-    if not available:
-        raise HTTPException(status_code=404, detail="No classification cameras are configured.")
-
-    camera_results: Dict[str, Any] = {
-        name: {"available": capture is not None, "captured_frames": 0}
-        for name, capture in captures.items()
-    }
-    captured_any = False
-
-    for prefix, capture in available.items():
-        frames = _collect_classification_baseline_frames(capture)
-        if len(frames) < 2:
-            camera_results[prefix] = {
-                "available": True,
-                "captured_frames": len(frames),
-                "error": "Not enough fresh frames were available.",
-            }
-            continue
-
-        camera_results[prefix] = _write_classification_baseline_frames(baseline_dir, prefix, frames)
-        captured_any = True
-
-    if not captured_any:
-        raise HTTPException(
-            status_code=504,
-            detail="Failed to capture enough classification baseline frames from the live cameras.",
-        )
-
-    reloaded = bool(shared_state.vision_manager.loadClassificationBaseline())
-    if not reloaded:
-        raise HTTPException(
-            status_code=500,
-            detail="Baseline images were captured, but the live classification baseline failed to reload.",
-        )
-
-    return {
-        "ok": True,
-        "message": "Classification baseline captured from the empty chamber and reloaded live.",
-        "cameras": camera_results,
-        "baseline_dir": str(baseline_dir),
-    }
+    raise _baseline_not_supported_response("Classification chamber")
 
 
 # ---------------------------------------------------------------------------

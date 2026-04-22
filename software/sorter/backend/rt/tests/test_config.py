@@ -20,7 +20,7 @@ params = { center_xy = [960, 540], r_inner = 180, r_outer = 260, theta_start_rad
 
 [[pipelines]]
 feed_id = "c2_feed"
-detector = { key = "mog2", params = { history = 500 } }
+detector = { key = "placeholder", params = { foo = 1 } }
 tracker = { key = "polar", params = {} }
 filters = []
 

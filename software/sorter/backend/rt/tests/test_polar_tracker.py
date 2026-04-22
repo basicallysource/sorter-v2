@@ -29,7 +29,7 @@ def _batch(bbox: tuple[int, int, int, int], seq: int, ts: float) -> DetectionBat
         frame_seq=seq,
         timestamp=ts,
         detections=(Detection(bbox_xyxy=bbox, score=0.9),),
-        algorithm="mog2",
+        algorithm="test",
         latency_ms=1.0,
     )
 
@@ -116,7 +116,7 @@ def test_track_expires_after_coast_limit() -> None:
             frame_seq=i,
             timestamp=1.0 + i * 0.1,
             detections=(),
-            algorithm="mog2",
+            algorithm="test",
             latency_ms=0.0,
         )
         batch = trk.update(empty, _frame(i, 1.0 + i * 0.1))

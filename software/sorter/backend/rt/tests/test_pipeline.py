@@ -6,9 +6,10 @@ import numpy as np
 
 import rt.perception  # noqa: F401 - trigger registry population
 from rt.config.schema import FilterConfig, PipelineConfig, ZoneConfig
-from rt.contracts.feed import FeedFrame, RectZone
+from rt.contracts.detection import Detection
+from rt.contracts.feed import FeedFrame, RectZone, Zone
 from rt.contracts.filters import FilterChain
-from rt.perception.detectors.mog2 import Mog2Detector
+from rt.perception.detectors._testing import FakeDetector, temporary_detector
 from rt.perception.filters.ghost import GhostFilter
 from rt.perception.filters.size import SizeFilter
 from rt.perception.pipeline import PerceptionPipeline, build_pipeline_from_config
@@ -55,7 +56,19 @@ def _make_frame(raw: np.ndarray, seq: int) -> FeedFrame:
 def test_pipeline_end_to_end_produces_confirmed_track() -> None:
     feed = _StubFeed()
     zone = RectZone(x=0, y=0, w=200, h=200)
-    detector = Mog2Detector(min_area_px=50, blur_kernel=3, morph_kernel=3)
+
+    # Script a single detection that walks horizontally across the zone
+    # starting at seq=30 (after a warmup window with zero detections).
+    # 20 steps of 6 px each = 120 px drift, well above the tracker's
+    # 40 px centroid-drift gate for whitelist confirmation.
+    def _script(frame: FeedFrame, zone_: Zone) -> list[Detection]:
+        seq = frame.frame_seq
+        if seq < 30:
+            return []
+        x = 20 + (seq - 30) * 6
+        return [Detection(bbox_xyxy=(x, 80, x + 30, 130), score=0.9)]
+
+    detector = FakeDetector(detections_for=_script)
     tracker = PolarTracker(polar_center=None, pixel_fallback_distance_px=200.0)
     filters = FilterChain(
         (SizeFilter(min_area_px=100), GhostFilter(confirmed_real_only=False)),
@@ -64,18 +77,13 @@ def test_pipeline_end_to_end_produces_confirmed_track() -> None:
         feed=feed, zone=zone, detector=detector, tracker=tracker, filters=filters,
     )
 
-    # Warm up the MOG2 background with static frames.
-    bg = np.full((200, 200, 3), 30, dtype=np.uint8)
+    bg = np.zeros((200, 200, 3), dtype=np.uint8)
     for i in range(30):
         pipe.process_frame(_make_frame(bg, seq=i))
 
     saw_any_track = False
-    # Now move a bright rectangle across the frame.
     for i in range(30, 50):
-        frame = bg.copy()
-        x = 20 + (i - 30) * 6
-        frame[80:130, x : x + 30] = 220
-        out = pipe.process_frame(_make_frame(frame, seq=i))
+        out = pipe.process_frame(_make_frame(bg, seq=i))
         if out.tracks:
             saw_any_track = True
 
@@ -86,7 +94,7 @@ def test_build_pipeline_from_config_wires_strategies() -> None:
     zone_cfg = ZoneConfig(kind="rect", params={"x": 0, "y": 0, "w": 100, "h": 100})
     pipeline_cfg = PipelineConfig(
         feed_id="test",
-        detector={"key": "mog2", "params": {"min_area_px": 50}},
+        detector={"key": "fake", "params": {}},
         tracker={"key": "polar", "params": {}},
         filters=[
             FilterConfig(key="size", params={"min_area_px": 10}),
@@ -95,10 +103,12 @@ def test_build_pipeline_from_config_wires_strategies() -> None:
     )
     feed = _StubFeed()
     zone = build_zone(zone_cfg)
-    pipe = build_pipeline_from_config(pipeline_cfg, feed, zone)
+
+    with temporary_detector("fake", FakeDetector):
+        pipe = build_pipeline_from_config(pipeline_cfg, feed, zone)
 
     assert isinstance(pipe, PerceptionPipeline)
-    assert pipe.detector.key == "mog2"
+    assert pipe.detector.key == "fake"
     assert pipe.tracker.key == "polar"
     assert len(pipe.filters.filters) == 2
     assert pipe.filters.filters[0].key == "size"
@@ -118,12 +128,14 @@ def test_build_pipeline_with_polar_zone_propagates_geometry() -> None:
     )
     pipeline_cfg = PipelineConfig(
         feed_id="test",
-        detector={"key": "mog2", "params": {}},
+        detector={"key": "fake", "params": {}},
         tracker={"key": "polar", "params": {}},
         filters=[],
     )
     feed = _StubFeed()
     zone = build_zone(zone_cfg)
-    pipe = build_pipeline_from_config(pipeline_cfg, feed, zone)
+
+    with temporary_detector("fake", FakeDetector):
+        pipe = build_pipeline_from_config(pipeline_cfg, feed, zone)
     # Internal state check: polar_center should have been set.
     assert pipe.tracker._polar_center == (100.0, 100.0)

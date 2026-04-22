@@ -145,12 +145,30 @@
 		name: string;
 	};
 
-	const ALL_CAMERA_ROLES = $derived<PipelineCamera[]>([
-		...FEEDER_CHANNEL_ROLES,
-		{ role: AUX_ROLE as CameraRole, short: AUX_ROLE === 'classification_channel' ? 'CCh' : 'C4', name: AUX_ROLE === 'classification_channel' ? 'Classification Channel' : 'Carousel' },
-		{ role: 'classification_top', short: 'CT', name: 'Classification Top' },
-		{ role: 'classification_bottom', short: 'CB', name: 'Classification Bottom' }
-	]);
+	// Only include roles that have a camera assigned in the current
+	// machine setup — `classification_top` / `classification_bottom` only
+	// exist in the dual-camera classification layout, otherwise their
+	// source in cameras.config is null and the card is just noise.
+	const ALL_CAMERA_ROLES = $derived.by<PipelineCamera[]>(() => {
+		const candidates: PipelineCamera[] = [
+			...FEEDER_CHANNEL_ROLES,
+			{
+				role: AUX_ROLE as CameraRole,
+				short: AUX_ROLE === 'classification_channel' ? 'CCh' : 'C4',
+				name: AUX_ROLE === 'classification_channel' ? 'Classification Channel' : 'Carousel'
+			},
+			{ role: 'classification_top', short: 'CT', name: 'Classification Top' },
+			{ role: 'classification_bottom', short: 'CB', name: 'Classification Bottom' }
+		];
+		return candidates.filter((cam) => {
+			if (!cameraConfig || typeof cameraConfig !== 'object') return true;
+			if (!(cam.role in cameraConfig)) return true;
+			const source = (cameraConfig as Record<string, unknown>)[cam.role];
+			if (source === null || source === undefined) return false;
+			if (typeof source === 'number' && source < 0) return false;
+			return true;
+		});
+	});
 
 	// ---------------------------------------------------------------------------
 	// Helpers
@@ -558,20 +576,15 @@
 						{@const hive = hiveModelFor(algorithm)}
 						{@const device = inferenceDeviceForAlgorithm(algorithm)}
 						{@const tone = algorithm && algorithm !== '—' ? 'ok' : 'idle'}
+						{@const displayName = hive?.name ?? (algorithm && algorithm !== '—' ? algorithm : '—')}
 						<div class="engine-card">
 							<div class="engine-card-head">
 								<span class="engine-dot {toneDotClass(tone)}"></span>
 								<div class="engine-card-title">{cam.short}</div>
-								<div class="engine-card-subtitle truncate" title={algorithm}>{algorithm}</div>
+								<div class="engine-card-subtitle truncate" title={algorithm}>{displayName}</div>
 							</div>
 							<div class="engine-card-body">
 								{#if hive}
-									<div class="engine-stat">
-										<div class="engine-stat-label">Model</div>
-										<div class="engine-stat-value font-mono truncate" title={hive.name ?? hive.local_id ?? ''}>
-											{hive.name ?? hive.local_id ?? '—'}
-										</div>
-									</div>
 									<div class="engine-stat">
 										<div class="engine-stat-label">Runtime</div>
 										<div class="engine-stat-value font-mono">{hive.variant_runtime ?? '—'}</div>
@@ -580,11 +593,6 @@
 									<div class="engine-stat">
 										<div class="engine-stat-label">Role</div>
 										<div class="engine-stat-value">Brickognize crop</div>
-									</div>
-								{:else}
-									<div class="engine-stat">
-										<div class="engine-stat-label">Model</div>
-										<div class="engine-stat-value text-text-muted">—</div>
 									</div>
 								{/if}
 								<div class="engine-stat">

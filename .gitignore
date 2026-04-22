@@ -28,3 +28,4 @@
 /software/sorter/backend/local_state.sqlite.backup-*
 
 .DS_Store
+software/sorter/backend/local_state.sqlite.bak-*

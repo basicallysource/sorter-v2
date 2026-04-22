@@ -509,3 +509,107 @@ def test_c4_deadlock_recovery_after_tracker_drop() -> None:
 def _hw_commands(rt: RuntimeC4) -> list[str]:
     hw = rt._hw  # noqa: SLF001
     return getattr(hw, "commands", [])
+
+
+# ----------------------------------------------------------------------
+# Event-bus publishing (H1 fix — rt_flow piece-dossier bridge)
+
+
+def _make_with_bus() -> tuple[RuntimeC4, CapacitySlot, _StubClassifier, list]:
+    from rt.contracts.events import Event, EventBus
+
+    published: list[Event] = []
+
+    class _Bus(EventBus):  # type: ignore[misc]
+        def publish(self, event: Event) -> None:
+            published.append(event)
+
+        def subscribe(self, topic_glob, handler):  # pragma: no cover
+            raise NotImplementedError
+
+        def drain(self) -> None:  # pragma: no cover
+            return None
+
+        def start(self) -> None:  # pragma: no cover
+            return None
+
+        def stop(self) -> None:  # pragma: no cover
+            return None
+
+    upstream = CapacitySlot("c3_to_c4", capacity=1)
+    downstream = CapacitySlot("c4_to_dist", capacity=1)
+    clf = _StubClassifier()
+    zm = ZoneManager(
+        max_zones=1,
+        intake_angle_deg=0.0,
+        guard_angle_deg=10.0,
+        default_half_width_deg=10.0,
+    )
+    rt = RuntimeC4(
+        upstream_slot=upstream,
+        downstream_slot=downstream,
+        zone_manager=zm,
+        classifier=clf,
+        admission=C4Admission(max_zones=1, max_raw_detections=3),
+        ejection=C4EjectionTiming(pulse_ms=150.0, settle_ms=100.0, fall_time_ms=0.0),
+        carousel_move_command=lambda _d: True,
+        eject_command=lambda: True,
+        crop_provider=lambda _f, _t: b"crop",
+        hw_worker=_InlineHw(),  # type: ignore[arg-type]
+        event_bus=_Bus(),
+        angle_tolerance_deg=15.0,
+        classify_angle_deg=90.0,
+        exit_angle_deg=180.0,
+        intake_half_width_deg=8.0,
+    )
+    rt.set_latest_frame(_frame())
+    return rt, upstream, clf, published
+
+
+def test_c4_publishes_piece_registered_on_intake() -> None:
+    rt, up, _clf, published = _make_with_bus()
+    assert up.try_claim() is True
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=55, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=1.0,
+    )
+
+    registered = [e for e in published if e.topic == "piece.registered"]
+    assert len(registered) == 1
+    evt = registered[0]
+    assert evt.source == "c4"
+    assert isinstance(evt.payload.get("piece_uuid"), str)
+    assert evt.payload["tracked_global_id"] == 55
+    assert evt.payload["confirmed_real"] is True
+    assert evt.payload["stage"] == "registered"
+    assert evt.payload["classification_status"] == "pending"
+    nested = evt.payload.get("dossier")
+    assert isinstance(nested, dict)
+    assert nested.get("tracked_global_id") == 55
+
+
+def test_c4_publishes_piece_classified_on_classifier_return() -> None:
+    rt, up, _clf, published = _make_with_bus()
+    assert up.try_claim() is True
+    # Intake at 0°.
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=77, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    # Bring the track to the classify angle (90°) so async is submitted.
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=77, angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+
+    classified = [e for e in published if e.topic == "piece.classified"]
+    assert len(classified) == 1
+    evt = classified[0]
+    assert isinstance(evt.payload.get("piece_uuid"), str)
+    assert evt.payload["tracked_global_id"] == 77
+    assert evt.payload["stage"] == "classified"
+    assert evt.payload["classification_status"] == "classified"
+    nested = evt.payload.get("dossier")
+    assert isinstance(nested, dict)
+    assert nested.get("part_id") == "3001"
+    assert nested.get("color_id") == "red"

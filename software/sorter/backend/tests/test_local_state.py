@@ -224,8 +224,8 @@ class LocalStateMigrationTests(unittest.TestCase):
         session = start_new_sorting_session(reason="test_piece_dossier")
 
         remember_piece_dossier(
+            "piece-1",
             {
-                "uuid": "piece-1",
                 "tracked_global_id": 41,
                 "created_at": 10.0,
                 "updated_at": 12.0,
@@ -233,11 +233,11 @@ class LocalStateMigrationTests(unittest.TestCase):
                 "classification_status": "pending",
                 "thumbnail": "thumb-1",
                 "classification_channel_zone_center_deg": 123.4,
-            }
+            },
         )
         remember_piece_dossier(
+            "piece-1",
             {
-                "uuid": "piece-1",
                 "tracked_global_id": 41,
                 "created_at": 10.0,
                 "updated_at": 15.0,
@@ -246,7 +246,7 @@ class LocalStateMigrationTests(unittest.TestCase):
                 "part_id": "3001",
                 "part_name": "Brick 2 x 4",
                 "distributed_at": 15.0,
-            }
+            },
         )
 
         piece = get_piece_dossier("piece-1")
@@ -528,14 +528,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         initialize_local_state()
         start_new_sorting_session(reason="segments_test")
         remember_piece_dossier(
+            "piece-seg-1",
             {
-                "uuid": "piece-seg-1",
                 "tracked_global_id": 77,
                 "created_at": 100.0,
                 "updated_at": 100.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
 
         for seq in (1, 0, 2):
@@ -591,14 +591,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         initialize_local_state()
         start_new_sorting_session(reason="segments_upsert")
         remember_piece_dossier(
+            "piece-upsert",
             {
-                "uuid": "piece-upsert",
                 "tracked_global_id": 42,
                 "created_at": 10.0,
                 "updated_at": 10.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
 
         first_payload = self._make_segment_payload(
@@ -665,14 +665,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
 
         session_a = start_new_sorting_session(reason="sess_a")
         remember_piece_dossier(
+            "piece-a",
             {
-                "uuid": "piece-a",
                 "tracked_global_id": 1,
                 "created_at": 1.0,
                 "updated_at": 1.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_segment(
             "piece-a",
@@ -689,14 +689,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
 
         session_b = start_new_sorting_session(reason="sess_b")
         remember_piece_dossier(
+            "piece-b",
             {
-                "uuid": "piece-b",
                 "tracked_global_id": 2,
                 "created_at": 10.0,
                 "updated_at": 10.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_segment(
             "piece-b",
@@ -717,24 +717,24 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         initialize_local_state()
         start_new_sorting_session(reason="segment_counts")
         remember_piece_dossier(
+            "piece-with-segs",
             {
-                "uuid": "piece-with-segs",
                 "tracked_global_id": 11,
                 "created_at": 1.0,
                 "updated_at": 1.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_dossier(
+            "piece-without-segs",
             {
-                "uuid": "piece-without-segs",
                 "tracked_global_id": 12,
                 "created_at": 1.0,
                 "updated_at": 1.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         for seq in range(3):
             remember_piece_segment(
@@ -760,14 +760,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         initialize_local_state()
         start_new_sorting_session(reason="build_detail_payload")
         remember_piece_dossier(
+            "piece-detail",
             {
-                "uuid": "piece-detail",
                 "tracked_global_id": 9000,
                 "created_at": 50.0,
                 "updated_at": 55.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_segment(
             "piece-detail",
@@ -815,36 +815,38 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
 
         # Two pure ghost stubs: pending, no distributed_at, no segments.
         remember_piece_dossier(
+            "stub-1",
             {
-                "uuid": "stub-1",
                 "tracked_global_id": 101,
                 "created_at": 1.0,
                 "updated_at": 1.0,
+                "last_event_at": 1.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_dossier(
+            "stub-2",
             {
-                "uuid": "stub-2",
                 "tracked_global_id": 102,
                 "created_at": 2.0,
                 "updated_at": 2.0,
+                "last_event_at": 2.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
 
         # One pending piece that has an attached segment → not a stub.
         remember_piece_dossier(
+            "with-segment",
             {
-                "uuid": "with-segment",
                 "tracked_global_id": 103,
                 "created_at": 3.0,
                 "updated_at": 3.0,
                 "stage": "created",
                 "classification_status": "pending",
-            }
+            },
         )
         remember_piece_segment(
             "with-segment",
@@ -855,15 +857,15 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
 
         # One classified piece (terminal status, no segment needed).
         remember_piece_dossier(
+            "classified",
             {
-                "uuid": "classified",
                 "tracked_global_id": 104,
                 "created_at": 4.0,
                 "updated_at": 4.0,
                 "stage": "distributed",
                 "classification_status": "classified",
                 "distributed_at": 4.5,
-            }
+            },
         )
 
         default_uuids = {entry["uuid"] for entry in list_piece_dossiers(limit=50)}
@@ -877,6 +879,51 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             {"stub-1", "stub-2", "with-segment", "classified"},
             all_uuids,
         )
+
+    def test_list_piece_dossiers_includes_confirmed_pending_without_segments(
+        self,
+    ) -> None:
+        """H2 regression: rt runtime publishes PIECE_REGISTERED with
+        ``confirmed_real=True`` before any segment has been captured. The
+        old gate hid those rows from ``/api/tracked/pieces`` and the UI
+        showed an empty list. They must be visible as soon as the tracker
+        confirms the piece, even if no segment or classifier result has
+        landed yet."""
+        initialize_local_state()
+        start_new_sorting_session(reason="h2_confirmed_pending")
+
+        # Confirmed pending piece, no segments, fresh last_event_at.
+        remember_piece_dossier(
+            "rt-confirmed-1",
+            {
+                "tracked_global_id": 901,
+                "confirmed_real": True,
+                "classification_status": "pending",
+            },
+            status="registered",
+        )
+        # Unconfirmed legacy stub — must stay hidden.
+        remember_piece_dossier(
+            "legacy-stub-1",
+            {
+                "tracked_global_id": 902,
+                "created_at": 1.0,
+                "updated_at": 1.0,
+                "stage": "created",
+                "classification_status": "pending",
+            },
+        )
+
+        default_uuids = {entry["uuid"] for entry in list_piece_dossiers(limit=50)}
+        self.assertIn("rt-confirmed-1", default_uuids)
+        self.assertNotIn("legacy-stub-1", default_uuids)
+
+        # The stage "registered" set via ``status=`` must persist.
+        confirmed = get_piece_dossier("rt-confirmed-1")
+        self.assertIsNotNone(confirmed)
+        assert confirmed is not None
+        self.assertEqual("registered", confirmed.get("stage"))
+        self.assertTrue(confirmed.get("confirmed_real"))
 
 
 if __name__ == "__main__":

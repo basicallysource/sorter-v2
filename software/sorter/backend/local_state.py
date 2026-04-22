@@ -1064,12 +1064,28 @@ def get_active_sorting_session() -> dict[str, Any] | None:
         return _session_row_to_dict(row)
 
 
-def remember_piece_dossier(obj: dict[str, Any]) -> None:
-    if not isinstance(obj, dict):
-        return
-    piece_uuid = obj.get("uuid")
+def remember_piece_dossier(
+    piece_uuid: str,
+    dossier: dict[str, Any] | None = None,
+    *,
+    status: str | None = None,
+) -> None:
+    """Upsert a piece dossier row keyed by ``piece_uuid``.
+
+    The canonical id field is ``piece_uuid``. For backward compat the
+    merged payload also carries ``uuid`` so readers that still look for
+    ``piece.get("uuid")`` continue to work. ``status`` maps to the
+    dossier-level ``stage`` field ("pending", "classified",
+    "distributed") when provided by the rt event subscriber.
+    """
     if not isinstance(piece_uuid, str) or not piece_uuid.strip():
         return
+    obj = dict(dossier) if isinstance(dossier, dict) else {}
+    # Honor explicit piece_uuid in payload, but always force canonical.
+    obj["piece_uuid"] = piece_uuid
+    obj.setdefault("uuid", piece_uuid)
+    if isinstance(status, str) and status.strip():
+        obj["stage"] = status
 
     initialize_local_state()
     with _connection() as conn:
@@ -1079,6 +1095,8 @@ def remember_piece_dossier(obj: dict[str, Any]) -> None:
         ).fetchone()
         existing_payload = _piece_dossier_row_to_dict(existing_row)
         merged = _merge_piece_payload(existing_payload, obj)
+        merged["piece_uuid"] = piece_uuid
+        merged["uuid"] = piece_uuid
         if existing_row is not None:
             session_id = str(existing_row["session_id"])
         else:
@@ -1215,24 +1233,59 @@ def list_piece_dossiers(
                 (resolved_session_id, max(1, int(limit))),
             ).fetchall()
         else:
-            # Exclude "ghost-stub" rows: classification_status contains
-            # 'pending' AND distributed_at is NULL AND no piece_segments
-            # row references the piece_uuid. Real pieces always end up
-            # with either a segment row, a terminal classification_status,
-            # or a distributed_at timestamp — stubs have none of those.
+            # H2 post-fix include/exclude predicates. The rt runtime
+            # publishes three piece events — PIECE_REGISTERED (the
+            # subscriber writes ``confirmed_real=True`` + stage
+            # "registered"), PIECE_CLASSIFIED (part_id filled,
+            # stage "classified"), PIECE_DISTRIBUTED (distributed_at
+            # filled, stage "distributed"). The pre-fix gate required
+            # a ``piece_segments`` row and so hid every confirmed
+            # pending row until C4 finished classifying.
+            #
+            # Include predicates (OR-joined):
+            #   1. distributed_at present          → terminal row.
+            #   2. classification_status NOT LIKE  → classifier wrote a
+            #      '%pending%'                       non-pending status.
+            #   3. stage IN ('registered',         → any rt event promoted
+            #      'classified', 'distributed',     the row past stub.
+            #      'confirmed_real')
+            #   4. payload_json.confirmed_real is  → tracker confirmed the
+            #      true                              piece is real (rt
+            #                                        PIECE_REGISTERED).
+            #   5. EXISTS piece_segments row       → legacy segment path.
+            #
+            # Exclude predicate (grace window):
+            #   * NOT (still pending AND no segments AND older than 5 min
+            #     AND not confirmed_real) — keeps a narrow escape hatch
+            #     for legacy zombie stubs that never got promoted. The
+            #     rt-registered pieces always carry confirmed_real=True
+            #     so they survive the grace cutoff indefinitely.
+            grace_cutoff = time.time() - 300.0
             rows = conn.execute(
                 "SELECT d.* FROM piece_dossiers d "
                 "WHERE d.session_id = ? "
                 "  AND ("
                 "    d.distributed_at IS NOT NULL"
                 "    OR d.classification_status NOT LIKE '%pending%'"
+                "    OR d.stage IN ('registered', 'classified', 'distributed', 'confirmed_real')"
+                "    OR json_extract(d.payload_json, '$.confirmed_real') = 1"
                 "    OR EXISTS ("
                 "      SELECT 1 FROM piece_segments s "
                 "      WHERE s.piece_uuid = d.piece_uuid"
                 "    )"
                 "  ) "
+                "  AND NOT ("
+                "    d.classification_status LIKE '%pending%'"
+                "    AND d.distributed_at IS NULL"
+                "    AND d.last_event_at < ?"
+                "    AND (json_extract(d.payload_json, '$.confirmed_real') IS NOT 1)"
+                "    AND NOT EXISTS ("
+                "      SELECT 1 FROM piece_segments s "
+                "      WHERE s.piece_uuid = d.piece_uuid"
+                "    )"
+                "  ) "
                 "ORDER BY d.last_event_at DESC LIMIT ?",
-                (resolved_session_id, max(1, int(limit))),
+                (resolved_session_id, grace_cutoff, max(1, int(limit))),
             ).fetchall()
         return [
             entry

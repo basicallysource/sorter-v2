@@ -20,10 +20,12 @@ from typing import Any, Callable
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.classification import Classifier, ClassifierResult
 from rt.contracts.ejection import EjectionTimingStrategy
+from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
+from rt.events.topics import PIECE_CLASSIFIED, PIECE_REGISTERED
 
 from ._strategies import C4Admission, C4EjectionTiming
 from ._zones import TrackAngularExtent, ZoneManager
@@ -77,6 +79,7 @@ class RuntimeC4(BaseRuntime):
         crop_provider: Callable[[FeedFrame, Track], Any] | None = None,
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
+        event_bus: EventBus | None = None,
         runtime_id: str = "c4",
         feed_id: str = "c4_feed",
         classify_angle_deg: float = DEFAULT_CLASSIFY_ANGLE_DEG,
@@ -111,6 +114,7 @@ class RuntimeC4(BaseRuntime):
             else float(post_commit_cooldown_ms)
         )
         self._post_commit_cooldown_s = cooldown_ms / 1000.0
+        self._bus = event_bus
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
         self._fsm: _C4State = _C4State.RUNNING
@@ -260,6 +264,25 @@ class RuntimeC4(BaseRuntime):
             self._pieces[piece_uuid] = dossier
             self._track_to_piece[gid] = piece_uuid
             self._upstream_slot.release()
+            self._publish(
+                PIECE_REGISTERED,
+                {
+                    "piece_uuid": piece_uuid,
+                    "tracked_global_id": gid,
+                    "angle_at_intake_deg": angle_deg,
+                    "intake_ts_mono": now_mono,
+                    "confirmed_real": True,
+                    "stage": "registered",
+                    "classification_status": "pending",
+                    "dossier": {
+                        "piece_uuid": piece_uuid,
+                        "tracked_global_id": gid,
+                        "classification_channel_zone_center_deg": angle_deg,
+                        "first_carousel_seen_ts": now_mono,
+                    },
+                },
+                now_mono,
+            )
 
     def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
         if self._latest_frame is None and self._crop_provider is None:
@@ -321,6 +344,29 @@ class RuntimeC4(BaseRuntime):
                     meta={"error": "future_raised"},
                 )
             dossier.classified_ts = now_mono
+            result = dossier.result
+            payload: dict[str, Any] = {
+                "piece_uuid": dossier.piece_uuid,
+                "tracked_global_id": dossier.global_id,
+                "classified_ts_mono": now_mono,
+                "confirmed_real": True,
+                "stage": "classified",
+                "classification_status": "classified"
+                if result and result.part_id
+                else "unknown",
+                "dossier": {
+                    "piece_uuid": dossier.piece_uuid,
+                    "tracked_global_id": dossier.global_id,
+                    "part_id": result.part_id if result else None,
+                    "color_id": result.color_id if result else None,
+                    "category": result.category if result else None,
+                    "confidence": result.confidence if result else None,
+                    "algorithm": result.algorithm if result else None,
+                    "latency_ms": result.latency_ms if result else None,
+                    "classified_at": now_mono,
+                },
+            }
+            self._publish(PIECE_CLASSIFIED, payload, now_mono)
 
     def _handle_exit(
         self,
@@ -439,6 +485,25 @@ class RuntimeC4(BaseRuntime):
     def set_latest_frame(self, frame: FeedFrame | None) -> None:
         """Inject the latest frame for crop extraction (wired in Phase 5)."""
         self._latest_frame = frame
+
+    def _publish(self, topic: str, payload: dict[str, Any], now_mono: float) -> None:
+        if self._bus is None:
+            return
+        try:
+            self._bus.publish(
+                Event(
+                    topic=topic,
+                    payload=payload,
+                    source=self.runtime_id,
+                    ts_mono=now_mono,
+                )
+            )
+        except Exception:
+            self._logger.exception(
+                "RuntimeC4: event publish failed for topic=%s (piece=%s)",
+                topic,
+                payload.get("piece_uuid"),
+            )
 
 
 def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -549,9 +550,39 @@ def build_rt_runtime(
     try:
         from local_state import remember_piece_dossier
 
+        _TOPIC_TO_STAGE = {
+            PIECE_REGISTERED: "registered",
+            PIECE_CLASSIFIED: "classified",
+            PIECE_DISTRIBUTED: "distributed",
+        }
+
         def _on_piece_event(event: Event) -> None:
+            payload = dict(event.payload or {})
+            piece_uuid = payload.get("piece_uuid") or payload.get("uuid")
+            if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+                log.debug(
+                    "rt.bootstrap: piece event missing piece_uuid (topic=%s)",
+                    event.topic,
+                )
+                return
+            # Flatten: merge the nested "dossier" shape into the top-level
+            # payload so the dossier row carries part_id / bin_id / etc.
+            dossier_payload: dict[str, Any] = dict(payload)
+            nested = payload.get("dossier")
+            if isinstance(nested, dict):
+                for k, v in nested.items():
+                    dossier_payload.setdefault(k, v)
+            # Stage defaults to the event's canonical name but the
+            # runtime is free to override via payload["stage"].
+            stage = str(payload.get("stage") or _TOPIC_TO_STAGE.get(event.topic, ""))
+            if event.topic == PIECE_DISTRIBUTED:
+                dossier_payload.setdefault("distributed_at", time.time())
             try:
-                remember_piece_dossier(dict(event.payload))
+                remember_piece_dossier(
+                    piece_uuid,
+                    dossier_payload,
+                    status=stage or None,
+                )
             except Exception:
                 log.debug("rt.bootstrap: remember_piece_dossier raised", exc_info=True)
 
@@ -785,6 +816,7 @@ def build_rt_runtime(
         eject_command=c4_eject,
         crop_provider=_crop_provider,
         logger=log,
+        event_bus=bus,
     )
 
     run_recorder = getattr(gc, "run_recorder", None)

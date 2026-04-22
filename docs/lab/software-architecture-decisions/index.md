@@ -75,6 +75,8 @@ Communication: USB serial. The firmware sends a JSON config on startup describin
 ## Where to go next
 
 - [Sorter architecture]({{ '/sorter/architecture/' | relative_url }}) - the detailed component map of coordinator, state machines, vision manager, and UI
+- [Runtime architecture map]({{ '/lab/runtime-architecture-map/' | relative_url }}) - the current-state runtime map: command flow, perception flow, transport, actuation, and where the ownership boundaries are currently leaking
+- [Runtime and API refactor concept]({{ '/lab/runtime-api-refactor/' | relative_url }}) - a concrete target architecture for rebuilding the runtime core behind the existing frontend and HTTP contract
 - [Vision and camera runtime refactor concept]({{ '/lab/vision-camera-runtime-refactor/' | relative_url }}) - a concrete target architecture for shrinking `VisionManager` and the camera router into small runtime modules
 - [Classification research]({{ '/lab/classification-research/' | relative_url }}) - the ML strategy behind the classification layer
 - [C-channel singulation]({{ '/lab/c-channel-singulation/' | relative_url }}) - the mechanical system the firmware drives

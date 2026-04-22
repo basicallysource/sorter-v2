@@ -467,6 +467,41 @@ def test_c4_post_commit_cooldown_blocks_new_intake() -> None:
     assert rt.dossier_count() == 1
 
 
+def test_c4_deadlock_recovery_after_tracker_drop() -> None:
+    # Admit a piece, then have the tracker drop it permanently. After the
+    # ZoneManager stale_timeout_s elapses, both the zone and the dossier
+    # must be pruned so new admits can proceed.
+    rt, up, _down, _clf, _log = _make(max_zones=1)
+    assert up.try_claim() is True
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=1, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    assert rt.dossier_count() == 1
+    assert rt._zone_manager.zone_count() == 1  # noqa: SLF001
+    assert rt.available_slots() == 0
+
+    # Tracker glitch: track vanishes for a long span. ZoneManager default
+    # stale_timeout_s is 1.5 s — advance clock beyond that with empty tracks.
+    for t in (0.2, 0.6, 1.0, 1.4, 2.0):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(), capacity_downstream=1),
+            now_mono=t,
+        )
+
+    assert rt._zone_manager.zone_count() == 0  # noqa: SLF001
+    assert rt.dossier_count() == 0
+    assert rt.available_slots() == 1
+
+    # New admission goes through on a fresh track id.
+    assert up.try_claim() is True
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=2, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=2.1,
+    )
+    assert rt.dossier_count() == 1
+
+
 # ----------------------------------------------------------------------
 # Introspection helper
 

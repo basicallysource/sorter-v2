@@ -15,7 +15,7 @@ class SizeFilter:
 
     def __init__(self, min_area_px: int, max_area_px: int | None = None) -> None:
         self._min = int(min_area_px)
-        self._max: int | None = int(max_area_px) if max_area_px else None
+        self._max: int | None = int(max_area_px) if max_area_px is not None else None
 
     def apply(self, tracks: TrackBatch, frame: FeedFrame) -> TrackBatch:
         kept = []

@@ -180,7 +180,7 @@ class RuntimeC4(BaseRuntime):
         self._raw_detection_count = len(inbox.tracks.tracks) if inbox.tracks else 0
         extents = [
             TrackAngularExtent(
-                piece_uuid=self._track_to_piece.get(int(t.global_id or -1), ""),
+                piece_uuid=self._track_to_piece[int(t.global_id)],
                 global_id=t.global_id,
                 center_deg=math.degrees(t.angle_rad or 0.0),
                 half_width_deg=self._intake_half_width_deg,
@@ -189,8 +189,14 @@ class RuntimeC4(BaseRuntime):
             for t in tracks
             if t.global_id is not None and int(t.global_id) in self._track_to_piece
         ]
-        if extents:
-            self._zone_manager.update_from_tracks(extents, now_mono=now_mono)
+        evicted = self._zone_manager.update_from_tracks(extents, now_mono=now_mono)
+        for piece_uuid in evicted:
+            if piece_uuid in self._pieces:
+                self._logger.info(
+                    "RuntimeC4: pruning dossier piece=%s (zone evicted, track_lost)",
+                    piece_uuid,
+                )
+                self._finalize_piece(piece_uuid, now_mono=None, arm_cooldown=False)
         self._admit_new_tracks(tracks, now_mono)
         self._submit_classifications(tracks, now_mono)
         self._poll_classifier_futures(now_mono)

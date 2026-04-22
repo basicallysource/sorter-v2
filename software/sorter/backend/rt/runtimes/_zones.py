@@ -182,9 +182,10 @@ class ZoneManager:
         extents: list[TrackAngularExtent],
         *,
         now_mono: float,
-    ) -> None:
+    ) -> tuple[str, ...]:
         """Refresh existing zones from live track observations. Drops stale zones
-        whose tracks disappeared more than ``stale_timeout_s`` ago."""
+        whose tracks disappeared more than ``stale_timeout_s`` ago. Returns the
+        tuple of piece_uuids that were evicted on this call."""
         seen_uuids: set[str] = set()
         for extent in extents:
             if extent.piece_uuid not in self._zones:
@@ -207,6 +208,7 @@ class ZoneManager:
                 zone.stale = True
         for piece_uuid in expired:
             self._zones.pop(piece_uuid, None)
+        return tuple(expired)
 
 
 __all__ = [

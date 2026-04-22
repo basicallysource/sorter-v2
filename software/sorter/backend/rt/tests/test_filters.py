@@ -78,6 +78,18 @@ def test_size_filter_drops_too_large() -> None:
     assert [t.track_id for t in out.tracks] == [1]
 
 
+def test_size_filter_max_area_zero() -> None:
+    # max_area_px=0 is a legitimate upper bound (no track has area <= 0),
+    # NOT a sentinel for "unlimited". Verify coercion is `is not None`-based.
+    f = SizeFilter(min_area_px=0, max_area_px=0)
+    tracks = (
+        _track(1, (0, 0, 10, 10)),   # 100 px: exceeds max=0
+        _track(2, (0, 0, 1, 1)),     # 1 px: exceeds max=0
+    )
+    out = f.apply(_batch(tracks), _frame())
+    assert out.tracks == ()
+
+
 def test_ghost_filter_keeps_only_confirmed() -> None:
     f = GhostFilter(confirmed_real_only=True)
     tracks = (

@@ -53,10 +53,10 @@ const int digital_input_pins[] = {9, 8, 13, 12};
 
 const uint8_t DIGITAL_OUTPUT_COUNT = 2;
 const int digital_output_pins[] = {14, 15};
+const int FAN0_OUTPUT_CHANNEL = -1;
 
 i2c_inst_t* const I2C_PORT = i2c1;
 const int I2C_SDA_PIN = 10;
 const int I2C_SCL_PIN = 11;
 
 const uint8_t SERVO_I2C_ADDRESS = 0x40; // Address of the PCA9685 controlling the servos
-

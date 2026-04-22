@@ -1,0 +1,26 @@
+# Minimal Debian 12 base used by test_install_in_docker.sh.
+# We pre-install only the bare minimum required to bootstrap install.sh
+# itself (sudo, curl, ca-certificates, git). Everything else — uv, node,
+# pnpm, libgl1, etc. — is installed by install.sh, which is the whole point
+# of the test.
+
+FROM debian:12-slim
+
+ARG TEST_USER=sorter
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        sudo \
+        curl \
+        ca-certificates \
+        git \
+        git-lfs \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -s /bin/bash $TEST_USER \
+    && echo "$TEST_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$TEST_USER
+
+USER $TEST_USER
+ENV HOME=/home/$TEST_USER
+WORKDIR /home/$TEST_USER
+
+CMD ["/bin/bash"]

@@ -1,0 +1,93 @@
+# Top-level navigation structure for the Sorter V2 documentation site.
+#
+# Each section listed here renders as a top-nav item. Pages within a section
+# render as left-sidebar items when the user is inside that section. A section
+# may optionally carry `groups`, which render as labeled sub-sections in the
+# sidebar — use this when a section holds more than one research area or
+# contributor reference that should stay visually separated.
+#
+# Pages opt into a section by setting `section: <id>` in their frontmatter.
+#
+# Single source of truth — both the top nav and the per-section sidebar
+# in _layouts/default.html read from this file.
+
+sections:
+  - id: hardware
+    title: Hardware
+    url: /hardware/
+    description: The physical machine — mechanics, electronics, BOM, assembly.
+    pages:
+      - title: Overview
+        url: /hardware/
+
+  - id: sorter
+    title: Sorter
+    url: /sorter/
+    description: The local software running on the machine — Python backend and SvelteKit UI.
+    pages:
+      - title: Overview
+        url: /sorter/
+    groups:
+      - title: Install
+        pages:
+          - title: Install on a Linux machine
+            url: /sorter/installation/
+          - title: Install by hand
+            url: /sorter/install-by-hand/
+      - title: Operate
+        pages:
+          - title: Your first sort run
+            url: /sorter/tutorials/first-sort-run/
+          - title: Camera calibration
+            url: /sorter/camera-calibration/
+          - title: Troubleshooting
+            url: /sorter/troubleshooting/
+      - title: Under the hood
+        pages:
+          - title: Architecture
+            url: /sorter/architecture/
+          - title: Sorting profile reference
+            url: /sorter/profile-reference/
+
+  - id: hive
+    title: Hive
+    url: /hive/
+    description: The community platform for shared profiles, samples, and verification.
+    pages:
+      - title: Overview
+        url: /hive/
+
+  - id: lab
+    title: Lab
+    url: /lab/
+    description: Research, experiments, and contributor references — model performance, deployment paths, hardware benchmarks, shared visual language.
+    pages:
+      - title: Overview
+        url: /lab/
+    groups:
+      - title: Object Detection Research
+        pages:
+          - title: Overview
+            url: /lab/object-detection/
+          - title: How the Models Are Built
+            url: /lab/object-detection/how-models-are-built/
+          - title: Benchmarking Workflow
+            url: /lab/object-detection/device-benchmarking/
+          - title: Hailo HEF Workflow
+            url: /lab/object-detection/hailo-hef-workflow/
+      - title: Styleguide
+        pages:
+          - title: Overview
+            url: /lab/styleguide/
+          - title: Design Principles
+            url: /lab/styleguide/#design-principles
+          - title: Colors
+            url: /lab/styleguide/#colors
+          - title: Typography
+            url: /lab/styleguide/#typography
+          - title: Notifications
+            url: /lab/styleguide/#notifications
+          - title: Components
+            url: /lab/styleguide/#components
+          - title: Primary Color
+            url: /lab/styleguide/#primary-color

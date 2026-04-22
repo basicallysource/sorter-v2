@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'client'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'sorter', 'backend'))
 
 from pydantic2ts import generate_typescript_defs
 from defs.events import SocketEvent

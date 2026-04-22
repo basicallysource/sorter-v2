@@ -1,0 +1,41 @@
+{%- comment -%}
+Renders the per-page metadata footer below the content. Reads from front
+matter and falls back to the per-section defaults declared in _config.yml.
+
+Suppressed when the page is a landing page or omits all metadata.
+{%- endcomment -%}
+
+{% assign meta_show = true %}
+{% if page.type == "landing" or page.type == nil %}{% assign meta_show = false %}{% endif %}
+{% if page.audience == nil and page.applies_to == nil and page.last_verified == nil %}{% assign meta_show = false %}{% endif %}
+
+{% if meta_show %}
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    {% if page.audience %}
+    <div>
+      <dt>Audience</dt>
+      <dd>{{ page.audience }}</dd>
+    </div>
+    {% endif %}
+    {% if page.applies_to %}
+    <div>
+      <dt>Applies to</dt>
+      <dd>{{ page.applies_to }}</dd>
+    </div>
+    {% endif %}
+    {% if page.last_verified %}
+    <div>
+      <dt>Last verified</dt>
+      <dd>{{ page.last_verified }}</dd>
+    </div>
+    {% endif %}
+    {% if page.owner %}
+    <div>
+      <dt>Owner</dt>
+      <dd>{{ page.owner }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+</aside>
+{% endif %}

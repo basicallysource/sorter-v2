@@ -1,0 +1,199 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-bg: #f7f6f3;
+	--color-surface: #ffffff;
+	--color-border: #e2e0db;
+	--color-text: #1a1a1a;
+	--color-text-muted: #7a7770;
+	--color-primary: #0055bf;
+	--color-primary-hover: #004499;
+	--color-primary-dark: #002656;
+	--color-primary-contrast: #ffffff;
+	--color-primary-light: #FBE4E5;
+	--color-danger: #D01012;
+	--color-danger-hover: #B00E10;
+	--color-danger-dark: #5C0708;
+	--color-success: #00852B;
+	--color-success-dark: #003D14;
+	--color-warning: #F2A900;
+	--color-warning-dark: #4A3300;
+	--color-info: #0055BF;
+	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', monospace;
+}
+
+.dark {
+	--color-bg: #0d0d0c;
+	--color-surface: #1a1918;
+	--color-border: #2a2926;
+	--color-text: #f5f4f1;
+	--color-text-muted: #9a9890;
+}
+
+body {
+	font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+*:focus-visible {
+	outline: 2px solid var(--color-text-muted);
+	outline-offset: 2px;
+}
+
+.setup-panel {
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.04);
+}
+
+.setup-control {
+	min-height: 2.75rem;
+	border: 1px solid #d6d3cb;
+	background: var(--color-surface);
+	color: var(--color-text);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.02);
+}
+
+.setup-control::placeholder {
+	color: var(--color-text-muted);
+}
+
+.setup-control:hover {
+	border-color: #b9b5ab;
+}
+
+.setup-control:focus,
+.setup-control:focus-visible {
+	outline: none;
+	border-color: var(--color-primary);
+	box-shadow:
+		0 0 0 3px color-mix(in oklab, var(--color-primary) 14%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.setup-button-secondary {
+	border: 1px solid #d6d3cb;
+	background: #f3f1ec;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.setup-button-secondary:hover {
+	border-color: #b9b5ab;
+	background: #ebe8e1;
+}
+
+.setup-button-primary {
+	border: 1px solid var(--color-primary);
+	background: var(--color-primary);
+	color: var(--color-primary-contrast);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.setup-button-primary:hover {
+	border-color: var(--color-primary-hover);
+	background: var(--color-primary-hover);
+}
+
+.setup-choice {
+	border: 1px solid var(--color-border);
+	background: #f3f1ec;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.setup-choice:hover {
+	border-color: #b9b5ab;
+	background: #ebe8e1;
+}
+
+.setup-card-shell {
+	border-color: var(--color-border);
+	background: var(--color-surface);
+	box-shadow: 0 1px 2px rgba(32, 28, 20, 0.04);
+}
+
+.setup-card-header {
+	background: #efede8;
+}
+
+.setup-card-body {
+	background: var(--color-surface);
+}
+
+.setup-card-header .text-text {
+	color: var(--color-text);
+}
+
+.setup-card-header .text-text-muted {
+	color: var(--color-text-muted);
+}
+
+.setup-toggle {
+	accent-color: var(--color-primary);
+}
+
+.dark .setup-panel {
+	border-color: var(--color-border);
+	background: var(--color-surface);
+	box-shadow: none;
+}
+
+.dark .setup-control {
+	border-color: #48433a;
+	background: #141311;
+	box-shadow: none;
+}
+
+.dark .setup-control::placeholder {
+	color: #8e897f;
+}
+
+.dark .setup-button-secondary {
+	border-color: #48433a;
+	background: #141311;
+	box-shadow: none;
+}
+
+.dark .setup-button-secondary:hover {
+	border-color: #666054;
+	background: #1d1b18;
+}
+
+.dark .setup-button-primary {
+	border-color: var(--color-primary);
+	background: var(--color-primary);
+}
+
+.dark .setup-button-primary:hover {
+	border-color: var(--color-primary-hover);
+	background: var(--color-primary-hover);
+}
+
+.dark .setup-choice {
+	border-color: #48433a;
+	background: #1a1918;
+	box-shadow: none;
+}
+
+.dark .setup-choice:hover {
+	border-color: #666054;
+	background: #1d1b18;
+}
+
+.dark .setup-card-shell {
+	border-color: #35322d;
+	background: #171614;
+	box-shadow: none;
+}
+
+.dark .setup-card-header {
+	background: #252524;
+	border-bottom-color: #3a3a38;
+}
+
+.dark .setup-card-body {
+	background: #141311;
+}

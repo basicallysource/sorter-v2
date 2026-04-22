@@ -10,3 +10,64 @@ exclude:
   - Gemfile.lock
   - vendor
   - .bundle
+  - ux-concept-sorting-profiles.md
+  - local-jekyll.sh
+  - scripts
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Page front matter standard
+#
+# Every page under docs/ must declare:
+#   title          - Sentence-case page title
+#   type           - One of: tutorial, how-to, reference, explanation,
+#                    installation, troubleshooting, architecture, landing
+#   audience       - The named reader role (e.g. "self-hosting operator")
+#   applies_to     - Product version, version range, or measurement date
+#   owner          - The team or person responsible for keeping the page accurate
+#   last_verified  - YYYY-MM-DD when the page content was last executed/checked
+#
+# These are validated by docs/scripts/validate_frontmatter.py and rendered by
+# default.html as a page-type badge plus a meta footer. The Diátaxis-based
+# guidance for picking a page type lives in the tech-docs skill, not here.
+#
+# Defaults below set sensible per-section values so authors only override what
+# is page-specific. Every default can still be overridden in the page itself.
+# ─────────────────────────────────────────────────────────────────────────────
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      owner: docs
+      audience: all readers
+      applies_to: site
+      last_verified: 2026-04-08
+  - scope:
+      path: "hardware"
+    values:
+      section: hardware
+      owner: hardware
+      audience: self-builder
+      applies_to: hardware-v2
+  - scope:
+      path: "sorter"
+    values:
+      section: sorter
+      owner: sorter
+      audience: self-hosting operator
+      applies_to: sorter 2.x
+  - scope:
+      path: "hive"
+    values:
+      section: hive
+      owner: hive
+      audience: operator linking a Sorter to Hive
+      applies_to: hive 0.x
+  - scope:
+      path: "lab"
+    values:
+      section: lab
+      owner: lab
+      audience: contributor
+      applies_to: 2026-04-06 measurement set

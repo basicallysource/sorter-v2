@@ -313,8 +313,10 @@ void initialize_hardware() {
         gpio_set_dir(digital_output_pins[i], GPIO_OUT);
         gpio_put(digital_output_pins[i], 0);
     }
-    // Turn on FAN0 (GPIO 17, digital output channel 2) permanently for cooling
-    gpio_put(digital_output_pins[2], 1);
+    // Turn on FAN0 permanently for cooling on boards that expose it.
+    if (FAN0_OUTPUT_CHANNEL >= 0 && FAN0_OUTPUT_CHANNEL < DIGITAL_OUTPUT_COUNT) {
+        gpio_put(digital_output_pins[FAN0_OUTPUT_CHANNEL], 1);
+    }
     // Initialize i2c
     i2c_init(I2C_PORT, 400000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);

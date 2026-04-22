@@ -73,6 +73,7 @@ class HanddrawnRegionProvider:
         self._polygons = polygons
         self._channel_angles = saved.get("channel_angles", {})
         self._arc_params = saved.get("arc_params", {})
+        self._quad_params = saved.get("quad_params", {})
         res = saved.get("resolution", [1920, 1080])
         self._saved_resolution = (int(res[0]), int(res[1]))
 
@@ -290,10 +291,62 @@ class HanddrawnRegionProvider:
 
         return annotated
 
-    def _scaleForFrame(self, frame: np.ndarray):
-        """Compute scale factors from saved polygon resolution to actual frame size."""
+    def _savedResolutionFor(self, poly_key: str) -> tuple[int, int]:
+        """Resolve saved polygon resolution for a specific channel.
+
+        The editor persists per-channel resolution inside each channel's
+        ``arc_params`` (or ``quad_params`` for rect channels). Prefer those;
+        fall back to the legacy top-level ``_saved_resolution`` when the
+        per-channel field is missing. Required because different cameras
+        run at different native resolutions — reading the top-level value
+        would scale e.g. C2 (1280×720) polygons against a legacy 3840×2160
+        reference and land them in a corner of the frame.
+        """
+        channel_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+            if poly_key == "classification_channel"
+            else "carousel"
+            if poly_key == "carousel"
+            else None
+        )
+        if channel_key is not None:
+            arc = self._arc_params.get(channel_key) if isinstance(self._arc_params, dict) else None
+            if isinstance(arc, dict):
+                res = arc.get("resolution")
+                if isinstance(res, (list, tuple)) and len(res) >= 2:
+                    try:
+                        w, h = int(res[0]), int(res[1])
+                        if w > 0 and h > 0:
+                            return w, h
+                    except Exception:
+                        pass
+            quad = self._quad_params.get(channel_key) if isinstance(self._quad_params, dict) else None
+            if isinstance(quad, dict):
+                res = quad.get("resolution")
+                if isinstance(res, (list, tuple)) and len(res) >= 2:
+                    try:
+                        w, h = int(res[0]), int(res[1])
+                        if w > 0 and h > 0:
+                            return w, h
+                    except Exception:
+                        pass
+        return self._saved_resolution
+
+    def _scaleForFrame(self, frame: np.ndarray, poly_key: str | None = None):
+        """Compute scale factors from saved polygon resolution to actual frame size.
+
+        ``poly_key`` selects per-channel saved resolution when available; if
+        omitted (legacy callers), falls back to the top-level resolution.
+        """
         h, w = frame.shape[:2]
-        src_w, src_h = self._saved_resolution
+        if poly_key is None:
+            src_w, src_h = self._saved_resolution
+        else:
+            src_w, src_h = self._savedResolutionFor(poly_key)
         return w / src_w, h / src_h
 
     def _scaledChannelMask(self, h, w, poly_key, pts_list, sx, sy):
@@ -343,7 +396,7 @@ class HanddrawnRegionProvider:
 
         poly_key: 'second_channel', 'third_channel', 'classification_channel', or 'carousel'
         """
-        sx, sy = self._scaleForFrame(frame)
+        sx, sy = self._scaleForFrame(frame, poly_key)
 
         if poly_key == "carousel":
             annotated = frame.copy()

@@ -10,6 +10,13 @@ if TYPE_CHECKING:
 MAX_CLASSIFICATION_CHANNEL_PIECES = 1
 CLASSIFICATION_CHANNEL_ID = 4
 
+# Hard cap on raw carousel detections regardless of transport/zone state.
+# Acts as last-resort back-pressure: once the raw YOLO detector sees this
+# many pieces on C4, C3 must stop dropping — even if none of them have been
+# confirmed-real, registered with transport, or allocated a zone. Prevents
+# pile-ups when upstream filtering lags behind physical reality.
+MAX_CLASSIFICATION_CHANNEL_DETECTION_CAP = 3
+
 
 def estimate_piece_count_for_channel(
     detections: list,
@@ -32,6 +39,17 @@ def classification_channel_admission_blocked(
     zone_manager: "ZoneManager | None" = None,
     config: "ClassificationChannelConfig | None" = None,
 ) -> bool:
+    # Hard back-pressure cap first — overrides every other signal. If the raw
+    # detector sees >= cap pieces on C4, block C3 regardless of whether the
+    # pipeline thinks it owns them.
+    raw_detection_count = sum(
+        1
+        for detection in detections
+        if getattr(detection, "channel_id", None) == CLASSIFICATION_CHANNEL_ID
+    )
+    if raw_detection_count >= MAX_CLASSIFICATION_CHANNEL_DETECTION_CAP:
+        return True
+
     max_zones = (
         max(1, int(config.max_zones))
         if config is not None
@@ -63,6 +81,7 @@ def classification_channel_admission_blocked(
 __all__ = [
     "CLASSIFICATION_CHANNEL_ID",
     "MAX_CLASSIFICATION_CHANNEL_PIECES",
+    "MAX_CLASSIFICATION_CHANNEL_DETECTION_CAP",
     "classification_channel_admission_blocked",
     "estimate_piece_count_for_channel",
 ]

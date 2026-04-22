@@ -32,6 +32,11 @@ COUNTER_DRIFT_SPEED_USTEPS_S = 300
 PULSE_DURATION_S = 0.5
 COUNTER_DRIFT_DURATION_S = 0.5
 
+# Kill-switch: when False, step() is a no-op and the driver stays idle.
+# Flip back to True once the over-eager C2 rocking has a real gate (e.g.
+# only when a genuine cluster is confirmed on the channel).
+CH2_SEPARATION_ENABLED = False
+
 
 _STATE_IDLE = "idle"
 _STATE_PULSE_CW = "pulse_cw"
@@ -84,6 +89,9 @@ class Ch2SeparationDriver:
         """Advance the state machine one tick. When ``allowed`` is False the
         driver hard-cancels. Otherwise the current phase is checked against
         its timer and transitioned when elapsed."""
+        if not CH2_SEPARATION_ENABLED:
+            self.cancel("driver disabled")
+            return
         if not allowed:
             self.cancel("preempt")
             return

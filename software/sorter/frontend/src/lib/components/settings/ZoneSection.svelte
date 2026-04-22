@@ -1447,8 +1447,15 @@
 	}
 
 	function streamUrl(channel: Channel): string {
+		// Always go through the CameraService-backed feed — it owns the one
+		// and only live VideoCapture per device. Never pass direct=true: on
+		// macOS AVFoundation that opens a SECOND VideoCapture on the same
+		// device, which fights the live service and produces a black stream
+		// at higher resolutions (C3 2592×1944, C4 3840×2160). annotated=false
+		// returns frame_obj.raw from the same live service — exactly the
+		// stream we use elsewhere, just without overlays.
 		if (editingZone) {
-			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?direct=true&annotated=false&v=${feedRevision}`;
+			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=false&color_correct=true&dashboard=false&show_regions=false&v=${feedRevision}`;
 		}
 		const annotatedParam = previewAnnotated ? 'true' : 'false';
 		const colorParam = previewColorCorrect ? 'true' : 'false';

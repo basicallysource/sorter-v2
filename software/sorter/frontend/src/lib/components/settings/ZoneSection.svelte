@@ -1240,11 +1240,16 @@
 	}
 
 	function feedInstanceKey(channel: Channel): string {
+		// Key only on things that require a full element remount: camera
+		// identity (role + source). Do NOT include editingZone or the
+		// preview flags — those change the streamUrl but the mjpegStream
+		// action handles URL changes via its update() callback, retaining
+		// the last-rendered blob until the new stream delivers its first
+		// frame. Keying on them forced the <img> element to unmount on
+		// every Edit Zone toggle, which wiped src and produced a
+		// multi-second black screen while a high-res MJPEG stream started.
 		const assignment = currentAssignment(channel);
-		const mode = editingZone
-			? 'direct-raw'
-			: `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${previewZones ? 'z' : 'nz'}`;
-		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
+		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${feedRevision}`;
 	}
 
 	function channelStorageKey(channel: Channel): string {

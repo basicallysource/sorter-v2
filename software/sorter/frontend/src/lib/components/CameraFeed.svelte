@@ -3,23 +3,11 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
-	import ShadowOverlay from '$lib/components/ShadowOverlay.svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 
-	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'shadow' | 'fullscreen';
+	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'fullscreen';
 	type FeedSource = 'ws' | 'mjpeg';
-
-	// Map legacy camera-service role names ("c_channel_2") to the short
-	// rt/-side slugs the shadow API expects ("c2"). Unknown names pass
-	// through untouched so a caller can also specify "c2" directly.
-	const SHADOW_ROLE_ALIASES: Record<string, string> = {
-		c_channel_2: 'c2',
-		c_channel_3: 'c3',
-		carousel: 'c4',
-		classification_channel: 'c4',
-		feeder: 'c1'
-	};
 
 	let {
 		camera,
@@ -33,10 +21,8 @@
 		defaultColorCorrect = true,
 		defaultCropped = undefined,
 		defaultZones = true,
-		defaultShadow = false,
 		controls = ['annotations'],
 		source = 'mjpeg',
-		shadowRole = '',
 		layer = $bindable('annotated')
 	}: {
 		camera: string;
@@ -50,10 +36,8 @@
 		defaultColorCorrect?: boolean;
 		defaultCropped?: boolean;
 		defaultZones?: boolean;
-		defaultShadow?: boolean;
 		controls?: ControlKey[];
 		source?: FeedSource;
-		shadowRole?: string;
 		layer?: 'raw' | 'annotated';
 	} = $props();
 
@@ -106,8 +90,6 @@
 	let zones = $state(readPersisted('zones', defaultZones));
 	/* svelte-ignore state_referenced_locally */
 	let ghosts = $state(readPersisted('ghosts', false));
-	/* svelte-ignore state_referenced_locally */
-	let shadow = $state(readPersisted('shadow', defaultShadow));
 
 	// Keep legacy `layer` prop synced with new `annotated` state so existing
 	// consumers (e.g. dashboard) binding to `layer` keep working.
@@ -124,22 +106,13 @@
 	$effect(() => { writePersisted('cropped', cropped); });
 	$effect(() => { writePersisted('zones', zones); });
 	$effect(() => { writePersisted('ghosts', ghosts); });
-	$effect(() => { writePersisted('shadow', shadow); });
 
 	const showAnnotations = $derived(controls.includes('annotations'));
 	const showColor = $derived(controls.includes('color'));
 	const showCrop = $derived(controls.includes('crop'));
 	const showZones = $derived(controls.includes('zones'));
 	const showGhosts = $derived(controls.includes('ghosts'));
-	const showShadow = $derived(controls.includes('shadow'));
 	const showFullscreen = $derived(controls.includes('fullscreen'));
-
-	const resolvedShadowRole = $derived(
-		shadowRole || SHADOW_ROLE_ALIASES[camera] || camera
-	);
-
-	const shadowSourceWidth = $derived(crop?.sourceWidth ?? 1920);
-	const shadowSourceHeight = $derived(crop?.sourceHeight ?? 1080);
 
 	let fullscreenOpen = $state(false);
 
@@ -247,31 +220,18 @@
 			</div>
 		{/if}
 
-		{#if showShadow}
-			<ShadowOverlay
-				role={resolvedShadowRole}
-				enabled={shadow}
-				sourceWidth={shadowSourceWidth}
-				sourceHeight={shadowSourceHeight}
-				{crop}
-				{cropped}
-			/>
-		{/if}
-
 		<StreamControlsOverlay
 			bind:annotated
 			bind:colorCorrect
 			bind:cropped
 			bind:zones
 			bind:ghosts
-			bind:shadow
 			bind:fullscreen={fullscreenOpen}
 			{showAnnotations}
 			{showColor}
 			{showCrop}
 			{showZones}
 			{showGhosts}
-			{showShadow}
 			{showFullscreen}
 		/>
 

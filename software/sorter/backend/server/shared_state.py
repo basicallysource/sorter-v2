@@ -2,6 +2,9 @@
 
 All module-level globals live here so that ``api.py`` and every router can
 import this single module without circular dependencies.
+
+Post-cutover (rt-runtime only): no legacy SorterController, no VisionManager,
+no shadow-mode. The live sorting loop is the ``rt_handle`` handle.
 """
 
 from __future__ import annotations
@@ -26,19 +29,23 @@ active_connections: List[WebSocket] = []
 server_loop: Optional[asyncio.AbstractEventLoop] = None
 runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
-controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
-vision_manager: Optional[Any] = None
 camera_service: Optional[Any] = None
 
-# rt/ shadow-mode runtime state (Phase 2b). Populated by main.py when
-# ``RT_SHADOW_FEEDS`` is non-empty; empty dicts / None otherwise. The
-# ``rt.shadow.api`` router reads these via bridge-import to expose
-# runner status + latest TrackBatches without coupling to main.py.
-shadow_runners: Dict[str, Any] = {}
-shadow_iou: Dict[str, Any] = {}
-shadow_bus: Optional[Any] = None
+# rt/ runtime handle — populated by main.py after ``build_rt_runtime``.
+# Every router that needs runtime state goes through this, not through any
+# direct controller/vision_manager reference.
+rt_handle: Optional[Any] = None
+
+# Compatibility stubs for legacy router code. Post-cutover the VisionManager
+# and SorterController are gone; these globals stay ``None`` forever so the
+# many ``if shared_state.vision_manager is not None`` branches that routers
+# use to gracefully degrade simply fall through to the no-op path. Do NOT
+# write to these — they only exist so legacy router code stays compiling.
+vision_manager: Optional[Any] = None
+controller_ref: Optional[Any] = None
+
 pulse_locks: Dict[str, threading.Lock] = {}
 camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
 camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
@@ -91,11 +98,6 @@ def setCommandQueue(q: queue.Queue) -> None:
     command_queue = q
 
 
-def setController(c: Any) -> None:
-    global controller_ref
-    controller_ref = c
-
-
 def setHardwareStartFn(fn: Any) -> None:
     global _hardware_start_fn
     _hardware_start_fn = fn
@@ -117,15 +119,12 @@ def setHardwareRuntimeIRL(irl: Any | None) -> None:
 
 
 def getActiveIRL() -> Any | None:
-    if controller_ref is not None and hasattr(controller_ref, "irl"):
-        return controller_ref.irl
     return hardware_runtime_irl
 
 
 def setArucoManager(mgr: ArucoConfigManager) -> None:
     global aruco_manager
     aruco_manager = mgr
-    auto_calibrate()
 
 
 def setCameraService(svc: Any) -> None:
@@ -133,12 +132,9 @@ def setCameraService(svc: Any) -> None:
     camera_service = svc
 
 
-def setVisionManager(mgr: Any) -> None:
-    global vision_manager
-    vision_manager = mgr
-    from server.classification_training import getClassificationTrainingManager
-    getClassificationTrainingManager().setVisionManager(mgr)
-    auto_calibrate()
+def setRtHandle(handle: Any | None) -> None:
+    global rt_handle
+    rt_handle = handle
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +294,11 @@ def publishSortingProfileStatus(status: Dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ArUco helpers (used by setters and aruco router)
+# ArUco helpers — historical: previously pushed live config into VisionManager.
+# With VisionManager gone the runtime ArucoTagConfig is effectively read-only
+# from the aruco manager's standpoint; keep the dict-building helper around
+# so the aruco router can expose the currently configured shape, but do NOT
+# attempt to mutate any runtime at write time.
 # ---------------------------------------------------------------------------
 
 
@@ -371,59 +371,24 @@ def _build_runtime_aruco_config(config_dict: Dict[str, Any]) -> ArucoTagConfig:
     return runtime_config
 
 
-def _sync_aruco_config_to_vision() -> Dict[str, Any]:
+def auto_calibrate() -> Dict[str, Any]:
+    """Historical ArUco re-sync hook. With VisionManager removed this is a
+    no-op — the aruco router still needs the call shape so keep the return
+    envelope stable.
+    """
     if aruco_manager is None:
-        return {"synced": False, "reason": "aruco_manager_not_initialized"}
-    if vision_manager is None:
-        return {"synced": False, "reason": "vision_manager_not_initialized"}
-
-    config_dict = aruco_manager.get_config_dict()
-    runtime_config = _build_runtime_aruco_config(config_dict)
-    vision_manager._irl_config.aruco_tags = runtime_config
-    smoothing_time_s = aruco_manager.get_aruco_smoothing_time_s()
-    if hasattr(vision_manager, "setArucoSmoothingTimeSeconds"):
-        vision_manager.setArucoSmoothingTimeSeconds(smoothing_time_s)
-
+        return {
+            "ok": False,
+            "calibrated": False,
+            "sync": {"synced": False, "reason": "aruco_manager_not_initialized"},
+        }
+    # With VisionManager gone we have no live runtime to push the runtime
+    # config into; rt/ perception doesn't need ArUco-driven region recompute.
     return {
-        "synced": True,
-        "aruco_smoothing_time_s": smoothing_time_s,
-        "second_c_channel": {
-            "center": runtime_config.second_c_channel_center_id,
-            "output_guide": runtime_config.second_c_channel_output_guide_id,
-            "radius_ids": runtime_config.second_c_channel_radius_ids,
-            "radius_multiplier": runtime_config.second_c_channel_radius_multiplier,
-        },
-        "third_c_channel": {
-            "center": runtime_config.third_c_channel_center_id,
-            "output_guide": runtime_config.third_c_channel_output_guide_id,
-            "radius_ids": runtime_config.third_c_channel_radius_ids,
-            "radius_multiplier": runtime_config.third_c_channel_radius_multiplier,
+        "ok": True,
+        "calibrated": False,
+        "sync": {
+            "synced": False,
+            "reason": "no_live_vision_runtime",
         },
     }
-
-
-def auto_calibrate() -> Dict[str, Any]:
-    """Sync live ArUco config into vision and trigger region recomputation."""
-    sync_result = _sync_aruco_config_to_vision()
-    if not sync_result.get("synced"):
-        return {
-            "ok": False,
-            "calibrated": False,
-            "sync": sync_result,
-        }
-
-    assert vision_manager is not None
-    try:
-        vision_manager.getRegions()
-        return {
-            "ok": True,
-            "calibrated": True,
-            "sync": sync_result,
-        }
-    except Exception as e:
-        return {
-            "ok": False,
-            "calibrated": False,
-            "sync": sync_result,
-            "error": str(e),
-        }

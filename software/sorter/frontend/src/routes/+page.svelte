@@ -172,8 +172,7 @@
 									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
 									source="ws"
-									controls={["annotations", "ghosts", "shadow", "crop", "fullscreen"]}
-									defaultShadow={true}
+									controls={["annotations", "ghosts", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">

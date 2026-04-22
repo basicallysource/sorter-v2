@@ -46,9 +46,7 @@ from server.shared_state import (
     setGlobalConfig,
     setRuntimeVariables,
     setCommandQueue,
-    setController,
     setArucoManager,
-    setVisionManager,
     _getRuntimeVariables,
 )
 import server.shared_state as shared_state
@@ -115,7 +113,6 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
-from rt.shadow.api import router as shadow_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -128,10 +125,6 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
-# Phase 2b: shadow-mode endpoints. Always mounted; the router returns an
-# "enabled=false" shape when no shadow runners are active, so the UI can
-# poll unconditionally.
-app.include_router(shadow_router, prefix="/api/rt/shadow", tags=["rt-shadow"])
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -489,73 +482,35 @@ def _circular_diff_deg(a: float, b: float) -> float:
 
 
 def _current_classification_drop_angle_deg() -> float | None:
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    irl_config = getattr(coordinator, "irl_config", None) if coordinator is not None else None
+    # Read the drop angle from the live IRL config (bootstrap plumbs it into
+    # hardware_runtime_irl once homing has run). No legacy coordinator needed.
+    irl = shared_state.getActiveIRL()
+    irl_config = getattr(irl, "irl_config", None) if irl is not None else None
     cc_cfg = getattr(irl_config, "classification_channel_config", None)
     value = getattr(cc_cfg, "drop_angle_deg", None)
     return float(value) if isinstance(value, (int, float)) else None
 
 
 def _tracked_history_summary_map(limit: int) -> dict[int, dict[str, Any]]:
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "listFeederTrackHistory"):
-        return {}
-    try:
-        raw_items = vm.listFeederTrackHistory(limit=max(1, int(limit)), min_sectors=0)
-    except Exception:
-        return {}
-    items = raw_items if isinstance(raw_items, list) else []
-    out: dict[int, dict[str, Any]] = {}
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        global_id = item.get("global_id")
-        if not isinstance(global_id, int):
-            continue
-        out[global_id] = item
-    return out
+    # Post-cutover: the legacy VisionManager-based track history is gone.
+    # rt/ persists piece dossiers directly via local_state, so the gallery
+    # already has what it needs from the DB dossier payload. Return empty
+    # to preserve the call shape.
+    return {}
 
 
 def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str, Any] | None:
     """DB-first detail enrichment for ``GET /api/tracked/pieces/{uuid}``.
 
-    ``payload`` is a dossier dict — either from :func:`build_piece_detail_payload`
-    (already carrying ``track_detail.segments`` from the DB and ``live=False``)
-    or from a legacy path (no ``track_detail`` yet). This helper merges any
-    still-live tracker detail on top:
-
-    - DB segments are preserved under ``track_detail.segments``.
-    - If the vision manager still knows the ``tracked_global_id``, its live
-      detail dict is merged in (live fields like ``segments``, ``roles``,
-      ``finished_at``, ``burst_frames`` overwrite the DB fields) and
-      ``live`` is flipped to ``True``.
-    - No vision manager or no live detail → ``track_detail`` stays as-is
-      (``live=False`` with DB segments, or absent when caller gave a bare
-      dossier).
+    Post-cutover the "live tracker" layer is gone: rt/ publishes every
+    piece_registered/classified/distributed event straight into the local
+    dossier table, so the DB payload IS the detail payload. Returning it
+    unchanged (with ``track_detail`` left as whatever the caller produced)
+    keeps the endpoint shape stable.
     """
     if not isinstance(payload, dict):
         return None
-    enriched = dict(payload)
-    tracked_global_id = enriched.get("tracked_global_id")
-    if not isinstance(tracked_global_id, int):
-        return enriched
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "getFeederTrackHistoryDetail"):
-        return enriched
-    try:
-        live_detail = vm.getFeederTrackHistoryDetail(int(tracked_global_id))
-    except Exception:
-        live_detail = None
-    if isinstance(live_detail, dict):
-        base = enriched.get("track_detail")
-        merged: dict[str, Any] = {}
-        if isinstance(base, dict):
-            merged.update(base)
-        merged.update(live_detail)
-        merged["live"] = True
-        enriched["track_detail"] = merged
-    return enriched
+    return dict(payload)
 
 
 @app.get("/api/tracked/pieces")
@@ -806,16 +761,22 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             },
         }
     )
-    # Populate sorter_state snapshot on-demand if missing — broadcasts are only
-    # fired at FSM transitions, so a freshly-connected client would otherwise
-    # default to 'default' camera_layout even when the config says split_feeder.
+    # Populate sorter_state snapshot on-demand if missing. Post-cutover the
+    # legacy FSM is gone; the rt_handle reports its own lifecycle via the
+    # event bus. Default to "running" when the handle has been built.
     if shared_state.sorter_state_snapshot is None:
-        layout = None
-        if shared_state.vision_manager is not None:
-            layout = getattr(shared_state.vision_manager, "_camera_layout", None)
-        fsm_state = "initializing"
-        if shared_state.controller_ref is not None:
-            fsm_state = getattr(shared_state.controller_ref.state, "value", "initializing")
+        rt = shared_state.rt_handle
+        if rt is None:
+            fsm_state = "initializing"
+        elif getattr(rt, "paused", False):
+            fsm_state = "paused"
+        elif getattr(rt, "started", False):
+            fsm_state = "running"
+        else:
+            fsm_state = "initializing"
+        irl = shared_state.getActiveIRL()
+        irl_config = getattr(irl, "irl_config", None) if irl is not None else None
+        layout = getattr(irl_config, "camera_layout", None) if irl_config is not None else None
         shared_state.sorter_state_snapshot = {
             "state": fsm_state,
             "camera_layout": layout,
@@ -1082,12 +1043,16 @@ def get_polygons() -> Dict[str, Any]:
 
 @app.post("/api/polygons")
 def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Save channel and classification polygons."""
+    """Save channel and classification polygons.
+
+    Post-cutover: rt/ perception re-reads polygons at bootstrap time only.
+    The saved polygons land on disk via blob_manager; live re-application
+    requires a runtime restart. Flagging this in the response so the UI can
+    surface it.
+    """
     from blob_manager import setChannelPolygons, setClassificationPolygons
     if "channel" in body:
         setChannelPolygons(body["channel"])
     if "classification" in body:
         setClassificationPolygons(body["classification"])
-    if "channel" in body and shared_state.vision_manager is not None:
-        shared_state.vision_manager.reloadPolygons()
-    return {"ok": True}
+    return {"ok": True, "requires_restart": True}

@@ -1,3 +1,19 @@
+"""Sorter backend entry point — rt-runtime only.
+
+Post-cutover (2026-04-22): the legacy SorterController / coordinator /
+subsystems runtime is gone. The live sorting loop is now the rt/ graph
+(C1 -> C2 -> C3 -> C4 -> Distributor) assembled by
+:func:`rt.bootstrap.build_rt_runtime`. Main.py wires up:
+
+1. Process guard + GlobalConfig + RunRecorder
+2. IRL config + ArucoConfigManager
+3. CameraService
+4. FastAPI + WS server thread + broadcaster thread
+5. Hardware home/init/reset callbacks for the ``/api/system/*`` routes
+6. rt_handle lifecycle (built on demand after homing completes)
+7. server_to_main_queue lifecycle command drain (pause/resume)
+"""
+
 from dotenv import load_dotenv
 import os
 from pathlib import Path
@@ -7,7 +23,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import get_api_keys, remember_piece_dossier, remember_recent_known_object
+from local_state import get_api_keys
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
@@ -20,24 +36,19 @@ from server.shared_state import (
     setGlobalConfig,
     setRuntimeVariables,
     setCommandQueue,
-    setController,
     setArucoManager,
     setCameraService,
-    setVisionManager,
     setHardwareInitializeFn,
     setHardwareResetFn,
     setHardwareRuntimeIRL,
     setHardwareStartFn,
+    setRtHandle,
 )
 from aruco_config_manager import ArucoConfigManager
-from sorter_controller import SorterController
 from run_recorder import RunRecorder
-from message_queue.handler import handleServerToMainEvent
-from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from defs.events import HeartbeatEvent, HeartbeatData
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import mkIRLConfig, mkIRLInterface
-from subsystems.feeder.calibration import calibrateFeederChannels
-from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
 from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
@@ -48,14 +59,18 @@ import time
 import asyncio
 import sys
 
+
 def _mkIRLInterfaceStandby(config, gc):
     """Create a minimal IRLInterface without hardware discovery (standby mode)."""
-    from irl.config import IRLInterface, BinLayoutConfig, mkLayoutFromConfig
-    from irl.bin_layout import getBinLayout
+    from irl.config import IRLInterface, mkLayoutFromConfig
     irl = IRLInterface()
     irl.servos = []
     irl.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
     irl.machine_profile = None
+    # Keep the irl_config reachable off the handle so routers that go
+    # through ``shared_state.getActiveIRL()`` can still read machine_setup /
+    # classification_channel_config etc.
+    irl.irl_config = config
     return irl
 
 
@@ -70,14 +85,8 @@ main_to_server_queue = queue.Queue()
 
 def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
     """After ``servo.open()``, surface a fatal hardware banner if every
-    configured layer servo reports ``available=False``. This flips the
-    boot path from "warn once and silently pass pieces through" to a
-    red-banner paused state that forces an operator check (USB, power,
-    cabling) before the controller is allowed to accept pieces.
-
-    The banner clears automatically the next time ``Positioning`` finds
-    any layer's servo back online, so a subsequent Resume after
-    reconnecting the bus recovers without a full restart.
+    configured layer servo reports ``available=False``. Mirrors the
+    pre-cutover behavior so operator still gets the red banner.
     """
     import server.shared_state as shared_state
 
@@ -106,10 +115,7 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
 
 def runServer() -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
-    # specific IP) exposes the API to the LAN — every endpoint (system reset,
-    # supervisor restart, calibration, camera control) becomes reachable from
-    # any host that can route to this machine, so only do that on a trusted
-    # network. CORS is widened to match in server/api.py.
+    # specific IP) exposes the API to the LAN.
     host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
     uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
 
@@ -138,25 +144,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
-            if command.tag == "known_object":
-                obj_payload = command.data.model_dump()
-                tracked_global_id = obj_payload.get("tracked_global_id")
-                if (
-                    isinstance(tracked_global_id, int)
-                    and shared_state.vision_manager is not None
-                    and hasattr(shared_state.vision_manager, "getFeederTrackHistoryDetail")
-                ):
-                    try:
-                        track_detail = shared_state.vision_manager.getFeederTrackHistoryDetail(
-                            int(tracked_global_id)
-                        )
-                    except Exception:
-                        track_detail = None
-                    if isinstance(track_detail, dict):
-                        obj_payload["track_detail"] = track_detail
-                gc.runtime_stats.observeKnownObject(obj_payload)
-                remember_piece_dossier(obj_payload)
-                remember_recent_known_object(obj_payload)
             if (
                 command.tag != "frame"
                 and command.tag != "heartbeat"
@@ -172,7 +159,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 pass
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
-
 
 
 def main() -> None:
@@ -209,6 +195,9 @@ def main() -> None:
 
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)
+    # Expose to routers immediately — even in standby, getActiveIRL() should
+    # return a readable shape so routers can fetch machine_setup metadata.
+    setHardwareRuntimeIRL(irl)
 
     with gc.profiler.timer("startup.camera_service_init_ms"):
         from vision.camera_service import CameraService
@@ -224,17 +213,10 @@ def main() -> None:
             main_to_server_queue.put(event)
 
         camera_service.set_health_event_callback(_on_camera_health_change)
-    with gc.profiler.timer("startup.vision_init_ms"):
-        vision = VisionManager(irl_config, gc, irl, camera_service)
-        setVisionManager(vision)
-    # Controller is deferred until hardware is started
-    controller = None
-    controller_lock = threading.RLock()
-    gc.logger.info("client starting in standby mode (hardware not initialized)...")
 
-    # Bring up the API/broadcast threads before the heavier camera + vision
-    # startup steps. That way the backend stays reachable even if a camera or
-    # inventory subsystem stalls during initialization.
+    gc.logger.info("backend starting in standby (rt-runtime, hardware not initialized)...")
+
+    # Bring up the API/broadcast threads before the heavier camera startup.
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()
 
@@ -245,60 +227,10 @@ def main() -> None:
 
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()
-    with gc.profiler.timer("startup.vision_start_ms"):
-        vision.start()
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
         waveshare_inventory = get_waveshare_inventory_manager()
         waveshare_inventory.start()
         waveshare_inventory.refresh()
-
-    # ------------------------------------------------------------------
-    # Phase 2b — rt/ shadow-mode runners
-    # ------------------------------------------------------------------
-    # Opt-in via RT_SHADOW_FEEDS=c2[,c3,...]. Each configured role spins
-    # up an rt/ PerceptionRunner alongside the legacy VisionManager. The
-    # runners publish TrackBatches on an in-process EventBus and feed a
-    # RollingIouTracker for parity measurement. Shadow failures NEVER
-    # stall the main startup — every error is caught and logged.
-    with gc.profiler.timer("startup.rt_shadow_ms"):
-        try:
-            from rt.shadow.config import parse_shadow_feeds_env
-            from rt.shadow.bootstrap import build_shadow_runner_from_live
-            from rt.shadow.iou import RollingIouTracker
-            from rt.events.bus import InProcessEventBus
-
-            shadow_feeds = parse_shadow_feeds_env()
-            if shadow_feeds:
-                shadow_bus = InProcessEventBus()
-                shadow_bus.start()
-                shared_state.shadow_bus = shadow_bus
-                for role in shadow_feeds:
-                    try:
-                        iou_tracker = RollingIouTracker(window_sec=10.0)
-                        shared_state.shadow_iou[role] = iou_tracker
-                        runner = build_shadow_runner_from_live(
-                            role,
-                            camera_service,
-                            vision,
-                            shadow_bus,
-                            iou_tracker=iou_tracker,
-                        )
-                        if runner is None:
-                            gc.logger.warning(
-                                f"rt shadow[{role}]: bootstrap returned no runner — skipping"
-                            )
-                            shared_state.shadow_iou.pop(role, None)
-                            continue
-                        runner.start()
-                        shared_state.shadow_runners[role] = runner
-                        gc.logger.info(f"rt shadow[{role}]: runner started")
-                    except Exception as exc:
-                        gc.logger.warning(
-                            f"rt shadow[{role}]: failed to start: {exc}"
-                        )
-                        shared_state.shadow_iou.pop(role, None)
-        except Exception as exc:
-            gc.logger.warning(f"rt shadow: bootstrap failed: {exc}")
 
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
@@ -308,25 +240,29 @@ def main() -> None:
 
     def _replace_irl(next_irl) -> None:
         nonlocal irl
-        with controller_lock:
-            irl.__dict__.clear()
-            irl.__dict__.update(next_irl.__dict__)
+        # Keep the IRLInterface identity stable for any refs already held;
+        # only swap the attributes.
+        irl.__dict__.clear()
+        irl.__dict__.update(next_irl.__dict__)
+
+    def _stop_rt_handle(reason: str) -> None:
+        """Tear down the rt/ runtime graph, if running."""
+        rt = shared_state.rt_handle
+        if rt is None:
+            return
+        gc.logger.info(f"Stopping rt runtime ({reason})")
+        try:
+            rt.stop()
+        except Exception as exc:
+            gc.logger.warning(f"rt runtime stop raised: {exc}")
+        setRtHandle(None)
 
     def _cleanup_runtime_hardware(reason: str) -> None:
-        nonlocal irl, controller
+        nonlocal irl
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
-        setHardwareRuntimeIRL(None)
 
-        with controller_lock:
-            old_controller = controller
-            controller = None
-            setController(None)
-            if old_controller is not None:
-                try:
-                    old_controller.stop()
-                except Exception as exc:
-                    gc.logger.warning(f"Failed to stop controller cleanly: {exc}")
+        _stop_rt_handle(reason)
 
         for servo in list(getattr(irl, "servos", [])):
             try:
@@ -356,45 +292,32 @@ def main() -> None:
 
         standby_irl = _mkIRLInterfaceStandby(irl_config, gc)
         _replace_irl(standby_irl)
-        setHardwareRuntimeIRL(None)
+        setHardwareRuntimeIRL(irl)
 
-    # Register the hardware start function for the /api/system/home endpoint
     def _home_hardware() -> None:
-        nonlocal irl, controller
+        """Discover hardware, home carousel + chute, then spin up rt-runtime."""
+        nonlocal irl
 
-        with controller_lock:
-            current_controller = controller
-        active_irl = shared_state.getActiveIRL()
-        if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
+        if shared_state.rt_handle is not None:
+            _cleanup_runtime_hardware("preparing for homing")
+        elif getattr(irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for homing")
 
         shared_state.setHardwareStatus(homing_step="Discovering hardware...")
         gc.logger.info("Starting hardware initialization...")
         real_irl = mkIRLInterface(irl_config, gc)
+        # Preserve irl_config reference so routers going through getActiveIRL
+        # can reach it without holding a direct ref to main.py's closure.
+        real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
-        machine_setup = getattr(irl_config, "machine_setup", None)
-        manual_feed_mode = bool(
-            getattr(machine_setup, "manual_feed_mode", False)
-            if machine_setup is not None
-            else getattr(irl_config, "feeding_mode", "auto_channels") == "manual_carousel"
-        )
 
+        machine_setup = getattr(irl_config, "machine_setup", None)
         if machine_setup is not None:
             gc.logger.info(
-                f"Machine setup selected: {machine_setup.key} "
+                f"Machine setup: {machine_setup.key} "
                 f"(auto_feeder={machine_setup.automatic_feeder}, "
                 f"carousel_transport={machine_setup.uses_carousel_transport})"
-            )
-        if manual_feed_mode:
-            gc.logger.info(
-                "Manual carousel feed mode enabled: automatic C-channel feeding and feeder calibration are disabled."
-            )
-        elif machine_setup is not None and not machine_setup.runtime_supported:
-            gc.logger.warning(
-                "Machine setup %r is experimental. Homing rules are applied, but the "
-                "runtime is not implemented yet."
-                % machine_setup.key
             )
 
         if gc.disable_servos:
@@ -406,70 +329,10 @@ def main() -> None:
                 try:
                     servo.open()
                 except Exception as e:
-                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+                    gc.logger.warning(
+                        f"Failed to open servo: {e}. Continuing without initialization."
+                    )
             _checkServoBusHealth(gc, irl)
-
-        feeder_detection_ready = vision.initFeederDetection(manual_feed_mode=manual_feed_mode)
-        if manual_feed_mode:
-            if not feeder_detection_ready:
-                gc.logger.warning(
-                    "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
-                )
-        elif feeder_detection_ready and bool(
-            getattr(machine_setup, "runs_reverse_pulse_calibration", True)
-        ):
-            # Reverse-pulse calibration seeds background-subtraction models
-            # (MOG2 / heatmap) with an empty-ring view. The feeder may have
-            # moved to Hive/Gemini and no longer need it, but the CAROUSEL
-            # heatmap still relies on this warm-up window unless it's also
-            # been switched to gemini_sam. Run the pulses whenever either
-            # subsystem still uses a baseline.
-            feeder_algorithms = (
-                vision.getFeederDetectionAlgorithms()
-                if hasattr(vision, "getFeederDetectionAlgorithms")
-                else {"feeder": vision.getFeederDetectionAlgorithm()}
-            )
-            feeder_mog2_roles = sorted(
-                role for role, algorithm in feeder_algorithms.items() if algorithm == "mog2"
-            )
-            feeder_needs_baseline = bool(feeder_mog2_roles)
-            carousel_needs_baseline = bool(
-                getattr(machine_setup, "uses_carousel_transport", True)
-            ) and vision.usesCarouselBaseline()
-            if feeder_needs_baseline or carousel_needs_baseline:
-                reason = []
-                if feeder_needs_baseline:
-                    reason.append(f"feeder(mog2)={','.join(feeder_mog2_roles)}")
-                if carousel_needs_baseline:
-                    reason.append("carousel=baseline")
-                shared_state.setHardwareStatus(homing_step="Calibrating feeder channels...")
-                gc.logger.info(
-                    f"Running feeder reverse-pulse calibration ({', '.join(reason)})"
-                )
-                calibrateFeederChannels(gc, irl, irl_config)
-            else:
-                gc.logger.info(
-                    f"Skipping feeder reverse-pulse calibration — "
-                    f"feeder_roles={feeder_algorithms!r}, carousel uses dynamic detection"
-                )
-        elif feeder_detection_ready:
-            gc.logger.info(
-                "Skipping feeder reverse-pulse calibration for machine setup %r."
-                % getattr(machine_setup, "key", "unknown")
-            )
-        else:
-            gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")
-
-        if irl_config.camera_layout == "split_feeder":
-            has_classification = (
-                vision._classification_top_capture is not None
-                or vision._classification_bottom_capture is not None
-            )
-            if has_classification and vision.usesClassificationBaseline():
-                if not vision.loadClassificationBaseline():
-                    gc.logger.warning("Classification baseline not found — continuing without classification")
-        elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
-            gc.logger.warning("Classification baseline not found — continuing without classification")
 
         if bool(getattr(machine_setup, "homes_carousel", True)):
             shared_state.setHardwareStatus(homing_step="Homing carousel...")
@@ -486,24 +349,10 @@ def main() -> None:
                 % getattr(machine_setup, "key", "unknown")
             )
 
-        # Home chute/distributor if available
+        # Home chute/distributor if available.
         shared_state.setHardwareStatus(homing_step="Homing distributor...")
-
-        next_controller = SorterController(
-            irl, irl_config, gc, vision, main_to_server_queue, rv
-        )
-        with controller_lock:
-            controller = next_controller
-        setController(next_controller)
-        next_controller.start()
-        try:
-            get_waveshare_inventory_manager().trigger_refresh()
-        except Exception:
-            pass
-
-        # Home the chute through the distribution state machine
-        chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None:
+        chute = getattr(irl, "chute", None)
+        if chute is not None and hasattr(chute, "home"):
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -513,26 +362,48 @@ def main() -> None:
             except Exception as e:
                 gc.logger.warning(f"Chute homing failed: {e}. Continuing without homing.")
 
+        # Build and start the rt runtime.
+        shared_state.setHardwareStatus(homing_step="Starting rt runtime...")
+        try:
+            from rt.bootstrap import build_rt_runtime
+
+            rt_handle = build_rt_runtime(
+                camera_service=camera_service,
+                gc=gc,
+                irl=irl,
+                logger=gc.logger,
+            )
+            rt_handle.start()
+            setRtHandle(rt_handle)
+            gc.logger.info("rt runtime started.")
+        except Exception as exc:
+            gc.logger.error(f"rt runtime build/start failed: {exc}")
+            shared_state.setHardwareStatus(error=f"rt runtime failed: {exc}")
+            shared_state.setHardwareStatus(clear_homing_step=True)
+            return
+
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
+
         shared_state.setHardwareStatus(clear_homing_step=True)
-        gc.logger.info("Hardware initialization and homing complete.")
+        gc.logger.info("Hardware initialization + rt runtime online.")
 
     def _initialize_hardware() -> None:
-        """Bring up the IRL and enable steppers without homing carousel/chute.
+        """Bring up IRL + enable steppers without homing carousel/chute.
 
-        Used by the setup wizard's Motion Direction Check step so the operator
-        can jog each stepper before endstops have been verified.
+        Used by the setup wizard's Motion Direction Check step.
         """
-        nonlocal irl, controller
+        nonlocal irl
 
-        with controller_lock:
-            current_controller = controller
-        active_irl = shared_state.getActiveIRL()
-        if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
+        if shared_state.rt_handle is not None or getattr(irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for stepper jog")
 
         shared_state.setHardwareStatus(homing_step="Discovering hardware...")
         gc.logger.info("Initializing hardware (no homing)...")
         real_irl = mkIRLInterface(irl_config, gc)
+        real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
 
@@ -544,7 +415,9 @@ def main() -> None:
                 try:
                     servo.open()
                 except Exception as e:
-                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+                    gc.logger.warning(
+                        f"Failed to open servo: {e}. Continuing without initialization."
+                    )
             _checkServoBusHealth(gc, irl)
 
         shared_state.setHardwareStatus(clear_homing_step=True)
@@ -562,19 +435,39 @@ def main() -> None:
         while True:
             gc.profiler.hit("main.loop.calls")
             gc.profiler.mark("main.loop.interval_ms")
+
+            # Drain server->main command queue. Post-cutover the only
+            # meaningful commands are pause/resume which we forward straight
+            # to the rt_handle.
             try:
                 event = server_to_main_queue.get(block=False)
-                with controller_lock:
-                    current_controller = controller
-                if current_controller is not None:
-                    handleServerToMainEvent(gc, current_controller, event)
+                rt = shared_state.rt_handle
+                if event.tag == "pause":
+                    gc.logger.info("received pause command")
+                    if rt is not None:
+                        try:
+                            rt.pause()
+                        except Exception:
+                            gc.logger.exception("rt.pause raised")
+                elif event.tag == "resume":
+                    gc.logger.info("received resume command")
+                    if rt is not None:
+                        try:
+                            rt.resume()
+                        except Exception:
+                            gc.logger.exception("rt.resume raised")
+                elif event.tag == "heartbeat":
+                    gc.logger.info(
+                        f"received heartbeat from server at {event.data.timestamp}"
+                    )
+                else:
+                    gc.logger.warn(f"unknown event tag: {event.tag}")
             except queue.Empty:
                 pass
 
             current_time = time.time()
 
-            # send periodic heartbeat
-            # can probably remove this later, just helps debug web sockets from time to time
+            # Heartbeat (keeps the WS channel from idle-disconnecting).
             if (
                 current_time - last_heartbeat
                 >= gc.timeouts.heartbeat_interval_ms / 1000.0
@@ -585,7 +478,7 @@ def main() -> None:
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
 
-            # broadcast cached camera frames and record to disk
+            # Frame broadcast: pump camera_service's ring into the WS channel.
             if (
                 current_time - last_frame_broadcast
                 >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
@@ -596,8 +489,6 @@ def main() -> None:
                 )
                 for frame_event in frame_events:
                     main_to_server_queue.put(frame_event)
-                with gc.profiler.timer("main.loop.record_frames_ms"):
-                    vision.recordFrames()
                 last_frame_broadcast = current_time
 
             if (
@@ -611,39 +502,19 @@ def main() -> None:
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
 
-            with controller_lock:
-                current_controller = controller
-            if current_controller is not None:
-                with gc.profiler.timer("main.loop.controller_step_ms"):
-                    current_controller.step()
-
+            # rt orchestrator ticks itself on its own thread — main loop
+            # only pumps frames + commands now.
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
         gc.logger.info("Shutting down...")
 
         gc.run_recorder.save()
 
-        # Stop rt/ shadow runners + bus first so they release any camera reads
-        # before we tear down VisionManager + CameraService below.
+        _stop_rt_handle("process shutdown")
         try:
-            for role, runner in list(shared_state.shadow_runners.items()):
-                try:
-                    runner.stop(timeout=1.0)
-                except Exception as exc:
-                    gc.logger.warning(f"rt shadow[{role}]: stop failed: {exc}")
-            shared_state.shadow_runners.clear()
-            shared_state.shadow_iou.clear()
-            if shared_state.shadow_bus is not None:
-                try:
-                    shared_state.shadow_bus.stop()
-                except Exception as exc:
-                    gc.logger.warning(f"rt shadow: bus stop failed: {exc}")
-                shared_state.shadow_bus = None
+            camera_service.stop()
         except Exception as exc:
-            gc.logger.warning(f"rt shadow: shutdown raised: {exc}")
-
-        vision.stop()
-        camera_service.stop()
+            gc.logger.warning(f"camera_service.stop raised: {exc}")
 
         gc.logger.info("Stopping all motors...")
         _cleanup_runtime_hardware("process shutdown")

@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from machine_platform.machine_profile import MachineProfile
     from machine_platform.servo_controller import ServoController
     from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalInputPin
-    from subsystems.classification.carousel_hardware import CarouselHardware
-    from subsystems.distribution.chute import Chute
+    from irl.carousel_hardware import CarouselHardware
+    from irl.chute import Chute
 
 from .bin_layout import (
     getBinLayout,
@@ -1296,7 +1296,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         else:
             gc.logger.warn("Saved bin categories don't match layout, ignoring")
 
-    from subsystems.classification.carousel_hardware import CarouselHardware
+    from irl.carousel_hardware import CarouselHardware
     carousel_calibration = loadCarouselCalibrationConfig(gc, machine_specific_params)
 
     if feeder_board is None:
@@ -1314,7 +1314,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         endstop_active_high=carousel_calibration.endstop_active_high,
     )
 
-    from subsystems.distribution.chute import Chute
+    from irl.chute import Chute
     chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:

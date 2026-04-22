@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Crop, Expand, Eye, Layers, Palette, SendToBack, Shapes } from 'lucide-svelte';
+	import { Crop, Expand, Eye, Palette, SendToBack, Shapes } from 'lucide-svelte';
 
 	let {
 		annotated = $bindable(true),
@@ -7,14 +7,12 @@
 		cropped = $bindable(false),
 		zones = $bindable(true),
 		ghosts = $bindable(false),
-		shadow = $bindable(false),
 		fullscreen = $bindable(false),
 		showAnnotations = true,
 		showColor = false,
 		showCrop = false,
 		showZones = false,
 		showGhosts = false,
-		showShadow = false,
 		showFullscreen = false,
 		disabled = false
 	}: {
@@ -23,20 +21,18 @@
 		cropped?: boolean;
 		zones?: boolean;
 		ghosts?: boolean;
-		shadow?: boolean;
 		fullscreen?: boolean;
 		showAnnotations?: boolean;
 		showColor?: boolean;
 		showCrop?: boolean;
 		showZones?: boolean;
 		showGhosts?: boolean;
-		showShadow?: boolean;
 		showFullscreen?: boolean;
 		disabled?: boolean;
 	} = $props();
 
 	const hasAny = $derived(
-		showAnnotations || showColor || showCrop || showZones || showGhosts || showShadow || showFullscreen
+		showAnnotations || showColor || showCrop || showZones || showGhosts || showFullscreen
 	);
 </script>
 
@@ -95,15 +91,6 @@
 				ghosts,
 				ghosts ? 'Hide ghosts' : 'Show ghosts',
 				() => (ghosts = !ghosts)
-			)}
-		{/if}
-
-		{#if showShadow}
-			{@render togglePill(
-				Layers,
-				shadow,
-				shadow ? 'Hide rt shadow overlay' : 'Show rt shadow overlay',
-				() => (shadow = !shadow)
 			)}
 		{/if}
 

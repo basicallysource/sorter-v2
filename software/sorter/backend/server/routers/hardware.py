@@ -19,7 +19,7 @@ from irl.bin_layout import (
     layoutMatchesCategories,
     mkLayoutFromConfig,
 )
-from subsystems.distribution.chute import BinAddress
+from irl.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -950,9 +950,10 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
     # Persist servo states so they survive restarts
     try:
         from irl.config import save_servo_states
-        if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-            servos = getattr(shared_state.controller_ref.irl, "servos", [])
-            save_servo_states(servos, shared_state.controller_ref.gc)
+        active_irl = shared_state.getActiveIRL()
+        if active_irl is not None and shared_state.gc_ref is not None:
+            servos = getattr(active_irl, "servos", [])
+            save_servo_states(servos, shared_state.gc_ref)
     except Exception:
         pass
 
@@ -1399,14 +1400,15 @@ def save_chute_hardware_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
     applied_live = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    active_irl = shared_state.getActiveIRL()
+    if active_irl is not None:
+        chute = getattr(active_irl, "chute", None)
         if chute is not None and hasattr(chute, "setCalibration"):
             try:
                 chute.setCalibration(first_bin_center, pillar_width_deg, endstop_active_high)
                 if hasattr(chute, "setOperatingSpeed"):
                     chute.setOperatingSpeed(operating_speed_microsteps_per_second)
-                stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
+                stepper = getattr(active_irl, "chute_stepper", None)
                 if stepper is not None:
                     stepper.set_speed_limits(16, operating_speed_microsteps_per_second)
                 applied_live = True
@@ -1577,7 +1579,11 @@ def calibrate_carousel() -> Dict[str, Any]:
             detail="Carousel must be homed first (endstop not currently triggered).",
         )
 
-    from subsystems.classification.carousel_hardware import BACKOFF_STEPS, HOME_SPEED_MICROSTEPS_PER_SEC
+    # Defaults mirror the pre-cutover ``subsystems.classification.carousel_hardware``
+    # values — 200 microsteps backoff before re-homing, 1500 microsteps/s
+    # home approach. Live wiring on the machine should be verified.
+    BACKOFF_STEPS = 200
+    HOME_SPEED_MICROSTEPS_PER_SEC = 1500
 
     stepper = carousel_hw.stepper
     home_pin = carousel_hw.home_pin
@@ -1816,20 +1822,20 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
 def _clear_passthrough_alert_if_owned() -> None:
     """Clear the bins-full / misc-passthrough banner when the operator
     explicitly resets or empties bins. Otherwise the alert sticks around
-    (it only auto-clears on the next successful bin assignment)."""
-    try:
-        from subsystems.distribution.positioning import (
-            BINS_FULL_ALERT_PREFIX,
-            MISC_PASSTHROUGH_ALERT_PREFIX,
-        )
-    except Exception:
-        return
+    (it only auto-clears on the next successful bin assignment).
+
+    Post-cutover: the legacy positioning subsystem no longer emits these
+    specific banners, but we still scrub any lingering hardware_error
+    matching the historical prefixes so stale UI state clears.
+    """
+    _LEGACY_BINS_FULL_PREFIX = "All bins are full"
+    _LEGACY_MISC_PASSTHROUGH_PREFIX = "Misc category is passing through"
     try:
         with shared_state.hardware_lifecycle_lock:
             err = shared_state.hardware_error
             if isinstance(err, str) and (
-                err.startswith(BINS_FULL_ALERT_PREFIX)
-                or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
+                err.startswith(_LEGACY_BINS_FULL_PREFIX)
+                or err.startswith(_LEGACY_MISC_PASSTHROUGH_PREFIX)
             ):
                 shared_state.setHardwareStatus(clear_error=True)
     except Exception:
@@ -2023,14 +2029,15 @@ def get_bins_layout() -> Dict[str, Any]:
     current_angle = None
     active_layer = None
     runtime_overlay_applied = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    active_irl = shared_state.getActiveIRL()
+    if active_irl is not None:
+        chute = getattr(active_irl, "chute", None)
         if chute is not None:
             try:
                 current_angle = round(float(chute.current_angle), 2)
             except Exception:
                 pass
-        servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+        servos = list(getattr(active_irl, "servos", []))
         for i, servo in enumerate(servos):
             try:
                 if hasattr(servo, "isOpen") and servo.isOpen():
@@ -2040,7 +2047,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 pass
 
         # Read category assignments from the live distribution layout
-        dist_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
+        dist_layout = getattr(active_irl, "distribution_layout", None)
         if dist_layout is not None:
             runtime_layers = list(getattr(dist_layout, "layers", []))
             for layer_out in layers_out:
@@ -2082,10 +2089,9 @@ def get_bins_layout() -> Dict[str, Any]:
 @router.post("/api/bins/move-to")
 def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     """Move chute to a specific bin and open the correct layer servo."""
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-
-    irl = shared_state.controller_ref.irl
+    irl = shared_state.getActiveIRL()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized.")
     chute = getattr(irl, "chute", None)
     if chute is None:
         raise HTTPException(status_code=503, detail="Chute subsystem not available.")

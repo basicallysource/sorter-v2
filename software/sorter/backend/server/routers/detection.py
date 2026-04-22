@@ -1184,42 +1184,17 @@ def _decode_jpeg_b64(b64: str):
 
 @router.post("/api/feeder/tracking/recognize")
 def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Send one or more tracked-piece crops to the Brickognize classifier
-    synchronously. Pass ``jpeg_b64`` for a single image or ``jpegs_b64``
-    for a multi-image query — Brickognize uses all views as evidence for
-    a single final prediction, which is much more robust on a tracked
-    piece where we have 5–12 angles of the same part.
-    """
-    from classification.brickognize import (
-        _classifyImages,
-        _pickBestColor,
-        _pickBestItem,
-    )
+    """legacy endpoint — not ported yet.
 
-    single = body.get("jpeg_b64")
-    multi = body.get("jpegs_b64")
-    images = []
-    if isinstance(multi, list) and multi:
-        images = [_decode_jpeg_b64(b) for b in multi if isinstance(b, str) and b]
-    elif isinstance(single, str) and single:
-        images = [_decode_jpeg_b64(single)]
-    if not images:
-        raise HTTPException(
-            status_code=400, detail="jpeg_b64 or jpegs_b64 required"
-        )
-    try:
-        result = _classifyImages(images)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
-    best_item, best_view = _pickBestItem(result, None)
-    best_color = _pickBestColor(result, None)
-    return {
-        "image_count": len(images),
-        "best_item": best_item,
-        "best_view": best_view,
-        "best_color": best_color,
-        "items": result.get("items", []),
-    }
+    Was: send one or more tracked-piece crops to the Brickognize classifier
+    synchronously. The rt/ classifier lives inside the live pipeline and
+    does not currently expose a one-shot JPEG->classify HTTP path. Admin
+    re-run is TODO.
+    """
+    raise HTTPException(
+        status_code=503,
+        detail="legacy endpoint — not ported yet",
+    )
 
 
 @router.delete("/api/feeder/tracking/history")

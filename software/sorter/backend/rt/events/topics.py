@@ -14,11 +14,6 @@ PERCEPTION_FRAME = "perception.frame"
 HARDWARE_ERROR = "hardware.error"
 RUNTIME_STATS = "runtime.stats"
 
-# Shadow-mode parity metric: emitted by rt.shadow.iou.RollingIouTracker
-# whenever the shadow pipeline wants to push its latest rolling-IoU snapshot
-# to listeners (UI, log sinks, etc.).
-RT_SHADOW_IOU = "rt.shadow.iou"
-
 
 __all__ = [
     "HARDWARE_ERROR",
@@ -27,7 +22,6 @@ __all__ = [
     "PIECE_CLASSIFIED",
     "PIECE_DISTRIBUTED",
     "PIECE_REGISTERED",
-    "RT_SHADOW_IOU",
     "RUNTIME_STATS",
     "SYSTEM_HARDWARE_STATE",
     "SYSTEM_SORTER_STATE",

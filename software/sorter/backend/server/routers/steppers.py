@@ -336,9 +336,16 @@ def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
 @router.get("/state", response_model=StateResponse)
 def getState() -> StateResponse:
     layout = _getCameraLayout()
-    if shared_state.controller_ref is None:
+    rt = shared_state.rt_handle
+    if rt is None:
         return StateResponse(state=SorterLifecycle.INITIALIZING.value, camera_layout=layout)
-    return StateResponse(state=shared_state.controller_ref.state.value, camera_layout=layout)
+    if getattr(rt, "paused", False):
+        state = "paused"
+    elif getattr(rt, "started", False):
+        state = "running"
+    else:
+        state = SorterLifecycle.INITIALIZING.value
+    return StateResponse(state=state, camera_layout=layout)
 
 
 @router.post("/pause", response_model=CommandResponse)

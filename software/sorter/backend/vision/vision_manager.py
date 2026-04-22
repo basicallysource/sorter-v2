@@ -124,7 +124,10 @@ class VisionManager:
 
         self._classification_masks: Dict[str, np.ndarray] = {}
         self._classification_mask_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
+        # Top/bottom classification cameras can run at different resolutions,
+        # so each polygon remembers the capture resolution it was saved at.
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
+        self._classification_polygon_resolutions: Dict[str, Tuple[int, int]] = {}
         self._loadClassificationPolygons()
         self._carousel_diff_config: CarouselDiffConfig = DEFAULT_CAROUSEL_DIFF_CONFIG
         self._diff_config: ClassificationDiffConfig = DEFAULT_CLASSIFICATION_DIFF_CONFIG
@@ -1612,7 +1615,9 @@ class VisionManager:
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
-                scaled = self._scalePolygon(polygon, baseline_min.shape[1], baseline_min.shape[0])
+                scaled = self._scalePolygon(
+                    polygon, baseline_min.shape[1], baseline_min.shape[0], key=cam_key
+                )
                 mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
                 cv2.fillPoly(mask, [scaled], 255)
             else:
@@ -1729,7 +1734,7 @@ class VisionManager:
             scaled_polygon = None
             if polygon is not None and len(polygon) >= 3:
                 h, w = frame.raw.shape[:2]
-                scaled_polygon = self._scalePolygon(polygon, w, h)
+                scaled_polygon = self._scalePolygon(polygon, w, h, key=cam)
             detection = self._runGeminiDetectionRequest(
                 DetectionRequest(
                     scope="classification",
@@ -1814,7 +1819,11 @@ class VisionManager:
 
         frame_h, frame_w = frame.raw.shape[:2]
         polygon = self._classification_masks.get(cam)
-        scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h) if polygon is not None else None
+        scaled_polygon = (
+            self._scalePolygon(polygon, frame_w, frame_h, key=cam)
+            if polygon is not None
+            else None
+        )
 
         zone_bbox: Tuple[int, int, int, int] | None = None
         zone_point_count = 0
@@ -2414,7 +2423,7 @@ class VisionManager:
             polygon = self._classification_masks.get(role)
             if polygon is None or len(polygon) < 3:
                 return None
-            scaled = self._scalePolygon(polygon, w, h)
+            scaled = self._scalePolygon(polygon, w, h, key=role)
             if scaled is None:
                 return None
             return np.asarray(scaled, dtype=np.int32)
@@ -4722,14 +4731,45 @@ class VisionManager:
         res = saved.get("resolution")
         if res and len(res) == 2:
             self._classification_polygon_resolution = (int(res[0]), int(res[1]))
+        # Pick up per-key resolution (top/bottom cameras may run at different
+        # resolutions — e.g. 1920x1080 vs. 3840x2160); fall back to the shared
+        # top-level ``saved["resolution"]`` for legacy configs.
+        quad_params = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         polygons = saved.get("polygons", {})
         for key in ("top", "bottom"):
+            quad_key = "class_top" if key == "top" else "class_bottom"
+            quad_entry = quad_params.get(quad_key) if isinstance(quad_params, dict) else None
+            resolution: Tuple[int, int] | None = None
+            if isinstance(quad_entry, dict):
+                quad_res = quad_entry.get("resolution")
+                if quad_res and len(quad_res) >= 2:
+                    try:
+                        rw = int(quad_res[0])
+                        rh = int(quad_res[1])
+                    except (TypeError, ValueError):
+                        rw = rh = 0
+                    if rw > 0 and rh > 0:
+                        resolution = (rw, rh)
+            if resolution is None:
+                resolution = self._classification_polygon_resolution
+            self._classification_polygon_resolutions[key] = resolution
             pts = polygons.get(key)
             if pts and len(pts) >= 3:
                 self._classification_masks[key] = np.array(pts, dtype=np.int32)
 
-    def _scalePolygon(self, polygon: np.ndarray, frame_w: int, frame_h: int) -> np.ndarray:
-        src_w, src_h = self._classification_polygon_resolution
+    def _scalePolygon(
+        self,
+        polygon: np.ndarray,
+        frame_w: int,
+        frame_h: int,
+        key: str | None = None,
+    ) -> np.ndarray:
+        if key is not None:
+            src_w, src_h = self._classification_polygon_resolutions.get(
+                key, self._classification_polygon_resolution
+            )
+        else:
+            src_w, src_h = self._classification_polygon_resolution
         if src_w == frame_w and src_h == frame_h:
             return polygon
         scale_x = frame_w / src_w
@@ -4744,7 +4784,7 @@ class VisionManager:
         if polygon is None:
             return frame
         h, w = frame.shape[:2]
-        polygon = self._scalePolygon(polygon, w, h)
+        polygon = self._scalePolygon(polygon, w, h, key=key)
         white = np.full_like(frame, 255)
         mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         cv2.fillPoly(mask, [polygon], 255)
@@ -4959,7 +4999,7 @@ class VisionManager:
         if polygon is None or len(polygon) < 3:
             return (0, 0, int(frame_w), int(frame_h))
 
-        scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h)
+        scaled_polygon = self._scalePolygon(polygon, frame_w, frame_h, key=cam)
         x, y, w, h = cv2.boundingRect(scaled_polygon)
         # Clamp to frame bounds — negative origin would wrap via numpy slicing.
         x = max(0, x)

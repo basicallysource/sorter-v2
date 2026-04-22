@@ -3355,16 +3355,57 @@ def camera_stream(index: int):
     )
 
 
-def _dashboard_polygon_resolution(saved: Dict[str, Any] | None) -> tuple[float, float]:
+_POLYGON_KEY_TO_CHANNEL_KEY: Dict[str, str] = {
+    "second_channel": "second",
+    "third_channel": "third",
+    "classification_channel": "classification_channel",
+    "carousel": "carousel",
+}
+
+
+def _dashboard_polygon_resolution(
+    saved: Dict[str, Any] | None,
+    channel_key: str | None = None,
+) -> tuple[float, float]:
+    """Resolve the capture resolution a polygon was saved at.
+
+    Prefers the per-channel ``resolution`` embedded by the zone editor
+    (``arc_params[<key>].resolution`` for arc channels,
+    ``quad_params[<key>].resolution`` for rect channels), and falls back to the
+    legacy top-level ``saved["resolution"]`` — and then to a 1920x1080 default —
+    so heterogeneous camera resolutions (e.g. C2 at 1280x720 while C3 runs at
+    3840x2160) don't contaminate each other on the dashboard preview.
+    """
+
+    fallback: tuple[float, float] = (1920.0, 1080.0)
     if not isinstance(saved, dict):
-        return (1920.0, 1080.0)
-    resolution = saved.get("resolution")
-    if isinstance(resolution, (list, tuple)) and len(resolution) >= 2:
-        width = _as_number(resolution[0])
-        height = _as_number(resolution[1])
+        return fallback
+
+    def _coerce(raw: Any) -> tuple[float, float] | None:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            return None
+        width = _as_number(raw[0])
+        height = _as_number(raw[1])
         if width and width > 0 and height and height > 0:
             return (width, height)
-    return (1920.0, 1080.0)
+        return None
+
+    if channel_key:
+        for group in ("arc_params", "quad_params"):
+            entries = saved.get(group)
+            if not isinstance(entries, dict):
+                continue
+            entry = entries.get(channel_key)
+            if not isinstance(entry, dict):
+                continue
+            coerced = _coerce(entry.get("resolution"))
+            if coerced is not None:
+                return coerced
+
+    coerced = _coerce(saved.get("resolution"))
+    if coerced is not None:
+        return coerced
+    return fallback
 
 
 def _dashboard_points(raw: Any) -> list[tuple[float, float]]:
@@ -3488,7 +3529,6 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
     if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         classification_channel_setup = bool(
@@ -3499,11 +3539,12 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         carousel_polygon_key = "classification_channel" if classification_channel_setup else "carousel"
 
         if role == "carousel" and not classification_channel_setup:
+            carousel_resolution = _dashboard_polygon_resolution(saved, "carousel")
             quad_points = _dashboard_quad_points(quad_table.get("carousel"))
             if len(quad_points) != 4:
                 quad_points = _dashboard_points(polygons_table.get(carousel_polygon_key))
             scaled_quad = (
-                _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+                _scale_dashboard_points(quad_points, carousel_resolution, frame_w, frame_h)
                 if len(quad_points) == 4 else None
             )
             if scaled_quad is not None and len(scaled_quad) == 4:
@@ -3526,29 +3567,30 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             "carousel": [carousel_polygon_key],
             "classification_channel": ["classification_channel"],
         }.get(role, [])
-        scaled_polygons = [
-            scaled
-            for key in polygon_keys
-            for scaled in [
-                _scale_dashboard_points(
-                    _dashboard_points(polygons_table.get(key)),
-                    source_resolution,
-                    frame_w,
-                    frame_h,
-                )
-            ]
-            if scaled is not None
-        ]
+        scaled_polygons = []
+        for key in polygon_keys:
+            # Each polygon is stored in the resolution of the channel it was
+            # edited in; scale from its own saved resolution to the live frame.
+            channel_key = _POLYGON_KEY_TO_CHANNEL_KEY.get(key, key)
+            per_channel_resolution = _dashboard_polygon_resolution(saved, channel_key)
+            scaled = _scale_dashboard_points(
+                _dashboard_points(polygons_table.get(key)),
+                per_channel_resolution,
+                frame_w,
+                frame_h,
+            )
+            if scaled is not None:
+                scaled_polygons.append(scaled)
         bbox = _dashboard_padded_bbox(scaled_polygons, frame_w, frame_h)
         return {"kind": "bbox", "bbox": bbox} if bbox is not None else None
 
     if role in {"classification_top", "classification_bottom"}:
         saved = getClassificationPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         quad_key = "class_top" if role == "classification_top" else "class_bottom"
         polygon_key = "top" if role == "classification_top" else "bottom"
+        source_resolution = _dashboard_polygon_resolution(saved, quad_key)
         quad_points = _dashboard_quad_points(quad_table.get(quad_key))
         if len(quad_points) != 4:
             quad_points = _dashboard_points(polygons_table.get(polygon_key))

@@ -10,6 +10,7 @@
 	import { onDestroy } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 
 	type ShadowTrack = {
 		track_id: number;
@@ -48,12 +49,16 @@
 		role = 'c2',
 		enabled = false,
 		sourceWidth = 1920,
-		sourceHeight = 1080
+		sourceHeight = 1080,
+		crop = null,
+		cropped = false
 	}: {
 		role?: string;
 		enabled?: boolean;
 		sourceWidth?: number;
 		sourceHeight?: number;
+		crop?: DashboardFeedCrop | null;
+		cropped?: boolean;
 	} = $props();
 
 	const ctx = getMachineContext();
@@ -140,31 +145,39 @@
 </script>
 
 {#if enabled}
+	{@const useCrop = cropped && crop !== null}
+	{@const box = useCrop && crop ? crop.viewBox : { x: 0, y: 0, width: sourceWidth, height: sourceHeight }}
+	{@const rc = useCrop && crop
+		? (crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2])
+		: [0, 0]}
+	{@const rot = useCrop && crop ? (crop.rotationDeg ?? 0) : 0}
 	<svg
-		viewBox="0 0 {sourceWidth} {sourceHeight}"
+		viewBox="{box.x} {box.y} {box.width} {box.height}"
 		preserveAspectRatio="xMidYMid meet"
 		class="pointer-events-none absolute inset-0 h-full w-full"
 		aria-hidden="true"
 	>
-		{#each tracks as track (track.track_id)}
-			{@const [x1, y1, x2, y2] = track.bbox_xyxy}
-			{@const w = Math.max(0, x2 - x1)}
-			{@const h = Math.max(0, y2 - y1)}
-			<rect
-				x={x1}
-				y={y1}
-				width={w}
-				height={h}
-				fill="none"
-				stroke="#ff2bd6"
-				stroke-width={Math.max(2, Math.round(sourceWidth / 480))}
-				stroke-dasharray={`${Math.max(8, Math.round(sourceWidth / 140))} ${Math.max(
-					6,
-					Math.round(sourceWidth / 180)
-				)}`}
-				vector-effect="non-scaling-stroke"
-			/>
-		{/each}
+		<g transform="rotate({rot} {rc[0]} {rc[1]})">
+			{#each tracks as track (track.track_id)}
+				{@const [x1, y1, x2, y2] = track.bbox_xyxy}
+				{@const w = Math.max(0, x2 - x1)}
+				{@const h = Math.max(0, y2 - y1)}
+				<rect
+					x={x1}
+					y={y1}
+					width={w}
+					height={h}
+					fill="none"
+					stroke="#ff2bd6"
+					stroke-width={Math.max(2, Math.round(sourceWidth / 480))}
+					stroke-dasharray={`${Math.max(8, Math.round(sourceWidth / 140))} ${Math.max(
+						6,
+						Math.round(sourceWidth / 180)
+					)}`}
+					vector-effect="non-scaling-stroke"
+				/>
+			{/each}
+		</g>
 	</svg>
 
 	<div

@@ -182,6 +182,7 @@ def _wire_iou_subscriber(
     role: str,
     iou_tracker: RollingIouTracker,
     source_name: str,
+    feed_id: str,
 ) -> None:
     """Attach the IoU tracker to the perception-tracks topic.
 
@@ -190,6 +191,10 @@ def _wire_iou_subscriber(
     closure. For simplicity we re-read legacy tracks from the VisionManager
     here — that is the only bridge-read this component performs beyond the
     zone bootstrap.
+
+    The subscriber filters incoming events by ``feed_id`` so that parallel
+    shadow runners (e.g. ``c2`` and ``c3`` on the same EventBus) don't
+    cross-pollute each other's IoU samples.
     """
 
     # The subscriber stores a handle on the perception runner so it can
@@ -198,6 +203,11 @@ def _wire_iou_subscriber(
     state: dict[str, Any] = {"runner": None}
 
     def _on_tracks(event: Event) -> None:
+        # Only respond to events from *our* feed — otherwise a c3 shadow
+        # runner's publish would nudge the c2 tracker and vice versa.
+        event_feed_id = event.payload.get("feed_id") if event.payload else None
+        if event_feed_id != feed_id:
+            return
         runner: PerceptionRunner | None = state.get("runner")
         if runner is None:
             return
@@ -295,7 +305,12 @@ def build_shadow_runner_from_live(
     if iou_tracker is not None:
         try:
             _wire_iou_subscriber(
-                event_bus, vision_manager, role, iou_tracker, runner_name
+                event_bus,
+                vision_manager,
+                role,
+                iou_tracker,
+                runner_name,
+                feed_id,
             )
             # Attach the runner to the subscriber state so it can fetch batches.
             state = getattr(iou_tracker, "_shadow_subscriber_state", None)

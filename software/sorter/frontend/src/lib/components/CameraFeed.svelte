@@ -253,6 +253,8 @@
 				enabled={shadow}
 				sourceWidth={shadowSourceWidth}
 				sourceHeight={shadowSourceHeight}
+				{crop}
+				{cropped}
 			/>
 		{/if}
 

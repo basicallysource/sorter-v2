@@ -173,6 +173,7 @@
 									crop={cropFor('c_channel_2')}
 									source="ws"
 									controls={["annotations", "ghosts", "shadow", "crop", "fullscreen"]}
+									defaultShadow={true}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">

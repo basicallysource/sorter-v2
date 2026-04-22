@@ -264,6 +264,85 @@ def test_iou_tracker_is_wired_and_records_parity() -> None:
     assert iou.mean_iou() == pytest.approx(1.0)
 
 
+def test_iou_subscriber_ignores_cross_feed_events() -> None:
+    """Parallel shadow runners (e.g. c2 + c3) must not contaminate each other.
+
+    We emit two PERCEPTION_TRACKS events with different feed_ids and verify
+    the tracker wired for feed_id=shadow_c2 only counts the c2 event.
+    """
+    from rt.contracts.events import Event
+    from rt.contracts.tracking import TrackBatch
+    from rt.events.topics import PERCEPTION_TRACKS
+
+    raw = _raw_frame()
+    camera_service = _FakeCameraService(raw)
+    vm = _FakeVisionManager(
+        polygon_key="second_channel",
+        polygon_vertices=[(10, 10), (100, 10), (100, 80), (10, 80)],
+    )
+    bus = InProcessEventBus()
+    iou = RollingIouTracker(window_sec=5.0)
+
+    runner = build_shadow_runner_from_live(
+        "c2",
+        camera_service,
+        vm,
+        bus,
+        detector_slug=_TEST_DETECTOR_SLUG,
+        iou_tracker=iou,
+        period_ms=10,
+    )
+    assert runner is not None
+
+    # Simulate a batch from our own feed already present on the runner, so
+    # the handler has *something* to sample when invoked. (Synchronous path.)
+    own_batch = TrackBatch(
+        feed_id="shadow_c2",
+        frame_seq=1,
+        timestamp=time.time(),
+        tracks=(),
+        lost_track_ids=(),
+    )
+    # Inject via private attribute — same slot the real run-loop writes to.
+    with runner._latest_lock:  # type: ignore[attr-defined]
+        runner._latest = own_batch  # type: ignore[attr-defined]
+
+    # Event from a different feed (e.g. c3's shadow runner publishing on
+    # the same bus). Must be ignored by our c2-scoped subscriber.
+    foreign_event = Event(
+        topic=PERCEPTION_TRACKS,
+        payload={
+            "feed_id": "shadow_c3",
+            "frame_seq": 99,
+            "timestamp": time.time(),
+            "track_count": 5,
+            "lost_track_ids": [],
+        },
+        source="RtShadowRunner[c3]",
+        ts_mono=time.monotonic(),
+    )
+    bus.publish(foreign_event)
+    bus.drain()
+    assert iou.sample_count() == 0, "foreign feed_id must not produce a sample"
+
+    # Event from our own feed: must be accepted and record a sample.
+    own_event = Event(
+        topic=PERCEPTION_TRACKS,
+        payload={
+            "feed_id": "shadow_c2",
+            "frame_seq": 2,
+            "timestamp": time.time(),
+            "track_count": 0,
+            "lost_track_ids": [],
+        },
+        source="RtShadowRunner[c2]",
+        ts_mono=time.monotonic(),
+    )
+    bus.publish(own_event)
+    bus.drain()
+    assert iou.sample_count() == 1, "matching feed_id must produce exactly one sample"
+
+
 def test_unknown_role_maps_through_default() -> None:
     # Unknown role is still a string and has a FeedPurpose fallback. Bootstrap
     # should not crash — just return None because no polygon & no frame.

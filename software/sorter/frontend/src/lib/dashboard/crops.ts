@@ -7,15 +7,27 @@ type CropViewBox = {
 	height: number;
 };
 
+type PerKeyResolutionMap = Record<string, { resolution?: [unknown, unknown] } | undefined>;
+
+type PolygonChannelData = {
+	polygons?: Record<string, unknown>;
+	resolution?: [unknown, unknown];
+	arc_params?: PerKeyResolutionMap;
+	quad_params?: PerKeyResolutionMap;
+};
+
 type PolygonPayload = {
-	channel?: {
-		polygons?: Record<string, unknown>;
-		resolution?: [unknown, unknown];
-	};
-	classification?: {
-		polygons?: Record<string, unknown>;
-		resolution?: [unknown, unknown];
-	};
+	channel?: PolygonChannelData;
+	classification?: PolygonChannelData;
+};
+
+const POLYGON_KEY_TO_PARAM_KEY: Record<string, string> = {
+	second_channel: 'second',
+	third_channel: 'third',
+	classification_channel: 'classification_channel',
+	carousel: 'carousel',
+	top: 'class_top',
+	bottom: 'class_bottom'
 };
 
 export type DashboardFeedCrop = {
@@ -102,6 +114,32 @@ function readResolution(
 		width: positiveNumber(resolution?.[0], DEFAULT_SOURCE_WIDTH),
 		height: positiveNumber(resolution?.[1], DEFAULT_SOURCE_HEIGHT)
 	};
+}
+
+function readResolutionStrict(
+	resolution: [unknown, unknown] | undefined
+): { width: number; height: number } | null {
+	if (!resolution) return null;
+	const [rawWidth, rawHeight] = resolution;
+	if (typeof rawWidth !== 'number' || typeof rawHeight !== 'number') return null;
+	if (!Number.isFinite(rawWidth) || !Number.isFinite(rawHeight)) return null;
+	if (rawWidth <= 0 || rawHeight <= 0) return null;
+	return { width: rawWidth, height: rawHeight };
+}
+
+function resolutionForPolygonKey(
+	channelData: PolygonChannelData | undefined,
+	polygonKey: string,
+	fallbackResolution: { width: number; height: number }
+): { width: number; height: number } {
+	const paramKey = POLYGON_KEY_TO_PARAM_KEY[polygonKey];
+	if (paramKey && channelData) {
+		const arc = readResolutionStrict(channelData.arc_params?.[paramKey]?.resolution);
+		if (arc) return arc;
+		const quad = readResolutionStrict(channelData.quad_params?.[paramKey]?.resolution);
+		if (quad) return quad;
+	}
+	return fallbackResolution;
 }
 
 function readPolygon(raw: unknown): Point[] {
@@ -198,46 +236,50 @@ function buildCrop(
 
 export function buildDashboardFeedCrops(payload: unknown): Record<string, DashboardFeedCrop | null> {
 	const data = (payload ?? {}) as PolygonPayload;
-	const channelResolution = readResolution(data.channel?.resolution);
-	const classificationResolution = readResolution(data.classification?.resolution);
-	const channelPolygons = data.channel?.polygons;
-	const classificationPolygons = data.classification?.polygons;
+	const channelData = data.channel;
+	const classificationData = data.classification;
+	const fallbackChannelResolution = readResolution(channelData?.resolution);
+	const fallbackClassificationResolution = readResolution(classificationData?.resolution);
+	const channelPolygons = channelData?.polygons;
+	const classificationPolygons = classificationData?.polygons;
 
 	const c2 = polygonsForKeys(channelPolygons, ['second_channel']);
 	const c3 = polygonsForKeys(channelPolygons, ['third_channel']);
 	const carousel = polygonsForKeys(channelPolygons, ['carousel']);
 	const classificationChannel = polygonsForKeys(channelPolygons, ['classification_channel']);
-	const feeder = polygonsForKeys(channelPolygons, [
-		'second_channel',
-		'third_channel',
-		'carousel',
-		'classification_channel'
-	]);
+	const feederKeys = ['second_channel', 'third_channel', 'carousel', 'classification_channel'];
+	const feeder = polygonsForKeys(channelPolygons, feederKeys);
 	const classificationTop = polygonsForKeys(classificationPolygons, ['top']);
 	const classificationBottom = polygonsForKeys(classificationPolygons, ['bottom']);
 
+	const c2Res = resolutionForPolygonKey(channelData, 'second_channel', fallbackChannelResolution);
+	const c3Res = resolutionForPolygonKey(channelData, 'third_channel', fallbackChannelResolution);
+	const carouselRes = resolutionForPolygonKey(channelData, 'carousel', fallbackChannelResolution);
+	const classChannelRes = resolutionForPolygonKey(channelData, 'classification_channel', fallbackChannelResolution);
+	const classTopRes = resolutionForPolygonKey(classificationData, 'top', fallbackClassificationResolution);
+	const classBottomRes = resolutionForPolygonKey(classificationData, 'bottom', fallbackClassificationResolution);
+
+	if (feeder.length > 1) {
+		const activeFeederRes = feederKeys
+			.filter((key) => readPolygon(channelPolygons?.[key]).length >= 3)
+			.map((key) => resolutionForPolygonKey(channelData, key, fallbackChannelResolution));
+		const mismatch = activeFeederRes.some(
+			(res) => res.width !== activeFeederRes[0].width || res.height !== activeFeederRes[0].height
+		);
+		if (mismatch) {
+			console.warn(
+				'feeder merged crop uses global channel resolution — cross-resolution merge not yet supported'
+			);
+		}
+	}
+
 	return {
-		feeder: buildCrop('feeder', feeder, channelResolution.width, channelResolution.height),
-		c_channel_2: buildCrop('c_channel_2', c2, channelResolution.width, channelResolution.height),
-		c_channel_3: buildCrop('c_channel_3', c3, channelResolution.width, channelResolution.height),
-		carousel: buildCrop('carousel', carousel, channelResolution.width, channelResolution.height),
-		classification_channel: buildCrop(
-			'classification_channel',
-			classificationChannel,
-			channelResolution.width,
-			channelResolution.height
-		),
-		classification_top: buildCrop(
-			'classification_top',
-			classificationTop,
-			classificationResolution.width,
-			classificationResolution.height
-		),
-		classification_bottom: buildCrop(
-			'classification_bottom',
-			classificationBottom,
-			classificationResolution.width,
-			classificationResolution.height
-		)
+		feeder: buildCrop('feeder', feeder, fallbackChannelResolution.width, fallbackChannelResolution.height),
+		c_channel_2: buildCrop('c_channel_2', c2, c2Res.width, c2Res.height),
+		c_channel_3: buildCrop('c_channel_3', c3, c3Res.width, c3Res.height),
+		carousel: buildCrop('carousel', carousel, carouselRes.width, carouselRes.height),
+		classification_channel: buildCrop('classification_channel', classificationChannel, classChannelRes.width, classChannelRes.height),
+		classification_top: buildCrop('classification_top', classificationTop, classTopRes.width, classTopRes.height),
+		classification_bottom: buildCrop('classification_bottom', classificationBottom, classBottomRes.width, classBottomRes.height)
 	};
 }

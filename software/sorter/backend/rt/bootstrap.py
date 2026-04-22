@@ -8,9 +8,10 @@ This module is the **single** place that reaches into the legacy hardware
 API from the rt/ tree; every other rt/ file stays bridge-free. Bridge
 imports here are kept local to the builder functions and marked clearly.
 
-Call :func:`build_rt_runtime` once (after the legacy
-``CameraService``/``VisionManager`` are running and hardware is homed) to
-get an :class:`RtRuntimeHandle` with ``.start()``/``.stop()`` lifecycle.
+Call :func:`build_rt_runtime` once after the legacy ``CameraService`` is
+running to get an :class:`RtRuntimeHandle` with ``.start()``/``.stop()``
+lifecycle. The caller may start it paused while hardware is still in
+standby, then rebuild or resume it after homing.
 """
 
 from __future__ import annotations
@@ -84,6 +85,7 @@ class RtRuntimeHandle:
     distributor: RuntimeDistributor
     feed_zones: dict[str, Zone] = field(default_factory=dict)
     started: bool = False
+    perception_started: bool = False
     paused: bool = False
     # (role, reason) entries populated at bootstrap when a perception runner
     # could not be built. Observable via /api/rt/status; never fatal.
@@ -92,24 +94,32 @@ class RtRuntimeHandle:
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def start(self) -> None:
-        if self.started:
+    def start_perception(self) -> None:
+        if self.perception_started:
             return
         self.event_bus.start()
         for runner in self.perception_runners:
             runner.start()
-        self.orchestrator.start()
+        self.perception_started = True
+
+    def start(self, *, paused: bool = False) -> None:
+        if self.started:
+            return
+        self.start_perception()
+        self.orchestrator.start(paused=paused)
         self.started = True
+        self.paused = bool(paused)
 
     def stop(self) -> None:
-        if not self.started:
+        if not self.started and not self.perception_started:
             return
-        try:
-            self.orchestrator.stop()
-        except Exception:
-            logging.getLogger("rt.bootstrap").exception(
-                "RtRuntimeHandle: orchestrator stop raised"
-            )
+        if self.started:
+            try:
+                self.orchestrator.stop()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: orchestrator stop raised"
+                )
         for runner in self.perception_runners:
             try:
                 runner.stop(timeout=1.0)
@@ -124,6 +134,8 @@ class RtRuntimeHandle:
                 "RtRuntimeHandle: event bus stop raised"
             )
         self.started = False
+        self.perception_started = False
+        self.paused = False
 
     def pause(self) -> None:
         """Halt tick propagation without stopping perception runners.
@@ -221,7 +233,7 @@ class RtRuntimeHandle:
             self.perception_runners.append(runner)
             if zone is not None:
                 self.feed_zones[feed_id] = zone
-            if self.started:
+            if self.perception_started:
                 try:
                     runner.start()
                 except Exception:

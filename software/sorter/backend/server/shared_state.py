@@ -63,6 +63,7 @@ hardware_homing_step: Optional[str] = None  # Current homing phase description
 _hardware_start_fn: Optional[Any] = None  # Callable set by main.py
 _hardware_initialize_fn: Optional[Any] = None  # Callable set by main.py
 _hardware_reset_fn: Optional[Any] = None  # Callable set by main.py
+_rt_handle_prepare_fn: Optional[Any] = None  # Callable set by main.py
 hardware_runtime_irl: Optional[Any] = None  # Active IRL during homing before controller exists
 hardware_worker_thread: Optional[threading.Thread] = None
 hardware_lifecycle_lock = threading.RLock()
@@ -111,6 +112,11 @@ def setHardwareInitializeFn(fn: Any) -> None:
 def setHardwareResetFn(fn: Any) -> None:
     global _hardware_reset_fn
     _hardware_reset_fn = fn
+
+
+def setRtHandlePrepareFn(fn: Any) -> None:
+    global _rt_handle_prepare_fn
+    _rt_handle_prepare_fn = fn
 
 
 def setHardwareRuntimeIRL(irl: Any | None) -> None:

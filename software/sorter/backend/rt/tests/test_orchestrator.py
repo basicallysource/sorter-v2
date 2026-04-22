@@ -154,6 +154,25 @@ def test_start_stop_lifecycle_propagates_to_runtimes() -> None:
     assert orch.tick_count() >= 1
 
 
+def test_start_paused_blocks_ticks_until_resume() -> None:
+    c1 = _FakeRuntime("c1")
+    slots: dict = {}
+    orch = _make_orchestrator([c1], slots)
+    orch.start(paused=True)
+    try:
+        time.sleep(0.03)
+        assert orch.tick_count() == 0
+        orch.resume()
+        time.sleep(0.03)
+        assert orch.tick_count() >= 1
+        paused_at = orch.tick_count()
+        orch.pause()
+        time.sleep(0.03)
+        assert orch.tick_count() == paused_at
+    finally:
+        orch.stop()
+
+
 def test_tick_count_increments() -> None:
     c1 = _FakeRuntime("c1")
     slots: dict = {}

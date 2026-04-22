@@ -764,8 +764,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         }
     )
     # Populate sorter_state snapshot on-demand if missing. Post-cutover the
-    # legacy FSM is gone; the rt_handle reports its own lifecycle via the
-    # event bus. Default to "running" when the handle has been built.
+    # legacy FSM is gone; the rt_handle reports its own lifecycle directly.
     if shared_state.sorter_state_snapshot is None:
         rt = shared_state.rt_handle
         if rt is None:
@@ -1041,18 +1040,51 @@ def get_polygons() -> Dict[str, Any]:
     return result
 
 
+def _rebuild_rt_perception_roles(*roles: str) -> dict[str, list[str]]:
+    """Best-effort refresh of live rt perception runners after zone edits."""
+    handle = shared_state.rt_handle
+    if handle is None or not hasattr(handle, "rebuild_runner_for_role"):
+        return {"attempted": [], "rebuilt": [], "failed": []}
+
+    attempted: list[str] = []
+    rebuilt: list[str] = []
+    failed: list[str] = []
+    for role in roles:
+        attempted.append(role)
+        try:
+            runner = handle.rebuild_runner_for_role(role)
+        except Exception:
+            runner = None
+        if runner is None:
+            failed.append(role)
+        else:
+            rebuilt.append(role)
+    return {
+        "attempted": attempted,
+        "rebuilt": rebuilt,
+        "failed": failed,
+    }
+
+
 @app.post("/api/polygons")
 def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Save channel and classification polygons.
-
-    Post-cutover: rt/ perception re-reads polygons at bootstrap time only.
-    The saved polygons land on disk via blob_manager; live re-application
-    requires a runtime restart. Flagging this in the response so the UI can
-    surface it.
-    """
+    """Save channel and classification polygons and refresh rt perception."""
     from blob_manager import setChannelPolygons, setClassificationPolygons
+
     if "channel" in body:
         setChannelPolygons(body["channel"])
     if "classification" in body:
         setClassificationPolygons(body["classification"])
-    return {"ok": True, "requires_restart": True}
+
+    rebuild = (
+        _rebuild_rt_perception_roles("c2", "c3", "c4")
+        if "channel" in body
+        else {"attempted": [], "rebuilt": [], "failed": []}
+    )
+    return {
+        "ok": True,
+        "requires_restart": bool(rebuild["failed"]),
+        "rt_rebuild_attempted_roles": rebuild["attempted"],
+        "rt_rebuilt_roles": rebuild["rebuilt"],
+        "rt_rebuild_failed_roles": rebuild["failed"],
+    }

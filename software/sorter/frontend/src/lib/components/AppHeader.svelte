@@ -54,6 +54,20 @@
 		: 'Unknown'
 	);
 
+	const runtimeDotColor = $derived(
+		machineState === 'running' ? 'var(--color-success)'
+		: machineState === 'paused' ? '#FFD500'
+		: machineState === 'initializing' ? 'var(--color-info)'
+		: 'var(--color-danger)'
+	);
+
+	const runtimeStateLabel = $derived(
+		machineState === 'running' ? 'Running'
+		: machineState === 'paused' ? 'Paused'
+		: machineState === 'initializing' ? 'Starting'
+		: 'Unknown'
+	);
+
 	const needsHoming = $derived(
 		hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'
 	);
@@ -318,6 +332,13 @@
 								<span class="flex items-center gap-1.5 text-xs font-medium text-text">
 									<span class="inline-block h-1.5 w-1.5" style="background-color: {powerDotColor}; border-radius: 50%;"></span>
 									{hardwareStateLabel}
+								</span>
+							</div>
+							<div class="flex items-center justify-between py-1">
+								<span class="text-xs text-text-muted">Runtime</span>
+								<span class="flex items-center gap-1.5 text-xs font-medium text-text">
+									<span class="inline-block h-1.5 w-1.5" style="background-color: {runtimeDotColor}; border-radius: 50%;"></span>
+									{runtimeStateLabel}
 								</span>
 							</div>
 							{#if cameraTotal > 0}

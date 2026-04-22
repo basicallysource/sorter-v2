@@ -8,6 +8,7 @@ full app (which would pull hardware + ONNX).
 
 from __future__ import annotations
 
+import base64
 import sys
 from pathlib import Path
 from typing import Any
@@ -133,6 +134,9 @@ def test_feeder_detect_returns_rt_payload_shape(_fake_rt: _FakeRtHandle) -> None
     assert payload["found"] is True
     assert payload["bbox"] == [10, 20, 110, 140]
     assert payload["candidate_bboxes"] == [[10, 20, 110, 140]]
+    assert payload["candidate_previews"]
+    assert payload["candidate_previews"][0] is not None
+    assert base64.b64decode(payload["candidate_previews"][0])[:3] == b"\xff\xd8\xff"
     assert payload["bbox_count"] == 1
     assert payload["score"] == pytest.approx(0.91)
     assert payload["algorithm"].startswith("hive:")
@@ -155,6 +159,7 @@ def test_feeder_detect_no_runner_returns_message(monkeypatch: pytest.MonkeyPatch
     assert payload["found"] is False
     assert payload["bbox"] is None
     assert payload["candidate_bboxes"] == []
+    assert payload["candidate_previews"] == []
     assert "not available" in payload["message"].lower()
 
 
@@ -174,4 +179,7 @@ def test_carousel_detect_returns_rt_payload(_fake_rt: _FakeRtHandle) -> None:
     assert payload["ok"] is True
     assert payload["found"] is True
     assert payload["bbox"] == [10, 20, 110, 140]
+    assert payload["candidate_previews"]
+    assert payload["candidate_previews"][0] is not None
+    assert base64.b64decode(payload["candidate_previews"][0])[:3] == b"\xff\xd8\xff"
     assert payload["frame_resolution"] == [640, 480]

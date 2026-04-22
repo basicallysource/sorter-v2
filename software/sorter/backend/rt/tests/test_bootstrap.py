@@ -22,6 +22,7 @@ from rt.bootstrap import (
     _load_zone_for_role,
 )
 from rt.contracts.feed import PolygonZone, RectZone
+from rt.contracts.registry import CLASSIFIERS
 from rt.events.bus import InProcessEventBus
 
 
@@ -31,6 +32,12 @@ LOG = logging.getLogger("test.bootstrap")
 # ---------------------------------------------------------------------------
 # Fake camera_service that never produces a frame — mirrors the boot-race.
 # ---------------------------------------------------------------------------
+
+
+def test_rt_perception_import_registers_brickognize_classifier() -> None:
+    """Bootstrap imports ``rt.perception`` only once, so that import must
+    register the classifier strategies needed by ``build_rt_runtime``."""
+    assert "brickognize" in CLASSIFIERS.keys()
 
 
 @dataclass

@@ -72,6 +72,10 @@ def _normalize_carousel_detection_algorithm(value: str | None) -> str:
     return normalize_detection_algorithm("carousel", value)
 
 
+def _normalize_aux_detection_algorithm(scope: str, value: str | None) -> str:
+    return normalize_detection_algorithm(scope, value)
+
+
 def _detection_algorithm_label(scope: str, algorithm: str | None) -> str:
     definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
     if definition is None:
@@ -829,12 +833,15 @@ def save_feeder_detection_config(
 @router.get("/api/carousel/detection-config")
 @router.get("/api/classification-channel/detection-config")
 def get_carousel_detection_config() -> Dict[str, Any]:
+    aux_scope = _public_aux_scope()
+    algorithm_scope = "classification_channel" if aux_scope == CLASSIFICATION_CHANNEL_ROLE else "carousel"
     saved = (
         getClassificationChannelDetectionConfig()
-        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
         else getCarouselDetectionConfig()
     )
-    algorithm = _normalize_carousel_detection_algorithm(
+    algorithm = _normalize_aux_detection_algorithm(
+        algorithm_scope,
         saved.get("algorithm") if isinstance(saved, dict) else None
     )
     openrouter_model = _normalize_openrouter_model(
@@ -843,7 +850,10 @@ def get_carousel_detection_config() -> Dict[str, Any]:
     sample_collection_enabled = bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselDetectionAlgorithm"):
         try:
-            algorithm = _normalize_carousel_detection_algorithm(shared_state.vision_manager.getCarouselDetectionAlgorithm())
+            algorithm = _normalize_aux_detection_algorithm(
+                algorithm_scope,
+                shared_state.vision_manager.getCarouselDetectionAlgorithm(),
+            )
         except Exception:
             pass
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselOpenRouterModel"):
@@ -862,9 +872,9 @@ def get_carousel_detection_config() -> Dict[str, Any]:
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
         "sample_collection_supported": _auxiliary_sample_collection_supported(),
-        "available_algorithms": detection_algorithm_options("carousel"),
+        "available_algorithms": detection_algorithm_options(algorithm_scope),
         "available_openrouter_models": _openrouter_model_options(),
-        "scope": _public_aux_scope(),
+        "scope": aux_scope,
     }
 
 
@@ -873,13 +883,15 @@ def get_carousel_detection_config() -> Dict[str, Any]:
 def save_carousel_detection_config(
     payload: AuxiliaryDetectionConfigPayload,
 ) -> Dict[str, Any]:
-    if not scope_supports_detection_algorithm("carousel", payload.algorithm):
+    aux_scope = _public_aux_scope()
+    algorithm_scope = "classification_channel" if aux_scope == CLASSIFICATION_CHANNEL_ROLE else "carousel"
+    if not scope_supports_detection_algorithm(algorithm_scope, payload.algorithm):
         raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
-    algorithm = _normalize_carousel_detection_algorithm(payload.algorithm)
+    algorithm = _normalize_aux_detection_algorithm(algorithm_scope, payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
     saved = (
         getClassificationChannelDetectionConfig()
-        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
         else getCarouselDetectionConfig()
     )
     sample_collection_enabled = (
@@ -905,18 +917,18 @@ def save_carousel_detection_config(
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
     }
-    if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE:
+    if aux_scope == CLASSIFICATION_CHANNEL_ROLE:
         setClassificationChannelDetectionConfig(target_config)
         # Classification C-channel is the rt "c4" role — rebuild its
         # perception runner so the new detector slug is active immediately.
         _rebuild_rt_runner_for_feeder_role(CLASSIFICATION_CHANNEL_ROLE)
     else:
         setCarouselDetectionConfig(target_config)
-    algorithm_label = _detection_algorithm_label("carousel", algorithm)
-    uses_baseline = _detection_algorithm_uses_baseline("carousel", algorithm)
+    algorithm_label = _detection_algorithm_label(algorithm_scope, algorithm)
+    uses_baseline = _detection_algorithm_uses_baseline(algorithm_scope, algorithm)
     scope_label = (
         "Classification C-channel (C4)"
-        if _public_aux_scope() == CLASSIFICATION_CHANNEL_ROLE
+        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
         else "Carousel"
     )
     return {
@@ -926,7 +938,7 @@ def save_carousel_detection_config(
         "sample_collection_enabled": sample_collection_enabled,
         "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "uses_baseline": uses_baseline,
-        "scope": _public_aux_scope(),
+        "scope": aux_scope,
         "message": (
             f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is enabled for classical triggers."
             if uses_baseline and sample_collection_enabled and _auxiliary_sample_collection_supported()
@@ -1041,6 +1053,7 @@ def _empty_detect_payload(
         "found": False,
         "bbox": None,
         "candidate_bboxes": [],
+        "candidate_previews": [],
         "bbox_count": 0,
         "score": None,
         "zone_bbox": zone_bbox,
@@ -1049,6 +1062,62 @@ def _empty_detect_payload(
         "message": message,
         "_sample_capture": None,
     }
+
+
+def _candidate_preview_b64(
+    raw: Any,
+    bbox: list[int] | tuple[int, int, int, int] | None,
+    *,
+    max_side_px: int = 160,
+    jpeg_quality: int = 82,
+) -> str | None:
+    if raw is None or bbox is None or not hasattr(raw, "shape"):
+        return None
+    try:
+        frame_h, frame_w = int(raw.shape[0]), int(raw.shape[1])
+        x1, y1, x2, y2 = (int(v) for v in bbox)
+        x1 = max(0, min(frame_w - 1, x1))
+        x2 = max(0, min(frame_w, x2))
+        y1 = max(0, min(frame_h - 1, y1))
+        y2 = max(0, min(frame_h, y2))
+        if x2 <= x1 or y2 <= y1:
+            return None
+        crop = raw[y1:y2, x1:x2]
+        if crop is None or getattr(crop, "size", 0) <= 0:
+            return None
+        crop_h, crop_w = int(crop.shape[0]), int(crop.shape[1])
+        longest = max(crop_h, crop_w)
+
+        import base64
+        import cv2
+
+        if longest > max_side_px:
+            scale = float(max_side_px) / float(longest)
+            resized_w = max(1, int(round(crop_w * scale)))
+            resized_h = max(1, int(round(crop_h * scale)))
+            crop = cv2.resize(crop, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
+        ok, encoded = cv2.imencode(
+            ".jpg",
+            crop,
+            [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)],
+        )
+        if not ok:
+            return None
+        return base64.b64encode(encoded.tobytes()).decode("ascii")
+    except Exception:
+        return None
+
+
+def _candidate_previews_b64(
+    raw: Any,
+    candidate_bboxes: list[list[int] | tuple[int, int, int, int]] | None,
+) -> list[str | None]:
+    if raw is None or not isinstance(candidate_bboxes, list):
+        return []
+    return [
+        _candidate_preview_b64(raw, candidate)
+        for candidate in candidate_bboxes[:6]
+    ]
 
 
 def _detect_from_rt_pipeline(
@@ -1104,6 +1173,7 @@ def _detect_from_rt_pipeline(
 
     detections = list(batch.detections)
     candidate_bboxes = [list(det.bbox_xyxy) for det in detections]
+    candidate_previews = _candidate_previews_b64(raw, candidate_bboxes)
     best = max(detections, key=lambda det: float(det.score)) if detections else None
     bbox = list(best.bbox_xyxy) if best is not None else None
     score = float(best.score) if best is not None else None
@@ -1125,6 +1195,7 @@ def _detect_from_rt_pipeline(
         "found": bool(detections),
         "bbox": bbox,
         "candidate_bboxes": candidate_bboxes,
+        "candidate_previews": candidate_previews,
         "bbox_count": len(candidate_bboxes),
         "score": score,
         "zone_bbox": zone_bbox,
@@ -1232,6 +1303,7 @@ def _detect_from_standalone_camera(
 
     detections = list(batch.detections)
     candidate_bboxes = [list(det.bbox_xyxy) for det in detections]
+    candidate_previews = _candidate_previews_b64(raw, candidate_bboxes)
     best = max(detections, key=lambda det: float(det.score)) if detections else None
     bbox = list(best.bbox_xyxy) if best is not None else None
     score = float(best.score) if best is not None else None
@@ -1255,6 +1327,7 @@ def _detect_from_standalone_camera(
         "found": bool(detections),
         "bbox": bbox,
         "candidate_bboxes": candidate_bboxes,
+        "candidate_previews": candidate_previews,
         "bbox_count": len(candidate_bboxes),
         "score": score,
         "zone_bbox": [0, 0, w, h],
@@ -1673,8 +1746,9 @@ def debug_carousel_detection() -> Dict[str, Any]:
         if aux_scope == CLASSIFICATION_CHANNEL_ROLE
         else "carousel"
     )
+    algorithm_scope = "classification_channel" if aux_scope == CLASSIFICATION_CHANNEL_ROLE else "carousel"
     payload = _detect_from_rt_pipeline(
-        scope="carousel",
+        scope=algorithm_scope,
         feed_id="c4_feed",
         scope_label=scope_label,
     )

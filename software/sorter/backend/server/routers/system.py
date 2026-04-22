@@ -53,6 +53,23 @@ def reset_system() -> Dict[str, Any]:
                 "message": f"Hardware reset failed: {exc}",
             }
 
+        prepare_rt_fn = shared_state._rt_handle_prepare_fn
+        try:
+            if prepare_rt_fn is not None:
+                shared_state.setHardwareStatus(homing_step="Preparing rt runtime...")
+                prepare_rt_fn()
+        except Exception as exc:
+            shared_state.setHardwareStatus(
+                state="error",
+                error=f"RT runtime prepare failed: {exc}",
+                clear_homing_step=True,
+            )
+            return {
+                "ok": False,
+                "hardware_state": "error",
+                "message": f"RT runtime prepare failed: {exc}",
+            }
+
         shared_state.setHardwareStatus(
             state="standby",
             clear_error=True,

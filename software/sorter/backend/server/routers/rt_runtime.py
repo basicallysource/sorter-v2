@@ -66,6 +66,7 @@ def get_rt_status() -> Dict[str, Any]:
 
         {
           "rt_handle_ready": bool,
+          "perception_started": bool,
           "runners": [ {feed_id, detector_slug, zone_kind, running,
                          last_frame_age_ms}, ... ],
           "skipped_roles": [ {role, reason}, ... ]
@@ -77,6 +78,7 @@ def get_rt_status() -> Dict[str, Any]:
     if handle is None:
         return {
             "rt_handle_ready": False,
+            "perception_started": False,
             "runners": [],
             "skipped_roles": [],
         }
@@ -96,6 +98,7 @@ def get_rt_status() -> Dict[str, Any]:
     skipped = getattr(handle, "skipped_roles", []) or []
     return {
         "rt_handle_ready": True,
+        "perception_started": bool(getattr(handle, "perception_started", False)),
         "started": bool(getattr(handle, "started", False)),
         "paused": bool(getattr(handle, "paused", False)),
         "runners": runners_out,

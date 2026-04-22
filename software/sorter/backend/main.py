@@ -10,7 +10,7 @@ subsystems runtime is gone. The live sorting loop is now the rt/ graph
 3. CameraService
 4. FastAPI + WS server thread + broadcaster thread
 5. Hardware home/init/reset callbacks for the ``/api/system/*`` routes
-6. rt_handle lifecycle (built on demand after homing completes)
+6. rt_handle lifecycle (full runtime starts with backend/reset; homing is separate)
 7. server_to_main_queue lifecycle command drain (pause/resume)
 """
 
@@ -33,6 +33,7 @@ from runtime_variables import mkRuntimeVariables
 from server.api import app
 from server.shared_state import (
     broadcastEvent,
+    publishSorterState,
     setGlobalConfig,
     setRuntimeVariables,
     setCommandQueue,
@@ -43,6 +44,7 @@ from server.shared_state import (
     setHardwareRuntimeIRL,
     setHardwareStartFn,
     setRtHandle,
+    setRtHandlePrepareFn,
 )
 from aruco_config_manager import ArucoConfigManager
 from run_recorder import RunRecorder
@@ -214,7 +216,7 @@ def main() -> None:
 
         camera_service.set_health_event_callback(_on_camera_health_change)
 
-    gc.logger.info("backend starting in standby (rt-runtime, hardware not initialized)...")
+    gc.logger.info("backend starting in standby (hardware not initialized)...")
 
     # Bring up the API/broadcast threads before the heavier camera startup.
     server_thread = threading.Thread(target=runServer, daemon=True)
@@ -256,6 +258,35 @@ def main() -> None:
         except Exception as exc:
             gc.logger.warning(f"rt runtime stop raised: {exc}")
         setRtHandle(None)
+        layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+        publishSorterState("initializing", layout)
+
+    def _build_rt_handle(*, start: bool, paused: bool = False, reason: str) -> None:
+        mode = "live" if start else "idle"
+        gc.logger.info(f"Building rt runtime ({mode}; reason={reason})")
+        from rt.bootstrap import build_rt_runtime
+
+        rt_handle = build_rt_runtime(
+            camera_service=camera_service,
+            gc=gc,
+            irl=irl,
+            logger=gc.logger,
+        )
+        if start:
+            rt_handle.start(paused=paused)
+            gc.logger.info(
+                "rt runtime started%s.",
+                " (paused)" if paused else "",
+            )
+        else:
+            rt_handle.start_perception()
+            gc.logger.info("rt runtime perception primed.")
+        setRtHandle(rt_handle)
+        layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+        if start:
+            publishSorterState("paused" if paused else "running", layout)
+        else:
+            publishSorterState("initializing", layout)
 
     def _cleanup_runtime_hardware(reason: str) -> None:
         nonlocal irl
@@ -365,17 +396,7 @@ def main() -> None:
         # Build and start the rt runtime.
         shared_state.setHardwareStatus(homing_step="Starting rt runtime...")
         try:
-            from rt.bootstrap import build_rt_runtime
-
-            rt_handle = build_rt_runtime(
-                camera_service=camera_service,
-                gc=gc,
-                irl=irl,
-                logger=gc.logger,
-            )
-            rt_handle.start()
-            setRtHandle(rt_handle)
-            gc.logger.info("rt runtime started.")
+            _build_rt_handle(start=True, paused=True, reason="hardware home")
         except Exception as exc:
             gc.logger.error(f"rt runtime build/start failed: {exc}")
             shared_state.setHardwareStatus(error=f"rt runtime failed: {exc}")
@@ -420,12 +441,29 @@ def main() -> None:
                     )
             _checkServoBusHealth(gc, irl)
 
+        shared_state.setHardwareStatus(homing_step="Preparing rt runtime...")
+        try:
+            _build_rt_handle(start=True, paused=True, reason="hardware initialize")
+        except Exception as exc:
+            gc.logger.error(f"rt runtime build failed during initialize: {exc}")
+            raise
+
         shared_state.setHardwareStatus(clear_homing_step=True)
         gc.logger.info("Hardware initialized (steppers ready, no homing performed).")
 
     setHardwareStartFn(_home_hardware)
     setHardwareInitializeFn(_initialize_hardware)
     setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
+    setRtHandlePrepareFn(
+        lambda: _build_rt_handle(start=True, paused=True, reason="standby prepare")
+    )
+
+    try:
+        with gc.profiler.timer("startup.rt_handle_prepare_ms"):
+            _build_rt_handle(start=True, paused=True, reason="startup standby")
+    except Exception as exc:
+        gc.logger.error(f"rt runtime build/start failed during standby startup: {exc}")
+        shared_state.setHardwareStatus(error=f"rt runtime failed: {exc}")
 
     last_heartbeat = time.time()
     last_frame_broadcast = time.time()
@@ -447,6 +485,8 @@ def main() -> None:
                     if rt is not None:
                         try:
                             rt.pause()
+                            layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                            publishSorterState("paused", layout)
                         except Exception:
                             gc.logger.exception("rt.pause raised")
                 elif event.tag == "resume":
@@ -454,6 +494,8 @@ def main() -> None:
                     if rt is not None:
                         try:
                             rt.resume()
+                            layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                            publishSorterState("running", layout)
                         except Exception:
                             gc.logger.exception("rt.resume raised")
                 elif event.tag == "heartbeat":

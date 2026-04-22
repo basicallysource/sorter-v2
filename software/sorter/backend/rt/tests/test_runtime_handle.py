@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
 from rt.bootstrap import RtRuntimeHandle
@@ -167,3 +167,95 @@ def test_handle_runner_for_feed_returns_none_when_empty():
     camera_service = _FakeCameraService(devices={})
     handle = _empty_handle(camera_service)
     assert handle.runner_for_feed("c4_feed") is None
+
+
+def test_start_perception_starts_runners_without_orchestrator():
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    runners = [MagicMock(), MagicMock()]
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=runners,
+        event_bus=bus,
+        c4=None,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+    )
+
+    handle.start_perception()
+
+    bus.start.assert_called_once_with()
+    orchestrator.start.assert_not_called()
+    assert all(runner.start.call_count == 1 for runner in runners)
+    assert handle.perception_started is True
+    assert handle.started is False
+
+
+def test_start_paused_starts_orchestrator_in_paused_mode():
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    runners = [MagicMock(), MagicMock()]
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=runners,
+        event_bus=bus,
+        c4=None,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+    )
+
+    handle.start(paused=True)
+
+    bus.start.assert_called_once_with()
+    orchestrator.start.assert_called_once_with(paused=True)
+    assert handle.started is True
+    assert handle.perception_started is True
+    assert handle.paused is True
+
+
+def test_stop_stops_perception_when_runtime_never_fully_started():
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    runners = [MagicMock(), MagicMock()]
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=runners,
+        event_bus=bus,
+        c4=None,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+    )
+    handle.start_perception()
+
+    handle.stop()
+
+    orchestrator.stop.assert_not_called()
+    assert all(runner.stop.call_count == 1 for runner in runners)
+    bus.stop.assert_called_once_with()
+    assert handle.perception_started is False
+    assert handle.started is False
+
+
+def test_rebuild_runner_starts_new_runner_when_perception_started():
+    camera_service = _FakeCameraService(
+        devices={"carousel": _FakeDevice(width=1920, height=1080)}
+    )
+    handle = _empty_handle(camera_service)
+    handle.perception_started = True
+    runner = MagicMock(spec=PerceptionRunner)
+    zone = RectZone(x=0, y=0, w=1920, h=1080)
+
+    with patch(
+        "rt.bootstrap._build_perception_runner_for_role",
+        return_value=(runner, zone, ""),
+    ):
+        rebuilt = handle.rebuild_runner_for_role("c4", logger=LOG)
+
+    assert rebuilt is runner
+    runner.start.assert_called_once_with()

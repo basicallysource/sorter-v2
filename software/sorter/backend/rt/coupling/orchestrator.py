@@ -59,6 +59,7 @@ class Orchestrator:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._running = False
+        self._paused = False
         self._tick_count = 0
         self._last_tick_mono: float = 0.0
         self._downstream_of = self._build_downstream_map()
@@ -66,9 +67,10 @@ class Orchestrator:
     # ------------------------------------------------------------------
     # Lifecycle
 
-    def start(self) -> None:
+    def start(self, *, paused: bool = False) -> None:
         if self._running:
             return
+        self._paused = bool(paused)
         self._running = True
         self._stop.clear()
         for rt in self._runtimes:
@@ -99,6 +101,13 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: runtime %r stop() raised", rt.runtime_id
                 )
+        self._paused = False
+
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
 
     # ------------------------------------------------------------------
     # Public introspection
@@ -185,6 +194,9 @@ class Orchestrator:
     def _run(self) -> None:
         period = self._tick_period_s
         while not self._stop.is_set():
+            if self._paused:
+                self._stop.wait(timeout=min(period, 0.050))
+                continue
             t0 = time.monotonic()
             try:
                 self._tick(t0)

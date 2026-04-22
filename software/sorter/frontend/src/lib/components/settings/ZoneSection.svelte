@@ -2371,46 +2371,43 @@
 		const waitPolygon = params.waitZone ? buildZonePolygon(params, params.waitZone) : null;
 		const exitPolygon = buildZonePolygon(params, params.exitZone);
 
-		// In edit mode, suppress the tinted ring and zone fills so the
-		// operator sees the raw camera frame through a transparent canvas
-		// and only the ring outlines + handles sit on top. The fills are
-		// helpful when browsing the zone but obscure the underlying image
-		// exactly when the operator needs to see it.
-		if (!editingZone) {
+		// Ring + zone fills render in both browse and edit mode: operators
+		// want the same green (drop) / red (exit) / yellow (wait) tints the
+		// runtime overlay uses so the edit canvas is visually consistent
+		// with what the server renders otherwise.
+		ctx.beginPath();
+		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
+		for (let i = 1; i < outerCircle.length; i++) {
+			ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
+		}
+		ctx.closePath();
+		ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
+		for (let i = 1; i < innerCircle.length; i++) {
+			ctx.lineTo(innerCircle[i][0], innerCircle[i][1]);
+		}
+		ctx.closePath();
+		ctx.fillStyle = active ? `${color}14` : `${color}0a`;
+		ctx.fill('evenodd');
+
+		const zoneOverlays: Array<{ polygon: Point[]; color: string; alpha: number }> = [
+			{ polygon: dropPolygon, color: DROP_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
+			...(waitPolygon
+				? [{ polygon: waitPolygon, color: WAIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }]
+				: []),
+			{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }
+		];
+
+		for (const { polygon: zonePolygon, color: zoneColor, alpha: zoneAlpha } of zoneOverlays) {
 			ctx.beginPath();
-			ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
-			for (let i = 1; i < outerCircle.length; i++) {
-				ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
+			ctx.moveTo(zonePolygon[0][0], zonePolygon[0][1]);
+			for (let i = 1; i < zonePolygon.length; i++) {
+				ctx.lineTo(zonePolygon[i][0], zonePolygon[i][1]);
 			}
 			ctx.closePath();
-			ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
-			for (let i = 1; i < innerCircle.length; i++) {
-				ctx.lineTo(innerCircle[i][0], innerCircle[i][1]);
-			}
-			ctx.closePath();
-			ctx.fillStyle = active ? `${color}14` : `${color}0a`;
-			ctx.fill('evenodd');
-
-			const zoneOverlays: Array<{ polygon: Point[]; color: string; alpha: number }> = [
-				{ polygon: dropPolygon, color: DROP_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
-				...(waitPolygon
-					? [{ polygon: waitPolygon, color: WAIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }]
-					: []),
-				{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }
-			];
-
-			for (const { polygon: zonePolygon, color: zoneColor, alpha: zoneAlpha } of zoneOverlays) {
-				ctx.beginPath();
-				ctx.moveTo(zonePolygon[0][0], zonePolygon[0][1]);
-				for (let i = 1; i < zonePolygon.length; i++) {
-					ctx.lineTo(zonePolygon[i][0], zonePolygon[i][1]);
-				}
-				ctx.closePath();
-				ctx.fillStyle = zoneColor;
-				ctx.globalAlpha = zoneAlpha;
-				ctx.fill();
-				ctx.globalAlpha = 1;
-			}
+			ctx.fillStyle = zoneColor;
+			ctx.globalAlpha = zoneAlpha;
+			ctx.fill();
+			ctx.globalAlpha = 1;
 		}
 
 		ctx.beginPath();

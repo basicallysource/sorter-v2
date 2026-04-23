@@ -39,6 +39,7 @@ log = logging.getLogger(__name__)
 
 _DEFAULT_CONF_THRESHOLD = 0.25
 _DEFAULT_IOU_THRESHOLD = 0.45
+_DEFAULT_POLYGON_APRON_PX = 0
 _HIVE_MODELS_DIRNAME = "hive_detection_models"
 _DEFAULT_TARGET_SLUG = "c-channel-yolo11n-320"
 _SLUG_KEY_PREFIX = "hive:"
@@ -70,6 +71,7 @@ class HiveDetector:
         imgsz: int,
         model_family: str,
         legacy_scopes: frozenset[str] = frozenset(),
+        polygon_apron_px: int = _DEFAULT_POLYGON_APRON_PX,
     ) -> None:
         self._model_id = model_id
         self._slug = slug
@@ -77,6 +79,7 @@ class HiveDetector:
         self._imgsz = int(imgsz)
         self._model_family = model_family
         self._legacy_scopes = legacy_scopes
+        self._polygon_apron_px = max(0, int(polygon_apron_px))
         self.key = f"{_SLUG_KEY_PREFIX}{slug}"
 
     # --- Detector protocol ---------------------------------------------------
@@ -167,7 +170,13 @@ class HiveDetector:
             return np.ascontiguousarray(raw[y1:y2, x1:x2]), (x1, y1)
 
         if isinstance(zone, PolygonZone):
-            return apply_polygon_crop(raw, zone.vertices)
+            if self._polygon_apron_px <= 0:
+                return apply_polygon_crop(raw, zone.vertices)
+            return self._apply_polygon_apron_crop(
+                raw,
+                zone.vertices,
+                apron_px=self._polygon_apron_px,
+            )
 
         if isinstance(zone, PolarZone):
             raise NotImplementedError(
@@ -176,6 +185,36 @@ class HiveDetector:
             )
 
         raise TypeError(f"Unsupported Zone type: {type(zone).__name__}")
+
+    def _apply_polygon_apron_crop(
+        self,
+        raw: np.ndarray,
+        vertices: tuple[tuple[int, int], ...],
+        *,
+        apron_px: int,
+    ) -> tuple[np.ndarray | None, tuple[int, int]]:
+        """Crop a small watch band around a polygon without changing admission.
+
+        The detector can only report what it can see. The normal polygon mask
+        hides pixels just outside the saved zone, which delays first-touch
+        detection until enough of the piece is already inside. The apron crop
+        gives the model context around the zone; ``_bbox_overlaps_zone`` still
+        gates accepted detections against the real saved polygon.
+        """
+        if len(vertices) < 3:
+            return None, (0, 0)
+        h, w = raw.shape[:2]
+        polygon = np.array(vertices, dtype=np.int32)
+        if polygon.ndim != 2 or polygon.shape[0] < 3:
+            return None, (0, 0)
+        margin = max(0, int(apron_px))
+        x1 = max(0, int(np.min(polygon[:, 0])) - margin)
+        y1 = max(0, int(np.min(polygon[:, 1])) - margin)
+        x2 = min(int(w), int(np.max(polygon[:, 0])) + margin)
+        y2 = min(int(h), int(np.max(polygon[:, 1])) + margin)
+        if x2 <= x1 or y2 <= y1:
+            return None, (0, 0)
+        return np.ascontiguousarray(raw[y1:y2, x1:x2]), (x1, y1)
 
     def _bbox_overlaps_zone(
         self,
@@ -509,6 +548,7 @@ def _make_lazy_factory(
         *,
         conf_threshold: float = _DEFAULT_CONF_THRESHOLD,
         iou_threshold: float = _DEFAULT_IOU_THRESHOLD,
+        polygon_apron_px: int = _DEFAULT_POLYGON_APRON_PX,
         processor: Any | None = None,
     ) -> HiveDetector:
         proc = processor if processor is not None else _build_processor(
@@ -526,6 +566,7 @@ def _make_lazy_factory(
             imgsz=imgsz,
             model_family=model_family,
             legacy_scopes=legacy_scopes,
+            polygon_apron_px=polygon_apron_px,
         )
 
     factory.__name__ = f"hive_detector_factory[{key}]"

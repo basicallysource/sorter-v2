@@ -187,6 +187,32 @@ def test_hive_detector_keeps_polygon_edge_touch_before_center_enters() -> None:
     assert [d.bbox_xyxy for d in batch.detections] == [(40, 50, 56, 66)]
 
 
+def test_hive_detector_polygon_apron_exposes_inbound_piece_at_first_touch() -> None:
+    proc = FakeHiveProcessor(
+        detections=[_MLDetection(bbox=(0, 0, 26, 26), score=0.9)]
+    )
+    det = HiveDetector(
+        model_id="m",
+        slug="s",
+        processor=proc,
+        imgsz=320,
+        model_family="yolo",
+        polygon_apron_px=10,
+    )
+    frame = _frame(np.full((200, 200, 3), 255, dtype=np.uint8))
+    zone = PolygonZone(vertices=((50, 50), (150, 60), (120, 160), (40, 140)))
+
+    batch = det.detect(frame, zone)
+
+    # The saved polygon bbox is 110x110. The detector-only apron expands the
+    # model crop to 130x130 and leaves the outer watch band visible.
+    assert proc.calls == [(130, 130)]
+    assert proc.last_image is not None
+    assert int(proc.last_image[0, 0, 0]) == 255
+    # Original bbox is (30, 40, 56, 66): center outside, edge overlapping.
+    assert [d.bbox_xyxy for d in batch.detections] == [(30, 40, 56, 66)]
+
+
 def test_hive_detector_polar_zone_not_implemented() -> None:
     proc = FakeHiveProcessor()
     det = HiveDetector(

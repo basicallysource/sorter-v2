@@ -389,6 +389,7 @@ def test_runner_status_snapshot_surfaces_debug_counts() -> None:
     assert snapshot["detector_slug"] == "noop"
     assert snapshot["zone_kind"] == "rect"
     assert snapshot["running"] is True
+    assert snapshot["period_ms"] == 2
     assert snapshot["last_frame_age_ms"] == 250.0
     assert snapshot["detection_count"] == 2
     assert snapshot["raw_track_count"] == 2

@@ -55,6 +55,10 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 }
 
 
+_FIRST_TOUCH_POLYGON_APRON_PX = 48
+_PERCEPTION_PERIOD_MS = 100
+
+
 def detector_slug_for_role(role: str, logger: logging.Logger) -> str:
     """Return the detector slug the user has configured for ``role``.
 
@@ -214,7 +218,11 @@ def build_perception_runner_for_role(
         feed_id=feed_id,
         detector={
             "key": detector_slug,
-            "params": {"conf_threshold": 0.25, "iou_threshold": 0.45},
+            "params": {
+                "conf_threshold": 0.25,
+                "iou_threshold": 0.45,
+                "polygon_apron_px": _FIRST_TOUCH_POLYGON_APRON_PX,
+            },
         },
         tracker={"key": "polar", "params": tracker_params},
         filters=[{"key": "ghost", "params": {}}],
@@ -229,7 +237,7 @@ def build_perception_runner_for_role(
         return None, zone, "pipeline_build_failed"
     runner = PerceptionRunner(
         pipeline=pipeline,
-        period_ms=200,
+        period_ms=_PERCEPTION_PERIOD_MS,
         event_bus=event_bus,
         name=f"RtPerception[{role}]",
     )

@@ -212,6 +212,7 @@ class PerceptionRunner:
             "detector_slug": getattr(detector, "key", None),
             "zone_kind": zone_kind,
             "running": bool(self._running),
+            "period_ms": int(round(self._period_s * 1000.0)),
             "last_frame_age_ms": last_frame_age_ms,
             "detection_count": detection_count,
             "raw_track_count": raw_track_count,

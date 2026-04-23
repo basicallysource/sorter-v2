@@ -325,5 +325,7 @@ def testbuild_perception_runner_for_role_happy_path():
     assert pipeline.feed.feed_id == "c4_feed"
     # And the detector is the scope default (hive:c-channel-yolo11n-320).
     assert pipeline.detector.key == "hive:c-channel-yolo11n-320"
+    assert getattr(runner, "_period_s", None) == 0.1
+    assert getattr(pipeline.detector, "_polygon_apron_px", None) == 48
     tracker = pipeline.tracker
     assert getattr(tracker, "_polar_center", None) is not None

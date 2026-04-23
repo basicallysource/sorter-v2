@@ -165,15 +165,18 @@ class Orchestrator:
                     runtime_debug[runtime_id] = {}
 
         slot_debug: dict[str, dict[str, int]] = {}
+        now = time.monotonic()
         for (upstream, downstream), slot in self._slots.items():
             if not isinstance(upstream, str) or not isinstance(downstream, str):
                 continue
             key = f"{upstream}_to_{downstream}"
             try:
+                # Sweep expired claims on every status probe so the
+                # dashboard doesn't lie about orphaned reservations.
                 slot_debug[key] = {
                     "capacity": int(slot.capacity()),
-                    "taken": int(slot.taken()),
-                    "available": int(slot.available()),
+                    "taken": int(slot.taken(now_mono=now)),
+                    "available": int(slot.available(now_mono=now)),
                 }
             except Exception:
                 self._logger.exception(
@@ -203,7 +206,9 @@ class Orchestrator:
         slot = self._slots.get((runtime_id, downstream_id))
         if slot is None:
             return 0
-        slot_capacity = slot.available()
+        # Pass now_mono so expired claims are swept before the runtime tick
+        # sees a "full" slot and blocks unnecessarily.
+        slot_capacity = slot.available(now_mono=time.monotonic())
         downstream = self._runtime_by_id.get(downstream_id)
         if downstream is None:
             return slot_capacity

@@ -150,7 +150,11 @@ class RuntimeC1(BaseRuntime):
         self._jam.attempts = 0
 
     def _dispatch_pulse(self, now_mono: float) -> None:
-        claimed = self._downstream_slot.try_claim()
+        # 3 s handoff budget: if the announced piece never arrives at C2,
+        # the slot auto-releases so C1 can keep feeding.
+        claimed = self._downstream_slot.try_claim(
+            now_mono=now_mono, hold_time_s=3.0
+        )
         if not claimed:
             self._set_state("idle", blocked_reason="downstream_full")
             return

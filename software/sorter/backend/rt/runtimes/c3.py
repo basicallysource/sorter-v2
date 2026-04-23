@@ -250,7 +250,9 @@ class RuntimeC3(BaseRuntime):
         # advance the ring but do not exit the channel.
         claim = None
         if mode is _PulseMode.PRECISE:
-            claim = self._downstream_slot.try_claim()
+            claim = self._downstream_slot.try_claim(
+                now_mono=now_mono, hold_time_s=3.0
+            )
             if not claim:
                 self._set_state("pulsing", blocked_reason="downstream_full")
                 return

@@ -128,6 +128,7 @@ def build_c4_callables(
     logger: logging.Logger,
     *,
     startup_purge_speed_scale: float = 1.0,
+    transport_speed_scale: float = 1.0,
 ) -> tuple[
     Callable[[float], bool],
     Callable[[float], bool],
@@ -163,8 +164,21 @@ def build_c4_callables(
             logger.exception("RuntimeC4: fast carousel_move raised")
             return False
 
+    # Normal-travel speed: applied to every carousel_move (pipeline
+    # advance + exit shimmy). ``transport_speed_scale`` multiplies the
+    # default steps-per-second; 1.0 preserves legacy behaviour. Ejection
+    # uses a separate config (``classification_channel_eject``) so the
+    # drop-commit precision is not affected by this scale.
+    transport_speed_limit: int | None = None
+    default_speed_for_transport = _default_speed_limit()
+    if default_speed_for_transport is not None and transport_speed_scale > 1.0:
+        transport_speed_limit = max(
+            default_speed_for_transport,
+            int(round(float(default_speed_for_transport) * float(transport_speed_scale))),
+        )
+
     def carousel_move(deg: float) -> bool:
-        return _move_with_speed_limit(deg, speed_limit=None)
+        return _move_with_speed_limit(deg, speed_limit=transport_speed_limit)
 
     purge_speed_limit = None
     default_speed = _default_speed_limit()

@@ -230,7 +230,12 @@ class RuntimeC2(BaseRuntime):
         return head
 
     def _dispatch_exit_pulse(self, track: Track, now_mono: float) -> None:
-        claimed = self._downstream_slot.try_claim()
+        # Give the downstream handoff ~3 s to resolve (C3 registers the
+        # arriving piece or the slot auto-releases so the ring can keep
+        # flowing if the pulse never produced a visible arrival).
+        claimed = self._downstream_slot.try_claim(
+            now_mono=now_mono, hold_time_s=3.0
+        )
         if not claimed:
             self._set_state("idle", blocked_reason="downstream_full")
             return

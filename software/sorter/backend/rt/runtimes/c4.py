@@ -622,7 +622,9 @@ class RuntimeC4(BaseRuntime):
         if self._hw.busy():
             self._set_state("drop_commit", blocked_reason="hw_busy")
             return
-        if not self._downstream_slot.try_claim():
+        if not self._downstream_slot.try_claim(
+            now_mono=now_mono, hold_time_s=5.0
+        ):
             self._set_state("drop_commit", blocked_reason="downstream_full")
             return
 

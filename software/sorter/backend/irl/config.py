@@ -307,6 +307,7 @@ class ClassificationChannelConfig:
     startup_purge_max_prime_moves: int
     startup_purge_clear_hold_ms: int
     startup_purge_speed_scale: float
+    transport_speed_scale: float
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
@@ -378,6 +379,10 @@ class ClassificationChannelConfig:
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
         self.startup_purge_speed_scale = 12.0
+        # Scale for the normal pipeline-advance carousel move. Exit drop
+        # commit uses a separate eject config, so this only affects the
+        # slow pipeline travel, not the precision drop.
+        self.transport_speed_scale = 3.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",
@@ -440,10 +445,14 @@ class FeederConfig:
             microsteps_per_second=2500,
             delay_between_ms=1000,
         )
+        # Normal C3 pulse advances the ring toward the exit — fast, since
+        # the piece is still well away from the drop edge. Precision is
+        # the drop-commit step: smaller + slower so pieces fall one at a
+        # time without overshoot.
         self.third_rotor_normal = RotorPulseConfig(
-            steps=1000,
-            microsteps_per_second=5000,
-            delay_between_ms=250,
+            steps=2500,
+            microsteps_per_second=12000,
+            delay_between_ms=120,
         )
         self.third_rotor_precision = RotorPulseConfig(
             steps=300,

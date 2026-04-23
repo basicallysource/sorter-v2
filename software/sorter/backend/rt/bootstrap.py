@@ -537,6 +537,11 @@ def build_rt_runtime(
             if classification_cfg
             else 12.0
         ),
+        transport_speed_scale=float(
+            getattr(classification_cfg, "transport_speed_scale", 3.0)
+            if classification_cfg
+            else 3.0
+        ),
     )
     chute_move, chute_position_query = build_chute_callables(irl, rules_engine, log)
 

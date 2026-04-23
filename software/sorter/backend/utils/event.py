@@ -40,6 +40,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             classification_channel_size_class=obj.classification_channel_size_class,
             classification_channel_zone_state=obj.classification_channel_zone_state,
             classification_channel_zone_center_deg=obj.classification_channel_zone_center_deg,
+            classification_channel_exit_deg=obj.classification_channel_exit_deg,
             classification_channel_zone_half_width_deg=obj.classification_channel_zone_half_width_deg,
             classification_channel_soft_guard_deg=obj.classification_channel_soft_guard_deg,
             classification_channel_hard_guard_deg=obj.classification_channel_hard_guard_deg,

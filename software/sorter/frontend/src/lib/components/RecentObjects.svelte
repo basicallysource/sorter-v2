@@ -15,6 +15,7 @@
 	} from '$lib/recent-pieces';
 
 	const ctx = getMachineContext();
+	const FALLBACK_C4_EXIT_ANGLE_DEG = 30;
 
 	onMount(() => {
 		void sortingProfileStore.load().catch(() => {});
@@ -44,13 +45,13 @@
 				return !recent_delivered_global_ids.has(gid);
 			});
 		list.sort((a, b) => {
-			const aPolar = a.classification_channel_zone_center_deg;
-			const bPolar = b.classification_channel_zone_center_deg;
-			if (typeof aPolar === 'number' && typeof bPolar === 'number') {
-				return bPolar - aPolar;
+			const aDistance = exitDistanceDeg(a);
+			const bDistance = exitDistanceDeg(b);
+			if (Number.isFinite(aDistance) && Number.isFinite(bDistance)) {
+				if (aDistance !== bDistance) return aDistance - bDistance;
 			}
-			if (typeof aPolar === 'number') return -1;
-			if (typeof bPolar === 'number') return 1;
+			if (Number.isFinite(aDistance)) return -1;
+			if (Number.isFinite(bDistance)) return 1;
 			return (
 				(b.first_carousel_seen_ts ?? b.created_at ?? 0) -
 				(a.first_carousel_seen_ts ?? a.created_at ?? 0)
@@ -70,7 +71,7 @@
 			seen_keys.add(key);
 			deduped.push(o);
 		}
-		return deduped.slice(0, 5);
+		return deduped.slice(0, 5).reverse();
 	});
 
 	const delivered = $derived.by(() => {
@@ -109,6 +110,17 @@
 		if (pct >= 80) return 'text-warning';
 		if (pct >= 60) return 'text-warning/70';
 		return 'text-danger';
+	}
+
+	function wrappedAngleDistanceDeg(angle: number, target: number): number {
+		return Math.abs(((angle - target + 540) % 360) - 180);
+	}
+
+	function exitDistanceDeg(obj: KnownObjectData): number {
+		const angle = obj.classification_channel_zone_center_deg;
+		if (typeof angle !== 'number' || !Number.isFinite(angle)) return Number.POSITIVE_INFINITY;
+		const exit = obj.classification_channel_exit_deg ?? FALLBACK_C4_EXIT_ANGLE_DEG;
+		return wrappedAngleDistanceDeg(angle, exit);
 	}
 
 	const PHASE_LABEL: Record<LifecyclePhase, string> = {
@@ -317,7 +329,7 @@
 			<div class="p-3 text-center text-sm text-text-muted">No pieces yet</div>
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
-				<!-- Upcoming (approaching exit, oldest-to-newest) -->
+				<!-- Upcoming queue: farthest-to-nearest, with next-to-distribute at the divider. -->
 				{#each upcoming as obj (obj.uuid)}
 					{@render pieceCard(obj)}
 				{/each}

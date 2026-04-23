@@ -629,6 +629,7 @@ class RuntimeC4(BaseRuntime):
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
                     "classification_channel_zone_center_deg": angle_deg,
+                    "classification_channel_exit_deg": self._exit_angle_deg,
                     "first_carousel_seen_ts": now_mono,
                     "recovered": recovered,
                 },
@@ -812,6 +813,7 @@ class RuntimeC4(BaseRuntime):
             "part_category": result.category if result else None,
             "category": result.category if result else None,
             "confidence": result.confidence if result else None,
+            "classification_channel_exit_deg": self._exit_angle_deg,
             "algorithm": result.algorithm if result else None,
             "brickognize_preview_url": result_meta.get("preview_url")
             or result_meta.get("img_url"),

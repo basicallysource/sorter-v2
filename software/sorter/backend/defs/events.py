@@ -141,6 +141,7 @@ class KnownObjectData(BaseModel):
     classification_channel_size_class: Optional[str] = None
     classification_channel_zone_state: Optional[str] = None
     classification_channel_zone_center_deg: Optional[float] = None
+    classification_channel_exit_deg: Optional[float] = None
     classification_channel_zone_half_width_deg: Optional[float] = None
     classification_channel_soft_guard_deg: Optional[float] = None
     classification_channel_hard_guard_deg: Optional[float] = None

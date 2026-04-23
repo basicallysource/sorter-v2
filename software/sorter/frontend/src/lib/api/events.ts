@@ -96,6 +96,7 @@ export interface KnownObjectData {
   classification_channel_size_class?: string | null;
   classification_channel_zone_state?: string | null;
   classification_channel_zone_center_deg?: number | null;
+  classification_channel_exit_deg?: number | null;
   classification_channel_zone_half_width_deg?: number | null;
   classification_channel_soft_guard_deg?: number | null;
   classification_channel_hard_guard_deg?: number | null;

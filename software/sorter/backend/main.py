@@ -257,6 +257,7 @@ def main() -> None:
             gc.logger.warning(f"rt runtime stop raised: {exc}")
         setRtHandle(None)
         layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+        gc.runtime_stats.setLifecycleState("initializing")
         publishSorterState("initializing", layout)
 
     def _build_rt_handle(*, start: bool, paused: bool = False, reason: str) -> None:
@@ -276,9 +277,11 @@ def main() -> None:
                 "rt runtime started%s.",
                 " (paused)" if paused else "",
             )
+            gc.runtime_stats.setLifecycleState("paused" if paused else "running")
         else:
             rt_handle.start_perception()
             gc.logger.info("rt runtime perception primed.")
+            gc.runtime_stats.setLifecycleState("initializing")
         setRtHandle(rt_handle)
         layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
         if start:
@@ -487,6 +490,7 @@ def main() -> None:
                     if rt is not None:
                         try:
                             rt.pause()
+                            gc.runtime_stats.setLifecycleState("paused")
                             layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
                             publishSorterState("paused", layout)
                         except Exception:
@@ -496,6 +500,7 @@ def main() -> None:
                     if rt is not None:
                         try:
                             rt.resume()
+                            gc.runtime_stats.setLifecycleState("running")
                             layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
                             publishSorterState("running", layout)
                         except Exception:

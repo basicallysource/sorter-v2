@@ -6,7 +6,7 @@
 /c2-debug.png
 /classification-*.png
 /classification-*.md
-/.playwright-mcp/
+.playwright-mcp/
 /detail-requests.txt
 /samples-nav-requests.txt
 /sample-detail-blank.png

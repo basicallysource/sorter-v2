@@ -33,6 +33,10 @@ permalink: /lab/
     <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/sorter-architecture-principles/' | relative_url }}">Sorter Architecture Principles</a></strong>
+    <p>A durable set of architectural principles and audit questions for iteratively improving the runtime and backend without losing direction.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
     <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
   </div>

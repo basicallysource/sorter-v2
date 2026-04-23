@@ -12,6 +12,7 @@ from .admission_c4 import C4Admission
 from .ejection_c4 import C4EjectionTiming
 from .ejection_constant import ConstantPulseEjection
 from .purge_c4 import C4StartupPurgeStrategy
+from .purge_generic import GenericPurgeStrategy, PurgeTickResult
 
 
 __all__ = [
@@ -20,4 +21,6 @@ __all__ = [
     "C4EjectionTiming",
     "ConstantPulseEjection",
     "C4StartupPurgeStrategy",
+    "GenericPurgeStrategy",
+    "PurgeTickResult",
 ]

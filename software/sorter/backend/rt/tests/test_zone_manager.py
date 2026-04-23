@@ -33,6 +33,13 @@ def test_add_zone_rejected_when_full() -> None:
     assert zm.zone_count() == 1
 
 
+def test_add_zone_rejected_when_arc_overlaps_existing_zone() -> None:
+    zm = _make(max_zones=3, guard_angle_deg=10.0, default_half_width_deg=10.0)
+    assert zm.add_zone(piece_uuid="a", angle_deg=0.0)
+    assert not zm.add_zone(piece_uuid="b", angle_deg=5.0)
+    assert zm.zone_count() == 1
+
+
 def test_add_zone_idempotent_refresh_for_same_uuid() -> None:
     zm = _make(max_zones=1)
     assert zm.add_zone(piece_uuid="a", angle_deg=0.0, now_mono=1.0)

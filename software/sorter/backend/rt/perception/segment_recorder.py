@@ -31,6 +31,7 @@ from rt.events.topics import (
     PIECE_DISTRIBUTED,
     PIECE_REGISTERED,
 )
+from rt.projections.piece_dossier import refresh_piece_preview_and_push
 
 if False:  # TYPE_CHECKING guard without importing TYPE_CHECKING
     from rt.perception.pipeline_runner import PerceptionRunner
@@ -455,6 +456,7 @@ class SegmentRecorder:
             remember_piece_segment(
                 rec.piece_uuid, _SEGMENT_ROLE, _SEGMENT_SEQUENCE, payload
             )
+            refresh_piece_preview_and_push(rec.piece_uuid, broadcast=True)
         except Exception:
             _LOG.exception(
                 "segment_recorder: remember_piece_segment failed (%s)",

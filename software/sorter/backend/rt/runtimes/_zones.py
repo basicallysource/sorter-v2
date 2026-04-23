@@ -219,6 +219,8 @@ class ZoneManager:
             return False
         center = float(angle_deg) if angle_deg is not None else self._intake_angle_deg
         half = float(half_width_deg) if half_width_deg is not None else self._default_half_width
+        if not self.is_arc_clear(center, half_width_deg=half):
+            return False
         self._zones[piece_uuid] = ExclusionZone(
             piece_uuid=piece_uuid,
             global_id=global_id,

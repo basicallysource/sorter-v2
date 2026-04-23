@@ -35,12 +35,21 @@ _TOPIC_TO_STAGE = {
 }
 
 
-def install(bus: EventBus) -> None:
-    """Attach the piece-dossier projection to the three piece-lifecycle topics.
+def refresh_piece_preview_and_push(
+    piece_uuid: str,
+    *,
+    status: str | None = None,
+    broadcast: bool = True,
+) -> dict[str, Any] | None:
+    """Refresh a dossier row from segment previews and push it to UI consumers.
 
-    Import or subscribe failures are swallowed with a warning so a missing
-    persistence helper cannot stop the rt runtime from coming up.
+    PIECE_REGISTERED often fires before the segment recorder has written its
+    first crop. The recorder heartbeat calls this later so pending
+    "Tracked on carousel" rows get a captured-image fallback without waiting
+    for classification or distribution.
     """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
     try:
         from local_state import (
             get_piece_dossier,
@@ -48,6 +57,83 @@ def install(bus: EventBus) -> None:
             remember_piece_dossier,
             remember_recent_known_object,
         )
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: could not import local_state for preview refresh",
+            exc_info=True,
+        )
+        return None
+
+    try:
+        merged = get_piece_dossier(piece_uuid)
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: get_piece_dossier raised during refresh",
+            exc_info=True,
+        )
+        return None
+    if not isinstance(merged, dict):
+        return None
+
+    try:
+        preview_paths = get_piece_preview_paths([piece_uuid])
+        preview = preview_paths.get(piece_uuid)
+        if isinstance(preview, str) and preview.strip():
+            merged = dict(merged)
+            merged["preview_jpeg_path"] = preview
+            remember_piece_dossier(piece_uuid, merged, status=status)
+            refreshed = get_piece_dossier(piece_uuid)
+            if isinstance(refreshed, dict):
+                merged = dict(refreshed)
+                merged["preview_jpeg_path"] = preview
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: preview enrichment raised",
+            exc_info=True,
+        )
+
+    try:
+        from server.services import runtime_stats as runtime_stats_service
+
+        runtime_stats_service.observe_known_object(merged)
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: runtime_stats observe raised",
+            exc_info=True,
+        )
+
+    try:
+        remember_recent_known_object(merged)
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: remember_recent_known_object raised",
+            exc_info=True,
+        )
+
+    if not broadcast:
+        return merged
+    try:
+        from server import shared_state
+    except Exception:
+        return merged
+    try:
+        shared_state.broadcast_from_thread({"tag": "known_object", "data": merged})
+    except Exception:
+        _LOG.debug(
+            "piece_dossier projection: broadcast_from_thread raised",
+            exc_info=True,
+        )
+    return merged
+
+
+def install(bus: EventBus) -> None:
+    """Attach the piece-dossier projection to the three piece-lifecycle topics.
+
+    Import or subscribe failures are swallowed with a warning so a missing
+    persistence helper cannot stop the rt runtime from coming up.
+    """
+    try:
+        from local_state import get_piece_dossier, remember_piece_dossier
     except Exception:
         _LOG.warning(
             "piece_dossier projection: could not import local_state (non-fatal)"
@@ -115,58 +201,10 @@ def install(bus: EventBus) -> None:
         if not isinstance(merged, dict):
             return
 
-        try:
-            preview_paths = get_piece_preview_paths([piece_uuid])
-            preview = preview_paths.get(piece_uuid)
-            if isinstance(preview, str) and preview.strip():
-                merged["preview_jpeg_path"] = preview
-                remember_piece_dossier(piece_uuid, merged, status=stage or None)
-                refreshed = get_piece_dossier(piece_uuid)
-                if isinstance(refreshed, dict):
-                    merged = refreshed
-                    merged["preview_jpeg_path"] = preview
-        except Exception:
-            _LOG.debug(
-                "piece_dossier projection: preview enrichment raised",
-                exc_info=True,
-            )
-
-        try:
-            from server.services import runtime_stats as runtime_stats_service
-
-            runtime_stats_service.observe_known_object(merged)
-        except Exception:
-            _LOG.debug(
-                "piece_dossier projection: runtime_stats observe raised",
-                exc_info=True,
-            )
-
-        try:
-            remember_recent_known_object(merged)
-        except Exception:
-            _LOG.debug(
-                "piece_dossier projection: remember_recent_known_object raised",
-                exc_info=True,
-            )
-
-        # Live push to every open WS client. Lazy-import shared_state so
-        # this module stays import-safe before the server loop exists.
-        try:
-            from server import shared_state
-        except Exception:
-            return
-        try:
-            shared_state.broadcast_from_thread(
-                {"tag": "known_object", "data": merged}
-            )
-        except Exception:
-            _LOG.debug(
-                "piece_dossier projection: broadcast_from_thread raised",
-                exc_info=True,
-            )
+        refresh_piece_preview_and_push(piece_uuid, status=stage or None)
 
     for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
         bus.subscribe(topic, _on_piece_event)
 
 
-__all__ = ["install"]
+__all__ = ["install", "refresh_piece_preview_and_push"]

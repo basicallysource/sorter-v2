@@ -543,6 +543,36 @@ def test_c4_recovers_stable_visible_tracks_after_restart_and_starts_transport() 
     assert rt.health().state == "rotate_pipeline"
 
 
+def test_c4_recovery_dedupes_overlapping_noisy_tracks() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=4)
+    noisy_a = _track(
+        global_id=7,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+    noisy_b = _track(
+        global_id=8,
+        angle_deg=47.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.93,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(noisy_a, noisy_b, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+
+    assert rt.dossier_count() == 1
+    assert rt.debug_snapshot()["zone_count"] == 1
+
+
 def test_c4_slows_pipeline_motion_near_exit() -> None:
     rt, _up, _down, _clf, log = _make(max_zones=1)
     rt.tick(

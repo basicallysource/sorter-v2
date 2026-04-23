@@ -22,7 +22,10 @@ from rt.events.topics import (
     PIECE_DISTRIBUTED,
     PIECE_REGISTERED,
 )
-from rt.projections.piece_dossier import install as install_piece_dossier
+from rt.projections.piece_dossier import (
+    install as install_piece_dossier,
+    refresh_piece_preview_and_push,
+)
 
 
 class PieceDossierFlowIntegrationTests(unittest.TestCase):
@@ -46,12 +49,14 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
             get_recent_known_objects,
             initialize_local_state,
             list_piece_dossiers,
+            remember_piece_segment,
             start_new_sorting_session,
         )
 
         self._get_piece_dossier = get_piece_dossier
         self._get_recent_known_objects = get_recent_known_objects
         self._list_piece_dossiers = list_piece_dossiers
+        self._remember_piece_segment = remember_piece_segment
 
         initialize_local_state()
         start_new_sorting_session(reason="dossier_flow_test")
@@ -233,6 +238,55 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         entry = next(e for e in recent if e.get("uuid") == piece_uuid)
         self.assertEqual("registered", entry.get("stage"))
         self.assertEqual(123.456, entry.get("first_carousel_seen_ts"))
+
+    def test_preview_refresh_updates_recent_pending_piece(self) -> None:
+        bus = InProcessEventBus()
+        install_piece_dossier(bus)
+
+        piece_uuid = "rt-preview-refresh-1"
+        bus.publish(
+            self._event(
+                PIECE_REGISTERED,
+                {
+                    "piece_uuid": piece_uuid,
+                    "tracked_global_id": 9002,
+                    "confirmed_real": True,
+                    "dossier": {
+                        "classification_channel_zone_center_deg": 42.0,
+                        "first_carousel_seen_ts": 123.456,
+                    },
+                },
+            )
+        )
+        bus.drain()
+
+        self._remember_piece_segment(
+            piece_uuid,
+            "carousel",
+            0,
+            {
+                "tracked_global_id": 9002,
+                "first_seen_ts": 123.456,
+                "last_seen_ts": 125.0,
+                "hit_count": 4,
+                "snapshot_path": f"piece_crops/{piece_uuid}/seg0/snapshot_000.jpg",
+                "sector_snapshots": [],
+            },
+        )
+
+        refreshed = refresh_piece_preview_and_push(piece_uuid, broadcast=False)
+
+        assert refreshed is not None
+        self.assertEqual(
+            f"piece_crops/{piece_uuid}/seg0/snapshot_000.jpg",
+            refreshed.get("preview_jpeg_path"),
+        )
+        recent = self._get_recent_known_objects()
+        entry = next(e for e in recent if e.get("uuid") == piece_uuid)
+        self.assertEqual(
+            f"piece_crops/{piece_uuid}/seg0/snapshot_000.jpg",
+            entry.get("preview_jpeg_path"),
+        )
 
     def test_event_without_piece_uuid_is_ignored(self) -> None:
         bus = InProcessEventBus()

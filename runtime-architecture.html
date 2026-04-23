@@ -369,7 +369,7 @@
   <h2>The Four-Layer Runtime</h2>
   <p class="note">Columns follow the physical machine (C1 bulk → C2 separation → C3 precise → C4 classification → Distributor). Only C2, C3 and C4 have cameras and perception pipelines; <b>C1 and the Distributor run blind</b> — C1 on timing + downstream capacity, the Distributor on piece handoffs. Stages inside each pipeline (<b>Object Detector</b>, <b>Object Tracker</b>, <b>Filter Chain</b>) are abstract protocols; concrete strategies are selected per feed via config. Runtimes are independent threads coordinating only via two typed protocols: <b>PieceHandoff</b> (solid red, downstream) and <b>ReadySignal</b> (dashed blue, upstream). Lifecycle, telemetry and side-effects ride the in-process <b>EventBus</b>; they never gate the hot path.</p>
 
-  <svg viewBox="0 0 1760 1240" role="img" aria-labelledby="heroTitle heroDesc" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 1760 1140" role="img" aria-labelledby="heroTitle heroDesc" xmlns="http://www.w3.org/2000/svg">
     <title id="heroTitle">LegoSorter runtime — four layers and the hot-path dataflow</title>
     <desc id="heroDesc">A top-to-bottom diagram. Top: cameras and feeds. Middle: per-feed perception pipelines. Next: the five component runtimes. Bottom: hardware and bins plus the event bus.</desc>
 
@@ -441,9 +441,9 @@
     <!-- L2 Perception -->
     <rect x="0" y="360" width="1760" height="360" fill="#e7edf3" opacity=".55"/>
     <!-- L3 Runtime -->
-    <rect x="0" y="720" width="1760" height="300" fill="#f2e1df" opacity=".55"/>
+    <rect x="0" y="720" width="1760" height="200" fill="#f2e1df" opacity=".55"/>
     <!-- L4 Cross-cutting -->
-    <rect x="0" y="1020" width="1760" height="210" fill="#e4eee3" opacity=".55"/>
+    <rect x="0" y="920" width="1760" height="210" fill="#e4eee3" opacity=".55"/>
 
     <!-- band labels -->
     <g font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" fill="#141312" letter-spacing="1.8">
@@ -459,7 +459,7 @@
         <rect x="-4" y="-14" width="200" height="22" fill="#8f171b"/>
         <text x="4" y="2" fill="#fff">L3 · RUNTIMES</text>
       </g>
-      <g transform="translate(22, 1042)">
+      <g transform="translate(22, 942)">
         <rect x="-4" y="-14" width="240" height="22" fill="#0f7a43"/>
         <text x="4" y="2" fill="#fff">L4 · CROSS-CUTTING</text>
       </g>
@@ -479,25 +479,19 @@
     <!-- Cameras row: only c2, c3, c4 have cameras -->
     <g font-family="IBM Plex Sans, sans-serif">
       <g transform="translate(390, 90)">
-        <rect width="280" height="70" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
-        <use href="#camera" x="14" y="14" width="40" height="40"/>
-        <text x="66" y="30" font-size="14" font-weight="700" fill="#141312">Camera</text>
-        <text x="66" y="48" font-size="11" fill="#6a645b">UVC · capture thread · latest-wins</text>
-        <text x="66" y="62" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">1:1 with feed c2</text>
+        <rect width="280" height="60" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
+        <use href="#camera" x="14" y="10" width="40" height="40"/>
+        <text x="66" y="38" font-size="14" font-weight="700" fill="#141312">Camera</text>
       </g>
       <g transform="translate(700, 90)">
-        <rect width="280" height="70" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
-        <use href="#camera" x="14" y="14" width="40" height="40"/>
-        <text x="66" y="30" font-size="14" font-weight="700" fill="#141312">Camera</text>
-        <text x="66" y="48" font-size="11" fill="#6a645b">UVC · capture thread · latest-wins</text>
-        <text x="66" y="62" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">1:1 with feed c3</text>
+        <rect width="280" height="60" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
+        <use href="#camera" x="14" y="10" width="40" height="40"/>
+        <text x="66" y="38" font-size="14" font-weight="700" fill="#141312">Camera</text>
       </g>
       <g transform="translate(1010, 90)">
-        <rect width="280" height="70" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
-        <use href="#camera" x="14" y="14" width="40" height="40"/>
-        <text x="66" y="30" font-size="14" font-weight="700" fill="#141312">Camera</text>
-        <text x="66" y="48" font-size="11" fill="#6a645b">UVC · capture thread · latest-wins</text>
-        <text x="66" y="62" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">1:1 with feed c4</text>
+        <rect width="280" height="60" fill="#fbf7ef" stroke="#b8ac96" stroke-width="1.4"/>
+        <use href="#camera" x="14" y="10" width="40" height="40"/>
+        <text x="66" y="38" font-size="14" font-weight="700" fill="#141312">Camera</text>
       </g>
 
       <!-- "no camera" placards for c1 and distributor -->
@@ -519,33 +513,27 @@
         <rect width="260" height="120" fill="#fbf7ef" stroke="#8f5d00" stroke-width="1.5"/>
         <rect x="0" y="0" width="260" height="22" fill="#8f5d00"/>
         <text x="10" y="16" font-size="11" font-weight="700" fill="#fff" letter-spacing="1.2">FEED · c2</text>
-        <text x="10" y="44" font-size="13" font-weight="600" fill="#141312">Separation view</text>
-        <text x="10" y="62" font-size="11" fill="#6a645b">Feed protocol · picture + zones</text>
-        <text x="10" y="82" font-size="11" fill="#3c3831">zones: detection_roi, handoff_gate</text>
-        <text x="10" y="100" font-size="11" fill="#3c3831">picture settings · color correction</text>
-        <text x="10" y="116" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">calibration strategy</text>
+        <text x="10" y="50" font-size="14" font-weight="600" fill="#141312">Separation view</text>
+        <text x="10" y="80" font-size="12" fill="#6a645b">Calibratable picture settings</text>
+        <text x="10" y="100" font-size="12" fill="#6a645b">Configurable zones</text>
       </g>
 
       <g transform="translate(710, 210)">
         <rect width="260" height="120" fill="#fbf7ef" stroke="#8f5d00" stroke-width="1.5"/>
         <rect x="0" y="0" width="260" height="22" fill="#8f5d00"/>
         <text x="10" y="16" font-size="11" font-weight="700" fill="#fff" letter-spacing="1.2">FEED · c3</text>
-        <text x="10" y="44" font-size="13" font-weight="600" fill="#141312">Precise-exit view</text>
-        <text x="10" y="62" font-size="11" fill="#6a645b">Feed protocol · picture + zones</text>
-        <text x="10" y="82" font-size="11" fill="#3c3831">zones: detection_roi, arc_clear</text>
-        <text x="10" y="100" font-size="11" fill="#3c3831">picture settings · color correction</text>
-        <text x="10" y="116" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">calibration strategy</text>
+        <text x="10" y="50" font-size="14" font-weight="600" fill="#141312">Precise-exit view</text>
+        <text x="10" y="80" font-size="12" fill="#6a645b">Calibratable picture settings</text>
+        <text x="10" y="100" font-size="12" fill="#6a645b">Configurable zones</text>
       </g>
 
       <g transform="translate(1020, 210)">
         <rect width="260" height="120" fill="#fbf7ef" stroke="#8f5d00" stroke-width="1.5"/>
         <rect x="0" y="0" width="260" height="22" fill="#8f5d00"/>
         <text x="10" y="16" font-size="11" font-weight="700" fill="#fff" letter-spacing="1.2">FEED · c4</text>
-        <text x="10" y="44" font-size="13" font-weight="600" fill="#141312">Classification view</text>
-        <text x="10" y="62" font-size="11" fill="#6a645b">Feed protocol · picture + zones</text>
-        <text x="10" y="82" font-size="11" fill="#3c3831">zones: detection_roi, snap_zone, dropzone</text>
-        <text x="10" y="100" font-size="11" fill="#3c3831">picture: focused · high gain</text>
-        <text x="10" y="116" font-size="10" font-family="IBM Plex Mono, monospace" fill="#8f5d00">calibration strategy</text>
+        <text x="10" y="50" font-size="14" font-weight="600" fill="#141312">Classification view</text>
+        <text x="10" y="80" font-size="12" fill="#6a645b">Calibratable picture settings</text>
+        <text x="10" y="100" font-size="12" fill="#6a645b">Configurable zones</text>
       </g>
     </g>
 
@@ -573,28 +561,22 @@
     <g transform="translate(410, 400)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable strategy</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">Detector protocol · per-feed config</text>
-      <text x="18" y="74" font-size="10" font-family="IBM Plex Mono, monospace" fill="#6a645b">detect(ctx) → Detection[]</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Finds pieces in each frame</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(410, 500)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT TRACKER</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable strategy</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">Tracker protocol · stable IDs</text>
-      <text x="18" y="74" font-size="10" font-family="IBM Plex Mono, monospace" fill="#6a645b">update(ctx) → Track[]</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT TRACKER</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Keeps stable IDs across frames</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(410, 600)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">N stages · composable</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">drop or annotate tracks</text>
-      <text x="18" y="74" font-size="10" font-family="IBM Plex Mono, monospace" fill="#6a645b">apply(ctx) → Track[]</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Drops noise, keeps real pieces</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
 
@@ -602,24 +584,22 @@
     <g transform="translate(720, 400)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable strategy</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">Detector protocol · per-feed config</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Finds pieces in each frame</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(720, 500)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT TRACKER + HANDOFF</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable + cross-feed</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">global_id carries into c4 pipeline</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">TRACKER + HANDOFF</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Carries piece IDs from c3 into c4</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(720, 600)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">N stages · composable</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Drops noise, keeps real pieces</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
 
@@ -627,23 +607,22 @@
     <g transform="translate(1030, 400)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable strategy</text>
-      <text x="18" y="60" font-size="11" fill="#6a645b">Detector protocol · per-feed config</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT DETECTOR</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Finds the piece in the channel</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(1030, 500)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT TRACKER</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">pluggable strategy</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">OBJECT TRACKER</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Tracks it through the snap zone</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
     <g transform="translate(1030, 600)">
       <rect width="240" height="80" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.3"/>
       <rect x="0" y="0" width="6" height="80" fill="#144d9a"/>
-      <text x="18" y="22" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
-      <text x="18" y="42" font-size="13" font-weight="600" fill="#141312">N stages · composable</text>
+      <text x="18" y="26" font-size="12" font-weight="700" fill="#144d9a" letter-spacing="1">FILTER CHAIN</text>
+      <text x="18" y="52" font-size="13" font-weight="500" fill="#3c3831">Drops noise, keeps real pieces</text>
       <use href="#plug" x="210" y="6" width="20" height="20"/>
     </g>
 
@@ -679,94 +658,55 @@
     </g>
 
     <!-- ========== L3 RUNTIMES ========== -->
-    <!-- Each runtime is 240w x 240h, centered on column -->
+    <!-- Each runtime: 240 wide × 140 tall, centered on its column -->
     <g transform="translate(100, 760)">
-      <rect width="240" height="240" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
+      <rect width="240" height="140" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
       <rect x="0" y="0" width="240" height="26" fill="#8f171b"/>
       <text x="10" y="18" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.2">RuntimeC1 · bulk</text>
-      <text x="10" y="46" font-size="11" fill="#6a645b">thread: rt.c1 · blind (no vision)</text>
-      <text x="10" y="64" font-size="12" fill="#3c3831">FSM: idle → feeding → jam_recovery</text>
-      <text x="10" y="86" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">downstream_ready ← c2</text>
-      <text x="10" y="102" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">(no tracks input)</text>
-      <line x1="10" y1="118" x2="230" y2="118" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="134" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">STRATEGIES</text>
-      <text x="10" y="150" font-size="10" fill="#3c3831">jam_recovery strategy</text>
-      <text x="10" y="166" font-size="10" fill="#3c3831">timing policy</text>
-      <line x1="10" y1="180" x2="230" y2="180" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="196" font-size="10" font-weight="700" fill="#0f7a43" letter-spacing=".8">EMITS</text>
-      <text x="10" y="212" font-size="10" fill="#3c3831">stepper_pulse(c1_bulk_rotor)</text>
-      <text x="10" y="228" font-size="10" fill="#3c3831">RuntimeStartedEvent · Faulted</text>
+      <text x="10" y="50" font-size="12" fill="#3c3831">Hopper shuttle · feeds c2 on demand</text>
+      <line x1="10" y1="70" x2="230" y2="70" stroke="#b8ac96" stroke-dasharray="2 3"/>
+      <text x="10" y="88" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">STRATEGIES</text>
+      <text x="10" y="108" font-size="11" fill="#3c3831">Jam-Recovery — frees stuck parts</text>
     </g>
     <g transform="translate(410, 760)">
-      <rect width="240" height="240" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
+      <rect width="240" height="140" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
       <rect x="0" y="0" width="240" height="26" fill="#8f171b"/>
       <text x="10" y="18" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.2">RuntimeC2 · separation</text>
-      <text x="10" y="46" font-size="11" fill="#6a645b">thread: rt.c2</text>
-      <text x="10" y="64" font-size="12" fill="#3c3831">FSM: idle → separating → (agitate)</text>
-      <text x="10" y="86" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">on_tracks(feed=c2)</text>
-      <text x="10" y="102" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">downstream_ready ← c3</text>
-      <line x1="10" y1="118" x2="230" y2="118" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="134" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">STRATEGIES</text>
-      <text x="10" y="150" font-size="10" fill="#3c3831">separation_driver: slip_stick (off)</text>
-      <text x="10" y="166" font-size="10" fill="#3c3831">agitation: disabled</text>
-      <line x1="10" y1="180" x2="230" y2="180" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="196" font-size="10" font-weight="700" fill="#0f7a43" letter-spacing=".8">EMITS</text>
-      <text x="10" y="212" font-size="10" fill="#3c3831">stepper_pulse(c2_separation)</text>
+      <text x="10" y="50" font-size="12" fill="#3c3831">First separation step</text>
+      <line x1="10" y1="70" x2="230" y2="70" stroke="#b8ac96" stroke-dasharray="2 3"/>
+      <text x="10" y="88" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">STRATEGIES</text>
+      <text x="10" y="108" font-size="11" fill="#3c3831">Slip-Stick — unsticks clumped parts</text>
     </g>
     <g transform="translate(720, 760)">
-      <rect width="240" height="240" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
+      <rect width="240" height="140" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.6"/>
       <rect x="0" y="0" width="240" height="26" fill="#8f171b"/>
       <text x="10" y="18" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.2">RuntimeC3 · precise</text>
-      <text x="10" y="46" font-size="11" fill="#6a645b">thread: rt.c3</text>
-      <text x="10" y="64" font-size="12" fill="#3c3831">FSM: idle → precise → holdover</text>
-      <text x="10" y="86" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">on_tracks(feed=c3)</text>
-      <text x="10" y="102" font-size="11" font-family="IBM Plex Mono, monospace" fill="#141312">downstream_ready ← c4</text>
-      <line x1="10" y1="118" x2="230" y2="118" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="134" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">STRATEGIES</text>
-      <text x="10" y="150" font-size="10" fill="#3c3831">holdover: default</text>
-      <text x="10" y="166" font-size="10" fill="#3c3831">admission: delegated to C4</text>
-      <line x1="10" y1="180" x2="230" y2="180" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="196" font-size="10" font-weight="700" fill="#0f7a43" letter-spacing=".8">EMITS</text>
-      <text x="10" y="212" font-size="10" fill="#3c3831">stepper_pulse(c3_precise)</text>
-      <text x="10" y="228" font-size="10" fill="#3c3831">PieceHandoff → c4</text>
+      <text x="10" y="50" font-size="12" fill="#3c3831">Precise exit — one piece at a time</text>
+      <text x="10" y="72" font-size="12" fill="#3c3831">Hands off to c4 on capacity</text>
     </g>
     <g transform="translate(1030, 760)">
-      <rect width="240" height="240" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.8"/>
+      <rect width="240" height="140" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.8"/>
       <rect x="0" y="0" width="240" height="26" fill="#8f171b"/>
       <text x="10" y="18" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.2">RuntimeC4 · classification</text>
-      <text x="10" y="46" font-size="11" fill="#6a645b">thread: rt.c4 (owns ZoneManager)</text>
-      <text x="10" y="64" font-size="11" fill="#3c3831">FSM: idle → detecting → zoned →</text>
-      <text x="10" y="80" font-size="11" fill="#3c3831">running → snapping → classifying →</text>
-      <text x="10" y="96" font-size="11" fill="#3c3831">eject_pending → ejecting</text>
-      <line x1="10" y1="108" x2="230" y2="108" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="124" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">CLASSIFIER STRATEGY</text>
-      <rect x="10" y="130" width="220" height="36" fill="#f2e5c5" stroke="#8f5d00" stroke-width="1"/>
-      <use href="#plug" x="12" y="136" width="20" height="20"/>
-      <text x="38" y="146" font-size="11" font-weight="700" fill="#141312">Classifier</text>
-      <text x="38" y="160" font-size="10" fill="#6a645b">pluggable · bounded concurrency</text>
-      <line x1="10" y1="174" x2="230" y2="174" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="190" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">OTHER STRATEGIES</text>
-      <text x="10" y="206" font-size="10" fill="#3c3831">admission strategy</text>
-      <text x="10" y="222" font-size="10" fill="#3c3831">ejection-timing strategy</text>
+      <text x="10" y="50" font-size="12" fill="#3c3831">Snaps &amp; classifies each piece</text>
+      <line x1="10" y1="70" x2="230" y2="70" stroke="#b8ac96" stroke-dasharray="2 3"/>
+      <text x="10" y="88" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">CLASSIFIER</text>
+      <rect x="10" y="94" width="220" height="36" fill="#f2e5c5" stroke="#8f5d00" stroke-width="1"/>
+      <use href="#plug" x="12" y="100" width="20" height="20"/>
+      <text x="38" y="110" font-size="11" font-weight="700" fill="#141312">Brickognize</text>
+      <text x="38" y="124" font-size="10" fill="#6a645b">fixed for now · swappable later</text>
     </g>
     <g transform="translate(1340, 760)">
-      <rect width="240" height="240" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.8"/>
+      <rect width="240" height="140" fill="#fbf7ef" stroke="#8f171b" stroke-width="1.8"/>
       <rect x="0" y="0" width="240" height="26" fill="#8f171b"/>
       <text x="10" y="18" font-size="12" font-weight="700" fill="#fff" letter-spacing="1.2">RuntimeDistributor</text>
-      <text x="10" y="46" font-size="11" fill="#6a645b">thread: rt.distributor</text>
-      <text x="10" y="64" font-size="12" fill="#3c3831">FSM: idle → positioning → ready →</text>
-      <text x="10" y="80" font-size="12" fill="#3c3831">sending → confirming</text>
-      <line x1="10" y1="94" x2="230" y2="94" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="110" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">RULES ENGINE</text>
-      <rect x="10" y="116" width="220" height="40" fill="#f2e5c5" stroke="#8f5d00" stroke-width="1"/>
-      <use href="#plug" x="12" y="124" width="20" height="20"/>
-      <text x="38" y="133" font-size="11" font-weight="700" fill="#141312">Rules Engine</text>
-      <text x="38" y="148" font-size="10" fill="#6a645b">pluggable · piece → target bin</text>
-      <line x1="10" y1="164" x2="230" y2="164" stroke="#b8ac96" stroke-dasharray="2 3"/>
-      <text x="10" y="180" font-size="10" font-weight="700" fill="#0f7a43" letter-spacing=".8">EMITS</text>
-      <text x="10" y="196" font-size="10" fill="#3c3831">servo_command(chute)</text>
-      <text x="10" y="212" font-size="10" fill="#3c3831">ReadySignal → c4</text>
-      <text x="10" y="228" font-size="10" fill="#3c3831">PieceSortedEvent / Rejected</text>
+      <text x="10" y="50" font-size="12" fill="#3c3831">Routes each piece to its bin</text>
+      <line x1="10" y1="70" x2="230" y2="70" stroke="#b8ac96" stroke-dasharray="2 3"/>
+      <text x="10" y="88" font-size="10" font-weight="700" fill="#8f5d00" letter-spacing=".8">RULES ENGINE</text>
+      <rect x="10" y="94" width="220" height="36" fill="#f2e5c5" stroke="#8f5d00" stroke-width="1"/>
+      <use href="#plug" x="12" y="100" width="20" height="20"/>
+      <text x="38" y="110" font-size="11" font-weight="700" fill="#141312">LEGO sorting rules</text>
+      <text x="38" y="124" font-size="10" fill="#6a645b">fixed for now · swappable later</text>
     </g>
 
     <!-- Filter (L2) → Runtime (L3) arrows: filtered tracks (c2/c3/c4 only) -->
@@ -783,31 +723,31 @@
 
     <!-- PieceHandoff arrows (solid red, right-ward): c3→c4, c4→dist -->
     <g stroke="#c42026" stroke-width="2.8" fill="none" marker-end="url(#ah-red)">
-      <path d="M 960 820 L 1030 820"/>
-      <path d="M 1270 820 L 1340 820"/>
+      <path d="M 960 805 L 1030 805"/>
+      <path d="M 1270 805 L 1340 805"/>
     </g>
     <g font-family="IBM Plex Mono, monospace" font-size="10" font-weight="700" fill="#8f171b">
-      <text x="965" y="812" text-anchor="start">PieceHandoff</text>
-      <text x="1275" y="812" text-anchor="start">PieceHandoff</text>
+      <text x="965" y="797" text-anchor="start">PieceHandoff</text>
+      <text x="1275" y="797" text-anchor="start">PieceHandoff</text>
     </g>
 
     <!-- ReadySignal arrows (dashed blue, leftward chain) -->
     <g stroke="#144d9a" stroke-width="2" fill="none" marker-end="url(#ah-blue)" stroke-dasharray="6 4">
-      <path d="M 410 920 L 340 920"/>
-      <path d="M 720 920 L 650 920"/>
-      <path d="M 1030 920 L 960 920"/>
-      <path d="M 1340 920 L 1270 920"/>
+      <path d="M 410 870 L 340 870"/>
+      <path d="M 720 870 L 650 870"/>
+      <path d="M 1030 870 L 960 870"/>
+      <path d="M 1340 870 L 1270 870"/>
     </g>
     <g font-family="IBM Plex Mono, monospace" font-size="10" font-weight="700" fill="#144d9a">
-      <text x="345" y="914" text-anchor="start">ReadySignal</text>
-      <text x="655" y="914" text-anchor="start">ReadySignal</text>
-      <text x="965" y="914" text-anchor="start">ReadySignal</text>
-      <text x="1275" y="914" text-anchor="start">ReadySignal</text>
+      <text x="345" y="864" text-anchor="start">ReadySignal</text>
+      <text x="655" y="864" text-anchor="start">ReadySignal</text>
+      <text x="965" y="864" text-anchor="start">ReadySignal</text>
+      <text x="1275" y="864" text-anchor="start">ReadySignal</text>
     </g>
 
 
     <!-- ========== L4 CROSS-CUTTING (event bus strip) ========== -->
-    <g transform="translate(60, 1040)">
+    <g transform="translate(60, 940)">
       <!-- Bus rail -->
       <rect x="0" y="40" width="1640" height="36" fill="#0f7a43"/>
       <rect x="0" y="40" width="1640" height="6" fill="#08592f"/>
@@ -827,29 +767,34 @@
       <!-- Subscribers below the bus -->
       <g font-family="IBM Plex Sans, sans-serif">
         <g transform="translate(20, 100)">
-          <rect width="290" height="56" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
+          <rect width="290" height="64" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
           <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">UI BROADCAST</text>
-          <text x="12" y="40" font-size="11" fill="#3c3831">WS · frame coalesce · pydantic events</text>
+          <text x="12" y="40" font-size="11" fill="#3c3831">Pushes live state to the browser:</text>
+          <text x="12" y="56" font-size="11" fill="#3c3831">dashboard, overlays, errors.</text>
         </g>
         <g transform="translate(330, 100)">
-          <rect width="290" height="56" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
-          <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">TELEMETRY COLLECTOR</text>
-          <text x="12" y="40" font-size="11" fill="#3c3831">1 Hz snapshot · queue depths · FSM durations</text>
+          <rect width="290" height="64" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
+          <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">TELEMETRY</text>
+          <text x="12" y="40" font-size="11" fill="#3c3831">Aggregates stats — throughput,</text>
+          <text x="12" y="56" font-size="11" fill="#3c3831">state durations, queue depths.</text>
         </g>
         <g transform="translate(640, 100)">
-          <rect width="290" height="56" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
+          <rect width="290" height="64" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
           <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">SAMPLE CAPTURE</text>
-          <text x="12" y="40" font-size="11" fill="#3c3831">burst buffer · crops → blob_store</text>
+          <text x="12" y="40" font-size="11" fill="#3c3831">Saves crops &amp; bursts per piece</text>
+          <text x="12" y="56" font-size="11" fill="#3c3831">as training-data candidates.</text>
         </g>
         <g transform="translate(950, 100)">
-          <rect width="290" height="56" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
+          <rect width="290" height="64" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
           <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">HIVE UPLOAD</text>
-          <text x="12" y="40" font-size="11" fill="#3c3831">async · queued · idempotent</text>
+          <text x="12" y="40" font-size="11" fill="#3c3831">Ships captured samples to the</text>
+          <text x="12" y="56" font-size="11" fill="#3c3831">SortHive community backend.</text>
         </g>
         <g transform="translate(1260, 100)">
-          <rect width="380" height="56" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
-          <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">RUN RECORDER · ERROR BANNER · LOGGER</text>
-          <text x="12" y="40" font-size="11" fill="#3c3831">structlog · ring-buffered errors · SQLite stats</text>
+          <rect width="380" height="64" fill="#fbf7ef" stroke="#0f7a43" stroke-width="1.3"/>
+          <text x="12" y="22" font-size="12" font-weight="700" fill="#0f7a43" letter-spacing=".8">RUN RECORDER · LOGGER</text>
+          <text x="12" y="40" font-size="11" fill="#3c3831">Records each sorting run and writes</text>
+          <text x="12" y="56" font-size="11" fill="#3c3831">structured logs and errors to disk.</text>
         </g>
       </g>
 
@@ -865,16 +810,13 @@
 
 <!-- ============ Control callout on top-right of L3 ============ -->
     <g transform="translate(1620, 760)" font-family="IBM Plex Sans, sans-serif">
-      <rect x="0" y="0" width="130" height="200" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.2" stroke-dasharray="3 2"/>
+      <rect x="0" y="0" width="130" height="140" fill="#fbf7ef" stroke="#144d9a" stroke-width="1.2" stroke-dasharray="3 2"/>
       <text x="12" y="22" font-size="10" font-weight="700" fill="#144d9a" letter-spacing="1.2">DEMAND-PULL</text>
-      <text x="12" y="42" font-size="11" fill="#3c3831">ReadySignal flows</text>
-      <text x="12" y="58" font-size="11" fill="#3c3831">upstream per hop.</text>
-      <text x="12" y="82" font-size="11" fill="#3c3831">A runtime only acts</text>
-      <text x="12" y="98" font-size="11" fill="#3c3831">when its downstream</text>
-      <text x="12" y="114" font-size="11" fill="#3c3831">has granted capacity.</text>
-      <text x="12" y="140" font-size="11" fill="#3c3831">Bounded queues: 1–2</text>
-      <text x="12" y="156" font-size="11" fill="#3c3831">per hop. Backpressure</text>
-      <text x="12" y="172" font-size="11" fill="#3c3831">is automatic.</text>
+      <text x="12" y="46" font-size="11" fill="#3c3831">ReadySignal flows</text>
+      <text x="12" y="62" font-size="11" fill="#3c3831">upstream per hop.</text>
+      <text x="12" y="92" font-size="11" fill="#3c3831">A runtime only acts</text>
+      <text x="12" y="108" font-size="11" fill="#3c3831">when its downstream</text>
+      <text x="12" y="124" font-size="11" fill="#3c3831">has granted capacity.</text>
     </g>
   </svg>
 

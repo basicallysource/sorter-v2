@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
+	import { page } from '$app/state';
+	import { untrack } from 'svelte';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
@@ -37,10 +39,12 @@
 	const ctx = getMachineContext();
 
 	// Persistent per-camera toggle state — survives reloads via localStorage.
-	// Keyed by camera so e.g. c_channel_2's crop toggle doesn't leak into
-	// the carousel's. Falls back to the ``default*`` props when no saved
-	// value exists.
-	const storageKey = (key: string) => `camera-feed:${camera}:${key}`;
+	// Keyed by (route, camera, toggle) so e.g. the dashboard's crop state
+	// doesn't leak into setup's, and c_channel_2's doesn't leak into the
+	// carousel's. Falls back to the ``default*`` props when no saved value
+	// exists.
+	const routeScope = $derived(page.route?.id ?? page.url?.pathname ?? '_');
+	const storageKey = (key: string) => `camera-feed:${routeScope}:${camera}:${key}`;
 
 	function readPersisted(key: string, fallback: boolean): boolean {
 		if (typeof localStorage === 'undefined') return fallback;
@@ -62,18 +66,41 @@
 		}
 	}
 
+	// Initial state uses prop-derived defaults so the SSR markup and the first
+	// client paint agree. The real localStorage read happens in the $effect
+	// below, once the component is hydrated and whenever the (route, camera)
+	// pair changes — e.g. the dashboard's aux camera starts out "carousel"
+	// and then flips to "classification_channel" when the machine config
+	// loads, and we need to re-read the right slot.
 	/* svelte-ignore state_referenced_locally */
-	let annotated = $state(readPersisted('annotated', defaultAnnotated && layer === 'annotated'));
+	let annotated = $state(defaultAnnotated && layer === 'annotated');
 	/* svelte-ignore state_referenced_locally */
-	let colorCorrect = $state(readPersisted('colorCorrect', defaultColorCorrect));
+	let colorCorrect = $state(defaultColorCorrect);
 	// Legacy: presence of `crop` prop defaulted cropping on. Honor that unless
 	// the caller explicitly sets `defaultCropped`.
 	/* svelte-ignore state_referenced_locally */
-	let cropped = $state(readPersisted('cropped', defaultCropped ?? crop !== null));
+	let cropped = $state(defaultCropped ?? crop !== null);
 	/* svelte-ignore state_referenced_locally */
-	let zones = $state(readPersisted('zones', defaultZones));
-	/* svelte-ignore state_referenced_locally */
-	let ghosts = $state(readPersisted('ghosts', false));
+	let zones = $state(defaultZones);
+	let ghosts = $state(false);
+	// Guards the write-back effects so they don't clobber stored values with
+	// defaults during the pre-hydration window or between prop swaps.
+	let persistReady = $state(false);
+
+	$effect(() => {
+		// Dependencies: re-read whenever the persistence slot changes.
+		void camera;
+		void routeScope;
+		untrack(() => {
+			if (typeof localStorage === 'undefined') return;
+			annotated = readPersisted('annotated', defaultAnnotated && layer === 'annotated');
+			colorCorrect = readPersisted('colorCorrect', defaultColorCorrect);
+			cropped = readPersisted('cropped', defaultCropped ?? crop !== null);
+			zones = readPersisted('zones', defaultZones);
+			ghosts = readPersisted('ghosts', false);
+			persistReady = true;
+		});
+	});
 
 	// Keep legacy `layer` prop synced with new `annotated` state so existing
 	// consumers (e.g. dashboard) binding to `layer` keep working.
@@ -84,12 +111,13 @@
 		annotated = layer === 'annotated';
 	});
 
-	// Write-back side: every toggle change writes to localStorage.
-	$effect(() => { writePersisted('annotated', annotated); });
-	$effect(() => { writePersisted('colorCorrect', colorCorrect); });
-	$effect(() => { writePersisted('cropped', cropped); });
-	$effect(() => { writePersisted('zones', zones); });
-	$effect(() => { writePersisted('ghosts', ghosts); });
+	// Write-back side: every toggle change writes to localStorage, once the
+	// mount-time read has completed.
+	$effect(() => { if (persistReady) writePersisted('annotated', annotated); });
+	$effect(() => { if (persistReady) writePersisted('colorCorrect', colorCorrect); });
+	$effect(() => { if (persistReady) writePersisted('cropped', cropped); });
+	$effect(() => { if (persistReady) writePersisted('zones', zones); });
+	$effect(() => { if (persistReady) writePersisted('ghosts', ghosts); });
 
 	const showAnnotations = $derived(controls.includes('annotations'));
 	const showColor = $derived(controls.includes('color'));
@@ -122,6 +150,10 @@
 	const is_healthy = $derived(health === 'online');
 
 	const display_label = $derived(label || camera);
+
+	// Unique id so multiple CameraFeed instances (e.g. 4 on the dashboard)
+	// don't collide on their SVG clipPath element.
+	const instanceId = Math.random().toString(36).slice(2, 10);
 </script>
 
 <div
@@ -143,6 +175,7 @@
 			{@const box = crop.viewBox}
 			{@const rc = crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2]}
 			{@const rot = crop.rotationDeg ?? 0}
+			{@const clipId = `camera-feed-clip-${instanceId}`}
 			<svg
 				viewBox="{box.x} {box.y} {box.width} {box.height}"
 				preserveAspectRatio="xMidYMid meet"
@@ -150,15 +183,24 @@
 				class:opacity-30={!is_healthy}
 				aria-label={display_label}
 			>
-				<g transform="rotate({rot} {rc[0]} {rc[1]})">
-					<image
-						href={ws_src}
-						x="0"
-						y="0"
-						width={crop.sourceWidth}
-						height={crop.sourceHeight}
-						preserveAspectRatio="none"
-					/>
+				<defs>
+					<clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+						{#each crop.polygons as polygon}
+							<polygon points={polygon.map((p) => `${p[0]},${p[1]}`).join(' ')} />
+						{/each}
+					</clipPath>
+				</defs>
+				<g clip-path={`url(#${clipId})`}>
+					<g transform="rotate({rot} {rc[0]} {rc[1]})">
+						<image
+							href={ws_src}
+							x="0"
+							y="0"
+							width={crop.sourceWidth}
+							height={crop.sourceHeight}
+							preserveAspectRatio="none"
+						/>
+					</g>
 				</g>
 			</svg>
 		{:else}

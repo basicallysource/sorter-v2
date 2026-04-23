@@ -26,6 +26,7 @@ import numpy as np
 from rt.contracts.detection import Detection, DetectionBatch
 from rt.contracts.feed import FeedFrame, PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import DETECTORS
+from utils.polygon_crop import apply_polygon_crop
 
 
 log = logging.getLogger(__name__)
@@ -166,23 +167,7 @@ class HiveDetector:
             return np.ascontiguousarray(raw[y1:y2, x1:x2]), (x1, y1)
 
         if isinstance(zone, PolygonZone):
-            xs = [int(p[0]) for p in zone.vertices]
-            ys = [int(p[1]) for p in zone.vertices]
-            x1 = max(0, min(xs))
-            y1 = max(0, min(ys))
-            x2 = min(w, max(xs))
-            y2 = min(h, max(ys))
-            if x2 <= x1 or y2 <= y1:
-                return None, (0, 0)
-            crop = np.ascontiguousarray(raw[y1:y2, x1:x2])
-            points = np.array(
-                [[int(px) - x1, int(py) - y1] for (px, py) in zone.vertices],
-                dtype=np.int32,
-            )
-            mask = np.zeros(crop.shape[:2], dtype=np.uint8)
-            cv2.fillPoly(mask, [points], 255)
-            masked = cv2.bitwise_and(crop, crop, mask=mask)
-            return np.ascontiguousarray(masked), (x1, y1)
+            return apply_polygon_crop(raw, zone.vertices)
 
         if isinstance(zone, PolarZone):
             raise NotImplementedError(

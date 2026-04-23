@@ -77,6 +77,7 @@ from server.services.camera_calibration.common import (
     quantize_numeric_value as _quantize_numeric_value,
     update_camera_calibration_task as _update_camera_calibration_task,
 )
+from utils.polygon_crop import apply_polygons_crop
 from utils.polygon_resolution import saved_polygon_resolution
 
 router = APIRouter()
@@ -1378,8 +1379,11 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             )
             if scaled is not None:
                 scaled_polygons.append(scaled)
-        bbox = _dashboard_padded_bbox(scaled_polygons, frame_w, frame_h)
-        return {"kind": "bbox", "bbox": bbox} if bbox is not None else None
+        if not scaled_polygons:
+            return None
+        # Pixel-identical to the detector crop: tight polygon bbox + pixels
+        # outside the polygon zeroed. Shared helper lives in utils/polygon_crop.
+        return {"kind": "bbox_masked", "polygons": scaled_polygons}
 
     if role in {"classification_top", "classification_bottom"}:
         saved = get_classification_polygons() or {}
@@ -1438,8 +1442,9 @@ def _dashboard_pad_square(frame: np.ndarray) -> np.ndarray:
 def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.ndarray:
     if not spec:
         return frame
+    kind = spec.get("kind")
     processed = frame
-    if spec.get("kind") == "rectified":
+    if kind == "rectified":
         size = spec.get("size")
         matrix = spec.get("matrix")
         if not isinstance(size, tuple) or matrix is None:
@@ -1451,6 +1456,16 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
             flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REPLICATE,
         )
+    elif kind == "bbox_masked":
+        polygons = spec.get("polygons")
+        if not isinstance(polygons, list) or not polygons:
+            return frame
+        poly_tuples = [
+            [(int(pt[0]), int(pt[1])) for pt in poly]
+            for poly in polygons
+        ]
+        masked, _ = apply_polygons_crop(frame, poly_tuples)
+        processed = masked if masked is not None else frame
     else:
         bbox = spec.get("bbox")
         if not isinstance(bbox, tuple) or len(bbox) != 4:

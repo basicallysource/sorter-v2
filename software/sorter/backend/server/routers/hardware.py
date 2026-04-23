@@ -32,6 +32,7 @@ from irl.parse_user_toml import (
 from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
+from server.services import runtime_stats as runtime_stats_service
 from server.waveshare_inventory import get_waveshare_inventory_manager
 
 router = APIRouter()
@@ -81,23 +82,6 @@ def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = Fals
         return manager.refresh(port=port)
     return manager.get_status(port=port)
 
-
-def _clear_runtime_bin_contents(
-    *,
-    scope: str,
-    layer_index: int | None = None,
-    section_index: int | None = None,
-    bin_index: int | None = None,
-) -> None:
-    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
-    if collector is None or not hasattr(collector, "clearBinContents"):
-        return
-    collector.clearBinContents(
-        scope=scope,
-        layer_index=layer_index,
-        section_index=section_index,
-        bin_index=bin_index,
-    )
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -1113,19 +1097,11 @@ def get_servo_status() -> Dict[str, Any]:
                     "name": getattr(servo, "_name", f"layer_{index}_servo"),
                 }
             )
-    stats = None
-    try:
-        if shared_state.gc_ref is not None:
-            stats = getattr(
-                shared_state.gc_ref.runtime_stats, "servo_bus_offline_since_ts", None
-            )
-    except Exception:
-        stats = None
     return {
         "ok": True,
         "bus_online": any_online,
         "layers": layers,
-        "offline_since_ts": stats,
+        "offline_since_ts": runtime_stats_service.servo_bus_offline_since_ts(),
     }
 
 
@@ -1860,7 +1836,7 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope)
+        runtime_stats_service.clear_bin_contents(scope=scope)
         clear_current_session_bins(scope=scope)
         return {
             "ok": True,
@@ -1880,7 +1856,7 @@ def clear_bin_category_assignments(
                     cleared_bins += 1
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
+        runtime_stats_service.clear_bin_contents(scope=scope, layer_index=layer_index)
         clear_current_session_bins(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
@@ -1901,7 +1877,7 @@ def clear_bin_category_assignments(
     had_categories = bool(categories[layer_index][section_index][bin_index])
     categories[layer_index][section_index][bin_index] = []
     _apply_and_persist_bin_categories(categories)
-    _clear_runtime_bin_contents(
+    runtime_stats_service.clear_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -1932,7 +1908,7 @@ def clear_bin_contents(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     if scope == "all":
-        _clear_runtime_bin_contents(scope=scope)
+        runtime_stats_service.clear_bin_contents(scope=scope)
         cleared = clear_current_session_bins(scope=scope)
         return {
             "ok": True,
@@ -1946,7 +1922,7 @@ def clear_bin_contents(
         raise HTTPException(status_code=400, detail="Invalid layer index.")
 
     if scope == "layer":
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
+        runtime_stats_service.clear_bin_contents(scope=scope, layer_index=layer_index)
         cleared = clear_current_session_bins(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
@@ -1970,7 +1946,7 @@ def clear_bin_contents(
         section_index=section_index,
         bin_index=bin_index,
     )
-    _clear_runtime_bin_contents(
+    runtime_stats_service.clear_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -2167,13 +2143,8 @@ def get_bin_contents() -> Dict[str, Any]:
     if persisted.get("bins"):
         return persisted
 
-    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
-    if collector is None or not hasattr(collector, "binContentsSnapshot"):
-        return persisted
     try:
-        snapshot = collector.binContentsSnapshot()
-        if isinstance(snapshot, dict):
-            return snapshot
-        return persisted
+        snapshot = runtime_stats_service.bin_contents_snapshot()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")
+    return snapshot if snapshot is not None else persisted

@@ -36,6 +36,7 @@ from local_state import (
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
+from server.services import runtime_stats as runtime_stats_service
 from server.waveshare_inventory import get_waveshare_inventory_manager
 from server.security import compute_allowed_ui_origins, websocket_connection_allowed
 
@@ -608,8 +609,8 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
             payload = get_piece_dossier_by_tracked_global_id(int(uuid))
         except Exception:
             payload = None
-    if payload is None and shared_state.gc_ref is not None and shared_state.gc_ref.runtime_stats is not None:
-        payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+    if payload is None:
+        payload = runtime_stats_service.lookup_known_object(uuid)
     if payload is None:
         raise HTTPException(status_code=404, detail="not found")
     try:
@@ -638,10 +639,10 @@ def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
             payload = build_piece_detail_payload(str(legacy.get("uuid") or ""))
             if payload is None:
                 payload = legacy
-    if payload is None and shared_state.gc_ref is not None and shared_state.gc_ref.runtime_stats is not None:
+    if payload is None:
         # Last resort: the in-process runtime-stats LRU. No segments here —
         # just the bare dossier dict kept for the gallery ring.
-        payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+        payload = runtime_stats_service.lookup_known_object(uuid)
     enriched = _piece_dossier_with_track_detail(payload)
     if enriched is None:
         raise HTTPException(status_code=404, detail="not found")

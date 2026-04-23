@@ -583,9 +583,12 @@ class RuntimeC4(BaseRuntime):
             )
 
     def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None:
-        # Restart/re-home recovery: if the tray already contains visible parts,
-        # rebuild ownership from stable tracks so the runtime can continue.
-        if self._pieces or self._zone_manager.zone_count() > 0:
+        # Restart/re-home recovery: rebuild ownership from stable visible
+        # tracks so the runtime can continue. This must be partial, not just
+        # empty-tray only: after a restart/recovery one already-owned piece
+        # must not prevent the rest of the visible C4 queue from becoming
+        # operator-visible dossiers.
+        if self._zone_manager.zone_count() >= self._zone_manager.max_zones:
             return
         candidates: list[Track] = []
         for track in tracks:
@@ -658,10 +661,12 @@ class RuntimeC4(BaseRuntime):
                 "confirmed_real": True,
                 "stage": "registered",
                 "classification_status": "pending",
+                "classification_channel_zone_state": "active",
                 "recovered": recovered,
                 "dossier": {
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
+                    "classification_channel_zone_state": "active",
                     "classification_channel_zone_center_deg": angle_deg,
                     "classification_channel_exit_deg": self._exit_angle_deg,
                     "first_carousel_seen_ts": now_mono,
@@ -760,9 +765,11 @@ class RuntimeC4(BaseRuntime):
                 "classification_status": "classified"
                 if result and result.part_id
                 else "unknown",
+                "classification_channel_zone_state": "active",
                 "dossier": {
                     "piece_uuid": dossier.piece_uuid,
                     "tracked_global_id": dossier.global_id,
+                    "classification_channel_zone_state": "active",
                     "part_id": result.part_id if result else None,
                     "part_name": result_meta.get("name"),
                     "color_id": result.color_id if result else None,

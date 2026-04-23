@@ -573,6 +573,52 @@ def test_c4_recovery_dedupes_overlapping_noisy_tracks() -> None:
     assert rt.debug_snapshot()["zone_count"] == 1
 
 
+def test_c4_recovery_fills_free_slots_when_piece_already_owned() -> None:
+    rt, up, _down, _clf, _log = _make(max_zones=3)
+    assert up.try_claim() is True
+    owned = _track(global_id=1, angle_deg=0.0, confirmed=True)
+    stable_a = _track(
+        global_id=7,
+        angle_deg=55.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+    stable_b = _track(
+        global_id=8,
+        angle_deg=105.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.93,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(owned, timestamp=0.0), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    assert rt.dossier_count() == 1
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(owned, stable_a, stable_b, timestamp=1.0),
+            capacity_downstream=1,
+        ),
+        now_mono=1.0,
+    )
+
+    assert rt.dossier_count() == 3
+    recovered = [
+        dossier
+        for dossier in rt._pieces.values()  # noqa: SLF001
+        if dossier.extras.get("recovered") is True
+    ]
+    assert len(recovered) == 2
+
+
 def test_c4_slows_pipeline_motion_near_exit() -> None:
     rt, _up, _down, _clf, log = _make(max_zones=1)
     rt.tick(
@@ -1088,9 +1134,11 @@ def test_c4_publishes_piece_registered_on_intake() -> None:
     assert evt.payload["confirmed_real"] is True
     assert evt.payload["stage"] == "registered"
     assert evt.payload["classification_status"] == "pending"
+    assert evt.payload["classification_channel_zone_state"] == "active"
     nested = evt.payload.get("dossier")
     assert isinstance(nested, dict)
     assert nested.get("tracked_global_id") == 55
+    assert nested.get("classification_channel_zone_state") == "active"
 
 
 def test_c4_publishes_piece_classified_on_classifier_return() -> None:
@@ -1114,8 +1162,10 @@ def test_c4_publishes_piece_classified_on_classifier_return() -> None:
     assert evt.payload["tracked_global_id"] == 77
     assert evt.payload["stage"] == "classified"
     assert evt.payload["classification_status"] == "classified"
+    assert evt.payload["classification_channel_zone_state"] == "active"
     nested = evt.payload.get("dossier")
     assert isinstance(nested, dict)
+    assert nested.get("classification_channel_zone_state") == "active"
     assert nested.get("part_id") == "3001"
     assert nested.get("color_id") == "red"
 

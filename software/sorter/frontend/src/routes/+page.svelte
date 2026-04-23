@@ -10,6 +10,7 @@
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
+	import { loadPolygons } from '$lib/settings/polygons-service';
 	import { Eye, EyeOff } from 'lucide-svelte';
 
 	const SIDEBAR_MIN = 300;
@@ -88,16 +89,8 @@
 	}
 
 	async function fetchDashboardCrops(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/polygons`);
-			if (!res.ok) {
-				dashboardCrops = {};
-				return;
-			}
-			dashboardCrops = buildDashboardFeedCrops(await res.json());
-		} catch {
-			dashboardCrops = {};
-		}
+		const payload = await loadPolygons(baseUrl);
+		dashboardCrops = payload ? buildDashboardFeedCrops(payload) : {};
 	}
 
 	async function loadMachineSetup(baseUrl: string) {

@@ -1,3 +1,8 @@
+import type {
+	PolygonChannelPayload,
+	PolygonsPayload
+} from '$lib/settings/polygons-service';
+
 type Point = [number, number];
 
 type CropViewBox = {
@@ -7,19 +12,10 @@ type CropViewBox = {
 	height: number;
 };
 
+// Tighter internal view of the per-channel param maps, used only for
+// resolution lookup below. The service exposes these loosely as
+// ``Record<string, unknown>``; we narrow at the read site.
 type PerKeyResolutionMap = Record<string, { resolution?: [unknown, unknown] } | undefined>;
-
-type PolygonChannelData = {
-	polygons?: Record<string, unknown>;
-	resolution?: [unknown, unknown];
-	arc_params?: PerKeyResolutionMap;
-	quad_params?: PerKeyResolutionMap;
-};
-
-type PolygonPayload = {
-	channel?: PolygonChannelData;
-	classification?: PolygonChannelData;
-};
 
 const POLYGON_KEY_TO_PARAM_KEY: Record<string, string> = {
 	second_channel: 'second',
@@ -111,19 +107,16 @@ function positiveNumber(value: unknown, fallback: number): number {
 	return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function readResolution(
-	resolution: [unknown, unknown] | undefined
-): { width: number; height: number } {
+function readResolution(resolution: unknown): { width: number; height: number } {
+	const tuple = Array.isArray(resolution) ? resolution : undefined;
 	return {
-		width: positiveNumber(resolution?.[0], DEFAULT_SOURCE_WIDTH),
-		height: positiveNumber(resolution?.[1], DEFAULT_SOURCE_HEIGHT)
+		width: positiveNumber(tuple?.[0], DEFAULT_SOURCE_WIDTH),
+		height: positiveNumber(tuple?.[1], DEFAULT_SOURCE_HEIGHT)
 	};
 }
 
-function readResolutionStrict(
-	resolution: [unknown, unknown] | undefined
-): { width: number; height: number } | null {
-	if (!resolution) return null;
+function readResolutionStrict(resolution: unknown): { width: number; height: number } | null {
+	if (!Array.isArray(resolution) || resolution.length < 2) return null;
 	const [rawWidth, rawHeight] = resolution;
 	if (typeof rawWidth !== 'number' || typeof rawHeight !== 'number') return null;
 	if (!Number.isFinite(rawWidth) || !Number.isFinite(rawHeight)) return null;
@@ -132,15 +125,17 @@ function readResolutionStrict(
 }
 
 function resolutionForPolygonKey(
-	channelData: PolygonChannelData | undefined,
+	channelData: PolygonChannelPayload | undefined,
 	polygonKey: string,
 	fallbackResolution: { width: number; height: number }
 ): { width: number; height: number } {
 	const paramKey = POLYGON_KEY_TO_PARAM_KEY[polygonKey];
 	if (paramKey && channelData) {
-		const arc = readResolutionStrict(channelData.arc_params?.[paramKey]?.resolution);
+		const arcParams = (channelData.arc_params ?? {}) as PerKeyResolutionMap;
+		const arc = readResolutionStrict(arcParams[paramKey]?.resolution);
 		if (arc) return arc;
-		const quad = readResolutionStrict(channelData.quad_params?.[paramKey]?.resolution);
+		const quadParams = (channelData.quad_params ?? {}) as PerKeyResolutionMap;
+		const quad = readResolutionStrict(quadParams[paramKey]?.resolution);
 		if (quad) return quad;
 	}
 	return fallbackResolution;
@@ -238,10 +233,11 @@ function buildCrop(
 	};
 }
 
-export function buildDashboardFeedCrops(payload: unknown): Record<string, DashboardFeedCrop | null> {
-	const data = (payload ?? {}) as PolygonPayload;
-	const channelData = data.channel;
-	const classificationData = data.classification;
+export function buildDashboardFeedCrops(
+	payload: PolygonsPayload
+): Record<string, DashboardFeedCrop | null> {
+	const channelData = payload.channel;
+	const classificationData = payload.classification;
 	const fallbackChannelResolution = readResolution(channelData?.resolution);
 	const fallbackClassificationResolution = readResolution(classificationData?.resolution);
 	const channelPolygons = channelData?.polygons;

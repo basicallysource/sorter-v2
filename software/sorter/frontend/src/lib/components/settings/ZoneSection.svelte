@@ -25,6 +25,12 @@
 	} from 'lucide-svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { persistentToggle } from '$lib/preferences/persistent-toggle.svelte';
+	import {
+		loadPolygons,
+		parseSavedResolution,
+		savePolygons,
+		type PolygonsPayload
+	} from '$lib/settings/polygons-service';
 	import { createEventDispatcher, onMount } from 'svelte';
 
 	type Channel =
@@ -2631,34 +2637,21 @@
 		drawCanvas();
 	});
 
-	function parseSavedResolution(
-		raw: unknown
-	): { width: number; height: number } | null {
-		if (!Array.isArray(raw) || raw.length < 2) return null;
-		const width = Number(raw[0]);
-		const height = Number(raw[1]);
-		if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-		if (width <= 0 || height <= 0) return null;
-		return { width, height };
-	}
-
 	function channelCanvasSize(channel: Channel): { width: number; height: number } {
 		const role = CAMERA_FOR_CHANNEL[channel];
 		return cameraResolutions[role] ?? { width: DEFAULT_CANVAS_W, height: DEFAULT_CANVAS_H };
 	}
 
-	async function loadPolygons() {
+	async function loadPolygonsIntoState() {
+		const data = await loadPolygons();
+		if (!data) return;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/polygons`);
-			if (!res.ok) return;
-			const data = await res.json();
-
 			const channelData = data.channel ?? {};
-			const channelUserPts = channelData.user_pts ?? {};
-			const channelPolygons = channelData.polygons ?? {};
-			const channelArcParams = channelData.arc_params ?? {};
-			const savedChannelAngles = channelData.channel_angles ?? {};
-			const sectionZero = channelData.section_zero_pts ?? {};
+			const channelUserPts = (channelData.user_pts ?? {}) as Record<string, unknown>;
+			const channelPolygons = (channelData.polygons ?? {}) as Record<string, unknown>;
+			const channelArcParams = (channelData.arc_params ?? {}) as Record<string, unknown>;
+			const savedChannelAngles = (channelData.channel_angles ?? {}) as Record<string, unknown>;
+			const sectionZero = (channelData.section_zero_pts ?? {}) as Record<string, unknown>;
 			const channelSavedResolution = parseSavedResolution(channelData.resolution);
 
 			// Per-channel rescale from whatever resolution the channel was last
@@ -2771,10 +2764,11 @@
 
 			function rescaleRectChannel(
 				channel: RectChannel,
-				rawQuad: { resolution?: unknown } | undefined,
+				rawQuad: unknown,
 				groupFallback: { width: number; height: number } | null
 			) {
-				const src = resolveChannelSource(rawQuad?.resolution, groupFallback);
+				const quadRes = (rawQuad as { resolution?: unknown } | undefined)?.resolution;
+				const src = resolveChannelSource(quadRes, groupFallback);
 				const dst = channelCanvasSize(channel);
 				if (src.width === dst.width && src.height === dst.height) return;
 				const pts = userPoints[channel];
@@ -2848,18 +2842,11 @@
 	async function saveAll(): Promise<boolean> {
 		saving = true;
 		try {
-			let existingPayload: Record<string, any> = {};
-			try {
-				const existingRes = await fetch(`${backendHttpBaseUrl}/api/polygons`);
-				if (existingRes.ok) {
-					existingPayload = await existingRes.json();
-				}
-			} catch {
-				// Fall back to saving from the current in-memory state only.
-			}
-
-			const existingChannel = existingPayload.channel ?? {};
-			const existingClassification = existingPayload.classification ?? {};
+			// Read-before-write so every other channel's data passes through
+			// unchanged. ``null`` just means we fall back to in-memory state.
+			const existingPayload = (await loadPolygons()) ?? {};
+			const existingChannel = (existingPayload.channel ?? {}) as Record<string, any>;
+			const existingClassification = (existingPayload.classification ?? {}) as Record<string, any>;
 
 			// Start from the persisted payload so every other channel's data
 			// passes through unchanged. Only the currently-selected channel is
@@ -2947,28 +2934,24 @@
 				}
 			}
 
-			const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					channel: {
-						polygons,
-						user_pts,
-						arc_params,
-						quad_params: quad_params_channel,
-						channel_angles,
-						section_zero_pts,
-						resolution: [CANVAS_W, CANVAS_H]
-					},
-					classification: {
-						polygons: class_polygons,
-						user_pts: class_user_pts,
-						quad_params: quad_params_class,
-						resolution: [CANVAS_W, CANVAS_H]
-					}
-				})
-			});
-			if (!res.ok) throw new Error(await res.text());
+			const payload: PolygonsPayload = {
+				channel: {
+					polygons,
+					user_pts,
+					arc_params,
+					quad_params: quad_params_channel,
+					channel_angles,
+					section_zero_pts,
+					resolution: [CANVAS_W, CANVAS_H]
+				},
+				classification: {
+					polygons: class_polygons,
+					user_pts: class_user_pts,
+					quad_params: quad_params_class,
+					resolution: [CANVAS_W, CANVAS_H]
+				}
+			};
+			await savePolygons(payload);
 			persistedSnapshot = snapshotCurrentState();
 			editingZone = false;
 			activeSidebar = null;
@@ -3065,7 +3048,7 @@
 		// from cameraResolutions, so once this completes the canvas adopts the
 		// active channel's resolution automatically.
 		void loadCameraResolutions().finally(() => {
-			void loadPolygons().finally(() => {
+			void loadPolygonsIntoState().finally(() => {
 				persistedSnapshot = snapshotCurrentState();
 			});
 		});

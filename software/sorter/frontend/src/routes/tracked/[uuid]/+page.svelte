@@ -4,6 +4,7 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import { dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
 	import { formatTrackLabel } from '$lib/trackLabel';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -139,42 +140,21 @@
 		if (timerId !== null) clearInterval(timerId);
 	});
 
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
-	}
-
-	// Phase 6: piece-crop JPEGs are served from disk via
-	// `GET /api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. The SQLite
-	// segment payload stores the disk-relative path
-	// `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` — convert it to the
-	// API URL by stripping the leading `piece_crops/` prefix, splitting the
-	// `<kind>_<idx>` filename, and prepending the machine base. Returns
-	// `null` for anything that doesn't match the expected shape (the caller
-	// falls back to the b64 payload).
-	function pieceCropUrl(disk_path: string | null | undefined): string | null {
-		if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
-		const stripped = disk_path.replace(/^piece_crops\//, '');
-		// Expect: "<uuid>/seg<seq>/<kind>_<idx>.jpg". Bail on anything else.
-		const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
-		if (!m) return null;
-		const [, piece_uuid, seq, kind, idx] = m;
-		return `${effectiveBase()}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;
-	}
-
 	function snapshotImageSrc(snap: SectorSnapshot, prefer: 'piece' | 'wedge'): string | null {
 		// Prefer the disk-backed URL (long-cached), fall back to any b64 the
 		// live tracker still has in memory. For the "piece" crop we additionally
 		// fall back to the wedge path/b64 because older data may only have the
 		// wedge variant.
+		const base = effectiveBase();
 		if (prefer === 'piece') {
 			return (
-				pieceCropUrl(snap.piece_jpeg_path) ??
-				pieceCropUrl(snap.jpeg_path) ??
+				pieceCropUrl(snap.piece_jpeg_path, base) ??
+				pieceCropUrl(snap.jpeg_path, base) ??
 				dataImageUrl(snap.piece_jpeg_b64) ??
 				dataImageUrl(snap.jpeg_b64)
 			);
 		}
-		return pieceCropUrl(snap.jpeg_path) ?? dataImageUrl(snap.jpeg_b64);
+		return pieceCropUrl(snap.jpeg_path, base) ?? dataImageUrl(snap.jpeg_b64);
 	}
 
 	type CropEntry = { src: string; role: string; ts: number | null; used: boolean };

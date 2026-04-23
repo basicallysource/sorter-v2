@@ -15,6 +15,8 @@ class CameraName(str, Enum):
 
 class PieceStage(str, Enum):
     created = "created"
+    registered = "registered"
+    classified = "classified"
     distributing = "distributing"
     distributed = "distributed"
 

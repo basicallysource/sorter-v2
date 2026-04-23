@@ -539,12 +539,10 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
         return False
 
     for runtime_layer, layer in zip(runtime_layers, layers):
-        setattr(runtime_layer, "enabled", bool(layer.get("enabled", True)))
+        runtime_layer.enabled = bool(layer.get("enabled", True))
         max_per_bin = layer.get("max_pieces_per_bin")
-        setattr(
-            runtime_layer,
-            "max_pieces_per_bin",
-            max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+        runtime_layer.max_pieces_per_bin = (
+            max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         )
     return True
 

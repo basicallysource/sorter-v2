@@ -42,7 +42,12 @@ DEFAULT_EXIT_ZONE_NEAR_ARC_RAD = math.radians(20.0)
 # not yet in the commit-zone. Gives the piece a gentle approach
 # instead of slamming into C4 at normal-pulse velocity.
 DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(60.0)
-DEFAULT_MAX_RING_COUNT = 1
+# Small queue of separated pieces on C3: as soon as a new piece lands
+# in the intake zone C3 nudges it away so the next C2 drop has clear
+# space; the queue drains piece by piece via the normal approach/exit
+# pulses. 1 forced C2 to wait for C3 to fully clear before delivering
+# the next piece, making the whole pipeline serial.
+DEFAULT_MAX_RING_COUNT = 3
 DEFAULT_PULSE_COOLDOWN_S = 0.12
 DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200

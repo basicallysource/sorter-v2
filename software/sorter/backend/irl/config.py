@@ -373,7 +373,12 @@ class ClassificationChannelConfig:
         # ~400-600ms; 0.8s adds margin while keeping throughput impact
         # below ~5%.
         self.post_distribute_cooldown_s = 0.8
-        self.startup_purge_enabled = True
+        # Disabled: the rotation-gated ghost filter drops leftover
+        # phantom detections without needing a pre-classification purge
+        # pass, and the legacy purge gets stuck whenever new real pieces
+        # arrive during the clear-hold window (can_finish requires
+        # owned_count == 0, which a steady piece feed never satisfies).
+        self.startup_purge_enabled = False
         self.startup_purge_prime_step_deg = 10.0
         self.startup_purge_prime_cooldown_ms = 120
         self.startup_purge_max_prime_moves = 3
@@ -381,8 +386,12 @@ class ClassificationChannelConfig:
         self.startup_purge_speed_scale = 12.0
         # Scale for the normal pipeline-advance carousel move. Exit drop
         # commit uses a separate eject config, so this only affects the
-        # slow pipeline travel, not the precision drop.
-        self.transport_speed_scale = 3.0
+        # slow pipeline travel, not the precision drop. A real piece
+        # travels ~140° around the carousel before classification — at
+        # the default stepper speed that took minutes; 6x keeps the
+        # drop-commit precision intact while moving through the bulk
+        # transport in seconds.
+        self.transport_speed_scale = 6.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

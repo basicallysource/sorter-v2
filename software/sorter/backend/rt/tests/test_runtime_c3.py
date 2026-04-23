@@ -93,6 +93,7 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         wiggle_stall_ms=200,
         wiggle_cooldown_ms=500,
         holdover_ms=kwargs.get("holdover_ms", 2000),
+        max_ring_count=kwargs.get("max_ring_count", 3),
     )
     return rt, upstream, downstream, log
 
@@ -191,8 +192,9 @@ def test_c3_new_visible_piece_releases_upstream_on_arrival() -> None:
 
 
 def test_c3_available_slots_blocks_when_ring_full() -> None:
-    rt, _up, _down, _log = _make()
-    # Default max_ring_count = 1 for C3 — one confirmed piece fills it.
+    rt, _up, _down, _log = _make(max_ring_count=1)
+    # With max_ring_count=1, one confirmed piece fills the ring and
+    # available_slots drops to 0 until the piece drains downstream.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(_track(angle_rad=math.pi / 3, confirmed=False)),

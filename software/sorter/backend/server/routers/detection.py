@@ -28,7 +28,6 @@ from role_aliases import (
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.detection_config.common import (
-    auxiliary_sample_collection_supported as _auxiliary_sample_collection_supported_for_vm,
     feeder_role_label as _feeder_role_label,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
@@ -373,7 +372,6 @@ def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]
 @router.get("/api/classification/detection-config")
 def get_classification_detection_config() -> Dict[str, Any]:
     return DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     ).get_classification_detection_config()
 
@@ -383,7 +381,6 @@ def save_classification_detection_config(
     payload: ClassificationDetectionConfigPayload,
 ) -> Dict[str, Any]:
     service = DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     )
     try:
@@ -408,7 +405,6 @@ def save_classification_detection_config(
 def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
     return DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     ).get_feeder_detection_config(role)
 
@@ -420,7 +416,6 @@ def save_feeder_detection_config(
 ) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
     service = DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     )
     try:
@@ -447,7 +442,6 @@ def save_feeder_detection_config(
 @router.get("/api/classification-channel/detection-config")
 def get_carousel_detection_config() -> Dict[str, Any]:
     return DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     ).get_auxiliary_detection_config()
 
@@ -459,7 +453,6 @@ def save_carousel_detection_config(
 ) -> Dict[str, Any]:
     aux_scope = _public_aux_scope()
     service = DetectionConfigService(
-        vision_manager=shared_state.vision_manager,
         rt_handle=shared_state.rt_handle,
     )
     try:
@@ -958,9 +951,7 @@ def _finalize_aux_detection_debug_payload(
     payload["normalized_zone_bbox"] = (
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
-    if isinstance(sample_capture, dict) and _auxiliary_sample_collection_supported_for_vm(
-        shared_state.vision_manager
-    ):
+    if isinstance(sample_capture, dict):
         try:
             saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
                 source="settings_detection_test",

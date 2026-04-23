@@ -393,25 +393,10 @@ def test_save_config_without_rt_handle_is_noop(
     assert result["ok"] is True
 
 
-def test_save_classification_config_uses_service_and_applies_vm(
+def test_save_classification_config_persists_via_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     saved_configs: list[dict[str, Any]] = []
-
-    class _FakeVisionManager:
-        def __init__(self) -> None:
-            self.algorithm: str | None = None
-            self.openrouter_model: str | None = None
-
-        def setClassificationDetectionAlgorithm(self, algorithm: str) -> bool:
-            self.algorithm = algorithm
-            return True
-
-        def setClassificationOpenRouterModel(self, model: str) -> None:
-            self.openrouter_model = model
-
-    vision_manager = _FakeVisionManager()
-    monkeypatch.setattr(shared_state, "vision_manager", vision_manager, raising=False)
     monkeypatch.setattr(
         "server.services.detection_config.setClassificationDetectionConfig",
         lambda cfg: saved_configs.append(dict(cfg)),
@@ -425,15 +410,13 @@ def test_save_classification_config_uses_service_and_applies_vm(
 
     assert result["ok"] is True
     assert result["algorithm"] == "hive:classification-chamber-yolo11n-320"
-    assert result["baseline_loaded"] is True
+    assert result["baseline_loaded"] is False
     assert saved_configs == [
         {
             "algorithm": "hive:classification-chamber-yolo11n-320",
             "openrouter_model": "google/gemini-3-flash-preview",
         }
     ]
-    assert vision_manager.algorithm == "hive:classification-chamber-yolo11n-320"
-    assert vision_manager.openrouter_model == "google/gemini-3-flash-preview"
 
 
 def test_get_classification_channel_config_uses_c4_scope(

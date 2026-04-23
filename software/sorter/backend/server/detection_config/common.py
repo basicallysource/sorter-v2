@@ -98,38 +98,11 @@ def feeder_role_label(role: str | None) -> str:
     return "C-channel"
 
 
-def feeder_sample_collection_supported(
-    vision_manager: Any | None,
-    role: str | None = None,
-) -> bool:
-    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
-        try:
-            return bool(
-                vision_manager.supportsFeederSampleCollection(
-                    internal_feeder_role(role) if role else None
-                )
-            )
-        except Exception:
-            return False
-    return True
-
-
-def auxiliary_sample_collection_supported(vision_manager: Any | None) -> bool:
-    if vision_manager is not None and hasattr(vision_manager, "supportsCarouselSampleCollection"):
-        try:
-            return bool(vision_manager.supportsCarouselSampleCollection())
-        except Exception:
-            return False
-    return True
-
-
 __all__ = [
-    "auxiliary_sample_collection_supported",
     "detection_algorithm_label",
     "detection_algorithm_uses_baseline",
     "feeder_algorithm_by_role_from_config",
     "feeder_role_label",
-    "feeder_sample_collection_supported",
     "internal_feeder_role",
     "openrouter_model_label",
     "openrouter_model_options",

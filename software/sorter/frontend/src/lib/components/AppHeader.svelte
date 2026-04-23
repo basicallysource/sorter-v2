@@ -426,12 +426,6 @@
 					Tracked
 				</a>
 				<a
-					href="/engine-room"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/engine-room') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
-				>
-					Engine Room
-				</a>
-				<a
 					href="/logs"
 					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/logs') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
 				>

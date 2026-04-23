@@ -19,7 +19,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 from rt.contracts.runtime import Runtime, RuntimeHealth
 
@@ -176,6 +176,16 @@ class BaseRuntime(Runtime):
     def _set_state(self, state: str, *, blocked_reason: str | None = None) -> None:
         self._state = state
         self._blocked_reason = blocked_reason
+
+    def debug_snapshot(self) -> dict[str, Any]:
+        """Compact runtime-local state for API/operator diagnostics."""
+        return {
+            "state": self._state,
+            "blocked_reason": self._blocked_reason,
+            "last_tick_ms": self._last_tick_ms,
+            "hw_busy": bool(self._hw.busy()),
+            "hw_pending": int(self._hw.pending()),
+        }
 
     # -- Tick helpers ------------------------------------------------
 

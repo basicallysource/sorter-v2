@@ -38,11 +38,13 @@ class FakeHiveProcessor:
     def __init__(self, detections: list[_MLDetection] | None = None) -> None:
         self._detections = detections or []
         self.calls: list[tuple[int, int]] = []  # (h, w) of each crop
+        self.last_image: np.ndarray | None = None
         self.reset_calls = 0
         self.closed = False
 
     def infer(self, image_bgr: np.ndarray) -> list[_MLDetection]:
         self.calls.append((int(image_bgr.shape[0]), int(image_bgr.shape[1])))
+        self.last_image = image_bgr.copy()
         return list(self._detections)
 
     def reset(self) -> None:
@@ -128,20 +130,43 @@ def test_hive_detector_score_and_bbox_in_original_coords() -> None:
     assert batch.detections[0].bbox_xyxy == (105, 110, 135, 140)
 
 
-def test_hive_detector_polygon_zone_uses_bounding_rect() -> None:
+def test_hive_detector_polygon_zone_masks_to_polygon_inside_bounding_rect() -> None:
     proc = FakeHiveProcessor(detections=[_MLDetection(bbox=(0, 0, 10, 10), score=0.9)])
     det = HiveDetector(
         model_id="m", slug="s", processor=proc, imgsz=320, model_family="yolo",
     )
-    frame = _frame(np.zeros((200, 200, 3), dtype=np.uint8))
+    frame = _frame(np.full((200, 200, 3), 255, dtype=np.uint8))
+    zone = PolygonZone(vertices=((50, 50), (150, 60), (120, 160), (40, 140)))
+
+    _ = det.detect(frame, zone)
+
+    # Bounding rect of vertices: x in [40, 150], y in [50, 160] => crop 110x110.
+    assert proc.calls == [(110, 110)]
+    assert proc.last_image is not None
+    # Pixels in the bounding rect but outside the polygon must be masked out.
+    assert int(proc.last_image[0, 0, 0]) == 0
+    # Pixels well inside the polygon remain intact.
+    assert int(proc.last_image[40, 40, 0]) == 255
+
+
+def test_hive_detector_filters_detections_outside_polygon_center() -> None:
+    proc = FakeHiveProcessor(
+        detections=[
+            _MLDetection(bbox=(0, 0, 10, 10), score=0.9),
+            _MLDetection(bbox=(45, 45, 65, 65), score=0.8),
+        ]
+    )
+    det = HiveDetector(
+        model_id="m", slug="s", processor=proc, imgsz=320, model_family="yolo",
+    )
+    frame = _frame(np.full((200, 200, 3), 255, dtype=np.uint8))
     zone = PolygonZone(vertices=((50, 50), (150, 60), (120, 160), (40, 140)))
 
     batch = det.detect(frame, zone)
 
-    # Bounding rect of vertices: x in [40, 150], y in [50, 160] => crop 110x110.
-    assert proc.calls == [(110, 110)]
-    # Offset back: bbox(0..10) + (40, 50) -> (40, 50, 50, 60)
-    assert batch.detections[0].bbox_xyxy == (40, 50, 50, 60)
+    # The bbox centered near the top-left corner of the bounding rect is
+    # outside the actual polygon and must be discarded.
+    assert [d.bbox_xyxy for d in batch.detections] == [(85, 95, 105, 115)]
 
 
 def test_hive_detector_polar_zone_not_implemented() -> None:

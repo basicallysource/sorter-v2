@@ -176,13 +176,13 @@ def test_c3_on_piece_delivered_releases_upstream() -> None:
     assert up.available() == 1
 
 
-def test_c3_new_confirmed_piece_releases_upstream_on_arrival() -> None:
+def test_c3_new_visible_piece_releases_upstream_on_arrival() -> None:
     rt, up, _down, _log = _make(upstream_cap=1)
     assert up.try_claim() is True
     # Piece arrives off-exit so no pulse, but the upstream release fires.
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(global_id=7, angle_rad=math.pi)),
+            tracks=_batch(_track(global_id=7, angle_rad=math.pi, confirmed=False)),
             capacity_downstream=1,
         ),
         now_mono=0.0,
@@ -195,7 +195,7 @@ def test_c3_available_slots_blocks_when_ring_full() -> None:
     # Default max_ring_count = 1 for C3 — one confirmed piece fills it.
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(angle_rad=math.pi / 3)),
+            tracks=_batch(_track(angle_rad=math.pi / 3, confirmed=False)),
             capacity_downstream=1,
         ),
         now_mono=0.0,

@@ -140,7 +140,7 @@ def test_c2_exit_wiggle_fires_after_stall() -> None:
     assert rt.health().state == "exit_wiggle"
 
 
-def test_c2_new_confirmed_piece_releases_upstream_slot() -> None:
+def test_c2_new_visible_piece_releases_upstream_slot() -> None:
     rt, up, _down, _log = _make(upstream_cap=2)
     # Upstream slot was claimed twice — we expect one release per new piece.
     assert up.try_claim() is True
@@ -157,12 +157,17 @@ def test_c2_new_confirmed_piece_releases_upstream_slot() -> None:
     assert up.available() == 1
 
 
-def test_c2_ignores_unconfirmed_tracks_for_ring_count() -> None:
+def test_c2_visible_tracks_count_toward_ring_capacity() -> None:
     rt, _up, _down, _log = _make()
-    ghost = _track(confirmed=False, angle_rad=0.0)
-    rt.tick(RuntimeInbox(tracks=_batch(ghost), capacity_downstream=1), now_mono=0.0)
-    # Runtime saw no confirmed pieces; ring_count stayed 0 and avail=1.
-    assert rt.available_slots() == 1
+    tracks = _batch(
+        _track(track_id=1, global_id=1, confirmed=False, angle_rad=math.pi / 2),
+        _track(track_id=2, global_id=2, confirmed=False, angle_rad=math.pi),
+        _track(track_id=3, global_id=3, confirmed=False, angle_rad=-math.pi / 2),
+        _track(track_id=4, global_id=4, confirmed=False, angle_rad=math.pi / 3),
+        _track(track_id=5, global_id=5, confirmed=False, angle_rad=-math.pi / 3),
+    )
+    rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
+    assert rt.available_slots() == 0
 
 
 def test_c2_ignores_stale_coasted_track_at_exit() -> None:

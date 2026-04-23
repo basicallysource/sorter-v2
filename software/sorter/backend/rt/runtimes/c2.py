@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
@@ -105,10 +105,23 @@ class RuntimeC2(BaseRuntime):
         )
         return 1 if decision.allowed else 0
 
+    def debug_snapshot(self) -> dict[str, Any]:
+        snap = super().debug_snapshot()
+        snap.update({
+            "ring_count": int(self._ring_count),
+            "max_ring_count": int(self._max_ring_count),
+            "available_slots": int(self.available_slots()),
+            "upstream_taken": int(self._upstream_slot.taken()),
+            "downstream_taken": int(self._downstream_slot.taken()),
+            "seen_global_ids": len(self._bookkeeping.seen_global_ids),
+            "exit_stall_active": self._bookkeeping.exit_stall_since is not None,
+        })
+        return snap
+
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
         try:
-            tracks = self._confirmed_tracks(inbox.tracks)
+            tracks = self._fresh_tracks(inbox.tracks)
             self._credit_new_arrivals(tracks, now_mono)
             self._ring_count = len(tracks)
             exit_track = self._pick_exit_track(tracks)
@@ -140,14 +153,14 @@ class RuntimeC2(BaseRuntime):
     # ------------------------------------------------------------------
     # Internals
 
-    def _confirmed_tracks(self, batch: TrackBatch | None) -> list[Track]:
+    def _fresh_tracks(self, batch: TrackBatch | None) -> list[Track]:
         if batch is None:
             return []
         batch_ts = float(batch.timestamp)
         return [
             t
             for t in batch.tracks
-            if t.confirmed_real and self._is_track_fresh(t, batch_ts)
+            if self._is_track_fresh(t, batch_ts)
         ]
 
     def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:

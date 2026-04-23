@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 from rt.contracts.detection import Detection, DetectionBatch
@@ -99,17 +100,19 @@ class HiveDetector:
             log.exception("HiveDetector %s inference failed", self.key)
             return self._empty_batch(frame, t0)
 
-        detections = tuple(
-            self._to_contract_detection(det, offset_xy, raw.shape)
-            for det in raw_detections
-            if det is not None
-        )
+        detections: list[Detection] = []
+        for det in raw_detections:
+            if det is None:
+                continue
+            translated = self._to_contract_detection(det, offset_xy, raw.shape)
+            if self._center_in_zone(translated.bbox_xyxy, zone):
+                detections.append(translated)
         latency_ms = (time.perf_counter() - t0) * 1000.0
         return DetectionBatch(
             feed_id=frame.feed_id,
             frame_seq=frame.frame_seq,
             timestamp=frame.timestamp,
-            detections=detections,
+            detections=tuple(detections),
             algorithm=self.key,
             latency_ms=latency_ms,
         )
@@ -172,15 +175,48 @@ class HiveDetector:
             if x2 <= x1 or y2 <= y1:
                 return None, (0, 0)
             crop = np.ascontiguousarray(raw[y1:y2, x1:x2])
-            # Polygon masking not required for YOLO — the model learns zone
-            # context from training crops. Bounding-rect crop is fine.
-            return crop, (x1, y1)
+            points = np.array(
+                [[int(px) - x1, int(py) - y1] for (px, py) in zone.vertices],
+                dtype=np.int32,
+            )
+            mask = np.zeros(crop.shape[:2], dtype=np.uint8)
+            cv2.fillPoly(mask, [points], 255)
+            masked = cv2.bitwise_and(crop, crop, mask=mask)
+            return np.ascontiguousarray(masked), (x1, y1)
 
         if isinstance(zone, PolarZone):
             raise NotImplementedError(
                 "PolarZone cropping for HiveDetector is not implemented yet — "
                 "PolarZone feeds should use a polar-aware detector path."
             )
+
+        raise TypeError(f"Unsupported Zone type: {type(zone).__name__}")
+
+    def _center_in_zone(
+        self,
+        bbox_xyxy: tuple[int, int, int, int],
+        zone: Zone,
+    ) -> bool:
+        x1, y1, x2, y2 = (int(v) for v in bbox_xyxy)
+        cx = float(x1 + x2) / 2.0
+        cy = float(y1 + y2) / 2.0
+
+        if isinstance(zone, RectZone):
+            return (
+                cx >= float(zone.x)
+                and cx <= float(zone.x + zone.w)
+                and cy >= float(zone.y)
+                and cy <= float(zone.y + zone.h)
+            )
+
+        if isinstance(zone, PolygonZone):
+            polygon = np.array(zone.vertices, dtype=np.int32)
+            if polygon.ndim != 2 or polygon.shape[0] < 3:
+                return False
+            return cv2.pointPolygonTest(polygon, (cx, cy), False) >= 0
+
+        if isinstance(zone, PolarZone):
+            return True
 
         raise TypeError(f"Unsupported Zone type: {type(zone).__name__}")
 

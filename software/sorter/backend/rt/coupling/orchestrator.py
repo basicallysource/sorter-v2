@@ -63,6 +63,7 @@ class Orchestrator:
         self._tick_count = 0
         self._last_tick_mono: float = 0.0
         self._downstream_of = self._build_downstream_map()
+        self._runtime_by_id = {rt.runtime_id: rt for rt in self._runtimes}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -163,7 +164,18 @@ class Orchestrator:
         slot = self._slots.get((runtime_id, downstream_id))
         if slot is None:
             return 0
-        return slot.available()
+        slot_capacity = slot.available()
+        downstream = self._runtime_by_id.get(downstream_id)
+        if downstream is None:
+            return slot_capacity
+        try:
+            downstream_capacity = max(0, int(downstream.available_slots()))
+        except Exception:
+            self._logger.exception(
+                "Orchestrator: available_slots() raised for %r", downstream_id
+            )
+            return slot_capacity
+        return min(slot_capacity, downstream_capacity)
 
     def _tick(self, now_mono: float) -> None:
         # Downstream-first so upstream runtimes see fresh capacity.

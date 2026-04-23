@@ -31,6 +31,7 @@ class _FakeRuntime(Runtime):
         self.started = False
         self.stopped = False
         self._raises = raises
+        self._available_slots = 1
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         if self._raises:
@@ -44,7 +45,7 @@ class _FakeRuntime(Runtime):
         )
 
     def available_slots(self) -> int:
-        return 1
+        return self._available_slots
 
     def on_piece_delivered(self, piece_uuid: str, now_mono: float) -> None:
         return None
@@ -94,6 +95,7 @@ def test_tick_order_is_downstream_first() -> None:
 def test_capacity_downstream_pulled_from_slot() -> None:
     c1 = _FakeRuntime("c1")
     c2 = _FakeRuntime("c2", feed_id="c2_feed")
+    c2._available_slots = 99
     slot = CapacitySlot("c1_to_c2", 3)
     slots = {("c1", "c2"): slot}
     orch = _make_orchestrator([c1, c2], slots)
@@ -105,6 +107,21 @@ def test_capacity_downstream_pulled_from_slot() -> None:
     assert c1.ticks[-1].capacity_downstream == 2
     # c2 has no downstream wired -> capacity should be 0.
     assert c2.ticks[-1].capacity_downstream == 0
+
+
+def test_capacity_downstream_is_limited_by_downstream_runtime_headroom() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c2._available_slots = 0
+    slot = CapacitySlot("c1_to_c2", 3)
+    orch = _make_orchestrator([c1, c2], {("c1", "c2"): slot})
+
+    orch.tick_once(now_mono=0.0)
+    assert c1.ticks[-1].capacity_downstream == 0
+
+    c2._available_slots = 2
+    orch.tick_once(now_mono=0.1)
+    assert c1.ticks[-1].capacity_downstream == 2
 
 
 def test_perception_source_forwarded_to_feed_runtime() -> None:

@@ -21,10 +21,6 @@ from blob_manager import (
     getFeederDetectionConfig,
     getHiveConfig,
     setApiKeys,
-    setCarouselDetectionConfig,
-    setClassificationChannelDetectionConfig,
-    setClassificationDetectionConfig,
-    setFeederDetectionConfig,
     setHiveConfig,
 )
 from local_state import clear_piece_dossiers
@@ -44,7 +40,14 @@ from rt.perception.detector_metadata import (
     detection_algorithm_definition,
     detection_algorithm_options,
     normalize_detection_algorithm,
-    scope_supports_detection_algorithm,
+)
+from server.services.detection_config import (
+    AuxiliaryDetectionSaveRequest,
+    ClassificationDetectionSaveRequest,
+    DetectionConfigApplyError,
+    DetectionConfigService,
+    DetectionConfigValidationError,
+    FeederDetectionSaveRequest,
 )
 
 router = APIRouter()
@@ -177,52 +180,6 @@ def _feeder_role_label(role: str | None) -> str:
     if role == CLASSIFICATION_CHANNEL_ROLE:
         return "Classification C-channel (C4)"
     return "C-channel"
-
-
-# rt-runtime role slugs used to rebuild the perception runner after the
-# user changes the detection dropdown. Mirrors the mapping in
-# ``rt/bootstrap.py`` (_ROLE_TO_FEEDER_ROLE_KEY inverted) so changing a
-# feeder channel's detector immediately rebuilds the live runner.
-_FEEDER_ROLE_KEY_TO_RT_ROLE: Dict[str, str] = {
-    "c_channel_2": "c2",
-    "c_channel_3": "c3",
-    CLASSIFICATION_CHANNEL_ROLE: "c4",
-}
-
-
-def _rebuild_rt_runner_for_feeder_role(feeder_role: str | None) -> None:
-    """Rebuild the rt perception runner for a feeder role, if applicable.
-
-    Called from the POST ``/api/feeder/detection-config`` and
-    ``/api/classification-channel/detection-config`` handlers so the
-    switch from the settings dropdown takes effect continuously — the new
-    detector starts running on its own thread, not only when the operator
-    clicks "Test Current Frame". Silent no-op when no rt handle exists.
-    """
-    handle = shared_state.rt_handle
-    if handle is None or not hasattr(handle, "rebuild_runner_for_role"):
-        return
-    targets: List[str] = []
-    if feeder_role is None:
-        # A null role means "apply to all feeder channels" (the legacy
-        # bulk path); keep that semantic by rebuilding both C2 and C3.
-        for key in ("c_channel_2", "c_channel_3"):
-            rt_role = _FEEDER_ROLE_KEY_TO_RT_ROLE.get(key)
-            if rt_role:
-                targets.append(rt_role)
-    else:
-        rt_role = _FEEDER_ROLE_KEY_TO_RT_ROLE.get(feeder_role)
-        if rt_role:
-            targets.append(rt_role)
-    for rt_role in targets:
-        try:
-            handle.rebuild_runner_for_role(rt_role)
-        except Exception:
-            # Rebuild is best-effort — a failure here must never prevent
-            # the config from persisting. The operator will see the
-            # failure reflected in /api/rt/status.skipped_roles.
-            pass
-
 
 def _openrouter_model_label(model: str) -> str:
     if model == "google/gemini-3-flash-preview":
@@ -576,46 +533,21 @@ def get_classification_detection_config() -> Dict[str, Any]:
 def save_classification_detection_config(
     payload: ClassificationDetectionConfigPayload,
 ) -> Dict[str, Any]:
-    if not scope_supports_detection_algorithm("classification", payload.algorithm):
-        raise HTTPException(status_code=400, detail="Unsupported classification detection algorithm.")
-    algorithm = _normalize_classification_detection_algorithm(payload.algorithm)
-    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    setClassificationDetectionConfig(
-        {
-            "algorithm": algorithm,
-            "openrouter_model": openrouter_model,
-        }
+    service = DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
     )
-    baseline_loaded = False
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setClassificationDetectionAlgorithm"):
-        try:
-            baseline_loaded = bool(shared_state.vision_manager.setClassificationDetectionAlgorithm(algorithm))
-            if hasattr(shared_state.vision_manager, "setClassificationOpenRouterModel"):
-                shared_state.vision_manager.setClassificationOpenRouterModel(openrouter_model)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to apply classification detection config: {exc}")
-
-    algorithm_label = _detection_algorithm_label("classification", algorithm)
-    uses_baseline = _detection_algorithm_uses_baseline("classification", algorithm)
-    message = (
-        f"Classification chamber detection switched to {algorithm_label}."
-        if uses_baseline and baseline_loaded
-        else (
-            f"Classification chamber detection switched to {algorithm_label}. Capture an empty baseline if detection stays unavailable."
-            if uses_baseline
-            else f"Classification chamber detection switched to {algorithm_label}."
+    try:
+        return service.save_classification_detection_config(
+            ClassificationDetectionSaveRequest(
+                algorithm=payload.algorithm,
+                openrouter_model=payload.openrouter_model,
+            )
         )
-    )
-    return {
-        "ok": True,
-        "algorithm": algorithm,
-        "openrouter_model": openrouter_model,
-        "baseline_loaded": baseline_loaded,
-        "uses_baseline": uses_baseline,
-        "message": message,
-    }
+    except DetectionConfigValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DetectionConfigApplyError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -721,108 +653,23 @@ def save_feeder_detection_config(
     role: str | None = Query(default=None),
 ) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
-    internal_role = _internal_feeder_role(role)
-    if not scope_supports_detection_algorithm("feeder", payload.algorithm):
-        raise HTTPException(status_code=400, detail="Unsupported feeder detection algorithm.")
-    algorithm = _normalize_feeder_detection_algorithm(payload.algorithm)
-    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    saved = getFeederDetectionConfig()
-    algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
-    saved_by_role = (
-        saved.get("sample_collection_enabled_by_role")
-        if isinstance(saved, dict) and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
-        else {}
+    service = DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
     )
-    sample_collection_enabled_by_role = {
-        channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
-        if isinstance(saved, dict)
-        else False
-        for channel_role in _public_feeder_roles()
-    }
-    if role is not None:
-        algorithm_by_role[role] = algorithm
-    else:
-        for channel_role in _public_feeder_roles():
-            algorithm_by_role[channel_role] = algorithm
-    if isinstance(payload.sample_collection_enabled, bool):
-        if role is not None:
-            sample_collection_enabled_by_role[role] = bool(payload.sample_collection_enabled)
-        else:
-            for channel_role in _public_feeder_roles():
-                sample_collection_enabled_by_role[channel_role] = bool(payload.sample_collection_enabled)
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setFeederDetectionAlgorithm"):
-        try:
-            if role is not None:
-                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm, internal_role)
-            else:
-                shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm)
-            if hasattr(shared_state.vision_manager, "setFeederOpenRouterModel"):
-                shared_state.vision_manager.setFeederOpenRouterModel(openrouter_model)
-            if hasattr(shared_state.vision_manager, "setFeederSampleCollectionEnabled"):
-                if role is not None:
-                    sample_collection_enabled_by_role[role] = bool(
-                        shared_state.vision_manager.setFeederSampleCollectionEnabled(
-                            sample_collection_enabled_by_role[role], internal_role
-                        )
-                    )
-                else:
-                    for channel_role in _public_feeder_roles():
-                        sample_collection_enabled_by_role[channel_role] = bool(
-                            shared_state.vision_manager.setFeederSampleCollectionEnabled(
-                                sample_collection_enabled_by_role[channel_role],
-                                _internal_feeder_role(channel_role),
-                            )
-                        )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to apply feeder detection config: {exc}")
-    sample_collection_enabled = (
-        bool(sample_collection_enabled_by_role.get(role))
-        if role is not None
-        else any(sample_collection_enabled_by_role.values())
-    )
-    setFeederDetectionConfig(
-        {
-            "algorithm": (
-                algorithm
-                if role is None
-                else _normalize_feeder_detection_algorithm(
-                    saved.get("algorithm") if isinstance(saved, dict) else None
-                )
-            ),
-            "algorithm_by_role": dict(algorithm_by_role),
-            "openrouter_model": openrouter_model,
-            "sample_collection_enabled": sample_collection_enabled,
-            "sample_collection_enabled_by_role": dict(sample_collection_enabled_by_role),
-        }
-    )
-    # The rt perception runner bakes the detector slug at pipeline-build
-    # time; rebuild the runner(s) for the affected feeder role so the
-    # selection takes effect continuously, not just on the next
-    # ``/api/*/detect/current`` request.
-    _rebuild_rt_runner_for_feeder_role(role)
-    role_label = _feeder_role_label(role)
-    message = f"{role_label} detection uses {_detection_algorithm_label('feeder', algorithm)}."
-    sample_collection_supported = _feeder_sample_collection_supported(role)
-    if sample_collection_supported:
-        if sample_collection_enabled:
-            message += f" Event-driven Gemini teacher sample collection is enabled for {role_label.lower()} moves."
-        elif role is not None:
-            message += f" Event-driven Gemini teacher sample collection is disabled for {role_label.lower()} moves."
-    else:
-        message += f" Event-driven Gemini teacher sample collection is unavailable for {role_label.lower()} in the current camera setup."
-    return {
-        "ok": True,
-        "role": role,
-        "algorithm": algorithm,
-        "algorithm_by_role": algorithm_by_role,
-        "openrouter_model": openrouter_model,
-        "sample_collection_enabled": sample_collection_enabled,
-        "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
-        "sample_collection_supported": sample_collection_supported,
-        "message": message,
-    }
+    try:
+        return service.save_feeder_detection_config(
+            FeederDetectionSaveRequest(
+                role=role,
+                algorithm=payload.algorithm,
+                openrouter_model=payload.openrouter_model,
+                sample_collection_enabled=payload.sample_collection_enabled,
+            )
+        )
+    except DetectionConfigValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DetectionConfigApplyError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -884,83 +731,23 @@ def save_carousel_detection_config(
     payload: AuxiliaryDetectionConfigPayload,
 ) -> Dict[str, Any]:
     aux_scope = _public_aux_scope()
-    algorithm_scope = "classification_channel" if aux_scope == CLASSIFICATION_CHANNEL_ROLE else "carousel"
-    if not scope_supports_detection_algorithm(algorithm_scope, payload.algorithm):
-        raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
-    algorithm = _normalize_aux_detection_algorithm(algorithm_scope, payload.algorithm)
-    openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    saved = (
-        getClassificationChannelDetectionConfig()
-        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
-        else getCarouselDetectionConfig()
+    service = DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
     )
-    sample_collection_enabled = (
-        bool(payload.sample_collection_enabled)
-        if isinstance(payload.sample_collection_enabled, bool)
-        else bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
-    )
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setCarouselDetectionAlgorithm"):
-        try:
-            shared_state.vision_manager.setCarouselDetectionAlgorithm(algorithm)
-            if hasattr(shared_state.vision_manager, "setCarouselOpenRouterModel"):
-                shared_state.vision_manager.setCarouselOpenRouterModel(openrouter_model)
-            if hasattr(shared_state.vision_manager, "setCarouselSampleCollectionEnabled"):
-                sample_collection_enabled = bool(
-                    shared_state.vision_manager.setCarouselSampleCollectionEnabled(sample_collection_enabled)
-                )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to apply carousel detection config: {exc}")
-    target_config = {
-        "algorithm": algorithm,
-        "openrouter_model": openrouter_model,
-        "sample_collection_enabled": sample_collection_enabled,
-    }
-    if aux_scope == CLASSIFICATION_CHANNEL_ROLE:
-        setClassificationChannelDetectionConfig(target_config)
-        # Classification C-channel is the rt "c4" role — rebuild its
-        # perception runner so the new detector slug is active immediately.
-        _rebuild_rt_runner_for_feeder_role(CLASSIFICATION_CHANNEL_ROLE)
-    else:
-        setCarouselDetectionConfig(target_config)
-    algorithm_label = _detection_algorithm_label(algorithm_scope, algorithm)
-    uses_baseline = _detection_algorithm_uses_baseline(algorithm_scope, algorithm)
-    scope_label = (
-        "Classification C-channel (C4)"
-        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
-        else "Carousel"
-    )
-    return {
-        "ok": True,
-        "algorithm": algorithm,
-        "openrouter_model": openrouter_model,
-        "sample_collection_enabled": sample_collection_enabled,
-        "sample_collection_supported": _auxiliary_sample_collection_supported(),
-        "uses_baseline": uses_baseline,
-        "scope": aux_scope,
-        "message": (
-            f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is enabled for classical triggers."
-            if uses_baseline and sample_collection_enabled and _auxiliary_sample_collection_supported()
-            else (
-                f"{scope_label} detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is enabled and will take effect when Heatmap Diff is active."
-                if sample_collection_enabled and _auxiliary_sample_collection_supported()
-                else (
-                    f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
-                    if uses_baseline and not _auxiliary_sample_collection_supported()
-                    else (
-                        f"{scope_label} detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
-                        if not _auxiliary_sample_collection_supported()
-                        else (
-                            f"{scope_label} detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable."
-                            if uses_baseline
-                            else f"{scope_label} detection switched to {algorithm_label}."
-                        )
-                    )
-                )
-            )
-        ),
-    }
+    try:
+        return service.save_auxiliary_detection_config(
+            AuxiliaryDetectionSaveRequest(
+                algorithm=payload.algorithm,
+                openrouter_model=payload.openrouter_model,
+                sample_collection_enabled=payload.sample_collection_enabled,
+            ),
+            aux_scope=aux_scope,
+        )
+    except DetectionConfigValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DetectionConfigApplyError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

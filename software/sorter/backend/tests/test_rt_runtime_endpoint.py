@@ -323,11 +323,11 @@ def test_save_feeder_config_calls_rebuild_on_rt_handle(
 
     # Stub out blob writers so the test doesn't touch disk.
     monkeypatch.setattr(
-        "server.routers.detection.getFeederDetectionConfig",
+        "server.services.detection_config.getFeederDetectionConfig",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.routers.detection.setFeederDetectionConfig",
+        "server.services.detection_config.setFeederDetectionConfig",
         lambda cfg: None,
     )
 
@@ -355,11 +355,11 @@ def test_save_classification_channel_config_rebuilds_c4(
         lambda: "classification_channel",
     )
     monkeypatch.setattr(
-        "server.routers.detection.getClassificationChannelDetectionConfig",
+        "server.services.detection_config.getClassificationChannelDetectionConfig",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.routers.detection.setClassificationChannelDetectionConfig",
+        "server.services.detection_config.setClassificationChannelDetectionConfig",
         lambda cfg: None,
     )
 
@@ -377,11 +377,11 @@ def test_save_config_without_rt_handle_is_noop(
     """No rt handle → no exception, no rebuild."""
     monkeypatch.setattr(shared_state, "rt_handle", None, raising=False)
     monkeypatch.setattr(
-        "server.routers.detection.getFeederDetectionConfig",
+        "server.services.detection_config.getFeederDetectionConfig",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.routers.detection.setFeederDetectionConfig",
+        "server.services.detection_config.setFeederDetectionConfig",
         lambda cfg: None,
     )
 
@@ -391,6 +391,49 @@ def test_save_config_without_rt_handle_is_noop(
     # Should not raise.
     result = detection_router.save_feeder_detection_config(payload=payload, role="c_channel_2")
     assert result["ok"] is True
+
+
+def test_save_classification_config_uses_service_and_applies_vm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    saved_configs: list[dict[str, Any]] = []
+
+    class _FakeVisionManager:
+        def __init__(self) -> None:
+            self.algorithm: str | None = None
+            self.openrouter_model: str | None = None
+
+        def setClassificationDetectionAlgorithm(self, algorithm: str) -> bool:
+            self.algorithm = algorithm
+            return True
+
+        def setClassificationOpenRouterModel(self, model: str) -> None:
+            self.openrouter_model = model
+
+    vision_manager = _FakeVisionManager()
+    monkeypatch.setattr(shared_state, "vision_manager", vision_manager, raising=False)
+    monkeypatch.setattr(
+        "server.services.detection_config.setClassificationDetectionConfig",
+        lambda cfg: saved_configs.append(dict(cfg)),
+    )
+
+    payload = detection_router.ClassificationDetectionConfigPayload(
+        algorithm="hive:classification-chamber-yolo11n-320",
+        openrouter_model="google/gemini-3-flash-preview",
+    )
+    result = detection_router.save_classification_detection_config(payload=payload)
+
+    assert result["ok"] is True
+    assert result["algorithm"] == "hive:classification-chamber-yolo11n-320"
+    assert result["baseline_loaded"] is True
+    assert saved_configs == [
+        {
+            "algorithm": "hive:classification-chamber-yolo11n-320",
+            "openrouter_model": "google/gemini-3-flash-preview",
+        }
+    ]
+    assert vision_manager.algorithm == "hive:classification-chamber-yolo11n-320"
+    assert vision_manager.openrouter_model == "google/gemini-3-flash-preview"
 
 
 def test_get_classification_channel_config_uses_c4_scope(

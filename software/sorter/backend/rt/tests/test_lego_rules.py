@@ -192,6 +192,28 @@ def test_categories_overlay_shape_supported(tmp_path: Path) -> None:
     assert decision.bin_id == "L0-S0-B0"
 
 
+def test_saved_bin_categories_route_without_layout_file(tmp_path: Path, monkeypatch) -> None:
+    import rt.rules.lego_rules as lego_rules
+
+    profile = _write_profile(
+        tmp_path,
+        {
+            "part_to_category": {"any_color-3001": "bricks_2x3"},
+            "default_category_id": "misc",
+        },
+    )
+    monkeypatch.setattr(
+        lego_rules,
+        "_saved_category_mapping",
+        lambda _logger: {"bricks_2x3": "L0-S1-B2"},
+    )
+
+    engine = LegoRulesEngine(sorting_profile_path=profile)
+    decision = engine.decide_bin(_result("3001", "red"), context={})
+
+    assert decision.bin_id == "L0-S1-B2"
+
+
 def test_missing_profile_gracefully_degrades(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist.json"
     engine = LegoRulesEngine(sorting_profile_path=missing, default_bin_id="misc_bin")

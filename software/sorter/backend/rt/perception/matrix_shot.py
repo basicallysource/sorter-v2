@@ -87,6 +87,13 @@ class MatrixShotRecorder:
         except queue.Full:
             self._logger.warning("matrix_shot: queue full, dropping job for %s", piece_uuid)
 
+    def close(self, timeout: float = 1.0) -> None:
+        try:
+            self._jobs.put_nowait(None)
+        except queue.Full:
+            pass
+        self._thread.join(timeout=timeout)
+
     def capture_now(
         self,
         *,

@@ -573,6 +573,7 @@ def build_rt_runtime(
         "lego_default",
         sorting_profile_path=sorting_profile_path,
         bin_layout_path=bin_layout_path,
+        default_bin_id="reject",
         logger=log,
     )
     log.info(

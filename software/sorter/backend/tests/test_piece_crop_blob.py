@@ -88,6 +88,16 @@ class PieceCropBlobTests(unittest.TestCase):
         joined = Path(self._tmpdir) / rel
         self.assertTrue(joined.is_file())
 
+    def test_write_matrix_shot_crop_uses_matrix_kind(self) -> None:
+        rel = blob_manager.write_piece_crop(
+            "uuid-matrix", 0, "matrix", 2, b"\xff\xd8\xff"
+        )
+        self.assertIsNotNone(rel)
+        self.assertEqual(
+            str(rel),
+            str(Path("piece_crops") / "uuid-matrix" / "seg0" / "matrix_002.jpg"),
+        )
+
 
 class _TempDirCtx:
     """Tiny context manager wrapper so setUp/tearDown can hold the state."""

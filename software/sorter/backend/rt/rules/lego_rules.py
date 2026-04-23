@@ -186,33 +186,40 @@ class LegoRulesEngine:
 
     def _load_bin_layout(self) -> None:
         """Load the bin layout JSON and flatten to category -> bin_id."""
-        if self._bin_layout_path is None or not self._bin_layout_path.exists():
-            # Empty layout is acceptable — callers may still route via the
-            # default bin id. Log once so operators know why everything falls
-            # through to default.
-            self._logger.info(
-                "LegoRulesEngine: no bin layout file; categories route to default"
-            )
-            self._category_to_bin = {}
-            return
-
-        try:
-            with self._bin_layout_path.open("r") as fp:
-                data = json.load(fp)
-        except (OSError, ValueError):
-            self._logger.exception(
-                "LegoRulesEngine: failed to read bin layout %s",
-                self._bin_layout_path,
-            )
-            self._category_to_bin = {}
-            return
-
         mapping: dict[str, str] = {}
-        layers = data.get("layers") if isinstance(data, dict) else None
-        if not isinstance(layers, list):
-            self._category_to_bin = {}
-            return
+        if self._bin_layout_path is None or not self._bin_layout_path.exists():
+            self._logger.info(
+                "LegoRulesEngine: no bin layout file; checking saved bin categories"
+            )
+        else:
+            try:
+                with self._bin_layout_path.open("r") as fp:
+                    data = json.load(fp)
+            except (OSError, ValueError):
+                self._logger.exception(
+                    "LegoRulesEngine: failed to read bin layout %s",
+                    self._bin_layout_path,
+                )
+                data = None
+            mapping.update(_category_mapping_from_layout_data(data))
 
+        # The operator UI stores current category assignments in local_state,
+        # then applies them to the live DistributionLayout at hardware init.
+        # Mirror that source of truth here so rt sorting uses the same bins
+        # the dashboard shows.
+        mapping.update(_saved_category_mapping(self._logger))
+
+        self._category_to_bin = mapping
+        self._logger.info(
+            "LegoRulesEngine: loaded %d category->bin mappings",
+            len(self._category_to_bin),
+        )
+
+
+def _category_mapping_from_layout_data(data: Any) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    layers = data.get("layers") if isinstance(data, dict) else None
+    if isinstance(layers, list):
         for layer_idx, layer in enumerate(layers):
             if not isinstance(layer, dict):
                 continue
@@ -220,42 +227,60 @@ class LegoRulesEngine:
             if not isinstance(sections, list):
                 continue
             for section_idx, section in enumerate(sections):
-                # Layout JSONs sometimes store categories directly on a bin list;
-                # fall back gracefully when the structure is just size strings.
+                # Layout JSONs sometimes store categories directly on a bin
+                # list; fall back gracefully when the structure is just size
+                # strings.
                 if not isinstance(section, list):
                     continue
-                bins = section
-                for bin_idx, bin_entry in enumerate(bins):
+                for bin_idx, bin_entry in enumerate(section):
                     bin_id = f"L{layer_idx}-S{section_idx}-B{bin_idx}"
-                    category_ids = _extract_category_ids(bin_entry)
-                    for cat_id in category_ids:
-                        # First-match-wins if the same category is mapped to
-                        # multiple bins. Operators should avoid this.
+                    for cat_id in _extract_category_ids(bin_entry):
                         mapping.setdefault(cat_id, bin_id)
 
-        # Also inspect `categories` overlay if present (matches layout bin_layout
-        # JSON shape emitted by the operator UI).
-        overlay = data.get("categories") if isinstance(data, dict) else None
-        if isinstance(overlay, list):
-            for layer_idx, layer in enumerate(overlay):
-                if not isinstance(layer, list):
-                    continue
-                for section_idx, section in enumerate(layer):
-                    if not isinstance(section, list):
-                        continue
-                    for bin_idx, bin_cats in enumerate(section):
-                        if not isinstance(bin_cats, list):
-                            continue
-                        bin_id = f"L{layer_idx}-S{section_idx}-B{bin_idx}"
-                        for cat_id in bin_cats:
-                            if isinstance(cat_id, str):
-                                mapping.setdefault(cat_id, bin_id)
+    # Also inspect `categories` overlay if present (matches layout bin_layout
+    # JSON shape emitted by the operator UI).
+    overlay = data.get("categories") if isinstance(data, dict) else None
+    if isinstance(overlay, list):
+        mapping.update(_category_mapping_from_overlay(overlay))
+    return mapping
 
-        self._category_to_bin = mapping
-        self._logger.info(
-            "LegoRulesEngine: loaded %d category->bin mappings",
-            len(self._category_to_bin),
-        )
+
+def _saved_category_mapping(logger: logging.Logger) -> dict[str, str]:
+    try:
+        from irl.bin_layout import getBinLayout, layoutMatchesCategories, mkLayoutFromConfig
+        from local_state import get_bin_categories
+
+        categories = get_bin_categories()
+        if categories is None:
+            return {}
+        layout = mkLayoutFromConfig(getBinLayout())
+        if not layoutMatchesCategories(layout, categories):
+            logger.warning("LegoRulesEngine: saved bin categories do not match layout")
+            return {}
+        return _category_mapping_from_overlay(categories)
+    except Exception:
+        logger.exception("LegoRulesEngine: failed to load saved bin categories")
+        return {}
+
+
+def _category_mapping_from_overlay(overlay: Any) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    if not isinstance(overlay, list):
+        return mapping
+    for layer_idx, layer in enumerate(overlay):
+        if not isinstance(layer, list):
+            continue
+        for section_idx, section in enumerate(layer):
+            if not isinstance(section, list):
+                continue
+            for bin_idx, bin_cats in enumerate(section):
+                if not isinstance(bin_cats, list):
+                    continue
+                bin_id = f"L{layer_idx}-S{section_idx}-B{bin_idx}"
+                for cat_id in bin_cats:
+                    if isinstance(cat_id, str):
+                        mapping[cat_id] = bin_id
+    return mapping
 
 
 def _extract_category_ids(bin_entry: Any) -> list[str]:

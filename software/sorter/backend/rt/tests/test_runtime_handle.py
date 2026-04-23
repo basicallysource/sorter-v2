@@ -324,7 +324,7 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
         perception_started=True,
         paused=True,
     )
-    handle._c234_purge_status = {
+    handle._purge_coordinator._status = {
         "active": True,
         "phase": "purging",
         "counts": {"c2": 1, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},

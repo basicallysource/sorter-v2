@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 import os
 import threading
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -47,9 +46,9 @@ from rt.runtimes._strategies import (
     C4EjectionTiming,
     C4StartupPurgeStrategy,
     ConstantPulseEjection,
-    GenericPurgeStrategy,
 )
 from rt.runtimes._zones import ZoneManager
+from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.runtimes.c1 import RuntimeC1
 from rt.runtimes.c2 import RuntimeC2
 from rt.runtimes.c3 import RuntimeC3
@@ -102,22 +101,9 @@ class RtRuntimeHandle:
     # Back-reference needed for runner rebuilds after config changes.
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
-    _maintenance_lock: threading.Lock = field(default_factory=threading.Lock)
-    _c234_purge_thread: threading.Thread | None = None
-    _c234_purge_status: dict[str, Any] = field(
-        default_factory=lambda: {
-            "active": False,
-            "phase": "idle",
-            "started_at": None,
-            "finished_at": None,
-            "success": None,
-            "reason": None,
-            "was_paused": None,
-            "cancel_requested": False,
-            "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
-        }
+    _purge_coordinator: C234PurgeCoordinator = field(
+        default_factory=C234PurgeCoordinator
     )
-    _c234_purge_cancel: threading.Event = field(default_factory=threading.Event)
 
     def start_perception(self) -> None:
         if self.perception_started:
@@ -147,7 +133,7 @@ class RtRuntimeHandle:
     def stop(self) -> None:
         if not self.started and not self.perception_started:
             return
-        self._c234_purge_cancel.set()
+        self._purge_coordinator.request_cancel()
         if self.started:
             try:
                 self.orchestrator.stop()
@@ -269,12 +255,7 @@ class RtRuntimeHandle:
         return FeedAnnotationSnapshot(feed_id=feed_id, zone=zone, tracks=tracks)
 
     def c234_purge_status(self) -> dict[str, Any]:
-        with self._maintenance_lock:
-            status = dict(self._c234_purge_status)
-            counts = status.get("counts")
-            if isinstance(counts, dict):
-                status["counts"] = dict(counts)
-            return status
+        return self._purge_coordinator.status()
 
     def start_c234_purge(
         self,
@@ -284,241 +265,19 @@ class RtRuntimeHandle:
         clear_hold_s: float = 0.75,
         poll_s: float = 0.05,
     ) -> bool:
-        if timeout_s <= 0.0:
-            raise ValueError("timeout_s must be > 0")
-        if clear_hold_s < 0.0:
-            raise ValueError("clear_hold_s must be >= 0")
-        if poll_s <= 0.0:
-            raise ValueError("poll_s must be > 0")
         if not self.started:
             raise RuntimeError("rt runtime is not started")
-
-        with self._maintenance_lock:
-            if bool(self._c234_purge_status.get("active")):
-                return False
-            self._c234_purge_status = {
-                "active": True,
-                "phase": "starting",
-                "started_at": time.time(),
-                "finished_at": None,
-                "success": None,
-                "reason": None,
-                "was_paused": bool(self.paused),
-                "cancel_requested": False,
-                "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
-            }
-            self._c234_purge_cancel.clear()
-            thread = threading.Thread(
-                target=self._run_c234_purge,
-                kwargs={
-                    "state_publisher": state_publisher,
-                    "timeout_s": float(timeout_s),
-                    "clear_hold_s": float(clear_hold_s),
-                    "poll_s": float(poll_s),
-                },
-                name="RtC234Purge",
-                daemon=True,
-            )
-            self._c234_purge_thread = thread
-            thread.start()
-            return True
+        return self._purge_coordinator.start(
+            runtimes=(self.c2, self.c3, self.c4),
+            control=self,
+            state_publisher=state_publisher,
+            timeout_s=timeout_s,
+            clear_hold_s=clear_hold_s,
+            poll_s=poll_s,
+        )
 
     def cancel_c234_purge(self) -> bool:
-        with self._maintenance_lock:
-            if not bool(self._c234_purge_status.get("active")):
-                return False
-            next_status = dict(self._c234_purge_status)
-            next_status["cancel_requested"] = True
-            next_status["phase"] = "cancelling"
-            self._c234_purge_status = next_status
-            self._c234_purge_cancel.set()
-            return True
-
-    def _set_c234_purge_status(self, **updates: Any) -> None:
-        with self._maintenance_lock:
-            next_status = dict(self._c234_purge_status)
-            next_status.update(updates)
-            counts = next_status.get("counts")
-            if isinstance(counts, dict):
-                next_status["counts"] = dict(counts)
-            self._c234_purge_status = next_status
-
-    def _collect_purge_strategies(
-        self, *, clear_hold_s: float
-    ) -> list[GenericPurgeStrategy]:
-        """Gather strategies in top-down disarm order: C2 first, then C3, then C4.
-
-        Order matters — the coordinator enforces that a downstream channel
-        may only disarm once all upstream channels have already disarmed,
-        so a late piece from C2 never lands on a stopped C3.
-        """
-        log = logging.getLogger("rt.bootstrap")
-        strategies: list[GenericPurgeStrategy] = []
-        for runtime in (self.c2, self.c3, self.c4):
-            if runtime is None:
-                continue
-            port_fn = getattr(runtime, "purge_port", None)
-            if not callable(port_fn):
-                continue
-            try:
-                port = port_fn()
-            except Exception:
-                log.exception(
-                    "RtRuntimeHandle: purge_port() raised for %s",
-                    getattr(runtime, "name", type(runtime).__name__),
-                )
-                continue
-            strategies.append(
-                GenericPurgeStrategy(port, clear_hold_ms=float(clear_hold_s) * 1000.0)
-            )
-        return strategies
-
-    def _aggregate_purge_counts(
-        self, strategies: list[GenericPurgeStrategy]
-    ) -> dict[str, int]:
-        """Build the UI-facing counts dict from per-channel PurgePort snapshots.
-
-        Output shape matches the legacy contract consumed by AppHeader:
-        ``{c2, c3, c4_raw, c4_dossiers}``.
-        """
-        counts = {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0}
-        for strat in strategies:
-            try:
-                snap = strat.port.counts()
-            except Exception:
-                logging.getLogger("rt.bootstrap").exception(
-                    "RtRuntimeHandle: purge port counts raised for %s", strat.channel
-                )
-                continue
-            if strat.channel == "c2":
-                counts["c2"] = int(snap.ring_count)
-            elif strat.channel == "c3":
-                counts["c3"] = int(snap.ring_count)
-            elif strat.channel == "c4":
-                counts["c4_raw"] = int(snap.ring_count)
-                counts["c4_dossiers"] = int(snap.owned_count)
-        return counts
-
-    def _run_c234_purge(
-        self,
-        *,
-        state_publisher: Callable[[str], None] | None,
-        timeout_s: float,
-        clear_hold_s: float,
-        poll_s: float,
-    ) -> None:
-        log = logging.getLogger("rt.bootstrap")
-        was_paused = bool(self.paused)
-        deadline = time.monotonic() + float(timeout_s)
-        success = False
-        reason = "timeout"
-        phase = "running"
-        strategies = self._collect_purge_strategies(clear_hold_s=clear_hold_s)
-        try:
-            if not strategies:
-                raise RuntimeError("no purge-capable runtimes available")
-            for strat in strategies:
-                strat.arm()
-            if was_paused:
-                self.resume()
-                if callable(state_publisher):
-                    try:
-                        state_publisher("running")
-                    except Exception:
-                        log.exception(
-                            "RtRuntimeHandle: state publisher raised during c234 purge resume"
-                        )
-            while time.monotonic() < deadline:
-                if self._c234_purge_cancel.is_set():
-                    reason = "cancelled"
-                    phase = "cancelled"
-                    break
-                now = time.monotonic()
-
-                # Parallel drive: every armed strategy runs its tick.
-                for strat in strategies:
-                    if strat.is_armed:
-                        try:
-                            strat.tick(now)
-                        except Exception:
-                            log.exception(
-                                "RtRuntimeHandle: purge strategy tick raised for %s",
-                                strat.channel,
-                            )
-
-                # Top-down disarm: a channel may only disarm once every
-                # upstream strategy has finished draining.
-                for idx, strat in enumerate(strategies):
-                    if not strat.is_armed:
-                        continue
-                    upstream_done = all(not s.is_armed for s in strategies[:idx])
-                    if upstream_done and strat.is_channel_clear(now):
-                        try:
-                            strat.disarm()
-                        except Exception:
-                            log.exception(
-                                "RtRuntimeHandle: purge strategy disarm raised for %s",
-                                strat.channel,
-                            )
-
-                counts = self._aggregate_purge_counts(strategies)
-                all_done = all(not s.is_armed for s in strategies)
-                if all_done:
-                    success = True
-                    reason = "cleared"
-                    phase = "idle"
-                else:
-                    phase = (
-                        "verifying_clear"
-                        if all(
-                            s.is_channel_clear(now) or not s.is_armed
-                            for s in strategies
-                        )
-                        else "purging"
-                    )
-                self._set_c234_purge_status(
-                    active=True,
-                    phase=phase,
-                    cancel_requested=False,
-                    counts=counts,
-                )
-                if all_done:
-                    break
-                time.sleep(float(poll_s))
-        except Exception as exc:
-            reason = str(exc) or exc.__class__.__name__
-            log.exception("RtRuntimeHandle: c234 purge failed")
-        finally:
-            # Safety net: force-disarm anything still armed on timeout/cancel.
-            for strat in strategies:
-                if strat.is_armed:
-                    try:
-                        strat.disarm()
-                    except Exception:
-                        log.exception(
-                            "RtRuntimeHandle: final disarm raised for %s",
-                            strat.channel,
-                        )
-            if was_paused:
-                try:
-                    self.pause()
-                except Exception:
-                    log.exception("RtRuntimeHandle: pause after c234 purge raised")
-                if callable(state_publisher):
-                    try:
-                        state_publisher("paused")
-                    except Exception:
-                        log.exception(
-                            "RtRuntimeHandle: state publisher raised during c234 purge pause"
-                        )
-            self._set_c234_purge_status(
-                active=False,
-                phase="idle" if success else phase,
-                finished_at=time.time(),
-                success=success,
-                reason=reason,
-                cancel_requested=False,
-            )
+        return self._purge_coordinator.cancel()
 
     def runner_for_feed(self, feed_id: str) -> PerceptionRunner | None:
         """Return the PerceptionRunner driving ``feed_id`` if registered."""

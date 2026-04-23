@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 import cv2
 import numpy as np
 
-from defs.events import CameraName, FrameData, FrameEvent, FrameResultData
+from defs.events import CameraName, FrameData, FrameEvent, FrameResultData, RingGeom, SlotWedge
 from irl.config import (
     CameraColorProfile,
     CameraPictureSettings,
@@ -47,6 +47,54 @@ _CAMERA_TO_RT_FEED_ID: dict[str, str] = {
     CameraName.carousel.value: "c4_feed",
     CameraName.classification_channel.value: "c4_feed",
 }
+
+
+def _slot_data_for_camera(
+    camera: CameraName,
+) -> tuple[Optional[RingGeom], List[SlotWedge]]:
+    """Return (ring_geom, slot_wedges) for this camera's feed.
+
+    Lazily pulls ring geometry and occupied-slot wedges from the rt
+    handle so the dashboard can render a toggleable overlay showing
+    which angular sectors on the ring are reserved by the runtime.
+    ``ring_geom`` is None for cameras that don't live on an arc channel
+    or whose tracker has no configured polar geometry.
+    """
+    feed_id = _CAMERA_TO_RT_FEED_ID.get(camera.value)
+    if feed_id is None:
+        return None, []
+    try:
+        from server import shared_state
+    except Exception:
+        return None, []
+    handle = getattr(shared_state, "rt_handle", None)
+    if handle is None:
+        return None, []
+    snapshot_fn = getattr(handle, "slot_snapshot", None)
+    if not callable(snapshot_fn):
+        return None, []
+    try:
+        snap = snapshot_fn(feed_id)
+    except Exception:
+        return None, []
+    if snap is None:
+        return None, []
+    ring_geom = RingGeom(
+        center_x=float(snap.center_x),
+        center_y=float(snap.center_y),
+        inner_radius=float(snap.inner_radius),
+        outer_radius=float(snap.outer_radius),
+    )
+    wedges = [
+        SlotWedge(
+            start_angle_deg=float(w.start_angle_deg),
+            end_angle_deg=float(w.end_angle_deg),
+            label=w.label,
+            color=w.color,
+        )
+        for w in getattr(snap, "wedges", ()) or ()
+    ]
+    return ring_geom, wedges
 
 
 def _ghost_boxes_for_camera(camera: CameraName) -> List[tuple[int, int, int, int]]:
@@ -459,6 +507,7 @@ class CameraService:
         )
 
         ghost_boxes = _ghost_boxes_for_camera(camera_name)
+        ring_geom, slot_wedges = _slot_data_for_camera(camera_name)
 
         event = FrameEvent(
             tag="frame",
@@ -469,6 +518,8 @@ class CameraService:
                 annotated=annotated_b64,
                 results=results_data,
                 ghost_boxes=ghost_boxes,
+                ring_geom=ring_geom,
+                slot_wedges=slot_wedges,
             ),
         )
         prof.endTimer("camera_service.get_frame_event.total_ms")

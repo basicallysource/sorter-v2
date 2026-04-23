@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Crop, Expand, Ghost, Palette, SendToBack, Shapes } from 'lucide-svelte';
+	import { Crop, Expand, Ghost, Palette, PieChart, SendToBack, Shapes } from 'lucide-svelte';
 
 	let {
 		annotated = $bindable(true),
@@ -7,12 +7,14 @@
 		cropped = $bindable(false),
 		zones = $bindable(true),
 		ghosts = $bindable(false),
+		slots = $bindable(false),
 		fullscreen = $bindable(false),
 		showAnnotations = true,
 		showColor = false,
 		showCrop = false,
 		showZones = false,
 		showGhosts = false,
+		showSlots = false,
 		showFullscreen = false,
 		disabled = false
 	}: {
@@ -21,18 +23,20 @@
 		cropped?: boolean;
 		zones?: boolean;
 		ghosts?: boolean;
+		slots?: boolean;
 		fullscreen?: boolean;
 		showAnnotations?: boolean;
 		showColor?: boolean;
 		showCrop?: boolean;
 		showZones?: boolean;
 		showGhosts?: boolean;
+		showSlots?: boolean;
 		showFullscreen?: boolean;
 		disabled?: boolean;
 	} = $props();
 
 	const hasAny = $derived(
-		showAnnotations || showColor || showCrop || showZones || showGhosts || showFullscreen
+		showAnnotations || showColor || showCrop || showZones || showGhosts || showSlots || showFullscreen
 	);
 </script>
 
@@ -91,6 +95,15 @@
 				ghosts,
 				ghosts ? 'Hide ghosts' : 'Show ghosts',
 				() => (ghosts = !ghosts)
+			)}
+		{/if}
+
+		{#if showSlots}
+			{@render togglePill(
+				PieChart,
+				slots,
+				slots ? 'Hide slot wedges' : 'Show slot wedges',
+				() => (slots = !slots)
 			)}
 		{/if}
 

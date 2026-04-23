@@ -460,6 +460,30 @@ class PolarTracker:
         # ring was rotating around it, but it stayed put.
         return len(track.rotation_samples) >= _GHOST_WINDOW_MIN_SAMPLES
 
+    def ring_geometry(self) -> dict[str, float] | None:
+        """Return polar geometry (center + radii) when configured.
+
+        Used by overlay/snapshot callers that need the ring's image-space
+        geometry without re-reading the saved polygon blob.
+        """
+        if self._polar_center is None:
+            return None
+        cx, cy = self._polar_center
+        inner: float | None
+        outer: float | None
+        if self._polar_radius_range is not None:
+            inner = float(self._polar_radius_range[0])
+            outer = float(self._polar_radius_range[1])
+        else:
+            inner = None
+            outer = None
+        return {
+            "center_x": float(cx),
+            "center_y": float(cy),
+            "inner_radius": float(inner) if inner is not None else 0.0,
+            "outer_radius": float(outer) if outer is not None else 0.0,
+        }
+
     def live_global_ids(self) -> set[int]:
         with self._lock:
             return {t.track_id for t in self._tracks.values()}

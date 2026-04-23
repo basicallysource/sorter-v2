@@ -17,6 +17,7 @@ standby, then rebuild or resume it after homing.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 from dataclasses import dataclass, field
@@ -67,6 +68,28 @@ class FeedAnnotationSnapshot:
     feed_id: str
     zone: Zone | None
     tracks: tuple[Track, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class SlotWedgeSnapshot:
+    """One angular slot on a camera ring — a piece or reservation range."""
+
+    start_angle_deg: float
+    end_angle_deg: float
+    label: str | None = None
+    color: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FeedSlotSnapshot:
+    """Ring geometry + slot wedges for a camera's live-overlay layer."""
+
+    feed_id: str
+    center_x: float
+    center_y: float
+    inner_radius: float
+    outer_radius: float
+    wedges: tuple[SlotWedgeSnapshot, ...] = ()
 
 
 @dataclass
@@ -248,6 +271,71 @@ class RtRuntimeHandle:
                     tracks = batch_tracks
 
         return FeedAnnotationSnapshot(feed_id=feed_id, zone=zone, tracks=tracks)
+
+    def slot_snapshot(self, feed_id: str) -> FeedSlotSnapshot | None:
+        """Return ring geometry + occupied slot wedges for this feed.
+
+        Used by the per-camera "slots" overlay layer: the dashboard draws
+        wedges on top of the live stream so operators can see which
+        angular sectors are reserved by the runtime.
+
+        Returns ``None`` for feeds that don't live on an arc channel or
+        whose tracker has no configured polar geometry.
+        """
+        runner = self.runner_for_feed(feed_id)
+        if runner is None:
+            return None
+        tracker = getattr(getattr(runner, "_pipeline", None), "tracker", None)
+        ring_fn = getattr(tracker, "ring_geometry", None) if tracker else None
+        geom = ring_fn() if callable(ring_fn) else None
+        if not geom:
+            return None
+
+        wedges: list[SlotWedgeSnapshot] = []
+        if feed_id == "c4_feed":
+            # C4: one wedge per occupied dossier zone on the carousel.
+            c4 = getattr(self, "c4", None)
+            zone_mgr = getattr(c4, "_zone_manager", None) if c4 else None
+            zones_fn = getattr(zone_mgr, "zones", None) if zone_mgr else None
+            zones = zones_fn() if callable(zones_fn) else ()
+            for zone in zones:
+                center = float(getattr(zone, "center_deg", 0.0))
+                half = float(getattr(zone, "half_width_deg", 0.0))
+                wedges.append(
+                    SlotWedgeSnapshot(
+                        start_angle_deg=center - half,
+                        end_angle_deg=center + half,
+                        label=getattr(zone, "piece_uuid", None),
+                    )
+                )
+        else:
+            # C2 / C3: synthesize a wedge around every confirmed-real track.
+            latest_tracks_fn = getattr(runner, "latest_tracks", None)
+            batch = latest_tracks_fn() if callable(latest_tracks_fn) else None
+            tracks = getattr(batch, "tracks", ()) if batch is not None else ()
+            for track in tracks:
+                if not bool(getattr(track, "confirmed_real", False)):
+                    continue
+                angle_rad = getattr(track, "angle_rad", None)
+                if not isinstance(angle_rad, (int, float)):
+                    continue
+                center_deg = math.degrees(float(angle_rad))
+                half = 10.0  # fixed visual half-width for point-like pieces
+                wedges.append(
+                    SlotWedgeSnapshot(
+                        start_angle_deg=center_deg - half,
+                        end_angle_deg=center_deg + half,
+                    )
+                )
+
+        return FeedSlotSnapshot(
+            feed_id=feed_id,
+            center_x=float(geom["center_x"]),
+            center_y=float(geom["center_y"]),
+            inner_radius=float(geom["inner_radius"]),
+            outer_radius=float(geom["outer_radius"]),
+            wedges=tuple(wedges),
+        )
 
     def c234_purge_status(self) -> dict[str, Any]:
         return self._purge_coordinator.status()

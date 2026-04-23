@@ -44,6 +44,28 @@ class FrameResultData(BaseModel):
     bbox: Optional[Tuple[int, int, int, int]]
 
 
+class RingGeom(BaseModel):
+    """Per-camera ring geometry in source-frame pixel coords.
+
+    Attached to every FrameData when the camera is an arc channel so the
+    client can render wedge overlays without re-reading the saved polygon
+    blob.
+    """
+    center_x: float
+    center_y: float
+    inner_radius: float
+    outer_radius: float
+
+
+class SlotWedge(BaseModel):
+    """Occupied angular slot on the camera's ring — dossier zone for C4,
+    confirmed-real piece position for C2/C3."""
+    start_angle_deg: float
+    end_angle_deg: float
+    label: Optional[str] = None
+    color: Optional[str] = None
+
+
 class FrameData(BaseModel):
     camera: CameraName
     timestamp: float
@@ -54,6 +76,10 @@ class FrameData(BaseModel):
     # Rendered client-side as a separate toggleable SVG overlay so operators
     # can flip their visibility without a server round-trip.
     ghost_boxes: List[Tuple[int, int, int, int]] = []
+    # Ring geometry + per-piece slot wedges for the runtime "slots" overlay.
+    # ``ring_geom`` is None for cameras that don't live on an arc channel.
+    ring_geom: Optional[RingGeom] = None
+    slot_wedges: List[SlotWedge] = []
 
 
 class FrameEvent(BaseModel):

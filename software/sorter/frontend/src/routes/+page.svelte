@@ -164,7 +164,7 @@
 									camera="c_channel_2"
 									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -172,7 +172,7 @@
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
@@ -182,7 +182,7 @@
 									camera={auxiliaryCameraRole()}
 									label={cameraLabel(auxiliaryCameraRole())}
 									crop={cropFor(auxiliaryCameraRole())}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}
@@ -249,7 +249,7 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -257,7 +257,7 @@
 									camera={classification_camera}
 									label={cameraLabel(classification_camera)}
 									crop={cropFor(classification_camera)}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 						</div>
@@ -268,7 +268,7 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									controls={["annotations", "ghosts", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 								/>
 							</div>
 							{#if classification_camera}

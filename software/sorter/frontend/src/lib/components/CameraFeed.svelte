@@ -6,7 +6,7 @@
 	import { persistentToggle } from '$lib/preferences/persistent-toggle.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 
-	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'fullscreen';
+	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'slots' | 'fullscreen';
 
 	let {
 		camera,
@@ -64,6 +64,7 @@
 	});
 	const zones = persistentToggle({ key: () => slotKey('zones'), default: () => defaultZones });
 	const ghosts = persistentToggle({ key: () => slotKey('ghosts'), default: false });
+	const slots = persistentToggle({ key: () => slotKey('slots'), default: false });
 
 	// Keep the legacy `layer` prop synced with the `annotated` toggle so
 	// existing consumers (e.g. dashboard) binding to `layer` keep working.
@@ -79,6 +80,7 @@
 	const showCrop = $derived(controls.includes('crop'));
 	const showZones = $derived(controls.includes('zones'));
 	const showGhosts = $derived(controls.includes('ghosts'));
+	const showSlots = $derived(controls.includes('slots'));
 	const showFullscreen = $derived(controls.includes('fullscreen'));
 
 	let fullscreenOpen = $state(false);
@@ -109,6 +111,40 @@
 	// Unique id so multiple CameraFeed instances (e.g. 4 on the dashboard)
 	// don't collide on their SVG clipPath element.
 	const instanceId = Math.random().toString(36).slice(2, 10);
+
+	// SVG path for an annulus-sector wedge. Used by the slots overlay to
+	// visualise where the runtime has angular reservations (C4 dossier
+	// zones, C2/C3 confirmed-real piece positions) on the live stream.
+	function wedgePath(
+		cx: number,
+		cy: number,
+		rInner: number,
+		rOuter: number,
+		startDeg: number,
+		endDeg: number
+	): string {
+		const raw = ((endDeg - startDeg) % 360 + 360) % 360;
+		const span = raw === 0 ? 360 : raw;
+		const sr = (startDeg * Math.PI) / 180;
+		const er = ((startDeg + span) * Math.PI) / 180;
+		const sxInner = cx + rInner * Math.cos(sr);
+		const syInner = cy + rInner * Math.sin(sr);
+		const sxOuter = cx + rOuter * Math.cos(sr);
+		const syOuter = cy + rOuter * Math.sin(sr);
+		const exInner = cx + rInner * Math.cos(er);
+		const eyInner = cy + rInner * Math.sin(er);
+		const exOuter = cx + rOuter * Math.cos(er);
+		const eyOuter = cy + rOuter * Math.sin(er);
+		const largeArc = span > 180 ? 1 : 0;
+		return [
+			`M ${sxInner} ${syInner}`,
+			`L ${sxOuter} ${syOuter}`,
+			`A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${exOuter} ${eyOuter}`,
+			`L ${exInner} ${eyInner}`,
+			`A ${rInner} ${rInner} 0 ${largeArc} 0 ${sxInner} ${syInner}`,
+			'Z'
+		].join(' ');
+	}
 </script>
 
 <div
@@ -169,6 +205,25 @@
 								/>
 							{/each}
 						{/if}
+						{#if slots.value && ws_frame?.ring_geom && ws_frame?.slot_wedges}
+							{@const rg = ws_frame.ring_geom}
+							{#each ws_frame.slot_wedges as wedge}
+								<path
+									d={wedgePath(
+										rg.center_x,
+										rg.center_y,
+										rg.inner_radius,
+										rg.outer_radius,
+										wedge.start_angle_deg,
+										wedge.end_angle_deg
+									)}
+									fill={wedge.color ?? 'rgba(99,204,255,0.28)'}
+									stroke={wedge.color ?? '#63ccff'}
+									stroke-width="2"
+									vector-effect="non-scaling-stroke"
+								/>
+							{/each}
+						{/if}
 					</g>
 				</g>
 			</svg>
@@ -204,12 +259,14 @@
 			bind:cropped={cropped.value}
 			bind:zones={zones.value}
 			bind:ghosts={ghosts.value}
+			bind:slots={slots.value}
 			bind:fullscreen={fullscreenOpen}
 			{showAnnotations}
 			{showColor}
 			{showCrop}
 			{showZones}
 			{showGhosts}
+			{showSlots}
 			{showFullscreen}
 		/>
 

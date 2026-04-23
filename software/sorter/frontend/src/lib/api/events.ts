@@ -9,6 +9,18 @@ export type CameraName = "feeder" | "classification_bottom" | "classification_to
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
+export interface RingGeom {
+  center_x: number;
+  center_y: number;
+  inner_radius: number;
+  outer_radius: number;
+}
+export interface SlotWedge {
+  start_angle_deg: number;
+  end_angle_deg: number;
+  label?: string | null;
+  color?: string | null;
+}
 export interface FrameData {
   camera: CameraName;
   timestamp: number;
@@ -16,6 +28,8 @@ export interface FrameData {
   annotated: string | null;
   results: FrameResultData[];
   ghost_boxes?: [number, number, number, number][];
+  ring_geom?: RingGeom | null;
+  slot_wedges?: SlotWedge[];
 }
 export interface FrameResultData {
   class_id: number | null;

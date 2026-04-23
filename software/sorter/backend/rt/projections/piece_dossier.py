@@ -2,13 +2,15 @@
 
 Subscribes to ``PIECE_REGISTERED`` / ``PIECE_CLASSIFIED`` / ``PIECE_DISTRIBUTED``
 on the rt event bus and upserts the flattened payload into the piece_dossiers
-table via ``local_state.remember_piece_dossier``. The dossier table is what
-the UI and the ``SetProgressSync`` worker read from, so this projection keeps
-those consumers fed without pushing persistence into the perception/runtime
-hot path.
+table via ``local_state.remember_piece_dossier``. After persisting, the
+merged row is also mirrored into the ``recent_known_objects`` ring (so a
+freshly connecting WS client sees the piece on replay) and pushed live to
+all open WS clients as a ``known_object`` event (so the Recent Pieces panel
+on the dashboard updates without a reload).
 
-Pure subscriber — no perception coupling. Wire with ``install(bus)`` once
-per rt runtime build.
+Pure subscriber — the imports into ``local_state`` / ``server.shared_state``
+are lazy so rt/ stays free of server-boot-time coupling. Wire with
+``install(bus)`` once per rt runtime build.
 """
 
 from __future__ import annotations
@@ -40,7 +42,11 @@ def install(bus: EventBus) -> None:
     persistence helper cannot stop the rt runtime from coming up.
     """
     try:
-        from local_state import remember_piece_dossier
+        from local_state import (
+            get_piece_dossier,
+            remember_piece_dossier,
+            remember_recent_known_object,
+        )
     except Exception:
         _LOG.warning(
             "piece_dossier projection: could not import local_state (non-fatal)"
@@ -75,6 +81,46 @@ def install(bus: EventBus) -> None:
         except Exception:
             _LOG.debug(
                 "piece_dossier projection: remember_piece_dossier raised",
+                exc_info=True,
+            )
+            return
+
+        # Read back the authoritative merged view the SQLite upsert just
+        # produced — it carries server-filled defaults (stage,
+        # classification_status, created/updated timestamps) so the live
+        # event shape matches what a reconnecting client gets on replay.
+        try:
+            merged = get_piece_dossier(piece_uuid)
+        except Exception:
+            _LOG.debug(
+                "piece_dossier projection: get_piece_dossier raised",
+                exc_info=True,
+            )
+            return
+        if not isinstance(merged, dict):
+            return
+
+        try:
+            remember_recent_known_object(merged)
+        except Exception:
+            _LOG.debug(
+                "piece_dossier projection: remember_recent_known_object raised",
+                exc_info=True,
+            )
+
+        # Live push to every open WS client. Lazy-import shared_state so
+        # this module stays import-safe before the server loop exists.
+        try:
+            from server import shared_state
+        except Exception:
+            return
+        try:
+            shared_state.broadcast_from_thread(
+                {"tag": "known_object", "data": merged}
+            )
+        except Exception:
+            _LOG.debug(
+                "piece_dossier projection: broadcast_from_thread raised",
                 exc_info=True,
             )
 

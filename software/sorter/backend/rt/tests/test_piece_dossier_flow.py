@@ -43,12 +43,14 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         # module-level path helpers.
         from local_state import (
             get_piece_dossier,
+            get_recent_known_objects,
             initialize_local_state,
             list_piece_dossiers,
             start_new_sorting_session,
         )
 
         self._get_piece_dossier = get_piece_dossier
+        self._get_recent_known_objects = get_recent_known_objects
         self._list_piece_dossiers = list_piece_dossiers
 
         initialize_local_state()
@@ -182,6 +184,40 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(dossier)
         assert dossier is not None
         self.assertEqual("rt-legacy-1", dossier["uuid"])
+
+    def test_projection_mirrors_into_recent_known_objects(self) -> None:
+        """Regression: after the dossier upsert the projection must also
+        push the merged payload into ``recent_known_objects`` so that a
+        reconnecting WS client picks the piece up on replay and the
+        dashboard's Recent Pieces panel isn't left empty between full
+        reloads.
+        """
+        bus = InProcessEventBus()
+        install_piece_dossier(bus)
+
+        piece_uuid = "rt-recent-piece-1"
+        bus.publish(
+            self._event(
+                PIECE_REGISTERED,
+                {
+                    "piece_uuid": piece_uuid,
+                    "tracked_global_id": 9001,
+                    "confirmed_real": True,
+                    "dossier": {
+                        "classification_channel_zone_center_deg": 90.0,
+                        "first_carousel_seen_ts": 123.456,
+                    },
+                },
+            )
+        )
+        bus.drain()
+
+        recent = self._get_recent_known_objects()
+        uuids = [entry.get("uuid") for entry in recent]
+        self.assertIn(piece_uuid, uuids)
+        entry = next(e for e in recent if e.get("uuid") == piece_uuid)
+        self.assertEqual("registered", entry.get("stage"))
+        self.assertEqual(123.456, entry.get("first_carousel_seen_ts"))
 
     def test_event_without_piece_uuid_is_ignored(self) -> None:
         bus = InProcessEventBus()

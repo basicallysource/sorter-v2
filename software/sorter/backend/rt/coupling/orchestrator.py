@@ -226,16 +226,34 @@ class Orchestrator:
         for rt in reversed(self._runtimes):
             tracks: TrackBatch | None = None
             feed_id = getattr(rt, "feed_id", None)
-            if feed_id is not None:
-                source = self._perception.get(feed_id)
-                if source is not None:
-                    try:
-                        tracks = source.latest_tracks()
-                    except Exception:
-                        self._logger.exception(
-                            "Orchestrator: track source for %s raised", feed_id
-                        )
-                        tracks = None
+            source = self._perception.get(feed_id) if feed_id is not None else None
+            if source is not None:
+                try:
+                    tracks = source.latest_tracks()
+                except Exception:
+                    self._logger.exception(
+                        "Orchestrator: track source for %s raised", feed_id
+                    )
+                    tracks = None
+                # Runtimes that build piece crops (currently RuntimeC4)
+                # need the raw FeedFrame alongside the track batch. Push
+                # the latest frame from the perception runner so the
+                # classification submit path isn't gated on a never-set
+                # latest_frame — without this, C4 silently dropped every
+                # classify attempt at _build_crop.
+                set_frame = getattr(rt, "set_latest_frame", None)
+                if callable(set_frame):
+                    latest_state = getattr(source, "latest_state", None)
+                    state = latest_state() if callable(latest_state) else None
+                    frame = getattr(state, "frame", None)
+                    if frame is not None:
+                        try:
+                            set_frame(frame)
+                        except Exception:
+                            self._logger.exception(
+                                "Orchestrator: set_latest_frame raised for %r",
+                                rt.runtime_id,
+                            )
             capacity = self._capacity_for(rt.runtime_id)
             inbox = RuntimeInbox(tracks=tracks, capacity_downstream=capacity)
             try:

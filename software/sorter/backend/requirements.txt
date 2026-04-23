@@ -10,3 +10,4 @@ numpy
 opencv-python
 pyserial
 simple-term-menu
+trackers>=2.3.0

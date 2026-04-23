@@ -3,7 +3,7 @@
 The camera picker in the zone editor shows a grid of live tiles so the
 operator can recognize which physical USB camera is which. ``CameraPreviewHub``
 keeps exactly one ``VideoCapture`` per device index across all subscribers,
-re-uses the existing vision-manager capture thread when the device is already
+re-uses the existing camera_service capture thread when the device is already
 in use for a primary role, and broadcasts JPEG bytes to each subscriber
 through a small asyncio queue.
 
@@ -17,7 +17,7 @@ Design notes:
   frame. The queue depth is ``asyncio.Queue(maxsize=2)`` — on backpressure
   the thread drops the oldest frame instead of blocking, because previews
   are latency-sensitive, not loss-sensitive.
-- If the device is already owned by the vision manager (primary role feed),
+- If the device is already owned by camera_service (primary role feed),
   we do NOT open a second capture. We encode the latest frame from the
   existing capture thread instead.
 """
@@ -129,10 +129,10 @@ class _DeviceBroadcaster:
 
     # ---- Capture source resolution ----
 
-    def _borrow_vision_manager_frame(self) -> np.ndarray | None:
-        """Return latest raw frame from vision manager's capture thread, if any.
+    def _borrow_camera_service_frame(self) -> np.ndarray | None:
+        """Return latest raw frame from camera_service's capture thread, if any.
 
-        When the device is owned by vision manager (primary role feed), we
+        When the device is owned by camera_service (primary role feed), we
         must NOT open a second VideoCapture. Instead we re-encode the last
         frame from the existing capture thread.
         """
@@ -155,7 +155,7 @@ class _DeviceBroadcaster:
                 return None
         return None
 
-    def _vision_manager_owns_device(self) -> bool:
+    def _camera_service_owns_device(self) -> bool:
         camera_service = self._camera_service_getter()
         if camera_service is None:
             return False
@@ -228,17 +228,17 @@ class _DeviceBroadcaster:
         self, cap: cv2.VideoCapture | None
     ) -> tuple[cv2.VideoCapture | None, bytes | None] | bytes | None:
         """Produce the next JPEG frame, returning ``cap`` so the loop can
-        lazily open the capture once vision manager releases the device.
+        lazily open the capture once camera_service releases the device.
         """
-        # Prefer the vision-manager frame while it owns the device.
-        if self._vision_manager_owns_device():
+        # Prefer the camera_service frame while it owns the device.
+        if self._camera_service_owns_device():
             if cap is not None:
                 try:
                     cap.release()
                 except Exception:
                     pass
                 cap = None
-            raw = self._borrow_vision_manager_frame()
+            raw = self._borrow_camera_service_frame()
             if raw is None:
                 return cap, None
             return cap, _encode_preview(raw)

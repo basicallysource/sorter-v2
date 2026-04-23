@@ -41,7 +41,11 @@ DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
 DEFAULT_INTAKE_HALF_WIDTH_DEG = 18.0
 DEFAULT_TRANSPORT_STEP_DEG = 6.0
-DEFAULT_TRANSPORT_COOLDOWN_MS = 250
+# Reduced from 250 ms: with transport_speed_scale pushed up to 20x the
+# motor finishes each step in well under 100 ms, so waiting a full
+# quarter second between advances was capping the observed rpm below
+# the 1 rpm operator target.
+DEFAULT_TRANSPORT_COOLDOWN_MS = 80
 DEFAULT_TRACK_STALE_S = 0.5
 DEFAULT_RECOVER_MIN_HIT_COUNT = 4
 DEFAULT_RECOVER_MIN_SCORE = 0.55

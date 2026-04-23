@@ -386,12 +386,10 @@ class ClassificationChannelConfig:
         self.startup_purge_speed_scale = 12.0
         # Scale for the normal pipeline-advance carousel move. Exit drop
         # commit uses a separate eject config, so this only affects the
-        # slow pipeline travel, not the precision drop. A real piece
-        # travels ~140° around the carousel before classification — at
-        # the default stepper speed that took minutes; 6x keeps the
-        # drop-commit precision intact while moving through the bulk
-        # transport in seconds.
-        self.transport_speed_scale = 6.0
+        # slow pipeline travel, not the precision drop. Tuned live to
+        # reach ~1 rpm observed ring speed; operators can drop it back
+        # if the hood/guard clearance ever becomes a concern.
+        self.transport_speed_scale = 20.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

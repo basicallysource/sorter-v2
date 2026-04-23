@@ -8,25 +8,28 @@ from typing import Any
 from blob_manager import (
     getCarouselDetectionConfig,
     getClassificationChannelDetectionConfig,
-    getClassificationDetectionConfig,
     getFeederDetectionConfig,
     setCarouselDetectionConfig,
     setClassificationChannelDetectionConfig,
     setClassificationDetectionConfig,
     setFeederDetectionConfig,
 )
-from role_aliases import (
-    CLASSIFICATION_CHANNEL_ROLE,
-    auxiliary_detection_scope,
-    internalize_feeder_role,
-    public_feeder_detection_roles,
+from role_aliases import CLASSIFICATION_CHANNEL_ROLE
+from rt.perception.detector_metadata import scope_supports_detection_algorithm
+from server.detection_config.common import (
+    auxiliary_sample_collection_supported as _auxiliary_sample_collection_supported,
+    detection_algorithm_label as _detection_algorithm_label,
+    detection_algorithm_uses_baseline as _detection_algorithm_uses_baseline,
+    feeder_algorithm_by_role_from_config as _feeder_algorithm_by_role_from_config,
+    feeder_role_label as _feeder_role_label,
+    feeder_sample_collection_supported as _feeder_sample_collection_supported,
+    internal_feeder_role as _internal_feeder_role,
+    normalize_aux_detection_algorithm as _normalize_aux_detection_algorithm,
+    normalize_classification_detection_algorithm as _normalize_classification_detection_algorithm,
+    normalize_feeder_detection_algorithm as _normalize_feeder_detection_algorithm,
+    normalize_openrouter_model as _normalize_openrouter_model,
+    public_feeder_roles as _public_feeder_roles,
 )
-from rt.perception.detector_metadata import (
-    detection_algorithm_definition,
-    normalize_detection_algorithm,
-    scope_supports_detection_algorithm,
-)
-from server.config_helpers import read_machine_params_config as _read_machine_params_config
 
 
 class DetectionConfigValidationError(ValueError):
@@ -63,109 +66,6 @@ _FEEDER_ROLE_KEY_TO_RT_ROLE: dict[str, str] = {
     "c_channel_3": "c3",
     CLASSIFICATION_CHANNEL_ROLE: "c4",
 }
-
-
-def _normalize_classification_detection_algorithm(value: str | None) -> str:
-    return normalize_detection_algorithm("classification", value)
-
-
-def _normalize_feeder_detection_algorithm(value: str | None) -> str:
-    return normalize_detection_algorithm("feeder", value)
-
-
-def _normalize_aux_detection_algorithm(scope: str, value: str | None) -> str:
-    return normalize_detection_algorithm(scope, value)
-
-
-def _detection_algorithm_label(scope: str, algorithm: str | None) -> str:
-    definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
-    if definition is None:
-        return (algorithm or "detection").replace("_", " ")
-    return definition.label
-
-
-def _detection_algorithm_uses_baseline(scope: str, algorithm: str | None) -> bool:
-    definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
-    return bool(definition is not None and definition.needs_baseline)
-
-
-def _normalize_openrouter_model(value: str | None) -> str:
-    from vision.gemini_sam_detector import normalize_openrouter_model
-
-    return normalize_openrouter_model(value)
-
-
-def _machine_params_config() -> dict[str, Any]:
-    _, config = _read_machine_params_config()
-    return config if isinstance(config, dict) else {}
-
-
-def _public_feeder_roles() -> tuple[str, ...]:
-    return public_feeder_detection_roles(_machine_params_config())
-
-
-def _public_aux_scope() -> str:
-    return auxiliary_detection_scope(_machine_params_config())
-
-
-def _internal_feeder_role(value: str | None) -> str | None:
-    if value is None:
-        return None
-    return internalize_feeder_role(value)
-
-
-def _feeder_algorithm_by_role_from_config(
-    config: dict[str, Any] | None,
-) -> dict[str, str]:
-    saved_by_role = (
-        config.get("algorithm_by_role")
-        if isinstance(config, dict) and isinstance(config.get("algorithm_by_role"), dict)
-        else {}
-    )
-    fallback = config.get("algorithm") if isinstance(config, dict) else None
-    return {
-        role: _normalize_feeder_detection_algorithm(
-            saved_by_role.get(role)
-            or saved_by_role.get(_internal_feeder_role(role) or role)
-            or fallback
-        )
-        for role in _public_feeder_roles()
-    }
-
-
-def _feeder_role_label(role: str | None) -> str:
-    if role == "c_channel_2":
-        return "C-channel 2"
-    if role == "c_channel_3":
-        return "C-channel 3"
-    if role == CLASSIFICATION_CHANNEL_ROLE:
-        return "Classification C-channel (C4)"
-    return "C-channel"
-
-
-def _feeder_sample_collection_supported(
-    vision_manager: Any | None,
-    role: str | None = None,
-) -> bool:
-    if vision_manager is not None and hasattr(vision_manager, "supportsFeederSampleCollection"):
-        try:
-            return bool(
-                vision_manager.supportsFeederSampleCollection(
-                    internalize_feeder_role(role) if role else None
-                )
-            )
-        except Exception:
-            return False
-    return True
-
-
-def _auxiliary_sample_collection_supported(vision_manager: Any | None) -> bool:
-    if vision_manager is not None and hasattr(vision_manager, "supportsCarouselSampleCollection"):
-        try:
-            return bool(vision_manager.supportsCarouselSampleCollection())
-        except Exception:
-            return False
-    return True
 
 
 @dataclass(slots=True, kw_only=True)

@@ -37,20 +37,28 @@ VELOCITY_VECTOR_SCALE_S = 0.25
 # 4-digit zero-padded display code wraps after this many IDs — a short,
 # readable label that stays the same length forever. 10 000 is plenty for a
 # single session; once it wraps, collisions with earlier long-dead tracks are
-# cosmetic only (the internal ``global_id`` stays unique).
-DISPLAY_ID_MODULO = 10_000
+# cosmetic only (the internal ``global_id`` stays unique). 4-char base36
+# gives ~1.68M distinct codes, so collisions are rare for a single session.
+_LABEL_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
+_LABEL_LENGTH = 4
+DISPLAY_ID_MODULO = len(_LABEL_ALPHABET) ** _LABEL_LENGTH
 
 
 def format_track_label(global_id: int) -> str:
-    """Deterministic 4-digit display code for a track's ``global_id``.
+    """Deterministic 4-char base36 display code for a track's ``global_id``.
 
-    Uses Knuth's multiplicative hash before taking the modulo so consecutive
-    IDs scatter across the label space instead of showing ``#0001 #0002 …``
+    Uses Knuth's multiplicative hash before reducing so consecutive IDs
+    scatter across the label space instead of showing ``#0001 #0002 …``
     (which reads as "obviously sequential" and draws the eye to the running
     count). Still fully deterministic — same ``global_id`` → same label.
     """
     mixed = (int(global_id) * 2654435761) & 0xFFFFFFFF
-    return f"{mixed % DISPLAY_ID_MODULO:04d}"
+    value = mixed % DISPLAY_ID_MODULO
+    digits: list[str] = []
+    for _ in range(_LABEL_LENGTH):
+        digits.append(_LABEL_ALPHABET[value % len(_LABEL_ALPHABET)])
+        value //= len(_LABEL_ALPHABET)
+    return "".join(reversed(digits))
 
 
 def _label_color_for(track) -> tuple[int, int, int]:

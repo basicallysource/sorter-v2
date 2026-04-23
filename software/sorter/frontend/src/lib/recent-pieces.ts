@@ -95,3 +95,19 @@ export function capturedCropUrl(obj: KnownObjectData): string | null {
 		dataImageUrl(obj.drop_snapshot)
 	);
 }
+
+// Maps a DB-stored relative crop path
+// `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` onto the API URL served by
+// `/api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. Returns null on any
+// malformed input so callers fall back to a b64 payload or hide the tile.
+export function pieceCropUrl(
+	disk_path: string | null | undefined,
+	base: string
+): string | null {
+	if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
+	const stripped = disk_path.replace(/^piece_crops\//, '');
+	const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
+	if (!m) return null;
+	const [, piece_uuid, seq, kind, idx] = m;
+	return `${base}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;
+}

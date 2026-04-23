@@ -13,6 +13,7 @@
 	import {
 		capturedCropUrl,
 		lifecyclePhase,
+		pieceCropUrl,
 		type LifecyclePhase
 	} from '$lib/recent-pieces';
 	import { formatTrackLabel } from '$lib/trackLabel';
@@ -58,6 +59,7 @@
 		sort_ts: number;
 		history_finished_at?: number | null;
 		has_track_segments?: boolean;
+		preview_jpeg_path?: string | null;
 	};
 
 	type FilterMode = 'all' | 'active' | 'distributed' | 'classified' | 'lost';
@@ -80,7 +82,8 @@
 		return (
 			capturedCropUrl(row.piece) ??
 			dataImageUrl(row.track_summary?.best_piece_jpeg_b64) ??
-			dataImageUrl(row.track_summary?.composite_jpeg_b64)
+			dataImageUrl(row.track_summary?.composite_jpeg_b64) ??
+			pieceCropUrl(row.preview_jpeg_path, effectiveBase())
 		);
 	}
 

@@ -28,7 +28,6 @@ import rt.perception  # noqa: F401 - register detectors/trackers/filters
 import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
 from rt.config.schema import PipelineConfig
-from rt.contracts.events import Event
 from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (
     CLASSIFIERS,
@@ -38,11 +37,6 @@ from rt.contracts.tracking import Track
 from rt.coupling.orchestrator import Orchestrator
 from rt.coupling.slots import CapacitySlot
 from rt.events.bus import InProcessEventBus
-from rt.events.topics import (
-    PIECE_CLASSIFIED,
-    PIECE_DISTRIBUTED,
-    PIECE_REGISTERED,
-)
 from rt.perception.detectors.hive_onnx import default_hive_detector_slug
 from rt.perception.feeds import CameraFeed
 from rt.perception.pipeline import build_pipeline_from_config
@@ -1311,55 +1305,12 @@ def build_rt_runtime(
     bus = InProcessEventBus()
 
     # ------------------------------------------------------------------
-    # Persistent piece-dossier + Hive upload side-effect bridge.
-    # Uses the existing local_state helper so pieces still land in the
-    # SQLite dossier table the UI / SetProgressSync worker reads from.
+    # Cross-cutting subscribers (persistence / projections). Each module
+    # owns its own wiring end-to-end.
 
-    try:
-        from local_state import remember_piece_dossier
+    from rt.projections.piece_dossier import install as install_piece_dossier
 
-        _TOPIC_TO_STAGE = {
-            PIECE_REGISTERED: "registered",
-            PIECE_CLASSIFIED: "classified",
-            PIECE_DISTRIBUTED: "distributed",
-        }
-
-        def _on_piece_event(event: Event) -> None:
-            payload = dict(event.payload or {})
-            piece_uuid = payload.get("piece_uuid") or payload.get("uuid")
-            if not isinstance(piece_uuid, str) or not piece_uuid.strip():
-                log.debug(
-                    "rt.bootstrap: piece event missing piece_uuid (topic=%s)",
-                    event.topic,
-                )
-                return
-            # Flatten: merge the nested "dossier" shape into the top-level
-            # payload so the dossier row carries part_id / bin_id / etc.
-            dossier_payload: dict[str, Any] = dict(payload)
-            nested = payload.get("dossier")
-            if isinstance(nested, dict):
-                for k, v in nested.items():
-                    dossier_payload.setdefault(k, v)
-            # Stage defaults to the event's canonical name but the
-            # runtime is free to override via payload["stage"].
-            stage = str(payload.get("stage") or _TOPIC_TO_STAGE.get(event.topic, ""))
-            if event.topic == PIECE_DISTRIBUTED:
-                dossier_payload.setdefault("distributed_at", time.time())
-            try:
-                remember_piece_dossier(
-                    piece_uuid,
-                    dossier_payload,
-                    status=stage or None,
-                )
-            except Exception:
-                log.debug("rt.bootstrap: remember_piece_dossier raised", exc_info=True)
-
-        for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
-            bus.subscribe(topic, _on_piece_event)
-    except Exception:
-        log.warning(
-            "rt.bootstrap: could not wire remember_piece_dossier sink (non-fatal)"
-        )
+    install_piece_dossier(bus)
 
     # ------------------------------------------------------------------
     # Perception runners (c2, c3, c4). C1 + Distributor are blind.

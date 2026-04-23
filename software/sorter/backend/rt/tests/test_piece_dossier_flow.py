@@ -1,9 +1,10 @@
 """Integration: rt PIECE_* events → local_state dossier table → UI list.
 
-Verifies the full pipe from EventBus publish through the bootstrap-style
-subscriber into ``remember_piece_dossier`` and out via
-``list_piece_dossiers``. This is the test that would have caught the
-2026-04-22 audit findings (H1 + H2) at cutover time.
+Verifies the full pipe from EventBus publish through the real
+``rt.projections.piece_dossier.install`` subscriber into
+``remember_piece_dossier`` and out via ``list_piece_dossiers``. This is the
+test that would have caught the 2026-04-22 audit findings (H1 + H2) at
+cutover time.
 """
 
 from __future__ import annotations
@@ -21,44 +22,7 @@ from rt.events.topics import (
     PIECE_DISTRIBUTED,
     PIECE_REGISTERED,
 )
-
-
-class _BootstrapStyleSubscriber:
-    """Mirror of rt.bootstrap._on_piece_event wiring, extracted for tests.
-
-    Keeping the logic in lockstep here is intentional — if bootstrap is
-    ever refactored the diff will surface immediately via this suite.
-    """
-
-    _TOPIC_TO_STAGE = {
-        PIECE_REGISTERED: "registered",
-        PIECE_CLASSIFIED: "classified",
-        PIECE_DISTRIBUTED: "distributed",
-    }
-
-    def __init__(self) -> None:
-        from local_state import remember_piece_dossier
-
-        self._remember = remember_piece_dossier
-
-    def attach(self, bus: InProcessEventBus) -> None:
-        for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
-            bus.subscribe(topic, self._handle)
-
-    def _handle(self, event: Event) -> None:
-        payload = dict(event.payload or {})
-        piece_uuid = payload.get("piece_uuid") or payload.get("uuid")
-        if not isinstance(piece_uuid, str) or not piece_uuid.strip():
-            return
-        dossier_payload = dict(payload)
-        nested = payload.get("dossier")
-        if isinstance(nested, dict):
-            for k, v in nested.items():
-                dossier_payload.setdefault(k, v)
-        stage = str(payload.get("stage") or self._TOPIC_TO_STAGE.get(event.topic, ""))
-        if event.topic == PIECE_DISTRIBUTED:
-            dossier_payload.setdefault("distributed_at", time.time())
-        self._remember(piece_uuid, dossier_payload, status=stage or None)
+from rt.projections.piece_dossier import install as install_piece_dossier
 
 
 class PieceDossierFlowIntegrationTests(unittest.TestCase):
@@ -106,7 +70,7 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
 
     def test_full_lifecycle_reaches_list_piece_dossiers(self) -> None:
         bus = InProcessEventBus()
-        _BootstrapStyleSubscriber().attach(bus)
+        install_piece_dossier(bus)
 
         piece_uuid = "rt-flow-piece-1"
 
@@ -200,7 +164,7 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         """Defensive: some legacy emitters may use ``uuid`` instead of
         ``piece_uuid``. The subscriber must accept either spelling."""
         bus = InProcessEventBus()
-        _BootstrapStyleSubscriber().attach(bus)
+        install_piece_dossier(bus)
 
         bus.publish(
             self._event(
@@ -221,7 +185,7 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
 
     def test_event_without_piece_uuid_is_ignored(self) -> None:
         bus = InProcessEventBus()
-        _BootstrapStyleSubscriber().attach(bus)
+        install_piece_dossier(bus)
 
         # Missing both piece_uuid and uuid — must be a silent no-op, not
         # a crash that poisons the dispatcher thread.

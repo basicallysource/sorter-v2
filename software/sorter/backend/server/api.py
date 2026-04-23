@@ -31,6 +31,7 @@ from local_state import (
     clear_piece_dossiers,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
+    get_piece_preview_paths,
     get_piece_segment_counts,
     list_piece_dossiers,
 )
@@ -531,6 +532,7 @@ def get_tracked_pieces(
         if isinstance(piece, dict) and isinstance(piece.get("uuid"), str)
     ]
     segment_counts = get_piece_segment_counts(piece_uuids=dossier_uuids)
+    preview_paths = get_piece_preview_paths(dossier_uuids)
 
     rows: list[dict[str, Any]] = []
     for piece in dossiers:
@@ -580,6 +582,7 @@ def get_tracked_pieces(
                 "classification_status": piece.get("classification_status"),
                 "track_summary": history,
                 "has_track_segments": has_track_segments,
+                "preview_jpeg_path": preview_paths.get(piece_uuid) if isinstance(piece_uuid, str) else None,
                 "sort_ts": float(sort_ts) if isinstance(sort_ts, (int, float)) else 0.0,
                 "history_finished_at": history.get("finished_at") if isinstance(history, dict) else None,
             }

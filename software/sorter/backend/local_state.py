@@ -1658,6 +1658,41 @@ def get_piece_segment_counts(
     return {}
 
 
+def get_piece_preview_paths(
+    piece_uuids: list[str] | tuple[str, ...],
+) -> dict[str, str]:
+    """Return ``{piece_uuid: snapshot_path}`` for each piece's first segment.
+
+    Used by the tracked-pieces list endpoint to surface a preview image for
+    pieces that have been tracked but not yet classified (so ``piece.thumbnail``
+    is still empty). Only the lowest-sequence segment is considered — that is
+    the one the rt SegmentRecorder creates first for the carousel role.
+    Pieces without any segment, or whose segment has no snapshot, are absent.
+    """
+    uuids = [u for u in piece_uuids if isinstance(u, str) and u.strip()]
+    if not uuids:
+        return {}
+    initialize_local_state()
+    out: dict[str, str] = {}
+    with _connection() as conn:
+        chunk_size = 500
+        for start in range(0, len(uuids), chunk_size):
+            chunk = uuids[start : start + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            rows = conn.execute(
+                "SELECT piece_uuid, snapshot_path FROM piece_segments "
+                f"WHERE piece_uuid IN ({placeholders}) "
+                "AND sequence = (SELECT MIN(sequence) FROM piece_segments s2 WHERE s2.piece_uuid = piece_segments.piece_uuid) "
+                "AND snapshot_path IS NOT NULL",
+                tuple(chunk),
+            ).fetchall()
+            for row in rows:
+                path = row["snapshot_path"]
+                if isinstance(path, str) and path.strip():
+                    out[str(row["piece_uuid"])] = path
+    return out
+
+
 def build_piece_detail_payload(piece_uuid: str) -> dict[str, Any] | None:
     """Return merged dossier + segments payload for the detail endpoint.
 

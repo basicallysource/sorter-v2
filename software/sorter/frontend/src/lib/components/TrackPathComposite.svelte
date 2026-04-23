@@ -7,6 +7,7 @@
 	// snapshot of the channel.
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
+	import { dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
 
 	type Props = {
 		/** Captured-ts subset (seconds) of crops that were shipped to Brickognize.
@@ -79,30 +80,13 @@
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
 
-	// Phase 6: map the DB-stored disk-relative path
-	// `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` to the API URL served
-	// by `/api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. Returns null
-	// on any malformed input so callers fall back to the b64 payload.
-	function pieceCropUrl(disk_path: string | null | undefined): string | null {
-		if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
-		const stripped = disk_path.replace(/^piece_crops\//, '');
-		const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
-		if (!m) return null;
-		const [, piece_uuid, seq, kind, idx] = m;
-		return `${effectiveBase()}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;
-	}
-
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
-	}
-
 	function wedgeSrc(snap: SectorSnapshot): string | null {
-		return pieceCropUrl(snap.jpeg_path) ?? dataImageUrl(snap.jpeg_b64);
+		return pieceCropUrl(snap.jpeg_path, effectiveBase()) ?? dataImageUrl(snap.jpeg_b64);
 	}
 
 	function segmentSnapshotSrc(seg: Segment): string | null {
 		return (
-			pieceCropUrl(seg.snapshot_path) ?? dataImageUrl(seg.snapshot_jpeg_b64)
+			pieceCropUrl(seg.snapshot_path, effectiveBase()) ?? dataImageUrl(seg.snapshot_jpeg_b64)
 		);
 	}
 

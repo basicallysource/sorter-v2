@@ -57,13 +57,6 @@ def _runtime_stats(base_url: str) -> dict[str, Any]:
     return payload
 
 
-def _classification_debug(base_url: str) -> dict[str, Any] | None:
-    try:
-        return _get(base_url, "/api/classification-channel/debug")
-    except Exception:
-        return None
-
-
 def _wait_for_ready(base_url: str, timeout_s: float = 240.0) -> None:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -210,20 +203,12 @@ def _delta_counts(start_snapshot: dict[str, Any], end_snapshot: dict[str, Any]) 
 
 def _sample_payload(base_url: str) -> dict[str, Any]:
     snapshot = _runtime_stats(base_url)
-    classification_debug = _classification_debug(base_url)
-    sample: dict[str, Any] = {
+    return {
         "captured_at": time.time(),
         "lifecycle_state": snapshot.get("lifecycle_state"),
         "counts": snapshot.get("counts"),
         "channel_throughput": snapshot.get("channel_throughput"),
     }
-    if isinstance(classification_debug, dict):
-        sample["classification_debug"] = {
-            "counts": classification_debug.get("counts"),
-            "positions": classification_debug.get("positions"),
-            "gates": classification_debug.get("gates"),
-        }
-    return sample
 
 
 def main() -> int:
@@ -236,7 +221,6 @@ def main() -> int:
     _ensure_paused(base_url)
 
     start_snapshot = _runtime_stats(base_url)
-    start_debug = _classification_debug(base_url)
     started_at = time.time()
 
     _post(base_url, "/resume")
@@ -262,7 +246,6 @@ def main() -> int:
 
     ended_at = time.time()
     end_snapshot = _runtime_stats(base_url)
-    end_debug = _classification_debug(base_url)
 
     summary = {
         "wall_duration_s": ended_at - started_at,
@@ -280,9 +263,7 @@ def main() -> int:
         "changes": args.changes,
         "note": args.note,
         "start_snapshot": start_snapshot,
-        "start_classification_debug": start_debug,
         "end_snapshot": end_snapshot,
-        "end_classification_debug": end_debug,
         "samples": samples,
         "summary": summary,
         "snapshot": end_snapshot,

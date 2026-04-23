@@ -1420,14 +1420,15 @@ def build_rt_runtime(
         perception_sources[feed_id] = runner
         # Wire segment recording into the C4 pipeline: only C4 knows the
         # piece_uuid<->track_gid mapping, so only its perception pipeline
-        # captures wedge crops.
+        # captures wedge crops. The channel geometry lives on the tracker
+        # (arc channels use PolygonZone, so zone doesn't carry it).
         if role == "c4":
             runner._pipeline.segment_recorder = segment_recorder
-            if isinstance(zone, PolarZone):
-                segment_recorder.set_channel_geometry(
-                    polar_center=zone.center_xy,
-                    polar_radius_range=(zone.r_inner, zone.r_outer),
-                )
+            tracker = runner._pipeline.tracker
+            segment_recorder.set_channel_geometry(
+                polar_center=getattr(tracker, "_polar_center", None),
+                polar_radius_range=getattr(tracker, "_polar_radius_range", None),
+            )
 
     # ------------------------------------------------------------------
     # Capacity slots

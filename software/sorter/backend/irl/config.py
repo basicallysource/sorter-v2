@@ -1219,13 +1219,13 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 gc,
                 attr_base,
                 f"microsteps={microsteps}",
-                lambda: stepper.set_microsteps(microsteps),
+                lambda s=stepper, m=microsteps: s.set_microsteps(m),
             )
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
                 f"speed limits min=16 max={default_steps_per_second}",
-                lambda: stepper.set_speed_limits(16, default_steps_per_second),
+                lambda s=stepper, v=default_steps_per_second: s.set_speed_limits(16, v),
             )
             gc.logger.info(
                 f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}"

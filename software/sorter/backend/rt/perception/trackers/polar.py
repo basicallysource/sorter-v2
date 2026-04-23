@@ -41,6 +41,16 @@ _CONFIRMED_WINDOW_MIN_SAMPLES = 6
 # track is declared a ghost. Matched to _CONFIRMED_WINDOW_MIN_SAMPLES so a
 # track gets at least the same amount of evidence either way.
 _GHOST_WINDOW_MIN_SAMPLES = 6
+# Verdicts operate on the last N rotation-windowed samples, not on the
+# full lifetime: a track that was briefly confirmed-real and then stops
+# moving while the ring keeps rotating must be able to flip back to
+# ghost. Otherwise a phantom that briefly wobbled through the
+# centroid-drift threshold locks in as "real" forever and blocks the
+# runtime's exit slot.
+_VERDICT_WINDOW_SAMPLES = 12
+# Cap rotation_samples so long-lived tracks don't accumulate unbounded
+# memory. Must be >= _VERDICT_WINDOW_SAMPLES.
+_ROTATION_SAMPLES_MAX = 64
 _ROTATION_WINDOW_BUFFER = 128  # rolling history kept in memory
 _ROTATION_WINDOW_MAX_AGE_S = 60.0
 
@@ -378,20 +388,29 @@ class PolarTracker:
             # standstill is never prematurely judged a ghost.
             if self._in_rotation_window(float(timestamp)):
                 track.rotation_samples.append(sample)
-                if not track.confirmed_real:
-                    # Re-evaluate each tick: motion that wasn't visible earlier
-                    # can emerge later. A ghost verdict can flip back to
-                    # confirmed_real if the track finally moves during a
-                    # later rotation — we don't want the first 6 samples to
-                    # lock a track out forever.
-                    if self._evaluate_confirmed_real(track):
-                        track.confirmed_real = True
-                        track.ghost = False
-                    else:
-                        track.ghost = self._evaluate_ghost(track)
+                if len(track.rotation_samples) > _ROTATION_SAMPLES_MAX:
+                    del track.rotation_samples[: -_ROTATION_SAMPLES_MAX]
+                # Evaluate confirmed/ghost on a rolling window of the most
+                # recent rotation samples. A track that moved earlier but
+                # stops while the ring keeps turning must be able to flip
+                # back to ghost, and a track declared ghost can flip back
+                # to confirmed if it finally moves — both directions are
+                # honest reads of the latest evidence.
+                window = track.rotation_samples[-_VERDICT_WINDOW_SAMPLES:]
+                if self._evaluate_confirmed_real_samples(window):
+                    track.confirmed_real = True
+                    track.ghost = False
+                else:
+                    track.confirmed_real = False
+                    track.ghost = len(window) >= _GHOST_WINDOW_MIN_SAMPLES
 
     def _evaluate_confirmed_real(self, track: _LiveTrack) -> bool:
-        samples = track.rotation_samples
+        return self._evaluate_confirmed_real_samples(track.rotation_samples)
+
+    def _evaluate_confirmed_real_samples(
+        self,
+        samples: list[tuple[float, float, float]],
+    ) -> bool:
         if len(samples) < _CONFIRMED_WINDOW_MIN_SAMPLES:
             return False
 

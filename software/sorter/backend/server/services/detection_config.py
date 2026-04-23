@@ -1,11 +1,8 @@
 """Application service for detection-config read/save use cases.
 
-Legacy ``vision_manager`` integration is intentionally absent: post-cutover
-``shared_state.vision_manager`` stays ``None`` forever (see
-``server/shared_state.py``), so every detection decision flows through the
-rt graph instead. When a change requires a live detector swap, the service
-asks ``rt_handle.rebuild_runner_for_role(...)`` to rebuild the affected
-rt runner.
+Detection decisions flow through the rt graph. When a change requires a
+live detector swap, the service asks
+``rt_handle.rebuild_runner_for_role(...)`` to rebuild the affected runner.
 """
 
 from __future__ import annotations

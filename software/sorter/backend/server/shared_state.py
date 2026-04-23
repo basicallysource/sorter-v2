@@ -32,17 +32,8 @@ aruco_manager: Optional[ArucoConfigManager] = None
 camera_service: Optional[Any] = None
 
 # rt/ runtime handle — populated by main.py after ``build_rt_runtime``.
-# Every router that needs runtime state goes through this, not through any
-# direct controller/vision_manager reference.
+# Every router that needs runtime state goes through this.
 rt_handle: Optional[Any] = None
-
-# Compatibility stubs for legacy router code. Post-cutover the VisionManager
-# and SorterController are gone; these globals stay ``None`` forever so the
-# many ``if shared_state.vision_manager is not None`` branches that routers
-# use to gracefully degrade simply fall through to the no-op path. Do NOT
-# write to these — they only exist so legacy router code stays compiling.
-vision_manager: Optional[Any] = None
-controller_ref: Optional[Any] = None
 
 pulse_locks: Dict[str, threading.Lock] = {}
 camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}

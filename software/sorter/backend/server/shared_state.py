@@ -19,6 +19,7 @@ from fastapi import WebSocket
 from aruco_config_manager import ArucoConfigManager
 from global_config import GlobalConfig
 from irl.config import ArucoTagConfig, CarouselArucoTagConfig
+from server.sorter_lifecycle import SorterLifecyclePort
 
 # ---------------------------------------------------------------------------
 # Global state
@@ -49,10 +50,7 @@ sorting_profile_status_snapshot: Optional[dict[str, Any]] = None
 hardware_state: str = "standby"
 hardware_error: Optional[str] = None
 hardware_homing_step: Optional[str] = None  # Current homing phase description
-_hardware_start_fn: Optional[Any] = None  # Callable set by main.py
-_hardware_initialize_fn: Optional[Any] = None  # Callable set by main.py
-_hardware_reset_fn: Optional[Any] = None  # Callable set by main.py
-_rt_handle_prepare_fn: Optional[Any] = None  # Callable set by main.py
+sorter_lifecycle: SorterLifecyclePort = SorterLifecyclePort()  # Populated by main.py
 hardware_runtime_irl: Optional[Any] = None  # Active IRL during homing before controller exists
 hardware_worker_thread: Optional[threading.Thread] = None
 hardware_lifecycle_lock = threading.RLock()
@@ -76,24 +74,9 @@ def setCommandQueue(q: queue.Queue) -> None:
     command_queue = q
 
 
-def setHardwareStartFn(fn: Any) -> None:
-    global _hardware_start_fn
-    _hardware_start_fn = fn
-
-
-def setHardwareInitializeFn(fn: Any) -> None:
-    global _hardware_initialize_fn
-    _hardware_initialize_fn = fn
-
-
-def setHardwareResetFn(fn: Any) -> None:
-    global _hardware_reset_fn
-    _hardware_reset_fn = fn
-
-
-def setRtHandlePrepareFn(fn: Any) -> None:
-    global _rt_handle_prepare_fn
-    _rt_handle_prepare_fn = fn
+def setSorterLifecycle(port: SorterLifecyclePort) -> None:
+    global sorter_lifecycle
+    sorter_lifecycle = port
 
 
 def setHardwareRuntimeIRL(irl: Any | None) -> None:

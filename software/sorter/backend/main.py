@@ -37,13 +37,11 @@ from server.shared_state import (
     setCommandQueue,
     setArucoManager,
     setCameraService,
-    setHardwareInitializeFn,
-    setHardwareResetFn,
     setHardwareRuntimeIRL,
-    setHardwareStartFn,
     setRtHandle,
-    setRtHandlePrepareFn,
+    setSorterLifecycle,
 )
+from server.sorter_lifecycle import SorterLifecyclePort
 from aruco_config_manager import ArucoConfigManager
 from run_recorder import RunRecorder
 from defs.events import HeartbeatEvent, HeartbeatData
@@ -451,11 +449,15 @@ def main() -> None:
         shared_state.setHardwareStatus(clear_homing_step=True)
         gc.logger.info("Hardware initialized (steppers ready, no homing performed).")
 
-    setHardwareStartFn(_home_hardware)
-    setHardwareInitializeFn(_initialize_hardware)
-    setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
-    setRtHandlePrepareFn(
-        lambda: _build_rt_handle(start=True, paused=True, reason="standby prepare")
+    setSorterLifecycle(
+        SorterLifecyclePort(
+            home_hardware=_home_hardware,
+            initialize_hardware=_initialize_hardware,
+            reset_hardware=lambda: _cleanup_runtime_hardware("system reset"),
+            prepare_rt_handle=lambda: _build_rt_handle(
+                start=True, paused=True, reason="standby prepare"
+            ),
+        )
     )
 
     try:

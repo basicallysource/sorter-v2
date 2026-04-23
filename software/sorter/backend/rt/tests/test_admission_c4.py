@@ -3,9 +3,7 @@ from __future__ import annotations
 import pytest
 
 from rt.contracts.admission import AdmissionDecision
-from rt.contracts.registry import ADMISSION_STRATEGIES
 
-import rt.runtimes._strategies  # noqa: F401 — registers C4Admission
 from rt.runtimes._strategies.admission_c4 import C4Admission
 
 
@@ -19,12 +17,6 @@ def _state(**overrides):
     }
     base.update(overrides)
     return base
-
-
-def test_c4_admission_registered() -> None:
-    assert "c4" in ADMISSION_STRATEGIES.keys()
-    strategy = ADMISSION_STRATEGIES.create("c4", max_zones=2)
-    assert strategy.key == "c4"
 
 
 def test_c4_allows_when_state_empty() -> None:

@@ -1,10 +1,4 @@
-"""Tests for detector UI-scope mapping + default-slug helpers.
-
-These helpers replace the legacy ``vision.detection_registry`` shim —
-they live in ``rt.contracts.registry`` (single source of truth) and
-``rt.perception.detector_metadata`` (run.json-backed shape for the
-Svelte settings dropdown).
-"""
+"""Tests for detector scope metadata and UI-facing detector helpers."""
 
 from __future__ import annotations
 
@@ -14,20 +8,10 @@ from typing import Any
 
 import pytest
 
-from rt.contracts.registry import (
-    DETECTORS,
-    StrategyRegistry,
-    default_detector_slug_for_ui_scope,
-    ui_scopes_for_detector,
-)
+from rt.contracts.registry import StrategyRegistry, default_detector_slug_for_ui_scope, ui_scopes_for_detector
 from rt.perception import detector_metadata
 from rt.perception.detectors import hive_onnx
 from rt.perception.detectors.hive_onnx import discover_and_register_hive_detectors
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _write_run_json(dir_path: Path, payload: dict[str, Any]) -> None:
@@ -108,26 +92,16 @@ def hive_registry(fake_hive_dir: Path) -> StrategyRegistry[Any]:
     return reg
 
 
-# ---------------------------------------------------------------------------
-# Registry-level metadata storage
-# ---------------------------------------------------------------------------
-
-
 def test_registry_stores_scopes_metadata_from_run_json(
     hive_registry: StrategyRegistry[Any],
 ) -> None:
-    meta = hive_registry.metadata("hive:c-channel-yolo11n-320")
-    assert meta["scopes"] == ("c_channel",)
-    meta = hive_registry.metadata("hive:chamber-yolo11n-320")
-    assert meta["scopes"] == ()
-    meta = hive_registry.metadata("hive:chamber-nanodet-1.5x-416")
-    assert meta["scopes"] == ()
-
-
-# ---------------------------------------------------------------------------
-# ui_scopes_for_detector — uses global DETECTORS, so we test via the real
-# registry populated by the real models dir (skip if no blobs).
-# ---------------------------------------------------------------------------
+    cases = {
+        "hive:c-channel-yolo11n-320": ("c_channel",),
+        "hive:chamber-yolo11n-320": (),
+        "hive:chamber-nanodet-1.5x-416": (),
+    }
+    for slug, expected_scopes in cases.items():
+        assert hive_registry.metadata(slug)["scopes"] == expected_scopes
 
 
 @pytest.fixture
@@ -136,90 +110,37 @@ def real_hive_models() -> None:
     models_dir = Path(__file__).resolve().parents[2] / "blob" / "hive_detection_models"
     if not models_dir.exists():
         pytest.skip("hive models not installed in this env")
-    # Importing triggers discovery — idempotent.
     import rt.perception  # noqa: F401
 
 
-def test_ui_scopes_c_channel_maps_to_feeder_and_classification_channel(
+def test_ui_scopes_for_detector(
     real_hive_models: None,
 ) -> None:
-    scopes = ui_scopes_for_detector("hive:c-channel-yolo11n-320")
-    assert scopes == frozenset({"feeder", "classification_channel"})
+    cases = {
+        "hive:c-channel-yolo11n-320": frozenset({"feeder", "classification_channel"}),
+        "hive:carousel-yolo11n-320": frozenset({"carousel"}),
+        "hive:classification-chamber-yolo11n-320": frozenset({"classification"}),
+        "hive:chamber-yolo11n-320": frozenset(),
+        "hive:chamber-nanodet-1.5x-416": frozenset(),
+        "hive:does-not-exist": frozenset(),
+    }
+    for slug, expected in cases.items():
+        assert ui_scopes_for_detector(slug) == expected
 
 
-def test_ui_scopes_carousel_maps_to_carousel_only(
+def test_default_detector_slug_for_ui_scope(
     real_hive_models: None,
 ) -> None:
-    scopes = ui_scopes_for_detector("hive:carousel-yolo11n-320")
-    assert scopes == frozenset({"carousel"})
-
-
-def test_ui_scopes_classification_chamber_maps_to_classification(
-    real_hive_models: None,
-) -> None:
-    scopes = ui_scopes_for_detector("hive:classification-chamber-yolo11n-320")
-    assert scopes == frozenset({"classification"})
-
-
-def test_ui_scopes_none_scoped_model_is_filtered_out(
-    real_hive_models: None,
-) -> None:
-    """chamber-yolo11n-320 and chamber-nanodet-1.5x-416 declare no scopes."""
-    assert ui_scopes_for_detector("hive:chamber-yolo11n-320") == frozenset()
-    assert ui_scopes_for_detector("hive:chamber-nanodet-1.5x-416") == frozenset()
-
-
-def test_ui_scopes_unknown_detector_is_empty(real_hive_models: None) -> None:
-    assert ui_scopes_for_detector("hive:does-not-exist") == frozenset()
-
-
-# ---------------------------------------------------------------------------
-# default_detector_slug_for_ui_scope
-# ---------------------------------------------------------------------------
-
-
-def test_default_for_feeder_is_c_channel(real_hive_models: None) -> None:
-    assert (
-        default_detector_slug_for_ui_scope("feeder")
-        == "hive:c-channel-yolo11n-320"
-    )
-
-
-def test_default_for_classification_channel_is_c_channel(
-    real_hive_models: None,
-) -> None:
-    assert (
-        default_detector_slug_for_ui_scope("classification_channel")
-        == "hive:c-channel-yolo11n-320"
-    )
-
-
-def test_default_for_carousel_is_carousel_yolo(real_hive_models: None) -> None:
-    assert (
-        default_detector_slug_for_ui_scope("carousel")
-        == "hive:carousel-yolo11n-320"
-    )
-
-
-def test_default_for_classification_is_classification_chamber(
-    real_hive_models: None,
-) -> None:
-    assert (
-        default_detector_slug_for_ui_scope("classification")
-        == "hive:classification-chamber-yolo11n-320"
-    )
-
-
-def test_default_for_empty_or_unknown_ui_scope_is_none(
-    real_hive_models: None,
-) -> None:
-    assert default_detector_slug_for_ui_scope("") is None
-    assert default_detector_slug_for_ui_scope("bogus") is None
-
-
-# ---------------------------------------------------------------------------
-# detector_metadata — the shim's API, now backed by rt
-# ---------------------------------------------------------------------------
+    cases = {
+        "feeder": "hive:c-channel-yolo11n-320",
+        "classification_channel": "hive:c-channel-yolo11n-320",
+        "carousel": "hive:carousel-yolo11n-320",
+        "classification": "hive:classification-chamber-yolo11n-320",
+        "": None,
+        "bogus": None,
+    }
+    for scope, expected_slug in cases.items():
+        assert default_detector_slug_for_ui_scope(scope) == expected_slug
 
 
 @pytest.fixture(autouse=True)
@@ -244,7 +165,6 @@ def test_detection_algorithm_definition_returns_hive_shape(
     assert "YOLO" in definition.description or "yolo" in definition.description.lower()
     assert definition.hive_metadata is not None
     assert definition.hive_metadata["slug"] == "c-channel-yolo11n-320"
-    # Supported scopes come from run.json -> UI mapping.
     assert definition.supported_scopes == frozenset(
         {"feeder", "classification_channel"}
     )
@@ -264,7 +184,6 @@ def test_detection_algorithms_for_scope_filters_by_ui_scope(
         a.id for a in detector_metadata.detection_algorithms_for_scope("feeder")
     }
     assert "hive:c-channel-yolo11n-320" in feeder_algos
-    # None-scoped legacy models must NOT surface on any UI scope.
     assert "hive:chamber-yolo11n-320" not in feeder_algos
     assert "hive:chamber-nanodet-1.5x-416" not in feeder_algos
 
@@ -274,62 +193,38 @@ def test_detection_algorithms_for_scope_filters_by_ui_scope(
     assert carousel_algos == {"hive:carousel-yolo11n-320"}
 
 
-def test_normalize_returns_input_when_valid_for_scope(
+def test_normalize_detection_algorithm(
     real_hive_models: None,
 ) -> None:
-    assert (
-        detector_metadata.normalize_detection_algorithm(
-            "feeder", "hive:c-channel-yolo11n-320"
-        )
-        == "hive:c-channel-yolo11n-320"
-    )
+    cases = [
+        ("feeder", "hive:c-channel-yolo11n-320", "hive:c-channel-yolo11n-320"),
+        ("feeder", "hive:carousel-yolo11n-320", "hive:c-channel-yolo11n-320"),
+        ("feeder", "bogus", "hive:c-channel-yolo11n-320"),
+        ("feeder", None, "hive:c-channel-yolo11n-320"),
+    ]
+    for scope, selected, expected in cases:
+        assert detector_metadata.normalize_detection_algorithm(scope, selected) == expected
 
 
-def test_normalize_returns_default_when_input_not_in_scope(
+def test_scope_supports_detection_algorithm(
     real_hive_models: None,
 ) -> None:
-    # carousel model on feeder scope is invalid → default.
-    assert (
-        detector_metadata.normalize_detection_algorithm(
-            "feeder", "hive:carousel-yolo11n-320"
-        )
-        == "hive:c-channel-yolo11n-320"
-    )
-
-
-def test_normalize_returns_default_for_bogus_value(
-    real_hive_models: None,
-) -> None:
-    assert (
-        detector_metadata.normalize_detection_algorithm("feeder", "bogus")
-        == "hive:c-channel-yolo11n-320"
-    )
-    assert (
-        detector_metadata.normalize_detection_algorithm("feeder", None)
-        == "hive:c-channel-yolo11n-320"
-    )
-
-
-def test_scope_supports_detection_algorithm(real_hive_models: None) -> None:
-    assert detector_metadata.scope_supports_detection_algorithm(
-        "feeder", "hive:c-channel-yolo11n-320"
-    )
-    assert not detector_metadata.scope_supports_detection_algorithm(
-        "feeder", "hive:carousel-yolo11n-320"
-    )
-    # None-scoped model accepted nowhere.
-    assert not detector_metadata.scope_supports_detection_algorithm(
-        "feeder", "hive:chamber-yolo11n-320"
-    )
-    assert not detector_metadata.scope_supports_detection_algorithm("feeder", None)
+    cases = [
+        ("feeder", "hive:c-channel-yolo11n-320", True),
+        ("feeder", "hive:carousel-yolo11n-320", False),
+        ("feeder", "hive:chamber-yolo11n-320", False),
+        ("feeder", None, False),
+    ]
+    for scope, slug, expected in cases:
+        assert detector_metadata.scope_supports_detection_algorithm(scope, slug) is expected
 
 
 def test_options_shape_matches_frontend_contract(real_hive_models: None) -> None:
     options = detector_metadata.detection_algorithm_options("feeder")
     ids = {opt["id"] for opt in options}
     assert "hive:c-channel-yolo11n-320" in ids
-    assert "hive:carousel-yolo11n-320" not in ids  # different UI scope
-    assert "hive:chamber-yolo11n-320" not in ids  # filtered (scopes=None)
+    assert "hive:carousel-yolo11n-320" not in ids
+    assert "hive:chamber-yolo11n-320" not in ids
     for opt in options:
         assert isinstance(opt["id"], str)
         assert isinstance(opt["label"], str)

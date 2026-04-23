@@ -1,11 +1,4 @@
-"""Orchestrator integration test with all 5 runtimes mocked.
-
-Verifies:
-* Orchestrator ticks a 5-runtime topology without crashing.
-* Reversed-order iteration: distributor ticks first, C1 last.
-* ``feed_id=None`` runtimes (C1 + Distributor) don't consult perception.
-* Aggregated health reports every runtime.
-"""
+"""Small topology smoke test for the real 5-runtime machine shape."""
 
 from __future__ import annotations
 
@@ -94,43 +87,29 @@ def _make_five_runtime_orchestrator() -> tuple[
     return orch, [c1, c2, c3, c4, dist], slots, sources
 
 
-def test_all_five_runtimes_tick_in_reverse_order() -> None:
+def test_all_five_runtime_topology_smoke() -> None:
     orch, runtimes, _slots, _srcs = _make_five_runtime_orchestrator()
+    slots = _slots
+    sources = _srcs
+    for _ in range(3):
+        slots[("c3", "c4")].try_claim()
+
     orch.tick_once(now_mono=0.0)
-    combined = []
-    # Runtimes that appear later in the list tick FIRST (downstream-first).
+
+    combined: list[tuple[str, int]] = []
     for rt in reversed(runtimes):
         combined.extend(rt.tick_log)
     ordered_ids = [entry[0] for entry in combined]
     assert ordered_ids == ["distributor", "c4", "c3", "c2", "c1"]
-
-
-def test_perception_sources_only_consulted_for_feed_runtimes() -> None:
-    orch, _runtimes, _slots, sources = _make_five_runtime_orchestrator()
-    orch.tick_once(now_mono=0.0)
-    # c2/c3/c4 each read perception once; c1/distributor never did.
     assert sources["c2_feed"].reads == 1
     assert sources["c3_feed"].reads == 1
     assert sources["c4_feed"].reads == 1
-
-
-def test_capacity_propagates_through_slot_chain() -> None:
-    orch, runtimes, slots, _srcs = _make_five_runtime_orchestrator()
-    # Exhaust c3->c4 capacity (3).
-    for _ in range(3):
-        slots[("c3", "c4")].try_claim()
-    orch.tick_once(now_mono=0.0)
-    # c3's inbox.capacity_downstream must reflect the drained slot.
     (c1, c2, c3, c4, dist) = runtimes
     assert c3.tick_log[-1] == ("c3", 0)
-    # c2's downstream is c3 slot which is still cap=1.
     assert c2.tick_log[-1] == ("c2", 1)
-    # distributor has no downstream => 0.
+    assert c1.tick_log[-1] == ("c1", 1)
+    assert c4.tick_log[-1] == ("c4", 1)
     assert dist.tick_log[-1] == ("distributor", 0)
-
-
-def test_health_covers_all_five_runtimes() -> None:
-    orch, _runtimes, _slots, _srcs = _make_five_runtime_orchestrator()
     snap = orch.health()
     assert set(snap.keys()) == {"c1", "c2", "c3", "c4", "distributor"}
     for entry in snap.values():

@@ -37,7 +37,6 @@ if False:  # TYPE_CHECKING guard without importing TYPE_CHECKING
 
 _LOG = logging.getLogger(__name__)
 
-SECTOR_COUNT = 24  # 15° per sector, single segment per piece (role="carousel")
 _SEGMENT_ROLE = "carousel"
 _SEGMENT_SEQUENCE = 0
 _WRITER_QUEUE_MAX = 500
@@ -46,11 +45,6 @@ _HEARTBEAT_INTERVAL_S = 2.0
 # at the edges. Angular: n° on each side. Radial: n pixels on each side.
 _WEDGE_ANGLE_PADDING_DEG = 1.5
 _WEDGE_RADIUS_PADDING_PX = 12.0
-
-
-def _sector_index(angle_deg: float) -> int:
-    normalized = angle_deg % 360.0
-    return int(normalized // (360.0 / SECTOR_COUNT)) % SECTOR_COUNT
 
 
 def _bbox_polar_extent(
@@ -118,6 +112,10 @@ class _Recording:
     snapshot_width: int | None = None
     snapshot_height: int | None = None
     snapshot_written: bool = False
+    wedge_counter: int = 0
+    # End of the last wedge (unwrapped so cross-seam motion stays monotonic).
+    # Next wedge is only captured once the piece's bbox has moved past this.
+    last_wedge_end_deg: float | None = None
 
 
 @dataclass
@@ -245,31 +243,32 @@ class SegmentRecorder:
                 if not isinstance(angle_rad, (int, float)):
                     continue
                 angle_deg = math.degrees(float(angle_rad))
-                sector = _sector_index(angle_deg)
-                if sector in rec.sectors:
-                    continue  # already captured this sector
+                if rec.channel_center_x is None or rec.channel_center_y is None:
+                    continue  # no geometry yet → can't compute polar extent
                 bbox_crop = self._bbox_to_crop(bbox, frame_w, frame_h)
                 if bbox_crop is None:
                     continue
                 x0, y0, x1, y1 = bbox_crop
-                if (
-                    rec.channel_center_x is not None
-                    and rec.channel_center_y is not None
-                ):
-                    start_deg, end_deg, r_in, r_out = _bbox_polar_extent(
-                        rec.channel_center_x,
-                        rec.channel_center_y,
-                        (x0, y0, x1, y1),
-                        angle_deg,
-                    )
-                else:
-                    width = 360.0 / SECTOR_COUNT
-                    start_deg = sector * width
-                    end_deg = start_deg + width
-                    r_in = rec.channel_radius_inner or 0.0
-                    r_out = rec.channel_radius_outer or 0.0
-                rec.sectors[sector] = _SectorSnapshot(
-                    sector_index=sector,
+                start_deg, end_deg, r_in, r_out = _bbox_polar_extent(
+                    rec.channel_center_x,
+                    rec.channel_center_y,
+                    (x0, y0, x1, y1),
+                    angle_deg,
+                )
+                # Non-overlap gate: only snap a new wedge once the bbox has
+                # left the angular span of the previous one. Unwrap relative
+                # to the last wedge's end so cross-seam motion stays monotonic.
+                if rec.last_wedge_end_deg is not None:
+                    forward = (
+                        (start_deg - rec.last_wedge_end_deg + 180.0) % 360.0
+                    ) - 180.0
+                    if forward < 0:
+                        continue
+                idx = rec.wedge_counter
+                rec.wedge_counter += 1
+                rec.last_wedge_end_deg = end_deg
+                rec.sectors[idx] = _SectorSnapshot(
+                    sector_index=idx,
                     start_angle_deg=start_deg,
                     end_angle_deg=end_deg,
                     r_inner=r_in,
@@ -283,11 +282,11 @@ class SegmentRecorder:
                 self._enqueue_crop(
                     piece_uuid=rec.piece_uuid,
                     kind="wedge",
-                    idx=sector,
+                    idx=idx,
                     crop_bytes=raw[y0:y1, x0:x1],
                 )
-                rec.sectors[sector].jpeg_path = (
-                    f"piece_crops/{rec.piece_uuid}/seg{_SEGMENT_SEQUENCE}/wedge_{sector:03d}.jpg"
+                rec.sectors[idx].jpeg_path = (
+                    f"piece_crops/{rec.piece_uuid}/seg{_SEGMENT_SEQUENCE}/wedge_{idx:03d}.jpg"
                 )
 
     def finalize(self, piece_uuid: str) -> None:
@@ -443,7 +442,7 @@ class SegmentRecorder:
             "hit_count": rec.hit_count,
             "path": rec.path,
             "sector_snapshots": sector_payloads,
-            "sector_count": SECTOR_COUNT,
+            "sector_count": len(sector_payloads),
             "channel_center_x": rec.channel_center_x,
             "channel_center_y": rec.channel_center_y,
             "channel_radius_inner": rec.channel_radius_inner,
@@ -513,4 +512,4 @@ def install(
     return recorder
 
 
-__all__ = ["SegmentRecorder", "SECTOR_COUNT", "install"]
+__all__ = ["SegmentRecorder", "install"]

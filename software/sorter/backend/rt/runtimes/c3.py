@@ -37,6 +37,11 @@ from .base import BaseRuntime, HwWorker
 
 
 DEFAULT_EXIT_ZONE_NEAR_ARC_RAD = math.radians(20.0)
+# Widened deceleration zone: once a confirmed-real track enters this
+# arc, C3 switches to precise (slow) pulses even though the piece is
+# not yet in the commit-zone. Gives the piece a gentle approach
+# instead of slamming into C4 at normal-pulse velocity.
+DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(60.0)
 DEFAULT_MAX_RING_COUNT = 1
 DEFAULT_PULSE_COOLDOWN_S = 0.12
 DEFAULT_WIGGLE_STALL_MS = 600
@@ -78,6 +83,7 @@ class RuntimeC3(BaseRuntime):
         event_bus: EventBus | None = None,
         max_ring_count: int = DEFAULT_MAX_RING_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
+        approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
         wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
         wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
@@ -95,6 +101,10 @@ class RuntimeC3(BaseRuntime):
         self._bus = event_bus
         self._max_ring_count = max(1, int(max_ring_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
+        self._approach_near_arc = max(
+            float(exit_zone_near_arc_rad),
+            float(approach_zone_near_arc_rad),
+        )
         self._pulse_cooldown_s = float(pulse_cooldown_s)
         self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
         self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
@@ -165,9 +175,19 @@ class RuntimeC3(BaseRuntime):
                 self._book.exit_stall_since = None
                 self._set_state("idle")
                 return
-            mode = self._resolve_mode(exit_track, now_mono)
-            target_track = exit_track if exit_track is not None else tracks[0]
-            self._dispatch_pulse(target_track, mode, now_mono)
+            approach_track = self._pick_approach_track(tracks)
+            mode = self._resolve_mode(exit_track, approach_track, now_mono)
+            target_track = exit_track or approach_track or tracks[0]
+            # Only pieces inside the commit zone (exit_near_arc) are
+            # allowed to claim a downstream slot. Tracks in the wider
+            # approach zone get slow pulses too, but don't grab c3_to_c4
+            # capacity until they actually reach the drop point.
+            self._dispatch_pulse(
+                target_track,
+                mode,
+                now_mono,
+                commit_to_downstream=exit_track is not None,
+            )
         finally:
             self._tick_end(start)
 
@@ -214,10 +234,27 @@ class RuntimeC3(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        # Only commit a downstream slot for confirmed-real tracks — mirrors
-        # RuntimeC2 so a pending phantom at the exit cannot strand the
-        # c3_to_c4 slot forever. Pending tracks still drive normal (non-
-        # committing) pulses via the rotation-gated ghost evaluation path.
+        # Commit zone: confirmed-real tracks within exit_near_arc (~20°).
+        # Pending tracks are deliberately excluded so a phantom at the
+        # exit cannot strand the c3_to_c4 slot.
+        return self._closest_confirmed_within(tracks, self._exit_near_arc)
+
+    def _pick_approach_track(self, tracks: list[Track]) -> Track | None:
+        # Deceleration zone: confirmed-real tracks within approach_near_arc
+        # (~60°) but not yet in the commit zone. Drives precise pulses
+        # without grabbing a downstream slot — gives a piece a gentle
+        # approach instead of slamming it off the ring at normal-pulse
+        # velocity.
+        approach = self._closest_confirmed_within(tracks, self._approach_near_arc)
+        if approach is None:
+            return None
+        if abs(_wrap_rad(approach.angle_rad or 0.0)) <= self._exit_near_arc:
+            return None
+        return approach
+
+    def _closest_confirmed_within(
+        self, tracks: list[Track], arc: float
+    ) -> Track | None:
         candidates = [
             t for t in tracks
             if t.angle_rad is not None and bool(getattr(t, "confirmed_real", False))
@@ -226,13 +263,22 @@ class RuntimeC3(BaseRuntime):
             return None
         candidates.sort(key=lambda t: abs(_wrap_rad(t.angle_rad or 0.0)))
         head = candidates[0]
-        if abs(_wrap_rad(head.angle_rad or 0.0)) > self._exit_near_arc:
+        if abs(_wrap_rad(head.angle_rad or 0.0)) > arc:
             return None
         return head
 
-    def _resolve_mode(self, exit_track: Track | None, now_mono: float) -> _PulseMode:
+    def _resolve_mode(
+        self,
+        exit_track: Track | None,
+        approach_track: Track | None,
+        now_mono: float,
+    ) -> _PulseMode:
         if exit_track is not None:
             self._book.last_precise_at = now_mono
+            return _PulseMode.PRECISE
+        if approach_track is not None:
+            # Approach zone: precise (slow) pulses without committing —
+            # decelerates the piece smoothly toward the drop edge.
             return _PulseMode.PRECISE
         if self.in_holdover(now_mono):
             # Stick to precise during holdover even without a fresh precise
@@ -245,11 +291,14 @@ class RuntimeC3(BaseRuntime):
         track: Track,
         mode: _PulseMode,
         now_mono: float,
+        *,
+        commit_to_downstream: bool,
     ) -> None:
-        # Only precise pulses commit a piece downstream; normal pulses
-        # advance the ring but do not exit the channel.
+        # Only pieces inside the commit zone (passed in as
+        # ``commit_to_downstream=True``) reserve a c3_to_c4 slot. Precise
+        # approach pulses and normal pulses just rotate the ring.
         claim = None
-        if mode is _PulseMode.PRECISE:
+        if commit_to_downstream:
             claim = self._downstream_slot.try_claim(
                 now_mono=now_mono, hold_time_s=3.0
             )

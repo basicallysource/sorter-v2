@@ -34,20 +34,22 @@ from rt.contracts.tracking import Track, TrackBatch
 
 
 _CONFIRMED_MIN_ANGULAR_PROGRESS_DEG = 5.0
-_CONFIRMED_REVERSAL_TOLERANCE_DEG = 1.0
+# Reversal tolerance absorbs detector jitter: per-frame bbox noise of a
+# couple of degrees is normal, especially near the ring centre where a
+# few pixels of wobble translate into several degrees. 1° was strict
+# enough to reject real pieces that only wobbled during smooth rotation;
+# 4° keeps the check honest without over-rejecting.
+_CONFIRMED_REVERSAL_TOLERANCE_DEG = 4.0
 _CONFIRMED_MIN_CENTROID_DRIFT_PX = 40.0
 _CONFIRMED_WINDOW_MIN_SAMPLES = 6
-# After this many rotation-windowed samples without confirmed motion, a
-# track is declared a ghost. Matched to _CONFIRMED_WINDOW_MIN_SAMPLES so a
-# track gets at least the same amount of evidence either way.
-_GHOST_WINDOW_MIN_SAMPLES = 6
-# Verdicts operate on the last N rotation-windowed samples, not on the
-# full lifetime: a track that was briefly confirmed-real and then stops
-# moving while the ring keeps rotating must be able to flip back to
-# ghost. Otherwise a phantom that briefly wobbled through the
-# centroid-drift threshold locks in as "real" forever and blocks the
-# runtime's exit slot.
-_VERDICT_WINDOW_SAMPLES = 12
+# Asymmetric verdicts — easy to confirm real, hard to declare ghost:
+#   * Motion evidence (6 samples) flips pending/ghost back to real.
+#   * Ghost demands substantially more rotation-windowed evidence of
+#     non-motion (18 samples). A fresh piece briefly stopping between
+#     carousel moves must not be labelled a ghost before the operator
+#     even sees it move.
+_GHOST_WINDOW_MIN_SAMPLES = 18
+_VERDICT_WINDOW_SAMPLES = 18
 # Cap rotation_samples so long-lived tracks don't accumulate unbounded
 # memory. Must be >= _VERDICT_WINDOW_SAMPLES.
 _ROTATION_SAMPLES_MAX = 64
@@ -414,9 +416,12 @@ class PolarTracker:
         if len(samples) < _CONFIRMED_WINDOW_MIN_SAMPLES:
             return False
 
-        # (B) centroid drift - works without polar geometry.
-        head = samples[:5]
-        tail = samples[-5:]
+        # (B) centroid drift - works without polar geometry. Use the
+        # first and last third of the window so the head/tail medians
+        # stay non-overlapping even at the minimum-sample boundary.
+        half = max(2, len(samples) // 3)
+        head = samples[:half]
+        tail = samples[-half:]
         head_x = sorted(float(s[1]) for s in head)[len(head) // 2]
         head_y = sorted(float(s[2]) for s in head)[len(head) // 2]
         tail_x = sorted(float(s[1]) for s in tail)[len(tail) // 2]

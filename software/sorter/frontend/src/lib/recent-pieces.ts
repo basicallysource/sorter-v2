@@ -69,11 +69,9 @@ export function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
 	);
 }
 
-// Stable identity for a physical piece. Phase 6 (unified dossier) switched
-// this from best-effort heuristics to a strict uuid-first / tracked_global_id
-// fallback. Timestamp / preview / angle-based fallbacks are collision-prone
-// and are no longer needed now that the backend always assigns a uuid on
-// C3-entry.
+// Stable identity for a physical piece. The tracker global id is the physical
+// identity across dossier splits; uuid is only the fallback for legacy rows
+// without a tracked id.
 export function recentPhysicalKey(obj: KnownObjectData): string {
 	// Kept for back-compat: always returns *some* string. Prefer
 	// `recentPhysicalKeyOrNull` in new code so callers can drop items without
@@ -82,10 +80,10 @@ export function recentPhysicalKey(obj: KnownObjectData): string {
 }
 
 export function recentPhysicalKeyOrNull(obj: KnownObjectData): string | null {
-	if (obj?.uuid) return `uuid:${obj.uuid}`;
 	if (obj?.tracked_global_id !== null && obj?.tracked_global_id !== undefined) {
 		return `gid:${obj.tracked_global_id}`;
 	}
+	if (obj?.uuid) return `uuid:${obj.uuid}`;
 	return null;
 }
 

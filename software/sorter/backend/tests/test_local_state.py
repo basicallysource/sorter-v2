@@ -173,6 +173,30 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
         self.assertEqual(3.0, recent[0]["updated_at"])
 
+    def test_recent_known_objects_deduplicate_split_dossiers_by_track(self) -> None:
+        initialize_local_state()
+
+        remember_recent_known_object(
+            {
+                "uuid": "piece-original",
+                "tracked_global_id": 42,
+                "part_id": "3001",
+                "updated_at": 1.0,
+            }
+        )
+        remember_recent_known_object(
+            {
+                "uuid": "piece-split",
+                "tracked_global_id": 42,
+                "part_id": "3001",
+                "updated_at": 2.0,
+            }
+        )
+
+        recent = get_recent_known_objects()
+        self.assertEqual(["piece-split"], [entry["uuid"] for entry in recent])
+        self.assertEqual(42, recent[0]["tracked_global_id"])
+
     def test_sorting_sessions_persist_current_bin_state_and_recent_pieces(self) -> None:
         initialize_local_state()
 

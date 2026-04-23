@@ -336,15 +336,16 @@
 		void now_tick;
 	});
 
-	// Phase 6 dedupe: keep rows keyed by uuid (primary) or tracked_global_id
-	// (fallback). Rows without either cannot be navigated to and are dropped.
-	// In practice the backend guarantees uuid after Phase 4 — this is a
-	// defensive filter, not an expected code path.
+	// Defense-in-depth: the backend already collapses split dossiers, but the
+	// physical identity is still tracked_global_id-first. Keep active and
+	// historical rows separate so a completed piece does not hide a live one if
+	// the tracker id is reused after a restart.
 	function rowKey(row: TrackedPieceRow): string | null {
-		if (row.uuid) return `uuid:${row.uuid}`;
 		if (row.tracked_global_id !== null && row.tracked_global_id !== undefined) {
-			return `gid:${row.tracked_global_id}`;
+			const state = row.active ? 'active' : 'history';
+			return `gid:${state}:${row.tracked_global_id}`;
 		}
+		if (row.uuid) return `uuid:${row.uuid}`;
 		return null;
 	}
 

@@ -22,7 +22,7 @@ import {
 	isCamerasConfigEvent,
 	isSortingProfileStatusEvent
 } from './types';
-import { shouldShowInRecentPieces } from '$lib/recent-pieces';
+import { recentPhysicalKeyOrNull, shouldShowInRecentPieces } from '$lib/recent-pieces';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
@@ -246,7 +246,12 @@ export class MachineManager {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
-		const existing_idx = machine.recentObjects.findIndex((o) => o.uuid === obj.uuid);
+		const incoming_key = recentPhysicalKeyOrNull(obj);
+		const existing_idx = machine.recentObjects.findIndex((o) => {
+			const key = recentPhysicalKeyOrNull(o);
+			if (incoming_key !== null && key !== null) return key === incoming_key;
+			return o.uuid === obj.uuid;
+		});
 		const keep = shouldKeepRecentObject(obj);
 		let updated_objects: KnownObjectData[];
 

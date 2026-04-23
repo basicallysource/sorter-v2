@@ -587,6 +587,7 @@ def get_tracked_pieces(
             }
         )
 
+    rows = _dedupe_tracked_piece_rows(rows)
     active_rows = [row for row in rows if row["active"]]
     historical_rows = [row for row in rows if not row["active"]]
 
@@ -600,6 +601,128 @@ def get_tracked_pieces(
     historical_rows.sort(key=lambda row: -float(row["sort_ts"]))
     ordered = active_rows + historical_rows
     return {"items": ordered[:limit], "drop_angle_deg": drop_angle_deg}
+
+
+def _dedupe_tracked_piece_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse split dossiers for the same physical track.
+
+    A C4 tracker split can publish several dossier UUIDs for one
+    ``tracked_global_id``. For the operator-facing Track Pieces view we keep
+    one active row and one historical row per global id, choosing the row with
+    the richest classification data while retaining the newest live position.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        key = _tracked_piece_row_identity(row)
+        if key is None:
+            out.append(row)
+            continue
+        grouped.setdefault(key, []).append(row)
+    out.extend(_merge_tracked_piece_group(group) for group in grouped.values())
+    return out
+
+
+def _tracked_piece_row_identity(row: dict[str, Any]) -> str | None:
+    gid = row.get("tracked_global_id")
+    if isinstance(gid, int):
+        state = "active" if row.get("active") else "history"
+        return f"gid:{state}:{gid}"
+    uuid = row.get("uuid")
+    if isinstance(uuid, str) and uuid.strip():
+        return f"uuid:{uuid}"
+    return None
+
+
+def _merge_tracked_piece_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    if len(group) == 1:
+        return group[0]
+
+    best = max(group, key=_tracked_piece_row_quality)
+    newest = max(group, key=_tracked_piece_row_sort_ts)
+    merged = dict(best)
+    merged["active"] = any(bool(row.get("active")) for row in group)
+    merged["live"] = any(bool(row.get("live")) for row in group)
+    merged["has_track_segments"] = any(
+        bool(row.get("has_track_segments")) for row in group
+    )
+    merged["sort_ts"] = max(_tracked_piece_row_sort_ts(row) for row in group)
+
+    for field in (
+        "polar_angle_deg",
+        "polar_offset_deg",
+        "track_summary",
+        "history_finished_at",
+    ):
+        if newest.get(field) is not None:
+            merged[field] = newest.get(field)
+
+    preview_row = max(
+        (row for row in group if row.get("preview_jpeg_path")),
+        key=_tracked_piece_row_quality,
+        default=None,
+    )
+    if preview_row is not None:
+        merged["preview_jpeg_path"] = preview_row.get("preview_jpeg_path")
+
+    merged["piece"] = _merge_tracked_piece_payloads(group, best)
+    return merged
+
+
+def _merge_tracked_piece_payloads(
+    group: list[dict[str, Any]],
+    best: dict[str, Any],
+) -> dict[str, Any]:
+    best_piece = best.get("piece") if isinstance(best.get("piece"), dict) else {}
+    merged = dict(best_piece)
+    for row in sorted(group, key=_tracked_piece_row_quality, reverse=True):
+        piece = row.get("piece")
+        if not isinstance(piece, dict):
+            continue
+        for key, value in piece.items():
+            if _has_display_value(merged.get(key)):
+                continue
+            if _has_display_value(value):
+                merged[key] = value
+    return merged
+
+
+def _tracked_piece_row_quality(row: dict[str, Any]) -> tuple[int, int, int, int, float]:
+    piece = row.get("piece") if isinstance(row.get("piece"), dict) else {}
+    status = str(
+        row.get("classification_status")
+        or piece.get("classification_status")
+        or ""
+    )
+    has_part = _has_display_value(piece.get("part_id")) or _has_display_value(
+        piece.get("part_name")
+    )
+    if status == "classified" and has_part:
+        classification_rank = 4
+    elif status == "classified":
+        classification_rank = 3
+    elif status == "unknown":
+        classification_rank = 2
+    elif status and status != "pending":
+        classification_rank = 1
+    else:
+        classification_rank = 0
+    return (
+        classification_rank,
+        1 if row.get("preview_jpeg_path") else 0,
+        1 if row.get("has_track_segments") else 0,
+        1 if row.get("live") else 0,
+        _tracked_piece_row_sort_ts(row),
+    )
+
+
+def _tracked_piece_row_sort_ts(row: dict[str, Any]) -> float:
+    value = row.get("sort_ts")
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def _has_display_value(value: Any) -> bool:
+    return value is not None and value != "" and value != []
 
 
 @app.get("/api/known-objects/{uuid}", response_model=KnownObjectData)

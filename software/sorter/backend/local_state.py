@@ -2227,7 +2227,11 @@ def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "sna
         return {"imported_bins": imported_bins, "session_id": session_id}
 
 
-def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KNOWN_OBJECTS_LIMIT) -> None:
+def remember_recent_known_object(
+    obj: dict[str, Any],
+    *,
+    limit: int = _RECENT_KNOWN_OBJECTS_LIMIT,
+) -> None:
     if not isinstance(obj, dict):
         return
     uuid = obj.get("uuid")
@@ -2235,7 +2239,20 @@ def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KN
         return
 
     normalized = {key: value for key, value in obj.items() if isinstance(key, str)}
-    existing = [entry for entry in get_recent_known_objects() if entry.get("uuid") != uuid]
+    gid = normalized.get("tracked_global_id")
+    gid = int(gid) if isinstance(gid, int) else None
+
+    def same_physical_piece(entry: dict[str, Any]) -> bool:
+        if entry.get("uuid") == uuid:
+            return True
+        entry_gid = entry.get("tracked_global_id")
+        return gid is not None and isinstance(entry_gid, int) and int(entry_gid) == gid
+
+    existing = [
+        entry
+        for entry in get_recent_known_objects()
+        if not same_physical_piece(entry)
+    ]
     next_entries = [normalized, *existing][: max(1, int(limit))]
     _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)
 

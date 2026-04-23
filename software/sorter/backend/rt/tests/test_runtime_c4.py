@@ -319,6 +319,24 @@ def test_c4_transport_unjam_watch_resets_on_progress() -> None:
     assert rt.debug_snapshot()["transport_unjam"]["count"] == 0
 
 
+def test_c4_transport_waits_for_hw_backlog_to_clear() -> None:
+    rt, _up, _down, _clf, log = _make()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    log.clear()
+    rt._hw.pending = lambda: 1  # type: ignore[method-assign,attr-defined]
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=10.0)), capacity_downstream=1),
+        now_mono=1.0,
+    )
+
+    assert log == []
+
+
 def test_c4_intake_mints_dossier_and_releases_upstream() -> None:
     rt, up, _down, _clf, _log = _make(max_zones=1)
     assert up.try_claim() is True

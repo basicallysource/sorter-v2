@@ -1025,7 +1025,7 @@ class RuntimeC4(BaseRuntime):
             return False
         if now_mono < self._next_shimmy_at:
             return False
-        if self._hw.busy():
+        if self._hw_busy_or_backlogged():
             return False
         step = self._shimmy_step_deg
 
@@ -1081,6 +1081,9 @@ class RuntimeC4(BaseRuntime):
         self._transport_progress_started_at = None
         self._transport_progress_baseline = {}
         self._last_transport_progress_deg = None
+
+    def _hw_busy_or_backlogged(self) -> bool:
+        return bool(self._hw.busy() or self._hw.pending() > 0)
 
     def _transport_waiting_on_ready_exit(self, tracks: list[Track]) -> bool:
         exit_track = self._pick_exit_track(tracks)
@@ -1144,7 +1147,7 @@ class RuntimeC4(BaseRuntime):
             return False
         if (now_mono - started_at) < self._unjam_stall_s:
             return False
-        if now_mono < self._next_unjam_at or self._hw.busy():
+        if now_mono < self._next_unjam_at or self._hw_busy_or_backlogged():
             return False
 
         reverse_deg = self._unjam_reverse_deg
@@ -1183,7 +1186,7 @@ class RuntimeC4(BaseRuntime):
             _C4State.TRANSPORT_UNJAM,
         ):
             return False
-        if self._hw.busy() or now_mono < self._next_transport_at:
+        if self._hw_busy_or_backlogged() or now_mono < self._next_transport_at:
             return False
         if self._transport_waiting_on_ready_exit(tracks):
             return False
@@ -1225,7 +1228,7 @@ class RuntimeC4(BaseRuntime):
             _C4State.TRANSPORT_UNJAM,
         ):
             return False
-        if self._hw.busy() or now_mono < self._next_idle_jog_at:
+        if self._hw_busy_or_backlogged() or now_mono < self._next_idle_jog_at:
             return False
         if now_mono < self._next_accept_at:
             return False

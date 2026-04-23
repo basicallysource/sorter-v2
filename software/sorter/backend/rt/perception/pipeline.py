@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from rt.config.schema import PipelineConfig
 from rt.contracts.detection import DetectionBatch, Detector
@@ -30,16 +31,20 @@ class PerceptionPipeline:
         detector: Detector,
         tracker: Tracker,
         filters: FilterChain,
+        segment_recorder: Any = None,
     ) -> None:
         self.feed = feed
         self.zone = zone
         self.detector = detector
         self.tracker = tracker
         self.filters = filters
+        self.segment_recorder = segment_recorder
 
     def process_frame_state(self, frame: FeedFrame) -> PerceptionFrameState:
         detections = self.detector.detect(frame, self.zone)
         raw_tracks = self.tracker.update(detections, frame)
+        if self.segment_recorder is not None:
+            self.segment_recorder.on_frame(frame, raw_tracks)
         filtered_tracks = self.filters.apply(raw_tracks, frame)
         return PerceptionFrameState(
             frame=frame,

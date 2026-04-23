@@ -80,3 +80,28 @@ def test_tracked_pieces_dedupes_active_splits_but_keeps_history() -> None:
     assert active["sort_ts"] == 20.0
     assert active["polar_angle_deg"] == 35.0
     assert history["uuid"] == "distributed"
+
+
+def test_tracked_pieces_treats_lost_dossier_as_history(monkeypatch) -> None:
+    piece = {
+        "uuid": "lost-piece",
+        "tracked_global_id": 9,
+        "stage": "registered",
+        "classification_status": "pending",
+        "classification_channel_zone_state": "lost",
+        "updated_at": 20.0,
+    }
+    monkeypatch.setattr(api_module, "list_piece_dossiers", lambda **_kwargs: [piece])
+    monkeypatch.setattr(api_module, "_tracked_history_summary_map", lambda _limit: {})
+    monkeypatch.setattr(
+        api_module,
+        "_current_classification_drop_angle_deg",
+        lambda: 30.0,
+    )
+    monkeypatch.setattr(api_module, "get_piece_segment_counts", lambda piece_uuids: {})
+    monkeypatch.setattr(api_module, "get_piece_preview_paths", lambda piece_uuids: {})
+
+    result = api_module.get_tracked_pieces(limit=20)
+
+    assert result["items"][0]["uuid"] == "lost-piece"
+    assert result["items"][0]["active"] is False

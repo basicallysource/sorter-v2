@@ -61,6 +61,8 @@ export function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
 
 export function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
 	if (obj.classification_channel_zone_state === 'lost' && obj.stage !== 'distributed') return false;
+	if (obj.classification_channel_zone_state === 'superseded' && obj.stage !== 'distributed')
+		return false;
 	if (
 		lifecyclePhase(obj) === 'classified' &&
 		!obj.distributed_at &&

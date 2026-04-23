@@ -31,6 +31,7 @@ from local_state import (
     initialize_local_state,
     list_piece_dossiers,
     list_piece_segments,
+    piece_dossier_is_active,
     record_piece_distribution,
     remember_piece_dossier,
     remember_piece_segment,
@@ -297,6 +298,45 @@ class LocalStateMigrationTests(unittest.TestCase):
 
         listed = list_piece_dossiers(limit=20)
         self.assertEqual(["piece-1"], [entry["uuid"] for entry in listed])
+
+    def test_new_active_dossier_supersedes_active_sibling_for_same_track(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="piece_dossier_supersede")
+
+        remember_piece_dossier(
+            "piece-old",
+            {
+                "tracked_global_id": 77,
+                "confirmed_real": True,
+                "updated_at": 10.0,
+                "classification_channel_zone_state": "active",
+                "classification_channel_zone_center_deg": 120.0,
+            },
+            status="registered",
+        )
+        remember_piece_dossier(
+            "piece-new",
+            {
+                "tracked_global_id": 77,
+                "confirmed_real": True,
+                "updated_at": 12.0,
+                "classification_channel_zone_state": "active",
+                "classification_channel_zone_center_deg": 130.0,
+            },
+            status="registered",
+        )
+
+        old = get_piece_dossier("piece-old")
+        new = get_piece_dossier("piece-new")
+        self.assertIsNotNone(old)
+        self.assertIsNotNone(new)
+        assert old is not None
+        assert new is not None
+        self.assertEqual("superseded", old["classification_channel_zone_state"])
+        self.assertEqual("piece-new", old["superseded_by_piece_uuid"])
+        self.assertFalse(piece_dossier_is_active(old))
+        self.assertEqual("active", new["classification_channel_zone_state"])
+        self.assertTrue(piece_dossier_is_active(new))
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
         class FakeConnection:

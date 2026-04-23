@@ -1095,6 +1095,85 @@ def _merge_piece_payload(
     return merged
 
 
+def _classification_zone_state(payload: dict[str, Any]) -> str | None:
+    value = payload.get("classification_channel_zone_state")
+    if isinstance(value, str) and value.strip():
+        return value.strip().lower()
+    return None
+
+
+def piece_dossier_is_active(payload: dict[str, Any]) -> bool:
+    """Return whether a persisted piece dossier still represents live C4 state."""
+    if not isinstance(payload, dict):
+        return False
+    stage = str(payload.get("stage") or "").strip().lower()
+    if stage == "distributed":
+        return False
+    if _max_positive_timestamp(payload.get("distributed_at")) is not None:
+        return False
+
+    zone_state = _classification_zone_state(payload)
+    if zone_state is not None:
+        return zone_state == "active"
+
+    # Legacy rt rows before explicit C4 zone states may still be truly live
+    # while the tracker is confirmed and the row is in a runtime stage.
+    return bool(
+        payload.get("confirmed_real") is True
+        and stage in {"registered", "classified", "confirmed_real"}
+    )
+
+
+def _supersede_active_sibling_dossiers(
+    conn: sqlite3.Connection,
+    *,
+    piece_uuid: str,
+    session_id: str,
+    tracked_global_id: int,
+    now: float,
+) -> None:
+    rows = conn.execute(
+        "SELECT * FROM piece_dossiers "
+        "WHERE session_id = ? "
+        "AND tracked_global_id = ? "
+        "AND piece_uuid != ? "
+        "AND distributed_at IS NULL",
+        (session_id, int(tracked_global_id), piece_uuid),
+    ).fetchall()
+    for row in rows:
+        payload = _piece_dossier_row_to_dict(row)
+        if not isinstance(payload, dict) or not piece_dossier_is_active(payload):
+            continue
+        payload["classification_channel_zone_state"] = "superseded"
+        payload["classification_channel_superseded_at"] = now
+        payload["superseded_by_piece_uuid"] = piece_uuid
+        payload["updated_at"] = now
+        payload["last_event_at"] = now
+        stage = str(payload.get("stage") or row["stage"] or "registered")
+        classification_status = str(
+            payload.get("classification_status")
+            or row["classification_status"]
+            or "pending"
+        )
+        conn.execute(
+            "UPDATE piece_dossiers SET "
+            "updated_at = ?, "
+            "last_event_at = ?, "
+            "stage = ?, "
+            "classification_status = ?, "
+            "payload_json = ? "
+            "WHERE piece_uuid = ?",
+            (
+                now,
+                now,
+                stage,
+                classification_status,
+                json.dumps(payload, sort_keys=True),
+                str(row["piece_uuid"]),
+            ),
+        )
+
+
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:
@@ -1236,6 +1315,17 @@ def remember_piece_dossier(
                 json.dumps(merged, sort_keys=True),
             ),
         )
+        if (
+            tracked_global_id is not None
+            and _classification_zone_state(merged) == "active"
+        ):
+            _supersede_active_sibling_dossiers(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                tracked_global_id=tracked_global_id,
+                now=updated_at,
+            )
         conn.commit()
 
 

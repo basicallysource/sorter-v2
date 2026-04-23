@@ -32,6 +32,7 @@ from local_state import (
     get_recent_known_objects,
     get_sorting_profile_sync_state,
     list_piece_dossiers,
+    piece_dossier_is_active,
 )
 from toml_config import getMachineNickname, setMachineNickname
 from run_recorder import RECORDS_DIR
@@ -542,10 +543,7 @@ def get_tracked_pieces(
             tracked_global_id = None
         history = history_by_gid.get(tracked_global_id) if tracked_global_id is not None else None
         live = bool(history.get("live")) if isinstance(history, dict) else False
-        stage = str(piece.get("stage") or "created")
-        distributed_at = piece.get("distributed_at")
-        is_distributed = stage == "distributed" or isinstance(distributed_at, (int, float))
-        is_active = not is_distributed
+        is_active = bool(live or piece_dossier_is_active(piece))
         zone_center_deg = piece.get("classification_channel_zone_center_deg")
         zone_center_deg = float(zone_center_deg) if isinstance(zone_center_deg, (int, float)) else None
         polar_offset_deg = (

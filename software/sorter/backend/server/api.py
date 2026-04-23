@@ -37,6 +37,7 @@ from local_state import (
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
+from server.services.polygon_config import PolygonConfigService
 from server.services import runtime_stats as runtime_stats_service
 from server.waveshare_inventory import get_waveshare_inventory_manager
 from server.security import compute_allowed_ui_origins, websocket_connection_allowed
@@ -1012,51 +1013,9 @@ def get_polygons() -> Dict[str, Any]:
     return result
 
 
-def _rebuild_rt_perception_roles(*roles: str) -> dict[str, list[str]]:
-    """Best-effort refresh of live rt perception runners after zone edits."""
-    handle = shared_state.rt_handle
-    if handle is None or not hasattr(handle, "rebuild_runner_for_role"):
-        return {"attempted": [], "rebuilt": [], "failed": []}
-
-    attempted: list[str] = []
-    rebuilt: list[str] = []
-    failed: list[str] = []
-    for role in roles:
-        attempted.append(role)
-        try:
-            runner = handle.rebuild_runner_for_role(role)
-        except Exception:
-            runner = None
-        if runner is None:
-            failed.append(role)
-        else:
-            rebuilt.append(role)
-    return {
-        "attempted": attempted,
-        "rebuilt": rebuilt,
-        "failed": failed,
-    }
-
-
 @app.post("/api/polygons")
 def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
     """Save channel and classification polygons and refresh rt perception."""
-    from blob_manager import setChannelPolygons, setClassificationPolygons
-
-    if "channel" in body:
-        setChannelPolygons(body["channel"])
-    if "classification" in body:
-        setClassificationPolygons(body["classification"])
-
-    rebuild = (
-        _rebuild_rt_perception_roles("c2", "c3", "c4")
-        if "channel" in body
-        else {"attempted": [], "rebuilt": [], "failed": []}
-    )
-    return {
-        "ok": True,
-        "requires_restart": bool(rebuild["failed"]),
-        "rt_rebuild_attempted_roles": rebuild["attempted"],
-        "rt_rebuilt_roles": rebuild["rebuilt"],
-        "rt_rebuild_failed_roles": rebuild["failed"],
-    }
+    return PolygonConfigService(
+        rt_handle=shared_state.rt_handle,
+    ).save(body)

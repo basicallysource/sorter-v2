@@ -37,6 +37,10 @@ permalink: /lab/
     <p>A durable set of architectural principles and audit questions for iteratively improving the runtime and backend without losing direction.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/sorter-frontend-principles/' | relative_url }}">Sorter Frontend Principles</a></strong>
+    <p>The Svelte/SvelteKit companion to the backend principles: where fetching, state, flows, and persistence live so the UI keeps clean component boundaries as it grows.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
     <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
   </div>

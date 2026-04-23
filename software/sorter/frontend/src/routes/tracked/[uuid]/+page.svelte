@@ -4,6 +4,7 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import { formatTrackLabel } from '$lib/trackLabel';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { CarouselMotionSampleData, KnownObjectData } from '$lib/api/events';
@@ -240,12 +241,10 @@
 	};
 
 	let trackDetail = $state<TrackDetail | null>(null);
-	let _loadedGlobalId: number | null = null;
-	let trackPollTimer: ReturnType<typeof setInterval> | null = null;
 
-	// Signature of the fetched track: "live|seg0_snaps,seg1_snaps,..." — used
-	// to gate `trackDetail` reassignment so polls that return identical data
-	// don't trigger a re-render of the crops `$effect` or the composite SVG.
+	// Signature of the embedded track detail: "live|seg0_snaps,seg1_snaps,..."
+	// — gates `trackDetail` reassignment so identical payloads don't trigger
+	// re-renders of the crops `$effect` or the composite SVG.
 	function trackSignature(d: TrackDetail | null): string {
 		if (!d) return '';
 		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
@@ -254,42 +253,10 @@
 	}
 	let _trackSig = '';
 
-	async function loadTrack(gid: number | null | undefined): Promise<void> {
-		if (gid == null || !Number.isFinite(gid)) {
-			trackDetail = null;
-			_trackSig = '';
-			return;
-		}
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${gid}`);
-			if (!res.ok) return;
-			const next = (await res.json()) as TrackDetail;
-			const nextSig = trackSignature(next);
-			if (nextSig !== _trackSig) {
-				_trackSig = nextSig;
-				trackDetail = next;
-			}
-		} catch {
-			// Silent — the page still renders without the tracker-crop gallery.
-		}
-	}
-
-	// Phase 6 (unified dossier): the piece detail response already embeds
-	// `track_detail` — segments from the DB plus a `live` flag. We prefer
-	// that as the source of truth and only hit /api/feeder/tracking/history
-	// when the piece is still actively tracked (live === true), where the
-	// live manager may have more current sector snapshots / burst frames
-	// than what has been flushed to the DB yet.
-	$effect(() => {
-		const gid = piece?.tracked_global_id ?? null;
-		if (gid === _loadedGlobalId) return;
-		_loadedGlobalId = gid;
-		// Don't wipe `trackDetail` here — the embedded `piece.track_detail`
-		// effect below will seed it from the DB-backed response. Live merge
-		// happens on top.
-	});
-
-	// Primary: seed `trackDetail` from the embedded piece response.
+	// rt/ publishes every piece_registered/classified/distributed event
+	// straight into the DB-backed dossier, so `piece.track_detail` embedded
+	// in the `/api/tracked/pieces/{uuid}` response is the single source of
+	// truth — no separate live-tracker fetch needed.
 	$effect(() => {
 		const embedded = piece?.track_detail ?? null;
 		if (!embedded) return;
@@ -298,32 +265,6 @@
 			_trackSig = nextSig;
 			trackDetail = embedded;
 		}
-	});
-
-	// Secondary: when the embedded detail says the piece is still live on
-	// the tracker, fetch the fresher live manager detail. The DB-backed
-	// segments are a snapshot and miss burst frames / sectors added after
-	// the last segment flush.
-	$effect(() => {
-		if (!piece?.track_detail?.live) return;
-		const gid = piece?.tracked_global_id;
-		if (gid == null || !Number.isFinite(gid)) return;
-		void loadTrack(gid);
-	});
-
-	onMount(() => {
-		// While the piece is still live on the tracker, sector snapshots
-		// keep arriving. Only poll in that case — the DB-backed detail for
-		// a finished piece is immutable and doesn't need refreshing.
-		trackPollTimer = setInterval(() => {
-			if (trackDetail?.live && piece?.tracked_global_id != null) {
-				void loadTrack(piece.tracked_global_id);
-			}
-		}, 1500);
-	});
-
-	onDestroy(() => {
-		if (trackPollTimer !== null) clearInterval(trackPollTimer);
 	});
 
 	const TS_TOLERANCE_S = 0.005;
@@ -454,7 +395,7 @@
 	// Reset the selection whenever the underlying global_id changes so we
 	// don't index past the end of a different piece's burst.
 	$effect(() => {
-		void _loadedGlobalId;
+		void piece?.tracked_global_id;
 		selectedBurstIdx = 0;
 	});
 	// Clamp if the frame list shrank (shouldn't happen — entries only grow —
@@ -651,7 +592,7 @@
 					title="Open tracker-level record (all angular crops)"
 				>
 					<ExternalLink size={14} />
-					Track #{piece.tracked_global_id}
+					Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
 				</a>
 			{/if}
 		</header>
@@ -735,7 +676,7 @@
 
 						<span class="text-text-muted">Tracker</span>
 						<span class="font-mono tabular-nums text-text">
-							{piece.tracked_global_id ?? '—'}
+							{formatTrackLabel(piece.tracked_global_id) ?? '—'}
 						</span>
 
 						<span class="text-text-muted">Last update</span>
@@ -1018,12 +959,11 @@
 							title="Open the full tracker record"
 						>
 							<ExternalLink size={14} />
-							Track #{piece.tracked_global_id}
+							Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
 						</a>
 					</div>
 					<div class="p-3">
 						<TrackPathComposite
-							globalId={piece.tracked_global_id}
 							usedCropTs={usedCropTs}
 							detailSnapshot={trackDetail}
 						/>

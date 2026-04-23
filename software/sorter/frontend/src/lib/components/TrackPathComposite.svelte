@@ -1,20 +1,14 @@
 <script lang="ts">
 	// TrackPathComposite — renders the pie-chart-style composite visualization
-	// for a single feeder-tracker global id. Fetches
-	// /api/feeder/tracking/history/<id> and draws one SVG per segment, with the
-	// piece's sector snapshots clipped into their original angular wedges on
-	// top of a dimmed snapshot of the channel.
-	//
-	// Extracted from routes/tracked/[globalId=integer]/+page.svelte so the
-	// per-piece detail page (`/tracked/[uuid]`) can reuse it. The integer page
-	// retains its full classroom interface (manual recognize, per-segment
-	// reclassification); this component is intentionally "render-only".
-	import { onDestroy, onMount } from 'svelte';
+	// for a single tracked piece. Render-only: the parent passes
+	// `detailSnapshot` (the embedded `track_detail` from /api/tracked/pieces/{uuid}),
+	// and this component draws one SVG per segment with the piece's sector
+	// snapshots clipped into their original angular wedges on top of a dimmed
+	// snapshot of the channel.
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 
 	type Props = {
-		globalId: number;
 		/** Captured-ts subset (seconds) of crops that were shipped to Brickognize.
 		 *  Any sector snapshot whose captured_ts is within a ~5ms tolerance of
 		 *  any entry gets a primary-color outline. */
@@ -22,7 +16,11 @@
 		detailSnapshot?: unknown | null;
 	};
 
-	let { globalId, usedCropTs = [], detailSnapshot = null }: Props = $props();
+	let { usedCropTs = [], detailSnapshot = null }: Props = $props();
+
+	// Per-instance id for SVG clipPath scoping — ensures multiple composites
+	// on the same page don't collide on clipPath IDs.
+	const instanceId = Math.random().toString(36).slice(2, 10);
 
 	type PathPoint = [number, number, number];
 
@@ -112,10 +110,7 @@
 		return seg.source_role ?? seg.role ?? 'unknown';
 	}
 
-	let detail = $state<Detail | null>(null);
-	let error = $state<string | null>(null);
-	let loading = $state(false);
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	const detail = $derived(detailSnapshot as Detail | null);
 
 	const TS_TOLERANCE_S = 0.005;
 
@@ -195,70 +190,10 @@
 		return best;
 	}
 
-	// Signature of the current detail: "live|seg0_snaps,seg1_snaps,...". When
-	// a poll returns the same signature we keep the existing `detail` object
-	// so Svelte doesn't re-diff the SVG (which would reload every <image>
-	// href even though the b64 payload hasn't changed).
-	function detailSignature(d: Detail | null): string {
-		if (!d) return '';
-		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		return `${d.live ? 1 : 0}|${counts}`;
-	}
-
-	$effect(() => {
-		const snapshot = detailSnapshot as Detail | null;
-		if (!snapshot) return;
-		if (detailSignature(snapshot) !== detailSignature(detail)) {
-			detail = snapshot;
-		}
-		error = null;
-	});
-
-	async function load() {
-		if (!Number.isFinite(globalId)) return;
-		loading = true;
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
-			if (!res.ok) {
-				if (!detail) {
-					error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
-				}
-				return;
-			}
-			const next = (await res.json()) as Detail;
-			if (detailSignature(next) !== detailSignature(detail)) {
-				detail = next;
-			} else if (detail && next.live !== detail.live) {
-				// Snapshot count unchanged but live flag flipped — update in place
-				// without replacing the object so the SVG doesn't re-mount.
-				detail.live = next.live;
-			}
-			error = null;
-		} catch (e: any) {
-			error = e?.message ?? 'Failed to load';
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(() => {
-		void load();
-		// LIVE tracks keep extending while the piece is still moving — poll
-		// until the backend flips detail.live to false.
-		pollTimer = setInterval(() => {
-			if (detail?.live) void load();
-		}, 1500);
-	});
-
-	onDestroy(() => {
-		if (pollTimer !== null) clearInterval(pollTimer);
-	});
 </script>
 
-{#if error}
-	<div class="border border-danger bg-danger/10 p-3 text-sm text-danger">{error}</div>
-{:else if !detail}
-	<div class="text-sm text-text-muted">{loading ? 'Loading track…' : 'No track data.'}</div>
+{#if !detail}
+	<div class="text-sm text-text-muted">No track data.</div>
 {:else}
 	<div class="flex flex-col gap-3">
 		{#each detail.segments as segment, idx (idx)}
@@ -288,7 +223,7 @@
 					>
 						<defs>
 							{#each segment.sector_snapshots as s (s.captured_ts)}
-								<clipPath id={`detail-sec-${globalId}-${idx}-${s.captured_ts}`}>
+								<clipPath id={`detail-sec-${instanceId}-${idx}-${s.captured_ts}`}>
 									<path
 										d={wedgePath(
 											segment.channel_center_x as number,
@@ -325,7 +260,7 @@
 									y={s.bbox_y}
 									width={s.width}
 									height={s.height}
-									clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
+									clip-path={`url(#detail-sec-${instanceId}-${idx}-${s.captured_ts})`}
 								/>
 							{/if}
 						{/each}

@@ -28,6 +28,7 @@ from blob_manager import (
 )
 from local_state import (
     build_piece_detail_payload,
+    clear_piece_dossiers,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
     get_piece_segment_counts,
@@ -647,6 +648,16 @@ def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
     if enriched is None:
         raise HTTPException(status_code=404, detail="not found")
     return enriched
+
+
+@app.delete("/api/tracked/pieces")
+def clear_tracked_pieces() -> Dict[str, Any]:
+    """Wipe all persisted piece dossiers and their segment records."""
+    try:
+        clear_piece_dossiers()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to clear dossiers: {exc}")
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

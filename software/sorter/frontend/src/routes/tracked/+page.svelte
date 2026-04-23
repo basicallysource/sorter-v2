@@ -15,6 +15,7 @@
 		lifecyclePhase,
 		type LifecyclePhase
 	} from '$lib/recent-pieces';
+	import { formatTrackLabel } from '$lib/trackLabel';
 
 	type AutoRecognition = {
 		status: 'pending' | 'ok' | 'insufficient_consistency' | 'insufficient_quality' | 'error';
@@ -247,6 +248,7 @@
 	let limit = $state(Number(initialParams?.get('limit') ?? 120));
 	let filter = $state<FilterMode>((initialParams?.get('show') as FilterMode) ?? 'all');
 	let showStubs = $state(initialParams?.get('stubs') === '1');
+	let search = $state(initialParams?.get('q') ?? '');
 
 	function syncUrl() {
 		if (typeof window === 'undefined') return;
@@ -254,6 +256,7 @@
 		if (limit !== 120) params.set('limit', String(limit));
 		if (filter !== 'all') params.set('show', filter);
 		if (showStubs) params.set('stubs', '1');
+		if (search.trim()) params.set('q', search.trim());
 		const next = params.toString();
 		const current = page.url?.search?.replace(/^\?/, '') ?? '';
 		if (next === current) return;
@@ -264,6 +267,7 @@
 		limit;
 		filter;
 		showStubs;
+		search;
 		untrack(syncUrl);
 	});
 
@@ -296,7 +300,7 @@
 		}
 		clearing = true;
 		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history`, {
+			const res = await fetch(`${effectiveBase()}/api/tracked/pieces`, {
 				method: 'DELETE'
 			});
 			if (!res.ok) return;
@@ -350,12 +354,20 @@
 		return out;
 	});
 
-	// Defense-in-depth against ghost-stub dossiers. The backend filters these
-	// out by default (see API include_stubs), but if one slips through we
-	// still hide it from the UI. Operators can flip "Show stubs" to inspect.
+	// Defense-in-depth against ghost-stub dossiers. The backend's
+	// ``include_stubs=False`` query already filters the main zombie cases;
+	// this mirror keeps the UI defensive but must match backend semantics:
+	// anything the rt runtime has promoted past "created" (confirmed_real,
+	// stage registered/classified/distributed) is a real piece, not a stub.
 	function isGhostStub(row: TrackedPieceRow): boolean {
 		if (row.has_track_segments === true) return false;
-		return row.piece.classification_status === 'pending';
+		const piece = row.piece as KnownObjectData & {
+			confirmed_real?: boolean;
+		};
+		if (piece.confirmed_real === true) return false;
+		const stage = piece.stage as string | undefined;
+		if (stage && stage !== 'created') return false;
+		return piece.classification_status === 'pending';
 	}
 
 	let visibleItems = $derived.by<TrackedPieceRow[]>(() => {
@@ -363,16 +375,38 @@
 		return dedupedItems.filter((item) => !isGhostStub(item));
 	});
 
+	function matchesSearch(row: TrackedPieceRow, needle: string): boolean {
+		if (!needle) return true;
+		const haystacks: (string | number | null | undefined)[] = [
+			formatTrackLabel(row.tracked_global_id),
+			row.tracked_global_id,
+			row.uuid,
+			row.piece.part_id,
+			row.piece.part_name,
+			row.piece.color_name,
+			row.piece.color_id
+		];
+		for (const value of haystacks) {
+			if (value == null) continue;
+			if (String(value).toLowerCase().includes(needle)) return true;
+		}
+		return false;
+	}
+
 	let filteredItems = $derived.by<TrackedPieceRow[]>(() => {
-		if (filter === 'all') return visibleItems;
-		if (filter === 'active') return visibleItems.filter((item) => item.active);
+		const needle = search.trim().toLowerCase();
+		const bySearch = needle
+			? visibleItems.filter((item) => matchesSearch(item, needle))
+			: visibleItems;
+		if (filter === 'all') return bySearch;
+		if (filter === 'active') return bySearch.filter((item) => item.active);
 		if (filter === 'distributed') {
-			return visibleItems.filter((item) => item.piece.stage === 'distributed');
+			return bySearch.filter((item) => item.piece.stage === 'distributed');
 		}
 		if (filter === 'classified') {
-			return visibleItems.filter((item) => item.piece.classification_status === 'classified');
+			return bySearch.filter((item) => item.piece.classification_status === 'classified');
 		}
-		return visibleItems.filter(
+		return bySearch.filter(
 			(item) =>
 				item.piece.classification_channel_zone_state === 'lost' &&
 				item.piece.stage !== 'distributed'
@@ -470,9 +504,12 @@
 					</span>
 				{/if}
 				{#if row.tracked_global_id != null}
-					<span class="absolute bottom-1 right-1 border border-border bg-bg/90 px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
-						#{row.tracked_global_id}
-					</span>
+					{@const trackLabel = formatTrackLabel(row.tracked_global_id)}
+					{#if trackLabel}
+						<span class="absolute bottom-1 right-1 border border-border bg-bg/90 px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
+							#{trackLabel}
+						</span>
+					{/if}
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
 					<div class="absolute -top-1 -right-1">
@@ -651,6 +688,15 @@
 						<option value="classified">classified</option>
 						<option value="lost">track lost</option>
 					</select>
+				</label>
+				<label class="flex items-center gap-2">
+					<span>search</span>
+					<input
+						type="search"
+						bind:value={search}
+						placeholder="0007, part id, color…"
+						class="w-44 border border-border bg-bg px-2 py-1 text-sm text-text placeholder:text-text-muted"
+					/>
 				</label>
 				<label
 					class="flex items-center gap-1.5 text-sm text-text-muted"

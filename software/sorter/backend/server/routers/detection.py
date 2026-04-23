@@ -23,7 +23,6 @@ from blob_manager import (
     setApiKeys,
     setHiveConfig,
 )
-from local_state import clear_piece_dossiers
 from role_aliases import (
     CLASSIFICATION_CHANNEL_ROLE,
     lookup_auxiliary_detection_scopes,
@@ -1223,72 +1222,6 @@ def _decode_jpeg_b64(b64: str):
     if img is None:
         raise HTTPException(status_code=400, detail="could not decode image")
     return img
-
-
-@router.post("/api/feeder/tracking/recognize")
-def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
-    """legacy endpoint — not ported yet.
-
-    Was: send one or more tracked-piece crops to the Brickognize classifier
-    synchronously. The rt/ classifier lives inside the live pipeline and
-    does not currently expose a one-shot JPEG->classify HTTP path. Admin
-    re-run is TODO.
-    """
-    raise HTTPException(
-        status_code=503,
-        detail="legacy endpoint — not ported yet",
-    )
-
-
-@router.delete("/api/feeder/tracking/history")
-def feeder_tracking_history_clear() -> Dict[str, Any]:
-    """Tabula-rasa — wipe all persisted + in-memory tracked pieces.
-
-    Drops every completed track, clears the in-process ring buffer, and
-    deletes the persisted piece dossiers from SQLite. The legacy
-    VisionManager's ``_piece_history`` is reset when it's still around;
-    otherwise the SQLite purge alone is authoritative (the new rt
-    pipeline reads from the DB).
-    """
-    try:
-        clear_piece_dossiers()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to clear dossiers: {exc}")
-    vm = shared_state.vision_manager
-    history = getattr(vm, "_piece_history", None) if vm is not None else None
-    if history is not None and hasattr(history, "reset"):
-        try:
-            history.reset()
-        except Exception:
-            pass
-    return {"ok": True}
-
-
-@router.get("/api/feeder/tracking/history")
-def feeder_tracking_history(limit: int = 30, min_sectors: int = 3) -> Dict[str, Any]:
-    """Ring buffer of recent completed tracks (summary only — no big JPEGs).
-
-    ``min_sectors`` hides finished tracks that didn't cover at least that
-    many angular channel sectors — useful for filtering out noise/short
-    flickers. Live tracks are always shown regardless.
-    """
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "listFeederTrackHistory"):
-        raise HTTPException(status_code=503, detail="Tracker history not available.")
-    limit = max(1, min(int(limit), 200))
-    min_sectors = max(0, min(int(min_sectors), 12))
-    return {"items": vm.listFeederTrackHistory(limit=limit, min_sectors=min_sectors)}
-
-
-@router.get("/api/feeder/tracking/history/{global_id}")
-def feeder_tracking_history_detail(global_id: int) -> Dict[str, Any]:
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "getFeederTrackHistoryDetail"):
-        raise HTTPException(status_code=503, detail="Tracker history not available.")
-    entry = vm.getFeederTrackHistoryDetail(int(global_id))
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Track not found.")
-    return entry
 
 
 @router.post("/api/carousel/detect/current")

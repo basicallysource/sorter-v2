@@ -108,13 +108,25 @@ def test_c2_pulses_when_exit_track_present_and_downstream_free() -> None:
     assert down.available() == 0
 
 
-def test_c2_skips_when_no_exit_track() -> None:
-    rt, _up, _down, log = _make()
-    # Track is far from exit (angle 90°).
+def test_c2_advances_when_ring_has_tracks_but_none_at_exit() -> None:
+    rt, _up, down, log = _make()
+    # Track is far from exit (angle 90°) — C2 advances the ring without
+    # claiming a downstream slot, so real pieces migrate toward the exit
+    # and the ghost-gating tracker accumulates rotation-windowed evidence.
     inbox = RuntimeInbox(
         tracks=_batch(_track(angle_rad=math.pi / 2.0)),
         capacity_downstream=1,
     )
+    rt.tick(inbox, now_mono=0.0)
+    # Advance fires a pulse but does not claim the downstream slot.
+    assert log == ["pulse:40"]
+    assert down.available() == 1
+    assert rt.health().state == "advancing"
+
+
+def test_c2_idles_with_empty_ring() -> None:
+    rt, _up, _down, log = _make()
+    inbox = RuntimeInbox(tracks=_batch(), capacity_downstream=1)
     rt.tick(inbox, now_mono=0.0)
     assert log == []
     assert rt.health().state == "idle"

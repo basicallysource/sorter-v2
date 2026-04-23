@@ -1,9 +1,16 @@
-"""Ghost filter: drops tracks that have not been flagged confirmed_real.
+"""Ghost filter: drops tracks the tracker has declared ghosts.
 
-Replaces the whitelist whitelist-gate that previously lived inside the
-tracker with an explicit pipeline-filter stage. Pieces that demonstrated
-real motion (monotonic angular progress or centroid drift) are kept;
-apparatus ghosts (screws, reflections, guides) are filtered out.
+The tracker judges ghost vs. real only on samples observed during known
+rotation windows (pulses on C2/C3, carousel moves on C4). That gives a
+tri-state per track:
+
+- ``confirmed_real=True``  — moved with the rotation → keep
+- ``ghost=True``           — stayed put through the rotation → drop
+- both ``False``           — pending, not yet judged → keep
+
+This filter drops only the explicitly-declared ghosts. Pending tracks
+stay in the batch so the downstream runtime can still act on a newly
+dropped piece before motion has been observed for it.
 """
 
 from __future__ import annotations
@@ -15,17 +22,12 @@ from rt.contracts.tracking import TrackBatch
 
 @register_filter("ghost")
 class GhostFilter:
-    """Keep only tracks whose `confirmed_real` flag is True (by default)."""
+    """Drop tracks whose ``ghost`` flag has been set by the tracker."""
 
     key = "ghost"
 
-    def __init__(self, confirmed_real_only: bool = True) -> None:
-        self._confirmed_only = bool(confirmed_real_only)
-
     def apply(self, tracks: TrackBatch, frame: FeedFrame) -> TrackBatch:
-        if not self._confirmed_only:
-            return tracks
-        kept = tuple(tr for tr in tracks.tracks if tr.confirmed_real)
+        kept = tuple(tr for tr in tracks.tracks if not tr.ghost)
         return TrackBatch(
             feed_id=tracks.feed_id,
             frame_seq=tracks.frame_seq,

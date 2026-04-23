@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Crop, Expand, Eye, Palette, SendToBack, Shapes } from 'lucide-svelte';
+	import { Crop, Expand, Ghost, Palette, SendToBack, Shapes } from 'lucide-svelte';
 
 	let {
 		annotated = $bindable(true),
@@ -87,7 +87,7 @@
 
 		{#if showGhosts}
 			{@render togglePill(
-				Eye,
+				Ghost,
 				ghosts,
 				ghosts ? 'Hide ghosts' : 'Show ghosts',
 				() => (ghosts = !ghosts)

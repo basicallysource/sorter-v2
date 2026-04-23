@@ -155,6 +155,20 @@
 							height={crop.sourceHeight}
 							preserveAspectRatio="none"
 						/>
+						{#if ghosts.value && ws_frame?.ghost_boxes}
+							{#each ws_frame.ghost_boxes as gb}
+								<rect
+									x={gb[0]}
+									y={gb[1]}
+									width={gb[2] - gb[0]}
+									height={gb[3] - gb[1]}
+									fill="none"
+									stroke="#ffffff"
+									stroke-width="3"
+									vector-effect="non-scaling-stroke"
+								/>
+							{/each}
+						{/if}
 					</g>
 				</g>
 			</svg>

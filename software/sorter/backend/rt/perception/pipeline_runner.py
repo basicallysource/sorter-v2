@@ -16,9 +16,9 @@ import threading
 import time
 from typing import Any
 
-from rt.contracts.events import Event, EventBus
+from rt.contracts.events import Event, EventBus, Subscription
 from rt.contracts.tracking import TrackBatch
-from rt.events.topics import HARDWARE_ERROR, PERCEPTION_TRACKS
+from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRACKS
 
 from .pipeline import PerceptionFrameState, PerceptionPipeline
 
@@ -74,6 +74,7 @@ class PerceptionRunner:
         self._last_frame_seq: int | None = None
         self._consecutive_errors = 0
         self._running = False
+        self._rotation_sub: Subscription | None = None
 
     # ---- Lifecycle ----------------------------------------------------
 
@@ -82,6 +83,7 @@ class PerceptionRunner:
             return
         self._running = True
         self._stop.clear()
+        self._subscribe_rotation_windows()
         self._thread = threading.Thread(target=self._run, name=self._name, daemon=True)
         self._thread.start()
 
@@ -90,10 +92,51 @@ class PerceptionRunner:
             return
         self._running = False
         self._stop.set()
+        self._unsubscribe_rotation_windows()
         thread = self._thread
         if thread is not None:
             thread.join(timeout=timeout)
         self._thread = None
+
+    # ---- Rotation-window subscription ---------------------------------
+
+    def _subscribe_rotation_windows(self) -> None:
+        if self._bus is None or self._rotation_sub is not None:
+            return
+        tracker = getattr(self._pipeline, "tracker", None)
+        register = getattr(tracker, "register_rotation_window", None)
+        if not callable(register):
+            return
+        feed_id = self._pipeline.feed.feed_id
+
+        def _on_rotation(event: Event) -> None:
+            payload = event.payload or {}
+            if payload.get("feed_id") != feed_id:
+                return
+            try:
+                start_ts = float(payload["start_ts"])
+                end_ts = float(payload["end_ts"])
+            except (KeyError, TypeError, ValueError):
+                return
+            try:
+                register(start_ts, end_ts)
+            except Exception:
+                _LOG.exception("rotation-window handler raised for feed=%s", feed_id)
+
+        try:
+            self._rotation_sub = self._bus.subscribe(PERCEPTION_ROTATION, _on_rotation)
+        except Exception:
+            _LOG.exception("rotation-window subscribe failed for feed=%s", feed_id)
+
+    def _unsubscribe_rotation_windows(self) -> None:
+        sub = self._rotation_sub
+        self._rotation_sub = None
+        if sub is None:
+            return
+        try:
+            sub.unsubscribe()
+        except Exception:
+            _LOG.exception("rotation-window unsubscribe raised")
 
     # ---- Reader API ----------------------------------------------------
 

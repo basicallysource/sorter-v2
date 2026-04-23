@@ -62,8 +62,11 @@ def build_c1_callables(
 
 def build_c2_callables(
     irl: Any, logger: logging.Logger
-) -> tuple[Callable[[], bool], Callable[[], bool]]:
-    def pulse() -> bool:
+) -> tuple[Callable[[float], bool], Callable[[], bool]]:
+    # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
+    # RuntimeC3's ``pulse_command``. Rotation step size is governed by
+    # ``steps_per_pulse`` in the feeder config, not by pulse_ms.
+    def pulse(_pulse_ms: float) -> bool:
         stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
         cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
             getattr(irl, "irl_config", None), "feeder_config", None

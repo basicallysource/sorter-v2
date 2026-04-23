@@ -557,6 +557,7 @@ def build_rt_runtime(
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,
+        event_bus=bus,
     )
     c3 = RuntimeC3(
         upstream_slot=slots[("c2", "c3")],
@@ -566,6 +567,7 @@ def build_rt_runtime(
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,
+        event_bus=bus,
     )
     c4_admission = C4Admission(
         max_zones=max(1, max_zones),
@@ -624,6 +626,10 @@ def build_rt_runtime(
             return None
 
     def _c4_startup_purge_detection_count() -> int:
+        # Count only what the runtime would actually process — i.e. the
+        # post-filter track batch. Using raw YOLO detections here makes the
+        # purge strategy spin forever on stationary ghosts that the ghost
+        # filter has already decided are phantoms.
         runner = perception_sources.get("c4_feed")
         if runner is None:
             return 0
@@ -637,12 +643,8 @@ def build_rt_runtime(
                     exc_info=True,
                 )
                 state = None
-            detections = getattr(state, "detections", None) if state is not None else None
-            entries = getattr(detections, "detections", None) if detections is not None else None
-            if isinstance(entries, (list, tuple)):
-                return len(entries)
-            raw_tracks = getattr(state, "raw_tracks", None) if state is not None else None
-            tracks = getattr(raw_tracks, "tracks", None) if raw_tracks is not None else None
+            filtered = getattr(state, "filtered_tracks", None) if state is not None else None
+            tracks = getattr(filtered, "tracks", None) if filtered is not None else None
             if isinstance(tracks, (list, tuple)):
                 return len(tracks)
         latest_tracks = getattr(runner, "latest_tracks", None)

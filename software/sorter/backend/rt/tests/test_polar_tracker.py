@@ -40,6 +40,9 @@ def test_polar_registered_in_registry() -> None:
 
 def test_cartesian_fallback_keeps_consistent_track_id() -> None:
     trk = PolarTracker(polar_center=None, pixel_fallback_distance_px=50.0)
+    # A rotation window covering the whole test sequence — confirmed_real is
+    # only evaluated on samples observed during a known rotation.
+    trk.register_rotation_window(0.0, 100.0)
 
     track_ids = []
     batch = None
@@ -71,6 +74,7 @@ def test_polar_mode_confirms_on_angular_progress() -> None:
         max_angular_step_deg=20.0,
         max_radial_step_px=40.0,
     )
+    trk.register_rotation_window(0.0, 100.0)
 
     last_batch = None
     for i in range(10):
@@ -90,6 +94,51 @@ def test_polar_mode_confirms_on_angular_progress() -> None:
     assert t.radius_px is not None
     # Radius should stay near the ring.
     assert abs(t.radius_px - radius) < 10.0
+
+
+def test_track_pending_without_rotation_window() -> None:
+    # Without a registered rotation window, a stationary track is neither
+    # confirmed nor declared a ghost: the tracker has no basis to judge.
+    trk = PolarTracker(polar_center=None, pixel_fallback_distance_px=50.0)
+    last = None
+    for i in range(20):
+        bbox = (100, 100, 120, 120)  # no motion
+        ts = 1.0 + i * 0.1
+        last = trk.update(_batch(bbox, seq=i, ts=ts), _frame(i, ts))
+    assert last is not None
+    t = last.tracks[0]
+    assert t.confirmed_real is False
+    assert t.ghost is False
+
+
+def test_stationary_track_during_rotation_becomes_ghost() -> None:
+    trk = PolarTracker(polar_center=None, pixel_fallback_distance_px=50.0)
+    trk.register_rotation_window(0.0, 100.0)
+    last = None
+    for i in range(20):
+        bbox = (100, 100, 120, 120)  # no motion during a known rotation
+        ts = 1.0 + i * 0.1
+        last = trk.update(_batch(bbox, seq=i, ts=ts), _frame(i, ts))
+    assert last is not None
+    t = last.tracks[0]
+    assert t.confirmed_real is False
+    assert t.ghost is True
+
+
+def test_rotation_window_outside_samples_keeps_pending() -> None:
+    # Rotation window ends before the first sample arrives → no sample
+    # counts as during-rotation → track stays pending.
+    trk = PolarTracker(polar_center=None, pixel_fallback_distance_px=50.0)
+    trk.register_rotation_window(0.0, 0.5)
+    last = None
+    for i in range(10):
+        bbox = (100, 100, 120, 120)
+        ts = 1.0 + i * 0.1
+        last = trk.update(_batch(bbox, seq=i, ts=ts), _frame(i, ts))
+    assert last is not None
+    t = last.tracks[0]
+    assert t.confirmed_real is False
+    assert t.ghost is False
 
 
 def test_track_is_not_confirmed_after_few_samples() -> None:

@@ -25,10 +25,12 @@ from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
+from rt.contracts.events import Event, EventBus
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
+from rt.events.topics import PERCEPTION_ROTATION
 
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
@@ -41,6 +43,9 @@ DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_HOLDOVER_MS = 2000  # Mirror legacy CH3_PRECISE_HOLDOVER_MS.
 DEFAULT_TRACK_STALE_S = 0.5
+# Padding on either side of a pulse window so frame-capture jitter still
+# lands inside the rotation window for the ghost-gating tracker.
+_ROTATION_WINDOW_PAD_S = 0.15
 
 
 class _PulseMode(Enum):
@@ -70,6 +75,7 @@ class RuntimeC3(BaseRuntime):
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
+        event_bus: EventBus | None = None,
         max_ring_count: int = DEFAULT_MAX_RING_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
@@ -86,6 +92,7 @@ class RuntimeC3(BaseRuntime):
         self._wiggle_command = wiggle_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
+        self._bus = event_bus
         self._max_ring_count = max(1, int(max_ring_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
         self._pulse_cooldown_s = float(pulse_cooldown_s)
@@ -207,7 +214,14 @@ class RuntimeC3(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        candidates = [t for t in tracks if t.angle_rad is not None]
+        # Only commit a downstream slot for confirmed-real tracks — mirrors
+        # RuntimeC2 so a pending phantom at the exit cannot strand the
+        # c3_to_c4 slot forever. Pending tracks still drive normal (non-
+        # committing) pulses via the rotation-gated ghost evaluation path.
+        candidates = [
+            t for t in tracks
+            if t.angle_rad is not None and bool(getattr(t, "confirmed_real", False))
+        ]
         if not candidates:
             return None
         candidates.sort(key=lambda t: abs(_wrap_rad(t.angle_rad or 0.0)))
@@ -264,6 +278,7 @@ class RuntimeC3(BaseRuntime):
                 self._downstream_slot.release()
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state(f"pulsing_{mode.value}")
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
@@ -288,7 +303,34 @@ class RuntimeC3(BaseRuntime):
         if not enqueued:
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("pulsing", blocked_reason="purge")
+
+    def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
+        # Mirror of RuntimeC2._publish_rotation_window — tells the perception
+        # tracker the C3 ring is rotating around now, so the ghost-gating
+        # tracker counts the next frames as during-rotation evidence.
+        if self._bus is None:
+            return
+        now_wall = time.time()
+        start = now_wall - _ROTATION_WINDOW_PAD_S
+        end = now_wall + float(duration_s) + _ROTATION_WINDOW_PAD_S
+        try:
+            self._bus.publish(
+                Event(
+                    topic=PERCEPTION_ROTATION,
+                    payload={
+                        "feed_id": self.feed_id,
+                        "start_ts": float(start),
+                        "end_ts": float(end),
+                        "source": "c3_pulse",
+                    },
+                    source=self.runtime_id,
+                    ts_mono=float(now_mono),
+                )
+            )
+        except Exception:
+            self._logger.exception("RuntimeC3: rotation-window publish failed")
 
     def purge_port(self) -> PurgePort:
         return _C3PurgePort(self)

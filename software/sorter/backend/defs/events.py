@@ -50,6 +50,10 @@ class FrameData(BaseModel):
     raw: str
     annotated: Optional[str]
     results: List[FrameResultData]
+    # Ghost-marked track bboxes (x1, y1, x2, y2) in source-frame coords.
+    # Rendered client-side as a separate toggleable SVG overlay so operators
+    # can flip their visibility without a server round-trip.
+    ghost_boxes: List[Tuple[int, int, int, int]] = []
 
 
 class FrameEvent(BaseModel):

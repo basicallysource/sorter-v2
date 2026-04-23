@@ -15,15 +15,18 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
+from rt.contracts.events import Event, EventBus
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
+from rt.events.topics import PERCEPTION_ROTATION
 
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
@@ -38,6 +41,14 @@ DEFAULT_PULSE_COOLDOWN_S = 0.12
 DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_TRACK_STALE_S = 0.5
+# Idle cadence for the advance pulse: when the ring carries tracks but none
+# is in the exit near-arc, pulse periodically to (a) bring real pieces
+# toward the exit and (b) give the ghost-gating tracker enough rotation
+# windows to declare stationary phantoms.
+DEFAULT_ADVANCE_INTERVAL_S = 1.2
+# Extra seconds on either side of a pulse window so the next few frames
+# (hardware latency, frame-capture jitter) still count as "during rotation".
+_ROTATION_WINDOW_PAD_S = 0.15
 
 
 @dataclass(slots=True)
@@ -47,6 +58,7 @@ class _PieceBookkeeping:
     seen_global_ids: set[int]
     exit_stall_since: float | None = None
     next_wiggle_at: float = 0.0
+    next_advance_at: float = 0.0
 
 
 class RuntimeC2(BaseRuntime):
@@ -63,6 +75,7 @@ class RuntimeC2(BaseRuntime):
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
+        event_bus: EventBus | None = None,
         max_ring_count: int = DEFAULT_MAX_RING_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         intake_zone_near_arc_rad: float = DEFAULT_INTAKE_ZONE_NEAR_ARC_RAD,
@@ -70,6 +83,7 @@ class RuntimeC2(BaseRuntime):
         wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
         wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
+        advance_interval_s: float = DEFAULT_ADVANCE_INTERVAL_S,
         feed_id: str = "c2_feed",
     ) -> None:
         super().__init__("c2", feed_id=feed_id, logger=logger, hw_worker=hw_worker)
@@ -79,6 +93,7 @@ class RuntimeC2(BaseRuntime):
         self._wiggle_command = wiggle_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
+        self._bus = event_bus
         self._max_ring_count = max(1, int(max_ring_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
         self._intake_near_arc = float(intake_zone_near_arc_rad)
@@ -86,6 +101,7 @@ class RuntimeC2(BaseRuntime):
         self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
         self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._track_stale_s = max(0.0, float(track_stale_s))
+        self._advance_interval_s = max(0.0, float(advance_interval_s))
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._ring_count: int = 0
@@ -145,9 +161,14 @@ class RuntimeC2(BaseRuntime):
                     self._set_state("idle", blocked_reason="downstream_full")
                 return
             if exit_track is None:
-                # Nothing at the exit, nothing to pulse.
+                # Nothing at the exit but the ring carries tracks — advance
+                # so real pieces migrate toward the exit and the ghost-gating
+                # tracker gets rotation evidence for stationary phantoms.
                 self._bookkeeping.exit_stall_since = None
-                self._set_state("idle")
+                if tracks and now_mono >= self._bookkeeping.next_advance_at:
+                    self._dispatch_advance_pulse(now_mono)
+                else:
+                    self._set_state("idle")
                 return
             self._dispatch_exit_pulse(exit_track, now_mono)
         finally:
@@ -190,8 +211,16 @@ class RuntimeC2(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        # Prefer the track closest to angle 0 (exit) — proxy for 'at exit'.
-        candidates = [t for t in tracks if t.angle_rad is not None]
+        # Only commit a downstream slot for tracks the tracker has
+        # confirmed as real via rotation-windowed motion evidence. Pending
+        # tracks (not yet judged) fall through to the advance-pulse path,
+        # which rotates the ring without claiming a slot — so a phantom at
+        # the exit cannot strand the downstream slot forever if C3 never
+        # actually receives anything.
+        candidates = [
+            t for t in tracks
+            if t.angle_rad is not None and bool(getattr(t, "confirmed_real", False))
+        ]
         if not candidates:
             return None
         candidates.sort(key=lambda t: abs(_wrap_rad(t.angle_rad or 0.0)))
@@ -223,7 +252,33 @@ class RuntimeC2(BaseRuntime):
             self._downstream_slot.release()
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("pulsing")
+
+    def _dispatch_advance_pulse(self, now_mono: float) -> None:
+        """Rotate the ring without claiming a downstream slot.
+
+        Fired when the ring carries tracks but none is near the exit — keeps
+        the ring moving so real pieces eventually reach the exit and the
+        ghost-gating tracker sees rotation-windowed samples for stationary
+        phantoms.
+        """
+        timing = self._ejection.timing_for({"advance": True})
+
+        def _run_pulse() -> None:
+            try:
+                self._pulse_command(timing.pulse_ms)
+            except Exception:
+                self._logger.exception("RuntimeC2: advance pulse command raised")
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c2_advance_pulse")
+        if not enqueued:
+            self._set_state("idle", blocked_reason="hw_queue_full")
+            return
+        self._bookkeeping.next_advance_at = now_mono + self._advance_interval_s
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
+        self._set_state("advancing")
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity or exit_track.
@@ -245,7 +300,35 @@ class RuntimeC2(BaseRuntime):
         if not enqueued:
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("pulsing", blocked_reason="purge")
+
+    def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
+        # Tell the perception tracker that the ring is rotating around *now*
+        # for ``duration_s`` seconds — a padded window so the following few
+        # frames count as during-rotation. Timestamps are wall-clock so they
+        # match FeedFrame.timestamp in the tracker.
+        if self._bus is None:
+            return
+        now_wall = time.time()
+        start = now_wall - _ROTATION_WINDOW_PAD_S
+        end = now_wall + float(duration_s) + _ROTATION_WINDOW_PAD_S
+        try:
+            self._bus.publish(
+                Event(
+                    topic=PERCEPTION_ROTATION,
+                    payload={
+                        "feed_id": self.feed_id,
+                        "start_ts": float(start),
+                        "end_ts": float(end),
+                        "source": "c2_pulse",
+                    },
+                    source=self.runtime_id,
+                    ts_mono=float(now_mono),
+                )
+            )
+        except Exception:
+            self._logger.exception("RuntimeC2: rotation-window publish failed")
 
     def purge_port(self) -> PurgePort:
         return _C2PurgePort(self)

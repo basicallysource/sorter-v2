@@ -26,6 +26,7 @@ def _track(
     tid: int,
     bbox: tuple[int, int, int, int],
     confirmed_real: bool = True,
+    ghost: bool = False,
 ) -> Track:
     return Track(
         track_id=tid,
@@ -39,6 +40,7 @@ def _track(
         hit_count=5,
         first_seen_ts=1.0,
         last_seen_ts=1.0,
+        ghost=ghost,
     )
 
 
@@ -90,21 +92,13 @@ def test_size_filter_max_area_zero() -> None:
     assert out.tracks == ()
 
 
-def test_ghost_filter_keeps_only_confirmed() -> None:
-    f = GhostFilter(confirmed_real_only=True)
+def test_ghost_filter_drops_declared_ghosts() -> None:
+    f = GhostFilter()
     tracks = (
-        _track(1, (0, 0, 10, 10), confirmed_real=True),
-        _track(2, (0, 0, 10, 10), confirmed_real=False),
+        _track(1, (0, 0, 10, 10), confirmed_real=True, ghost=False),
+        _track(2, (0, 0, 10, 10), confirmed_real=False, ghost=False),  # pending
+        _track(3, (0, 0, 10, 10), confirmed_real=False, ghost=True),
     )
     out = f.apply(_batch(tracks), _frame())
-    assert [t.track_id for t in out.tracks] == [1]
-
-
-def test_ghost_filter_disabled_passes_everything() -> None:
-    f = GhostFilter(confirmed_real_only=False)
-    tracks = (
-        _track(1, (0, 0, 10, 10), confirmed_real=False),
-        _track(2, (0, 0, 10, 10), confirmed_real=False),
-    )
-    out = f.apply(_batch(tracks), _frame())
-    assert len(out.tracks) == 2
+    # Pending (2) and confirmed (1) pass through; only the declared ghost drops.
+    assert [t.track_id for t in out.tracks] == [1, 2]

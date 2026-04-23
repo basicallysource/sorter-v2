@@ -9,7 +9,16 @@ from .feed import FeedFrame
 
 @dataclass(frozen=True, slots=True)
 class Track:
-    """A tracked piece with stable IDs and temporal state."""
+    """A tracked piece with stable IDs and temporal state.
+
+    ``confirmed_real`` and ``ghost`` are tri-state together:
+    - ``confirmed_real=True``  → tracker has seen motion during a known
+      rotation window; this is a real piece.
+    - ``ghost=True``           → tracker has accumulated enough
+      rotation-windowed evidence of non-motion; safe to drop.
+    - both ``False``           → pending judgment (no or too few
+      rotation-windowed samples yet); pass through.
+    """
 
     track_id: int
     global_id: int | None
@@ -22,6 +31,7 @@ class Track:
     hit_count: int
     first_seen_ts: float
     last_seen_ts: float
+    ghost: bool = False
 
 
 @dataclass(frozen=True, slots=True)

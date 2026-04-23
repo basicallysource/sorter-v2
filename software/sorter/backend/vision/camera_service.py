@@ -41,6 +41,57 @@ _ROLE_TO_CONFIG_ATTR: dict[str, str] = {
 _HEALTH_POLL_INTERVAL_S = 2.0
 
 
+_CAMERA_TO_RT_FEED_ID: dict[str, str] = {
+    CameraName.c_channel_2.value: "c2_feed",
+    CameraName.c_channel_3.value: "c3_feed",
+    CameraName.carousel.value: "c4_feed",
+    CameraName.classification_channel.value: "c4_feed",
+}
+
+
+def _ghost_boxes_for_camera(camera: CameraName) -> List[tuple[int, int, int, int]]:
+    """Return ghost-flagged track bboxes for this camera's feed.
+
+    Pulled lazily from the rt handle via server.shared_state so the vision
+    layer stays decoupled from the rt layer at import time. The result is
+    sent alongside the frame so the client can render ghost boxes as a
+    toggleable SVG overlay.
+    """
+    feed_id = _CAMERA_TO_RT_FEED_ID.get(camera.value)
+    if feed_id is None:
+        return []
+    try:
+        from server import shared_state  # local import to avoid cycles
+    except Exception:
+        return []
+    handle = getattr(shared_state, "rt_handle", None)
+    if handle is None:
+        return []
+    snapshot_fn = getattr(handle, "annotation_snapshot", None)
+    if not callable(snapshot_fn):
+        return []
+    try:
+        snapshot = snapshot_fn(feed_id)
+    except Exception:
+        return []
+    tracks = getattr(snapshot, "tracks", ()) or ()
+    out: List[tuple[int, int, int, int]] = []
+    for track in tracks:
+        if not bool(getattr(track, "ghost", False)):
+            continue
+        bbox = getattr(track, "bbox_xyxy", None)
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            continue
+        try:
+            x1, y1, x2, y2 = (int(round(float(v))) for v in bbox)
+        except (TypeError, ValueError):
+            continue
+        if x2 <= x1 or y2 <= y1:
+            continue
+        out.append((x1, y1, x2, y2))
+    return out
+
+
 class CameraService:
     """Owns camera devices and feeds, frame encoding, and health tracking."""
 
@@ -407,6 +458,8 @@ class CameraService:
             self._encode_frame(frame.annotated) if frame.annotated is not None else None
         )
 
+        ghost_boxes = _ghost_boxes_for_camera(camera_name)
+
         event = FrameEvent(
             tag="frame",
             data=FrameData(
@@ -415,6 +468,7 @@ class CameraService:
                 raw=raw_b64,
                 annotated=annotated_b64,
                 results=results_data,
+                ghost_boxes=ghost_boxes,
             ),
         )
         prof.endTimer("camera_service.get_frame_event.total_ms")

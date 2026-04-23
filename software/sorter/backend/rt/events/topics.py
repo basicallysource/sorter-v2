@@ -10,6 +10,7 @@ PIECE_DISTRIBUTED = "piece.distributed"
 
 PERCEPTION_TRACKS = "perception.tracks"
 PERCEPTION_FRAME = "perception.frame"
+PERCEPTION_ROTATION = "perception.rotation"
 
 HARDWARE_ERROR = "hardware.error"
 RUNTIME_STATS = "runtime.stats"
@@ -18,6 +19,7 @@ RUNTIME_STATS = "runtime.stats"
 __all__ = [
     "HARDWARE_ERROR",
     "PERCEPTION_FRAME",
+    "PERCEPTION_ROTATION",
     "PERCEPTION_TRACKS",
     "PIECE_CLASSIFIED",
     "PIECE_DISTRIBUTED",

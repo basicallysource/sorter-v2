@@ -23,6 +23,9 @@ COLOR_HANDOFF = (220, 80, 220)   # magenta pop for fresh cross-camera pickup
 # operators see that the detector is firing on apparatus without the
 # overlay implying a real piece is present.
 COLOR_UNCONFIRMED = (120, 120, 120)
+# Ghosts are white — "Geister sind weiß". Distinct from real (green) and
+# pending (gray) without stealing attention when debug-visible.
+COLOR_GHOST = (255, 255, 255)
 COLOR_LABEL_BG = (0, 0, 0)
 
 LABEL_FONT = cv2.FONT_HERSHEY_SIMPLEX

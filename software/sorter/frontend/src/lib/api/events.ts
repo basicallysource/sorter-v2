@@ -15,6 +15,7 @@ export interface FrameData {
   raw: string;
   annotated: string | null;
   results: FrameResultData[];
+  ghost_boxes?: [number, number, number, number][];
 }
 export interface FrameResultData {
   class_id: number | null;

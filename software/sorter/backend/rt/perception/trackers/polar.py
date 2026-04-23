@@ -22,6 +22,7 @@ from __future__ import annotations
 import math
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -36,6 +37,12 @@ _CONFIRMED_MIN_ANGULAR_PROGRESS_DEG = 5.0
 _CONFIRMED_REVERSAL_TOLERANCE_DEG = 1.0
 _CONFIRMED_MIN_CENTROID_DRIFT_PX = 40.0
 _CONFIRMED_WINDOW_MIN_SAMPLES = 6
+# After this many rotation-windowed samples without confirmed motion, a
+# track is declared a ghost. Matched to _CONFIRMED_WINDOW_MIN_SAMPLES so a
+# track gets at least the same amount of evidence either way.
+_GHOST_WINDOW_MIN_SAMPLES = 6
+_ROTATION_WINDOW_BUFFER = 128  # rolling history kept in memory
+_ROTATION_WINDOW_MAX_AGE_S = 60.0
 
 
 def _wrap_angle(a: float) -> float:
@@ -119,8 +126,12 @@ class _LiveTrack:
     hit_count: int = 1
     coast_count: int = 0
     confirmed_real: bool = False
+    ghost: bool = False
     kalman: _PolarKalman | None = None
     path: list[tuple[float, float, float]] = field(default_factory=list)
+    # Samples whose timestamp fell inside a known rotation window; used as
+    # the authoritative input for confirmed_real and ghost verdicts.
+    rotation_samples: list[tuple[float, float, float]] = field(default_factory=list)
     angle_rad: float | None = None
     radius_px: float | None = None
 
@@ -158,6 +169,13 @@ class PolarTracker:
         self._next_track_id = 1
         self._last_ts: float | None = None
         self._lock = threading.RLock()
+        # Rolling buffer of rotation windows, published by the runtime that
+        # drives this feed's motor. A sample whose timestamp falls inside
+        # any window counts as "during rotation" for ghost/confirmed-real
+        # evaluation. Thread-safe via the shared RLock.
+        self._rotation_windows: deque[tuple[float, float]] = deque(
+            maxlen=_ROTATION_WINDOW_BUFFER
+        )
 
     # ---- Geometry helpers ---------------------------------------------
 
@@ -169,6 +187,31 @@ class PolarTracker:
         return math.atan2(dy, dx), math.hypot(dx, dy)
 
     # ---- Public API ----------------------------------------------------
+
+    def register_rotation_window(self, start_ts: float, end_ts: float) -> None:
+        """Record that the ring/carousel was rotating in ``[start_ts, end_ts]``.
+
+        ``ts`` values are frame timestamps (same clock as ``FeedFrame.timestamp``).
+        Called by the runtime whenever it commands a pulse or a carousel move.
+        Samples whose timestamp falls in any stored window count as
+        "during-rotation" for ghost / confirmed-real verdicts.
+        """
+        if not (end_ts > start_ts):
+            return
+        with self._lock:
+            self._rotation_windows.append((float(start_ts), float(end_ts)))
+            # Trim windows older than _ROTATION_WINDOW_MAX_AGE_S so memory
+            # does not grow unbounded on long-lived runs.
+            if self._last_ts is not None:
+                cutoff = float(self._last_ts) - _ROTATION_WINDOW_MAX_AGE_S
+                while self._rotation_windows and self._rotation_windows[0][1] < cutoff:
+                    self._rotation_windows.popleft()
+
+    def _in_rotation_window(self, ts: float) -> bool:
+        for start, end in self._rotation_windows:
+            if start <= ts <= end:
+                return True
+        return False
 
     def update(self, detections: DetectionBatch, frame: FeedFrame) -> TrackBatch:
         with self._lock:
@@ -253,6 +296,7 @@ class PolarTracker:
                     hit_count=int(track.hit_count),
                     first_seen_ts=float(track.first_seen_ts),
                     last_seen_ts=float(track.last_seen_ts),
+                    ghost=bool(track.ghost),
                 )
             )
 
@@ -327,18 +371,33 @@ class PolarTracker:
             track.hit_count += 1
             track.coast_count = 0
             track.last_seen_ts = timestamp
-            track.path.append((float(timestamp), float(cx), float(cy)))
-            if not track.confirmed_real:
-                track.confirmed_real = self._evaluate_confirmed_real(track)
+            sample = (float(timestamp), float(cx), float(cy))
+            track.path.append(sample)
+            # Only samples observed during a known rotation window contribute
+            # to ghost/confirmed-real verdicts — so a stationary track during
+            # standstill is never prematurely judged a ghost.
+            if self._in_rotation_window(float(timestamp)):
+                track.rotation_samples.append(sample)
+                if not track.confirmed_real:
+                    # Re-evaluate each tick: motion that wasn't visible earlier
+                    # can emerge later. A ghost verdict can flip back to
+                    # confirmed_real if the track finally moves during a
+                    # later rotation — we don't want the first 6 samples to
+                    # lock a track out forever.
+                    if self._evaluate_confirmed_real(track):
+                        track.confirmed_real = True
+                        track.ghost = False
+                    else:
+                        track.ghost = self._evaluate_ghost(track)
 
     def _evaluate_confirmed_real(self, track: _LiveTrack) -> bool:
-        path = track.path
-        if len(path) < _CONFIRMED_WINDOW_MIN_SAMPLES:
+        samples = track.rotation_samples
+        if len(samples) < _CONFIRMED_WINDOW_MIN_SAMPLES:
             return False
 
         # (B) centroid drift - works without polar geometry.
-        head = path[:5]
-        tail = path[-5:]
+        head = samples[:5]
+        tail = samples[-5:]
         head_x = sorted(float(s[1]) for s in head)[len(head) // 2]
         head_y = sorted(float(s[2]) for s in head)[len(head) // 2]
         tail_x = sorted(float(s[1]) for s in tail)[len(tail) // 2]
@@ -351,11 +410,11 @@ class PolarTracker:
 
         reversal_tol = math.radians(_CONFIRMED_REVERSAL_TOLERANCE_DEG)
         min_progress = math.radians(_CONFIRMED_MIN_ANGULAR_PROGRESS_DEG)
-        start_angle, _ = self._to_polar((float(path[0][1]), float(path[0][2])))
+        start_angle, _ = self._to_polar((float(samples[0][1]), float(samples[0][2])))
         unwrapped: list[float] = [0.0]
         anchor = start_angle
         accum = 0.0
-        for _ts, x, y in path[1:]:
+        for _ts, x, y in samples[1:]:
             angle, _ = self._to_polar((float(x), float(y)))
             step = _circular_diff(angle, anchor)
             accum += step
@@ -371,6 +430,12 @@ class PolarTracker:
                 return False
         return True
 
+    def _evaluate_ghost(self, track: _LiveTrack) -> bool:
+        # A track is declared a ghost only after it has accumulated enough
+        # rotation-windowed evidence without being confirmed-real — i.e. the
+        # ring was rotating around it, but it stayed put.
+        return len(track.rotation_samples) >= _GHOST_WINDOW_MIN_SAMPLES
+
     def live_global_ids(self) -> set[int]:
         with self._lock:
             return {t.track_id for t in self._tracks.values()}
@@ -378,6 +443,7 @@ class PolarTracker:
     def reset(self) -> None:
         with self._lock:
             self._tracks.clear()
+            self._rotation_windows.clear()
             self._last_ts = None
             self._next_track_id = 1
 

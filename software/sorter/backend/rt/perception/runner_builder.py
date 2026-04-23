@@ -217,7 +217,7 @@ def build_perception_runner_for_role(
             "params": {"conf_threshold": 0.25, "iou_threshold": 0.45},
         },
         tracker={"key": "polar", "params": tracker_params},
-        filters=[],
+        filters=[{"key": "ghost", "params": {}}],
     )
     try:
         pipeline = build_pipeline_from_config(pipeline_config, feed, zone)

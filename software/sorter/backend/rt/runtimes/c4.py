@@ -26,7 +26,7 @@ from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import PIECE_CLASSIFIED, PIECE_REGISTERED
+from rt.events.topics import PERCEPTION_ROTATION, PIECE_CLASSIFIED, PIECE_REGISTERED
 
 from ._strategies import C4Admission, C4EjectionTiming, C4StartupPurgeStrategy
 from ._zones import TrackAngularExtent, ZoneManager
@@ -120,8 +120,17 @@ class RuntimeC4(BaseRuntime):
         self._startup_purge_detection_count_provider = (
             startup_purge_detection_count_provider
         )
-        self._carousel_move = carousel_move_command or (lambda _deg: True)
-        self._startup_purge_move = startup_purge_move_command or self._carousel_move
+        # Wrap carousel move commands so every motor-commanded rotation
+        # automatically publishes a PERCEPTION_ROTATION window — the tracker
+        # uses this to decide if a stationary track is a ghost or just
+        # pre-rotation. Start/end timestamps are wall-clock (matches
+        # FeedFrame.timestamp), plus a short pad on each side.
+        _raw_carousel_move = carousel_move_command or (lambda _deg: True)
+        _raw_startup_purge_move = startup_purge_move_command or _raw_carousel_move
+        self._carousel_move = self._wrap_rotation_command(_raw_carousel_move, "c4_carousel")
+        self._startup_purge_move = self._wrap_rotation_command(
+            _raw_startup_purge_move, "c4_startup_purge"
+        )
         self._startup_purge_mode = startup_purge_mode_command or (lambda _enabled: True)
         self._eject = eject_command or (lambda: True)
         self._crop_provider = crop_provider
@@ -757,6 +766,50 @@ class RuntimeC4(BaseRuntime):
                 topic,
                 payload.get("piece_uuid"),
             )
+
+    def _wrap_rotation_command(
+        self,
+        command: Callable[[float], bool],
+        source_label: str,
+    ) -> Callable[[float], bool]:
+        feed_id = self.feed_id
+        pad_s = _C4_ROTATION_WINDOW_PAD_S
+        est_duration_s = _C4_MOVE_ESTIMATED_DURATION_S
+
+        def _wrapped(deg: float) -> bool:
+            now_wall = time.time()
+            if self._bus is not None:
+                try:
+                    self._bus.publish(
+                        Event(
+                            topic=PERCEPTION_ROTATION,
+                            payload={
+                                "feed_id": feed_id,
+                                "start_ts": float(now_wall - pad_s),
+                                "end_ts": float(now_wall + est_duration_s + pad_s),
+                                "source": source_label,
+                            },
+                            source=self.runtime_id,
+                            ts_mono=time.monotonic(),
+                        )
+                    )
+                except Exception:
+                    self._logger.exception(
+                        "RuntimeC4: rotation-window publish failed (source=%s)",
+                        source_label,
+                    )
+            return bool(command(deg))
+
+        return _wrapped
+
+
+# Carousel moves take a variable amount of time depending on step size and
+# speed; the window errs long enough (plus pad) to include the following
+# frame(s) so the ghost-gating tracker reliably counts them as during
+# rotation. Over-generous windows are cheap: idle ticks don't produce
+# samples that alter ghost verdicts, only stationary ones do.
+_C4_ROTATION_WINDOW_PAD_S = 0.15
+_C4_MOVE_ESTIMATED_DURATION_S = 0.6
 
 
 def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:

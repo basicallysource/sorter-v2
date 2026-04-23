@@ -70,8 +70,10 @@ def test_pipeline_end_to_end_produces_confirmed_track() -> None:
 
     detector = FakeDetector(detections_for=_script)
     tracker = PolarTracker(polar_center=None, pixel_fallback_distance_px=200.0)
+    # No rotation windows registered on the tracker → tracks stay pending
+    # (confirmed_real=False, ghost=False), so the ghost filter is a pass-through.
     filters = FilterChain(
-        (SizeFilter(min_area_px=100), GhostFilter(confirmed_real_only=False)),
+        (SizeFilter(min_area_px=100), GhostFilter()),
     )
     pipe = PerceptionPipeline(
         feed=feed, zone=zone, detector=detector, tracker=tracker, filters=filters,
@@ -98,7 +100,7 @@ def test_build_pipeline_from_config_wires_strategies() -> None:
         tracker={"key": "polar", "params": {}},
         filters=[
             FilterConfig(key="size", params={"min_area_px": 10}),
-            FilterConfig(key="ghost", params={"confirmed_real_only": False}),
+            FilterConfig(key="ghost", params={}),
         ],
     )
     feed = _StubFeed()

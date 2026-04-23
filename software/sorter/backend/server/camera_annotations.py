@@ -14,6 +14,7 @@ from server import shared_state
 from vision.overlays.scaling import overlay_scale_for_frame, scaled_px
 from vision.overlays.tracker import (
     COLOR_ACTIVE,
+    COLOR_GHOST,
     COLOR_LABEL_BG,
     COLOR_UNCONFIRMED,
     format_track_label,
@@ -354,6 +355,9 @@ class ChannelArcOverlay:
 
 
 class RuntimeTrackOverlay:
+    # Non-ghost tracks: confirmed_real (green) + pending (gray). Ghost-marked
+    # tracks are drawn by RuntimeGhostOverlay in a separate "ghosts" category
+    # so operators can toggle their visibility independently.
     category = "detections"
 
     def __init__(self, get_tracks: Callable[[], list[Any]]) -> None:
@@ -372,6 +376,8 @@ class RuntimeTrackOverlay:
         margin = scaled_px(2, scale)
 
         for track in tracks:
+            if bool(getattr(track, "ghost", False)):
+                continue
             bbox = getattr(track, "bbox_xyxy", None)
             if not isinstance(bbox, tuple) or len(bbox) != 4:
                 continue
@@ -429,6 +435,42 @@ class RuntimeTrackOverlay:
         return annotated
 
 
+class RuntimeGhostOverlay:
+    # Only ghost-marked tracks. Lives in its own category so the stream
+    # pipeline can exclude it (current default) or include it on demand.
+    category = "ghosts"
+
+    def __init__(self, get_tracks: Callable[[], list[Any]]) -> None:
+        self._get_tracks = get_tracks
+
+    def annotate(self, frame: np.ndarray) -> np.ndarray:
+        tracks = self._get_tracks() or []
+        ghost_tracks = [t for t in tracks if bool(getattr(t, "ghost", False))]
+        if not ghost_tracks:
+            return frame
+        annotated = frame.copy()
+        scale = overlay_scale_for_frame(frame)
+        box_thickness = scaled_px(2, scale)
+
+        for track in ghost_tracks:
+            bbox = getattr(track, "bbox_xyxy", None)
+            if not isinstance(bbox, tuple) or len(bbox) != 4:
+                continue
+            x1, y1, x2, y2 = [int(round(float(v))) for v in bbox]
+            if x2 <= x1 or y2 <= y1:
+                continue
+            cv2.rectangle(
+                annotated,
+                (x1, y1),
+                (x2, y2),
+                COLOR_GHOST,
+                box_thickness,
+                cv2.LINE_AA,
+            )
+
+        return annotated
+
+
 @dataclass(frozen=True)
 class RuntimeAnnotationProvider:
     camera_to_feed_id: dict[str, str]
@@ -437,12 +479,12 @@ class RuntimeAnnotationProvider:
         feed_id = self.camera_to_feed_id.get(role)
         if feed_id is None:
             return ()
+        get_tracks = lambda feed_id=feed_id: list(
+            getattr(_annotation_snapshot_for_feed(feed_id), "tracks", ()) or ()
+        )
         return (
-            RuntimeTrackOverlay(
-                lambda feed_id=feed_id: list(
-                    getattr(_annotation_snapshot_for_feed(feed_id), "tracks", ()) or ()
-                )
-            ),
+            RuntimeTrackOverlay(get_tracks),
+            RuntimeGhostOverlay(get_tracks),
         )
 
 

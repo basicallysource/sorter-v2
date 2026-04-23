@@ -55,6 +55,11 @@ DEFAULT_RECOVER_MIN_SCORE = 0.55
 DEFAULT_RECOVER_MIN_AGE_S = 0.6
 DEFAULT_IDLE_JOG_STEP_DEG = 2.0
 DEFAULT_IDLE_JOG_COOLDOWN_MS = 500
+DEFAULT_UNJAM_STALL_MS = 2500
+DEFAULT_UNJAM_MIN_PROGRESS_DEG = 2.0
+DEFAULT_UNJAM_COOLDOWN_MS = 3000
+DEFAULT_UNJAM_REVERSE_DEG = 3.0
+DEFAULT_UNJAM_FORWARD_DEG = 9.0
 
 
 class _C4State(str, Enum):
@@ -63,6 +68,7 @@ class _C4State(str, Enum):
     CLASSIFY_PENDING = "classify_pending"
     EXIT_SHIMMY = "exit_shimmy"
     DROP_COMMIT = "drop_commit"
+    TRANSPORT_UNJAM = "transport_unjam"
 
 
 @dataclass(slots=True)
@@ -126,6 +132,12 @@ class RuntimeC4(BaseRuntime):
         idle_jog_enabled: bool = True,
         idle_jog_step_deg: float = DEFAULT_IDLE_JOG_STEP_DEG,
         idle_jog_cooldown_ms: int = DEFAULT_IDLE_JOG_COOLDOWN_MS,
+        unjam_enabled: bool = True,
+        unjam_stall_ms: int = DEFAULT_UNJAM_STALL_MS,
+        unjam_min_progress_deg: float = DEFAULT_UNJAM_MIN_PROGRESS_DEG,
+        unjam_cooldown_ms: int = DEFAULT_UNJAM_COOLDOWN_MS,
+        unjam_reverse_deg: float = DEFAULT_UNJAM_REVERSE_DEG,
+        unjam_forward_deg: float = DEFAULT_UNJAM_FORWARD_DEG,
     ) -> None:
         super().__init__(runtime_id, feed_id=feed_id, logger=logger, hw_worker=hw_worker)
         self._upstream_slot = upstream_slot
@@ -180,6 +192,12 @@ class RuntimeC4(BaseRuntime):
         self._idle_jog_enabled = bool(idle_jog_enabled)
         self._idle_jog_step_deg = max(0.1, float(idle_jog_step_deg))
         self._idle_jog_cooldown_s = max(0.1, float(idle_jog_cooldown_ms) / 1000.0)
+        self._unjam_enabled = bool(unjam_enabled)
+        self._unjam_stall_s = max(0.25, float(unjam_stall_ms) / 1000.0)
+        self._unjam_min_progress_deg = max(0.1, float(unjam_min_progress_deg))
+        self._unjam_cooldown_s = max(0.5, float(unjam_cooldown_ms) / 1000.0)
+        self._unjam_reverse_deg = max(0.1, float(unjam_reverse_deg))
+        self._unjam_forward_deg = max(0.1, float(unjam_forward_deg))
         cooldown_ms = (
             self._ejection.timing_for({}).fall_time_ms
             if post_commit_cooldown_ms is None
@@ -206,6 +224,12 @@ class RuntimeC4(BaseRuntime):
         self._next_idle_jog_at: float = 0.0
         self._idle_jog_count: int = 0
         self._last_idle_jog_at: float | None = None
+        self._transport_progress_started_at: float | None = None
+        self._transport_progress_baseline: dict[int, float] = {}
+        self._last_transport_progress_deg: float | None = None
+        self._next_unjam_at: float = 0.0
+        self._last_unjam_at: float | None = None
+        self._unjam_count: int = 0
         self._startup_purge_armed: bool = False
         self._startup_purge_prime_moves: int = 0
         self._startup_purge_next_prime_at: float = 0.0
@@ -415,6 +439,19 @@ class RuntimeC4(BaseRuntime):
                 "last_at_mono": self._last_idle_jog_at,
                 "count": int(self._idle_jog_count),
             },
+            "transport_unjam": {
+                "enabled": bool(self._unjam_enabled),
+                "stall_s": float(self._unjam_stall_s),
+                "min_progress_deg": float(self._unjam_min_progress_deg),
+                "cooldown_s": float(self._unjam_cooldown_s),
+                "reverse_deg": float(self._unjam_reverse_deg),
+                "forward_deg": float(self._unjam_forward_deg),
+                "watch_started_at_mono": self._transport_progress_started_at,
+                "last_progress_deg": self._last_transport_progress_deg,
+                "next_at_mono": float(self._next_unjam_at),
+                "last_at_mono": self._last_unjam_at,
+                "count": int(self._unjam_count),
+            },
             "dossier_preview": dossier_preview,
         }
 
@@ -448,13 +485,17 @@ class RuntimeC4(BaseRuntime):
         self._poll_classifier_futures(now_mono)
         self._request_pending_handoffs(now_mono)
         self._handle_exit(owned_tracks, inbox, now_mono)
-        transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
+        unjam_active = self._maybe_unjam_transport(owned_tracks, now_mono)
+        transport_active = False
+        if not unjam_active:
+            transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
         idle_jog_active = False
-        if not transport_active:
+        if not transport_active and not unjam_active:
             idle_jog_active = self._maybe_idle_jog(now_mono)
         self._refresh_fsm_label(
             transport_active=transport_active,
             idle_jog_active=idle_jog_active,
+            unjam_active=unjam_active,
         )
 
     # -- Helpers ------------------------------------------------------
@@ -1025,6 +1066,108 @@ class RuntimeC4(BaseRuntime):
                 best_score = score
         return best
 
+    def _owned_track_angles(self, tracks: list[Track]) -> dict[int, float]:
+        angles: dict[int, float] = {}
+        for track in tracks:
+            if track.angle_rad is None or track.global_id is None:
+                continue
+            gid = int(track.global_id)
+            if gid not in self._track_to_piece:
+                continue
+            angles[gid] = math.degrees(float(track.angle_rad))
+        return angles
+
+    def _reset_transport_progress_watch(self) -> None:
+        self._transport_progress_started_at = None
+        self._transport_progress_baseline = {}
+        self._last_transport_progress_deg = None
+
+    def _transport_waiting_on_ready_exit(self, tracks: list[Track]) -> bool:
+        exit_track = self._pick_exit_track(tracks)
+        if exit_track is None or exit_track.global_id is None:
+            return False
+        piece_uuid = self._track_to_piece.get(int(exit_track.global_id))
+        dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
+        return bool(dossier is not None and dossier.result is not None)
+
+    def _maybe_unjam_transport(self, tracks: list[Track], now_mono: float) -> bool:
+        if not self._unjam_enabled:
+            self._reset_transport_progress_watch()
+            return False
+        if not self._pieces or not tracks:
+            self._reset_transport_progress_watch()
+            return False
+        if self._startup_purge_pending() or self._startup_purge_mode_active:
+            self._reset_transport_progress_watch()
+            return False
+        if self._fsm in (
+            _C4State.STARTUP_PURGE,
+            _C4State.DROP_COMMIT,
+            _C4State.EXIT_SHIMMY,
+            _C4State.TRANSPORT_UNJAM,
+        ):
+            return False
+        if self._transport_waiting_on_ready_exit(tracks):
+            self._reset_transport_progress_watch()
+            return False
+
+        angles = self._owned_track_angles(tracks)
+        if not angles:
+            self._reset_transport_progress_watch()
+            return False
+        if not self._transport_progress_baseline:
+            self._transport_progress_baseline = dict(angles)
+            self._transport_progress_started_at = now_mono
+            self._last_transport_progress_deg = 0.0
+            return False
+
+        common_ids = set(angles).intersection(self._transport_progress_baseline)
+        if not common_ids:
+            self._transport_progress_baseline = dict(angles)
+            self._transport_progress_started_at = now_mono
+            self._last_transport_progress_deg = 0.0
+            return False
+
+        progress = max(
+            abs(_wrap_deg(angles[gid] - self._transport_progress_baseline[gid]))
+            for gid in common_ids
+        )
+        self._last_transport_progress_deg = progress
+        if progress >= self._unjam_min_progress_deg:
+            self._transport_progress_baseline = dict(angles)
+            self._transport_progress_started_at = now_mono
+            return False
+
+        started_at = self._transport_progress_started_at
+        if started_at is None:
+            self._transport_progress_started_at = now_mono
+            return False
+        if (now_mono - started_at) < self._unjam_stall_s:
+            return False
+        if now_mono < self._next_unjam_at or self._hw.busy():
+            return False
+
+        reverse_deg = self._unjam_reverse_deg
+        forward_deg = self._unjam_forward_deg
+
+        def _do_unjam() -> None:
+            try:
+                self._carousel_move(-reverse_deg)
+                self._carousel_move(forward_deg)
+            except Exception:
+                self._logger.exception("RuntimeC4: transport unjam move raised")
+
+        if self._hw.enqueue(_do_unjam, label="c4_transport_unjam"):
+            self._next_unjam_at = now_mono + self._unjam_cooldown_s
+            self._last_unjam_at = now_mono
+            self._unjam_count += 1
+            self._transport_progress_baseline = dict(angles)
+            self._transport_progress_started_at = now_mono
+            self._fsm = _C4State.TRANSPORT_UNJAM
+            self._set_state(self._fsm.value)
+            return True
+        return False
+
     def _maybe_advance_transport(
         self,
         tracks: list[Track],
@@ -1034,16 +1177,16 @@ class RuntimeC4(BaseRuntime):
     ) -> bool:
         if not self._pieces or not tracks:
             return False
-        if self._fsm in (_C4State.DROP_COMMIT, _C4State.EXIT_SHIMMY):
+        if self._fsm in (
+            _C4State.DROP_COMMIT,
+            _C4State.EXIT_SHIMMY,
+            _C4State.TRANSPORT_UNJAM,
+        ):
             return False
         if self._hw.busy() or now_mono < self._next_transport_at:
             return False
-        exit_track = self._pick_exit_track(tracks)
-        if exit_track is not None and exit_track.global_id is not None:
-            piece_uuid = self._track_to_piece.get(int(exit_track.global_id))
-            dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
-            if dossier is not None and dossier.result is not None:
-                return False
+        if self._transport_waiting_on_ready_exit(tracks):
+            return False
 
         use_exit_approach = move_command is None and any(
             self._track_in_exit_approach(track) for track in tracks
@@ -1079,6 +1222,7 @@ class RuntimeC4(BaseRuntime):
             _C4State.STARTUP_PURGE,
             _C4State.DROP_COMMIT,
             _C4State.EXIT_SHIMMY,
+            _C4State.TRANSPORT_UNJAM,
         ):
             return False
         if self._hw.busy() or now_mono < self._next_idle_jog_at:
@@ -1153,8 +1297,12 @@ class RuntimeC4(BaseRuntime):
         *,
         transport_active: bool = False,
         idle_jog_active: bool = False,
+        unjam_active: bool = False,
     ) -> None:
         if self._fsm in (_C4State.DROP_COMMIT, _C4State.EXIT_SHIMMY):
+            self._set_state(self._fsm.value)
+            return
+        if unjam_active and self._fsm is _C4State.TRANSPORT_UNJAM:
             self._set_state(self._fsm.value)
             return
         inflight = any(d.classify_future is not None for d in self._pieces.values())

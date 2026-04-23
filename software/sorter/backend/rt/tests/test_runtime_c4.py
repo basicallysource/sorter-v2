@@ -150,6 +150,7 @@ def _make(
     ejection: C4EjectionTiming | None = None,
     startup_purge: C4StartupPurgeStrategy | None = None,
     startup_purge_detection_count_provider: Callable[[], int] | None = None,
+    **runtime_kwargs: Any,
 ) -> tuple[RuntimeC4, CapacitySlot, CapacitySlot, _StubClassifier, list[str]]:
     upstream = CapacitySlot("c3_to_c4", capacity=max_zones)
     downstream = CapacitySlot("c4_to_dist", capacity=max_zones)
@@ -203,6 +204,7 @@ def _make(
         intake_half_width_deg=8.0,
         shimmy_stall_ms=100,
         shimmy_cooldown_ms=200,
+        **runtime_kwargs,
     )
     rt.set_latest_frame(_frame())
     return rt, upstream, downstream, clf, log
@@ -276,6 +278,45 @@ def test_c4_idle_jog_does_not_compete_with_owned_transport() -> None:
 
     assert rt.dossier_count() == 1
     assert "c4_idle_jog" not in _hw_commands(rt)
+
+
+def test_c4_transport_unjam_when_owned_track_does_not_progress() -> None:
+    rt, _up, _down, _clf, log = _make(
+        unjam_stall_ms=500,
+        unjam_cooldown_ms=1000,
+        unjam_min_progress_deg=2.0,
+    )
+    stuck = _track(angle_deg=0.0)
+
+    rt.tick(RuntimeInbox(tracks=_batch(stuck), capacity_downstream=1), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=_batch(stuck), capacity_downstream=1), now_mono=0.2)
+    rt.tick(RuntimeInbox(tracks=_batch(stuck), capacity_downstream=1), now_mono=0.6)
+
+    assert "move:-3.0" in log
+    assert "move:9.0" in log
+    assert "c4_transport_unjam" in _hw_commands(rt)
+    assert rt.health().state == "transport_unjam"
+    assert rt.debug_snapshot()["transport_unjam"]["count"] == 1
+
+
+def test_c4_transport_unjam_watch_resets_on_progress() -> None:
+    rt, _up, _down, _clf, _log = _make(
+        unjam_stall_ms=500,
+        unjam_cooldown_ms=1000,
+        unjam_min_progress_deg=2.0,
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=4.0)), capacity_downstream=1),
+        now_mono=0.6,
+    )
+
+    assert "c4_transport_unjam" not in _hw_commands(rt)
+    assert rt.debug_snapshot()["transport_unjam"]["count"] == 0
 
 
 def test_c4_intake_mints_dossier_and_releases_upstream() -> None:

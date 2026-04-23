@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -297,3 +298,101 @@ def test_runner_keeps_latest_unfiltered_snapshot() -> None:
     assert len(snapshot.detections.detections) == 1
     assert len(snapshot.raw_tracks.tracks) == 1
     assert len(snapshot.filtered_tracks.tracks) == 0
+
+
+def test_runner_status_snapshot_surfaces_debug_counts() -> None:
+    class _StatusFeed:
+        feed_id = "c2_feed"
+        purpose = "c2_feed"
+        camera_id = "cam"
+
+        def latest(self) -> FeedFrame | None:
+            return FeedFrame(
+                feed_id=self.feed_id,
+                camera_id=self.camera_id,
+                raw=np.zeros((10, 10, 3), dtype=np.uint8),
+                gray=None,
+                timestamp=1.0,
+                monotonic_ts=100.0,
+                frame_seq=1,
+            )
+
+        def fps(self) -> float:
+            return 100.0
+
+    feed = _StatusFeed()
+    pipeline = _build_pipeline(_NoopDetector(), _NoopTracker(), feed)
+    runner = PerceptionRunner(pipeline, period_ms=2)
+    runner._running = True
+    runner._latest_state = SimpleNamespace(
+        detections=SimpleNamespace(detections=(object(), object())),
+        raw_tracks=TrackBatch(
+            feed_id="c2_feed",
+            frame_seq=1,
+            timestamp=1.0,
+            tracks=(
+                Track(
+                    track_id=1,
+                    global_id=101,
+                    piece_uuid=None,
+                    bbox_xyxy=(0, 0, 10, 10),
+                    score=0.9,
+                    confirmed_real=False,
+                    angle_rad=0.0,
+                    radius_px=5.0,
+                    hit_count=2,
+                    first_seen_ts=0.5,
+                    last_seen_ts=1.0,
+                ),
+                Track(
+                    track_id=2,
+                    global_id=102,
+                    piece_uuid=None,
+                    bbox_xyxy=(0, 0, 10, 10),
+                    score=0.8,
+                    confirmed_real=True,
+                    angle_rad=0.5,
+                    radius_px=5.0,
+                    hit_count=3,
+                    first_seen_ts=0.25,
+                    last_seen_ts=1.0,
+                ),
+            ),
+            lost_track_ids=(),
+        ),
+        filtered_tracks=TrackBatch(
+            feed_id="c2_feed",
+            frame_seq=1,
+            timestamp=1.0,
+            tracks=(
+                Track(
+                    track_id=2,
+                    global_id=102,
+                    piece_uuid=None,
+                    bbox_xyxy=(0, 0, 10, 10),
+                    score=0.8,
+                    confirmed_real=True,
+                    angle_rad=0.5,
+                    radius_px=5.0,
+                    hit_count=3,
+                    first_seen_ts=0.25,
+                    last_seen_ts=1.0,
+                ),
+            ),
+            lost_track_ids=(),
+        ),
+    )
+
+    snapshot = runner.status_snapshot(now_mono=100.25)
+
+    assert snapshot["feed_id"] == "c2_feed"
+    assert snapshot["detector_slug"] == "noop"
+    assert snapshot["zone_kind"] == "rect"
+    assert snapshot["running"] is True
+    assert snapshot["last_frame_age_ms"] == 250.0
+    assert snapshot["detection_count"] == 2
+    assert snapshot["raw_track_count"] == 2
+    assert snapshot["confirmed_track_count"] == 1
+    assert snapshot["confirmed_real_track_count"] == 1
+    assert snapshot["raw_track_preview"][0]["global_id"] == 101
+    assert snapshot["confirmed_track_preview"][0]["global_id"] == 102

@@ -220,6 +220,60 @@ def test_start_paused_starts_orchestrator_in_paused_mode():
     assert handle.paused is True
 
 
+def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    orchestrator.status_snapshot.return_value = {
+        "runtime_health": {"c4": {"state": "idle", "blocked_reason": None, "last_tick_ms": 1.0}},
+        "runtime_debug": {"c4": {"piece_count": 2}},
+        "slot_debug": {"c4_to_distributor": {"capacity": 1, "taken": 0, "available": 1}},
+    }
+    runner = MagicMock()
+    runner.status_snapshot.return_value = {
+        "feed_id": "c4_feed",
+        "detector_slug": "hive:c-channel-yolo11n-320",
+        "zone_kind": "polygon",
+        "running": True,
+        "last_frame_age_ms": 3.5,
+        "detection_count": 1,
+        "raw_track_count": 1,
+        "confirmed_track_count": 1,
+        "confirmed_real_track_count": 1,
+        "raw_track_preview": [],
+        "confirmed_track_preview": [],
+    }
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[runner],
+        event_bus=bus,
+        c4=None,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[{"role": "c2", "reason": "no_camera_config"}],
+        camera_service=None,
+        started=True,
+        perception_started=True,
+        paused=True,
+    )
+    handle._c234_purge_status = {
+        "active": True,
+        "phase": "purging",
+        "counts": {"c2": 1, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
+    }
+
+    snapshot = handle.status_snapshot()
+
+    assert snapshot["perception_started"] is True
+    assert snapshot["started"] is True
+    assert snapshot["paused"] is True
+    assert snapshot["runners"] == [runner.status_snapshot.return_value]
+    assert snapshot["skipped_roles"] == [{"role": "c2", "reason": "no_camera_config"}]
+    assert snapshot["runtime_health"]["c4"]["state"] == "idle"
+    assert snapshot["runtime_debug"]["c4"] == {"piece_count": 2}
+    assert snapshot["slot_debug"]["c4_to_distributor"]["available"] == 1
+    assert snapshot["maintenance"]["c234_purge"]["phase"] == "purging"
+
+
 def test_stop_stops_perception_when_runtime_never_fully_started():
     bus = MagicMock()
     orchestrator = MagicMock()

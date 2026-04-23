@@ -11,6 +11,7 @@ HARDWARE_ERROR event.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from typing import Any
@@ -24,6 +25,31 @@ from .pipeline import PerceptionFrameState, PerceptionPipeline
 
 _LOG = logging.getLogger(__name__)
 _MAX_CONSECUTIVE_ERRORS = 10
+
+
+def _track_preview(batch: TrackBatch | None) -> list[dict[str, Any]]:
+    if batch is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for track in batch.tracks[:3]:
+        angle_rad = getattr(track, "angle_rad", None)
+        angle_deg = None
+        if isinstance(angle_rad, (int, float)):
+            angle_deg = round(math.degrees(float(angle_rad)), 3)
+        first_seen_ts = getattr(track, "first_seen_ts", None)
+        last_seen_ts = getattr(track, "last_seen_ts", None)
+        age_s = None
+        if isinstance(first_seen_ts, (int, float)) and isinstance(last_seen_ts, (int, float)):
+            age_s = round(max(0.0, float(last_seen_ts) - float(first_seen_ts)), 3)
+        out.append({
+            "global_id": getattr(track, "global_id", None),
+            "confirmed_real": bool(getattr(track, "confirmed_real", False)),
+            "hit_count": getattr(track, "hit_count", None),
+            "score": getattr(track, "score", None),
+            "age_s": age_s,
+            "angle_deg": angle_deg,
+        })
+    return out
 
 
 class PerceptionRunner:
@@ -78,6 +104,68 @@ class PerceptionRunner:
     def latest_state(self) -> PerceptionFrameState | None:
         with self._latest_lock:
             return self._latest_state
+
+    def status_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
+        pipeline = self._pipeline
+        feed = pipeline.feed
+        zone = pipeline.zone
+        detector = pipeline.detector
+
+        zone_kind: str | None = None
+        if zone is not None:
+            zone_kind = type(zone).__name__.replace("Zone", "").lower() or None
+
+        last_frame_age_ms: float | None = None
+        try:
+            frame = feed.latest()
+        except Exception:
+            frame = None
+        if frame is not None:
+            monotonic_ts = getattr(frame, "monotonic_ts", None)
+            if isinstance(monotonic_ts, (int, float)):
+                ts = time.monotonic() if now_mono is None else float(now_mono)
+                last_frame_age_ms = max(0.0, (ts - float(monotonic_ts)) * 1000.0)
+
+        with self._latest_lock:
+            state = self._latest_state
+
+        detection_count: int | None = None
+        raw_track_count: int | None = None
+        confirmed_track_count: int | None = None
+        confirmed_real_track_count: int | None = None
+        raw_track_preview: list[dict[str, Any]] = []
+        confirmed_track_preview: list[dict[str, Any]] = []
+        if state is not None:
+            detections = getattr(state, "detections", None)
+            detection_entries = getattr(detections, "detections", None) if detections is not None else None
+            if isinstance(detection_entries, (list, tuple)):
+                detection_count = len(detection_entries)
+            raw_tracks = getattr(state, "raw_tracks", None)
+            if raw_tracks is not None:
+                raw_track_count = len(raw_tracks.tracks)
+                raw_track_preview = _track_preview(raw_tracks)
+            filtered_tracks = getattr(state, "filtered_tracks", None)
+            if filtered_tracks is not None:
+                confirmed_track_count = len(filtered_tracks.tracks)
+                confirmed_real_track_count = sum(
+                    1 for track in filtered_tracks.tracks
+                    if bool(getattr(track, "confirmed_real", False))
+                )
+                confirmed_track_preview = _track_preview(filtered_tracks)
+
+        return {
+            "feed_id": getattr(feed, "feed_id", None),
+            "detector_slug": getattr(detector, "key", None),
+            "zone_kind": zone_kind,
+            "running": bool(self._running),
+            "last_frame_age_ms": last_frame_age_ms,
+            "detection_count": detection_count,
+            "raw_track_count": raw_track_count,
+            "confirmed_track_count": confirmed_track_count,
+            "confirmed_real_track_count": confirmed_real_track_count,
+            "raw_track_preview": raw_track_preview,
+            "confirmed_track_preview": confirmed_track_preview,
+        }
 
     # ---- Internals -----------------------------------------------------
 

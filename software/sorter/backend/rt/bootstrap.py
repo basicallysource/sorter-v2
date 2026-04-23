@@ -195,6 +195,51 @@ class RtRuntimeHandle:
                 )
         self.paused = False
 
+    def status_snapshot(self) -> dict[str, Any]:
+        runners_out: list[dict[str, Any]] = []
+        for runner in self.perception_runners:
+            try:
+                runners_out.append(runner.status_snapshot())
+            except Exception:
+                runners_out.append({
+                    "feed_id": None,
+                    "detector_slug": None,
+                    "zone_kind": None,
+                    "running": False,
+                    "last_frame_age_ms": None,
+                    "detection_count": None,
+                    "raw_track_count": None,
+                    "confirmed_track_count": None,
+                    "confirmed_real_track_count": None,
+                    "raw_track_preview": [],
+                    "confirmed_track_preview": [],
+                })
+
+        runtime_health: dict[str, Any] = {}
+        runtime_debug: dict[str, Any] = {}
+        slot_debug: dict[str, Any] = {}
+        orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
+        if callable(orchestrator_status):
+            try:
+                snapshot = dict(orchestrator_status() or {})
+            except Exception:
+                snapshot = {}
+            runtime_health = dict(snapshot.get("runtime_health") or {})
+            runtime_debug = dict(snapshot.get("runtime_debug") or {})
+            slot_debug = dict(snapshot.get("slot_debug") or {})
+
+        return {
+            "perception_started": bool(self.perception_started),
+            "started": bool(self.started),
+            "paused": bool(self.paused),
+            "runners": runners_out,
+            "skipped_roles": list(self.skipped_roles),
+            "runtime_health": runtime_health,
+            "runtime_debug": runtime_debug,
+            "slot_debug": slot_debug,
+            "maintenance": {"c234_purge": self.c234_purge_status()},
+        }
+
     def c234_purge_status(self) -> dict[str, Any]:
         with self._maintenance_lock:
             status = dict(self._c234_purge_status)

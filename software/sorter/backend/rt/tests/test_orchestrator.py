@@ -32,6 +32,7 @@ class _FakeRuntime(Runtime):
         self.stopped = False
         self._raises = raises
         self._available_slots = 1
+        self._debug_snapshot: dict[str, Any] = {}
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         if self._raises:
@@ -52,6 +53,9 @@ class _FakeRuntime(Runtime):
 
     def health(self) -> RuntimeHealth:
         return RuntimeHealth(state="idle", blocked_reason=None, last_tick_ms=0.5)
+
+    def debug_snapshot(self) -> dict[str, Any]:
+        return dict(self._debug_snapshot)
 
     def start(self) -> None:
         self.started = True
@@ -153,6 +157,25 @@ def test_health_aggregates_per_runtime() -> None:
     for entry in snap.values():
         assert entry["state"] == "idle"
         assert entry["last_tick_ms"] == 0.5
+
+
+def test_status_snapshot_surfaces_runtime_and_slot_debug() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c1._debug_snapshot = {"ring_count": 2, "downstream_taken": 1}
+    slot = CapacitySlot("c1_to_c2", 2)
+    slot.try_claim()
+    orch = _make_orchestrator([c1, c2], {("c1", "c2"): slot})
+
+    snapshot = orch.status_snapshot()
+
+    assert snapshot["runtime_health"]["c1"]["state"] == "idle"
+    assert snapshot["runtime_debug"]["c1"] == {"ring_count": 2, "downstream_taken": 1}
+    assert snapshot["slot_debug"]["c1_to_c2"] == {
+        "capacity": 2,
+        "taken": 1,
+        "available": 1,
+    }
 
 
 def test_start_stop_lifecycle_propagates_to_runtimes() -> None:

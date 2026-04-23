@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Protocol
+from typing import Any, Protocol
 
 from rt.contracts.events import EventBus
 from rt.contracts.runtime import Runtime, RuntimeInbox
@@ -147,6 +147,45 @@ class Orchestrator:
                 )
                 out[rt.runtime_id] = {"state": "error", "blocked_reason": "health_failed"}
         return out
+
+    def status_snapshot(self) -> dict[str, Any]:
+        runtime_debug: dict[str, dict[str, Any]] = {}
+        for rt in self._runtimes:
+            runtime_id = getattr(rt, "runtime_id", None)
+            if not isinstance(runtime_id, str) or not runtime_id:
+                continue
+            debug_fn = getattr(rt, "debug_snapshot", None)
+            if callable(debug_fn):
+                try:
+                    runtime_debug[runtime_id] = dict(debug_fn() or {})
+                except Exception:
+                    self._logger.exception(
+                        "Orchestrator: debug_snapshot() raised for %r", runtime_id
+                    )
+                    runtime_debug[runtime_id] = {}
+
+        slot_debug: dict[str, dict[str, int]] = {}
+        for (upstream, downstream), slot in self._slots.items():
+            if not isinstance(upstream, str) or not isinstance(downstream, str):
+                continue
+            key = f"{upstream}_to_{downstream}"
+            try:
+                slot_debug[key] = {
+                    "capacity": int(slot.capacity()),
+                    "taken": int(slot.taken()),
+                    "available": int(slot.available()),
+                }
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: slot debug snapshot raised for %s", key
+                )
+                slot_debug[key] = {}
+
+        return {
+            "runtime_health": self.health(),
+            "runtime_debug": runtime_debug,
+            "slot_debug": slot_debug,
+        }
 
     # ------------------------------------------------------------------
     # Internals

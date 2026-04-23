@@ -7,7 +7,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
-from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import numpy as np
@@ -17,51 +16,10 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
-from rt.contracts.feed import PolygonZone, RectZone  # noqa: E402
-from rt.contracts.tracking import Track, TrackBatch  # noqa: E402
 from server import shared_state  # noqa: E402
 from server import api as api_module  # noqa: E402
 from server.routers import detection as detection_router  # noqa: E402
 from server.routers import rt_runtime as rt_runtime_router  # noqa: E402
-
-
-class _FakeFeed:
-    def __init__(self, feed_id: str) -> None:
-        self.feed_id = feed_id
-
-    def latest(self) -> None:
-        return None  # no frames yet
-
-
-class _FakeDetector:
-    def __init__(self, key: str) -> None:
-        self.key = key
-
-
-class _FakePipeline:
-    def __init__(self, feed: _FakeFeed, zone: Any, detector: _FakeDetector) -> None:
-        self.feed = feed
-        self.zone = zone
-        self.detector = detector
-
-
-class _FakeRunner:
-    def __init__(
-        self,
-        feed_id: str,
-        detector_slug: str,
-        zone: Any,
-        *,
-        state: Any | None = None,
-    ) -> None:
-        self._pipeline = _FakePipeline(
-            _FakeFeed(feed_id), zone, _FakeDetector(detector_slug)
-        )
-        self._running = True
-        self._state = state
-
-    def latest_state(self) -> Any | None:
-        return self._state
 
 
 class _FakeHandle:
@@ -69,77 +27,32 @@ class _FakeHandle:
 
     def __init__(
         self,
-        runners: list[_FakeRunner],
         skipped: list[dict[str, str]],
         *,
         started: bool = True,
         perception_started: bool = True,
+        snapshot: dict[str, Any] | None = None,
     ) -> None:
-        self.perception_runners = runners
         self.skipped_roles = skipped
         self.started = started
         self.perception_started = perception_started
         self.paused = False
+        self._snapshot = dict(snapshot or {})
 
-
-class _FakeSlot:
-    def __init__(self, *, capacity: int, taken: int) -> None:
-        self._capacity = capacity
-        self._taken = taken
-
-    def capacity(self) -> int:
-        return self._capacity
-
-    def taken(self) -> int:
-        return self._taken
-
-    def available(self) -> int:
-        return max(0, self._capacity - self._taken)
-
-
-class _FakeRuntimeNode:
-    def __init__(self, runtime_id: str, snapshot: dict[str, Any]) -> None:
-        self.runtime_id = runtime_id
-        self._snapshot = snapshot
-
-    def debug_snapshot(self) -> dict[str, Any]:
-        return dict(self._snapshot)
-
-
-class _FakeOrchestrator:
-    def __init__(
-        self,
-        *,
-        health: dict[str, dict[str, object]] | None = None,
-        runtimes: list[Any] | None = None,
-        slots: dict[tuple[str, str], Any] | None = None,
-    ) -> None:
-        self._health = health or {}
-        self._runtimes = list(runtimes or [])
-        self._slots = dict(slots or {})
-
-    def health(self) -> dict[str, dict[str, object]]:
-        return dict(self._health)
-
-
-def _track(
-    *,
-    global_id: int,
-    confirmed_real: bool,
-) -> Track:
-    return Track(
-        track_id=global_id,
-        global_id=global_id,
-        piece_uuid=None,
-        bbox_xyxy=(0, 0, 10, 10),
-        score=0.9,
-        confirmed_real=confirmed_real,
-        angle_rad=0.0,
-        radius_px=50.0,
-        hit_count=3,
-        first_seen_ts=0.0,
-        last_seen_ts=0.0,
-    )
+    def status_snapshot(self) -> dict[str, Any]:
+        if self._snapshot:
+            return dict(self._snapshot)
+        return {
+            "perception_started": bool(self.perception_started),
+            "started": bool(self.started),
+            "paused": bool(self.paused),
+            "runners": [],
+            "skipped_roles": list(self.skipped_roles),
+            "runtime_health": {},
+            "runtime_debug": {},
+            "slot_debug": {},
+            "maintenance": {},
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +68,8 @@ def test_rt_status_returns_empty_envelope_when_no_handle(
     assert payload == {
         "rt_handle_ready": False,
         "perception_started": False,
+        "started": False,
+        "paused": False,
         "runners": [],
         "skipped_roles": [],
         "runtime_health": {},
@@ -167,16 +82,48 @@ def test_rt_status_returns_empty_envelope_when_no_handle(
 def test_rt_status_surfaces_runners_and_skipped_roles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    runners = [
-        _FakeRunner("c2_feed", "hive:c-channel-yolo11n-320", RectZone(x=0, y=0, w=640, h=480)),
-        _FakeRunner(
-            "c3_feed",
-            "hive:c-channel-yolo11n-320",
-            PolygonZone(vertices=((0, 0), (10, 0), (10, 10), (0, 10))),
-        ),
-    ]
     skipped = [{"role": "c4", "reason": "no_camera_config"}]
-    handle = _FakeHandle(runners, skipped)
+    handle = _FakeHandle(
+        skipped,
+        snapshot={
+            "perception_started": True,
+            "started": True,
+            "paused": False,
+            "runners": [
+                {
+                    "feed_id": "c2_feed",
+                    "detector_slug": "hive:c-channel-yolo11n-320",
+                    "zone_kind": "rect",
+                    "running": True,
+                    "last_frame_age_ms": None,
+                    "detection_count": None,
+                    "raw_track_count": None,
+                    "confirmed_track_count": None,
+                    "confirmed_real_track_count": None,
+                    "raw_track_preview": [],
+                    "confirmed_track_preview": [],
+                },
+                {
+                    "feed_id": "c3_feed",
+                    "detector_slug": "hive:c-channel-yolo11n-320",
+                    "zone_kind": "polygon",
+                    "running": True,
+                    "last_frame_age_ms": None,
+                    "detection_count": None,
+                    "raw_track_count": None,
+                    "confirmed_track_count": None,
+                    "confirmed_real_track_count": None,
+                    "raw_track_preview": [],
+                    "confirmed_track_preview": [],
+                },
+            ],
+            "skipped_roles": skipped,
+            "runtime_health": {},
+            "runtime_debug": {},
+            "slot_debug": {},
+            "maintenance": {},
+        },
+    )
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
     payload = rt_runtime_router.get_rt_status()
@@ -204,7 +151,7 @@ def test_rt_status_surfaces_runners_and_skipped_roles(
 def test_rt_status_distinguishes_idle_perception_from_full_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    handle = _FakeHandle([], [], started=False, perception_started=True)
+    handle = _FakeHandle([], started=False, perception_started=True)
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
     payload = rt_runtime_router.get_rt_status()
@@ -217,37 +164,37 @@ def test_rt_status_distinguishes_idle_perception_from_full_runtime(
 def test_rt_status_surfaces_runtime_and_slot_debug(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    state = SimpleNamespace(
-        detections=SimpleNamespace(detections=(object(), object())),
-        raw_tracks=TrackBatch(
-            "c2_feed",
-            1,
-            0.0,
-            tracks=(
-                _track(global_id=1, confirmed_real=False),
-                _track(global_id=2, confirmed_real=True),
-            ),
-            lost_track_ids=(),
-        ),
-        filtered_tracks=TrackBatch(
-            "c2_feed",
-            1,
-            0.0,
-            tracks=(
-                _track(global_id=2, confirmed_real=True),
-                _track(global_id=3, confirmed_real=False),
-            ),
-            lost_track_ids=(),
-        ),
-    )
-    runners = [
-        _FakeRunner("c2_feed", "hive:c-channel-yolo11n-320", RectZone(x=0, y=0, w=640, h=480), state=state),
-    ]
-    handle = _FakeHandle(runners, [])
-    handle.orchestrator = _FakeOrchestrator(
-        health={"c2": {"state": "idle", "blocked_reason": None, "last_tick_ms": 1.2}},
-        runtimes=[_FakeRuntimeNode("c2", {"ring_count": 4, "downstream_taken": 1})],
-        slots={("c2", "c3"): _FakeSlot(capacity=1, taken=1)},
+    handle = _FakeHandle(
+        [],
+        snapshot={
+            "perception_started": True,
+            "started": True,
+            "paused": False,
+            "runners": [
+                {
+                    "feed_id": "c2_feed",
+                    "detector_slug": "hive:c-channel-yolo11n-320",
+                    "zone_kind": "rect",
+                    "running": True,
+                    "last_frame_age_ms": 12.5,
+                    "detection_count": 2,
+                    "raw_track_count": 2,
+                    "confirmed_track_count": 2,
+                    "confirmed_real_track_count": 1,
+                    "raw_track_preview": [],
+                    "confirmed_track_preview": [],
+                },
+            ],
+            "skipped_roles": [],
+            "runtime_health": {
+                "c2": {"state": "idle", "blocked_reason": None, "last_tick_ms": 1.2}
+            },
+            "runtime_debug": {"c2": {"ring_count": 4, "downstream_taken": 1}},
+            "slot_debug": {
+                "c2_to_c3": {"capacity": 1, "taken": 1, "available": 0}
+            },
+            "maintenance": {},
+        },
     )
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
@@ -269,12 +216,26 @@ def test_rt_status_surfaces_runtime_and_slot_debug(
 def test_rt_status_surfaces_maintenance_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    handle = _FakeHandle([], [])
-    handle.c234_purge_status = lambda: {  # type: ignore[attr-defined]
-        "active": True,
-        "phase": "purging",
-        "counts": {"c2": 2, "c3": 1, "c4_raw": 1, "c4_dossiers": 0},
-    }
+    handle = _FakeHandle(
+        [],
+        snapshot={
+            "perception_started": True,
+            "started": True,
+            "paused": False,
+            "runners": [],
+            "skipped_roles": [],
+            "runtime_health": {},
+            "runtime_debug": {},
+            "slot_debug": {},
+            "maintenance": {
+                "c234_purge": {
+                    "active": True,
+                    "phase": "purging",
+                    "counts": {"c2": 2, "c3": 1, "c4_raw": 1, "c4_dossiers": 0},
+                }
+            },
+        },
+    )
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
     payload = rt_runtime_router.get_rt_status()
@@ -291,7 +252,7 @@ def test_rt_status_surfaces_maintenance_state(
 def test_start_c234_purge_endpoint_starts_handle_job(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    handle = _FakeHandle([], [])
+    handle = _FakeHandle([])
     handle.start_c234_purge = MagicMock(return_value=True)  # type: ignore[attr-defined]
     handle.c234_purge_status = MagicMock(  # type: ignore[attr-defined]
         return_value={"active": True, "phase": "starting"}
@@ -310,7 +271,7 @@ def test_start_c234_purge_endpoint_starts_handle_job(
 def test_start_c234_purge_endpoint_requires_ready_hardware(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    handle = _FakeHandle([], [])
+    handle = _FakeHandle([])
     handle.start_c234_purge = MagicMock(return_value=True)  # type: ignore[attr-defined]
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
     monkeypatch.setattr(shared_state, "hardware_state", "standby", raising=False)
@@ -325,7 +286,7 @@ def test_start_c234_purge_endpoint_requires_ready_hardware(
 def test_cancel_c234_purge_endpoint_forwards_to_handle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    handle = _FakeHandle([], [])
+    handle = _FakeHandle([])
     handle.cancel_c234_purge = MagicMock(return_value=True)  # type: ignore[attr-defined]
     handle.c234_purge_status = MagicMock(  # type: ignore[attr-defined]
         return_value={"active": True, "phase": "cancelling", "cancel_requested": True}

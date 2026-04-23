@@ -81,7 +81,11 @@ function nearestAxisAlignedRotation(angleDeg: number): number {
 }
 
 function straightenRotationForRole(role: string, polygons: Point[][]): number {
-	if (!['carousel', 'classification_channel', 'classification_top', 'classification_bottom'].includes(role)) return 0;
+	// Straightening is only meaningful for quad-rectified rects (legacy carousel
+	// tray + classification top/bottom cameras). The classification_channel is
+	// an arc/ring channel — rotating it just tilts the annulus and serves no
+	// purpose, so it's excluded.
+	if (!['carousel', 'classification_top', 'classification_bottom'].includes(role)) return 0;
 	if (polygons.length !== 1 || polygons[0].length < 4) return 0;
 
 	const polygon = polygons[0];

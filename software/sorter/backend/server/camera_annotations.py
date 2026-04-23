@@ -30,7 +30,6 @@ _CAMERA_TO_RT_FEED_ID: dict[str, str] = {
 _ZONE_FILL_COLOR = (120, 220, 255)
 _ZONE_LINE_COLOR = (90, 220, 255)
 _DROP_FILL_COLOR = (94, 197, 34)
-_WAIT_FILL_COLOR = (11, 158, 245)
 _EXIT_FILL_COLOR = (68, 68, 239)
 _CHANNEL_LINE_COLORS: dict[str, tuple[int, int, int]] = {
     "c_channel_2": (0, 200, 255),
@@ -172,12 +171,31 @@ def _coerce_pair(raw: Any) -> tuple[float, float] | None:
         return None
 
 
-def _coerce_angle_range(raw: Any) -> tuple[float, float] | None:
+def _coerce_chord_edges(
+    raw: Any,
+) -> tuple[float, float, float, float] | None:
+    """Return (start_inner, start_outer, end_inner, end_outer) degrees.
+
+    Accepts both the new chord schema and the legacy radial schema. A
+    legacy radial zone collapses to a chord whose inner and outer endpoints
+    share the same angle.
+    """
     if not isinstance(raw, dict):
         return None
     try:
-        return float(raw["start_angle"]), float(raw["end_angle"])
-    except Exception:
+        return (
+            float(raw["start_inner_angle"]),
+            float(raw["start_outer_angle"]),
+            float(raw["end_inner_angle"]),
+            float(raw["end_outer_angle"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        pass
+    try:
+        start = float(raw["start_angle"])
+        end = float(raw["end_angle"])
+        return start, start, end, end
+    except (KeyError, TypeError, ValueError):
         return None
 
 
@@ -194,22 +212,34 @@ def _zone_polygon(
     center: tuple[float, float],
     inner_radius: float,
     outer_radius: float,
-    start_deg: float,
-    end_deg: float,
+    start_inner_deg: float,
+    start_outer_deg: float,
+    end_inner_deg: float,
+    end_outer_deg: float,
     *,
     sx: float,
     sy: float,
     segments: int = 64,
 ) -> np.ndarray:
-    span_deg = (float(end_deg) - float(start_deg)) % 360.0
-    if span_deg <= 0.0:
-        span_deg = 360.0
-    outer: list[tuple[int, int]] = []
-    inner: list[tuple[int, int]] = []
+    """Build a chord-bounded zone polygon.
+
+    Inner and outer edges are traced along their own arcs (``start_inner``→
+    ``end_inner`` and ``start_outer``→``end_outer``) and joined by chord
+    edges at start and end. For legacy radial zones, inner and outer angles
+    match and the chord degenerates to a single radial line.
+    """
+    outer_span = (float(end_outer_deg) - float(start_outer_deg)) % 360.0
+    if outer_span <= 0.0:
+        outer_span = 360.0
+    inner_span = (float(end_inner_deg) - float(start_inner_deg)) % 360.0
+    if inner_span <= 0.0:
+        inner_span = 360.0
+
+    points: list[tuple[int, int]] = []
     for step in range(segments + 1):
-        angle_deg = float(start_deg) + (span_deg * step / segments)
+        angle_deg = float(start_outer_deg) + (outer_span * step / segments)
         angle_rad = np.radians(angle_deg)
-        outer.append(
+        points.append(
             _scale_point(
                 (
                     center[0] + np.cos(angle_rad) * float(outer_radius),
@@ -220,9 +250,9 @@ def _zone_polygon(
             )
         )
     for step in range(segments, -1, -1):
-        angle_deg = float(start_deg) + (span_deg * step / segments)
+        angle_deg = float(start_inner_deg) + (inner_span * step / segments)
         angle_rad = np.radians(angle_deg)
-        inner.append(
+        points.append(
             _scale_point(
                 (
                     center[0] + np.cos(angle_rad) * float(inner_radius),
@@ -232,7 +262,7 @@ def _zone_polygon(
                 sy=sy,
             )
         )
-    return np.array(list(outer) + list(inner), dtype=np.int32)
+    return np.array(points, dtype=np.int32)
 
 
 def _circle_polyline(
@@ -294,18 +324,19 @@ class ChannelArcOverlay:
 
         for raw_zone, color, alpha in (
             (config.get("drop_zone"), _DROP_FILL_COLOR, 0.22),
-            (config.get("wait_zone"), _WAIT_FILL_COLOR, 0.22),
             (config.get("exit_zone"), _EXIT_FILL_COLOR, 0.22),
         ):
-            angles = _coerce_angle_range(raw_zone)
-            if angles is None:
+            edges = _coerce_chord_edges(raw_zone)
+            if edges is None:
                 continue
             polygon = _zone_polygon(
                 center,
                 inner_radius,
                 outer_radius,
-                angles[0],
-                angles[1],
+                edges[0],
+                edges[1],
+                edges[2],
+                edges[3],
                 sx=sx,
                 sy=sy,
             )

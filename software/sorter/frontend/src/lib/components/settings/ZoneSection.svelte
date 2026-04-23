@@ -67,42 +67,53 @@
 		center: Point;
 		innerRadius: number;
 		outerRadius: number;
-		dropZone: AngularZone;
-		waitZone: AngularZone | null;
-		exitZone: AngularZone;
+		dropZone: ChordZone;
+		exitZone: ChordZone;
 		// When null, getArcHandles auto-picks a ring-handle angle that avoids
 		// zone boundaries. When set, the operator has dragged the handles
 		// tangentially and we honor their chosen angle (still clamped away
 		// from zone edges).
 		ringHandleAngleDeg: number | null;
 	};
-	type AngularZone = {
-		startAngle: number;
-		endAngle: number;
+	// A zone edge is a chord: inner endpoint on the inner-radius circle and
+	// outer endpoint on the outer-radius circle, each defined by its own angle.
+	// For legacy radial zones, inner and outer angles collapse to the same value.
+	type ChordZone = {
+		startInnerAngle: number;
+		startOuterAngle: number;
+		endInnerAngle: number;
+		endOuterAngle: number;
 	};
 	type ArcHandle =
 		| 'center'
 		| 'inner'
 		| 'outer'
-		| 'dropStart'
-		| 'dropEnd'
-		| 'waitStart'
-		| 'waitEnd'
-		| 'exitStart'
-		| 'exitEnd';
+		| 'dropStartInner'
+		| 'dropStartOuter'
+		| 'dropEndInner'
+		| 'dropEndOuter'
+		| 'exitStartInner'
+		| 'exitStartOuter'
+		| 'exitEndInner'
+		| 'exitEndOuter';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
 		outer_radius: number;
-		drop_zone?: AngularZonePayload;
-		wait_zone?: AngularZonePayload;
-		exit_zone?: AngularZonePayload;
+		drop_zone?: ChordZonePayload;
+		exit_zone?: ChordZonePayload;
 		ring_handle_angle_deg?: number | null;
 		resolution?: number[];
 	};
-	type AngularZonePayload = {
-		start_angle: number;
-		end_angle: number;
+	// Chord payload carries four angles (inner/outer per edge). Legacy payloads
+	// may instead carry start_angle/end_angle — the parser upgrades them.
+	type ChordZonePayload = {
+		start_inner_angle?: number;
+		start_outer_angle?: number;
+		end_inner_angle?: number;
+		end_outer_angle?: number;
+		start_angle?: number;
+		end_angle?: number;
 	};
 	type Snapshot = {
 		userPoints: Record<Channel, number[][]>;
@@ -145,12 +156,14 @@
 		 }
 		| {
 				kind:
-					| 'arc-drop-start'
-					| 'arc-drop-end'
-					| 'arc-wait-start'
-					| 'arc-wait-end'
-					| 'arc-exit-start'
-					| 'arc-exit-end';
+					| 'arc-drop-start-inner'
+					| 'arc-drop-start-outer'
+					| 'arc-drop-end-inner'
+					| 'arc-drop-end-outer'
+					| 'arc-exit-start-inner'
+					| 'arc-exit-start-outer'
+					| 'arc-exit-end-inner'
+					| 'arc-exit-end-outer';
 				channel: ArcChannel;
 			orig: ArcParams;
 		 }
@@ -192,7 +205,6 @@
 	const MIN_ARC_THICKNESS = 20;
 	const CHANNEL_SECTION_COUNT = 360;
 	const CHANNEL_SECTION_DEG = 360 / CHANNEL_SECTION_COUNT;
-	const ARC_ANGLE_HANDLE_RADIUS_RATIO = 0.56;
 	const HANDLE_CANVAS_PADDING = 20;
 	const ALL_CAMERA_ROLES: CameraRole[] = [
 		'c_channel_2',
@@ -250,7 +262,7 @@
 
 	const LEGACY_ZONE_SECTION_RANGES: Record<
 		ArcChannel,
-		{ drop: [number, number]; wait?: [number, number]; exit: [number, number] }
+		{ drop: [number, number]; exit: [number, number] }
 	> = {
 		second: {
 			drop: [101, 180],
@@ -267,8 +279,49 @@
 	};
 
 	const DROP_ZONE_COLOR = '#22c55e';
-	const WAIT_ZONE_COLOR = '#f59e0b';
 	const EXIT_ZONE_COLOR = '#ef4444';
+
+	type ZoneHandle = Exclude<ArcHandle, 'center' | 'inner' | 'outer'>;
+	type ZoneDragKind =
+		| 'arc-drop-start-inner'
+		| 'arc-drop-start-outer'
+		| 'arc-drop-end-inner'
+		| 'arc-drop-end-outer'
+		| 'arc-exit-start-inner'
+		| 'arc-exit-start-outer'
+		| 'arc-exit-end-inner'
+		| 'arc-exit-end-outer';
+
+	const ZONE_HANDLE_TO_DRAG_KIND: Record<ZoneHandle, ZoneDragKind> = {
+		dropStartInner: 'arc-drop-start-inner',
+		dropStartOuter: 'arc-drop-start-outer',
+		dropEndInner: 'arc-drop-end-inner',
+		dropEndOuter: 'arc-drop-end-outer',
+		exitStartInner: 'arc-exit-start-inner',
+		exitStartOuter: 'arc-exit-start-outer',
+		exitEndInner: 'arc-exit-end-inner',
+		exitEndOuter: 'arc-exit-end-outer'
+	};
+
+	type ChordZoneField =
+		| 'startInnerAngle'
+		| 'startOuterAngle'
+		| 'endInnerAngle'
+		| 'endOuterAngle';
+
+	const DRAG_KIND_TO_ZONE_FIELD: Record<
+		ZoneDragKind,
+		[zoneKey: 'dropZone' | 'exitZone', edgeField: ChordZoneField]
+	> = {
+		'arc-drop-start-inner': ['dropZone', 'startInnerAngle'],
+		'arc-drop-start-outer': ['dropZone', 'startOuterAngle'],
+		'arc-drop-end-inner': ['dropZone', 'endInnerAngle'],
+		'arc-drop-end-outer': ['dropZone', 'endOuterAngle'],
+		'arc-exit-start-inner': ['exitZone', 'startInnerAngle'],
+		'arc-exit-start-outer': ['exitZone', 'startOuterAngle'],
+		'arc-exit-end-inner': ['exitZone', 'endInnerAngle'],
+		'arc-exit-end-outer': ['exitZone', 'endOuterAngle']
+	};
 
 	let {
 		channels = ALL_CHANNELS,
@@ -322,10 +375,45 @@
 	let didDrag = $state(false);
 	let editingZone = $state(false);
 	let activeSidebar = $state<SidePanel>(null);
+	// Preview toggles persist across reloads via localStorage. One shared state
+	// across all channels — the zone editor has a single preview viewport, so
+	// per-channel scoping would just surprise the operator. SSR has no
+	// localStorage; the real read happens in onMount after hydration.
+	const ZONE_PREVIEW_STORAGE_PREFIX = 'zone-editor:preview:';
+	function readPreviewToggle(key: string, fallback: boolean): boolean {
+		if (typeof localStorage === 'undefined') return fallback;
+		try {
+			const raw = localStorage.getItem(ZONE_PREVIEW_STORAGE_PREFIX + key);
+			if (raw === null) return fallback;
+			return raw === '1' || raw === 'true';
+		} catch {
+			return fallback;
+		}
+	}
+	function writePreviewToggle(key: string, value: boolean) {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			localStorage.setItem(ZONE_PREVIEW_STORAGE_PREFIX + key, value ? '1' : '0');
+		} catch {
+			// Quota / private mode — silently ignore.
+		}
+	}
 	let previewColorCorrect = $state(true);
 	let previewAnnotated = $state(true);
 	let previewCropped = $state(false);
 	let previewZones = $state(true);
+	let previewPersistReady = $state(false);
+	onMount(() => {
+		previewColorCorrect = readPreviewToggle('colorCorrect', previewColorCorrect);
+		previewAnnotated = readPreviewToggle('annotated', previewAnnotated);
+		previewCropped = readPreviewToggle('cropped', previewCropped);
+		previewZones = readPreviewToggle('zones', previewZones);
+		previewPersistReady = true;
+	});
+	$effect(() => { if (previewPersistReady) writePreviewToggle('colorCorrect', previewColorCorrect); });
+	$effect(() => { if (previewPersistReady) writePreviewToggle('annotated', previewAnnotated); });
+	$effect(() => { if (previewPersistReady) writePreviewToggle('cropped', previewCropped); });
+	$effect(() => { if (previewPersistReady) writePreviewToggle('zones', previewZones); });
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
 	let cameraAbort = $state<AbortController | null>(null);
@@ -510,10 +598,12 @@
 		return Math.min(delta, 360 - delta);
 	}
 
-	function clampZone(zone: AngularZone): AngularZone {
+	// Clamp a single (start, end) angle pair so the forward span stays within
+	// [MIN_ZONE_SPAN_DEG, 360 - MIN_ZONE_SPAN_DEG].
+	function clampSpan(startAngle: number, endAngle: number): { startAngle: number; endAngle: number } {
 		const next = {
-			startAngle: normalizeAngle(zone.startAngle),
-			endAngle: normalizeAngle(zone.endAngle)
+			startAngle: normalizeAngle(startAngle),
+			endAngle: normalizeAngle(endAngle)
 		};
 		let span = positiveAngleSpan(next.startAngle, next.endAngle);
 		if (span < MIN_ZONE_SPAN_DEG) {
@@ -526,41 +616,57 @@
 		return next;
 	}
 
+	// Enforce both inner and outer edges of a chord zone meet the minimum span.
+	// Inner and outer arcs are independent: the operator can tilt the chord as
+	// long as each arc still spans at least MIN_ZONE_SPAN_DEG.
+	function clampZone(zone: ChordZone): ChordZone {
+		const outer = clampSpan(zone.startOuterAngle, zone.endOuterAngle);
+		const inner = clampSpan(zone.startInnerAngle, zone.endInnerAngle);
+		return {
+			startOuterAngle: outer.startAngle,
+			endOuterAngle: outer.endAngle,
+			startInnerAngle: inner.startAngle,
+			endInnerAngle: inner.endAngle
+		};
+	}
+
+	// Radial chord zone (inner and outer share angle) — the default when a
+	// zone is seeded from section ranges or legacy payload.
+	function radialChordZone(startAngle: number, endAngle: number): ChordZone {
+		return clampZone({
+			startOuterAngle: startAngle,
+			startInnerAngle: startAngle,
+			endOuterAngle: endAngle,
+			endInnerAngle: endAngle
+		});
+	}
+
+	function copyChordZone(zone: ChordZone): ChordZone {
+		return {
+			startInnerAngle: zone.startInnerAngle,
+			startOuterAngle: zone.startOuterAngle,
+			endInnerAngle: zone.endInnerAngle,
+			endOuterAngle: zone.endOuterAngle
+		};
+	}
+
 	function copyArcParams(params: ArcParams): ArcParams {
 		return {
 			center: [params.center[0], params.center[1]],
 			innerRadius: params.innerRadius,
 			outerRadius: params.outerRadius,
-			dropZone: {
-				startAngle: params.dropZone.startAngle,
-				endAngle: params.dropZone.endAngle
-			},
-			waitZone: params.waitZone
-				? {
-						startAngle: params.waitZone.startAngle,
-						endAngle: params.waitZone.endAngle
-					}
-				: null,
-			exitZone: {
-				startAngle: params.exitZone.startAngle,
-				endAngle: params.exitZone.endAngle
-			},
+			dropZone: copyChordZone(params.dropZone),
+			exitZone: copyChordZone(params.exitZone),
 			ringHandleAngleDeg: params.ringHandleAngleDeg
 		};
 	}
 
-	function normalizeArcParamsForChannel(channel: ArcChannel, params: ArcParams): ArcParams {
+	function normalizeArcParamsForChannel(_channel: ArcChannel, params: ArcParams): ArcParams {
 		const normalized: ArcParams = {
 			center: [params.center[0], params.center[1]],
 			innerRadius: params.innerRadius,
 			outerRadius: params.outerRadius,
 			dropZone: clampZone(params.dropZone),
-			waitZone:
-				channel === 'classification_channel'
-					? null
-					: params.waitZone
-						? clampZone(params.waitZone)
-						: null,
 			exitZone: clampZone(params.exitZone),
 			ringHandleAngleDeg:
 				typeof params.ringHandleAngleDeg === 'number'
@@ -573,16 +679,16 @@
 
 	function sectionRangeToZone(
 		channel: ArcChannel,
-		zoneKey: 'drop' | 'wait' | 'exit',
+		zoneKey: 'drop' | 'exit',
 		sectionZeroAngle = 0
-	): AngularZone | null {
+	): ChordZone | null {
 		const range = LEGACY_ZONE_SECTION_RANGES[channel][zoneKey];
 		if (!range) return null;
 		const [startSection, endSection] = range;
-		return clampZone({
-			startAngle: normalizeAngle(sectionZeroAngle + startSection * CHANNEL_SECTION_DEG),
-			endAngle: normalizeAngle(sectionZeroAngle + endSection * CHANNEL_SECTION_DEG)
-		});
+		return radialChordZone(
+			normalizeAngle(sectionZeroAngle + startSection * CHANNEL_SECTION_DEG),
+			normalizeAngle(sectionZeroAngle + endSection * CHANNEL_SECTION_DEG)
+		);
 	}
 
 	function pointDistance(a: Point, b: Point): number {
@@ -708,10 +814,15 @@
 			if (lhs === null || rhs === null) return false;
 			return ROUND(lhs[0]) === ROUND(rhs[0]) && ROUND(lhs[1]) === ROUND(rhs[1]);
 		}
-		function sameZone(lhs: AngularZone | null, rhs: AngularZone | null): boolean {
+		function sameZone(lhs: ChordZone | null, rhs: ChordZone | null): boolean {
 			if (lhs === null && rhs === null) return true;
 			if (lhs === null || rhs === null) return false;
-			return lhs.startAngle === rhs.startAngle && lhs.endAngle === rhs.endAngle;
+			return (
+				lhs.startInnerAngle === rhs.startInnerAngle &&
+				lhs.startOuterAngle === rhs.startOuterAngle &&
+				lhs.endInnerAngle === rhs.endInnerAngle &&
+				lhs.endOuterAngle === rhs.endOuterAngle
+			);
 		}
 		function sameArc(lhs: ArcParams | null, rhs: ArcParams | null): boolean {
 			if (lhs === null && rhs === null) return true;
@@ -721,7 +832,6 @@
 				ROUND(lhs.innerRadius) === ROUND(rhs.innerRadius) &&
 				ROUND(lhs.outerRadius) === ROUND(rhs.outerRadius) &&
 				sameZone(lhs.dropZone, rhs.dropZone) &&
-				sameZone(lhs.waitZone, rhs.waitZone) &&
 				sameZone(lhs.exitZone, rhs.exitZone) &&
 				(lhs.ringHandleAngleDeg ?? null) === (rhs.ringHandleAngleDeg ?? null)
 			);
@@ -1069,20 +1179,10 @@
 	function defaultZoneLayout(
 		channel: ArcChannel,
 		sectionZeroAngle = 0
-	): Pick<ArcParams, 'dropZone' | 'waitZone' | 'exitZone'> {
+	): Pick<ArcParams, 'dropZone' | 'exitZone'> {
 		return {
-			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle) ?? clampZone({
-				startAngle: 40,
-				endAngle: 120
-			}),
-			waitZone:
-				channel === 'classification_channel'
-					? null
-					: sectionRangeToZone(channel, 'wait', sectionZeroAngle),
-			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? clampZone({
-				startAngle: 300,
-				endAngle: 340
-			})
+			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle) ?? radialChordZone(40, 120),
+			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? radialChordZone(300, 340)
 		};
 	}
 
@@ -1102,40 +1202,49 @@
 		});
 	}
 
+	function serializeChordZone(zone: ChordZone): ChordZonePayload {
+		return {
+			start_inner_angle: zone.startInnerAngle,
+			start_outer_angle: zone.startOuterAngle,
+			end_inner_angle: zone.endInnerAngle,
+			end_outer_angle: zone.endOuterAngle
+		};
+	}
+
 	function serializeArcParams(params: ArcParams, resolution: [number, number]): ArcParamsPayload {
 		return {
 			center: [Math.round(params.center[0]), Math.round(params.center[1])],
 			inner_radius: Math.round(params.innerRadius),
 			outer_radius: Math.round(params.outerRadius),
-			drop_zone: {
-				start_angle: params.dropZone.startAngle,
-				end_angle: params.dropZone.endAngle
-			},
-			wait_zone: params.waitZone
-				? {
-						start_angle: params.waitZone.startAngle,
-						end_angle: params.waitZone.endAngle
-					}
-				: undefined,
-			exit_zone: {
-				start_angle: params.exitZone.startAngle,
-				end_angle: params.exitZone.endAngle
-			},
+			drop_zone: serializeChordZone(params.dropZone),
+			exit_zone: serializeChordZone(params.exitZone),
 			ring_handle_angle_deg:
 				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null,
 			resolution
 		};
 	}
 
-	function parseAngularZone(raw: unknown): AngularZone | null {
+	function parseChordZone(raw: unknown): ChordZone | null {
 		if (!raw || typeof raw !== 'object') return null;
-		const startAngle = (raw as AngularZonePayload).start_angle;
-		const endAngle = (raw as AngularZonePayload).end_angle;
-		if (typeof startAngle !== 'number' || typeof endAngle !== 'number') return null;
-		return clampZone({
-			startAngle,
-			endAngle
-		});
+		const r = raw as ChordZonePayload;
+		if (
+			typeof r.start_inner_angle === 'number' &&
+			typeof r.start_outer_angle === 'number' &&
+			typeof r.end_inner_angle === 'number' &&
+			typeof r.end_outer_angle === 'number'
+		) {
+			return clampZone({
+				startInnerAngle: r.start_inner_angle,
+				startOuterAngle: r.start_outer_angle,
+				endInnerAngle: r.end_inner_angle,
+				endOuterAngle: r.end_outer_angle
+			});
+		}
+		// Legacy radial payload — inner and outer collapse to the same angle.
+		if (typeof r.start_angle === 'number' && typeof r.end_angle === 'number') {
+			return radialChordZone(r.start_angle, r.end_angle);
+		}
+		return null;
 	}
 
 	function parseArcParams(
@@ -1158,18 +1267,13 @@
 			return null;
 		}
 		const dropZone =
-			parseAngularZone((raw as ArcParamsPayload).drop_zone) ??
+			parseChordZone((raw as ArcParamsPayload).drop_zone) ??
 			sectionRangeToZone(channel, 'drop', sectionZeroAngle) ??
-			clampZone({ startAngle: 40, endAngle: 120 });
-		const waitZone =
-			channel === 'classification_channel'
-				? null
-				: parseAngularZone((raw as ArcParamsPayload).wait_zone) ??
-					sectionRangeToZone(channel, 'wait', sectionZeroAngle);
+			radialChordZone(40, 120);
 		const exitZone =
-			parseAngularZone((raw as ArcParamsPayload).exit_zone) ??
+			parseChordZone((raw as ArcParamsPayload).exit_zone) ??
 			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ??
-			clampZone({ startAngle: 300, endAngle: 340 });
+			radialChordZone(300, 340);
 		const ringHandleRaw = (raw as ArcParamsPayload).ring_handle_angle_deg;
 		const ringHandleAngleDeg =
 			typeof ringHandleRaw === 'number' && Number.isFinite(ringHandleRaw)
@@ -1180,7 +1284,6 @@
 			innerRadius: Math.max(10, innerRadius),
 			outerRadius: Math.max(innerRadius + MIN_ARC_THICKNESS, outerRadius),
 			dropZone,
-			waitZone,
 			exitZone,
 			ringHandleAngleDeg
 		});
@@ -1207,21 +1310,31 @@
 		});
 	}
 
-	function zoneMidAngle(zone: AngularZone): number {
-		return normalizeAngle(zone.startAngle + positiveAngleSpan(zone.startAngle, zone.endAngle) / 2);
+	// Representative mid-angle for a chord zone — uses the outer edge midpoint
+	// since ring-handle placement and operator-visible "zone direction" live on
+	// the outer arc.
+	function zoneMidAngle(zone: ChordZone): number {
+		return normalizeAngle(
+			zone.startOuterAngle + positiveAngleSpan(zone.startOuterAngle, zone.endOuterAngle) / 2
+		);
 	}
 
-	function buildZonePolygon(params: ArcParams, zone: AngularZone): Point[] {
-		const span = positiveAngleSpan(zone.startAngle, zone.endAngle);
-		const segments = Math.max(8, Math.round((span / 360) * ARC_SEGMENTS));
+	// Build the filled chord-zone polygon: walk the outer arc from startOuter to
+	// endOuter, then the inner arc back from endInner to startInner. The start
+	// and end edges are chords connecting the inner and outer endpoints.
+	function buildZonePolygon(params: ArcParams, zone: ChordZone): Point[] {
+		const outerSpan = positiveAngleSpan(zone.startOuterAngle, zone.endOuterAngle);
+		const innerSpan = positiveAngleSpan(zone.startInnerAngle, zone.endInnerAngle);
+		const outerSegments = Math.max(8, Math.round((outerSpan / 360) * ARC_SEGMENTS));
+		const innerSegments = Math.max(8, Math.round((innerSpan / 360) * ARC_SEGMENTS));
 		const pts: Point[] = [];
 
-		for (let i = 0; i <= segments; i++) {
-			const angle = zone.startAngle + (span * i) / segments;
+		for (let i = 0; i <= outerSegments; i++) {
+			const angle = zone.startOuterAngle + (outerSpan * i) / outerSegments;
 			pts.push(polarPoint(params.center, params.outerRadius, angle));
 		}
-		for (let i = segments; i >= 0; i--) {
-			const angle = zone.startAngle + (span * i) / segments;
+		for (let i = innerSegments; i >= 0; i--) {
+			const angle = zone.startInnerAngle + (innerSpan * i) / innerSegments;
 			pts.push(polarPoint(params.center, params.innerRadius, angle));
 		}
 
@@ -1245,17 +1358,30 @@
 		];
 	}
 
-	function zoneHandlePoint(params: ArcParams, angleDeg: number): Point {
-		const controlRadius =
-			params.innerRadius + (params.outerRadius - params.innerRadius) * ARC_ANGLE_HANDLE_RADIUS_RATIO;
-		return constrainHandlePoint(polarPoint(params.center, controlRadius, angleDeg));
-	}
-
-	function buildRingStoragePoints(params: ArcParams): Point[] {
-		return [
-			...buildCirclePoints(params.center, params.outerRadius),
-			...buildCirclePoints(params.center, params.innerRadius).reverse()
-		];
+	// Detection crop polygon: the "live" annular arc from the drop-zone start
+	// to the exit-zone end, with the dead zone between exit-end and drop-start
+	// carved out. Inner and outer edges follow their own chord angles, so the
+	// cutout can exclude non-radial structures (e.g. an output-guide) cleanly.
+	function buildCropPolygon(params: ArcParams): Point[] {
+		const { center, innerRadius, outerRadius, dropZone, exitZone } = params;
+		const outerSpan = positiveAngleSpan(dropZone.startOuterAngle, exitZone.endOuterAngle);
+		const innerSpan = positiveAngleSpan(dropZone.startInnerAngle, exitZone.endInnerAngle);
+		const outerSegments = Math.max(16, Math.round((outerSpan / 360) * ARC_SEGMENTS));
+		const innerSegments = Math.max(16, Math.round((innerSpan / 360) * ARC_SEGMENTS));
+		const pts: Point[] = [];
+		// Forward outer arc from drop-start to exit-end.
+		for (let i = 0; i <= outerSegments; i++) {
+			const angle = dropZone.startOuterAngle + (outerSpan * i) / outerSegments;
+			pts.push(polarPoint(center, outerRadius, angle));
+		}
+		// Chord inward at exit-end is implicit (next point is on the inner ring).
+		// Backward inner arc from exit-end back to drop-start.
+		for (let i = innerSegments; i >= 0; i--) {
+			const angle = dropZone.startInnerAngle + (innerSpan * i) / innerSegments;
+			pts.push(polarPoint(center, innerRadius, angle));
+		}
+		// Closing chord at drop-start is implicit.
+		return pts;
 	}
 
 	// ---- Quad helpers ----
@@ -1334,14 +1460,15 @@
 
 	// ---- End quad helpers ----
 
+	// Ring-handle avoidance uses outer-edge angles since that's where the
+	// visible chord meets the outer ring; inner-edge offsets don't affect
+	// ring-handle placement.
 	function ringHandleOccupiedAngles(params: ArcParams): number[] {
 		return [
-			params.dropZone.startAngle,
-			params.dropZone.endAngle,
-			params.waitZone?.startAngle ?? params.exitZone.startAngle,
-			params.waitZone?.endAngle ?? params.exitZone.endAngle,
-			params.exitZone.startAngle,
-			params.exitZone.endAngle
+			params.dropZone.startOuterAngle,
+			params.dropZone.endOuterAngle,
+			params.exitZone.startOuterAngle,
+			params.exitZone.endOuterAngle
 		];
 	}
 
@@ -1396,6 +1523,14 @@
 		return autoRingHandleAngle(params);
 	}
 
+	function innerHandlePoint(params: ArcParams, angleDeg: number): Point {
+		return constrainHandlePoint(polarPoint(params.center, params.innerRadius, angleDeg));
+	}
+
+	function outerHandlePoint(params: ArcParams, angleDeg: number): Point {
+		return constrainHandlePoint(polarPoint(params.center, params.outerRadius, angleDeg));
+	}
+
 	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
 		const params = arcParams[channel];
 		if (!params) return null;
@@ -1404,29 +1539,27 @@
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
 			outer: polarPoint(params.center, params.outerRadius, ringHandleAngle),
-			dropStart: zoneHandlePoint(params, params.dropZone.startAngle),
-			dropEnd: zoneHandlePoint(params, params.dropZone.endAngle),
-			waitStart: zoneHandlePoint(
-				params,
-				params.waitZone?.startAngle ?? params.exitZone.startAngle
-			),
-			waitEnd: zoneHandlePoint(
-				params,
-				params.waitZone?.endAngle ?? params.exitZone.endAngle
-			),
-			exitStart: zoneHandlePoint(params, params.exitZone.startAngle),
-			exitEnd: zoneHandlePoint(params, params.exitZone.endAngle)
+			dropStartInner: innerHandlePoint(params, params.dropZone.startInnerAngle),
+			dropStartOuter: outerHandlePoint(params, params.dropZone.startOuterAngle),
+			dropEndInner: innerHandlePoint(params, params.dropZone.endInnerAngle),
+			dropEndOuter: outerHandlePoint(params, params.dropZone.endOuterAngle),
+			exitStartInner: innerHandlePoint(params, params.exitZone.startInnerAngle),
+			exitStartOuter: outerHandlePoint(params, params.exitZone.startOuterAngle),
+			exitEndInner: innerHandlePoint(params, params.exitZone.endInnerAngle),
+			exitEndOuter: outerHandlePoint(params, params.exitZone.endOuterAngle)
 		};
 	}
 
-	function arcEditableHandles(channel: ArcChannel): ArcHandle[] {
-		const params = arcParams[channel];
+	function arcEditableHandles(_channel: ArcChannel): ArcHandle[] {
 		return [
-			'dropStart',
-			'dropEnd',
-			...(params?.waitZone ? (['waitStart', 'waitEnd'] as ArcHandle[]) : []),
-			'exitStart',
-			'exitEnd',
+			'dropStartInner',
+			'dropStartOuter',
+			'dropEndInner',
+			'dropEndOuter',
+			'exitStartInner',
+			'exitStartOuter',
+			'exitEndInner',
+			'exitEndOuter',
 			'outer',
 			'inner',
 			'center'
@@ -1578,7 +1711,6 @@
 			innerRadius: params.innerRadius * rs,
 			outerRadius: params.outerRadius * rs,
 			dropZone: { ...params.dropZone },
-			waitZone: params.waitZone ? { ...params.waitZone } : null,
 			exitZone: { ...params.exitZone },
 			// Angles are dimensionless — no rescale needed.
 			ringHandleAngleDeg: params.ringHandleAngleDeg
@@ -1927,19 +2059,10 @@
 					canvasCursor = 'grabbing';
 					return;
 				}
+				const zoneHandleKind = ZONE_HANDLE_TO_DRAG_KIND[handle as ZoneHandle] ?? null;
+				if (zoneHandleKind === null) return;
 				dragState = {
-					kind:
-						handle === 'dropStart'
-							? 'arc-drop-start'
-							: handle === 'dropEnd'
-								? 'arc-drop-end'
-								: handle === 'waitStart'
-									? 'arc-wait-start'
-									: handle === 'waitEnd'
-										? 'arc-wait-end'
-									: handle === 'exitStart'
-										? 'arc-exit-start'
-										: 'arc-exit-end',
+					kind: zoneHandleKind,
 					channel: currentChannel,
 					orig: copyArcParams(params)
 				};
@@ -2081,70 +2204,22 @@
 				}
 				break;
 			}
-			case 'arc-drop-start': {
+			case 'arc-drop-start-inner':
+			case 'arc-drop-start-outer':
+			case 'arc-drop-end-inner':
+			case 'arc-drop-end-outer':
+			case 'arc-exit-start-inner':
+			case 'arc-exit-start-outer':
+			case 'arc-exit-end-inner':
+			case 'arc-exit-end-outer': {
 				didDrag = true;
+				const angle = angleFromCenter(point, dragState.orig.center);
+				const [zoneKey, edgeField] = DRAG_KIND_TO_ZONE_FIELD[dragState.kind];
 				setArc(dragState.channel, {
 					...dragState.orig,
-					dropZone: {
-						...dragState.orig.dropZone,
-						startAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-drop-end': {
-				didDrag = true;
-				setArc(dragState.channel, {
-					...dragState.orig,
-					dropZone: {
-						...dragState.orig.dropZone,
-						endAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-wait-start': {
-				if (!dragState.orig.waitZone) break;
-				didDrag = true;
-				setArc(dragState.channel, {
-					...dragState.orig,
-					waitZone: {
-						...dragState.orig.waitZone,
-						startAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-wait-end': {
-				if (!dragState.orig.waitZone) break;
-				didDrag = true;
-				setArc(dragState.channel, {
-					...dragState.orig,
-					waitZone: {
-						...dragState.orig.waitZone,
-						endAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-exit-start': {
-				didDrag = true;
-				setArc(dragState.channel, {
-					...dragState.orig,
-					exitZone: {
-						...dragState.orig.exitZone,
-						startAngle: angleFromCenter(point, dragState.orig.center)
-					}
-				});
-				break;
-			}
-			case 'arc-exit-end': {
-				didDrag = true;
-				setArc(dragState.channel, {
-					...dragState.orig,
-					exitZone: {
-						...dragState.orig.exitZone,
-						endAngle: angleFromCenter(point, dragState.orig.center)
+					[zoneKey]: {
+						...dragState.orig[zoneKey],
+						[edgeField]: angle
 					}
 				});
 				break;
@@ -2283,7 +2358,7 @@
 		point: Point,
 		fill: string,
 		stroke: string,
-		label: string,
+		label = '',
 		offset: Point = [0, -20]
 	) {
 		const s = editorScale;
@@ -2294,6 +2369,8 @@
 		ctx.lineWidth = 2 * s;
 		ctx.strokeStyle = stroke;
 		ctx.stroke();
+
+		if (!label) return;
 
 		ctx.font = `bold ${Math.round(13 * s)}px sans-serif`;
 		ctx.textAlign = 'center';
@@ -2360,13 +2437,12 @@
 		const outerCircle = buildCirclePoints(params.center, params.outerRadius);
 		const innerCircle = buildCirclePoints(params.center, params.innerRadius);
 		const dropPolygon = buildZonePolygon(params, params.dropZone);
-		const waitPolygon = params.waitZone ? buildZonePolygon(params, params.waitZone) : null;
 		const exitPolygon = buildZonePolygon(params, params.exitZone);
 
 		// Ring + zone fills render in both browse and edit mode: operators
-		// want the same green (drop) / red (exit) / yellow (wait) tints the
-		// runtime overlay uses so the edit canvas is visually consistent
-		// with what the server renders otherwise.
+		// want the same green (drop) / red (exit) tints the runtime overlay
+		// uses so the edit canvas is visually consistent with what the
+		// server renders otherwise.
 		ctx.beginPath();
 		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
 		for (let i = 1; i < outerCircle.length; i++) {
@@ -2383,9 +2459,6 @@
 
 		const zoneOverlays: Array<{ polygon: Point[]; color: string; alpha: number }> = [
 			{ polygon: dropPolygon, color: DROP_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
-			...(waitPolygon
-				? [{ polygon: waitPolygon, color: WAIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }]
-				: []),
 			{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }
 		];
 
@@ -2424,34 +2497,25 @@
 		const handles = getArcHandles(channel);
 		if (!handles) return;
 
-			if (active && editingZone) {
-				ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
-				ctx.lineWidth = 1.25 * s;
+		if (active && editingZone) {
+			// Zone edges are chords between the inner and outer rings — draw
+			// them directly instead of the legacy "center→handle" radials.
+			ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
+			ctx.lineWidth = 1.25 * s;
 			ctx.beginPath();
-			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.dropStart[0], handles.dropStart[1]);
-			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.dropEnd[0], handles.dropEnd[1]);
+			ctx.moveTo(handles.dropStartInner[0], handles.dropStartInner[1]);
+			ctx.lineTo(handles.dropStartOuter[0], handles.dropStartOuter[1]);
+			ctx.moveTo(handles.dropEndInner[0], handles.dropEndInner[1]);
+			ctx.lineTo(handles.dropEndOuter[0], handles.dropEndOuter[1]);
 			ctx.stroke();
-
-			if (params.waitZone) {
-				ctx.strokeStyle = `${WAIT_ZONE_COLOR}cc`;
-				ctx.lineWidth = 1.1 * s;
-				ctx.beginPath();
-				ctx.moveTo(params.center[0], params.center[1]);
-				ctx.lineTo(handles.waitStart[0], handles.waitStart[1]);
-				ctx.moveTo(params.center[0], params.center[1]);
-				ctx.lineTo(handles.waitEnd[0], handles.waitEnd[1]);
-				ctx.stroke();
-			}
 
 			ctx.strokeStyle = `${EXIT_ZONE_COLOR}cc`;
 			ctx.lineWidth = 1 * s;
 			ctx.beginPath();
-			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.exitStart[0], handles.exitStart[1]);
-			ctx.moveTo(params.center[0], params.center[1]);
-			ctx.lineTo(handles.exitEnd[0], handles.exitEnd[1]);
+			ctx.moveTo(handles.exitStartInner[0], handles.exitStartInner[1]);
+			ctx.lineTo(handles.exitStartOuter[0], handles.exitStartOuter[1]);
+			ctx.moveTo(handles.exitEndInner[0], handles.exitEndInner[1]);
+			ctx.lineTo(handles.exitEndOuter[0], handles.exitEndOuter[1]);
 			ctx.stroke();
 
 			ctx.strokeStyle = `${color}aa`;
@@ -2465,14 +2529,14 @@
 			drawHandle(ctx, handles.center, color, '#111', 'Center');
 			drawHandle(ctx, handles.inner, color, '#111', 'Inner');
 			drawHandle(ctx, handles.outer, color, '#111', 'Outer');
-			drawHandle(ctx, handles.dropStart, DROP_ZONE_COLOR, '#111', 'Drop Start', [-40, -20]);
-			drawHandle(ctx, handles.dropEnd, DROP_ZONE_COLOR, '#111', 'Drop End', [40, -20]);
-			if (params.waitZone) {
-				drawHandle(ctx, handles.waitStart, WAIT_ZONE_COLOR, '#111', 'Wait Start', [-42, 2]);
-				drawHandle(ctx, handles.waitEnd, WAIT_ZONE_COLOR, '#111', 'Wait End', [42, 2]);
-			}
-			drawHandle(ctx, handles.exitStart, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-40, 24]);
-			drawHandle(ctx, handles.exitEnd, EXIT_ZONE_COLOR, '#111', 'Exit End', [40, 24]);
+			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', 'Drop Start', [-42, -18]);
+			drawHandle(ctx, handles.dropStartInner, DROP_ZONE_COLOR, '#111');
+			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', 'Drop End', [42, -18]);
+			drawHandle(ctx, handles.dropEndInner, DROP_ZONE_COLOR, '#111');
+			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-42, 22]);
+			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
+			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', 'Exit End', [42, 22]);
+			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
 		}
 
 		drawSectionZero(ctx, channel, active);
@@ -2850,14 +2914,11 @@
 			if (TRANSPORT_CHANNELS.includes(current)) {
 				const key = channelStorageKey(current);
 				if (isArcChannel(current) && arcParams[current]) {
-					polygons[key] = buildCirclePoints(
-						arcParams[current]!.center,
-						arcParams[current]!.outerRadius
-					).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
-					user_pts[current] = buildRingStoragePoints(arcParams[current]!).map((pt) => [
-						Math.round(pt[0]),
-						Math.round(pt[1])
-					]);
+					const cropPts = buildCropPolygon(arcParams[current]!).map(
+						(pt) => [Math.round(pt[0]), Math.round(pt[1])]
+					);
+					polygons[key] = cropPts;
+					user_pts[current] = cropPts;
 					arc_params[current] = serializeArcParams(arcParams[current]!, channelRes);
 					delete quad_params_channel[current];
 				} else if (isRectChannel(current) && quadParams[current]) {

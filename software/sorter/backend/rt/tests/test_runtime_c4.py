@@ -764,6 +764,67 @@ def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
 
 
 # ----------------------------------------------------------------------
+# PurgePort binding
+
+
+def _purge_port_runtime() -> RuntimeC4:
+    rt, *_ = _make(startup_purge=C4StartupPurgeStrategy(enabled=True))
+    return rt
+
+
+def test_c4_purge_port_arm_flips_startup_flag() -> None:
+    rt = _purge_port_runtime()
+    port = rt.purge_port()
+    assert port.key == "c4"
+    assert rt._startup_purge_armed is False
+
+    port.arm()
+
+    assert rt._startup_purge_armed is True
+
+
+def test_c4_purge_port_counts_reflect_runtime_state() -> None:
+    rt = _purge_port_runtime()
+    rt._raw_detection_count = 3
+    rt._pieces["uuid-a"] = object()  # type: ignore[assignment]
+    rt._pieces["uuid-b"] = object()  # type: ignore[assignment]
+
+    counts = rt.purge_port().counts()
+
+    assert counts.ring_count == 3
+    assert counts.owned_count == 2
+    assert counts.pending_detections == 0
+    assert counts.is_empty is False
+
+
+def test_c4_purge_port_counts_empty_when_idle() -> None:
+    rt = _purge_port_runtime()
+    counts = rt.purge_port().counts()
+    assert counts.is_empty is True
+
+
+def test_c4_purge_port_drain_step_reports_armed_state() -> None:
+    rt = _purge_port_runtime()
+    port = rt.purge_port()
+    assert port.drain_step(now_mono=1.0) is False
+
+    port.arm()
+
+    assert port.drain_step(now_mono=1.0) is True
+
+
+def test_c4_purge_port_disarm_clears_flag_and_exits_mode() -> None:
+    rt = _purge_port_runtime()
+    port = rt.purge_port()
+    port.arm()
+    assert rt._startup_purge_armed is True
+
+    port.disarm()
+
+    assert rt._startup_purge_armed is False
+
+
+# ----------------------------------------------------------------------
 # Introspection helper
 
 

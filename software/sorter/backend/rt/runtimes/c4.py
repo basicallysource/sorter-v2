@@ -22,6 +22,7 @@ from rt.contracts.classification import Classifier, ClassifierResult
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
+from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -246,6 +247,9 @@ class RuntimeC4(BaseRuntime):
         self._startup_purge_commit_piece_uuid = None
         self._startup_purge_commit_deadline = None
         self._startup_purge_eject_ok = None
+
+    def purge_port(self) -> PurgePort:
+        return _C4PurgePort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
         raw_tracks = self._fresh_tracks(inbox.tracks, require_confirmed=False)
@@ -765,6 +769,38 @@ def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:
 
 def _wrap_deg(angle: float) -> float:
     return (float(angle) + 180.0) % 360.0 - 180.0
+
+
+class _C4PurgePort:
+    """PurgePort binding for RuntimeC4.
+
+    C4 already drives its own drain loop inside the normal tick path
+    (``_run_startup_purge``). The port just arms/disarms the flag and
+    exposes counts; ``drain_step`` is a no-op that reports whether the
+    runtime is still working.
+    """
+
+    key = "c4"
+
+    def __init__(self, runtime: RuntimeC4) -> None:
+        self._runtime = runtime
+
+    def arm(self) -> None:
+        self._runtime.arm_startup_purge()
+
+    def disarm(self) -> None:
+        self._runtime._startup_purge_armed = False
+        self._runtime._exit_startup_purge()
+
+    def counts(self) -> PurgeCounts:
+        return PurgeCounts(
+            ring_count=int(self._runtime._raw_detection_count),
+            owned_count=len(self._runtime._pieces),
+            pending_detections=0,
+        )
+
+    def drain_step(self, now_mono: float) -> bool:
+        return bool(self._runtime._startup_purge_armed)
 
 
 __all__ = ["RuntimeC4"]

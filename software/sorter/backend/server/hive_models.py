@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from blob_manager import getHiveConfig
+from local_state import get_hive_config
 
 # ---------------------------------------------------------------------------
 # Locate the Hive sorter-client package (hive_client.py)
@@ -85,7 +85,7 @@ def resolve_targets() -> list[dict]:
     should ever call this directly; the HTTP layer must hand out redacted
     copies without ``api_token``.
     """
-    raw = getHiveConfig()
+    raw = get_hive_config()
     if not isinstance(raw, dict):
         return []
     targets = raw.get("targets")

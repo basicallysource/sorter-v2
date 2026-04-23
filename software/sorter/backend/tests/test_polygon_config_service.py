@@ -19,11 +19,11 @@ def test_polygon_config_service_saves_and_rebuilds_roles(
 ) -> None:
     recorded: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "server.services.polygon_config.setChannelPolygons",
+        "server.services.polygon_config.set_channel_polygons",
         lambda payload: recorded.append(("channel", payload)),
     )
     monkeypatch.setattr(
-        "server.services.polygon_config.setClassificationPolygons",
+        "server.services.polygon_config.set_classification_polygons",
         lambda payload: recorded.append(("classification", payload)),
     )
 
@@ -61,11 +61,11 @@ def test_polygon_config_service_marks_failed_rebuilds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "server.services.polygon_config.setChannelPolygons",
+        "server.services.polygon_config.set_channel_polygons",
         lambda payload: None,
     )
     monkeypatch.setattr(
-        "server.services.polygon_config.setClassificationPolygons",
+        "server.services.polygon_config.set_classification_polygons",
         lambda payload: None,
     )
 

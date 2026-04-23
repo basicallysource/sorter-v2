@@ -71,14 +71,14 @@ def saved_resolution_for_channel(saved: dict, channel_key: str | None) -> list:
 
 
 def load_saved_polygon(key: str, target_w: int, target_h: int) -> Any:
-    """Read + scale a polygon from ``blob_manager.getChannelPolygons()``."""
+    """Read + scale a polygon from ``local_state.get_channel_polygons()``."""
     import numpy as np  # local — keeps module import fast
 
     try:
-        from blob_manager import getChannelPolygons
+        from local_state import get_channel_polygons
     except Exception:
         return None
-    saved = getChannelPolygons()
+    saved = get_channel_polygons()
     if not isinstance(saved, dict):
         return None
     polygon_data = saved.get("polygons") or {}
@@ -120,10 +120,10 @@ def load_arc_tracker_params(
     must carry both into the perception pipeline.
     """
     try:
-        from blob_manager import getChannelPolygons
+        from local_state import get_channel_polygons
     except Exception:
         return {}
-    saved = getChannelPolygons()
+    saved = get_channel_polygons()
     if not isinstance(saved, dict):
         return {}
     arc_params = saved.get("arc_params")

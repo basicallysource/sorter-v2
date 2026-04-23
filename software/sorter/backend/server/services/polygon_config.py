@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from blob_manager import setChannelPolygons, setClassificationPolygons
+from local_state import set_channel_polygons, set_classification_polygons
 
 
 @dataclass(slots=True, kw_only=True)
@@ -14,9 +14,9 @@ class PolygonConfigService:
 
     def save(self, body: dict[str, Any]) -> dict[str, Any]:
         if "channel" in body:
-            setChannelPolygons(body["channel"])
+            set_channel_polygons(body["channel"])
         if "classification" in body:
-            setClassificationPolygons(body["classification"])
+            set_classification_polygons(body["classification"])
 
         rebuild = (
             self._rebuild_rt_perception_roles("c2", "c3", "c4")

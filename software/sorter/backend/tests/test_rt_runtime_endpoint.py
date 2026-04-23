@@ -322,11 +322,11 @@ def test_save_feeder_config_calls_rebuild_on_rt_handle(
 
     # Stub out blob writers so the test doesn't touch disk.
     monkeypatch.setattr(
-        "server.services.detection_config.getFeederDetectionConfig",
+        "server.services.detection_config.get_feeder_detection_config",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.services.detection_config.setFeederDetectionConfig",
+        "server.services.detection_config.set_feeder_detection_config",
         lambda cfg: None,
     )
 
@@ -354,11 +354,11 @@ def test_save_classification_channel_config_rebuilds_c4(
         lambda: "classification_channel",
     )
     monkeypatch.setattr(
-        "server.services.detection_config.getClassificationChannelDetectionConfig",
+        "server.services.detection_config.get_classification_channel_detection_config",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.services.detection_config.setClassificationChannelDetectionConfig",
+        "server.services.detection_config.set_classification_channel_detection_config",
         lambda cfg: None,
     )
 
@@ -376,11 +376,11 @@ def test_save_config_without_rt_handle_is_noop(
     """No rt handle → no exception, no rebuild."""
     monkeypatch.setattr(shared_state, "rt_handle", None, raising=False)
     monkeypatch.setattr(
-        "server.services.detection_config.getFeederDetectionConfig",
+        "server.services.detection_config.get_feeder_detection_config",
         lambda: {},
     )
     monkeypatch.setattr(
-        "server.services.detection_config.setFeederDetectionConfig",
+        "server.services.detection_config.set_feeder_detection_config",
         lambda cfg: None,
     )
 
@@ -397,7 +397,7 @@ def test_save_classification_config_persists_via_service(
 ) -> None:
     saved_configs: list[dict[str, Any]] = []
     monkeypatch.setattr(
-        "server.services.detection_config.setClassificationDetectionConfig",
+        "server.services.detection_config.set_classification_detection_config",
         lambda cfg: saved_configs.append(dict(cfg)),
     )
 
@@ -426,7 +426,7 @@ def test_get_classification_channel_config_uses_c4_scope(
         lambda: "classification_channel",
     )
     monkeypatch.setattr(
-        "server.services.detection_config.getClassificationChannelDetectionConfig",
+        "server.services.detection_config.get_classification_channel_detection_config",
         lambda: {"algorithm": "hive:c-channel-yolo11n-320"},
     )
     monkeypatch.setattr(shared_state, "vision_manager", None, raising=False)
@@ -444,11 +444,11 @@ def test_save_polygons_rebuilds_rt_perception_runners(
 ) -> None:
     recorded: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "server.services.polygon_config.setChannelPolygons",
+        "server.services.polygon_config.set_channel_polygons",
         lambda payload: recorded.append(("channel", payload)),
     )
     monkeypatch.setattr(
-        "server.services.polygon_config.setClassificationPolygons",
+        "server.services.polygon_config.set_classification_polygons",
         lambda payload: recorded.append(("classification", payload)),
     )
 

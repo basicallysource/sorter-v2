@@ -118,7 +118,7 @@ def test_load_zone_from_saved_polygon_without_live_frame():
             "carousel": _FakeDevice(width=1920, height=1080),
         }
     )
-    with patch("blob_manager.getChannelPolygons", return_value=_fake_saved_polygons_full()):
+    with patch("local_state.get_channel_polygons", return_value=_fake_saved_polygons_full()):
         zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert isinstance(zone, PolygonZone)
@@ -140,7 +140,7 @@ def test_load_zone_uses_per_channel_resolution_for_c2_polygon() -> None:
         }
     )
     with patch(
-        "blob_manager.getChannelPolygons",
+        "local_state.get_channel_polygons",
         return_value=_fake_saved_polygons_with_per_channel_res(),
     ):
         zone, reason = load_zone_for_role("c2", camera_service, LOG)
@@ -156,7 +156,7 @@ def test_load_zone_uses_per_channel_resolution_for_c2_polygon() -> None:
 
 def test_load_arc_tracker_params_uses_per_channel_resolution() -> None:
     with patch(
-        "blob_manager.getChannelPolygons",
+        "local_state.get_channel_polygons",
         return_value={
             **_fake_saved_polygons_with_per_channel_res(),
             "arc_params": {
@@ -185,7 +185,7 @@ def test_load_zone_c4_boots_without_live_frame_on_c4_camera():
             "carousel": _FakeDevice(),
         }
     )
-    with patch("blob_manager.getChannelPolygons", return_value=_fake_saved_polygons_full()):
+    with patch("local_state.get_channel_polygons", return_value=_fake_saved_polygons_full()):
         zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert zone is not None
@@ -199,7 +199,7 @@ def test_load_zone_falls_back_to_full_frame_when_polygon_missing():
             "carousel": _FakeDevice(width=1280, height=720),
         }
     )
-    with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
+    with patch("local_state.get_channel_polygons", return_value={"polygons": {}}):
         zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert isinstance(zone, RectZone)
@@ -211,7 +211,7 @@ def test_load_zone_returns_none_when_no_camera_config():
     """If the device has no config AND the polygon blob has no resolution,
     we cannot compute a zone."""
     camera_service = _FakeCameraService(devices={})  # no device
-    with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
+    with patch("local_state.get_channel_polygons", return_value={"polygons": {}}):
         zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert zone is None
     assert reason == "no_camera_config"
@@ -237,8 +237,8 @@ def test_configured_resolution_returns_none_when_missing():
 def test_detector_slug_falls_back_to_scope_default_when_no_saved_pref():
     """When the user has never changed the dropdown we use the per-scope
     default — not a hardcoded value."""
-    with patch("blob_manager.getFeederDetectionConfig", return_value={}):
-        with patch("blob_manager.getClassificationChannelDetectionConfig", return_value={}):
+    with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
+        with patch("server.detection_config.common.get_classification_channel_detection_config", return_value={}):
             slug = detector_slug_for_role("c4", LOG)
     # _UI_SCOPE_DEFAULT_SLUG["classification_channel"] is hive:c-channel-yolo11n-320
     # and that slug is actually registered. Must match.
@@ -253,10 +253,10 @@ def test_detector_slug_respects_user_saved_preference_for_c4():
     # verbatim — use the real default slug as the stand-in.
     saved_slug = "hive:c-channel-yolo11n-320"
     with patch(
-        "blob_manager.getFeederDetectionConfig",
+        "server.detection_config.common.get_feeder_detection_config",
         return_value={"algorithm_by_role": {"classification_channel": saved_slug}},
     ):
-        with patch("blob_manager.getClassificationChannelDetectionConfig", return_value={}):
+        with patch("server.detection_config.common.get_classification_channel_detection_config", return_value={}):
             slug = detector_slug_for_role("c4", LOG)
     assert slug == saved_slug
 
@@ -265,7 +265,7 @@ def test_detector_slug_ignores_invalid_saved_slug():
     """A saved slug that no longer refers to a registered detector must
     not be returned — we fall back to the scope default."""
     with patch(
-        "blob_manager.getFeederDetectionConfig",
+        "server.detection_config.common.get_feeder_detection_config",
         return_value={"algorithm_by_role": {"c_channel_2": "hive:does-not-exist"}},
     ):
         slug = detector_slug_for_role("c2", LOG)
@@ -281,7 +281,7 @@ def testbuild_perception_runner_for_role_returns_reason_on_missing_camera():
     """The bootstrap loop must surface a reason slug so `/api/rt/status`
     can explain the skip to the operator."""
     camera_service = _FakeCameraService(devices={})
-    with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
+    with patch("local_state.get_channel_polygons", return_value={"polygons": {}}):
         runner, zone, reason = build_perception_runner_for_role(
             "c4",
             camera_service=camera_service,
@@ -305,10 +305,10 @@ def testbuild_perception_runner_for_role_happy_path():
             "resolution": [1920, 1080],
         }
     }
-    with patch("blob_manager.getChannelPolygons", return_value=saved):
-        with patch("blob_manager.getFeederDetectionConfig", return_value={}):
+    with patch("local_state.get_channel_polygons", return_value=saved):
+        with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
             with patch(
-                "blob_manager.getClassificationChannelDetectionConfig",
+                "server.detection_config.common.get_classification_channel_detection_config",
                 return_value={},
             ):
                 runner, zone, reason = build_perception_runner_for_role(

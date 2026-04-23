@@ -10,16 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from blob_manager import (
-    getCarouselDetectionConfig,
-    getClassificationChannelDetectionConfig,
-    getClassificationDetectionConfig,
-    getFeederDetectionConfig,
-    setCarouselDetectionConfig,
-    setClassificationChannelDetectionConfig,
-    setClassificationDetectionConfig,
-    setFeederDetectionConfig,
-)
 from role_aliases import CLASSIFICATION_CHANNEL_ROLE
 from rt.perception.detector_metadata import (
     detection_algorithm_options,
@@ -31,9 +21,17 @@ from server.detection_config.common import (
     detection_algorithm_uses_baseline as _detection_algorithm_uses_baseline,
     feeder_algorithm_by_role_from_config as _feeder_algorithm_by_role_from_config,
     feeder_role_label as _feeder_role_label,
+    get_carousel_detection_config,
+    get_classification_channel_detection_config,
+    get_classification_detection_config,
+    get_feeder_detection_config,
     openrouter_model_options as _openrouter_model_options,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
+    set_carousel_detection_config,
+    set_classification_channel_detection_config,
+    set_classification_detection_config,
+    set_feeder_detection_config,
 )
 from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
 
@@ -97,7 +95,7 @@ class DetectionConfigService:
     # ------------------------------------------------------------------
 
     def get_classification_detection_config(self) -> dict[str, Any]:
-        saved = _saved_dict(getClassificationDetectionConfig())
+        saved = _saved_dict(get_classification_detection_config())
         return {
             "ok": True,
             "algorithm": normalize_detection_algorithm("classification", saved.get("algorithm")),
@@ -107,7 +105,7 @@ class DetectionConfigService:
         }
 
     def get_feeder_detection_config(self, role: str | None) -> dict[str, Any]:
-        saved = _saved_dict(getFeederDetectionConfig())
+        saved = _saved_dict(get_feeder_detection_config())
         algorithm_by_role = _feeder_algorithm_by_role_from_config(saved)
         algorithm = (
             algorithm_by_role.get(role)
@@ -141,9 +139,9 @@ class DetectionConfigService:
             else "carousel"
         )
         saved = _saved_dict(
-            getClassificationChannelDetectionConfig()
+            get_classification_channel_detection_config()
             if aux_scope == CLASSIFICATION_CHANNEL_ROLE
-            else getCarouselDetectionConfig()
+            else get_carousel_detection_config()
         )
         return {
             "ok": True,
@@ -170,7 +168,7 @@ class DetectionConfigService:
             )
         algorithm = normalize_detection_algorithm("classification", request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
-        setClassificationDetectionConfig(
+        set_classification_detection_config(
             {"algorithm": algorithm, "openrouter_model": openrouter_model}
         )
 
@@ -199,7 +197,7 @@ class DetectionConfigService:
         role = request.role
         algorithm = normalize_detection_algorithm("feeder", request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
-        saved = _saved_dict(getFeederDetectionConfig())
+        saved = _saved_dict(get_feeder_detection_config())
         algorithm_by_role = _feeder_algorithm_by_role_from_config(saved)
         enabled_by_role = _feeder_sample_collection_by_role(saved)
         if role is not None:
@@ -220,7 +218,7 @@ class DetectionConfigService:
             if role is not None
             else any(enabled_by_role.values())
         )
-        setFeederDetectionConfig(
+        set_feeder_detection_config(
             {
                 "algorithm": (
                     algorithm
@@ -278,9 +276,9 @@ class DetectionConfigService:
         algorithm = normalize_detection_algorithm(algorithm_scope, request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
         saved = _saved_dict(
-            getClassificationChannelDetectionConfig()
+            get_classification_channel_detection_config()
             if aux_scope == CLASSIFICATION_CHANNEL_ROLE
-            else getCarouselDetectionConfig()
+            else get_carousel_detection_config()
         )
         sample_collection_enabled = (
             bool(request.sample_collection_enabled)
@@ -294,10 +292,10 @@ class DetectionConfigService:
             "sample_collection_enabled": sample_collection_enabled,
         }
         if aux_scope == CLASSIFICATION_CHANNEL_ROLE:
-            setClassificationChannelDetectionConfig(target_config)
+            set_classification_channel_detection_config(target_config)
             self._rebuild_rt_runner_for_feeder_role(CLASSIFICATION_CHANNEL_ROLE)
         else:
-            setCarouselDetectionConfig(target_config)
+            set_carousel_detection_config(target_config)
 
         algorithm_label = _detection_algorithm_label(algorithm_scope, algorithm)
         uses_baseline = _detection_algorithm_uses_baseline(algorithm_scope, algorithm)

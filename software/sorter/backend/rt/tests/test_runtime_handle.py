@@ -127,10 +127,10 @@ def test_rebuild_runner_adds_missing_runner():
     handle = _empty_handle(camera_service)
     handle.skipped_roles.append({"role": "c4", "reason": "no_camera_config"})
 
-    with patch("blob_manager.getChannelPolygons", return_value=_polygon_blob()):
-        with patch("blob_manager.getFeederDetectionConfig", return_value={}):
+    with patch("local_state.get_channel_polygons", return_value=_polygon_blob()):
+        with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
             with patch(
-                "blob_manager.getClassificationChannelDetectionConfig",
+                "server.detection_config.common.get_classification_channel_detection_config",
                 return_value={},
             ):
                 runner = handle.rebuild_runner_for_role("c4", logger=LOG)
@@ -152,10 +152,10 @@ def test_rebuild_runner_replaces_existing_runner_with_new_slug():
     handle = _empty_handle(camera_service)
 
     # Seed the handle with an initial c4 runner (saved config empty → scope default).
-    with patch("blob_manager.getChannelPolygons", return_value=_polygon_blob()):
-        with patch("blob_manager.getFeederDetectionConfig", return_value={}):
+    with patch("local_state.get_channel_polygons", return_value=_polygon_blob()):
+        with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
             with patch(
-                "blob_manager.getClassificationChannelDetectionConfig",
+                "server.detection_config.common.get_classification_channel_detection_config",
                 return_value={},
             ):
                 first = handle.rebuild_runner_for_role("c4", logger=LOG)
@@ -164,15 +164,15 @@ def test_rebuild_runner_replaces_existing_runner_with_new_slug():
 
     # Now save a new slug (use the same slug since only one hive model is
     # registered in tests) and rebuild — the runner instance must change.
-    with patch("blob_manager.getChannelPolygons", return_value=_polygon_blob()):
+    with patch("local_state.get_channel_polygons", return_value=_polygon_blob()):
         with patch(
-            "blob_manager.getFeederDetectionConfig",
+            "server.detection_config.common.get_feeder_detection_config",
             return_value={
                 "algorithm_by_role": {"classification_channel": first_slug},
             },
         ):
             with patch(
-                "blob_manager.getClassificationChannelDetectionConfig",
+                "server.detection_config.common.get_classification_channel_detection_config",
                 return_value={},
             ):
                 second = handle.rebuild_runner_for_role("c4", logger=LOG)
@@ -189,10 +189,10 @@ def test_rebuild_runner_marks_skipped_on_failure():
     camera_service = _FakeCameraService(devices={})  # carousel absent
     handle = _empty_handle(camera_service)
 
-    with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
-        with patch("blob_manager.getFeederDetectionConfig", return_value={}):
+    with patch("local_state.get_channel_polygons", return_value={"polygons": {}}):
+        with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
             with patch(
-                "blob_manager.getClassificationChannelDetectionConfig",
+                "server.detection_config.common.get_classification_channel_detection_config",
                 return_value={},
             ):
                 runner = handle.rebuild_runner_for_role("c4", logger=LOG)

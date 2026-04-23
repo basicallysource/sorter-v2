@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getBinCategories, setBinCategories
+from local_state import get_bin_categories, set_bin_categories
 from irl.bin_layout import (
     getBinLayout,
     saveBinLayout,
@@ -1770,7 +1770,7 @@ def _current_bin_categories() -> list[list[list[list[str]]]]:
     if runtime_layout is not None:
         return extractCategories(runtime_layout)
 
-    saved = getBinCategories()
+    saved = get_bin_categories()
     if saved is not None:
         layout_config = getBinLayout()
         reference_layout = mkLayoutFromConfig(layout_config)
@@ -1784,10 +1784,10 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
     runtime_layout = _runtime_distribution_layout()
     if runtime_layout is not None and layoutMatchesCategories(runtime_layout, categories):
         applyCategories(runtime_layout, categories)
-        setBinCategories(extractCategories(runtime_layout))
+        set_bin_categories(extractCategories(runtime_layout))
         return
 
-    setBinCategories(categories)
+    set_bin_categories(categories)
 
 
 def _clear_passthrough_alert_if_owned() -> None:
@@ -2034,7 +2034,7 @@ def get_bins_layout() -> Dict[str, Any]:
                             bin_out["category_ids"] = list(rt_sections[si].bins[bi].category_ids)
 
     if not runtime_overlay_applied:
-        saved_categories = getBinCategories()
+        saved_categories = get_bin_categories()
         reference_layout = mkLayoutFromConfig(layout_config)
         if saved_categories is not None and layoutMatchesCategories(reference_layout, saved_categories):
             for layer_out in layers_out:

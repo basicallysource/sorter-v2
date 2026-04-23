@@ -73,9 +73,9 @@ def detector_slug_for_role(role: str, logger: logging.Logger) -> str:
     saved_slug: str | None = None
     try:
         if ui_scope == "feeder" or feeder_role_key == "classification_channel":
-            from blob_manager import getFeederDetectionConfig
+            from server.detection_config.common import get_feeder_detection_config
 
-            cfg = getFeederDetectionConfig()
+            cfg = get_feeder_detection_config()
             if isinstance(cfg, dict):
                 by_role = cfg.get("algorithm_by_role")
                 if isinstance(by_role, dict) and feeder_role_key:
@@ -87,9 +87,9 @@ def detector_slug_for_role(role: str, logger: logging.Logger) -> str:
                     if isinstance(candidate, str) and candidate:
                         saved_slug = candidate
         elif ui_scope == "classification_channel":
-            from blob_manager import getClassificationChannelDetectionConfig
+            from server.detection_config.common import get_classification_channel_detection_config
 
-            cfg = getClassificationChannelDetectionConfig()
+            cfg = get_classification_channel_detection_config()
             if isinstance(cfg, dict):
                 candidate = cfg.get("algorithm")
                 if isinstance(candidate, str) and candidate:

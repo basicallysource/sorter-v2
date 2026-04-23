@@ -12,13 +12,12 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from blob_manager import (
-    BLOB_DIR,
-    getApiKeys,
-    getClassificationDetectionConfig,
-    getHiveConfig,
-    setApiKeys,
-    setHiveConfig,
+from blob_manager import BLOB_DIR
+from local_state import (
+    get_api_keys as _get_saved_api_keys,
+    get_hive_config as _get_saved_hive_config,
+    set_api_keys as _save_api_keys,
+    set_hive_config as _save_hive_config,
 )
 from role_aliases import (
     CLASSIFICATION_CHANNEL_ROLE,
@@ -27,6 +26,7 @@ from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.detection_config.common import (
     feeder_role_label as _feeder_role_label,
+    get_classification_detection_config as _get_saved_classification_detection_config,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
 )
@@ -147,7 +147,7 @@ class HivePurgePayload(BaseModel):
 
 @router.get("/api/settings/api-keys")
 def get_api_keys() -> Dict[str, Any]:
-    saved = getApiKeys()
+    saved = _get_saved_api_keys()
     masked: Dict[str, str | None] = {}
     for provider in SUPPORTED_API_KEY_PROVIDERS:
         key = saved.get(provider) or os.environ.get("OPENROUTER_API_KEY", "")
@@ -163,7 +163,7 @@ def save_api_key(payload: ApiKeySavePayload) -> Dict[str, Any]:
     if payload.provider not in SUPPORTED_API_KEY_PROVIDERS:
         raise HTTPException(400, f"Unsupported provider '{payload.provider}'.")
     saved = {"openrouter": payload.key.strip()}
-    setApiKeys(saved)
+    _save_api_keys(saved)
     os.environ["OPENROUTER_API_KEY"] = payload.key.strip()
     return {"ok": True, "message": f"API key for {payload.provider} saved and activated."}
 
@@ -174,7 +174,7 @@ def save_api_key(payload: ApiKeySavePayload) -> Dict[str, Any]:
 
 
 def _load_hive_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = _get_saved_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -182,7 +182,7 @@ def _load_hive_targets() -> list[dict[str, Any]]:
 
 
 def _save_hive_targets(targets: list[dict[str, Any]]) -> None:
-    setHiveConfig({"targets": targets})
+    _save_hive_config({"targets": targets})
 
 
 def _mask_hive_token(token: str | None) -> str | None:
@@ -869,7 +869,7 @@ def debug_classification_detection(camera: str) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Unsupported classification camera.")
 
     camera_role = "classification_top" if camera == "top" else "classification_bottom"
-    saved = getClassificationDetectionConfig()
+    saved = _get_saved_classification_detection_config()
     slug = normalize_detection_algorithm(
         "classification",
         saved.get("algorithm") if isinstance(saved, dict) else None,

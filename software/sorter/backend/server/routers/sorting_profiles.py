@@ -13,8 +13,12 @@ import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
-from local_state import start_new_sorting_session
+from local_state import (
+    get_hive_config,
+    get_sorting_profile_sync_state,
+    set_sorting_profile_sync_state,
+    start_new_sorting_session,
+)
 from server import shared_state
 from server.routers.hardware import (
     clear_bin_category_assignments,
@@ -43,7 +47,7 @@ class ApplySortingProfilePayload(BaseModel):
 
 
 def _load_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = get_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -147,7 +151,7 @@ def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
 
 
 def _current_local_profile_status() -> dict[str, Any]:
-    sync_state = getSortingProfileSyncState() or {}
+    sync_state = get_sorting_profile_sync_state() or {}
     path = os.environ.get("SORTING_PROFILE_PATH")
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
@@ -337,7 +341,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if activation_error:
         sync_state["last_error"] = activation_error
 
-    setSortingProfileSyncState(sync_state)
+    set_sorting_profile_sync_state(sync_state)
     start_new_sorting_session(reason="profile_activated")
     try:
         from server.set_progress_sync import getSetProgressSyncWorker

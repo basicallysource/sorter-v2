@@ -19,22 +19,21 @@ from blob_manager import (
     BLOB_DIR,
     PIECE_CROPS_DIR_NAME,
     PIECE_CROP_KINDS,
-    getApiKeys,
-    getMachineId,
-    getMachineNickname,
-    getRecentKnownObjects,
-    getSortingProfileSyncState,
-    setMachineNickname,
 )
 from local_state import (
     build_piece_detail_payload,
     clear_piece_dossiers,
+    ensure_machine_id,
+    get_api_keys,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
     get_piece_preview_paths,
     get_piece_segment_counts,
+    get_recent_known_objects,
+    get_sorting_profile_sync_state,
     list_piece_dossiers,
 )
+from toml_config import getMachineNickname, setMachineNickname
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
@@ -92,7 +91,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RequestLoggingMiddleware)
 
 def _load_saved_api_keys_into_environment() -> None:
-    saved_api_keys = getApiKeys()
+    saved_api_keys = get_api_keys()
     if saved_api_keys.get("openrouter"):
         os.environ["OPENROUTER_API_KEY"] = saved_api_keys["openrouter"]
 
@@ -170,7 +169,7 @@ class MachineIdentityUpdateRequest(BaseModel):
 
 
 def _getMachineIdentityData() -> MachineIdentityData:
-    machine_id = shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else getMachineId()
+    machine_id = shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else ensure_machine_id()
     return MachineIdentityData(
         machine_id=machine_id,
         nickname=getMachineNickname(),
@@ -330,7 +329,7 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
                 {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
             )
         ),
-        sync_state=getSortingProfileSyncState(),
+        sync_state=get_sorting_profile_sync_state(),
     )
 
 
@@ -745,7 +744,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
-    for item in reversed(getRecentKnownObjects()):
+    for item in reversed(get_recent_known_objects()):
         try:
             event = KnownObjectEvent(
                 tag="known_object",
@@ -1002,12 +1001,12 @@ def getSetProgress() -> SetProgressResponse:
 @app.get("/api/polygons")
 def get_polygons() -> Dict[str, Any]:
     """Load saved channel and classification polygons."""
-    from blob_manager import getChannelPolygons, getClassificationPolygons
+    from local_state import get_channel_polygons, get_classification_polygons
     result: Dict[str, Any] = {}
-    channel = getChannelPolygons()
+    channel = get_channel_polygons()
     if channel:
         result["channel"] = channel
-    classification = getClassificationPolygons()
+    classification = get_classification_polygons()
     if classification:
         result["classification"] = classification
     return result

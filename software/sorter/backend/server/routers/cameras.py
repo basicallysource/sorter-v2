@@ -28,7 +28,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from blob_manager import getCameraSetup, getChannelPolygons, getClassificationPolygons
+from local_state import get_channel_polygons, get_classification_polygons
+from toml_config import getCameraSetup
 from hardware.macos_camera_registry import refresh_macos_cameras
 from irl.config import (
     cameraColorProfileToDict,
@@ -3403,7 +3404,7 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
     if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
-        saved = getChannelPolygons() or {}
+        saved = get_channel_polygons() or {}
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         classification_channel_setup = _public_aux_scope() == "classification_channel"
@@ -3456,7 +3457,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         return {"kind": "bbox", "bbox": bbox} if bbox is not None else None
 
     if role in {"classification_top", "classification_bottom"}:
-        saved = getClassificationPolygons() or {}
+        saved = get_classification_polygons() or {}
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         quad_key = "class_top" if role == "classification_top" else "class_bottom"

@@ -98,14 +98,68 @@ def feeder_role_label(role: str | None) -> str:
     return "C-channel"
 
 
+# ---------------------------------------------------------------------------
+# Detection-config blob readers/writers — adapters over ``toml_config`` that
+# map each UI scope onto the ``[detection.<scope>]`` table.
+# ---------------------------------------------------------------------------
+
+
+def get_classification_detection_config() -> dict | None:
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("classification")
+
+
+def set_classification_detection_config(config: dict) -> None:
+    from toml_config import setDetectionConfig
+    setDetectionConfig("classification", config)
+
+
+def get_feeder_detection_config() -> dict | None:
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("feeder")
+
+
+def set_feeder_detection_config(config: dict) -> None:
+    from toml_config import setDetectionConfig
+    setDetectionConfig("feeder", config)
+
+
+def get_carousel_detection_config() -> dict | None:
+    from toml_config import getDetectionConfig, _read_toml
+    return getDetectionConfig(auxiliary_detection_scope(_read_toml()))
+
+
+def set_carousel_detection_config(config: dict) -> None:
+    from toml_config import setDetectionConfig, _read_toml
+    setDetectionConfig(auxiliary_detection_scope(_read_toml()), config)
+
+
+def get_classification_channel_detection_config() -> dict | None:
+    from toml_config import getDetectionConfig
+    return getDetectionConfig("classification_channel")
+
+
+def set_classification_channel_detection_config(config: dict) -> None:
+    from toml_config import setDetectionConfig
+    setDetectionConfig("classification_channel", config)
+
+
 __all__ = [
     "detection_algorithm_label",
     "detection_algorithm_uses_baseline",
     "feeder_algorithm_by_role_from_config",
     "feeder_role_label",
+    "get_carousel_detection_config",
+    "get_classification_channel_detection_config",
+    "get_classification_detection_config",
+    "get_feeder_detection_config",
     "internal_feeder_role",
     "openrouter_model_label",
     "openrouter_model_options",
     "public_aux_scope",
     "public_feeder_roles",
+    "set_carousel_detection_config",
+    "set_classification_channel_detection_config",
+    "set_classification_detection_config",
+    "set_feeder_detection_config",
 ]

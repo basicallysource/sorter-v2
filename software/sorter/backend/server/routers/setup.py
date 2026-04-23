@@ -17,7 +17,8 @@ from machine_setup import (
     machine_setup_key_from_feeding_mode,
     normalize_machine_setup_key,
 )
-from blob_manager import getMachineId, getMachineNickname
+from local_state import ensure_machine_id
+from toml_config import getMachineNickname
 from hardware.bus import MCUBus
 from irl.config import REQUIRED_STEPPER_NAMES
 from irl.parse_user_toml import LOGICAL_STEPPER_BINDING_BASES
@@ -585,7 +586,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
 
     return {
         "machine": {
-            "machine_id": getMachineId(),
+            "machine_id": ensure_machine_id(),
             "nickname": getMachineNickname(),
         },
         "hardware": {

@@ -7,7 +7,7 @@ from typing import Any, Protocol
 import cv2
 import numpy as np
 
-from blob_manager import getChannelPolygons
+from local_state import get_channel_polygons
 from defs.events import CameraName
 from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from server import shared_state
@@ -70,7 +70,7 @@ def _annotation_snapshot_for_feed(feed_id: str) -> Any | None:
 
 
 def _channel_polygons_snapshot() -> dict[str, Any]:
-    data = getChannelPolygons()
+    data = get_channel_polygons()
     return data if isinstance(data, dict) else {}
 
 

@@ -7,7 +7,11 @@ from typing import Any
 
 import requests
 
-from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
+from local_state import (
+    get_hive_config,
+    get_sorting_profile_sync_state,
+    set_sorting_profile_sync_state,
+)
 from server import shared_state
 
 log = logging.getLogger(__name__)
@@ -16,7 +20,7 @@ SYNC_INTERVAL_S = 5.0
 
 
 def _load_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = get_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -24,14 +28,14 @@ def _load_targets() -> list[dict[str, Any]]:
 
 
 def _merge_sync_state(updates: dict[str, Any]) -> None:
-    current = getSortingProfileSyncState() or {}
+    current = get_sorting_profile_sync_state() or {}
     next_state = dict(current)
     for key, value in updates.items():
         if value is None:
             next_state.pop(key, None)
         else:
             next_state[key] = value
-    setSortingProfileSyncState(next_state)
+    set_sorting_profile_sync_state(next_state)
     try:
         from server.routers.sorting_profiles import _current_local_profile_status
 
@@ -101,7 +105,7 @@ class SetProgressSyncWorker:
         self._record_success()
 
     def _build_report(self) -> dict[str, Any] | None:
-        sync_state = getSortingProfileSyncState() or {}
+        sync_state = get_sorting_profile_sync_state() or {}
         target_id = sync_state.get("target_id")
         version_id = sync_state.get("version_id")
         if not isinstance(target_id, str) or not target_id:

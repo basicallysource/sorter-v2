@@ -136,7 +136,7 @@ def test_attach_camera_annotations_wires_live_rt_providers(monkeypatch: pytest.M
     service = _FakeCameraService()
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
     monkeypatch.setattr(
-        "server.camera_annotations.getChannelPolygons",
+        "server.camera_annotations.get_channel_polygons",
         lambda: {
             "arc_params": {
                 "second": {

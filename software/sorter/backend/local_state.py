@@ -534,6 +534,18 @@ def set_machine_id(machine_id: str) -> None:
     _write_state(_STATE_KEY_MACHINE_ID, normalized)
 
 
+def ensure_machine_id() -> str:
+    """Return the persistent machine_id, minting a fresh UUID on first call."""
+    import uuid
+
+    existing = get_machine_id()
+    if existing is not None:
+        return existing
+    new_id = str(uuid.uuid4())
+    set_machine_id(new_id)
+    return new_id
+
+
 def get_stepper_positions() -> dict[str, int]:
     value = _read_state(_STATE_KEY_STEPPER_POSITIONS)
     if not isinstance(value, dict):

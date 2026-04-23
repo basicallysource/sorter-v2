@@ -52,8 +52,7 @@ from .parse_user_toml import (
     loadChuteCalibrationConfig,
     applyStepperCurrentOverride,
 )
-from blob_manager import getBinCategories
-from local_state import get_servo_states, set_servo_states
+from local_state import get_bin_categories, get_servo_states, set_servo_states
 
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
@@ -1297,7 +1296,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         control_boards=control_boards,
     )
 
-    saved_categories = getBinCategories()
+    saved_categories = get_bin_categories()
     if saved_categories is not None:
         if layoutMatchesCategories(irl_interface.distribution_layout, saved_categories):
             applyCategories(irl_interface.distribution_layout, saved_categories)

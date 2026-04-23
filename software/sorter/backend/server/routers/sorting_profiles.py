@@ -176,20 +176,6 @@ def _current_local_profile_status() -> dict[str, Any]:
     }
 
 
-def _reload_runtime_profile() -> bool:
-    controller = shared_state.controller_ref
-    if controller is None or not hasattr(controller, "reloadSortingProfile"):
-        return False
-    controller.reloadSortingProfile()
-    try:
-        from server.set_progress_sync import getSetProgressSyncWorker
-
-        getSetProgressSyncWorker().notify()
-    except Exception:
-        pass
-    return True
-
-
 @router.get("/api/sorting-profiles/status")
 def get_sorting_profile_status() -> dict[str, Any]:
     return _current_local_profile_status()
@@ -255,9 +241,12 @@ def get_sorting_profile_detail(
 
 @router.post("/api/sorting-profiles/reload")
 def reload_sorting_profile() -> dict[str, Any]:
+    # Runtime profile reload is a no-op post-cutover — the rt graph picks
+    # up the new artifact on its next natural read. The endpoint stays so
+    # the UI can still refresh the local_profile status envelope.
     return {
         "ok": True,
-        "reloaded": _reload_runtime_profile(),
+        "reloaded": False,
         **_current_local_profile_status(),
     }
 
@@ -309,7 +298,6 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
-    reloaded = _reload_runtime_profile()
 
     preassigned_count = 0
     if mode == "rules":
@@ -366,7 +354,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     shared_state.publishSortingProfileStatus(status)
     return {
         "ok": True,
-        "reloaded": reloaded,
+        "reloaded": False,
         "bin_categories_reset": bool(reset_result),
         "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
         "preassigned_count": preassigned_count,

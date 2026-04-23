@@ -125,28 +125,17 @@ class SetProgressSyncWorker:
         if target is None:
             return None
 
-        controller = shared_state.controller_ref
-        sorting_profile = getattr(getattr(controller, "coordinator", None), "sorting_profile", None)
         tracker = getattr(shared_state.gc_ref, "set_progress_tracker", None) if shared_state.gc_ref else None
-
-        artifact_hash: str | None = None
-        items: list[dict[str, Any]] | None = None
-        if tracker is not None and hasattr(tracker, "get_sync_payload"):
-            tracker_payload = tracker.get_sync_payload()
-            artifact_hash = str(tracker_payload.get("artifact_hash") or "")
-            if not artifact_hash:
-                raise RuntimeError("Set progress sync missing artifact hash for local tracker")
-            items = tracker_payload.get("items") if isinstance(tracker_payload.get("items"), list) else []
-            state_token = int(tracker_payload.get("state_token") or 0)
-            signature = f"{target_id}:{version_id}:{artifact_hash}:set:{state_token}"
-        elif sorting_profile is not None and not sorting_profile.is_set_based:
-            artifact_hash = str(getattr(sorting_profile, "artifact_hash", "") or sync_state.get("artifact_hash") or "")
-            if not artifact_hash:
-                raise RuntimeError("Set progress sync missing artifact hash for local sorting profile")
-            items = []
-            signature = f"{target_id}:{version_id}:{artifact_hash}:clear"
-        else:
+        if tracker is None or not hasattr(tracker, "get_sync_payload"):
             return None
+
+        tracker_payload = tracker.get_sync_payload()
+        artifact_hash = str(tracker_payload.get("artifact_hash") or "")
+        if not artifact_hash:
+            raise RuntimeError("Set progress sync missing artifact hash for local tracker")
+        items = tracker_payload.get("items") if isinstance(tracker_payload.get("items"), list) else []
+        state_token = int(tracker_payload.get("state_token") or 0)
+        signature = f"{target_id}:{version_id}:{artifact_hash}:set:{state_token}"
 
         return {
             "url": f"{str(target['url']).rstrip('/')}/api/machine/set-progress",

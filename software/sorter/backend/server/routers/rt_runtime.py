@@ -9,6 +9,7 @@ a live runner before clicking "Test Current Frame".
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
@@ -75,6 +76,60 @@ def get_rt_status() -> Dict[str, Any]:
         payload["skipped_roles"] = list(getattr(handle, "skipped_roles", []) or [])
     payload["rt_handle_ready"] = True
     return payload
+
+
+def _track_to_dict(track: Any) -> dict[str, Any]:
+    bbox = getattr(track, "bbox_xyxy", None)
+    angle_rad = getattr(track, "angle_rad", None)
+    return {
+        "track_id": getattr(track, "track_id", None),
+        "global_id": getattr(track, "global_id", None),
+        "piece_uuid": getattr(track, "piece_uuid", None),
+        "bbox_xyxy": list(bbox) if isinstance(bbox, (list, tuple)) else None,
+        "score": getattr(track, "score", None),
+        "confirmed_real": bool(getattr(track, "confirmed_real", False)),
+        "ghost": bool(getattr(track, "ghost", False)),
+        "angle_rad": angle_rad if isinstance(angle_rad, (int, float)) else None,
+        "angle_deg": (
+            math.degrees(float(angle_rad)) if isinstance(angle_rad, (int, float)) else None
+        ),
+        "radius_px": getattr(track, "radius_px", None),
+        "hit_count": getattr(track, "hit_count", None),
+        "first_seen_ts": getattr(track, "first_seen_ts", None),
+        "last_seen_ts": getattr(track, "last_seen_ts", None),
+    }
+
+
+@router.get("/api/rt/tracks/{feed_id}")
+def get_rt_tracks(feed_id: str) -> Dict[str, Any]:
+    """Return the full current track snapshot for one perception feed.
+
+    `/api/rt/status` intentionally stays compact for dashboard polling. The
+    observer/debug path needs every track, so expose the same annotation
+    snapshot the overlay renderer already uses.
+    """
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    annotation_snapshot = getattr(handle, "annotation_snapshot", None)
+    if not callable(annotation_snapshot):
+        raise HTTPException(status_code=501, detail="rt track snapshots are not supported")
+    try:
+        snapshot = annotation_snapshot(feed_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"rt track snapshot failed: {exc}") from exc
+
+    tracks = tuple(getattr(snapshot, "tracks", ()) or ())
+    shadow_tracks = tuple(getattr(snapshot, "shadow_tracks", ()) or ())
+    zone = getattr(snapshot, "zone", None)
+    return {
+        "feed_id": getattr(snapshot, "feed_id", feed_id),
+        "zone_kind": type(zone).__name__ if zone is not None else None,
+        "track_count": len(tracks),
+        "shadow_track_count": len(shadow_tracks),
+        "tracks": [_track_to_dict(track) for track in tracks],
+        "shadow_tracks": [_track_to_dict(track) for track in shadow_tracks],
+    }
 
 
 @router.post("/api/rt/purge/c234")

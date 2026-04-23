@@ -4,12 +4,15 @@ the detection-config POST handlers.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, call
 
 import pytest
+from fastapi import HTTPException
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(_BACKEND_ROOT) not in sys.path:
@@ -19,6 +22,7 @@ from server import shared_state  # noqa: E402
 from server import api as api_module  # noqa: E402
 from server.routers import detection as detection_router  # noqa: E402
 from server.routers import rt_runtime as rt_runtime_router  # noqa: E402
+from rt.contracts.tracking import Track  # noqa: E402
 
 
 class _FakeHandle:
@@ -145,6 +149,70 @@ def test_rt_status_surfaces_runners_and_skipped_roles(
     assert feeds["c2_feed"]["raw_track_count"] is None
     assert feeds["c2_feed"]["confirmed_track_count"] is None
     assert feeds["c2_feed"]["confirmed_real_track_count"] is None
+
+
+def test_rt_tracks_returns_full_annotation_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    track = Track(
+        track_id=7,
+        global_id=77,
+        piece_uuid="piece-77",
+        bbox_xyxy=(20, 30, 90, 120),
+        score=0.91,
+        confirmed_real=True,
+        angle_rad=math.radians(42.0),
+        radius_px=120.0,
+        hit_count=8,
+        first_seen_ts=1.0,
+        last_seen_ts=2.0,
+    )
+    shadow = Track(
+        track_id=8,
+        global_id=88,
+        piece_uuid=None,
+        bbox_xyxy=(40, 50, 70, 80),
+        score=0.73,
+        confirmed_real=False,
+        angle_rad=None,
+        radius_px=None,
+        hit_count=3,
+        first_seen_ts=1.5,
+        last_seen_ts=2.5,
+        ghost=True,
+    )
+
+    class _Handle:
+        def annotation_snapshot(self, feed_id: str) -> Any:
+            return SimpleNamespace(
+                feed_id=feed_id,
+                zone=None,
+                tracks=(track,),
+                shadow_tracks=(shadow,),
+            )
+
+    monkeypatch.setattr(shared_state, "rt_handle", _Handle(), raising=False)
+
+    payload = rt_runtime_router.get_rt_tracks("c4_feed")
+
+    assert payload["feed_id"] == "c4_feed"
+    assert payload["track_count"] == 1
+    assert payload["shadow_track_count"] == 1
+    assert payload["tracks"][0]["global_id"] == 77
+    assert payload["tracks"][0]["piece_uuid"] == "piece-77"
+    assert payload["tracks"][0]["bbox_xyxy"] == [20, 30, 90, 120]
+    assert payload["tracks"][0]["confirmed_real"] is True
+    assert payload["tracks"][0]["angle_deg"] == pytest.approx(42.0)
+    assert payload["shadow_tracks"][0]["ghost"] is True
+
+
+def test_rt_tracks_raises_when_no_handle(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shared_state, "rt_handle", None, raising=False)
+
+    with pytest.raises(HTTPException) as exc:
+        rt_runtime_router.get_rt_tracks("c4_feed")
+
+    assert exc.value.status_code == 409
 
 
 def test_rt_status_distinguishes_idle_perception_from_full_runtime(

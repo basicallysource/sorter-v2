@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from runtime_stats import RuntimeStatsCollector
 
@@ -179,6 +180,64 @@ class RuntimeStatsRecognizerCountersTests(unittest.TestCase):
 
         feeder = collector.snapshot()["feeder"]
         self.assertEqual(3, feeder["classification_zone_lost_total"])
+
+
+class RuntimeStatsDossierSeedTests(unittest.TestCase):
+    def test_observe_known_object_can_seed_counts_while_stopped(self) -> None:
+        collector = RuntimeStatsCollector()
+
+        collector.observeKnownObject(
+            {
+                "uuid": "piece-classified",
+                "stage": "distributed",
+                "classification_status": "classified",
+                "classified_at": 100.0,
+                "distributed_at": 104.0,
+            },
+            count_when_stopped=True,
+        )
+
+        snapshot = collector.snapshot()
+        self.assertEqual(1, snapshot["counts"]["pieces_seen"])
+        self.assertEqual(1, snapshot["counts"]["classified"])
+        self.assertEqual(1, snapshot["counts"]["distributed"])
+        self.assertEqual(
+            1,
+            snapshot["channel_throughput"]["classification_channel"]["outcomes"][
+                "classified_success"
+            ]["count"],
+        )
+        self.assertEqual(
+            1,
+            snapshot["channel_throughput"]["classification_channel"]["outcomes"][
+                "distributed_success"
+            ]["count"],
+        )
+
+    def test_service_snapshot_falls_back_to_piece_dossiers_without_collector(self) -> None:
+        from server.services import runtime_stats as runtime_stats_service
+
+        dossiers = [
+            {
+                "uuid": "piece-a",
+                "stage": "distributed",
+                "classification_status": "classified",
+                "classified_at": 200.0,
+                "distributed_at": 204.0,
+            }
+        ]
+
+        with (
+            patch.object(runtime_stats_service, "_collector", return_value=None),
+            patch("local_state.list_piece_dossiers", return_value=dossiers),
+        ):
+            snapshot = runtime_stats_service.snapshot()
+
+        self.assertIsNotNone(snapshot)
+        assert snapshot is not None
+        self.assertEqual(1, snapshot["counts"]["pieces_seen"])
+        self.assertEqual(1, snapshot["counts"]["classified"])
+        self.assertEqual(1, snapshot["counts"]["distributed"])
 
 
 if __name__ == "__main__":

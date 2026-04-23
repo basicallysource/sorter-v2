@@ -244,7 +244,12 @@ class LocalStateMigrationTests(unittest.TestCase):
                 "stage": "distributed",
                 "classification_status": "classified",
                 "part_id": "3001",
-                "part_name": "Brick 2 x 4",
+                "bin_id": "L0-S1-B2",
+                "meta": {
+                    "name": "Brick 2 x 4",
+                    "color_name": "Red",
+                    "preview_url": "https://example.test/3001.jpg",
+                },
                 "distributed_at": 15.0,
             },
         )
@@ -254,8 +259,12 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual("piece-1", piece["uuid"])
         self.assertEqual(session["id"], piece["session_id"])
         self.assertEqual("3001", piece["part_id"])
+        self.assertEqual("Brick 2 x 4", piece["part_name"])
+        self.assertEqual("Red", piece["color_name"])
+        self.assertEqual("https://example.test/3001.jpg", piece["brickognize_preview_url"])
         self.assertEqual("thumb-1", piece["thumbnail"])
         self.assertEqual("distributed", piece["stage"])
+        self.assertEqual([0, 1, 2], piece["destination_bin"])
         self.assertEqual(15.0, piece["distributed_at"])
 
         by_track = get_piece_dossier_by_tracked_global_id(41)
@@ -785,6 +794,23 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
                 last_seen_ts=65.0,
             ),
         )
+        remember_piece_dossier(
+            "piece-detail",
+            {
+                "matrix_shot": {
+                    "name": "Matrix-Shot",
+                    "status": "captured",
+                    "frame_count": 1,
+                    "frames": [
+                        {
+                            "role": "carousel",
+                            "captured_ts": 64.5,
+                            "jpeg_path": "piece_crops/piece-detail/seg0/matrix_000.jpg",
+                        }
+                    ],
+                }
+            },
+        )
 
         payload = build_piece_detail_payload("piece-detail")
         self.assertIsNotNone(payload)
@@ -799,6 +825,11 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         )
         self.assertEqual("c_channel_3", track_detail["segments"][0]["role"])
         self.assertEqual("carousel", track_detail["segments"][1]["role"])
+        self.assertEqual("Matrix-Shot", track_detail["matrix_shot"]["name"])
+        self.assertEqual(1, len(track_detail["matrix_shot"]["frames"]))
+        # Back-compat for the detail page while the UI migrates from
+        # burst_frames to matrix_shot.frames.
+        self.assertEqual(track_detail["matrix_shot"]["frames"], track_detail["burst_frames"])
 
     def test_build_piece_detail_payload_returns_none_without_dossier(self) -> None:
         initialize_local_state()

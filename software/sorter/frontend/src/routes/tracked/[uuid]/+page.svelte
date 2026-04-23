@@ -4,7 +4,7 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
-	import { dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
+	import { capturedCropUrl, dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
 	import { formatTrackLabel } from '$lib/trackLabel';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -213,7 +213,20 @@
 	type BurstFrame = {
 		role: string;
 		captured_ts: number;
-		jpeg_b64: string;
+		relative_ms?: number;
+		jpeg_b64?: string;
+		jpeg_path?: string | null;
+		width?: number;
+		height?: number;
+	};
+	type MatrixShot = {
+		name?: string;
+		status?: string;
+		triggered_at?: number;
+		pre_window_s?: number;
+		post_window_s?: number;
+		frame_count?: number;
+		frames?: BurstFrame[];
 	};
 	type TrackDetail = {
 		global_id: number;
@@ -227,6 +240,7 @@
 		segments: Segment[];
 		live?: boolean;
 		burst_frames?: BurstFrame[];
+		matrix_shot?: MatrixShot;
 	};
 
 	let trackDetail = $state<TrackDetail | null>(null);
@@ -237,7 +251,7 @@
 	function trackSignature(d: TrackDetail | null): string {
 		if (!d) return '';
 		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		const burstCount = d.burst_frames?.length ?? 0;
+		const burstCount = d.matrix_shot?.frames?.length ?? d.burst_frames?.length ?? 0;
 		return `${d.live ? 1 : 0}|${counts}|b${burstCount}`;
 	}
 	let _trackSig = '';
@@ -343,7 +357,7 @@
 		}
 
 		if (entries.length === 0) {
-			const thumb = dataImageUrl(piece.thumbnail);
+			const thumb = capturedCropUrl(piece, effectiveBase());
 			if (thumb) {
 				entries.push({
 					src: thumb,
@@ -375,11 +389,13 @@
 	const usedCropTs = $derived(_cachedUsedTs);
 	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
 
-	// --- Drop-zone burst --------------------------------------------------
-	// Pre+post-event frames from C3 + carousel captured when the piece fell
-	// into the classification chamber. Rendered as a filmstrip + enlarged
-	// preview. Chronologically pre-sorted on the backend.
-	const burstFrames = $derived<BurstFrame[]>(trackDetail?.burst_frames ?? []);
+	// --- Matrix-shot ------------------------------------------------------
+	// Reverse-buffered C3 + C4 frames captured at first C4 registration.
+	// Older payloads used `burst_frames`; keep them as a compatibility source.
+	const matrixShot = $derived<MatrixShot | null>(trackDetail?.matrix_shot ?? null);
+	const burstFrames = $derived<BurstFrame[]>(
+		matrixShot?.frames ?? trackDetail?.burst_frames ?? []
+	);
 	let selectedBurstIdx = $state(0);
 	// Reset the selection whenever the underlying global_id changes so we
 	// don't index past the end of a different piece's burst.
@@ -414,6 +430,11 @@
 		if (role === 'carousel') return 'C4';
 		if (role === 'c_channel_3') return 'C3';
 		return role.toUpperCase();
+	}
+
+	function burstFrameSrc(frame: BurstFrame | null): string | null {
+		if (!frame) return null;
+		return pieceCropUrl(frame.jpeg_path, effectiveBase()) ?? dataImageUrl(frame.jpeg_b64);
 	}
 
 	function formatAbsTs(ts: number | null | undefined): string {
@@ -512,6 +533,10 @@
 
 	const cat_name = $derived(
 		piece?.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null
+	);
+	const category_label = $derived(cat_name ?? piece?.part_category ?? piece?.category_id ?? null);
+	const bin_label = $derived(
+		piece?.destination_bin ? formatBin(piece.destination_bin) : (piece?.bin_id ?? null)
 	);
 
 	const is_unknown = $derived(
@@ -630,7 +655,7 @@
 						</span>
 
 						<span class="text-text-muted">Category</span>
-						<span class="text-text">{cat_name ?? '—'}</span>
+						<span class="text-text">{category_label ?? '—'}</span>
 
 						<span class="text-text-muted">Confidence</span>
 						<span class={`font-semibold tabular-nums ${confidenceClass(piece.confidence)}`}>
@@ -654,8 +679,8 @@
 
 						<span class="text-text-muted">Destination bin</span>
 						<span class="font-mono tabular-nums text-text">
-							{#if piece.destination_bin}
-								{formatBin(piece.destination_bin)}
+							{#if bin_label}
+								{bin_label}
 							{:else if is_unknown || is_multi_drop}
 								<span class="text-text-muted">discard bin</span>
 							{:else}
@@ -884,11 +909,11 @@
 				</div>
 			</section>
 
-			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
+			<!-- Matrix-shot: reverse-buffered C3→C4 fall sequence -->
 			{#if burstFrames.length > 0}
 				<section class="border border-border bg-surface">
 					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-						<span class="font-medium text-text">Drop Burst</span>
+						<span class="font-medium text-text">Matrix-Shot</span>
 						<span class="text-text-muted">
 							<span class="tabular-nums">{burstFrames.length}</span>
 							<span class="mx-1">frames</span>
@@ -899,13 +924,16 @@
 						</span>
 					</div>
 					{#if selectedBurstFrame}
+						{@const selectedBurstSrc = burstFrameSrc(selectedBurstFrame)}
 						<div class="flex flex-col items-center gap-1 border-b border-border bg-bg p-3">
-							<img
-								src={`data:image/jpeg;base64,${selectedBurstFrame.jpeg_b64}`}
-								alt="burst frame {selectedBurstIdx + 1} of {burstFrames.length}"
-								class="max-h-[480px] max-w-full object-contain"
-								loading="lazy"
-							/>
+							{#if selectedBurstSrc}
+								<img
+									src={selectedBurstSrc}
+									alt="matrix-shot frame {selectedBurstIdx + 1} of {burstFrames.length}"
+									class="max-h-[480px] max-w-full object-contain"
+									loading="lazy"
+								/>
+							{/if}
 							<div class="flex items-center gap-2 text-sm text-text-muted">
 								<span class={`font-semibold uppercase tracking-wider ${burstRoleClass(selectedBurstFrame.role)}`}>
 									{burstRoleLabel(selectedBurstFrame.role)}
@@ -917,6 +945,7 @@
 					{/if}
 					<div class="flex flex-row gap-1 overflow-x-auto px-3 py-2">
 						{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
+							{@const frameSrc = burstFrameSrc(frame)}
 							<button
 								type="button"
 								class={`flex h-32 flex-col flex-shrink-0 bg-bg text-left hover:border-primary/70 ${
@@ -925,12 +954,14 @@
 								onclick={() => (selectedBurstIdx = idx)}
 								title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
 							>
-								<img
-									src={`data:image/jpeg;base64,${frame.jpeg_b64}`}
-									alt="burst frame {idx + 1}"
-									class="h-full w-auto flex-shrink-0 object-contain"
-									loading="lazy"
-								/>
+								{#if frameSrc}
+									<img
+										src={frameSrc}
+										alt="matrix-shot frame {idx + 1}"
+										class="h-full w-auto flex-shrink-0 object-contain"
+										loading="lazy"
+									/>
+								{/if}
 							</button>
 						{/each}
 					</div>

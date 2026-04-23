@@ -80,6 +80,7 @@ class RuntimeC1(BaseRuntime):
         self._jam = _JamState()
         self._next_pulse_at: float = 0.0
         self._paused_reason: str | None = None
+        self._maintenance_pause_reason: str | None = None
 
     # ------------------------------------------------------------------
     # Runtime ABC
@@ -87,11 +88,14 @@ class RuntimeC1(BaseRuntime):
     def available_slots(self) -> int:
         # C1 is the source of parts; its only backpressure signal upstream
         # is pause-on-exhaustion.
-        return 0 if self._paused_reason else 1
+        return 0 if self._paused_reason or self._maintenance_pause_reason else 1
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
         try:
+            if self._maintenance_pause_reason:
+                self._set_state("paused", blocked_reason=self._maintenance_pause_reason)
+                return
             if self._paused_reason:
                 self._set_state("paused", blocked_reason=self._paused_reason)
                 return
@@ -139,6 +143,16 @@ class RuntimeC1(BaseRuntime):
     def clear_pause(self) -> None:
         self._paused_reason = None
         self._jam = _JamState()
+        self._set_state("idle")
+
+    def pause_for_maintenance(self, reason: str = "maintenance") -> None:
+        self._maintenance_pause_reason = str(reason or "maintenance")
+        self._set_state("paused", blocked_reason=self._maintenance_pause_reason)
+
+    def resume_from_maintenance(self) -> None:
+        self._maintenance_pause_reason = None
+        if self._paused_reason is None:
+            self._set_state("idle")
 
     # ------------------------------------------------------------------
     # Internals

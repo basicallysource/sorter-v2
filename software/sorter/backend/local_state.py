@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -37,6 +38,7 @@ _LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX = "persistent_tracker_ignored_
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
 _RECENT_KNOWN_OBJECTS_LIMIT = 10
+_BIN_ID_RE = re.compile(r"^L(\d+)-S(\d+)-B(\d+)$")
 
 
 def local_state_db_path() -> Path:
@@ -983,6 +985,44 @@ def _payload_value(payload: dict[str, Any], key: str) -> Any:
     return value
 
 
+def _destination_bin_from_id(value: Any) -> list[int] | None:
+    if not isinstance(value, str):
+        return None
+    match = _BIN_ID_RE.match(value.strip())
+    if match is None:
+        return None
+    return [int(match.group(1)), int(match.group(2)), int(match.group(3))]
+
+
+def _normalize_piece_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    obj = dict(payload)
+    meta = obj.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+
+    if _payload_value(obj, "part_name") is None:
+        name = meta.get("name") or meta.get("part_name")
+        if isinstance(name, str) and name.strip():
+            obj["part_name"] = name
+    if _payload_value(obj, "color_name") is None:
+        color_name = meta.get("color_name")
+        if isinstance(color_name, str) and color_name.strip():
+            obj["color_name"] = color_name
+    if _payload_value(obj, "brickognize_preview_url") is None:
+        preview = meta.get("preview_url") or meta.get("img_url")
+        if isinstance(preview, str) and preview.strip():
+            obj["brickognize_preview_url"] = preview
+    if _payload_value(obj, "part_category") is None:
+        part_category = meta.get("part_category") or meta.get("item_category")
+        if isinstance(part_category, str) and part_category.strip():
+            obj["part_category"] = part_category
+    if _payload_value(obj, "destination_bin") is None:
+        destination_bin = _destination_bin_from_id(obj.get("bin_id"))
+        if destination_bin is not None:
+            obj["destination_bin"] = destination_bin
+    return obj
+
+
 def _min_positive_timestamp(*values: Any) -> float | None:
     candidates = [
         float(value)
@@ -1093,6 +1133,7 @@ def remember_piece_dossier(
     if not isinstance(piece_uuid, str) or not piece_uuid.strip():
         return
     obj = dict(dossier) if isinstance(dossier, dict) else {}
+    obj = _normalize_piece_payload(obj)
     # Honor explicit piece_uuid in payload, but always force canonical.
     obj["piece_uuid"] = piece_uuid
     obj.setdefault("uuid", piece_uuid)
@@ -1750,7 +1791,19 @@ def build_piece_detail_payload(piece_uuid: str) -> dict[str, Any] | None:
         return None
     segments = list_piece_segments(piece_uuid)
     payload: dict[str, Any] = dict(dossier)
-    payload["track_detail"] = {"segments": segments, "live": False}
+    track_detail: dict[str, Any] = {"segments": segments, "live": False}
+    matrix_shot = dossier.get("matrix_shot")
+    if isinstance(matrix_shot, dict):
+        track_detail["matrix_shot"] = matrix_shot
+        frames = matrix_shot.get("frames")
+        if isinstance(frames, list):
+            # Legacy UI field name while the feature graduates to
+            # matrix_shot.frames.
+            track_detail["burst_frames"] = frames
+    legacy_burst_frames = dossier.get("burst_frames")
+    if "burst_frames" not in track_detail and isinstance(legacy_burst_frames, list):
+        track_detail["burst_frames"] = legacy_burst_frames
+    payload["track_detail"] = track_detail
     return payload
 
 

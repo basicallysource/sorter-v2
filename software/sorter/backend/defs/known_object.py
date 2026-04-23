@@ -48,6 +48,7 @@ class KnownObject:
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    preview_jpeg_path: Optional[str] = None
     # Full classification chamber (carousel) frame captured at the instant
     # this piece was locked for drop — base64 JPEG, max 1024 px wide so the
     # event payload stays bounded. Used on the detail page to visually verify
@@ -55,6 +56,8 @@ class KnownObject:
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    bin_id: Optional[str] = None
+    distribution_reason: Optional[str] = None
     # Captured timestamps of the crops actually shipped to Brickognize for
     # classification (subset of the tracker's sector snapshots). The frontend
     # uses these to highlight which crops participated in the final call.
@@ -142,9 +145,12 @@ class KnownObject:
             "thumbnail",
             "top_image",
             "bottom_image",
+            "preview_jpeg_path",
             "drop_snapshot",
             "brickognize_preview_url",
             "brickognize_source_view",
+            "bin_id",
+            "distribution_reason",
             "feeding_started_at",
             "carousel_detected_confirmed_at",
             "first_carousel_seen_ts",

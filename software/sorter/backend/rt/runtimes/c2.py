@@ -105,6 +105,8 @@ class RuntimeC2(BaseRuntime):
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._piece_count: int = 0
+        self._visible_track_count: int = 0
+        self._pending_track_count: int = 0
         self._purge_mode: bool = False
 
     # ------------------------------------------------------------------
@@ -129,6 +131,8 @@ class RuntimeC2(BaseRuntime):
         snap = super().debug_snapshot()
         snap.update({
             "piece_count": int(self._piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "pending_track_count": int(self._pending_track_count),
             "max_piece_count": int(self._max_piece_count),
             "available_slots": int(self.available_slots()),
             "upstream_taken": int(self._upstream_slot.taken()),
@@ -142,10 +146,14 @@ class RuntimeC2(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
+            visible_tracks = [t for t in tracks if not bool(getattr(t, "ghost", False))]
+            confirmed_tracks = [t for t in visible_tracks if bool(getattr(t, "confirmed_real", False))]
+            self._visible_track_count = len(visible_tracks)
+            self._pending_track_count = max(0, self._visible_track_count - len(confirmed_tracks))
+            self._piece_count = len(confirmed_tracks)
             if not self._purge_mode:
-                self._credit_new_arrivals(tracks, now_mono)
-            self._piece_count = len(tracks)
-            exit_track = self._pick_exit_track(tracks)
+                self._credit_new_arrivals(confirmed_tracks, now_mono)
+            exit_track = self._pick_exit_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
@@ -165,7 +173,7 @@ class RuntimeC2(BaseRuntime):
                 # so real pieces migrate toward the exit and the ghost-gating
                 # tracker gets rotation evidence for stationary phantoms.
                 self._bookkeeping.exit_stall_since = None
-                if tracks and now_mono >= self._bookkeeping.next_advance_at:
+                if visible_tracks and now_mono >= self._bookkeeping.next_advance_at:
                     self._dispatch_advance_pulse(now_mono)
                 else:
                     self._set_state("idle")
@@ -341,6 +349,8 @@ class RuntimeC2(BaseRuntime):
     def _reset_bookkeeping(self) -> None:
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._piece_count = 0
+        self._visible_track_count = 0
+        self._pending_track_count = 0
         self._next_pulse_at = 0.0
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
@@ -400,7 +410,7 @@ class _C2PurgePort:
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(
-            piece_count=int(self._runtime._piece_count),
+            piece_count=int(self._runtime._visible_track_count),
             owned_count=0,
             pending_detections=0,
         )

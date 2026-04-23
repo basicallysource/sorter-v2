@@ -136,6 +136,28 @@ def test_c1_pause_after_recovery_exhausted() -> None:
     assert rt.available_slots() == 0
 
 
+def test_c1_clear_pause_resets_jam_exhaustion() -> None:
+    rt, _slot, _log, _ = _make_runtime(
+        jam_timeout_s=0.5,
+        jam_min_pulses=1,
+        pulse_cooldown_s=0.0,
+        max_recovery_cycles=1,
+        recovery_success=False,
+    )
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=0.0)
+    for t in (5.0, 6.0, 7.0):
+        rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=t)
+    assert rt.is_paused()
+    assert rt.health().blocked_reason == "jam_recovery_exhausted"
+
+    rt.clear_pause()
+
+    assert not rt.is_paused()
+    assert rt.available_slots() == 1
+    assert rt.health().state == "idle"
+    assert rt.health().blocked_reason is None
+
+
 def test_c1_downstream_progress_resets_jam_counter() -> None:
     rt, _slot, log, _ = _make_runtime(
         jam_timeout_s=0.5,
@@ -172,6 +194,21 @@ def test_c1_available_slots_is_zero_while_paused() -> None:
     assert rt.available_slots() == 1
     rt._paused_reason = "test_pause"  # type: ignore[attr-defined]
     assert rt.available_slots() == 0
+
+
+def test_c1_maintenance_pause_blocks_source_pulses() -> None:
+    rt, slot, log, _ = _make_runtime()
+    rt.pause_for_maintenance("c234_purge")
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=0.0)
+
+    assert log == []
+    assert slot.available() == 1
+    assert rt.available_slots() == 0
+    assert rt.health().blocked_reason == "c234_purge"
+
+    rt.resume_from_maintenance()
+    assert rt.available_slots() == 1
 
 
 def test_real_hw_worker_runs_command_on_thread() -> None:

@@ -169,8 +169,9 @@ def test_c2_new_visible_piece_releases_upstream_slot() -> None:
     assert up.available() == 1
 
 
-def test_c2_visible_tracks_count_toward_ring_capacity() -> None:
-    rt, _up, _down, _log = _make()
+def test_c2_pending_tracks_do_not_fill_ring_capacity() -> None:
+    rt, up, _down, _log = _make(upstream_cap=1)
+    assert up.try_claim() is True
     tracks = _batch(
         _track(track_id=1, global_id=1, confirmed=False, angle_rad=math.pi / 2),
         _track(track_id=2, global_id=2, confirmed=False, angle_rad=math.pi),
@@ -179,7 +180,12 @@ def test_c2_visible_tracks_count_toward_ring_capacity() -> None:
         _track(track_id=5, global_id=5, confirmed=False, angle_rad=-math.pi / 3),
     )
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
-    assert rt.available_slots() == 0
+    snap = rt.debug_snapshot()
+    assert rt.available_slots() == 1
+    assert up.available() == 0
+    assert snap["piece_count"] == 0
+    assert snap["visible_track_count"] == 5
+    assert snap["pending_track_count"] == 5
 
 
 def test_c2_ignores_stale_coasted_track_at_exit() -> None:

@@ -169,6 +169,7 @@ class BrickognizeClassifier:
             meta={
                 "frame_seq": frame.frame_seq,
                 "name": best_item.get("name"),
+                "preview_url": best_item.get("img_url"),
                 "color_name": (best_color or {}).get("name") if best_color else None,
             },
         )

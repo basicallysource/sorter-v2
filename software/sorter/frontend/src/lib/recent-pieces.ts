@@ -15,7 +15,13 @@ export function hasC4Evidence(obj: KnownObjectData): boolean {
 }
 
 export function hasRecentPiecePreview(obj: KnownObjectData): boolean {
-	return Boolean(obj.thumbnail || obj.top_image || obj.bottom_image || obj.drop_snapshot);
+	return Boolean(
+		obj.thumbnail ||
+			obj.top_image ||
+			obj.bottom_image ||
+			obj.preview_jpeg_path ||
+			obj.drop_snapshot
+	);
 }
 
 export function hasRecentPieceIdentity(obj: KnownObjectData): boolean {
@@ -87,11 +93,12 @@ export function dataImageUrl(payload: string | null | undefined): string | null 
 	return payload ? `data:image/jpeg;base64,${payload}` : null;
 }
 
-export function capturedCropUrl(obj: KnownObjectData): string | null {
+export function capturedCropUrl(obj: KnownObjectData, base?: string | null): string | null {
 	return (
 		dataImageUrl(obj.top_image) ??
 		dataImageUrl(obj.bottom_image) ??
 		dataImageUrl(obj.thumbnail) ??
+		(base ? pieceCropUrl(obj.preview_jpeg_path, base) : null) ??
 		dataImageUrl(obj.drop_snapshot)
 	);
 }
@@ -106,7 +113,7 @@ export function pieceCropUrl(
 ): string | null {
 	if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
 	const stripped = disk_path.replace(/^piece_crops\//, '');
-	const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot)_(\d+)\.jpg$/);
+	const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot|matrix)_(\d+)\.jpg$/);
 	if (!m) return null;
 	const [, piece_uuid, seq, kind, idx] = m;
 	return `${base}/api/piece-crops/${piece_uuid}/seg${seq}/${kind}/${Number(idx)}.jpg`;

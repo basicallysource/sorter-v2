@@ -44,6 +44,7 @@ def install(bus: EventBus) -> None:
     try:
         from local_state import (
             get_piece_dossier,
+            get_piece_preview_paths,
             remember_piece_dossier,
             remember_recent_known_object,
         )
@@ -70,8 +71,22 @@ def install(bus: EventBus) -> None:
             for k, v in nested.items():
                 dossier_payload.setdefault(k, v)
         stage = str(payload.get("stage") or _TOPIC_TO_STAGE.get(event.topic, ""))
+        event_wall = time.time()
+        if event.topic == PIECE_CLASSIFIED:
+            # rt events carry the monotonic classifier timestamp separately
+            # as classified_ts_mono; UI/runtime stats need wall time here.
+            dossier_payload["classified_at"] = event_wall
+            category = dossier_payload.get("category")
+            if isinstance(category, str) and category.strip():
+                dossier_payload.setdefault("part_category", category)
         if event.topic == PIECE_DISTRIBUTED:
-            dossier_payload.setdefault("distributed_at", time.time())
+            dossier_payload["distributed_at"] = event_wall
+            category = dossier_payload.get("category")
+            if isinstance(category, str) and category.strip():
+                dossier_payload.setdefault("category_id", category)
+            reason = dossier_payload.get("reason")
+            if isinstance(reason, str) and reason.strip():
+                dossier_payload.setdefault("distribution_reason", reason)
         try:
             remember_piece_dossier(
                 piece_uuid,
@@ -99,6 +114,32 @@ def install(bus: EventBus) -> None:
             return
         if not isinstance(merged, dict):
             return
+
+        try:
+            preview_paths = get_piece_preview_paths([piece_uuid])
+            preview = preview_paths.get(piece_uuid)
+            if isinstance(preview, str) and preview.strip():
+                merged["preview_jpeg_path"] = preview
+                remember_piece_dossier(piece_uuid, merged, status=stage or None)
+                refreshed = get_piece_dossier(piece_uuid)
+                if isinstance(refreshed, dict):
+                    merged = refreshed
+                    merged["preview_jpeg_path"] = preview
+        except Exception:
+            _LOG.debug(
+                "piece_dossier projection: preview enrichment raised",
+                exc_info=True,
+            )
+
+        try:
+            from server.services import runtime_stats as runtime_stats_service
+
+            runtime_stats_service.observe_known_object(merged)
+        except Exception:
+            _LOG.debug(
+                "piece_dossier projection: runtime_stats observe raised",
+                exc_info=True,
+            )
 
         try:
             remember_recent_known_object(merged)

@@ -102,16 +102,18 @@ def _track(
     score: float = 0.9,
     first_seen_ts: float = 0.0,
     last_seen_ts: float = 0.0,
+    bbox_xyxy: tuple[int, int, int, int] = (0, 0, 10, 10),
+    radius_px: float = 50.0,
 ) -> Track:
     return Track(
         track_id=track_id,
         global_id=global_id,
         piece_uuid=None,
-        bbox_xyxy=(0, 0, 10, 10),
+        bbox_xyxy=bbox_xyxy,
         score=score,
         confirmed_real=confirmed,
         angle_rad=math.radians(angle_deg),
-        radius_px=50.0,
+        radius_px=radius_px,
         hit_count=hit_count,
         first_seen_ts=first_seen_ts,
         last_seen_ts=last_seen_ts,
@@ -158,6 +160,10 @@ def _make(
         log.append(f"move:{deg:.1f}")
         return True
 
+    def transport_move(deg: float) -> bool:
+        log.append(f"transport:{deg:.1f}")
+        return True
+
     def purge_move(deg: float) -> bool:
         log.append(f"purge:{deg:.1f}")
         return True
@@ -186,6 +192,7 @@ def _make(
         startup_purge=startup_purge,
         startup_purge_detection_count_provider=startup_purge_detection_count_provider,
         carousel_move_command=move,
+        transport_move_command=transport_move,
         startup_purge_move_command=purge_move,
         eject_command=eject,
         crop_provider=crop_provider or (lambda _f, _t: b"crop"),
@@ -295,6 +302,87 @@ def test_c4_drop_commit_fires_eject_on_exit() -> None:
     assert "eject" in log
     assert down.available() == 0
     assert rt.fsm_state() == "drop_commit"
+
+
+def test_c4_waits_for_distributor_ready_before_ejecting() -> None:
+    rt, _up, down, _clf, log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+    commits: list[str] = []
+
+    def handoff_request(**kwargs: Any) -> bool:
+        handoffs.append(dict(kwargs))
+        return True
+
+    def handoff_commit(piece_uuid: str, **_kwargs: Any) -> bool:
+        commits.append(piece_uuid)
+        return True
+
+    rt.set_handoff_request_callback(handoff_request)
+    rt.set_handoff_commit_callback(handoff_commit)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert len(handoffs) == 1
+    piece_uuid = handoffs[0]["piece_uuid"]
+    assert handoffs[0]["classification"].part_id == "3001"
+    assert down.available() == 0
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=0),
+        now_mono=0.2,
+    )
+    assert "eject" not in log
+    assert commits == []
+
+    rt.on_distributor_ready(piece_uuid)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=0),
+        now_mono=0.3,
+    )
+    assert "eject" in log
+    assert commits == [piece_uuid]
+
+
+def test_c4_aborts_distributor_handoff_when_track_is_lost() -> None:
+    rt, _up, down, _clf, _log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+    aborts: list[tuple[str, str]] = []
+
+    def handoff_request(**kwargs: Any) -> bool:
+        handoffs.append(dict(kwargs))
+        return True
+
+    def handoff_abort(piece_uuid: str, *, reason: str, **_kwargs: Any) -> bool:
+        aborts.append((piece_uuid, reason))
+        return True
+
+    rt.set_handoff_request_callback(handoff_request)
+    rt.set_handoff_abort_callback(handoff_abort)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert len(handoffs) == 1
+    piece_uuid = handoffs[0]["piece_uuid"]
+    assert down.available() == 0
+
+    for t in (0.2, 0.8, 1.4, 2.0):
+        rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=t)
+
+    assert aborts == [(piece_uuid, "track_lost")]
+    assert rt.dossier_count() == 0
+    assert down.available() == 1
 
 
 def test_c4_does_not_eject_when_not_classified() -> None:
@@ -451,8 +539,73 @@ def test_c4_recovers_stable_visible_tracks_after_restart_and_starts_transport() 
     dossier = next(iter(rt._pieces.values()))  # noqa: SLF001
     assert dossier.extras.get("recovered") is True
     assert up.available() == 2
-    assert "move:6.0" in log
+    assert "transport:6.0" in log
     assert rt.health().state == "rotate_pipeline"
+
+
+def test_c4_slows_pipeline_motion_near_exit() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=150.0)), capacity_downstream=1),
+        now_mono=0.3,
+    )
+
+    assert "transport:6.0" in log
+    assert "move:3.0" in log
+
+
+def test_c4_exit_requires_majority_bbox_overlap_when_geometry_available() -> None:
+    rt, _up, down, _clf, log = _make(max_zones=1)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+
+    # Center is at the exit angle, but the angular bbox is too wide for
+    # more than half of it to be inside the exit window.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(
+                    angle_deg=180.0,
+                    bbox_xyxy=(-200, -20, 200, 20),
+                    radius_px=80.0,
+                )
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.3,
+    )
+    assert "eject" not in log
+    assert down.available() == 1
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(
+                    angle_deg=180.0,
+                    bbox_xyxy=(-5, -5, 5, 5),
+                    radius_px=80.0,
+                )
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.5,
+    )
+    assert "eject" in log
 
 
 def test_c4_state_transitions_through_commit_cycle() -> None:

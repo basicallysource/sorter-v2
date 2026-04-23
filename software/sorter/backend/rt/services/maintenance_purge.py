@@ -88,6 +88,7 @@ class C234PurgeCoordinator:
         *,
         runtimes: Iterable[Any],
         control: RuntimeControl,
+        maintenance_pauses: Iterable[Any] = (),
         state_publisher: Callable[[str], None] | None = None,
         timeout_s: float = 120.0,
         clear_hold_s: float = 0.75,
@@ -121,6 +122,7 @@ class C234PurgeCoordinator:
                 kwargs={
                     "runtimes": list(runtimes),
                     "control": control,
+                    "maintenance_pauses": list(maintenance_pauses),
                     "state_publisher": state_publisher,
                     "timeout_s": float(timeout_s),
                     "clear_hold_s": float(clear_hold_s),
@@ -223,6 +225,7 @@ class C234PurgeCoordinator:
         *,
         runtimes: list[Any],
         control: RuntimeControl,
+        maintenance_pauses: list[Any],
         state_publisher: Callable[[str], None] | None,
         timeout_s: float,
         clear_hold_s: float,
@@ -234,9 +237,22 @@ class C234PurgeCoordinator:
         reason = "timeout"
         phase = "running"
         strategies = self._collect_strategies(runtimes, clear_hold_s=clear_hold_s)
+        paused_for_maintenance: list[Any] = []
         try:
             if not strategies:
                 raise RuntimeError("no purge-capable runtimes available")
+            for runtime in maintenance_pauses:
+                pause_fn = getattr(runtime, "pause_for_maintenance", None)
+                if not callable(pause_fn):
+                    continue
+                try:
+                    pause_fn("c234_purge")
+                    paused_for_maintenance.append(runtime)
+                except Exception:
+                    _LOG.exception(
+                        "C234PurgeCoordinator: maintenance pause raised for %s",
+                        getattr(runtime, "name", type(runtime).__name__),
+                    )
             for strat in strategies:
                 strat.arm()
             if was_paused:
@@ -333,6 +349,17 @@ class C234PurgeCoordinator:
                         _LOG.exception(
                             "C234PurgeCoordinator: state publisher raised during pause"
                         )
+            for runtime in reversed(paused_for_maintenance):
+                resume_fn = getattr(runtime, "resume_from_maintenance", None)
+                if not callable(resume_fn):
+                    continue
+                try:
+                    resume_fn()
+                except Exception:
+                    _LOG.exception(
+                        "C234PurgeCoordinator: maintenance resume raised for %s",
+                        getattr(runtime, "name", type(runtime).__name__),
+                    )
             self._update_status(
                 active=False,
                 phase="idle" if success else phase,

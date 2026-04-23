@@ -82,9 +82,12 @@ export interface KnownObjectData {
   thumbnail?: string | null;
   top_image?: string | null;
   bottom_image?: string | null;
+  preview_jpeg_path?: string | null;
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
+  bin_id?: string | null;
+  distribution_reason?: string | null;
   recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;

@@ -22,7 +22,7 @@ import numpy as np
 
 BLOB_DIR = Path(__file__).parent / "blob"
 PIECE_CROPS_DIR_NAME = "piece_crops"
-PIECE_CROP_KINDS: frozenset[str] = frozenset({"wedge", "piece", "snapshot"})
+PIECE_CROP_KINDS: frozenset[str] = frozenset({"wedge", "piece", "snapshot", "matrix"})
 
 _logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def write_piece_crop(
     """Persist a single piece-crop JPEG to disk, best-effort.
 
     Layout: ``BLOB_DIR/piece_crops/<piece_uuid>/seg<sequence>/<kind>_<idx>.jpg``
-    where ``kind`` is one of ``wedge`` / ``piece`` / ``snapshot``.
+    where ``kind`` is one of ``wedge`` / ``piece`` / ``snapshot`` / ``matrix``.
 
     Returns the **relative** path (relative to :data:`BLOB_DIR`) on success
     so callers can store it in SQLite without baking in an absolute

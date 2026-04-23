@@ -132,6 +132,7 @@ def build_c4_callables(
 ) -> tuple[
     Callable[[float], bool],
     Callable[[float], bool],
+    Callable[[float], bool],
     Callable[[bool], bool],
     Callable[[], bool],
 ]:
@@ -147,28 +148,18 @@ def build_c4_callables(
             logger.error("TODO_PHASE5_WIRING: c4 carousel move - stepper missing")
             return False
         default_speed = _default_speed_limit()
-        if (
-            speed_limit is None
-            or default_speed is None
-            or speed_limit <= default_speed
-        ):
-            try:
-                return bool(stepper.move_degrees(deg))
-            except Exception:
-                logger.exception("RuntimeC4: carousel_move raised")
-                return False
+        target_speed = speed_limit or default_speed
         try:
-            stepper.set_speed_limits(16, int(speed_limit))
+            if target_speed is not None:
+                stepper.set_speed_limits(16, int(target_speed))
             return bool(stepper.move_degrees(deg))
         except Exception:
-            logger.exception("RuntimeC4: fast carousel_move raised")
+            logger.exception("RuntimeC4: carousel_move raised")
             return False
 
-    # Normal-travel speed: applied to every carousel_move (pipeline
-    # advance + exit shimmy). ``transport_speed_scale`` multiplies the
-    # default steps-per-second; 1.0 preserves legacy behaviour. Ejection
-    # uses a separate config (``classification_channel_eject``) so the
-    # drop-commit precision is not affected by this scale.
+    # Normal-travel speed: used only for pipeline advance. Exit approach
+    # and shimmy use ``carousel_move`` below, which explicitly restores
+    # the default speed limit before moving.
     transport_speed_limit: int | None = None
     default_speed_for_transport = _default_speed_limit()
     if default_speed_for_transport is not None and transport_speed_scale > 1.0:
@@ -178,6 +169,9 @@ def build_c4_callables(
         )
 
     def carousel_move(deg: float) -> bool:
+        return _move_with_speed_limit(deg, speed_limit=None)
+
+    def transport_move(deg: float) -> bool:
         return _move_with_speed_limit(deg, speed_limit=transport_speed_limit)
 
     purge_speed_limit = None
@@ -189,7 +183,7 @@ def build_c4_callables(
         )
 
     def startup_purge_move(deg: float) -> bool:
-        return carousel_move(deg)
+        return _move_with_speed_limit(deg, speed_limit=purge_speed_limit)
 
     def startup_purge_mode(enabled: bool) -> bool:
         stepper = getattr(irl, "carousel_stepper", None)
@@ -228,7 +222,7 @@ def build_c4_callables(
             logger.exception("RuntimeC4: eject raised")
             return False
 
-    return carousel_move, startup_purge_move, startup_purge_mode, eject
+    return carousel_move, transport_move, startup_purge_move, startup_purge_mode, eject
 
 
 def build_chute_callables(
@@ -255,6 +249,31 @@ def build_chute_callables(
         except ValueError:
             return None
 
+    def _servos() -> list[Any]:
+        return list(getattr(irl, "servos", []) or [])
+
+    def _close_open_servos() -> None:
+        for servo in _servos():
+            try:
+                if hasattr(servo, "isOpen") and servo.isOpen() and hasattr(servo, "close"):
+                    servo.close()
+            except Exception:
+                logger.exception("distributor: layer servo close raised")
+
+    def _open_layer(layer_index: int) -> bool:
+        servos = _servos()
+        if layer_index < 0 or layer_index >= len(servos):
+            logger.error("distributor: invalid layer_index=%s for available servos", layer_index)
+            return False
+        servo = servos[layer_index]
+        try:
+            if hasattr(servo, "open"):
+                servo.open()
+            return True
+        except Exception:
+            logger.exception("distributor: layer servo open raised (layer=%s)", layer_index)
+            return False
+
     def move(bin_id: str) -> bool:
         chute = getattr(irl, "chute", None)
         if chute is None:
@@ -265,6 +284,7 @@ def build_chute_callables(
             return False
         if bin_id == getattr(rules_engine, "reject_bin_id", lambda: "reject")() or bin_id == "reject":
             try:
+                _close_open_servos()
                 passthrough = float(getattr(chute, "first_bin_center", 0.0) or 0.0)
                 chute.moveToAngle(passthrough)
                 return True
@@ -282,8 +302,15 @@ def build_chute_callables(
             addr = BinAddress(
                 layer_index=layer, section_index=section, bin_index=bin_idx
             )
+            target_angle = (
+                chute.getAngleForBin(addr) if hasattr(chute, "getAngleForBin") else 0.0
+            )
+            if target_angle is None:
+                logger.error("distributor: unreachable bin_id=%s", bin_id)
+                return False
+            _close_open_servos()
             chute.moveToBin(addr)
-            return True
+            return _open_layer(layer)
         except Exception:
             logger.exception("distributor: chute.moveToBin raised (bin=%s)", bin_id)
             return False
@@ -308,8 +335,10 @@ def build_chute_callables(
     # Wrap move to record the last commanded target so position_query
     # can return it after the stepper settles.
     def _move_and_record(bin_id: str) -> bool:
-        _last_target["v"] = bin_id
-        return move(bin_id)
+        ok = move(bin_id)
+        if ok:
+            _last_target["v"] = bin_id
+        return ok
 
     return _move_and_record, position_query
 

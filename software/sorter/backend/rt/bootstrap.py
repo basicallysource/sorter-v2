@@ -107,6 +107,7 @@ class RtRuntimeHandle:
     event_bus: InProcessEventBus
     c4: RuntimeC4
     distributor: RuntimeDistributor
+    c1: RuntimeC1 | None = None
     c2: RuntimeC2 | None = None
     c3: RuntimeC3 | None = None
     feed_zones: dict[str, Zone] = field(default_factory=dict)
@@ -353,6 +354,7 @@ class RtRuntimeHandle:
         return self._purge_coordinator.start(
             runtimes=(self.c2, self.c3, self.c4),
             control=self,
+            maintenance_pauses=(self.c1,),
             state_publisher=state_publisher,
             timeout_s=timeout_s,
             clear_hold_s=clear_hold_s,
@@ -361,6 +363,18 @@ class RtRuntimeHandle:
 
     def cancel_c234_purge(self) -> bool:
         return self._purge_coordinator.cancel()
+
+    def clear_c1_pause(self) -> dict[str, Any]:
+        c1 = self.c1
+        if c1 is None:
+            raise RuntimeError("c1 runtime is not available")
+        is_paused_fn = getattr(c1, "is_paused", None)
+        was_paused = bool(is_paused_fn()) if callable(is_paused_fn) else False
+        clear_fn = getattr(c1, "clear_pause", None)
+        if not callable(clear_fn):
+            raise NotImplementedError("c1 pause clearing is not supported")
+        clear_fn()
+        return {"cleared": was_paused, "was_paused": was_paused}
 
     def runner_for_feed(self, feed_id: str) -> PerceptionRunner | None:
         """Return the PerceptionRunner driving ``feed_id`` if registered."""
@@ -479,14 +493,6 @@ def build_rt_runtime(
     bus = InProcessEventBus()
 
     # ------------------------------------------------------------------
-    # Cross-cutting subscribers (persistence / projections). Each module
-    # owns its own wiring end-to-end.
-
-    from rt.projections.piece_dossier import install as install_piece_dossier
-
-    install_piece_dossier(bus)
-
-    # ------------------------------------------------------------------
     # Perception runners (c2, c3, c4). C1 + Distributor are blind.
 
     perception_runners: list[PerceptionRunner] = []
@@ -517,6 +523,22 @@ def build_rt_runtime(
             from rt.perception.segment_recorder import install as install_segment_recording
 
             install_segment_recording(bus, runner)
+
+    # ------------------------------------------------------------------
+    # Cross-cutting subscribers (persistence / projections). Install after
+    # the C4 segment recorder so classified/distributed events first flush
+    # crop metadata, then the dossier projection can mirror the latest crop
+    # preview into Recent Pieces.
+
+    from rt.projections.piece_dossier import install as install_piece_dossier
+
+    install_piece_dossier(bus)
+    try:
+        from rt.perception.matrix_shot import install as install_matrix_shot
+
+        install_matrix_shot(bus, camera_service, logger=log)
+    except Exception:
+        log.exception("rt.bootstrap: matrix-shot recorder install failed")
 
     # ------------------------------------------------------------------
     # Capacity slots
@@ -591,6 +613,10 @@ def build_rt_runtime(
         getattr(classification_cfg, "drop_tolerance_deg", 14.0)
         if classification_cfg else 14.0
     )
+    classify_angle = float(
+        getattr(classification_cfg, "point_of_no_return_deg", drop_angle)
+        if classification_cfg else drop_angle
+    )
     stale_timeout = float(
         getattr(classification_cfg, "stale_zone_timeout_s", 1.5)
         if classification_cfg else 1.5
@@ -614,6 +640,7 @@ def build_rt_runtime(
     c3_pulse, c3_wiggle = build_c3_callables(irl, log)
     (
         c4_carousel_move,
+        c4_transport_move,
         c4_startup_purge_move,
         c4_startup_purge_mode,
         c4_eject,
@@ -626,9 +653,9 @@ def build_rt_runtime(
             else 12.0
         ),
         transport_speed_scale=float(
-            getattr(classification_cfg, "transport_speed_scale", 3.0)
+            getattr(classification_cfg, "transport_speed_scale", 4.0)
             if classification_cfg
-            else 3.0
+            else 4.0
         ),
     )
     chute_move, chute_position_query = build_chute_callables(irl, rules_engine, log)
@@ -765,12 +792,31 @@ def build_rt_runtime(
         startup_purge=c4_startup_purge,
         startup_purge_detection_count_provider=_c4_startup_purge_detection_count,
         carousel_move_command=c4_carousel_move,
+        transport_move_command=c4_transport_move,
         startup_purge_move_command=c4_startup_purge_move,
         startup_purge_mode_command=c4_startup_purge_mode,
         eject_command=c4_eject,
         crop_provider=_crop_provider,
         logger=log,
         event_bus=bus,
+        classify_angle_deg=classify_angle,
+        exit_angle_deg=drop_angle,
+        angle_tolerance_deg=drop_tolerance,
+        shimmy_step_deg=float(
+            getattr(classification_cfg, "exit_release_shimmy_amplitude_deg", 4.0)
+            if classification_cfg
+            else 4.0
+        ),
+        exit_approach_angle_deg=float(
+            getattr(classification_cfg, "positioning_window_deg", 36.0)
+            if classification_cfg
+            else 36.0
+        ),
+        exit_bbox_overlap_ratio=float(
+            getattr(classification_cfg, "exit_release_overlap_ratio", 0.5)
+            if classification_cfg
+            else 0.5
+        ),
     )
 
     run_recorder = getattr(gc, "run_recorder", None)
@@ -820,27 +866,15 @@ def build_rt_runtime(
     )
     distributor_ref["ref"] = distributor
 
-    # Wire C4 -> Distributor handoff_request.
-    # RuntimeC4 does not yet expose a handoff_request_callback attribute
-    # (Phase 4 left this as a stub). We attach it dynamically; live wiring
-    # on the machine will validate this path. Until C4 calls it, the
-    # distributor simply stays IDLE (no damage — chute and C4 just don't
-    # exchange pieces).
-    if hasattr(c4, "set_handoff_request_callback"):
-        try:
-            c4.set_handoff_request_callback(distributor.handoff_request)  # type: ignore[attr-defined]
-        except Exception:
-            log.exception("rt.bootstrap: set_handoff_request_callback failed")
-    else:
-        # Dynamic attach — C4 poll loop must read `_distributor_handoff`
-        # when ready. The attribute is here as an informational hook that
-        # live-debug can inspect; it is NOT automatically triggered.
-        c4._distributor_handoff = distributor.handoff_request  # type: ignore[attr-defined]
-        log.warning(
-            "TODO_PHASE5_WIRING: RuntimeC4 has no set_handoff_request_callback; "
-            "distributor.handoff_request attached as c4._distributor_handoff — "
-            "live wiring must poll this."
-        )
+    # Wire C4 -> Distributor handshake. C4 asks the distributor to position
+    # once a piece is classified, waits for on_distributor_ready(), ejects,
+    # then commits the handoff so the distributor can publish delivery.
+    try:
+        c4.set_handoff_request_callback(distributor.handoff_request)
+        c4.set_handoff_commit_callback(distributor.handoff_commit)
+        c4.set_handoff_abort_callback(distributor.handoff_abort)
+    except Exception:
+        log.exception("rt.bootstrap: distributor handshake wiring failed")
 
     # ------------------------------------------------------------------
     # Orchestrator
@@ -865,6 +899,7 @@ def build_rt_runtime(
         event_bus=bus,
         c4=c4,
         distributor=distributor,
+        c1=c1,
         c2=c2,
         c3=c3,
         feed_zones=feed_zones,

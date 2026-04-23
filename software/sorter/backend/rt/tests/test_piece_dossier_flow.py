@@ -121,6 +121,11 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
                         "color_id": "4",
                         "category": "brick",
                         "confidence": 0.92,
+                        "meta": {
+                            "name": "Brick 2 x 4",
+                            "color_name": "Red",
+                            "preview_url": "https://example.test/3001.jpg",
+                        },
                     },
                 },
             )
@@ -132,6 +137,13 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         self.assertEqual("classified", dossier["stage"])
         self.assertEqual("3001", dossier.get("part_id"))
         self.assertEqual("4", dossier.get("color_id"))
+        self.assertEqual("brick", dossier.get("part_category"))
+        self.assertEqual("Brick 2 x 4", dossier.get("part_name"))
+        self.assertEqual("Red", dossier.get("color_name"))
+        self.assertEqual(
+            "https://example.test/3001.jpg",
+            dossier.get("brickognize_preview_url"),
+        )
 
         # 3. PIECE_DISTRIBUTED — chute delivered to bin.
         bus.publish(
@@ -152,6 +164,9 @@ class PieceDossierFlowIntegrationTests(unittest.TestCase):
         assert dossier is not None
         self.assertEqual("distributed", dossier["stage"])
         self.assertEqual("L0-S0-B2", dossier.get("bin_id"))
+        self.assertEqual([0, 0, 2], dossier.get("destination_bin"))
+        self.assertEqual("brick", dossier.get("category_id"))
+        self.assertEqual("ok", dossier.get("distribution_reason"))
         self.assertIsNotNone(dossier.get("distributed_at"))
 
         # 4. list_piece_dossiers() returns the piece in its terminal state.

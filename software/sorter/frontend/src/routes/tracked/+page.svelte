@@ -80,7 +80,7 @@
 
 	function capturedFor(row: TrackedPieceRow): string | null {
 		return (
-			capturedCropUrl(row.piece) ??
+			capturedCropUrl(row.piece, effectiveBase()) ??
 			dataImageUrl(row.track_summary?.best_piece_jpeg_b64) ??
 			dataImageUrl(row.track_summary?.composite_jpeg_b64) ??
 			pieceCropUrl(row.preview_jpeg_path, effectiveBase())
@@ -110,6 +110,10 @@
 	function formatBin(bin: [unknown, unknown, unknown] | null | undefined): string {
 		if (!bin) return '—';
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
+	}
+
+	function binLabel(piece: KnownObjectData): string {
+		return piece.destination_bin ? formatBin(piece.destination_bin) : (piece.bin_id ?? '—');
 	}
 
 	function formatRoles(roles: string[] | undefined): string {
@@ -463,6 +467,8 @@
 	{@const is_multi_drop = piece.classification_status === 'multi_drop_fail'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference)}
 	{@const cat_name = piece.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null}
+	{@const category_label = cat_name ?? piece.part_category ?? piece.category_id ?? null}
+	{@const bin_label = binLabel(piece)}
 	{@const lego_color =
 		!is_unknown && !is_multi_drop && piece.color_name && piece.color_name !== 'Any Color'
 			? lookupLegoColor(piece.color_id, piece.color_name)
@@ -566,8 +572,8 @@
 						</span>
 					{/if}
 
-					{#if cat_name && !is_unknown && !is_multi_drop}
-						<span class="text-xs text-text-muted">{cat_name}</span>
+					{#if category_label && !is_unknown && !is_multi_drop}
+						<span class="text-xs text-text-muted">{category_label}</span>
 					{/if}
 
 					{#if row.has_track_segments}
@@ -579,9 +585,9 @@
 						</span>
 					{/if}
 
-					{#if piece.destination_bin && phase === 'distributed'}
+					{#if bin_label !== '—' && phase === 'distributed'}
 						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
-							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(piece.destination_bin)}
+							{is_unknown || is_multi_drop ? 'discard ' : ''}{bin_label}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
 						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
@@ -605,7 +611,7 @@
 					{:else}
 						<div class="flex items-baseline justify-between gap-2">
 							<span class="text-xs uppercase tracking-wider text-text-muted">Bin</span>
-							<span class="tabular-nums text-sm text-text">{formatBin(piece.destination_bin)}</span>
+							<span class="tabular-nums text-sm text-text">{bin_label}</span>
 						</div>
 					{/if}
 					<div class="flex items-baseline justify-between gap-2">

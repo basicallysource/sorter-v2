@@ -5,6 +5,7 @@
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import {
 		capturedCropUrl,
 		recentPhysicalKeyOrNull,
@@ -87,6 +88,10 @@
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
 	}
 
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+	}
+
 	function formatRelativeTime(ts: number | null | undefined): string {
 		if (!ts) return '';
 		const diff = Math.max(0, Date.now() / 1000 - ts);
@@ -154,10 +159,12 @@
 
 {#snippet pieceCard(obj: KnownObjectData)}
 	{@const phase = lifecyclePhase(obj)}
-	{@const captured = capturedCropUrl(obj)}
+	{@const captured = capturedCropUrl(obj, effectiveBase())}
 	{@const preview = obj.brickognize_preview_url ?? null}
 	{@const reference_src = preview}
 	{@const cat_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
+	{@const category_label = cat_name ?? obj.part_category ?? obj.category_id ?? null}
+	{@const bin_label = obj.destination_bin ? formatBin(obj.destination_bin) : obj.bin_id}
 	{@const is_unknown =
 		obj.classification_status === 'unknown' || obj.classification_status === 'not_found'}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
@@ -279,16 +286,16 @@
 					{/if}
 
 					<!-- Category (plain, de-emphasized) -->
-					{#if cat_name && !is_unknown && !is_multi_drop}
-						<span class="text-xs text-text-muted">{cat_name}</span>
+					{#if category_label && !is_unknown && !is_multi_drop}
+						<span class="text-xs text-text-muted">{category_label}</span>
 					{/if}
 
 					<!-- Bin chip — monospace, neutral surface -->
-					{#if obj.destination_bin && phase === 'distributed'}
+					{#if bin_label}
 						<span
 							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums"
 						>
-							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(obj.destination_bin)}
+							{is_unknown || is_multi_drop ? 'discard ' : ''}{bin_label}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
 						<span

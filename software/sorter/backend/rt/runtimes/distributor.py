@@ -58,6 +58,7 @@ class _PendingPiece:
     decision: BinDecision | None = None
     target_bin_id: str | None = None
     positioned_at: float | None = None
+    ready_at: float | None = None
     eject_requested_at: float | None = None
     commit_deadline: float | None = None
     accepted: bool = True
@@ -84,6 +85,7 @@ class RuntimeDistributor(BaseRuntime):
         runtime_id: str = DEFAULT_RUNTIME_ID,
         reject_bin_id: str = DEFAULT_REJECT_BIN_ID,
         position_timeout_s: float = 6.0,
+        ready_timeout_s: float = 60.0,
         chute_settle_s: float = DEFAULT_CHUTE_SETTLE_S,
         fall_time_s: float = DEFAULT_FALL_TIME_S,
         run_recorder: Any | None = None,
@@ -100,6 +102,7 @@ class RuntimeDistributor(BaseRuntime):
         self._bus = event_bus
         self._reject_bin_id = str(reject_bin_id)
         self._position_timeout_s = float(position_timeout_s)
+        self._ready_timeout_s = max(0.0, float(ready_timeout_s))
         self._chute_settle_s = float(chute_settle_s)
         self._fall_time_s = float(fall_time_s)
         self._run_recorder = run_recorder
@@ -216,6 +219,53 @@ class RuntimeDistributor(BaseRuntime):
     def pending_target_bin(self) -> str | None:
         return self._pending.target_bin_id if self._pending else None
 
+    def debug_snapshot(self) -> dict[str, Any]:
+        snap = super().debug_snapshot()
+        now = time.monotonic()
+        pending = self._pending
+        pending_payload: dict[str, Any] | None = None
+        if pending is not None:
+            decision = pending.decision
+            pending_payload = {
+                "piece_uuid": pending.piece_uuid,
+                "target_bin_id": pending.target_bin_id,
+                "accepted": bool(pending.accepted),
+                "reject_reason": pending.reject_reason,
+                "decision_reason": decision.reason if decision is not None else None,
+                "decision_category": decision.category if decision is not None else None,
+                "requested_age_s": max(0.0, now - float(pending.requested_at)),
+                "positioned_age_s": (
+                    max(0.0, now - float(pending.positioned_at))
+                    if pending.positioned_at is not None
+                    else None
+                ),
+                "ready_age_s": (
+                    max(0.0, now - float(pending.ready_at))
+                    if pending.ready_at is not None
+                    else None
+                ),
+                "eject_age_s": (
+                    max(0.0, now - float(pending.eject_requested_at))
+                    if pending.eject_requested_at is not None
+                    else None
+                ),
+                "commit_due_in_s": (
+                    float(pending.commit_deadline) - now
+                    if pending.commit_deadline is not None
+                    else None
+                ),
+            }
+        snap.update(
+            {
+                "fsm_state": self._fsm.value,
+                "available_slots": int(self.available_slots()),
+                "pending": pending_payload,
+                "position_timeout_s": self._position_timeout_s,
+                "ready_timeout_s": self._ready_timeout_s,
+            }
+        )
+        return snap
+
     # ------------------------------------------------------------------
     # Internals
 
@@ -232,6 +282,21 @@ class RuntimeDistributor(BaseRuntime):
 
         if self._fsm is _DistState.READY:
             # Waiting for C4 to eject; nothing to do.
+            if (
+                self._ready_timeout_s > 0.0
+                and pending.ready_at is not None
+                and (now_mono - pending.ready_at) > self._ready_timeout_s
+            ):
+                self._logger.error(
+                    "RuntimeDistributor: ready timeout for piece=%s bin=%s",
+                    pending.piece_uuid,
+                    pending.target_bin_id,
+                )
+                self._ack_and_release(
+                    accepted=False,
+                    reason="handoff_ready_timeout",
+                    now_mono=now_mono,
+                )
             return
 
         if self._fsm is _DistState.SENDING:
@@ -315,6 +380,7 @@ class RuntimeDistributor(BaseRuntime):
 
         # Normal path: signal C4 that the chute is ready to receive the piece.
         self._fsm = _DistState.READY
+        pending.ready_at = now_mono
         self._set_state(self._fsm.value)
         try:
             self._on_ready(pending.piece_uuid)
@@ -349,6 +415,24 @@ class RuntimeDistributor(BaseRuntime):
         self._arm_sending(pending, ts)
         return True
 
+    def handoff_abort(
+        self,
+        piece_uuid: str,
+        reason: str = "handoff_aborted",
+        now_mono: float | None = None,
+    ) -> bool:
+        """C4 lost or rejected a piece after the distributor accepted it."""
+        pending = self._pending
+        if pending is None or pending.piece_uuid != piece_uuid:
+            self._logger.warning(
+                "RuntimeDistributor: handoff_abort for unknown piece=%s",
+                piece_uuid,
+            )
+            return False
+        ts = float(now_mono) if now_mono is not None else time.monotonic()
+        self._ack_and_release(accepted=False, reason=str(reason), now_mono=ts)
+        return True
+
     def _arm_sending(self, pending: _PendingPiece, now_mono: float) -> None:
         try:
             timing = self._ejection.timing_for(
@@ -374,8 +458,12 @@ class RuntimeDistributor(BaseRuntime):
             "piece_uuid": pending.piece_uuid,
             "bin_id": pending.target_bin_id,
             "category": pending.decision.category if pending.decision else None,
+            "category_id": pending.decision.category if pending.decision else None,
             "accepted": pending.accepted,
             "reason": (
+                pending.decision.reason if pending.decision else "unknown"
+            ),
+            "distribution_reason": (
                 pending.decision.reason if pending.decision else "unknown"
             ),
         }

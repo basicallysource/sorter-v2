@@ -181,10 +181,24 @@ def test_c3_on_piece_delivered_releases_upstream() -> None:
     assert up.available() == 1
 
 
-def test_c3_new_visible_piece_releases_upstream_on_arrival() -> None:
+def test_c3_new_confirmed_piece_releases_upstream_on_arrival() -> None:
     rt, up, _down, _log = _make(upstream_cap=1)
     assert up.try_claim() is True
-    # Piece arrives off-exit so no pulse, but the upstream release fires.
+    # Piece arrives off-exit; the upstream release fires once it is
+    # confirmed real by the tracker.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=7, angle_rad=math.pi, confirmed=True)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    assert up.available() == 1
+
+
+def test_c3_pending_piece_does_not_release_or_fill_capacity() -> None:
+    rt, up, _down, _log = _make(upstream_cap=1)
+    assert up.try_claim() is True
     rt.tick(
         RuntimeInbox(
             tracks=_batch(_track(global_id=7, angle_rad=math.pi, confirmed=False)),
@@ -192,7 +206,12 @@ def test_c3_new_visible_piece_releases_upstream_on_arrival() -> None:
         ),
         now_mono=0.0,
     )
-    assert up.available() == 1
+    snap = rt.debug_snapshot()
+    assert up.available() == 0
+    assert rt.available_slots() == 1
+    assert snap["piece_count"] == 0
+    assert snap["visible_track_count"] == 1
+    assert snap["pending_track_count"] == 1
 
 
 def test_c3_available_slots_blocks_when_ring_full() -> None:
@@ -201,7 +220,7 @@ def test_c3_available_slots_blocks_when_ring_full() -> None:
     # available_slots drops to 0 until the piece drains downstream.
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(angle_rad=math.pi / 3, confirmed=False)),
+            tracks=_batch(_track(angle_rad=math.pi / 3, confirmed=True)),
             capacity_downstream=1,
         ),
         now_mono=0.0,

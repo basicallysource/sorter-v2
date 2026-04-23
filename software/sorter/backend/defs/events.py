@@ -126,9 +126,12 @@ class KnownObjectData(BaseModel):
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    preview_jpeg_path: Optional[str] = None
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    bin_id: Optional[str] = None
+    distribution_reason: Optional[str] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None

@@ -219,7 +219,12 @@ class RuntimeStatsCollector:
                 current["entered_at_monotonic"] = now_monotonic
                 current["entered_at_wall"] = now_wall
 
-    def observeKnownObject(self, obj: dict[str, Any]) -> None:
+    def observeKnownObject(
+        self,
+        obj: dict[str, Any],
+        *,
+        count_when_stopped: bool = False,
+    ) -> None:
         obj_uuid = obj.get("uuid")
         if not obj_uuid:
             return
@@ -234,14 +239,18 @@ class RuntimeStatsCollector:
         while len(self._known_object_lookup) > MAX_KNOWN_OBJECT_LOOKUP_ENTRIES:
             self._known_object_lookup.popitem(last=False)
 
-        if not self._is_running:
+        if not self._is_running and not count_when_stopped:
             return
         current = self._piece_by_uuid.get(obj_uuid, {})
         current.update(obj)
         self._piece_by_uuid[obj_uuid] = current
         self._last_updated_at = time.time()
 
-        if current.get("distributed_at") is not None and current.get("destination_bin") is not None:
+        if (
+            self._is_running
+            and current.get("distributed_at") is not None
+            and current.get("destination_bin") is not None
+        ):
             try:
                 from local_state import record_piece_distribution
 

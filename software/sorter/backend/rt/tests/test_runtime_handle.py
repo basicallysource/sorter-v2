@@ -343,6 +343,29 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
     assert snapshot["maintenance"]["c234_purge"]["phase"] == "purging"
 
 
+def test_clear_c1_pause_forwards_to_c1_runtime() -> None:
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    c1 = MagicMock()
+    c1.is_paused.return_value = True
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[],
+        event_bus=bus,
+        c4=None,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        c1=c1,  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+    )
+
+    result = handle.clear_c1_pause()
+
+    assert result == {"cleared": True, "was_paused": True}
+    c1.clear_pause.assert_called_once_with()
+
+
 def test_stop_stops_perception_when_runtime_never_fully_started():
     bus = MagicMock()
     orchestrator = MagicMock()
@@ -431,10 +454,12 @@ class _FakePurgeRuntime:
 def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
     bus = MagicMock()
     orchestrator = MagicMock()
+    c1 = MagicMock()
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=[],
         event_bus=bus,
+        c1=c1,
         c4=_FakePurgeRuntime("c4", [1, 1, 0, 0]),  # type: ignore[arg-type]
         distributor=None,  # type: ignore[arg-type]
         c2=_FakePurgeRuntime("c2", [2, 1, 0, 0]),  # type: ignore[arg-type]
@@ -467,6 +492,8 @@ def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
     assert published == ["running", "paused"]
     assert orchestrator.resume.call_count == 1
     assert orchestrator.pause.call_count == 1
+    c1.pause_for_maintenance.assert_called_once_with("c234_purge")
+    c1.resume_from_maintenance.assert_called_once_with()
     # Every channel must have been armed and disarmed exactly once.
     for runtime in (handle.c2, handle.c3, handle.c4):
         port = runtime.purge_port()  # type: ignore[union-attr]

@@ -218,6 +218,35 @@ def test_handoff_commit_rejected_in_wrong_state() -> None:
     assert ok is False
 
 
+def test_handoff_abort_releases_pending_piece() -> None:
+    dist, upstream, rec, *_ = _make()
+    dist.handoff_request(piece_uuid="p1", classification=_classification(), now_mono=1.0)
+    dist.tick(_inbox(), now_mono=1.2)
+    assert dist.fsm_state() == "ready"
+    assert upstream.available() == 0
+
+    ok = dist.handoff_abort("p1", reason="track_lost", now_mono=1.3)
+
+    assert ok is True
+    assert dist.pending_piece_uuid() is None
+    assert upstream.available() == 1
+    assert rec.acks[-1] == ("p1", False, "track_lost")
+
+
+def test_ready_timeout_aborts_stale_handoff() -> None:
+    dist, upstream, rec, *_ = _make()
+    dist._ready_timeout_s = 0.5  # noqa: SLF001 - test-only knob
+    dist.handoff_request(piece_uuid="p1", classification=_classification(), now_mono=1.0)
+    dist.tick(_inbox(), now_mono=1.2)
+    assert dist.fsm_state() == "ready"
+
+    dist.tick(_inbox(), now_mono=1.8)
+
+    assert dist.pending_piece_uuid() is None
+    assert upstream.available() == 1
+    assert rec.acks[-1] == ("p1", False, "handoff_ready_timeout")
+
+
 def test_unknown_part_triggers_reject_dispatch() -> None:
     rules = _FakeRules(
         decision=BinDecision(bin_id=None, category=None, reason="unknown_part")

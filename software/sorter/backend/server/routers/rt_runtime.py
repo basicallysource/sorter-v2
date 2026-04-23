@@ -117,4 +117,23 @@ def cancel_c234_purge() -> Dict[str, Any]:
     return {"ok": True, "cancelled": cancelled, "status": status}
 
 
+@router.post("/api/rt/c1/clear-jam")
+def clear_c1_jam() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    if not bool(getattr(handle, "started", False)):
+        raise HTTPException(status_code=409, detail="rt runtime is not started")
+    clear_fn = getattr(handle, "clear_c1_pause", None)
+    if not callable(clear_fn):
+        raise HTTPException(status_code=501, detail="c1 jam clearing is not supported")
+    try:
+        result = dict(clear_fn() or {})
+    except NotImplementedError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True, **result}
+
+
 __all__ = ["router"]

@@ -912,6 +912,10 @@ class RuntimeStatsRecordsResponse(BaseModel):
 
 @app.get("/runtime-stats", response_model=RuntimeStatsResponse)
 def getRuntimeStats() -> RuntimeStatsResponse:
+    live_snapshot = runtime_stats_service.snapshot()
+    if live_snapshot is not None:
+        shared_state.runtime_stats_snapshot = live_snapshot
+        return RuntimeStatsResponse(payload=live_snapshot)
     if shared_state.runtime_stats_snapshot is None:
         return RuntimeStatsResponse(payload={})
     return RuntimeStatsResponse(payload=shared_state.runtime_stats_snapshot)

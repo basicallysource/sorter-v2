@@ -118,6 +118,8 @@ class RuntimeC3(BaseRuntime):
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._piece_count: int = 0
+        self._visible_track_count: int = 0
+        self._pending_track_count: int = 0
         self._purge_mode: bool = False
 
     # Expose mode enum for tests / callers without re-importing.
@@ -144,6 +146,8 @@ class RuntimeC3(BaseRuntime):
         snap = super().debug_snapshot()
         snap.update({
             "piece_count": int(self._piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "pending_track_count": int(self._pending_track_count),
             "max_piece_count": int(self._max_piece_count),
             "available_slots": int(self.available_slots()),
             "upstream_taken": int(self._upstream_slot.taken()),
@@ -158,10 +162,14 @@ class RuntimeC3(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
+            visible_tracks = [t for t in tracks if not bool(getattr(t, "ghost", False))]
+            confirmed_tracks = [t for t in visible_tracks if bool(getattr(t, "confirmed_real", False))]
+            self._visible_track_count = len(visible_tracks)
+            self._pending_track_count = max(0, self._visible_track_count - len(confirmed_tracks))
+            self._piece_count = len(confirmed_tracks)
             if not self._purge_mode:
-                self._credit_new_arrivals(tracks)
-            self._piece_count = len(tracks)
-            exit_track = self._pick_exit_track(tracks)
+                self._credit_new_arrivals(confirmed_tracks)
+            exit_track = self._pick_exit_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
@@ -176,13 +184,13 @@ class RuntimeC3(BaseRuntime):
                 if not wiggled:
                     self._set_state("idle", blocked_reason="downstream_full")
                 return
-            if not tracks:
+            if not visible_tracks:
                 self._book.exit_stall_since = None
                 self._set_state("idle")
                 return
-            approach_track = self._pick_approach_track(tracks)
+            approach_track = self._pick_approach_track(visible_tracks)
             mode = self._resolve_mode(exit_track, approach_track, now_mono)
-            target_track = exit_track or approach_track or tracks[0]
+            target_track = exit_track or approach_track or visible_tracks[0]
             # Only pieces inside the commit zone (exit_near_arc) are
             # allowed to claim a downstream slot. Tracks in the wider
             # approach zone get slow pulses too, but don't grab c3_to_c4
@@ -392,6 +400,8 @@ class RuntimeC3(BaseRuntime):
     def _reset_bookkeeping(self) -> None:
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._piece_count = 0
+        self._visible_track_count = 0
+        self._pending_track_count = 0
         self._next_pulse_at = 0.0
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
@@ -450,7 +460,7 @@ class _C3PurgePort:
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(
-            piece_count=int(self._runtime._piece_count),
+            piece_count=int(self._runtime._visible_track_count),
             owned_count=0,
             pending_detections=0,
         )

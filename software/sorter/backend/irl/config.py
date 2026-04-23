@@ -387,9 +387,9 @@ class ClassificationChannelConfig:
         # Scale for the normal pipeline-advance carousel move. Exit drop
         # commit uses a separate eject config, so this only affects the
         # slow pipeline travel, not the precision drop. Tuned live to
-        # reach ~1 rpm observed ring speed; operators can drop it back
-        # if the hood/guard clearance ever becomes a concern.
-        self.transport_speed_scale = 20.0
+        # reach ~1 rpm observed ring speed. Normal travel can run a bit
+        # faster now because exit approach/shimmy use the explicit slow path.
+        self.transport_speed_scale = 24.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

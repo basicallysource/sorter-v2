@@ -306,6 +306,37 @@ def test_cancel_c234_purge_endpoint_forwards_to_handle(
     handle.cancel_c234_purge.assert_called_once()
 
 
+def test_clear_c1_jam_endpoint_forwards_to_handle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handle = _FakeHandle([])
+    handle.clear_c1_pause = MagicMock(  # type: ignore[attr-defined]
+        return_value={"cleared": True, "was_paused": True}
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    payload = rt_runtime_router.clear_c1_jam()
+
+    assert payload == {"ok": True, "cleared": True, "was_paused": True}
+    handle.clear_c1_pause.assert_called_once_with()
+
+
+def test_clear_c1_jam_endpoint_requires_started_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handle = _FakeHandle([], started=False)
+    handle.clear_c1_pause = MagicMock(  # type: ignore[attr-defined]
+        return_value={"cleared": True, "was_paused": True}
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    with pytest.raises(Exception) as exc_info:
+        rt_runtime_router.clear_c1_jam()
+
+    assert getattr(exc_info.value, "status_code", None) == 409
+    handle.clear_c1_pause.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Rebuild hook called from detection-config POST
 # ---------------------------------------------------------------------------

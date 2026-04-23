@@ -73,3 +73,71 @@ def lookup_known_object(uuid: str) -> dict[str, Any] | None:
         return None
     payload = collector.lookupKnownObject(uuid)
     return payload if isinstance(payload, dict) else None
+
+
+def observe_known_object(obj: dict[str, Any]) -> None:
+    """Feed a known-object/dossier update into the live runtime stats collector."""
+    collector = _collector()
+    if collector is None or not hasattr(collector, "observeKnownObject"):
+        return
+    collector.observeKnownObject(obj)
+
+
+def _observe_known_object(
+    collector: Any,
+    obj: dict[str, Any],
+    *,
+    count_when_stopped: bool = False,
+) -> None:
+    observe = getattr(collector, "observeKnownObject", None)
+    if not callable(observe):
+        return
+    try:
+        observe(obj, count_when_stopped=count_when_stopped)
+    except TypeError:
+        observe(obj)
+
+
+def _sync_recent_piece_dossiers(
+    collector: Any,
+    *,
+    limit: int = 500,
+    count_when_stopped: bool = False,
+) -> None:
+    observe = getattr(collector, "observeKnownObject", None)
+    if not callable(observe):
+        return
+    try:
+        from local_state import list_piece_dossiers
+
+        dossiers = list_piece_dossiers(limit=limit, include_stubs=False)
+    except Exception:
+        return
+    for obj in reversed(dossiers):
+        if isinstance(obj, dict):
+            _observe_known_object(
+                collector,
+                obj,
+                count_when_stopped=count_when_stopped,
+            )
+
+
+def _snapshot_from_piece_dossiers() -> dict[str, Any] | None:
+    try:
+        from runtime_stats import RuntimeStatsCollector
+    except Exception:
+        return None
+    collector = RuntimeStatsCollector()
+    _sync_recent_piece_dossiers(collector, count_when_stopped=True)
+    snap = collector.snapshot()
+    return snap if isinstance(snap, dict) else None
+
+
+def snapshot() -> dict[str, Any] | None:
+    """Return a fresh live runtime-stats snapshot when the collector is available."""
+    collector = _collector()
+    if collector is None or not hasattr(collector, "snapshot"):
+        return _snapshot_from_piece_dossiers()
+    _sync_recent_piece_dossiers(collector, count_when_stopped=True)
+    snap = collector.snapshot()
+    return snap if isinstance(snap, dict) else None

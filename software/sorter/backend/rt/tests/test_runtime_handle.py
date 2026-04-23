@@ -264,36 +264,55 @@ def test_rebuild_runner_starts_new_runner_when_perception_started():
     runner.start.assert_called_once_with()
 
 
+class _FakePurgePort:
+    def __init__(self, key: str, counts_seq: list[int]) -> None:
+        self.key = key
+        self._counts_seq = list(counts_seq)
+        self.arm_count = 0
+        self.disarm_count = 0
+        self.drain_count = 0
+
+    def arm(self) -> None:
+        self.arm_count += 1
+
+    def disarm(self) -> None:
+        self.disarm_count += 1
+
+    def counts(self):
+        from rt.contracts.purge import PurgeCounts
+
+        value = self._counts_seq[0] if self._counts_seq else 0
+        if len(self._counts_seq) > 1:
+            self._counts_seq.pop(0)
+        if self.key == "c4":
+            return PurgeCounts(
+                ring_count=int(value), owned_count=0, pending_detections=0
+            )
+        return PurgeCounts(
+            ring_count=int(value), owned_count=0, pending_detections=0
+        )
+
+    def drain_step(self, now_mono: float) -> bool:
+        self.drain_count += 1
+        return True
+
+
 class _FakePurgeRuntime:
     def __init__(self, key: str, counts: list[int]) -> None:
-        self._key = key
-        self._counts = list(counts)
+        self._port = _FakePurgePort(key, counts)
 
-    def debug_snapshot(self) -> dict[str, int | bool]:
-        value = self._counts[0] if self._counts else 0
-        if len(self._counts) > 1:
-            self._counts.pop(0)
-        if self._key == "c4":
-            return {
-                "raw_detection_count": int(value),
-                "dossier_count": 0,
-                "startup_purge_armed": bool(value > 0),
-            }
-        return {"ring_count": int(value)}
-
-    def arm_startup_purge(self) -> None:
-        return None
+    def purge_port(self):
+        return self._port
 
 
 def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
     bus = MagicMock()
     orchestrator = MagicMock()
-    c4 = MagicMock(wraps=_FakePurgeRuntime("c4", [1, 1, 0, 0]))
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=[],
         event_bus=bus,
-        c4=c4,  # type: ignore[arg-type]
+        c4=_FakePurgeRuntime("c4", [1, 1, 0, 0]),  # type: ignore[arg-type]
         distributor=None,  # type: ignore[arg-type]
         c2=_FakePurgeRuntime("c2", [2, 1, 0, 0]),  # type: ignore[arg-type]
         c3=_FakePurgeRuntime("c3", [1, 0, 0, 0]),  # type: ignore[arg-type]
@@ -325,18 +344,21 @@ def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
     assert published == ["running", "paused"]
     assert orchestrator.resume.call_count == 1
     assert orchestrator.pause.call_count == 1
-    assert c4.arm_startup_purge.call_count >= 1
+    # Every channel must have been armed and disarmed exactly once.
+    for runtime in (handle.c2, handle.c3, handle.c4):
+        port = runtime.purge_port()  # type: ignore[union-attr]
+        assert port.arm_count == 1
+        assert port.disarm_count == 1
 
 
 def test_cancel_c234_purge_stops_job_and_restores_pause_state() -> None:
     bus = MagicMock()
     orchestrator = MagicMock()
-    c4 = MagicMock(wraps=_FakePurgeRuntime("c4", [1, 1, 1, 1, 1]))
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=[],
         event_bus=bus,
-        c4=c4,  # type: ignore[arg-type]
+        c4=_FakePurgeRuntime("c4", [1, 1, 1, 1, 1]),  # type: ignore[arg-type]
         distributor=None,  # type: ignore[arg-type]
         c2=_FakePurgeRuntime("c2", [1, 1, 1, 1, 1]),  # type: ignore[arg-type]
         c3=_FakePurgeRuntime("c3", [1, 1, 1, 1, 1]),  # type: ignore[arg-type]
@@ -362,3 +384,49 @@ def test_cancel_c234_purge_stops_job_and_restores_pause_state() -> None:
     assert status["reason"] == "cancelled"
     assert orchestrator.resume.call_count == 1
     assert orchestrator.pause.call_count == 1
+    # Safety-net disarm must still fire on cancel.
+    for runtime in (handle.c2, handle.c3, handle.c4):
+        port = runtime.purge_port()  # type: ignore[union-attr]
+        assert port.disarm_count == 1
+
+
+def test_start_c234_purge_top_down_disarm_keeps_c3_armed_while_c2_active() -> None:
+    """Regression: C3 must not disarm while C2 is still purging.
+
+    Build counts such that C3 reports empty from tick 1, but C2 keeps
+    reporting non-empty for several ticks. C3 and C4 may go clear, but
+    neither may disarm until C2's port reports clear.
+    """
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    c2_counts = [3, 2, 1, 0, 0, 0, 0]
+    c3_counts = [0, 0, 0, 0, 0, 0, 0]
+    c4_counts = [0, 0, 0, 0, 0, 0, 0]
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[],
+        event_bus=bus,
+        c4=_FakePurgeRuntime("c4", c4_counts),  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        c2=_FakePurgeRuntime("c2", c2_counts),  # type: ignore[arg-type]
+        c3=_FakePurgeRuntime("c3", c3_counts),  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+        started=True,
+        perception_started=True,
+        paused=False,
+    )
+
+    started = handle.start_c234_purge(timeout_s=1.0, clear_hold_s=0.0, poll_s=0.01)
+    assert started is True
+    deadline = time.time() + 2.0
+    while handle.c234_purge_status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = handle.c234_purge_status()
+    assert status["success"] is True
+    # Each channel still disarmed exactly once — not before upstream was clear.
+    for runtime in (handle.c2, handle.c3, handle.c4):
+        port = runtime.purge_port()  # type: ignore[union-attr]
+        assert port.disarm_count == 1

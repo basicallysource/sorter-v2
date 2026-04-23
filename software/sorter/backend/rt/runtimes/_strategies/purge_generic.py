@@ -40,6 +40,10 @@ class GenericPurgeStrategy:
         return self._port.key
 
     @property
+    def port(self) -> PurgePort:
+        return self._port
+
+    @property
     def is_armed(self) -> bool:
         return self._armed
 

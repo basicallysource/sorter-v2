@@ -52,6 +52,7 @@ from rt.runtimes._strategies import (
     C4EjectionTiming,
     C4StartupPurgeStrategy,
     ConstantPulseEjection,
+    GenericPurgeStrategy,
 )
 from rt.runtimes._zones import ZoneManager
 from rt.runtimes.c1 import RuntimeC1
@@ -269,49 +270,61 @@ class RtRuntimeHandle:
                 next_status["counts"] = dict(counts)
             self._c234_purge_status = next_status
 
-    def _c234_purge_counts(self) -> dict[str, int]:
-        log = logging.getLogger("rt.bootstrap")
-        c2_count = 0
-        if self.c2 is not None:
-            try:
-                c2_count = max(0, int(self.c2.debug_snapshot().get("ring_count", 0)))
-            except Exception:
-                log.exception("RtRuntimeHandle: c2.debug_snapshot raised during c234 purge")
-        c3_count = 0
-        if self.c3 is not None:
-            try:
-                c3_count = max(0, int(self.c3.debug_snapshot().get("ring_count", 0)))
-            except Exception:
-                log.exception("RtRuntimeHandle: c3.debug_snapshot raised during c234 purge")
-        c4_raw = 0
-        c4_dossiers = 0
-        c4_purge_armed = False
-        if self.c4 is not None:
-            try:
-                c4_debug = dict(self.c4.debug_snapshot() or {})
-            except Exception:
-                log.exception("RtRuntimeHandle: c4.debug_snapshot raised during c234 purge")
-                c4_debug = {}
-            c4_raw = max(0, int(c4_debug.get("raw_detection_count", 0) or 0))
-            c4_dossiers = max(0, int(c4_debug.get("dossier_count", 0) or 0))
-            c4_purge_armed = bool(c4_debug.get("startup_purge_armed", False))
-        return {
-            "c2": c2_count,
-            "c3": c3_count,
-            "c4_raw": c4_raw,
-            "c4_dossiers": c4_dossiers,
-            "c4_purge_armed": 1 if c4_purge_armed else 0,
-        }
+    def _collect_purge_strategies(
+        self, *, clear_hold_s: float
+    ) -> list[GenericPurgeStrategy]:
+        """Gather strategies in top-down disarm order: C2 first, then C3, then C4.
 
-    def _arm_c4_purge(self) -> None:
-        arm_startup_purge = getattr(self.c4, "arm_startup_purge", None)
-        if callable(arm_startup_purge):
+        Order matters — the coordinator enforces that a downstream channel
+        may only disarm once all upstream channels have already disarmed,
+        so a late piece from C2 never lands on a stopped C3.
+        """
+        log = logging.getLogger("rt.bootstrap")
+        strategies: list[GenericPurgeStrategy] = []
+        for runtime in (self.c2, self.c3, self.c4):
+            if runtime is None:
+                continue
+            port_fn = getattr(runtime, "purge_port", None)
+            if not callable(port_fn):
+                continue
             try:
-                arm_startup_purge()
+                port = port_fn()
+            except Exception:
+                log.exception(
+                    "RtRuntimeHandle: purge_port() raised for %s",
+                    getattr(runtime, "name", type(runtime).__name__),
+                )
+                continue
+            strategies.append(
+                GenericPurgeStrategy(port, clear_hold_ms=float(clear_hold_s) * 1000.0)
+            )
+        return strategies
+
+    def _aggregate_purge_counts(
+        self, strategies: list[GenericPurgeStrategy]
+    ) -> dict[str, int]:
+        """Build the UI-facing counts dict from per-channel PurgePort snapshots.
+
+        Output shape matches the legacy contract consumed by AppHeader:
+        ``{c2, c3, c4_raw, c4_dossiers}``.
+        """
+        counts = {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0}
+        for strat in strategies:
+            try:
+                snap = strat.port.counts()
             except Exception:
                 logging.getLogger("rt.bootstrap").exception(
-                    "RtRuntimeHandle: c4.arm_startup_purge raised during c234 purge"
+                    "RtRuntimeHandle: purge port counts raised for %s", strat.channel
                 )
+                continue
+            if strat.channel == "c2":
+                counts["c2"] = int(snap.ring_count)
+            elif strat.channel == "c3":
+                counts["c3"] = int(snap.ring_count)
+            elif strat.channel == "c4":
+                counts["c4_raw"] = int(snap.ring_count)
+                counts["c4_dossiers"] = int(snap.owned_count)
+        return counts
 
     def _run_c234_purge(
         self,
@@ -324,14 +337,15 @@ class RtRuntimeHandle:
         log = logging.getLogger("rt.bootstrap")
         was_paused = bool(self.paused)
         deadline = time.monotonic() + float(timeout_s)
-        clear_since: float | None = None
         success = False
         reason = "timeout"
         phase = "running"
+        strategies = self._collect_purge_strategies(clear_hold_s=clear_hold_s)
         try:
-            if self.c4 is None:
-                raise RuntimeError("c4 runtime unavailable")
-            self._arm_c4_purge()
+            if not strategies:
+                raise RuntimeError("no purge-capable runtimes available")
+            for strat in strategies:
+                strat.arm()
             if was_paused:
                 self.resume()
                 if callable(state_publisher):
@@ -346,43 +360,72 @@ class RtRuntimeHandle:
                     reason = "cancelled"
                     phase = "cancelled"
                     break
-                counts = self._c234_purge_counts()
-                occupied = (
-                    int(counts.get("c2", 0))
-                    + int(counts.get("c3", 0))
-                    + int(counts.get("c4_raw", 0))
-                    + int(counts.get("c4_dossiers", 0))
-                )
-                c4_purge_armed = bool(counts.get("c4_purge_armed", 0))
-                if occupied > 0 and not c4_purge_armed:
-                    self._arm_c4_purge()
-                if occupied <= 0:
-                    phase = "verifying_clear"
-                    if clear_since is None:
-                        clear_since = time.monotonic()
-                    elif (time.monotonic() - clear_since) >= float(clear_hold_s):
-                        success = True
-                        reason = "cleared"
-                        break
+                now = time.monotonic()
+
+                # Parallel drive: every armed strategy runs its tick.
+                for strat in strategies:
+                    if strat.is_armed:
+                        try:
+                            strat.tick(now)
+                        except Exception:
+                            log.exception(
+                                "RtRuntimeHandle: purge strategy tick raised for %s",
+                                strat.channel,
+                            )
+
+                # Top-down disarm: a channel may only disarm once every
+                # upstream strategy has finished draining.
+                for idx, strat in enumerate(strategies):
+                    if not strat.is_armed:
+                        continue
+                    upstream_done = all(not s.is_armed for s in strategies[:idx])
+                    if upstream_done and strat.is_channel_clear(now):
+                        try:
+                            strat.disarm()
+                        except Exception:
+                            log.exception(
+                                "RtRuntimeHandle: purge strategy disarm raised for %s",
+                                strat.channel,
+                            )
+
+                counts = self._aggregate_purge_counts(strategies)
+                all_done = all(not s.is_armed for s in strategies)
+                if all_done:
+                    success = True
+                    reason = "cleared"
+                    phase = "idle"
                 else:
-                    phase = "purging"
-                    clear_since = None
+                    phase = (
+                        "verifying_clear"
+                        if all(
+                            s.is_channel_clear(now) or not s.is_armed
+                            for s in strategies
+                        )
+                        else "purging"
+                    )
                 self._set_c234_purge_status(
                     active=True,
                     phase=phase,
                     cancel_requested=False,
-                    counts={
-                        "c2": int(counts.get("c2", 0)),
-                        "c3": int(counts.get("c3", 0)),
-                        "c4_raw": int(counts.get("c4_raw", 0)),
-                        "c4_dossiers": int(counts.get("c4_dossiers", 0)),
-                    },
+                    counts=counts,
                 )
+                if all_done:
+                    break
                 time.sleep(float(poll_s))
         except Exception as exc:
             reason = str(exc) or exc.__class__.__name__
             log.exception("RtRuntimeHandle: c234 purge failed")
         finally:
+            # Safety net: force-disarm anything still armed on timeout/cancel.
+            for strat in strategies:
+                if strat.is_armed:
+                    try:
+                        strat.disarm()
+                    except Exception:
+                        log.exception(
+                            "RtRuntimeHandle: final disarm raised for %s",
+                            strat.channel,
+                        )
             if was_paused:
                 try:
                     self.pause()

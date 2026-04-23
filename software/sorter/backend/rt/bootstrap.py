@@ -26,6 +26,13 @@ from typing import Any, Callable
 import rt.perception  # noqa: F401 - register detectors/trackers/filters
 import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
+from rt.config.channels import (
+    ROLE_TO_LEGACY_CAMERA,
+    channel_polygon_key_for_role,
+    configured_resolution_for_role,
+    load_arc_tracker_params,
+    load_saved_polygon,
+)
 from rt.config.schema import PipelineConfig
 from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (
@@ -48,21 +55,12 @@ from rt.runtimes._strategies import (
     ConstantPulseEjection,
 )
 from rt.runtimes._zones import ZoneManager
-from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.runtimes.c1 import RuntimeC1
 from rt.runtimes.c2 import RuntimeC2
 from rt.runtimes.c3 import RuntimeC3
 from rt.runtimes.c4 import RuntimeC4
 from rt.runtimes.distributor import RuntimeDistributor
-from utils.polygon_resolution import saved_polygon_resolution
-
-
-# Mapping rt-side role slug -> legacy camera_service role name.
-_ROLE_TO_LEGACY_CAMERA: dict[str, str] = {
-    "c2": "c_channel_2",
-    "c3": "c_channel_3",
-    "c4": "carousel",
-}
+from rt.services.maintenance_purge import C234PurgeCoordinator
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,185 +374,6 @@ class RtRuntimeHandle:
 # (``_channelPolygonKeyForRole`` / ``_loadSavedPolygon``) have been inlined
 # here so rt/ no longer depends on the legacy vision runtime.
 
-def _channel_polygon_key_for_role(role: str) -> str | None:
-    if role == "c_channel_2":
-        return "second_channel"
-    if role == "c_channel_3":
-        return "third_channel"
-    if role == "carousel":
-        return "classification_channel"
-    return None
-
-
-def _saved_resolution_for_channel(saved: dict, channel_key: str | None) -> list:
-    """Return the capture resolution a polygon was saved at.
-
-    Kept as a light wrapper so bootstrap code can stay simple while the
-    resolution lookup logic lives in one shared place.
-    """
-    return list(saved_polygon_resolution(saved, channel_key=channel_key))
-
-
-def _channel_angle_key_for_polygon_key(polygon_key: str) -> str | None:
-    if polygon_key == "second_channel":
-        return "second"
-    if polygon_key == "third_channel":
-        return "third"
-    if polygon_key == "classification_channel":
-        return "classification_channel"
-    return None
-
-
-def _arc_params_key_for_role(role: str) -> str | None:
-    legacy_role = _ROLE_TO_LEGACY_CAMERA.get(role, role)
-    if legacy_role == "c_channel_2":
-        return "second"
-    if legacy_role == "c_channel_3":
-        return "third"
-    if legacy_role in {"carousel", "classification_channel"}:
-        return "classification_channel"
-    return None
-
-
-def _load_arc_tracker_params(
-    role: str,
-    *,
-    target_w: int,
-    target_h: int,
-) -> dict[str, Any]:
-    """Load scaled polar geometry for the tracker from channel arc params.
-
-    Arc channels keep two distinct concerns:
-    - polygon zone: mask/crop/overlay
-    - polar geometry: center + radius range for angle-aware tracking
-
-    The UI already stores both in the channel_polygons blob; bootstrap must
-    carry both into the perception pipeline.
-    """
-    try:
-        from blob_manager import getChannelPolygons
-    except Exception:
-        return {}
-    saved = getChannelPolygons()
-    if not isinstance(saved, dict):
-        return {}
-    arc_params = saved.get("arc_params")
-    if not isinstance(arc_params, dict):
-        return {}
-    channel_key = _arc_params_key_for_role(role)
-    if channel_key is None:
-        return {}
-    raw = arc_params.get(channel_key)
-    if not isinstance(raw, dict):
-        return {}
-    center = raw.get("center")
-    try:
-        center_x = float(center[0])
-        center_y = float(center[1])
-        inner_radius = float(raw["inner_radius"])
-        outer_radius = float(raw["outer_radius"])
-    except Exception:
-        return {}
-    if inner_radius < 0.0 or outer_radius <= inner_radius:
-        return {}
-    saved_res = _saved_resolution_for_channel(saved, channel_key)
-    try:
-        src_w, src_h = int(saved_res[0]), int(saved_res[1])
-    except (TypeError, ValueError):
-        return {}
-    if src_w <= 0 or src_h <= 0:
-        return {}
-    sx = float(target_w) / float(src_w)
-    sy = float(target_h) / float(src_h)
-    radius_scale = (abs(sx) + abs(sy)) / 2.0
-    return {
-        "polar_center": (center_x * sx, center_y * sy),
-        "polar_radius_range": (
-            inner_radius * radius_scale,
-            outer_radius * radius_scale,
-        ),
-    }
-
-
-def _load_saved_polygon(key: str, target_w: int, target_h: int) -> Any:
-    """Read + scale a polygon from ``blob_manager.getChannelPolygons()``."""
-    import numpy as np  # local — keeps module import fast
-
-    try:
-        from blob_manager import getChannelPolygons
-    except Exception:
-        return None
-    saved = getChannelPolygons()
-    if not isinstance(saved, dict):
-        return None
-    polygon_data = saved.get("polygons") or {}
-    pts = polygon_data.get(key)
-    if not isinstance(pts, list) or len(pts) < 3:
-        return None
-    channel_key_for_res = _channel_angle_key_for_polygon_key(key) or key
-    saved_res = _saved_resolution_for_channel(saved, channel_key_for_res)
-    try:
-        src_w, src_h = int(saved_res[0]), int(saved_res[1])
-    except (TypeError, ValueError):
-        return None
-    if src_w <= 0 or src_h <= 0:
-        return None
-    sx = float(target_w) / float(src_w)
-    sy = float(target_h) / float(src_h)
-    try:
-        return np.array(
-            [[float(p[0]) * sx, float(p[1]) * sy] for p in pts],
-            dtype=np.int32,
-        )
-    except (TypeError, ValueError):
-        return None
-
-
-def _configured_resolution_for_role(
-    camera_service: Any,
-    legacy_role: str,
-) -> tuple[int, int] | None:
-    """Resolve ``(width, height)`` from the device config — no frame needed.
-
-    Returns ``None`` only if the camera_service has no device for the role,
-    or if the device has no configured capture resolution. Falls back to a
-    live frame probe as a last resort for test harnesses that don't wire a
-    real device graph.
-    """
-    w: int | None = None
-    h: int | None = None
-
-    get_device = getattr(camera_service, "get_device", None)
-    if callable(get_device):
-        try:
-            device = get_device(legacy_role)
-        except Exception:
-            device = None
-        config = getattr(device, "config", None) if device is not None else None
-        cfg_w = getattr(config, "width", None)
-        cfg_h = getattr(config, "height", None)
-        if isinstance(cfg_w, int) and isinstance(cfg_h, int) and cfg_w > 0 and cfg_h > 0:
-            w, h = cfg_w, cfg_h
-
-    if w is None or h is None:
-        # Fallback: probe the latest frame. Only exercised in tests or on
-        # exotic setups where the device doesn't expose a config object.
-        get_capture = getattr(camera_service, "get_capture_thread_for_role", None)
-        if callable(get_capture):
-            try:
-                capture = get_capture(legacy_role)
-            except Exception:
-                capture = None
-            frame = getattr(capture, "latest_frame", None) if capture is not None else None
-            raw = getattr(frame, "raw", None)
-            if raw is not None and hasattr(raw, "shape"):
-                h, w = int(raw.shape[0]), int(raw.shape[1])
-
-    if w is None or h is None:
-        return None
-    return int(w), int(h)
-
-
 # ----------------------------------------------------------------------
 # Role ↔ UI scope / feed-id / detector-config helpers.
 
@@ -653,7 +472,7 @@ def _build_perception_runner_for_role(
         return None, None, reason or "no_zone"
 
     feed_id = f"{role}_feed"
-    camera_id = _ROLE_TO_LEGACY_CAMERA.get(role, role)
+    camera_id = ROLE_TO_LEGACY_CAMERA.get(role, role)
     purpose = {"c2": "c2_feed", "c3": "c3_feed", "c4": "c4_feed"}.get(role)
     if purpose is None:
         logger.error("rt.bootstrap[%s]: unknown role — cannot build perception", role)
@@ -673,9 +492,9 @@ def _build_perception_runner_for_role(
 
     detector_slug = _detector_slug_for_role(role, logger)
     tracker_params: dict[str, Any] = {}
-    target_res = _configured_resolution_for_role(camera_service, camera_id)
+    target_res = configured_resolution_for_role(camera_service, camera_id)
     if target_res is not None:
-        tracker_params = _load_arc_tracker_params(
+        tracker_params = load_arc_tracker_params(
             role,
             target_w=int(target_res[0]),
             target_h=int(target_res[1]),
@@ -727,17 +546,17 @@ def _load_zone_for_role(
     of frame delivery, so C4 and every other channel load their zones as
     soon as the camera_service is built — no boot-race.
     """
-    legacy_role = _ROLE_TO_LEGACY_CAMERA.get(role, role)
+    legacy_role = ROLE_TO_LEGACY_CAMERA.get(role, role)
 
     # Target frame resolution — pulled from the camera device config, no frame.
-    target_res = _configured_resolution_for_role(camera_service, legacy_role)
+    target_res = configured_resolution_for_role(camera_service, legacy_role)
     target_w, target_h = target_res if target_res is not None else (None, None)
 
-    polygon_key = _channel_polygon_key_for_role(legacy_role)
+    polygon_key = channel_polygon_key_for_role(legacy_role)
     polygon = None
     if polygon_key and target_w is not None and target_h is not None:
         try:
-            polygon = _load_saved_polygon(polygon_key, target_w, target_h)
+            polygon = load_saved_polygon(polygon_key, target_w, target_h)
         except Exception:
             polygon = None
 

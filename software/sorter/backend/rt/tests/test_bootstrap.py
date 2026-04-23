@@ -16,10 +16,12 @@ from unittest.mock import patch
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
 from rt.bootstrap import (
     _build_perception_runner_for_role,
-    _configured_resolution_for_role,
     _detector_slug_for_role,
-    _load_arc_tracker_params,
     _load_zone_for_role,
+)
+from rt.config.channels import (
+    configured_resolution_for_role,
+    load_arc_tracker_params,
 )
 from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.registry import CLASSIFIERS
@@ -117,7 +119,7 @@ def test_load_zone_from_saved_polygon_without_live_frame():
         }
     )
     with patch(
-        "rt.bootstrap._load_saved_polygon",
+        "rt.bootstrap.load_saved_polygon",
         wraps=None,
     ):
         pass  # no patch — we want the real implementation
@@ -172,7 +174,7 @@ def test_load_arc_tracker_params_uses_per_channel_resolution() -> None:
             },
         },
     ):
-        params = _load_arc_tracker_params("c2", target_w=1280, target_h=720)
+        params = load_arc_tracker_params("c2", target_w=1280, target_h=720)
     assert params["polar_center"] == (640.0, 360.0)
     assert params["polar_radius_range"] == (120.0, 300.0)
 
@@ -224,12 +226,12 @@ def test_configured_resolution_reads_device_config():
     camera_service = _FakeCameraService(
         devices={"carousel": _FakeDevice(width=4096, height=2160)}
     )
-    assert _configured_resolution_for_role(camera_service, "carousel") == (4096, 2160)
+    assert configured_resolution_for_role(camera_service, "carousel") == (4096, 2160)
 
 
 def test_configured_resolution_returns_none_when_missing():
     camera_service = _FakeCameraService(devices={})
-    assert _configured_resolution_for_role(camera_service, "carousel") is None
+    assert configured_resolution_for_role(camera_service, "carousel") is None
 
 
 # ---------------------------------------------------------------------------

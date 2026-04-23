@@ -23,7 +23,8 @@
 		defaultZones = true,
 		controls = ['annotations'],
 		layer = $bindable('annotated'),
-		stateBadge = null
+		stateBadge = null,
+		rpm = null
 	}: {
 		camera: string;
 		label?: string;
@@ -38,6 +39,7 @@
 		controls?: ControlKey[];
 		layer?: 'raw' | 'annotated';
 		stateBadge?: StateBadge | null;
+		rpm?: number | null;
 	} = $props();
 
 	const ctx = getMachineContext();
@@ -163,23 +165,33 @@
 	{#if showHeader}
 		<div class="setup-card-header flex flex-shrink-0 items-center justify-between px-3 py-2 text-sm">
 			<span class="font-medium text-text">{display_label}</span>
-			{#if stateBadge}
-				{@const toneClass =
-					stateBadge.tone === 'green'
-						? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
-						: stateBadge.tone === 'amber'
-							? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
-							: stateBadge.tone === 'red'
-								? 'bg-rose-500/15 text-rose-500 border-rose-500/30'
-								: stateBadge.tone === 'blue'
-									? 'bg-sky-500/15 text-sky-500 border-sky-500/30'
-									: 'bg-text-muted/10 text-text-muted border-text-muted/20'}
-				<span
-					class="rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-wide {toneClass}"
-				>
-					{stateBadge.label}
-				</span>
-			{/if}
+			<div class="flex items-center gap-2">
+				{#if rpm !== null && rpm !== undefined && Number.isFinite(rpm)}
+					<span
+						class="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-xs font-medium tabular-nums text-sky-500"
+						title="Observed ring rotation speed"
+					>
+						{rpm < 0.05 ? '0.0' : rpm.toFixed(1)} rpm
+					</span>
+				{/if}
+				{#if stateBadge}
+					{@const toneClass =
+						stateBadge.tone === 'green'
+							? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+							: stateBadge.tone === 'amber'
+								? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+								: stateBadge.tone === 'red'
+									? 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+									: stateBadge.tone === 'blue'
+										? 'bg-sky-500/15 text-sky-500 border-sky-500/30'
+										: 'bg-text-muted/10 text-text-muted border-text-muted/20'}
+					<span
+						class="rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-wide {toneClass}"
+					>
+						{stateBadge.label}
+					</span>
+				{/if}
+			</div>
 		</div>
 	{/if}
 	<div class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}>

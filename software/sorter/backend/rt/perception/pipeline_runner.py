@@ -196,6 +196,17 @@ class PerceptionRunner:
                 )
                 confirmed_track_preview = _track_preview(filtered_tracks)
 
+        # Instantaneous ring RPM from the tracker, if the pipeline has a
+        # polar tracker with enough motion evidence to reason about it.
+        observed_rpm: float | None = None
+        tracker = getattr(self._pipeline, "tracker", None)
+        rpm_fn = getattr(tracker, "observed_rpm", None) if tracker else None
+        if callable(rpm_fn):
+            try:
+                observed_rpm = rpm_fn()
+            except Exception:
+                observed_rpm = None
+
         return {
             "feed_id": getattr(feed, "feed_id", None),
             "detector_slug": getattr(detector, "key", None),
@@ -208,6 +219,7 @@ class PerceptionRunner:
             "confirmed_real_track_count": confirmed_real_track_count,
             "raw_track_preview": raw_track_preview,
             "confirmed_track_preview": confirmed_track_preview,
+            "observed_rpm": observed_rpm,
         }
 
     # ---- Internals -----------------------------------------------------

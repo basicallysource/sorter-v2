@@ -26,6 +26,8 @@
 	// stream header so operators can tell at a glance whether a channel
 	// is busy / idle / blocked without opening a side panel.
 	let runtimeHealth = $state<Record<string, { state: string; blocked_reason: string | null }>>({});
+	// Observed ring RPM per feed_id, pulled from the same status poll.
+	let feedRpm = $state<Record<string, number | null>>({});
 	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
 	let classification_view = $state<'top' | 'bottom'>('top');
@@ -127,9 +129,34 @@
 					{ state: string; blocked_reason: string | null }
 				>;
 			}
+			const runners = payload?.runners;
+			if (Array.isArray(runners)) {
+				const rpm: Record<string, number | null> = {};
+				for (const runner of runners as Array<Record<string, unknown>>) {
+					const feedId = typeof runner.feed_id === 'string' ? runner.feed_id : null;
+					if (!feedId) continue;
+					const observed = runner.observed_rpm;
+					rpm[feedId] =
+						typeof observed === 'number' && Number.isFinite(observed) ? observed : null;
+				}
+				feedRpm = rpm;
+			}
 		} catch {
 			// stream hiccups are fine — next tick will retry
 		}
+	}
+
+	const ROLE_TO_FEED_ID: Record<string, string> = {
+		c_channel_2: 'c2_feed',
+		c_channel_3: 'c3_feed',
+		carousel: 'c4_feed',
+		classification_channel: 'c4_feed'
+	};
+
+	function feedRpmForRole(role: string): number | null {
+		const feedId = ROLE_TO_FEED_ID[role];
+		if (!feedId) return null;
+		return feedRpm[feedId] ?? null;
 	}
 
 	// Labels that match what operators expect to see on the dashboard
@@ -241,6 +268,7 @@
 									crop={cropFor('c_channel_2')}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge('c_channel_2')}
+									rpm={feedRpmForRole('c_channel_2')}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -250,6 +278,7 @@
 									crop={cropFor('c_channel_3')}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge('c_channel_3')}
+									rpm={feedRpmForRole('c_channel_3')}
 								/>
 							</div>
 						</div>
@@ -261,6 +290,7 @@
 									crop={cropFor(auxiliaryCameraRole())}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge(auxiliaryCameraRole())}
+									rpm={feedRpmForRole(auxiliaryCameraRole())}
 								/>
 							</div>
 							{#if classification_camera}
@@ -329,6 +359,7 @@
 									crop={cropFor('feeder')}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge('feeder')}
+									rpm={feedRpmForRole('feeder')}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -338,6 +369,7 @@
 									crop={cropFor(classification_camera)}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge(classification_camera)}
+									rpm={feedRpmForRole(classification_camera)}
 								/>
 							</div>
 						</div>
@@ -350,6 +382,7 @@
 									crop={cropFor('feeder')}
 									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
 									stateBadge={runtimeStateBadge('feeder')}
+									rpm={feedRpmForRole('feeder')}
 								/>
 							</div>
 							{#if classification_camera}

@@ -278,18 +278,16 @@ class RuntimeC3(BaseRuntime):
         approach_track: Track | None,
         now_mono: float,
     ) -> _PulseMode:
+        # C3 runs at one constant speed for now — the fast NORMAL pulse
+        # was hurling pieces across the C3 to C4 transition instead of
+        # queueing them cleanly. PRECISE stays the single gear until a
+        # proper two-speed profile with a measured deceleration curve
+        # lands. The commit vs. advance distinction is still carried
+        # by ``commit_to_downstream`` in _dispatch_pulse, so only pieces
+        # in the exit arc actually claim a c3_to_c4 slot.
         if exit_track is not None:
             self._book.last_precise_at = now_mono
-            return _PulseMode.PRECISE
-        if approach_track is not None:
-            # Approach zone: precise (slow) pulses without committing —
-            # decelerates the piece smoothly toward the drop edge.
-            return _PulseMode.PRECISE
-        if self.in_holdover(now_mono):
-            # Stick to precise during holdover even without a fresh precise
-            # detection (reduces thrashing at the exit boundary).
-            return _PulseMode.PRECISE
-        return _PulseMode.NORMAL
+        return _PulseMode.PRECISE
 
     def _dispatch_pulse(
         self,

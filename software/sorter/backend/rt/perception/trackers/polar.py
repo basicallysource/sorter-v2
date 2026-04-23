@@ -460,6 +460,43 @@ class PolarTracker:
         # ring was rotating around it, but it stayed put.
         return len(track.rotation_samples) >= _GHOST_WINDOW_MIN_SAMPLES
 
+    def observed_rpm(self) -> float | None:
+        """Return the instantaneous ring rotation speed in RPM, if knowable.
+
+        Computed from the angular travel of any confirmed-real track over
+        its most recent rotation-windowed samples. Real pieces move with
+        the ring, so their angular velocity is the ring's angular
+        velocity. Returns ``None`` when no confirmed track has enough
+        samples to reason about motion (e.g., at startup or while
+        pieces are stationary between carousel moves).
+        """
+        if self._polar_center is None:
+            return None
+        with self._lock:
+            best_rpm: float | None = None
+            for track in self._tracks.values():
+                if not track.confirmed_real:
+                    continue
+                samples = track.rotation_samples
+                if len(samples) < 4:
+                    continue
+                recent = samples[-8:]
+                ts_start = float(recent[0][0])
+                ts_end = float(recent[-1][0])
+                dt_s = ts_end - ts_start
+                if dt_s <= 0.0:
+                    continue
+                anchor, _ = self._to_polar((float(recent[0][1]), float(recent[0][2])))
+                accum = 0.0
+                for _ts, x, y in recent[1:]:
+                    angle, _ = self._to_polar((float(x), float(y)))
+                    accum += _circular_diff(angle, anchor)
+                    anchor = angle
+                rpm = abs(accum) / (2.0 * math.pi) / dt_s * 60.0
+                if best_rpm is None or rpm > best_rpm:
+                    best_rpm = rpm
+            return best_rpm
+
     def ring_geometry(self) -> dict[str, float] | None:
         """Return polar geometry (center + radii) when configured.
 

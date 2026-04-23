@@ -24,6 +24,7 @@
 		X
 	} from 'lucide-svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
+	import { persistentToggle } from '$lib/preferences/persistent-toggle.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 
 	type Channel =
@@ -377,43 +378,20 @@
 	let activeSidebar = $state<SidePanel>(null);
 	// Preview toggles persist across reloads via localStorage. One shared state
 	// across all channels — the zone editor has a single preview viewport, so
-	// per-channel scoping would just surprise the operator. SSR has no
-	// localStorage; the real read happens in onMount after hydration.
-	const ZONE_PREVIEW_STORAGE_PREFIX = 'zone-editor:preview:';
-	function readPreviewToggle(key: string, fallback: boolean): boolean {
-		if (typeof localStorage === 'undefined') return fallback;
-		try {
-			const raw = localStorage.getItem(ZONE_PREVIEW_STORAGE_PREFIX + key);
-			if (raw === null) return fallback;
-			return raw === '1' || raw === 'true';
-		} catch {
-			return fallback;
-		}
-	}
-	function writePreviewToggle(key: string, value: boolean) {
-		if (typeof localStorage === 'undefined') return;
-		try {
-			localStorage.setItem(ZONE_PREVIEW_STORAGE_PREFIX + key, value ? '1' : '0');
-		} catch {
-			// Quota / private mode — silently ignore.
-		}
-	}
-	let previewColorCorrect = $state(true);
-	let previewAnnotated = $state(true);
-	let previewCropped = $state(false);
-	let previewZones = $state(true);
-	let previewPersistReady = $state(false);
-	onMount(() => {
-		previewColorCorrect = readPreviewToggle('colorCorrect', previewColorCorrect);
-		previewAnnotated = readPreviewToggle('annotated', previewAnnotated);
-		previewCropped = readPreviewToggle('cropped', previewCropped);
-		previewZones = readPreviewToggle('zones', previewZones);
-		previewPersistReady = true;
+	// per-channel scoping would just surprise the operator.
+	const previewColorCorrect = persistentToggle({
+		key: 'zone-editor:preview:colorCorrect',
+		default: true
 	});
-	$effect(() => { if (previewPersistReady) writePreviewToggle('colorCorrect', previewColorCorrect); });
-	$effect(() => { if (previewPersistReady) writePreviewToggle('annotated', previewAnnotated); });
-	$effect(() => { if (previewPersistReady) writePreviewToggle('cropped', previewCropped); });
-	$effect(() => { if (previewPersistReady) writePreviewToggle('zones', previewZones); });
+	const previewAnnotated = persistentToggle({
+		key: 'zone-editor:preview:annotated',
+		default: true
+	});
+	const previewCropped = persistentToggle({
+		key: 'zone-editor:preview:cropped',
+		default: false
+	});
+	const previewZones = persistentToggle({ key: 'zone-editor:preview:zones', default: true });
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
 	let cameraAbort = $state<AbortController | null>(null);
@@ -1586,8 +1564,8 @@
 		const role = CAMERA_FOR_CHANNEL[channel];
 		const frame = machineCtx.frames.get(role as unknown as Parameters<typeof machineCtx.frames.get>[0]);
 		if (!frame) return '';
-		const zoneCanvasActive = editingZone || previewZones;
-		const wantAnnotated = !zoneCanvasActive && previewAnnotated;
+		const zoneCanvasActive = editingZone || previewZones.value;
+		const wantAnnotated = !zoneCanvasActive && previewAnnotated.value;
 		const payload = wantAnnotated && frame.annotated ? frame.annotated : frame.raw;
 		return payload ? `data:image/jpeg;base64,${payload}` : '';
 	}
@@ -2626,7 +2604,7 @@
 		if (!ctx) return;
 
 		ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-		if (!editingZone && !previewZones) return;
+		if (!editingZone && !previewZones.value) return;
 		const currentCamera = CAMERA_FOR_CHANNEL[currentChannel];
 
 		for (const channel of channels) {
@@ -2647,7 +2625,7 @@
 		void currentChannel;
 		void channels;
 		void editingZone;
-		void previewZones;
+		void previewZones.value;
 		void CANVAS_W;
 		void CANVAS_H;
 		drawCanvas();
@@ -3348,10 +3326,10 @@
 
 						{#if !editingZone && currentAssignment() !== null}
 							<StreamControlsOverlay
-								bind:annotated={previewAnnotated}
-								bind:colorCorrect={previewColorCorrect}
-								bind:cropped={previewCropped}
-								bind:zones={previewZones}
+								bind:annotated={previewAnnotated.value}
+								bind:colorCorrect={previewColorCorrect.value}
+								bind:cropped={previewCropped.value}
+								bind:zones={previewZones.value}
 								showAnnotations
 								showColor
 								showCrop

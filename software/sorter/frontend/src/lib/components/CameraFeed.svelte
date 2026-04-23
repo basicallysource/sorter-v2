@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
 	import { page } from '$app/state';
-	import { untrack } from 'svelte';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
+	import { persistentToggle } from '$lib/preferences/persistent-toggle.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 
 	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'ghosts' | 'fullscreen';
@@ -42,82 +42,37 @@
 	// Keyed by (route, camera, toggle) so e.g. the dashboard's crop state
 	// doesn't leak into setup's, and c_channel_2's doesn't leak into the
 	// carousel's. Falls back to the ``default*`` props when no saved value
-	// exists.
+	// exists. The ``persistentToggle`` helper rehydrates whenever the key
+	// changes, which covers the dashboard's aux camera flipping from
+	// "carousel" to "classification_channel" as the machine config loads.
 	const routeScope = $derived(page.route?.id ?? page.url?.pathname ?? '_');
-	const storageKey = (key: string) => `camera-feed:${routeScope}:${camera}:${key}`;
+	const slotKey = (toggle: string) => `camera-feed:${routeScope}:${camera}:${toggle}`;
 
-	function readPersisted(key: string, fallback: boolean): boolean {
-		if (typeof localStorage === 'undefined') return fallback;
-		try {
-			const raw = localStorage.getItem(storageKey(key));
-			if (raw === null) return fallback;
-			return raw === '1' || raw === 'true';
-		} catch {
-			return fallback;
-		}
-	}
-
-	function writePersisted(key: string, value: boolean) {
-		if (typeof localStorage === 'undefined') return;
-		try {
-			localStorage.setItem(storageKey(key), value ? '1' : '0');
-		} catch {
-			// Quota / private mode — silently ignore.
-		}
-	}
-
-	// Initial state uses prop-derived defaults so the SSR markup and the first
-	// client paint agree. The real localStorage read happens in the $effect
-	// below, once the component is hydrated and whenever the (route, camera)
-	// pair changes — e.g. the dashboard's aux camera starts out "carousel"
-	// and then flips to "classification_channel" when the machine config
-	// loads, and we need to re-read the right slot.
-	/* svelte-ignore state_referenced_locally */
-	let annotated = $state(defaultAnnotated && layer === 'annotated');
-	/* svelte-ignore state_referenced_locally */
-	let colorCorrect = $state(defaultColorCorrect);
+	const annotated = persistentToggle({
+		key: () => slotKey('annotated'),
+		default: () => defaultAnnotated && layer === 'annotated'
+	});
+	const colorCorrect = persistentToggle({
+		key: () => slotKey('colorCorrect'),
+		default: () => defaultColorCorrect
+	});
 	// Legacy: presence of `crop` prop defaulted cropping on. Honor that unless
 	// the caller explicitly sets `defaultCropped`.
-	/* svelte-ignore state_referenced_locally */
-	let cropped = $state(defaultCropped ?? crop !== null);
-	/* svelte-ignore state_referenced_locally */
-	let zones = $state(defaultZones);
-	let ghosts = $state(false);
-	// Guards the write-back effects so they don't clobber stored values with
-	// defaults during the pre-hydration window or between prop swaps.
-	let persistReady = $state(false);
-
-	$effect(() => {
-		// Dependencies: re-read whenever the persistence slot changes.
-		void camera;
-		void routeScope;
-		untrack(() => {
-			if (typeof localStorage === 'undefined') return;
-			annotated = readPersisted('annotated', defaultAnnotated && layer === 'annotated');
-			colorCorrect = readPersisted('colorCorrect', defaultColorCorrect);
-			cropped = readPersisted('cropped', defaultCropped ?? crop !== null);
-			zones = readPersisted('zones', defaultZones);
-			ghosts = readPersisted('ghosts', false);
-			persistReady = true;
-		});
+	const cropped = persistentToggle({
+		key: () => slotKey('cropped'),
+		default: () => defaultCropped ?? crop !== null
 	});
+	const zones = persistentToggle({ key: () => slotKey('zones'), default: () => defaultZones });
+	const ghosts = persistentToggle({ key: () => slotKey('ghosts'), default: false });
 
-	// Keep legacy `layer` prop synced with new `annotated` state so existing
-	// consumers (e.g. dashboard) binding to `layer` keep working.
+	// Keep the legacy `layer` prop synced with the `annotated` toggle so
+	// existing consumers (e.g. dashboard) binding to `layer` keep working.
 	$effect(() => {
-		layer = annotated ? 'annotated' : 'raw';
+		layer = annotated.value ? 'annotated' : 'raw';
 	});
 	$effect(() => {
-		annotated = layer === 'annotated';
+		annotated.value = layer === 'annotated';
 	});
-
-	// Write-back side: every toggle change writes to localStorage, once the
-	// mount-time read has completed.
-	$effect(() => { if (persistReady) writePersisted('annotated', annotated); });
-	$effect(() => { if (persistReady) writePersisted('colorCorrect', colorCorrect); });
-	$effect(() => { if (persistReady) writePersisted('cropped', cropped); });
-	$effect(() => { if (persistReady) writePersisted('zones', zones); });
-	$effect(() => { if (persistReady) writePersisted('ghosts', ghosts); });
 
 	const showAnnotations = $derived(controls.includes('annotations'));
 	const showColor = $derived(controls.includes('color'));
@@ -142,7 +97,7 @@
 	const ws_src = $derived.by(() => {
 		const frame = ws_frame;
 		if (!frame) return '';
-		const payload = annotated && frame.annotated ? frame.annotated : frame.raw;
+		const payload = annotated.value && frame.annotated ? frame.annotated : frame.raw;
 		return payload ? `data:image/jpeg;base64,${payload}` : '';
 	});
 
@@ -171,7 +126,7 @@
 		</div>
 	{/if}
 	<div class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}>
-		{#if cropped && crop}
+		{#if cropped.value && crop}
 			{@const box = crop.viewBox}
 			{@const rc = crop.rotationCenter ?? [box.x + box.width / 2, box.y + box.height / 2]}
 			{@const rot = crop.rotationDeg ?? 0}
@@ -230,11 +185,11 @@
 		{/if}
 
 		<StreamControlsOverlay
-			bind:annotated
-			bind:colorCorrect
-			bind:cropped
-			bind:zones
-			bind:ghosts
+			bind:annotated={annotated.value}
+			bind:colorCorrect={colorCorrect.value}
+			bind:cropped={cropped.value}
+			bind:zones={zones.value}
+			bind:ghosts={ghosts.value}
 			bind:fullscreen={fullscreenOpen}
 			{showAnnotations}
 			{showColor}
@@ -256,7 +211,7 @@
 
 			<div class="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
 				<div class="rounded-full border border-white/12 bg-black/50 px-3 py-1 text-xs font-medium text-white/75 backdrop-blur-sm">
-					{annotated ? 'Annotated' : 'Raw'}
+					{annotated.value ? 'Annotated' : 'Raw'}
 				</div>
 			</div>
 		{/if}

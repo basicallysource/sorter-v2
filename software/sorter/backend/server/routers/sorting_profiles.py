@@ -148,11 +148,7 @@ def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
 
 def _current_local_profile_status() -> dict[str, Any]:
     sync_state = getSortingProfileSyncState() or {}
-    path = (
-        shared_state.gc_ref.sorting_profile_path
-        if shared_state.gc_ref is not None
-        else os.environ.get("SORTING_PROFILE_PATH")
-    )
+    path = os.environ.get("SORTING_PROFILE_PATH")
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:
@@ -297,7 +293,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         raise HTTPException(status_code=502, detail="Hive returned an invalid artifact payload.")
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
-    _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
+    _atomic_write_json(os.environ["SORTING_PROFILE_PATH"], artifact)
 
     preassigned_count = 0
     if mode == "rules":

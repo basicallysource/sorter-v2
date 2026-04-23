@@ -585,7 +585,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
 
     return {
         "machine": {
-            "machine_id": shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else getMachineId(),
+            "machine_id": getMachineId(),
             "nickname": getMachineNickname(),
         },
         "hardware": {

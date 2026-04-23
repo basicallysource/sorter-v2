@@ -47,6 +47,7 @@ from role_aliases import (
 )
 from server import shared_state
 from server.calibration_reference import REFERENCE_TILE_RGB
+from server.detection_config.common import public_aux_scope as _public_aux_scope
 from server.camera_calibration import (
     CalibrationAnalysis,
     analyze_color_plate_target,
@@ -252,14 +253,6 @@ def _apply_live_usb_device_settings(
     if svc is not None and hasattr(svc, "set_device_settings_for_role"):
         try:
             live_result = svc.set_device_settings_for_role(role, parsed, persist=persist)
-            if live_result is not None:
-                return cameraDeviceSettingsToDict(live_result), True
-        except Exception:
-            pass
-
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setDeviceSettingsForRole"):
-        try:
-            live_result = shared_state.vision_manager.setDeviceSettingsForRole(role, parsed, persist=persist)
             if live_result is not None:
                 return cameraDeviceSettingsToDict(live_result), True
         except Exception:
@@ -492,30 +485,6 @@ def _capture_frame_for_calibration(
         cap.release()
 
 
-def _grab_live_frame(role: str, after_timestamp: float, timeout: float = 1.0) -> np.ndarray | None:
-    """Grab a frame from the running CaptureThread, waiting for one newer than after_timestamp."""
-    if shared_state.vision_manager is None or not hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
-        return None
-    try:
-        capture = shared_state.vision_manager.getCaptureThreadForRole(role)
-    except Exception:
-        return None
-    if capture is None:
-        return None
-
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        frame_obj = capture.latest_frame
-        if frame_obj is not None and frame_obj.timestamp > after_timestamp and frame_obj.raw is not None:
-            return frame_obj.raw.copy()
-        time.sleep(0.03)
-    # Last resort: return whatever is there
-    frame_obj = capture.latest_frame
-    if frame_obj is not None and frame_obj.raw is not None:
-        return frame_obj.raw.copy()
-    return None
-
-
 def _analyze_candidate_settings(
     role: str,
     source: int | str | None,
@@ -527,15 +496,12 @@ def _analyze_candidate_settings(
     if isinstance(source, str):
         applied_settings = dict(preview_settings) if isinstance(preview_settings, dict) else dict(settings)
         time.sleep(1.35)
-        frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
     else:
         applied_settings = cameraDeviceSettingsToDict(parseCameraDeviceSettings(preview_settings))
         time.sleep(0.25)
-        # Grab from live CaptureThread — no second camera open needed
-        frame = _grab_live_frame(role, after_timestamp=preview_started_at)
-        if frame is None:
-            # Fallback: direct capture (CaptureThread might not be running)
-            frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
+    frame = _capture_frame_for_calibration(
+        role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings
+    )
 
     if frame is None:
         return applied_settings, None, None
@@ -2321,13 +2287,9 @@ def _calibrate_usb_camera_device_settings(
     settings = dict(baseline)
 
     def _apply_and_grab(s: Dict[str, int | float | bool]) -> np.ndarray | None:
-        ts = time.time()
         preview_camera_device_settings(role, s)
         time.sleep(0.25)
-        frame = _grab_live_frame(role, after_timestamp=ts)
-        if frame is None:
-            frame = _capture_raw_frame(role, source, s)
-        return frame
+        return _capture_raw_frame(role, source, s)
 
     # ------------------------------------------------------------------
     # Phase 0: Debevec response curve → direct exposure calculation
@@ -3148,18 +3110,11 @@ def _save_camera_color_profile(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
 
-    applied_live = False
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setColorProfileForRole"):
-        try:
-            applied_live = bool(shared_state.vision_manager.setColorProfileForRole(role, parsed))
-        except Exception:
-            applied_live = False
-
     return {
         "ok": True,
         "role": role,
         "profile": profile_dict,
-        "applied_live": applied_live,
+        "applied_live": False,
     }
 
 
@@ -3178,21 +3133,11 @@ def _restore_camera_color_profile(role: str, profile: Dict[str, Any]) -> None:
 
 
 def _push_live_color_profile(role: str, profile: Any) -> bool:
-    """Push a color profile to the running CaptureThread without persisting it.
-
-    Used during LLM-guided calibration so the advisor sees the raw, uncorrected
-    sensor signal — the persisted config is left untouched and either replaced
-    by the freshly generated CCM or restored from the original on failure.
+    """Legacy hook: pushed a color profile to the running CaptureThread during
+    LLM-guided calibration. Post-cutover there is no vision_manager accessor,
+    so the advisor sees whatever the persisted config produces.
     """
-    if shared_state.vision_manager is None or not hasattr(
-        shared_state.vision_manager, "setColorProfileForRole"
-    ):
-        return False
-    try:
-        parsed = parseCameraColorProfile(profile)
-        return bool(shared_state.vision_manager.setColorProfileForRole(role, parsed))
-    except Exception:
-        return False
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -3466,11 +3411,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         saved = getChannelPolygons() or {}
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
-        classification_channel_setup = bool(
-            shared_state.vision_manager is not None
-            and hasattr(shared_state.vision_manager, "_usesClassificationChannelSetup")
-            and shared_state.vision_manager._usesClassificationChannelSetup()
-        )
+        classification_channel_setup = _public_aux_scope() == "classification_channel"
         carousel_polygon_key = "classification_channel" if classification_channel_setup else "carousel"
 
         if role == "carousel" and not classification_channel_setup:
@@ -3645,12 +3586,6 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
     applied_live: Dict[str, bool] = {}
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setCameraSourceForRole"):
-        for key, value in updates.items():
-            try:
-                applied_live[key] = bool(shared_state.vision_manager.setCameraSourceForRole(key, value))
-            except Exception:
-                applied_live[key] = False
 
     assignment = {
         "layout": cameras.get("layout", "default"),
@@ -3715,18 +3650,11 @@ def save_camera_picture_settings(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
-    applied_live = False
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setPictureSettingsForRole"):
-        try:
-            applied_live = bool(shared_state.vision_manager.setPictureSettingsForRole(role, parsed))
-        except Exception:
-            applied_live = False
-
     return {
         "ok": True,
         "role": role,
         "settings": cameraPictureSettingsToDict(parsed),
-        "applied_live": applied_live,
+        "applied_live": False,
         "message": "Feed orientation saved.",
     }
 
@@ -3779,38 +3707,16 @@ def get_camera_histogram(role: str) -> Dict[str, Any]:
     for label, (r, g, b) in REFERENCE_TILE_RGB.items():
         markers[label] = {"r": r, "g": g, "b": b}
 
-    frame = _grab_live_frame(role, after_timestamp=0.0, timeout=0.3)
-    if frame is None:
-        return {
-            "ok": True,
-            "waiting": True,
-            "bins": _HISTOGRAM_BINS,
-            "r": [],
-            "g": [],
-            "b": [],
-            "reference_markers": markers,
-        }
-
-    # Downsample large frames for speed
-    h, w = frame.shape[:2]
-    if h * w > 640 * 480:
-        scale = (640 * 480 / (h * w)) ** 0.5
-        frame = cv2.resize(frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-
-    bins = _HISTOGRAM_BINS
-    bin_edges = np.linspace(0, 256, bins + 1)
-
-    channels: Dict[str, list] = {}
-    for idx, ch_name in enumerate(("b", "g", "r")):
-        hist = cv2.calcHist([frame], [idx], None, [bins], [0, 256]).flatten()
-        peak = float(hist.max()) if hist.max() > 0 else 1.0
-        channels[ch_name] = (hist / peak).tolist()
-
+    # Live histogram needs a running camera_service frame source; post-cutover
+    # there is no vision_manager accessor, so the endpoint stays in the waiting
+    # envelope until the camera_service frame bridge lands.
     return {
         "ok": True,
-        "waiting": False,
-        "bins": bins,
-        **channels,
+        "waiting": True,
+        "bins": _HISTOGRAM_BINS,
+        "r": [],
+        "g": [],
+        "b": [],
         "reference_markers": markers,
     }
 

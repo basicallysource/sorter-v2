@@ -6,7 +6,7 @@ import shutil
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 import cv2
@@ -15,9 +15,6 @@ import numpy as np
 from blob_manager import BLOB_DIR, getClassificationTrainingConfig, setClassificationTrainingConfig
 from server.hive_uploader import HiveUploader
 from server.sample_payloads import build_sample_payload
-
-if TYPE_CHECKING:
-    from vision import VisionManager
 
 
 TRAINING_ROOT = BLOB_DIR / "classification_training"
@@ -58,7 +55,6 @@ class ClassificationTrainingManager:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._vision_manager: VisionManager | None = None
         self._processor = DEFAULT_PROCESSOR
         self._session_id: str | None = None
         self._session_name: str | None = None
@@ -107,10 +103,6 @@ class ClassificationTrainingManager:
             }
         )
 
-    def setVisionManager(self, manager: VisionManager | None) -> None:
-        with self._lock:
-            self._vision_manager = manager
-
     def startSession(self, session_name: str | None = None) -> dict[str, Any]:
         with self._lock:
             self._createSessionLocked(session_name)
@@ -136,42 +128,6 @@ class ClassificationTrainingManager:
                 "session_id": self._session_id,
                 "session_name": self._session_name,
             }
-
-    def captureCurrentFrame(self, camera: str) -> dict[str, Any]:
-        with self._lock:
-            vision = self._vision_manager
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        if vision is None:
-            raise ValueError("Vision manager is not initialized.")
-
-        capture = vision.captureClassificationSample(camera)
-        zone_key = f"{camera}_zone"
-        zone = capture.get(zone_key)
-        if not isinstance(zone, np.ndarray) or zone.size == 0:
-            raise ValueError("No live classification tray crop is available for this view.")
-
-        metadata = {
-            "source": "manual_capture",
-            "source_role": "classification_chamber",
-            "capture_reason": "manual_capture",
-            "detection_scope": "classification",
-            "camera": camera,
-            "captured_at": time.time(),
-        }
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera=camera,
-            top_zone=capture.get("top_zone"),
-            bottom_zone=capture.get("bottom_zone"),
-            top_frame=capture.get("top_frame"),
-            bottom_frame=capture.get("bottom_frame"),
-            metadata=metadata,
-        )
 
     def saveDetectionDebugCapture(
         self,

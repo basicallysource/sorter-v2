@@ -82,9 +82,6 @@ class TmcSettingsRequest(BaseModel):
 
 
 def _getCameraLayout() -> str:
-    if shared_state.vision_manager is not None:
-        return getattr(shared_state.vision_manager, "_camera_layout", "default")
-    # Fallback: read directly from TOML
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
         raw = loadTomlFile(params_path)

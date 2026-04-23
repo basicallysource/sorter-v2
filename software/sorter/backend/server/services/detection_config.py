@@ -15,7 +15,10 @@ from blob_manager import (
     setFeederDetectionConfig,
 )
 from role_aliases import CLASSIFICATION_CHANNEL_ROLE
-from rt.perception.detector_metadata import scope_supports_detection_algorithm
+from rt.perception.detector_metadata import (
+    normalize_detection_algorithm,
+    scope_supports_detection_algorithm,
+)
 from server.detection_config.common import (
     auxiliary_sample_collection_supported as _auxiliary_sample_collection_supported,
     detection_algorithm_label as _detection_algorithm_label,
@@ -24,12 +27,9 @@ from server.detection_config.common import (
     feeder_role_label as _feeder_role_label,
     feeder_sample_collection_supported as _feeder_sample_collection_supported,
     internal_feeder_role as _internal_feeder_role,
-    normalize_aux_detection_algorithm as _normalize_aux_detection_algorithm,
-    normalize_classification_detection_algorithm as _normalize_classification_detection_algorithm,
-    normalize_feeder_detection_algorithm as _normalize_feeder_detection_algorithm,
-    normalize_openrouter_model as _normalize_openrouter_model,
     public_feeder_roles as _public_feeder_roles,
 )
+from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
 
 
 class DetectionConfigValidationError(ValueError):
@@ -81,7 +81,7 @@ class DetectionConfigService:
             raise DetectionConfigValidationError(
                 "Unsupported classification detection algorithm."
             )
-        algorithm = _normalize_classification_detection_algorithm(request.algorithm)
+        algorithm = normalize_detection_algorithm("classification", request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
         setClassificationDetectionConfig(
             {
@@ -139,7 +139,7 @@ class DetectionConfigService:
             )
         role = request.role
         internal_role = _internal_feeder_role(role)
-        algorithm = _normalize_feeder_detection_algorithm(request.algorithm)
+        algorithm = normalize_detection_algorithm("feeder", request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
         saved = getFeederDetectionConfig()
         algorithm_by_role = _feeder_algorithm_by_role_from_config(
@@ -216,7 +216,8 @@ class DetectionConfigService:
                 "algorithm": (
                     algorithm
                     if role is None
-                    else _normalize_feeder_detection_algorithm(
+                    else normalize_detection_algorithm(
+                        "feeder",
                         saved.get("algorithm") if isinstance(saved, dict) else None
                     )
                 ),
@@ -279,9 +280,7 @@ class DetectionConfigService:
             raise DetectionConfigValidationError(
                 "Unsupported carousel detection algorithm."
             )
-        algorithm = _normalize_aux_detection_algorithm(
-            algorithm_scope, request.algorithm
-        )
+        algorithm = normalize_detection_algorithm(algorithm_scope, request.algorithm)
         openrouter_model = _normalize_openrouter_model(request.openrouter_model)
         saved = (
             getClassificationChannelDetectionConfig()

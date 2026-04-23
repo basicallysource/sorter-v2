@@ -37,10 +37,6 @@ from server.detection_config.common import (
     feeder_role_label as _feeder_role_label,
     feeder_sample_collection_supported as _feeder_sample_collection_supported_for_vm,
     internal_feeder_role as _internal_feeder_role,
-    normalize_aux_detection_algorithm as _normalize_aux_detection_algorithm,
-    normalize_classification_detection_algorithm as _normalize_classification_detection_algorithm,
-    normalize_feeder_detection_algorithm as _normalize_feeder_detection_algorithm,
-    normalize_openrouter_model as _normalize_openrouter_model,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
 )
@@ -58,6 +54,7 @@ from server.services.detection_config import (
     DetectionConfigValidationError,
     FeederDetectionSaveRequest,
 )
+from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
 
 router = APIRouter()
 
@@ -70,20 +67,6 @@ SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
 # ---------------------------------------------------------------------------
 # Detection algorithm helper functions
 # ---------------------------------------------------------------------------
-
-
-def _supported_openrouter_models() -> tuple[str, ...]:
-    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
-
-    return SUPPORTED_OPENROUTER_MODELS
-
-
-def _auxiliary_sample_collection_supported() -> bool:
-    return _auxiliary_sample_collection_supported_for_vm(shared_state.vision_manager)
-
-
-def _feeder_sample_collection_supported(role: str | None = None) -> bool:
-    return _feeder_sample_collection_supported_for_vm(shared_state.vision_manager, role)
 
 
 def _normalize_feeder_role(value: str | None) -> str | None:
@@ -110,12 +93,14 @@ def _openrouter_model_label(model: str) -> str:
 
 
 def _openrouter_model_options() -> list[dict[str, str]]:
+    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
+
     return [
         {
             "id": model,
             "label": _openrouter_model_label(model),
         }
-        for model in _supported_openrouter_models()
+        for model in SUPPORTED_OPENROUTER_MODELS
     ]
 
 
@@ -418,7 +403,8 @@ def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]
 @router.get("/api/classification/detection-config")
 def get_classification_detection_config() -> Dict[str, Any]:
     saved = getClassificationDetectionConfig()
-    algorithm = _normalize_classification_detection_algorithm(
+    algorithm = normalize_detection_algorithm(
+        "classification",
         saved.get("algorithm") if isinstance(saved, dict) else None
     )
     openrouter_model = _normalize_openrouter_model(
@@ -426,7 +412,8 @@ def get_classification_detection_config() -> Dict[str, Any]:
     )
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getClassificationDetectionAlgorithm"):
         try:
-            algorithm = _normalize_classification_detection_algorithm(
+            algorithm = normalize_detection_algorithm(
+                "classification",
                 shared_state.vision_manager.getClassificationDetectionAlgorithm()
             )
         except Exception:
@@ -482,7 +469,8 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
     algorithm = (
         algorithm_by_role.get(role)
         if role is not None
-        else _normalize_feeder_detection_algorithm(
+        else normalize_detection_algorithm(
+            "feeder",
             saved.get("algorithm") if isinstance(saved, dict) else None
         )
     )
@@ -509,19 +497,21 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
         try:
             if hasattr(shared_state.vision_manager, "getFeederDetectionAlgorithms"):
                 algorithm_by_role = {
-                    channel_role: _normalize_feeder_detection_algorithm(algo)
+                    channel_role: normalize_detection_algorithm("feeder", algo)
                     for channel_role, algo in shared_state.vision_manager.getFeederDetectionAlgorithms().items()
                     if channel_role in _public_feeder_roles()
                 }
                 algorithm = (
                     algorithm_by_role.get(role)
                     if role is not None
-                    else _normalize_feeder_detection_algorithm(
+                    else normalize_detection_algorithm(
+                        "feeder",
                         shared_state.vision_manager.getFeederDetectionAlgorithm()
                     )
                 )
             else:
-                algorithm = _normalize_feeder_detection_algorithm(
+                algorithm = normalize_detection_algorithm(
+                    "feeder",
                     shared_state.vision_manager.getFeederDetectionAlgorithm(internal_role)
                     if role is not None
                     else shared_state.vision_manager.getFeederDetectionAlgorithm()
@@ -550,7 +540,10 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
             )
         except Exception:
             sample_collection_enabled = False
-    sample_collection_supported = _feeder_sample_collection_supported(role)
+    sample_collection_supported = _feeder_sample_collection_supported_for_vm(
+        shared_state.vision_manager,
+        role,
+    )
     return {
         "ok": True,
         "role": role,
@@ -605,7 +598,7 @@ def get_carousel_detection_config() -> Dict[str, Any]:
         if aux_scope == CLASSIFICATION_CHANNEL_ROLE
         else getCarouselDetectionConfig()
     )
-    algorithm = _normalize_aux_detection_algorithm(
+    algorithm = normalize_detection_algorithm(
         algorithm_scope,
         saved.get("algorithm") if isinstance(saved, dict) else None
     )
@@ -615,7 +608,7 @@ def get_carousel_detection_config() -> Dict[str, Any]:
     sample_collection_enabled = bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselDetectionAlgorithm"):
         try:
-            algorithm = _normalize_aux_detection_algorithm(
+            algorithm = normalize_detection_algorithm(
                 algorithm_scope,
                 shared_state.vision_manager.getCarouselDetectionAlgorithm(),
             )
@@ -636,7 +629,9 @@ def get_carousel_detection_config() -> Dict[str, Any]:
         "algorithm": algorithm,
         "openrouter_model": openrouter_model,
         "sample_collection_enabled": sample_collection_enabled,
-        "sample_collection_supported": _auxiliary_sample_collection_supported(),
+        "sample_collection_supported": _auxiliary_sample_collection_supported_for_vm(
+            shared_state.vision_manager
+        ),
         "available_algorithms": detection_algorithm_options(algorithm_scope),
         "available_openrouter_models": _openrouter_model_options(),
         "scope": aux_scope,
@@ -1071,8 +1066,9 @@ def debug_classification_detection(camera: str) -> Dict[str, Any]:
 
     camera_role = "classification_top" if camera == "top" else "classification_bottom"
     saved = getClassificationDetectionConfig()
-    slug = _normalize_classification_detection_algorithm(
-        saved.get("algorithm") if isinstance(saved, dict) else None
+    slug = normalize_detection_algorithm(
+        "classification",
+        saved.get("algorithm") if isinstance(saved, dict) else None,
     )
     scope_label = f"classification {camera}"
     payload = _detect_from_standalone_camera(
@@ -1148,7 +1144,9 @@ def _finalize_aux_detection_debug_payload(
     payload["normalized_zone_bbox"] = (
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
-    if isinstance(sample_capture, dict) and _auxiliary_sample_collection_supported():
+    if isinstance(sample_capture, dict) and _auxiliary_sample_collection_supported_for_vm(
+        shared_state.vision_manager
+    ):
         try:
             saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
                 source="settings_detection_test",

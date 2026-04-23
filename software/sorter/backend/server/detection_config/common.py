@@ -17,18 +17,6 @@ from rt.perception.detector_metadata import (
 from server.config_helpers import read_machine_params_config as _read_machine_params_config
 
 
-def normalize_classification_detection_algorithm(value: str | None) -> str:
-    return normalize_detection_algorithm("classification", value)
-
-
-def normalize_feeder_detection_algorithm(value: str | None) -> str:
-    return normalize_detection_algorithm("feeder", value)
-
-
-def normalize_aux_detection_algorithm(scope: str, value: str | None) -> str:
-    return normalize_detection_algorithm(scope, value)
-
-
 def detection_algorithm_label(scope: str, algorithm: str | None) -> str:
     definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
     if definition is None:
@@ -39,12 +27,6 @@ def detection_algorithm_label(scope: str, algorithm: str | None) -> str:
 def detection_algorithm_uses_baseline(scope: str, algorithm: str | None) -> bool:
     definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
     return bool(definition is not None and definition.needs_baseline)
-
-
-def normalize_openrouter_model(value: str | None) -> str:
-    from vision.gemini_sam_detector import normalize_openrouter_model
-
-    return normalize_openrouter_model(value)
 
 
 def _machine_params_config() -> dict[str, Any]:
@@ -76,7 +58,8 @@ def feeder_algorithm_by_role_from_config(
     )
     fallback = config.get("algorithm") if isinstance(config, dict) else None
     return {
-        role: normalize_feeder_detection_algorithm(
+        role: normalize_detection_algorithm(
+            "feeder",
             saved_by_role.get(role)
             or saved_by_role.get(internal_feeder_role(role) or role)
             or fallback
@@ -128,10 +111,6 @@ __all__ = [
     "feeder_role_label",
     "feeder_sample_collection_supported",
     "internal_feeder_role",
-    "normalize_aux_detection_algorithm",
-    "normalize_classification_detection_algorithm",
-    "normalize_feeder_detection_algorithm",
-    "normalize_openrouter_model",
     "public_aux_scope",
     "public_feeder_roles",
 ]

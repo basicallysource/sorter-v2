@@ -222,3 +222,62 @@ def test_c3_ignores_stale_coasted_track() -> None:
     )
     assert log == []
     assert rt.available_slots() == 1
+
+
+# ----------------------------------------------------------------------
+# PurgePort binding
+
+
+def test_c3_purge_port_arm_pulses_despite_full_downstream() -> None:
+    rt, _up, _down, log = _make()
+    port = rt.purge_port()
+    assert port.key == "c3"
+
+    port.arm()
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_rad=math.pi)), capacity_downstream=0),
+        now_mono=0.0,
+    )
+
+    assert log and log[0].startswith("precise:")
+    assert rt.available_slots() == 0
+
+
+def test_c3_purge_port_counts_mirror_ring() -> None:
+    rt, _up, _down, _log = _make()
+    port = rt.purge_port()
+    port.arm()
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(global_id=1, angle_rad=0.5),
+                _track(global_id=2, angle_rad=1.0),
+                _track(global_id=3, angle_rad=2.0),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=0.0,
+    )
+    counts = port.counts()
+
+    assert counts.ring_count == 3
+    assert counts.owned_count == 0
+    assert counts.pending_detections == 0
+
+
+def test_c3_purge_port_disarm_clears_flag_and_bookkeeping() -> None:
+    rt, _up, _down, _log = _make()
+    port = rt.purge_port()
+    port.arm()
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=1, angle_rad=0.0)), capacity_downstream=0),
+        now_mono=0.0,
+    )
+    assert rt._purge_mode is True
+
+    port.disarm()
+
+    assert rt._purge_mode is False
+    assert rt._ring_count == 0
+    assert len(rt._book.seen_global_ids) == 0

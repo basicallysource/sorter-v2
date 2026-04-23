@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
+from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -88,11 +89,14 @@ class RuntimeC2(BaseRuntime):
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._ring_count: int = 0
+        self._purge_mode: bool = False
 
     # ------------------------------------------------------------------
     # Runtime ABC
 
     def available_slots(self) -> int:
+        if self._purge_mode:
+            return 0
         if self._ring_count >= self._max_ring_count:
             return 0
         # Delegate to AdmissionStrategy so Phase 4+ can plug a real gate in.
@@ -122,7 +126,8 @@ class RuntimeC2(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
-            self._credit_new_arrivals(tracks, now_mono)
+            if not self._purge_mode:
+                self._credit_new_arrivals(tracks, now_mono)
             self._ring_count = len(tracks)
             exit_track = self._pick_exit_track(tracks)
             if self._hw.busy():
@@ -130,6 +135,9 @@ class RuntimeC2(BaseRuntime):
                 return
             if now_mono < self._next_pulse_at:
                 self._set_state("pulsing", blocked_reason="cooldown")
+                return
+            if self._purge_mode:
+                self._dispatch_purge_pulse(now_mono)
                 return
             if inbox.capacity_downstream <= 0:
                 wiggled = self._maybe_wiggle(exit_track, now_mono)
@@ -217,6 +225,36 @@ class RuntimeC2(BaseRuntime):
             return
         self._set_state("pulsing")
 
+    def _dispatch_purge_pulse(self, now_mono: float) -> None:
+        """Pulse the ring without gating on downstream capacity or exit_track.
+
+        Used during C2 purge: rotate the platter so pieces fall through the
+        C2->C3 transition regardless of whether C3 is full. Does not claim a
+        downstream slot.
+        """
+        timing = self._ejection.timing_for({"purge": True})
+
+        def _run_pulse() -> None:
+            try:
+                self._pulse_command(timing.pulse_ms)
+            except Exception:
+                self._logger.exception("RuntimeC2: purge pulse command raised")
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c2_purge_pulse")
+        if not enqueued:
+            self._set_state("pulsing", blocked_reason="hw_queue_full")
+            return
+        self._set_state("pulsing", blocked_reason="purge")
+
+    def purge_port(self) -> PurgePort:
+        return _C2PurgePort(self)
+
+    def _reset_bookkeeping(self) -> None:
+        self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
+        self._ring_count = 0
+        self._next_pulse_at = 0.0
+
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:
             self._bookkeeping.exit_stall_since = None
@@ -250,6 +288,37 @@ def _wrap_rad(angle: float) -> float:
     """Wrap to [-pi, pi]."""
     a = (angle + math.pi) % (2.0 * math.pi) - math.pi
     return a
+
+
+class _C2PurgePort:
+    """PurgePort binding for RuntimeC2.
+
+    Arm flips ``_purge_mode`` so the normal tick path pulses regardless of
+    downstream capacity and stops accepting new admission. Disarm clears
+    state and flushes in-memory bookkeeping so the next run starts fresh.
+    """
+
+    key = "c2"
+
+    def __init__(self, runtime: RuntimeC2) -> None:
+        self._runtime = runtime
+
+    def arm(self) -> None:
+        self._runtime._purge_mode = True
+
+    def disarm(self) -> None:
+        self._runtime._purge_mode = False
+        self._runtime._reset_bookkeeping()
+
+    def counts(self) -> PurgeCounts:
+        return PurgeCounts(
+            ring_count=int(self._runtime._ring_count),
+            owned_count=0,
+            pending_detections=0,
+        )
+
+    def drain_step(self, now_mono: float) -> bool:
+        return bool(self._runtime._purge_mode)
 
 
 __all__ = ["RuntimeC2"]

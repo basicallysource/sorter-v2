@@ -208,3 +208,62 @@ def test_c2_available_slots_caps_at_ring_count() -> None:
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
     # Default max_ring_count = 5 so we should now report 0.
     assert rt.available_slots() == 0
+
+
+# ----------------------------------------------------------------------
+# PurgePort binding
+
+
+def test_c2_purge_port_arm_pulses_despite_full_downstream() -> None:
+    rt, _up, _down, log = _make()
+    port = rt.purge_port()
+    assert port.key == "c2"
+
+    port.arm()
+    # Downstream full + no exit track — normally blocked, purge must still pulse.
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_rad=math.pi)), capacity_downstream=0),
+        now_mono=0.0,
+    )
+
+    assert log == ["pulse:40"]
+    assert rt.available_slots() == 0
+
+
+def test_c2_purge_port_counts_mirror_ring() -> None:
+    rt, _up, _down, _log = _make()
+    port = rt.purge_port()
+    port.arm()
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(global_id=1, angle_rad=0.5),
+                _track(global_id=2, angle_rad=1.0),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=0.0,
+    )
+    counts = port.counts()
+
+    assert counts.ring_count == 2
+    assert counts.owned_count == 0
+    assert counts.pending_detections == 0
+
+
+def test_c2_purge_port_disarm_clears_flag_and_bookkeeping() -> None:
+    rt, _up, _down, _log = _make()
+    port = rt.purge_port()
+    port.arm()
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=1, angle_rad=0.0)), capacity_downstream=0),
+        now_mono=0.0,
+    )
+    assert rt._purge_mode is True
+
+    port.disarm()
+
+    assert rt._purge_mode is False
+    assert rt._ring_count == 0
+    assert len(rt._bookkeeping.seen_global_ids) == 0

@@ -25,6 +25,7 @@ from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
+from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -95,6 +96,7 @@ class RuntimeC3(BaseRuntime):
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._ring_count: int = 0
+        self._purge_mode: bool = False
 
     # Expose mode enum for tests / callers without re-importing.
     PulseMode = _PulseMode
@@ -103,6 +105,8 @@ class RuntimeC3(BaseRuntime):
     # Runtime ABC
 
     def available_slots(self) -> int:
+        if self._purge_mode:
+            return 0
         if self._ring_count >= self._max_ring_count:
             return 0
         decision = self._admission.can_admit(
@@ -132,7 +136,8 @@ class RuntimeC3(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
-            self._credit_new_arrivals(tracks)
+            if not self._purge_mode:
+                self._credit_new_arrivals(tracks)
             self._ring_count = len(tracks)
             exit_track = self._pick_exit_track(tracks)
             if self._hw.busy():
@@ -140,6 +145,9 @@ class RuntimeC3(BaseRuntime):
                 return
             if now_mono < self._next_pulse_at:
                 self._set_state("pulsing", blocked_reason="cooldown")
+                return
+            if self._purge_mode:
+                self._dispatch_purge_pulse(now_mono)
                 return
             if inbox.capacity_downstream <= 0:
                 wiggled = self._maybe_wiggle(exit_track, now_mono)
@@ -258,6 +266,38 @@ class RuntimeC3(BaseRuntime):
             return
         self._set_state(f"pulsing_{mode.value}")
 
+    def _dispatch_purge_pulse(self, now_mono: float) -> None:
+        """Pulse the ring without gating on downstream capacity.
+
+        Used during C3 purge: rotate so pieces fall through the C3->C4
+        transition even if C4 is still draining. Uses PRECISE pulse so
+        pieces commit off the ring cleanly; does not claim a downstream
+        slot since we're not handing pieces to C4 for tracking.
+        """
+        mode = _PulseMode.PRECISE
+        timing = self._ejection.timing_for({"purge": True, "mode": mode.value})
+
+        def _run_pulse() -> None:
+            try:
+                self._pulse_command(mode, timing.pulse_ms)
+            except Exception:
+                self._logger.exception("RuntimeC3: purge pulse command raised")
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c3_purge_pulse")
+        if not enqueued:
+            self._set_state("pulsing", blocked_reason="hw_queue_full")
+            return
+        self._set_state("pulsing", blocked_reason="purge")
+
+    def purge_port(self) -> PurgePort:
+        return _C3PurgePort(self)
+
+    def _reset_bookkeeping(self) -> None:
+        self._book = _PieceBookkeeping(seen_global_ids=set())
+        self._ring_count = 0
+        self._next_pulse_at = 0.0
+
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:
             self._book.exit_stall_since = None
@@ -290,6 +330,37 @@ class RuntimeC3(BaseRuntime):
 def _wrap_rad(angle: float) -> float:
     a = (angle + math.pi) % (2.0 * math.pi) - math.pi
     return a
+
+
+class _C3PurgePort:
+    """PurgePort binding for RuntimeC3.
+
+    Same shape as C2's port — arm flips purge mode, tick starts pulsing in
+    PRECISE mode regardless of downstream capacity so pieces fall through
+    the C3->C4 transition while C4 is still draining.
+    """
+
+    key = "c3"
+
+    def __init__(self, runtime: RuntimeC3) -> None:
+        self._runtime = runtime
+
+    def arm(self) -> None:
+        self._runtime._purge_mode = True
+
+    def disarm(self) -> None:
+        self._runtime._purge_mode = False
+        self._runtime._reset_bookkeeping()
+
+    def counts(self) -> PurgeCounts:
+        return PurgeCounts(
+            ring_count=int(self._runtime._ring_count),
+            owned_count=0,
+            pending_detections=0,
+        )
+
+    def drain_step(self, now_mono: float) -> bool:
+        return bool(self._runtime._purge_mode)
 
 
 __all__ = ["RuntimeC3"]

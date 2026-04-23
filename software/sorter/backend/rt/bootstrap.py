@@ -27,7 +27,7 @@ from typing import Any, Callable
 import rt.perception  # noqa: F401 - register detectors/trackers/filters
 import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
-from rt.config.schema import FilterConfig, PipelineConfig
+from rt.config.schema import PipelineConfig
 from rt.contracts.events import Event
 from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (

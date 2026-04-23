@@ -28,8 +28,7 @@ import asyncio
 import logging
 import platform
 import threading
-import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import cv2
 import numpy as np

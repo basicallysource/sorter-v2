@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, call
 
-import numpy as np
 import pytest
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 import serial.tools.list_ports
 

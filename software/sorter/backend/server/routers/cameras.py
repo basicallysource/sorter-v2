@@ -28,9 +28,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
+from blob_manager import getCameraSetup, getChannelPolygons, getClassificationPolygons
 from hardware.macos_camera_registry import refresh_macos_cameras
-from irl.bin_layout import getBinLayout
 from irl.config import (
     cameraColorProfileToDict,
     cameraDeviceSettingsToDict,
@@ -42,14 +41,12 @@ from irl.config import (
 from role_aliases import (
     lookup_camera_role_keys,
     public_aux_camera_role,
-    publicize_camera_role,
     stored_camera_role_key,
 )
 from server import shared_state
 from server.calibration_reference import REFERENCE_TILE_RGB
 from server.detection_config.common import public_aux_scope as _public_aux_scope
 from server.camera_calibration import (
-    CalibrationAnalysis,
     analyze_color_plate_target,
     generate_color_profile_from_analysis,
 )
@@ -92,9 +89,7 @@ logger = logging.getLogger(__name__)
 
 
 from server.config_helpers import (
-    machine_params_path as _camera_params_path,
     read_machine_params_config as _read_machine_params_config,
-    toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
 )
 

@@ -8,7 +8,7 @@ Used by C4 for intake admission (arc-clear check) and transport bookkeeping.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 def _normalize_deg(value: float) -> float:

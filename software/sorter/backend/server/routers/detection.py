@@ -22,8 +22,6 @@ from blob_manager import (
 )
 from role_aliases import (
     CLASSIFICATION_CHANNEL_ROLE,
-    lookup_auxiliary_detection_scopes,
-    publicize_feeder_role,
 )
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
@@ -35,7 +33,6 @@ from server.detection_config.common import (
 from rt.contracts.registry import DETECTORS
 from rt.perception.detector_metadata import (
     detection_algorithm_definition,
-    detection_algorithm_options,
     normalize_detection_algorithm,
 )
 from server.services.detection_config import (

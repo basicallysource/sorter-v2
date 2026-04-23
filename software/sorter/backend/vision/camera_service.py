@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import base64
 import threading
-import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import cv2
 import numpy as np
@@ -19,9 +18,8 @@ from irl.config import (
 )
 from role_aliases import CLASSIFICATION_CHANNEL_ROLE, internalize_camera_role, public_aux_camera_role
 from .camera import CaptureThread, probe_camera_device_controls
-from .camera_device import CameraDevice, DeviceHealth
+from .camera_device import CameraDevice
 from .camera_feed import CameraFeed
-from .types import CameraFrame
 
 if TYPE_CHECKING:
     from global_config import GlobalConfig

@@ -31,7 +31,6 @@ from server.detection_config.common import (
     detection_algorithm_uses_baseline as _detection_algorithm_uses_baseline,
     feeder_algorithm_by_role_from_config as _feeder_algorithm_by_role_from_config,
     feeder_role_label as _feeder_role_label,
-    internal_feeder_role as _internal_feeder_role,
     openrouter_model_options as _openrouter_model_options,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,

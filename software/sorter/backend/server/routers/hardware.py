@@ -174,9 +174,7 @@ DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 from server.config_helpers import (
-    machine_params_path as _camera_params_path,
     read_machine_params_config as _read_machine_params_config,
-    toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
 )
 

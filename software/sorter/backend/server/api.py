@@ -45,9 +45,6 @@ from server.security import compute_allowed_ui_origins, websocket_connection_all
 from server.shared_state import (
     active_connections,
     broadcastEvent,
-    setGlobalConfig,
-    setCommandQueue,
-    setArucoManager,
 )
 import server.shared_state as shared_state
 

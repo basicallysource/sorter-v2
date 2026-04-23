@@ -15,10 +15,9 @@ from unittest.mock import MagicMock, patch
 
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
 from rt.bootstrap import RtRuntimeHandle
-from rt.contracts.feed import PolygonZone, RectZone, Zone
+from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.orchestrator import Orchestrator
-from rt.coupling.slots import CapacitySlot
 from rt.events.bus import InProcessEventBus
 from rt.perception.pipeline_runner import PerceptionRunner
 

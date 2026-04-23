@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-import pytest
 
 from rt.contracts.classification import ClassifierResult
 from rt.contracts.rules import BinDecision, RulesEngine

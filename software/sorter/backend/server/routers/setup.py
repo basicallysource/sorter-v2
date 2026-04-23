@@ -21,7 +21,7 @@ from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
 from irl.config import REQUIRED_STEPPER_NAMES
 from irl.parse_user_toml import LOGICAL_STEPPER_BINDING_BASES
-from role_aliases import lookup_camera_role_keys, public_aux_camera_role, stored_camera_role_key
+from role_aliases import lookup_camera_role_keys, public_aux_camera_role
 from machine_platform.control_board import discover_control_boards
 from server import shared_state
 from server.config_helpers import (

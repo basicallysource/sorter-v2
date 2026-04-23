@@ -7,7 +7,7 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import requests
 

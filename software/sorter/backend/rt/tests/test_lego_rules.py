@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from rt.contracts.classification import ClassifierResult
 from rt.contracts.registry import RULES_ENGINES

@@ -45,13 +45,11 @@ from .parse_user_toml import (
     loadMachineConfig,
     loadMachineSpecificParams,
     loadStepperBindingOverrides,
-    loadStepperCurrentOverrides,
     loadStepperDirectionInverts,
     loadServoChannelConfig,
     loadWaveshareServoConfig,
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
-    loadCameraLayoutConfig,
     applyStepperCurrentOverride,
 )
 from blob_manager import getBinCategories
@@ -839,7 +837,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
     # Check for TOML camera layout override
-    import os
     from toml_config import loadTomlFile
     camera_layout_type = "default"
     feeding_mode = "auto_channels"

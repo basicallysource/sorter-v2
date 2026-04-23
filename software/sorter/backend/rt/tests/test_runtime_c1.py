@@ -4,7 +4,6 @@ import threading
 import time
 from typing import Callable
 
-import pytest
 
 from rt.contracts.runtime import RuntimeInbox
 from rt.coupling.slots import CapacitySlot

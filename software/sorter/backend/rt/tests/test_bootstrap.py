@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Any
 from unittest.mock import patch
 
-import pytest
 
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
 from rt.bootstrap import (

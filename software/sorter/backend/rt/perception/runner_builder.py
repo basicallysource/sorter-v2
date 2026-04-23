@@ -17,6 +17,7 @@ short slug on failure (``"no_camera_config"``, ``"pipeline_build_failed"``,
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from rt.config.channels import (
@@ -33,6 +34,7 @@ from rt.perception.detectors.hive_onnx import default_hive_detector_slug
 from rt.perception.feeds import CameraFeed
 from rt.perception.pipeline import build_pipeline_from_config
 from rt.perception.pipeline_runner import PerceptionRunner
+from rt.contracts.registry import TRACKERS
 
 
 # Each rt-role (c2/c3/c4) maps onto one of the Svelte settings scopes so
@@ -57,6 +59,16 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 
 _FIRST_TOUCH_POLYGON_APRON_PX = 48
 _PERCEPTION_PERIOD_MS = 100
+_DEFAULT_SHADOW_TRACKER_KEY = "turntable_groundplane"
+
+
+def shadow_tracker_key() -> str | None:
+    """Return the configured shadow tracker key, or ``None`` when disabled."""
+    raw = os.environ.get("RT_SHADOW_TRACKER_KEY", _DEFAULT_SHADOW_TRACKER_KEY)
+    key = str(raw or "").strip()
+    if key.lower() in {"", "0", "false", "no", "none", "off", "disabled"}:
+        return None
+    return key
 
 
 def detector_slug_for_role(role: str, logger: logging.Logger) -> str:
@@ -235,15 +247,32 @@ def build_perception_runner_for_role(
             role, detector_slug,
         )
         return None, zone, "pipeline_build_failed"
+    shadow_key = shadow_tracker_key()
+    shadow_tracker = None
+    if shadow_key is not None:
+        try:
+            shadow_tracker = TRACKERS.create(shadow_key, **dict(tracker_params))
+        except Exception:
+            logger.exception(
+                "runner_builder[%s]: shadow tracker build failed (tracker=%s)",
+                role,
+                shadow_key,
+            )
+            shadow_key = None
     runner = PerceptionRunner(
         pipeline=pipeline,
         period_ms=_PERCEPTION_PERIOD_MS,
         event_bus=event_bus,
         name=f"RtPerception[{role}]",
+        shadow_tracker=shadow_tracker,
+        shadow_tracker_key=shadow_key,
     )
     logger.info(
-        "runner_builder[%s]: perception runner ready (feed=%s, detector=%s)",
-        role, feed_id, detector_slug,
+        "runner_builder[%s]: perception runner ready (feed=%s, detector=%s, shadow=%s)",
+        role,
+        feed_id,
+        detector_slug,
+        shadow_key or "disabled",
     )
     return runner, zone, ""
 
@@ -252,4 +281,5 @@ __all__ = [
     "build_perception_runner_for_role",
     "detector_slug_for_role",
     "load_zone_for_role",
+    "shadow_tracker_key",
 ]

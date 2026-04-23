@@ -300,6 +300,101 @@ def test_runner_keeps_latest_unfiltered_snapshot() -> None:
     assert len(snapshot.filtered_tracks.tracks) == 0
 
 
+def test_runner_updates_shadow_tracker_without_publishing_it() -> None:
+    feed = _FakeFeed(frames_to_emit=1)
+
+    class _Detector:
+        key = "det"
+
+        def requires(self) -> frozenset[str]:
+            return frozenset()
+
+        def detect(self, frame: FeedFrame, zone: Zone) -> DetectionBatch:
+            return DetectionBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                detections=(Detection(bbox_xyxy=(1, 2, 6, 7), score=0.9),),
+                algorithm=self.key,
+                latency_ms=0.0,
+            )
+
+        def reset(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+    class _ShadowTracker:
+        key = "shadow"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def update(self, detections: DetectionBatch, frame: FeedFrame) -> TrackBatch:
+            self.calls += 1
+            assert len(detections.detections) == 1
+            return TrackBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                tracks=(
+                    Track(
+                        track_id=91,
+                        global_id=91,
+                        piece_uuid=None,
+                        bbox_xyxy=(1, 2, 6, 7),
+                        score=0.9,
+                        confirmed_real=True,
+                        angle_rad=None,
+                        radius_px=None,
+                        hit_count=3,
+                        first_seen_ts=frame.timestamp,
+                        last_seen_ts=frame.timestamp,
+                    ),
+                ),
+                lost_track_ids=(),
+            )
+
+        def live_global_ids(self) -> set[int]:
+            return {91}
+
+        def reset(self) -> None:
+            return None
+
+    bus = InProcessEventBus()
+    received: list = []
+    bus.subscribe(PERCEPTION_TRACKS, received.append)
+    bus.start()
+    shadow_tracker = _ShadowTracker()
+    try:
+        pipeline = _build_pipeline(_Detector(), _NoopTracker(), feed)
+        runner = PerceptionRunner(
+            pipeline,
+            period_ms=2,
+            event_bus=bus,
+            shadow_tracker=shadow_tracker,
+            shadow_tracker_key="shadow",
+        )
+        runner.start()
+        time.sleep(0.05)
+        runner.stop(timeout=1.0)
+    finally:
+        bus.stop()
+
+    latest_shadow = runner.latest_shadow_tracks()
+    assert shadow_tracker.calls >= 1
+    assert latest_shadow is not None
+    assert latest_shadow.tracks[0].track_id == 91
+    assert received
+    assert received[0].payload["track_count"] == 0
+    status = runner.status_snapshot()
+    assert status["shadow_tracker_slug"] == "shadow"
+    assert status["shadow_track_count"] == 1
+    assert status["shadow_confirmed_track_count"] == 1
+    assert status["shadow_compare"]["shadow_unmatched"] == 1
+
+
 def test_runner_status_snapshot_surfaces_debug_counts() -> None:
     class _StatusFeed:
         feed_id = "c2_feed"

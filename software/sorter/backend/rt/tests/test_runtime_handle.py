@@ -103,7 +103,13 @@ def _track_batch(feed_id: str) -> TrackBatch:
     )
 
 
-def _runner_for_feed(feed_id: str, *, batch: TrackBatch, with_raw_tracks: bool) -> MagicMock:
+def _runner_for_feed(
+    feed_id: str,
+    *,
+    batch: TrackBatch,
+    with_raw_tracks: bool,
+    shadow_batch: TrackBatch | None = None,
+) -> MagicMock:
     runner = MagicMock()
     runner._pipeline = type(
         "_Pipeline",
@@ -115,6 +121,7 @@ def _runner_for_feed(feed_id: str, *, batch: TrackBatch, with_raw_tracks: bool) 
     else:
         runner.latest_state.return_value = type("_State", (), {"raw_tracks": None})()
     runner.latest_tracks.return_value = batch
+    runner.latest_shadow_tracks.return_value = shadow_batch
     return runner
 
 
@@ -237,6 +244,25 @@ def test_annotation_snapshot_falls_back_to_latest_tracks() -> None:
     assert snapshot.feed_id == "c3_feed"
     assert snapshot.zone is None
     assert snapshot.tracks == batch.tracks
+
+
+def test_annotation_snapshot_includes_shadow_tracks() -> None:
+    camera_service = _FakeCameraService(devices={})
+    handle = _empty_handle(camera_service)
+    batch = _track_batch("c2_feed")
+    shadow_batch = _track_batch("c2_feed")
+    runner = _runner_for_feed(
+        "c2_feed",
+        batch=batch,
+        with_raw_tracks=True,
+        shadow_batch=shadow_batch,
+    )
+    handle.perception_runners = [runner]
+
+    snapshot = handle.annotation_snapshot("c2_feed")
+
+    assert snapshot.tracks == batch.tracks
+    assert snapshot.shadow_tracks == shadow_batch.tracks
 
 
 def test_start_perception_starts_runners_without_orchestrator():

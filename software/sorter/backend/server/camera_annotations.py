@@ -32,6 +32,8 @@ _ZONE_FILL_COLOR = (120, 220, 255)
 _ZONE_LINE_COLOR = (90, 220, 255)
 _DROP_FILL_COLOR = (94, 197, 34)
 _EXIT_FILL_COLOR = (68, 68, 239)
+_SHADOW_CONFIRMED_COLOR = (255, 72, 255)
+_SHADOW_PENDING_COLOR = (196, 112, 196)
 _CHANNEL_LINE_COLORS: dict[str, tuple[int, int, int]] = {
     "c_channel_2": (0, 200, 255),
     "c_channel_3": (255, 200, 0),
@@ -435,6 +437,119 @@ class RuntimeTrackOverlay:
         return annotated
 
 
+def _draw_dashed_rect(
+    frame: np.ndarray,
+    p1: tuple[int, int],
+    p2: tuple[int, int],
+    color: tuple[int, int, int],
+    thickness: int,
+    *,
+    dash_px: int,
+) -> None:
+    x1, y1 = p1
+    x2, y2 = p2
+    dash = max(2, int(dash_px))
+
+    def _line(a: tuple[int, int], b: tuple[int, int]) -> None:
+        ax, ay = a
+        bx, by = b
+        length = max(1.0, float(np.hypot(bx - ax, by - ay)))
+        segments = max(1, int(length // dash))
+        for idx in range(segments + 1):
+            if idx % 2:
+                continue
+            start_t = idx / max(1, segments)
+            end_t = min(1.0, (idx + 0.65) / max(1, segments))
+            sx = int(round(ax + (bx - ax) * start_t))
+            sy = int(round(ay + (by - ay) * start_t))
+            ex = int(round(ax + (bx - ax) * end_t))
+            ey = int(round(ay + (by - ay) * end_t))
+            cv2.line(frame, (sx, sy), (ex, ey), color, thickness, cv2.LINE_AA)
+
+    _line((x1, y1), (x2, y1))
+    _line((x2, y1), (x2, y2))
+    _line((x2, y2), (x1, y2))
+    _line((x1, y2), (x1, y1))
+
+
+class RuntimeShadowTrackOverlay:
+    # Shadow tracks share the detections toggle because they are most useful
+    # when compared directly with the production tracker on the same frame.
+    category = "detections"
+
+    def __init__(self, get_tracks: Callable[[], list[Any]]) -> None:
+        self._get_tracks = get_tracks
+
+    def annotate(self, frame: np.ndarray) -> np.ndarray:
+        tracks = self._get_tracks() or []
+        if not tracks:
+            return frame
+        annotated = frame.copy()
+        scale = overlay_scale_for_frame(frame)
+        box_thickness = scaled_px(2, scale)
+        dash_px = scaled_px(8, scale)
+        font_scale = 0.48 * scale
+        font_thickness = scaled_px(1, scale)
+        pad = scaled_px(3, scale)
+        margin = scaled_px(2, scale)
+
+        for track in tracks:
+            if bool(getattr(track, "ghost", False)):
+                continue
+            bbox = getattr(track, "bbox_xyxy", None)
+            if not isinstance(bbox, tuple) or len(bbox) != 4:
+                continue
+            x1, y1, x2, y2 = [int(round(float(v))) for v in bbox]
+            if x2 <= x1 or y2 <= y1:
+                continue
+            confirmed = bool(getattr(track, "confirmed_real", False))
+            color = _SHADOW_CONFIRMED_COLOR if confirmed else _SHADOW_PENDING_COLOR
+            _draw_dashed_rect(
+                annotated,
+                (x1, y1),
+                (x2, y2),
+                color,
+                box_thickness,
+                dash_px=dash_px,
+            )
+
+            shadow_id = getattr(track, "global_id", None)
+            if shadow_id is None:
+                shadow_id = getattr(track, "track_id", None)
+            if shadow_id is None:
+                continue
+            label = f"S#{format_track_label(int(shadow_id))}"
+            (tw, th), _baseline = cv2.getTextSize(
+                label,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                font_thickness,
+            )
+            pill_x1 = min(max(0, x1 + margin), max(0, frame.shape[1] - tw - pad * 2))
+            pill_y1 = min(max(0, y2 + margin), max(0, frame.shape[0] - th - pad * 2))
+            pill_x2 = pill_x1 + tw + pad * 2
+            pill_y2 = pill_y1 + th + pad * 2
+            cv2.rectangle(
+                annotated,
+                (pill_x1, pill_y1),
+                (pill_x2, pill_y2),
+                COLOR_LABEL_BG,
+                -1,
+            )
+            cv2.putText(
+                annotated,
+                label,
+                (pill_x1 + pad, pill_y2 - pad),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                color,
+                font_thickness,
+                cv2.LINE_AA,
+            )
+
+        return annotated
+
+
 class RuntimeGhostOverlay:
     # Only ghost-marked tracks. Lives in its own category so the stream
     # pipeline can exclude it (current default) or include it on demand.
@@ -482,8 +597,12 @@ class RuntimeAnnotationProvider:
         get_tracks = lambda feed_id=feed_id: list(
             getattr(_annotation_snapshot_for_feed(feed_id), "tracks", ()) or ()
         )
+        get_shadow_tracks = lambda feed_id=feed_id: list(
+            getattr(_annotation_snapshot_for_feed(feed_id), "shadow_tracks", ()) or ()
+        )
         return (
             RuntimeTrackOverlay(get_tracks),
+            RuntimeShadowTrackOverlay(get_shadow_tracks),
             RuntimeGhostOverlay(get_tracks),
         )
 

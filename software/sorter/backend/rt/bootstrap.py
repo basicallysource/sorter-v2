@@ -68,6 +68,7 @@ class FeedAnnotationSnapshot:
     feed_id: str
     zone: Zone | None
     tracks: tuple[Track, ...] = ()
+    shadow_tracks: tuple[Track, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +257,7 @@ class RtRuntimeHandle:
             zone = None
 
         tracks: tuple[Track, ...] = ()
+        shadow_tracks: tuple[Track, ...] = ()
         runner = self.runner_for_feed(feed_id)
         if runner is not None:
             latest_state = getattr(runner, "latest_state", None)
@@ -270,8 +272,20 @@ class RtRuntimeHandle:
                 batch_tracks = getattr(batch, "tracks", None)
                 if isinstance(batch_tracks, tuple):
                     tracks = batch_tracks
+            latest_shadow_tracks = getattr(runner, "latest_shadow_tracks", None)
+            shadow_batch = (
+                latest_shadow_tracks() if callable(latest_shadow_tracks) else None
+            )
+            batch_shadow_tracks = getattr(shadow_batch, "tracks", None)
+            if isinstance(batch_shadow_tracks, tuple):
+                shadow_tracks = batch_shadow_tracks
 
-        return FeedAnnotationSnapshot(feed_id=feed_id, zone=zone, tracks=tracks)
+        return FeedAnnotationSnapshot(
+            feed_id=feed_id,
+            zone=zone,
+            tracks=tracks,
+            shadow_tracks=shadow_tracks,
+        )
 
     def slot_snapshot(self, feed_id: str) -> FeedSlotSnapshot | None:
         """Return ring geometry + occupied slot wedges for this feed.

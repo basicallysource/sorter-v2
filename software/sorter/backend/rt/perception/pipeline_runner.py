@@ -17,7 +17,7 @@ import time
 from typing import Any
 
 from rt.contracts.events import Event, EventBus, Subscription
-from rt.contracts.tracking import TrackBatch
+from rt.contracts.tracking import TrackBatch, Tracker
 from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRACKS
 
 from .pipeline import PerceptionFrameState, PerceptionPipeline
@@ -52,6 +52,59 @@ def _track_preview(batch: TrackBatch | None) -> list[dict[str, Any]]:
     return out
 
 
+def _track_center(track: Any) -> tuple[float, float] | None:
+    bbox = getattr(track, "bbox_xyxy", None)
+    if not isinstance(bbox, tuple) or len(bbox) != 4:
+        return None
+    try:
+        x1, y1, x2, y2 = (float(v) for v in bbox)
+    except Exception:
+        return None
+    return (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+
+def _compare_track_batches(
+    primary: TrackBatch | None,
+    shadow: TrackBatch | None,
+    *,
+    match_distance_px: float = 60.0,
+) -> dict[str, Any] | None:
+    if primary is None or shadow is None:
+        return None
+    primary_tracks = list(primary.tracks)
+    shadow_tracks = list(shadow.tracks)
+    primary_centers = [_track_center(track) for track in primary_tracks]
+    shadow_centers = [_track_center(track) for track in shadow_tracks]
+    matched_primary: set[int] = set()
+    matched_shadow: set[int] = set()
+    distances: list[float] = []
+
+    pairs: list[tuple[float, int, int]] = []
+    for pi, pc in enumerate(primary_centers):
+        if pc is None:
+            continue
+        for si, sc in enumerate(shadow_centers):
+            if sc is None:
+                continue
+            dist = math.hypot(pc[0] - sc[0], pc[1] - sc[1])
+            if dist <= match_distance_px:
+                pairs.append((dist, pi, si))
+    for dist, pi, si in sorted(pairs):
+        if pi in matched_primary or si in matched_shadow:
+            continue
+        matched_primary.add(pi)
+        matched_shadow.add(si)
+        distances.append(dist)
+
+    avg_distance = round(sum(distances) / len(distances), 2) if distances else None
+    return {
+        "matched": len(distances),
+        "primary_unmatched": max(0, len(primary_tracks) - len(matched_primary)),
+        "shadow_unmatched": max(0, len(shadow_tracks) - len(matched_shadow)),
+        "avg_center_distance_px": avg_distance,
+    }
+
+
 class PerceptionRunner:
     """Drives a PerceptionPipeline on its own daemon thread."""
 
@@ -61,16 +114,21 @@ class PerceptionRunner:
         period_ms: int = 100,
         event_bus: EventBus | None = None,
         name: str | None = None,
+        shadow_tracker: Tracker | None = None,
+        shadow_tracker_key: str | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._period_s = max(0.0, float(period_ms) / 1000.0)
         self._bus = event_bus
         self._name = name or f"PerceptionRunner[{pipeline.feed.feed_id}]"
+        self._shadow_tracker = shadow_tracker
+        self._shadow_tracker_key = shadow_tracker_key or getattr(shadow_tracker, "key", None)
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._latest_lock = threading.Lock()
         self._latest: TrackBatch | None = None
         self._latest_state: PerceptionFrameState | None = None
+        self._latest_shadow: TrackBatch | None = None
         self._last_frame_seq: int | None = None
         self._consecutive_errors = 0
         self._running = False
@@ -103,9 +161,12 @@ class PerceptionRunner:
     def _subscribe_rotation_windows(self) -> None:
         if self._bus is None or self._rotation_sub is not None:
             return
-        tracker = getattr(self._pipeline, "tracker", None)
-        register = getattr(tracker, "register_rotation_window", None)
-        if not callable(register):
+        registrars = []
+        for tracker in (getattr(self._pipeline, "tracker", None), self._shadow_tracker):
+            register = getattr(tracker, "register_rotation_window", None)
+            if callable(register):
+                registrars.append(register)
+        if not registrars:
             return
         feed_id = self._pipeline.feed.feed_id
 
@@ -118,10 +179,11 @@ class PerceptionRunner:
                 end_ts = float(payload["end_ts"])
             except (KeyError, TypeError, ValueError):
                 return
-            try:
-                register(start_ts, end_ts)
-            except Exception:
-                _LOG.exception("rotation-window handler raised for feed=%s", feed_id)
+            for register in registrars:
+                try:
+                    register(start_ts, end_ts)
+                except Exception:
+                    _LOG.exception("rotation-window handler raised for feed=%s", feed_id)
 
         try:
             self._rotation_sub = self._bus.subscribe(PERCEPTION_ROTATION, _on_rotation)
@@ -147,6 +209,10 @@ class PerceptionRunner:
     def latest_state(self) -> PerceptionFrameState | None:
         with self._latest_lock:
             return self._latest_state
+
+    def latest_shadow_tracks(self) -> TrackBatch | None:
+        with self._latest_lock:
+            return self._latest_shadow
 
     def status_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
         pipeline = self._pipeline
@@ -178,9 +244,15 @@ class PerceptionRunner:
         confirmed_real_track_count: int | None = None
         raw_track_preview: list[dict[str, Any]] = []
         confirmed_track_preview: list[dict[str, Any]] = []
+        shadow_track_count: int | None = None
+        shadow_confirmed_track_count: int | None = None
+        shadow_track_preview: list[dict[str, Any]] = []
+        shadow_compare: dict[str, Any] | None = None
         if state is not None:
             detections = getattr(state, "detections", None)
-            detection_entries = getattr(detections, "detections", None) if detections is not None else None
+            detection_entries = (
+                getattr(detections, "detections", None) if detections is not None else None
+            )
             if isinstance(detection_entries, (list, tuple)):
                 detection_count = len(detection_entries)
             raw_tracks = getattr(state, "raw_tracks", None)
@@ -195,6 +267,17 @@ class PerceptionRunner:
                     if bool(getattr(track, "confirmed_real", False))
                 )
                 confirmed_track_preview = _track_preview(filtered_tracks)
+        with self._latest_lock:
+            shadow_tracks = self._latest_shadow
+        if shadow_tracks is not None:
+            shadow_track_count = len(shadow_tracks.tracks)
+            shadow_confirmed_track_count = sum(
+                1 for track in shadow_tracks.tracks
+                if bool(getattr(track, "confirmed_real", False))
+            )
+            shadow_track_preview = _track_preview(shadow_tracks)
+            raw_tracks = getattr(state, "raw_tracks", None) if state is not None else None
+            shadow_compare = _compare_track_batches(raw_tracks, shadow_tracks)
 
         # Instantaneous ring RPM from the tracker, if the pipeline has a
         # polar tracker with enough motion evidence to reason about it.
@@ -221,6 +304,11 @@ class PerceptionRunner:
             "raw_track_preview": raw_track_preview,
             "confirmed_track_preview": confirmed_track_preview,
             "observed_rpm": observed_rpm,
+            "shadow_tracker_slug": self._shadow_tracker_key,
+            "shadow_track_count": shadow_track_count,
+            "shadow_confirmed_track_count": shadow_confirmed_track_count,
+            "shadow_track_preview": shadow_track_preview,
+            "shadow_compare": shadow_compare,
         }
 
     # ---- Internals -----------------------------------------------------
@@ -235,9 +323,11 @@ class PerceptionRunner:
                     self._last_frame_seq = frame.frame_seq
                     state = self._pipeline.process_frame_state(frame)
                     batch = state.filtered_tracks
+                    shadow_batch = self._process_shadow_tracks(state, frame)
                     with self._latest_lock:
                         self._latest_state = state
                         self._latest = batch
+                        self._latest_shadow = shadow_batch
                     self._publish_tracks(batch)
                     self._consecutive_errors = 0
             except Exception as exc:
@@ -258,6 +348,24 @@ class PerceptionRunner:
                 self._stop.wait(timeout=wait)
 
         self._running = False
+
+    def _process_shadow_tracks(
+        self,
+        state: PerceptionFrameState,
+        frame: Any,
+    ) -> TrackBatch | None:
+        tracker = self._shadow_tracker
+        if tracker is None:
+            return None
+        try:
+            return tracker.update(state.detections, frame)
+        except Exception:
+            _LOG.exception(
+                "%s: shadow tracker tick raised (tracker=%s)",
+                self._name,
+                self._shadow_tracker_key,
+            )
+            return None
 
     def _publish_tracks(self, batch: TrackBatch) -> None:
         bus = self._bus

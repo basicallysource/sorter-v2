@@ -19,6 +19,7 @@ from server.camera_annotations import (
     ChannelArcOverlay,
     ChannelZoneAnnotationProvider,
     RuntimeAnnotationProvider,
+    RuntimeShadowTrackOverlay,
     RuntimeTrackOverlay,
     RuntimeZoneOverlay,
     attach_camera_annotations,
@@ -43,6 +44,7 @@ class _FakeFeed:
 class _FakeAnnotationSnapshot:
     zone: PolygonZone | None
     tracks: tuple[Track, ...]
+    shadow_tracks: tuple[Track, ...] = ()
 
 
 class _FakeHandle:
@@ -114,13 +116,25 @@ def test_runtime_track_overlay_renders_rt_tracks() -> None:
     assert np.any(annotated != frame)
 
 
+def test_runtime_shadow_track_overlay_renders_shadow_tracks() -> None:
+    overlay = RuntimeShadowTrackOverlay(lambda: list(_track_batch().tracks))
+    frame = np.zeros((160, 160, 3), dtype=np.uint8)
+    annotated = overlay.annotate(frame)
+    assert np.any(annotated != frame)
+
+
 def test_runtime_annotation_provider_emits_role_bound_layers() -> None:
     provider = RuntimeAnnotationProvider({"c_channel_2": "c2_feed"})
     overlays = provider.overlays_for_role("c_channel_2")
     # Tracks (non-ghost) live in the "detections" category; ghosts live in
     # the separate "ghosts" category so the stream can toggle them.
-    assert [overlay.category for overlay in overlays] == ["detections", "ghosts"]
+    assert [overlay.category for overlay in overlays] == [
+        "detections",
+        "detections",
+        "ghosts",
+    ]
     assert any(isinstance(o, RuntimeTrackOverlay) for o in overlays)
+    assert any(isinstance(o, RuntimeShadowTrackOverlay) for o in overlays)
     assert provider.overlays_for_role("classification_top") == ()
 
 
@@ -172,14 +186,15 @@ def test_attach_camera_annotations_wires_live_rt_providers(monkeypatch: pytest.M
     attach_camera_annotations(service)
 
     c2 = service.feeds["c_channel_2"]
-    # ChannelArcOverlay + RuntimeTrackOverlay + RuntimeGhostOverlay
-    assert len(c2.overlays) == 3
+    # ChannelArcOverlay + RuntimeTrackOverlay + RuntimeShadowTrackOverlay
+    # + RuntimeGhostOverlay
+    assert len(c2.overlays) == 4
     frame = np.zeros((160, 160, 3), dtype=np.uint8)
     annotated = frame.copy()
     for overlay in c2.overlays:
         annotated = overlay.annotate(annotated)
     assert np.any(annotated != frame)
 
-    assert len(service.feeds["c_channel_3"].overlays) == 3
-    assert len(service.feeds["classification_channel"].overlays) == 3
+    assert len(service.feeds["c_channel_3"].overlays) == 4
+    assert len(service.feeds["classification_channel"].overlays) == 4
     assert service.feeds["classification_top"].overlays == []

@@ -264,6 +264,8 @@ class RuntimeC4(BaseRuntime):
         abort_reason: str = "handoff_aborted",
     ) -> None:
         dossier = self._pieces.pop(piece_uuid, None)
+        if dossier is not None and abort_reason == "track_lost":
+            self._publish_piece_lost(dossier, now_mono=now_mono)
         if dossier is not None and dossier.global_id is not None:
             self._track_to_piece.pop(int(dossier.global_id), None)
         self._zone_manager.remove_zone(piece_uuid)
@@ -288,6 +290,38 @@ class RuntimeC4(BaseRuntime):
         if self._fsm is _C4State.DROP_COMMIT:
             self._fsm = _C4State.RUNNING
             self._set_state(self._fsm.value)
+
+    def _publish_piece_lost(
+        self,
+        dossier: _PieceDossier,
+        *,
+        now_mono: float | None,
+    ) -> None:
+        status = "pending"
+        if dossier.result is not None:
+            status = "classified" if dossier.result.part_id else "unknown"
+        now_wall = time.time()
+        self._publish(
+            PIECE_REGISTERED,
+            {
+                "piece_uuid": dossier.piece_uuid,
+                "tracked_global_id": dossier.global_id,
+                "stage": "registered",
+                "classification_status": status,
+                "classification_channel_zone_state": "lost",
+                "classification_channel_lost_at": now_wall,
+                "updated_at": now_wall,
+                "dossier": {
+                    "piece_uuid": dossier.piece_uuid,
+                    "tracked_global_id": dossier.global_id,
+                    "classification_channel_zone_state": "lost",
+                    "classification_channel_lost_at": now_wall,
+                    "classification_channel_zone_center_deg": dossier.angle_at_intake_deg,
+                    "classification_channel_exit_deg": self._exit_angle_deg,
+                },
+            },
+            now_mono if now_mono is not None else time.monotonic(),
+        )
 
     def dossier_count(self) -> int:
         return len(self._pieces)

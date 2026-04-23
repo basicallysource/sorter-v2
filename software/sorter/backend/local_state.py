@@ -37,7 +37,7 @@ _LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX = "persistent_tracker_ignored_
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
-_RECENT_KNOWN_OBJECTS_LIMIT = 10
+_RECENT_KNOWN_OBJECTS_LIMIT = 50
 _BIN_ID_RE = re.compile(r"^L(\d+)-S(\d+)-B(\d+)$")
 
 

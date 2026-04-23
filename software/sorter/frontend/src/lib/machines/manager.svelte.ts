@@ -26,6 +26,7 @@ import { recentPhysicalKeyOrNull, shouldShowInRecentPieces } from '$lib/recent-p
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
+const RECENT_OBJECT_LIMIT = 50;
 
 function shouldKeepRecentObject(obj: KnownObjectData): boolean {
 	return shouldShowInRecentPieces(obj);
@@ -263,7 +264,7 @@ export class MachineManager {
 				updated_objects.splice(existing_idx, 1);
 			}
 		} else if (keep) {
-			updated_objects = [obj, ...machine.recentObjects].slice(0, 10);
+			updated_objects = [obj, ...machine.recentObjects].slice(0, RECENT_OBJECT_LIMIT);
 		} else {
 			return;
 		}

@@ -1118,3 +1118,30 @@ def test_c4_publishes_piece_classified_on_classifier_return() -> None:
     assert isinstance(nested, dict)
     assert nested.get("part_id") == "3001"
     assert nested.get("color_id") == "red"
+
+
+def test_c4_publishes_piece_lost_when_owned_track_evicted() -> None:
+    rt, up, _clf, published = _make_with_bus()
+    assert up.try_claim() is True
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=88, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+
+    for t in (0.2, 0.8, 1.4, 2.0):
+        rt.tick(RuntimeInbox(tracks=_batch(timestamp=t), capacity_downstream=1), now_mono=t)
+
+    lost = [
+        e
+        for e in published
+        if e.payload.get("classification_channel_zone_state") == "lost"
+    ]
+    assert len(lost) == 1
+    evt = lost[0]
+    assert evt.topic == "piece.registered"
+    assert evt.payload["tracked_global_id"] == 88
+    assert evt.payload["stage"] == "registered"
+    assert evt.payload["classification_status"] == "pending"
+    nested = evt.payload.get("dossier")
+    assert isinstance(nested, dict)
+    assert nested.get("classification_channel_zone_state") == "lost"

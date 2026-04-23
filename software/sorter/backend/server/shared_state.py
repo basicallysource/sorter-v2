@@ -19,7 +19,6 @@ from fastapi import WebSocket
 from aruco_config_manager import ArucoConfigManager
 from global_config import GlobalConfig
 from irl.config import ArucoTagConfig, CarouselArucoTagConfig
-from runtime_variables import RuntimeVariables
 
 # ---------------------------------------------------------------------------
 # Global state
@@ -27,7 +26,6 @@ from runtime_variables import RuntimeVariables
 
 active_connections: List[WebSocket] = []
 server_loop: Optional[asyncio.AbstractEventLoop] = None
-runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
 gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
@@ -80,18 +78,6 @@ CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S = 0.1
 def setGlobalConfig(gc: GlobalConfig) -> None:
     global gc_ref
     gc_ref = gc
-
-
-def setRuntimeVariables(rv: RuntimeVariables) -> None:
-    global runtime_vars
-    runtime_vars = rv
-
-
-def _getRuntimeVariables() -> RuntimeVariables:
-    global runtime_vars
-    if runtime_vars is None:
-        runtime_vars = RuntimeVariables()
-    return runtime_vars
 
 
 def setCommandQueue(q: queue.Queue) -> None:

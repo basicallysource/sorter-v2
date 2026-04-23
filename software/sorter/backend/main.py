@@ -29,13 +29,11 @@ if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 
 from global_config import mkGlobalConfig, GlobalConfig
-from runtime_variables import mkRuntimeVariables
 from server.api import app
 from server.shared_state import (
     broadcastEvent,
     publishSorterState,
     setGlobalConfig,
-    setRuntimeVariables,
     setCommandQueue,
     setArucoManager,
     setCameraService,
@@ -181,8 +179,6 @@ def main() -> None:
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
-    rv = mkRuntimeVariables(gc)
-    setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
     startup_total_start = time.time()
 

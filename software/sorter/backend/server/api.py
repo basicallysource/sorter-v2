@@ -33,7 +33,6 @@ from local_state import (
     get_piece_segment_counts,
     list_piece_dossiers,
 )
-from runtime_variables import VARIABLE_DEFS
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
@@ -44,10 +43,8 @@ from server.shared_state import (
     active_connections,
     broadcastEvent,
     setGlobalConfig,
-    setRuntimeVariables,
     setCommandQueue,
     setArucoManager,
-    _getRuntimeVariables,
 )
 import server.shared_state as shared_state
 
@@ -982,43 +979,6 @@ def getSetProgress() -> SetProgressResponse:
     if tracker is None:
         return SetProgressResponse(is_set_based=False)
     return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
-
-
-# ---------------------------------------------------------------------------
-# Runtime variables
-# ---------------------------------------------------------------------------
-
-
-class RuntimeVariableDef(BaseModel):
-    type: str
-    min: float
-    max: float
-    unit: str
-
-
-class RuntimeVariablesResponse(BaseModel):
-    definitions: Dict[str, RuntimeVariableDef]
-    values: Dict[str, Any]
-
-
-class RuntimeVariablesUpdateRequest(BaseModel):
-    values: Dict[str, Any]
-
-
-@app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
-def getRuntimeVariables() -> RuntimeVariablesResponse:
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=_getRuntimeVariables().getAll())
-
-
-@app.post("/runtime-variables", response_model=RuntimeVariablesResponse)
-def updateRuntimeVariables(
-    req: RuntimeVariablesUpdateRequest,
-) -> RuntimeVariablesResponse:
-    rv = _getRuntimeVariables()
-    rv.setAll(req.values)
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=rv.getAll())
 
 
 # ---------------------------------------------------------------------------

@@ -42,6 +42,9 @@ _SEGMENT_ROLE = "carousel"
 _SEGMENT_SEQUENCE = 0
 _WRITER_QUEUE_MAX = 500
 _HEARTBEAT_INTERVAL_S = 2.0
+# Padding around the bbox angular extent so the wedge clipPath doesn't shave
+# the piece at the edges. Symmetric: n° on each side.
+_WEDGE_ANGLE_PADDING_DEG = 1.5
 
 
 def _sector_index(angle_deg: float) -> int:
@@ -49,10 +52,30 @@ def _sector_index(angle_deg: float) -> int:
     return int(normalized // (360.0 / SECTOR_COUNT)) % SECTOR_COUNT
 
 
-def _sector_range(index: int) -> Tuple[float, float]:
-    width = 360.0 / SECTOR_COUNT
-    start = index * width
-    return start, start + width
+def _bbox_angular_extent(
+    cx: float,
+    cy: float,
+    bbox: Tuple[int, int, int, int],
+    anchor_deg: float,
+) -> Tuple[float, float]:
+    """Return (start_deg, end_deg) covering the bbox around the channel center.
+
+    Computes the polar angle (SVG convention: degrees ccw from +x, y-down)
+    for each of the 4 bbox corners and returns the min/max after unwrapping
+    them around ``anchor_deg`` so a piece straddling the 0°/360° seam still
+    produces a narrow arc instead of 350°.
+    """
+    x1, y1, x2, y2 = bbox
+    corners = ((x1, y1), (x2, y1), (x1, y2), (x2, y2))
+    deltas: list[float] = []
+    for px, py in corners:
+        a = math.degrees(math.atan2(float(py) - cy, float(px) - cx))
+        # Unwrap relative to anchor so the arc stays short across the seam.
+        d = ((a - anchor_deg + 180.0) % 360.0) - 180.0
+        deltas.append(d)
+    lo = min(deltas) - _WEDGE_ANGLE_PADDING_DEG
+    hi = max(deltas) + _WEDGE_ANGLE_PADDING_DEG
+    return anchor_deg + lo, anchor_deg + hi
 
 
 @dataclass
@@ -218,7 +241,20 @@ class SegmentRecorder:
                 if bbox_crop is None:
                     continue
                 x0, y0, x1, y1 = bbox_crop
-                start_deg, end_deg = _sector_range(sector)
+                if (
+                    rec.channel_center_x is not None
+                    and rec.channel_center_y is not None
+                ):
+                    start_deg, end_deg = _bbox_angular_extent(
+                        rec.channel_center_x,
+                        rec.channel_center_y,
+                        (x0, y0, x1, y1),
+                        angle_deg,
+                    )
+                else:
+                    width = 360.0 / SECTOR_COUNT
+                    start_deg = sector * width
+                    end_deg = start_deg + width
                 rec.sectors[sector] = _SectorSnapshot(
                     sector_index=sector,
                     start_angle_deg=start_deg,

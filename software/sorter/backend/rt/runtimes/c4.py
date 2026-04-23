@@ -53,6 +53,8 @@ DEFAULT_TRACK_STALE_S = 0.5
 DEFAULT_RECOVER_MIN_HIT_COUNT = 4
 DEFAULT_RECOVER_MIN_SCORE = 0.55
 DEFAULT_RECOVER_MIN_AGE_S = 0.6
+DEFAULT_IDLE_JOG_STEP_DEG = 2.0
+DEFAULT_IDLE_JOG_COOLDOWN_MS = 500
 
 
 class _C4State(str, Enum):
@@ -121,6 +123,9 @@ class RuntimeC4(BaseRuntime):
         reconcile_min_hit_count: int = DEFAULT_RECOVER_MIN_HIT_COUNT,
         reconcile_min_score: float = DEFAULT_RECOVER_MIN_SCORE,
         reconcile_min_age_s: float = DEFAULT_RECOVER_MIN_AGE_S,
+        idle_jog_enabled: bool = True,
+        idle_jog_step_deg: float = DEFAULT_IDLE_JOG_STEP_DEG,
+        idle_jog_cooldown_ms: int = DEFAULT_IDLE_JOG_COOLDOWN_MS,
     ) -> None:
         super().__init__(runtime_id, feed_id=feed_id, logger=logger, hw_worker=hw_worker)
         self._upstream_slot = upstream_slot
@@ -172,6 +177,9 @@ class RuntimeC4(BaseRuntime):
         self._reconcile_min_hit_count = max(1, int(reconcile_min_hit_count))
         self._reconcile_min_score = float(reconcile_min_score)
         self._reconcile_min_age_s = max(0.0, float(reconcile_min_age_s))
+        self._idle_jog_enabled = bool(idle_jog_enabled)
+        self._idle_jog_step_deg = max(0.1, float(idle_jog_step_deg))
+        self._idle_jog_cooldown_s = max(0.1, float(idle_jog_cooldown_ms) / 1000.0)
         cooldown_ms = (
             self._ejection.timing_for({}).fall_time_ms
             if post_commit_cooldown_ms is None
@@ -195,6 +203,9 @@ class RuntimeC4(BaseRuntime):
         self._next_shimmy_at: float = 0.0
         self._next_accept_at: float = 0.0
         self._next_transport_at: float = 0.0
+        self._next_idle_jog_at: float = 0.0
+        self._idle_jog_count: int = 0
+        self._last_idle_jog_at: float | None = None
         self._startup_purge_armed: bool = False
         self._startup_purge_prime_moves: int = 0
         self._startup_purge_next_prime_at: float = 0.0
@@ -396,6 +407,14 @@ class RuntimeC4(BaseRuntime):
                 "counts": dict(sorted(self._handoff_debug_counts.items())),
                 "last_skip": self._last_handoff_skip,
             },
+            "idle_jog": {
+                "enabled": bool(self._idle_jog_enabled),
+                "step_deg": float(self._idle_jog_step_deg),
+                "cooldown_s": float(self._idle_jog_cooldown_s),
+                "next_at_mono": float(self._next_idle_jog_at),
+                "last_at_mono": self._last_idle_jog_at,
+                "count": int(self._idle_jog_count),
+            },
             "dossier_preview": dossier_preview,
         }
 
@@ -430,7 +449,13 @@ class RuntimeC4(BaseRuntime):
         self._request_pending_handoffs(now_mono)
         self._handle_exit(owned_tracks, inbox, now_mono)
         transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
-        self._refresh_fsm_label(transport_active=transport_active)
+        idle_jog_active = False
+        if not transport_active:
+            idle_jog_active = self._maybe_idle_jog(now_mono)
+        self._refresh_fsm_label(
+            transport_active=transport_active,
+            idle_jog_active=idle_jog_active,
+        )
 
     # -- Helpers ------------------------------------------------------
 
@@ -1043,6 +1068,37 @@ class RuntimeC4(BaseRuntime):
             return True
         return False
 
+    def _maybe_idle_jog(self, now_mono: float) -> bool:
+        if not self._idle_jog_enabled:
+            return False
+        if self._pieces:
+            return False
+        if self._startup_purge_pending() or self._startup_purge_mode_active:
+            return False
+        if self._fsm in (
+            _C4State.STARTUP_PURGE,
+            _C4State.DROP_COMMIT,
+            _C4State.EXIT_SHIMMY,
+        ):
+            return False
+        if self._hw.busy() or now_mono < self._next_idle_jog_at:
+            return False
+        if now_mono < self._next_accept_at:
+            return False
+
+        def _do_idle_jog() -> None:
+            try:
+                self._carousel_move(self._idle_jog_step_deg)
+            except Exception:
+                self._logger.exception("RuntimeC4: idle jog move raised")
+
+        if self._hw.enqueue(_do_idle_jog, label="c4_idle_jog"):
+            self._next_idle_jog_at = now_mono + self._idle_jog_cooldown_s
+            self._last_idle_jog_at = now_mono
+            self._idle_jog_count += 1
+            return True
+        return False
+
     def _track_in_exit_approach(self, track: Track) -> bool:
         if track.angle_rad is None or track.global_id is None:
             return False
@@ -1092,7 +1148,12 @@ class RuntimeC4(BaseRuntime):
         overlap = max(0.0, min(end, window_end) - max(start, window_start))
         return max(0.0, min(1.0, overlap / width))
 
-    def _refresh_fsm_label(self, *, transport_active: bool = False) -> None:
+    def _refresh_fsm_label(
+        self,
+        *,
+        transport_active: bool = False,
+        idle_jog_active: bool = False,
+    ) -> None:
         if self._fsm in (_C4State.DROP_COMMIT, _C4State.EXIT_SHIMMY):
             self._set_state(self._fsm.value)
             return
@@ -1100,6 +1161,9 @@ class RuntimeC4(BaseRuntime):
         self._fsm = _C4State.CLASSIFY_PENDING if inflight else _C4State.RUNNING
         if transport_active and self._fsm is _C4State.RUNNING:
             self._set_state("rotate_pipeline")
+            return
+        if idle_jog_active and self._fsm is _C4State.RUNNING:
+            self._set_state("idle_jog")
             return
         self._set_state(self._fsm.value)
 

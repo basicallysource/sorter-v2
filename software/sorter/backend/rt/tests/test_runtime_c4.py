@@ -249,6 +249,35 @@ def test_c4_available_slots_blocks_on_raw_cap() -> None:
     assert rt.available_slots() == 0
 
 
+def test_c4_idle_jog_when_it_believes_tray_is_empty() -> None:
+    rt, _up, _down, _clf, log = _make()
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=1.0)
+
+    assert "move:2.0" in log
+    assert "c4_idle_jog" in _hw_commands(rt)
+    assert rt.health().state == "idle_jog"
+    assert rt.debug_snapshot()["idle_jog"]["count"] == 1
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=1.2)
+    assert rt.debug_snapshot()["idle_jog"]["count"] == 1
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=1.6)
+    assert rt.debug_snapshot()["idle_jog"]["count"] == 2
+
+
+def test_c4_idle_jog_does_not_compete_with_owned_transport() -> None:
+    rt, _up, _down, _clf, _log = _make()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+
+    assert rt.dossier_count() == 1
+    assert "c4_idle_jog" not in _hw_commands(rt)
+
+
 def test_c4_intake_mints_dossier_and_releases_upstream() -> None:
     rt, up, _down, _clf, _log = _make(max_zones=1)
     assert up.try_claim() is True

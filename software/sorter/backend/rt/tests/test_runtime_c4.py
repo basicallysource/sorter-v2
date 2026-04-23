@@ -704,6 +704,65 @@ def test_c4_startup_purge_recovers_rotates_and_ejects_without_classifier() -> No
     assert rt.dossier_count() == 1
 
 
+def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
+    # Regression: when owned tracks exist, none is at the exit angle, and
+    # _maybe_advance_transport declines to move (e.g. transport cooldown),
+    # the FSM previously stalled in awaiting_exit because the prime branch
+    # only runs while owned_count == 0. The owned-sweep fallback must now
+    # rotate the tray itself.
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=4.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=1,
+        clear_hold_ms=0.0,
+    )
+    rt, _up, _down, _clf, log = _make(startup_purge=purge)
+    rt.arm_startup_purge()
+
+    stable = _track(
+        global_id=9,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=6,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stable, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    # First tick: _maybe_advance_transport enqueues a transport-step move
+    # (default transport_step_deg=6.0) and sets _next_transport_at.
+    assert rt.dossier_count() == 1
+    assert "purge:6.0" in log
+
+    # Second tick inside the transport cooldown window — _maybe_advance_transport
+    # returns False (transport blocked). Without the fallback the FSM would land
+    # in awaiting_exit with no motion. With the fallback it must enqueue a
+    # prime_step_deg=4.0 sweep instead.
+    lingering = _track(
+        global_id=9,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.05,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(lingering, timestamp=1.05), capacity_downstream=1),
+        now_mono=1.05,
+    )
+
+    assert "purge:4.0" in log, (
+        "owned-sweep fallback must rotate the tray when owned track is "
+        "not at exit and transport is cooldown-blocked"
+    )
+    assert rt.fsm_state() == "startup_purge"
+
+
 # ----------------------------------------------------------------------
 # Introspection helper
 

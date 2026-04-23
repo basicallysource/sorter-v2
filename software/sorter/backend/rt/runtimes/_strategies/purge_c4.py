@@ -315,8 +315,37 @@ class C4StartupPurgeStrategy:
         )
         if transport_active:
             host._set_state("startup_purge")
-        else:
-            host._set_state("startup_purge", blocked_reason="awaiting_exit")
+            return True
+
+        # Fallback: owned tracks exist, none at the exit, transport did not
+        # advance — without this the FSM stalls in awaiting_exit forever
+        # because the prime branch above only runs while owned_count == 0.
+        # Keep rotating the tray until a track reaches the exit angle.
+        if (
+            not host._hw.busy()
+            and float(now_mono) >= float(host._startup_purge_next_prime_at)
+        ):
+            step = self.prime_step_deg
+
+            def _do_owned_sweep() -> None:
+                try:
+                    host._startup_purge_move(step)
+                except Exception:
+                    host._logger.exception(
+                        "RuntimeC4: owned-sweep motion raised"
+                    )
+
+            if host._hw.enqueue(
+                _do_owned_sweep, label="c4_startup_purge_owned_sweep"
+            ):
+                host._startup_purge_prime_moves += 1
+                host._startup_purge_next_prime_at = (
+                    now_mono + self.prime_cooldown_s
+                )
+                host._set_state("startup_purge", blocked_reason="owned_sweep")
+                return True
+
+        host._set_state("startup_purge", blocked_reason="awaiting_exit")
         return True
 
 

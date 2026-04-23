@@ -39,28 +39,20 @@ class _FakeFeed:
         self.overlays = list(overlays)
 
 
-class _FakeRunner:
-    def __init__(self, batch: TrackBatch) -> None:
-        self._batch = batch
-
-    def latest_tracks(self) -> TrackBatch:
-        return self._batch
-
-    def latest_state(self):
-        class _State:
-            def __init__(self, batch: TrackBatch) -> None:
-                self.raw_tracks = batch
-
-        return _State(self._batch)
+@dataclass(frozen=True)
+class _FakeAnnotationSnapshot:
+    zone: PolygonZone | None
+    tracks: tuple[Track, ...]
 
 
 class _FakeHandle:
     def __init__(self, zone: PolygonZone, batch: TrackBatch) -> None:
-        self.feed_zones = {"c2_feed": zone}
-        self._runner = _FakeRunner(batch)
+        self._snapshots = {
+            "c2_feed": _FakeAnnotationSnapshot(zone=zone, tracks=batch.tracks)
+        }
 
-    def runner_for_feed(self, feed_id: str) -> _FakeRunner | None:
-        return self._runner if feed_id == "c2_feed" else None
+    def annotation_snapshot(self, feed_id: str) -> _FakeAnnotationSnapshot | None:
+        return self._snapshots.get(feed_id)
 
 
 class _FakeCameraService:

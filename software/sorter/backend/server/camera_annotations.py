@@ -56,37 +56,17 @@ class CameraAnnotationProvider(Protocol):
     def overlays_for_role(self, role: str) -> Sequence[FrameOverlay]: ...
 
 
-def _rt_handle() -> Any | None:
-    return getattr(shared_state, "rt_handle", None)
-
-
-def _zone_for_feed(feed_id: str) -> Zone | None:
-    handle = _rt_handle()
-    zones = getattr(handle, "feed_zones", None) if handle is not None else None
-    if not isinstance(zones, dict):
-        return None
-    zone = zones.get(feed_id)
-    return zone if isinstance(zone, (RectZone, PolygonZone, PolarZone)) else None
-
-
-def _tracks_for_feed(feed_id: str) -> list[Any]:
-    handle = _rt_handle()
+def _annotation_snapshot_for_feed(feed_id: str) -> Any | None:
+    handle = getattr(shared_state, "rt_handle", None)
     if handle is None:
-        return []
-    runner_for_feed = getattr(handle, "runner_for_feed", None)
-    runner = runner_for_feed(feed_id) if callable(runner_for_feed) else None
-    if runner is None:
-        return []
-    latest_state = getattr(runner, "latest_state", None)
-    state = latest_state() if callable(latest_state) else None
-    raw_tracks = getattr(state, "raw_tracks", None)
-    raw_track_items = getattr(raw_tracks, "tracks", None)
-    if isinstance(raw_track_items, tuple):
-        return list(raw_track_items)
-    latest_tracks = getattr(runner, "latest_tracks", None)
-    batch = latest_tracks() if callable(latest_tracks) else None
-    tracks = getattr(batch, "tracks", None)
-    return list(tracks) if isinstance(tracks, tuple) else []
+        return None
+    snapshot_for_feed = getattr(handle, "annotation_snapshot", None)
+    if not callable(snapshot_for_feed):
+        return None
+    try:
+        return snapshot_for_feed(feed_id)
+    except Exception:
+        return None
 
 
 def _channel_polygons_snapshot() -> dict[str, Any]:
@@ -426,7 +406,13 @@ class RuntimeAnnotationProvider:
         feed_id = self.camera_to_feed_id.get(role)
         if feed_id is None:
             return ()
-        return (RuntimeTrackOverlay(lambda feed_id=feed_id: _tracks_for_feed(feed_id)),)
+        return (
+            RuntimeTrackOverlay(
+                lambda feed_id=feed_id: list(
+                    getattr(_annotation_snapshot_for_feed(feed_id), "tracks", ()) or ()
+                )
+            ),
+        )
 
 
 @dataclass(frozen=True)

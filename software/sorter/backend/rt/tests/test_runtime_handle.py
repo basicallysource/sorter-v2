@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
 from rt.bootstrap import RtRuntimeHandle
 from rt.contracts.feed import PolygonZone, RectZone, Zone
+from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.orchestrator import Orchestrator
 from rt.coupling.slots import CapacitySlot
 from rt.events.bus import InProcessEventBus
@@ -77,6 +78,45 @@ def _empty_handle(camera_service: Any) -> RtRuntimeHandle:
         skipped_roles=[],
         camera_service=camera_service,
     )
+
+
+def _track_batch(feed_id: str) -> TrackBatch:
+    return TrackBatch(
+        feed_id=feed_id,
+        frame_seq=1,
+        timestamp=0.0,
+        tracks=(
+            Track(
+                track_id=7,
+                global_id=77,
+                piece_uuid=None,
+                bbox_xyxy=(20, 30, 90, 120),
+                score=0.9,
+                confirmed_real=True,
+                angle_rad=0.0,
+                radius_px=120.0,
+                hit_count=4,
+                first_seen_ts=0.0,
+                last_seen_ts=0.0,
+            ),
+        ),
+        lost_track_ids=(),
+    )
+
+
+def _runner_for_feed(feed_id: str, *, batch: TrackBatch, with_raw_tracks: bool) -> MagicMock:
+    runner = MagicMock()
+    runner._pipeline = type(
+        "_Pipeline",
+        (),
+        {"feed": type("_Feed", (), {"feed_id": feed_id})()},
+    )()
+    if with_raw_tracks:
+        runner.latest_state.return_value = type("_State", (), {"raw_tracks": batch})()
+    else:
+        runner.latest_state.return_value = type("_State", (), {"raw_tracks": None})()
+    runner.latest_tracks.return_value = batch
+    return runner
 
 
 def test_rebuild_runner_adds_missing_runner():
@@ -168,6 +208,36 @@ def test_handle_runner_for_feed_returns_none_when_empty():
     camera_service = _FakeCameraService(devices={})
     handle = _empty_handle(camera_service)
     assert handle.runner_for_feed("c4_feed") is None
+
+
+def test_annotation_snapshot_uses_zone_and_raw_tracks() -> None:
+    camera_service = _FakeCameraService(devices={})
+    handle = _empty_handle(camera_service)
+    zone = PolygonZone(vertices=((10, 10), (100, 10), (100, 90), (10, 90)))
+    batch = _track_batch("c2_feed")
+    runner = _runner_for_feed("c2_feed", batch=batch, with_raw_tracks=True)
+    handle.feed_zones["c2_feed"] = zone
+    handle.perception_runners = [runner]
+
+    snapshot = handle.annotation_snapshot("c2_feed")
+
+    assert snapshot.feed_id == "c2_feed"
+    assert snapshot.zone == zone
+    assert snapshot.tracks == batch.tracks
+
+
+def test_annotation_snapshot_falls_back_to_latest_tracks() -> None:
+    camera_service = _FakeCameraService(devices={})
+    handle = _empty_handle(camera_service)
+    batch = _track_batch("c3_feed")
+    runner = _runner_for_feed("c3_feed", batch=batch, with_raw_tracks=False)
+    handle.perception_runners = [runner]
+
+    snapshot = handle.annotation_snapshot("c3_feed")
+
+    assert snapshot.feed_id == "c3_feed"
+    assert snapshot.zone is None
+    assert snapshot.tracks == batch.tracks
 
 
 def test_start_perception_starts_runners_without_orchestrator():

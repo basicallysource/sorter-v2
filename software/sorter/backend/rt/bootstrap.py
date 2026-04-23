@@ -29,11 +29,12 @@ import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
 from rt.config.schema import FilterConfig, PipelineConfig
 from rt.contracts.events import Event
-from rt.contracts.feed import PolygonZone, RectZone, Zone
+from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (
     CLASSIFIERS,
     RULES_ENGINES,
 )
+from rt.contracts.tracking import Track
 from rt.coupling.orchestrator import Orchestrator
 from rt.coupling.slots import CapacitySlot
 from rt.events.bus import InProcessEventBus
@@ -69,6 +70,15 @@ _ROLE_TO_LEGACY_CAMERA: dict[str, str] = {
     "c3": "c_channel_3",
     "c4": "carousel",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class FeedAnnotationSnapshot:
+    """Runtime-owned read model for camera overlays and live inspection."""
+
+    feed_id: str
+    zone: Zone | None
+    tracks: tuple[Track, ...] = ()
 
 
 @dataclass
@@ -239,6 +249,30 @@ class RtRuntimeHandle:
             "slot_debug": slot_debug,
             "maintenance": {"c234_purge": self.c234_purge_status()},
         }
+
+    def annotation_snapshot(self, feed_id: str) -> FeedAnnotationSnapshot:
+        """Return a compact overlay/debug snapshot for one perception feed."""
+        zone = self.feed_zones.get(feed_id)
+        if not isinstance(zone, (RectZone, PolygonZone, PolarZone)):
+            zone = None
+
+        tracks: tuple[Track, ...] = ()
+        runner = self.runner_for_feed(feed_id)
+        if runner is not None:
+            latest_state = getattr(runner, "latest_state", None)
+            state = latest_state() if callable(latest_state) else None
+            raw_tracks = getattr(state, "raw_tracks", None)
+            raw_track_items = getattr(raw_tracks, "tracks", None)
+            if isinstance(raw_track_items, tuple):
+                tracks = raw_track_items
+            else:
+                latest_tracks = getattr(runner, "latest_tracks", None)
+                batch = latest_tracks() if callable(latest_tracks) else None
+                batch_tracks = getattr(batch, "tracks", None)
+                if isinstance(batch_tracks, tuple):
+                    tracks = batch_tracks
+
+        return FeedAnnotationSnapshot(feed_id=feed_id, zone=zone, tracks=tracks)
 
     def c234_purge_status(self) -> dict[str, Any]:
         with self._maintenance_lock:

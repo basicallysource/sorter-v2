@@ -1662,7 +1662,7 @@ def save_storage_layer_hardware_config(
     new_layer_configs: List[LayerConfig] = []
     layout_changed = len(layer_updates) != len(current["layers"])
     enabled_changed = False
-    default_section_count = int(current["layers"][0]["section_count"]) if current["layers"] else DEFAULT_SECTION_COUNT
+    default_section_count = int(current["layers"][0]["section_count"]) if current["layers"] else DEFAULT_STORAGE_LAYER_SECTION_COUNT
     default_bin_size = current["layers"][0]["bin_size"] if current["layers"] else "medium"
 
     for i, layer_update in enumerate(layer_updates):

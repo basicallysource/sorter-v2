@@ -482,6 +482,7 @@ def test_runner_status_snapshot_surfaces_debug_counts() -> None:
 
     assert snapshot["feed_id"] == "c2_feed"
     assert snapshot["detector_slug"] == "noop"
+    assert snapshot["tracker_slug"] == "noop"
     assert snapshot["zone_kind"] == "rect"
     assert snapshot["running"] is True
     assert snapshot["period_ms"] == 2

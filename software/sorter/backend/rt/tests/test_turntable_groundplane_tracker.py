@@ -91,6 +91,68 @@ def test_groundplane_merges_close_duplicate_births() -> None:
     assert len(batch.lost_track_ids) == 1
 
 
+def test_groundplane_track_stays_pending_without_rotation_window() -> None:
+    tracker = TurntableGroundplaneTracker(polar_center=None)
+
+    last = None
+    for i in range(20):
+        bbox = (50, 50, 70, 70)
+        ts = 1.0 + i * 0.1
+        last = tracker.update(_batch((bbox,), seq=i, ts=ts), _frame(i, ts))
+
+    assert last is not None
+    assert len(last.tracks) == 1
+    assert last.tracks[0].confirmed_real is False
+    assert last.tracks[0].ghost is False
+
+
+def test_groundplane_stationary_track_during_rotation_becomes_ghost() -> None:
+    tracker = TurntableGroundplaneTracker(polar_center=None)
+    tracker.register_rotation_window(0.0, 100.0)
+
+    last = None
+    for i in range(20):
+        bbox = (50, 50, 70, 70)
+        ts = 1.0 + i * 0.1
+        last = tracker.update(_batch((bbox,), seq=i, ts=ts), _frame(i, ts))
+
+    assert last is not None
+    assert len(last.tracks) == 1
+    assert last.tracks[0].confirmed_real is False
+    assert last.tracks[0].ghost is True
+
+
+def test_groundplane_rotation_window_outside_samples_keeps_pending() -> None:
+    tracker = TurntableGroundplaneTracker(polar_center=None)
+    tracker.register_rotation_window(0.0, 0.5)
+
+    last = None
+    for i in range(10):
+        bbox = (50, 50, 70, 70)
+        ts = 1.0 + i * 0.1
+        last = tracker.update(_batch((bbox,), seq=i, ts=ts), _frame(i, ts))
+
+    assert last is not None
+    assert len(last.tracks) == 1
+    assert last.tracks[0].confirmed_real is False
+    assert last.tracks[0].ghost is False
+
+
+def test_groundplane_few_hits_do_not_confirm_without_motion_evidence() -> None:
+    tracker = TurntableGroundplaneTracker(polar_center=None, min_hits=2)
+    tracker.register_rotation_window(0.0, 100.0)
+
+    for i in range(3):
+        bbox = (50 + i, 50, 70 + i, 70)
+        ts = 1.0 + i * 0.1
+        batch = tracker.update(_batch((bbox,), seq=i, ts=ts), _frame(i, ts))
+
+    assert len(batch.tracks) == 1
+    assert batch.tracks[0].hit_count == 3
+    assert batch.tracks[0].confirmed_real is False
+    assert batch.tracks[0].ghost is False
+
+
 def test_groundplane_expires_after_coast_limit() -> None:
     tracker = TurntableGroundplaneTracker(polar_center=None, coast_limit_ticks=1)
     tracker.update(_batch(((50, 50, 70, 70),), seq=1, ts=1.0), _frame(1, 1.0))

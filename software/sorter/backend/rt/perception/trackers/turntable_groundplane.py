@@ -24,6 +24,13 @@ from rt.contracts.tracking import Track, TrackBatch
 
 _ROTATION_WINDOW_BUFFER = 128
 _ROTATION_WINDOW_MAX_AGE_S = 60.0
+_CONFIRMED_MIN_ANGULAR_PROGRESS_DEG = 5.0
+_CONFIRMED_REVERSAL_TOLERANCE_DEG = 4.0
+_CONFIRMED_MIN_CENTROID_DRIFT_PX = 40.0
+_CONFIRMED_WINDOW_MIN_SAMPLES = 6
+_GHOST_WINDOW_MIN_SAMPLES = 18
+_VERDICT_WINDOW_SAMPLES = 18
+_ROTATION_SAMPLES_MAX = 64
 
 
 def _wrap_angle(angle: float) -> float:
@@ -139,9 +146,12 @@ class _LiveGroundTrack:
     hit_count: int = 1
     coast_count: int = 0
     matched_this_tick: bool = True
+    confirmed_real: bool = False
+    ghost: bool = False
     angle_rad: float | None = None
     radius_px: float | None = None
     path: list[tuple[float, float, float]] = field(default_factory=list)
+    rotation_samples: list[tuple[float, float, float]] = field(default_factory=list)
 
 
 @register_tracker("turntable_groundplane")
@@ -285,13 +295,13 @@ class TurntableGroundplaneTracker:
                     piece_uuid=None,
                     bbox_xyxy=track.bbox,
                     score=float(track.score),
-                    confirmed_real=track.hit_count >= self._min_hits,
+                    confirmed_real=bool(track.confirmed_real),
                     angle_rad=track.angle_rad,
                     radius_px=track.radius_px,
                     hit_count=int(track.hit_count),
                     first_seen_ts=float(track.first_seen_ts),
                     last_seen_ts=float(track.last_seen_ts),
-                    ghost=False,
+                    ghost=bool(track.ghost),
                 )
             )
 
@@ -428,6 +438,18 @@ class TurntableGroundplaneTracker:
         track.path.append((float(timestamp), float(cx), float(cy)))
         if len(track.path) > 32:
             del track.path[: -32]
+        if self._in_rotation_window(float(timestamp)):
+            sample = (float(timestamp), float(cx), float(cy))
+            track.rotation_samples.append(sample)
+            if len(track.rotation_samples) > _ROTATION_SAMPLES_MAX:
+                del track.rotation_samples[: -_ROTATION_SAMPLES_MAX]
+            window = track.rotation_samples[-_VERDICT_WINDOW_SAMPLES:]
+            if self._evaluate_confirmed_real_samples(window):
+                track.confirmed_real = True
+                track.ghost = False
+            else:
+                track.confirmed_real = False
+                track.ghost = len(window) >= _GHOST_WINDOW_MIN_SAMPLES
 
     def _merge_duplicates(self, lost_ids: list[int]) -> None:
         ids = sorted(self._tracks)
@@ -451,9 +473,31 @@ class TurntableGroundplaneTracker:
                 keep, drop = self._choose_duplicate_survivor(left, right)
                 if drop.track_id == keep.track_id:
                     continue
+                self._fold_duplicate_evidence(keep, drop)
                 self._tracks.pop(drop.track_id, None)
                 dropped.add(drop.track_id)
                 lost_ids.append(drop.track_id)
+
+    def _fold_duplicate_evidence(
+        self,
+        keep: _LiveGroundTrack,
+        drop: _LiveGroundTrack,
+    ) -> None:
+        keep.hit_count = max(int(keep.hit_count), int(drop.hit_count))
+        keep.path = sorted(
+            keep.path + drop.path,
+            key=lambda sample: sample[0],
+        )[-32:]
+        merged_rotation_samples = sorted(
+            keep.rotation_samples + drop.rotation_samples,
+            key=lambda sample: sample[0],
+        )[-_ROTATION_SAMPLES_MAX:]
+        keep.rotation_samples = merged_rotation_samples
+        if drop.confirmed_real:
+            keep.confirmed_real = True
+            keep.ghost = False
+        elif drop.ghost and not keep.confirmed_real:
+            keep.ghost = True
 
     def _choose_duplicate_survivor(
         self,
@@ -477,6 +521,50 @@ class TurntableGroundplaneTracker:
         if right_key > left_key:
             return right, left
         return left, right
+
+    def _evaluate_confirmed_real_samples(
+        self,
+        samples: list[tuple[float, float, float]],
+    ) -> bool:
+        if len(samples) < _CONFIRMED_WINDOW_MIN_SAMPLES:
+            return False
+
+        third = max(2, len(samples) // 3)
+        head = samples[:third]
+        tail = samples[-third:]
+        head_x = sorted(float(s[1]) for s in head)[len(head) // 2]
+        head_y = sorted(float(s[2]) for s in head)[len(head) // 2]
+        tail_x = sorted(float(s[1]) for s in tail)[len(tail) // 2]
+        tail_y = sorted(float(s[2]) for s in tail)[len(tail) // 2]
+        if math.hypot(tail_x - head_x, tail_y - head_y) >= (
+            _CONFIRMED_MIN_CENTROID_DRIFT_PX
+        ):
+            return True
+
+        if self._polar_center is None:
+            return False
+
+        reversal_tol = math.radians(_CONFIRMED_REVERSAL_TOLERANCE_DEG)
+        min_progress = math.radians(_CONFIRMED_MIN_ANGULAR_PROGRESS_DEG)
+        start_angle, _ = self._to_polar((float(samples[0][1]), float(samples[0][2])))
+        unwrapped: list[float] = [0.0]
+        anchor = start_angle
+        accum = 0.0
+        for _ts, x, y in samples[1:]:
+            angle, _ = self._to_polar((float(x), float(y)))
+            step = _circular_diff(angle, anchor)
+            accum += step
+            unwrapped.append(accum)
+            anchor = angle
+        net_progress = abs(unwrapped[-1])
+        if net_progress < min_progress:
+            return False
+        direction = 1.0 if unwrapped[-1] >= 0.0 else -1.0
+        for idx in range(1, len(unwrapped)):
+            step = (unwrapped[idx] - unwrapped[idx - 1]) * direction
+            if step < -reversal_tol:
+                return False
+        return True
 
     def observed_rpm(self) -> float | None:
         with self._lock:

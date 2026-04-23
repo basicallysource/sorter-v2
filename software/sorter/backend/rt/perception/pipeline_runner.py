@@ -219,6 +219,7 @@ class PerceptionRunner:
         feed = pipeline.feed
         zone = pipeline.zone
         detector = pipeline.detector
+        tracker = pipeline.tracker
 
         zone_kind: str | None = None
         if zone is not None:
@@ -293,6 +294,7 @@ class PerceptionRunner:
         return {
             "feed_id": getattr(feed, "feed_id", None),
             "detector_slug": getattr(detector, "key", None),
+            "tracker_slug": getattr(tracker, "key", None),
             "zone_kind": zone_kind,
             "running": bool(self._running),
             "period_ms": int(round(self._period_s * 1000.0)),

@@ -59,14 +59,35 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 
 _FIRST_TOUCH_POLYGON_APRON_PX = 48
 _PERCEPTION_PERIOD_MS = 100
-_DEFAULT_SHADOW_TRACKER_KEY = "turntable_groundplane"
+_DEFAULT_PRIMARY_TRACKER_KEY = "turntable_groundplane"
+_DEFAULT_SHADOW_TRACKER_KEY = "polar"
 
 
-def shadow_tracker_key() -> str | None:
-    """Return the configured shadow tracker key, or ``None`` when disabled."""
-    raw = os.environ.get("RT_SHADOW_TRACKER_KEY", _DEFAULT_SHADOW_TRACKER_KEY)
+def _disabled_tracker_value(raw: str) -> bool:
+    return raw.lower() in {"", "0", "false", "no", "none", "off", "disabled"}
+
+
+def primary_tracker_key() -> str:
+    """Return the tracker key used by the production perception pipeline."""
+    raw = os.environ.get("RT_PRIMARY_TRACKER_KEY", _DEFAULT_PRIMARY_TRACKER_KEY)
     key = str(raw or "").strip()
-    if key.lower() in {"", "0", "false", "no", "none", "off", "disabled"}:
+    if _disabled_tracker_value(key):
+        return _DEFAULT_PRIMARY_TRACKER_KEY
+    return key
+
+
+def shadow_tracker_key(primary_key: str | None = None) -> str | None:
+    """Return the configured shadow tracker key, or ``None`` when disabled."""
+    if "RT_SHADOW_TRACKER_KEY" in os.environ:
+        raw = os.environ.get("RT_SHADOW_TRACKER_KEY", "")
+    elif primary_key and primary_key != _DEFAULT_PRIMARY_TRACKER_KEY:
+        raw = _DEFAULT_PRIMARY_TRACKER_KEY
+    else:
+        raw = _DEFAULT_SHADOW_TRACKER_KEY
+    key = str(raw or "").strip()
+    if _disabled_tracker_value(key):
+        return None
+    if primary_key and key == primary_key:
         return None
     return key
 
@@ -226,6 +247,7 @@ def build_perception_runner_for_role(
             target_w=int(target_res[0]),
             target_h=int(target_res[1]),
         )
+    tracker_key = primary_tracker_key()
     pipeline_config = PipelineConfig(
         feed_id=feed_id,
         detector={
@@ -236,18 +258,20 @@ def build_perception_runner_for_role(
                 "polygon_apron_px": _FIRST_TOUCH_POLYGON_APRON_PX,
             },
         },
-        tracker={"key": "polar", "params": tracker_params},
+        tracker={"key": tracker_key, "params": tracker_params},
         filters=[{"key": "ghost", "params": {}}],
     )
     try:
         pipeline = build_pipeline_from_config(pipeline_config, feed, zone)
     except Exception:
         logger.exception(
-            "runner_builder[%s]: pipeline build failed (detector=%s)",
-            role, detector_slug,
+            "runner_builder[%s]: pipeline build failed (detector=%s, tracker=%s)",
+            role,
+            detector_slug,
+            tracker_key,
         )
         return None, zone, "pipeline_build_failed"
-    shadow_key = shadow_tracker_key()
+    shadow_key = shadow_tracker_key(tracker_key)
     shadow_tracker = None
     if shadow_key is not None:
         try:
@@ -268,10 +292,12 @@ def build_perception_runner_for_role(
         shadow_tracker_key=shadow_key,
     )
     logger.info(
-        "runner_builder[%s]: perception runner ready (feed=%s, detector=%s, shadow=%s)",
+        "runner_builder[%s]: perception runner ready "
+        "(feed=%s, detector=%s, tracker=%s, shadow=%s)",
         role,
         feed_id,
         detector_slug,
+        tracker_key,
         shadow_key or "disabled",
     )
     return runner, zone, ""
@@ -281,5 +307,6 @@ __all__ = [
     "build_perception_runner_for_role",
     "detector_slug_for_role",
     "load_zone_for_role",
+    "primary_tracker_key",
     "shadow_tracker_key",
 ]

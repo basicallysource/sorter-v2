@@ -22,6 +22,8 @@ from rt.perception.runner_builder import (
     build_perception_runner_for_role,
     detector_slug_for_role,
     load_zone_for_role,
+    primary_tracker_key,
+    shadow_tracker_key,
 )
 from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.registry import CLASSIFIERS
@@ -272,6 +274,32 @@ def test_detector_slug_ignores_invalid_saved_slug():
     assert slug == "hive:c-channel-yolo11n-320"
 
 
+def test_tracker_keys_default_to_groundplane_primary_and_polar_shadow(monkeypatch):
+    monkeypatch.delenv("RT_PRIMARY_TRACKER_KEY", raising=False)
+    monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
+
+    primary = primary_tracker_key()
+
+    assert primary == "turntable_groundplane"
+    assert shadow_tracker_key(primary) == "polar"
+
+
+def test_tracker_keys_compare_against_groundplane_when_polar_is_primary(monkeypatch):
+    monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "polar")
+    monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
+
+    primary = primary_tracker_key()
+
+    assert primary == "polar"
+    assert shadow_tracker_key(primary) == "turntable_groundplane"
+
+
+def test_shadow_tracker_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("RT_SHADOW_TRACKER_KEY", "off")
+
+    assert shadow_tracker_key("polar") is None
+
+
 # ---------------------------------------------------------------------------
 # build_perception_runner_for_role + rebuild
 # ---------------------------------------------------------------------------
@@ -325,6 +353,8 @@ def testbuild_perception_runner_for_role_happy_path():
     assert pipeline.feed.feed_id == "c4_feed"
     # And the detector is the scope default (hive:c-channel-yolo11n-320).
     assert pipeline.detector.key == "hive:c-channel-yolo11n-320"
+    assert pipeline.tracker.key == "turntable_groundplane"
+    assert getattr(runner, "_shadow_tracker_key", None) == "polar"
     assert getattr(runner, "_period_s", None) == 0.1
     assert getattr(pipeline.detector, "_polygon_apron_px", None) == 48
     tracker = pipeline.tracker

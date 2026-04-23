@@ -46,8 +46,6 @@ _LOG_SOURCES = [
 
 
 def _logger_file_path() -> Path | None:
-    candidates: list[Path] = []
-
     gc = shared_state.gc_ref
     logger = getattr(gc, "logger", None) if gc is not None else None
     log_file = getattr(logger, "_log_file", None)

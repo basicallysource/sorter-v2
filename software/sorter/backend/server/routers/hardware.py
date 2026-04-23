@@ -865,7 +865,6 @@ def save_servo_hardware_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
     previous_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in previous["channels"]]
-    previous_inverts = [bool(channel["invert"]) for channel in previous["channels"]]
     channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 

@@ -43,8 +43,6 @@ class ClassificationChannelZoneOverlay:
         lane_width = max(48, int(round((r_outer - r_inner) * 0.23)))
         annulus_outer = max(r_inner + lane_width + 8, r_outer - 6)
         annulus_inner = max(0, annulus_outer - lane_width)
-        rim_outer = annulus_outer
-        rim_inner = max(annulus_inner, rim_outer - max(18, int((annulus_outer - annulus_inner) * 0.18)))
 
         for zone in zones:
             if not isinstance(zone, dict):

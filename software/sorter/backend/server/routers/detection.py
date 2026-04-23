@@ -950,7 +950,7 @@ def _finalize_aux_detection_debug_payload(
     )
     if isinstance(sample_capture, dict):
         try:
-            saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
+            getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
                 source="settings_detection_test",
                 source_role=role,
                 detection_scope=(

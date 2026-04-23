@@ -8,6 +8,7 @@ runner is torn down and rebuilt with the new detector, and the handle's
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -261,3 +262,103 @@ def test_rebuild_runner_starts_new_runner_when_perception_started():
 
     assert rebuilt is runner
     runner.start.assert_called_once_with()
+
+
+class _FakePurgeRuntime:
+    def __init__(self, key: str, counts: list[int]) -> None:
+        self._key = key
+        self._counts = list(counts)
+
+    def debug_snapshot(self) -> dict[str, int | bool]:
+        value = self._counts[0] if self._counts else 0
+        if len(self._counts) > 1:
+            self._counts.pop(0)
+        if self._key == "c4":
+            return {
+                "raw_detection_count": int(value),
+                "dossier_count": 0,
+                "startup_purge_armed": bool(value > 0),
+            }
+        return {"ring_count": int(value)}
+
+    def arm_startup_purge(self) -> None:
+        return None
+
+
+def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    c4 = MagicMock(wraps=_FakePurgeRuntime("c4", [1, 1, 0, 0]))
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[],
+        event_bus=bus,
+        c4=c4,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        c2=_FakePurgeRuntime("c2", [2, 1, 0, 0]),  # type: ignore[arg-type]
+        c3=_FakePurgeRuntime("c3", [1, 0, 0, 0]),  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+        started=True,
+        perception_started=True,
+        paused=True,
+    )
+    published: list[str] = []
+
+    started = handle.start_c234_purge(
+        state_publisher=published.append,
+        timeout_s=1.0,
+        clear_hold_s=0.0,
+        poll_s=0.01,
+    )
+
+    assert started is True
+    deadline = time.time() + 2.0
+    while handle.c234_purge_status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = handle.c234_purge_status()
+    assert status["active"] is False
+    assert status["success"] is True
+    assert status["reason"] == "cleared"
+    assert published == ["running", "paused"]
+    assert orchestrator.resume.call_count == 1
+    assert orchestrator.pause.call_count == 1
+    assert c4.arm_startup_purge.call_count >= 1
+
+
+def test_cancel_c234_purge_stops_job_and_restores_pause_state() -> None:
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    c4 = MagicMock(wraps=_FakePurgeRuntime("c4", [1, 1, 1, 1, 1]))
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[],
+        event_bus=bus,
+        c4=c4,  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        c2=_FakePurgeRuntime("c2", [1, 1, 1, 1, 1]),  # type: ignore[arg-type]
+        c3=_FakePurgeRuntime("c3", [1, 1, 1, 1, 1]),  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+        started=True,
+        perception_started=True,
+        paused=True,
+    )
+
+    assert handle.start_c234_purge(timeout_s=2.0, clear_hold_s=0.0, poll_s=0.05)
+    time.sleep(0.05)
+    assert handle.cancel_c234_purge() is True
+
+    deadline = time.time() + 2.0
+    while handle.c234_purge_status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = handle.c234_purge_status()
+    assert status["active"] is False
+    assert status["success"] is False
+    assert status["reason"] == "cancelled"
+    assert orchestrator.resume.call_count == 1
+    assert orchestrator.pause.call_count == 1

@@ -13,12 +13,18 @@ import math
 import time
 from typing import Any, Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from server import shared_state
 
 
 router = APIRouter()
+
+
+def _publish_runtime_state(state: str) -> None:
+    irl = shared_state.getActiveIRL()
+    layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+    shared_state.publishSorterState(state, layout)
 
 
 def _track_preview(batch: Any) -> List[Dict[str, Any]]:
@@ -79,6 +85,7 @@ def _runner_entry(runner: Any) -> Dict[str, Any]:
     detection_count: int | None = None
     raw_track_count: int | None = None
     confirmed_track_count: int | None = None
+    confirmed_real_track_count: int | None = None
     latest_state_fn = getattr(runner, "latest_state", None)
     if callable(latest_state_fn):
         try:
@@ -102,6 +109,10 @@ def _runner_entry(runner: Any) -> Dict[str, Any]:
             )
             if isinstance(filtered_entries, (list, tuple)):
                 confirmed_track_count = len(filtered_entries)
+                confirmed_real_track_count = sum(
+                    1 for track in filtered_entries
+                    if bool(getattr(track, "confirmed_real", False))
+                )
             raw_track_preview = _track_preview(raw_tracks)
             confirmed_track_preview = _track_preview(filtered_tracks)
         else:
@@ -120,8 +131,17 @@ def _runner_entry(runner: Any) -> Dict[str, Any]:
         "detection_count": detection_count,
         "raw_track_count": raw_track_count,
         "confirmed_track_count": confirmed_track_count,
+        "confirmed_real_track_count": confirmed_real_track_count,
         "raw_track_preview": raw_track_preview,
         "confirmed_track_preview": confirmed_track_preview,
+    }
+
+
+def _slot_entry(slot: Any) -> Dict[str, int]:
+    return {
+        "capacity": int(slot.capacity()),
+        "taken": int(slot.taken()),
+        "available": int(slot.available()),
     }
 
 
@@ -150,6 +170,8 @@ def get_rt_status() -> Dict[str, Any]:
             "skipped_roles": [],
             "runtime_health": {},
             "runtime_debug": {},
+            "slot_debug": {},
+            "maintenance": {},
         }
     runners_out: List[Dict[str, Any]] = []
     for runner in getattr(handle, "perception_runners", []) or []:
@@ -174,13 +196,34 @@ def get_rt_status() -> Dict[str, Any]:
         except Exception:
             runtime_health = {}
     runtime_debug: Dict[str, Any] = {}
-    c4 = getattr(handle, "c4", None)
-    debug_fn = getattr(c4, "debug_snapshot", None) if c4 is not None else None
-    if callable(debug_fn):
+    slot_debug: Dict[str, Any] = {}
+    runtime_nodes = getattr(orchestrator, "_runtimes", []) if orchestrator is not None else []
+    for runtime in runtime_nodes or []:
+        runtime_id = getattr(runtime, "runtime_id", None)
+        if not isinstance(runtime_id, str) or not runtime_id:
+            continue
+        debug_fn = getattr(runtime, "debug_snapshot", None)
+        if callable(debug_fn):
+            try:
+                runtime_debug[runtime_id] = dict(debug_fn() or {})
+            except Exception:
+                runtime_debug[runtime_id] = {}
+    slots = getattr(orchestrator, "_slots", {}) if orchestrator is not None else {}
+    if isinstance(slots, dict):
+        for (upstream, downstream), slot in slots.items():
+            if not isinstance(upstream, str) or not isinstance(downstream, str):
+                continue
+            try:
+                slot_debug[f"{upstream}_to_{downstream}"] = _slot_entry(slot)
+            except Exception:
+                slot_debug[f"{upstream}_to_{downstream}"] = {}
+    maintenance: Dict[str, Any] = {}
+    purge_status_fn = getattr(handle, "c234_purge_status", None)
+    if callable(purge_status_fn):
         try:
-            runtime_debug["c4"] = dict(debug_fn() or {})
+            maintenance["c234_purge"] = dict(purge_status_fn() or {})
         except Exception:
-            runtime_debug["c4"] = {}
+            maintenance["c234_purge"] = {}
     return {
         "rt_handle_ready": True,
         "perception_started": bool(getattr(handle, "perception_started", False)),
@@ -190,7 +233,49 @@ def get_rt_status() -> Dict[str, Any]:
         "skipped_roles": list(skipped),
         "runtime_health": runtime_health,
         "runtime_debug": runtime_debug,
+        "slot_debug": slot_debug,
+        "maintenance": maintenance,
     }
+
+
+@router.post("/api/rt/purge/c234")
+def start_c234_purge() -> Dict[str, Any]:
+    if shared_state.hardware_state != "ready":
+        raise HTTPException(
+            status_code=409,
+            detail="hardware must be ready before running c234 purge",
+        )
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    if not bool(getattr(handle, "started", False)):
+        raise HTTPException(status_code=409, detail="rt runtime is not started")
+    start_fn = getattr(handle, "start_c234_purge", None)
+    if not callable(start_fn):
+        raise HTTPException(status_code=501, detail="c234 purge is not supported")
+    try:
+        started = bool(start_fn(state_publisher=_publish_runtime_state))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not started:
+        raise HTTPException(status_code=409, detail="c234 purge is already active")
+    status_fn = getattr(handle, "c234_purge_status", None)
+    status = dict(status_fn() or {}) if callable(status_fn) else {"active": True}
+    return {"ok": True, "status": status}
+
+
+@router.post("/api/rt/purge/c234/cancel")
+def cancel_c234_purge() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    cancel_fn = getattr(handle, "cancel_c234_purge", None)
+    if not callable(cancel_fn):
+        raise HTTPException(status_code=501, detail="c234 purge cancel is not supported")
+    cancelled = bool(cancel_fn())
+    status_fn = getattr(handle, "c234_purge_status", None)
+    status = dict(status_fn() or {}) if callable(status_fn) else {"active": False}
+    return {"ok": True, "cancelled": cancelled, "status": status}
 
 
 __all__ = ["router"]

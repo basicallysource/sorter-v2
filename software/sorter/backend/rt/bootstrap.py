@@ -85,6 +85,8 @@ class RtRuntimeHandle:
     event_bus: InProcessEventBus
     c4: RuntimeC4
     distributor: RuntimeDistributor
+    c2: RuntimeC2 | None = None
+    c3: RuntimeC3 | None = None
     feed_zones: dict[str, Zone] = field(default_factory=dict)
     started: bool = False
     perception_started: bool = False
@@ -95,6 +97,22 @@ class RtRuntimeHandle:
     # Back-reference needed for runner rebuilds after config changes.
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
+    _maintenance_lock: threading.Lock = field(default_factory=threading.Lock)
+    _c234_purge_thread: threading.Thread | None = None
+    _c234_purge_status: dict[str, Any] = field(
+        default_factory=lambda: {
+            "active": False,
+            "phase": "idle",
+            "started_at": None,
+            "finished_at": None,
+            "success": None,
+            "reason": None,
+            "was_paused": None,
+            "cancel_requested": False,
+            "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
+        }
+    )
+    _c234_purge_cancel: threading.Event = field(default_factory=threading.Event)
 
     def start_perception(self) -> None:
         if self.perception_started:
@@ -124,6 +142,7 @@ class RtRuntimeHandle:
     def stop(self) -> None:
         if not self.started and not self.perception_started:
             return
+        self._c234_purge_cancel.set()
         if self.started:
             try:
                 self.orchestrator.stop()
@@ -174,6 +193,216 @@ class RtRuntimeHandle:
                     "RtRuntimeHandle: orchestrator.resume raised"
                 )
         self.paused = False
+
+    def c234_purge_status(self) -> dict[str, Any]:
+        with self._maintenance_lock:
+            status = dict(self._c234_purge_status)
+            counts = status.get("counts")
+            if isinstance(counts, dict):
+                status["counts"] = dict(counts)
+            return status
+
+    def start_c234_purge(
+        self,
+        *,
+        state_publisher: Callable[[str], None] | None = None,
+        timeout_s: float = 120.0,
+        clear_hold_s: float = 0.75,
+        poll_s: float = 0.05,
+    ) -> bool:
+        if timeout_s <= 0.0:
+            raise ValueError("timeout_s must be > 0")
+        if clear_hold_s < 0.0:
+            raise ValueError("clear_hold_s must be >= 0")
+        if poll_s <= 0.0:
+            raise ValueError("poll_s must be > 0")
+        if not self.started:
+            raise RuntimeError("rt runtime is not started")
+
+        with self._maintenance_lock:
+            if bool(self._c234_purge_status.get("active")):
+                return False
+            self._c234_purge_status = {
+                "active": True,
+                "phase": "starting",
+                "started_at": time.time(),
+                "finished_at": None,
+                "success": None,
+                "reason": None,
+                "was_paused": bool(self.paused),
+                "cancel_requested": False,
+                "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
+            }
+            self._c234_purge_cancel.clear()
+            thread = threading.Thread(
+                target=self._run_c234_purge,
+                kwargs={
+                    "state_publisher": state_publisher,
+                    "timeout_s": float(timeout_s),
+                    "clear_hold_s": float(clear_hold_s),
+                    "poll_s": float(poll_s),
+                },
+                name="RtC234Purge",
+                daemon=True,
+            )
+            self._c234_purge_thread = thread
+            thread.start()
+            return True
+
+    def cancel_c234_purge(self) -> bool:
+        with self._maintenance_lock:
+            if not bool(self._c234_purge_status.get("active")):
+                return False
+            next_status = dict(self._c234_purge_status)
+            next_status["cancel_requested"] = True
+            next_status["phase"] = "cancelling"
+            self._c234_purge_status = next_status
+            self._c234_purge_cancel.set()
+            return True
+
+    def _set_c234_purge_status(self, **updates: Any) -> None:
+        with self._maintenance_lock:
+            next_status = dict(self._c234_purge_status)
+            next_status.update(updates)
+            counts = next_status.get("counts")
+            if isinstance(counts, dict):
+                next_status["counts"] = dict(counts)
+            self._c234_purge_status = next_status
+
+    def _c234_purge_counts(self) -> dict[str, int]:
+        log = logging.getLogger("rt.bootstrap")
+        c2_count = 0
+        if self.c2 is not None:
+            try:
+                c2_count = max(0, int(self.c2.debug_snapshot().get("ring_count", 0)))
+            except Exception:
+                log.exception("RtRuntimeHandle: c2.debug_snapshot raised during c234 purge")
+        c3_count = 0
+        if self.c3 is not None:
+            try:
+                c3_count = max(0, int(self.c3.debug_snapshot().get("ring_count", 0)))
+            except Exception:
+                log.exception("RtRuntimeHandle: c3.debug_snapshot raised during c234 purge")
+        c4_raw = 0
+        c4_dossiers = 0
+        c4_purge_armed = False
+        if self.c4 is not None:
+            try:
+                c4_debug = dict(self.c4.debug_snapshot() or {})
+            except Exception:
+                log.exception("RtRuntimeHandle: c4.debug_snapshot raised during c234 purge")
+                c4_debug = {}
+            c4_raw = max(0, int(c4_debug.get("raw_detection_count", 0) or 0))
+            c4_dossiers = max(0, int(c4_debug.get("dossier_count", 0) or 0))
+            c4_purge_armed = bool(c4_debug.get("startup_purge_armed", False))
+        return {
+            "c2": c2_count,
+            "c3": c3_count,
+            "c4_raw": c4_raw,
+            "c4_dossiers": c4_dossiers,
+            "c4_purge_armed": 1 if c4_purge_armed else 0,
+        }
+
+    def _arm_c4_purge(self) -> None:
+        arm_startup_purge = getattr(self.c4, "arm_startup_purge", None)
+        if callable(arm_startup_purge):
+            try:
+                arm_startup_purge()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: c4.arm_startup_purge raised during c234 purge"
+                )
+
+    def _run_c234_purge(
+        self,
+        *,
+        state_publisher: Callable[[str], None] | None,
+        timeout_s: float,
+        clear_hold_s: float,
+        poll_s: float,
+    ) -> None:
+        log = logging.getLogger("rt.bootstrap")
+        was_paused = bool(self.paused)
+        deadline = time.monotonic() + float(timeout_s)
+        clear_since: float | None = None
+        success = False
+        reason = "timeout"
+        phase = "running"
+        try:
+            if self.c4 is None:
+                raise RuntimeError("c4 runtime unavailable")
+            self._arm_c4_purge()
+            if was_paused:
+                self.resume()
+                if callable(state_publisher):
+                    try:
+                        state_publisher("running")
+                    except Exception:
+                        log.exception(
+                            "RtRuntimeHandle: state publisher raised during c234 purge resume"
+                        )
+            while time.monotonic() < deadline:
+                if self._c234_purge_cancel.is_set():
+                    reason = "cancelled"
+                    phase = "cancelled"
+                    break
+                counts = self._c234_purge_counts()
+                occupied = (
+                    int(counts.get("c2", 0))
+                    + int(counts.get("c3", 0))
+                    + int(counts.get("c4_raw", 0))
+                    + int(counts.get("c4_dossiers", 0))
+                )
+                c4_purge_armed = bool(counts.get("c4_purge_armed", 0))
+                if occupied > 0 and not c4_purge_armed:
+                    self._arm_c4_purge()
+                if occupied <= 0:
+                    phase = "verifying_clear"
+                    if clear_since is None:
+                        clear_since = time.monotonic()
+                    elif (time.monotonic() - clear_since) >= float(clear_hold_s):
+                        success = True
+                        reason = "cleared"
+                        break
+                else:
+                    phase = "purging"
+                    clear_since = None
+                self._set_c234_purge_status(
+                    active=True,
+                    phase=phase,
+                    cancel_requested=False,
+                    counts={
+                        "c2": int(counts.get("c2", 0)),
+                        "c3": int(counts.get("c3", 0)),
+                        "c4_raw": int(counts.get("c4_raw", 0)),
+                        "c4_dossiers": int(counts.get("c4_dossiers", 0)),
+                    },
+                )
+                time.sleep(float(poll_s))
+        except Exception as exc:
+            reason = str(exc) or exc.__class__.__name__
+            log.exception("RtRuntimeHandle: c234 purge failed")
+        finally:
+            if was_paused:
+                try:
+                    self.pause()
+                except Exception:
+                    log.exception("RtRuntimeHandle: pause after c234 purge raised")
+                if callable(state_publisher):
+                    try:
+                        state_publisher("paused")
+                    except Exception:
+                        log.exception(
+                            "RtRuntimeHandle: state publisher raised during c234 purge pause"
+                        )
+            self._set_c234_purge_status(
+                active=False,
+                phase="idle" if success else phase,
+                finished_at=time.time(),
+                success=success,
+                reason=reason,
+                cancel_requested=False,
+            )
 
     def runner_for_feed(self, feed_id: str) -> PerceptionRunner | None:
         """Return the PerceptionRunner driving ``feed_id`` if registered."""
@@ -1141,9 +1370,9 @@ def build_rt_runtime(
         irl,
         log,
         startup_purge_speed_scale=float(
-            getattr(classification_cfg, "startup_purge_speed_scale", 3.5)
+            getattr(classification_cfg, "startup_purge_speed_scale", 12.0)
             if classification_cfg
-            else 3.5
+            else 12.0
         ),
     )
     chute_move, chute_position_query = _build_chute_callables(irl, rules_engine, log)
@@ -1378,6 +1607,8 @@ def build_rt_runtime(
         event_bus=bus,
         c4=c4,
         distributor=distributor,
+        c2=c2,
+        c3=c3,
         feed_zones=feed_zones,
         skipped_roles=skipped_roles,
         camera_service=camera_service,

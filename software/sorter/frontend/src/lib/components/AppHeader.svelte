@@ -15,12 +15,43 @@
 
 	const manager = getMachinesContext();
 
+	type C234PurgeCounts = {
+		c2?: number;
+		c3?: number;
+		c4_raw?: number;
+		c4_dossiers?: number;
+	};
+
+	type C234PurgeStatus = {
+		active?: boolean;
+		phase?: string;
+		started_at?: number | null;
+		finished_at?: number | null;
+		success?: boolean | null;
+		reason?: string | null;
+		was_paused?: boolean | null;
+		cancel_requested?: boolean;
+		counts?: C234PurgeCounts;
+	};
+
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
 	let hardwareAlertOpen = $state(false);
 	let powerMenuOpen = $state(false);
 	let restartingBackend = $state(false);
 	let restartConfirmOpen = $state(false);
+	let purgingC234 = $state(false);
+	let cancellingC234Purge = $state(false);
+	let c234PurgeModalOpen = $state(false);
+	let c234PurgeError = $state<string | null>(null);
+	let c234PurgeStatus = $state<C234PurgeStatus>({
+		active: false,
+		phase: 'idle',
+		success: null,
+		reason: null,
+		counts: { c2: 0, c3: 0, c4_raw: 0, c4_dossiers: 0 }
+	});
+	let c234PurgePollTimer: ReturnType<typeof setInterval> | null = null;
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
@@ -71,6 +102,26 @@
 	const needsHoming = $derived(
 		hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'
 	);
+	const c234PurgeCounts = $derived(c234PurgeStatus.counts ?? {});
+	const c234PurgeC4Count = $derived(
+		Math.max(c234PurgeCounts.c4_raw ?? 0, c234PurgeCounts.c4_dossiers ?? 0)
+	);
+	const c234PurgeTotal = $derived(
+		(c234PurgeCounts.c2 ?? 0)
+			+ (c234PurgeCounts.c3 ?? 0)
+			+ c234PurgeC4Count
+	);
+	const c234PurgeActive = $derived(Boolean(c234PurgeStatus.active));
+	const c234PurgePhaseLabel = $derived(
+		c234PurgeStatus.phase === 'starting' ? 'Starting'
+		: c234PurgeStatus.phase === 'purging' ? 'Purging'
+		: c234PurgeStatus.phase === 'verifying_clear' ? 'Verifying clear'
+		: c234PurgeStatus.phase === 'cancelling' ? 'Cancelling'
+		: c234PurgeStatus.phase === 'cancelled' ? 'Cancelled'
+		: c234PurgeStatus.success === true ? 'Cleared'
+		: c234PurgeStatus.success === false ? 'Stopped'
+		: 'Idle'
+	);
 
 	async function homeSystem() {
 		try {
@@ -114,6 +165,102 @@
 		await waitForBackend(baseUrl, { maxAttempts: 60 });
 		restartingBackend = false;
 		// Ws will reconnect and push fresh snapshots automatically.
+	}
+
+	function stopC234PurgePolling() {
+		if (c234PurgePollTimer !== null) {
+			clearInterval(c234PurgePollTimer);
+			c234PurgePollTimer = null;
+		}
+	}
+
+	async function refreshC234PurgeStatus() {
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}/api/rt/status`, {
+				cache: 'no-store'
+			});
+			if (!response.ok) return;
+			const payload = (await response.json()) as {
+				maintenance?: { c234_purge?: C234PurgeStatus };
+			};
+			const status = payload.maintenance?.c234_purge;
+			if (!status) return;
+			c234PurgeStatus = status;
+			if (!status.active) {
+				stopC234PurgePolling();
+			}
+		} catch {
+			// keep the modal open; the next poll may succeed after reconnect.
+		}
+	}
+
+	function startC234PurgePolling() {
+		stopC234PurgePolling();
+		void refreshC234PurgeStatus();
+		c234PurgePollTimer = setInterval(() => {
+			void refreshC234PurgeStatus();
+		}, 500);
+	}
+
+	async function purgeC234() {
+		purgingC234 = true;
+		c234PurgeModalOpen = true;
+		c234PurgeError = null;
+		c234PurgeStatus = {
+			active: true,
+			phase: 'starting',
+			success: null,
+			reason: null,
+			counts: { c2: 0, c3: 0, c4_raw: 0, c4_dossiers: 0 }
+		};
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}/api/rt/purge/c234`, { method: 'POST' });
+			const payload = (await response.json().catch(() => ({}))) as {
+				detail?: string;
+				status?: C234PurgeStatus;
+			};
+			if (!response.ok) {
+				c234PurgeStatus = { ...c234PurgeStatus, active: false, phase: 'idle', success: false };
+				c234PurgeError = payload.detail ?? 'Could not start C2/C3/C4 purge.';
+				return;
+			}
+			if (payload.status) {
+				c234PurgeStatus = payload.status;
+			}
+			startC234PurgePolling();
+		} catch {
+			c234PurgeStatus = { ...c234PurgeStatus, active: false, phase: 'idle', success: false };
+			c234PurgeError = 'Could not reach the backend to start C2/C3/C4 purge.';
+		} finally {
+			purgingC234 = false;
+			powerMenuOpen = false;
+		}
+	}
+
+	async function cancelC234Purge() {
+		cancellingC234Purge = true;
+		c234PurgeError = null;
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}/api/rt/purge/c234/cancel`, {
+				method: 'POST'
+			});
+			const payload = (await response.json().catch(() => ({}))) as {
+				detail?: string;
+				status?: C234PurgeStatus;
+			};
+			if (!response.ok) {
+				c234PurgeError = payload.detail ?? 'Could not cancel C2/C3/C4 purge.';
+				return;
+			}
+			if (payload.status) {
+				c234PurgeStatus = payload.status;
+			}
+			startC234PurgePolling();
+		} catch {
+			c234PurgeError = 'Could not reach the backend to cancel C2/C3/C4 purge.';
+		} finally {
+			cancellingC234Purge = false;
+		}
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -241,6 +388,7 @@
 		document.addEventListener('click', handlePowerMenuClickOutside);
 		return () => {
 			document.removeEventListener('click', handlePowerMenuClickOutside);
+			stopC234PurgePolling();
 		};
 	});
 </script>
@@ -381,6 +529,15 @@
 							>
 								<RefreshCw size={14} class="text-text-muted" />
 								Reset Hardware
+							</button>
+							<button
+								onclick={() => void purgeC234()}
+								disabled={purgingC234 || hardwareState !== 'ready'}
+								title={hardwareState === 'ready' ? 'Purge all C2/C3/C4 trays' : 'Home the hardware before purging C2/C3/C4'}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg disabled:cursor-wait disabled:opacity-60"
+							>
+								<RefreshCw size={14} class={`text-text-muted ${purgingC234 ? 'animate-spin' : ''}`} />
+								Purge C2/C3/C4
 							</button>
 							<button
 								onclick={requestRestartBackend}
@@ -550,6 +707,97 @@
 					<RotateCcw size={14} />
 					Restart Backend
 				</button>
+			</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={c234PurgeModalOpen} title="Purge C2/C3/C4">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div class="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-primary/[0.08] text-primary">
+					{#if c234PurgeActive}
+						<div class="h-5 w-5 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
+					{:else}
+						<RefreshCw size={18} />
+					{/if}
+				</div>
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center justify-between gap-3">
+						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+							{c234PurgePhaseLabel}
+						</div>
+						<div class="font-mono text-xs text-text-muted">
+							{c234PurgeTotal} detected
+						</div>
+					</div>
+					<div class="mt-1 text-sm text-text">
+						{#if c234PurgeActive}
+							Runtime is clearing the C2, C3 and C4 trays. C1 / bulk feeding stays untouched.
+						{:else if c234PurgeStatus.success === true}
+							C2, C3 and C4 reported clear.
+						{:else if c234PurgeStatus.reason === 'cancelled'}
+							Purge was cancelled. No further purge moves will be requested.
+						{:else if c234PurgeStatus.success === false}
+							Purge stopped before all trays reported clear.
+						{:else}
+							Ready to purge the C-channel trays.
+						{/if}
+					</div>
+					{#if c234PurgeError}
+						<div class="mt-3 border border-danger/25 bg-danger/[0.06] px-3 py-2 text-sm text-[#B11618]">
+							{c234PurgeError}
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+				<div class="border border-border bg-surface px-3 py-2">
+					<div class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-muted">C2</div>
+					<div class="mt-1 font-mono text-lg font-semibold text-text">{c234PurgeCounts.c2 ?? 0}</div>
+				</div>
+				<div class="border border-border bg-surface px-3 py-2">
+					<div class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-muted">C3</div>
+					<div class="mt-1 font-mono text-lg font-semibold text-text">{c234PurgeCounts.c3 ?? 0}</div>
+				</div>
+				<div class="border border-border bg-surface px-3 py-2">
+					<div class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-muted">C4 visible</div>
+					<div class="mt-1 font-mono text-lg font-semibold text-text">{c234PurgeCounts.c4_raw ?? 0}</div>
+				</div>
+				<div class="border border-border bg-surface px-3 py-2">
+					<div class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-muted">C4 owned</div>
+					<div class="mt-1 font-mono text-lg font-semibold text-text">{c234PurgeCounts.c4_dossiers ?? 0}</div>
+				</div>
+			</div>
+
+			<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
+				Phase: <span class="font-mono text-text">{c234PurgeStatus.phase ?? 'idle'}</span>
+				{#if c234PurgeStatus.reason}
+					<span class="mx-2 text-border">|</span>
+					Reason: <span class="font-mono text-text">{c234PurgeStatus.reason}</span>
+				{/if}
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				{#if c234PurgeActive}
+					<button
+						type="button"
+						onclick={() => void cancelC234Purge()}
+						disabled={cancellingC234Purge || c234PurgeStatus.cancel_requested}
+						class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14] disabled:cursor-wait disabled:opacity-60"
+					>
+						<X size={14} />
+						{cancellingC234Purge || c234PurgeStatus.cancel_requested ? 'Cancelling...' : 'Cancel Purge'}
+					</button>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (c234PurgeModalOpen = false)}
+						class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+					>
+						Close
+					</button>
+				{/if}
 			</div>
 		</div>
 	</Modal>

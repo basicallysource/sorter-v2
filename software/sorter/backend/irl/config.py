@@ -380,7 +380,7 @@ class ClassificationChannelConfig:
         self.startup_purge_prime_cooldown_ms = 120
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
-        self.startup_purge_speed_scale = 3.5
+        self.startup_purge_speed_scale = 12.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

@@ -6,6 +6,7 @@ from .classification import Classifier, ClassifierResult
 from .detection import Detection, DetectionBatch, Detector
 from .ejection import EjectionTiming, EjectionTimingStrategy
 from .events import Event, EventBus, Subscription
+from .purge import PurgeCounts, PurgePort
 from .feed import (
     Feed,
     FeedFrame,
@@ -67,6 +68,8 @@ __all__ = [
     "PictureSettings",
     "PolarZone",
     "PolygonZone",
+    "PurgeCounts",
+    "PurgePort",
     "RULES_ENGINES",
     "RectZone",
     "RulesEngine",

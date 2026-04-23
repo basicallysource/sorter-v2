@@ -23,8 +23,17 @@ import numpy as np
 from blob_manager import write_piece_crop
 from local_state import remember_piece_segment
 
+from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
 from rt.contracts.tracking import TrackBatch
+from rt.events.topics import (
+    PIECE_CLASSIFIED,
+    PIECE_DISTRIBUTED,
+    PIECE_REGISTERED,
+)
+
+if False:  # TYPE_CHECKING guard without importing TYPE_CHECKING
+    from rt.perception.pipeline_runner import PerceptionRunner
 
 _LOG = logging.getLogger(__name__)
 
@@ -399,4 +408,54 @@ class SegmentRecorder:
             )
 
 
-__all__ = ["SegmentRecorder", "SECTOR_COUNT"]
+def install(
+    bus: EventBus,
+    c4_runner: "PerceptionRunner",
+) -> SegmentRecorder:
+    """Instantiate the recorder and wire it into the rt runtime.
+
+    - Pulls channel geometry from the C4 tracker (arc channels use
+      PolygonZone, so the zone itself does not carry polar geometry).
+    - Attaches the recorder to the C4 pipeline so ``on_frame`` fires
+      every perception tick.
+    - Subscribes begin/flush/finalize to the three piece-lifecycle topics.
+
+    Returns the recorder so callers can inspect it in tests.
+    """
+    recorder = SegmentRecorder()
+    tracker = c4_runner._pipeline.tracker
+    recorder.set_channel_geometry(
+        polar_center=getattr(tracker, "_polar_center", None),
+        polar_radius_range=getattr(tracker, "_polar_radius_range", None),
+    )
+    c4_runner._pipeline.segment_recorder = recorder
+
+    def _on_piece_event(event: Event) -> None:
+        payload = event.payload or {}
+        piece_uuid = payload.get("piece_uuid") or payload.get("uuid")
+        if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+            return
+        try:
+            if event.topic == PIECE_REGISTERED:
+                tracked_gid = payload.get("tracked_global_id")
+                if isinstance(tracked_gid, int):
+                    recorder.begin_recording(
+                        piece_uuid=piece_uuid,
+                        tracked_global_id=tracked_gid,
+                        now_mono=float(event.ts_mono),
+                    )
+            elif event.topic == PIECE_CLASSIFIED:
+                recorder.flush_snapshot(piece_uuid)
+            elif event.topic == PIECE_DISTRIBUTED:
+                recorder.finalize(piece_uuid)
+        except Exception:
+            _LOG.exception(
+                "segment_recorder: hook raised for topic=%s", event.topic
+            )
+
+    for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
+        bus.subscribe(topic, _on_piece_event)
+    return recorder
+
+
+__all__ = ["SegmentRecorder", "SECTOR_COUNT", "install"]

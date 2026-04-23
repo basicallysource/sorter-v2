@@ -1311,16 +1311,6 @@ def build_rt_runtime(
     bus = InProcessEventBus()
 
     # ------------------------------------------------------------------
-    # Segment recorder — collects track paths + wedge crops per piece and
-    # flushes them to SQLite / disk on piece lifecycle events. Wired into
-    # the C4 perception pipeline further down; referenced here so the
-    # piece-event subscriber can drive begin/finalize.
-
-    from rt.perception.segment_recorder import SegmentRecorder
-
-    segment_recorder = SegmentRecorder()
-
-    # ------------------------------------------------------------------
     # Persistent piece-dossier + Hive upload side-effect bridge.
     # Uses the existing local_state helper so pieces still land in the
     # SQLite dossier table the UI / SetProgressSync worker reads from.
@@ -1364,26 +1354,6 @@ def build_rt_runtime(
             except Exception:
                 log.debug("rt.bootstrap: remember_piece_dossier raised", exc_info=True)
 
-            # Segment recorder lifecycle: start on REGISTERED, take an
-            # intermediate DB snapshot on CLASSIFIED, tear down on
-            # DISTRIBUTED so the final row carries the full path + all
-            # wedge sectors the piece passed through.
-            try:
-                if event.topic == PIECE_REGISTERED:
-                    tracked_gid = payload.get("tracked_global_id")
-                    if isinstance(tracked_gid, int):
-                        segment_recorder.begin_recording(
-                            piece_uuid=piece_uuid,
-                            tracked_global_id=tracked_gid,
-                            now_mono=float(event.ts_mono),
-                        )
-                elif event.topic == PIECE_CLASSIFIED:
-                    segment_recorder.flush_snapshot(piece_uuid)
-                elif event.topic == PIECE_DISTRIBUTED:
-                    segment_recorder.finalize(piece_uuid)
-            except Exception:
-                log.debug("rt.bootstrap: segment_recorder hook raised", exc_info=True)
-
         for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
             bus.subscribe(topic, _on_piece_event)
     except Exception:
@@ -1418,17 +1388,10 @@ def build_rt_runtime(
         if zone is not None:
             feed_zones[feed_id] = zone
         perception_sources[feed_id] = runner
-        # Wire segment recording into the C4 pipeline: only C4 knows the
-        # piece_uuid<->track_gid mapping, so only its perception pipeline
-        # captures wedge crops. The channel geometry lives on the tracker
-        # (arc channels use PolygonZone, so zone doesn't carry it).
         if role == "c4":
-            runner._pipeline.segment_recorder = segment_recorder
-            tracker = runner._pipeline.tracker
-            segment_recorder.set_channel_geometry(
-                polar_center=getattr(tracker, "_polar_center", None),
-                polar_radius_range=getattr(tracker, "_polar_radius_range", None),
-            )
+            from rt.perception.segment_recorder import install as install_segment_recording
+
+            install_segment_recording(bus, runner)
 
     # ------------------------------------------------------------------
     # Capacity slots

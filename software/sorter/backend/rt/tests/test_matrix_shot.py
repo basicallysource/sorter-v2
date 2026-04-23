@@ -76,6 +76,7 @@ class MatrixShotTests(unittest.TestCase):
 
     def test_capture_now_persists_matrix_shot_manifest_and_jpegs(self) -> None:
         trigger = 1_000.0
+        # Present on purpose: default Matrix-Shot must ignore C3 and use C4 only.
         c3_frames = [
             _Frame(
                 np.full((80, 160, 3), 40 + idx, dtype=np.uint8),
@@ -101,7 +102,6 @@ class MatrixShotTests(unittest.TestCase):
             config=MatrixShotConfig(
                 max_frames_per_role=3,
                 max_width_px=64,
-                roles=("c_channel_3", "carousel"),
             ),
         )
         try:
@@ -115,16 +115,13 @@ class MatrixShotTests(unittest.TestCase):
         self.assertIsNotNone(manifest)
         assert manifest is not None
         self.assertEqual("captured", manifest["status"])
-        self.assertEqual(6, manifest["frame_count"])
+        self.assertEqual(3, manifest["frame_count"])
         frames = manifest["frames"]
         self.assertEqual(
             sorted(frame["captured_ts"] for frame in frames),
             [frame["captured_ts"] for frame in frames],
         )
-        self.assertEqual(
-            {"c_channel_3", "carousel"},
-            {frame["role"] for frame in frames},
-        )
+        self.assertEqual({"carousel"}, {frame["role"] for frame in frames})
         for frame in frames:
             jpeg_path = frame["jpeg_path"]
             self.assertIn("/matrix_", jpeg_path)

@@ -29,7 +29,7 @@ from rt.events.topics import PIECE_REGISTERED
 _LOG = logging.getLogger(__name__)
 _SEGMENT_SEQUENCE = 0
 _CROP_KIND = "matrix"
-_DEFAULT_ROLES = ("c_channel_3", "carousel")
+_DEFAULT_ROLES = ("carousel",)
 _QUEUE_MAX = 64
 
 
@@ -52,12 +52,12 @@ class _CandidateFrame:
 
 
 class MatrixShotRecorder:
-    """Capture a small, disk-backed frame burst around C3 -> C4 handoff.
+    """Capture a small, disk-backed frame burst around first C4 registration.
 
     The trigger is C4's first confirmed registration of a piece. At that
-    instant the camera capture threads already hold a short history, so the
-    recorder can walk backward through the C3 and C4 ring buffers and archive
-    frames from the fall without adding latency to the perception loop.
+    instant the C4 camera capture thread already holds a short history, so the
+    recorder can walk backward through that ring buffer and archive frames
+    from the fall without adding latency to the perception loop.
     """
 
     def __init__(

@@ -106,7 +106,7 @@ class HiveDetector:
             if det is None:
                 continue
             translated = self._to_contract_detection(det, offset_xy, raw.shape)
-            if self._center_in_zone(translated.bbox_xyxy, zone):
+            if self._bbox_overlaps_zone(translated.bbox_xyxy, zone):
                 detections.append(translated)
         latency_ms = (time.perf_counter() - t0) * 1000.0
         return DetectionBatch(
@@ -177,28 +177,42 @@ class HiveDetector:
 
         raise TypeError(f"Unsupported Zone type: {type(zone).__name__}")
 
-    def _center_in_zone(
+    def _bbox_overlaps_zone(
         self,
         bbox_xyxy: tuple[int, int, int, int],
         zone: Zone,
     ) -> bool:
         x1, y1, x2, y2 = (int(v) for v in bbox_xyxy)
-        cx = float(x1 + x2) / 2.0
-        cy = float(y1 + y2) / 2.0
+        if x2 <= x1 or y2 <= y1:
+            return False
 
         if isinstance(zone, RectZone):
-            return (
-                cx >= float(zone.x)
-                and cx <= float(zone.x + zone.w)
-                and cy >= float(zone.y)
-                and cy <= float(zone.y + zone.h)
-            )
+            zx1 = int(zone.x)
+            zy1 = int(zone.y)
+            zx2 = int(zone.x + zone.w)
+            zy2 = int(zone.y + zone.h)
+            return min(x2, zx2) > max(x1, zx1) and min(y2, zy2) > max(y1, zy1)
 
         if isinstance(zone, PolygonZone):
             polygon = np.array(zone.vertices, dtype=np.int32)
             if polygon.ndim != 2 or polygon.shape[0] < 3:
                 return False
-            return cv2.pointPolygonTest(polygon, (cx, cy), False) >= 0
+            px1 = int(np.min(polygon[:, 0]))
+            py1 = int(np.min(polygon[:, 1]))
+            px2 = int(np.max(polygon[:, 0]))
+            py2 = int(np.max(polygon[:, 1]))
+            ix1 = max(x1, px1)
+            iy1 = max(y1, py1)
+            ix2 = min(x2, px2)
+            iy2 = min(y2, py2)
+            if ix2 <= ix1 or iy2 <= iy1:
+                return False
+            mask = np.zeros((iy2 - iy1, ix2 - ix1), dtype=np.uint8)
+            shifted = polygon.copy()
+            shifted[:, 0] -= ix1
+            shifted[:, 1] -= iy1
+            cv2.fillPoly(mask, [shifted], 255)
+            return bool(np.any(mask))
 
         if isinstance(zone, PolarZone):
             return True

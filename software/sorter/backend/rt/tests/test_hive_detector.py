@@ -149,10 +149,10 @@ def test_hive_detector_polygon_zone_masks_to_polygon_inside_bounding_rect() -> N
     assert int(proc.last_image[40, 40, 0]) == 255
 
 
-def test_hive_detector_filters_detections_outside_polygon_center() -> None:
+def test_hive_detector_filters_detections_without_polygon_overlap() -> None:
     proc = FakeHiveProcessor(
         detections=[
-            _MLDetection(bbox=(0, 0, 10, 10), score=0.9),
+            _MLDetection(bbox=(0, 0, 5, 5), score=0.9),
             _MLDetection(bbox=(45, 45, 65, 65), score=0.8),
         ]
     )
@@ -164,9 +164,27 @@ def test_hive_detector_filters_detections_outside_polygon_center() -> None:
 
     batch = det.detect(frame, zone)
 
-    # The bbox centered near the top-left corner of the bounding rect is
-    # outside the actual polygon and must be discarded.
+    # The bbox near the top-left corner of the bounding rect has no polygon
+    # overlap and must be discarded.
     assert [d.bbox_xyxy for d in batch.detections] == [(85, 95, 105, 115)]
+
+
+def test_hive_detector_keeps_polygon_edge_touch_before_center_enters() -> None:
+    proc = FakeHiveProcessor(
+        detections=[_MLDetection(bbox=(0, 0, 16, 16), score=0.9)]
+    )
+    det = HiveDetector(
+        model_id="m", slug="s", processor=proc, imgsz=320, model_family="yolo",
+    )
+    frame = _frame(np.full((200, 200, 3), 255, dtype=np.uint8))
+    zone = PolygonZone(vertices=((50, 50), (150, 60), (120, 160), (40, 140)))
+
+    batch = det.detect(frame, zone)
+
+    # Original bbox is (40, 50, 56, 66). Its center is still outside the
+    # polygon, but the bbox already overlaps the drop-zone edge, so the
+    # tracker should get a first-touch candidate immediately.
+    assert [d.bbox_xyxy for d in batch.detections] == [(40, 50, 56, 66)]
 
 
 def test_hive_detector_polar_zone_not_implemented() -> None:

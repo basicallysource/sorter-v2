@@ -14,14 +14,14 @@ from unittest.mock import patch
 
 
 import rt.perception  # noqa: F401 — register detectors/trackers/filters
-from rt.bootstrap import (
-    _build_perception_runner_for_role,
-    _detector_slug_for_role,
-    _load_zone_for_role,
-)
 from rt.config.channels import (
     configured_resolution_for_role,
     load_arc_tracker_params,
+)
+from rt.perception.runner_builder import (
+    build_perception_runner_for_role,
+    detector_slug_for_role,
+    load_zone_for_role,
 )
 from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.registry import CLASSIFIERS
@@ -69,7 +69,7 @@ class _FakeCameraService:
 
 
 # ---------------------------------------------------------------------------
-# _load_zone_for_role
+# load_zone_for_role
 # ---------------------------------------------------------------------------
 
 
@@ -118,13 +118,8 @@ def test_load_zone_from_saved_polygon_without_live_frame():
             "carousel": _FakeDevice(width=1920, height=1080),
         }
     )
-    with patch(
-        "rt.bootstrap.load_saved_polygon",
-        wraps=None,
-    ):
-        pass  # no patch — we want the real implementation
     with patch("blob_manager.getChannelPolygons", return_value=_fake_saved_polygons_full()):
-        zone, reason = _load_zone_for_role("c4", camera_service, LOG)
+        zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert isinstance(zone, PolygonZone)
     # Saved polygon (3840x2160) should scale down to the 1920x1080 target.
@@ -148,7 +143,7 @@ def test_load_zone_uses_per_channel_resolution_for_c2_polygon() -> None:
         "blob_manager.getChannelPolygons",
         return_value=_fake_saved_polygons_with_per_channel_res(),
     ):
-        zone, reason = _load_zone_for_role("c2", camera_service, LOG)
+        zone, reason = load_zone_for_role("c2", camera_service, LOG)
     assert reason == ""
     assert isinstance(zone, PolygonZone)
     xs = [p[0] for p in zone.vertices]
@@ -191,7 +186,7 @@ def test_load_zone_c4_boots_without_live_frame_on_c4_camera():
         }
     )
     with patch("blob_manager.getChannelPolygons", return_value=_fake_saved_polygons_full()):
-        zone, reason = _load_zone_for_role("c4", camera_service, LOG)
+        zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert zone is not None
 
@@ -205,7 +200,7 @@ def test_load_zone_falls_back_to_full_frame_when_polygon_missing():
         }
     )
     with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
-        zone, reason = _load_zone_for_role("c4", camera_service, LOG)
+        zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert reason == ""
     assert isinstance(zone, RectZone)
     assert zone.w == 1280
@@ -217,7 +212,7 @@ def test_load_zone_returns_none_when_no_camera_config():
     we cannot compute a zone."""
     camera_service = _FakeCameraService(devices={})  # no device
     with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
-        zone, reason = _load_zone_for_role("c4", camera_service, LOG)
+        zone, reason = load_zone_for_role("c4", camera_service, LOG)
     assert zone is None
     assert reason == "no_camera_config"
 
@@ -235,7 +230,7 @@ def test_configured_resolution_returns_none_when_missing():
 
 
 # ---------------------------------------------------------------------------
-# _detector_slug_for_role  —  Bug #2
+# detector_slug_for_role  —  Bug #2
 # ---------------------------------------------------------------------------
 
 
@@ -244,7 +239,7 @@ def test_detector_slug_falls_back_to_scope_default_when_no_saved_pref():
     default — not a hardcoded value."""
     with patch("blob_manager.getFeederDetectionConfig", return_value={}):
         with patch("blob_manager.getClassificationChannelDetectionConfig", return_value={}):
-            slug = _detector_slug_for_role("c4", LOG)
+            slug = detector_slug_for_role("c4", LOG)
     # _UI_SCOPE_DEFAULT_SLUG["classification_channel"] is hive:c-channel-yolo11n-320
     # and that slug is actually registered. Must match.
     assert slug == "hive:c-channel-yolo11n-320"
@@ -262,7 +257,7 @@ def test_detector_slug_respects_user_saved_preference_for_c4():
         return_value={"algorithm_by_role": {"classification_channel": saved_slug}},
     ):
         with patch("blob_manager.getClassificationChannelDetectionConfig", return_value={}):
-            slug = _detector_slug_for_role("c4", LOG)
+            slug = detector_slug_for_role("c4", LOG)
     assert slug == saved_slug
 
 
@@ -273,21 +268,21 @@ def test_detector_slug_ignores_invalid_saved_slug():
         "blob_manager.getFeederDetectionConfig",
         return_value={"algorithm_by_role": {"c_channel_2": "hive:does-not-exist"}},
     ):
-        slug = _detector_slug_for_role("c2", LOG)
+        slug = detector_slug_for_role("c2", LOG)
     assert slug == "hive:c-channel-yolo11n-320"
 
 
 # ---------------------------------------------------------------------------
-# _build_perception_runner_for_role + rebuild
+# build_perception_runner_for_role + rebuild
 # ---------------------------------------------------------------------------
 
 
-def test_build_perception_runner_for_role_returns_reason_on_missing_camera():
+def testbuild_perception_runner_for_role_returns_reason_on_missing_camera():
     """The bootstrap loop must surface a reason slug so `/api/rt/status`
     can explain the skip to the operator."""
     camera_service = _FakeCameraService(devices={})
     with patch("blob_manager.getChannelPolygons", return_value={"polygons": {}}):
-        runner, zone, reason = _build_perception_runner_for_role(
+        runner, zone, reason = build_perception_runner_for_role(
             "c4",
             camera_service=camera_service,
             event_bus=InProcessEventBus(),
@@ -297,7 +292,7 @@ def test_build_perception_runner_for_role_returns_reason_on_missing_camera():
     assert reason == "no_camera_config"
 
 
-def test_build_perception_runner_for_role_happy_path():
+def testbuild_perception_runner_for_role_happy_path():
     camera_service = _FakeCameraService(
         devices={"carousel": _FakeDevice(width=1920, height=1080)}
     )
@@ -316,7 +311,7 @@ def test_build_perception_runner_for_role_happy_path():
                 "blob_manager.getClassificationChannelDetectionConfig",
                 return_value={},
             ):
-                runner, zone, reason = _build_perception_runner_for_role(
+                runner, zone, reason = build_perception_runner_for_role(
                     "c4",
                     camera_service=camera_service,
                     event_bus=InProcessEventBus(),

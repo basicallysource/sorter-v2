@@ -378,7 +378,7 @@ def test_rebuild_runner_starts_new_runner_when_perception_started():
     zone = RectZone(x=0, y=0, w=1920, h=1080)
 
     with patch(
-        "rt.bootstrap._build_perception_runner_for_role",
+        "rt.bootstrap.build_perception_runner_for_role",
         return_value=(runner, zone, ""),
     ):
         rebuilt = handle.rebuild_runner_for_role("c4", logger=LOG)

@@ -45,7 +45,7 @@ def test_arm_calls_port_and_marks_armed() -> None:
 
 def test_tick_drives_drain_when_not_empty() -> None:
     port = FakePort(
-        counts_seq=[PurgeCounts(ring_count=3, owned_count=0, pending_detections=0)]
+        counts_seq=[PurgeCounts(piece_count=3, owned_count=0, pending_detections=0)]
     )
     strat = GenericPurgeStrategy(port, clear_hold_ms=500.0)
     strat.arm()
@@ -54,7 +54,7 @@ def test_tick_drives_drain_when_not_empty() -> None:
 
     assert port.drain_calls == [1.0]
     assert result.done is False
-    assert result.counts.ring_count == 3
+    assert result.counts.piece_count == 3
 
 
 def test_clear_hold_needs_two_ticks_before_done() -> None:
@@ -82,7 +82,7 @@ def test_reappearing_piece_resets_clear_hold() -> None:
     port = FakePort(
         counts_seq=[
             PurgeCounts(0, 0, 0),  # clear
-            PurgeCounts(ring_count=2, owned_count=0, pending_detections=0),  # piece arrives
+            PurgeCounts(piece_count=2, owned_count=0, pending_detections=0),  # piece arrives
             PurgeCounts(0, 0, 0),  # clear again — clear_since must reset
         ]
     )
@@ -149,7 +149,7 @@ def test_negative_clear_hold_rejected() -> None:
 
 def test_tick_when_not_armed_is_done_without_drain() -> None:
     port = FakePort(
-        counts_seq=[PurgeCounts(ring_count=5, owned_count=0, pending_detections=0)]
+        counts_seq=[PurgeCounts(piece_count=5, owned_count=0, pending_detections=0)]
     )
     strat = GenericPurgeStrategy(port, clear_hold_ms=100.0)
 

@@ -47,7 +47,7 @@ DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(60.0)
 # space; the queue drains piece by piece via the normal approach/exit
 # pulses. 1 forced C2 to wait for C3 to fully clear before delivering
 # the next piece, making the whole pipeline serial.
-DEFAULT_MAX_RING_COUNT = 3
+DEFAULT_MAX_PIECE_COUNT = 3
 DEFAULT_PULSE_COOLDOWN_S = 0.12
 DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
@@ -86,7 +86,7 @@ class RuntimeC3(BaseRuntime):
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
         event_bus: EventBus | None = None,
-        max_ring_count: int = DEFAULT_MAX_RING_COUNT,
+        max_piece_count: int = DEFAULT_MAX_PIECE_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
@@ -104,7 +104,7 @@ class RuntimeC3(BaseRuntime):
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
         self._bus = event_bus
-        self._max_ring_count = max(1, int(max_ring_count))
+        self._max_piece_count = max(1, int(max_piece_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
         self._approach_near_arc = max(
             float(exit_zone_near_arc_rad),
@@ -117,7 +117,7 @@ class RuntimeC3(BaseRuntime):
         self._track_stale_s = max(0.0, float(track_stale_s))
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
-        self._ring_count: int = 0
+        self._piece_count: int = 0
         self._purge_mode: bool = False
 
     # Expose mode enum for tests / callers without re-importing.
@@ -129,13 +129,13 @@ class RuntimeC3(BaseRuntime):
     def available_slots(self) -> int:
         if self._purge_mode:
             return 0
-        if self._ring_count >= self._max_ring_count:
+        if self._piece_count >= self._max_piece_count:
             return 0
         decision = self._admission.can_admit(
             inbound_piece_hint={},
             runtime_state={
-                "ring_count": self._ring_count,
-                "max_ring_count": self._max_ring_count,
+                "piece_count": self._piece_count,
+                "max_piece_count": self._max_piece_count,
             },
         )
         return 1 if decision.allowed else 0
@@ -143,8 +143,8 @@ class RuntimeC3(BaseRuntime):
     def debug_snapshot(self) -> dict[str, Any]:
         snap = super().debug_snapshot()
         snap.update({
-            "ring_count": int(self._ring_count),
-            "max_ring_count": int(self._max_ring_count),
+            "piece_count": int(self._piece_count),
+            "max_piece_count": int(self._max_piece_count),
             "available_slots": int(self.available_slots()),
             "upstream_taken": int(self._upstream_slot.taken()),
             "downstream_taken": int(self._downstream_slot.taken()),
@@ -160,7 +160,7 @@ class RuntimeC3(BaseRuntime):
             tracks = self._fresh_tracks(inbox.tracks)
             if not self._purge_mode:
                 self._credit_new_arrivals(tracks)
-            self._ring_count = len(tracks)
+            self._piece_count = len(tracks)
             exit_track = self._pick_exit_track(tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
@@ -393,7 +393,7 @@ class RuntimeC3(BaseRuntime):
 
     def _reset_bookkeeping(self) -> None:
         self._book = _PieceBookkeeping(seen_global_ids=set())
-        self._ring_count = 0
+        self._piece_count = 0
         self._next_pulse_at = 0.0
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
@@ -452,7 +452,7 @@ class _C3PurgePort:
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(
-            ring_count=int(self._runtime._ring_count),
+            piece_count=int(self._runtime._piece_count),
             owned_count=0,
             pending_detections=0,
         )

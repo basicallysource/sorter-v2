@@ -93,7 +93,7 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         wiggle_stall_ms=200,
         wiggle_cooldown_ms=500,
         holdover_ms=kwargs.get("holdover_ms", 2000),
-        max_ring_count=kwargs.get("max_ring_count", 3),
+        max_piece_count=kwargs.get("max_piece_count", 3),
     )
     return rt, upstream, downstream, log
 
@@ -192,8 +192,8 @@ def test_c3_new_visible_piece_releases_upstream_on_arrival() -> None:
 
 
 def test_c3_available_slots_blocks_when_ring_full() -> None:
-    rt, _up, _down, _log = _make(max_ring_count=1)
-    # With max_ring_count=1, one confirmed piece fills the ring and
+    rt, _up, _down, _log = _make(max_piece_count=1)
+    # With max_piece_count=1, one confirmed piece fills the ring and
     # available_slots drops to 0 until the piece drains downstream.
     rt.tick(
         RuntimeInbox(
@@ -263,7 +263,7 @@ def test_c3_purge_port_counts_mirror_ring() -> None:
     )
     counts = port.counts()
 
-    assert counts.ring_count == 3
+    assert counts.piece_count == 3
     assert counts.owned_count == 0
     assert counts.pending_detections == 0
 
@@ -281,5 +281,5 @@ def test_c3_purge_port_disarm_clears_flag_and_bookkeeping() -> None:
     port.disarm()
 
     assert rt._purge_mode is False
-    assert rt._ring_count == 0
+    assert rt._piece_count == 0
     assert len(rt._book.seen_global_ids) == 0

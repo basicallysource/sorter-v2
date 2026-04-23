@@ -791,7 +791,7 @@ def test_c4_purge_port_counts_reflect_runtime_state() -> None:
 
     counts = rt.purge_port().counts()
 
-    assert counts.ring_count == 3
+    assert counts.piece_count == 3
     assert counts.owned_count == 2
     assert counts.pending_detections == 0
     assert counts.is_empty is False

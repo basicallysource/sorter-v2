@@ -162,7 +162,7 @@ def test_health_aggregates_per_runtime() -> None:
 def test_status_snapshot_surfaces_runtime_and_slot_debug() -> None:
     c1 = _FakeRuntime("c1")
     c2 = _FakeRuntime("c2")
-    c1._debug_snapshot = {"ring_count": 2, "downstream_taken": 1}
+    c1._debug_snapshot = {"piece_count": 2, "downstream_taken": 1}
     slot = CapacitySlot("c1_to_c2", 2)
     slot.try_claim()
     orch = _make_orchestrator([c1, c2], {("c1", "c2"): slot})
@@ -170,7 +170,7 @@ def test_status_snapshot_surfaces_runtime_and_slot_debug() -> None:
     snapshot = orch.status_snapshot()
 
     assert snapshot["runtime_health"]["c1"]["state"] == "idle"
-    assert snapshot["runtime_debug"]["c1"] == {"ring_count": 2, "downstream_taken": 1}
+    assert snapshot["runtime_debug"]["c1"] == {"piece_count": 2, "downstream_taken": 1}
     assert snapshot["slot_debug"]["c1_to_c2"] == {
         "capacity": 2,
         "taken": 1,

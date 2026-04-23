@@ -210,11 +210,11 @@ class C234PurgeCoordinator:
                 )
                 continue
             if strat.channel == "c2":
-                counts["c2"] = int(snap.ring_count)
+                counts["c2"] = int(snap.piece_count)
             elif strat.channel == "c3":
-                counts["c3"] = int(snap.ring_count)
+                counts["c3"] = int(snap.piece_count)
             elif strat.channel == "c4":
-                counts["c4_raw"] = int(snap.ring_count)
+                counts["c4_raw"] = int(snap.piece_count)
                 counts["c4_dossiers"] = int(snap.owned_count)
         return counts
 

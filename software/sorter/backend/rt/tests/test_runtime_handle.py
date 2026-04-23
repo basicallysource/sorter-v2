@@ -409,10 +409,10 @@ class _FakePurgePort:
             self._counts_seq.pop(0)
         if self.key == "c4":
             return PurgeCounts(
-                ring_count=int(value), owned_count=0, pending_detections=0
+                piece_count=int(value), owned_count=0, pending_detections=0
             )
         return PurgeCounts(
-            ring_count=int(value), owned_count=0, pending_detections=0
+            piece_count=int(value), owned_count=0, pending_detections=0
         )
 
     def drain_step(self, now_mono: float) -> bool:

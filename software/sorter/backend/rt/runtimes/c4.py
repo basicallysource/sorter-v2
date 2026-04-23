@@ -849,7 +849,7 @@ class _C4PurgePort:
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(
-            ring_count=int(self._runtime._raw_detection_count),
+            piece_count=int(self._runtime._raw_detection_count),
             owned_count=len(self._runtime._pieces),
             pending_detections=0,
         )

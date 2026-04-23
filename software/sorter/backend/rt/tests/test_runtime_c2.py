@@ -208,7 +208,7 @@ def test_c2_pulse_failure_releases_downstream_claim() -> None:
     assert down.available() == 1  # rolled back on failure
 
 
-def test_c2_available_slots_caps_at_ring_count() -> None:
+def test_c2_available_slots_caps_at_piece_count() -> None:
     rt, _up, _down, _log = _make()
     tracks = _batch(
         _track(track_id=1, global_id=1, angle_rad=math.pi / 2),
@@ -218,7 +218,7 @@ def test_c2_available_slots_caps_at_ring_count() -> None:
         _track(track_id=5, global_id=5, angle_rad=-math.pi / 3),
     )
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
-    # Default max_ring_count = 5 so we should now report 0.
+    # Default max_piece_count = 5 so we should now report 0.
     assert rt.available_slots() == 0
 
 
@@ -259,7 +259,7 @@ def test_c2_purge_port_counts_mirror_ring() -> None:
     )
     counts = port.counts()
 
-    assert counts.ring_count == 2
+    assert counts.piece_count == 2
     assert counts.owned_count == 0
     assert counts.pending_detections == 0
 
@@ -277,5 +277,5 @@ def test_c2_purge_port_disarm_clears_flag_and_bookkeeping() -> None:
     port.disarm()
 
     assert rt._purge_mode is False
-    assert rt._ring_count == 0
+    assert rt._piece_count == 0
     assert len(rt._bookkeeping.seen_global_ids) == 0

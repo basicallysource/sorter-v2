@@ -188,7 +188,7 @@ def test_rt_status_surfaces_runtime_and_slot_debug(
             "runtime_health": {
                 "c2": {"state": "idle", "blocked_reason": None, "last_tick_ms": 1.2}
             },
-            "runtime_debug": {"c2": {"ring_count": 4, "downstream_taken": 1}},
+            "runtime_debug": {"c2": {"piece_count": 4, "downstream_taken": 1}},
             "slot_debug": {
                 "c2_to_c3": {"capacity": 1, "taken": 1, "available": 0}
             },
@@ -204,7 +204,7 @@ def test_rt_status_surfaces_runtime_and_slot_debug(
     assert runner["raw_track_count"] == 2
     assert runner["confirmed_track_count"] == 2
     assert runner["confirmed_real_track_count"] == 1
-    assert payload["runtime_debug"]["c2"] == {"ring_count": 4, "downstream_taken": 1}
+    assert payload["runtime_debug"]["c2"] == {"piece_count": 4, "downstream_taken": 1}
     assert payload["slot_debug"]["c2_to_c3"] == {
         "capacity": 1,
         "taken": 1,

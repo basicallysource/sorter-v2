@@ -9,14 +9,14 @@ class PurgeCounts:
     """Channel-agnostic snapshot used by the generic purge strategy to
     decide when a channel can be considered clear."""
 
-    ring_count: int
+    piece_count: int
     owned_count: int
     pending_detections: int
 
     @property
     def is_empty(self) -> bool:
         return (
-            self.ring_count <= 0
+            self.piece_count <= 0
             and self.owned_count <= 0
             and self.pending_detections <= 0
         )

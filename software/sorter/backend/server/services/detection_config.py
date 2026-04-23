@@ -19,6 +19,7 @@ from rt.perception.detector_metadata import (
     normalize_detection_algorithm,
     scope_supports_detection_algorithm,
 )
+from rt.perception.detector_metadata import detection_algorithm_options
 from server.detection_config.common import (
     auxiliary_sample_collection_supported as _auxiliary_sample_collection_supported,
     detection_algorithm_label as _detection_algorithm_label,
@@ -27,6 +28,8 @@ from server.detection_config.common import (
     feeder_role_label as _feeder_role_label,
     feeder_sample_collection_supported as _feeder_sample_collection_supported,
     internal_feeder_role as _internal_feeder_role,
+    openrouter_model_options as _openrouter_model_options,
+    public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
 )
 from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
@@ -72,6 +75,217 @@ _FEEDER_ROLE_KEY_TO_RT_ROLE: dict[str, str] = {
 class DetectionConfigService:
     vision_manager: Any | None
     rt_handle: Any | None
+
+    def get_classification_detection_config(self) -> dict[str, Any]:
+        saved = getClassificationDetectionConfig()
+        algorithm = normalize_detection_algorithm(
+            "classification",
+            saved.get("algorithm") if isinstance(saved, dict) else None,
+        )
+        openrouter_model = _normalize_openrouter_model(
+            saved.get("openrouter_model") if isinstance(saved, dict) else None
+        )
+        vision_manager = self.vision_manager
+        if vision_manager is not None and hasattr(
+            vision_manager, "getClassificationDetectionAlgorithm"
+        ):
+            try:
+                algorithm = normalize_detection_algorithm(
+                    "classification",
+                    vision_manager.getClassificationDetectionAlgorithm(),
+                )
+            except Exception:
+                pass
+        if vision_manager is not None and hasattr(
+            vision_manager, "getClassificationOpenRouterModel"
+        ):
+            try:
+                openrouter_model = _normalize_openrouter_model(
+                    vision_manager.getClassificationOpenRouterModel()
+                )
+            except Exception:
+                pass
+        return {
+            "ok": True,
+            "algorithm": algorithm,
+            "openrouter_model": openrouter_model,
+            "available_algorithms": detection_algorithm_options("classification"),
+            "available_openrouter_models": _openrouter_model_options(),
+        }
+
+    def get_feeder_detection_config(self, role: str | None) -> dict[str, Any]:
+        internal_role = _internal_feeder_role(role)
+        saved = getFeederDetectionConfig()
+        algorithm_by_role = _feeder_algorithm_by_role_from_config(
+            saved if isinstance(saved, dict) else None
+        )
+        algorithm = (
+            algorithm_by_role.get(role)
+            if role is not None
+            else normalize_detection_algorithm(
+                "feeder",
+                saved.get("algorithm") if isinstance(saved, dict) else None,
+            )
+        )
+        openrouter_model = _normalize_openrouter_model(
+            saved.get("openrouter_model") if isinstance(saved, dict) else None
+        )
+        saved_by_role = (
+            saved.get("sample_collection_enabled_by_role")
+            if isinstance(saved, dict)
+            and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
+            else {}
+        )
+        sample_collection_enabled_by_role = {
+            channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
+            if isinstance(saved, dict)
+            else False
+            for channel_role in _public_feeder_roles()
+        }
+        sample_collection_enabled = (
+            bool(sample_collection_enabled_by_role.get(role))
+            if role is not None
+            else any(sample_collection_enabled_by_role.values())
+        )
+
+        vision_manager = self.vision_manager
+        if vision_manager is not None and hasattr(
+            vision_manager, "getFeederDetectionAlgorithm"
+        ):
+            try:
+                if hasattr(vision_manager, "getFeederDetectionAlgorithms"):
+                    algorithm_by_role = {
+                        channel_role: normalize_detection_algorithm("feeder", algo)
+                        for channel_role, algo in vision_manager.getFeederDetectionAlgorithms().items()
+                        if channel_role in _public_feeder_roles()
+                    }
+                    algorithm = (
+                        algorithm_by_role.get(role)
+                        if role is not None
+                        else normalize_detection_algorithm(
+                            "feeder",
+                            vision_manager.getFeederDetectionAlgorithm(),
+                        )
+                    )
+                else:
+                    algorithm = normalize_detection_algorithm(
+                        "feeder",
+                        vision_manager.getFeederDetectionAlgorithm(internal_role)
+                        if role is not None
+                        else vision_manager.getFeederDetectionAlgorithm(),
+                    )
+            except Exception:
+                pass
+        if vision_manager is not None and hasattr(
+            vision_manager, "getFeederOpenRouterModel"
+        ):
+            try:
+                openrouter_model = _normalize_openrouter_model(
+                    vision_manager.getFeederOpenRouterModel()
+                )
+            except Exception:
+                pass
+        if vision_manager is not None and hasattr(
+            vision_manager, "isFeederSampleCollectionEnabled"
+        ):
+            try:
+                sample_collection_enabled_by_role = {
+                    channel_role: bool(
+                        vision_manager.isFeederSampleCollectionEnabled(
+                            _internal_feeder_role(channel_role)
+                        )
+                    )
+                    for channel_role in _public_feeder_roles()
+                }
+                sample_collection_enabled = (
+                    bool(sample_collection_enabled_by_role.get(role))
+                    if role is not None
+                    else any(sample_collection_enabled_by_role.values())
+                )
+            except Exception:
+                sample_collection_enabled = False
+
+        sample_collection_supported = _feeder_sample_collection_supported(
+            vision_manager, role
+        )
+        return {
+            "ok": True,
+            "role": role,
+            "algorithm": algorithm,
+            "algorithm_by_role": algorithm_by_role,
+            "openrouter_model": openrouter_model,
+            "sample_collection_enabled": sample_collection_enabled,
+            "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
+            "sample_collection_supported": sample_collection_supported,
+            "available_algorithms": detection_algorithm_options("feeder"),
+            "available_openrouter_models": _openrouter_model_options(),
+        }
+
+    def get_auxiliary_detection_config(self) -> dict[str, Any]:
+        aux_scope = _public_aux_scope()
+        algorithm_scope = (
+            "classification_channel"
+            if aux_scope == CLASSIFICATION_CHANNEL_ROLE
+            else "carousel"
+        )
+        saved = (
+            getClassificationChannelDetectionConfig()
+            if aux_scope == CLASSIFICATION_CHANNEL_ROLE
+            else getCarouselDetectionConfig()
+        )
+        algorithm = normalize_detection_algorithm(
+            algorithm_scope,
+            saved.get("algorithm") if isinstance(saved, dict) else None,
+        )
+        openrouter_model = _normalize_openrouter_model(
+            saved.get("openrouter_model") if isinstance(saved, dict) else None
+        )
+        sample_collection_enabled = (
+            bool(saved.get("sample_collection_enabled"))
+            if isinstance(saved, dict)
+            else False
+        )
+        vision_manager = self.vision_manager
+        if vision_manager is not None and hasattr(
+            vision_manager, "getCarouselDetectionAlgorithm"
+        ):
+            try:
+                algorithm = normalize_detection_algorithm(
+                    algorithm_scope,
+                    vision_manager.getCarouselDetectionAlgorithm(),
+                )
+            except Exception:
+                pass
+        if vision_manager is not None and hasattr(
+            vision_manager, "getCarouselOpenRouterModel"
+        ):
+            try:
+                openrouter_model = _normalize_openrouter_model(
+                    vision_manager.getCarouselOpenRouterModel()
+                )
+            except Exception:
+                pass
+        if vision_manager is not None and hasattr(
+            vision_manager, "isCarouselSampleCollectionEnabled"
+        ):
+            try:
+                sample_collection_enabled = bool(
+                    vision_manager.isCarouselSampleCollectionEnabled()
+                )
+            except Exception:
+                sample_collection_enabled = False
+        return {
+            "ok": True,
+            "algorithm": algorithm,
+            "openrouter_model": openrouter_model,
+            "sample_collection_enabled": sample_collection_enabled,
+            "sample_collection_supported": _auxiliary_sample_collection_supported(
+                vision_manager
+            ),
+            "available_algorithms": detection_algorithm_options(algorithm_scope),
+            "available_openrouter_models": _openrouter_model_options(),
+            "scope": aux_scope,
+        }
 
     def save_classification_detection_config(
         self,

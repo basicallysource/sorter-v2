@@ -17,6 +17,26 @@ from rt.perception.detector_metadata import (
 from server.config_helpers import read_machine_params_config as _read_machine_params_config
 
 
+_OPENROUTER_MODEL_LABELS = {
+    "google/gemini-3-flash-preview": "Gemini 3 Flash Preview",
+    "google/gemini-3.1-flash-lite-preview": "Gemini 3.1 Flash-Lite Preview",
+    "google/gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
+}
+
+
+def openrouter_model_label(model: str) -> str:
+    return _OPENROUTER_MODEL_LABELS.get(model, model)
+
+
+def openrouter_model_options() -> list[dict[str, str]]:
+    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
+
+    return [
+        {"id": model, "label": openrouter_model_label(model)}
+        for model in SUPPORTED_OPENROUTER_MODELS
+    ]
+
+
 def detection_algorithm_label(scope: str, algorithm: str | None) -> str:
     definition = detection_algorithm_definition(normalize_detection_algorithm(scope, algorithm))
     if definition is None:
@@ -111,6 +131,8 @@ __all__ = [
     "feeder_role_label",
     "feeder_sample_collection_supported",
     "internal_feeder_role",
+    "openrouter_model_label",
+    "openrouter_model_options",
     "public_aux_scope",
     "public_feeder_roles",
 ]

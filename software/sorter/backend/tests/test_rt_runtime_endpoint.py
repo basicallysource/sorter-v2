@@ -440,11 +440,11 @@ def test_get_classification_channel_config_uses_c4_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "server.routers.detection._public_aux_scope",
+        "server.services.detection_config._public_aux_scope",
         lambda: "classification_channel",
     )
     monkeypatch.setattr(
-        "server.routers.detection.getClassificationChannelDetectionConfig",
+        "server.services.detection_config.getClassificationChannelDetectionConfig",
         lambda: {"algorithm": "hive:c-channel-yolo11n-320"},
     )
     monkeypatch.setattr(shared_state, "vision_manager", None, raising=False)
@@ -462,11 +462,11 @@ def test_save_polygons_rebuilds_rt_perception_runners(
 ) -> None:
     recorded: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "blob_manager.setChannelPolygons",
+        "server.services.polygon_config.setChannelPolygons",
         lambda payload: recorded.append(("channel", payload)),
     )
     monkeypatch.setattr(
-        "blob_manager.setClassificationPolygons",
+        "server.services.polygon_config.setClassificationPolygons",
         lambda payload: recorded.append(("classification", payload)),
     )
 

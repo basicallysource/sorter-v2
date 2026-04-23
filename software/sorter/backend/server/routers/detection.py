@@ -15,10 +15,7 @@ from pydantic import BaseModel
 from blob_manager import (
     BLOB_DIR,
     getApiKeys,
-    getCarouselDetectionConfig,
-    getClassificationChannelDetectionConfig,
     getClassificationDetectionConfig,
-    getFeederDetectionConfig,
     getHiveConfig,
     setApiKeys,
     setHiveConfig,
@@ -32,10 +29,7 @@ from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.detection_config.common import (
     auxiliary_sample_collection_supported as _auxiliary_sample_collection_supported_for_vm,
-    feeder_algorithm_by_role_from_config as _feeder_algorithm_by_role_from_config,
     feeder_role_label as _feeder_role_label,
-    feeder_sample_collection_supported as _feeder_sample_collection_supported_for_vm,
-    internal_feeder_role as _internal_feeder_role,
     public_aux_scope as _public_aux_scope,
     public_feeder_roles as _public_feeder_roles,
 )
@@ -53,7 +47,6 @@ from server.services.detection_config import (
     DetectionConfigValidationError,
     FeederDetectionSaveRequest,
 )
-from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
 
 router = APIRouter()
 
@@ -79,28 +72,6 @@ def _normalize_feeder_role(value: str | None) -> str | None:
     if candidate not in _public_feeder_roles() and candidate != CLASSIFICATION_CHANNEL_ROLE:
         raise HTTPException(status_code=400, detail="Unsupported feeder role.")
     return candidate
-
-
-def _openrouter_model_label(model: str) -> str:
-    if model == "google/gemini-3-flash-preview":
-        return "Gemini 3 Flash Preview"
-    if model == "google/gemini-3.1-flash-lite-preview":
-        return "Gemini 3.1 Flash-Lite Preview"
-    if model == "google/gemini-3.1-pro-preview":
-        return "Gemini 3.1 Pro Preview"
-    return model
-
-
-def _openrouter_model_options() -> list[dict[str, str]]:
-    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
-
-    return [
-        {
-            "id": model,
-            "label": _openrouter_model_label(model),
-        }
-        for model in SUPPORTED_OPENROUTER_MODELS
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -401,36 +372,10 @@ def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]
 
 @router.get("/api/classification/detection-config")
 def get_classification_detection_config() -> Dict[str, Any]:
-    saved = getClassificationDetectionConfig()
-    algorithm = normalize_detection_algorithm(
-        "classification",
-        saved.get("algorithm") if isinstance(saved, dict) else None
-    )
-    openrouter_model = _normalize_openrouter_model(
-        saved.get("openrouter_model") if isinstance(saved, dict) else None
-    )
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getClassificationDetectionAlgorithm"):
-        try:
-            algorithm = normalize_detection_algorithm(
-                "classification",
-                shared_state.vision_manager.getClassificationDetectionAlgorithm()
-            )
-        except Exception:
-            pass
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getClassificationOpenRouterModel"):
-        try:
-            openrouter_model = _normalize_openrouter_model(
-                shared_state.vision_manager.getClassificationOpenRouterModel()
-            )
-        except Exception:
-            pass
-    return {
-        "ok": True,
-        "algorithm": algorithm,
-        "openrouter_model": openrouter_model,
-        "available_algorithms": detection_algorithm_options("classification"),
-        "available_openrouter_models": _openrouter_model_options(),
-    }
+    return DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
+    ).get_classification_detection_config()
 
 
 @router.post("/api/classification/detection-config")
@@ -462,99 +407,10 @@ def save_classification_detection_config(
 @router.get("/api/feeder/detection-config")
 def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[str, Any]:
     role = _normalize_feeder_role(role)
-    internal_role = _internal_feeder_role(role)
-    saved = getFeederDetectionConfig()
-    algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
-    algorithm = (
-        algorithm_by_role.get(role)
-        if role is not None
-        else normalize_detection_algorithm(
-            "feeder",
-            saved.get("algorithm") if isinstance(saved, dict) else None
-        )
-    )
-    openrouter_model = _normalize_openrouter_model(
-        saved.get("openrouter_model") if isinstance(saved, dict) else None
-    )
-    saved_by_role = (
-        saved.get("sample_collection_enabled_by_role")
-        if isinstance(saved, dict) and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
-        else {}
-    )
-    sample_collection_enabled_by_role = {
-        channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
-        if isinstance(saved, dict)
-        else False
-        for channel_role in _public_feeder_roles()
-    }
-    sample_collection_enabled = (
-        bool(sample_collection_enabled_by_role.get(role))
-        if role is not None
-        else any(sample_collection_enabled_by_role.values())
-    )
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getFeederDetectionAlgorithm"):
-        try:
-            if hasattr(shared_state.vision_manager, "getFeederDetectionAlgorithms"):
-                algorithm_by_role = {
-                    channel_role: normalize_detection_algorithm("feeder", algo)
-                    for channel_role, algo in shared_state.vision_manager.getFeederDetectionAlgorithms().items()
-                    if channel_role in _public_feeder_roles()
-                }
-                algorithm = (
-                    algorithm_by_role.get(role)
-                    if role is not None
-                    else normalize_detection_algorithm(
-                        "feeder",
-                        shared_state.vision_manager.getFeederDetectionAlgorithm()
-                    )
-                )
-            else:
-                algorithm = normalize_detection_algorithm(
-                    "feeder",
-                    shared_state.vision_manager.getFeederDetectionAlgorithm(internal_role)
-                    if role is not None
-                    else shared_state.vision_manager.getFeederDetectionAlgorithm()
-                )
-        except Exception:
-            pass
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getFeederOpenRouterModel"):
-        try:
-            openrouter_model = _normalize_openrouter_model(shared_state.vision_manager.getFeederOpenRouterModel())
-        except Exception:
-            pass
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "isFeederSampleCollectionEnabled"):
-        try:
-            sample_collection_enabled_by_role = {
-                channel_role: bool(
-                    shared_state.vision_manager.isFeederSampleCollectionEnabled(
-                        _internal_feeder_role(channel_role)
-                    )
-                )
-                for channel_role in _public_feeder_roles()
-            }
-            sample_collection_enabled = (
-                bool(sample_collection_enabled_by_role.get(role))
-                if role is not None
-                else any(sample_collection_enabled_by_role.values())
-            )
-        except Exception:
-            sample_collection_enabled = False
-    sample_collection_supported = _feeder_sample_collection_supported_for_vm(
-        shared_state.vision_manager,
-        role,
-    )
-    return {
-        "ok": True,
-        "role": role,
-        "algorithm": algorithm,
-        "algorithm_by_role": algorithm_by_role,
-        "openrouter_model": openrouter_model,
-        "sample_collection_enabled": sample_collection_enabled,
-        "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
-        "sample_collection_supported": sample_collection_supported,
-        "available_algorithms": detection_algorithm_options("feeder"),
-        "available_openrouter_models": _openrouter_model_options(),
-    }
+    return DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
+    ).get_feeder_detection_config(role)
 
 
 @router.post("/api/feeder/detection-config")
@@ -590,51 +446,10 @@ def save_feeder_detection_config(
 @router.get("/api/carousel/detection-config")
 @router.get("/api/classification-channel/detection-config")
 def get_carousel_detection_config() -> Dict[str, Any]:
-    aux_scope = _public_aux_scope()
-    algorithm_scope = "classification_channel" if aux_scope == CLASSIFICATION_CHANNEL_ROLE else "carousel"
-    saved = (
-        getClassificationChannelDetectionConfig()
-        if aux_scope == CLASSIFICATION_CHANNEL_ROLE
-        else getCarouselDetectionConfig()
-    )
-    algorithm = normalize_detection_algorithm(
-        algorithm_scope,
-        saved.get("algorithm") if isinstance(saved, dict) else None
-    )
-    openrouter_model = _normalize_openrouter_model(
-        saved.get("openrouter_model") if isinstance(saved, dict) else None
-    )
-    sample_collection_enabled = bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselDetectionAlgorithm"):
-        try:
-            algorithm = normalize_detection_algorithm(
-                algorithm_scope,
-                shared_state.vision_manager.getCarouselDetectionAlgorithm(),
-            )
-        except Exception:
-            pass
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselOpenRouterModel"):
-        try:
-            openrouter_model = _normalize_openrouter_model(shared_state.vision_manager.getCarouselOpenRouterModel())
-        except Exception:
-            pass
-    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "isCarouselSampleCollectionEnabled"):
-        try:
-            sample_collection_enabled = bool(shared_state.vision_manager.isCarouselSampleCollectionEnabled())
-        except Exception:
-            sample_collection_enabled = False
-    return {
-        "ok": True,
-        "algorithm": algorithm,
-        "openrouter_model": openrouter_model,
-        "sample_collection_enabled": sample_collection_enabled,
-        "sample_collection_supported": _auxiliary_sample_collection_supported_for_vm(
-            shared_state.vision_manager
-        ),
-        "available_algorithms": detection_algorithm_options(algorithm_scope),
-        "available_openrouter_models": _openrouter_model_options(),
-        "scope": aux_scope,
-    }
+    return DetectionConfigService(
+        vision_manager=shared_state.vision_manager,
+        rt_handle=shared_state.rt_handle,
+    ).get_auxiliary_detection_config()
 
 
 @router.post("/api/carousel/detection-config")

@@ -29,7 +29,7 @@ def openrouter_model_label(model: str) -> str:
 
 
 def openrouter_model_options() -> list[dict[str, str]]:
-    from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
+    from server.services.llm_client import SUPPORTED_OPENROUTER_MODELS
 
     return [
         {"id": model, "label": openrouter_model_label(model)}

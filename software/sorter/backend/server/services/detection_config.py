@@ -33,7 +33,7 @@ from server.detection_config.common import (
     set_classification_detection_config,
     set_feeder_detection_config,
 )
-from vision.gemini_sam_detector import normalize_openrouter_model as _normalize_openrouter_model
+from server.services.llm_client import normalize_openrouter_model as _normalize_openrouter_model
 
 
 class DetectionConfigValidationError(ValueError):

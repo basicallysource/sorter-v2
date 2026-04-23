@@ -1,4 +1,4 @@
-"""LLM-guided camera calibration loop via OpenRouter.
+"""LLM-guided camera calibration loop via the shared LLM client.
 
 Agentic chat-completion loop: the model sees each cropped working-zone
 frame + its own earlier reasoning + applied changes, and calls
@@ -9,10 +9,14 @@ returns the highest-quality frame seen.
 Also owns:
 
 - the reference-image cache (``llm_calibration_reference_image_b64``);
-- the small OpenRouter-JSON extraction + chat-content helpers used both
-  inside the loop and by ``run_llm_final_review``;
-- the post-calibration sign-off review that asks the model to approve or
-  flag concerns on the final CCM-corrected frame.
+- the small image-encoding helpers used by the loop and the sign-off;
+- the post-calibration sign-off review that asks the model to approve
+  or flag concerns on the final CCM-corrected frame.
+
+All OpenRouter / retry / JSON-mode handling is delegated to
+``server.services.llm_client`` — this module only deals with the
+calibration-specific prompts, tool schema, frame bookkeeping, and loop
+control.
 
 Frame capture + dashboard crop still live in the router (they need the
 Android-camera HTTP bridge + the ``preview_camera_device_settings``
@@ -25,8 +29,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
-import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -45,6 +47,12 @@ from server.services.camera_calibration.common import (
     clamp_control,
     compute_calibration_neutral_baseline,
 )
+from server.services.llm_client import (
+    SUPPORTED_OPENROUTER_MODELS,
+    call_json_advisor,
+    chat_completion,
+    message_text,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -59,10 +67,6 @@ DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS = 10
 
 
 def normalize_llm_calibration_model(value: str | None) -> str:
-    try:
-        from vision.gemini_sam_detector import SUPPORTED_OPENROUTER_MODELS
-    except Exception:
-        return DEFAULT_LLM_CALIBRATION_MODEL
     if isinstance(value, str):
         normalized = value.strip()
         if normalized in SUPPORTED_OPENROUTER_MODELS:
@@ -79,41 +83,8 @@ def normalize_llm_calibration_iterations(value: int | None) -> int:
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter chat helpers
+# Image helpers
 # ---------------------------------------------------------------------------
-
-
-def extract_openrouter_json(text: str) -> Dict[str, Any]:
-    match = re.search(r"\{[\s\S]*\}", text)
-    if not match:
-        excerpt = re.sub(r"\s+", " ", text or "").strip()
-        if len(excerpt) > 220:
-            excerpt = excerpt[:217] + "..."
-        raise RuntimeError(
-            "Model response did not contain JSON."
-            + (f" Response excerpt: {excerpt}" if excerpt else "")
-        )
-    raw = match.group()
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
-        parsed = json.loads(cleaned)
-    if not isinstance(parsed, dict):
-        raise RuntimeError("Model response did not contain a JSON object.")
-    return parsed
-
-
-def openrouter_message_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        text_parts: List[str] = []
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
-                text_parts.append(str(item["text"]))
-        return "\n".join(text_parts)
-    return str(content or "")
 
 
 def frame_to_openrouter_jpeg(frame: np.ndarray, *, quality: int = 88) -> str:
@@ -316,114 +287,6 @@ def build_llm_final_review_prompt(
         "- Use status \"concerns\" if real issues remain — list them in concerns[] (max 3, short phrases).\n"
         "- Do NOT propose new setting changes — calibration is finished.\n"
         "- No markdown, no code fences, no prose outside the JSON object."
-    )
-
-
-# ---------------------------------------------------------------------------
-# One-shot OpenRouter advisor call (used by the final-review step)
-# ---------------------------------------------------------------------------
-
-
-def call_openrouter_calibration_advisor(
-    prompt: str,
-    image_b64: str,
-    *,
-    model: str,
-    reference_image_b64: str | None = None,
-) -> Dict[str, Any]:
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="OpenRouter API key is not configured for LLM-guided calibration.",
-        )
-    try:
-        from openai import OpenAI
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"openai package is required for LLM-guided calibration: {exc}",
-        )
-
-    from vision.gemini_sam_detector import OPENROUTER_BASE_URL
-
-    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
-    content: List[Dict[str, Any]] = [
-        {"type": "text", "text": prompt},
-        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-    ]
-    if reference_image_b64:
-        content.append(
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{reference_image_b64}"},
-            }
-        )
-
-    model_name = normalize_llm_calibration_model(model)
-    last_error: Exception | None = None
-    last_text = ""
-
-    base_messages: List[Dict[str, Any]] = [
-        {
-            "role": "system",
-            "content": (
-                "Return only a valid JSON object. "
-                "Do not include markdown, explanation, code fences, or any text before or after the JSON."
-            ),
-        },
-        {
-            "role": "user",
-            "content": content,
-        },
-    ]
-
-    retry_messages: List[Dict[str, Any]] = [
-        *base_messages,
-        {
-            "role": "user",
-            "content": (
-                "Your previous reply was not valid JSON. "
-                "Reply again using only a single raw JSON object with keys status, summary, and changes."
-            ),
-        },
-    ]
-
-    for messages in (base_messages, retry_messages):
-        try:
-            try:
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    temperature=0.1,
-                    max_tokens=1400,
-                    timeout=25.0,
-                    response_format={"type": "json_object"},
-                )
-            except Exception:
-                # Fallback for providers that reject JSON mode but still support plain chat completions.
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    temperature=0.1,
-                    max_tokens=1400,
-                    timeout=25.0,
-                )
-
-            last_text = openrouter_message_text(response.choices[0].message.content)
-            return extract_openrouter_json(last_text)
-        except Exception as exc:
-            last_error = exc
-            continue
-
-    excerpt = re.sub(r"\s+", " ", last_text or "").strip()
-    if len(excerpt) > 220:
-        excerpt = excerpt[:217] + "..."
-    if last_error is None:
-        raise RuntimeError("OpenRouter calibration advisor failed without an error.")
-    raise RuntimeError(
-        f"OpenRouter calibration advisor failed after retry: {last_error}"
-        + (f" Response excerpt: {excerpt}" if excerpt else "")
     )
 
 
@@ -705,23 +568,6 @@ def calibrate_camera_device_settings_with_llm(
         cropped_frame = apply_dashboard_crop(frame, crop_spec) if crop_spec else frame
         return applied_settings, analysis, cropped_frame
 
-    # ----- One-time OpenAI client setup ----------------------------------
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="OpenRouter API key is not configured for LLM-guided calibration.",
-        )
-    try:
-        from openai import OpenAI
-    except ImportError as exc:  # pragma: no cover - runtime dependency guard
-        raise HTTPException(
-            status_code=500,
-            detail=f"openai package is required for LLM-guided calibration: {exc}",
-        )
-    from vision.gemini_sam_detector import OPENROUTER_BASE_URL
-
-    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
     model_name = normalize_llm_calibration_model(openrouter_model)
     reference_image_b64 = llm_calibration_reference_image_b64()
 
@@ -801,13 +647,11 @@ def calibrate_camera_device_settings_with_llm(
         )
 
         try:
-            response = client.chat.completions.create(
+            response = chat_completion(
+                messages,
                 model=model_name,
-                messages=messages,
                 tools=LLM_CALIBRATION_TOOLS,
                 tool_choice="auto",
-                temperature=0.1,
-                max_tokens=1400,
                 timeout=30.0,
             )
         except Exception as exc:
@@ -825,7 +669,7 @@ def calibrate_camera_device_settings_with_llm(
 
         msg = response.choices[0].message
         tool_calls = list(getattr(msg, "tool_calls", None) or [])
-        text_reply = openrouter_message_text(getattr(msg, "content", None)).strip()
+        text_reply = message_text(getattr(msg, "content", None)).strip()
 
         assistant_entry: Dict[str, Any] = {
             "role": "assistant",
@@ -1154,10 +998,10 @@ def run_llm_final_review(
     }
 
     try:
-        advisor_payload = call_openrouter_calibration_advisor(
+        advisor_payload = call_json_advisor(
             prompt,
             frame_to_openrouter_jpeg(cropped_frame),
-            model=openrouter_model,
+            model=normalize_llm_calibration_model(openrouter_model),
             reference_image_b64=llm_calibration_reference_image_b64(),
         )
     except Exception as exc:
@@ -1200,12 +1044,9 @@ __all__ = [
     "build_llm_calibration_user_text",
     "build_llm_final_review_prompt",
     "calibrate_camera_device_settings_with_llm",
-    "call_openrouter_calibration_advisor",
-    "extract_openrouter_json",
     "frame_to_openrouter_jpeg",
     "llm_calibration_reference_image_b64",
     "normalize_llm_calibration_iterations",
     "normalize_llm_calibration_model",
-    "openrouter_message_text",
     "run_llm_final_review",
 ]

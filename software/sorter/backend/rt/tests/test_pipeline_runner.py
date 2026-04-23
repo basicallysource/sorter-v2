@@ -6,7 +6,7 @@ import time
 import numpy as np
 
 import rt.perception  # noqa: F401
-from rt.contracts.detection import DetectionBatch, Detector
+from rt.contracts.detection import Detection, DetectionBatch, Detector
 from rt.contracts.feed import FeedFrame, RectZone, Zone
 from rt.contracts.filters import FilterChain
 from rt.contracts.tracking import Track, TrackBatch, Tracker
@@ -206,3 +206,94 @@ def test_runner_skips_duplicate_frame_seq() -> None:
     assert feed.calls >= 3
     # Tracker should have been called exactly once (frame_seq=1 only).
     assert tracker.calls == 1
+
+
+def test_runner_keeps_latest_unfiltered_snapshot() -> None:
+    feed = _FakeFeed(frames_to_emit=1)
+
+    class _Detector:
+        key = "det"
+
+        def requires(self) -> frozenset[str]:
+            return frozenset()
+
+        def detect(self, frame: FeedFrame, zone: Zone) -> DetectionBatch:
+            return DetectionBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                detections=(Detection(bbox_xyxy=(1, 2, 6, 7), score=0.9),),
+                algorithm=self.key,
+                latency_ms=0.0,
+            )
+
+        def reset(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+    class _Tracker:
+        key = "trk"
+
+        def update(self, detections: DetectionBatch, frame: FeedFrame) -> TrackBatch:
+            return TrackBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                tracks=(
+                    Track(
+                        track_id=1,
+                        global_id=1,
+                        piece_uuid=None,
+                        bbox_xyxy=(1, 2, 6, 7),
+                        score=0.9,
+                        confirmed_real=False,
+                        angle_rad=0.0,
+                        radius_px=10.0,
+                        hit_count=1,
+                        first_seen_ts=frame.timestamp,
+                        last_seen_ts=frame.timestamp,
+                    ),
+                ),
+                lost_track_ids=(),
+            )
+
+        def live_global_ids(self) -> set[int]:
+            return {1}
+
+        def reset(self) -> None:
+            return None
+
+    class _DropAllFilter:
+        key = "drop_all"
+
+        def apply(self, tracks: TrackBatch, frame: FeedFrame) -> TrackBatch:
+            return TrackBatch(
+                feed_id=tracks.feed_id,
+                frame_seq=tracks.frame_seq,
+                timestamp=tracks.timestamp,
+                tracks=(),
+                lost_track_ids=tracks.lost_track_ids,
+            )
+
+    pipeline = PerceptionPipeline(
+        feed=feed,
+        zone=RectZone(x=0, y=0, w=10, h=10),
+        detector=_Detector(),
+        tracker=_Tracker(),
+        filters=FilterChain((_DropAllFilter(),)),
+    )
+    runner = PerceptionRunner(pipeline, period_ms=2)
+    runner.start()
+    time.sleep(0.05)
+    runner.stop(timeout=1.0)
+
+    latest = runner.latest_tracks()
+    snapshot = runner.latest_state()
+    assert latest is not None
+    assert snapshot is not None
+    assert len(latest.tracks) == 0
+    assert len(snapshot.detections.detections) == 1
+    assert len(snapshot.raw_tracks.tracks) == 1
+    assert len(snapshot.filtered_tracks.tracks) == 0

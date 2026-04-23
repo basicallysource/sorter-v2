@@ -41,6 +41,7 @@ def _track(
     global_id: int | None = 1,
     angle_rad: float | None = 0.0,
     confirmed: bool = True,
+    last_seen_ts: float = 0.0,
 ) -> Track:
     return Track(
         track_id=track_id,
@@ -53,15 +54,15 @@ def _track(
         radius_px=100.0,
         hit_count=5,
         first_seen_ts=0.0,
-        last_seen_ts=0.0,
+        last_seen_ts=last_seen_ts,
     )
 
 
-def _batch(*tracks: Track) -> TrackBatch:
+def _batch(*tracks: Track, timestamp: float = 0.0) -> TrackBatch:
     return TrackBatch(
         feed_id="c2_feed",
         frame_seq=1,
-        timestamp=0.0,
+        timestamp=timestamp,
         tracks=tuple(tracks),
         lost_track_ids=tuple(),
     )
@@ -161,6 +162,17 @@ def test_c2_ignores_unconfirmed_tracks_for_ring_count() -> None:
     ghost = _track(confirmed=False, angle_rad=0.0)
     rt.tick(RuntimeInbox(tracks=_batch(ghost), capacity_downstream=1), now_mono=0.0)
     # Runtime saw no confirmed pieces; ring_count stayed 0 and avail=1.
+    assert rt.available_slots() == 1
+
+
+def test_c2_ignores_stale_coasted_track_at_exit() -> None:
+    rt, _up, _down, log = _make()
+    stale = _track(angle_rad=0.0, last_seen_ts=0.1)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stale, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    assert log == []
     assert rt.available_slots() == 1
 
 

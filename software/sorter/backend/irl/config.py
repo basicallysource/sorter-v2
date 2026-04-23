@@ -304,6 +304,12 @@ class ClassificationChannelConfig:
     leader_wins_policy: bool
     leader_wins_requires_classified: bool
     post_distribute_cooldown_s: float
+    startup_purge_enabled: bool
+    startup_purge_prime_step_deg: float
+    startup_purge_prime_cooldown_ms: int
+    startup_purge_max_prime_moves: int
+    startup_purge_clear_hold_ms: int
+    startup_purge_speed_scale: float
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
@@ -369,6 +375,12 @@ class ClassificationChannelConfig:
         # ~400-600ms; 0.8s adds margin while keeping throughput impact
         # below ~5%.
         self.post_distribute_cooldown_s = 0.8
+        self.startup_purge_enabled = True
+        self.startup_purge_prime_step_deg = 10.0
+        self.startup_purge_prime_cooldown_ms = 120
+        self.startup_purge_max_prime_moves = 3
+        self.startup_purge_clear_hold_ms = 600
+        self.startup_purge_speed_scale = 3.5
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

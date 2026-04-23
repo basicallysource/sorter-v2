@@ -13,6 +13,7 @@ def _state(**overrides):
     base = {
         "raw_detection_count": 0,
         "zone_count": 0,
+        "dropzone_clear": True,
         "arc_clear": True,
         "transport_count": 0,
     }
@@ -41,6 +42,13 @@ def test_c4_blocks_on_raw_cap() -> None:
     assert decision.reason == "raw_cap"
 
 
+def test_c4_blocks_when_dropzone_not_clear() -> None:
+    strategy = C4Admission(max_zones=2, max_raw_detections=3)
+    decision = strategy.can_admit({}, _state(dropzone_clear=False))
+    assert decision.allowed is False
+    assert decision.reason == "dropzone_clear"
+
+
 def test_c4_blocks_on_zone_cap() -> None:
     strategy = C4Admission(max_zones=2)
     decision = strategy.can_admit({}, _state(zone_count=2))
@@ -62,12 +70,13 @@ def test_c4_blocks_on_transport_cap() -> None:
     assert decision.reason == "transport_cap"
 
 
-def test_c4_raw_cap_short_circuits_other_checks() -> None:
-    # Even if other checks would fail, raw_cap is reported first.
+def test_c4_dropzone_short_circuits_other_checks() -> None:
+    # Physical laydown clearance wins over heuristic/raw-count guards.
     strategy = C4Admission(max_zones=2, max_raw_detections=3)
     decision = strategy.can_admit(
         {},
         _state(
+            dropzone_clear=False,
             raw_detection_count=5,
             zone_count=99,
             arc_clear=False,
@@ -75,7 +84,7 @@ def test_c4_raw_cap_short_circuits_other_checks() -> None:
         ),
     )
     assert decision.allowed is False
-    assert decision.reason == "raw_cap"
+    assert decision.reason == "dropzone_clear"
 
 
 def test_c4_validates_constructor_inputs() -> None:

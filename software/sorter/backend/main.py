@@ -229,6 +229,10 @@ def main() -> None:
 
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()
+    with gc.profiler.timer("startup.camera_overlays_ms"):
+        from server.camera_annotations import attach_camera_annotations
+
+        attach_camera_annotations(camera_service)
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
         waveshare_inventory = get_waveshare_inventory_manager()
         waveshare_inventory.start()

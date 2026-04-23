@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from rt.config.schema import PipelineConfig
-from rt.contracts.detection import Detector
+from rt.contracts.detection import DetectionBatch, Detector
 from rt.contracts.feed import Feed, FeedFrame, PolarZone, Zone
 from rt.contracts.filters import Filter, FilterChain
 from rt.contracts.registry import DETECTORS, FILTERS, TRACKERS
 from rt.contracts.tracking import TrackBatch, Tracker
+
+
+@dataclass(frozen=True, slots=True)
+class PerceptionFrameState:
+    frame: FeedFrame
+    detections: DetectionBatch
+    raw_tracks: TrackBatch
+    filtered_tracks: TrackBatch
 
 
 class PerceptionPipeline:
@@ -27,10 +37,19 @@ class PerceptionPipeline:
         self.tracker = tracker
         self.filters = filters
 
-    def process_frame(self, frame: FeedFrame) -> TrackBatch:
+    def process_frame_state(self, frame: FeedFrame) -> PerceptionFrameState:
         detections = self.detector.detect(frame, self.zone)
-        tracks = self.tracker.update(detections, frame)
-        return self.filters.apply(tracks, frame)
+        raw_tracks = self.tracker.update(detections, frame)
+        filtered_tracks = self.filters.apply(raw_tracks, frame)
+        return PerceptionFrameState(
+            frame=frame,
+            detections=detections,
+            raw_tracks=raw_tracks,
+            filtered_tracks=filtered_tracks,
+        )
+
+    def process_frame(self, frame: FeedFrame) -> TrackBatch:
+        return self.process_frame_state(frame).filtered_tracks
 
 
 def build_pipeline_from_config(
@@ -75,4 +94,4 @@ def build_pipeline_from_config(
     )
 
 
-__all__ = ["PerceptionPipeline", "build_pipeline_from_config"]
+__all__ = ["PerceptionFrameState", "PerceptionPipeline", "build_pipeline_from_config"]

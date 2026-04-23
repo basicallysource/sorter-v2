@@ -9,6 +9,7 @@ a live runner before clicking "Test Current Frame".
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Any, Dict, List
 
@@ -18,6 +19,32 @@ from server import shared_state
 
 
 router = APIRouter()
+
+
+def _track_preview(batch: Any) -> List[Dict[str, Any]]:
+    tracks = getattr(batch, "tracks", None) if batch is not None else None
+    if not isinstance(tracks, (list, tuple)):
+        return []
+    out: List[Dict[str, Any]] = []
+    for track in tracks[:3]:
+        angle_rad = getattr(track, "angle_rad", None)
+        angle_deg = None
+        if isinstance(angle_rad, (int, float)):
+            angle_deg = round(math.degrees(float(angle_rad)), 3)
+        first_seen_ts = getattr(track, "first_seen_ts", None)
+        last_seen_ts = getattr(track, "last_seen_ts", None)
+        age_s = None
+        if isinstance(first_seen_ts, (int, float)) and isinstance(last_seen_ts, (int, float)):
+            age_s = round(max(0.0, float(last_seen_ts) - float(first_seen_ts)), 3)
+        out.append({
+            "global_id": getattr(track, "global_id", None),
+            "confirmed_real": bool(getattr(track, "confirmed_real", False)),
+            "hit_count": getattr(track, "hit_count", None),
+            "score": getattr(track, "score", None),
+            "age_s": age_s,
+            "angle_deg": angle_deg,
+        })
+    return out
 
 
 def _runner_entry(runner: Any) -> Dict[str, Any]:
@@ -49,12 +76,52 @@ def _runner_entry(runner: Any) -> Dict[str, Any]:
             if isinstance(monotonic_ts, (int, float)):
                 last_frame_age_ms = max(0.0, (time.monotonic() - float(monotonic_ts)) * 1000.0)
 
+    detection_count: int | None = None
+    raw_track_count: int | None = None
+    confirmed_track_count: int | None = None
+    latest_state_fn = getattr(runner, "latest_state", None)
+    if callable(latest_state_fn):
+        try:
+            state = latest_state_fn()
+        except Exception:
+            state = None
+        if state is not None:
+            detections = getattr(state, "detections", None)
+            entries = getattr(detections, "detections", None) if detections is not None else None
+            if isinstance(entries, (list, tuple)):
+                detection_count = len(entries)
+            raw_tracks = getattr(state, "raw_tracks", None)
+            raw_entries = getattr(raw_tracks, "tracks", None) if raw_tracks is not None else None
+            if isinstance(raw_entries, (list, tuple)):
+                raw_track_count = len(raw_entries)
+            filtered_tracks = getattr(state, "filtered_tracks", None)
+            filtered_entries = (
+                getattr(filtered_tracks, "tracks", None)
+                if filtered_tracks is not None
+                else None
+            )
+            if isinstance(filtered_entries, (list, tuple)):
+                confirmed_track_count = len(filtered_entries)
+            raw_track_preview = _track_preview(raw_tracks)
+            confirmed_track_preview = _track_preview(filtered_tracks)
+        else:
+            raw_track_preview = []
+            confirmed_track_preview = []
+    else:
+        raw_track_preview = []
+        confirmed_track_preview = []
+
     return {
         "feed_id": feed_id,
         "detector_slug": getattr(detector, "key", None),
         "zone_kind": zone_kind,
         "running": bool(getattr(runner, "_running", False)),
         "last_frame_age_ms": last_frame_age_ms,
+        "detection_count": detection_count,
+        "raw_track_count": raw_track_count,
+        "confirmed_track_count": confirmed_track_count,
+        "raw_track_preview": raw_track_preview,
+        "confirmed_track_preview": confirmed_track_preview,
     }
 
 
@@ -81,6 +148,8 @@ def get_rt_status() -> Dict[str, Any]:
             "perception_started": False,
             "runners": [],
             "skipped_roles": [],
+            "runtime_health": {},
+            "runtime_debug": {},
         }
     runners_out: List[Dict[str, Any]] = []
     for runner in getattr(handle, "perception_runners", []) or []:
@@ -96,6 +165,22 @@ def get_rt_status() -> Dict[str, Any]:
                 "last_frame_age_ms": None,
             })
     skipped = getattr(handle, "skipped_roles", []) or []
+    orchestrator = getattr(handle, "orchestrator", None)
+    health_fn = getattr(orchestrator, "health", None) if orchestrator is not None else None
+    runtime_health: Dict[str, Any] = {}
+    if callable(health_fn):
+        try:
+            runtime_health = dict(health_fn() or {})
+        except Exception:
+            runtime_health = {}
+    runtime_debug: Dict[str, Any] = {}
+    c4 = getattr(handle, "c4", None)
+    debug_fn = getattr(c4, "debug_snapshot", None) if c4 is not None else None
+    if callable(debug_fn):
+        try:
+            runtime_debug["c4"] = dict(debug_fn() or {})
+        except Exception:
+            runtime_debug["c4"] = {}
     return {
         "rt_handle_ready": True,
         "perception_started": bool(getattr(handle, "perception_started", False)),
@@ -103,6 +188,8 @@ def get_rt_status() -> Dict[str, Any]:
         "paused": bool(getattr(handle, "paused", False)),
         "runners": runners_out,
         "skipped_roles": list(skipped),
+        "runtime_health": runtime_health,
+        "runtime_debug": runtime_debug,
     }
 
 

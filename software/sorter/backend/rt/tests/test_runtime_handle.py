@@ -197,11 +197,12 @@ def test_start_paused_starts_orchestrator_in_paused_mode():
     bus = MagicMock()
     orchestrator = MagicMock()
     runners = [MagicMock(), MagicMock()]
+    c4 = MagicMock()
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=runners,
         event_bus=bus,
-        c4=None,  # type: ignore[arg-type]
+        c4=c4,  # type: ignore[arg-type]
         distributor=None,  # type: ignore[arg-type]
         feed_zones={},
         skipped_roles=[],
@@ -210,6 +211,7 @@ def test_start_paused_starts_orchestrator_in_paused_mode():
 
     handle.start(paused=True)
 
+    c4.arm_startup_purge.assert_called_once_with()
     bus.start.assert_called_once_with()
     orchestrator.start.assert_called_once_with(paused=True)
     assert handle.started is True

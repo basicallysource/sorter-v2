@@ -27,7 +27,7 @@ from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PIECE_CLASSIFIED, PIECE_REGISTERED
 
-from ._strategies import C4Admission, C4EjectionTiming
+from ._strategies import C4Admission, C4EjectionTiming, C4StartupPurgeStrategy
 from ._zones import TrackAngularExtent, ZoneManager
 from .base import BaseRuntime, HwWorker
 
@@ -39,10 +39,17 @@ DEFAULT_SHIMMY_STEP_DEG = 4.0
 DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
 DEFAULT_INTAKE_HALF_WIDTH_DEG = 18.0
+DEFAULT_TRANSPORT_STEP_DEG = 6.0
+DEFAULT_TRANSPORT_COOLDOWN_MS = 250
+DEFAULT_TRACK_STALE_S = 0.5
+DEFAULT_RECOVER_MIN_HIT_COUNT = 4
+DEFAULT_RECOVER_MIN_SCORE = 0.55
+DEFAULT_RECOVER_MIN_AGE_S = 0.6
 
 
 class _C4State(str, Enum):
     RUNNING = "running"
+    STARTUP_PURGE = "startup_purge"
     CLASSIFY_PENDING = "classify_pending"
     EXIT_SHIMMY = "exit_shimmy"
     DROP_COMMIT = "drop_commit"
@@ -74,7 +81,11 @@ class RuntimeC4(BaseRuntime):
         classifier: Classifier,
         admission: AdmissionStrategy | None = None,
         ejection: EjectionTimingStrategy | None = None,
+        startup_purge: C4StartupPurgeStrategy | None = None,
+        startup_purge_detection_count_provider: Callable[[], int] | None = None,
         carousel_move_command: Callable[[float], bool] | None = None,
+        startup_purge_move_command: Callable[[float], bool] | None = None,
+        startup_purge_mode_command: Callable[[bool], bool] | None = None,
         eject_command: Callable[[], bool] | None = None,
         crop_provider: Callable[[FeedFrame, Track], Any] | None = None,
         logger: logging.Logger | None = None,
@@ -90,6 +101,12 @@ class RuntimeC4(BaseRuntime):
         shimmy_stall_ms: int = DEFAULT_SHIMMY_STALL_MS,
         shimmy_cooldown_ms: int = DEFAULT_SHIMMY_COOLDOWN_MS,
         post_commit_cooldown_ms: int | None = None,
+        transport_step_deg: float = DEFAULT_TRANSPORT_STEP_DEG,
+        transport_cooldown_ms: int = DEFAULT_TRANSPORT_COOLDOWN_MS,
+        track_stale_s: float = DEFAULT_TRACK_STALE_S,
+        reconcile_min_hit_count: int = DEFAULT_RECOVER_MIN_HIT_COUNT,
+        reconcile_min_score: float = DEFAULT_RECOVER_MIN_SCORE,
+        reconcile_min_age_s: float = DEFAULT_RECOVER_MIN_AGE_S,
     ) -> None:
         super().__init__(runtime_id, feed_id=feed_id, logger=logger, hw_worker=hw_worker)
         self._upstream_slot = upstream_slot
@@ -98,7 +115,13 @@ class RuntimeC4(BaseRuntime):
         self._classifier = classifier
         self._admission = admission or C4Admission(max_zones=zone_manager.max_zones)
         self._ejection = ejection or C4EjectionTiming()
+        self._startup_purge = startup_purge
+        self._startup_purge_detection_count_provider = (
+            startup_purge_detection_count_provider
+        )
         self._carousel_move = carousel_move_command or (lambda _deg: True)
+        self._startup_purge_move = startup_purge_move_command or self._carousel_move
+        self._startup_purge_mode = startup_purge_mode_command or (lambda _enabled: True)
         self._eject = eject_command or (lambda: True)
         self._crop_provider = crop_provider
         self._classify_angle_deg = float(classify_angle_deg)
@@ -108,6 +131,12 @@ class RuntimeC4(BaseRuntime):
         self._shimmy_step_deg = float(shimmy_step_deg)
         self._shimmy_stall_s = float(shimmy_stall_ms) / 1000.0
         self._shimmy_cooldown_s = float(shimmy_cooldown_ms) / 1000.0
+        self._transport_step_deg = float(transport_step_deg)
+        self._transport_cooldown_s = float(transport_cooldown_ms) / 1000.0
+        self._track_stale_s = max(0.0, float(track_stale_s))
+        self._reconcile_min_hit_count = max(1, int(reconcile_min_hit_count))
+        self._reconcile_min_score = float(reconcile_min_score)
+        self._reconcile_min_age_s = max(0.0, float(reconcile_min_age_s))
         cooldown_ms = (
             self._ejection.timing_for({}).fall_time_ms
             if post_commit_cooldown_ms is None
@@ -123,8 +152,19 @@ class RuntimeC4(BaseRuntime):
         self._exit_stall_since: float | None = None
         self._next_shimmy_at: float = 0.0
         self._next_accept_at: float = 0.0
+        self._next_transport_at: float = 0.0
+        self._startup_purge_armed: bool = False
+        self._startup_purge_prime_moves: int = 0
+        self._startup_purge_next_prime_at: float = 0.0
+        self._startup_purge_clear_since: float | None = None
+        self._startup_purge_commit_piece_uuid: str | None = None
+        self._startup_purge_commit_deadline: float | None = None
+        self._startup_purge_eject_ok: bool | None = None
+        self._startup_purge_mode_active: bool = False
 
     def available_slots(self) -> int:
+        if self._startup_purge_pending():
+            return 0
         decision = self._admission.can_admit(
             inbound_piece_hint={},
             runtime_state=self._admission_state_snapshot(),
@@ -179,9 +219,118 @@ class RuntimeC4(BaseRuntime):
     def fsm_state(self) -> str:
         return self._fsm.value
 
+    def debug_snapshot(self) -> dict[str, Any]:
+        """Compact live snapshot for operator diagnostics and API status."""
+        return {
+            "fsm_state": self._fsm.value,
+            "startup_purge_armed": bool(self._startup_purge_armed),
+            "startup_purge_prime_moves": int(self._startup_purge_prime_moves),
+            "startup_purge_commit_piece_uuid": self._startup_purge_commit_piece_uuid,
+            "raw_detection_count": int(self._raw_detection_count),
+            "dossier_count": len(self._pieces),
+            "track_to_piece_count": len(self._track_to_piece),
+            "zone_count": self._zone_manager.zone_count(),
+            "hw_busy": bool(self._hw.busy()),
+            "hw_pending": int(self._hw.pending()),
+        }
+
+    def arm_startup_purge(self) -> None:
+        strategy = self._startup_purge
+        if strategy is None or not strategy.enabled:
+            self._startup_purge_armed = False
+            return
+        self._startup_purge_armed = True
+        self._startup_purge_prime_moves = 0
+        self._startup_purge_next_prime_at = 0.0
+        self._startup_purge_clear_since = None
+        self._startup_purge_commit_piece_uuid = None
+        self._startup_purge_commit_deadline = None
+        self._startup_purge_eject_ok = None
+
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
-        tracks = self._confirmed_tracks(inbox.tracks)
-        self._raw_detection_count = len(inbox.tracks.tracks) if inbox.tracks else 0
+        raw_tracks = self._fresh_tracks(inbox.tracks, require_confirmed=False)
+        self._raw_detection_count = len(raw_tracks)
+        owned_tracks = self._sync_owned_tracks(raw_tracks, now_mono)
+        if self._run_startup_purge(raw_tracks, owned_tracks, now_mono):
+            return
+        confirmed_tracks = [t for t in raw_tracks if t.confirmed_real]
+        self._admit_new_tracks(confirmed_tracks, now_mono)
+        self._reconcile_visible_tracks(raw_tracks, now_mono)
+        owned_tracks = self._owned_tracks(raw_tracks)
+        self._submit_classifications(owned_tracks, now_mono)
+        self._poll_classifier_futures(now_mono)
+        self._handle_exit(owned_tracks, inbox, now_mono)
+        transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
+        self._refresh_fsm_label(transport_active=transport_active)
+
+    # -- Helpers ------------------------------------------------------
+
+    def _fresh_tracks(
+        self,
+        batch: TrackBatch | None,
+        *,
+        require_confirmed: bool,
+    ) -> list[Track]:
+        if batch is None:
+            return []
+        batch_ts = float(batch.timestamp)
+        return [
+            t
+            for t in batch.tracks
+            if (t.confirmed_real or not require_confirmed)
+            and self._is_track_fresh(t, batch_ts)
+        ]
+
+    def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:
+        last_seen_ts = float(track.last_seen_ts)
+        if batch_ts <= 0.0 or last_seen_ts <= 0.0:
+            return True
+        return (batch_ts - last_seen_ts) <= self._track_stale_s
+
+    def _admission_state_snapshot(self) -> dict[str, Any]:
+        arc_clear = self._zone_manager.is_arc_clear(
+            self._zone_manager.intake_angle_deg,
+            half_width_deg=self._intake_half_width_deg,
+        )
+        return {
+            "raw_detection_count": self._raw_detection_count,
+            "zone_count": self._zone_manager.zone_count(),
+            "dropzone_clear": self._zone_manager.is_dropzone_clear(),
+            "arc_clear": arc_clear,
+            "transport_count": len(self._pieces),
+            "cooldown_active": time.monotonic() < self._next_accept_at,
+            "startup_purge_active": self._startup_purge_pending(),
+        }
+
+    def _startup_purge_pending(self) -> bool:
+        strategy = self._startup_purge
+        return bool(strategy is not None and strategy.enabled and self._startup_purge_armed)
+
+    def _enter_startup_purge(self) -> None:
+        if not self._startup_purge_mode_active:
+            try:
+                self._startup_purge_mode_active = bool(self._startup_purge_mode(True))
+            except Exception:
+                self._logger.exception("RuntimeC4: enabling startup purge mode raised")
+        self._fsm = _C4State.STARTUP_PURGE
+
+    def _exit_startup_purge(self) -> None:
+        if self._startup_purge_mode_active:
+            try:
+                self._startup_purge_mode(False)
+            except Exception:
+                self._logger.exception("RuntimeC4: disabling startup purge mode raised")
+            self._startup_purge_mode_active = False
+        self._fsm = _C4State.RUNNING
+
+    def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
+        return [
+            t
+            for t in tracks
+            if t.global_id is not None and int(t.global_id) in self._track_to_piece
+        ]
+
+    def _sync_owned_tracks(self, tracks: list[Track], now_mono: float) -> list[Track]:
         extents = [
             TrackAngularExtent(
                 piece_uuid=self._track_to_piece[int(t.global_id)],
@@ -201,31 +350,37 @@ class RuntimeC4(BaseRuntime):
                     piece_uuid,
                 )
                 self._finalize_piece(piece_uuid, now_mono=None, arm_cooldown=False)
-        self._admit_new_tracks(tracks, now_mono)
-        self._submit_classifications(tracks, now_mono)
-        self._poll_classifier_futures(now_mono)
-        self._handle_exit(tracks, inbox, now_mono)
-        self._refresh_fsm_label()
+        return self._owned_tracks(tracks)
 
-    # -- Helpers ------------------------------------------------------
-
-    def _confirmed_tracks(self, batch: TrackBatch | None) -> list[Track]:
-        if batch is None:
-            return []
-        return [t for t in batch.tracks if t.confirmed_real]
-
-    def _admission_state_snapshot(self) -> dict[str, Any]:
-        arc_clear = self._zone_manager.is_arc_clear(
-            self._zone_manager.intake_angle_deg,
-            half_width_deg=self._intake_half_width_deg,
+    def _run_startup_purge(
+        self,
+        raw_tracks: list[Track],
+        owned_tracks: list[Track],
+        now_mono: float,
+    ) -> bool:
+        strategy = self._startup_purge
+        if strategy is None:
+            return False
+        return strategy.run(
+            self,
+            raw_tracks,
+            owned_tracks,
+            self._startup_purge_visible_detection_count(raw_tracks),
+            now_mono,
         )
-        return {
-            "raw_detection_count": self._raw_detection_count,
-            "zone_count": self._zone_manager.zone_count(),
-            "arc_clear": arc_clear,
-            "transport_count": len(self._pieces),
-            "cooldown_active": time.monotonic() < self._next_accept_at,
-        }
+
+    def _startup_purge_visible_detection_count(self, raw_tracks: list[Track]) -> int:
+        provider = self._startup_purge_detection_count_provider
+        if callable(provider):
+            try:
+                value = int(provider())
+            except Exception:
+                self._logger.exception(
+                    "RuntimeC4: startup purge detection-count provider raised"
+                )
+            else:
+                return max(0, value)
+        return len(raw_tracks)
 
     def _admit_new_tracks(self, tracks: list[Track], now_mono: float) -> None:
         if now_mono < self._next_accept_at:
@@ -245,44 +400,101 @@ class RuntimeC4(BaseRuntime):
             )
             if not decision.allowed:
                 continue
-            piece_uuid = uuid.uuid4().hex[:12]
-            if not self._zone_manager.add_zone(
-                piece_uuid=piece_uuid,
-                angle_deg=angle_deg,
-                half_width_deg=self._intake_half_width_deg,
-                global_id=gid,
+            self._register_piece_for_track(
+                track,
                 now_mono=now_mono,
-            ):
-                continue
-            dossier = _PieceDossier(
-                piece_uuid=piece_uuid,
-                global_id=gid,
-                intake_ts=now_mono,
-                angle_at_intake_deg=angle_deg,
-                last_seen_mono=now_mono,
+                release_upstream=True,
+                recovered=False,
             )
-            self._pieces[piece_uuid] = dossier
-            self._track_to_piece[gid] = piece_uuid
+
+    def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None:
+        # Restart/re-home recovery: if the tray already contains visible parts,
+        # rebuild ownership from stable tracks so the runtime can continue.
+        if self._pieces or self._zone_manager.zone_count() > 0:
+            return
+        candidates: list[Track] = []
+        for track in tracks:
+            if track.global_id is None or track.angle_rad is None:
+                continue
+            gid = int(track.global_id)
+            if gid in self._track_to_piece:
+                continue
+            if int(track.hit_count) < self._reconcile_min_hit_count:
+                continue
+            if float(track.score) < self._reconcile_min_score:
+                continue
+            track_age_s = max(0.0, float(track.last_seen_ts) - float(track.first_seen_ts))
+            if track_age_s < self._reconcile_min_age_s:
+                continue
+            candidates.append(track)
+        candidates.sort(key=lambda t: (float(t.score), int(t.hit_count)), reverse=True)
+        for track in candidates:
+            if self._zone_manager.zone_count() >= self._zone_manager.max_zones:
+                break
+            self._register_piece_for_track(
+                track,
+                now_mono=now_mono,
+                release_upstream=False,
+                recovered=True,
+            )
+
+    def _register_piece_for_track(
+        self,
+        track: Track,
+        *,
+        now_mono: float,
+        release_upstream: bool,
+        recovered: bool,
+    ) -> bool:
+        if track.global_id is None or track.angle_rad is None:
+            return False
+        gid = int(track.global_id)
+        if gid in self._track_to_piece:
+            return False
+        angle_deg = math.degrees(track.angle_rad)
+        piece_uuid = uuid.uuid4().hex[:12]
+        if not self._zone_manager.add_zone(
+            piece_uuid=piece_uuid,
+            angle_deg=angle_deg,
+            half_width_deg=self._intake_half_width_deg,
+            global_id=gid,
+            now_mono=now_mono,
+        ):
+            return False
+        dossier = _PieceDossier(
+            piece_uuid=piece_uuid,
+            global_id=gid,
+            intake_ts=now_mono,
+            angle_at_intake_deg=angle_deg,
+            last_seen_mono=now_mono,
+            extras={"recovered": recovered},
+        )
+        self._pieces[piece_uuid] = dossier
+        self._track_to_piece[gid] = piece_uuid
+        if release_upstream:
             self._upstream_slot.release()
-            self._publish(
-                PIECE_REGISTERED,
-                {
+        self._publish(
+            PIECE_REGISTERED,
+            {
+                "piece_uuid": piece_uuid,
+                "tracked_global_id": gid,
+                "angle_at_intake_deg": angle_deg,
+                "intake_ts_mono": now_mono,
+                "confirmed_real": True,
+                "stage": "registered",
+                "classification_status": "pending",
+                "recovered": recovered,
+                "dossier": {
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
-                    "angle_at_intake_deg": angle_deg,
-                    "intake_ts_mono": now_mono,
-                    "confirmed_real": True,
-                    "stage": "registered",
-                    "classification_status": "pending",
-                    "dossier": {
-                        "piece_uuid": piece_uuid,
-                        "tracked_global_id": gid,
-                        "classification_channel_zone_center_deg": angle_deg,
-                        "first_carousel_seen_ts": now_mono,
-                    },
+                    "classification_channel_zone_center_deg": angle_deg,
+                    "first_carousel_seen_ts": now_mono,
+                    "recovered": recovered,
                 },
-                now_mono,
-            )
+            },
+            now_mono,
+        )
+        return True
 
     def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
         if self._latest_frame is None and self._crop_provider is None:
@@ -459,12 +671,49 @@ class RuntimeC4(BaseRuntime):
                 best_delta = delta
         return best
 
-    def _refresh_fsm_label(self) -> None:
+    def _maybe_advance_transport(
+        self,
+        tracks: list[Track],
+        now_mono: float,
+        *,
+        move_command: Callable[[float], bool] | None = None,
+    ) -> bool:
+        if not self._pieces or not tracks:
+            return False
+        if self._fsm in (_C4State.DROP_COMMIT, _C4State.EXIT_SHIMMY):
+            return False
+        if self._hw.busy() or now_mono < self._next_transport_at:
+            return False
+        exit_track = self._pick_exit_track(tracks)
+        if exit_track is not None and exit_track.global_id is not None:
+            piece_uuid = self._track_to_piece.get(int(exit_track.global_id))
+            dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
+            if dossier is not None and dossier.result is not None:
+                return False
+
+        step = self._transport_step_deg
+        move = move_command or self._carousel_move
+
+        def _do_move() -> None:
+            try:
+                move(step)
+            except Exception:
+                self._logger.exception("RuntimeC4: transport move raised")
+
+        if self._hw.enqueue(_do_move, label="c4_transport"):
+            self._next_transport_at = now_mono + self._transport_cooldown_s
+            return True
+        return False
+
+    def _refresh_fsm_label(self, *, transport_active: bool = False) -> None:
         if self._fsm in (_C4State.DROP_COMMIT, _C4State.EXIT_SHIMMY):
             self._set_state(self._fsm.value)
             return
         inflight = any(d.classify_future is not None for d in self._pieces.values())
         self._fsm = _C4State.CLASSIFY_PENDING if inflight else _C4State.RUNNING
+        if transport_active and self._fsm is _C4State.RUNNING:
+            self._set_state("rotate_pipeline")
+            return
         self._set_state(self._fsm.value)
 
     def _build_crop(self, track: Track) -> Any | None:

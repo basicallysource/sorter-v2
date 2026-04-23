@@ -85,6 +85,8 @@ class ZoneManager:
         intake_angle_deg: float = 0.0,
         guard_angle_deg: float = 30.0,
         default_half_width_deg: float = 20.0,
+        drop_angle_deg: float | None = None,
+        drop_tolerance_deg: float | None = None,
         stale_timeout_s: float = 1.5,
     ) -> None:
         if max_zones < 1:
@@ -93,6 +95,12 @@ class ZoneManager:
         self._intake_angle_deg = float(intake_angle_deg)
         self._guard_deg = float(guard_angle_deg)
         self._default_half_width = float(default_half_width_deg)
+        self._drop_angle_deg = (
+            float(drop_angle_deg) if drop_angle_deg is not None else None
+        )
+        self._drop_tolerance_deg = (
+            float(drop_tolerance_deg) if drop_tolerance_deg is not None else None
+        )
         self._stale_timeout_s = float(stale_timeout_s)
         self._zones: dict[str, ExclusionZone] = {}
 
@@ -109,6 +117,14 @@ class ZoneManager:
     @property
     def guard_angle_deg(self) -> float:
         return self._guard_deg
+
+    @property
+    def drop_angle_deg(self) -> float | None:
+        return self._drop_angle_deg
+
+    @property
+    def drop_tolerance_deg(self) -> float | None:
+        return self._drop_tolerance_deg
 
     def zone_count(self) -> int:
         return len(self._zones)
@@ -142,6 +158,47 @@ class ZoneManager:
             if _arcs_overlap(start, end, zone.start_deg, zone.end_deg):
                 return False
         return True
+
+    def pieces_in_window(
+        self,
+        *,
+        center_deg: float,
+        tolerance_deg: float,
+        ignore_piece_uuid: str | None = None,
+    ) -> tuple[str, ...]:
+        """Return piece UUIDs whose occupied zones overlap the probe window."""
+        start = float(center_deg) - float(tolerance_deg)
+        end = float(center_deg) + float(tolerance_deg)
+        hits: list[str] = []
+        for zone in self._zones.values():
+            if zone.piece_uuid == ignore_piece_uuid:
+                continue
+            if _arcs_overlap(start, end, zone.start_deg, zone.end_deg):
+                hits.append(zone.piece_uuid)
+        return tuple(hits)
+
+    def is_window_clear(
+        self,
+        *,
+        center_deg: float,
+        tolerance_deg: float,
+        ignore_piece_uuid: str | None = None,
+    ) -> bool:
+        return not self.pieces_in_window(
+            center_deg=center_deg,
+            tolerance_deg=tolerance_deg,
+            ignore_piece_uuid=ignore_piece_uuid,
+        )
+
+    def is_dropzone_clear(self, *, ignore_piece_uuid: str | None = None) -> bool:
+        """True iff no piece currently overlaps the configured drop window."""
+        if self._drop_angle_deg is None or self._drop_tolerance_deg is None:
+            return True
+        return self.is_window_clear(
+            center_deg=self._drop_angle_deg,
+            tolerance_deg=self._drop_tolerance_deg,
+            ignore_piece_uuid=ignore_piece_uuid,
+        )
 
     def add_zone(
         self,

@@ -84,6 +84,8 @@ def test_rt_status_returns_empty_envelope_when_no_handle(
         "perception_started": False,
         "runners": [],
         "skipped_roles": [],
+        "runtime_health": {},
+        "runtime_debug": {},
     }
 
 
@@ -108,6 +110,8 @@ def test_rt_status_surfaces_runners_and_skipped_roles(
     assert payload["started"] is True
     assert payload["paused"] is False
     assert payload["skipped_roles"] == [{"role": "c4", "reason": "no_camera_config"}]
+    assert payload["runtime_health"] == {}
+    assert payload["runtime_debug"] == {}
 
     feeds = {entry["feed_id"]: entry for entry in payload["runners"]}
     assert set(feeds.keys()) == {"c2_feed", "c3_feed"}
@@ -115,6 +119,9 @@ def test_rt_status_surfaces_runners_and_skipped_roles(
     assert feeds["c2_feed"]["zone_kind"] == "rect"
     assert feeds["c3_feed"]["zone_kind"] == "polygon"
     assert feeds["c2_feed"]["running"] is True
+    assert feeds["c2_feed"]["detection_count"] is None
+    assert feeds["c2_feed"]["raw_track_count"] is None
+    assert feeds["c2_feed"]["confirmed_track_count"] is None
 
 
 def test_rt_status_distinguishes_idle_perception_from_full_runtime(

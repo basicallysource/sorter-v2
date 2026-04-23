@@ -41,6 +41,7 @@ def _track(
     global_id: int | None = 1,
     angle_rad: float | None = 0.0,
     confirmed: bool = True,
+    last_seen_ts: float = 0.0,
 ) -> Track:
     return Track(
         track_id=track_id,
@@ -53,15 +54,15 @@ def _track(
         radius_px=50.0,
         hit_count=5,
         first_seen_ts=0.0,
-        last_seen_ts=0.0,
+        last_seen_ts=last_seen_ts,
     )
 
 
-def _batch(*tracks: Track) -> TrackBatch:
+def _batch(*tracks: Track, timestamp: float = 0.0) -> TrackBatch:
     return TrackBatch(
         feed_id="c3_feed",
         frame_seq=1,
-        timestamp=0.0,
+        timestamp=timestamp,
         tracks=tuple(tracks),
         lost_track_ids=tuple(),
     )
@@ -210,3 +211,14 @@ def test_c3_downstream_full_blocks_precise_pulse() -> None:
     )
     # No pulse dispatched because capacity_downstream == 0.
     assert not any(entry.startswith("precise:") for entry in log)
+
+
+def test_c3_ignores_stale_coasted_track() -> None:
+    rt, _up, _down, log = _make()
+    stale = _track(angle_rad=math.pi, last_seen_ts=0.1)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stale, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    assert log == []
+    assert rt.available_slots() == 1

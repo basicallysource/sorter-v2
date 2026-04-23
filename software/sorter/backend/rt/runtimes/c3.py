@@ -38,6 +38,7 @@ DEFAULT_PULSE_COOLDOWN_S = 0.12
 DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_HOLDOVER_MS = 2000  # Mirror legacy CH3_PRECISE_HOLDOVER_MS.
+DEFAULT_TRACK_STALE_S = 0.5
 
 
 class _PulseMode(Enum):
@@ -73,6 +74,7 @@ class RuntimeC3(BaseRuntime):
         wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
         wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
+        track_stale_s: float = DEFAULT_TRACK_STALE_S,
         feed_id: str = "c3_feed",
     ) -> None:
         super().__init__("c3", feed_id=feed_id, logger=logger, hw_worker=hw_worker)
@@ -88,6 +90,7 @@ class RuntimeC3(BaseRuntime):
         self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
         self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._holdover_s = float(holdover_ms) / 1000.0
+        self._track_stale_s = max(0.0, float(track_stale_s))
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._ring_count: int = 0
@@ -156,7 +159,18 @@ class RuntimeC3(BaseRuntime):
     def _confirmed_tracks(self, batch: TrackBatch | None) -> list[Track]:
         if batch is None:
             return []
-        return [t for t in batch.tracks if t.confirmed_real]
+        batch_ts = float(batch.timestamp)
+        return [
+            t
+            for t in batch.tracks
+            if t.confirmed_real and self._is_track_fresh(t, batch_ts)
+        ]
+
+    def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:
+        last_seen_ts = float(track.last_seen_ts)
+        if batch_ts <= 0.0 or last_seen_ts <= 0.0:
+            return True
+        return (batch_ts - last_seen_ts) <= self._track_stale_s
 
     def _credit_new_arrivals(self, tracks: list[Track]) -> None:
         seen = self._book.seen_global_ids

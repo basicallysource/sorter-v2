@@ -142,6 +142,7 @@ def test_feeder_detect_returns_rt_payload_shape(_fake_rt: _FakeRtHandle) -> None
     assert payload["algorithm"].startswith("hive:")
     assert payload["frame_resolution"] == [640, 480]
     assert payload["zone_bbox"] == [0, 0, 640, 480]
+    assert "zone_preview" not in payload
     # _finalize_aux_detection_debug_payload normalises + always sets ok
     assert payload["normalized_bbox"] is not None
     assert payload["normalized_zone_bbox"] == [0.0, 0.0, 1.0, 1.0]
@@ -183,3 +184,4 @@ def test_carousel_detect_returns_rt_payload(_fake_rt: _FakeRtHandle) -> None:
     assert payload["candidate_previews"][0] is not None
     assert base64.b64decode(payload["candidate_previews"][0])[:3] == b"\xff\xd8\xff"
     assert payload["frame_resolution"] == [640, 480]
+    assert "zone_preview" not in payload

@@ -19,7 +19,7 @@ from rt.contracts.events import Event, EventBus
 from rt.contracts.tracking import TrackBatch
 from rt.events.topics import HARDWARE_ERROR, PERCEPTION_TRACKS
 
-from .pipeline import PerceptionPipeline
+from .pipeline import PerceptionFrameState, PerceptionPipeline
 
 
 _LOG = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ class PerceptionRunner:
         self._stop = threading.Event()
         self._latest_lock = threading.Lock()
         self._latest: TrackBatch | None = None
+        self._latest_state: PerceptionFrameState | None = None
         self._last_frame_seq: int | None = None
         self._consecutive_errors = 0
         self._running = False
@@ -74,6 +75,10 @@ class PerceptionRunner:
         with self._latest_lock:
             return self._latest
 
+    def latest_state(self) -> PerceptionFrameState | None:
+        with self._latest_lock:
+            return self._latest_state
+
     # ---- Internals -----------------------------------------------------
 
     def _run(self) -> None:
@@ -84,8 +89,10 @@ class PerceptionRunner:
                 frame = feed.latest()
                 if frame is not None and frame.frame_seq != self._last_frame_seq:
                     self._last_frame_seq = frame.frame_seq
-                    batch = self._pipeline.process_frame(frame)
+                    state = self._pipeline.process_frame_state(frame)
+                    batch = state.filtered_tracks
                     with self._latest_lock:
+                        self._latest_state = state
                         self._latest = batch
                     self._publish_tracks(batch)
                     self._consecutive_errors = 0

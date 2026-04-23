@@ -50,6 +50,7 @@ from rt.runtimes._strategies import (
     AlwaysAdmit,
     C4Admission,
     C4EjectionTiming,
+    C4StartupPurgeStrategy,
     ConstantPulseEjection,
 )
 from rt.runtimes._zones import ZoneManager
@@ -58,6 +59,7 @@ from rt.runtimes.c2 import RuntimeC2
 from rt.runtimes.c3 import RuntimeC3
 from rt.runtimes.c4 import RuntimeC4
 from rt.runtimes.distributor import RuntimeDistributor
+from utils.polygon_resolution import saved_polygon_resolution
 
 
 # Mapping rt-side role slug -> legacy camera_service role name.
@@ -105,6 +107,15 @@ class RtRuntimeHandle:
     def start(self, *, paused: bool = False) -> None:
         if self.started:
             return
+        c4 = getattr(self, "c4", None)
+        arm_startup_purge = getattr(c4, "arm_startup_purge", None)
+        if callable(arm_startup_purge):
+            try:
+                arm_startup_purge()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: c4.arm_startup_purge raised"
+                )
         self.start_perception()
         self.orchestrator.start(paused=paused)
         self.started = True
@@ -274,22 +285,10 @@ def _channel_polygon_key_for_role(role: str) -> str | None:
 def _saved_resolution_for_channel(saved: dict, channel_key: str | None) -> list:
     """Return the capture resolution a polygon was saved at.
 
-    Prefers per-channel metadata embedded by the zone editor; falls back to
-    the blob's global ``resolution`` field, then to 1920x1080.
+    Kept as a light wrapper so bootstrap code can stay simple while the
+    resolution lookup logic lives in one shared place.
     """
-    if isinstance(saved, dict):
-        if channel_key:
-            channels = saved.get("channels")
-            if isinstance(channels, dict):
-                entry = channels.get(channel_key)
-                if isinstance(entry, dict):
-                    res = entry.get("resolution")
-                    if isinstance(res, (list, tuple)) and len(res) >= 2:
-                        return list(res)
-        res = saved.get("resolution")
-        if isinstance(res, (list, tuple)) and len(res) >= 2:
-            return list(res)
-    return [1920, 1080]
+    return list(saved_polygon_resolution(saved, channel_key=channel_key))
 
 
 def _channel_angle_key_for_polygon_key(polygon_key: str) -> str | None:
@@ -300,6 +299,77 @@ def _channel_angle_key_for_polygon_key(polygon_key: str) -> str | None:
     if polygon_key == "classification_channel":
         return "classification_channel"
     return None
+
+
+def _arc_params_key_for_role(role: str) -> str | None:
+    legacy_role = _ROLE_TO_LEGACY_CAMERA.get(role, role)
+    if legacy_role == "c_channel_2":
+        return "second"
+    if legacy_role == "c_channel_3":
+        return "third"
+    if legacy_role in {"carousel", "classification_channel"}:
+        return "classification_channel"
+    return None
+
+
+def _load_arc_tracker_params(
+    role: str,
+    *,
+    target_w: int,
+    target_h: int,
+) -> dict[str, Any]:
+    """Load scaled polar geometry for the tracker from channel arc params.
+
+    Arc channels keep two distinct concerns:
+    - polygon zone: mask/crop/overlay
+    - polar geometry: center + radius range for angle-aware tracking
+
+    The UI already stores both in the channel_polygons blob; bootstrap must
+    carry both into the perception pipeline.
+    """
+    try:
+        from blob_manager import getChannelPolygons
+    except Exception:
+        return {}
+    saved = getChannelPolygons()
+    if not isinstance(saved, dict):
+        return {}
+    arc_params = saved.get("arc_params")
+    if not isinstance(arc_params, dict):
+        return {}
+    channel_key = _arc_params_key_for_role(role)
+    if channel_key is None:
+        return {}
+    raw = arc_params.get(channel_key)
+    if not isinstance(raw, dict):
+        return {}
+    center = raw.get("center")
+    try:
+        center_x = float(center[0])
+        center_y = float(center[1])
+        inner_radius = float(raw["inner_radius"])
+        outer_radius = float(raw["outer_radius"])
+    except Exception:
+        return {}
+    if inner_radius < 0.0 or outer_radius <= inner_radius:
+        return {}
+    saved_res = _saved_resolution_for_channel(saved, channel_key)
+    try:
+        src_w, src_h = int(saved_res[0]), int(saved_res[1])
+    except (TypeError, ValueError):
+        return {}
+    if src_w <= 0 or src_h <= 0:
+        return {}
+    sx = float(target_w) / float(src_w)
+    sy = float(target_h) / float(src_h)
+    radius_scale = (abs(sx) + abs(sy)) / 2.0
+    return {
+        "polar_center": (center_x * sx, center_y * sy),
+        "polar_radius_range": (
+            inner_radius * radius_scale,
+            outer_radius * radius_scale,
+        ),
+    }
 
 
 def _load_saved_polygon(key: str, target_w: int, target_h: int) -> Any:
@@ -498,17 +568,22 @@ def _build_perception_runner_for_role(
         return None, zone, "camera_feed_build_failed"
 
     detector_slug = _detector_slug_for_role(role, logger)
+    tracker_params: dict[str, Any] = {}
+    target_res = _configured_resolution_for_role(camera_service, camera_id)
+    if target_res is not None:
+        tracker_params = _load_arc_tracker_params(
+            role,
+            target_w=int(target_res[0]),
+            target_h=int(target_res[1]),
+        )
     pipeline_config = PipelineConfig(
         feed_id=feed_id,
         detector={
             "key": detector_slug,
             "params": {"conf_threshold": 0.25, "iou_threshold": 0.45},
         },
-        tracker={"key": "polar", "params": {}},
-        filters=[
-            FilterConfig(key="size", params={"min_area_px": 400}),
-            FilterConfig(key="ghost", params={"confirmed_real_only": True}),
-        ],
+        tracker={"key": "polar", "params": tracker_params},
+        filters=[],
     )
     try:
         pipeline = build_pipeline_from_config(pipeline_config, feed, zone)
@@ -686,17 +761,70 @@ def _build_c3_callables(
 
 
 def _build_c4_callables(
-    irl: Any, logger: logging.Logger
-) -> tuple[Callable[[float], bool], Callable[[], bool]]:
-    def carousel_move(deg: float) -> bool:
+    irl: Any,
+    logger: logging.Logger,
+    *,
+    startup_purge_speed_scale: float = 1.0,
+) -> tuple[
+    Callable[[float], bool],
+    Callable[[float], bool],
+    Callable[[bool], bool],
+    Callable[[], bool],
+]:
+    def _default_speed_limit() -> int | None:
+        cfg_root = getattr(irl, "irl_config", None) or irl
+        cfg = getattr(cfg_root, "carousel_stepper", None)
+        speed = getattr(cfg, "default_steps_per_second", None)
+        return int(speed) if isinstance(speed, int) and speed > 0 else None
+
+    def _move_with_speed_limit(deg: float, *, speed_limit: int | None) -> bool:
         stepper = getattr(irl, "carousel_stepper", None)
         if stepper is None:
             logger.error("TODO_PHASE5_WIRING: c4 carousel move - stepper missing")
             return False
+        default_speed = _default_speed_limit()
+        if (
+            speed_limit is None
+            or default_speed is None
+            or speed_limit <= default_speed
+        ):
+            try:
+                return bool(stepper.move_degrees(deg))
+            except Exception:
+                logger.exception("RuntimeC4: carousel_move raised")
+                return False
         try:
+            stepper.set_speed_limits(16, int(speed_limit))
             return bool(stepper.move_degrees(deg))
         except Exception:
-            logger.exception("RuntimeC4: carousel_move raised")
+            logger.exception("RuntimeC4: fast carousel_move raised")
+            return False
+
+    def carousel_move(deg: float) -> bool:
+        return _move_with_speed_limit(deg, speed_limit=None)
+
+    purge_speed_limit = None
+    default_speed = _default_speed_limit()
+    if default_speed is not None and startup_purge_speed_scale > 1.0:
+        purge_speed_limit = max(
+            default_speed,
+            int(round(float(default_speed) * float(startup_purge_speed_scale))),
+        )
+
+    def startup_purge_move(deg: float) -> bool:
+        return carousel_move(deg)
+
+    def startup_purge_mode(enabled: bool) -> bool:
+        stepper = getattr(irl, "carousel_stepper", None)
+        default_speed = _default_speed_limit()
+        if stepper is None or default_speed is None:
+            return True
+        speed_limit = purge_speed_limit if enabled and purge_speed_limit is not None else default_speed
+        try:
+            stepper.set_speed_limits(16, int(speed_limit))
+            return True
+        except Exception:
+            logger.exception("RuntimeC4: startup purge mode speed-limit change raised")
             return False
 
     def eject() -> bool:
@@ -723,7 +851,7 @@ def _build_c4_callables(
             logger.exception("RuntimeC4: eject raised")
             return False
 
-    return carousel_move, eject
+    return carousel_move, startup_purge_move, startup_purge_mode, eject
 
 
 def _build_chute_callables(
@@ -983,12 +1111,19 @@ def build_rt_runtime(
         getattr(classification_cfg, "drop_tolerance_deg", 14.0)
         if classification_cfg else 14.0
     )
+    stale_timeout = float(
+        getattr(classification_cfg, "stale_zone_timeout_s", 1.5)
+        if classification_cfg else 1.5
+    )
 
     zone_manager = ZoneManager(
         max_zones=max(1, max_zones),
         intake_angle_deg=intake_angle,
         guard_angle_deg=guard_angle,
         default_half_width_deg=intake_half_width,
+        drop_angle_deg=drop_angle,
+        drop_tolerance_deg=drop_tolerance,
+        stale_timeout_s=stale_timeout,
     )
 
     # ------------------------------------------------------------------
@@ -997,7 +1132,20 @@ def build_rt_runtime(
     c1_pulse, c1_recovery = _build_c1_callables(irl, log)
     c2_pulse, c2_wiggle = _build_c2_callables(irl, log)
     c3_pulse, c3_wiggle = _build_c3_callables(irl, log)
-    c4_carousel_move, c4_eject = _build_c4_callables(irl, log)
+    (
+        c4_carousel_move,
+        c4_startup_purge_move,
+        c4_startup_purge_mode,
+        c4_eject,
+    ) = _build_c4_callables(
+        irl,
+        log,
+        startup_purge_speed_scale=float(
+            getattr(classification_cfg, "startup_purge_speed_scale", 3.5)
+            if classification_cfg
+            else 3.5
+        ),
+    )
     chute_move, chute_position_query = _build_chute_callables(irl, rules_engine, log)
 
     # ------------------------------------------------------------------
@@ -1036,6 +1184,33 @@ def build_rt_runtime(
         settle_ms=500.0,
         fall_time_ms=1500.0,
     )
+    c4_startup_purge = C4StartupPurgeStrategy(
+        enabled=bool(
+            getattr(classification_cfg, "startup_purge_enabled", True)
+            if classification_cfg
+            else True
+        ),
+        prime_step_deg=float(
+            getattr(classification_cfg, "startup_purge_prime_step_deg", 10.0)
+            if classification_cfg
+            else 10.0
+        ),
+        prime_cooldown_ms=float(
+            getattr(classification_cfg, "startup_purge_prime_cooldown_ms", 120)
+            if classification_cfg
+            else 120
+        ),
+        max_prime_moves=int(
+            getattr(classification_cfg, "startup_purge_max_prime_moves", 3)
+            if classification_cfg
+            else 3
+        ),
+        clear_hold_ms=float(
+            getattr(classification_cfg, "startup_purge_clear_hold_ms", 600)
+            if classification_cfg
+            else 600
+        ),
+    )
 
     def _crop_provider(frame: Any, track: Any) -> Any:
         raw = getattr(frame, "raw", None)
@@ -1056,6 +1231,43 @@ def build_rt_runtime(
             log.exception("rt.bootstrap: crop_provider raised")
             return None
 
+    def _c4_startup_purge_detection_count() -> int:
+        runner = perception_sources.get("c4_feed")
+        if runner is None:
+            return 0
+        latest_state = getattr(runner, "latest_state", None)
+        if callable(latest_state):
+            try:
+                state = latest_state()
+            except Exception:
+                log.debug(
+                    "rt.bootstrap: c4 latest_state() raised during startup purge probe",
+                    exc_info=True,
+                )
+                state = None
+            detections = getattr(state, "detections", None) if state is not None else None
+            entries = getattr(detections, "detections", None) if detections is not None else None
+            if isinstance(entries, (list, tuple)):
+                return len(entries)
+            raw_tracks = getattr(state, "raw_tracks", None) if state is not None else None
+            tracks = getattr(raw_tracks, "tracks", None) if raw_tracks is not None else None
+            if isinstance(tracks, (list, tuple)):
+                return len(tracks)
+        latest_tracks = getattr(runner, "latest_tracks", None)
+        if callable(latest_tracks):
+            try:
+                batch = latest_tracks()
+            except Exception:
+                log.debug(
+                    "rt.bootstrap: c4 latest_tracks() raised during startup purge probe",
+                    exc_info=True,
+                )
+                batch = None
+            tracks = getattr(batch, "tracks", None) if batch is not None else None
+            if isinstance(tracks, (list, tuple)):
+                return len(tracks)
+        return 0
+
     c4 = RuntimeC4(
         upstream_slot=slots[("c3", "c4")],
         downstream_slot=slots[("c4", "distributor")],
@@ -1063,7 +1275,11 @@ def build_rt_runtime(
         classifier=classifier,
         admission=c4_admission,
         ejection=c4_ejection,
+        startup_purge=c4_startup_purge,
+        startup_purge_detection_count_provider=_c4_startup_purge_detection_count,
         carousel_move_command=c4_carousel_move,
+        startup_purge_move_command=c4_startup_purge_move,
+        startup_purge_mode_command=c4_startup_purge_mode,
         eject_command=c4_eject,
         crop_provider=_crop_provider,
         logger=log,

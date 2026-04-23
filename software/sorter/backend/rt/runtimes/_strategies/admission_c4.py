@@ -18,11 +18,12 @@ from rt.contracts.registry import register_admission
 class C4Admission:
     """Admission gate for the classification channel.
 
-    Four sequential checks against ``runtime_state``:
-      1. ``raw_detection_count`` hard cap (upstream filter safety net).
-      2. ``zone_count`` vs ``max_zones`` (how many pieces physically owned).
-      3. ``arc_clear`` (intake arc free of existing zones).
+    Five sequential checks against ``runtime_state``:
+      1. ``dropzone_clear`` (the upstream laydown window on C4 is free).
+      2. ``arc_clear`` (intake arc free of existing zones).
+      3. ``zone_count`` vs ``max_zones`` (how many pieces physically owned).
       4. ``transport_count`` vs ``max_zones`` (dossier bookkeeping backup).
+      5. ``raw_detection_count`` hard cap (last-resort safety net).
     """
 
     key = "c4"
@@ -67,21 +68,25 @@ class C4Admission:
         inbound_piece_hint: dict[str, Any],  # noqa: ARG002 — interface conformance
         runtime_state: dict[str, Any],
     ) -> AdmissionDecision:
-        raw_count = int(runtime_state.get("raw_detection_count", 0) or 0)
-        if raw_count >= self._max_raw_detections:
-            return AdmissionDecision(allowed=False, reason="raw_cap")
-
-        zone_count = int(runtime_state.get("zone_count", 0) or 0)
-        if zone_count >= self._max_zones:
-            return AdmissionDecision(allowed=False, reason="zone_cap")
+        dropzone_clear = runtime_state.get("dropzone_clear", True)
+        if dropzone_clear is False:
+            return AdmissionDecision(allowed=False, reason="dropzone_clear")
 
         arc_clear = runtime_state.get("arc_clear", True)
         if arc_clear is False:
             return AdmissionDecision(allowed=False, reason="arc_clear")
 
+        zone_count = int(runtime_state.get("zone_count", 0) or 0)
+        if zone_count >= self._max_zones:
+            return AdmissionDecision(allowed=False, reason="zone_cap")
+
         transport_count = int(runtime_state.get("transport_count", 0) or 0)
         if transport_count >= self._max_zones:
             return AdmissionDecision(allowed=False, reason="transport_cap")
+
+        raw_count = int(runtime_state.get("raw_detection_count", 0) or 0)
+        if raw_count >= self._max_raw_detections:
+            return AdmissionDecision(allowed=False, reason="raw_cap")
 
         return AdmissionDecision(allowed=True, reason="ok")
 

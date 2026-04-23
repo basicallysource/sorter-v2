@@ -37,7 +37,7 @@ OUT_ROOT = Path("/tmp/c4_motion_sweep")
 STEPPER = "carousel"
 BASE = DEFAULT_BASE
 CAMERA_CONFIG_URL = f"{BASE}/api/cameras/config"
-CAROUSEL_DETECT_URL = f"{BASE}/api/feeder/detect/carousel"
+C4_DETECT_URL = f"{BASE}/api/classification-channel/detect/current"
 CAROUSEL_LIVE_URL = f"{BASE}/api/hardware-config/carousel/live"
 PAUSE_URL = f"{BASE}/pause"
 RESUME_URL = f"{BASE}/resume"
@@ -117,10 +117,10 @@ def _fetch_single_jpeg() -> bytes:
     import json
     with request.urlopen(CAMERA_CONFIG_URL, timeout=10) as response:
         cfg = json.loads(response.read().decode("utf-8"))
-    source = cfg.get("carousel")
+    source = cfg.get("classification_channel")
     if not isinstance(source, int):
         raise RuntimeError(
-            f"carousel camera is not a USB device (got {source!r}); cannot WS-fetch"
+            f"classification_channel camera is not a USB device (got {source!r}); cannot WS-fetch"
         )
 
     ws_url = BASE.replace("http://", "ws://").replace("https://", "wss://")
@@ -139,7 +139,7 @@ def _capture_snapshot(dest: Path) -> None:
 
 
 def _detect_current() -> dict[str, Any]:
-    return _post_json(CAROUSEL_DETECT_URL)
+    return _post_json(C4_DETECT_URL)
 
 
 def _normalize_angle_deg(value: float) -> float:
@@ -441,10 +441,10 @@ def main() -> int:
     parser.add_argument("--out-root", default=str(OUT_ROOT))
     args = parser.parse_args()
 
-    global BASE, CAMERA_CONFIG_URL, CAROUSEL_DETECT_URL, CAROUSEL_LIVE_URL, PAUSE_URL, RESUME_URL, MOVE_URL
+    global BASE, CAMERA_CONFIG_URL, C4_DETECT_URL, CAROUSEL_LIVE_URL, PAUSE_URL, RESUME_URL, MOVE_URL
     BASE = args.base_url.rstrip("/")
     CAMERA_CONFIG_URL = f"{BASE}/api/cameras/config"
-    CAROUSEL_DETECT_URL = f"{BASE}/api/feeder/detect/carousel"
+    C4_DETECT_URL = f"{BASE}/api/classification-channel/detect/current"
     CAROUSEL_LIVE_URL = f"{BASE}/api/hardware-config/carousel/live"
     PAUSE_URL = f"{BASE}/pause"
     RESUME_URL = f"{BASE}/resume"

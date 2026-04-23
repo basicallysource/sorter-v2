@@ -53,6 +53,7 @@ from server.camera_calibration import (
     generate_color_profile_from_analysis,
 )
 from server.camera_discovery import getDiscoveredCameraStreams
+from utils.polygon_resolution import saved_polygon_resolution
 
 router = APIRouter()
 
@@ -3339,35 +3340,7 @@ def _dashboard_polygon_resolution(
     3840x2160) don't contaminate each other on the dashboard preview.
     """
 
-    fallback: tuple[float, float] = (1920.0, 1080.0)
-    if not isinstance(saved, dict):
-        return fallback
-
-    def _coerce(raw: Any) -> tuple[float, float] | None:
-        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
-            return None
-        width = _as_number(raw[0])
-        height = _as_number(raw[1])
-        if width and width > 0 and height and height > 0:
-            return (width, height)
-        return None
-
-    if channel_key:
-        for group in ("arc_params", "quad_params"):
-            entries = saved.get(group)
-            if not isinstance(entries, dict):
-                continue
-            entry = entries.get(channel_key)
-            if not isinstance(entry, dict):
-                continue
-            coerced = _coerce(entry.get("resolution"))
-            if coerced is not None:
-                return coerced
-
-    coerced = _coerce(saved.get("resolution"))
-    if coerced is not None:
-        return coerced
-    return fallback
+    return saved_polygon_resolution(saved, channel_key=channel_key)
 
 
 def _dashboard_points(raw: Any) -> list[tuple[float, float]]:

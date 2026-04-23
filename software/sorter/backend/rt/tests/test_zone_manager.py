@@ -117,3 +117,17 @@ def test_zones_returns_tuple_snapshot() -> None:
     assert isinstance(zones, tuple)
     assert len(zones) == 1
     assert zones[0].piece_uuid == "a"
+
+
+def test_pieces_in_window_reports_overlapping_piece() -> None:
+    zm = _make(drop_angle_deg=30.0, drop_tolerance_deg=14.0)
+    zm.add_zone(piece_uuid="a", angle_deg=30.0, half_width_deg=6.0)
+    hits = zm.pieces_in_window(center_deg=30.0, tolerance_deg=14.0)
+    assert hits == ("a",)
+
+
+def test_is_dropzone_clear_uses_configured_window() -> None:
+    zm = _make(drop_angle_deg=30.0, drop_tolerance_deg=14.0)
+    assert zm.is_dropzone_clear() is True
+    zm.add_zone(piece_uuid="a", angle_deg=28.0, half_width_deg=6.0)
+    assert zm.is_dropzone_clear() is False

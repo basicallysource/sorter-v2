@@ -46,6 +46,11 @@ class CameraFeed:
             self._overlays.append(overlay)
             self._cached_annotated.clear()
 
+    def set_overlays(self, overlays: list[FrameOverlay]) -> None:
+        with self._lock:
+            self._overlays = list(overlays)
+            self._cached_annotated.clear()
+
     def clear_overlays(self) -> None:
         with self._lock:
             self._overlays.clear()

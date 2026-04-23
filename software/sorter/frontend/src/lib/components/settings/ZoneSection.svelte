@@ -1446,12 +1446,15 @@
 		// Role-based preview is delivered over the main control WebSocket:
 		// camera_service fans frames into ``ctx.machine.frames`` keyed by
 		// role. ``raw`` already has the color profile + picture settings
-		// baked in. When editing a zone we always use ``raw`` (no overlays
-		// over the handles); otherwise we honor ``previewAnnotated``.
+		// baked in. When the zone canvas is active we always use ``raw`` so
+		// the editor's own geometry does not stack on top of server-side
+		// annotations. Only when zone overlays are hidden do we opt into the
+		// backend-composed annotated frame.
 		const role = CAMERA_FOR_CHANNEL[channel];
 		const frame = machineCtx.frames.get(role as unknown as Parameters<typeof machineCtx.frames.get>[0]);
 		if (!frame) return '';
-		const wantAnnotated = !editingZone && previewAnnotated;
+		const zoneCanvasActive = editingZone || previewZones;
+		const wantAnnotated = !zoneCanvasActive && previewAnnotated;
 		const payload = wantAnnotated && frame.annotated ? frame.annotated : frame.raw;
 		return payload ? `data:image/jpeg;base64,${payload}` : '';
 	}
@@ -2559,6 +2562,7 @@
 		if (!ctx) return;
 
 		ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+		if (!editingZone && !previewZones) return;
 		const currentCamera = CAMERA_FOR_CHANNEL[currentChannel];
 
 		for (const channel of channels) {
@@ -2579,6 +2583,7 @@
 		void currentChannel;
 		void channels;
 		void editingZone;
+		void previewZones;
 		void CANVAS_W;
 		void CANVAS_H;
 		drawCanvas();

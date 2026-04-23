@@ -9,7 +9,11 @@ from rt.contracts.feed import FeedFrame
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.runtimes._strategies import C4Admission, C4EjectionTiming
+from rt.runtimes._strategies import (
+    C4Admission,
+    C4EjectionTiming,
+    C4StartupPurgeStrategy,
+)
 from rt.runtimes._zones import ZoneManager
 from rt.runtimes.c4 import RuntimeC4
 
@@ -94,27 +98,31 @@ def _track(
     global_id: int = 1,
     angle_deg: float = 0.0,
     confirmed: bool = True,
+    hit_count: int = 5,
+    score: float = 0.9,
+    first_seen_ts: float = 0.0,
+    last_seen_ts: float = 0.0,
 ) -> Track:
     return Track(
         track_id=track_id,
         global_id=global_id,
         piece_uuid=None,
         bbox_xyxy=(0, 0, 10, 10),
-        score=0.9,
+        score=score,
         confirmed_real=confirmed,
         angle_rad=math.radians(angle_deg),
         radius_px=50.0,
-        hit_count=5,
-        first_seen_ts=0.0,
-        last_seen_ts=0.0,
+        hit_count=hit_count,
+        first_seen_ts=first_seen_ts,
+        last_seen_ts=last_seen_ts,
     )
 
 
-def _batch(*tracks: Track) -> TrackBatch:
+def _batch(*tracks: Track, timestamp: float = 0.0) -> TrackBatch:
     return TrackBatch(
         feed_id="c4_feed",
         frame_seq=1,
-        timestamp=0.0,
+        timestamp=timestamp,
         tracks=tuple(tracks),
         lost_track_ids=tuple(),
     )
@@ -138,6 +146,8 @@ def _make(
     classifier: _StubClassifier | None = None,
     crop_provider: Callable[[FeedFrame, Track], Any] | None = None,
     ejection: C4EjectionTiming | None = None,
+    startup_purge: C4StartupPurgeStrategy | None = None,
+    startup_purge_detection_count_provider: Callable[[], int] | None = None,
 ) -> tuple[RuntimeC4, CapacitySlot, CapacitySlot, _StubClassifier, list[str]]:
     upstream = CapacitySlot("c3_to_c4", capacity=max_zones)
     downstream = CapacitySlot("c4_to_dist", capacity=max_zones)
@@ -146,6 +156,10 @@ def _make(
 
     def move(deg: float) -> bool:
         log.append(f"move:{deg:.1f}")
+        return True
+
+    def purge_move(deg: float) -> bool:
+        log.append(f"purge:{deg:.1f}")
         return True
 
     def eject() -> bool:
@@ -157,6 +171,8 @@ def _make(
         intake_angle_deg=0.0,
         guard_angle_deg=10.0,
         default_half_width_deg=10.0,
+        drop_angle_deg=30.0,
+        drop_tolerance_deg=14.0,
     )
     rt = RuntimeC4(
         upstream_slot=upstream,
@@ -167,7 +183,10 @@ def _make(
         ejection=ejection or C4EjectionTiming(
             pulse_ms=150.0, settle_ms=100.0, fall_time_ms=0.0
         ),
+        startup_purge=startup_purge,
+        startup_purge_detection_count_provider=startup_purge_detection_count_provider,
         carousel_move_command=move,
+        startup_purge_move_command=purge_move,
         eject_command=eject,
         crop_provider=crop_provider or (lambda _f, _t: b"crop"),
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
@@ -198,6 +217,12 @@ def test_c4_available_slots_blocks_on_zone_cap() -> None:
         now_mono=0.0,
     )
     assert rt.dossier_count() == 1
+    assert rt.available_slots() == 0
+
+
+def test_c4_available_slots_blocks_when_dropzone_occupied() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=4)
+    rt._zone_manager.add_zone(piece_uuid="drop", angle_deg=30.0, global_id=9, now_mono=0.0)
     assert rt.available_slots() == 0
 
 
@@ -407,6 +432,29 @@ def test_c4_ignores_unconfirmed_tracks() -> None:
     assert clf.calls == 0
 
 
+def test_c4_recovers_stable_visible_tracks_after_restart_and_starts_transport() -> None:
+    rt, up, _down, _clf, log = _make(max_zones=2)
+    stable = _track(
+        global_id=7,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=6,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stable, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    assert rt.dossier_count() == 1
+    dossier = next(iter(rt._pieces.values()))  # noqa: SLF001
+    assert dossier.extras.get("recovered") is True
+    assert up.available() == 2
+    assert "move:6.0" in log
+    assert rt.health().state == "rotate_pipeline"
+
+
 def test_c4_state_transitions_through_commit_cycle() -> None:
     rt, _up, _down, _clf, _log = _make(max_zones=1)
     assert rt.fsm_state() == "running"
@@ -492,6 +540,160 @@ def test_c4_deadlock_recovery_after_tracker_drop() -> None:
     assert rt._zone_manager.zone_count() == 0  # noqa: SLF001
     assert rt.dossier_count() == 0
     assert rt.available_slots() == 1
+
+
+def test_c4_startup_purge_blocks_slots_until_clear() -> None:
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=6.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=0,
+        clear_hold_ms=100.0,
+    )
+    rt, _up, _down, _clf, _log = _make(startup_purge=purge)
+    rt.arm_startup_purge()
+    assert rt.available_slots() == 0
+    rt.tick(RuntimeInbox(tracks=_batch(timestamp=0.0), capacity_downstream=1), now_mono=0.0)
+    assert rt.available_slots() == 0
+    rt.tick(RuntimeInbox(tracks=_batch(timestamp=0.2), capacity_downstream=1), now_mono=0.2)
+    assert rt.available_slots() == 1
+    assert rt.fsm_state() == "running"
+
+
+def test_c4_startup_purge_primes_visible_tracks_before_recovery() -> None:
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=7.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=2,
+        clear_hold_ms=0.0,
+    )
+    rt, _up, _down, _clf, log = _make(startup_purge=purge)
+    rt.arm_startup_purge()
+    visible = _track(
+        global_id=21,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=1,
+        score=0.9,
+        first_seen_ts=0.0,
+        last_seen_ts=0.1,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(visible, timestamp=0.1), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert "purge:7.0" in log
+    assert rt.fsm_state() == "startup_purge"
+    assert rt.available_slots() == 0
+
+
+def test_c4_startup_purge_primes_from_detection_count_before_tracks_exist() -> None:
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=9.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=2,
+        clear_hold_ms=0.0,
+    )
+    rt, _up, _down, _clf, log = _make(
+        startup_purge=purge,
+        startup_purge_detection_count_provider=lambda: 3,
+    )
+    rt.arm_startup_purge()
+    rt.tick(
+        RuntimeInbox(tracks=_batch(timestamp=0.1), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert "purge:9.0" in log
+    assert rt.fsm_state() == "startup_purge"
+    assert rt.available_slots() == 0
+
+
+def test_c4_startup_purge_keeps_sweeping_visible_unowned_parts() -> None:
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=5.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=1,
+        clear_hold_ms=0.0,
+    )
+    rt, _up, _down, _clf, log = _make(
+        startup_purge=purge,
+        startup_purge_detection_count_provider=lambda: 2,
+    )
+    rt.arm_startup_purge()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(timestamp=0.1), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert log.count("purge:5.0") == 1
+    assert rt.fsm_state() == "startup_purge"
+    assert rt.available_slots() == 0
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(timestamp=0.2), capacity_downstream=1),
+        now_mono=0.2,
+    )
+    assert log.count("purge:5.0") == 2
+    assert rt.fsm_state() == "startup_purge"
+    assert rt.available_slots() == 0
+
+
+def test_c4_startup_purge_recovers_rotates_and_ejects_without_classifier() -> None:
+    purge = C4StartupPurgeStrategy(
+        enabled=True,
+        prime_step_deg=6.0,
+        prime_cooldown_ms=0.0,
+        max_prime_moves=1,
+        clear_hold_ms=0.0,
+    )
+    rt, up, _down, clf, log = _make(
+        max_zones=2,
+        startup_purge=purge,
+        ejection=C4EjectionTiming(pulse_ms=100.0, settle_ms=0.0, fall_time_ms=0.0),
+    )
+    rt.arm_startup_purge()
+    stable = _track(
+        global_id=7,
+        angle_deg=45.0,
+        confirmed=False,
+        hit_count=6,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stable, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    assert rt.dossier_count() == 1
+    assert clf.calls == 0
+    assert up.available() == 2
+    assert "purge:6.0" in log
+    exit_track = _track(
+        global_id=7,
+        angle_deg=180.0,
+        confirmed=False,
+        hit_count=7,
+        score=0.95,
+        first_seen_ts=0.0,
+        last_seen_ts=1.1,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(exit_track, timestamp=1.1), capacity_downstream=1),
+        now_mono=1.1,
+    )
+    assert "eject" in log
+    assert rt.fsm_state() == "startup_purge"
+    rt.tick(
+        RuntimeInbox(tracks=_batch(timestamp=1.2), capacity_downstream=1),
+        now_mono=1.2,
+    )
+    assert rt.dossier_count() == 0
+    assert rt.available_slots() == 1
+    assert rt.fsm_state() == "running"
 
     # New admission goes through on a fresh track id.
     assert up.try_claim() is True

@@ -19,6 +19,7 @@ from rt.bootstrap import (
     _build_perception_runner_for_role,
     _configured_resolution_for_role,
     _detector_slug_for_role,
+    _load_arc_tracker_params,
     _load_zone_for_role,
 )
 from rt.contracts.feed import PolygonZone, RectZone
@@ -98,6 +99,16 @@ def _fake_saved_polygons_full() -> dict[str, Any]:
     }
 
 
+def _fake_saved_polygons_with_per_channel_res() -> dict[str, Any]:
+    payload = _fake_saved_polygons_full()
+    payload["arc_params"] = {
+        "second": {"resolution": [1280, 720]},
+        "third": {"resolution": [2592, 1944]},
+        "classification_channel": {"resolution": [3840, 2160]},
+    }
+    return payload
+
+
 def test_load_zone_from_saved_polygon_without_live_frame():
     """A saved polygon with resolution metadata yields a PolygonZone
     even when the camera service never produced a frame."""
@@ -124,6 +135,47 @@ def test_load_zone_from_saved_polygon_without_live_frame():
     # Scale check — first vertex of classification_channel at saved res (200,300)
     # becomes (100,150) at target.
     assert zone.vertices[0] == (100, 150)
+
+
+def test_load_zone_uses_per_channel_resolution_for_c2_polygon() -> None:
+    camera_service = _FakeCameraService(
+        devices={
+            "c_channel_2": _FakeDevice(width=1280, height=720),
+        }
+    )
+    with patch(
+        "blob_manager.getChannelPolygons",
+        return_value=_fake_saved_polygons_with_per_channel_res(),
+    ):
+        zone, reason = _load_zone_for_role("c2", camera_service, LOG)
+    assert reason == ""
+    assert isinstance(zone, PolygonZone)
+    xs = [p[0] for p in zone.vertices]
+    ys = [p[1] for p in zone.vertices]
+    assert min(xs) == 100
+    assert max(xs) == 300
+    assert min(ys) == 100
+    assert max(ys) == 200
+
+
+def test_load_arc_tracker_params_uses_per_channel_resolution() -> None:
+    with patch(
+        "blob_manager.getChannelPolygons",
+        return_value={
+            **_fake_saved_polygons_with_per_channel_res(),
+            "arc_params": {
+                "second": {
+                    "center": [640, 360],
+                    "inner_radius": 120,
+                    "outer_radius": 300,
+                    "resolution": [1280, 720],
+                },
+            },
+        },
+    ):
+        params = _load_arc_tracker_params("c2", target_w=1280, target_h=720)
+    assert params["polar_center"] == (640.0, 360.0)
+    assert params["polar_radius_range"] == (120.0, 300.0)
 
 
 def test_load_zone_c4_boots_without_live_frame_on_c4_camera():
@@ -248,7 +300,16 @@ def test_build_perception_runner_for_role_happy_path():
     camera_service = _FakeCameraService(
         devices={"carousel": _FakeDevice(width=1920, height=1080)}
     )
-    with patch("blob_manager.getChannelPolygons", return_value=_fake_saved_polygons_full()):
+    saved = _fake_saved_polygons_full()
+    saved["arc_params"] = {
+        "classification_channel": {
+            "center": [960, 540],
+            "inner_radius": 180,
+            "outer_radius": 500,
+            "resolution": [1920, 1080],
+        }
+    }
+    with patch("blob_manager.getChannelPolygons", return_value=saved):
         with patch("blob_manager.getFeederDetectionConfig", return_value={}):
             with patch(
                 "blob_manager.getClassificationChannelDetectionConfig",
@@ -268,3 +329,5 @@ def test_build_perception_runner_for_role_happy_path():
     assert pipeline.feed.feed_id == "c4_feed"
     # And the detector is the scope default (hive:c-channel-yolo11n-320).
     assert pipeline.detector.key == "hive:c-channel-yolo11n-320"
+    tracker = pipeline.tracker
+    assert getattr(tracker, "_polar_center", None) is not None

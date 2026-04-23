@@ -11,6 +11,7 @@ from .admission_always import AlwaysAdmit
 from .admission_c4 import C4Admission
 from .ejection_c4 import C4EjectionTiming
 from .ejection_constant import ConstantPulseEjection
+from .purge_c4 import C4StartupPurgeStrategy
 
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "C4Admission",
     "C4EjectionTiming",
     "ConstantPulseEjection",
+    "C4StartupPurgeStrategy",
 ]

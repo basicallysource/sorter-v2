@@ -42,6 +42,7 @@ def _track(
     angle_rad: float | None = 0.0,
     confirmed: bool = True,
     last_seen_ts: float = 0.0,
+    hit_count: int = 5,
 ) -> Track:
     return Track(
         track_id=track_id,
@@ -52,7 +53,7 @@ def _track(
         confirmed_real=confirmed,
         angle_rad=angle_rad,
         radius_px=50.0,
-        hit_count=5,
+        hit_count=hit_count,
         first_seen_ts=0.0,
         last_seen_ts=last_seen_ts,
     )
@@ -201,7 +202,14 @@ def test_c3_pending_piece_does_not_release_or_fill_capacity() -> None:
     assert up.try_claim() is True
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(global_id=7, angle_rad=math.pi, confirmed=False)),
+            tracks=_batch(
+                _track(
+                    global_id=7,
+                    angle_rad=math.pi,
+                    confirmed=False,
+                    hit_count=1,
+                )
+            ),
             capacity_downstream=1,
         ),
         now_mono=0.0,
@@ -210,7 +218,31 @@ def test_c3_pending_piece_does_not_release_or_fill_capacity() -> None:
     assert up.available() == 0
     assert rt.available_slots() == 1
     assert snap["piece_count"] == 0
+    assert snap["admission_piece_count"] == 0
     assert snap["visible_track_count"] == 1
+    assert snap["pending_track_count"] == 1
+
+
+def test_c3_stable_pending_tracks_reserve_ring_capacity() -> None:
+    rt, _up, _down, _log = _make(max_piece_count=1)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(
+                    global_id=7,
+                    angle_rad=math.pi,
+                    confirmed=False,
+                    hit_count=3,
+                )
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    snap = rt.debug_snapshot()
+    assert rt.available_slots() == 0
+    assert snap["piece_count"] == 0
+    assert snap["admission_piece_count"] == 1
     assert snap["pending_track_count"] == 1
 
 

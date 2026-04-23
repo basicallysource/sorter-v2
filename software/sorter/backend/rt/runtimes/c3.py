@@ -53,6 +53,7 @@ DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_HOLDOVER_MS = 2000  # Mirror legacy CH3_PRECISE_HOLDOVER_MS.
 DEFAULT_TRACK_STALE_S = 0.5
+ADMISSION_PENDING_MIN_HITS = 3
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
 _ROTATION_WINDOW_PAD_S = 0.15
@@ -118,6 +119,7 @@ class RuntimeC3(BaseRuntime):
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._piece_count: int = 0
+        self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
         self._purge_mode: bool = False
@@ -131,12 +133,12 @@ class RuntimeC3(BaseRuntime):
     def available_slots(self) -> int:
         if self._purge_mode:
             return 0
-        if self._piece_count >= self._max_piece_count:
+        if self._admission_piece_count >= self._max_piece_count:
             return 0
         decision = self._admission.can_admit(
             inbound_piece_hint={},
             runtime_state={
-                "piece_count": self._piece_count,
+                "piece_count": self._admission_piece_count,
                 "max_piece_count": self._max_piece_count,
             },
         )
@@ -146,6 +148,7 @@ class RuntimeC3(BaseRuntime):
         snap = super().debug_snapshot()
         snap.update({
             "piece_count": int(self._piece_count),
+            "admission_piece_count": int(self._admission_piece_count),
             "visible_track_count": int(self._visible_track_count),
             "pending_track_count": int(self._pending_track_count),
             "max_piece_count": int(self._max_piece_count),
@@ -164,9 +167,16 @@ class RuntimeC3(BaseRuntime):
             tracks = self._fresh_tracks(inbox.tracks)
             visible_tracks = [t for t in tracks if not bool(getattr(t, "ghost", False))]
             confirmed_tracks = [t for t in visible_tracks if bool(getattr(t, "confirmed_real", False))]
+            admission_pending_tracks = [
+                t
+                for t in visible_tracks
+                if not bool(getattr(t, "confirmed_real", False))
+                and int(getattr(t, "hit_count", 0) or 0) >= ADMISSION_PENDING_MIN_HITS
+            ]
             self._visible_track_count = len(visible_tracks)
             self._pending_track_count = max(0, self._visible_track_count - len(confirmed_tracks))
             self._piece_count = len(confirmed_tracks)
+            self._admission_piece_count = len(confirmed_tracks) + len(admission_pending_tracks)
             if not self._purge_mode:
                 self._credit_new_arrivals(confirmed_tracks)
             exit_track = self._pick_exit_track(visible_tracks)
@@ -400,6 +410,7 @@ class RuntimeC3(BaseRuntime):
     def _reset_bookkeeping(self) -> None:
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._piece_count = 0
+        self._admission_piece_count = 0
         self._visible_track_count = 0
         self._pending_track_count = 0
         self._next_pulse_at = 0.0

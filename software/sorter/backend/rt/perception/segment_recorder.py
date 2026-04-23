@@ -42,9 +42,10 @@ _SEGMENT_ROLE = "carousel"
 _SEGMENT_SEQUENCE = 0
 _WRITER_QUEUE_MAX = 500
 _HEARTBEAT_INTERVAL_S = 2.0
-# Padding around the bbox angular extent so the wedge clipPath doesn't shave
-# the piece at the edges. Symmetric: n° on each side.
+# Padding around the bbox extent so the wedge clipPath doesn't shave the piece
+# at the edges. Angular: n° on each side. Radial: n pixels on each side.
 _WEDGE_ANGLE_PADDING_DEG = 1.5
+_WEDGE_RADIUS_PADDING_PX = 12.0
 
 
 def _sector_index(angle_deg: float) -> int:
@@ -52,30 +53,38 @@ def _sector_index(angle_deg: float) -> int:
     return int(normalized // (360.0 / SECTOR_COUNT)) % SECTOR_COUNT
 
 
-def _bbox_angular_extent(
+def _bbox_polar_extent(
     cx: float,
     cy: float,
     bbox: Tuple[int, int, int, int],
     anchor_deg: float,
-) -> Tuple[float, float]:
-    """Return (start_deg, end_deg) covering the bbox around the channel center.
+) -> Tuple[float, float, float, float]:
+    """Return (start_deg, end_deg, r_inner, r_outer) enclosing the bbox.
 
-    Computes the polar angle (SVG convention: degrees ccw from +x, y-down)
-    for each of the 4 bbox corners and returns the min/max after unwrapping
-    them around ``anchor_deg`` so a piece straddling the 0°/360° seam still
-    produces a narrow arc instead of 350°.
+    Computes the polar coordinates of all 4 bbox corners relative to the
+    channel center. Angular extent is min/max of the corner angles (unwrapped
+    around ``anchor_deg`` so pieces across the 0°/360° seam stay narrow).
+    Radial extent is min/max corner radius — needed so long pieces that poke
+    past the channel annulus aren't clipped by the default r_inner/r_outer.
+    Both extents are padded so the clipPath doesn't shave the piece.
     """
     x1, y1, x2, y2 = bbox
     corners = ((x1, y1), (x2, y1), (x1, y2), (x2, y2))
     deltas: list[float] = []
+    radii: list[float] = []
     for px, py in corners:
-        a = math.degrees(math.atan2(float(py) - cy, float(px) - cx))
+        dx = float(px) - cx
+        dy = float(py) - cy
+        a = math.degrees(math.atan2(dy, dx))
         # Unwrap relative to anchor so the arc stays short across the seam.
         d = ((a - anchor_deg + 180.0) % 360.0) - 180.0
         deltas.append(d)
-    lo = min(deltas) - _WEDGE_ANGLE_PADDING_DEG
-    hi = max(deltas) + _WEDGE_ANGLE_PADDING_DEG
-    return anchor_deg + lo, anchor_deg + hi
+        radii.append(math.hypot(dx, dy))
+    start_deg = anchor_deg + min(deltas) - _WEDGE_ANGLE_PADDING_DEG
+    end_deg = anchor_deg + max(deltas) + _WEDGE_ANGLE_PADDING_DEG
+    r_inner = max(0.0, min(radii) - _WEDGE_RADIUS_PADDING_PX)
+    r_outer = max(radii) + _WEDGE_RADIUS_PADDING_PX
+    return start_deg, end_deg, r_inner, r_outer
 
 
 @dataclass
@@ -83,6 +92,8 @@ class _SectorSnapshot:
     sector_index: int
     start_angle_deg: float
     end_angle_deg: float
+    r_inner: float
+    r_outer: float
     captured_ts: float
     bbox_x: int
     bbox_y: int
@@ -245,7 +256,7 @@ class SegmentRecorder:
                     rec.channel_center_x is not None
                     and rec.channel_center_y is not None
                 ):
-                    start_deg, end_deg = _bbox_angular_extent(
+                    start_deg, end_deg, r_in, r_out = _bbox_polar_extent(
                         rec.channel_center_x,
                         rec.channel_center_y,
                         (x0, y0, x1, y1),
@@ -255,10 +266,14 @@ class SegmentRecorder:
                     width = 360.0 / SECTOR_COUNT
                     start_deg = sector * width
                     end_deg = start_deg + width
+                    r_in = rec.channel_radius_inner or 0.0
+                    r_out = rec.channel_radius_outer or 0.0
                 rec.sectors[sector] = _SectorSnapshot(
                     sector_index=sector,
                     start_angle_deg=start_deg,
                     end_angle_deg=end_deg,
+                    r_inner=r_in,
+                    r_outer=r_out,
                     captured_ts=ts,
                     bbox_x=x0,
                     bbox_y=y0,
@@ -404,6 +419,8 @@ class SegmentRecorder:
                 "sector_index": s.sector_index,
                 "start_angle_deg": s.start_angle_deg,
                 "end_angle_deg": s.end_angle_deg,
+                "r_inner": s.r_inner,
+                "r_outer": s.r_outer,
                 "captured_ts": s.captured_ts,
                 "bbox_x": s.bbox_x,
                 "bbox_y": s.bbox_y,

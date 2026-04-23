@@ -1662,13 +1662,13 @@ def get_piece_segment_counts(
 def get_piece_preview_paths(
     piece_uuids: list[str] | tuple[str, ...],
 ) -> dict[str, str]:
-    """Return ``{piece_uuid: snapshot_path}`` for each piece's first segment.
+    """Return ``{piece_uuid: preview_jpeg_path}`` for each piece's latest wedge.
 
-    Used by the tracked-pieces list endpoint to surface a preview image for
-    pieces that have been tracked but not yet classified (so ``piece.thumbnail``
-    is still empty). Only the lowest-sequence segment is considered — that is
-    the one the rt SegmentRecorder creates first for the carousel role.
-    Pieces without any segment, or whose segment has no snapshot, are absent.
+    Preferred preview is the most recent wedge crop (highest captured_ts in
+    ``sector_snapshots_json``) — that's the best snapshot of the piece from
+    its time on the carousel. Falls back to the first segment's snapshot_path
+    (the full-frame grab taken at intake) when the piece has no wedges yet.
+    Pieces without any segment are absent.
     """
     uuids = [u for u in piece_uuids if isinstance(u, str) and u.strip()]
     if not uuids:
@@ -1681,16 +1681,42 @@ def get_piece_preview_paths(
             chunk = uuids[start : start + chunk_size]
             placeholders = ",".join("?" * len(chunk))
             rows = conn.execute(
-                "SELECT piece_uuid, snapshot_path FROM piece_segments "
+                "SELECT piece_uuid, snapshot_path, sector_snapshots_json FROM piece_segments "
                 f"WHERE piece_uuid IN ({placeholders}) "
-                "AND sequence = (SELECT MIN(sequence) FROM piece_segments s2 WHERE s2.piece_uuid = piece_segments.piece_uuid) "
-                "AND snapshot_path IS NOT NULL",
+                "AND sequence = (SELECT MIN(sequence) FROM piece_segments s2 WHERE s2.piece_uuid = piece_segments.piece_uuid)",
                 tuple(chunk),
             ).fetchall()
             for row in rows:
-                path = row["snapshot_path"]
-                if isinstance(path, str) and path.strip():
-                    out[str(row["piece_uuid"])] = path
+                uuid = str(row["piece_uuid"])
+                latest_wedge: str | None = None
+                try:
+                    sectors = json.loads(str(row["sector_snapshots_json"] or "[]"))
+                except (TypeError, ValueError):
+                    sectors = []
+                if isinstance(sectors, list) and sectors:
+                    # Pick the entry with the highest captured_ts that has a jpeg_path.
+                    best: dict[str, Any] | None = None
+                    for entry in sectors:
+                        if not isinstance(entry, dict):
+                            continue
+                        path = entry.get("jpeg_path")
+                        if not isinstance(path, str) or not path.strip():
+                            continue
+                        ts = entry.get("captured_ts")
+                        if best is None or (
+                            isinstance(ts, (int, float))
+                            and isinstance(best.get("captured_ts"), (int, float))
+                            and ts > best["captured_ts"]
+                        ):
+                            best = entry
+                    if best is not None and isinstance(best.get("jpeg_path"), str):
+                        latest_wedge = best["jpeg_path"]
+                if latest_wedge:
+                    out[uuid] = latest_wedge
+                    continue
+                snap = row["snapshot_path"]
+                if isinstance(snap, str) and snap.strip():
+                    out[uuid] = snap
     return out
 
 

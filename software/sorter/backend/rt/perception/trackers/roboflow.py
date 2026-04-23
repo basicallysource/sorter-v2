@@ -317,7 +317,7 @@ class _RoboflowTrackerAdapter:
                 if self._evaluate_confirmed_real_samples(window):
                     state.confirmed_real = True
                     state.ghost = False
-                else:
+                elif not state.confirmed_real:
                     state.confirmed_real = False
                     state.ghost = len(window) >= _GHOST_WINDOW_MIN_SAMPLES
 

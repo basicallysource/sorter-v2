@@ -393,16 +393,15 @@ class PolarTracker:
                 if len(track.rotation_samples) > _ROTATION_SAMPLES_MAX:
                     del track.rotation_samples[: -_ROTATION_SAMPLES_MAX]
                 # Evaluate confirmed/ghost on a rolling window of the most
-                # recent rotation samples. A track that moved earlier but
-                # stops while the ring keeps turning must be able to flip
-                # back to ghost, and a track declared ghost can flip back
-                # to confirmed if it finally moves — both directions are
-                # honest reads of the latest evidence.
+                # recent rotation samples. Confirmation is sticky for a live
+                # track: real pieces may legitimately wait on C4 or in a
+                # blocked handoff, but a ghost can still flip back to real if
+                # it finally moves with the table.
                 window = track.rotation_samples[-_VERDICT_WINDOW_SAMPLES:]
                 if self._evaluate_confirmed_real_samples(window):
                     track.confirmed_real = True
                     track.ghost = False
-                else:
+                elif not track.confirmed_real:
                     track.confirmed_real = False
                     track.ghost = len(window) >= _GHOST_WINDOW_MIN_SAMPLES
 

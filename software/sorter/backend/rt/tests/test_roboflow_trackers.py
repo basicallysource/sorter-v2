@@ -111,6 +111,40 @@ def test_roboflow_tracker_marks_stationary_track_as_ghost_during_rotation(
 
 
 @pytest.mark.parametrize(("key", "tracker_cls"), TRACKER_CASES)
+def test_roboflow_confirmed_track_does_not_flip_back_to_ghost_while_waiting(
+    key: str,
+    tracker_cls: type,
+) -> None:
+    trk = tracker_cls(
+        polar_center=None,
+        minimum_iou_threshold=0.05,
+        minimum_consecutive_frames=1,
+    )
+    trk.register_rotation_window(0.0, 100.0)
+
+    last = None
+    for i in range(22):
+        x = 40 + i * 4
+        ts = 1.0 + i * 0.1
+        last = trk.update(_batch((x, 80, x + 40, 120), i, ts), _frame(i, ts))
+
+    assert key in TRACKERS.keys()
+    assert last is not None
+    assert last.tracks
+    assert last.tracks[0].confirmed_real is True
+    stable_bbox = last.tracks[0].bbox_xyxy
+
+    for i in range(22, 52):
+        ts = 1.0 + i * 0.1
+        last = trk.update(_batch(stable_bbox, i, ts), _frame(i, ts))
+
+    assert last is not None
+    assert last.tracks
+    assert last.tracks[0].confirmed_real is True
+    assert last.tracks[0].ghost is False
+
+
+@pytest.mark.parametrize(("key", "tracker_cls"), TRACKER_CASES)
 def test_roboflow_tracker_keeps_pending_without_rotation_window(
     key: str,
     tracker_cls: type,

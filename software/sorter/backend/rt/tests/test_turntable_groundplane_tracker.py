@@ -122,6 +122,30 @@ def test_groundplane_stationary_track_during_rotation_becomes_ghost() -> None:
     assert last.tracks[0].ghost is True
 
 
+def test_groundplane_confirmed_track_does_not_flip_back_to_ghost_while_waiting() -> None:
+    tracker = TurntableGroundplaneTracker(polar_center=None, max_step_px=120.0)
+    tracker.register_rotation_window(0.0, 100.0)
+
+    last = None
+    for i in range(14):
+        x = 50 + i * 10
+        ts = 1.0 + i * 0.1
+        last = tracker.update(_batch(((x, 50, x + 20, 70),), seq=i, ts=ts), _frame(i, ts))
+
+    assert last is not None
+    assert last.tracks[0].confirmed_real is True
+    stable_bbox = last.tracks[0].bbox_xyxy
+
+    for i in range(14, 40):
+        ts = 1.0 + i * 0.1
+        last = tracker.update(_batch((stable_bbox,), seq=i, ts=ts), _frame(i, ts))
+
+    assert last is not None
+    assert len(last.tracks) == 1
+    assert last.tracks[0].confirmed_real is True
+    assert last.tracks[0].ghost is False
+
+
 def test_groundplane_rotation_window_outside_samples_keeps_pending() -> None:
     tracker = TurntableGroundplaneTracker(polar_center=None)
     tracker.register_rotation_window(0.0, 0.5)

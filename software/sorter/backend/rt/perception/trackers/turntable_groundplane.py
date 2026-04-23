@@ -447,7 +447,7 @@ class TurntableGroundplaneTracker:
             if self._evaluate_confirmed_real_samples(window):
                 track.confirmed_real = True
                 track.ghost = False
-            else:
+            elif not track.confirmed_real:
                 track.confirmed_real = False
                 track.ghost = len(window) >= _GHOST_WINDOW_MIN_SAMPLES
 

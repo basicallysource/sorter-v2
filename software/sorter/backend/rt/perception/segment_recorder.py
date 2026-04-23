@@ -382,9 +382,11 @@ class SegmentRecorder:
             if rec.snapshot_written
             else None
         )
+        duration_s = max(0.0, float(rec.last_seen_ts) - float(rec.first_seen_ts))
         payload: dict[str, Any] = {
             "first_seen_ts": rec.first_seen_ts,
             "last_seen_ts": rec.last_seen_ts,
+            "duration_s": duration_s,
             "hit_count": rec.hit_count,
             "path": rec.path,
             "sector_snapshots": sector_payloads,

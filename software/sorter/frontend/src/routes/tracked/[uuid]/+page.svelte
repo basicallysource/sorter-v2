@@ -65,11 +65,11 @@
 		if (found !== null) _stickyPiece = found;
 	});
 
-	// Kick off the persistent-lookup fetch when the piece isn't in the live
-	// buffer. We avoid refetching by gating on `_fetchStatus === 'idle'` —
-	// the UUID-change effect resets it back to 'idle'.
+	// Fetch the DB-backed detail once per route UUID. We run this even when
+	// the live WS ring already has the piece, because `track_detail`
+	// (segments + sector snapshots) is only on the fetched payload — the
+	// sticky piece only carries the KnownObjectData surface.
 	$effect(() => {
-		if (_stickyPiece !== null) return;
 		if (_fetchStatus !== 'idle') return;
 		const targetUuid = uuid;
 		_fetchStatus = 'loading';
@@ -94,7 +94,16 @@
 			});
 	});
 
-	let piece = $derived<TrackedPieceDetailData | null>(_stickyPiece ?? _fetchedPiece);
+	// Live WS updates win for the piece fields that tick every frame (stage,
+	// classification_status, ...), but `track_detail` only lives on the
+	// DB-backed fetch response — merge it in so the composite doesn't see
+	// `null` while the piece is still in the live ring.
+	let piece = $derived<TrackedPieceDetailData | null>(
+		_stickyPiece
+			? { ..._stickyPiece, track_detail: _stickyPiece.track_detail ?? _fetchedPiece?.track_detail ?? null }
+			: _fetchedPiece
+	);
+
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 

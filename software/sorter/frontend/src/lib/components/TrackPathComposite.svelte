@@ -193,7 +193,7 @@
 						{/if}
 					</span>
 					<span class="text-text-muted">
-						{segment.hit_count} frames · {segment.duration_s.toFixed(2)}s
+						{segment.hit_count} frames · {(segment.duration_s ?? 0).toFixed(2)}s
 						{#if segment.sector_snapshots && segment.sector_snapshots.length > 0}
 							· {segment.sector_snapshots.length}/{segment.sector_count ?? 0} sectors
 						{/if}

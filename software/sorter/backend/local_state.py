@@ -1361,6 +1361,7 @@ def _piece_segment_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None
         "sequence": int(row["sequence"]),
         "first_seen_ts": float(row["first_seen_ts"]),
         "last_seen_ts": float(row["last_seen_ts"]),
+        "duration_s": max(0.0, float(row["last_seen_ts"]) - float(row["first_seen_ts"])),
         "hit_count": int(row["hit_count"]),
         "channel_center_x": (
             float(row["channel_center_x"])

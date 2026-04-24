@@ -146,6 +146,7 @@ class BaseRuntime(Runtime):
         feed_id: str | None,
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
+        state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
         self.runtime_id = runtime_id
         self.feed_id = feed_id
@@ -155,6 +156,10 @@ class BaseRuntime(Runtime):
         self._blocked_reason: str | None = None
         self._last_tick_ms: float = 0.0
         self._last_tick_start: float | None = None
+        # Optional observer invoked on every FSM transition: callback receives
+        # (runtime_id, from_state, to_state). Used to bridge rt FSM transitions
+        # into RuntimeStatsCollector so the runtime widget can show them.
+        self._state_observer = state_observer
 
     # -- Lifecycle ---------------------------------------------------
 
@@ -174,8 +179,18 @@ class BaseRuntime(Runtime):
         )
 
     def _set_state(self, state: str, *, blocked_reason: str | None = None) -> None:
+        prev = self._state
         self._state = state
         self._blocked_reason = blocked_reason
+        observer = self._state_observer
+        if observer is not None and prev != state:
+            try:
+                observer(self.runtime_id, prev, state)
+            except Exception:
+                self._logger.exception(
+                    "BaseRuntime[%s]: state_observer raised on %s -> %s",
+                    self.runtime_id, prev, state,
+                )
 
     def debug_snapshot(self) -> dict[str, Any]:
         """Compact runtime-local state for API/operator diagnostics."""

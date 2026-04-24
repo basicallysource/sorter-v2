@@ -822,12 +822,33 @@ def build_rt_runtime(
 
     track_transit = TrackTransitRegistry()
 
+    # Bridge rt FSM transitions into RuntimeStatsCollector so the runtime
+    # widget can show state_machines. RuntimeStatsCollector tolerates the
+    # collector being absent (e.g. in tests) — guard with a callable so
+    # we only pay the lookup when a transition actually fires.
+    def _state_observer(runtime_id: str, from_state: str, to_state: str) -> None:
+        runtime_stats = getattr(gc, "runtime_stats", None)
+        if runtime_stats is None:
+            return
+        try:
+            runtime_stats.observeStateTransition(
+                machine=runtime_id,
+                from_state=from_state,
+                to_state=to_state,
+            )
+        except Exception:
+            log.exception(
+                "rt.bootstrap: observeStateTransition raised for %s %s->%s",
+                runtime_id, from_state, to_state,
+            )
+
     c1 = RuntimeC1(
         downstream_slot=slots[("c1", "c2")],
         pulse_command=c1_pulse,
         recovery_command=c1_recovery,
         sample_transport_command=c1_direct_move,
         logger=log,
+        state_observer=_state_observer,
     )
     c2 = RuntimeC2(
         upstream_slot=slots[("c1", "c2")],
@@ -839,6 +860,7 @@ def build_rt_runtime(
         ejection_timing=ConstantPulseEjection(),
         logger=log,
         event_bus=bus,
+        state_observer=_state_observer,
     )
     c3 = RuntimeC3(
         upstream_slot=slots[("c2", "c3")],
@@ -851,6 +873,7 @@ def build_rt_runtime(
         logger=log,
         event_bus=bus,
         track_transit=track_transit,
+        state_observer=_state_observer,
     )
     c4_admission = C4Admission(
         max_zones=max(1, max_zones),
@@ -972,6 +995,7 @@ def build_rt_runtime(
         logger=log,
         event_bus=bus,
         track_transit=track_transit,
+        state_observer=_state_observer,
         classify_angle_deg=classify_angle,
         exit_angle_deg=drop_angle,
         angle_tolerance_deg=drop_tolerance,
@@ -1036,6 +1060,7 @@ def build_rt_runtime(
         logger=log,
         event_bus=bus,
         run_recorder=run_recorder,
+        state_observer=_state_observer,
     )
     distributor_ref["ref"] = distributor
 

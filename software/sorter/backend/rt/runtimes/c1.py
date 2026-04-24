@@ -68,8 +68,12 @@ class RuntimeC1(BaseRuntime):
         jam_cooldown_s: float = DEFAULT_JAM_COOLDOWN_S,
         max_recovery_cycles: int = DEFAULT_MAX_RECOVERY_CYCLES,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
+        state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
-        super().__init__("c1", feed_id=None, logger=logger, hw_worker=hw_worker)
+        super().__init__(
+            "c1", feed_id=None, logger=logger, hw_worker=hw_worker,
+            state_observer=state_observer,
+        )
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
         self._recovery_command = recovery_command

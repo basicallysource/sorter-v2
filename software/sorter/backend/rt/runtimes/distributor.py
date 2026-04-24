@@ -89,8 +89,12 @@ class RuntimeDistributor(BaseRuntime):
         chute_settle_s: float = DEFAULT_CHUTE_SETTLE_S,
         fall_time_s: float = DEFAULT_FALL_TIME_S,
         run_recorder: Any | None = None,
+        state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
-        super().__init__(runtime_id, feed_id=None, logger=logger, hw_worker=hw_worker)
+        super().__init__(
+            runtime_id, feed_id=None, logger=logger, hw_worker=hw_worker,
+            state_observer=state_observer,
+        )
         self._upstream_slot = upstream_slot
         self._rules_engine = rules_engine
         self._ejection = ejection_timing

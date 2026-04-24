@@ -110,8 +110,12 @@ class RuntimeC3(BaseRuntime):
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         feed_id: str = "c3_feed",
+        state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
-        super().__init__("c3", feed_id=feed_id, logger=logger, hw_worker=hw_worker)
+        super().__init__(
+            "c3", feed_id=feed_id, logger=logger, hw_worker=hw_worker,
+            state_observer=state_observer,
+        )
         self._upstream_slot = upstream_slot
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command

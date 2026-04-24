@@ -158,8 +158,15 @@ class RuntimeC4(BaseRuntime):
         unjam_cooldown_ms: int = DEFAULT_UNJAM_COOLDOWN_MS,
         unjam_reverse_deg: float = DEFAULT_UNJAM_REVERSE_DEG,
         unjam_forward_deg: float = DEFAULT_UNJAM_FORWARD_DEG,
+        state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
-        super().__init__(runtime_id, feed_id=feed_id, logger=logger, hw_worker=hw_worker)
+        super().__init__(
+            runtime_id,
+            feed_id=feed_id,
+            logger=logger,
+            hw_worker=hw_worker,
+            state_observer=state_observer,
+        )
         self._upstream_slot = upstream_slot
         self._downstream_slot = downstream_slot
         self._zone_manager = zone_manager

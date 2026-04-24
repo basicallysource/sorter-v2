@@ -18,8 +18,21 @@ from rt.perception.teacher_samples import (
     TeacherAnnotation,
     TeacherDetection,
     TeacherSampleCollectionConfig,
+    _gemini_prompt,
 )
 from utils.polygon_crop import apply_polygon_crop
+
+
+def test_gemini_prompt_emphasizes_individual_parts_and_transparent_pieces() -> None:
+    prompt = _gemini_prompt(640, 480, "classification_channel")
+
+    assert "Prefer splitting over grouping" in prompt
+    assert "Strive for exhaustive recall" in prompt
+    assert "do not omit any real loose part" in prompt
+    assert "one tight box per part" in prompt
+    assert "Do not draw one large box around a pile" in prompt
+    assert "transparent, translucent, clear, smoky, or tinted LEGO pieces" in prompt
+    assert "avoid labeling pure glare" in prompt
 
 
 @dataclass
@@ -244,7 +257,7 @@ def _collector(
     worker_count: int = 1,
     gemini_worker_count: int = 1,
     angle_sample_degrees: float = 15.0,
-    min_capture_interval_s: float = 3.0,
+    min_capture_interval_s: float = 2.0,
     logger: Any | None = None,
 ) -> AuxiliaryTeacherSampleCollector:
     config = TeacherSampleCollectionConfig(
@@ -324,6 +337,44 @@ def test_collect_once_archives_cropped_positive_c_channel_sample() -> None:
     ]
 
 
+def test_collect_once_uses_median_gemini_confidence_as_sample_score() -> None:
+    manager = _TrainingManager()
+    runner = _Runner("c2_feed", _state())
+    teacher = _Teacher(
+        detections=(
+            TeacherDetection(
+                bbox_xyxy=(20, 20, 50, 50),
+                confidence=0.99,
+                kind="lego",
+                description="red plate",
+            ),
+            TeacherDetection(
+                bbox_xyxy=(55, 20, 80, 50),
+                confidence=0.75,
+                kind="lego",
+                description="blue brick",
+            ),
+            TeacherDetection(
+                bbox_xyxy=(20, 55, 50, 80),
+                confidence=0.51,
+                kind="lego",
+                description="clear tile",
+            ),
+        )
+    )
+    collector = _collector([runner], manager, teacher=teacher)
+
+    assert collector.collect_once() == 1
+
+    saved = manager.saved[0]
+    assert saved["detection_bbox"] == [20, 20, 50, 50]
+    assert saved["detection_score"] == 0.75
+    assert (
+        saved["extra_metadata"]["teacher_capture_score_kind"]
+        == "median_detection_confidence"
+    )
+
+
 def test_collect_once_archives_detector_masked_polygon_input() -> None:
     manager = _TrainingManager()
     zone = PolygonZone(vertices=((20, 20), (100, 20), (80, 100), (20, 100)))
@@ -383,18 +434,26 @@ def test_collect_once_uses_gemini_teacher_even_when_rt_track_is_unconfirmed() ->
     assert manager.saved[0]["detection_bbox"] == [20, 20, 50, 50]
 
 
-def test_collect_once_skips_when_gemini_teacher_finds_no_items() -> None:
+def test_collect_once_archives_negative_sample_when_gemini_finds_no_items() -> None:
     manager = _TrainingManager()
     teacher = _Teacher(detections=())
     runner = _Runner("c2_feed", _state())
     collector = _collector([runner], manager, teacher=teacher)
 
-    assert collector.collect_once() == 0
+    assert collector.collect_once() == 1
 
-    assert manager.saved == []
+    assert len(manager.saved) == 1
+    saved = manager.saved[0]
+    assert saved["detection_algorithm"] == "gemini_sam"
+    assert saved["detection_found"] is False
+    assert saved["detection_bbox"] is None
+    assert saved["detection_candidate_bboxes"] == []
+    assert saved["detection_bbox_count"] == 0
+    assert saved["extra_metadata"]["teacher_capture_negative"] is True
+    assert saved["extra_metadata"]["teacher_capture_gemini_detections"] == []
     snapshot = collector.status_snapshot()
     assert snapshot["teacher_call_count"] == 1
-    assert snapshot["skipped_teacher_no_detections"] == 1
+    assert snapshot["skipped_teacher_no_detections"] == 0
 
 
 def test_collect_once_skips_black_startup_frame_before_gemini() -> None:
@@ -599,7 +658,7 @@ def test_async_capture_queue_throttles_per_role() -> None:
         [runner],
         manager,
         enabled_by_role={"c_channel_2": True},
-        min_capture_interval_s=3.0,
+        min_capture_interval_s=2.0,
     )
 
     assert (

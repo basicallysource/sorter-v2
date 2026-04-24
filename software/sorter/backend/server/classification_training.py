@@ -25,6 +25,9 @@ TRAINING_ROOT = BLOB_DIR / "classification_training"
 DEFAULT_PROCESSOR = "local_archive"
 LEGACY_PROCESSORS = {"gemini_sam"}
 SUPPORTED_PROCESSORS = {DEFAULT_PROCESSOR, *LEGACY_PROCESSORS}
+HIVE_AUTO_BACKFILL_INTERVAL_S = 15.0
+HIVE_AUTO_BACKFILL_BATCH_SIZE = 75
+HIVE_AUTO_BACKFILL_QUEUE_HIGH_WATERMARK = 150
 
 
 def _slugify(value: str) -> str:
@@ -66,6 +69,12 @@ class ClassificationTrainingManager:
         self._created_at: float | None = None
         self._hive = HiveUploader()
         self._loadPersistedConfig()
+        self._hive_auto_backfill_thread = threading.Thread(
+            target=self._hiveAutoBackfillLoop,
+            daemon=True,
+            name="hive-auto-backfill",
+        )
+        self._hive_auto_backfill_thread.start()
 
     def _loadPersistedConfig(self) -> None:
         saved = get_classification_training_state()
@@ -416,6 +425,7 @@ class ClassificationTrainingManager:
             session_name=session_name,
             sample_id=sample_id,
             metadata=metadata,
+            metadata_path=str(metadata_path),
         )
 
         return {
@@ -514,6 +524,37 @@ class ClassificationTrainingManager:
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         return self._hive.purge(target_ids=target_ids)
+
+    def _hiveAutoBackfillLoop(self) -> None:
+        """Keep local ready samples draining to Hive after restarts or relinks."""
+
+        while True:
+            time.sleep(HIVE_AUTO_BACKFILL_INTERVAL_S)
+            try:
+                status = self._hive.status()
+                targets = status.get("targets") if isinstance(status, dict) else []
+                enabled_targets = [
+                    target
+                    for target in targets
+                    if isinstance(target, dict) and target.get("enabled")
+                ]
+                if not enabled_targets:
+                    continue
+                queued = sum(
+                    int(target.get("queue_size", 0) or 0)
+                    for target in enabled_targets
+                    if isinstance(target.get("queue_size", 0), (int, float))
+                )
+                if queued >= HIVE_AUTO_BACKFILL_QUEUE_HIGH_WATERMARK:
+                    continue
+                self._hive.backfill(
+                    TRAINING_ROOT,
+                    max_samples=HIVE_AUTO_BACKFILL_BATCH_SIZE,
+                )
+            except Exception:
+                # The uploader remains opportunistic; fresh captures still enqueue
+                # directly even if one archive scan fails.
+                pass
 
     def getHiveQueueDetails(
         self,
@@ -776,6 +817,11 @@ class ClassificationTrainingManager:
             "teacher_state": teacher_state["state"],
             "teacher_label": teacher_state["label"],
             "teacher_reason": teacher_state["reason"],
+            "hive_uploads": (
+                metadata.get("hive_uploads")
+                if isinstance(metadata.get("hive_uploads"), dict)
+                else None
+            ),
         }
 
     @staticmethod
@@ -947,6 +993,7 @@ class ClassificationTrainingManager:
             image_path=str(dataset_image_path),
             full_frame_path=full_frame_path,
             overlay_path=None,
+            metadata_path=str(metadata_path),
         )
 
         return {

@@ -50,9 +50,26 @@ class _FakeFeed:
 class _FakeDetector:
     """Returns a fixed detection at the centre of every crop."""
 
-    def __init__(self, key: str = "hive:c-channel-yolo11n-320", found: bool = True) -> None:
+    def __init__(
+        self,
+        key: str = "hive:c-channel-yolo11n-320",
+        found: bool = True,
+        bbox: tuple[int, int, int, int] = (10, 20, 110, 140),
+    ) -> None:
         self.key = key
         self._found = found
+        self._bbox = bbox
+
+    def _apply_zone(self, raw: np.ndarray, zone: Any):
+        if isinstance(zone, RectZone):
+            x1 = max(0, int(zone.x))
+            y1 = max(0, int(zone.y))
+            x2 = min(int(raw.shape[1]), int(zone.x + zone.w))
+            y2 = min(int(raw.shape[0]), int(zone.y + zone.h))
+            if x2 <= x1 or y2 <= y1:
+                return None, (0, 0)
+            return np.ascontiguousarray(raw[y1:y2, x1:x2]), (x1, y1)
+        return raw, (0, 0)
 
     def detect(self, frame: FeedFrame, zone: Any) -> DetectionBatch:
         if not self._found:
@@ -69,7 +86,7 @@ class _FakeDetector:
             frame_seq=frame.frame_seq,
             timestamp=frame.timestamp,
             detections=(
-                Detection(bbox_xyxy=(10, 20, 110, 140), score=0.91, class_id=None, mask=None, meta={}),
+                Detection(bbox_xyxy=self._bbox, score=0.91, class_id=None, mask=None, meta={}),
             ),
             algorithm=self.key,
             latency_ms=1.0,
@@ -152,6 +169,44 @@ def test_feeder_detect_returns_rt_payload_shape(_fake_rt: _FakeRtHandle) -> None
     # cannot write to the local filesystem during tests, but the key must
     # exist so the frontend can reason about it.
     assert "saved_to_library" in payload
+
+
+def test_feeder_detect_payload_uses_zone_crop_coordinates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = np.zeros((480, 640, 3), dtype=np.uint8)
+    zone = RectZone(x=100, y=50, w=300, h=200)
+    runner = _FakeRunner(
+        _FakePipeline(
+            _FakeFeed("c2_feed", raw),
+            zone,
+            _FakeDetector(bbox=(120, 80, 220, 180)),
+        )
+    )
+    monkeypatch.setattr(
+        shared_state,
+        "rt_handle",
+        _FakeRtHandle([runner]),
+        raising=False,
+    )
+
+    payload = detection_router.debug_feeder_detection("c_channel_2")
+
+    assert payload["ok"] is True
+    assert payload["bbox"] == [20, 30, 120, 130]
+    assert payload["candidate_bboxes"] == [[20, 30, 120, 130]]
+    assert payload["frame_resolution"] == [300, 200]
+    assert payload["full_frame_resolution"] == [640, 480]
+    assert payload["zone_bbox"] == [0, 0, 300, 200]
+    assert payload["normalized_bbox"] == pytest.approx(
+        [20 / 300, 30 / 200, 120 / 300, 130 / 200]
+    )
+    assert payload["normalized_full_frame_bbox"] == pytest.approx(
+        [120 / 640, 80 / 480, 220 / 640, 180 / 480]
+    )
+    assert payload["normalized_full_frame_candidate_bboxes"][0] == pytest.approx(
+        [120 / 640, 80 / 480, 220 / 640, 180 / 480]
+    )
 
 
 def test_feeder_detect_no_runner_returns_message(monkeypatch: pytest.MonkeyPatch) -> None:

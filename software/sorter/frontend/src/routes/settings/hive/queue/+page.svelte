@@ -36,6 +36,7 @@
 		teacher_state: string;
 		teacher_label: string;
 		teacher_reason: string;
+		hive_uploads?: Record<string, { status?: string; uploaded_at?: number } | null> | null;
 		message?: string | null;
 		finished_at?: number | null;
 	};
@@ -97,7 +98,10 @@
 		list_rank: number;
 		sort_ts: number;
 		image_url: string | null;
+		problem: boolean;
 	};
+
+	type FilterId = 'all' | 'problem' | 'queue' | 'done';
 
 	let payload = $state<QueuePayload | null>(null);
 	let loading = $state(true);
@@ -105,6 +109,7 @@
 	let errorMsg = $state<string | null>(null);
 	let actionMsg = $state<string | null>(null);
 	let actionBusy = $state<string | null>(null);
+	let filter = $state<FilterId>('all');
 
 	const targetId = $derived(page.url.searchParams.get('target_id'));
 	const targets = $derived(payload?.targets ?? []);
@@ -124,7 +129,16 @@
 		}
 	);
 	const blockedTotal = $derived(totals.needs_gemini + totals.no_teacher_detection + totals.bad_teacher_sample);
-	const listItems = $derived.by(() => buildListItems(payload));
+	const failedTotal = $derived(totals.recent_failed + totals.recent_retrying);
+	const allItems = $derived.by(() => buildListItems(payload));
+	const filteredItems = $derived.by(() => {
+		if (filter === 'problem') return allItems.filter((item) => item.problem);
+		if (filter === 'queue') {
+			return allItems.filter((item) => item.list_status === 'queued' || item.list_status === 'uploading');
+		}
+		if (filter === 'done') return allItems.filter((item) => item.list_status === 'uploaded');
+		return allItems;
+	});
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
@@ -281,11 +295,22 @@
 		}
 		for (const job of data.teacher.recent_ready) {
 			if (!uploadSampleKeys.has(sampleKey(job))) {
-				items.push(decorateJob(job, 'teacher_ready'));
+				items.push(decorateJob(job, localReadyStatus(job)));
 			}
 		}
 
 		return items.sort((a, b) => a.list_rank - b.list_rank || b.sort_ts - a.sort_ts).slice(0, 160);
+	}
+
+	function localReadyStatus(job: QueueJob): string {
+		const uploads = job.hive_uploads;
+		if (!uploads || typeof uploads !== 'object') return 'teacher_ready';
+		if (targetId) {
+			return uploads[targetId]?.status === 'uploaded' ? 'uploaded' : 'teacher_ready';
+		}
+		return Object.values(uploads).some((entry) => entry?.status === 'uploaded')
+			? 'uploaded'
+			: 'teacher_ready';
 	}
 
 	function decorateJob(job: QueueJob, status: string): QueueListItem {
@@ -298,7 +323,8 @@
 			list_detail: statusDetail(job, status),
 			list_rank: statusRank(status),
 			sort_ts: sortTs,
-			image_url: sampleImageUrl(job)
+			image_url: sampleImageUrl(job),
+			problem: isProblem(status)
 		};
 	}
 
@@ -313,30 +339,24 @@
 
 	function statusLabel(status: string): string {
 		if (status === 'uploading') return 'Uploading';
-		if (status === 'queued') return 'Waiting Queue';
+		if (status === 'queued') return 'Queued';
 		if (status === 'uploaded') return 'Uploaded';
 		if (status === 'retrying') return 'Retrying';
 		if (status === 'failed') return 'Failed';
 		if (status === 'skipped') return 'Skipped';
 		if (status === 'needs_gemini') return 'Needs Gemini';
-		if (status === 'no_teacher_detection') return 'No Gemini Box';
+		if (status === 'no_teacher_detection') return 'No Box';
 		if (status === 'bad_teacher_sample') return 'Bad Crop';
 		if (status === 'teacher_ready') return 'Ready';
 		return status;
 	}
 
 	function statusDetail(job: QueueJob, status: string): string {
-		if (job.message) return job.message;
-		if (status === 'needs_gemini') return 'Waiting for Gemini-SAM labels before upload.';
+		if (!isProblem(status)) return '';
+		if (status === 'failed' || status === 'retrying') return job.message || job.teacher_reason || '';
 		if (status === 'no_teacher_detection') return job.teacher_reason;
 		if (status === 'bad_teacher_sample') return job.teacher_reason;
-		if (status === 'teacher_ready') return 'Gemini labels are present; sample can be uploaded.';
-		if (status === 'queued') return 'Queued for Hive upload.';
-		if (status === 'uploading') return 'Upload is currently in flight.';
-		if (status === 'uploaded') return 'Hive accepted this sample.';
-		if (status === 'retrying') return 'Upload failed transiently and will be retried.';
-		if (status === 'failed') return 'Upload failed after retry handling.';
-		return job.teacher_reason || 'Sample pipeline state.';
+		return '';
 	}
 
 	function statusRank(status: string): number {
@@ -350,6 +370,16 @@
 		return 7;
 	}
 
+	function isProblem(status: string): boolean {
+		return (
+			status === 'needs_gemini' ||
+			status === 'no_teacher_detection' ||
+			status === 'bad_teacher_sample' ||
+			status === 'failed' ||
+			status === 'retrying'
+		);
+	}
+
 	function statusTone(status: string): string {
 		if (status === 'uploaded' || status === 'teacher_ready') return 'border-success/30 bg-success/10 text-success';
 		if (status === 'failed' || status === 'skipped' || status === 'no_teacher_detection' || status === 'bad_teacher_sample') {
@@ -360,8 +390,16 @@
 		return 'border-border bg-bg text-text-muted';
 	}
 
+	function rowAccent(status: string): string {
+		if (status === 'failed' || status === 'no_teacher_detection' || status === 'bad_teacher_sample') {
+			return 'bg-danger/[0.04]';
+		}
+		if (status === 'retrying' || status === 'needs_gemini') return 'bg-amber-500/[0.04]';
+		return '';
+	}
+
 	function roleLabel(value: string | null | undefined): string {
-		if (!value) return 'unknown role';
+		if (!value) return '–';
 		if (value === 'classification_channel') return 'C4';
 		if (value === 'c_channel_2') return 'C2';
 		if (value === 'c_channel_3') return 'C3';
@@ -369,7 +407,7 @@
 	}
 
 	function formatTime(value: number | null | undefined): string {
-		if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+		if (typeof value !== 'number' || !Number.isFinite(value)) return '–';
 		return new Intl.DateTimeFormat(undefined, {
 			month: 'short',
 			day: '2-digit',
@@ -379,10 +417,16 @@
 	}
 
 	function formatAge(value: number | null | undefined): string {
-		if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+		if (typeof value !== 'number' || !Number.isFinite(value)) return '–';
 		if (value < 60) return `${Math.round(value)}s`;
 		if (value < 3600) return `${Math.round(value / 60)}m`;
-		return `${Math.round(value / 3600)}h`;
+		if (value < 86400) return `${Math.round(value / 3600)}h`;
+		return `${Math.round(value / 86400)}d`;
+	}
+
+	function shortSampleId(id: string | null): string {
+		if (!id) return '–';
+		return id.length > 22 ? `…${id.slice(-22)}` : id;
 	}
 
 	onMount(() => {
@@ -392,186 +436,195 @@
 	});
 </script>
 
-<div class="flex flex-col gap-5">
-	<div class="flex flex-wrap items-start justify-between gap-3">
-		<div>
-			<a
-				href="/settings/hive"
-				class="inline-flex min-h-10 items-center gap-2 text-sm text-text-muted transition-colors hover:text-text"
+<div class="flex flex-col gap-3">
+	<header class="flex flex-wrap items-center gap-3">
+		<a
+			href="/settings/hive"
+			class="inline-flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-text"
+		>
+			<ArrowLeft size={14} />
+			Hive
+		</a>
+		<span class="text-text-muted">/</span>
+		<h1 class="text-base font-semibold tracking-tight text-text">
+			Queue
+			{#if selectedTarget}
+				<span class="text-text-muted">· {selectedTarget.name}</span>
+			{/if}
+		</h1>
+		<div class="ml-auto flex flex-wrap items-center gap-1.5">
+			<button
+				type="button"
+				onclick={() => void loadQueue({ silent: true })}
+				class="inline-flex items-center gap-1.5 border border-border bg-bg px-2 py-1 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+				disabled={refreshing || actionBusy !== null}
+				title="Refresh"
 			>
-				<ArrowLeft size={16} />
-				Back to Hive
-			</a>
-			<h1 class="mt-2 text-2xl font-semibold tracking-tight text-text">Hive Queue</h1>
-			<p class="mt-1 max-w-3xl text-sm leading-relaxed text-text-muted">
-				{#if selectedTarget}
-					One compact worklist for {selectedTarget.name}: every local sample, Gemini state, upload
-					state, and final outcome in one flow.
-				{:else}
-					One compact worklist across all Hive targets: every local sample, Gemini state, upload
-					state, and final outcome in one flow.
-				{/if}
-			</p>
-		</div>
-
-		<div class="flex flex-wrap justify-end gap-2">
+				<RefreshCw size={12} class={refreshing ? 'animate-spin' : ''} />
+				Refresh
+			</button>
 			<button
 				type="button"
 				onclick={() => void purgeQueue()}
-				class="inline-flex min-h-10 items-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
+				class="inline-flex items-center gap-1.5 border border-border bg-bg px-2 py-1 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
 				disabled={actionBusy !== null || totals.queued <= 0}
+				title="Drop waiting upload jobs"
 			>
-				<Trash2 size={14} />
-				{actionBusy === 'queue' ? 'Purging...' : 'Purge queue'}
+				<Trash2 size={12} />
+				{actionBusy === 'queue' ? 'Purging…' : `Purge queue (${totals.queued})`}
 			</button>
 			<button
 				type="button"
 				onclick={() => void purgeBlockedSamples()}
-				class="inline-flex min-h-10 items-center gap-2 border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-500/15 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
+				class="inline-flex items-center gap-1.5 border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-60"
 				disabled={actionBusy !== null || blockedTotal <= 0}
+				title="Delete samples that still need Gemini, have no Gemini box, or failed crop"
 			>
-				<Trash2 size={14} />
-				{actionBusy === 'blocked-samples' ? 'Purging...' : 'Purge blocked'}
+				<Trash2 size={12} />
+				{actionBusy === 'blocked-samples' ? 'Purging…' : `Purge blocked (${blockedTotal})`}
 			</button>
 			<button
 				type="button"
 				onclick={() => void purgeAllSamples()}
-				class="inline-flex min-h-10 items-center gap-2 border border-danger/40 bg-danger/10 px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/15 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
+				class="inline-flex items-center gap-1.5 border border-danger/40 bg-danger/10 px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-60"
 				disabled={actionBusy !== null || !payload}
+				title="Wipe queue and all local samples"
 			>
-				<Trash2 size={14} />
-				{actionBusy === 'all-samples' ? 'Purging...' : 'Purge all samples'}
-			</button>
-			<button
-				type="button"
-				onclick={() => void loadQueue({ silent: true })}
-				class="inline-flex min-h-10 items-center gap-2 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
-				disabled={refreshing || actionBusy !== null}
-			>
-				<RefreshCw size={14} class={refreshing ? 'animate-spin' : ''} />
-				{refreshing ? 'Refreshing...' : 'Refresh'}
+				<Trash2 size={12} />
+				{actionBusy === 'all-samples' ? 'Purging…' : 'Purge all'}
 			</button>
 		</div>
-	</div>
+	</header>
 
 	{#if errorMsg}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">
-			{errorMsg}
-		</div>
+		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{errorMsg}</div>
 	{/if}
 	{#if actionMsg}
-		<div class="border border-success bg-success/10 px-3 py-2 text-sm text-success">
-			{actionMsg}
-		</div>
+		<div class="border border-success bg-success/10 px-3 py-2 text-sm text-success">{actionMsg}</div>
 	{/if}
 
 	{#if loading}
-		<div class="border border-border bg-surface px-4 py-4 text-sm text-text-muted">
-			Loading Hive queue...
-		</div>
+		<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">Loading…</div>
 	{:else if payload}
+		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+			{@render statTile('Queued', totals.queued, Clock3, 'border-border')}
+			{@render statTile('Uploading', totals.uploading, UploadCloud, 'border-primary/30 text-primary')}
+			{@render statTile('Done', totals.recent_uploaded, CheckCircle2, 'border-success/30 text-success')}
+			{@render statTile('Retry / failed', failedTotal, AlertTriangle, 'border-danger/30 text-danger')}
+			{@render statTile('Needs work', blockedTotal, Sparkles, 'border-amber-500/40 text-amber-700')}
+			{@render statTile('Ready local', totals.teacher_ready, CheckCircle2, 'border-border')}
+		</div>
+
+		<div class="flex flex-wrap items-center gap-1 border border-border bg-surface px-2 py-1.5">
+			{@render filterChip('all', `All (${allItems.length})`)}
+			{@render filterChip('problem', `Needs attention (${allItems.filter((i) => i.problem).length})`)}
+			{@render filterChip('queue', `In flight (${totals.queued + totals.uploading})`)}
+			{@render filterChip('done', `Uploaded (${totals.recent_uploaded})`)}
+			<span class="ml-auto font-mono text-[11px] text-text-muted tabular-nums">
+				{filteredItems.length}/{allItems.length} shown
+			</span>
+		</div>
+
 		<section class="border border-border bg-surface">
-			<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-				<div>
-					<div class="text-sm font-semibold text-text">Sample worklist</div>
-					<p class="mt-1 text-xs leading-relaxed text-text-muted">
-						Images are the local training crops. Rows that need Gemini, have bad crops, or failed upload
-						stay at the top.
-					</p>
-				</div>
-				<div class="flex flex-wrap items-center justify-end gap-2">
-					<span class="inline-flex items-center gap-1 border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700">
-						<Sparkles size={13} />
-						<span class="font-mono tabular-nums">{blockedTotal}</span>
-						need work
-					</span>
-					<span class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-1 text-xs text-text-muted">
-						<Clock3 size={13} />
-						<span class="font-mono tabular-nums">{totals.queued}</span>
-						waiting
-					</span>
-					<span class="inline-flex items-center gap-1 border border-primary/30 bg-primary/10 px-2 py-1 text-xs text-primary">
-						<UploadCloud size={13} />
-						<span class="font-mono tabular-nums">{totals.uploading}</span>
-						uploading
-					</span>
-					<span class="inline-flex items-center gap-1 border border-success/30 bg-success/10 px-2 py-1 text-xs text-success">
-						<CheckCircle2 size={13} />
-						<span class="font-mono tabular-nums">{totals.recent_uploaded}</span>
-						done
-					</span>
-					<span class="inline-flex items-center gap-1 border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
-						<AlertTriangle size={13} />
-						<span class="font-mono tabular-nums">{totals.recent_retrying + totals.recent_failed}</span>
-						retry/failed
-					</span>
-					<span class="font-mono text-xs text-text-muted tabular-nums">{listItems.length} visible</span>
-				</div>
+			<div class="grid grid-cols-[44px_minmax(0,1fr)_92px_44px_56px_56px_88px] items-center gap-2 border-b border-border bg-bg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+				<span></span>
+				<span>Sample</span>
+				<span>Status</span>
+				<span class="text-center">Src</span>
+				<span class="text-right">Boxes</span>
+				<span class="text-right">Age</span>
+				<span class="text-right">Time</span>
 			</div>
 
-			{#if listItems.length === 0}
-				<div class="px-4 py-8 text-sm text-text-muted">
-					No queue or local teacher sample entries right now.
+			{#if filteredItems.length === 0}
+				<div class="px-3 py-6 text-center text-sm text-text-muted">
+					{#if allItems.length === 0}
+						Queue is empty.
+					{:else}
+						Nothing matches this filter.
+					{/if}
 				</div>
 			{:else}
-				<div class="divide-y divide-border">
-					{#each listItems as item (item.list_id)}
-						<article class="grid grid-cols-[112px,minmax(0,1fr)] gap-3 px-4 py-3 transition-colors hover:bg-bg lg:grid-cols-[144px,minmax(0,1fr),auto]">
-							<div class="relative h-24 overflow-hidden border border-border bg-bg outline outline-1 outline-black/10 dark:outline-white/10 lg:h-28">
+				<ul class="divide-y divide-border">
+					{#each filteredItems as item (item.list_id)}
+						<li class={`grid grid-cols-[44px_minmax(0,1fr)_92px_44px_56px_56px_88px] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-bg ${rowAccent(item.list_status)}`}>
+							<div class="h-10 w-10 overflow-hidden border border-border bg-bg">
 								{#if item.image_url}
 									<img
 										src={item.image_url}
-										alt={`Sample ${item.sample_id ?? ''}`}
-										class="h-full w-full object-contain"
+										alt=""
+										class="h-full w-full object-cover"
 										loading="lazy"
 									/>
 								{:else}
 									<div class="flex h-full items-center justify-center text-text-muted">
-										<ImageOff size={22} />
+										<ImageOff size={14} />
 									</div>
 								{/if}
 							</div>
 
 							<div class="min-w-0">
-								<div class="flex flex-wrap items-center gap-2">
-									<span class={`border px-2 py-0.5 text-xs font-semibold ${statusTone(item.list_status)}`}>
-										{item.list_label}
-									</span>
-									<span class="text-xs font-medium text-text-muted">{roleLabel(item.source_role)}</span>
-									{#if item.target_name}
-										<span class="text-xs text-text-muted">to {item.target_name}</span>
+								<div class="flex items-center gap-2 text-sm text-text">
+									<span class="truncate font-mono text-xs">{shortSampleId(item.sample_id)}</span>
+									{#if !targetId && item.target_name}
+										<span class="shrink-0 truncate text-[11px] text-text-muted">→ {item.target_name}</span>
 									{/if}
 								</div>
-								<div class="mt-2 truncate font-mono text-sm text-text">
-									{item.sample_id ?? 'unknown sample'}
-								</div>
-								<div class="mt-1 text-sm leading-relaxed text-text-muted">
-									{item.list_detail}
-								</div>
-								<div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-									<span>{item.capture_reason ?? 'capture'}</span>
+								<div class="flex items-center gap-2 text-[11px] text-text-muted">
 									<span>{item.detection_algorithm ?? 'no detector'}</span>
-									{#if item.detection_bbox_count !== null}
-										<span class="tabular-nums">{item.detection_bbox_count} box{item.detection_bbox_count === 1 ? '' : 'es'}</span>
+									{#if item.capture_reason}
+										<span>·</span>
+										<span>{item.capture_reason}</span>
 									{/if}
-									{#if item.age_s !== undefined && item.age_s !== null}
-										<span>queued {formatAge(item.age_s)} ago</span>
+									{#if item.list_detail}
+										<span>·</span>
+										<span class="truncate text-danger/80">{item.list_detail}</span>
 									{/if}
 								</div>
 							</div>
 
-							<div class="col-span-2 flex min-w-32 items-center justify-between gap-3 border-t border-border/70 pt-2 lg:col-span-1 lg:flex-col lg:items-end lg:justify-between lg:border-t-0 lg:pt-0">
-								<div class="text-xs text-text-muted">
-									{formatTime(item.finished_at ?? item.queued_at ?? item.captured_at)}
-								</div>
-								<div class="text-right font-mono text-xs text-text-muted">
-									{item.session_name ?? item.session_id ?? 'local'}
-								</div>
-							</div>
-						</article>
+							<span class={`inline-flex justify-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusTone(item.list_status)}`}>
+								{item.list_label}
+							</span>
+
+							<span class="text-center font-mono text-[11px] text-text-muted">{roleLabel(item.source_role)}</span>
+
+							<span class="text-right font-mono text-[11px] tabular-nums text-text-muted">
+								{item.detection_bbox_count ?? '–'}
+							</span>
+
+							<span class="text-right font-mono text-[11px] tabular-nums text-text-muted">
+								{formatAge(item.age_s)}
+							</span>
+
+							<span class="text-right font-mono text-[11px] tabular-nums text-text-muted">
+								{formatTime(item.finished_at ?? item.queued_at ?? item.captured_at)}
+							</span>
+						</li>
 					{/each}
-				</div>
+				</ul>
 			{/if}
 		</section>
 	{/if}
 </div>
+
+{#snippet statTile(label: string, value: number, Icon: any, accent: string)}
+	<div class={`flex items-center justify-between border bg-surface px-2.5 py-1.5 ${accent}`}>
+		<div class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+			<Icon size={12} />
+			{label}
+		</div>
+		<span class="font-mono text-base font-semibold tabular-nums">{value}</span>
+	</div>
+{/snippet}
+
+{#snippet filterChip(id: FilterId, label: string)}
+	{@const active = filter === id}
+	<button
+		type="button"
+		onclick={() => (filter = id)}
+		class={`border px-2 py-0.5 text-[11px] transition-colors ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted hover:text-text'}`}
+	>
+		{label}
+	</button>
+{/snippet}

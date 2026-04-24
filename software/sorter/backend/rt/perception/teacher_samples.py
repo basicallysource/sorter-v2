@@ -26,7 +26,7 @@ DEFAULT_SAMPLE_COLLECTION_INTERVAL_S = 30.0
 DEFAULT_SAMPLE_COLLECTION_WORKER_COUNT = 2
 DEFAULT_SAMPLE_COLLECTION_GEMINI_WORKER_COUNT = 5
 DEFAULT_SAMPLE_COLLECTION_ANGLE_STEP_DEG = 15.0
-DEFAULT_SAMPLE_COLLECTION_MIN_CAPTURE_INTERVAL_S = 3.0
+DEFAULT_SAMPLE_COLLECTION_MIN_CAPTURE_INTERVAL_S = 2.0
 DEFAULT_SAMPLE_COLLECTION_QUEUE_SIZE = 120
 DEFAULT_SAMPLE_COLLECTION_MAX_PENDING_PER_ROLE = 20
 _MIN_INTERVAL_S = 1.0
@@ -415,6 +415,20 @@ def _crop_has_enough_signal(frame: np.ndarray) -> tuple[bool, dict[str, float]]:
     )
 
 
+def _median_confidence(detections: list[TeacherDetection]) -> float | None:
+    values = sorted(
+        float(det.confidence)
+        for det in detections
+        if isinstance(getattr(det, "confidence", None), (int, float))
+    )
+    if not values:
+        return None
+    mid = len(values) // 2
+    if len(values) % 2 == 1:
+        return values[mid]
+    return (values[mid - 1] + values[mid]) / 2.0
+
+
 def _parse_normalized_bbox(value: Any) -> tuple[float, float, float, float] | None:
     if isinstance(value, (list, tuple)):
         if len(value) < 4:
@@ -451,9 +465,10 @@ def _parse_normalized_bbox(value: Any) -> tuple[float, float, float, float] | No
 def _gemini_system_prompt() -> str:
     return (
         "You are a precise object detector for a LEGO sorting machine. "
-        "Detect loose LEGO pieces and loose foreign objects that are actually "
-        "inside the sampled detector input. Fixed machine geometry is never "
-        "an object. Return valid JSON only: no markdown, no prose, no code fences."
+        "Detect every individually visible loose LEGO piece and loose foreign "
+        "object that is actually inside the sampled detector input. Fixed "
+        "machine geometry is never an object. Return valid JSON only: no "
+        "markdown, no prose, no code fences."
     )
 
 
@@ -492,9 +507,28 @@ def _gemini_prompt(width: int, height: int, zone: str) -> str:
         "never as an object. A small visible apron/context band may exist around "
         "the active region; fixed hardware in that band is still not an object.\n\n"
         "Detection rules:\n"
-        "- Detect every distinct loose physical item exactly once: LEGO parts "
-        "and loose foreign objects such as coins, pebbles, plastic fragments, "
-        "tape, hair, wrappers, or tools.\n"
+        "- Detect every distinct loose physical item exactly once: each "
+        "individually visible LEGO/compatible part and each loose foreign "
+        "object such as coins, pebbles, plastic fragments, tape, hair, "
+        "wrappers, or tools.\n"
+        "- Strive for exhaustive recall: do not omit any real loose part that "
+        "is visible enough to localize, including small, partly occluded, "
+        "edge-cropped, low-contrast, dark, shiny, or transparent pieces. Scan "
+        "the entire active crop before returning.\n"
+        "- Prefer splitting over grouping: if multiple loose parts touch, "
+        "overlap, stack, or partially cover each other but their visible "
+        "bodies, edges, color/material changes, studs, holes, or silhouettes "
+        "allow separation, return one tight box per part. Do not draw one "
+        "large box around a pile of separable parts.\n"
+        "- Only return one box for multiple components when they are visibly "
+        "connected into a single assembled piece or accessory, for example a "
+        "wheel fixed on an axle or a small built subassembly that moves as one "
+        "physical item.\n"
+        "- Be especially alert for transparent, translucent, clear, smoky, or "
+        "tinted LEGO pieces. Detect them when their outline, refraction, "
+        "highlight, color tint, studs, holes, or shadow make a real loose part "
+        "visible; still avoid labeling pure glare, reflections, or machine "
+        "geometry as a part.\n"
         "- Do not detect fixed machine geometry, even if it is dark, high "
         "contrast, or shaped like a part. In particular, ignore outlet slots, "
         "exit chutes, turntable holes, fixed black shadows/openings, rails, and "
@@ -1413,14 +1447,76 @@ class AuxiliaryTeacherSampleCollector:
             model=model,
         )
         detections = list(getattr(annotation, "detections", ()) or ())
+        teacher_model = str(getattr(annotation, "model", "") or model or "")
+        raw_payload = getattr(annotation, "raw_payload", None)
         if not detections:
+            raw_detections = (
+                raw_payload.get("detections")
+                if isinstance(raw_payload, dict)
+                else None
+            )
+            if isinstance(raw_detections, list) and len(raw_detections) > 0:
+                with self._lock:
+                    self._skipped_teacher_no_detections += 1
+                    self._bump_role(
+                        self._skipped_teacher_no_detections_by_role,
+                        source_role,
+                    )
+                return False
+            extra_metadata = {
+                "teacher_capture": True,
+                "teacher_capture_negative": True,
+                "teacher_capture_trigger": sample.trigger_reason,
+                "teacher_capture_source": "gemini_sam_teacher",
+                "teacher_capture_feed_id": feed_id,
+                "teacher_capture_frame_seq": int(sample.frame_seq),
+                "teacher_capture_crop_mode": sample.crop_mode,
+                "teacher_capture_crop_signal": sample.signal_stats,
+                "teacher_capture_label_source": _GEMINI_SAM_ALGORITHM,
+                "teacher_capture_gemini_model": teacher_model or None,
+                "teacher_capture_crop_bbox_full_frame": list(bounds),
+                "teacher_capture_primary_bbox_full_frame": None,
+                "teacher_capture_candidate_bboxes_full_frame": [],
+                "teacher_capture_gemini_detections": [],
+                "teacher_capture_gemini_raw_payload": (
+                    raw_payload if isinstance(raw_payload, dict) else None
+                ),
+            }
+            if sample.trigger_metadata:
+                extra_metadata["teacher_capture_trigger_metadata"] = {
+                    key: value
+                    for key, value in sample.trigger_metadata.items()
+                    if key != "not_before_wall_ts"
+                }
+            manager = self._training_manager_provider()
+            manager.saveAuxiliaryDetectionCapture(
+                source="live_aux_teacher_capture",
+                source_role=source_role,
+                detection_scope=_SOURCE_ROLE_TO_SCOPE[source_role],
+                capture_reason=sample.trigger_reason,
+                detection_algorithm=_GEMINI_SAM_ALGORITHM,
+                detection_openrouter_model=teacher_model or None,
+                detection_found=False,
+                detection_bbox=None,
+                detection_candidate_bboxes=[],
+                detection_bbox_count=0,
+                detection_score=None,
+                detection_message=(
+                    f"Gemini-SAM teacher confirmed no loose items in {feed_id}."
+                ),
+                input_image=crop,
+                source_frame=raw,
+                extra_metadata=extra_metadata,
+            )
             with self._lock:
-                self._skipped_teacher_no_detections += 1
-                self._bump_role(
-                    self._skipped_teacher_no_detections_by_role,
-                    source_role,
-                )
-            return False
+                self._captured_count += 1
+                self._bump_role(self._captured_count_by_role, source_role)
+                self._last_capture_wall_ts = time.time()
+                self._last_error = None
+                self._last_captured_frame_by_role[source_role] = int(sample.frame_seq)
+                self._gemini_completed_count += 1
+                self._bump_role(self._gemini_completed_count_by_role, source_role)
+            return True
 
         detections.sort(
             key=lambda det: float(getattr(det, "confidence", 0.0)),
@@ -1455,9 +1551,7 @@ class AuxiliaryTeacherSampleCollector:
             for det in detections
             if _bbox_tuple(det.bbox_xyxy) is not None
         ]
-        score = float(best.confidence)
-        teacher_model = str(getattr(annotation, "model", "") or model or "")
-        raw_payload = getattr(annotation, "raw_payload", None)
+        score = _median_confidence(detections)
         extra_metadata = {
             "teacher_capture": True,
             "teacher_capture_trigger": sample.trigger_reason,
@@ -1474,6 +1568,7 @@ class AuxiliaryTeacherSampleCollector:
                 bounds,
             ),
             "teacher_capture_candidate_bboxes_full_frame": candidate_bboxes_full_frame,
+            "teacher_capture_score_kind": "median_detection_confidence",
             "teacher_capture_gemini_detections": detection_details,
             "teacher_capture_gemini_raw_payload": (
                 raw_payload if isinstance(raw_payload, dict) else None

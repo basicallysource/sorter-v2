@@ -372,6 +372,7 @@
 				`${data.needs_gemini ? `, ${data.needs_gemini} need Gemini` : ''}` +
 				`${data.no_teacher_detection ? `, ${data.no_teacher_detection} no Gemini box` : ''}` +
 				`${data.bad_teacher_sample ? `, ${data.bad_teacher_sample} bad crop` : ''}` +
+				`${data.dark_image_sample ? `, ${data.dark_image_sample} too dark` : ''}` +
 				`${data.errors ? `, ${data.errors} errors` : ''}).`;
 			await loadConfig();
 		} catch (e: any) {

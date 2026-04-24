@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
 import requests
 
 from local_state import get_hive_config
@@ -27,6 +29,11 @@ SERVER_DOWN_MAX_BACKOFF_S = 120.0
 RECENT_UPLOAD_EVENT_LIMIT = 120
 LOW_SIGNAL_MEAN_GRAY = 3.0
 LOW_SIGNAL_NONBLACK_RATIO = 0.01
+PRIMARY_IMAGE_MIN_MEAN_GRAY = 8.0
+PRIMARY_IMAGE_MIN_NONBLACK_RATIO = 0.02
+PRIMARY_IMAGE_MIN_P95_GRAY = 24.0
+PRIMARY_IMAGE_NONBLACK_THRESHOLD = 16
+UPLOAD_MARKER_KEY = "hive_uploads"
 STRICT_TEACHER_SAMPLE_ROLES = {
     "classification_channel",
     "c_channel_2",
@@ -52,6 +59,12 @@ def teacher_state_from_metadata(metadata: dict[str, Any]) -> dict[str, str]:
     if algorithm == "gemini_sam":
         bbox_count = _safe_int(metadata.get("detection_bbox_count"))
         if metadata.get("detection_found") is False or bbox_count == 0:
+            if metadata.get("teacher_capture_negative") is True:
+                return {
+                    "state": "teacher_ready",
+                    "label": "Gemini negative",
+                    "reason": "Gemini-SAM confirmed an empty detector crop with no loose items.",
+                }
             return {
                 "state": "no_teacher_detection",
                 "label": "No Gemini box",
@@ -162,6 +175,63 @@ def _normalize_bbox_list_payload(value: Any) -> list[list[int]] | None:
         if bbox is not None
     ]
     return normalized or None
+
+
+def _job_key(job: dict[str, Any]) -> tuple[str, str, str, str] | None:
+    operation = job.get("operation") if isinstance(job.get("operation"), str) else "upload"
+    target_id = job.get("target_id")
+    session_id = job.get("session_id")
+    sample_id = job.get("sample_id")
+    if not all(isinstance(value, str) and value for value in (target_id, session_id, sample_id)):
+        return None
+    return (operation, target_id, session_id, sample_id)
+
+
+def _uploaded_marker_for_target(metadata: dict[str, Any], target_id: str) -> dict[str, Any] | None:
+    uploads = metadata.get(UPLOAD_MARKER_KEY)
+    if not isinstance(uploads, dict):
+        return None
+    marker = uploads.get(target_id)
+    return marker if isinstance(marker, dict) else None
+
+
+def _is_uploaded_to_target(metadata: dict[str, Any], target_id: str) -> bool:
+    marker = _uploaded_marker_for_target(metadata, target_id)
+    return bool(marker and marker.get("status") == "uploaded")
+
+
+def _primary_image_quality_issue(image_path: Path) -> dict[str, Any] | None:
+    """Reject empty or almost-black primary images before they reach Hive."""
+
+    if not image_path.exists():
+        return None
+
+    gray = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    if gray is None or getattr(gray, "size", 0) <= 0:
+        return {
+            "reason": "Primary sample image could not be decoded.",
+            "stats": None,
+        }
+
+    mean_gray = float(gray.mean())
+    nonblack_ratio = float((gray > PRIMARY_IMAGE_NONBLACK_THRESHOLD).mean())
+    p95_gray = float(np.percentile(gray, 95))
+    stats = {
+        "mean_gray": mean_gray,
+        "nonblack_ratio": nonblack_ratio,
+        "p95_gray": p95_gray,
+    }
+    if (
+        mean_gray < PRIMARY_IMAGE_MIN_MEAN_GRAY
+        or nonblack_ratio < PRIMARY_IMAGE_MIN_NONBLACK_RATIO
+        or p95_gray < PRIMARY_IMAGE_MIN_P95_GRAY
+    ):
+        return {
+            "reason": "Primary sample image is too dark or empty for training.",
+            "stats": stats,
+        }
+
+    return None
 
 
 def _resolve_archived_file_path(
@@ -377,6 +447,7 @@ class HiveUploader:
         self._targets: dict[str, dict[str, Any]] = {}
         self._active_jobs: dict[str, dict[str, Any]] = {}
         self._recent_jobs: deque[dict[str, Any]] = deque(maxlen=RECENT_UPLOAD_EVENT_LIMIT)
+        self._queued_job_keys: set[tuple[str, str, str, str]] = set()
         self._reload_config()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True, name="hive-uploader")
         self._worker.start()
@@ -636,6 +707,66 @@ class HiveUploader:
         summary["finished_at"] = finished_at
         self._recent_jobs.appendleft(summary)
         self._active_jobs.pop(target_id, None)
+        if status != "retrying":
+            key = _job_key(job)
+            if key is not None:
+                getattr(self, "_queued_job_keys", set()).discard(key)
+
+    def _mark_job_uploaded(
+        self,
+        job: dict[str, Any],
+        target_id: str,
+        *,
+        response_payload: dict[str, Any] | None = None,
+    ) -> None:
+        metadata_path_value = job.get("metadata_path")
+        if not isinstance(metadata_path_value, str) or not metadata_path_value:
+            return
+
+        metadata_path = Path(metadata_path_value)
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except Exception:
+            log.debug(
+                "Hive upload marker skipped: metadata unavailable for %s/%s",
+                job.get("session_id"),
+                job.get("sample_id"),
+                exc_info=True,
+            )
+            return
+        if not isinstance(metadata, dict):
+            return
+
+        uploads = metadata.get(UPLOAD_MARKER_KEY)
+        if not isinstance(uploads, dict):
+            uploads = {}
+        target = self._targets.get(target_id, {})
+        uploads[target_id] = {
+            "status": "uploaded",
+            "operation": job.get("operation") if isinstance(job.get("operation"), str) else "upload",
+            "uploaded_at": time.time(),
+            "target_id": target_id,
+            "target_name": target.get("name") if isinstance(target.get("name"), str) else None,
+            "target_url": target.get("url") if isinstance(target.get("url"), str) else None,
+            "remote_sample_id": (
+                response_payload.get("id")
+                if isinstance(response_payload, dict) and isinstance(response_payload.get("id"), str)
+                else None
+            ),
+        }
+        metadata[UPLOAD_MARKER_KEY] = uploads
+        try:
+            metadata_path.write_text(json.dumps(metadata, indent=2))
+            job_metadata = job.get("metadata")
+            if isinstance(job_metadata, dict):
+                job_metadata[UPLOAD_MARKER_KEY] = uploads
+        except Exception:
+            log.debug(
+                "Hive upload marker write failed for %s/%s",
+                job.get("session_id"),
+                job.get("sample_id"),
+                exc_info=True,
+            )
 
     def _resolve_target_ids_locked(self, requested_target_ids: list[str] | None = None) -> list[str]:
         enabled_target_ids = [
@@ -659,26 +790,46 @@ class HiveUploader:
         image_path: str,
         full_frame_path: str | None = None,
         overlay_path: str | None = None,
+        metadata_path: str | None = None,
         target_ids: list[str] | None = None,
-    ) -> None:
+    ) -> int:
         if teacher_state_from_metadata(metadata)["state"] in BLOCKED_TEACHER_STATES:
             log.info(
                 "Hive upload skipped until teacher sample is usable: %s/%s",
                 session_id,
                 sample_id,
             )
-            return
+            return 0
+        quality_issue = _primary_image_quality_issue(Path(image_path))
+        if quality_issue is not None:
+            log.info(
+                "Hive upload skipped because primary image is unusable: %s/%s: %s",
+                session_id,
+                sample_id,
+                quality_issue["reason"],
+            )
+            return 0
 
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
-                return
+                return 0
+            queued_target_ids: list[str] = []
+            queued_keys = getattr(self, "_queued_job_keys", set())
             for target_id in resolved_target_ids:
+                if _is_uploaded_to_target(metadata, target_id):
+                    continue
+                key = ("upload", target_id, session_id, sample_id)
+                if key in queued_keys:
+                    continue
                 target = self._targets.get(target_id)
                 if target is not None:
                     target["queued"] = int(target.get("queued", 0)) + 1
+                    queued_keys.add(key)
+                    queued_target_ids.append(target_id)
+            self._queued_job_keys = queued_keys
 
-        for target_id in resolved_target_ids:
+        for target_id in queued_target_ids:
             self._queue.put(
                 {
                     "operation": "upload",
@@ -690,9 +841,11 @@ class HiveUploader:
                     "image_path": image_path,
                     "full_frame_path": full_frame_path,
                     "overlay_path": overlay_path,
+                    "metadata_path": metadata_path,
                     "queued_at": time.time(),
                 }
             )
+        return len(queued_target_ids)
 
     def enqueue_update(
         self,
@@ -704,26 +857,35 @@ class HiveUploader:
         image_path: str | None = None,
         full_frame_path: str | None = None,
         overlay_path: str | None = None,
+        metadata_path: str | None = None,
         target_ids: list[str] | None = None,
-    ) -> None:
+    ) -> int:
         if teacher_state_from_metadata(metadata)["state"] in BLOCKED_TEACHER_STATES:
             log.info(
                 "Hive update skipped until teacher sample is usable: %s/%s",
                 session_id,
                 sample_id,
             )
-            return
+            return 0
 
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
-                return
+                return 0
+            queued_target_ids: list[str] = []
+            queued_keys = getattr(self, "_queued_job_keys", set())
             for target_id in resolved_target_ids:
+                key = ("update", target_id, session_id, sample_id)
+                if key in queued_keys:
+                    continue
                 target = self._targets.get(target_id)
                 if target is not None:
                     target["queued"] = int(target.get("queued", 0)) + 1
+                    queued_keys.add(key)
+                    queued_target_ids.append(target_id)
+            self._queued_job_keys = queued_keys
 
-        for target_id in resolved_target_ids:
+        for target_id in queued_target_ids:
             self._queue.put(
                 {
                     "operation": "update",
@@ -735,15 +897,18 @@ class HiveUploader:
                     "image_path": image_path,
                     "full_frame_path": full_frame_path,
                     "overlay_path": overlay_path,
+                    "metadata_path": metadata_path,
                     "queued_at": time.time(),
                 }
             )
+        return len(queued_target_ids)
 
     def backfill(
         self,
         training_root: Path,
         session_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
+        max_samples: int | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
@@ -758,11 +923,13 @@ class HiveUploader:
         needs_gemini = 0
         no_teacher_detection = 0
         bad_teacher_sample = 0
+        dark_image_sample = 0
         samples_scanned = 0
+        scan_limit = max(0, int(max_samples)) if isinstance(max_samples, int) else None
         if session_ids:
             session_dirs = [training_root / session_id for session_id in session_ids if (training_root / session_id).is_dir()]
         else:
-            session_dirs = sorted([path for path in training_root.iterdir() if path.is_dir()], key=lambda path: path.name)
+            session_dirs = sorted([path for path in training_root.iterdir() if path.is_dir()], key=lambda path: path.name, reverse=True)
 
         for session_dir in session_dirs:
             session_id = session_dir.name
@@ -783,7 +950,9 @@ class HiveUploader:
             metadata_dir = session_dir / "metadata"
             if not metadata_dir.exists():
                 continue
-            for metadata_path in sorted(metadata_dir.glob("*.json")):
+            for metadata_path in sorted(metadata_dir.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True):
+                if scan_limit is not None and queued >= scan_limit:
+                    break
                 samples_scanned += 1
                 try:
                     metadata = json.loads(metadata_path.read_text())
@@ -806,6 +975,9 @@ class HiveUploader:
                     bad_teacher_sample += 1
                     skipped += 1
                     continue
+                if all(_is_uploaded_to_target(metadata, target_id) for target_id in resolved_target_ids):
+                    skipped += 1
+                    continue
                 sample_id = metadata.get("sample_id") if isinstance(metadata.get("sample_id"), str) else metadata_path.stem
                 image_path = _resolve_archived_file_path(
                     metadata.get("input_image"),
@@ -814,6 +986,11 @@ class HiveUploader:
                     fallback_dirs=(session_dir / "dataset" / "images", session_dir / "captures"),
                 )
                 if image_path is None:
+                    skipped += 1
+                    continue
+                quality_issue = _primary_image_quality_issue(image_path)
+                if quality_issue is not None:
+                    dark_image_sample += 1
                     skipped += 1
                     continue
                 full_frame_path: Path | None = None
@@ -838,7 +1015,7 @@ class HiveUploader:
                         fallback_dirs=(session_dir / "distilled" / "overlays",),
                     )
 
-                self.enqueue(
+                queued += self.enqueue(
                     session_id=session_id,
                     session_name=session_name,
                     sample_id=sample_id,
@@ -846,9 +1023,11 @@ class HiveUploader:
                     image_path=str(image_path),
                     full_frame_path=str(full_frame_path) if full_frame_path is not None else None,
                     overlay_path=str(overlay_path) if overlay_path is not None else None,
+                    metadata_path=str(metadata_path),
                     target_ids=resolved_target_ids,
                 )
-                queued += 1
+            if scan_limit is not None and queued >= scan_limit:
+                break
 
         return {
             "ok": True,
@@ -858,6 +1037,7 @@ class HiveUploader:
             "needs_gemini": needs_gemini,
             "no_teacher_detection": no_teacher_detection,
             "bad_teacher_sample": bad_teacher_sample,
+            "dark_image_sample": dark_image_sample,
             "samples_scanned": samples_scanned,
             "sessions_scanned": len(session_dirs),
             "target_count": len(resolved_target_ids),
@@ -901,6 +1081,9 @@ class HiveUploader:
                     purged += 1
                     if isinstance(job_target_id, str) and job_target_id:
                         purged_by_target[job_target_id] = purged_by_target.get(job_target_id, 0) + 1
+                    key = _job_key(job)
+                    if key is not None:
+                        getattr(self, "_queued_job_keys", set()).discard(key)
 
                 self._queue.queue.extend(kept_jobs)
                 self._queue.unfinished_tasks = max(0, self._queue.unfinished_tasks - purged)
@@ -990,6 +1173,22 @@ class HiveUploader:
             candidate = Path(job["image_path"])
             if candidate.exists():
                 image_path = candidate
+                quality_issue = _primary_image_quality_issue(candidate)
+                if quality_issue is not None:
+                    log.info(
+                        "Hive upload skipped: primary image is unusable %s: %s",
+                        candidate,
+                        quality_issue["reason"],
+                    )
+                    self._finish_active_job(
+                        target_id,
+                        job,
+                        "skipped",
+                        message=quality_issue["reason"],
+                    )
+                    with self._lock:
+                        self._decrement_queue_locked(target_id)
+                    return
             elif operation == "upload":
                 log.warning("Hive upload skipped: image not found %s", candidate)
                 self._finish_active_job(target_id, job, "skipped", message="Image file was missing.")
@@ -1094,12 +1293,17 @@ class HiveUploader:
                     "extra_metadata": extra_metadata or None,
                 }
                 if operation == "update":
-                    client.update_sample(**request_kwargs)
+                    response_payload = client.update_sample(**request_kwargs)
                 else:
                     if image_path is None:
                         raise FileNotFoundError("Upload job is missing the primary image path.")
-                    client.upload_sample(**request_kwargs)  # type: ignore[arg-type]
+                    response_payload = client.upload_sample(**request_kwargs)  # type: ignore[arg-type]
                 with self._lock:
+                    self._mark_job_uploaded(
+                        job,
+                        target_id,
+                        response_payload=response_payload if isinstance(response_payload, dict) else None,
+                    )
                     target = self._targets.get(target_id)
                     if target is not None:
                         target["uploaded"] = int(target.get("uploaded", 0)) + 1

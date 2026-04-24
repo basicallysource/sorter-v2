@@ -686,6 +686,53 @@ def _candidate_previews_b64(
     ]
 
 
+def _clip_bbox_to_frame(
+    bbox: list[int] | tuple[int, int, int, int],
+    *,
+    width: int,
+    height: int,
+) -> list[int] | None:
+    x1, y1, x2, y2 = (int(v) for v in bbox)
+    x1 = max(0, min(width, x1))
+    y1 = max(0, min(height, y1))
+    x2 = max(0, min(width, x2))
+    y2 = max(0, min(height, y2))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return [x1, y1, x2, y2]
+
+
+def _bbox_to_crop_coords(
+    bbox: list[int] | tuple[int, int, int, int],
+    bounds: tuple[int, int, int, int],
+) -> list[int] | None:
+    ox, oy, x2_bound, y2_bound = bounds
+    crop_w = max(0, int(x2_bound) - int(ox))
+    crop_h = max(0, int(y2_bound) - int(oy))
+    shifted = [
+        int(bbox[0]) - int(ox),
+        int(bbox[1]) - int(oy),
+        int(bbox[2]) - int(ox),
+        int(bbox[3]) - int(oy),
+    ]
+    return _clip_bbox_to_frame(shifted, width=crop_w, height=crop_h)
+
+
+def _rt_settings_detection_crop(
+    raw: Any,
+    runner: Any,
+) -> tuple[Any, tuple[int, int, int, int], str] | None:
+    """Return the same detector-input crop used by teacher sample collection."""
+    if raw is None or not hasattr(raw, "shape"):
+        return None
+    try:
+        from rt.perception.teacher_samples import _teacher_input_crop
+
+        return _teacher_input_crop(raw, runner)
+    except Exception:
+        return None
+
+
 def _detect_from_rt_pipeline(
     *,
     scope: str,
@@ -737,11 +784,32 @@ def _detect_from_rt_pipeline(
             zone_point_count=point_count,
         )
 
+    crop_result = _rt_settings_detection_crop(raw, runner)
+    if crop_result is None:
+        display_image = raw
+        crop_bounds = (0, 0, frame_w, frame_h)
+        crop_mode = "full_frame_fallback"
+    else:
+        display_image, crop_bounds, crop_mode = crop_result
+
+    crop_h, crop_w = int(display_image.shape[0]), int(display_image.shape[1])
     detections = list(batch.detections)
-    candidate_bboxes = [list(det.bbox_xyxy) for det in detections]
-    candidate_previews = _candidate_previews_b64(raw, candidate_bboxes)
+    candidate_bboxes_full = [list(det.bbox_xyxy) for det in detections]
+    candidate_bboxes = [
+        crop_bbox
+        for crop_bbox in (
+            _bbox_to_crop_coords(candidate, crop_bounds)
+            for candidate in candidate_bboxes_full
+        )
+        if crop_bbox is not None
+    ]
+    candidate_previews = _candidate_previews_b64(display_image, candidate_bboxes)
     best = max(detections, key=lambda det: float(det.score)) if detections else None
-    bbox = list(best.bbox_xyxy) if best is not None else None
+    bbox = (
+        _bbox_to_crop_coords(list(best.bbox_xyxy), crop_bounds)
+        if best is not None
+        else None
+    )
     score = float(best.score) if best is not None else None
     definition = detection_algorithm_definition(slug)
     label = definition.label if definition is not None else slug
@@ -752,20 +820,28 @@ def _detect_from_rt_pipeline(
     )
 
     sample_capture = {
-        "input_image": raw,
+        "input_image": display_image,
         "frame": raw,
+        "extra_metadata": {
+            "settings_detection_crop_mode": crop_mode,
+            "settings_detection_crop_bbox_full_frame": list(crop_bounds),
+            "settings_detection_candidate_bboxes_full_frame": candidate_bboxes_full,
+        },
     }
 
     return {
         "algorithm": slug,
-        "found": bool(detections),
+        "found": bool(candidate_bboxes),
         "bbox": bbox,
         "candidate_bboxes": candidate_bboxes,
+        "full_frame_bbox": list(best.bbox_xyxy) if best is not None else None,
+        "full_frame_candidate_bboxes": candidate_bboxes_full,
+        "full_frame_resolution": [frame_w, frame_h],
         "candidate_previews": candidate_previews,
         "bbox_count": len(candidate_bboxes),
         "score": score,
-        "zone_bbox": zone_bbox,
-        "frame_resolution": [frame_w, frame_h],
+        "zone_bbox": _bbox_to_crop_coords(zone_bbox, crop_bounds) if zone_bbox is not None else None,
+        "frame_resolution": [crop_w, crop_h],
         "zone_point_count": point_count,
         "message": message,
         "_sample_capture": sample_capture,
@@ -992,10 +1068,18 @@ def _finalize_aux_detection_debug_payload(
     openrouter_model: str | None,
 ) -> Dict[str, Any]:
     frame_resolution = payload.get("frame_resolution")
+    full_frame_resolution = payload.get("full_frame_resolution")
     bbox = payload.get("bbox")
+    full_frame_bbox = payload.get("full_frame_bbox")
     zone_bbox = payload.get("zone_bbox")
     candidate_bboxes = payload.get("candidate_bboxes")
+    full_frame_candidate_bboxes = payload.get("full_frame_candidate_bboxes")
     payload["normalized_bbox"] = _normalize_bbox(bbox, frame_resolution) if isinstance(bbox, (list, tuple)) else None
+    payload["normalized_full_frame_bbox"] = (
+        _normalize_bbox(full_frame_bbox, full_frame_resolution)
+        if isinstance(full_frame_bbox, (list, tuple))
+        else None
+    )
     payload["normalized_candidate_bboxes"] = (
         [
             normalized
@@ -1005,6 +1089,18 @@ def _finalize_aux_detection_debug_payload(
             if normalized is not None
         ]
         if isinstance(candidate_bboxes, list)
+        else []
+    )
+    payload["normalized_full_frame_candidate_bboxes"] = (
+        [
+            normalized
+            for normalized in (
+                _normalize_bbox(candidate, full_frame_resolution)
+                for candidate in full_frame_candidate_bboxes
+            )
+            if normalized is not None
+        ]
+        if isinstance(full_frame_candidate_bboxes, list)
         else []
     )
     payload["normalized_zone_bbox"] = (
@@ -1029,6 +1125,9 @@ def _finalize_aux_detection_debug_payload(
                 detection_message=payload.get("message") if isinstance(payload.get("message"), str) else None,
                 input_image=sample_capture.get("input_image"),
                 source_frame=sample_capture.get("frame"),
+                extra_metadata=sample_capture.get("extra_metadata")
+                if isinstance(sample_capture.get("extra_metadata"), dict)
+                else None,
             )
             payload["saved_to_library"] = True
         except Exception as exc:

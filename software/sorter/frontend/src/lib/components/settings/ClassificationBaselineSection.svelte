@@ -41,6 +41,8 @@
 		candidate_bboxes?: [number, number, number, number][];
 		candidate_previews?: (string | null)[];
 		normalized_candidate_bboxes?: [number, number, number, number][];
+		normalized_full_frame_bbox?: [number, number, number, number] | null;
+		normalized_full_frame_candidate_bboxes?: [number, number, number, number][];
 		zone_bbox?: [number, number, number, number] | null;
 		frame_resolution?: [number, number];
 		bbox_count?: number;
@@ -170,10 +172,14 @@
 	function applyDebugResult(payload: DetectionDebugResult | null) {
 		debugResult = payload;
 		onDetectionHighlightChange?.(
-			payload?.normalized_candidate_bboxes?.length
-				? payload.normalized_candidate_bboxes
-				: payload?.normalized_bbox
-					? [payload.normalized_bbox]
+			payload?.normalized_full_frame_candidate_bboxes?.length
+				? payload.normalized_full_frame_candidate_bboxes
+				: payload?.normalized_full_frame_bbox
+					? [payload.normalized_full_frame_bbox]
+					: payload?.normalized_candidate_bboxes?.length
+						? payload.normalized_candidate_bboxes
+						: payload?.normalized_bbox
+							? [payload.normalized_bbox]
 					: []
 		);
 	}

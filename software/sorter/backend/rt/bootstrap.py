@@ -786,6 +786,13 @@ def build_rt_runtime(
             if classification_cfg
             else 10000
         ),
+        continuous_acceleration=getattr(
+            classification_cfg,
+            "continuous_acceleration_microsteps_per_second_sq",
+            None,
+        )
+        if classification_cfg
+        else None,
         startup_purge_acceleration=(
             getattr(
                 classification_cfg,

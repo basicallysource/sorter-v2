@@ -248,6 +248,7 @@ def test_c4_continuous_move_uses_named_continuous_profile() -> None:
     motion = diagnostics.status_snapshot()["last_by_channel"]["c4"]
     assert motion["profile"] == "continuous"
     assert motion["source"] == "c4_continuous"
+    assert motion["acceleration_usteps_per_s2"] == 30000
     assert irl.carousel_stepper.speed_limits == [(16, 240)]
 
 

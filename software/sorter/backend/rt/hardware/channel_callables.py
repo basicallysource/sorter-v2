@@ -241,6 +241,7 @@ def build_c4_callables(
     transport_speed_scale: float = 1.0,
     carousel_acceleration: int | None = 9000,
     transport_acceleration: int | None = DEFAULT_ACCELERATION_USTEPS_PER_S2,
+    continuous_acceleration: int | None = None,
     startup_purge_acceleration: int | None = DEFAULT_ACCELERATION_USTEPS_PER_S2,
     motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[
@@ -301,6 +302,14 @@ def build_c4_callables(
             default_speed_for_transport,
             int(round(float(default_speed_for_transport) * float(transport_speed_scale))),
         )
+    continuous_acceleration_limit = (
+        max(
+            int(transport_acceleration or DEFAULT_ACCELERATION_USTEPS_PER_S2),
+            30000,
+        )
+        if continuous_acceleration is None
+        else continuous_acceleration
+    )
 
     def carousel_move(deg: float) -> bool:
         return _profile_move(
@@ -323,7 +332,7 @@ def build_c4_callables(
             deg,
             profile_name=PROFILE_CONTINUOUS,
             speed_limit=transport_speed_limit,
-            acceleration=transport_acceleration,
+            acceleration=continuous_acceleration_limit,
         )
 
     purge_speed_limit = None

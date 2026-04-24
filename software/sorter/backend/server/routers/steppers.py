@@ -234,6 +234,7 @@ def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
         coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
         stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
         stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+        _verify_driver_mode(stepper, mode)
         return False, True
 
     stepper.write_driver_register(TMC_REG_COOLCONF, 0)
@@ -241,6 +242,33 @@ def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
     gconf_raw |= (1 << 2)  # plain SpreadCycle
     stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
     return False, False
+
+
+def _verify_driver_mode(stepper: Any, mode: str) -> None:
+    if mode != "coolstep":
+        return
+    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
+    tcoolthrs_raw = _safe_read_register(stepper, TMC_REG_TCOOLTHRS)
+
+    failures: list[str] = []
+    if gconf_raw is None or not bool(gconf_raw & (1 << 2)):
+        failures.append("SpreadCycle bit did not stay enabled")
+    if coolconf_raw is None or (coolconf_raw & 0x0F) == 0:
+        failures.append("COOLCONF.semin stayed 0")
+    if tcoolthrs_raw is None or tcoolthrs_raw == 0:
+        failures.append("TCOOLTHRS stayed 0")
+    if failures:
+        details = "; ".join(failures)
+        raw = {
+            "gconf": gconf_raw,
+            "coolconf": coolconf_raw,
+            "tcoolthrs": tcoolthrs_raw,
+        }
+        raise HTTPException(
+            status_code=502,
+            detail=f"CoolStep did not stick on the TMC driver ({details}; raw={raw})",
+        )
 
 
 # Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
@@ -598,6 +626,7 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
 
     gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    tcoolthrs_raw = _safe_read_register(stepper, TMC_REG_TCOOLTHRS)
     chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
     coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
     drv_status_raw = _safe_read_register(stepper, TMC_REG_DRV_STATUS)
@@ -630,6 +659,13 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
         stealthchop=result.get("stealthchop"),
         coolstep=result.get("coolstep"),
     )
+    result["registers"] = {
+        "gconf": gconf_raw,
+        "tcoolthrs": tcoolthrs_raw,
+        "chopconf": chopconf_raw,
+        "coolconf": coolconf_raw,
+        "drv_status": drv_status_raw,
+    }
 
     if drv_status_raw is not None:
         drv_status = _parse_drv_status(drv_status_raw)

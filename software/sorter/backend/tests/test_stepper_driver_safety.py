@@ -11,6 +11,7 @@ from irl.parse_user_toml import (
     loadMachineConfig,
 )
 from rt.services.stepper_thermal_guard import StepperThermalGuard
+from server.routers.steppers import _apply_driver_mode
 
 
 class _Logger:
@@ -37,16 +38,20 @@ class _GC:
 class _Stepper:
     def __init__(self, raw_status: int = 0) -> None:
         self.raw_status = raw_status
+        self.registers: dict[int, int] = {0x00: 0, 0x14: 0, 0x42: 0}
         self.writes: list[tuple[int, int]] = []
         self.speeds: list[int] = []
         self.enabled = True
 
     def read_driver_register(self, address: int) -> int:
+        if address in self.registers:
+            return self.registers[address]
         if address == 0x00:
             return 0
         return self.raw_status
 
     def write_driver_register(self, address: int, value: int) -> None:
+        self.registers[address] = value
         self.writes.append((address, value))
 
     def set_microsteps(self, microsteps: int) -> None:
@@ -116,6 +121,27 @@ class StepperDriverConfigTests(unittest.TestCase):
         self.assertIn((0x42, 0), stepper.writes)
         self.assertIn((0x14, 0), stepper.writes)
         self.assertIn((0x00, 0), stepper.writes)
+
+    def test_route_driver_mode_verifies_coolstep_readback(self) -> None:
+        stepper = _Stepper()
+
+        stealthchop, coolstep = _apply_driver_mode(stepper, "coolstep")
+
+        self.assertFalse(stealthchop)
+        self.assertTrue(coolstep)
+        self.assertIn((0x00, 1 << 2), stepper.writes)
+
+    def test_route_driver_mode_raises_when_coolstep_does_not_stick(self) -> None:
+        class _NoCoolStepStepper(_Stepper):
+            def write_driver_register(self, address: int, value: int) -> None:
+                if address == 0x42:
+                    value = 0
+                super().write_driver_register(address, value)
+
+        with self.assertRaises(Exception) as cm:
+            _apply_driver_mode(_NoCoolStepStepper(), "coolstep")
+
+        self.assertIn("CoolStep did not stick", str(cm.exception))
 
 
 class StepperThermalGuardTests(unittest.TestCase):

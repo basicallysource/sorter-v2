@@ -839,7 +839,6 @@ def build_rt_runtime(
         ejection_timing=ConstantPulseEjection(),
         logger=log,
         event_bus=bus,
-        track_transit=track_transit,
     )
     c3 = RuntimeC3(
         upstream_slot=slots[("c2", "c3")],
@@ -851,6 +850,7 @@ def build_rt_runtime(
         ejection_timing=ConstantPulseEjection(),
         logger=log,
         event_bus=bus,
+        track_transit=track_transit,
     )
     c4_admission = C4Admission(
         max_zones=max(1, max_zones),

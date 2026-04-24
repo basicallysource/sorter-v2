@@ -105,6 +105,8 @@ class RuntimeC4(BaseRuntime):
         carousel_move_command: Callable[[float], bool] | None = None,
         transport_move_command: Callable[[float], bool] | None = None,
         startup_purge_move_command: Callable[[float], bool] | None = None,
+        wiggle_move_command: Callable[[float], bool] | None = None,
+        unjam_move_command: Callable[[float], bool] | None = None,
         startup_purge_mode_command: Callable[[bool], bool] | None = None,
         eject_command: Callable[[], bool] | None = None,
         crop_provider: Callable[[FeedFrame, Track], Any] | None = None,
@@ -159,6 +161,8 @@ class RuntimeC4(BaseRuntime):
         _raw_carousel_move = carousel_move_command or (lambda _deg: True)
         _raw_transport_move = transport_move_command or _raw_carousel_move
         _raw_startup_purge_move = startup_purge_move_command or _raw_carousel_move
+        _raw_wiggle_move = wiggle_move_command or _raw_carousel_move
+        _raw_unjam_move = unjam_move_command or _raw_carousel_move
         self._carousel_move = self._wrap_rotation_command(
             _raw_carousel_move, "c4_carousel"
         )
@@ -167,6 +171,12 @@ class RuntimeC4(BaseRuntime):
         )
         self._startup_purge_move = self._wrap_rotation_command(
             _raw_startup_purge_move, "c4_startup_purge"
+        )
+        self._wiggle_move = self._wrap_rotation_command(
+            _raw_wiggle_move, "c4_wiggle"
+        )
+        self._unjam_move = self._wrap_rotation_command(
+            _raw_unjam_move, "c4_unjam"
         )
         self._startup_purge_mode = startup_purge_mode_command or (lambda _enabled: True)
         self._eject = eject_command or (lambda: True)
@@ -1035,8 +1045,8 @@ class RuntimeC4(BaseRuntime):
 
         def _do_shimmy() -> None:
             try:
-                self._carousel_move(step)
-                self._carousel_move(-step)
+                self._wiggle_move(step)
+                self._wiggle_move(-step)
             except Exception:
                 self._logger.exception("RuntimeC4: shimmy move raised")
 
@@ -1159,8 +1169,8 @@ class RuntimeC4(BaseRuntime):
 
         def _do_unjam() -> None:
             try:
-                self._carousel_move(-reverse_deg)
-                self._carousel_move(forward_deg)
+                self._unjam_move(-reverse_deg)
+                self._unjam_move(forward_deg)
             except Exception:
                 self._logger.exception("RuntimeC4: transport unjam move raised")
 

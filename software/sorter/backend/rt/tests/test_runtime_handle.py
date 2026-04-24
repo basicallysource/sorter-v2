@@ -19,6 +19,12 @@ from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.orchestrator import Orchestrator
 from rt.events.bus import InProcessEventBus
+from rt.hardware.motion_profiles import (
+    MotionDiagnostics,
+    PROFILE_TRANSPORT,
+    plan_motion,
+    profile_from_values,
+)
 from rt.perception.pipeline_runner import PerceptionRunner
 
 
@@ -346,6 +352,19 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
         "running": True,
         "captured_count": 3,
     }
+    motion_diagnostics = MotionDiagnostics()
+    motion_diagnostics.record(
+        plan_motion(
+            profile_from_values(
+                channel="c4",
+                name=PROFILE_TRANSPORT,
+                max_speed=2400,
+                acceleration=10000,
+            ),
+            source="test",
+            distance_usteps=60,
+        ).with_result(True)
+    )
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=[runner],
@@ -359,6 +378,7 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
         perception_started=True,
         paused=True,
         sample_collector=sample_collector,
+        motion_diagnostics=motion_diagnostics,
     )
     handle._purge_coordinator._status = {
         "active": True,
@@ -378,6 +398,7 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
     assert snapshot["slot_debug"]["c4_to_distributor"]["available"] == 1
     assert snapshot["maintenance"]["c234_purge"]["phase"] == "purging"
     assert snapshot["sample_collection"]["captured_count"] == 3
+    assert snapshot["motion"]["last_by_channel"]["c4"]["profile"] == "transport"
 
 
 def test_clear_c1_pause_forwards_to_c1_runtime() -> None:

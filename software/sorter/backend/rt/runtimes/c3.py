@@ -31,6 +31,12 @@ from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION
+from rt.hardware.motion_profiles import (
+    PROFILE_CONTINUOUS,
+    PROFILE_GENTLE,
+    PROFILE_PURGE,
+    PROFILE_TRANSPORT,
+)
 
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -81,7 +87,7 @@ class RuntimeC3(BaseRuntime):
         *,
         upstream_slot: CapacitySlot,
         downstream_slot: CapacitySlot,
-        pulse_command: Callable[[_PulseMode, float], bool],
+        pulse_command: Callable[..., bool],
         wiggle_command: Callable[[], bool],
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
@@ -336,11 +342,16 @@ class RuntimeC3(BaseRuntime):
 
         mode_for_worker = mode
         commits_slot = claim is True
+        profile_name = PROFILE_GENTLE if mode is _PulseMode.PRECISE else PROFILE_TRANSPORT
 
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = self._pulse_command(mode_for_worker, timing.pulse_ms)
+                ok = self._call_pulse_command(
+                    mode_for_worker,
+                    timing.pulse_ms,
+                    profile_name,
+                )
             except Exception:
                 self._logger.exception("RuntimeC3: pulse command raised")
             finally:
@@ -381,7 +392,13 @@ class RuntimeC3(BaseRuntime):
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = bool(self._pulse_command(mode, timing.pulse_ms))
+                ok = bool(
+                    self._call_pulse_command(
+                        mode,
+                        timing.pulse_ms,
+                        PROFILE_CONTINUOUS,
+                    )
+                )
             except Exception:
                 self._logger.exception("RuntimeC3: sample transport pulse raised")
             finally:
@@ -419,7 +436,11 @@ class RuntimeC3(BaseRuntime):
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = self._pulse_command(mode, timing.pulse_ms)
+                ok = self._call_pulse_command(
+                    mode,
+                    timing.pulse_ms,
+                    PROFILE_PURGE,
+                )
             except Exception:
                 self._logger.exception("RuntimeC3: purge pulse command raised")
             finally:
@@ -506,6 +527,17 @@ class RuntimeC3(BaseRuntime):
             self._set_state("exit_wiggle")
             return True
         return False
+
+    def _call_pulse_command(
+        self,
+        mode: _PulseMode,
+        pulse_ms: float,
+        profile_name: str,
+    ) -> bool:
+        try:
+            return bool(self._pulse_command(mode, pulse_ms, profile_name))
+        except TypeError:
+            return bool(self._pulse_command(mode, pulse_ms))
 
 
 def _wrap_rad(angle: float) -> float:

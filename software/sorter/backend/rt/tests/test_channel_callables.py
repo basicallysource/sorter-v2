@@ -9,6 +9,7 @@ from rt.hardware.channel_callables import (
     build_c4_callables,
     build_chute_callables,
 )
+from rt.hardware.motion_profiles import MotionDiagnostics
 
 
 class _Stepper:
@@ -86,6 +87,9 @@ class _CarouselStepper:
     def degrees_for_microsteps(self, steps: int) -> float:
         return float(steps) / 10.0
 
+    def microsteps_for_degrees(self, degrees: float) -> int:
+        return int(round(float(degrees) * 10.0))
+
     def move_degrees(self, degrees: float) -> bool:
         self.moves.append(degrees)
         return True
@@ -117,6 +121,9 @@ class _RotorStepper:
 
     def degrees_for_microsteps(self, steps: int) -> float:
         return float(steps) / 10.0
+
+    def microsteps_for_degrees(self, degrees: float) -> int:
+        return int(round(float(degrees) * 10.0))
 
     def move_degrees(self, degrees: float) -> bool:
         self.moves.append(degrees)
@@ -210,7 +217,7 @@ def test_c4_eject_applies_classification_pulse_profile() -> None:
         },
     )()
 
-    *_, eject = build_c4_callables(
+    _carousel, _transport, _purge, _mode, eject, *_rest = build_c4_callables(
         irl,
         logging.getLogger("test"),
         transport_speed_scale=2.4,
@@ -221,6 +228,30 @@ def test_c4_eject_applies_classification_pulse_profile() -> None:
     assert irl.carousel_stepper.accelerations == [2500]
     assert irl.carousel_stepper.speed_limits == [(16, 3400)]
     assert irl.carousel_stepper.moves == [100.0]
+
+
+def test_c4_motion_diagnostics_records_named_profile_warning() -> None:
+    irl = type("Irl", (), {})()
+    irl.carousel_stepper = _CarouselStepper()
+    irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()
+    diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
+
+    _carousel_move, transport_move, *_ = build_c4_callables(
+        irl,
+        logging.getLogger("test"),
+        transport_speed_scale=24.0,
+        motion_diagnostics=diagnostics,
+    )
+
+    assert transport_move(6.0) is True
+
+    motion = diagnostics.status_snapshot()["last_by_channel"]["c4"]
+    assert motion["profile"] == "transport"
+    assert motion["source"] == "c4_transport"
+    assert motion["distance_usteps"] == 60
+    assert motion["max_speed_usteps_per_s"] == 2400
+    assert motion["reaches_cruise"] is False
+    assert motion["warnings"] == ["target_speed_unreachable"]
 
 
 def test_chute_callable_moves_bin_and_opens_target_layer() -> None:

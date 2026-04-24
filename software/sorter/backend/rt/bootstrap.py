@@ -43,6 +43,7 @@ from rt.hardware.channel_callables import (
     build_c4_callables,
     build_chute_callables,
 )
+from rt.hardware.motion_profiles import MotionDiagnostics
 from rt.perception.pipeline_runner import PerceptionRunner
 from rt.perception.runner_builder import build_perception_runner_for_role
 from rt.perception.teacher_samples import AuxiliaryTeacherSampleCollector
@@ -130,6 +131,7 @@ class RtRuntimeHandle:
     _sample_transport_coordinator: C1234SampleTransportCoordinator = field(
         default_factory=C1234SampleTransportCoordinator
     )
+    motion_diagnostics: MotionDiagnostics | None = None
 
     def start_perception(self) -> None:
         if self.perception_started:
@@ -277,6 +279,11 @@ class RtRuntimeHandle:
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
             },
+            "motion": (
+                self.motion_diagnostics.status_snapshot()
+                if self.motion_diagnostics is not None
+                else {}
+            ),
         }
 
     def annotation_snapshot(self, feed_id: str) -> FeedAnnotationSnapshot:
@@ -706,15 +713,30 @@ def build_rt_runtime(
     # ------------------------------------------------------------------
     # Hardware callables
 
-    c1_pulse, c1_recovery = build_c1_callables(irl, log)
-    c2_pulse, c2_wiggle = build_c2_callables(irl, log)
-    c3_pulse, c3_wiggle = build_c3_callables(irl, log)
+    motion_diagnostics = MotionDiagnostics()
+    c1_pulse, c1_recovery = build_c1_callables(
+        irl,
+        log,
+        motion_diagnostics=motion_diagnostics,
+    )
+    c2_pulse, c2_wiggle = build_c2_callables(
+        irl,
+        log,
+        motion_diagnostics=motion_diagnostics,
+    )
+    c3_pulse, c3_wiggle = build_c3_callables(
+        irl,
+        log,
+        motion_diagnostics=motion_diagnostics,
+    )
     (
         c4_carousel_move,
         c4_transport_move,
         c4_startup_purge_move,
         c4_startup_purge_mode,
         c4_eject,
+        c4_wiggle_move,
+        c4_unjam_move,
     ) = build_c4_callables(
         irl,
         log,
@@ -755,6 +777,7 @@ def build_rt_runtime(
             if classification_cfg
             else 10000
         ),
+        motion_diagnostics=motion_diagnostics,
     )
     chute_move, chute_position_query = build_chute_callables(irl, rules_engine, log)
 
@@ -892,6 +915,8 @@ def build_rt_runtime(
         carousel_move_command=c4_carousel_move,
         transport_move_command=c4_transport_move,
         startup_purge_move_command=c4_startup_purge_move,
+        wiggle_move_command=c4_wiggle_move,
+        unjam_move_command=c4_unjam_move,
         startup_purge_mode_command=c4_startup_purge_mode,
         eject_command=c4_eject,
         crop_provider=_crop_provider,
@@ -1003,6 +1028,7 @@ def build_rt_runtime(
         feed_zones=feed_zones,
         skipped_roles=skipped_roles,
         camera_service=camera_service,
+        motion_diagnostics=motion_diagnostics,
     )
     handle.sample_collector = AuxiliaryTeacherSampleCollector(
         runner_provider=lambda: list(handle.perception_runners),

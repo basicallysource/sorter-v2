@@ -17,48 +17,28 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-
-_DEFAULT_MIN_SPEED_USTEPS_PER_S = 16
-_DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2 = 10000
-
-
-def _positive_int(value: Any) -> int | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    coerced = int(value)
-    return coerced if coerced > 0 else None
-
-
-def _apply_rotor_motion_profile(
-    stepper: Any,
-    cfg: Any,
-    *,
-    default_speed: int | None = None,
-    default_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
-) -> None:
-    """Apply the velocity profile that belongs to one rotor pulse.
-
-    The firmware keeps speed and acceleration as sticky per-stepper settings.
-    Every runtime move therefore has to restate its intended profile; otherwise
-    a prior manual/sweep move can leave C-channels running with stale limits.
-    """
-
-    speed = _positive_int(getattr(cfg, "microsteps_per_second", None))
-    if speed is None:
-        speed = _positive_int(default_speed)
-    acceleration = _positive_int(
-        getattr(cfg, "acceleration_microsteps_per_second_sq", None)
-    )
-    if acceleration is None:
-        acceleration = _positive_int(default_acceleration)
-    if acceleration is not None and hasattr(stepper, "set_acceleration"):
-        stepper.set_acceleration(acceleration)
-    if speed is not None and hasattr(stepper, "set_speed_limits"):
-        stepper.set_speed_limits(_DEFAULT_MIN_SPEED_USTEPS_PER_S, speed)
+from rt.hardware.motion_profiles import (
+    DEFAULT_ACCELERATION_USTEPS_PER_S2,
+    DEFAULT_MIN_SPEED_USTEPS_PER_S,
+    MotionDiagnostics,
+    PROFILE_CONTINUOUS,
+    PROFILE_EJECT,
+    PROFILE_GENTLE,
+    PROFILE_PURGE,
+    PROFILE_TRANSPORT,
+    PROFILE_UNJAM,
+    PROFILE_WIGGLE,
+    move_degrees_with_profile,
+    profile_from_rotor_config,
+    profile_from_values,
+)
 
 
 def build_c1_callables(
-    irl: Any, logger: logging.Logger
+    irl: Any,
+    logger: logging.Logger,
+    *,
+    motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[Callable[[], bool], Callable[[int], bool]]:
     """Return (pulse, recovery) closures for RuntimeC1.
 
@@ -82,9 +62,20 @@ def build_c1_callables(
             logger.error("TODO_PHASE5_WIRING: c1 pulse - feeder_config.first_rotor missing")
             return False
         try:
-            _apply_rotor_motion_profile(stepper, pulse_cfg)
             deg = stepper.degrees_for_microsteps(pulse_cfg.steps_per_pulse)
-            return bool(stepper.move_degrees(deg))
+            profile = profile_from_rotor_config(
+                channel="c1",
+                name=PROFILE_TRANSPORT,
+                cfg=pulse_cfg,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source="c1_pulse",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
         except Exception:
             logger.exception("RuntimeC1: pulse raised")
             return False
@@ -101,12 +92,15 @@ def build_c1_callables(
 
 
 def build_c2_callables(
-    irl: Any, logger: logging.Logger
-) -> tuple[Callable[[float], bool], Callable[[], bool]]:
+    irl: Any,
+    logger: logging.Logger,
+    *,
+    motion_diagnostics: MotionDiagnostics | None = None,
+) -> tuple[Callable[[float, str | None], bool], Callable[[], bool]]:
     # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
     # RuntimeC3's ``pulse_command``. Rotation step size is governed by
     # ``steps_per_pulse`` in the feeder config, not by pulse_ms.
-    def pulse(_pulse_ms: float) -> bool:
+    def pulse(_pulse_ms: float, profile_name: str | None = None) -> bool:
         stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
         cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
             getattr(irl, "irl_config", None), "feeder_config", None
@@ -115,9 +109,21 @@ def build_c2_callables(
             logger.error("TODO_PHASE5_WIRING: c2 pulse - stepper/cfg missing")
             return False
         try:
-            _apply_rotor_motion_profile(stepper, cfg)
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            return bool(stepper.move_degrees(deg))
+            profile = profile_from_rotor_config(
+                channel="c2",
+                name=profile_name or PROFILE_TRANSPORT,
+                cfg=cfg,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source=f"c2_{profile.name}",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+                expected_duration_ms=_pulse_ms,
+            )
         except Exception:
             logger.exception("RuntimeC2: pulse raised")
             return False
@@ -132,9 +138,12 @@ def build_c2_callables(
 
 
 def build_c3_callables(
-    irl: Any, logger: logging.Logger
-) -> tuple[Callable[[Any, float], bool], Callable[[], bool]]:
-    def pulse(mode: Any, _pulse_ms: float) -> bool:
+    irl: Any,
+    logger: logging.Logger,
+    *,
+    motion_diagnostics: MotionDiagnostics | None = None,
+) -> tuple[Callable[[Any, float, str | None], bool], Callable[[], bool]]:
+    def pulse(mode: Any, _pulse_ms: float, profile_name: str | None = None) -> bool:
         stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
         feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
             getattr(irl, "irl_config", None), "feeder_config", None
@@ -149,9 +158,24 @@ def build_c3_callables(
             else feeder_cfg.third_rotor_normal
         )
         try:
-            _apply_rotor_motion_profile(stepper, cfg)
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            return bool(stepper.move_degrees(deg))
+            default_profile = (
+                PROFILE_GENTLE if str(mode_value) == "precise" else PROFILE_TRANSPORT
+            )
+            profile = profile_from_rotor_config(
+                channel="c3",
+                name=profile_name or default_profile,
+                cfg=cfg,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source=f"c3_{profile.name}",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+                expected_duration_ms=_pulse_ms,
+            )
         except Exception:
             logger.exception("RuntimeC3: pulse raised")
             return False
@@ -172,14 +196,17 @@ def build_c4_callables(
     startup_purge_speed_scale: float = 1.0,
     transport_speed_scale: float = 1.0,
     carousel_acceleration: int | None = 9000,
-    transport_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
-    startup_purge_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
+    transport_acceleration: int | None = DEFAULT_ACCELERATION_USTEPS_PER_S2,
+    startup_purge_acceleration: int | None = DEFAULT_ACCELERATION_USTEPS_PER_S2,
+    motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[
     Callable[[float], bool],
     Callable[[float], bool],
     Callable[[float], bool],
     Callable[[bool], bool],
     Callable[[], bool],
+    Callable[[float], bool],
+    Callable[[float], bool],
 ]:
     def _default_speed_limit() -> int | None:
         cfg_root = getattr(irl, "irl_config", None) or irl
@@ -187,9 +214,10 @@ def build_c4_callables(
         speed = getattr(cfg, "default_steps_per_second", None)
         return int(speed) if isinstance(speed, int) and speed > 0 else None
 
-    def _move_with_speed_limit(
+    def _profile_move(
         deg: float,
         *,
+        profile_name: str,
         speed_limit: int | None,
         acceleration: int | None,
     ) -> bool:
@@ -200,15 +228,20 @@ def build_c4_callables(
         default_speed = _default_speed_limit()
         target_speed = speed_limit or default_speed
         try:
-            accel = _positive_int(acceleration)
-            if accel is not None and hasattr(stepper, "set_acceleration"):
-                stepper.set_acceleration(accel)
-            if target_speed is not None:
-                stepper.set_speed_limits(
-                    _DEFAULT_MIN_SPEED_USTEPS_PER_S,
-                    int(target_speed),
-                )
-            return bool(stepper.move_degrees(deg))
+            profile = profile_from_values(
+                channel="c4",
+                name=profile_name,
+                max_speed=target_speed,
+                acceleration=acceleration,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source=f"c4_{profile_name}",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
         except Exception:
             logger.exception("RuntimeC4: carousel_move raised")
             return False
@@ -225,15 +258,17 @@ def build_c4_callables(
         )
 
     def carousel_move(deg: float) -> bool:
-        return _move_with_speed_limit(
+        return _profile_move(
             deg,
+            profile_name=PROFILE_GENTLE,
             speed_limit=None,
             acceleration=carousel_acceleration,
         )
 
     def transport_move(deg: float) -> bool:
-        return _move_with_speed_limit(
+        return _profile_move(
             deg,
+            profile_name=PROFILE_TRANSPORT,
             speed_limit=transport_speed_limit,
             acceleration=transport_acceleration,
         )
@@ -247,9 +282,26 @@ def build_c4_callables(
         )
 
     def startup_purge_move(deg: float) -> bool:
-        return _move_with_speed_limit(
+        return _profile_move(
             deg,
+            profile_name=PROFILE_PURGE,
             speed_limit=purge_speed_limit,
+            acceleration=startup_purge_acceleration,
+        )
+
+    def wiggle_move(deg: float) -> bool:
+        return _profile_move(
+            deg,
+            profile_name=PROFILE_WIGGLE,
+            speed_limit=None,
+            acceleration=carousel_acceleration,
+        )
+
+    def unjam_move(deg: float) -> bool:
+        return _profile_move(
+            deg,
+            profile_name=PROFILE_UNJAM,
+            speed_limit=purge_speed_limit or transport_speed_limit,
             acceleration=startup_purge_acceleration,
         )
 
@@ -258,10 +310,14 @@ def build_c4_callables(
         default_speed = _default_speed_limit()
         if stepper is None or default_speed is None:
             return True
-        speed_limit = purge_speed_limit if enabled and purge_speed_limit is not None else default_speed
+        speed_limit = (
+            purge_speed_limit
+            if enabled and purge_speed_limit is not None
+            else default_speed
+        )
         try:
             stepper.set_speed_limits(
-                _DEFAULT_MIN_SPEED_USTEPS_PER_S,
+                DEFAULT_MIN_SPEED_USTEPS_PER_S,
                 int(speed_limit),
             )
             return True
@@ -287,19 +343,35 @@ def build_c4_callables(
             )
             return False
         try:
-            _apply_rotor_motion_profile(
-                stepper,
-                cfg,
+            deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
+            profile = profile_from_rotor_config(
+                channel="c4",
+                name=PROFILE_EJECT,
+                cfg=cfg,
                 default_speed=_default_speed_limit(),
                 default_acceleration=transport_acceleration,
             )
-            deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            return bool(stepper.move_degrees(deg))
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source="c4_eject",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
         except Exception:
             logger.exception("RuntimeC4: eject raised")
             return False
 
-    return carousel_move, transport_move, startup_purge_move, startup_purge_mode, eject
+    return (
+        carousel_move,
+        transport_move,
+        startup_purge_move,
+        startup_purge_mode,
+        eject,
+        wiggle_move,
+        unjam_move,
+    )
 
 
 def build_chute_callables(

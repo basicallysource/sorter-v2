@@ -171,6 +171,7 @@ def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock
 # ---------------------------------------------------------------------------
 
 TMC_REG_GCONF = 0x00
+TMC_REG_IFCNT = 0x02
 TMC_REG_IHOLD_IRUN = 0x10
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
@@ -231,10 +232,17 @@ def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
     if mode == "coolstep":
         gconf_raw |= (1 << 2)  # CoolStep needs SpreadCycle, not StealthChop.
         stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+        ifcnt_before = _safe_read_register(stepper, TMC_REG_IFCNT)
         coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
         stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
         stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
-        _verify_driver_mode(stepper, mode)
+        ifcnt_after = _safe_read_register(stepper, TMC_REG_IFCNT)
+        _verify_driver_mode(
+            stepper,
+            mode,
+            ifcnt_before=ifcnt_before,
+            ifcnt_after=ifcnt_after,
+        )
         return False, True
 
     stepper.write_driver_register(TMC_REG_COOLCONF, 0)
@@ -244,7 +252,13 @@ def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
     return False, False
 
 
-def _verify_driver_mode(stepper: Any, mode: str) -> None:
+def _verify_driver_mode(
+    stepper: Any,
+    mode: str,
+    *,
+    ifcnt_before: int | None = None,
+    ifcnt_after: int | None = None,
+) -> None:
     if mode != "coolstep":
         return
     gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
@@ -264,6 +278,8 @@ def _verify_driver_mode(stepper: Any, mode: str) -> None:
             "gconf": gconf_raw,
             "coolconf": coolconf_raw,
             "tcoolthrs": tcoolthrs_raw,
+            "ifcnt_before": ifcnt_before,
+            "ifcnt_after": ifcnt_after,
         }
         raise HTTPException(
             status_code=502,
@@ -626,6 +642,7 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
 
     gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    ifcnt_raw = _safe_read_register(stepper, TMC_REG_IFCNT)
     tcoolthrs_raw = _safe_read_register(stepper, TMC_REG_TCOOLTHRS)
     chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
     coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
@@ -661,6 +678,7 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     )
     result["registers"] = {
         "gconf": gconf_raw,
+        "ifcnt": ifcnt_raw,
         "tcoolthrs": tcoolthrs_raw,
         "chopconf": chopconf_raw,
         "coolconf": coolconf_raw,

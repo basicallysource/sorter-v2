@@ -2,8 +2,8 @@
 
 One recorder instance serves all perception runners. C4 assigns a piece_uuid
 to a tracker global_id at intake; from that point on, every frame this piece
-appears in contributes (a) a point to the path and (b) a wedge crop if the
-piece just entered a new angular sector. A background thread handles JPEG
+appears in contributes (a) a point to the path and (b) a piece crop once the
+piece moved far enough, or enough time passed. A background thread handles JPEG
 encoding + disk writes so the perception hot path stays snappy.
 """
 
@@ -41,7 +41,10 @@ _LOG = logging.getLogger(__name__)
 _SEGMENT_ROLE = "carousel"
 _SEGMENT_SEQUENCE = 0
 _WRITER_QUEUE_MAX = 500
-_HEARTBEAT_INTERVAL_S = 2.0
+_HEARTBEAT_INTERVAL_S = 0.5
+_CROP_CAPTURE_MIN_INTERVAL_S = 0.08
+_CROP_CAPTURE_MIN_ANGLE_DEG = 1.5
+_CROP_CAPTURE_MAX_PER_PIECE = 80
 # Padding around the bbox extent so the wedge clipPath doesn't shave the piece
 # at the edges. Angular: n° on each side. Radial: n pixels on each side.
 _WEDGE_ANGLE_PADDING_DEG = 1.5
@@ -95,6 +98,7 @@ class _SectorSnapshot:
     width: int
     height: int
     jpeg_path: str | None = None
+    piece_jpeg_path: str | None = None
 
 
 @dataclass
@@ -114,9 +118,10 @@ class _Recording:
     snapshot_height: int | None = None
     snapshot_written: bool = False
     wedge_counter: int = 0
-    # End of the last wedge (unwrapped so cross-seam motion stays monotonic).
-    # Next wedge is only captured once the piece's bbox has moved past this.
-    last_wedge_end_deg: float | None = None
+    # Last captured center angle/time. Ghost filtering now runs upstream, so
+    # the recorder can be more eager than the old non-overlap sector gate.
+    last_wedge_angle_deg: float | None = None
+    last_wedge_ts: float | None = None
 
 
 @dataclass
@@ -256,18 +261,24 @@ class SegmentRecorder:
                     (x0, y0, x1, y1),
                     angle_deg,
                 )
-                # Non-overlap gate: only snap a new wedge once the bbox has
-                # left the angular span of the previous one. Unwrap relative
-                # to the last wedge's end so cross-seam motion stays monotonic.
-                if rec.last_wedge_end_deg is not None:
-                    forward = (
-                        (start_deg - rec.last_wedge_end_deg + 180.0) % 360.0
-                    ) - 180.0
-                    if forward < 0:
+                if rec.wedge_counter >= _CROP_CAPTURE_MAX_PER_PIECE:
+                    continue
+                if rec.last_wedge_angle_deg is not None and rec.last_wedge_ts is not None:
+                    angle_delta = abs(
+                        ((angle_deg - rec.last_wedge_angle_deg + 180.0) % 360.0)
+                        - 180.0
+                    )
+                    elapsed_s = max(0.0, ts - rec.last_wedge_ts)
+                    if (
+                        angle_delta < _CROP_CAPTURE_MIN_ANGLE_DEG
+                        and elapsed_s < _CROP_CAPTURE_MIN_INTERVAL_S
+                    ):
                         continue
                 idx = rec.wedge_counter
                 rec.wedge_counter += 1
-                rec.last_wedge_end_deg = end_deg
+                rec.last_wedge_angle_deg = angle_deg
+                rec.last_wedge_ts = ts
+                crop_path = f"piece_crops/{rec.piece_uuid}/seg{_SEGMENT_SEQUENCE}/wedge_{idx:03d}.jpg"
                 rec.sectors[idx] = _SectorSnapshot(
                     sector_index=idx,
                     start_angle_deg=start_deg,
@@ -279,15 +290,14 @@ class SegmentRecorder:
                     bbox_y=y0,
                     width=x1 - x0,
                     height=y1 - y0,
+                    jpeg_path=crop_path,
+                    piece_jpeg_path=crop_path,
                 )
                 self._enqueue_crop(
                     piece_uuid=rec.piece_uuid,
                     kind="wedge",
                     idx=idx,
                     crop_bytes=raw[y0:y1, x0:x1],
-                )
-                rec.sectors[idx].jpeg_path = (
-                    f"piece_crops/{rec.piece_uuid}/seg{_SEGMENT_SEQUENCE}/wedge_{idx:03d}.jpg"
                 )
 
     def finalize(self, piece_uuid: str) -> None:
@@ -320,6 +330,9 @@ class SegmentRecorder:
                 snapshot_width=rec.snapshot_width,
                 snapshot_height=rec.snapshot_height,
                 snapshot_written=rec.snapshot_written,
+                wedge_counter=rec.wedge_counter,
+                last_wedge_angle_deg=rec.last_wedge_angle_deg,
+                last_wedge_ts=rec.last_wedge_ts,
             )
         self._persist(snapshot)
 
@@ -427,6 +440,7 @@ class SegmentRecorder:
                 "width": s.width,
                 "height": s.height,
                 "jpeg_path": s.jpeg_path,
+                "piece_jpeg_path": s.piece_jpeg_path,
             }
             for s in sorted(rec.sectors.values(), key=lambda s: s.sector_index)
         ]

@@ -145,6 +145,13 @@ class MachineConfig:
     servo_open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
     servo_closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    stepper_driver_overrides: dict[str, "StepperDriverOverride"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StepperDriverOverride:
+    coolstep: bool | None = None
+    stealthchop: bool | None = None
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -262,6 +269,59 @@ def _parseStepperCurrentOverrides(
             irun,
             ihold,
             ihold_delay,
+        )
+
+    return overrides
+
+
+def _parseStepperDriverOverrides(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, StepperDriverOverride]:
+    overrides_table: object = raw.get("stepper_driver_overrides")
+    if overrides_table is None:
+        return {}
+
+    if not isinstance(overrides_table, dict):
+        gc.logger.warning(
+            "Stepper driver overrides must be an object. Ignoring driver overrides."
+        )
+        return {}
+
+    overrides: dict[str, StepperDriverOverride] = {}
+    for stepper_name, value in overrides_table.items():
+        if not isinstance(stepper_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper key in driver config: {stepper_name!r} (must be string)"
+            )
+            continue
+        if not isinstance(value, dict):
+            gc.logger.warning(
+                f"Ignoring driver override for '{stepper_name}': expected object."
+            )
+            continue
+
+        coolstep = value.get("coolstep")
+        stealthchop = value.get("stealthchop")
+        if coolstep is not None and not isinstance(coolstep, bool):
+            gc.logger.warning(
+                f"Ignoring stepper_driver_overrides.{stepper_name}.coolstep={coolstep!r}: expected true/false."
+            )
+            coolstep = None
+        if stealthchop is not None and not isinstance(stealthchop, bool):
+            gc.logger.warning(
+                f"Ignoring stepper_driver_overrides.{stepper_name}.stealthchop={stealthchop!r}: expected true/false."
+            )
+            stealthchop = None
+        if coolstep is None and stealthchop is None:
+            gc.logger.warning(
+                f"Ignoring driver override for '{stepper_name}': expected coolstep and/or stealthchop."
+            )
+            continue
+
+        overrides[normalizePhysicalStepperBindingName(stepper_name)] = StepperDriverOverride(
+            coolstep=coolstep,
+            stealthchop=stealthchop,
         )
 
     return overrides
@@ -409,6 +469,7 @@ def loadMachineConfig(
         gc.logger.warning("Ignoring invalid servo config: expected object. Using defaults.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
+    config.stepper_driver_overrides = _parseStepperDriverOverrides(gc, raw)
 
     return config
 
@@ -781,4 +842,68 @@ def applyStepperCurrentOverride(
     gc.logger.info(
         f"Stepper '{stepper_name}' current config applied from {source}: "
         f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+    )
+
+
+TMC_REG_GCONF = 0x00
+TMC_REG_TCOOLTHRS = 0x14
+TMC_REG_COOLCONF = 0x42
+_TMC_GCONF_EN_SPREADCYCLE = 1 << 2
+_TMC_COOLCONF_DEFAULT = (
+    (5 & 0x0F)  # semin
+    | ((1 & 0x03) << 5)  # seup
+    | ((2 & 0x0F) << 8)  # semax
+    | ((0 & 0x03) << 13)  # sedn
+)
+
+
+def applyStepperDriverOverride(
+    stepper: "StepperMotor",
+    stepper_name: str,
+    overrides: dict[str, StepperDriverOverride],
+    gc: GlobalConfig,
+) -> None:
+    override = overrides.get(stepper_name)
+    if override is None:
+        return
+
+    def _apply() -> None:
+        if override.stealthchop is not None:
+            gconf = stepper.read_driver_register(TMC_REG_GCONF)
+            if override.stealthchop:
+                gconf &= ~_TMC_GCONF_EN_SPREADCYCLE
+            else:
+                gconf |= _TMC_GCONF_EN_SPREADCYCLE
+            stepper.write_driver_register(TMC_REG_GCONF, gconf)
+
+        if override.coolstep is not None:
+            if override.coolstep:
+                stepper.write_driver_register(TMC_REG_COOLCONF, _TMC_COOLCONF_DEFAULT)
+                stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+            else:
+                stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+                stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+
+    for attempt in range(1, HARDWARE_INIT_COMMAND_ATTEMPTS + 1):
+        try:
+            _apply()
+            break
+        except (MCUBusError, OSError, DecodeError) as e:
+            if attempt == HARDWARE_INIT_COMMAND_ATTEMPTS:
+                gc.logger.warning(
+                    f"Failed to apply stepper driver config for '{stepper_name}' "
+                    f"(coolstep={override.coolstep}, stealthchop={override.stealthchop}) after "
+                    f"{HARDWARE_INIT_COMMAND_ATTEMPTS} attempts: {e}. Continuing."
+                )
+                return
+            gc.logger.warning(
+                f"Failed to apply stepper driver config for '{stepper_name}' on attempt "
+                f"{attempt}/{HARDWARE_INIT_COMMAND_ATTEMPTS}: {e}. Retrying in "
+                f"{HARDWARE_INIT_RETRY_DELAY_S:.2f}s..."
+            )
+            time.sleep(HARDWARE_INIT_RETRY_DELAY_S)
+
+    gc.logger.info(
+        f"Stepper '{stepper_name}' driver config applied: "
+        f"coolstep={override.coolstep}, stealthchop={override.stealthchop}"
     )

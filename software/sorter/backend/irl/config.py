@@ -51,6 +51,7 @@ from .parse_user_toml import (
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
     applyStepperCurrentOverride,
+    applyStepperDriverOverride,
 )
 from local_state import get_bin_categories, get_servo_states, set_servo_states
 
@@ -1146,6 +1147,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     machine_config = loadMachineConfig(gc, machine_specific_params)
     stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
     stepper_current_overrides = machine_config.stepper_current_overrides
+    stepper_driver_overrides = machine_config.stepper_driver_overrides
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
     servo_open_angle = machine_config.servo_open_angle
     servo_closed_angle = machine_config.servo_closed_angle
@@ -1255,6 +1257,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
 
         applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
+        applyStepperDriverOverride(stepper, canonical_name, stepper_driver_overrides, gc)
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False

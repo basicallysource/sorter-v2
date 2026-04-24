@@ -24,6 +24,12 @@ from irl.parse_user_toml import (
     DEFAULT_STEPPER_IHOLD_DELAY,
     DEFAULT_STEPPER_IRUN,
 )
+from hardware.tmc2209_status import (
+    TMC_REG_DRV_STATUS,
+    active_temperature_flags,
+    overtemperature_fault_flags,
+    parse_drv_status,
+)
 from server import shared_state
 
 router = APIRouter()
@@ -168,29 +174,12 @@ TMC_REG_IHOLD_IRUN = 0x10
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
 TMC_REG_CHOPCONF = 0x6C
-TMC_REG_DRV_STATUS = 0x6F
-
 MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
 MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
 
 
 def _parse_drv_status(raw: int) -> Dict[str, Any]:
-    return {
-        "ot": bool(raw & (1 << 1)),
-        "otpw": bool(raw & (1 << 0)),
-        "s2ga": bool(raw & (1 << 2)),
-        "s2gb": bool(raw & (1 << 3)),
-        "ola": bool(raw & (1 << 4)),
-        "olb": bool(raw & (1 << 5)),
-        "stst": bool(raw & (1 << 31)),
-        "stealth": bool(raw & (1 << 30)),
-        "cs_actual": (raw >> 16) & 0x1F,
-        "sg_result": (raw >> 10) & 0x3FF,
-        "t120": bool(raw & (1 << 8)),
-        "t143": bool(raw & (1 << 7)),
-        "t150": bool(raw & (1 << 6)),
-        "t157": bool(raw & (1 << 11)),
-    }
+    return parse_drv_status(raw)
 
 
 # Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
@@ -320,6 +309,32 @@ def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
         entry["ihold"] = ihold
         overrides[toml_name] = entry
         config["stepper_current_overrides"] = overrides
+        _write_machine_params_config(params_path, config)
+    except Exception:
+        pass  # best-effort persistence
+
+
+def _persist_stepper_driver_setting(
+    api_name: str,
+    *,
+    coolstep: Optional[bool] = None,
+    stealthchop: Optional[bool] = None,
+) -> None:
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
+    try:
+        params_path, config = _read_machine_params_config()
+        overrides = config.get("stepper_driver_overrides", {})
+        if not isinstance(overrides, dict):
+            overrides = {}
+        entry = overrides.get(toml_name, {})
+        if not isinstance(entry, dict):
+            entry = {}
+        if coolstep is not None:
+            entry["coolstep"] = bool(coolstep)
+        if stealthchop is not None:
+            entry["stealthchop"] = bool(stealthchop)
+        overrides[toml_name] = entry
+        config["stepper_driver_overrides"] = overrides
         _write_machine_params_config(params_path, config)
     except Exception:
         pass  # best-effort persistence
@@ -544,9 +559,14 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
         result["coolstep"] = None
 
     if drv_status_raw is not None:
-        result["drv_status"] = _parse_drv_status(drv_status_raw)
+        drv_status = _parse_drv_status(drv_status_raw)
+        result["drv_status"] = drv_status
+        result["temperature_flags"] = active_temperature_flags(drv_status)
+        result["thermal_fault_flags"] = overtemperature_fault_flags(drv_status)
     else:
         result["drv_status"] = None
+        result["temperature_flags"] = []
+        result["thermal_fault_flags"] = []
 
     return result
 
@@ -584,6 +604,7 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
             else:
                 gconf_raw |= (1 << 2)   # set EN_SPREADCYCLE
             stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+            _persist_stepper_driver_setting(name, stealthchop=body.stealthchop)
 
     if body.coolstep is not None:
         if body.coolstep:
@@ -594,5 +615,6 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
         else:
             stepper.write_driver_register(TMC_REG_COOLCONF, 0)
             stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+        _persist_stepper_driver_setting(name, coolstep=body.coolstep)
 
     return get_tmc_settings(name)

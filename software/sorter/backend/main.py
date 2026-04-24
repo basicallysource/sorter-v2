@@ -194,6 +194,7 @@ def main() -> None:
     # Expose to routers immediately — even in standby, getActiveIRL() should
     # return a readable shape so routers can fetch machine_setup metadata.
     setHardwareRuntimeIRL(irl)
+    stepper_thermal_guard = None
 
     with gc.profiler.timer("startup.camera_service_init_ms"):
         from vision.camera_service import CameraService
@@ -245,6 +246,77 @@ def main() -> None:
         irl.__dict__.clear()
         irl.__dict__.update(next_irl.__dict__)
 
+    def _thermal_guard_steppers() -> dict[str, object]:
+        return {
+            name: stepper
+            for name, stepper in {
+                "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
+                "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
+                "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
+                "carousel": getattr(irl, "carousel_stepper", None),
+                "chute": getattr(irl, "chute_stepper", None),
+            }.items()
+            if stepper is not None
+        }
+
+    def _handle_stepper_thermal_fault(fault) -> None:
+        message = f"{fault.message}. Motors stopped and runtime paused."
+        gc.logger.error(message)
+        rt = shared_state.rt_handle
+        if rt is not None:
+            try:
+                rt.pause()
+                gc.runtime_stats.setLifecycleState("paused")
+                layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                publishSorterState("paused", layout)
+            except Exception:
+                gc.logger.exception("Failed to pause rt runtime after stepper thermal fault")
+        with shared_state.hardware_lifecycle_lock:
+            shared_state.setHardwareStatus(
+                state="error",
+                error=message,
+                clear_homing_step=True,
+            )
+
+    def _start_stepper_thermal_guard(reason: str) -> None:
+        nonlocal stepper_thermal_guard
+        _stop_stepper_thermal_guard(f"restart for {reason}")
+        steppers = _thermal_guard_steppers()
+        if not steppers:
+            return
+        from rt.services.stepper_thermal_guard import StepperThermalGuard
+
+        interval_s = float(os.getenv("SORTER_STEPPER_THERMAL_GUARD_INTERVAL_S", "2.0"))
+        stop_on_prewarn = (
+            os.getenv("SORTER_STEPPER_THERMAL_STOP_ON_PREWARN", "1").strip().lower()
+            not in {"0", "false", "no", "off"}
+        )
+        stepper_thermal_guard = StepperThermalGuard(
+            steppers=steppers,
+            on_fault=_handle_stepper_thermal_fault,
+            logger=gc.logger,
+            interval_s=interval_s,
+            stop_on_prewarn=stop_on_prewarn,
+        )
+        stepper_thermal_guard.start()
+        gc.logger.info(
+            "Stepper thermal guard started for %s (%s)",
+            ", ".join(sorted(steppers)),
+            reason,
+        )
+
+    def _stop_stepper_thermal_guard(reason: str) -> None:
+        nonlocal stepper_thermal_guard
+        guard = stepper_thermal_guard
+        if guard is None:
+            return
+        gc.logger.info(f"Stopping stepper thermal guard ({reason})")
+        try:
+            guard.stop()
+        except Exception as exc:
+            gc.logger.warning(f"Stepper thermal guard stop raised: {exc}")
+        stepper_thermal_guard = None
+
     def _stop_rt_handle(reason: str) -> None:
         """Tear down the rt/ runtime graph, if running."""
         rt = shared_state.rt_handle
@@ -294,6 +366,7 @@ def main() -> None:
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
 
+        _stop_stepper_thermal_guard(reason)
         _stop_rt_handle(reason)
 
         for servo in list(getattr(irl, "servos", [])):
@@ -343,6 +416,7 @@ def main() -> None:
         real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
+        _start_stepper_thermal_guard("hardware home")
 
         machine_setup = getattr(irl_config, "machine_setup", None)
         if machine_setup is not None:
@@ -428,6 +502,7 @@ def main() -> None:
         real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
+        _start_stepper_thermal_guard("hardware initialize")
 
         if gc.disable_servos:
             gc.logger.info("Servo control disabled via --disable servos")

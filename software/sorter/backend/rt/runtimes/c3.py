@@ -554,6 +554,7 @@ class RuntimeC3(BaseRuntime):
                 "source_track_id": track.track_id,
                 "source_score": float(track.score),
             },
+            source_embedding=track.appearance_embedding,
         )
 
     def purge_port(self) -> PurgePort:

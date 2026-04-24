@@ -44,6 +44,7 @@ def _track(
     confirmed: bool = True,
     last_seen_ts: float = 0.0,
     hit_count: int = 5,
+    appearance_embedding: tuple[float, ...] | None = None,
 ) -> Track:
     return Track(
         track_id=track_id,
@@ -57,6 +58,7 @@ def _track(
         hit_count=hit_count,
         first_seen_ts=0.0,
         last_seen_ts=last_seen_ts,
+        appearance_embedding=appearance_embedding,
     )
 
 
@@ -136,6 +138,28 @@ def test_c3_exit_pulse_publishes_c4_transit_candidate() -> None:
     assert candidates[0]["source_global_id"] == 17
     assert candidates[0]["target_runtime"] == "c4"
     assert candidates[0]["relation"] == "cross_channel"
+
+
+def test_c3_exit_transit_carries_track_appearance_embedding() -> None:
+    """ReID embedding must propagate C3 → transit registry so C4 can gate it."""
+
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _log = _make(track_transit=registry)
+
+    embedding = (1.0, 0.0, 0.0, 0.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(global_id=18, angle_rad=0.0, appearance_embedding=embedding)
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=11.0,
+    )
+    # Registry stashes the embedding on the candidate — poke past the public
+    # snapshot() to assert it directly.
+    stored = next(iter(registry._candidates.values()))  # type: ignore[attr-defined]
+    assert stored.source_embedding == embedding
 
 
 def test_c3_precise_pulse_for_stable_unconfirmed_exit_track() -> None:

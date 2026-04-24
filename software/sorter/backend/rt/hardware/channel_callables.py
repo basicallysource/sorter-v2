@@ -17,6 +17,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
+import math
+import os
+import time
+
 from rt.hardware.motion_profiles import (
     DEFAULT_ACCELERATION_USTEPS_PER_S2,
     DEFAULT_MIN_SPEED_USTEPS_PER_S,
@@ -27,12 +31,42 @@ from rt.hardware.motion_profiles import (
     PROFILE_GENTLE,
     PROFILE_PURGE,
     PROFILE_TRANSPORT,
+    PROFILE_TRANSPORT_PULSED,
     PROFILE_UNJAM,
     PROFILE_WIGGLE,
     move_degrees_with_profile,
     profile_from_rotor_config,
     profile_from_values,
 )
+
+
+# Pulse-settle-pulse tuning for the C4 carousel. The observed failure mode
+# on live hardware: a single ``transport_move(6°)`` call peaks at ~3% of the
+# configured max speed (too short to exit the acceleration ramp) but the
+# abrupt start/stop still imparts enough inertia that pieces slide out of
+# position. Splitting the move into smaller sub-pulses with an explicit
+# settle pause between them lets friction re-engage between each kick —
+# the pattern Marc observed working better in manual tuning.
+#
+# Defaults are conservative; both knobs are env-tunable so Marc can A/B
+# without a rebuild.
+C4_TRANSPORT_SUB_PULSE_DEG_ENV = "RT_C4_TRANSPORT_SUB_PULSE_DEG"
+C4_TRANSPORT_SETTLE_MS_ENV = "RT_C4_TRANSPORT_SETTLE_MS"
+C4_TRANSPORT_PROFILE_ENV = "RT_C4_TRANSPORT_PROFILE"  # "transport" | "transport_pulsed"
+
+_DEFAULT_C4_SUB_PULSE_DEG = 2.0
+_DEFAULT_C4_SETTLE_MS = 120.0
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0.0 else default
 
 
 def build_c1_callables(
@@ -409,13 +443,54 @@ def build_c4_callables(
             acceleration=carousel_acceleration,
         )
 
-    def transport_move(deg: float) -> bool:
+    def _transport_single(deg: float) -> bool:
         return _profile_move(
             deg,
             profile_name=PROFILE_TRANSPORT,
             speed_limit=transport_speed_limit,
             acceleration=transport_acceleration,
         )
+
+    def _transport_pulsed(deg: float) -> bool:
+        """Split ``deg`` into sub-pulses with a settle pause between them.
+
+        Reads configuration from env on every call so the operator can retune
+        without restarting the backend. Settle uses a blocking ``time.sleep``
+        — this closure is already dispatched on the C4 HwWorker thread, so
+        sleeping here does not stall the perception/runtime tick loop.
+        """
+        total = float(deg)
+        if not math.isfinite(total) or total == 0.0:
+            return _transport_single(total)
+        sub_pulse = _env_float(C4_TRANSPORT_SUB_PULSE_DEG_ENV, _DEFAULT_C4_SUB_PULSE_DEG)
+        settle_ms = _env_float(C4_TRANSPORT_SETTLE_MS_ENV, _DEFAULT_C4_SETTLE_MS)
+        sign = 1.0 if total > 0.0 else -1.0
+        remaining = abs(total)
+        # If the move is smaller than one sub-pulse, just do it as a single
+        # call — no point sprinkling sleeps onto a 1° nudge.
+        if remaining <= sub_pulse + 1e-6:
+            return _transport_single(total)
+        first = True
+        while remaining > 1e-6:
+            step = min(sub_pulse, remaining)
+            if not first and settle_ms > 0.0:
+                time.sleep(settle_ms / 1000.0)
+            first = False
+            if not _transport_single(sign * step):
+                return False
+            remaining -= step
+        return True
+
+    def _transport_profile_key() -> str:
+        raw = os.environ.get(C4_TRANSPORT_PROFILE_ENV, "").strip().lower()
+        if raw in {"pulsed", "pulse", PROFILE_TRANSPORT_PULSED}:
+            return PROFILE_TRANSPORT_PULSED
+        return PROFILE_TRANSPORT
+
+    def transport_move(deg: float) -> bool:
+        if _transport_profile_key() == PROFILE_TRANSPORT_PULSED:
+            return _transport_pulsed(deg)
+        return _transport_single(deg)
 
     def continuous_move(deg: float) -> bool:
         return _profile_move(

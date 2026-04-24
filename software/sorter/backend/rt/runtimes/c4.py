@@ -30,7 +30,12 @@ from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION, PIECE_CLASSIFIED, PIECE_REGISTERED
 
 from ._move_events import publish_move_completed
-from ._strategies import C4Admission, C4EjectionTiming, C4StartupPurgeStrategy
+from ._strategies import (
+    C4Admission,
+    C4EjectionTiming,
+    C4StartupPurgeState,
+    C4StartupPurgeStrategy,
+)
 from ._zones import TrackAngularExtent, ZoneManager
 from .base import BaseRuntime, HwWorker
 
@@ -250,14 +255,7 @@ class RuntimeC4(BaseRuntime):
         self._next_unjam_at: float = 0.0
         self._last_unjam_at: float | None = None
         self._unjam_count: int = 0
-        self._startup_purge_armed: bool = False
-        self._startup_purge_prime_moves: int = 0
-        self._startup_purge_next_prime_at: float = 0.0
-        self._startup_purge_clear_since: float | None = None
-        self._startup_purge_commit_piece_uuid: str | None = None
-        self._startup_purge_commit_deadline: float | None = None
-        self._startup_purge_eject_ok: bool | None = None
-        self._startup_purge_mode_active: bool = False
+        self._startup_purge_state = C4StartupPurgeState()
 
     def available_slots(self) -> int:
         if self._startup_purge_pending():
@@ -414,9 +412,9 @@ class RuntimeC4(BaseRuntime):
             )
         return {
             "fsm_state": self._fsm.value,
-            "startup_purge_armed": bool(self._startup_purge_armed),
-            "startup_purge_prime_moves": int(self._startup_purge_prime_moves),
-            "startup_purge_commit_piece_uuid": self._startup_purge_commit_piece_uuid,
+            "startup_purge_armed": bool(self._startup_purge_state.armed),
+            "startup_purge_prime_moves": int(self._startup_purge_state.prime_moves),
+            "startup_purge_commit_piece_uuid": self._startup_purge_state.commit_piece_uuid,
             "raw_detection_count": int(self._raw_detection_count),
             "dossier_count": len(self._pieces),
             "track_to_piece_count": len(self._track_to_piece),
@@ -471,15 +469,14 @@ class RuntimeC4(BaseRuntime):
     def arm_startup_purge(self) -> None:
         strategy = self._startup_purge
         if strategy is None or not strategy.enabled:
-            self._startup_purge_armed = False
+            self._startup_purge_state.armed = False
             return
-        self._startup_purge_armed = True
-        self._startup_purge_prime_moves = 0
-        self._startup_purge_next_prime_at = 0.0
-        self._startup_purge_clear_since = None
-        self._startup_purge_commit_piece_uuid = None
-        self._startup_purge_commit_deadline = None
-        self._startup_purge_eject_ok = None
+        self._startup_purge_state.arm()
+
+    @property
+    def startup_purge_armed(self) -> bool:
+        """Public read of the startup-purge arm flag (introspection hook)."""
+        return self._startup_purge_state.armed
 
     def purge_port(self) -> PurgePort:
         return _C4PurgePort(self)
@@ -555,23 +552,29 @@ class RuntimeC4(BaseRuntime):
 
     def _startup_purge_pending(self) -> bool:
         strategy = self._startup_purge
-        return bool(strategy is not None and strategy.enabled and self._startup_purge_armed)
+        return bool(
+            strategy is not None
+            and strategy.enabled
+            and self._startup_purge_state.armed
+        )
 
     def _enter_startup_purge(self) -> None:
-        if not self._startup_purge_mode_active:
+        state = self._startup_purge_state
+        if not state.mode_active:
             try:
-                self._startup_purge_mode_active = bool(self._startup_purge_mode(True))
+                state.mode_active = bool(self._startup_purge_mode(True))
             except Exception:
                 self._logger.exception("RuntimeC4: enabling startup purge mode raised")
         self._fsm = _C4State.STARTUP_PURGE
 
     def _exit_startup_purge(self) -> None:
-        if self._startup_purge_mode_active:
+        state = self._startup_purge_state
+        if state.mode_active:
             try:
                 self._startup_purge_mode(False)
             except Exception:
                 self._logger.exception("RuntimeC4: disabling startup purge mode raised")
-            self._startup_purge_mode_active = False
+            state.mode_active = False
         self._fsm = _C4State.RUNNING
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
@@ -620,6 +623,7 @@ class RuntimeC4(BaseRuntime):
             return False
         return strategy.run(
             self,
+            self._startup_purge_state,
             raw_tracks,
             owned_tracks,
             self._startup_purge_visible_detection_count(raw_tracks),
@@ -1116,7 +1120,7 @@ class RuntimeC4(BaseRuntime):
         if not self._pieces or not tracks:
             self._reset_transport_progress_watch()
             return False
-        if self._startup_purge_pending() or self._startup_purge_mode_active:
+        if self._startup_purge_pending() or self._startup_purge_state.mode_active:
             self._reset_transport_progress_watch()
             return False
         if self._fsm in (
@@ -1278,7 +1282,7 @@ class RuntimeC4(BaseRuntime):
             return False
         if self._pieces:
             return False
-        if self._startup_purge_pending() or self._startup_purge_mode_active:
+        if self._startup_purge_pending() or self._startup_purge_state.mode_active:
             return False
         if self._fsm in (
             _C4State.STARTUP_PURGE,
@@ -1533,7 +1537,7 @@ class _C4PurgePort:
         self._runtime.arm_startup_purge()
 
     def disarm(self) -> None:
-        self._runtime._startup_purge_armed = False
+        self._runtime._startup_purge_state.armed = False
         self._runtime._exit_startup_purge()
 
     def counts(self) -> PurgeCounts:
@@ -1544,7 +1548,7 @@ class _C4PurgePort:
         )
 
     def drain_step(self, now_mono: float) -> bool:
-        return bool(self._runtime._startup_purge_armed)
+        return bool(self._runtime._startup_purge_state.armed)
 
 
 class _C4SampleTransportPort:

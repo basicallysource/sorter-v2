@@ -1124,11 +1124,11 @@ def test_c4_purge_port_arm_flips_startup_flag() -> None:
     rt = _purge_port_runtime()
     port = rt.purge_port()
     assert port.key == "c4"
-    assert rt._startup_purge_armed is False
+    assert rt.startup_purge_armed is False
 
     port.arm()
 
-    assert rt._startup_purge_armed is True
+    assert rt.startup_purge_armed is True
 
 
 def test_c4_purge_port_counts_reflect_runtime_state() -> None:
@@ -1165,11 +1165,11 @@ def test_c4_purge_port_disarm_clears_flag_and_exits_mode() -> None:
     rt = _purge_port_runtime()
     port = rt.purge_port()
     port.arm()
-    assert rt._startup_purge_armed is True
+    assert rt.startup_purge_armed is True
 
     port.disarm()
 
-    assert rt._startup_purge_armed is False
+    assert rt.startup_purge_armed is False
 
 
 # ----------------------------------------------------------------------

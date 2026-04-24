@@ -9,19 +9,47 @@ finishing once an initial prime budget is exhausted.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 from rt.contracts.tracking import Track
 
 
+@dataclass
+class C4StartupPurgeState:
+    """Mutable runtime state for one startup-purge session.
+
+    Owned by ``RuntimeC4`` and passed to :class:`C4StartupPurgeStrategy`
+    so the strategy can read and advance the state explicitly instead of
+    reaching into the runtime's private fields.
+    """
+
+    armed: bool = False
+    mode_active: bool = False
+    prime_moves: int = 0
+    next_prime_at: float = 0.0
+    clear_since: float | None = None
+    commit_piece_uuid: str | None = None
+    commit_deadline: float | None = None
+    eject_ok: bool | None = None
+
+    def arm(self) -> None:
+        """Arm a fresh purge session, clearing any prior progress."""
+        self.armed = True
+        self.prime_moves = 0
+        self.next_prime_at = 0.0
+        self.clear_since = None
+        self.commit_piece_uuid = None
+        self.commit_deadline = None
+        self.eject_ok = None
+
+    def clear_commit(self) -> None:
+        self.commit_piece_uuid = None
+        self.commit_deadline = None
+        self.eject_ok = None
+
+
 class _PurgeHost(Protocol):
-    _startup_purge_armed: bool
-    _startup_purge_prime_moves: int
-    _startup_purge_next_prime_at: float
-    _startup_purge_clear_since: float | None
-    _startup_purge_commit_piece_uuid: str | None
-    _startup_purge_commit_deadline: float | None
-    _startup_purge_eject_ok: bool | None
     _pieces: dict[str, Any]
     _track_to_piece: dict[int, str]
     _hw: Any
@@ -155,34 +183,31 @@ class C4StartupPurgeStrategy:
     def run(
         self,
         host: _PurgeHost,
+        state: C4StartupPurgeState,
         raw_tracks: list[Track],
         owned_tracks: list[Track],
         visible_detection_count: int,
         now_mono: float,
     ) -> bool:
-        if not host._startup_purge_armed:
+        if not state.armed:
             return False
 
         host._enter_startup_purge()
 
-        if host._startup_purge_commit_piece_uuid is not None:
-            if host._hw.busy() or host._startup_purge_eject_ok is None:
+        if state.commit_piece_uuid is not None:
+            if host._hw.busy() or state.eject_ok is None:
                 host._set_state("startup_purge", blocked_reason="ejecting")
                 return True
-            if host._startup_purge_eject_ok is False:
-                host._startup_purge_commit_piece_uuid = None
-                host._startup_purge_commit_deadline = None
-                host._startup_purge_eject_ok = None
+            if state.eject_ok is False:
+                state.clear_commit()
                 host._set_state("startup_purge", blocked_reason="eject_failed")
                 return True
-            deadline = float(host._startup_purge_commit_deadline or now_mono)
+            deadline = float(state.commit_deadline or now_mono)
             if now_mono < deadline:
                 host._set_state("startup_purge", blocked_reason="fall_time")
                 return True
-            piece_uuid = host._startup_purge_commit_piece_uuid
-            host._startup_purge_commit_piece_uuid = None
-            host._startup_purge_commit_deadline = None
-            host._startup_purge_eject_ok = None
+            piece_uuid = state.commit_piece_uuid
+            state.clear_commit()
             host._finalize_piece(piece_uuid, now_mono=None, arm_cooldown=False)
             owned_tracks = host._owned_tracks(raw_tracks)
 
@@ -196,33 +221,33 @@ class C4StartupPurgeStrategy:
             raw_detection_count=raw_count,
             owned_piece_count=owned_count,
         ):
-            if host._startup_purge_clear_since is None:
-                host._startup_purge_clear_since = now_mono
+            if state.clear_since is None:
+                state.clear_since = now_mono
             if self.can_finish(
                 raw_detection_count=raw_count,
                 owned_piece_count=owned_count,
-                prime_moves=host._startup_purge_prime_moves,
-                clear_since=host._startup_purge_clear_since,
+                prime_moves=state.prime_moves,
+                clear_since=state.clear_since,
                 now_mono=now_mono,
             ):
-                host._startup_purge_armed = False
-                host._startup_purge_clear_since = None
+                state.armed = False
+                state.clear_since = None
                 host._exit_startup_purge()
                 return False
             host._set_state("startup_purge", blocked_reason="verifying_clear")
             return True
 
-        host._startup_purge_clear_since = None
+        state.clear_since = None
 
         if owned_count <= 0:
             ready_for_motion = (
                 raw_count > 0
                 and not host._hw.busy()
-                and float(now_mono) >= float(host._startup_purge_next_prime_at)
+                and float(now_mono) >= float(state.next_prime_at)
             )
             if ready_for_motion:
                 step = self.prime_step_deg
-                budget_left = host._startup_purge_prime_moves < self._max_prime_moves
+                budget_left = state.prime_moves < self._max_prime_moves
                 label = (
                     "c4_startup_purge_prime"
                     if budget_left
@@ -238,10 +263,8 @@ class C4StartupPurgeStrategy:
                         )
 
                 if host._hw.enqueue(_do_prime, label=label):
-                    host._startup_purge_prime_moves += 1
-                    host._startup_purge_next_prime_at = (
-                        now_mono + self.prime_cooldown_s
-                    )
+                    state.prime_moves += 1
+                    state.next_prime_at = now_mono + self.prime_cooldown_s
                     host._set_state(
                         "startup_purge",
                         blocked_reason=None if budget_left else "sweeping_unowned",
@@ -253,15 +276,15 @@ class C4StartupPurgeStrategy:
             if self.can_finish(
                 raw_detection_count=raw_count,
                 owned_piece_count=owned_count,
-                prime_moves=host._startup_purge_prime_moves,
-                clear_since=host._startup_purge_clear_since,
+                prime_moves=state.prime_moves,
+                clear_since=state.clear_since,
                 now_mono=now_mono,
             ):
                 host._logger.info(
                     "RuntimeC4: startup purge completed with %d raw detection(s) left unowned",
                     raw_count,
                 )
-                host._startup_purge_armed = False
+                state.armed = False
                 host._exit_startup_purge()
                 return False
             host._set_state("startup_purge", blocked_reason="awaiting_track_lock")
@@ -291,20 +314,20 @@ class C4StartupPurgeStrategy:
                 )
                 fall_time_s = 0.0
 
-            host._startup_purge_eject_ok = None
+            state.eject_ok = None
 
             def _do_purge_eject() -> None:
                 try:
-                    host._startup_purge_eject_ok = bool(host._eject())
+                    state.eject_ok = bool(host._eject())
                 except Exception:
                     host._logger.exception("RuntimeC4: startup purge eject raised")
-                    host._startup_purge_eject_ok = False
+                    state.eject_ok = False
 
             if not host._hw.enqueue(_do_purge_eject, label="c4_startup_purge_eject"):
                 host._set_state("startup_purge", blocked_reason="hw_queue_full")
                 return True
-            host._startup_purge_commit_piece_uuid = piece_uuid
-            host._startup_purge_commit_deadline = now_mono + fall_time_s
+            state.commit_piece_uuid = piece_uuid
+            state.commit_deadline = now_mono + fall_time_s
             host._set_state("startup_purge", blocked_reason="ejecting")
             return True
 
@@ -323,7 +346,7 @@ class C4StartupPurgeStrategy:
         # Keep rotating the tray until a track reaches the exit angle.
         if (
             not host._hw.busy()
-            and float(now_mono) >= float(host._startup_purge_next_prime_at)
+            and float(now_mono) >= float(state.next_prime_at)
         ):
             step = self.prime_step_deg
 
@@ -338,10 +361,8 @@ class C4StartupPurgeStrategy:
             if host._hw.enqueue(
                 _do_owned_sweep, label="c4_startup_purge_owned_sweep"
             ):
-                host._startup_purge_prime_moves += 1
-                host._startup_purge_next_prime_at = (
-                    now_mono + self.prime_cooldown_s
-                )
+                state.prime_moves += 1
+                state.next_prime_at = now_mono + self.prime_cooldown_s
                 host._set_state("startup_purge", blocked_reason="owned_sweep")
                 return True
 
@@ -349,4 +370,4 @@ class C4StartupPurgeStrategy:
         return True
 
 
-__all__ = ["C4StartupPurgeStrategy"]
+__all__ = ["C4StartupPurgeState", "C4StartupPurgeStrategy"]

@@ -9,6 +9,18 @@
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
+	import {
+		loadStepperDirections,
+		loadStepperEndpoint,
+		loadStepperTmcSettings,
+		moveStepperDegrees,
+		postStepperEndpoint,
+		pulseStepper,
+		readStepperErrorMessage,
+		saveStepperDirection as saveStepperDirectionRequest,
+		saveStepperTmcSettings,
+		stopStepperMotion
+	} from '$lib/settings/stepper-service';
 	import { Cog } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
@@ -135,28 +147,15 @@
 		return value === null ? '--' : value.toFixed(digits);
 	}
 
-	const hardwareState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
+	const hardwareState = $derived(
+		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
+	);
 
 	function humanizeStepperError(message: string): string {
 		if (message.includes('Controller not initialized')) {
 			return 'Hardware not started. Press Start in the dashboard first.';
 		}
 		return message;
-	}
-
-	async function readErrorMessage(res: Response): Promise<string> {
-		try {
-			const data = await res.json();
-			if (typeof data?.detail === 'string') return data.detail;
-			if (typeof data?.message === 'string') return data.message;
-		} catch {
-			/* fall through */
-		}
-		try {
-			return await res.text();
-		} catch {
-			return `Request failed with status ${res.status}`;
-		}
 	}
 
 	function shouldIgnoreKeyboardShortcut(event: KeyboardEvent): boolean {
@@ -188,23 +187,16 @@
 	}
 
 	async function loadStepperDirection() {
-		const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard/stepper-directions`);
-		if (!res.ok) throw new Error(await readErrorMessage(res));
-		const payload = await res.json();
+		const payload = await loadStepperDirections(currentBackendBaseUrl());
 		applyStepperDirectionEntry(findStepperDirectionEntry(payload));
 	}
 
 	async function saveStepperDirection() {
-		const res = await fetch(
-			`${currentBackendBaseUrl()}/api/setup-wizard/stepper-directions/${stepperKey}`,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ inverted: stepperDirectionInverted })
-			}
+		const payload = await saveStepperDirectionRequest(
+			currentBackendBaseUrl(),
+			stepperKey,
+			stepperDirectionInverted
 		);
-		if (!res.ok) throw new Error(await readErrorMessage(res));
-		const payload = await res.json();
 		applyStepperDirectionEntry(findStepperDirectionEntry(payload));
 		if (typeof payload?.inverted === 'boolean' && !driverSettingsOpen) {
 			stepperDirectionInverted = payload.inverted;
@@ -222,12 +214,10 @@
 				? payload.current_position_degrees
 				: null;
 		stepperMicrosteps =
-			typeof payload?.stepper_microsteps === 'number' &&
-			Number.isFinite(payload.stepper_microsteps)
+			typeof payload?.stepper_microsteps === 'number' && Number.isFinite(payload.stepper_microsteps)
 				? payload.stepper_microsteps
 				: null;
-		stepperStopped =
-			typeof payload?.stepper_stopped === 'boolean' ? payload.stepper_stopped : null;
+		stepperStopped = typeof payload?.stepper_stopped === 'boolean' ? payload.stepper_stopped : null;
 		if (!driverSettingsOpen) {
 			stepperDirectionInverted =
 				typeof payload?.stepper_direction_inverted === 'boolean'
@@ -241,9 +231,7 @@
 		errorMsg = null;
 		try {
 			if (endstop) {
-				const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`);
-				if (!res.ok) throw new Error(await readErrorMessage(res));
-				const payload = await res.json();
+				const payload = await loadStepperEndpoint(currentBackendBaseUrl(), endstop.configEndpoint);
 				endstopActiveHigh = Boolean(payload?.endstop_active_high ?? false);
 				if (stepperKey === 'chute') {
 					chuteFirstBinCenter = Number(payload?.first_bin_center ?? chuteFirstBinCenter);
@@ -269,9 +257,7 @@
 		if (!endstop || liveRequestInFlight) return;
 		liveRequestInFlight = true;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.liveEndpoint}`);
-			if (!res.ok) throw new Error(await res.text());
-			applyLiveStatus(await res.json());
+			applyLiveStatus(await loadStepperEndpoint(currentBackendBaseUrl(), endstop.liveEndpoint));
 		} catch {
 			// keep last known
 		} finally {
@@ -291,22 +277,13 @@
 		statusMsg = '';
 		errorMsg = null;
 		try {
-			const params = new URLSearchParams({
-				stepper: stepperKey,
-				direction,
-				duration_s: String(pulseDuration),
-				speed: String(pulseSpeed)
+			await pulseStepper(currentBackendBaseUrl(), stepperKey, direction, {
+				durationSeconds: pulseDuration,
+				speed: pulseSpeed
 			});
-			const res = await fetch(`${currentBackendBaseUrl()}/stepper/pulse?${params.toString()}`, {
-				method: 'POST'
-			});
-			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
-				return;
-			}
 			statusMsg = `Pulsing ${direction.toUpperCase()}.`;
-		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+		} catch (e: any) {
+			errorMsg = humanizeStepperError(e.message ?? `${direction.toUpperCase()} request failed.`);
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}
@@ -321,22 +298,13 @@
 		try {
 			// Convert output degrees to motor degrees via gear ratio
 			const motorDegrees = pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
-			const params = new URLSearchParams({
-				stepper: stepperKey,
-				degrees: String(motorDegrees),
-				speed: String(pulseSpeed)
+			await moveStepperDegrees(currentBackendBaseUrl(), stepperKey, {
+				motorDegrees,
+				speed: pulseSpeed
 			});
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/stepper/move-degrees?${params.toString()}`,
-				{ method: 'POST' }
-			);
-			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
-				return;
-			}
 			statusMsg = `Moving ${pulseDegrees}° ${direction.toUpperCase()}.`;
-		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+		} catch (e: any) {
+			errorMsg = humanizeStepperError(e.message ?? `${direction.toUpperCase()} request failed.`);
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}
@@ -347,17 +315,10 @@
 		statusMsg = '';
 		errorMsg = null;
 		try {
-			const params = new URLSearchParams({ stepper: stepperKey });
-			const res = await fetch(`${currentBackendBaseUrl()}/stepper/stop?${params.toString()}`, {
-				method: 'POST'
-			});
-			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
-				return;
-			}
+			await stopStepperMotion(currentBackendBaseUrl(), stepperKey);
 			statusMsg = 'Stopped.';
-		} catch {
-			errorMsg = 'Stop request failed.';
+		} catch (e: any) {
+			errorMsg = humanizeStepperError(e.message ?? 'Stop request failed.');
 		} finally {
 			stopping = false;
 		}
@@ -374,12 +335,9 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.homeEndpoint}`, {
-				method: 'POST',
+			const payload = await postStepperEndpoint(currentBackendBaseUrl(), endstop.homeEndpoint, {
 				signal: abortController.signal
 			});
-			if (!res.ok) throw new Error(await readErrorMessage(res));
-			const payload = await res.json();
 			applyLiveStatus(payload?.status ?? payload);
 			statusMsg = payload?.message ?? 'Homed and zeroed.';
 		} catch (e: any) {
@@ -402,11 +360,10 @@
 		homeAbortController = null;
 		homing = false;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.homeCancelEndpoint}`, {
-				method: 'POST'
-			});
-			if (!res.ok) throw new Error(await readErrorMessage(res));
-			const payload = await res.json();
+			const payload = await postStepperEndpoint(
+				currentBackendBaseUrl(),
+				endstop.homeCancelEndpoint
+			);
 			applyLiveStatus(payload?.status ?? payload);
 			statusMsg = payload?.message ?? 'Homing canceled.';
 		} catch (e: any) {
@@ -423,11 +380,7 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.calibrateEndpoint}`, {
-				method: 'POST'
-			});
-			if (!res.ok) throw new Error(await readErrorMessage(res));
-			const payload = await res.json();
+			const payload = await postStepperEndpoint(currentBackendBaseUrl(), endstop.calibrateEndpoint);
 			applyLiveStatus(payload?.status ?? payload);
 			calibrateResult = { steps_per_revolution: payload.steps_per_revolution };
 			statusMsg = payload?.message ?? `Calibrated: ${payload.steps_per_revolution} steps/rev.`;
@@ -446,18 +399,14 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
+			const payload = await postStepperEndpoint(currentBackendBaseUrl(), endstop.configEndpoint, {
+				payload: {
 					first_bin_center: chuteFirstBinCenter,
 					pillar_width_deg: chutePillarWidthDeg,
 					endstop_active_high: endstopActiveHigh,
 					operating_speed_microsteps_per_second: chuteOperatingSpeed
-				})
+				}
 			});
-			if (!res.ok) throw new Error(await readErrorMessage(res));
-			const payload = await res.json();
 			endstopActiveHigh = Boolean(payload?.settings?.endstop_active_high ?? endstopActiveHigh);
 			chuteFirstBinCenter = Number(payload?.settings?.first_bin_center ?? chuteFirstBinCenter);
 			chutePillarWidthDeg = Number(payload?.settings?.pillar_width_deg ?? chutePillarWidthDeg);
@@ -483,16 +432,12 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}${endstop.configEndpoint}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
+			const payload = await postStepperEndpoint(currentBackendBaseUrl(), endstop.configEndpoint, {
+				payload: {
 					endstop_active_high: endstopActiveHigh,
 					stepper_direction_inverted: stepperDirectionInverted
-				})
+				}
 			});
-			if (!res.ok) throw new Error(await readErrorMessage(res));
-			const payload = await res.json();
 			endstopActiveHigh = Boolean(payload?.settings?.endstop_active_high ?? endstopActiveHigh);
 			stepperDirectionInverted = Boolean(
 				payload?.settings?.stepper_direction_inverted ?? stepperDirectionInverted
@@ -511,9 +456,7 @@
 	async function loadTmcSettings() {
 		tmcLoading = true;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`);
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
+			const data = await loadStepperTmcSettings(currentBackendBaseUrl(), stepperKey);
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
@@ -535,22 +478,13 @@
 		try {
 			await saveStepperDirection();
 
-			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					irun: tmcIrun,
-					ihold: tmcIhold,
-					microsteps: tmcMicrosteps,
-					stealthchop: tmcStealthchop,
-					coolstep: tmcCoolstep
-				})
+			const data = await saveStepperTmcSettings(currentBackendBaseUrl(), stepperKey, {
+				irun: tmcIrun,
+				ihold: tmcIhold,
+				microsteps: tmcMicrosteps,
+				stealthchop: tmcStealthchop,
+				coolstep: tmcCoolstep
 			});
-			if (!res.ok) {
-				errorMsg = await readErrorMessage(res);
-				return;
-			}
-			const data = await res.json();
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
@@ -568,9 +502,7 @@
 	async function refreshDrvStatus() {
 		if (!driverSettingsOpen || !tmcLoaded) return;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`);
-			if (!res.ok) return;
-			const data = await res.json();
+			const data = await loadStepperTmcSettings(currentBackendBaseUrl(), stepperKey);
 			tmcDrvStatus = data.drv_status ?? null;
 		} catch {
 			// silent
@@ -613,25 +545,17 @@
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<aside
-	class="flex h-full min-w-0 flex-col border border-border bg-bg"
->
+<aside class="flex h-full min-w-0 flex-col border border-border bg-bg">
 	<!-- Header -->
 	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text"
-			>
+			<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text">
 				<Cog size={16} />
 			</div>
 			<div class="min-w-0">
 				<div class="text-sm font-semibold text-text">{displayLabel}</div>
-				<div
-					class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
-				>
-					<span
-						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
-					>
+				<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+					<span>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span>
 					<span>·</span>
 					<span>{formatNumber(currentPositionDegrees)}°</span>
 					<span>·</span>

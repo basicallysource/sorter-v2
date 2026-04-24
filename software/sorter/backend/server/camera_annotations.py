@@ -357,9 +357,16 @@ class ChannelArcOverlay:
 
 
 class RuntimeTrackOverlay:
-    # Non-ghost tracks: confirmed_real (green) + pending (gray). Ghost-marked
-    # tracks are drawn by RuntimeGhostOverlay in a separate "ghosts" category
-    # so operators can toggle their visibility independently.
+    """Live tracker overlay for the production primary tracker.
+
+    Box colour reflects the rotation-window ghost/real verdict: green for
+    ``confirmed_real``, dim grey for tracks the verdict has not promoted
+    yet. Track IDs render unconditionally for non-ghost tracks — operators
+    asked for the live tracker output to be visible at all times, not
+    gated on ``confirmed_real``. Ghost-marked tracks are still drawn by
+    RuntimeGhostOverlay (separate "ghosts" category, separately toggleable).
+    """
+
     category = "detections"
 
     def __init__(self, get_tracks: Callable[[], list[Any]]) -> None:
@@ -398,8 +405,6 @@ class RuntimeTrackOverlay:
                 cv2.LINE_AA,
             )
 
-            if not confirmed:
-                continue
             global_id = getattr(track, "global_id", None)
             if global_id is None:
                 global_id = getattr(track, "track_id", None)

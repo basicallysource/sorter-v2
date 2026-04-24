@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { ArrowLeft, Camera, ExternalLink, Hash, Image as ImageIcon, Route } from 'lucide-svelte';
+	import { ArrowLeft, Camera, ExternalLink, Image as ImageIcon, Route } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import { capturedCropUrl, dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
@@ -471,6 +471,15 @@
 		return 'text-danger';
 	}
 
+	function confidenceBarClass(conf: number | null | undefined): string {
+		if (conf == null) return 'bg-text-muted/40';
+		const pct = conf * 100;
+		if (pct >= 90) return 'bg-success';
+		if (pct >= 80) return 'bg-warning';
+		if (pct >= 60) return 'bg-warning/70';
+		return 'bg-danger';
+	}
+
 	function formatSyncPercent(ratio: number | null | undefined): string {
 		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
 		return `${(ratio * 100).toFixed(0)}%`;
@@ -548,325 +557,213 @@
 
 <div class="detail-shell min-h-screen bg-bg">
 	<AppHeader />
-	<div class="mx-auto flex w-full max-w-[1800px] flex-col gap-4 p-4 sm:p-6">
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-3 p-4 sm:p-6">
 		{#if !piece}
 			{#if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
-				<div class="detail-section border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					Loading piece detail…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
-				<div class="detail-section border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					This piece is not in our records. Go back to the
 					<a href="/tracked" class="text-primary underline">tracker list</a>
 					to pick another.
 				</div>
 			{:else}
-				<div class="detail-section border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					Could not load this piece — check backend connection.
 				</div>
 			{/if}
 		{:else}
-			<header class="detail-hero border border-border bg-surface">
-				<div class="flex flex-wrap items-center gap-3 px-3 py-2">
-					<a
-						href="/tracked"
-						class="inline-flex min-h-10 items-center gap-2 border border-border bg-bg px-3 text-sm font-medium text-text-muted transition-[transform,border-color,background-color,color] hover:border-primary/60 hover:text-text active:scale-[0.96]"
-					>
-						<ArrowLeft size={15} />
-						Back
-					</a>
-					<div class="min-w-0 flex-1">
-						<div class="flex flex-wrap items-center gap-2">
-							<h1 class="detail-title truncate text-xl font-semibold tracking-[-0.03em] text-text">
-								{primaryTitle}
-							</h1>
+			<!-- Crumb: a single terse bar so the actual content can breathe. -->
+			<div class="flex items-center gap-3 text-xs text-text-muted">
+				<a
+					href="/tracked"
+					class="inline-flex items-center gap-1 hover:text-text"
+				>
+					<ArrowLeft size={13} />
+					Tracked pieces
+				</a>
+				<span class="text-border">/</span>
+				<span class="font-mono tabular-nums">{uuid.slice(0, 12)}</span>
+			</div>
+
+			<!-- Verdict: observation ↔ identity+bin ↔ reference, answered on a glance. -->
+			<section class="verdict border border-border bg-surface">
+				<!-- Observation -->
+				<div class="flex flex-col border-b border-border lg:border-b-0 lg:border-r">
+					<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-muted">
+						<span class="inline-flex items-center gap-1.5 uppercase tracking-wider">
+							<ImageIcon size={12} />
+							Observed
+						</span>
+						{#if latestCrop?.role}
+							<span class="truncate">{formatRole(latestCrop.role)}</span>
+						{/if}
+					</div>
+					{#if latestCropSrc}
+						<button
+							type="button"
+							class="group flex min-h-[240px] flex-1 items-center justify-center bg-white p-2 transition-[transform] active:scale-[0.98]"
+							onclick={() =>
+								(zoomImage = {
+									src: latestCropSrc,
+									label: latestCrop ? formatRole(latestCrop.role) : 'Latest crop'
+								})}
+						>
+							<img
+								src={latestCropSrc}
+								alt="latest crop"
+								class="image-outline max-h-[260px] w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+								loading="lazy"
+							/>
+						</button>
+					{:else}
+						<div class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted">
+							No crop yet
+						</div>
+					{/if}
+				</div>
+
+				<!-- Identity + destination -->
+				<div class="flex flex-col justify-between gap-4 px-5 py-4">
+					<div class="flex flex-col gap-2">
+						<div class="flex flex-wrap items-start gap-2">
 							<span
-								class={`inline-flex items-center border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase ${statusChipClass(piece)}`}
+								class={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusChipClass(piece)}`}
 							>
 								{statusLabel(piece)}
 							</span>
+							{#if piece.tracked_global_id != null}
+								<a
+									href={`/tracked/${piece.tracked_global_id}`}
+									class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 text-[10px] font-mono text-text-muted hover:border-primary/60 hover:text-text"
+									title="Open tracker-level record (all angular crops)"
+								>
+									<Route size={11} />
+									Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
+								</a>
+							{/if}
 						</div>
-						<div class="mt-1 flex flex-wrap gap-2 text-xs text-text-muted">
-							<span class="inline-flex items-center gap-1.5 font-mono tabular-nums">
-								<Hash size={12} />
-								{uuid.slice(0, 12)}
+						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							<span class="font-mono text-3xl font-semibold tracking-[-0.02em] text-text tabular-nums">
+								{piece.part_id ?? '—'}
 							</span>
-							<span class="inline-flex items-center gap-1.5">
-								<Route size={12} />
-								{piece.stage}
+							<span class="detail-title text-lg text-text-muted">
+								{piece.part_name ?? bricklink?.name ?? 'Unclassified'}
 							</span>
-							{#if typeof piece.confidence === 'number'}
-								<span class={`font-mono tabular-nums ${confidenceClass(piece.confidence)}`}>
-									{(piece.confidence * 100).toFixed(0)}%
+						</div>
+						<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+							<span>
+								<span class="uppercase tracking-wider">Color</span>
+								<strong class="ml-1 font-normal text-text">
+									{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
+								</strong>
+							</span>
+							<span>
+								<span class="uppercase tracking-wider">Category</span>
+								<strong class="ml-1 font-normal text-text">{category_label ?? '—'}</strong>
+							</span>
+							{#if piece.brickognize_source_view}
+								<span>
+									<span class="uppercase tracking-wider">View</span>
+									<strong class="ml-1 font-normal text-text">{piece.brickognize_source_view}</strong>
 								</span>
 							{/if}
 						</div>
 					</div>
-					{#if piece.tracked_global_id != null}
-						<a
-							href={`/tracked/${piece.tracked_global_id}`}
-							class="inline-flex min-h-10 items-center gap-2 border border-border bg-bg px-3 text-sm text-text-muted transition-[transform,border-color,background-color,color] hover:border-primary/60 hover:text-text active:scale-[0.96]"
-							title="Open tracker-level record (all angular crops)"
-						>
-							<ExternalLink size={15} />
-							Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
-						</a>
-					{/if}
-				</div>
-			</header>
 
-			<section class="grid gap-3 lg:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.15fr)]">
-				<div class="detail-section overflow-hidden border border-border bg-surface">
-					<div class="flex items-center gap-2 border-b border-border bg-bg px-3 py-2">
-						<ImageIcon size={16} class="text-primary" />
-						<h2 class="text-sm font-semibold text-text">Prime Visual</h2>
-					</div>
-					<div class="grid grid-cols-2 gap-2 p-2">
-						<div class="overflow-hidden border border-border bg-bg">
-							<div class="border-b border-border px-2 py-1 text-xs font-medium text-text-muted">
-								Latest crop
-							</div>
-							{#if latestCropSrc}
-								<button
-									type="button"
-									class="group flex h-48 w-full items-center justify-center bg-white p-1 transition-[transform] active:scale-[0.96]"
-									onclick={() =>
-										(zoomImage = {
-											src: latestCropSrc,
-											label: latestCrop ? formatRole(latestCrop.role) : 'Latest crop'
-										})}
-								>
-									<img
-										src={latestCropSrc}
-										alt="latest crop"
-										class="image-outline h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-										loading="lazy"
-									/>
-								</button>
-							{:else}
-								<div class="flex h-48 items-center justify-center text-sm text-text-muted">
-									No crop
+					<div class="grid gap-3 sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<span class="text-[10px] uppercase tracking-wider text-text-muted">Confidence</span>
+							{#if typeof piece.confidence === 'number'}
+								<div class="flex items-center gap-2">
+									<div class="confidence-track h-1.5 flex-1 bg-bg">
+										<div
+											class={`confidence-fill h-full ${confidenceBarClass(piece.confidence)}`}
+											style="width: {Math.max(0, Math.min(100, piece.confidence * 100))}%"
+										></div>
+									</div>
+									<span class={`font-mono text-sm tabular-nums ${confidenceClass(piece.confidence)}`}>
+										{(piece.confidence * 100).toFixed(0)}%
+									</span>
 								</div>
-							{/if}
-						</div>
-						<div class="overflow-hidden border border-border bg-bg">
-							<div class="border-b border-border px-2 py-1 text-xs font-medium text-text-muted">
-								Recognized image
-							</div>
-							{#if recognizerImageSrc}
-								<button
-									type="button"
-									class="group flex h-48 w-full items-center justify-center bg-white p-1 transition-[transform] active:scale-[0.96]"
-									onclick={() =>
-										(zoomImage = { src: recognizerImageSrc, label: 'Recognized image' })}
-								>
-									<img
-										src={recognizerImageSrc}
-										alt="recognizer reference"
-										class="image-outline h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-										loading="lazy"
-									/>
-								</button>
 							{:else}
-								<div class="flex h-48 items-center justify-center text-sm text-text-muted">
-									No reference
-								</div>
+								<span class="font-mono text-sm text-text-muted">—</span>
+							{/if}
+						</div>
+						<div class="flex flex-col gap-1">
+							<span class="text-[10px] uppercase tracking-wider text-text-muted">Destination</span>
+							{#if bin_label}
+								<span class="font-mono text-lg font-semibold text-text tabular-nums">{bin_label}</span>
+							{:else if is_unknown || is_multi_drop}
+								<span class="font-mono text-lg font-semibold text-warning-dark">discard</span>
+							{:else}
+								<span class="font-mono text-lg text-text-muted">—</span>
 							{/if}
 						</div>
 					</div>
 				</div>
 
-				<div class="detail-section flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-semibold text-text">
-						Recognize
+				<!-- Reference -->
+				<div class="flex flex-col border-t border-border lg:border-t-0 lg:border-l">
+					<div class="border-b border-border bg-bg px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
+						Reference
 					</div>
-					<div class="grid gap-x-4 gap-y-2 px-3 py-3 text-sm sm:grid-cols-2">
-						<div class="compact-row">
-							<span>Part</span>
-							<strong class="font-mono text-text">{piece.part_id ?? '—'}</strong>
-						</div>
-						<div class="compact-row">
-							<span>Confidence</span>
-							<strong class={`font-mono tabular-nums ${confidenceClass(piece.confidence)}`}>
-								{typeof piece.confidence === 'number'
-									? `${(piece.confidence * 100).toFixed(0)}%`
-									: '—'}
-							</strong>
-						</div>
-						<div class="compact-row sm:col-span-2">
-							<span>Name</span>
-							<strong class="text-right text-text">
-								{piece.part_name ?? bricklink?.name ?? '—'}
-							</strong>
-						</div>
-						<div class="compact-row">
-							<span>Color</span>
-							<strong class="text-text">
-								{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
-							</strong>
-						</div>
-						<div class="compact-row">
-							<span>Category</span>
-							<strong class="text-right text-text">{category_label ?? '—'}</strong>
-						</div>
-						<div class="compact-row sm:col-span-2">
-							<span>Source view</span>
-							<strong class="text-right text-text">{piece.brickognize_source_view ?? '—'}</strong>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="grid gap-3 md:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-				<!-- Matrix-shot: reverse-buffered C4 fall sequence -->
-				<div class="detail-section overflow-hidden border border-border bg-surface">
-					<div
-						class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-2"
-					>
-						<div class="flex items-center gap-2">
-							<Camera size={16} class="text-primary" />
-							<h2 class="text-sm font-semibold text-text">Matrix-Shot</h2>
-							<span class="font-mono text-xs text-text-muted tabular-nums">
-								{burstFrames.length}{#if burstDurationLabel}
-									· {burstDurationLabel}{/if}
-							</span>
-						</div>
-						{#if selectedBurstFrame && !burstFrameCropSrc(selectedBurstFrame)}
-							<span
-								class="border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs text-warning-dark"
-							>
-								full frame
-							</span>
-						{/if}
-					</div>
-					{#if burstFrames.length === 0}
-						<div
-							class="flex min-h-56 items-center justify-center bg-bg/50 p-6 text-sm text-text-muted"
+					{#if recognizerImageSrc}
+						<button
+							type="button"
+							class="group flex min-h-[240px] flex-1 items-center justify-center bg-white p-2 transition-[transform] active:scale-[0.98]"
+							onclick={() => (zoomImage = { src: recognizerImageSrc, label: 'Recognized image' })}
 						>
-							No Matrix-Shot frames captured.
-						</div>
-					{:else if selectedBurstFrame}
-						{@const selectedBurstSrc = burstFrameDisplaySrc(selectedBurstFrame)}
-						<div class="matrix-stage-bg flex min-h-[280px] items-center justify-center p-2">
-							{#if selectedBurstSrc}
-								<button
-									type="button"
-									class="group flex w-full items-center justify-center transition-[transform] active:scale-[0.96]"
-									onclick={() =>
-										(zoomImage = {
-											src: selectedBurstSrc,
-											label: `Matrix-Shot frame ${selectedBurstIdx + 1}`
-										})}
-								>
-									<img
-										src={selectedBurstSrc}
-										alt="matrix-shot frame {selectedBurstIdx + 1} of {burstFrames.length}"
-										class="image-outline max-h-[330px] max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.005]"
-										loading="lazy"
-									/>
-								</button>
-							{/if}
-						</div>
-						<div
-							class="flex items-center justify-between border-t border-border px-3 py-1.5 text-xs"
-						>
-							<span class="font-mono text-text-muted tabular-nums">
-								{formatAbsTs(selectedBurstFrame.captured_ts)} · {selectedBurstIdx +
-									1}/{burstFrames.length}
-							</span>
-							<span class="text-text-muted">
-								{#if burstFrameCropSrc(selectedBurstFrame)}
-									cropped piece
-								{:else}
-									crop pending
-								{/if}
-							</span>
-						</div>
-						<div
-							class="filmstrip flex gap-1.5 overflow-x-auto border-t border-border bg-surface px-2 py-2"
-						>
-							{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
-								{@const frameSrc = burstFrameDisplaySrc(frame)}
-								<button
-									type="button"
-									class={`group flex h-16 w-24 flex-shrink-0 items-center justify-center bg-bg transition-[transform,border-color,background-color] hover:border-primary/70 active:scale-[0.96] ${
-										idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
-									}`}
-									onclick={() => (selectedBurstIdx = idx)}
-									title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
-								>
-									{#if frameSrc}
-										<img
-											src={frameSrc}
-											alt="matrix-shot frame {idx + 1}"
-											class="image-outline h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-											loading="lazy"
-										/>
-									{/if}
-								</button>
-							{/each}
+							<img
+								src={recognizerImageSrc}
+								alt="recognizer reference"
+								class="image-outline max-h-[260px] w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+								loading="lazy"
+							/>
+						</button>
+					{:else}
+						<div class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted">
+							No reference
 						</div>
 					{/if}
 				</div>
-
-				{#if piece.tracked_global_id != null}
-					<div class="detail-section overflow-hidden border border-border bg-surface">
-						<div
-							class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
-						>
-							<span class="font-semibold text-text">Track path</span>
-							<a
-								href={`/tracked/${piece.tracked_global_id}`}
-								class="inline-flex items-center gap-1.5 text-text-muted hover:text-text"
-								title="Open the full tracker record"
-							>
-								<ExternalLink size={14} />
-								#{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
-							</a>
-						</div>
-						<div class="track-path-compact max-h-[430px] overflow-auto p-2">
-							<TrackPathComposite {usedCropTs} detailSnapshot={trackDetail} />
-						</div>
-					</div>
-				{/if}
 			</section>
 
-			<section class="detail-section overflow-hidden border border-border bg-surface">
-				<div
-					class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-2 text-sm"
-				>
-					<div class="flex items-center gap-2 font-semibold text-text">
-						<ImageIcon size={16} class="text-primary" />
-						Captured crops
-						<span class="font-mono text-text-muted tabular-nums">{crops.length}</span>
+			<!-- Evidence: all the crops the system saw, chronological, full-width. -->
+			<section class="border border-border bg-surface">
+				<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5">
+					<div class="flex items-baseline gap-2">
+						<span class="text-xs font-semibold uppercase tracking-wider text-text">Evidence</span>
+						<span class="font-mono text-xs text-text-muted tabular-nums">
+							{crops.length} crop{crops.length === 1 ? '' : 's'}
+							{#if usedCropCount > 0} · {usedCropCount} shipped{/if}
+						</span>
 					</div>
 					{#if usedCropCount > 0}
-						<div class="flex items-center gap-2 text-xs text-text-muted">
+						<span class="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
 							<span class="inline-block h-3 w-3 border-2 border-primary"></span>
-							<span>{usedCropCount} used</span>
-						</div>
+							<span>sent to recognizer</span>
+						</span>
 					{/if}
 				</div>
 				<div class="crop-strip flex gap-2 overflow-x-auto p-2">
 					{#if crops.length === 0}
-						<div
-							class="flex h-44 min-w-full items-center justify-center border border-dashed border-border bg-bg text-sm text-text-muted"
-						>
+						<div class="flex h-40 min-w-full items-center justify-center border border-dashed border-border bg-bg text-sm text-text-muted">
 							No crops available.
 						</div>
 					{:else}
 						{#each crops as crop (cropKey(crop))}
 							<button
 								type="button"
-								class={`group flex w-36 flex-shrink-0 flex-col overflow-hidden bg-bg text-left transition-[transform,border-color,background-color] hover:border-primary/70 active:scale-[0.96] ${
+								class={`group flex w-32 flex-shrink-0 flex-col overflow-hidden bg-bg text-left transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
 									crop.used ? 'border-2 border-primary' : 'border border-border'
 								}`}
-								title={crop.used
-									? 'Shipped to Brickognize for classification'
-									: formatRole(crop.role)}
+								title={crop.used ? 'Shipped to Brickognize for classification' : formatRole(crop.role)}
 								onclick={() => (zoomImage = { src: crop.src, label: formatRole(crop.role) })}
 							>
-								<div class="relative flex h-36 w-full items-center justify-center bg-white p-1">
+								<div class="flex h-32 w-full items-center justify-center bg-white p-1">
 									<img
 										src={crop.src}
 										alt={crop.role}
@@ -874,7 +771,7 @@
 										loading="lazy"
 									/>
 								</div>
-								<div class="grid gap-0.5 border-t border-border px-2 py-1.5 text-[11px]">
+								<div class="grid gap-0.5 border-t border-border px-2 py-1 text-[10px]">
 									<span class="truncate font-medium text-text">{formatRole(crop.role)}</span>
 									<span class="font-mono text-text-muted tabular-nums">{formatAbsTs(crop.ts)}</span>
 								</div>
@@ -884,75 +781,134 @@
 				</div>
 			</section>
 
-			<section class="grid gap-3 md:grid-cols-[minmax(0,0.8fr)_minmax(320px,0.8fr)]">
-				<div class="detail-section flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-semibold text-text">
-						Routing
-					</div>
-					<div class="grid gap-y-2 px-3 py-3 text-sm">
-						<div class="compact-row">
-							<span>Stage</span>
-							<strong class="text-text">{piece.stage}</strong>
-						</div>
-						<div class="compact-row">
-							<span>Bin</span>
-							<strong class="font-mono text-text tabular-nums">
-								{#if bin_label}
-									{bin_label}
-								{:else if is_unknown || is_multi_drop}
-									discard
-								{:else}
-									—
+			<!-- Matrix-Shot + Track path side by side (when both exist). -->
+			{#if burstFrames.length > 0 || piece.tracked_global_id != null}
+				<section class="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+					{#if burstFrames.length > 0}
+						<div class="overflow-hidden border border-border bg-surface">
+							<div class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5">
+								<div class="flex items-baseline gap-2">
+									<span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text">
+										<Camera size={12} />
+										Matrix-Shot
+									</span>
+									<span class="font-mono text-xs text-text-muted tabular-nums">
+										{burstFrames.length} frame{burstFrames.length === 1 ? '' : 's'}{#if burstDurationLabel}
+											· {burstDurationLabel}{/if}
+									</span>
+								</div>
+								{#if selectedBurstFrame && !burstFrameCropSrc(selectedBurstFrame)}
+									<span class="border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-warning-dark">
+										full frame
+									</span>
 								{/if}
-							</strong>
+							</div>
+							{#if selectedBurstFrame}
+								{@const selectedBurstSrc = burstFrameDisplaySrc(selectedBurstFrame)}
+								<div class="matrix-stage-bg flex min-h-[260px] items-center justify-center p-2">
+									{#if selectedBurstSrc}
+										<button
+											type="button"
+											class="group flex w-full items-center justify-center transition-[transform] active:scale-[0.98]"
+											onclick={() =>
+												(zoomImage = {
+													src: selectedBurstSrc,
+													label: `Matrix-Shot frame ${selectedBurstIdx + 1}`
+												})}
+										>
+											<img
+												src={selectedBurstSrc}
+												alt="matrix-shot frame {selectedBurstIdx + 1} of {burstFrames.length}"
+												class="image-outline max-h-[310px] max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.005]"
+												loading="lazy"
+											/>
+										</button>
+									{/if}
+								</div>
+								<div class="flex items-center justify-between border-t border-border px-3 py-1 text-[11px]">
+									<span class="font-mono text-text-muted tabular-nums">
+										{formatAbsTs(selectedBurstFrame.captured_ts)} · {selectedBurstIdx + 1}/{burstFrames.length}
+									</span>
+									<span class="text-text-muted">
+										{#if burstFrameCropSrc(selectedBurstFrame)}cropped piece{:else}crop pending{/if}
+									</span>
+								</div>
+								<div class="filmstrip flex gap-1 overflow-x-auto border-t border-border bg-surface px-2 py-1.5">
+									{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
+										{@const frameSrc = burstFrameDisplaySrc(frame)}
+										<button
+											type="button"
+											class={`group flex h-14 w-20 flex-shrink-0 items-center justify-center bg-bg transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
+												idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
+											}`}
+											onclick={() => (selectedBurstIdx = idx)}
+											title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
+										>
+											{#if frameSrc}
+												<img
+													src={frameSrc}
+													alt="matrix-shot frame {idx + 1}"
+													class="image-outline h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+													loading="lazy"
+												/>
+											{/if}
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
-						<div class="compact-row">
-							<span>Tracker</span>
-							<strong class="font-mono text-text tabular-nums">
-								{formatTrackLabel(piece.tracked_global_id) ?? '—'}
-							</strong>
-						</div>
-					</div>
-				</div>
+					{/if}
 
-				<section
-					class="detail-section flex flex-col border border-border bg-surface md:col-span-2 xl:col-span-1"
-				>
-					<div
-						class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-2"
-					>
-						<h2 class="text-sm font-semibold text-text">Motion</h2>
-						<span
-							class={`border px-2 py-0.5 text-xs font-semibold tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}
-						>
-							{formatSyncPercent(piece.carousel_motion_sync_ratio)}
-						</span>
-					</div>
-					<div class="grid grid-cols-3 gap-2 px-3 py-3 text-xs">
-						<div>
-							<span class="block text-text-muted">Avg</span>
-							<span
-								class={`font-mono tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio_avg)}`}
-							>
-								{formatSyncPercent(piece.carousel_motion_sync_ratio_avg)}
-							</span>
+					{#if piece.tracked_global_id != null}
+						<div class="overflow-hidden border border-border bg-surface">
+							<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5">
+								<span class="text-xs font-semibold uppercase tracking-wider text-text">Track path</span>
+								<a
+									href={`/tracked/${piece.tracked_global_id}`}
+									class="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-text"
+									title="Open the full tracker record"
+								>
+									<ExternalLink size={12} />
+									#{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
+								</a>
+							</div>
+							<div class="track-path-compact max-h-[430px] overflow-auto p-2">
+								<TrackPathComposite {usedCropTs} detailSnapshot={trackDetail} />
+							</div>
 						</div>
-						<div>
-							<span class="block text-text-muted">Samples</span>
-							<span class="font-mono text-text tabular-nums">
-								{piece.carousel_motion_sample_count ?? 0}
-							</span>
-						</div>
-						<div>
-							<span class="block text-text-muted">Angle</span>
-							<span class="font-mono text-text tabular-nums">
-								{typeof piece.first_carousel_seen_angle_deg === 'number'
-									? `${piece.first_carousel_seen_angle_deg.toFixed(1)}°`
-									: '—'}
-							</span>
-						</div>
-					</div>
+					{/if}
 				</section>
+			{/if}
+
+			<!-- Diagnostics: dense key-value bar for debugging; low visual priority. -->
+			<section class="flex flex-wrap gap-x-5 gap-y-1 border border-border bg-surface px-3 py-2 text-xs">
+				<span class="flex items-baseline gap-1.5">
+					<span class="uppercase tracking-wider text-text-muted">Stage</span>
+					<strong class="font-mono font-normal text-text">{piece.stage}</strong>
+				</span>
+				<span class="flex items-baseline gap-1.5">
+					<span class="uppercase tracking-wider text-text-muted">Motion sync</span>
+					<strong class={`font-mono font-normal tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}>
+						{formatSyncPercent(piece.carousel_motion_sync_ratio)}
+					</strong>
+					<span class="text-text-muted">
+						(avg <span class={motionSyncClass(piece.carousel_motion_sync_ratio_avg)}>
+							{formatSyncPercent(piece.carousel_motion_sync_ratio_avg)}
+						</span>, {piece.carousel_motion_sample_count ?? 0} samples)
+					</span>
+				</span>
+				{#if typeof piece.first_carousel_seen_angle_deg === 'number'}
+					<span class="flex items-baseline gap-1.5">
+						<span class="uppercase tracking-wider text-text-muted">First angle</span>
+						<strong class="font-mono font-normal tabular-nums text-text">
+							{piece.first_carousel_seen_angle_deg.toFixed(1)}°
+						</strong>
+					</span>
+				{/if}
+				<span class="flex items-baseline gap-1.5">
+					<span class="uppercase tracking-wider text-text-muted">UUID</span>
+					<strong class="font-mono font-normal tabular-nums text-text">{uuid}</strong>
+				</span>
 			</section>
 		{/if}
 	</div>
@@ -981,32 +937,30 @@
 		-webkit-font-smoothing: antialiased;
 	}
 
-	.detail-hero,
-	.detail-section {
+	.verdict {
+		display: grid;
+		grid-template-columns: 1fr;
 		box-shadow:
 			0 18px 50px -42px rgba(20, 20, 18, 0.45),
 			0 1px 0 rgba(255, 255, 255, 0.72) inset;
+	}
+
+	@media (min-width: 900px) {
+		.verdict {
+			grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr) minmax(260px, 0.8fr);
+		}
 	}
 
 	.detail-title {
 		text-wrap: balance;
 	}
 
-	.compact-row {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: 1rem;
-		border-bottom: 1px solid color-mix(in srgb, var(--color-border, #d8d5ce) 65%, transparent);
-		padding-bottom: 0.5rem;
+	.confidence-track {
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-border, #d8d5ce) 70%, transparent);
 	}
 
-	.compact-row > span {
-		color: var(--color-text-muted, #6d6961);
-	}
-
-	.compact-row > strong {
-		font-weight: 600;
+	.confidence-fill {
+		transition: width 200ms ease-out;
 	}
 
 	.matrix-stage-bg {

@@ -124,14 +124,6 @@ class HiveTargetPayload(BaseModel):
     enabled: bool = False
 
 
-class HiveRegisterPayload(BaseModel):
-    target_name: str = ""
-    url: str
-    email: str
-    password: str
-    machine_name: str
-    machine_description: str = ""
-
 
 class HiveLinkPayload(BaseModel):
     target_name: str = ""
@@ -398,61 +390,6 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
     getClassificationTrainingManager().reloadHiveUploader()
     return {"ok": True, "message": "Hive target removed."}
 
-
-@router.post("/api/settings/hive/register")
-def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
-    import requests
-
-    base_url = _normalize_hive_base_url(payload.url)
-    try:
-        response = requests.post(
-            f"{base_url}/api/machine/register",
-            json={
-                "email": payload.email,
-                "password": payload.password,
-                "machine_name": payload.machine_name,
-                "machine_description": payload.machine_description,
-            },
-            timeout=15,
-        )
-    except Exception as exc:
-        raise HTTPException(502, f"Could not reach Hive server: {exc}")
-
-    if not response.ok:
-        try:
-            body = response.json()
-            message = body.get("error", response.text)
-        except Exception:
-            message = response.text
-        raise HTTPException(response.status_code, f"Hive registration failed: {message}")
-
-    data = response.json()
-    raw_token = data.get("raw_token", "")
-    machine_id = data.get("id", "")
-
-    targets = _load_hive_targets()
-    target_id = uuid4().hex[:12]
-    target_name = payload.target_name.strip() or base_url
-    targets.append(
-        {
-            "id": target_id,
-            "name": target_name,
-            "url": base_url,
-            "api_token": raw_token,
-            "enabled": True,
-            "machine_id": str(machine_id),
-        }
-    )
-    _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
-    return {
-        "ok": True,
-        "target_id": target_id,
-        "target_name": target_name,
-        "machine_id": str(machine_id),
-        "machine_name": data.get("name", payload.machine_name),
-        "token_prefix": data.get("token_prefix", raw_token[:8]),
-    }
 
 
 @router.post("/api/settings/hive/backfill")

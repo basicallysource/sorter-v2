@@ -378,6 +378,7 @@ def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
 def _persist_stepper_driver_setting(
     api_name: str,
     *,
+    microsteps: Optional[int] = None,
     coolstep: Optional[bool] = None,
     stealthchop: Optional[bool] = None,
 ) -> None:
@@ -390,6 +391,8 @@ def _persist_stepper_driver_setting(
         entry = overrides.get(toml_name, {})
         if not isinstance(entry, dict):
             entry = {}
+        if microsteps is not None:
+            entry["microsteps"] = int(microsteps)
         if coolstep is not None:
             entry["coolstep"] = bool(coolstep)
         if stealthchop is not None:
@@ -665,6 +668,7 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
         if body.microsteps not in MICROSTEPS_TO_MRES:
             raise HTTPException(status_code=400, detail=f"microsteps must be one of {sorted(MICROSTEPS_TO_MRES.keys())}")
         stepper.set_microsteps(body.microsteps)
+        _persist_stepper_driver_setting(name, microsteps=body.microsteps)
 
     driver_mode = _legacy_driver_mode_from_request(body)
     if driver_mode is not None:

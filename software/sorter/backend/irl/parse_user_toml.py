@@ -150,6 +150,7 @@ class MachineConfig:
 
 @dataclass(frozen=True)
 class StepperDriverOverride:
+    microsteps: int | None = None
     coolstep: bool | None = None
     stealthchop: bool | None = None
 
@@ -303,6 +304,7 @@ def _parseStepperDriverOverrides(
 
         coolstep = value.get("coolstep")
         stealthchop = value.get("stealthchop")
+        microsteps = value.get("microsteps")
         if coolstep is not None and not isinstance(coolstep, bool):
             gc.logger.warning(
                 f"Ignoring stepper_driver_overrides.{stepper_name}.coolstep={coolstep!r}: expected true/false."
@@ -313,13 +315,23 @@ def _parseStepperDriverOverrides(
                 f"Ignoring stepper_driver_overrides.{stepper_name}.stealthchop={stealthchop!r}: expected true/false."
             )
             stealthchop = None
-        if coolstep is None and stealthchop is None:
+        if microsteps is not None and (
+            not isinstance(microsteps, int)
+            or isinstance(microsteps, bool)
+            or microsteps not in (1, 2, 4, 8, 16, 32, 64, 128, 256)
+        ):
             gc.logger.warning(
-                f"Ignoring driver override for '{stepper_name}': expected coolstep and/or stealthchop."
+                f"Ignoring stepper_driver_overrides.{stepper_name}.microsteps={microsteps!r}: expected one of 1,2,4,8,16,32,64,128,256."
+            )
+            microsteps = None
+        if coolstep is None and stealthchop is None and microsteps is None:
+            gc.logger.warning(
+                f"Ignoring driver override for '{stepper_name}': expected microsteps, coolstep and/or stealthchop."
             )
             continue
 
         overrides[normalizePhysicalStepperBindingName(stepper_name)] = StepperDriverOverride(
+            microsteps=microsteps,
             coolstep=coolstep,
             stealthchop=stealthchop,
         )
@@ -876,6 +888,9 @@ def applyStepperDriverOverride(
         return
 
     def _apply() -> None:
+        if override.microsteps is not None:
+            stepper.set_microsteps(override.microsteps)
+
         mode = _effectiveDriverMode(override)
         gconf = stepper.read_driver_register(TMC_REG_GCONF)
 
@@ -916,5 +931,5 @@ def applyStepperDriverOverride(
 
     gc.logger.info(
         f"Stepper '{stepper_name}' driver config applied: "
-        f"mode={_effectiveDriverMode(override)}"
+        f"microsteps={override.microsteps}, mode={_effectiveDriverMode(override)}"
     )

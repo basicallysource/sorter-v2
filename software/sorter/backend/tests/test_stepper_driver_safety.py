@@ -49,6 +49,9 @@ class _Stepper:
     def write_driver_register(self, address: int, value: int) -> None:
         self.writes.append((address, value))
 
+    def set_microsteps(self, microsteps: int) -> None:
+        self.microsteps = microsteps
+
     def move_at_speed(self, speed: int) -> bool:
         self.speeds.append(speed)
         return True
@@ -71,12 +74,17 @@ class StepperDriverConfigTests(unittest.TestCase):
             _GC(),
             {
                 "stepper_driver_overrides": {
-                    "c_channel_2_rotor": {"coolstep": True, "stealthchop": False}
+                    "c_channel_2_rotor": {
+                        "microsteps": 8,
+                        "coolstep": True,
+                        "stealthchop": False,
+                    }
                 }
             },
         )
 
         override = config.stepper_driver_overrides["c_channel_2_rotor"]
+        self.assertEqual(8, override.microsteps)
         self.assertTrue(override.coolstep)
         self.assertFalse(override.stealthchop)
 
@@ -86,10 +94,11 @@ class StepperDriverConfigTests(unittest.TestCase):
         applyStepperDriverOverride(
             stepper,
             "c_channel_2_rotor",
-            {"c_channel_2_rotor": StepperDriverOverride(coolstep=True)},
+            {"c_channel_2_rotor": StepperDriverOverride(microsteps=8, coolstep=True)},
             _GC(),
         )
 
+        self.assertEqual(8, getattr(stepper, "microsteps", None))
         self.assertIn((0x00, 1 << 2), stepper.writes)
         self.assertIn((0x42, 0x225), stepper.writes)
         self.assertIn((0x14, 0xFFFFF), stepper.writes)

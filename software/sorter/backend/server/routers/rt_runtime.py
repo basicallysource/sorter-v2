@@ -101,6 +101,7 @@ def get_rt_status() -> Dict[str, Any]:
 def _track_to_dict(track: Any) -> dict[str, Any]:
     bbox = getattr(track, "bbox_xyxy", None)
     angle_rad = getattr(track, "angle_rad", None)
+    embedding = getattr(track, "appearance_embedding", None)
     return {
         "track_id": getattr(track, "track_id", None),
         "global_id": getattr(track, "global_id", None),
@@ -117,6 +118,9 @@ def _track_to_dict(track: Any) -> dict[str, Any]:
         "hit_count": getattr(track, "hit_count", None),
         "first_seen_ts": getattr(track, "first_seen_ts", None),
         "last_seen_ts": getattr(track, "last_seen_ts", None),
+        "appearance_embedding_dim": (
+            len(embedding) if isinstance(embedding, (list, tuple)) else None
+        ),
     }
 
 

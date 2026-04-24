@@ -553,6 +553,64 @@ def test_c4_waits_for_distributor_ready_before_ejecting() -> None:
     assert commits == [piece_uuid]
 
 
+def test_c4_skips_handoff_when_distributor_reports_no_slots() -> None:
+    """Distributor-busy should be detected cheaply via available_slots()
+    and not spam the full handoff_request path. 250ms retry cooldown."""
+
+    rt, _up, _down, _clf, _log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def __init__(self) -> None:
+            self.busy = True
+
+        def available_slots(self) -> int:
+            return 0 if self.busy else 1
+
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    port = _Port()
+    rt.set_handoff_port(port)
+
+    # Piece enters, classifies — but the distributor is busy.
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    # No handoff_request should have been issued while distributor reports 0 slots.
+    assert handoffs == []
+
+    # Tick repeatedly — the retry cooldown must prevent repeat probes from
+    # turning into requests while busy.
+    for t in (0.15, 0.2, 0.25, 0.3):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+            now_mono=t,
+        )
+    assert handoffs == []
+
+    # Distributor becomes free; next tick after the cooldown expires should
+    # succeed on the first attempt — NO intermediate busy-spam.
+    port.busy = False
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.5,
+    )
+    assert len(handoffs) == 1
+
+
 def test_c4_aborts_distributor_handoff_when_track_is_lost() -> None:
     rt, _up, down, _clf, _log = _make(max_zones=1)
     handoffs: list[dict[str, Any]] = []

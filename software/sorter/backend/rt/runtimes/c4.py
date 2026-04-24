@@ -101,6 +101,11 @@ class _PieceDossier:
     handoff_requested: bool = False
     distributor_ready: bool = False
     extras: dict[str, Any] = field(default_factory=dict)
+    # Monotonic timestamp of the last distributor_busy rejection; blocks
+    # repeat ``handoff_request`` attempts for ``_handoff_retry_cooldown_s``
+    # so we don't spam the distributor at tick rate (10 Hz). Measured on
+    # live hardware: pre-backoff was 5 accepted vs 185 distributor_busy.
+    last_handoff_attempt_at: float = 0.0
 
 
 class RuntimeC4(BaseRuntime):
@@ -240,6 +245,10 @@ class RuntimeC4(BaseRuntime):
         self._unjam_cooldown_s = max(0.5, float(unjam_cooldown_ms) / 1000.0)
         self._unjam_reverse_deg = max(0.1, float(unjam_reverse_deg))
         self._unjam_forward_deg = max(0.1, float(unjam_forward_deg))
+        # Per-dossier cooldown after a distributor_busy rejection. 250 ms is
+        # comfortably above the distributor's chute-move → ready cycle so we
+        # don't starve handoffs, but small enough to keep throughput healthy.
+        self._handoff_retry_cooldown_s = 0.25
         cooldown_ms = (
             self._ejection.timing_for({}).fall_time_ms
             if post_commit_cooldown_ms is None
@@ -1105,6 +1114,26 @@ class RuntimeC4(BaseRuntime):
         if dossier.handoff_requested:
             self._mark_handoff("already_requested")
             return True
+        # Backoff: after a distributor_busy rejection, wait before hitting
+        # the port again so the distributor has time to complete its
+        # chute-move → ready → eject cycle. Without this, C4 spams
+        # handoff_request at tick rate and the busy counter explodes.
+        if (
+            dossier.last_handoff_attempt_at > 0.0
+            and now_mono - dossier.last_handoff_attempt_at < self._handoff_retry_cooldown_s
+        ):
+            self._mark_handoff("retry_cooldown")
+            return False
+        # Cheap, non-blocking probe: if the distributor has no free slot
+        # there's no point reserving the c4_to_distributor slot either.
+        try:
+            port_slots = int(port.available_slots())
+        except Exception:
+            port_slots = 1  # assume capacity; the full request path will reject if busy
+        if port_slots <= 0:
+            dossier.last_handoff_attempt_at = now_mono
+            self._mark_handoff("distributor_busy")
+            return False
         if not self._downstream_slot.try_claim(now_mono=now_mono, hold_time_s=15.0):
             self._set_state("drop_commit", blocked_reason="downstream_full")
             self._mark_handoff("downstream_full")
@@ -1130,6 +1159,7 @@ class RuntimeC4(BaseRuntime):
             self._downstream_slot.release()
             self._set_state("drop_commit", blocked_reason="distributor_busy")
             self._mark_handoff("distributor_busy")
+            dossier.last_handoff_attempt_at = now_mono
             return False
         dossier.handoff_requested = True
         self._mark_handoff("accepted")

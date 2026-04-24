@@ -18,6 +18,16 @@ class HandoffPort(Protocol):
     than three unnamed callback conventions.
     """
 
+    def available_slots(self) -> int:
+        """Non-blocking probe: how many handoff slots the distributor has.
+
+        ``0`` means ``handoff_request`` will reject with ``distributor_busy``.
+        Callers should skip the full request path in that case rather than
+        hammering the port every tick (see distributor_busy counter explosion
+        observed on live hardware).
+        """
+        ...
+
     def handoff_request(
         self,
         *,

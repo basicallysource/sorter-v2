@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
@@ -15,49 +15,110 @@
 	} from '$lib/recent-pieces';
 
 	const ctx = getMachineContext();
+	type LiveC4Track = {
+		global_id: number | null;
+		angle_deg: number | null;
+		last_seen_ts?: number | null;
+		confirmed_real?: boolean;
+		ghost?: boolean;
+	};
+
+	let liveC4Tracks = $state<Map<number, LiveC4Track>>(new Map());
+	let liveC4TrackPollAvailable = $state(false);
+	let rtTrackPollTimer: ReturnType<typeof setInterval> | null = null;
 
 	onMount(() => {
 		void sortingProfileStore.load().catch(() => {});
+		void refreshLiveC4Tracks();
+		rtTrackPollTimer = setInterval(() => void refreshLiveC4Tracks(), 500);
 	});
 
-	// "Upcoming" = pieces on C4 that have not yet been distributed. Ordering
-	// is deliberately **stable FIFO** (entry timestamp), not the dynamic
-	// "distance to exit" we had before. The carousel geometry meant that a
-	// small angle jitter from the tracker would swap two adjacent rows on
-	// nearly every frame, and legitimate zone-state transitions
-	// (`active` → `superseded` as a piece rotates past the drop point)
-	// hid pieces mid-cycle. Operators want a calm, predictable list where
-	// the bottom row — right above the "distributed" divider — is always
-	// the next piece to drop.
+	onDestroy(() => {
+		if (rtTrackPollTimer !== null) clearInterval(rtTrackPollTimer);
+	});
+
+	async function refreshLiveC4Tracks() {
+		try {
+			const res = await fetch(`${effectiveBase()}/api/rt/tracks/c4_feed`);
+			if (!res.ok) {
+				liveC4TrackPollAvailable = false;
+				liveC4Tracks = new Map();
+				return;
+			}
+			const payload = await res.json();
+			const tracks = Array.isArray(payload?.tracks) ? payload.tracks : [];
+			const next = new Map<number, LiveC4Track>();
+			for (const track of tracks) {
+				const gid = track?.global_id;
+				if (typeof gid !== 'number') continue;
+				if (track?.ghost === true) continue;
+				if (track?.confirmed_real === false) continue;
+				next.set(gid, {
+					global_id: gid,
+					angle_deg: typeof track?.angle_deg === 'number' ? track.angle_deg : null,
+					last_seen_ts: typeof track?.last_seen_ts === 'number' ? track.last_seen_ts : null,
+					confirmed_real: Boolean(track?.confirmed_real),
+					ghost: Boolean(track?.ghost)
+				});
+			}
+			liveC4Tracks = next;
+			liveC4TrackPollAvailable = true;
+		} catch {
+			liveC4TrackPollAvailable = false;
+			liveC4Tracks = new Map();
+		}
+	}
+
+	function wrapDeg(value: number): number {
+		let wrapped = ((value + 180) % 360 + 360) % 360 - 180;
+		if (wrapped === -180) wrapped = 180;
+		return wrapped;
+	}
+
+	function liveTrackFor(obj: KnownObjectData): LiveC4Track | null {
+		const gid = obj.tracked_global_id;
+		if (typeof gid !== 'number') return null;
+		return liveC4Tracks.get(gid) ?? null;
+	}
+
+	function c4AngleDeg(obj: KnownObjectData): number | null {
+		const live = liveTrackFor(obj);
+		if (typeof live?.angle_deg === 'number') return live.angle_deg;
+		return typeof obj.classification_channel_zone_center_deg === 'number'
+			? obj.classification_channel_zone_center_deg
+			: null;
+	}
+
+	function exitDistanceDeg(obj: KnownObjectData): number | null {
+		const angle = c4AngleDeg(obj);
+		const exit = obj.classification_channel_exit_deg;
+		if (typeof angle !== 'number' || typeof exit !== 'number') return null;
+		return Math.abs(wrapDeg(angle - exit));
+	}
+
+	function isCurrentlyTrackedOnC4(obj: KnownObjectData): boolean {
+		if (lifecyclePhase(obj) === 'distributed') return false;
+		const gid = obj.tracked_global_id;
+		if (typeof gid !== 'number') return false;
+		if (liveC4TrackPollAvailable) return liveC4Tracks.has(gid);
+		return false;
+	}
+
+	// "Upcoming" = pieces currently tracked on C4, ordered along the polar
+	// path toward the exit: top = farthest from exit, bottom = next to drop.
 	const upcoming = $derived.by(() => {
 		const all = ctx.machine?.recentObjects ?? [];
-		// Visibility in the "currently on C4" list: any dossier that was
-		// admitted to C4 and has not yet been distributed. We intentionally
-		// do NOT filter by `classification_channel_zone_state` (active /
-		// lost / superseded) here — a piece is on the carousel for its full
-		// rotation even when the momentary zone is "superseded", and using
-		// the transient state as a visibility gate is the main source of
-		// the previously observed flicker.
-		const list = all.filter((o) => {
-			if (lifecyclePhase(o) === 'distributed') return false;
-			// Still requires *some* evidence of being on C4 so unrelated
-			// historical rows don't leak into the widget.
-			return Boolean(
-				o.tracked_global_id !== null && o.tracked_global_id !== undefined ||
-					o.first_carousel_seen_ts ||
-					o.classification_channel_zone_center_deg !== undefined ||
-					o.classification_channel_zone_state ||
-					o.classified_at
-			);
-		});
-		// FIFO by carousel entry: oldest pieces are closest to being dropped
-		// (they rotate around first), so sort ascending by entry ts and let
-		// the trailing reverse() put "next to drop" at the bottom, right
-		// above the distributed divider.
+		const list = all.filter(isCurrentlyTrackedOnC4);
 		list.sort((a, b) => {
-			const ta = a.first_carousel_seen_ts ?? a.created_at ?? 0;
-			const tb = b.first_carousel_seen_ts ?? b.created_at ?? 0;
-			return ta - tb;
+			const da = exitDistanceDeg(a);
+			const db = exitDistanceDeg(b);
+			if (da !== null && db !== null && da !== db) return db - da;
+			if (da !== null && db === null) return -1;
+			if (da === null && db !== null) return 1;
+			return (
+				(a.first_carousel_seen_ts ?? a.created_at ?? 0) -
+				(b.first_carousel_seen_ts ?? b.created_at ?? 0)
+			);
 		});
 		// Collapse identity splits: same physical piece may surface as
 		// multiple KnownObjects while C4 tracking settles. Keyed off
@@ -71,7 +132,7 @@
 			seen_keys.add(key);
 			deduped.push(o);
 		}
-		return deduped.slice(0, 5).reverse();
+		return deduped.slice(0, 5);
 	});
 
 	const delivered = $derived.by(() => {

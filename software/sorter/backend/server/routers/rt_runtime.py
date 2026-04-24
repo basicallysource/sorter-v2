@@ -20,6 +20,11 @@ from server import shared_state
 
 router = APIRouter()
 
+_TRACK_FEED_ALIASES = {
+    "classification_channel": "c4_feed",
+    "carousel": "c4_feed",
+}
+
 
 class SampleTransportPayload(BaseModel):
     base_interval_s: float = 2.0
@@ -138,6 +143,8 @@ def get_rt_tracks(feed_id: str) -> Dict[str, Any]:
     annotation_snapshot = getattr(handle, "annotation_snapshot", None)
     if not callable(annotation_snapshot):
         raise HTTPException(status_code=501, detail="rt track snapshots are not supported")
+    requested_feed_id = feed_id
+    feed_id = _TRACK_FEED_ALIASES.get(feed_id, feed_id)
     try:
         snapshot = annotation_snapshot(feed_id)
     except Exception as exc:
@@ -148,6 +155,7 @@ def get_rt_tracks(feed_id: str) -> Dict[str, Any]:
     zone = getattr(snapshot, "zone", None)
     return {
         "feed_id": getattr(snapshot, "feed_id", feed_id),
+        "requested_feed_id": requested_feed_id,
         "zone_kind": type(zone).__name__ if zone is not None else None,
         "track_count": len(tracks),
         "shadow_track_count": len(shadow_tracks),

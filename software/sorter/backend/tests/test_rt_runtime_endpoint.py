@@ -206,6 +206,30 @@ def test_rt_tracks_returns_full_annotation_snapshot(
     assert payload["shadow_tracks"][0]["ghost"] is True
 
 
+def test_rt_tracks_accepts_classification_channel_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[str] = []
+
+    class _Handle:
+        def annotation_snapshot(self, feed_id: str) -> Any:
+            seen.append(feed_id)
+            return SimpleNamespace(
+                feed_id=feed_id,
+                zone=None,
+                tracks=(),
+                shadow_tracks=(),
+            )
+
+    monkeypatch.setattr(shared_state, "rt_handle", _Handle(), raising=False)
+
+    payload = rt_runtime_router.get_rt_tracks("classification_channel")
+
+    assert seen == ["c4_feed"]
+    assert payload["requested_feed_id"] == "classification_channel"
+    assert payload["feed_id"] == "c4_feed"
+
+
 def test_rt_tracks_raises_when_no_handle(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shared_state, "rt_handle", None, raising=False)
 

@@ -571,21 +571,46 @@ def _decode_yolo_output(
 
     raw_boxes = preds[:, :4].astype(np.float32)
     raw_scores = preds[:, 4:].astype(np.float32)
-    scores = raw_scores.max(axis=1)
+
+    # Newer end-to-end YOLO exports can return already decoded rows as
+    # [x1, y1, x2, y2, confidence, class_id] instead of [cx, cy, w, h, ...].
+    decoded_xyxy = False
+    if preds.shape[1] >= 6:
+        candidate_scores = preds[:, 4].astype(np.float32)
+        valid_xyxy = (raw_boxes[:, 2] > raw_boxes[:, 0]) & (raw_boxes[:, 3] > raw_boxes[:, 1])
+        if (
+            candidate_scores.size
+            and float(np.nanmin(candidate_scores)) >= 0.0
+            and float(np.nanmax(candidate_scores)) <= 1.0
+            and float(np.mean(valid_xyxy)) > 0.8
+        ):
+            scores = candidate_scores
+            decoded_xyxy = True
+        else:
+            scores = raw_scores.max(axis=1)
+    else:
+        scores = raw_scores.max(axis=1)
+
     keep_mask = scores >= conf_threshold
     if not np.any(keep_mask):
         return [], []
 
     raw_boxes = raw_boxes[keep_mask]
     scores = scores[keep_mask]
-    x_center = raw_boxes[:, 0]
-    y_center = raw_boxes[:, 1]
-    widths = raw_boxes[:, 2]
-    heights = raw_boxes[:, 3]
-    x1 = x_center - widths / 2.0
-    y1 = y_center - heights / 2.0
-    x2 = x_center + widths / 2.0
-    y2 = y_center + heights / 2.0
+    if decoded_xyxy:
+        x1 = raw_boxes[:, 0]
+        y1 = raw_boxes[:, 1]
+        x2 = raw_boxes[:, 2]
+        y2 = raw_boxes[:, 3]
+    else:
+        x_center = raw_boxes[:, 0]
+        y_center = raw_boxes[:, 1]
+        widths = raw_boxes[:, 2]
+        heights = raw_boxes[:, 3]
+        x1 = x_center - widths / 2.0
+        y1 = y_center - heights / 2.0
+        x2 = x_center + widths / 2.0
+        y2 = y_center + heights / 2.0
 
     if "pad_x" in preprocess and "scale" in preprocess:
         x1 = (x1 - preprocess["pad_x"]) / preprocess["scale"]

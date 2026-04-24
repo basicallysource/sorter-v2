@@ -132,8 +132,8 @@ def test_default_detector_slug_for_ui_scope(
     real_hive_models: None,
 ) -> None:
     cases = {
-        "feeder": "hive:c-channel-yolo11n-320",
-        "classification_channel": "hive:c-channel-yolo11n-320",
+        "feeder": "hive:c-channel-yolo11n-416",
+        "classification_channel": "hive:c-channel-yolo11n-416",
         "carousel": "hive:carousel-yolo11n-320",
         "classification": "hive:classification-chamber-yolo11n-320",
         "": None,
@@ -198,9 +198,9 @@ def test_normalize_detection_algorithm(
 ) -> None:
     cases = [
         ("feeder", "hive:c-channel-yolo11n-320", "hive:c-channel-yolo11n-320"),
-        ("feeder", "hive:carousel-yolo11n-320", "hive:c-channel-yolo11n-320"),
-        ("feeder", "bogus", "hive:c-channel-yolo11n-320"),
-        ("feeder", None, "hive:c-channel-yolo11n-320"),
+        ("feeder", "hive:carousel-yolo11n-320", "hive:c-channel-yolo11n-416"),
+        ("feeder", "bogus", "hive:c-channel-yolo11n-416"),
+        ("feeder", None, "hive:c-channel-yolo11n-416"),
     ]
     for scope, selected, expected in cases:
         assert detector_metadata.normalize_detection_algorithm(scope, selected) == expected
@@ -233,7 +233,7 @@ def test_options_shape_matches_frontend_contract(real_hive_models: None) -> None
         assert "default" in opt
     defaults = [opt for opt in options if opt["default"]]
     assert len(defaults) == 1
-    assert defaults[0]["id"] == "hive:c-channel-yolo11n-320"
+    assert defaults[0]["id"] == "hive:c-channel-yolo11n-416"
 
 
 def test_invalidate_cache_reloads(

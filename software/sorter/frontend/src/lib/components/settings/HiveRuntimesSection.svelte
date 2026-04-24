@@ -32,6 +32,7 @@
 		name?: string | null;
 		model_id?: string | null;
 		variant_runtime?: string | null;
+		available_variant_runtimes?: string[] | null;
 	};
 
 	type BenchResult = {
@@ -84,6 +85,16 @@
 
 	let selectedModelFormats = $derived.by<Set<string>>(() => {
 		const m = installedModels.find((x) => x.local_id === selectedModel);
+		const variants = Array.isArray(m?.available_variant_runtimes)
+			? m.available_variant_runtimes
+			: [];
+		const formats = new Set<string>();
+		for (const variant of variants) {
+			for (const format of formatIdsFromVariant(variant)) {
+				formats.add(format);
+			}
+		}
+		if (formats.size > 0) return formats;
 		return formatIdsFromVariant(m?.variant_runtime ?? null);
 	});
 
@@ -170,9 +181,20 @@
 			if (!res.ok) return;
 			const payload = await res.json();
 			const items: InstalledModel[] = Array.isArray(payload?.items) ? payload.items : [];
-			installedModels = items;
-			if (selectedModel === null && items.length > 0) {
-				selectedModel = items[0].local_id;
+			installedModels = items.filter((item) => {
+				const variants = Array.isArray(item.available_variant_runtimes)
+					? item.available_variant_runtimes
+					: [];
+				return variants.length > 0 || !!item.variant_runtime;
+			});
+			if (
+				selectedModel !== null &&
+				!installedModels.some((item) => item.local_id === selectedModel)
+			) {
+				selectedModel = null;
+			}
+			if (selectedModel === null && installedModels.length > 0) {
+				selectedModel = installedModels[0].local_id;
 			}
 		} catch {
 			// ignore
@@ -181,7 +203,12 @@
 
 	function modelLabel(m: InstalledModel): string {
 		const name = m.name ?? m.local_id;
-		const runtime = m.variant_runtime ? ` · ${m.variant_runtime}` : '';
+		const variants = Array.isArray(m.available_variant_runtimes)
+			? m.available_variant_runtimes
+			: [];
+		const runtime = variants.length > 0
+			? ` · ${variants.join('/')}`
+			: (m.variant_runtime ? ` · ${m.variant_runtime}` : '');
 		return `${name}${runtime}`;
 	}
 

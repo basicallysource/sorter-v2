@@ -265,6 +265,12 @@ def _load_definitions() -> tuple[DetectionAlgorithmDefinition, ...]:
     with _CACHE_LOCK:
         if _CACHED_DEFS is not None:
             return _CACHED_DEFS
+        try:
+            from rt.perception.detectors.hive_onnx import discover_and_register_hive_detectors
+
+            discover_and_register_hive_detectors()
+        except Exception:
+            log.debug("Hive detector discovery before metadata load failed", exc_info=True)
         registered = sorted(DETECTORS.keys())
         if not registered:
             _CACHED_DEFS = ()

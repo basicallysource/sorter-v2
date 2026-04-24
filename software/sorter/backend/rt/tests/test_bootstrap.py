@@ -242,9 +242,9 @@ def test_detector_slug_falls_back_to_scope_default_when_no_saved_pref():
     with patch("server.detection_config.common.get_feeder_detection_config", return_value={}):
         with patch("server.detection_config.common.get_classification_channel_detection_config", return_value={}):
             slug = detector_slug_for_role("c4", LOG)
-    # _UI_SCOPE_DEFAULT_SLUG["classification_channel"] is hive:c-channel-yolo11n-320
+    # _UI_SCOPE_DEFAULT_SLUG["classification_channel"] is hive:c-channel-yolo11n-416
     # and that slug is actually registered. Must match.
-    assert slug == "hive:c-channel-yolo11n-320"
+    assert slug == "hive:c-channel-yolo11n-416"
 
 
 def test_detector_slug_respects_user_saved_preference_for_c4():
@@ -271,7 +271,7 @@ def test_detector_slug_ignores_invalid_saved_slug():
         return_value={"algorithm_by_role": {"c_channel_2": "hive:does-not-exist"}},
     ):
         slug = detector_slug_for_role("c2", LOG)
-    assert slug == "hive:c-channel-yolo11n-320"
+    assert slug == "hive:c-channel-yolo11n-416"
 
 
 def test_tracker_keys_default_to_groundplane_primary_and_polar_shadow(monkeypatch):
@@ -351,11 +351,11 @@ def testbuild_perception_runner_for_role_happy_path():
     # The runner has the correct feed id wired.
     pipeline = runner._pipeline
     assert pipeline.feed.feed_id == "c4_feed"
-    # And the detector is the scope default (hive:c-channel-yolo11n-320).
-    assert pipeline.detector.key == "hive:c-channel-yolo11n-320"
+    # And the detector is the scope default (hive:c-channel-yolo11n-416).
+    assert pipeline.detector.key == "hive:c-channel-yolo11n-416"
     assert pipeline.tracker.key == "turntable_groundplane"
     assert getattr(runner, "_shadow_tracker_key", None) == "polar"
     assert getattr(runner, "_period_s", None) == 0.1
-    assert getattr(pipeline.detector, "_polygon_apron_px", None) == 48
+    assert getattr(pipeline.detector, "_polygon_apron_px", None) == 0
     tracker = pipeline.tracker
     assert getattr(tracker, "_polar_center", None) is not None

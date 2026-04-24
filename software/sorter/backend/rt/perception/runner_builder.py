@@ -57,10 +57,16 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 }
 
 
-_FIRST_TOUCH_POLYGON_APRON_PX = 48
+_FIRST_TOUCH_POLYGON_APRON_PX = 0
+_DETECTOR_CONF_THRESHOLD = 0.35
 _PERCEPTION_PERIOD_MS = 100
 _DEFAULT_PRIMARY_TRACKER_KEY = "turntable_groundplane"
 _DEFAULT_SHADOW_TRACKER_KEY = "polar"
+
+
+def ghost_filter_enabled() -> bool:
+    raw = os.environ.get("RT_GHOST_FILTER_ENABLED", "")
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
 def _disabled_tracker_value(raw: str) -> bool:
@@ -248,18 +254,19 @@ def build_perception_runner_for_role(
             target_h=int(target_res[1]),
         )
     tracker_key = primary_tracker_key()
+    filters = [{"key": "ghost", "params": {}}] if ghost_filter_enabled() else []
     pipeline_config = PipelineConfig(
         feed_id=feed_id,
         detector={
             "key": detector_slug,
             "params": {
-                "conf_threshold": 0.25,
+                "conf_threshold": _DETECTOR_CONF_THRESHOLD,
                 "iou_threshold": 0.45,
                 "polygon_apron_px": _FIRST_TOUCH_POLYGON_APRON_PX,
             },
         },
         tracker={"key": tracker_key, "params": tracker_params},
-        filters=[{"key": "ghost", "params": {}}],
+        filters=filters,
     )
     try:
         pipeline = build_pipeline_from_config(pipeline_config, feed, zone)
@@ -306,6 +313,7 @@ def build_perception_runner_for_role(
 __all__ = [
     "build_perception_runner_for_role",
     "detector_slug_for_role",
+    "ghost_filter_enabled",
     "load_zone_for_role",
     "primary_tracker_key",
     "shadow_tracker_key",

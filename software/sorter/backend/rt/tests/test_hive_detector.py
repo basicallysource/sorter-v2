@@ -70,7 +70,7 @@ def _frame(raw: np.ndarray, seq: int = 1) -> FeedFrame:
 
 
 def test_default_slug_points_at_c_channel_model() -> None:
-    assert default_hive_detector_slug() == "hive:c-channel-yolo11n-320"
+    assert default_hive_detector_slug() == "hive:c-channel-yolo11n-416"
 
 
 def test_hive_detector_key_and_requires() -> None:

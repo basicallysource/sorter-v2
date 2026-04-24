@@ -131,8 +131,8 @@ _MODEL_SCOPE_TO_UI_SCOPES: dict[str, frozenset[str]] = {
 # Per UI-scope defaults. ``None`` means "pick the best-available (lowest
 # alphabetical slug)" rather than hardcoding a specific detector.
 _UI_SCOPE_DEFAULT_SLUG: dict[str, str | None] = {
-    "feeder": "hive:c-channel-yolo11n-320",
-    "classification_channel": "hive:c-channel-yolo11n-320",
+    "feeder": "hive:c-channel-yolo11n-416",
+    "classification_channel": "hive:c-channel-yolo11n-416",
     "carousel": None,
     "classification": None,
 }

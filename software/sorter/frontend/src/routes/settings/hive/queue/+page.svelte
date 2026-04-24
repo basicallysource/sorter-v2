@@ -79,6 +79,20 @@
 		generated_at: number;
 		targets: QueueTarget[];
 		teacher: TeacherSummary;
+		condition_teacher?: {
+			enabled?: boolean;
+			running?: boolean;
+			last_run_at?: number | null;
+			last_selected?: number;
+			last_archived?: number;
+			last_errors?: number;
+			last_error?: string | null;
+			total_archived?: number;
+			total_errors?: number;
+			total_runs?: number;
+			batch_size?: number;
+			lookback_minutes?: number;
+		};
 		totals: {
 			queued: number;
 			uploading: number;
@@ -824,6 +838,31 @@
 			{@render statTile('Needs work', blockedTotal, Sparkles, 'border-amber-500/40 text-amber-700')}
 			{@render statTile('Ready local', totals.teacher_ready, CheckCircle2, 'border-border')}
 		</div>
+
+		{#if payload.condition_teacher}
+			<div class="flex flex-wrap items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs text-text-muted">
+				<span class="inline-flex items-center gap-1 font-semibold text-text">
+					<Sparkles size={12} />
+					Condition teacher
+				</span>
+				<span class={`border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${payload.condition_teacher.running ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted'}`}>
+					{payload.condition_teacher.running ? 'Running' : 'Idle'}
+				</span>
+				<span>
+					Last: {payload.condition_teacher.last_archived ?? 0}/{payload.condition_teacher.last_selected ?? 0} archived
+				</span>
+				<span>·</span>
+				<span>Total: {payload.condition_teacher.total_archived ?? 0}</span>
+				<span>·</span>
+				<span>Lookback: {payload.condition_teacher.lookback_minutes ?? 0}m</span>
+				<span>·</span>
+				<span>Last run: {formatTime(payload.condition_teacher.last_run_at)}</span>
+				{#if payload.condition_teacher.last_error}
+					<span>·</span>
+					<span class="truncate text-danger">{payload.condition_teacher.last_error}</span>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="flex flex-wrap items-center gap-1 border border-border bg-surface px-2 py-1.5">
 			{@render filterChip('all', `All (${allItems.length})`)}

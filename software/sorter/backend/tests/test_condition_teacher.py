@@ -109,6 +109,24 @@ class ConditionTeacherTests(unittest.TestCase):
         self.assertEqual(1, len(selected))
         self.assertEqual("bbbbbbbbbbbb", selected[0].piece_uuid)
 
+    def test_select_condition_crop_candidates_can_limit_existing_piece_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repeated = root / "aaaaaaaaaaaa" / "seg0" / "wedge_000.jpg"
+            fresh = root / "bbbbbbbbbbbb" / "seg0" / "wedge_000.jpg"
+            _write_image(repeated, value=120)
+            _write_image(fresh, value=130)
+
+            selected = select_condition_crop_candidates(
+                limit=5,
+                piece_crops_root=root,
+                existing_piece_counts={"aaaaaaaaaaaa": 1},
+                max_existing_crops_per_piece=1,
+            )
+
+        self.assertEqual(1, len(selected))
+        self.assertEqual("bbbbbbbbbbbb", selected[0].piece_uuid)
+
     def test_build_sample_payload_adds_condition_analysis(self) -> None:
         assessment = ConditionAssessment(
             model="google/gemini-3.1-flash-lite-preview",

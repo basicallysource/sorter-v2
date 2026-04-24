@@ -157,6 +157,7 @@ class HiveSamplePurgePayload(BaseModel):
 class ConditionSampleBackfillPayload(BaseModel):
     limit: int = 10
     max_crops_per_piece: int = 1
+    max_existing_crops_per_piece: int | None = None
     model: str | None = None
     force: bool = False
     dry_run: bool = False
@@ -421,7 +422,16 @@ def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[
         minutes=payload.minutes,
         from_ts=payload.from_ts,
         to_ts=payload.to_ts,
+        max_existing_crops_per_piece=payload.max_existing_crops_per_piece,
     )
+
+
+@router.get("/api/samples/condition/status")
+def condition_sample_status() -> Dict[str, Any]:
+    return {
+        "ok": True,
+        "condition_teacher": getClassificationTrainingManager().getConditionTeacherStatus(),
+    }
 
 
 @router.post("/api/settings/hive/purge")

@@ -43,6 +43,12 @@ SUPPORTED_PROCESSORS = {DEFAULT_PROCESSOR, *LEGACY_PROCESSORS}
 HIVE_AUTO_BACKFILL_INTERVAL_S = 15.0
 HIVE_AUTO_BACKFILL_BATCH_SIZE = 75
 HIVE_AUTO_BACKFILL_QUEUE_HIGH_WATERMARK = 150
+CONDITION_AUTO_BACKFILL_INTERVAL_S = 2.0
+CONDITION_AUTO_BACKFILL_BATCH_SIZE = 1
+CONDITION_AUTO_LOOKBACK_MINUTES = 30
+CONDITION_AUTO_MAX_CROPS_PER_PIECE = 1
+CONDITION_AUTO_HIVE_QUEUE_HIGH_WATERMARK = 250
+CONDITION_AUTO_ERROR_BACKOFF_S = 60.0
 
 
 def _slugify(value: str) -> str:
@@ -135,6 +141,20 @@ class ClassificationTrainingManager:
         self._session_dir: Path | None = None
         self._created_at: float | None = None
         self._hive = HiveUploader()
+        self._condition_auto_lock = threading.Lock()
+        self._condition_auto_state: dict[str, Any] = {
+            "enabled": True,
+            "running": False,
+            "last_run_at": None,
+            "last_selected": 0,
+            "last_archived": 0,
+            "last_errors": 0,
+            "last_error": None,
+            "total_archived": 0,
+            "total_errors": 0,
+            "total_runs": 0,
+            "next_run_after": None,
+        }
         self._loadPersistedConfig()
         self._hive_auto_backfill_thread = threading.Thread(
             target=self._hiveAutoBackfillLoop,
@@ -142,6 +162,12 @@ class ClassificationTrainingManager:
             name="hive-auto-backfill",
         )
         self._hive_auto_backfill_thread.start()
+        self._condition_auto_backfill_thread = threading.Thread(
+            target=self._conditionAutoBackfillLoop,
+            daemon=True,
+            name="condition-teacher-auto-backfill",
+        )
+        self._condition_auto_backfill_thread.start()
 
     def _loadPersistedConfig(self) -> None:
         saved = get_classification_training_state()
@@ -626,6 +652,7 @@ class ClassificationTrainingManager:
         minutes: int | None = None,
         from_ts: Any = None,
         to_ts: Any = None,
+        max_existing_crops_per_piece: int | None = None,
     ) -> dict[str, Any]:
         """Assess existing piece-crop JPEGs and archive condition samples.
 
@@ -642,10 +669,17 @@ class ClassificationTrainingManager:
             to_ts=to_ts,
         )
         existing_source_keys = set() if force else self._conditionSourceKeys()
+        existing_piece_counts = (
+            {}
+            if force or max_existing_crops_per_piece is None
+            else self._conditionProcessedPieceCounts()
+        )
         candidates = select_condition_crop_candidates(
             limit=bounded_limit,
             max_crops_per_piece=max_crops_per_piece,
             existing_source_keys=existing_source_keys,
+            existing_piece_counts=existing_piece_counts,
+            max_existing_crops_per_piece=max_existing_crops_per_piece,
             force=force,
             randomize=selection_mode == "random",
             since_ts=since_ts,
@@ -661,6 +695,7 @@ class ClassificationTrainingManager:
                 "errors": 0,
                 "selection": selection_mode,
                 "existing_condition_sources": len(existing_source_keys),
+                "existing_condition_pieces": len(existing_piece_counts),
                 "candidates": [
                     {
                         "piece_uuid": candidate.piece_uuid,
@@ -714,6 +749,7 @@ class ClassificationTrainingManager:
             "errors": len(errors),
             "selection": selection_mode,
             "existing_condition_sources": len(existing_source_keys),
+            "existing_condition_pieces": len(existing_piece_counts),
             "samples": samples,
             "error_details": errors[:10],
         }
@@ -797,6 +833,124 @@ class ClassificationTrainingManager:
                 # directly even if one archive scan fails.
                 pass
 
+    def _conditionAutoBackfillLoop(self) -> None:
+        """Continuously turn fresh piece crops into condition samples.
+
+        The segment recorder already writes crop JPEGs off the perception hot
+        path. This worker intentionally stays on a separate, slow sidecar
+        thread because Gemini calls may block, cost money, and occasionally
+        fail. Successful archives go through ``saveConditionAssessmentCapture``
+        and therefore reuse the normal Hive uploader path.
+        """
+
+        next_after = 0.0
+        while True:
+            time.sleep(CONDITION_AUTO_BACKFILL_INTERVAL_S)
+            now = time.time()
+            if now < next_after:
+                continue
+            try:
+                if not self._conditionAutoCanRun():
+                    self._recordConditionAutoIdle()
+                    continue
+                self._setConditionAutoRunning(True)
+                result = self.backfillPieceConditionSamples(
+                    limit=CONDITION_AUTO_BACKFILL_BATCH_SIZE,
+                    max_crops_per_piece=1,
+                    selection="last_minutes",
+                    minutes=CONDITION_AUTO_LOOKBACK_MINUTES,
+                    max_existing_crops_per_piece=CONDITION_AUTO_MAX_CROPS_PER_PIECE,
+                )
+                self._recordConditionAutoResult(result)
+                if int(result.get("errors", 0) or 0) > 0:
+                    next_after = time.time() + CONDITION_AUTO_ERROR_BACKOFF_S
+            except Exception as exc:
+                next_after = time.time() + CONDITION_AUTO_ERROR_BACKOFF_S
+                self._recordConditionAutoError(exc)
+            finally:
+                self._setConditionAutoRunning(False)
+
+    def _conditionAutoCanRun(self) -> bool:
+        try:
+            status = self._hive.status()
+        except Exception:
+            return False
+        targets = status.get("targets") if isinstance(status, dict) else []
+        enabled_targets = [
+            target
+            for target in targets
+            if isinstance(target, dict) and target.get("enabled")
+        ]
+        if not enabled_targets:
+            return False
+        queued = sum(
+            int(target.get("queue_size", 0) or 0)
+            for target in enabled_targets
+            if isinstance(target.get("queue_size", 0), (int, float))
+        )
+        return queued < CONDITION_AUTO_HIVE_QUEUE_HIGH_WATERMARK
+
+    def _setConditionAutoRunning(self, running: bool) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state["running"] = running
+
+    def _recordConditionAutoIdle(self) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state["last_error"] = None
+
+    def _recordConditionAutoResult(self, result: dict[str, Any]) -> None:
+        archived = int(result.get("archived", 0) or 0)
+        errors = int(result.get("errors", 0) or 0)
+        with self._condition_auto_lock:
+            self._condition_auto_state.update(
+                {
+                    "last_run_at": time.time(),
+                    "last_selected": int(result.get("selected", 0) or 0),
+                    "last_archived": archived,
+                    "last_errors": errors,
+                    "last_error": (
+                        result.get("error_details", [{}])[0].get("error")
+                        if errors and isinstance(result.get("error_details"), list)
+                        and result.get("error_details")
+                        and isinstance(result.get("error_details", [None])[0], dict)
+                        else None
+                    ),
+                    "total_archived": int(self._condition_auto_state.get("total_archived", 0)) + archived,
+                    "total_errors": int(self._condition_auto_state.get("total_errors", 0)) + errors,
+                    "total_runs": int(self._condition_auto_state.get("total_runs", 0)) + 1,
+                    "next_run_after": (
+                        time.time() + CONDITION_AUTO_ERROR_BACKOFF_S if errors else None
+                    ),
+                }
+            )
+
+    def _recordConditionAutoError(self, exc: Exception) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state.update(
+                {
+                    "last_run_at": time.time(),
+                    "last_selected": 0,
+                    "last_archived": 0,
+                    "last_errors": 1,
+                    "last_error": str(exc),
+                    "total_errors": int(self._condition_auto_state.get("total_errors", 0)) + 1,
+                    "total_runs": int(self._condition_auto_state.get("total_runs", 0)) + 1,
+                    "next_run_after": time.time() + CONDITION_AUTO_ERROR_BACKOFF_S,
+                }
+            )
+
+    def getConditionTeacherStatus(self) -> dict[str, Any]:
+        with self._condition_auto_lock:
+            state = dict(self._condition_auto_state)
+        return {
+            "enabled": True,
+            "interval_s": CONDITION_AUTO_BACKFILL_INTERVAL_S,
+            "batch_size": CONDITION_AUTO_BACKFILL_BATCH_SIZE,
+            "lookback_minutes": CONDITION_AUTO_LOOKBACK_MINUTES,
+            "max_crops_per_piece": CONDITION_AUTO_MAX_CROPS_PER_PIECE,
+            **state,
+        }
+
     def getHiveQueueDetails(
         self,
         *,
@@ -838,6 +992,7 @@ class ClassificationTrainingManager:
             "ok": True,
             **details,
             "teacher": teacher,
+            "condition_teacher": self.getConditionTeacherStatus(),
             "totals": {
                 "queued": queued,
                 "uploading": uploading,
@@ -1051,6 +1206,31 @@ class ClassificationTrainingManager:
                 if key is not None:
                     keys.add(key)
         return keys
+
+    def _conditionProcessedPieceCounts(self) -> dict[str, int]:
+        if not TRAINING_ROOT.exists():
+            return {}
+
+        counts: dict[str, int] = {}
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name, reverse=True):
+            if not session_dir.is_dir():
+                continue
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            for metadata_path in metadata_dir.glob("*.json"):
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    continue
+                if metadata.get("condition_sample") is not True and not isinstance(
+                    metadata.get("condition_assessment"),
+                    dict,
+                ):
+                    continue
+                piece_uuid = metadata.get("condition_source_piece_uuid") or metadata.get("piece_uuid")
+                if isinstance(piece_uuid, str) and piece_uuid:
+                    counts[piece_uuid] = counts.get(piece_uuid, 0) + 1
+        return counts
 
     @staticmethod
     def _sampleQueueSummary(

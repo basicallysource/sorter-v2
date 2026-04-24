@@ -376,6 +376,8 @@ def iter_condition_crop_candidates(
     *,
     piece_crops_root: Path | None = None,
     existing_source_keys: set[str] | None = None,
+    existing_piece_counts: dict[str, int] | None = None,
+    max_existing_crops_per_piece: int | None = None,
     force: bool = False,
     randomize: bool = False,
     since_ts: float | None = None,
@@ -388,6 +390,12 @@ def iter_condition_crop_candidates(
         return
 
     existing = existing_source_keys or set()
+    piece_counts = existing_piece_counts or {}
+    piece_existing_limit = (
+        max(0, int(max_existing_crops_per_piece))
+        if max_existing_crops_per_piece is not None
+        else None
+    )
     paths = [
         path
         for path in root.rglob("*.jpg")
@@ -413,6 +421,12 @@ def iter_condition_crop_candidates(
         if parsed is None:
             continue
         piece_uuid, sequence, kind, crop_index = parsed
+        if (
+            not force
+            and piece_existing_limit is not None
+            and piece_counts.get(piece_uuid, 0) >= piece_existing_limit
+        ):
+            continue
         relative_path = _relative_piece_crop_path(path, root)
         key = condition_source_key(relative_path)
         if not force and key is not None and key in existing:
@@ -437,6 +451,8 @@ def select_condition_crop_candidates(
     max_crops_per_piece: int = DEFAULT_CONDITION_MAX_CROPS_PER_PIECE,
     piece_crops_root: Path | None = None,
     existing_source_keys: set[str] | None = None,
+    existing_piece_counts: dict[str, int] | None = None,
+    max_existing_crops_per_piece: int | None = None,
     force: bool = False,
     randomize: bool = False,
     since_ts: float | None = None,
@@ -453,6 +469,8 @@ def select_condition_crop_candidates(
     for candidate in iter_condition_crop_candidates(
         piece_crops_root=piece_crops_root,
         existing_source_keys=existing_source_keys,
+        existing_piece_counts=existing_piece_counts,
+        max_existing_crops_per_piece=max_existing_crops_per_piece,
         force=force,
         randomize=randomize,
         since_ts=since_ts,

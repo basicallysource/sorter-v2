@@ -25,6 +25,8 @@ class SampleTransportPayload(BaseModel):
     base_interval_s: float = 2.0
     ratio: float = 2.0
     channel_rpm: Dict[str, float] | None = None
+    direct_max_speed_usteps_per_s: int | None = None
+    direct_acceleration_usteps_per_s2: int | None = None
     duration_s: float | None = 600.0
     poll_s: float = 0.02
 
@@ -33,6 +35,8 @@ class SampleTransportUpdatePayload(BaseModel):
     base_interval_s: float | None = None
     ratio: float | None = None
     channel_rpm: Dict[str, float] | None = None
+    direct_max_speed_usteps_per_s: int | None = None
+    direct_acceleration_usteps_per_s2: int | None = None
     poll_s: float | None = None
 
 
@@ -212,6 +216,8 @@ def start_sample_transport(
                 base_interval_s=payload.base_interval_s,
                 ratio=payload.ratio,
                 channel_rpm=payload.channel_rpm,
+                direct_max_speed_usteps_per_s=payload.direct_max_speed_usteps_per_s,
+                direct_acceleration_usteps_per_s2=payload.direct_acceleration_usteps_per_s2,
                 duration_s=payload.duration_s,
                 poll_s=payload.poll_s,
             )
@@ -255,6 +261,8 @@ def update_sample_transport_config(
                 base_interval_s=payload.base_interval_s,
                 ratio=payload.ratio,
                 channel_rpm=payload.channel_rpm,
+                direct_max_speed_usteps_per_s=payload.direct_max_speed_usteps_per_s,
+                direct_acceleration_usteps_per_s2=payload.direct_acceleration_usteps_per_s2,
                 poll_s=payload.poll_s,
             )
         )

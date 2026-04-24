@@ -12,6 +12,7 @@
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { loadPolygons } from '$lib/settings/polygons-service';
+	import { settings } from '$lib/stores/settings';
 	import { Eye, EyeOff } from 'lucide-svelte';
 
 	const SIDEBAR_MIN = 300;
@@ -483,10 +484,12 @@
 						{/if}
 					</div>
 				{/if}
-				<ContinuousMotionPanel
-					baseUrl={currentBackendBaseUrl()}
-					hardwareReady={hardwareState === 'ready'}
-				/>
+				{#if $settings.continuousMotionPanelEnabled}
+					<ContinuousMotionPanel
+						baseUrl={currentBackendBaseUrl()}
+						hardwareReady={hardwareState === 'ready'}
+					/>
+				{/if}
 				<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 					<RecentObjects />
 				</CollapsibleSection>

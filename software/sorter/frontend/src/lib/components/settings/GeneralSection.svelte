@@ -341,6 +341,27 @@
 	</div>
 
 	<div>
+		<h3 class="mb-2 text-sm font-medium text-text">Experimental Controls</h3>
+		<label class="flex cursor-pointer items-start gap-3 border border-border bg-bg px-3 py-3">
+			<input
+				type="checkbox"
+				checked={$settings.continuousMotionPanelEnabled}
+				onchange={(event) =>
+					settings.setContinuousMotionPanelEnabled(
+						(event.currentTarget as HTMLInputElement).checked
+					)}
+				class="mt-0.5 h-4 w-4 rounded border-border"
+			/>
+			<div class="flex min-w-0 flex-col gap-1">
+				<span class="text-sm font-medium text-text">Continuous Motion Controls</span>
+				<span class="text-xs text-text-muted">
+					Show the direct-motion sample transport panel on the dashboard sidebar.
+				</span>
+			</div>
+		</label>
+	</div>
+
+	<div>
 		<h3 class="mb-2 text-sm font-medium text-text">Theme</h3>
 		<div class="grid grid-cols-2 gap-2">
 			<button

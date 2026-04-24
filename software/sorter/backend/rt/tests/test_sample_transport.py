@@ -13,13 +13,23 @@ class _FakePort:
     degrees_per_step: float = 36.0
     steps: int = 0
     configured_rpm: float | None = None
+    direct_max_speed: int | None = None
+    direct_acceleration: int | None = None
 
     def step(self, now_mono: float) -> bool:
         self.steps += 1
         return True
 
-    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
+    def configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
         self.configured_rpm = target_rpm
+        self.direct_max_speed = direct_max_speed_usteps_per_s
+        self.direct_acceleration = direct_acceleration_usteps_per_s2
         if self.key == "c4" and target_rpm is not None:
             self.degrees_per_step = max(6.0, min(45.0, target_rpm * 6.0 * 0.25))
 
@@ -152,6 +162,31 @@ def test_sample_transport_uses_per_channel_rpm_targets() -> None:
     assert status["channels"]["c2"]["interval_s"] == 3.0
     assert status["channels"]["c1"]["target_rpm"] == 1.0
     assert status["channels"]["c2"]["target_rpm"] == 2.0
+    assert status["channels"]["c1"]["direct_max_speed_usteps_per_s"] == 2400
+    assert status["channels"]["c1"]["direct_acceleration_usteps_per_s2"] == 100000
+
+
+def test_sample_transport_allows_rpm_targets_up_to_64() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = False
+    runtime = _FakeRuntime("c2")
+
+    assert coordinator.start(
+        runtimes=[runtime],
+        control=control,
+        channel_rpm={"c2": 80.0},
+        duration_s=0.12,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while coordinator.status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = coordinator.status()
+    assert runtime.port.configured_rpm == 64.0
+    assert status["channels"]["c2"]["target_rpm"] == 64.0
 
 
 def test_sample_transport_recomputes_nominal_degrees_after_port_configure() -> None:
@@ -206,5 +241,6 @@ def test_sample_transport_updates_running_rpm_targets() -> None:
         assert status["channels"]["c1"]["interval_s"] == 6.0
         assert status["channels"]["c2"]["interval_s"] == 1.5
         assert status["channels"]["c2"]["target_rpm"] == 4.0
+        assert status["channels"]["c2"]["direct_max_speed_usteps_per_s"] == 2400
     finally:
         coordinator.cancel()

@@ -84,11 +84,20 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         log.append("wiggle")
         return True
 
+    def sample_transport(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
+        log.append(f"sample:{deg:.1f}")
+        return pulse_success
+
     rt = RuntimeC3(
         upstream_slot=upstream,
         downstream_slot=downstream,
         pulse_command=pulse,
         wiggle_command=wiggle,
+        sample_transport_command=sample_transport,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         pulse_cooldown_s=0.0,
         wiggle_stall_ms=200,
@@ -158,6 +167,17 @@ def test_c3_holdover_expires_after_window() -> None:
     # of holdover state. The holdover flag is still exposed for
     # debugging but no longer switches the hardware gear.
     assert log and log[0].startswith("precise:")
+
+
+def test_c3_sample_transport_scales_to_small_continuous_steps() -> None:
+    rt, _up, _down, log = _make()
+    port = rt.sample_transport_port()
+
+    port.configure_sample_transport(target_rpm=3.2)
+
+    assert port.nominal_degrees_per_step() == 15.0
+    assert port.step(1.0) is True
+    assert log == ["sample:15.0"]
 
 
 def test_c3_exit_wiggle_when_downstream_closed_and_piece_stuck() -> None:

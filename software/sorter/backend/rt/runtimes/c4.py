@@ -106,7 +106,7 @@ class RuntimeC4(BaseRuntime):
         startup_purge_detection_count_provider: Callable[[], int] | None = None,
         carousel_move_command: Callable[[float], bool] | None = None,
         transport_move_command: Callable[[float], bool] | None = None,
-        sample_transport_move_command: Callable[[float], bool] | None = None,
+        sample_transport_move_command: Callable[[float, int | None, int | None], bool] | None = None,
         startup_purge_move_command: Callable[[float], bool] | None = None,
         wiggle_move_command: Callable[[float], bool] | None = None,
         unjam_move_command: Callable[[float], bool] | None = None,
@@ -173,7 +173,7 @@ class RuntimeC4(BaseRuntime):
         self._transport_move = self._wrap_rotation_command(
             _raw_transport_move, "c4_transport"
         )
-        self._sample_transport_move = self._wrap_rotation_command(
+        self._sample_transport_move = self._wrap_direct_rotation_command(
             _raw_sample_transport_move, "c4_sample_transport"
         )
         self._startup_purge_move = self._wrap_rotation_command(
@@ -197,6 +197,8 @@ class RuntimeC4(BaseRuntime):
         self._shimmy_cooldown_s = float(shimmy_cooldown_ms) / 1000.0
         self._transport_step_deg = float(transport_step_deg)
         self._sample_transport_step_deg = self._transport_step_deg
+        self._sample_transport_max_speed: int | None = None
+        self._sample_transport_acceleration: int | None = None
         self._transport_cooldown_s = float(transport_cooldown_ms) / 1000.0
         self._exit_approach_angle_deg = max(0.0, float(exit_approach_angle_deg))
         self._exit_approach_step_deg = max(0.1, float(exit_approach_step_deg))
@@ -1245,7 +1247,11 @@ class RuntimeC4(BaseRuntime):
 
         def _do_move() -> None:
             try:
-                self._sample_transport_move(step)
+                self._sample_transport_move(
+                    step,
+                    self._sample_transport_max_speed,
+                    self._sample_transport_acceleration,
+                )
             except Exception:
                 self._logger.exception("RuntimeC4: sample transport move raised")
 
@@ -1256,7 +1262,15 @@ class RuntimeC4(BaseRuntime):
         self._set_state("sample_transport")
         return True
 
-    def _configure_sample_transport(self, *, target_rpm: float | None) -> None:
+    def _configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._sample_transport_max_speed = direct_max_speed_usteps_per_s
+        self._sample_transport_acceleration = direct_acceleration_usteps_per_s2
         if target_rpm is None:
             self._sample_transport_step_deg = self._transport_step_deg
             return
@@ -1457,6 +1471,36 @@ class RuntimeC4(BaseRuntime):
 
         return _wrapped
 
+    def _wrap_direct_rotation_command(
+        self,
+        command: Callable[..., bool],
+        source_label: str,
+    ) -> Callable[[float, int | None, int | None], bool]:
+        def _call(deg: float) -> bool:
+            try:
+                return bool(
+                    command(
+                        deg,
+                        self._sample_transport_max_speed,
+                        self._sample_transport_acceleration,
+                    )
+                )
+            except TypeError:
+                return bool(command(deg))
+
+        publish_wrapped = self._wrap_rotation_command(_call, source_label)
+
+        def _wrapped(
+            deg: float,
+            max_speed: int | None = None,
+            acceleration: int | None = None,
+        ) -> bool:
+            self._sample_transport_max_speed = max_speed
+            self._sample_transport_acceleration = acceleration
+            return publish_wrapped(deg)
+
+        return _wrapped
+
 
 # Carousel moves take a variable amount of time depending on step size and
 # speed; the window errs long enough (plus pad) to include the following
@@ -1520,8 +1564,18 @@ class _C4SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_step(now_mono)
 
-    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
-        self._runtime._configure_sample_transport(target_rpm=target_rpm)
+    def configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._runtime._configure_sample_transport(
+            target_rpm=target_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
+        )
 
     def nominal_degrees_per_step(self) -> float | None:
         return float(self._runtime._sample_transport_step_deg)

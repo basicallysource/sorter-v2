@@ -24,6 +24,8 @@ export type ContinuousMotionStatus = {
 		base_interval_s?: number;
 		ratio?: number;
 		channel_rpm?: Partial<Record<ContinuousMotionChannelKey, number>>;
+		direct_max_speed_usteps_per_s?: number | null;
+		direct_acceleration_usteps_per_s2?: number | null;
 		duration_s?: number | null;
 		poll_s?: number;
 	};
@@ -40,6 +42,8 @@ export type StartContinuousMotionPayload = {
 	base_interval_s?: number;
 	ratio?: number;
 	channel_rpm?: Partial<Record<ContinuousMotionChannelKey, number>>;
+	direct_max_speed_usteps_per_s?: number | null;
+	direct_acceleration_usteps_per_s2?: number | null;
 	duration_s?: number | null;
 	poll_s?: number;
 };

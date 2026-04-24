@@ -60,6 +60,9 @@ DEFAULT_WIGGLE_STALL_MS = 600
 DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_HOLDOVER_MS = 2000  # Mirror legacy CH3_PRECISE_HOLDOVER_MS.
 DEFAULT_TRACK_STALE_S = 0.5
+DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
+DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
+DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 ADMISSION_PENDING_MIN_HITS = 3
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
@@ -89,6 +92,7 @@ class RuntimeC3(BaseRuntime):
         downstream_slot: CapacitySlot,
         pulse_command: Callable[..., bool],
         wiggle_command: Callable[[], bool],
+        sample_transport_command: Callable[[float, int | None, int | None], bool] | None = None,
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
@@ -109,6 +113,7 @@ class RuntimeC3(BaseRuntime):
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
         self._wiggle_command = wiggle_command
+        self._sample_transport_command = sample_transport_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
         self._bus = event_bus
@@ -130,6 +135,9 @@ class RuntimeC3(BaseRuntime):
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
         self._purge_mode: bool = False
+        self._sample_transport_step_deg: float | None = None
+        self._sample_transport_max_speed: int | None = None
+        self._sample_transport_acceleration: int | None = None
 
     # Expose mode enum for tests / callers without re-importing.
     PulseMode = _PulseMode
@@ -392,13 +400,25 @@ class RuntimeC3(BaseRuntime):
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = bool(
-                    self._call_pulse_command(
-                        mode,
-                        timing.pulse_ms,
-                        PROFILE_CONTINUOUS,
+                if (
+                    self._sample_transport_command is not None
+                    and self._sample_transport_step_deg
+                ):
+                    ok = bool(
+                        self._sample_transport_command(
+                            self._sample_transport_step_deg,
+                            self._sample_transport_max_speed,
+                            self._sample_transport_acceleration,
+                        )
                     )
-                )
+                else:
+                    ok = bool(
+                        self._call_pulse_command(
+                            mode,
+                            timing.pulse_ms,
+                            PROFILE_CONTINUOUS,
+                        )
+                    )
             except Exception:
                 self._logger.exception("RuntimeC3: sample transport pulse raised")
             finally:
@@ -421,6 +441,25 @@ class RuntimeC3(BaseRuntime):
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("sample_transport")
         return True
+
+    def _configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._sample_transport_max_speed = direct_max_speed_usteps_per_s
+        self._sample_transport_acceleration = direct_acceleration_usteps_per_s2
+        if target_rpm is None:
+            self._sample_transport_step_deg = None
+            return
+        target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
+        step = target_degrees_per_second * DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S
+        self._sample_transport_step_deg = max(
+            DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG,
+            min(DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG, step),
+        )
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity.
@@ -585,7 +624,22 @@ class _C3SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
+    def configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._runtime._configure_sample_transport(
+            target_rpm=target_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
+        )
+
     def nominal_degrees_per_step(self) -> float | None:
+        if self._runtime._sample_transport_step_deg is not None:
+            return float(self._runtime._sample_transport_step_deg)
         fn = getattr(self._runtime._pulse_command, "nominal_degrees_per_step", None)
         if callable(fn):
             value = fn()

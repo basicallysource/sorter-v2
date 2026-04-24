@@ -154,7 +154,7 @@ def test_c2_callable_applies_configured_motion_profile() -> None:
     assert irl.c_channel_2_rotor_stepper.moves == [100.0]
 
 
-def test_c2_continuous_move_accepts_small_degree_steps() -> None:
+def test_c2_direct_move_accepts_small_degree_steps() -> None:
     irl = type("Irl", (), {})()
     irl.c_channel_2_rotor_stepper = _RotorStepper()
     irl.feeder_config = type(
@@ -170,18 +170,20 @@ def test_c2_continuous_move_accepts_small_degree_steps() -> None:
     )()
     diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
 
-    _pulse, _wiggle, continuous = build_c2_callables(
+    _pulse, _wiggle, direct = build_c2_callables(
         irl,
         logging.getLogger("test"),
         motion_diagnostics=diagnostics,
     )
 
-    assert continuous(15.0) is True
+    assert direct(15.0, 2400, 100000) is True
 
     motion = diagnostics.status_snapshot()["last_by_channel"]["c2"]
-    assert motion["profile"] == "continuous"
-    assert motion["source"] == "c2_continuous"
+    assert motion["profile"] == "direct"
+    assert motion["source"] == "c2_direct"
     assert motion["degrees"] == 15.0
+    assert motion["max_speed_usteps_per_s"] == 2400
+    assert motion["acceleration_usteps_per_s2"] == 100000
     assert irl.c_channel_2_rotor_stepper.moves == [15.0]
 
 
@@ -203,7 +205,7 @@ def test_c3_callable_uses_normal_and_precise_profiles() -> None:
         },
     )()
 
-    pulse, _ = build_c3_callables(irl, logging.getLogger("test"))
+    pulse, _wiggle, _continuous = build_c3_callables(irl, logging.getLogger("test"))
 
     assert pulse("normal", 120.0) is True
     assert pulse("precise", 1000.0) is True
@@ -211,6 +213,42 @@ def test_c3_callable_uses_normal_and_precise_profiles() -> None:
     assert irl.c_channel_3_rotor_stepper.accelerations == [10000, 10000]
     assert irl.c_channel_3_rotor_stepper.speed_limits == [(16, 12000), (16, 3000)]
     assert irl.c_channel_3_rotor_stepper.moves == [250.0, 30.0]
+
+
+def test_c3_direct_move_accepts_small_degree_steps() -> None:
+    irl = type("Irl", (), {})()
+    irl.c_channel_3_rotor_stepper = _RotorStepper()
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "third_rotor_normal": _RotorPulseConfig(
+                steps_per_pulse=2500,
+                microsteps_per_second=12000,
+            ),
+            "third_rotor_precision": _RotorPulseConfig(
+                steps_per_pulse=300,
+                microsteps_per_second=3000,
+            ),
+        },
+    )()
+    diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
+
+    _pulse, _wiggle, direct = build_c3_callables(
+        irl,
+        logging.getLogger("test"),
+        motion_diagnostics=diagnostics,
+    )
+
+    assert direct(15.0, 2400, 100000) is True
+
+    motion = diagnostics.status_snapshot()["last_by_channel"]["c3"]
+    assert motion["profile"] == "direct"
+    assert motion["source"] == "c3_direct"
+    assert motion["degrees"] == 15.0
+    assert motion["max_speed_usteps_per_s"] == 2400
+    assert motion["acceleration_usteps_per_s2"] == 100000
+    assert irl.c_channel_3_rotor_stepper.moves == [15.0]
 
 
 def test_c4_callables_restore_default_speed_for_slow_moves() -> None:

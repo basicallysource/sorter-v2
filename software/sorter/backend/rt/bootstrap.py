@@ -424,6 +424,8 @@ class RtRuntimeHandle:
         base_interval_s: float = 2.0,
         ratio: float = 2.0,
         channel_rpm: dict[str, float] | None = None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
         duration_s: float | None = 600.0,
         poll_s: float = 0.02,
     ) -> bool:
@@ -436,6 +438,8 @@ class RtRuntimeHandle:
             base_interval_s=base_interval_s,
             ratio=ratio,
             channel_rpm=channel_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
             duration_s=duration_s,
             poll_s=poll_s,
         )
@@ -449,12 +453,16 @@ class RtRuntimeHandle:
         base_interval_s: float | None = None,
         ratio: float | None = None,
         channel_rpm: dict[str, float] | None = None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
         poll_s: float | None = None,
     ) -> bool:
         return self._sample_transport_coordinator.update_config(
             base_interval_s=base_interval_s,
             ratio=ratio,
             channel_rpm=channel_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
             poll_s=poll_s,
         )
 
@@ -731,17 +739,17 @@ def build_rt_runtime(
     # Hardware callables
 
     motion_diagnostics = MotionDiagnostics()
-    c1_pulse, c1_recovery = build_c1_callables(
+    c1_pulse, c1_recovery, c1_direct_move = build_c1_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
     )
-    c2_pulse, c2_wiggle, c2_continuous_move = build_c2_callables(
+    c2_pulse, c2_wiggle, c2_direct_move = build_c2_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
     )
-    c3_pulse, c3_wiggle = build_c3_callables(
+    c3_pulse, c3_wiggle, c3_direct_move = build_c3_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
@@ -755,6 +763,7 @@ def build_rt_runtime(
         c4_eject,
         c4_wiggle_move,
         c4_unjam_move,
+        c4_direct_move,
     ) = build_c4_callables(
         irl,
         log,
@@ -813,6 +822,7 @@ def build_rt_runtime(
         downstream_slot=slots[("c1", "c2")],
         pulse_command=c1_pulse,
         recovery_command=c1_recovery,
+        sample_transport_command=c1_direct_move,
         logger=log,
     )
     c2 = RuntimeC2(
@@ -820,7 +830,7 @@ def build_rt_runtime(
         downstream_slot=slots[("c2", "c3")],
         pulse_command=c2_pulse,
         wiggle_command=c2_wiggle,
-        sample_transport_command=c2_continuous_move,
+        sample_transport_command=c2_direct_move,
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,
@@ -831,6 +841,7 @@ def build_rt_runtime(
         downstream_slot=slots[("c3", "c4")],
         pulse_command=c3_pulse,
         wiggle_command=c3_wiggle,
+        sample_transport_command=c3_direct_move,
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,
@@ -940,7 +951,7 @@ def build_rt_runtime(
         startup_purge_detection_count_provider=_c4_startup_purge_detection_count,
         carousel_move_command=c4_carousel_move,
         transport_move_command=c4_transport_move,
-        sample_transport_move_command=c4_continuous_move,
+        sample_transport_move_command=c4_direct_move,
         startup_purge_move_command=c4_startup_purge_move,
         wiggle_move_command=c4_wiggle_move,
         unjam_move_command=c4_unjam_move,

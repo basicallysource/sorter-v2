@@ -88,7 +88,11 @@ def _make(
         log.append("wiggle")
         return wiggle_success
 
-    def sample_transport(deg: float) -> bool:
+    def sample_transport(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
         log.append(f"sample:{deg:.1f}")
         return pulse_success
 

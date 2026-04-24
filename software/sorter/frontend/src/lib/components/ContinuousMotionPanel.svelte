@@ -40,6 +40,8 @@
 		c4: 2
 	});
 	let durationMinutes = $state(10);
+	let directMaxSpeed = $state(2400);
+	let directAcceleration = $state(100000);
 	let status = $state<ContinuousMotionStatus | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
@@ -61,12 +63,22 @@
 
 	function clampRpm(value: number): number {
 		if (!Number.isFinite(value)) return 0.1;
-		return Math.max(0.01, Math.min(30, value));
+		return Math.max(0.01, Math.min(64, value));
 	}
 
 	function clampFactor(value: number): number {
 		if (!Number.isFinite(value)) return 1;
 		return Math.max(0.1, Math.min(16, value));
+	}
+
+	function clampDirectMaxSpeed(value: number): number {
+		if (!Number.isFinite(value)) return 2400;
+		return Math.max(1, Math.min(50000, Math.round(value)));
+	}
+
+	function clampDirectAcceleration(value: number): number {
+		if (!Number.isFinite(value)) return 100000;
+		return Math.max(1, Math.min(500000, Math.round(value)));
 	}
 
 	function targetRpms(): Record<ContinuousMotionChannelKey, number> {
@@ -109,6 +121,8 @@
 	function runningPayload() {
 		return {
 			channel_rpm: targetRpms(),
+			direct_max_speed_usteps_per_s: clampDirectMaxSpeed(directMaxSpeed),
+			direct_acceleration_usteps_per_s2: clampDirectAcceleration(directAcceleration),
 			duration_s: Math.max(1, durationMinutes) * 60,
 			poll_s: 0.02
 		};
@@ -124,11 +138,19 @@
 				absoluteRpm: Partial<Record<ContinuousMotionChannelKey, number>>;
 				factors: Partial<Record<ContinuousMotionChannelKey, number>>;
 				durationMinutes: number;
+				directMaxSpeed: number;
+				directAcceleration: number;
 			}>;
 			if (parsed.mode === 'factor' || parsed.mode === 'rpm') mode = parsed.mode;
 			if (typeof parsed.baseRpm === 'number') baseRpm = clampRpm(parsed.baseRpm);
 			if (typeof parsed.durationMinutes === 'number') {
 				durationMinutes = Math.max(1, Math.min(60, parsed.durationMinutes));
+			}
+			if (typeof parsed.directMaxSpeed === 'number') {
+				directMaxSpeed = clampDirectMaxSpeed(parsed.directMaxSpeed);
+			}
+			if (typeof parsed.directAcceleration === 'number') {
+				directAcceleration = clampDirectAcceleration(parsed.directAcceleration);
 			}
 			if (parsed.absoluteRpm) {
 				absoluteRpm = {
@@ -170,7 +192,9 @@
 						c3: clampFactor(factors.c3),
 						c4: clampFactor(factors.c4)
 					},
-					durationMinutes: Math.max(1, Math.min(60, durationMinutes))
+					durationMinutes: Math.max(1, Math.min(60, durationMinutes)),
+					directMaxSpeed: clampDirectMaxSpeed(directMaxSpeed),
+					directAcceleration: clampDirectAcceleration(directAcceleration)
 				})
 			);
 		} catch {
@@ -187,6 +211,12 @@
 		const c4 = clampRpm(rpm.c4 ?? c3 * factors.c4);
 		baseRpm = c1;
 		absoluteRpm = { c1, c2, c3, c4 };
+		if (typeof next.config?.direct_max_speed_usteps_per_s === 'number') {
+			directMaxSpeed = clampDirectMaxSpeed(next.config.direct_max_speed_usteps_per_s);
+		}
+		if (typeof next.config?.direct_acceleration_usteps_per_s2 === 'number') {
+			directAcceleration = clampDirectAcceleration(next.config.direct_acceleration_usteps_per_s2);
+		}
 		factors = {
 			c1: 1,
 			c2: clampFactor(c2 / c1),
@@ -245,6 +275,8 @@
 		absoluteRpm;
 		factors;
 		durationMinutes;
+		directMaxSpeed;
+		directAcceleration;
 		persistSettings();
 	});
 
@@ -323,7 +355,7 @@
 					id="continuous-base-rpm"
 					type="number"
 					min="0.01"
-					max="30"
+					max="64"
 					step="0.01"
 					bind:value={baseRpm}
 					class="w-full border border-border bg-bg px-2 py-1 text-sm text-text"
@@ -353,7 +385,7 @@
 						id={`continuous-rpm-${channel.key}`}
 						type="number"
 						min="0.01"
-						max="30"
+						max="64"
 						step="0.01"
 						bind:value={absoluteRpm[channel.key]}
 						class="w-full border border-border bg-bg px-2 py-1 text-sm text-text"
@@ -363,6 +395,26 @@
 		{/if}
 
 		<div class="grid grid-cols-[64px_1fr] items-center gap-2 text-xs">
+			<label class="text-text-muted" for="continuous-direct-speed">Max µs/s</label>
+			<input
+				id="continuous-direct-speed"
+				type="number"
+				min="1"
+				max="50000"
+				step="100"
+				bind:value={directMaxSpeed}
+				class="w-full border border-border bg-bg px-2 py-1 text-sm text-text"
+			/>
+			<label class="text-text-muted" for="continuous-direct-accel">Accel</label>
+			<input
+				id="continuous-direct-accel"
+				type="number"
+				min="1"
+				max="500000"
+				step="1000"
+				bind:value={directAcceleration}
+				class="w-full border border-border bg-bg px-2 py-1 text-sm text-text"
+			/>
 			<label class="text-text-muted" for="continuous-duration">Minutes</label>
 			<input
 				id="continuous-duration"

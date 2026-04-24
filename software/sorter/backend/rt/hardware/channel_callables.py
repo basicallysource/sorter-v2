@@ -22,6 +22,7 @@ from rt.hardware.motion_profiles import (
     DEFAULT_MIN_SPEED_USTEPS_PER_S,
     MotionDiagnostics,
     PROFILE_CONTINUOUS,
+    PROFILE_DIRECT,
     PROFILE_EJECT,
     PROFILE_GENTLE,
     PROFILE_PURGE,
@@ -39,7 +40,7 @@ def build_c1_callables(
     logger: logging.Logger,
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
-) -> tuple[Callable[[], bool], Callable[[int], bool]]:
+) -> tuple[Callable[[], bool], Callable[[int], bool], Callable[[float, int | None, int | None], bool]]:
     """Return (pulse, recovery) closures for RuntimeC1.
 
     Bridge: ``irl.c_channel_1_rotor_stepper.move_degrees`` /
@@ -103,7 +104,35 @@ def build_c1_callables(
         )
         return False
 
-    return pulse, recovery
+    def direct_move(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
+        stepper = getattr(irl, "c_channel_1_rotor_stepper", None)
+        if stepper is None:
+            logger.error("TODO_PHASE5_WIRING: c1 direct - c_channel_1_rotor_stepper missing")
+            return False
+        try:
+            profile = profile_from_values(
+                channel="c1",
+                name=PROFILE_DIRECT,
+                max_speed=max_speed,
+                acceleration=acceleration,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source="c1_direct",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
+        except Exception:
+            logger.exception("RuntimeC1: direct move raised")
+            return False
+
+    return pulse, recovery, direct_move
 
 
 def build_c2_callables(
@@ -114,7 +143,7 @@ def build_c2_callables(
 ) -> tuple[
     Callable[[float, str | None], bool],
     Callable[[], bool],
-    Callable[[float], bool],
+    Callable[[float, int | None, int | None], bool],
 ]:
     # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
     # RuntimeC3's ``pulse_command``. Rotation step size is governed by
@@ -167,33 +196,35 @@ def build_c2_callables(
         )
         return False
 
-    def continuous_move(deg: float) -> bool:
+    def direct_move(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
         stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
-        cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
-            getattr(irl, "irl_config", None), "feeder_config", None
-        ), "second_rotor_normal", None)
-        if stepper is None or cfg is None:
-            logger.error("TODO_PHASE5_WIRING: c2 continuous - stepper/cfg missing")
+        if stepper is None:
+            logger.error("TODO_PHASE5_WIRING: c2 direct - stepper missing")
             return False
         try:
-            profile = profile_from_rotor_config(
+            profile = profile_from_values(
                 channel="c2",
-                name=PROFILE_CONTINUOUS,
-                cfg=cfg,
+                name=PROFILE_DIRECT,
+                max_speed=max_speed,
+                acceleration=acceleration,
             )
             return move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
-                source="c2_continuous",
+                source="c2_direct",
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
         except Exception:
-            logger.exception("RuntimeC2: continuous move raised")
+            logger.exception("RuntimeC2: direct move raised")
             return False
 
-    return pulse, wiggle, continuous_move
+    return pulse, wiggle, direct_move
 
 
 def build_c3_callables(
@@ -201,7 +232,7 @@ def build_c3_callables(
     logger: logging.Logger,
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
-) -> tuple[Callable[[Any, float, str | None], bool], Callable[[], bool]]:
+) -> tuple[Callable[[Any, float, str | None], bool], Callable[[], bool], Callable[[float, int | None, int | None], bool]]:
     def _pulse_degrees() -> float | None:
         stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
         feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
@@ -260,7 +291,35 @@ def build_c3_callables(
         )
         return False
 
-    return pulse, wiggle
+    def direct_move(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
+        stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
+        if stepper is None:
+            logger.error("TODO_PHASE5_WIRING: c3 direct - stepper missing")
+            return False
+        try:
+            profile = profile_from_values(
+                channel="c3",
+                name=PROFILE_DIRECT,
+                max_speed=max_speed,
+                acceleration=acceleration,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source="c3_direct",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
+        except Exception:
+            logger.exception("RuntimeC3: direct move raised")
+            return False
+
+    return pulse, wiggle, direct_move
 
 
 def build_c4_callables(
@@ -283,6 +342,7 @@ def build_c4_callables(
     Callable[[], bool],
     Callable[[float], bool],
     Callable[[float], bool],
+    Callable[[float, int | None, int | None], bool],
 ]:
     def _default_speed_limit() -> int | None:
         cfg_root = getattr(irl, "irl_config", None) or irl
@@ -363,6 +423,18 @@ def build_c4_callables(
             profile_name=PROFILE_CONTINUOUS,
             speed_limit=transport_speed_limit,
             acceleration=continuous_acceleration_limit,
+        )
+
+    def direct_move(
+        deg: float,
+        max_speed: int | None = None,
+        acceleration: int | None = None,
+    ) -> bool:
+        return _profile_move(
+            deg,
+            profile_name=PROFILE_DIRECT,
+            speed_limit=max_speed,
+            acceleration=acceleration,
         )
 
     purge_speed_limit = None
@@ -464,6 +536,7 @@ def build_c4_callables(
         eject,
         wiggle_move,
         unjam_move,
+        direct_move,
     )
 
 

@@ -81,7 +81,7 @@ class RuntimeC2(BaseRuntime):
         downstream_slot: CapacitySlot,
         pulse_command: Callable[..., bool],
         wiggle_command: Callable[[], bool],
-        sample_transport_command: Callable[[float], bool] | None = None,
+        sample_transport_command: Callable[[float, int | None, int | None], bool] | None = None,
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
@@ -122,6 +122,8 @@ class RuntimeC2(BaseRuntime):
         self._pending_track_count: int = 0
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
+        self._sample_transport_max_speed: int | None = None
+        self._sample_transport_acceleration: int | None = None
 
     # ------------------------------------------------------------------
     # Runtime ABC
@@ -361,7 +363,9 @@ class RuntimeC2(BaseRuntime):
                 ):
                     ok = bool(
                         self._sample_transport_command(
-                            self._sample_transport_step_deg
+                            self._sample_transport_step_deg,
+                            self._sample_transport_max_speed,
+                            self._sample_transport_acceleration,
                         )
                     )
                 else:
@@ -394,7 +398,15 @@ class RuntimeC2(BaseRuntime):
         self._set_state("sample_transport")
         return True
 
-    def _configure_sample_transport(self, *, target_rpm: float | None) -> None:
+    def _configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._sample_transport_max_speed = direct_max_speed_usteps_per_s
+        self._sample_transport_acceleration = direct_acceleration_usteps_per_s2
         if target_rpm is None:
             self._sample_transport_step_deg = None
             return
@@ -558,8 +570,18 @@ class _C2SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
-    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
-        self._runtime._configure_sample_transport(target_rpm=target_rpm)
+    def configure_sample_transport(
+        self,
+        *,
+        target_rpm: float | None,
+        direct_max_speed_usteps_per_s: int | None = None,
+        direct_acceleration_usteps_per_s2: int | None = None,
+    ) -> None:
+        self._runtime._configure_sample_transport(
+            target_rpm=target_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
+        )
 
     def nominal_degrees_per_step(self) -> float | None:
         if self._runtime._sample_transport_step_deg is not None:

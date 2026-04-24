@@ -7,7 +7,9 @@ function createSettings() {
 	return {
 		subscribe,
 		set,
-		setTheme: (theme: Theme) => update((s) => ({ ...s, theme }))
+		setTheme: (theme: Theme) => update((s) => ({ ...s, theme })),
+		setContinuousMotionPanelEnabled: (enabled: boolean) =>
+			update((s) => ({ ...s, continuousMotionPanelEnabled: Boolean(enabled) }))
 	};
 }
 

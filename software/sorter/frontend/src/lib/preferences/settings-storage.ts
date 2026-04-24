@@ -2,10 +2,12 @@ export type Theme = 'light' | 'dark';
 
 export type Settings = {
 	theme: Theme;
+	continuousMotionPanelEnabled: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-	theme: 'light'
+	theme: 'light',
+	continuousMotionPanelEnabled: false
 };
 
 const SETTINGS_STORAGE_KEY = 'settings';
@@ -17,7 +19,8 @@ function normalizeTheme(value: unknown): Theme {
 export function normalizeSettings(value: unknown): Settings {
 	const record = value && typeof value === 'object' ? (value as Partial<Settings>) : {};
 	return {
-		theme: normalizeTheme(record.theme)
+		theme: normalizeTheme(record.theme),
+		continuousMotionPanelEnabled: record.continuousMotionPanelEnabled === true
 	};
 }
 

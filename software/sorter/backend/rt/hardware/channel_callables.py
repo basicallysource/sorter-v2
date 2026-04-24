@@ -46,6 +46,19 @@ def build_c1_callables(
     ``irl.feeder_config.first_rotor`` for pulse sizing.
     """
 
+    def _pulse_degrees() -> float | None:
+        stepper = getattr(irl, "c_channel_1_rotor_stepper", None)
+        cfg = getattr(irl, "feeder_config", None) or getattr(
+            getattr(irl, "irl_config", None), "feeder_config", None
+        )
+        pulse_cfg = getattr(cfg, "first_rotor", None) if cfg is not None else None
+        if stepper is None or pulse_cfg is None:
+            return None
+        try:
+            return float(stepper.degrees_for_microsteps(pulse_cfg.steps_per_pulse))
+        except Exception:
+            return None
+
     def pulse() -> bool:
         stepper = getattr(irl, "c_channel_1_rotor_stepper", None)
         if stepper is None:
@@ -80,6 +93,8 @@ def build_c1_callables(
             logger.exception("RuntimeC1: pulse raised")
             return False
 
+    pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
+
     def recovery(level: int) -> bool:
         logger.warning(
             "TODO_PHASE5_WIRING: c1 jam recovery level=%d — live verification needed "
@@ -100,6 +115,18 @@ def build_c2_callables(
     # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
     # RuntimeC3's ``pulse_command``. Rotation step size is governed by
     # ``steps_per_pulse`` in the feeder config, not by pulse_ms.
+    def _pulse_degrees() -> float | None:
+        stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
+        cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
+            getattr(irl, "irl_config", None), "feeder_config", None
+        ), "second_rotor_normal", None)
+        if stepper is None or cfg is None:
+            return None
+        try:
+            return float(stepper.degrees_for_microsteps(cfg.steps_per_pulse))
+        except Exception:
+            return None
+
     def pulse(_pulse_ms: float, profile_name: str | None = None) -> bool:
         stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
         cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
@@ -128,6 +155,8 @@ def build_c2_callables(
             logger.exception("RuntimeC2: pulse raised")
             return False
 
+    pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
+
     def wiggle() -> bool:
         logger.warning(
             "TODO_PHASE5_WIRING: c2 wiggle — live verification needed"
@@ -143,6 +172,19 @@ def build_c3_callables(
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[Callable[[Any, float, str | None], bool], Callable[[], bool]]:
+    def _pulse_degrees() -> float | None:
+        stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
+        feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
+            getattr(irl, "irl_config", None), "feeder_config", None
+        )
+        cfg = getattr(feeder_cfg, "third_rotor_precision", None)
+        if stepper is None or cfg is None:
+            return None
+        try:
+            return float(stepper.degrees_for_microsteps(cfg.steps_per_pulse))
+        except Exception:
+            return None
+
     def pulse(mode: Any, _pulse_ms: float, profile_name: str | None = None) -> bool:
         stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
         feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
@@ -179,6 +221,8 @@ def build_c3_callables(
         except Exception:
             logger.exception("RuntimeC3: pulse raised")
             return False
+
+    pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
 
     def wiggle() -> bool:
         logger.warning(

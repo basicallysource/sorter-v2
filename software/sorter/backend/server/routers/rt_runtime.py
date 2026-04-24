@@ -24,6 +24,7 @@ router = APIRouter()
 class SampleTransportPayload(BaseModel):
     base_interval_s: float = 2.0
     ratio: float = 2.0
+    channel_rpm: Dict[str, float] | None = None
     duration_s: float | None = 600.0
     poll_s: float = 0.02
 
@@ -203,6 +204,7 @@ def start_sample_transport(
                 state_publisher=_publish_runtime_state,
                 base_interval_s=payload.base_interval_s,
                 ratio=payload.ratio,
+                channel_rpm=payload.channel_rpm,
                 duration_s=payload.duration_s,
                 poll_s=payload.poll_s,
             )

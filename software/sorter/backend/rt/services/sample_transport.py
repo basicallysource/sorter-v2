@@ -24,6 +24,8 @@ DEFAULT_DURATION_S = 600.0
 DEFAULT_POLL_S = 0.02
 MIN_INTERVAL_S = 0.08
 MAX_DURATION_S = 3600.0
+MIN_RPM = 0.01
+MAX_RPM = 30.0
 
 
 class RuntimeControl(Protocol):
@@ -39,6 +41,8 @@ class SampleTransportPort(Protocol):
 
     def step(self, now_mono: float) -> bool: ...
 
+    def nominal_degrees_per_step(self) -> float | None: ...
+
 
 @dataclass(slots=True)
 class _ChannelState:
@@ -46,6 +50,8 @@ class _ChannelState:
     port: SampleTransportPort
     interval_s: float
     next_at_mono: float
+    target_rpm: float | None = None
+    nominal_degrees_per_step: float | None = None
     step_count: int = 0
     skipped_count: int = 0
     error_count: int = 0
@@ -56,6 +62,8 @@ class _ChannelState:
     def snapshot(self) -> dict[str, Any]:
         return {
             "interval_s": self.interval_s,
+            "target_rpm": self.target_rpm,
+            "nominal_degrees_per_step": self.nominal_degrees_per_step,
             "step_count": self.step_count,
             "skipped_count": self.skipped_count,
             "error_count": self.error_count,
@@ -116,6 +124,7 @@ class C1234SampleTransportCoordinator:
         state_publisher: Callable[[str], None] | None = None,
         base_interval_s: float = DEFAULT_BASE_INTERVAL_S,
         ratio: float = DEFAULT_RATIO,
+        channel_rpm: dict[str, float] | None = None,
         duration_s: float | None = DEFAULT_DURATION_S,
         poll_s: float = DEFAULT_POLL_S,
     ) -> bool:
@@ -136,6 +145,7 @@ class C1234SampleTransportCoordinator:
             ports,
             base_interval_s=float(base_interval_s),
             ratio=float(ratio),
+            channel_rpm=channel_rpm,
         )
         bounded_duration = (
             None
@@ -159,6 +169,10 @@ class C1234SampleTransportCoordinator:
                 "config": {
                     "base_interval_s": float(base_interval_s),
                     "ratio": float(ratio),
+                    "channel_rpm": {
+                        str(key): float(value)
+                        for key, value in (channel_rpm or {}).items()
+                    },
                     "duration_s": bounded_duration,
                     "poll_s": float(poll_s),
                 },
@@ -226,17 +240,30 @@ class C1234SampleTransportCoordinator:
         *,
         base_interval_s: float,
         ratio: float,
+        channel_rpm: dict[str, float] | None = None,
     ) -> list[_ChannelState]:
         now = time.monotonic()
         states: list[_ChannelState] = []
         for index, port in enumerate(ports):
-            interval = max(MIN_INTERVAL_S, float(base_interval_s) / (ratio**index))
+            key = str(getattr(port, "key", f"c{index + 1}"))
+            nominal_degrees = _nominal_degrees_per_step(port)
+            target_rpm = _target_rpm_for_channel(channel_rpm, key)
+            interval = (
+                _interval_for_rpm(
+                    target_rpm,
+                    nominal_degrees_per_step=nominal_degrees,
+                )
+                if target_rpm is not None
+                else max(MIN_INTERVAL_S, float(base_interval_s) / (ratio**index))
+            )
             states.append(
                 _ChannelState(
-                    key=str(getattr(port, "key", f"c{index + 1}")),
+                    key=key,
                     port=port,
                     interval_s=interval,
                     next_at_mono=now,
+                    target_rpm=target_rpm,
+                    nominal_degrees_per_step=nominal_degrees,
                 )
             )
         return states
@@ -333,6 +360,47 @@ class C1234SampleTransportCoordinator:
                 reason=reason,
                 cancel_requested=False,
             )
+
+
+def _nominal_degrees_per_step(port: SampleTransportPort) -> float | None:
+    fn = getattr(port, "nominal_degrees_per_step", None)
+    if not callable(fn):
+        return None
+    try:
+        value = fn()
+    except Exception:
+        _LOG.exception(
+            "SampleTransport: nominal_degrees_per_step() raised for %s",
+            getattr(port, "key", type(port).__name__),
+        )
+        return None
+    if not isinstance(value, (int, float)) or value <= 0.0:
+        return None
+    return float(value)
+
+
+def _target_rpm_for_channel(
+    channel_rpm: dict[str, float] | None,
+    key: str,
+) -> float | None:
+    if not channel_rpm:
+        return None
+    value = channel_rpm.get(key)
+    if not isinstance(value, (int, float)):
+        return None
+    return max(MIN_RPM, min(MAX_RPM, float(value)))
+
+
+def _interval_for_rpm(
+    target_rpm: float | None,
+    *,
+    nominal_degrees_per_step: float | None,
+) -> float:
+    if target_rpm is None or nominal_degrees_per_step is None:
+        return MIN_INTERVAL_S
+    # rpm -> degrees/s = rpm * 360 / 60 = rpm * 6.
+    interval = float(nominal_degrees_per_step) / (float(target_rpm) * 6.0)
+    return max(MIN_INTERVAL_S, interval)
 
 
 __all__ = [

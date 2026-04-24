@@ -266,5 +266,12 @@ class _C1SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
+    def nominal_degrees_per_step(self) -> float | None:
+        fn = getattr(self._runtime._pulse_command, "nominal_degrees_per_step", None)
+        if callable(fn):
+            value = fn()
+            return float(value) if isinstance(value, (int, float)) and value > 0 else None
+        return None
+
 
 __all__ = ["RuntimeC1", "DEFAULT_JAM_TIMEOUT_S", "DEFAULT_JAM_MIN_PULSES"]

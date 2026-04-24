@@ -5,6 +5,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
+	import ContinuousMotionPanel from '$lib/components/ContinuousMotionPanel.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
@@ -482,6 +483,10 @@
 						{/if}
 					</div>
 				{/if}
+				<ContinuousMotionPanel
+					baseUrl={currentBackendBaseUrl()}
+					hardwareReady={hardwareState === 'ready'}
+				/>
 				<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 					<RecentObjects />
 				</CollapsibleSection>

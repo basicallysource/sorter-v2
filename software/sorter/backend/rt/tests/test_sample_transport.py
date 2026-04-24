@@ -10,11 +10,15 @@ from rt.services.sample_transport import C1234SampleTransportCoordinator
 @dataclass
 class _FakePort:
     key: str
+    degrees_per_step: float = 36.0
     steps: int = 0
 
     def step(self, now_mono: float) -> bool:
         self.steps += 1
         return True
+
+    def nominal_degrees_per_step(self) -> float | None:
+        return self.degrees_per_step
 
 
 class _FakeRuntime:
@@ -116,3 +120,29 @@ def test_sample_transport_rejects_second_start() -> None:
         )
     finally:
         coordinator.cancel()
+
+
+def test_sample_transport_uses_per_channel_rpm_targets() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = False
+    runtimes = [_FakeRuntime("c1"), _FakeRuntime("c2")]
+
+    assert coordinator.start(
+        runtimes=runtimes,
+        control=control,
+        channel_rpm={"c1": 1.0, "c2": 2.0},
+        duration_s=0.12,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while coordinator.status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = coordinator.status()
+    assert status["config"]["channel_rpm"] == {"c1": 1.0, "c2": 2.0}
+    assert status["channels"]["c1"]["interval_s"] == 6.0
+    assert status["channels"]["c2"]["interval_s"] == 3.0
+    assert status["channels"]["c1"]["target_rpm"] == 1.0
+    assert status["channels"]["c2"]["target_rpm"] == 2.0

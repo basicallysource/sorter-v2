@@ -423,6 +423,7 @@ class RtRuntimeHandle:
         state_publisher: Callable[[str], None] | None = None,
         base_interval_s: float = 2.0,
         ratio: float = 2.0,
+        channel_rpm: dict[str, float] | None = None,
         duration_s: float | None = 600.0,
         poll_s: float = 0.02,
     ) -> bool:
@@ -434,6 +435,7 @@ class RtRuntimeHandle:
             state_publisher=state_publisher,
             base_interval_s=base_interval_s,
             ratio=ratio,
+            channel_rpm=channel_rpm,
             duration_s=duration_s,
             poll_s=poll_s,
         )

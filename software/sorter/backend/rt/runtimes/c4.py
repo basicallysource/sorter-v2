@@ -1501,5 +1501,8 @@ class _C4SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_step(now_mono)
 
+    def nominal_degrees_per_step(self) -> float | None:
+        return float(self._runtime._transport_step_deg)
+
 
 __all__ = ["RuntimeC4"]

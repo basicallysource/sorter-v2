@@ -9,7 +9,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from server.hive_uploader import HiveUploader, SERVER_DOWN_BACKOFF_S, teacher_state_from_metadata
+from server.hive_uploader import (
+    HiveUploader,
+    SERVER_DOWN_BACKOFF_S,
+    sample_type_from_metadata,
+    teacher_state_from_metadata,
+)
 
 
 def _write_test_image(path: Path, value: int = 128) -> None:
@@ -222,6 +227,66 @@ class HiveUploaderPurgeTests(unittest.TestCase):
         self.assertEqual(1, result["dark_image_sample"])
         self.assertTrue(uploader._queue.empty())
 
+    def test_backfill_filters_by_sample_type_and_limit(self) -> None:
+        uploader = self._make_uploader()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            session = root / "session-1"
+            image_dir = session / "dataset" / "images"
+            metadata_dir = session / "metadata"
+            image_dir.mkdir(parents=True)
+            metadata_dir.mkdir(parents=True)
+
+            for sample_id, metadata in (
+                (
+                    "teacher-1",
+                    {
+                        "source": "live_aux_teacher_capture",
+                        "source_role": "classification_channel",
+                        "detection_algorithm": "gemini_sam",
+                        "detection_bbox_count": 1,
+                        "teacher_capture_crop_mode": "polygon_masked_zone",
+                        "teacher_capture_crop_signal": {"mean_gray": 50.0, "nonblack_ratio": 0.25},
+                    },
+                ),
+                (
+                    "condition-1",
+                    {
+                        "source": "piece_condition_teacher_capture",
+                        "source_role": "piece_crop",
+                        "capture_reason": "piece_condition_teacher",
+                        "condition_sample": True,
+                    },
+                ),
+                (
+                    "condition-2",
+                    {
+                        "source": "piece_condition_teacher_capture",
+                        "source_role": "piece_crop",
+                        "capture_reason": "piece_condition_teacher",
+                        "condition_sample": True,
+                    },
+                ),
+            ):
+                image = image_dir / f"{sample_id}.jpg"
+                _write_test_image(image, value=128)
+                metadata["sample_id"] = sample_id
+                metadata["input_image"] = str(image)
+                (metadata_dir / f"{sample_id}.json").write_text(json.dumps(metadata))
+
+            result = uploader.backfill(
+                root,
+                target_ids=["target-a"],
+                max_samples=1,
+                sample_type="condition",
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual("condition", result["sample_type"])
+        self.assertEqual(1, result["queued"])
+        queued_job = uploader._queue.get_nowait()
+        self.assertEqual("condition", sample_type_from_metadata(queued_job["metadata"]))
+
     def test_process_job_marks_metadata_uploaded(self) -> None:
         class _FakeClient:
             def upload_sample(self, **_kwargs):
@@ -357,6 +422,16 @@ class HiveUploaderPurgeTests(unittest.TestCase):
         self.assertEqual("teacher_ready", state["state"])
         self.assertEqual("Gemini negative", state["label"])
 
+    def test_gemini_detection_sample_type_is_teacher_detection(self) -> None:
+        metadata = {
+            "source_role": "classification_channel",
+            "capture_reason": "rt_move_completed",
+            "detection_algorithm": "gemini_sam",
+            "detection_bbox_count": 1,
+        }
+
+        self.assertEqual("teacher_detection", sample_type_from_metadata(metadata))
+
     def test_gemini_zero_box_without_negative_marker_is_blocked(self) -> None:
         metadata = {
             "source": "live_aux_teacher_capture",
@@ -415,6 +490,7 @@ class HiveUploaderPurgeTests(unittest.TestCase):
         self.assertEqual("target-a", target["id"])
         self.assertEqual("sample-1", target["queued_jobs"][0]["sample_id"])
         self.assertEqual("teacher_ready", target["queued_jobs"][0]["teacher_state"])
+        self.assertEqual("teacher_detection", target["queued_jobs"][0]["sample_type"])
         self.assertEqual("active-1", target["active_jobs"][0]["sample_id"])
         self.assertEqual("done-1", target["recent_jobs"][0]["sample_id"])
 

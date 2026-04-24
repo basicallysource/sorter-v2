@@ -138,6 +138,12 @@ class HiveLinkPayload(BaseModel):
 class HiveBackfillPayload(BaseModel):
     session_ids: list[str] | None = None
     target_ids: list[str] | None = None
+    sample_type: str | None = None
+    limit: int | None = None
+    selection: str | None = None
+    minutes: int | None = None
+    from_ts: float | str | None = None
+    to_ts: float | str | None = None
 
 
 class HivePurgePayload(BaseModel):
@@ -146,6 +152,18 @@ class HivePurgePayload(BaseModel):
 
 class HiveSamplePurgePayload(BaseModel):
     states: list[str]
+
+
+class ConditionSampleBackfillPayload(BaseModel):
+    limit: int = 10
+    max_crops_per_piece: int = 1
+    model: str | None = None
+    force: bool = False
+    dry_run: bool = False
+    selection: str | None = None
+    minutes: int | None = None
+    from_ts: float | str | None = None
+    to_ts: float | str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -397,6 +415,12 @@ def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[
     return getClassificationTrainingManager().backfillToHive(
         session_ids=payload.session_ids,
         target_ids=payload.target_ids,
+        sample_type=payload.sample_type,
+        limit=payload.limit,
+        selection=payload.selection,
+        minutes=payload.minutes,
+        from_ts=payload.from_ts,
+        to_ts=payload.to_ts,
     )
 
 
@@ -420,6 +444,21 @@ def hive_queue_details(
 def hive_queue_purge_samples(payload: HiveSamplePurgePayload) -> Dict[str, Any]:
     return getClassificationTrainingManager().purgeSamplesByTeacherState(
         states=payload.states,
+    )
+
+
+@router.post("/api/samples/condition/backfill")
+def condition_sample_backfill(payload: ConditionSampleBackfillPayload) -> Dict[str, Any]:
+    return getClassificationTrainingManager().backfillPieceConditionSamples(
+        limit=payload.limit,
+        max_crops_per_piece=payload.max_crops_per_piece,
+        model=payload.model,
+        force=payload.force,
+        dry_run=payload.dry_run,
+        selection=payload.selection,
+        minutes=payload.minutes,
+        from_ts=payload.from_ts,
+        to_ts=payload.to_ts,
     )
 
 

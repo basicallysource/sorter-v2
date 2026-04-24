@@ -6,6 +6,7 @@ from collections import deque
 import json
 import logging
 import queue
+import random
 import threading
 import time
 from pathlib import Path
@@ -43,6 +44,19 @@ BLOCKED_TEACHER_STATES = {
     "needs_gemini",
     "no_teacher_detection",
     "bad_teacher_sample",
+}
+SUPPORTED_SAMPLE_TYPE_FILTERS = {
+    "all",
+    "teacher_detection",
+    "condition",
+    "classification",
+    "other",
+}
+SAMPLE_TYPE_LABELS = {
+    "teacher_detection": "Gemini boxes",
+    "condition": "Condition",
+    "classification": "Classification",
+    "other": "Other",
 }
 
 
@@ -97,6 +111,82 @@ def _is_teacher_capture_metadata(metadata: dict[str, Any]) -> bool:
         or metadata.get("capture_reason") == "rt_periodic_interval"
         or isinstance(metadata.get("teacher_capture_source"), str)
     )
+
+
+def _payload_capture_scope(metadata: dict[str, Any]) -> str | None:
+    sample_payload = metadata.get("sample_payload")
+    if not isinstance(sample_payload, dict):
+        return None
+    sample = sample_payload.get("sample")
+    if not isinstance(sample, dict):
+        return None
+    scope = sample.get("capture_scope")
+    return scope if isinstance(scope, str) and scope else None
+
+
+def normalize_sample_type_filter(value: Any) -> str:
+    if isinstance(value, str):
+        candidate = value.strip().lower().replace("-", "_")
+        aliases = {
+            "teacher": "teacher_detection",
+            "gemini": "teacher_detection",
+            "gemini_boxes": "teacher_detection",
+            "condition_teacher": "condition",
+            "piece_condition": "condition",
+            "classification_channel": "classification",
+            "class": "classification",
+        }
+        candidate = aliases.get(candidate, candidate)
+        if candidate in SUPPORTED_SAMPLE_TYPE_FILTERS:
+            return candidate
+    return "all"
+
+
+def sample_type_from_metadata(metadata: dict[str, Any]) -> str:
+    """Return the first-class dataset type represented by archived metadata."""
+
+    if not isinstance(metadata, dict):
+        return "other"
+
+    payload_scope = _payload_capture_scope(metadata)
+    detection_scope = metadata.get("detection_scope")
+    capture_reason = metadata.get("capture_reason")
+    algorithm = metadata.get("detection_algorithm")
+    source_role = metadata.get("source_role")
+
+    if (
+        metadata.get("condition_sample") is True
+        or isinstance(metadata.get("condition_assessment"), dict)
+        or payload_scope == "condition"
+        or detection_scope == "condition"
+        or capture_reason == "piece_condition_teacher"
+    ):
+        return "condition"
+
+    if _is_teacher_capture_metadata(metadata) or algorithm == "gemini_sam":
+        return "teacher_detection"
+
+    if (
+        payload_scope in {"classification", "classification_channel"}
+        or detection_scope == "classification"
+        or capture_reason == "live_classification"
+        or source_role in {"classification_channel", "classification_chamber"}
+    ):
+        return "classification"
+
+    return "other"
+
+
+def sample_type_label(sample_type: Any) -> str:
+    normalized = normalize_sample_type_filter(sample_type)
+    if normalized == "all":
+        return "All"
+    return SAMPLE_TYPE_LABELS.get(normalized, "Other")
+
+
+def sample_type_matches(metadata: dict[str, Any], sample_type: Any) -> bool:
+    normalized = normalize_sample_type_filter(sample_type)
+    return normalized == "all" or sample_type_from_metadata(metadata) == normalized
 
 
 def _teacher_sample_quality_issue(metadata: dict[str, Any]) -> dict[str, str] | None:
@@ -643,6 +733,7 @@ class HiveUploader:
         queued_at = _safe_float(job.get("queued_at"))
         timestamp = now if now is not None else time.time()
         teacher_state = teacher_state_from_metadata(metadata)
+        sample_type = sample_type_from_metadata(metadata)
         return {
             "status": status,
             "operation": job.get("operation") if isinstance(job.get("operation"), str) else "upload",
@@ -659,6 +750,8 @@ class HiveUploader:
             "detection_algorithm": metadata.get("detection_algorithm"),
             "detection_bbox_count": _safe_int(metadata.get("detection_bbox_count")),
             "detection_score": _safe_float(metadata.get("detection_score")),
+            "sample_type": sample_type,
+            "sample_type_label": sample_type_label(sample_type),
             "teacher_state": teacher_state["state"],
             "teacher_label": teacher_state["label"],
             "teacher_reason": teacher_state["reason"],
@@ -909,6 +1002,10 @@ class HiveUploader:
         session_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
         max_samples: int | None = None,
+        sample_type: str | None = None,
+        selection: str | None = None,
+        since_ts: float | None = None,
+        until_ts: float | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
@@ -926,11 +1023,18 @@ class HiveUploader:
         dark_image_sample = 0
         samples_scanned = 0
         scan_limit = max(0, int(max_samples)) if isinstance(max_samples, int) else None
+        normalized_sample_type = normalize_sample_type_filter(sample_type)
+        selection_mode = (
+            selection.strip().lower().replace("-", "_")
+            if isinstance(selection, str) and selection.strip()
+            else "latest"
+        )
         if session_ids:
             session_dirs = [training_root / session_id for session_id in session_ids if (training_root / session_id).is_dir()]
         else:
             session_dirs = sorted([path for path in training_root.iterdir() if path.is_dir()], key=lambda path: path.name, reverse=True)
 
+        metadata_entries: list[tuple[Path, str, str, Path]] = []
         for session_dir in session_dirs:
             session_id = session_dir.name
             manifest_path = session_dir / "manifest.json"
@@ -950,82 +1054,110 @@ class HiveUploader:
             metadata_dir = session_dir / "metadata"
             if not metadata_dir.exists():
                 continue
-            for metadata_path in sorted(metadata_dir.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True):
-                if scan_limit is not None and queued >= scan_limit:
-                    break
-                samples_scanned += 1
-                try:
-                    metadata = json.loads(metadata_path.read_text())
-                except Exception:
-                    errors += 1
-                    continue
-                if not isinstance(metadata, dict):
-                    errors += 1
-                    continue
-                teacher_state = teacher_state_from_metadata(metadata)["state"]
-                if teacher_state == "needs_gemini":
-                    needs_gemini += 1
-                    skipped += 1
-                    continue
-                if teacher_state == "no_teacher_detection":
-                    no_teacher_detection += 1
-                    skipped += 1
-                    continue
-                if teacher_state == "bad_teacher_sample":
-                    bad_teacher_sample += 1
-                    skipped += 1
-                    continue
-                if all(_is_uploaded_to_target(metadata, target_id) for target_id in resolved_target_ids):
-                    skipped += 1
-                    continue
-                sample_id = metadata.get("sample_id") if isinstance(metadata.get("sample_id"), str) else metadata_path.stem
-                image_path = _resolve_archived_file_path(
-                    metadata.get("input_image"),
+            for metadata_path in metadata_dir.glob("*.json"):
+                metadata_entries.append((session_dir, session_id, session_name, metadata_path))
+
+        def _entry_mtime(entry: tuple[Path, str, str, Path]) -> float:
+            try:
+                return entry[3].stat().st_mtime
+            except Exception:
+                return 0.0
+
+        if selection_mode == "random":
+            random.shuffle(metadata_entries)
+        else:
+            metadata_entries.sort(key=_entry_mtime, reverse=True)
+
+        for session_dir, session_id, session_name, metadata_path in metadata_entries:
+            if scan_limit is not None and queued >= scan_limit:
+                break
+            try:
+                metadata_mtime = metadata_path.stat().st_mtime
+            except Exception:
+                metadata_mtime = 0.0
+            samples_scanned += 1
+            try:
+                metadata = json.loads(metadata_path.read_text())
+            except Exception:
+                errors += 1
+                continue
+            if not isinstance(metadata, dict):
+                errors += 1
+                continue
+            sample_timestamp = _safe_float(metadata.get("captured_at")) or metadata_mtime
+            if since_ts is not None and sample_timestamp < since_ts:
+                skipped += 1
+                continue
+            if until_ts is not None and sample_timestamp > until_ts:
+                skipped += 1
+                continue
+            if not sample_type_matches(metadata, normalized_sample_type):
+                skipped += 1
+                continue
+            teacher_state = teacher_state_from_metadata(metadata)["state"]
+            if teacher_state == "needs_gemini":
+                needs_gemini += 1
+                skipped += 1
+                continue
+            if teacher_state == "no_teacher_detection":
+                no_teacher_detection += 1
+                skipped += 1
+                continue
+            if teacher_state == "bad_teacher_sample":
+                bad_teacher_sample += 1
+                skipped += 1
+                continue
+            if all(_is_uploaded_to_target(metadata, target_id) for target_id in resolved_target_ids):
+                skipped += 1
+                continue
+            sample_id = metadata.get("sample_id") if isinstance(metadata.get("sample_id"), str) else metadata_path.stem
+            image_path = _resolve_archived_file_path(
+                metadata.get("input_image"),
+                training_root=training_root,
+                session_dir=session_dir,
+                fallback_dirs=(session_dir / "dataset" / "images", session_dir / "captures"),
+            )
+            if image_path is None:
+                skipped += 1
+                continue
+            quality_issue = _primary_image_quality_issue(image_path)
+            if quality_issue is not None:
+                dark_image_sample += 1
+                skipped += 1
+                continue
+            full_frame_path: Path | None = None
+            for candidate_key in ("top_frame_path", "bottom_frame_path"):
+                resolved_path = _resolve_archived_file_path(
+                    metadata.get(candidate_key),
                     training_root=training_root,
                     session_dir=session_dir,
-                    fallback_dirs=(session_dir / "dataset" / "images", session_dir / "captures"),
+                    fallback_dirs=(session_dir / "captures",),
                 )
-                if image_path is None:
-                    skipped += 1
-                    continue
-                quality_issue = _primary_image_quality_issue(image_path)
-                if quality_issue is not None:
-                    dark_image_sample += 1
-                    skipped += 1
-                    continue
-                full_frame_path: Path | None = None
-                for candidate_key in ("top_frame_path", "bottom_frame_path"):
-                    resolved_path = _resolve_archived_file_path(
-                        metadata.get(candidate_key),
-                        training_root=training_root,
-                        session_dir=session_dir,
-                        fallback_dirs=(session_dir / "captures",),
-                    )
-                    if resolved_path is not None:
-                        full_frame_path = resolved_path
-                        break
+                if resolved_path is not None:
+                    full_frame_path = resolved_path
+                    break
 
-                overlay_path: Path | None = None
-                distill_result = metadata.get("distill_result")
-                if isinstance(distill_result, dict):
-                    overlay_path = _resolve_archived_file_path(
-                        distill_result.get("overlay_image"),
-                        training_root=training_root,
-                        session_dir=session_dir,
-                        fallback_dirs=(session_dir / "distilled" / "overlays",),
-                    )
-
-                queued += self.enqueue(
-                    session_id=session_id,
-                    session_name=session_name,
-                    sample_id=sample_id,
-                    metadata=metadata,
-                    image_path=str(image_path),
-                    full_frame_path=str(full_frame_path) if full_frame_path is not None else None,
-                    overlay_path=str(overlay_path) if overlay_path is not None else None,
-                    metadata_path=str(metadata_path),
-                    target_ids=resolved_target_ids,
+            overlay_path: Path | None = None
+            distill_result = metadata.get("distill_result")
+            if isinstance(distill_result, dict):
+                overlay_path = _resolve_archived_file_path(
+                    distill_result.get("overlay_image"),
+                    training_root=training_root,
+                    session_dir=session_dir,
+                    fallback_dirs=(session_dir / "distilled" / "overlays",),
                 )
+
+            queued += self.enqueue(
+                session_id=session_id,
+                session_name=session_name,
+                sample_id=sample_id,
+                metadata=metadata,
+                image_path=str(image_path),
+                full_frame_path=str(full_frame_path) if full_frame_path is not None else None,
+                overlay_path=str(overlay_path) if overlay_path is not None else None,
+                metadata_path=str(metadata_path),
+                target_ids=resolved_target_ids,
+            )
             if scan_limit is not None and queued >= scan_limit:
                 break
 
@@ -1041,6 +1173,8 @@ class HiveUploader:
             "samples_scanned": samples_scanned,
             "sessions_scanned": len(session_dirs),
             "target_count": len(resolved_target_ids),
+            "sample_type": normalized_sample_type,
+            "selection": selection_mode,
         }
 
     def purge(self, target_ids: list[str] | None = None) -> dict[str, Any]:
@@ -1233,6 +1367,15 @@ class HiveUploader:
             "preferred_camera",
             "archive_mode",
             "sample_payload",
+            "condition_assessment",
+            "condition_sample",
+            "condition_source",
+            "condition_source_piece_uuid",
+            "condition_source_crop_path",
+            "condition_source_segment_sequence",
+            "condition_source_kind",
+            "condition_source_crop_index",
+            "condition_source_crop_stats",
         }
         extra_metadata = {key: value for key, value in metadata.items() if key not in skip_keys and value is not None}
         sample_payload = metadata.get("sample_payload")

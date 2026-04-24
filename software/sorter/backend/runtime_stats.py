@@ -865,8 +865,36 @@ class RuntimeStatsCollector:
                 out.append(float(end - start))
 
         all_pieces = list(self._piece_by_uuid.values())
+        # Unique-piece accounting: with BoTSORT + the current C4 admission
+        # policy, the same physical piece may surface as several dossiers
+        # across carousel rotations (each rotation creates a new piece_uuid
+        # even though the tracked_global_id is stable). ``pieces_seen``
+        # therefore counts *classification attempts*, not distinct physical
+        # pieces. The UI needs both numbers — show `pieces_seen` alongside
+        # `unique_pieces_seen` so operators can distinguish "10 pieces
+        # classified this minute" from "1 piece classified 10 times".
+        unique_gids: set[int] = set()
+        unique_distributed_gids: set[int] = set()
+        unique_classified_gids: set[int] = set()
+        for piece in all_pieces:
+            gid = piece.get("tracked_global_id")
+            if not isinstance(gid, int):
+                continue
+            unique_gids.add(gid)
+            if piece.get("distributed_at") is not None:
+                unique_distributed_gids.add(gid)
+            status = getattr(
+                piece.get("classification_status"),
+                "value",
+                piece.get("classification_status"),
+            )
+            if status == "classified":
+                unique_classified_gids.add(gid)
         counts = {
             "pieces_seen": len(all_pieces),
+            "unique_pieces_seen": len(unique_gids),
+            "unique_pieces_classified": len(unique_classified_gids),
+            "unique_pieces_distributed": len(unique_distributed_gids),
             "classified": 0,
             "unknown": 0,
             "not_found": 0,

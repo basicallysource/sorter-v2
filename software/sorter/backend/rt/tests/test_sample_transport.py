@@ -12,10 +12,16 @@ class _FakePort:
     key: str
     degrees_per_step: float = 36.0
     steps: int = 0
+    configured_rpm: float | None = None
 
     def step(self, now_mono: float) -> bool:
         self.steps += 1
         return True
+
+    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
+        self.configured_rpm = target_rpm
+        if self.key == "c4" and target_rpm is not None:
+            self.degrees_per_step = max(6.0, min(45.0, target_rpm * 6.0 * 0.25))
 
     def nominal_degrees_per_step(self) -> float | None:
         return self.degrees_per_step
@@ -146,6 +152,30 @@ def test_sample_transport_uses_per_channel_rpm_targets() -> None:
     assert status["channels"]["c2"]["interval_s"] == 3.0
     assert status["channels"]["c1"]["target_rpm"] == 1.0
     assert status["channels"]["c2"]["target_rpm"] == 2.0
+
+
+def test_sample_transport_recomputes_nominal_degrees_after_port_configure() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = False
+    runtime = _FakeRuntime("c4")
+
+    assert coordinator.start(
+        runtimes=[runtime],
+        control=control,
+        channel_rpm={"c4": 30.0},
+        duration_s=0.12,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while coordinator.status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = coordinator.status()
+    assert runtime.port.configured_rpm == 30.0
+    assert status["channels"]["c4"]["nominal_degrees_per_step"] == 45.0
+    assert status["channels"]["c4"]["interval_s"] == 0.25
 
 
 def test_sample_transport_updates_running_rpm_targets() -> None:

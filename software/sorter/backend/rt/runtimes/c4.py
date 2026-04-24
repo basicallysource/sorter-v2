@@ -61,6 +61,8 @@ DEFAULT_UNJAM_MIN_PROGRESS_DEG = 2.0
 DEFAULT_UNJAM_COOLDOWN_MS = 3000
 DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
+DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.25
+DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 45.0
 
 
 class _C4State(str, Enum):
@@ -194,6 +196,7 @@ class RuntimeC4(BaseRuntime):
         self._shimmy_stall_s = float(shimmy_stall_ms) / 1000.0
         self._shimmy_cooldown_s = float(shimmy_cooldown_ms) / 1000.0
         self._transport_step_deg = float(transport_step_deg)
+        self._sample_transport_step_deg = self._transport_step_deg
         self._transport_cooldown_s = float(transport_cooldown_ms) / 1000.0
         self._exit_approach_angle_deg = max(0.0, float(exit_approach_angle_deg))
         self._exit_approach_step_deg = max(0.1, float(exit_approach_step_deg))
@@ -1238,7 +1241,7 @@ class RuntimeC4(BaseRuntime):
         if self._hw_busy_or_backlogged():
             self._set_state("sample_transport", blocked_reason="hw_busy")
             return False
-        step = self._transport_step_deg
+        step = self._sample_transport_step_deg
 
         def _do_move() -> None:
             try:
@@ -1252,6 +1255,17 @@ class RuntimeC4(BaseRuntime):
         self._next_transport_at = now_mono + self._transport_cooldown_s
         self._set_state("sample_transport")
         return True
+
+    def _configure_sample_transport(self, *, target_rpm: float | None) -> None:
+        if target_rpm is None:
+            self._sample_transport_step_deg = self._transport_step_deg
+            return
+        target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
+        step = target_degrees_per_second * DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S
+        self._sample_transport_step_deg = max(
+            self._transport_step_deg,
+            min(DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG, step),
+        )
 
     def _maybe_idle_jog(self, now_mono: float) -> bool:
         if not self._idle_jog_enabled:
@@ -1506,8 +1520,11 @@ class _C4SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_step(now_mono)
 
+    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
+        self._runtime._configure_sample_transport(target_rpm=target_rpm)
+
     def nominal_degrees_per_step(self) -> float | None:
-        return float(self._runtime._transport_step_deg)
+        return float(self._runtime._sample_transport_step_deg)
 
 
 __all__ = ["RuntimeC4"]

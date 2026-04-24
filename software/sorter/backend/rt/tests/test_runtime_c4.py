@@ -232,6 +232,17 @@ def test_c4_sample_transport_uses_sample_move_command() -> None:
     assert "transport:6.0" not in log
 
 
+def test_c4_sample_transport_scales_step_for_high_target_rpm() -> None:
+    rt, _up, _down, _clf, log = _make()
+    port = rt.sample_transport_port()
+
+    port.configure_sample_transport(target_rpm=30.0)
+
+    assert port.nominal_degrees_per_step() == 45.0
+    assert port.step(1.0) is True
+    assert "sample:45.0" in log
+
+
 def test_c4_available_slots_blocks_on_zone_cap() -> None:
     rt, up, _down, _clf, _log = _make(max_zones=1)
     assert up.try_claim() is True

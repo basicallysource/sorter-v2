@@ -285,8 +285,11 @@ class C1234SampleTransportCoordinator:
         states: list[_ChannelState] = []
         for index, port in enumerate(ports):
             key = str(getattr(port, "key", f"c{index + 1}"))
-            nominal_degrees = _nominal_degrees_per_step(port)
             target_rpm = _target_rpm_for_channel(channel_rpm, key)
+            nominal_degrees = _configure_and_read_nominal_degrees(
+                port,
+                target_rpm=target_rpm,
+            )
             interval = (
                 _interval_for_rpm(
                     target_rpm,
@@ -341,15 +344,20 @@ class C1234SampleTransportCoordinator:
         rpm_map = channel_rpm if isinstance(channel_rpm, dict) else None
         for index, state in enumerate(states):
             target_rpm = _target_rpm_for_channel(rpm_map, state.key)
+            nominal_degrees = _configure_and_read_nominal_degrees(
+                state.port,
+                target_rpm=target_rpm,
+            )
             interval = (
                 _interval_for_rpm(
                     target_rpm,
-                    nominal_degrees_per_step=state.nominal_degrees_per_step,
+                    nominal_degrees_per_step=nominal_degrees,
                 )
                 if target_rpm is not None
                 else max(MIN_INTERVAL_S, base_interval_s / (ratio**index))
             )
             state.target_rpm = target_rpm
+            state.nominal_degrees_per_step = nominal_degrees
             state.interval_s = interval
             state.next_at_mono = min(state.next_at_mono, now_mono + interval)
         try:
@@ -454,6 +462,23 @@ class C1234SampleTransportCoordinator:
                 reason=reason,
                 cancel_requested=False,
             )
+
+
+def _configure_and_read_nominal_degrees(
+    port: SampleTransportPort,
+    *,
+    target_rpm: float | None,
+) -> float | None:
+    configure = getattr(port, "configure_sample_transport", None)
+    if callable(configure):
+        try:
+            configure(target_rpm=target_rpm)
+        except Exception:
+            _LOG.exception(
+                "SampleTransport: configure_sample_transport() raised for %s",
+                getattr(port, "key", type(port).__name__),
+            )
+    return _nominal_degrees_per_step(port)
 
 
 def _nominal_degrees_per_step(port: SampleTransportPort) -> float | None:

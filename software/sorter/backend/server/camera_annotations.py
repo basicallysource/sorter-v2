@@ -588,6 +588,17 @@ class RuntimeGhostOverlay:
 
 @dataclass(frozen=True)
 class RuntimeAnnotationProvider:
+    """Camera-overlay provider for the production tracker only.
+
+    Now that BoTSORT+ReID is the production primary tracker, the shadow
+    tracker (turntable_groundplane) is only useful as a benchmark probe
+    via /api/rt/status, not as a second set of dashed boxes painted over
+    every camera frame. Showing both at once cluttered the stream and made
+    the magenta shadow boxes look like real tracking output. The shadow
+    overlay class still exists for ad-hoc debugging — it just isn't wired
+    by default any more.
+    """
+
     camera_to_feed_id: dict[str, str]
 
     def overlays_for_role(self, role: str) -> Sequence[FrameOverlay]:
@@ -597,12 +608,8 @@ class RuntimeAnnotationProvider:
         get_tracks = lambda feed_id=feed_id: list(
             getattr(_annotation_snapshot_for_feed(feed_id), "tracks", ()) or ()
         )
-        get_shadow_tracks = lambda feed_id=feed_id: list(
-            getattr(_annotation_snapshot_for_feed(feed_id), "shadow_tracks", ()) or ()
-        )
         return (
             RuntimeTrackOverlay(get_tracks),
-            RuntimeShadowTrackOverlay(get_shadow_tracks),
             RuntimeGhostOverlay(get_tracks),
         )
 

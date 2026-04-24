@@ -6,6 +6,7 @@
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
+	import { persistStoredSettings, restoreStoredSettings } from '$lib/preferences/settings-storage';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -15,11 +16,7 @@
 	$effect(() => {
 		const current = $settings;
 		if (save_store) {
-			try {
-				window.localStorage.setItem('settings', JSON.stringify(current));
-			} catch (e) {
-				console.error(e);
-			}
+			persistStoredSettings(current);
 		}
 	});
 
@@ -30,16 +27,8 @@
 	});
 
 	onMount(() => {
-		try {
-			const stored = window.localStorage.getItem('settings');
-			if (stored) {
-				const parsed = JSON.parse(stored);
-				settings.set(parsed);
-			}
-			save_store = true;
-		} catch (e) {
-			console.error(e);
-		}
+		restoreStoredSettings(settings);
+		save_store = true;
 		void loadThemeColor();
 	});
 </script>

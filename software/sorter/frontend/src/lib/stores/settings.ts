@@ -1,14 +1,5 @@
 import { writable } from 'svelte/store';
-
-type Theme = 'light' | 'dark';
-
-interface Settings {
-	theme: Theme;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-	theme: 'light'
-};
+import { DEFAULT_SETTINGS, type Settings, type Theme } from '$lib/preferences/settings-storage';
 
 function createSettings() {
 	const { subscribe, set, update } = writable<Settings>(DEFAULT_SETTINGS);

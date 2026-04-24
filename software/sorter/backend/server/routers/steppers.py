@@ -80,6 +80,7 @@ class TmcSettingsRequest(BaseModel):
     microsteps: Optional[int] = None
     stealthchop: Optional[bool] = None
     coolstep: Optional[bool] = None
+    driver_mode: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +181,66 @@ MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
 
 def _parse_drv_status(raw: int) -> Dict[str, Any]:
     return parse_drv_status(raw)
+
+
+def _effective_driver_mode(*, stealthchop: bool | None, coolstep: bool | None) -> str | None:
+    if coolstep and not stealthchop:
+        return "coolstep"
+    if stealthchop:
+        return "stealthchop"
+    if coolstep is not None or stealthchop is not None:
+        return "off"
+    return None
+
+
+def _driver_mode_warning(*, stealthchop: bool | None, coolstep: bool | None) -> str | None:
+    if stealthchop and coolstep:
+        return "CoolStep is configured but ineffective while StealthChop is active."
+    return None
+
+
+def _legacy_driver_mode_from_request(body: TmcSettingsRequest) -> str | None:
+    if body.driver_mode is not None:
+        mode = body.driver_mode.strip().lower()
+        if mode not in {"off", "stealthchop", "coolstep"}:
+            raise HTTPException(
+                status_code=400,
+                detail="driver_mode must be one of: off, stealthchop, coolstep",
+            )
+        return mode
+    if body.coolstep is True:
+        return "coolstep"
+    if body.stealthchop is True:
+        return "stealthchop"
+    if body.coolstep is False or body.stealthchop is False:
+        return "off"
+    return None
+
+
+def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
+    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    if gconf_raw is None:
+        raise HTTPException(status_code=502, detail="Could not read TMC GCONF register")
+
+    if mode == "stealthchop":
+        stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+        stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+        gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
+        stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+        return True, False
+    if mode == "coolstep":
+        gconf_raw |= (1 << 2)  # CoolStep needs SpreadCycle, not StealthChop.
+        stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+        coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
+        stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
+        stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+        return False, True
+
+    stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+    stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+    gconf_raw |= (1 << 2)  # plain SpreadCycle
+    stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+    return False, False
 
 
 # Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
@@ -558,6 +619,15 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     else:
         result["coolstep"] = None
 
+    result["driver_mode"] = _effective_driver_mode(
+        stealthchop=result.get("stealthchop"),
+        coolstep=result.get("coolstep"),
+    )
+    result["driver_mode_warning"] = _driver_mode_warning(
+        stealthchop=result.get("stealthchop"),
+        coolstep=result.get("coolstep"),
+    )
+
     if drv_status_raw is not None:
         drv_status = _parse_drv_status(drv_status_raw)
         result["drv_status"] = drv_status
@@ -596,25 +666,13 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail=f"microsteps must be one of {sorted(MICROSTEPS_TO_MRES.keys())}")
         stepper.set_microsteps(body.microsteps)
 
-    if body.stealthchop is not None:
-        gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
-        if gconf_raw is not None:
-            if body.stealthchop:
-                gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
-            else:
-                gconf_raw |= (1 << 2)   # set EN_SPREADCYCLE
-            stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
-            _persist_stepper_driver_setting(name, stealthchop=body.stealthchop)
-
-    if body.coolstep is not None:
-        if body.coolstep:
-            # semin=5, semax=2, seup=1(=2 increments), sedn=0(=32 steps)
-            coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
-            stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
-        else:
-            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
-        _persist_stepper_driver_setting(name, coolstep=body.coolstep)
+    driver_mode = _legacy_driver_mode_from_request(body)
+    if driver_mode is not None:
+        stealthchop, coolstep = _apply_driver_mode(stepper, driver_mode)
+        _persist_stepper_driver_setting(
+            name,
+            stealthchop=stealthchop,
+            coolstep=coolstep,
+        )
 
     return get_tmc_settings(name)

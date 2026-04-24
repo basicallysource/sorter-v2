@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ChevronDown } from 'lucide-svelte';
+	import type { StepperDriverMode } from '$lib/settings/stepper-service';
 	import StepperDrvStatusGrid from './StepperDrvStatusGrid.svelte';
 
 	let {
@@ -10,8 +11,7 @@
 		tmcIrun = $bindable(),
 		tmcIhold = $bindable(),
 		tmcMicrosteps = $bindable(),
-		tmcStealthchop = $bindable(),
-		tmcCoolstep = $bindable(),
+		tmcDriverMode = $bindable(),
 		stepperDirectionInverted = $bindable(),
 		tmcDrvStatus,
 		onToggle,
@@ -24,8 +24,7 @@
 		tmcIrun: number;
 		tmcIhold: number;
 		tmcMicrosteps: number;
-		tmcStealthchop: boolean;
-		tmcCoolstep: boolean;
+		tmcDriverMode: StepperDriverMode;
 		stepperDirectionInverted: boolean;
 		tmcDrvStatus: Record<string, any> | null;
 		onToggle: () => void;
@@ -75,15 +74,29 @@
 				</select>
 			</label>
 
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={tmcStealthchop} />
-				StealthChop
-			</label>
-
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={tmcCoolstep} />
-				CoolStep
-			</label>
+			<div class="flex flex-col gap-1 text-xs text-text">
+				<div>Driver Mode</div>
+				<div class="grid grid-cols-3 border border-border">
+					{#each [
+						{ value: 'off', label: 'Off' },
+						{ value: 'stealthchop', label: 'StealthChop' },
+						{ value: 'coolstep', label: 'CoolStep' }
+					] as option}
+						<label
+							class="flex cursor-pointer items-center justify-center gap-1 border-r border-border px-2 py-1.5 text-sm last:border-r-0 {tmcDriverMode === option.value ? 'bg-surface text-text' : 'bg-bg text-text-muted'}"
+						>
+							<input
+								type="radio"
+								class="sr-only"
+								name="driver-mode"
+								value={option.value}
+								bind:group={tmcDriverMode}
+							/>
+							{option.label}
+						</label>
+					{/each}
+				</div>
+			</div>
 
 			<label class="flex items-center gap-2 text-sm text-text">
 				<input

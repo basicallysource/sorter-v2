@@ -90,8 +90,23 @@ class StepperDriverConfigTests(unittest.TestCase):
             _GC(),
         )
 
+        self.assertIn((0x00, 1 << 2), stepper.writes)
         self.assertIn((0x42, 0x225), stepper.writes)
         self.assertIn((0x14, 0xFFFFF), stepper.writes)
+
+    def test_apply_driver_override_uses_exclusive_stealthchop_mode(self) -> None:
+        stepper = _Stepper()
+
+        applyStepperDriverOverride(
+            stepper,
+            "c_channel_2_rotor",
+            {"c_channel_2_rotor": StepperDriverOverride(stealthchop=True)},
+            _GC(),
+        )
+
+        self.assertIn((0x42, 0), stepper.writes)
+        self.assertIn((0x14, 0), stepper.writes)
+        self.assertIn((0x00, 0), stepper.writes)
 
 
 class StepperThermalGuardTests(unittest.TestCase):

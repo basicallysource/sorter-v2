@@ -18,7 +18,8 @@
 		pulseStepper,
 		saveStepperDirection as saveStepperDirectionRequest,
 		saveStepperTmcSettings,
-		stopStepperMotion
+		stopStepperMotion,
+		type StepperDriverMode
 	} from '$lib/settings/stepper-service';
 	import { Cog } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -117,8 +118,7 @@
 	let tmcIrun = $state(16);
 	let tmcIhold = $state(8);
 	let tmcMicrosteps = $state(8);
-	let tmcStealthchop = $state(true);
-	let tmcCoolstep = $state(false);
+	let tmcDriverMode = $state<StepperDriverMode>('stealthchop');
 	let tmcDrvStatus = $state<Record<string, any> | null>(null);
 	let tmcLoading = $state(false);
 	let tmcSaving = $state(false);
@@ -155,6 +155,19 @@
 			return 'Hardware not started. Press Start in the dashboard first.';
 		}
 		return message;
+	}
+
+	function normalizeDriverMode(data: any): StepperDriverMode {
+		if (
+			data?.driver_mode === 'off' ||
+			data?.driver_mode === 'stealthchop' ||
+			data?.driver_mode === 'coolstep'
+		) {
+			return data.driver_mode;
+		}
+		if (data?.coolstep && !data?.stealthchop) return 'coolstep';
+		if (data?.stealthchop) return 'stealthchop';
+		return 'off';
 	}
 
 	function shouldIgnoreKeyboardShortcut(event: KeyboardEvent): boolean {
@@ -459,8 +472,7 @@
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
-			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
-			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
+			tmcDriverMode = normalizeDriverMode(data);
 			tmcDrvStatus = data.drv_status ?? null;
 			tmcLoaded = true;
 		} catch {
@@ -481,14 +493,12 @@
 				irun: tmcIrun,
 				ihold: tmcIhold,
 				microsteps: tmcMicrosteps,
-				stealthchop: tmcStealthchop,
-				coolstep: tmcCoolstep
+				driver_mode: tmcDriverMode
 			});
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
-			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
-			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
+			tmcDriverMode = normalizeDriverMode(data);
 			tmcDrvStatus = data.drv_status ?? null;
 			statusMsg = 'Driver settings applied.';
 		} catch (e: any) {
@@ -626,8 +636,7 @@
 			bind:tmcIrun
 			bind:tmcIhold
 			bind:tmcMicrosteps
-			bind:tmcStealthchop
-			bind:tmcCoolstep
+			bind:tmcDriverMode
 			bind:stepperDirectionInverted
 			{tmcDrvStatus}
 			onToggle={() => {

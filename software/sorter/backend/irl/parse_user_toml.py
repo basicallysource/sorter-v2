@@ -857,6 +857,14 @@ _TMC_COOLCONF_DEFAULT = (
 )
 
 
+def _effectiveDriverMode(override: StepperDriverOverride) -> str:
+    if override.coolstep is True:
+        return "coolstep"
+    if override.stealthchop is True:
+        return "stealthchop"
+    return "off"
+
+
 def applyStepperDriverOverride(
     stepper: "StepperMotor",
     stepper_name: str,
@@ -868,21 +876,24 @@ def applyStepperDriverOverride(
         return
 
     def _apply() -> None:
-        if override.stealthchop is not None:
-            gconf = stepper.read_driver_register(TMC_REG_GCONF)
-            if override.stealthchop:
-                gconf &= ~_TMC_GCONF_EN_SPREADCYCLE
-            else:
-                gconf |= _TMC_GCONF_EN_SPREADCYCLE
-            stepper.write_driver_register(TMC_REG_GCONF, gconf)
+        mode = _effectiveDriverMode(override)
+        gconf = stepper.read_driver_register(TMC_REG_GCONF)
 
-        if override.coolstep is not None:
-            if override.coolstep:
-                stepper.write_driver_register(TMC_REG_COOLCONF, _TMC_COOLCONF_DEFAULT)
-                stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
-            else:
-                stepper.write_driver_register(TMC_REG_COOLCONF, 0)
-                stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+        if mode == "stealthchop":
+            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+            gconf &= ~_TMC_GCONF_EN_SPREADCYCLE
+            stepper.write_driver_register(TMC_REG_GCONF, gconf)
+        elif mode == "coolstep":
+            gconf |= _TMC_GCONF_EN_SPREADCYCLE
+            stepper.write_driver_register(TMC_REG_GCONF, gconf)
+            stepper.write_driver_register(TMC_REG_COOLCONF, _TMC_COOLCONF_DEFAULT)
+            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+        else:
+            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+            gconf |= _TMC_GCONF_EN_SPREADCYCLE
+            stepper.write_driver_register(TMC_REG_GCONF, gconf)
 
     for attempt in range(1, HARDWARE_INIT_COMMAND_ATTEMPTS + 1):
         try:
@@ -905,5 +916,5 @@ def applyStepperDriverOverride(
 
     gc.logger.info(
         f"Stepper '{stepper_name}' driver config applied: "
-        f"coolstep={override.coolstep}, stealthchop={override.stealthchop}"
+        f"mode={_effectiveDriverMode(override)}"
     )

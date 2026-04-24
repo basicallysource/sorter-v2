@@ -1,13 +1,13 @@
 import type { StepperKey } from '$lib/settings/stations';
 
 export type StepperDirection = 'cw' | 'ccw';
+export type StepperDriverMode = 'off' | 'stealthchop' | 'coolstep';
 
 export type StepperTmcPayload = {
 	irun: number;
 	ihold: number;
 	microsteps: number;
-	stealthchop: boolean;
-	coolstep: boolean;
+	driver_mode: StepperDriverMode;
 };
 
 function apiBase(baseUrl: string): string {

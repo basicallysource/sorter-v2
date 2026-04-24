@@ -34,6 +34,7 @@ from local_state import (
     list_piece_dossiers,
     piece_dossier_is_active,
 )
+from sorting_profile import load_sorting_profile_dict
 from toml_config import getMachineNickname, setMachineNickname
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
@@ -310,8 +311,7 @@ class SortingProfileSetViewPartStateResponse(BaseModel):
 def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        data = json.load(f)
+    data = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
     return SortingProfileMetadataResponse(
         id=data.get("id", ""),
         name=data.get("name", os.path.basename(shared_state.gc_ref.sorting_profile_path)),
@@ -339,9 +339,8 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
-    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    raw_profile = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
+    set_inventories = raw_profile.get("set_inventories")
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")
 
@@ -350,7 +349,7 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
         raise HTTPException(status_code=404, detail="Set category not found")
 
     parts = inventory.get("parts") if isinstance(inventory.get("parts"), list) else []
-    artifact_hash = str(raw_profile.get("artifact_hash") or "") if isinstance(raw_profile, dict) else ""
+    artifact_hash = str(raw_profile.get("artifact_hash") or "")
     found_lookup: dict[tuple[str, str], int] = {}
     total_found = 0
 
@@ -425,9 +424,8 @@ def updateSortingProfileSetViewPartState(
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
-    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    raw_profile = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
+    set_inventories = raw_profile.get("set_inventories")
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")
 

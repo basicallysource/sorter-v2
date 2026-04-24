@@ -1,10 +1,27 @@
 from abc import ABC, abstractmethod
 import json
+import os
+from pathlib import Path
 from typing import Any
 
 from global_config import GlobalConfig
 
 MISC_CATEGORY = "misc"
+
+
+def load_sorting_profile_dict(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Read a sorting-profile JSON file and return its raw dict body.
+
+    Single source of truth for the on-disk sorting-profile shape; any
+    caller that needs the whole document (metadata, set inventories,
+    fallback flags) should go through here instead of re-implementing
+    ``open()`` + ``json.load()``.
+    """
+    with Path(path).open("r") as fp:
+        data = json.load(fp)
+    if not isinstance(data, dict):
+        raise ValueError(f"sorting profile {path} is not a JSON object")
+    return data
 
 
 class SortingProfile(ABC):
@@ -24,8 +41,7 @@ class JsonSortingProfile(SortingProfile):
         self.reload()
 
     def _loadData(self) -> None:
-        with open(self._sorting_profile_path, "r") as f:
-            data = json.load(f)
+        data = load_sorting_profile_dict(self._sorting_profile_path)
         if "part_to_category" not in data:
             raise ValueError("sorting profile json missing part_to_category")
         self._loadRuntimeSortingProfile(data)

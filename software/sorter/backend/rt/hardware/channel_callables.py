@@ -111,7 +111,11 @@ def build_c2_callables(
     logger: logging.Logger,
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
-) -> tuple[Callable[[float, str | None], bool], Callable[[], bool]]:
+) -> tuple[
+    Callable[[float, str | None], bool],
+    Callable[[], bool],
+    Callable[[float], bool],
+]:
     # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
     # RuntimeC3's ``pulse_command``. Rotation step size is governed by
     # ``steps_per_pulse`` in the feeder config, not by pulse_ms.
@@ -163,7 +167,33 @@ def build_c2_callables(
         )
         return False
 
-    return pulse, wiggle
+    def continuous_move(deg: float) -> bool:
+        stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
+        cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
+            getattr(irl, "irl_config", None), "feeder_config", None
+        ), "second_rotor_normal", None)
+        if stepper is None or cfg is None:
+            logger.error("TODO_PHASE5_WIRING: c2 continuous - stepper/cfg missing")
+            return False
+        try:
+            profile = profile_from_rotor_config(
+                channel="c2",
+                name=PROFILE_CONTINUOUS,
+                cfg=cfg,
+            )
+            return move_degrees_with_profile(
+                stepper,
+                profile,
+                deg,
+                source="c2_continuous",
+                logger=logger,
+                diagnostics=motion_diagnostics,
+            )
+        except Exception:
+            logger.exception("RuntimeC2: continuous move raised")
+            return False
+
+    return pulse, wiggle, continuous_move
 
 
 def build_c3_callables(

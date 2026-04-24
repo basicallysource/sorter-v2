@@ -88,11 +88,16 @@ def _make(
         log.append("wiggle")
         return wiggle_success
 
+    def sample_transport(deg: float) -> bool:
+        log.append(f"sample:{deg:.1f}")
+        return pulse_success
+
     rt = RuntimeC2(
         upstream_slot=upstream,
         downstream_slot=downstream,
         pulse_command=pulse,
         wiggle_command=wiggle,
+        sample_transport_command=sample_transport,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         pulse_cooldown_s=0.0,
         wiggle_stall_ms=200,
@@ -131,6 +136,17 @@ def test_c2_idles_with_empty_ring() -> None:
     rt.tick(inbox, now_mono=0.0)
     assert log == []
     assert rt.health().state == "idle"
+
+
+def test_c2_sample_transport_scales_to_small_continuous_steps() -> None:
+    rt, _up, _down, log = _make()
+    port = rt.sample_transport_port()
+
+    port.configure_sample_transport(target_rpm=3.2)
+
+    assert port.nominal_degrees_per_step() == 15.0
+    assert port.step(1.0) is True
+    assert log == ["sample:15.0"]
 
 
 def test_c2_does_not_pulse_when_downstream_full() -> None:

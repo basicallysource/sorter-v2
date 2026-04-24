@@ -145,13 +145,44 @@ def test_c2_callable_applies_configured_motion_profile() -> None:
         },
     )()
 
-    pulse, _ = build_c2_callables(irl, logging.getLogger("test"))
+    pulse, _wiggle, _continuous = build_c2_callables(irl, logging.getLogger("test"))
 
     assert pulse(250.0) is True
 
     assert irl.c_channel_2_rotor_stepper.accelerations == [2500]
     assert irl.c_channel_2_rotor_stepper.speed_limits == [(16, 5000)]
     assert irl.c_channel_2_rotor_stepper.moves == [100.0]
+
+
+def test_c2_continuous_move_accepts_small_degree_steps() -> None:
+    irl = type("Irl", (), {})()
+    irl.c_channel_2_rotor_stepper = _RotorStepper()
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "second_rotor_normal": _RotorPulseConfig(
+                steps_per_pulse=1000,
+                microsteps_per_second=5000,
+                acceleration_microsteps_per_second_sq=2500,
+            )
+        },
+    )()
+    diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
+
+    _pulse, _wiggle, continuous = build_c2_callables(
+        irl,
+        logging.getLogger("test"),
+        motion_diagnostics=diagnostics,
+    )
+
+    assert continuous(15.0) is True
+
+    motion = diagnostics.status_snapshot()["last_by_channel"]["c2"]
+    assert motion["profile"] == "continuous"
+    assert motion["source"] == "c2_continuous"
+    assert motion["degrees"] == 15.0
+    assert irl.c_channel_2_rotor_stepper.moves == [15.0]
 
 
 def test_c3_callable_uses_normal_and_precise_profiles() -> None:

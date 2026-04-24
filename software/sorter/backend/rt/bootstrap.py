@@ -736,7 +736,7 @@ def build_rt_runtime(
         log,
         motion_diagnostics=motion_diagnostics,
     )
-    c2_pulse, c2_wiggle = build_c2_callables(
+    c2_pulse, c2_wiggle, c2_continuous_move = build_c2_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
@@ -820,6 +820,7 @@ def build_rt_runtime(
         downstream_slot=slots[("c2", "c3")],
         pulse_command=c2_pulse,
         wiggle_command=c2_wiggle,
+        sample_transport_command=c2_continuous_move,
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,

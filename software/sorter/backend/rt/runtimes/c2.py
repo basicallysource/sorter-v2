@@ -56,6 +56,9 @@ ADMISSION_PENDING_MIN_HITS = 3
 # Extra seconds on either side of a pulse window so the next few frames
 # (hardware latency, frame-capture jitter) still count as "during rotation".
 _ROTATION_WINDOW_PAD_S = 0.15
+DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
+DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
+DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 
 
 @dataclass(slots=True)
@@ -78,6 +81,7 @@ class RuntimeC2(BaseRuntime):
         downstream_slot: CapacitySlot,
         pulse_command: Callable[..., bool],
         wiggle_command: Callable[[], bool],
+        sample_transport_command: Callable[[float], bool] | None = None,
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
@@ -98,6 +102,7 @@ class RuntimeC2(BaseRuntime):
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
         self._wiggle_command = wiggle_command
+        self._sample_transport_command = sample_transport_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
         self._bus = event_bus
@@ -116,6 +121,7 @@ class RuntimeC2(BaseRuntime):
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
         self._purge_mode: bool = False
+        self._sample_transport_step_deg: float | None = None
 
     # ------------------------------------------------------------------
     # Runtime ABC
@@ -349,12 +355,22 @@ class RuntimeC2(BaseRuntime):
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = bool(
-                    self._call_pulse_command(
-                        timing.pulse_ms,
-                        PROFILE_CONTINUOUS,
+                if (
+                    self._sample_transport_command is not None
+                    and self._sample_transport_step_deg
+                ):
+                    ok = bool(
+                        self._sample_transport_command(
+                            self._sample_transport_step_deg
+                        )
                     )
-                )
+                else:
+                    ok = bool(
+                        self._call_pulse_command(
+                            timing.pulse_ms,
+                            PROFILE_CONTINUOUS,
+                        )
+                    )
             except Exception:
                 self._logger.exception("RuntimeC2: sample transport pulse raised")
             finally:
@@ -377,6 +393,17 @@ class RuntimeC2(BaseRuntime):
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("sample_transport")
         return True
+
+    def _configure_sample_transport(self, *, target_rpm: float | None) -> None:
+        if target_rpm is None:
+            self._sample_transport_step_deg = None
+            return
+        target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
+        step = target_degrees_per_second * DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S
+        self._sample_transport_step_deg = max(
+            DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG,
+            min(DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG, step),
+        )
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity or exit_track.
@@ -531,7 +558,12 @@ class _C2SampleTransportPort:
     def step(self, now_mono: float) -> bool:
         return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
+    def configure_sample_transport(self, *, target_rpm: float | None) -> None:
+        self._runtime._configure_sample_transport(target_rpm=target_rpm)
+
     def nominal_degrees_per_step(self) -> float | None:
+        if self._runtime._sample_transport_step_deg is not None:
+            return float(self._runtime._sample_transport_step_deg)
         fn = getattr(self._runtime._pulse_command, "nominal_degrees_per_step", None)
         if callable(fn):
             value = fn()

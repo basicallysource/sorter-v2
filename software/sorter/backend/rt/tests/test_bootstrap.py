@@ -274,24 +274,24 @@ def test_detector_slug_ignores_invalid_saved_slug():
     assert slug == "hive:c-channel-yolo11n-416"
 
 
-def test_tracker_keys_default_to_groundplane_primary_and_polar_shadow(monkeypatch):
+def test_tracker_keys_default_to_botsort_primary_and_groundplane_shadow(monkeypatch):
     monkeypatch.delenv("RT_PRIMARY_TRACKER_KEY", raising=False)
     monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
 
     primary = primary_tracker_key()
 
-    assert primary == "turntable_groundplane"
-    assert shadow_tracker_key(primary) == "polar"
+    assert primary == "botsort_reid"
+    assert shadow_tracker_key(primary) == "turntable_groundplane"
 
 
-def test_tracker_keys_compare_against_groundplane_when_polar_is_primary(monkeypatch):
+def test_tracker_keys_compare_against_botsort_when_polar_is_primary(monkeypatch):
     monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "polar")
     monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
 
     primary = primary_tracker_key()
 
     assert primary == "polar"
-    assert shadow_tracker_key(primary) == "turntable_groundplane"
+    assert shadow_tracker_key(primary) == "botsort_reid"
 
 
 def test_shadow_tracker_can_be_disabled(monkeypatch):
@@ -320,7 +320,12 @@ def testbuild_perception_runner_for_role_returns_reason_on_missing_camera():
     assert reason == "no_camera_config"
 
 
-def testbuild_perception_runner_for_role_happy_path():
+def testbuild_perception_runner_for_role_happy_path(monkeypatch):
+    # Pin the tracker strategy here so the test is independent of whether the
+    # current default primary (botsort_reid) can actually load torch/ReID weights
+    # in the CI environment.
+    monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "turntable_groundplane")
+    monkeypatch.setenv("RT_SHADOW_TRACKER_KEY", "polar")
     camera_service = _FakeCameraService(
         devices={"carousel": _FakeDevice(width=1920, height=1080)}
     )

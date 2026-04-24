@@ -57,21 +57,11 @@ _ROTATION_WINDOW_BUFFER = 128  # rolling history kept in memory
 _ROTATION_WINDOW_MAX_AGE_S = 60.0
 
 
-def _wrap_angle(a: float) -> float:
-    while a > math.pi:
-        a -= 2 * math.pi
-    while a < -math.pi:
-        a += 2 * math.pi
-    return a
-
-
-def _circular_diff(a: float, b: float) -> float:
-    return _wrap_angle(a - b)
-
-
-def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
-    x1, y1, x2, y2 = bbox
-    return (x1 + x2) / 2.0, (y1 + y2) / 2.0
+from rt.perception.trackers._geometry import (
+    bbox_center as _bbox_center,
+    circular_diff as _circular_diff,
+    wrap_angle as _wrap_angle,
+)
 
 
 class _PolarKalman:

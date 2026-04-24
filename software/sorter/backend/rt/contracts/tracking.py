@@ -32,6 +32,10 @@ class Track:
     first_seen_ts: float
     last_seen_ts: float
     ghost: bool = False
+    # Appearance embedding published by ReID-capable trackers. None when the
+    # tracker strategy has no appearance model — downstream consumers (the
+    # track_transit registry) fall back to geometric heuristics in that case.
+    appearance_embedding: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

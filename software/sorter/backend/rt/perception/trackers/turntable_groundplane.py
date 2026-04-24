@@ -33,38 +33,11 @@ _VERDICT_WINDOW_SAMPLES = 18
 _ROTATION_SAMPLES_MAX = 64
 
 
-def _wrap_angle(angle: float) -> float:
-    return (float(angle) + math.pi) % (2.0 * math.pi) - math.pi
-
-
-def _circular_diff(a: float, b: float) -> float:
-    return _wrap_angle(float(a) - float(b))
-
-
-def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
-    x1, y1, x2, y2 = bbox
-    return (float(x1) + float(x2)) / 2.0, (float(y1) + float(y2)) / 2.0
-
-
-def _bbox_iou(
-    a: tuple[int, int, int, int],
-    b: tuple[int, int, int, int],
-) -> float:
-    ax1, ay1, ax2, ay2 = a
-    bx1, by1, bx2, by2 = b
-    ix1 = max(ax1, bx1)
-    iy1 = max(ay1, by1)
-    ix2 = min(ax2, bx2)
-    iy2 = min(ay2, by2)
-    iw = max(0, ix2 - ix1)
-    ih = max(0, iy2 - iy1)
-    inter = float(iw * ih)
-    if inter <= 0.0:
-        return 0.0
-    area_a = float(max(0, ax2 - ax1) * max(0, ay2 - ay1))
-    area_b = float(max(0, bx2 - bx1) * max(0, by2 - by1))
-    denom = area_a + area_b - inter
-    return inter / denom if denom > 0.0 else 0.0
+from rt.perception.trackers._geometry import (
+    bbox_center as _bbox_center,
+    bbox_iou as _bbox_iou,
+    circular_diff as _circular_diff,
+)
 
 
 class _CartesianKalman:

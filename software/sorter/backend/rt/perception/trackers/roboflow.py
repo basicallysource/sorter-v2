@@ -13,7 +13,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 import numpy as np
 import supervision as sv
@@ -36,31 +36,11 @@ _VERDICT_WINDOW_SAMPLES = 18
 _ROTATION_SAMPLES_MAX = 64
 
 
-def _wrap_angle(angle: float) -> float:
-    return (float(angle) + math.pi) % (2.0 * math.pi) - math.pi
-
-
-def _circular_diff(a: float, b: float) -> float:
-    return _wrap_angle(float(a) - float(b))
-
-
-def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
-    x1, y1, x2, y2 = bbox
-    return (float(x1) + float(x2)) / 2.0, (float(y1) + float(y2)) / 2.0
-
-
-def _clip_bbox(values: Iterable[float]) -> tuple[int, int, int, int]:
-    raw = [float(v) for v in values]
-    if len(raw) != 4:
-        return (0, 0, 0, 0)
-    x1, y1, x2, y2 = raw
-    if not all(math.isfinite(v) for v in raw):
-        return (0, 0, 0, 0)
-    x1_i = int(round(min(x1, x2)))
-    y1_i = int(round(min(y1, y2)))
-    x2_i = int(round(max(x1, x2)))
-    y2_i = int(round(max(y1, y2)))
-    return (x1_i, y1_i, x2_i, y2_i)
+from rt.perception.trackers._geometry import (
+    bbox_center as _bbox_center,
+    circular_diff as _circular_diff,
+    clip_bbox as _clip_bbox,
+)
 
 
 @dataclass

@@ -60,8 +60,12 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 _FIRST_TOUCH_POLYGON_APRON_PX = 0
 _DETECTOR_CONF_THRESHOLD = 0.35
 _PERCEPTION_PERIOD_MS = 100
-_DEFAULT_PRIMARY_TRACKER_KEY = "turntable_groundplane"
-_DEFAULT_SHADOW_TRACKER_KEY = "polar"
+# BoTSORT + OSNet ReID is the production tracker: motion + appearance handle
+# re-acquisition within a channel without needing the transit registry as a
+# workaround. Override with RT_PRIMARY_TRACKER_KEY if you want to benchmark a
+# different strategy.
+_DEFAULT_PRIMARY_TRACKER_KEY = "botsort_reid"
+_DEFAULT_SHADOW_TRACKER_KEY = "turntable_groundplane"
 
 
 def ghost_filter_enabled() -> bool:

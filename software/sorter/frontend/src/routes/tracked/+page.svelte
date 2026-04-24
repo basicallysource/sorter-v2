@@ -63,6 +63,8 @@
 	};
 
 	type FilterMode = 'all' | 'active' | 'distributed' | 'classified' | 'lost';
+	type SortKey = 'ring' | 'updated' | 'name' | 'conf' | 'bin' | 'stage';
+	type SortDir = 'asc' | 'desc';
 
 	const ctx = getMachineContext();
 
@@ -99,14 +101,6 @@
 		return `${Math.round(diff / 3600)}h ago`;
 	}
 
-	function formatDuration(seconds: number | null | undefined): string {
-		if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return '—';
-		if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-		if (seconds < 60) return `${seconds.toFixed(1)}s`;
-		const mins = Math.floor(seconds / 60);
-		return `${mins}m ${Math.floor(seconds % 60)}s`;
-	}
-
 	function formatBin(bin: [unknown, unknown, unknown] | null | undefined): string {
 		if (!bin) return '—';
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
@@ -114,41 +108,6 @@
 
 	function binLabel(piece: KnownObjectData): string {
 		return piece.destination_bin ? formatBin(piece.destination_bin) : (piece.bin_id ?? '—');
-	}
-
-	function formatRoles(roles: string[] | undefined): string {
-		if (!roles || roles.length === 0) return '—';
-		return roles
-			.map((role) => {
-				if (role === 'carousel') return 'C4';
-				if (role === 'c_channel_3') return 'C3';
-				if (role === 'c_channel_2') return 'C2';
-				return role;
-			})
-			.join(' → ');
-	}
-
-	function formatSyncPercent(ratio: number | null | undefined): string {
-		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
-		return `${(ratio * 100).toFixed(0)}%`;
-	}
-
-	function motionSyncRatio(piece: KnownObjectData): number | null {
-		if (typeof piece.carousel_motion_sync_ratio_avg === 'number') {
-			return piece.carousel_motion_sync_ratio_avg;
-		}
-		if (typeof piece.carousel_motion_sync_ratio === 'number') {
-			return piece.carousel_motion_sync_ratio;
-		}
-		return null;
-	}
-
-	function motionSyncClass(piece: KnownObjectData): string {
-		const ratio = motionSyncRatio(piece);
-		if (ratio == null) return 'text-text-muted';
-		if (ratio < 0.5) return 'text-danger';
-		if (ratio < 0.85 || ratio > 1.15) return 'text-warning-dark';
-		return 'text-success';
 	}
 
 	const PHASE_LABEL: Record<LifecyclePhase, string> = {
@@ -227,24 +186,6 @@
 		return 'text-text';
 	}
 
-	function recognitionLine(row: TrackedPieceRow): string | null {
-		const rec = row.track_summary?.auto_recognition;
-		if (rec?.status === 'ok' && rec.best_item) {
-			return `${rec.best_item.id} · ${(rec.best_item.score * 100).toFixed(0)}%`;
-		}
-		if (rec?.status === 'pending') {
-			return `Recognizing${rec.queued_count ? ` · ${rec.queued_count} crops queued` : '…'}`;
-		}
-		if (rec?.status === 'insufficient_consistency') {
-			return `Mixed crops${rec.inlier_count && rec.total_crops ? ` · ${rec.inlier_count}/${rec.total_crops}` : ''}`;
-		}
-		if (rec?.status === 'insufficient_quality') {
-			return `Low quality${rec.kept_count && rec.total_crops ? ` · ${rec.kept_count}/${rec.total_crops}` : ''}`;
-		}
-		if (rec?.status === 'error') return 'Recognition failed';
-		return null;
-	}
-
 	let items = $state<TrackedPieceRow[]>([]);
 	let loading = $state(false);
 	let clearing = $state(false);
@@ -256,6 +197,8 @@
 	let filter = $state<FilterMode>((initialParams?.get('show') as FilterMode) ?? 'all');
 	let showStubs = $state(initialParams?.get('stubs') === '1');
 	let search = $state(initialParams?.get('q') ?? '');
+	let sortKey = $state<SortKey>((initialParams?.get('sort') as SortKey) ?? 'ring');
+	let sortDir = $state<SortDir>((initialParams?.get('dir') as SortDir) ?? 'desc');
 
 	function syncUrl() {
 		if (typeof window === 'undefined') return;
@@ -264,6 +207,8 @@
 		if (filter !== 'all') params.set('show', filter);
 		if (showStubs) params.set('stubs', '1');
 		if (search.trim()) params.set('q', search.trim());
+		if (sortKey !== 'ring') params.set('sort', sortKey);
+		if (sortDir !== 'desc') params.set('dir', sortDir);
 		const next = params.toString();
 		const current = page.url?.search?.replace(/^\?/, '') ?? '';
 		if (next === current) return;
@@ -275,6 +220,8 @@
 		filter;
 		showStubs;
 		search;
+		sortKey;
+		sortDir;
 		untrack(syncUrl);
 	});
 
@@ -421,8 +368,91 @@
 		);
 	});
 
-	let activeItems = $derived(filteredItems.filter((item) => item.active));
-	let historyItems = $derived(filteredItems.filter((item) => !item.active));
+	// --- Sorting ----------------------------------------------------------
+	// ``ring`` preserves the backend's ordering (active → polar offset;
+	// history → most-recent finished). Every other sort key collapses both
+	// groups into one flat list sorted by that key/direction.
+
+	function rowFinishedTs(row: TrackedPieceRow): number {
+		const piece = row.piece;
+		return (
+			(piece.distributed_at as number | null | undefined) ??
+			(row.history_finished_at as number | null | undefined) ??
+			piece.classified_at ??
+			piece.updated_at ??
+			0
+		);
+	}
+
+	function binSortKey(piece: KnownObjectData): number {
+		const bin = piece.destination_bin;
+		if (!bin) return Number.POSITIVE_INFINITY;
+		const [l, s, b] = bin;
+		return (Number(l) || 0) * 10000 + (Number(s) || 0) * 100 + (Number(b) || 0);
+	}
+
+	const STAGE_ORDER: Record<string, number> = {
+		created: 0,
+		registered: 1,
+		classifying: 2,
+		classified: 3,
+		distributing: 4,
+		distributed: 5
+	};
+
+	function stageSortKey(piece: KnownObjectData): number {
+		const stage = String(piece.stage ?? '');
+		return STAGE_ORDER[stage] ?? 99;
+	}
+
+	function sortFactor(dir: SortDir): 1 | -1 {
+		return dir === 'asc' ? 1 : -1;
+	}
+
+	let sortedItems = $derived.by<TrackedPieceRow[]>(() => {
+		const list = [...filteredItems];
+		if (sortKey === 'ring') {
+			// Preserve server order: active (polar offset) followed by history.
+			return list.sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1));
+		}
+		const f = sortFactor(sortDir);
+		if (sortKey === 'updated') {
+			return list.sort(
+				(a, b) => (rowFinishedTs(b) - rowFinishedTs(a)) * (sortDir === 'desc' ? 1 : -1)
+			);
+		}
+		if (sortKey === 'name') {
+			return list.sort((a, b) => primaryLabel(a).localeCompare(primaryLabel(b)) * f);
+		}
+		if (sortKey === 'conf') {
+			return list.sort((a, b) => {
+				const av = typeof a.piece.confidence === 'number' ? a.piece.confidence : -1;
+				const bv = typeof b.piece.confidence === 'number' ? b.piece.confidence : -1;
+				return (av - bv) * f;
+			});
+		}
+		if (sortKey === 'bin') {
+			return list.sort((a, b) => (binSortKey(a.piece) - binSortKey(b.piece)) * f);
+		}
+		if (sortKey === 'stage') {
+			return list.sort((a, b) => (stageSortKey(a.piece) - stageSortKey(b.piece)) * f);
+		}
+		return list;
+	});
+
+	function cycleSort(key: SortKey): void {
+		if (sortKey !== key) {
+			sortKey = key;
+			sortDir = key === 'name' || key === 'bin' || key === 'stage' ? 'asc' : 'desc';
+			return;
+		}
+		sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+	}
+
+	function sortArrow(key: SortKey): string {
+		if (sortKey !== key) return '';
+		return sortDir === 'asc' ? ' ↑' : ' ↓';
+	}
 
 	type Stats = {
 		total: number;
@@ -467,6 +497,7 @@
 		piece.classification_status === 'unknown' || piece.classification_status === 'not_found'}
 	{@const is_multi_drop = piece.classification_status === 'multi_drop_fail'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference)}
+	{@const thumb_src = is_classified_ok ? reference : (captured ?? reference)}
 	{@const cat_name = piece.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null}
 	{@const category_label = cat_name ?? piece.part_category ?? piece.category_id ?? null}
 	{@const bin_label = binLabel(piece)}
@@ -475,185 +506,107 @@
 			? lookupLegoColor(piece.color_id, piece.color_name)
 			: null}
 	{@const status_override = statusOverrideChip(piece)}
-	{@const rec_line = recognitionLine(row)}
 	{@const finished_ts =
 		(piece.distributed_at as number | null | undefined) ??
 		(row.history_finished_at as number | null | undefined) ??
 		piece.classified_at ??
 		piece.updated_at}
+	{@const age_ts = row.active ? piece.updated_at : finished_ts}
+	{@const track_label = row.tracked_global_id != null ? formatTrackLabel(row.tracked_global_id) : null}
 
 	<a
 		href={`/tracked/${row.uuid}`}
-		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+		class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-1.5 text-sm transition-colors hover:bg-surface"
 	>
-		<div class="flex items-stretch gap-3 p-3">
-			<div class="group relative h-32 w-32 flex-shrink-0 border border-border bg-white">
-				{#if is_classified_ok && captured}
-					<img
-						src={reference}
-						alt="Reference"
-						class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 group-hover:opacity-0"
-					/>
-					<img
-						src={captured}
-						alt="Captured"
-						class="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-					/>
-				{:else if is_classified_ok && !captured}
-					<img src={reference} alt="Reference" class="h-full w-full object-contain" />
-				{:else if captured}
-					<img src={captured} alt="Captured" class="h-full w-full object-contain" />
-				{:else}
-					<div class="flex h-full w-full items-center justify-center">
-						<Spinner />
-					</div>
-				{/if}
-				{#if row.live}
-					<span class="absolute top-1 left-1 border border-success bg-bg/90 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success">
-						Live
-					</span>
-				{/if}
-				{#if row.tracked_global_id != null}
-					{@const trackLabel = formatTrackLabel(row.tracked_global_id)}
-					{#if trackLabel}
-						<span class="absolute bottom-1 right-1 border border-border bg-bg/90 px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
-							#{trackLabel}
-						</span>
-					{/if}
-				{/if}
-				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -top-1 -right-1">
-						<Spinner />
-					</div>
-				{/if}
-			</div>
-
-			<div class="flex min-w-0 flex-1 flex-col gap-2">
-				<div class="flex items-baseline justify-between gap-3">
-					<span class="truncate text-base font-semibold {primaryClass(piece)}">
-						{primaryLabel(row)}
-					</span>
-					{#if typeof piece.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span class="flex-shrink-0 text-base font-semibold tabular-nums {confidenceClass(piece.confidence)}">
-							{(piece.confidence * 100).toFixed(0)}%
-						</span>
-					{/if}
+		<!-- Thumbnail -->
+		<div class="relative h-12 w-12 flex-shrink-0 border border-border bg-white">
+			{#if thumb_src}
+				<img src={thumb_src} alt="" class="h-full w-full object-contain" loading="lazy" />
+			{:else}
+				<div class="flex h-full w-full items-center justify-center">
+					<Spinner />
 				</div>
+			{/if}
+			{#if row.live}
+				<span class="absolute -top-1 -right-1 h-2 w-2 bg-success" title="Live"></span>
+			{/if}
+		</div>
 
-				{#if piece.part_name && piece.part_id}
-					<div class="truncate font-mono text-sm text-text-muted">{piece.part_id}</div>
-				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-sm text-text-muted">Tracked on C4…</div>
-				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
-					<div class="text-sm text-text-muted">Capturing on C4…</div>
+		<!-- Identity: name + part_id + track# -->
+		<div class="flex min-w-0 flex-col">
+			<span class="truncate font-medium {primaryClass(piece)}">{primaryLabel(row)}</span>
+			<span class="truncate font-mono text-xs text-text-muted tabular-nums">
+				{piece.part_id ?? '—'}{#if track_label}
+					<span class="ml-2">#{track_label}</span>
 				{/if}
+			</span>
+		</div>
 
-				<div class="flex flex-wrap items-center gap-1.5">
-					{#if status_override}
-						<span class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {status_override.cls}">
-							{status_override.label}
-						</span>
-					{:else}
-						<span class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
-							{PHASE_LABEL[phase]}
-						</span>
-					{/if}
+		<!-- Color -->
+		<div class="flex min-w-0 items-center gap-1.5">
+			{#if lego_color}
+				<span class="inline-block h-3 w-3 flex-shrink-0 border border-border" style:background-color={lego_color.hex}></span>
+				<span class="truncate text-xs text-text">{lego_color.name}</span>
+			{:else if piece.color_name && piece.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
+				<span class="truncate text-xs text-text-muted">{piece.color_name}</span>
+			{:else}
+				<span class="text-xs text-text-muted">—</span>
+			{/if}
+		</div>
 
-					{#if lego_color}
-						<span
-							class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
-							style:background-color={lego_color.hex}
-							style:color={lego_color.contrast === 'white' ? '#ffffff' : '#000000'}
-						>
-							{lego_color.name}
-						</span>
-					{:else if piece.color_name && piece.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
-							{piece.color_name}
-						</span>
-					{/if}
+		<!-- Category -->
+		<div class="min-w-0">
+			{#if category_label && !is_unknown && !is_multi_drop}
+				<span class="truncate text-xs text-text-muted">{category_label}</span>
+			{:else}
+				<span class="text-xs text-text-muted">—</span>
+			{/if}
+		</div>
 
-					{#if category_label && !is_unknown && !is_multi_drop}
-						<span class="text-xs text-text-muted">{category_label}</span>
-					{/if}
+		<!-- Confidence -->
+		<div class="text-right">
+			{#if typeof piece.confidence === 'number' && !is_unknown && !is_multi_drop}
+				<span class="font-mono text-xs font-semibold tabular-nums {confidenceClass(piece.confidence)}">
+					{(piece.confidence * 100).toFixed(0)}%
+				</span>
+			{:else}
+				<span class="text-xs text-text-muted">—</span>
+			{/if}
+		</div>
 
-					{#if row.has_track_segments}
-						<span
-							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
-							title="Persisted segment dossier available"
-						>
-							Segments
-						</span>
-					{/if}
+		<!-- Bin / Drop -->
+		<div class="text-right">
+			{#if phase === 'distributed'}
+				<span class="font-mono text-xs tabular-nums {is_unknown || is_multi_drop ? 'text-warning-dark' : 'text-text'}">
+					{is_unknown || is_multi_drop ? 'discard' : bin_label}
+				</span>
+			{:else if row.active && row.polar_offset_deg != null}
+				<span class="font-mono text-xs text-text-muted tabular-nums" title="Polar offset to C4 drop angle">
+					Δ{row.polar_offset_deg.toFixed(1)}°
+				</span>
+			{:else if bin_label !== '—'}
+				<span class="font-mono text-xs text-text-muted tabular-nums">{bin_label}</span>
+			{:else}
+				<span class="text-xs text-text-muted">—</span>
+			{/if}
+		</div>
 
-					{#if bin_label !== '—' && phase === 'distributed'}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums">
-							{is_unknown || is_multi_drop ? 'discard ' : ''}{bin_label}
-						</span>
-					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
-							discard bin
-						</span>
-					{/if}
-				</div>
+		<!-- Stage chip -->
+		<div>
+			{#if status_override}
+				<span class="inline-flex items-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {status_override.cls}">
+					{status_override.label}
+				</span>
+			{:else}
+				<span class="inline-flex items-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
+					{PHASE_LABEL[phase]}
+				</span>
+			{/if}
+		</div>
 
-				<div class="mt-auto grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Path</span>
-						<span class="text-sm text-text">{formatRoles(row.track_summary?.roles)}</span>
-					</div>
-					{#if row.active}
-						<div class="flex items-baseline justify-between gap-2">
-							<span class="text-xs uppercase tracking-wider text-text-muted">Drop Δ</span>
-							<span class="tabular-nums text-sm text-text">
-								{row.polar_offset_deg != null ? `${row.polar_offset_deg.toFixed(1)}°` : '—'}
-							</span>
-						</div>
-					{:else}
-						<div class="flex items-baseline justify-between gap-2">
-							<span class="text-xs uppercase tracking-wider text-text-muted">Bin</span>
-							<span class="tabular-nums text-sm text-text">{bin_label}</span>
-						</div>
-					{/if}
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Duration</span>
-						<span class="tabular-nums text-sm text-text">{formatDuration(row.track_summary?.duration_s)}</span>
-					</div>
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">
-							{row.active ? 'Updated' : 'Finished'}
-						</span>
-						<span class="tabular-nums text-sm text-text">
-							{formatRelativeTime(row.active ? piece.updated_at : finished_ts)}
-						</span>
-					</div>
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Crops</span>
-						<span class="tabular-nums text-sm text-text">{row.track_summary?.max_sector_snapshots ?? 0}</span>
-					</div>
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Handoffs</span>
-						<span class="tabular-nums text-sm text-text">{row.track_summary?.handoff_count ?? 0}</span>
-					</div>
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Hits</span>
-						<span class="tabular-nums text-sm text-text">{row.track_summary?.total_hit_count ?? 0}</span>
-					</div>
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="text-xs uppercase tracking-wider text-text-muted">Sync</span>
-						<span class="tabular-nums text-sm {motionSyncClass(piece)}">
-							{formatSyncPercent(motionSyncRatio(piece))}
-						</span>
-					</div>
-				</div>
-
-				{#if rec_line}
-					<div class="text-sm text-text-muted">
-						<span class="font-medium text-text">Recognition</span>
-						<span class="ml-2">{rec_line}</span>
-					</div>
-				{/if}
-			</div>
+		<!-- Age -->
+		<div class="text-right font-mono text-xs text-text-muted tabular-nums">
+			{formatRelativeTime(age_ts)}
 		</div>
 	</a>
 {/snippet}
@@ -698,6 +651,30 @@
 						<option value="classified">classified</option>
 						<option value="lost">track lost</option>
 					</select>
+				</label>
+				<label class="flex items-center gap-2">
+					<span>sort</span>
+					<select
+						bind:value={sortKey}
+						class="border border-border bg-bg px-2 py-1 text-sm text-text"
+					>
+						<option value="ring">ring position</option>
+						<option value="updated">most recent</option>
+						<option value="name">name</option>
+						<option value="conf">confidence</option>
+						<option value="bin">bin</option>
+						<option value="stage">stage</option>
+					</select>
+					{#if sortKey !== 'ring'}
+						<button
+							type="button"
+							onclick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
+							title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+							class="border border-border bg-bg px-2 py-1 font-mono text-sm text-text"
+						>
+							{sortDir === 'asc' ? '↑' : '↓'}
+						</button>
+					{/if}
 				</label>
 				<label class="flex items-center gap-2">
 					<span>search</span>
@@ -769,55 +746,71 @@
 			</div>
 		</div>
 
-		{#if dropAngleDeg != null}
-			<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">
-				Active pieces are ordered by polar offset to the C4 drop angle
-				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>, not by arrival time.
+		{#if sortKey === 'ring' && dropAngleDeg != null && stats.active > 0}
+			<div class="border border-border bg-surface px-3 py-1.5 text-xs text-text-muted">
+				Ring order: active pieces first, ordered by polar offset to the C4 drop angle
+				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>.
 			</div>
 		{/if}
 
-		{#if filteredItems.length === 0}
+		{#if sortedItems.length === 0}
 			<div class="flex min-h-40 items-center justify-center border border-dashed border-border bg-surface text-sm text-text-muted">
 				{items.length === 0 ? 'No tracked pieces yet.' : 'No pieces match the current filter.'}
 			</div>
 		{:else}
-			{#if activeItems.length > 0}
-				<section class="flex flex-col gap-3">
-					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
-						<div>
-							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">On Ring</h3>
-							<p class="mt-1 text-sm text-text-muted">
-								Current pieces in flight, ordered along the classification channel path.
-							</p>
-						</div>
-						<span class="tabular-nums text-sm text-text-muted">{activeItems.length} visible</span>
-					</div>
-					<div class="grid gap-2 xl:grid-cols-2">
-						{#each activeItems as row (rowKey(row) ?? row.uuid)}
-							{@render pieceRow(row)}
-						{/each}
-					</div>
-				</section>
-			{/if}
+			<div class="border border-border bg-surface">
+				<!-- Header row: sortable column labels -->
+				<div class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+					<div></div>
+					<button type="button" class="flex items-center text-left hover:text-text" onclick={() => cycleSort('name')}>
+						Piece{sortArrow('name')}
+					</button>
+					<div>Color</div>
+					<div>Category</div>
+					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('conf')}>
+						Conf{sortArrow('conf')}
+					</button>
+					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('bin')}>
+						Bin / Δ{sortArrow('bin')}
+					</button>
+					<button type="button" class="text-left hover:text-text" onclick={() => cycleSort('stage')}>
+						Stage{sortArrow('stage')}
+					</button>
+					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('updated')}>
+						Age{sortArrow('updated')}
+					</button>
+				</div>
 
-			{#if historyItems.length > 0}
-				<section class="flex flex-col gap-3">
-					<div class="flex items-end justify-between gap-3 border-b border-border pb-2">
-						<div>
-							<h3 class="text-sm font-semibold uppercase tracking-wider text-text">Session History</h3>
-							<p class="mt-1 text-sm text-text-muted">
-								Persistent dossiers from this sorting session, newest confirmed activity first.
-							</p>
-						</div>
-						<span class="tabular-nums text-sm text-text-muted">{historyItems.length} visible</span>
-					</div>
-					<div class="grid gap-2 xl:grid-cols-2">
-						{#each historyItems as row (rowKey(row) ?? row.uuid)}
-							{@render pieceRow(row)}
-						{/each}
-					</div>
-				</section>
-			{/if}
+				{#each sortedItems as row (rowKey(row) ?? row.uuid)}
+					{@render pieceRow(row)}
+				{/each}
+			</div>
+
+			<div class="text-xs text-text-muted tabular-nums">
+				{sortedItems.length} piece{sortedItems.length === 1 ? '' : 's'} shown
+			</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	/* Piece list: one grid template for header + rows so columns align.
+	   Collapses to a 2-column (thumb + identity) block on narrow viewports. */
+	.piece-grid-row {
+		grid-template-columns: 48px 1fr;
+	}
+
+	@media (min-width: 900px) {
+		.piece-grid-row {
+			grid-template-columns:
+				48px
+				minmax(0, 1.4fr)
+				minmax(0, 0.9fr)
+				minmax(0, 0.9fr)
+				56px
+				80px
+				90px
+				64px;
+		}
+	}
+</style>

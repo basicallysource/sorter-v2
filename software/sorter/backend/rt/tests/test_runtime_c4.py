@@ -1275,6 +1275,39 @@ def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
     assert rt.fsm_state() == "startup_purge"
 
 
+def test_c4_transport_uses_longer_step_when_observed_piece_speed_is_low() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=2, transport_target_rpm=2.0)
+    first = _track(
+        global_id=17,
+        angle_deg=45.0,
+        confirmed=True,
+        hit_count=5,
+        first_seen_ts=1.0,
+        last_seen_ts=1.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(first, timestamp=1.0), capacity_downstream=1),
+        now_mono=1.0,
+    )
+    second = _track(
+        global_id=17,
+        angle_deg=48.0,
+        confirmed=True,
+        hit_count=6,
+        first_seen_ts=1.0,
+        last_seen_ts=2.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(second, timestamp=2.0), capacity_downstream=1),
+        now_mono=2.0,
+    )
+
+    assert "transport:6.0" in log
+    assert "transport:18.0" in log
+    snap = rt.debug_snapshot()["transport_velocity"]
+    assert snap["recommendation"] == "extend_transport_window"
+
+
 # ----------------------------------------------------------------------
 # PurgePort binding
 

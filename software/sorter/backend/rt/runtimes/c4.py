@@ -35,6 +35,7 @@ from rt.events.topics import (
 )
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
+from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._move_events import publish_move_completed
 from ._strategies import (
@@ -55,6 +56,8 @@ DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
 DEFAULT_INTAKE_HALF_WIDTH_DEG = 18.0
 DEFAULT_TRANSPORT_STEP_DEG = 6.0
+DEFAULT_TRANSPORT_MAX_STEP_DEG = 18.0
+DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_EXIT_APPROACH_ANGLE_DEG = 36.0
 DEFAULT_EXIT_APPROACH_STEP_DEG = 3.0
 DEFAULT_EXIT_BBOX_OVERLAP_RATIO = 0.5
@@ -146,6 +149,8 @@ class RuntimeC4(BaseRuntime):
         shimmy_cooldown_ms: int = DEFAULT_SHIMMY_COOLDOWN_MS,
         post_commit_cooldown_ms: int | None = None,
         transport_step_deg: float = DEFAULT_TRANSPORT_STEP_DEG,
+        transport_max_step_deg: float = DEFAULT_TRANSPORT_MAX_STEP_DEG,
+        transport_target_rpm: float = DEFAULT_TRANSPORT_TARGET_RPM,
         transport_cooldown_ms: int = DEFAULT_TRANSPORT_COOLDOWN_MS,
         exit_approach_angle_deg: float = DEFAULT_EXIT_APPROACH_ANGLE_DEG,
         exit_approach_step_deg: float = DEFAULT_EXIT_APPROACH_STEP_DEG,
@@ -222,6 +227,10 @@ class RuntimeC4(BaseRuntime):
         self._shimmy_stall_s = float(shimmy_stall_ms) / 1000.0
         self._shimmy_cooldown_s = float(shimmy_cooldown_ms) / 1000.0
         self._transport_step_deg = float(transport_step_deg)
+        self._transport_max_step_deg = max(
+            self._transport_step_deg,
+            float(transport_max_step_deg),
+        )
         self._sample_transport_step_deg = self._transport_step_deg
         self._sample_transport_max_speed: int | None = None
         self._sample_transport_acceleration: int | None = None
@@ -245,6 +254,11 @@ class RuntimeC4(BaseRuntime):
         self._unjam_cooldown_s = max(0.5, float(unjam_cooldown_ms) / 1000.0)
         self._unjam_reverse_deg = max(0.1, float(unjam_reverse_deg))
         self._unjam_forward_deg = max(0.1, float(unjam_forward_deg))
+        self._transport_velocity = TransportVelocityObserver(
+            channel="c4",
+            exit_angle_deg=self._exit_angle_deg,
+            target_rpm=transport_target_rpm,
+        )
         # Per-dossier cooldown after a distributor_busy rejection. 250 ms is
         # comfortably above the distributor's chute-move → ready cycle so we
         # don't starve handoffs, but small enough to keep throughput healthy.
@@ -511,6 +525,7 @@ class RuntimeC4(BaseRuntime):
                 "last_at_mono": self._last_idle_jog_at,
                 "count": int(self._idle_jog_count),
             },
+            "transport_velocity": self._transport_velocity.snapshot.as_dict(),
             "transport_unjam": {
                 "enabled": bool(self._unjam_enabled),
                 "stall_s": float(self._unjam_stall_s),
@@ -561,6 +576,13 @@ class RuntimeC4(BaseRuntime):
         if now_mono >= self._next_accept_at:
             self._reconcile_visible_tracks(visible_tracks, now_mono)
         owned_tracks = self._owned_tracks(visible_tracks)
+        self._transport_velocity.update(
+            owned_tracks,
+            now_mono=now_mono,
+            base_step_deg=self._transport_step_deg,
+            max_step_deg=self._transport_max_step_deg,
+            exit_slow_zone_deg=self._exit_approach_angle_deg,
+        )
         self._submit_classifications(owned_tracks, now_mono)
         self._poll_classifier_futures(now_mono)
         self._request_pending_handoffs(now_mono)
@@ -1455,11 +1477,14 @@ class RuntimeC4(BaseRuntime):
         use_exit_approach = move_command is None and any(
             self._track_in_exit_approach(track) for track in tracks
         )
+        recommended_step = self._transport_velocity.snapshot.recommended_step_deg
         step = (
             min(self._transport_step_deg, self._exit_approach_step_deg)
             if use_exit_approach
-            else self._transport_step_deg
+            else float(recommended_step or self._transport_step_deg)
         )
+        if not use_exit_approach:
+            step = max(self._transport_step_deg, min(self._transport_max_step_deg, step))
         move = move_command or (
             self._carousel_move if use_exit_approach else self._transport_move
         )

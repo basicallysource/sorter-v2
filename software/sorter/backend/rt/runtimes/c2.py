@@ -33,6 +33,7 @@ from rt.hardware.motion_profiles import (
     PROFILE_TRANSPORT,
 )
 from rt.perception.track_policy import action_track, is_visible_track
+from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -60,6 +61,7 @@ _ROTATION_WINDOW_PAD_S = 0.15
 DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
 DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
+DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 
 
 @dataclass(slots=True)
@@ -129,6 +131,11 @@ class RuntimeC2(BaseRuntime):
         self._sample_transport_step_deg: float | None = None
         self._sample_transport_max_speed: int | None = None
         self._sample_transport_acceleration: int | None = None
+        self._transport_velocity = TransportVelocityObserver(
+            channel="c2",
+            exit_angle_deg=0.0,
+            target_rpm=DEFAULT_TRANSPORT_TARGET_RPM,
+        )
 
     # ------------------------------------------------------------------
     # Runtime ABC
@@ -161,6 +168,7 @@ class RuntimeC2(BaseRuntime):
             "downstream_taken": int(self._downstream_slot.taken()),
             "seen_global_ids": len(self._bookkeeping.seen_global_ids),
             "exit_stall_active": self._bookkeeping.exit_stall_since is not None,
+            "transport_velocity": self._transport_velocity.snapshot.as_dict(),
         })
         return snap
 
@@ -176,6 +184,7 @@ class RuntimeC2(BaseRuntime):
             self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
             self._piece_count = len(action_tracks)
             self._admission_piece_count = len(action_tracks)
+            self._transport_velocity.update(action_tracks, now_mono=now_mono)
             if not self._purge_mode:
                 self._credit_new_arrivals(action_tracks, now_mono)
             exit_track = self._pick_exit_track(visible_tracks)

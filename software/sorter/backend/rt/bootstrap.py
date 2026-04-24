@@ -45,6 +45,7 @@ from rt.hardware.channel_callables import (
 )
 from rt.perception.pipeline_runner import PerceptionRunner
 from rt.perception.runner_builder import build_perception_runner_for_role
+from rt.perception.teacher_samples import AuxiliaryTeacherSampleCollector
 from rt.runtimes._strategies import (
     AlwaysAdmit,
     C4Admission,
@@ -59,6 +60,7 @@ from rt.runtimes.c3 import RuntimeC3
 from rt.runtimes.c4 import RuntimeC4
 from rt.runtimes.distributor import RuntimeDistributor
 from rt.services.maintenance_purge import C234PurgeCoordinator
+from rt.services.sample_transport import C1234SampleTransportCoordinator
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,11 +120,15 @@ class RtRuntimeHandle:
     # (role, reason) entries populated at bootstrap when a perception runner
     # could not be built. Observable via /api/rt/status; never fatal.
     skipped_roles: list[dict[str, str]] = field(default_factory=list)
+    sample_collector: AuxiliaryTeacherSampleCollector | None = None
     # Back-reference needed for runner rebuilds after config changes.
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
     _purge_coordinator: C234PurgeCoordinator = field(
         default_factory=C234PurgeCoordinator
+    )
+    _sample_transport_coordinator: C1234SampleTransportCoordinator = field(
+        default_factory=C1234SampleTransportCoordinator
     )
 
     def start_perception(self) -> None:
@@ -131,6 +137,13 @@ class RtRuntimeHandle:
         self.event_bus.start()
         for runner in self.perception_runners:
             runner.start()
+        if self.sample_collector is not None:
+            try:
+                self.sample_collector.start()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: sample collector start raised"
+                )
         self.perception_started = True
 
     def start(self, *, paused: bool = False) -> None:
@@ -154,12 +167,20 @@ class RtRuntimeHandle:
         if not self.started and not self.perception_started:
             return
         self._purge_coordinator.request_cancel()
+        self._sample_transport_coordinator.request_cancel()
         if self.started:
             try:
                 self.orchestrator.stop()
             except Exception:
                 logging.getLogger("rt.bootstrap").exception(
                     "RtRuntimeHandle: orchestrator stop raised"
+                )
+        if self.sample_collector is not None:
+            try:
+                self.sample_collector.stop(timeout=1.0)
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: sample collector stop raised"
                 )
         for runner in self.perception_runners:
             try:
@@ -244,10 +265,18 @@ class RtRuntimeHandle:
             "paused": bool(self.paused),
             "runners": runners_out,
             "skipped_roles": list(self.skipped_roles),
+            "sample_collection": (
+                self.sample_collector.status_snapshot()
+                if self.sample_collector is not None
+                else {"installed": False}
+            ),
             "runtime_health": runtime_health,
             "runtime_debug": runtime_debug,
             "slot_debug": slot_debug,
-            "maintenance": {"c234_purge": self.c234_purge_status()},
+            "maintenance": {
+                "c234_purge": self.c234_purge_status(),
+                "sample_transport": self.sample_transport_status(),
+            },
         }
 
     def annotation_snapshot(self, feed_id: str) -> FeedAnnotationSnapshot:
@@ -377,6 +406,33 @@ class RtRuntimeHandle:
 
     def cancel_c234_purge(self) -> bool:
         return self._purge_coordinator.cancel()
+
+    def sample_transport_status(self) -> dict[str, Any]:
+        return self._sample_transport_coordinator.status()
+
+    def start_sample_transport(
+        self,
+        *,
+        state_publisher: Callable[[str], None] | None = None,
+        base_interval_s: float = 2.0,
+        ratio: float = 2.0,
+        duration_s: float | None = 600.0,
+        poll_s: float = 0.02,
+    ) -> bool:
+        if not self.started:
+            raise RuntimeError("rt runtime is not started")
+        return self._sample_transport_coordinator.start(
+            runtimes=(self.c1, self.c2, self.c3, self.c4),
+            control=self,
+            state_publisher=state_publisher,
+            base_interval_s=base_interval_s,
+            ratio=ratio,
+            duration_s=duration_s,
+            poll_s=poll_s,
+        )
+
+    def cancel_sample_transport(self) -> bool:
+        return self._sample_transport_coordinator.cancel()
 
     def clear_c1_pause(self) -> dict[str, Any]:
         c1 = self.c1
@@ -908,7 +964,7 @@ def build_rt_runtime(
         list(perception_sources.keys()), [f"{u}->{d}" for u, d in slots.keys()],
     )
 
-    return RtRuntimeHandle(
+    handle = RtRuntimeHandle(
         orchestrator=orch,
         perception_runners=perception_runners,
         event_bus=bus,
@@ -921,6 +977,12 @@ def build_rt_runtime(
         skipped_roles=skipped_roles,
         camera_service=camera_service,
     )
+    handle.sample_collector = AuxiliaryTeacherSampleCollector(
+        runner_provider=lambda: list(handle.perception_runners),
+        event_bus=bus,
+        logger=log,
+    )
+    return handle
 
 
 __all__ = ["RtRuntimeHandle", "build_rt_runtime"]

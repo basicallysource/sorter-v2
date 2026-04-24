@@ -28,6 +28,7 @@ from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION
 
+from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
@@ -197,6 +198,9 @@ class RuntimeC2(BaseRuntime):
         # slot so C1 sees headroom.
         self._upstream_slot.release()
 
+    def sample_transport_port(self) -> "_C2SampleTransportPort":
+        return _C2SampleTransportPort(self)
+
     # ------------------------------------------------------------------
     # Internals
 
@@ -261,11 +265,21 @@ class RuntimeC2(BaseRuntime):
         self._bookkeeping.exit_stall_since = None
 
         def _run_pulse() -> None:
+            ok = False
             try:
                 ok = self._pulse_command(timing.pulse_ms)
             except Exception:
                 self._logger.exception("RuntimeC2: pulse command raised")
-                ok = False
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c2_pulse",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                )
             if not ok:
                 self._downstream_slot.release()
 
@@ -289,10 +303,21 @@ class RuntimeC2(BaseRuntime):
         timing = self._ejection.timing_for({"advance": True})
 
         def _run_pulse() -> None:
+            ok = False
             try:
-                self._pulse_command(timing.pulse_ms)
+                ok = self._pulse_command(timing.pulse_ms)
             except Exception:
                 self._logger.exception("RuntimeC2: advance pulse command raised")
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c2_advance_pulse",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                )
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         enqueued = self._hw.enqueue(_run_pulse, label="c2_advance_pulse")
@@ -302,6 +327,40 @@ class RuntimeC2(BaseRuntime):
         self._bookkeeping.next_advance_at = now_mono + self._advance_interval_s
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("advancing")
+
+    def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
+        """Rotate C2 without admission or downstream slot gating."""
+        if self._hw.busy() or self._hw.pending() > 0:
+            self._set_state("sample_transport", blocked_reason="hw_busy")
+            return False
+        timing = self._ejection.timing_for({"sample_transport": True})
+
+        def _run_pulse() -> None:
+            ok = False
+            try:
+                ok = bool(self._pulse_command(timing.pulse_ms))
+            except Exception:
+                self._logger.exception("RuntimeC2: sample transport pulse raised")
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c2_sample_transport",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                    extra={"sample_transport": True},
+                )
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c2_sample_transport")
+        if not enqueued:
+            self._set_state("sample_transport", blocked_reason="hw_queue_full")
+            return False
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
+        self._set_state("sample_transport")
+        return True
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity or exit_track.
@@ -313,10 +372,21 @@ class RuntimeC2(BaseRuntime):
         timing = self._ejection.timing_for({"purge": True})
 
         def _run_pulse() -> None:
+            ok = False
             try:
-                self._pulse_command(timing.pulse_ms)
+                ok = self._pulse_command(timing.pulse_ms)
             except Exception:
                 self._logger.exception("RuntimeC2: purge pulse command raised")
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c2_purge_pulse",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                )
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         enqueued = self._hw.enqueue(_run_pulse, label="c2_purge_pulse")
@@ -428,6 +498,16 @@ class _C2PurgePort:
 
     def drain_step(self, now_mono: float) -> bool:
         return bool(self._runtime._purge_mode)
+
+
+class _C2SampleTransportPort:
+    key = "c2"
+
+    def __init__(self, runtime: RuntimeC2) -> None:
+        self._runtime = runtime
+
+    def step(self, now_mono: float) -> bool:
+        return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
 
 __all__ = ["RuntimeC2"]

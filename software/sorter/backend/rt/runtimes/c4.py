@@ -28,6 +28,7 @@ from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION, PIECE_CLASSIFIED, PIECE_REGISTERED
 
+from ._move_events import publish_move_completed
 from ._strategies import C4Admission, C4EjectionTiming, C4StartupPurgeStrategy
 from ._zones import TrackAngularExtent, ZoneManager
 from .base import BaseRuntime, HwWorker
@@ -470,6 +471,9 @@ class RuntimeC4(BaseRuntime):
 
     def purge_port(self) -> PurgePort:
         return _C4PurgePort(self)
+
+    def sample_transport_port(self) -> "_C4SampleTransportPort":
+        return _C4SampleTransportPort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
         raw_tracks = self._fresh_tracks(inbox.tracks, require_confirmed=False)
@@ -1214,6 +1218,26 @@ class RuntimeC4(BaseRuntime):
             return True
         return False
 
+    def _dispatch_sample_transport_step(self, now_mono: float) -> bool:
+        """Rotate C4 without classification, admission, or distributor handoff."""
+        if self._hw_busy_or_backlogged():
+            self._set_state("sample_transport", blocked_reason="hw_busy")
+            return False
+        step = self._transport_step_deg
+
+        def _do_move() -> None:
+            try:
+                self._transport_move(step)
+            except Exception:
+                self._logger.exception("RuntimeC4: sample transport move raised")
+
+        if not self._hw.enqueue(_do_move, label="c4_sample_transport"):
+            self._set_state("sample_transport", blocked_reason="hw_queue_full")
+            return False
+        self._next_transport_at = now_mono + self._transport_cooldown_s
+        self._set_state("sample_transport")
+        return True
+
     def _maybe_idle_jog(self, now_mono: float) -> bool:
         if not self._idle_jog_enabled:
             return False
@@ -1387,7 +1411,20 @@ class RuntimeC4(BaseRuntime):
                         "RuntimeC4: rotation-window publish failed (source=%s)",
                         source_label,
                     )
-            return bool(command(deg))
+            ok = False
+            try:
+                ok = bool(command(deg))
+                return ok
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=feed_id,
+                    source=source_label,
+                    ok=ok,
+                    degrees=deg,
+                )
 
         return _wrapped
 
@@ -1443,6 +1480,16 @@ class _C4PurgePort:
 
     def drain_step(self, now_mono: float) -> bool:
         return bool(self._runtime._startup_purge_armed)
+
+
+class _C4SampleTransportPort:
+    key = "c4"
+
+    def __init__(self, runtime: RuntimeC4) -> None:
+        self._runtime = runtime
+
+    def step(self, now_mono: float) -> bool:
+        return self._runtime._dispatch_sample_transport_step(now_mono)
 
 
 __all__ = ["RuntimeC4"]

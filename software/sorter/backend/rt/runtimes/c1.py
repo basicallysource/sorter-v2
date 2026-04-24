@@ -145,6 +145,9 @@ class RuntimeC1(BaseRuntime):
         self._jam = _JamState()
         self._set_state("idle")
 
+    def sample_transport_port(self) -> "_C1SampleTransportPort":
+        return _C1SampleTransportPort(self)
+
     def pause_for_maintenance(self, reason: str = "maintenance") -> None:
         self._maintenance_pause_reason = str(reason or "maintenance")
         self._set_state("paused", blocked_reason=self._maintenance_pause_reason)
@@ -194,6 +197,29 @@ class RuntimeC1(BaseRuntime):
             return
         self._set_state("pulsing")
 
+    def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
+        """Move C1 without claiming C1->C2 capacity."""
+        if self._hw.busy() or self._hw.pending() > 0:
+            self._set_state("sample_transport", blocked_reason="hw_busy")
+            return False
+
+        def _run_pulse() -> None:
+            try:
+                ok = bool(self._pulse_command())
+            except Exception:
+                self._logger.exception("RuntimeC1: sample transport pulse raised")
+                ok = False
+            if not ok:
+                self._logger.warning("RuntimeC1: sample transport pulse failed")
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c1_sample_transport")
+        if not enqueued:
+            self._set_state("sample_transport", blocked_reason="hw_queue_full")
+            return False
+        self._set_state("sample_transport")
+        return True
+
     def _launch_recovery(self, now_mono: float) -> None:
         if self._jam.attempts >= self._max_recovery_cycles:
             self._jam.exhausted = True
@@ -229,6 +255,16 @@ class RuntimeC1(BaseRuntime):
             self._set_state("recovering", blocked_reason="hw_queue_full")
             return
         self._set_state("recovering")
+
+
+class _C1SampleTransportPort:
+    key = "c1"
+
+    def __init__(self, runtime: RuntimeC1) -> None:
+        self._runtime = runtime
+
+    def step(self, now_mono: float) -> bool:
+        return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
 
 __all__ = ["RuntimeC1", "DEFAULT_JAM_TIMEOUT_S", "DEFAULT_JAM_MIN_PULSES"]

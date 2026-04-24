@@ -32,6 +32,7 @@ from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION
 
+from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
@@ -218,6 +219,9 @@ class RuntimeC3(BaseRuntime):
         # C4 confirms it accepted the piece — release C3 slot upstream.
         self._upstream_slot.release()
 
+    def sample_transport_port(self) -> "_C3SampleTransportPort":
+        return _C3SampleTransportPort(self)
+
     # ------------------------------------------------------------------
     # Helpers for tests
 
@@ -334,11 +338,22 @@ class RuntimeC3(BaseRuntime):
         commits_slot = claim is True
 
         def _run_pulse() -> None:
+            ok = False
             try:
                 ok = self._pulse_command(mode_for_worker, timing.pulse_ms)
             except Exception:
                 self._logger.exception("RuntimeC3: pulse command raised")
-                ok = False
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source=f"c3_pulse_{mode_for_worker.value}",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                    extra={"mode": mode_for_worker.value},
+                )
             if not ok and commits_slot:
                 self._downstream_slot.release()
 
@@ -353,6 +368,43 @@ class RuntimeC3(BaseRuntime):
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state(f"pulsing_{mode.value}")
 
+    def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
+        """Rotate C3 without admission or downstream slot gating."""
+        if self._hw.busy() or self._hw.pending() > 0:
+            self._set_state("sample_transport", blocked_reason="hw_busy")
+            return False
+        mode = _PulseMode.PRECISE
+        timing = self._ejection.timing_for(
+            {"sample_transport": True, "mode": mode.value}
+        )
+
+        def _run_pulse() -> None:
+            ok = False
+            try:
+                ok = bool(self._pulse_command(mode, timing.pulse_ms))
+            except Exception:
+                self._logger.exception("RuntimeC3: sample transport pulse raised")
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c3_sample_transport",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                    extra={"mode": mode.value, "sample_transport": True},
+                )
+
+        self._next_pulse_at = now_mono + self._pulse_cooldown_s
+        enqueued = self._hw.enqueue(_run_pulse, label="c3_sample_transport")
+        if not enqueued:
+            self._set_state("sample_transport", blocked_reason="hw_queue_full")
+            return False
+        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
+        self._set_state("sample_transport")
+        return True
+
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity.
 
@@ -365,10 +417,22 @@ class RuntimeC3(BaseRuntime):
         timing = self._ejection.timing_for({"purge": True, "mode": mode.value})
 
         def _run_pulse() -> None:
+            ok = False
             try:
-                self._pulse_command(mode, timing.pulse_ms)
+                ok = self._pulse_command(mode, timing.pulse_ms)
             except Exception:
                 self._logger.exception("RuntimeC3: purge pulse command raised")
+            finally:
+                publish_move_completed(
+                    self._bus,
+                    self._logger,
+                    runtime_id=self.runtime_id,
+                    feed_id=self.feed_id,
+                    source="c3_purge_pulse",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                    extra={"mode": mode.value},
+                )
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         enqueued = self._hw.enqueue(_run_pulse, label="c3_purge_pulse")
@@ -478,6 +542,16 @@ class _C3PurgePort:
 
     def drain_step(self, now_mono: float) -> bool:
         return bool(self._runtime._purge_mode)
+
+
+class _C3SampleTransportPort:
+    key = "c3"
+
+    def __init__(self, runtime: RuntimeC3) -> None:
+        self._runtime = runtime
+
+    def step(self, now_mono: float) -> bool:
+        return self._runtime._dispatch_sample_transport_pulse(now_mono)
 
 
 __all__ = ["RuntimeC3"]

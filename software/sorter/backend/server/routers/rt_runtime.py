@@ -13,11 +13,19 @@ import math
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from server import shared_state
 
 
 router = APIRouter()
+
+
+class SampleTransportPayload(BaseModel):
+    base_interval_s: float = 2.0
+    ratio: float = 2.0
+    duration_s: float | None = 600.0
+    poll_s: float = 0.02
 
 
 def _publish_runtime_state(state: str) -> None:
@@ -168,6 +176,56 @@ def cancel_c234_purge() -> Dict[str, Any]:
         raise HTTPException(status_code=501, detail="c234 purge cancel is not supported")
     cancelled = bool(cancel_fn())
     status_fn = getattr(handle, "c234_purge_status", None)
+    status = dict(status_fn() or {}) if callable(status_fn) else {"active": False}
+    return {"ok": True, "cancelled": cancelled, "status": status}
+
+
+@router.post("/api/rt/sample-transport")
+def start_sample_transport(
+    payload: SampleTransportPayload = SampleTransportPayload(),
+) -> Dict[str, Any]:
+    if shared_state.hardware_state != "ready":
+        raise HTTPException(
+            status_code=409,
+            detail="hardware must be ready before running sample transport",
+        )
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    if not bool(getattr(handle, "started", False)):
+        raise HTTPException(status_code=409, detail="rt runtime is not started")
+    start_fn = getattr(handle, "start_sample_transport", None)
+    if not callable(start_fn):
+        raise HTTPException(status_code=501, detail="sample transport is not supported")
+    try:
+        started = bool(
+            start_fn(
+                state_publisher=_publish_runtime_state,
+                base_interval_s=payload.base_interval_s,
+                ratio=payload.ratio,
+                duration_s=payload.duration_s,
+                poll_s=payload.poll_s,
+            )
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not started:
+        raise HTTPException(status_code=409, detail="sample transport is already active")
+    status_fn = getattr(handle, "sample_transport_status", None)
+    status = dict(status_fn() or {}) if callable(status_fn) else {"active": True}
+    return {"ok": True, "status": status}
+
+
+@router.post("/api/rt/sample-transport/cancel")
+def cancel_sample_transport() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    cancel_fn = getattr(handle, "cancel_sample_transport", None)
+    if not callable(cancel_fn):
+        raise HTTPException(status_code=501, detail="sample transport cancel is not supported")
+    cancelled = bool(cancel_fn())
+    status_fn = getattr(handle, "sample_transport_status", None)
     status = dict(status_fn() or {}) if callable(status_fn) else {"active": False}
     return {"ok": True, "cancelled": cancelled, "status": status}
 

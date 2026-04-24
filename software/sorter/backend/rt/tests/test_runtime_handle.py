@@ -269,6 +269,7 @@ def test_start_perception_starts_runners_without_orchestrator():
     bus = MagicMock()
     orchestrator = MagicMock()
     runners = [MagicMock(), MagicMock()]
+    sample_collector = MagicMock()
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=runners,
@@ -278,6 +279,7 @@ def test_start_perception_starts_runners_without_orchestrator():
         feed_zones={},
         skipped_roles=[],
         camera_service=None,
+        sample_collector=sample_collector,
     )
 
     handle.start_perception()
@@ -285,6 +287,7 @@ def test_start_perception_starts_runners_without_orchestrator():
     bus.start.assert_called_once_with()
     orchestrator.start.assert_not_called()
     assert all(runner.start.call_count == 1 for runner in runners)
+    sample_collector.start.assert_called_once_with()
     assert handle.perception_started is True
     assert handle.started is False
 
@@ -337,6 +340,12 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
         "raw_track_preview": [],
         "confirmed_track_preview": [],
     }
+    sample_collector = MagicMock()
+    sample_collector.status_snapshot.return_value = {
+        "installed": True,
+        "running": True,
+        "captured_count": 3,
+    }
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=[runner],
@@ -349,6 +358,7 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
         started=True,
         perception_started=True,
         paused=True,
+        sample_collector=sample_collector,
     )
     handle._purge_coordinator._status = {
         "active": True,
@@ -367,6 +377,7 @@ def test_status_snapshot_composes_runner_orchestrator_and_maintenance() -> None:
     assert snapshot["runtime_debug"]["c4"] == {"piece_count": 2}
     assert snapshot["slot_debug"]["c4_to_distributor"]["available"] == 1
     assert snapshot["maintenance"]["c234_purge"]["phase"] == "purging"
+    assert snapshot["sample_collection"]["captured_count"] == 3
 
 
 def test_clear_c1_pause_forwards_to_c1_runtime() -> None:
@@ -396,6 +407,7 @@ def test_stop_stops_perception_when_runtime_never_fully_started():
     bus = MagicMock()
     orchestrator = MagicMock()
     runners = [MagicMock(), MagicMock()]
+    sample_collector = MagicMock()
     handle = RtRuntimeHandle(
         orchestrator=orchestrator,
         perception_runners=runners,
@@ -405,12 +417,14 @@ def test_stop_stops_perception_when_runtime_never_fully_started():
         feed_zones={},
         skipped_roles=[],
         camera_service=None,
+        sample_collector=sample_collector,
     )
     handle.start_perception()
 
     handle.stop()
 
     orchestrator.stop.assert_not_called()
+    sample_collector.stop.assert_called_once_with(timeout=1.0)
     assert all(runner.stop.call_count == 1 for runner in runners)
     bus.stop.assert_called_once_with()
     assert handle.perception_started is False

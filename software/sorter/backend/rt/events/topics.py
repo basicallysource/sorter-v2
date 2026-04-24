@@ -14,6 +14,7 @@ PERCEPTION_ROTATION = "perception.rotation"
 
 HARDWARE_ERROR = "hardware.error"
 RUNTIME_STATS = "runtime.stats"
+RUNTIME_MOVE_COMPLETED = "runtime.move_completed"
 
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "PIECE_CLASSIFIED",
     "PIECE_DISTRIBUTED",
     "PIECE_REGISTERED",
+    "RUNTIME_MOVE_COMPLETED",
     "RUNTIME_STATS",
     "SYSTEM_HARDWARE_STATE",
     "SYSTEM_SORTER_STATE",

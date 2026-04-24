@@ -25,6 +25,9 @@
 /data/
 /test.db
 /test-profile-parts.db
+/local_state.sqlite
+/software/sorter/local_state.sqlite
+/software/sorter/backend/local_state.sqlite
 /software/sorter/backend/local_state.sqlite.backup-*
 
 .DS_Store

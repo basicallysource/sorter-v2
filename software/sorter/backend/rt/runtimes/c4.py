@@ -22,6 +22,7 @@ from rt.contracts.classification import Classifier, ClassifierResult
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
+from rt.contracts.handoff import HandoffPort
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
@@ -226,9 +227,7 @@ class RuntimeC4(BaseRuntime):
         )
         self._post_commit_cooldown_s = cooldown_ms / 1000.0
         self._bus = event_bus
-        self._handoff_request_callback: Callable[..., bool] | None = None
-        self._handoff_commit_callback: Callable[..., bool] | None = None
-        self._handoff_abort_callback: Callable[..., bool] | None = None
+        self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
         self._fsm: _C4State = _C4State.RUNNING
@@ -282,14 +281,9 @@ class RuntimeC4(BaseRuntime):
         """Distributor accepted the piece — free slot, remove zone, pop dossier."""
         self._finalize_piece(piece_uuid, now_mono=now_mono, arm_cooldown=True)
 
-    def set_handoff_request_callback(self, callback: Callable[..., bool] | None) -> None:
-        self._handoff_request_callback = callback
-
-    def set_handoff_commit_callback(self, callback: Callable[..., bool] | None) -> None:
-        self._handoff_commit_callback = callback
-
-    def set_handoff_abort_callback(self, callback: Callable[..., bool] | None) -> None:
-        self._handoff_abort_callback = callback
+    def set_handoff_port(self, port: HandoffPort | None) -> None:
+        """Bind the downstream handoff surface (typically the distributor)."""
+        self._handoff = port
 
     def on_distributor_ready(self, piece_uuid: str) -> None:
         """Distributor positioned the chute; the next exit tick may eject."""
@@ -326,11 +320,11 @@ class RuntimeC4(BaseRuntime):
             self._track_to_piece.pop(int(dossier.global_id), None)
         self._zone_manager.remove_zone(piece_uuid)
         if abort_handoff and dossier is not None and dossier.handoff_requested:
-            abort = self._handoff_abort_callback
-            if abort is not None:
+            port = self._handoff
+            if port is not None:
                 ts = time.monotonic() if now_mono is None else now_mono
                 try:
-                    abort(
+                    port.handoff_abort(
                         piece_uuid,
                         reason=abort_reason,
                         now_mono=ts,
@@ -446,9 +440,7 @@ class RuntimeC4(BaseRuntime):
                 "last_skip": self._last_classify_skip,
             },
             "handoff_debug": {
-                "request_wired": self._handoff_request_callback is not None,
-                "commit_wired": self._handoff_commit_callback is not None,
-                "abort_wired": self._handoff_abort_callback is not None,
+                "port_wired": self._handoff is not None,
                 "counts": dict(sorted(self._handoff_debug_counts.items())),
                 "last_skip": self._last_handoff_skip,
             },
@@ -877,7 +869,7 @@ class RuntimeC4(BaseRuntime):
             self._publish(PIECE_CLASSIFIED, payload, now_mono)
 
     def _request_pending_handoffs(self, now_mono: float) -> None:
-        if self._handoff_request_callback is None:
+        if self._handoff is None:
             self._mark_handoff("request_not_wired")
             return
         for dossier in list(self._pieces.values()):
@@ -890,9 +882,9 @@ class RuntimeC4(BaseRuntime):
         dossier: _PieceDossier,
         now_mono: float,
     ) -> bool:
-        callback = self._handoff_request_callback
+        port = self._handoff
         result = dossier.result
-        if callback is None or result is None:
+        if port is None or result is None:
             self._mark_handoff("request_not_ready")
             return False
         if dossier.handoff_requested:
@@ -904,7 +896,7 @@ class RuntimeC4(BaseRuntime):
             return False
         try:
             accepted = bool(
-                callback(
+                port.handoff_request(
                     piece_uuid=dossier.piece_uuid,
                     classification=result,
                     dossier=self._handoff_dossier_payload(dossier),
@@ -977,7 +969,7 @@ class RuntimeC4(BaseRuntime):
                 self._maybe_shimmy(now_mono)
             return
 
-        if self._handoff_request_callback is not None:
+        if self._handoff is not None:
             if not dossier.handoff_requested:
                 self._request_distributor_handoff(dossier, now_mono)
                 return
@@ -1014,10 +1006,10 @@ class RuntimeC4(BaseRuntime):
             if not ok:
                 self._downstream_slot.release()
                 return
-            commit = self._handoff_commit_callback
-            if commit is not None:
+            port = self._handoff
+            if port is not None:
                 try:
-                    committed = bool(commit(piece_uuid, now_mono=time.monotonic()))
+                    committed = bool(port.handoff_commit(piece_uuid, now_mono=time.monotonic()))
                 except Exception:
                     self._logger.exception(
                         "RuntimeC4: distributor handoff_commit raised for piece=%s",

@@ -1027,13 +1027,12 @@ def build_rt_runtime(
     )
     distributor_ref["ref"] = distributor
 
-    # Wire C4 -> Distributor handshake. C4 asks the distributor to position
-    # once a piece is classified, waits for on_distributor_ready(), ejects,
-    # then commits the handoff so the distributor can publish delivery.
+    # Wire C4 -> Distributor handshake via the HandoffPort. C4 asks the
+    # distributor to position once a piece is classified, waits for
+    # on_distributor_ready(), ejects, then commits so the distributor can
+    # publish delivery.
     try:
-        c4.set_handoff_request_callback(distributor.handoff_request)
-        c4.set_handoff_commit_callback(distributor.handoff_commit)
-        c4.set_handoff_abort_callback(distributor.handoff_abort)
+        c4.set_handoff_port(distributor)
     except Exception:
         log.exception("rt.bootstrap: distributor handshake wiring failed")
 

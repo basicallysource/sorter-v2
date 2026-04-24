@@ -422,16 +422,19 @@ def test_c4_waits_for_distributor_ready_before_ejecting() -> None:
     handoffs: list[dict[str, Any]] = []
     commits: list[str] = []
 
-    def handoff_request(**kwargs: Any) -> bool:
-        handoffs.append(dict(kwargs))
-        return True
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
 
-    def handoff_commit(piece_uuid: str, **_kwargs: Any) -> bool:
-        commits.append(piece_uuid)
-        return True
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
 
-    rt.set_handoff_request_callback(handoff_request)
-    rt.set_handoff_commit_callback(handoff_commit)
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
 
     rt.tick(
         RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
@@ -467,16 +470,19 @@ def test_c4_aborts_distributor_handoff_when_track_is_lost() -> None:
     handoffs: list[dict[str, Any]] = []
     aborts: list[tuple[str, str]] = []
 
-    def handoff_request(**kwargs: Any) -> bool:
-        handoffs.append(dict(kwargs))
-        return True
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
 
-    def handoff_abort(piece_uuid: str, *, reason: str, **_kwargs: Any) -> bool:
-        aborts.append((piece_uuid, reason))
-        return True
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
 
-    rt.set_handoff_request_callback(handoff_request)
-    rt.set_handoff_abort_callback(handoff_abort)
+        def handoff_abort(self, piece_uuid: str, *, reason: str = "handoff_aborted", **_kwargs: Any) -> bool:
+            aborts.append((piece_uuid, reason))
+            return True
+
+    rt.set_handoff_port(_Port())
 
     rt.tick(
         RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),

@@ -307,7 +307,9 @@ class ClassificationChannelConfig:
     startup_purge_max_prime_moves: int
     startup_purge_clear_hold_ms: int
     startup_purge_speed_scale: float
+    startup_purge_acceleration_microsteps_per_second_sq: int | None
     transport_speed_scale: float
+    transport_acceleration_microsteps_per_second_sq: int | None
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
@@ -384,12 +386,14 @@ class ClassificationChannelConfig:
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
         self.startup_purge_speed_scale = 12.0
+        self.startup_purge_acceleration_microsteps_per_second_sq = 10000
         # Scale for the normal pipeline-advance carousel move. Exit drop
         # commit uses a separate eject config, so this only affects the
         # slow pipeline travel, not the precision drop. Tuned live to
         # reach ~1 rpm observed ring speed. Normal travel can run a bit
         # faster now because exit approach/shimmy use the explicit slow path.
         self.transport_speed_scale = 24.0
+        self.transport_acceleration_microsteps_per_second_sq = 10000
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

@@ -728,6 +728,33 @@ def build_rt_runtime(
             if classification_cfg
             else 4.0
         ),
+        carousel_acceleration=(
+            getattr(
+                classification_cfg,
+                "exit_release_shimmy_acceleration_microsteps_per_second_sq",
+                9000,
+            )
+            if classification_cfg
+            else 9000
+        ),
+        transport_acceleration=(
+            getattr(
+                classification_cfg,
+                "transport_acceleration_microsteps_per_second_sq",
+                10000,
+            )
+            if classification_cfg
+            else 10000
+        ),
+        startup_purge_acceleration=(
+            getattr(
+                classification_cfg,
+                "startup_purge_acceleration_microsteps_per_second_sq",
+                10000,
+            )
+            if classification_cfg
+            else 10000
+        ),
     )
     chute_move, chute_position_query = build_chute_callables(irl, rules_engine, log)
 

@@ -3,7 +3,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from rt.hardware.channel_callables import build_c4_callables, build_chute_callables
+from rt.hardware.channel_callables import (
+    build_c2_callables,
+    build_c3_callables,
+    build_c4_callables,
+    build_chute_callables,
+)
 
 
 class _Stepper:
@@ -68,11 +73,18 @@ class _Rules:
 
 class _CarouselStepper:
     def __init__(self) -> None:
+        self.accelerations: list[int] = []
         self.speed_limits: list[tuple[int, int]] = []
         self.moves: list[float] = []
 
-    def set_speed_limits(self, accel: int, speed: int) -> None:
-        self.speed_limits.append((accel, speed))
+    def set_acceleration(self, acceleration: int) -> None:
+        self.accelerations.append(acceleration)
+
+    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
+        self.speed_limits.append((min_speed, max_speed))
+
+    def degrees_for_microsteps(self, steps: int) -> float:
+        return float(steps) / 10.0
 
     def move_degrees(self, degrees: float) -> bool:
         self.moves.append(degrees)
@@ -81,6 +93,86 @@ class _CarouselStepper:
 
 class _CarouselConfig:
     default_steps_per_second = 100
+
+
+@dataclass
+class _RotorPulseConfig:
+    steps_per_pulse: int
+    microsteps_per_second: int
+    delay_between_pulse_ms: int = 0
+    acceleration_microsteps_per_second_sq: int | None = None
+
+
+class _RotorStepper:
+    def __init__(self) -> None:
+        self.accelerations: list[int] = []
+        self.speed_limits: list[tuple[int, int]] = []
+        self.moves: list[float] = []
+
+    def set_acceleration(self, acceleration: int) -> None:
+        self.accelerations.append(acceleration)
+
+    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
+        self.speed_limits.append((min_speed, max_speed))
+
+    def degrees_for_microsteps(self, steps: int) -> float:
+        return float(steps) / 10.0
+
+    def move_degrees(self, degrees: float) -> bool:
+        self.moves.append(degrees)
+        return True
+
+
+def test_c2_callable_applies_configured_motion_profile() -> None:
+    irl = type("Irl", (), {})()
+    irl.c_channel_2_rotor_stepper = _RotorStepper()
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "second_rotor_normal": _RotorPulseConfig(
+                steps_per_pulse=1000,
+                microsteps_per_second=5000,
+                acceleration_microsteps_per_second_sq=2500,
+            )
+        },
+    )()
+
+    pulse, _ = build_c2_callables(irl, logging.getLogger("test"))
+
+    assert pulse(250.0) is True
+
+    assert irl.c_channel_2_rotor_stepper.accelerations == [2500]
+    assert irl.c_channel_2_rotor_stepper.speed_limits == [(16, 5000)]
+    assert irl.c_channel_2_rotor_stepper.moves == [100.0]
+
+
+def test_c3_callable_uses_normal_and_precise_profiles() -> None:
+    irl = type("Irl", (), {})()
+    irl.c_channel_3_rotor_stepper = _RotorStepper()
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "third_rotor_normal": _RotorPulseConfig(
+                steps_per_pulse=2500,
+                microsteps_per_second=12000,
+            ),
+            "third_rotor_precision": _RotorPulseConfig(
+                steps_per_pulse=300,
+                microsteps_per_second=3000,
+            ),
+        },
+    )()
+
+    pulse, _ = build_c3_callables(irl, logging.getLogger("test"))
+
+    assert pulse("normal", 120.0) is True
+    assert pulse("precise", 1000.0) is True
+
+    assert irl.c_channel_3_rotor_stepper.accelerations == [10000, 10000]
+    assert irl.c_channel_3_rotor_stepper.speed_limits == [(16, 12000), (16, 3000)]
+    assert irl.c_channel_3_rotor_stepper.moves == [250.0, 30.0]
 
 
 def test_c4_callables_restore_default_speed_for_slow_moves() -> None:
@@ -97,8 +189,38 @@ def test_c4_callables_restore_default_speed_for_slow_moves() -> None:
     assert transport_move(6.0) is True
     assert carousel_move(3.0) is True
 
+    assert irl.carousel_stepper.accelerations == [10000, 9000]
     assert irl.carousel_stepper.speed_limits == [(16, 240), (16, 100)]
     assert irl.carousel_stepper.moves == [6.0, 3.0]
+
+
+def test_c4_eject_applies_classification_pulse_profile() -> None:
+    irl = type("Irl", (), {})()
+    irl.carousel_stepper = _CarouselStepper()
+    irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "classification_channel_eject": _RotorPulseConfig(
+                steps_per_pulse=1000,
+                microsteps_per_second=3400,
+                acceleration_microsteps_per_second_sq=2500,
+            )
+        },
+    )()
+
+    *_, eject = build_c4_callables(
+        irl,
+        logging.getLogger("test"),
+        transport_speed_scale=2.4,
+    )
+
+    assert eject() is True
+
+    assert irl.carousel_stepper.accelerations == [2500]
+    assert irl.carousel_stepper.speed_limits == [(16, 3400)]
+    assert irl.carousel_stepper.moves == [100.0]
 
 
 def test_chute_callable_moves_bin_and_opens_target_layer() -> None:

@@ -18,6 +18,45 @@ import logging
 from typing import Any, Callable
 
 
+_DEFAULT_MIN_SPEED_USTEPS_PER_S = 16
+_DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2 = 10000
+
+
+def _positive_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    coerced = int(value)
+    return coerced if coerced > 0 else None
+
+
+def _apply_rotor_motion_profile(
+    stepper: Any,
+    cfg: Any,
+    *,
+    default_speed: int | None = None,
+    default_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
+) -> None:
+    """Apply the velocity profile that belongs to one rotor pulse.
+
+    The firmware keeps speed and acceleration as sticky per-stepper settings.
+    Every runtime move therefore has to restate its intended profile; otherwise
+    a prior manual/sweep move can leave C-channels running with stale limits.
+    """
+
+    speed = _positive_int(getattr(cfg, "microsteps_per_second", None))
+    if speed is None:
+        speed = _positive_int(default_speed)
+    acceleration = _positive_int(
+        getattr(cfg, "acceleration_microsteps_per_second_sq", None)
+    )
+    if acceleration is None:
+        acceleration = _positive_int(default_acceleration)
+    if acceleration is not None and hasattr(stepper, "set_acceleration"):
+        stepper.set_acceleration(acceleration)
+    if speed is not None and hasattr(stepper, "set_speed_limits"):
+        stepper.set_speed_limits(_DEFAULT_MIN_SPEED_USTEPS_PER_S, speed)
+
+
 def build_c1_callables(
     irl: Any, logger: logging.Logger
 ) -> tuple[Callable[[], bool], Callable[[int], bool]]:
@@ -43,6 +82,7 @@ def build_c1_callables(
             logger.error("TODO_PHASE5_WIRING: c1 pulse - feeder_config.first_rotor missing")
             return False
         try:
+            _apply_rotor_motion_profile(stepper, pulse_cfg)
             deg = stepper.degrees_for_microsteps(pulse_cfg.steps_per_pulse)
             return bool(stepper.move_degrees(deg))
         except Exception:
@@ -75,6 +115,7 @@ def build_c2_callables(
             logger.error("TODO_PHASE5_WIRING: c2 pulse - stepper/cfg missing")
             return False
         try:
+            _apply_rotor_motion_profile(stepper, cfg)
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
             return bool(stepper.move_degrees(deg))
         except Exception:
@@ -108,6 +149,7 @@ def build_c3_callables(
             else feeder_cfg.third_rotor_normal
         )
         try:
+            _apply_rotor_motion_profile(stepper, cfg)
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
             return bool(stepper.move_degrees(deg))
         except Exception:
@@ -129,6 +171,9 @@ def build_c4_callables(
     *,
     startup_purge_speed_scale: float = 1.0,
     transport_speed_scale: float = 1.0,
+    carousel_acceleration: int | None = 9000,
+    transport_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
+    startup_purge_acceleration: int | None = _DEFAULT_RAMP_ACCELERATION_USTEPS_PER_S2,
 ) -> tuple[
     Callable[[float], bool],
     Callable[[float], bool],
@@ -142,7 +187,12 @@ def build_c4_callables(
         speed = getattr(cfg, "default_steps_per_second", None)
         return int(speed) if isinstance(speed, int) and speed > 0 else None
 
-    def _move_with_speed_limit(deg: float, *, speed_limit: int | None) -> bool:
+    def _move_with_speed_limit(
+        deg: float,
+        *,
+        speed_limit: int | None,
+        acceleration: int | None,
+    ) -> bool:
         stepper = getattr(irl, "carousel_stepper", None)
         if stepper is None:
             logger.error("TODO_PHASE5_WIRING: c4 carousel move - stepper missing")
@@ -150,8 +200,14 @@ def build_c4_callables(
         default_speed = _default_speed_limit()
         target_speed = speed_limit or default_speed
         try:
+            accel = _positive_int(acceleration)
+            if accel is not None and hasattr(stepper, "set_acceleration"):
+                stepper.set_acceleration(accel)
             if target_speed is not None:
-                stepper.set_speed_limits(16, int(target_speed))
+                stepper.set_speed_limits(
+                    _DEFAULT_MIN_SPEED_USTEPS_PER_S,
+                    int(target_speed),
+                )
             return bool(stepper.move_degrees(deg))
         except Exception:
             logger.exception("RuntimeC4: carousel_move raised")
@@ -169,10 +225,18 @@ def build_c4_callables(
         )
 
     def carousel_move(deg: float) -> bool:
-        return _move_with_speed_limit(deg, speed_limit=None)
+        return _move_with_speed_limit(
+            deg,
+            speed_limit=None,
+            acceleration=carousel_acceleration,
+        )
 
     def transport_move(deg: float) -> bool:
-        return _move_with_speed_limit(deg, speed_limit=transport_speed_limit)
+        return _move_with_speed_limit(
+            deg,
+            speed_limit=transport_speed_limit,
+            acceleration=transport_acceleration,
+        )
 
     purge_speed_limit = None
     default_speed = _default_speed_limit()
@@ -183,7 +247,11 @@ def build_c4_callables(
         )
 
     def startup_purge_move(deg: float) -> bool:
-        return _move_with_speed_limit(deg, speed_limit=purge_speed_limit)
+        return _move_with_speed_limit(
+            deg,
+            speed_limit=purge_speed_limit,
+            acceleration=startup_purge_acceleration,
+        )
 
     def startup_purge_mode(enabled: bool) -> bool:
         stepper = getattr(irl, "carousel_stepper", None)
@@ -192,7 +260,10 @@ def build_c4_callables(
             return True
         speed_limit = purge_speed_limit if enabled and purge_speed_limit is not None else default_speed
         try:
-            stepper.set_speed_limits(16, int(speed_limit))
+            stepper.set_speed_limits(
+                _DEFAULT_MIN_SPEED_USTEPS_PER_S,
+                int(speed_limit),
+            )
             return True
         except Exception:
             logger.exception("RuntimeC4: startup purge mode speed-limit change raised")
@@ -216,6 +287,12 @@ def build_c4_callables(
             )
             return False
         try:
+            _apply_rotor_motion_profile(
+                stepper,
+                cfg,
+                default_speed=_default_speed_limit(),
+                default_acceleration=transport_acceleration,
+            )
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
             return bool(stepper.move_degrees(deg))
         except Exception:

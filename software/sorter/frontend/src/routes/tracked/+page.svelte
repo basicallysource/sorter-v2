@@ -66,6 +66,12 @@
 	type SortKey = 'ring' | 'updated' | 'name' | 'conf' | 'bin' | 'stage';
 	type SortDir = 'asc' | 'desc';
 
+	// Module-level cache: lives for the browser session, not for one mount.
+	// First visit pays the fetch latency; subsequent visits to /tracked paint
+	// instantly with the last known list, then refresh in the background.
+	let CACHED_ITEMS: TrackedPieceRow[] = [];
+	let CACHED_DROP_ANGLE_DEG: number | null = null;
+
 	const ctx = getMachineContext();
 
 	onMount(() => {
@@ -186,10 +192,14 @@
 		return 'text-text';
 	}
 
-	let items = $state<TrackedPieceRow[]>([]);
+	// Module-level cache: survives client-side navigation so returning to the
+	// page renders the last-known list immediately while a background refresh
+	// replaces it with fresh data. Gone on hard reload (not worth persisting
+	// to localStorage — a fresh fetch is fast enough).
+	let items = $state<TrackedPieceRow[]>(CACHED_ITEMS);
 	let loading = $state(false);
 	let clearing = $state(false);
-	let dropAngleDeg = $state<number | null>(null);
+	let dropAngleDeg = $state<number | null>(CACHED_DROP_ANGLE_DEG);
 
 	const initialParams =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -236,6 +246,8 @@
 			items = Array.isArray(json?.items) ? (json.items as TrackedPieceRow[]) : [];
 			dropAngleDeg =
 				typeof json?.drop_angle_deg === 'number' ? (json.drop_angle_deg as number) : null;
+			CACHED_ITEMS = items;
+			CACHED_DROP_ANGLE_DEG = dropAngleDeg;
 		} catch {
 			// ignore
 		} finally {
@@ -516,10 +528,10 @@
 
 	<a
 		href={`/tracked/${row.uuid}`}
-		class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-1.5 text-sm transition-colors hover:bg-surface"
+		class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-2 text-base transition-colors hover:bg-surface"
 	>
 		<!-- Thumbnail -->
-		<div class="relative h-12 w-12 flex-shrink-0 border border-border bg-white">
+		<div class="relative h-14 w-14 flex-shrink-0 border border-border bg-white">
 			{#if thumb_src}
 				<img src={thumb_src} alt="" class="h-full w-full object-contain" loading="lazy" />
 			{:else}
@@ -528,14 +540,14 @@
 				</div>
 			{/if}
 			{#if row.live}
-				<span class="absolute -top-1 -right-1 h-2 w-2 bg-success" title="Live"></span>
+				<span class="absolute -top-1 -right-1 h-2.5 w-2.5 bg-success" title="Live"></span>
 			{/if}
 		</div>
 
 		<!-- Identity: name + part_id + track# -->
 		<div class="flex min-w-0 flex-col">
 			<span class="truncate font-medium {primaryClass(piece)}">{primaryLabel(row)}</span>
-			<span class="truncate font-mono text-xs text-text-muted tabular-nums">
+			<span class="truncate font-mono text-sm text-text-muted tabular-nums">
 				{piece.part_id ?? '—'}{#if track_label}
 					<span class="ml-2">#{track_label}</span>
 				{/if}
@@ -545,67 +557,67 @@
 		<!-- Color -->
 		<div class="flex min-w-0 items-center gap-1.5">
 			{#if lego_color}
-				<span class="inline-block h-3 w-3 flex-shrink-0 border border-border" style:background-color={lego_color.hex}></span>
-				<span class="truncate text-xs text-text">{lego_color.name}</span>
+				<span class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border" style:background-color={lego_color.hex}></span>
+				<span class="truncate text-sm text-text">{lego_color.name}</span>
 			{:else if piece.color_name && piece.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-				<span class="truncate text-xs text-text-muted">{piece.color_name}</span>
+				<span class="truncate text-sm text-text-muted">{piece.color_name}</span>
 			{:else}
-				<span class="text-xs text-text-muted">—</span>
+				<span class="text-sm text-text-muted">—</span>
 			{/if}
 		</div>
 
 		<!-- Category -->
 		<div class="min-w-0">
 			{#if category_label && !is_unknown && !is_multi_drop}
-				<span class="truncate text-xs text-text-muted">{category_label}</span>
+				<span class="truncate text-sm text-text-muted">{category_label}</span>
 			{:else}
-				<span class="text-xs text-text-muted">—</span>
+				<span class="text-sm text-text-muted">—</span>
 			{/if}
 		</div>
 
 		<!-- Confidence -->
 		<div class="text-right">
 			{#if typeof piece.confidence === 'number' && !is_unknown && !is_multi_drop}
-				<span class="font-mono text-xs font-semibold tabular-nums {confidenceClass(piece.confidence)}">
+				<span class="font-mono text-sm font-semibold tabular-nums {confidenceClass(piece.confidence)}">
 					{(piece.confidence * 100).toFixed(0)}%
 				</span>
 			{:else}
-				<span class="text-xs text-text-muted">—</span>
+				<span class="text-sm text-text-muted">—</span>
 			{/if}
 		</div>
 
 		<!-- Bin / Drop -->
 		<div class="text-right">
 			{#if phase === 'distributed'}
-				<span class="font-mono text-xs tabular-nums {is_unknown || is_multi_drop ? 'text-warning-dark' : 'text-text'}">
+				<span class="font-mono text-sm tabular-nums {is_unknown || is_multi_drop ? 'text-warning-dark' : 'text-text'}">
 					{is_unknown || is_multi_drop ? 'discard' : bin_label}
 				</span>
 			{:else if row.active && row.polar_offset_deg != null}
-				<span class="font-mono text-xs text-text-muted tabular-nums" title="Polar offset to C4 drop angle">
+				<span class="font-mono text-sm text-text-muted tabular-nums" title="Polar offset to C4 drop angle">
 					Δ{row.polar_offset_deg.toFixed(1)}°
 				</span>
 			{:else if bin_label !== '—'}
-				<span class="font-mono text-xs text-text-muted tabular-nums">{bin_label}</span>
+				<span class="font-mono text-sm text-text-muted tabular-nums">{bin_label}</span>
 			{:else}
-				<span class="text-xs text-text-muted">—</span>
+				<span class="text-sm text-text-muted">—</span>
 			{/if}
 		</div>
 
 		<!-- Stage chip -->
 		<div>
 			{#if status_override}
-				<span class="inline-flex items-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {status_override.cls}">
+				<span class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider {status_override.cls}">
 					{status_override.label}
 				</span>
 			{:else}
-				<span class="inline-flex items-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
+				<span class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
 					{PHASE_LABEL[phase]}
 				</span>
 			{/if}
 		</div>
 
 		<!-- Age -->
-		<div class="text-right font-mono text-xs text-text-muted tabular-nums">
+		<div class="text-right font-mono text-sm text-text-muted tabular-nums">
 			{formatRelativeTime(age_ts)}
 		</div>
 	</a>
@@ -721,33 +733,33 @@
 
 		<div class="grid grid-cols-2 gap-px border border-border bg-border text-sm sm:grid-cols-3 xl:grid-cols-6">
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Pieces</span>
-				<span class="tabular-nums text-base font-semibold text-text">{stats.total}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Pieces</span>
+				<span class="tabular-nums text-xl font-semibold text-text">{stats.total}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Active</span>
-				<span class="tabular-nums text-base font-semibold text-primary">{stats.active}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Active</span>
+				<span class="tabular-nums text-xl font-semibold text-primary">{stats.active}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Live</span>
-				<span class="tabular-nums text-base font-semibold text-success-dark">{stats.live}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Live</span>
+				<span class="tabular-nums text-xl font-semibold text-success-dark">{stats.live}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Classified</span>
-				<span class="tabular-nums text-base font-semibold text-success-dark">{stats.classified}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Classified</span>
+				<span class="tabular-nums text-xl font-semibold text-success-dark">{stats.classified}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Distributed</span>
-				<span class="tabular-nums text-base font-semibold text-text">{stats.distributed}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Distributed</span>
+				<span class="tabular-nums text-xl font-semibold text-text">{stats.distributed}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-xs uppercase tracking-wider text-text-muted">Track lost</span>
-				<span class="tabular-nums text-base font-semibold text-warning-dark">{stats.lost}</span>
+				<span class="text-sm uppercase tracking-wider text-text-muted">Track lost</span>
+				<span class="tabular-nums text-xl font-semibold text-warning-dark">{stats.lost}</span>
 			</div>
 		</div>
 
 		{#if sortKey === 'ring' && dropAngleDeg != null && stats.active > 0}
-			<div class="border border-border bg-surface px-3 py-1.5 text-xs text-text-muted">
+			<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">
 				Ring order: active pieces first, ordered by polar offset to the C4 drop angle
 				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>.
 			</div>
@@ -760,7 +772,7 @@
 		{:else}
 			<div class="border border-border bg-surface">
 				<!-- Header row: sortable column labels -->
-				<div class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+				<div class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
 					<div></div>
 					<button type="button" class="flex items-center text-left hover:text-text" onclick={() => cycleSort('name')}>
 						Piece{sortArrow('name')}
@@ -786,7 +798,7 @@
 				{/each}
 			</div>
 
-			<div class="text-xs text-text-muted tabular-nums">
+			<div class="text-sm text-text-muted tabular-nums">
 				{sortedItems.length} piece{sortedItems.length === 1 ? '' : 's'} shown
 			</div>
 		{/if}
@@ -797,20 +809,20 @@
 	/* Piece list: one grid template for header + rows so columns align.
 	   Collapses to a 2-column (thumb + identity) block on narrow viewports. */
 	.piece-grid-row {
-		grid-template-columns: 48px 1fr;
+		grid-template-columns: 56px 1fr;
 	}
 
 	@media (min-width: 900px) {
 		.piece-grid-row {
 			grid-template-columns:
-				48px
+				56px
 				minmax(0, 1.4fr)
 				minmax(0, 0.9fr)
 				minmax(0, 0.9fr)
-				56px
-				80px
-				90px
-				64px;
+				64px
+				96px
+				110px
+				72px;
 		}
 	}
 </style>

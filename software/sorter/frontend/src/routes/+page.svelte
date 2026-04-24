@@ -8,7 +8,7 @@
 	import ContinuousMotionPanel from '$lib/components/ContinuousMotionPanel.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
-	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
+	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { loadPolygons } from '$lib/settings/polygons-service';
@@ -501,7 +501,7 @@
 					<SortingStatusCard />
 				</CollapsibleSection>
 				<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
-					<SidebarBottomTabs />
+					<RuntimeStats />
 				</CollapsibleSection>
 			</div>
 		</div>

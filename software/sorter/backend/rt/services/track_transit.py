@@ -95,6 +95,7 @@ class TrackTransitRegistry:
         now_mono: float,
         max_age_s: float | None = None,
         allowed_relations: tuple[str, ...] | set[str] | None = None,
+        exclude_same_global_id: bool = False,
     ) -> TransitCandidate | None:
         now = float(now_mono)
         target = str(target_runtime)
@@ -106,7 +107,10 @@ class TrackTransitRegistry:
                 for c in self._candidates.values()
                 if c.target_runtime == target
                 and c.expires_at_mono >= now
-                and c.source_global_id != track.global_id
+                and (
+                    not exclude_same_global_id
+                    or c.source_global_id != track.global_id
+                )
                 and (relations is None or c.relation in relations)
                 and (
                     max_age_s is None

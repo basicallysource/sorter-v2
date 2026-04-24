@@ -44,7 +44,23 @@ def test_claim_returns_matching_target_candidate() -> None:
     assert registry.snapshot(10.2) == []
 
 
-def test_claim_skips_same_global_id_candidate() -> None:
+def test_claim_allows_same_global_id_candidate_by_default() -> None:
+    registry = TrackTransitRegistry(default_ttl_s=1.0)
+    candidate = registry.begin(
+        source_runtime="c4",
+        source_feed="c4_feed",
+        source_global_id=9,
+        target_runtime="c4",
+        now_mono=1.0,
+    )
+
+    assert (
+        registry.claim(target_runtime="c4", track=_track(global_id=9), now_mono=1.2)
+        == candidate
+    )
+
+
+def test_claim_can_exclude_same_global_id_candidate() -> None:
     registry = TrackTransitRegistry(default_ttl_s=1.0)
     registry.begin(
         source_runtime="c4",
@@ -59,6 +75,7 @@ def test_claim_skips_same_global_id_candidate() -> None:
             target_runtime="c4",
             track=_track(global_id=9),
             now_mono=1.2,
+            exclude_same_global_id=True,
         )
         is None
     )

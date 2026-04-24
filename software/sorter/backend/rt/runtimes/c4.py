@@ -398,7 +398,7 @@ class RuntimeC4(BaseRuntime):
             source_global_id=dossier.global_id,
             target_runtime=self.runtime_id,
             now_mono=now,
-            ttl_s=2.0,
+            ttl_s=8.0,
             piece_uuid=dossier.piece_uuid,
             relation="track_split",
             payload={
@@ -857,7 +857,7 @@ class RuntimeC4(BaseRuntime):
             target_runtime=self.runtime_id,
             track=track,
             now_mono=now_mono,
-            max_age_s=4.0,
+            max_age_s=8.0,
             allowed_relations=allowed_relations,
         )
         if transit is not None:

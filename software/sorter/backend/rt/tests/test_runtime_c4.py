@@ -408,6 +408,35 @@ def test_c4_reuses_lost_piece_uuid_when_track_reappears_via_transit() -> None:
     assert rt.debug_snapshot()["transit_link_count"] == 1
 
 
+def test_c4_reuses_lost_piece_uuid_when_same_track_id_reappears() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=2.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=7.5,
+    )
+
+    dossier = rt.dossier_for(piece_uuid)
+    assert dossier is not None
+    assert dossier.global_id == 17
+    assert dossier.extras["track_stitched"] is True
+    assert dossier.extras["previous_tracked_global_id"] == 17
+
+
 def test_c4_consumes_c3_to_c4_transit_metadata() -> None:
     registry = TrackTransitRegistry()
     registry.begin(

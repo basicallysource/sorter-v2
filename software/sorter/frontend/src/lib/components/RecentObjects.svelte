@@ -15,53 +15,53 @@
 	} from '$lib/recent-pieces';
 
 	const ctx = getMachineContext();
-	const FALLBACK_C4_EXIT_ANGLE_DEG = 30;
 
 	onMount(() => {
 		void sortingProfileStore.load().catch(() => {});
 	});
 
+	// "Upcoming" = pieces on C4 that have not yet been distributed. Ordering
+	// is deliberately **stable FIFO** (entry timestamp), not the dynamic
+	// "distance to exit" we had before. The carousel geometry meant that a
+	// small angle jitter from the tracker would swap two adjacent rows on
+	// nearly every frame, and legitimate zone-state transitions
+	// (`active` → `superseded` as a piece rotates past the drop point)
+	// hid pieces mid-cycle. Operators want a calm, predictable list where
+	// the bottom row — right above the "distributed" divider — is always
+	// the next piece to drop.
 	const upcoming = $derived.by(() => {
-		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
-		// Dedupe by tracked_global_id (the tracker's identity key). Same
-		// global_id = same physical piece, even if re-classified as a new
-		// KnownObject. Different global_ids = distinct physical pieces, even
-		// if they happen to be the same LEGO part.
-		const recent_delivered_global_ids = new Set<number | string>();
-		const now_s = Date.now() / 1000;
-		for (const o of all) {
-			if (lifecyclePhase(o) !== 'distributed') continue;
-			const gid = o.tracked_global_id;
-			if (gid === null || gid === undefined) continue;
-			const ts = o.distributed_at ?? o.updated_at ?? 0;
-			if (now_s - ts > 15) continue;
-			recent_delivered_global_ids.add(gid);
-		}
-		const list = all
-			.filter((o) => lifecyclePhase(o) !== 'distributed')
-			.filter((o) => {
-				const gid = o.tracked_global_id;
-				if (gid === null || gid === undefined) return true;
-				return !recent_delivered_global_ids.has(gid);
-			});
-		list.sort((a, b) => {
-			const aDistance = exitDistanceDeg(a);
-			const bDistance = exitDistanceDeg(b);
-			if (Number.isFinite(aDistance) && Number.isFinite(bDistance)) {
-				if (aDistance !== bDistance) return aDistance - bDistance;
-			}
-			if (Number.isFinite(aDistance)) return -1;
-			if (Number.isFinite(bDistance)) return 1;
-			return (
-				(b.first_carousel_seen_ts ?? b.created_at ?? 0) -
-				(a.first_carousel_seen_ts ?? a.created_at ?? 0)
+		const all = ctx.machine?.recentObjects ?? [];
+		// Visibility in the "currently on C4" list: any dossier that was
+		// admitted to C4 and has not yet been distributed. We intentionally
+		// do NOT filter by `classification_channel_zone_state` (active /
+		// lost / superseded) here — a piece is on the carousel for its full
+		// rotation even when the momentary zone is "superseded", and using
+		// the transient state as a visibility gate is the main source of
+		// the previously observed flicker.
+		const list = all.filter((o) => {
+			if (lifecyclePhase(o) === 'distributed') return false;
+			// Still requires *some* evidence of being on C4 so unrelated
+			// historical rows don't leak into the widget.
+			return Boolean(
+				o.tracked_global_id !== null && o.tracked_global_id !== undefined ||
+					o.first_carousel_seen_ts ||
+					o.classification_channel_zone_center_deg !== undefined ||
+					o.classification_channel_zone_state ||
+					o.classified_at
 			);
 		});
-		// Collapse identity splits: same physical piece may briefly surface as
-		// multiple KnownObjects while C4 tracking settles. Phase 6 (unified
-		// dossier) makes this a strict uuid / tracked_global_id lookup — an
-		// item without either is not a real piece we can navigate to, so we
-		// drop it rather than invent a synthetic key.
+		// FIFO by carousel entry: oldest pieces are closest to being dropped
+		// (they rotate around first), so sort ascending by entry ts and let
+		// the trailing reverse() put "next to drop" at the bottom, right
+		// above the distributed divider.
+		list.sort((a, b) => {
+			const ta = a.first_carousel_seen_ts ?? a.created_at ?? 0;
+			const tb = b.first_carousel_seen_ts ?? b.created_at ?? 0;
+			return ta - tb;
+		});
+		// Collapse identity splits: same physical piece may surface as
+		// multiple KnownObjects while C4 tracking settles. Keyed off
+		// tracked_global_id (stable across rotations with BoTSORT) or uuid.
 		const seen_keys = new Set<string>();
 		const deduped: typeof list = [];
 		for (const o of list) {
@@ -110,17 +110,6 @@
 		if (pct >= 80) return 'text-warning';
 		if (pct >= 60) return 'text-warning/70';
 		return 'text-danger';
-	}
-
-	function wrappedAngleDistanceDeg(angle: number, target: number): number {
-		return Math.abs(((angle - target + 540) % 360) - 180);
-	}
-
-	function exitDistanceDeg(obj: KnownObjectData): number {
-		const angle = obj.classification_channel_zone_center_deg;
-		if (typeof angle !== 'number' || !Number.isFinite(angle)) return Number.POSITIVE_INFINITY;
-		const exit = obj.classification_channel_exit_deg ?? FALLBACK_C4_EXIT_ANGLE_DEG;
-		return wrappedAngleDistanceDeg(angle, exit);
 	}
 
 	const PHASE_LABEL: Record<LifecyclePhase, string> = {

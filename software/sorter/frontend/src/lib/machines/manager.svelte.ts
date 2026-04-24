@@ -253,17 +253,18 @@ export class MachineManager {
 			if (incoming_key !== null && key !== null) return key === incoming_key;
 			return o.uuid === obj.uuid;
 		});
-		const keep = shouldKeepRecentObject(obj);
 		let updated_objects: KnownObjectData[];
 
 		if (existing_idx >= 0) {
+			// Always update an existing entry in place — never remove it based
+			// on the display filter. The storage layer is append-only history;
+			// components decide what to render. Removing on every transient
+			// state flip (active → superseded → active as a piece rotates past
+			// the drop zone, or registered → classified) was the main source
+			// of Recent-Pieces churn during live sorting.
 			updated_objects = [...machine.recentObjects];
-			if (keep) {
-				updated_objects[existing_idx] = obj;
-			} else {
-				updated_objects.splice(existing_idx, 1);
-			}
-		} else if (keep) {
+			updated_objects[existing_idx] = obj;
+		} else if (shouldKeepRecentObject(obj)) {
 			updated_objects = [obj, ...machine.recentObjects].slice(0, RECENT_OBJECT_LIMIT);
 		} else {
 			return;

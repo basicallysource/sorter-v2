@@ -783,7 +783,10 @@
 
 			<!-- Matrix-Shot + Track path side by side (when both exist). -->
 			{#if burstFrames.length > 0 || piece.tracked_global_id != null}
-				<section class="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+				<!-- 3-col grid: Matrix-Shot (1 col) + Track path (2 cols) so the
+				     composite has room for C3 + C4 side-by-side once continuous
+				     multi-channel tracking is wired up. -->
+				<section class="grid gap-3 md:grid-cols-3">
 					{#if burstFrames.length > 0}
 						<div class="overflow-hidden border border-border bg-surface">
 							<div class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5">
@@ -860,7 +863,7 @@
 					{/if}
 
 					{#if piece.tracked_global_id != null}
-						<div class="overflow-hidden border border-border bg-surface">
+						<div class="overflow-hidden border border-border bg-surface md:col-span-2">
 							<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5">
 								<span class="text-xs font-semibold uppercase tracking-wider text-text">Track path</span>
 								<a
@@ -872,7 +875,7 @@
 									#{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
 								</a>
 							</div>
-							<div class="track-path-compact max-h-[430px] overflow-auto p-2">
+							<div class="track-path-compact max-h-[520px] overflow-auto p-2">
 								<TrackPathComposite {usedCropTs} detailSnapshot={trackDetail} />
 							</div>
 						</div>

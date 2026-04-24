@@ -543,7 +543,7 @@
 				{#if piece.part_name && piece.part_id}
 					<div class="truncate font-mono text-sm text-text-muted">{piece.part_id}</div>
 				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-sm text-text-muted">Tracked on carousel…</div>
+					<div class="text-sm text-text-muted">Tracked on C4…</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
 					<div class="text-sm text-text-muted">Capturing on C4…</div>
 				{/if}

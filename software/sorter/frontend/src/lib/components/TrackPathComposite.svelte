@@ -107,8 +107,11 @@
 	}
 
 	function formatRoleLabel(role: string): string {
-		if (role === 'classification_channel') return 'Classification C-Channel (C4)';
-		if (role === 'carousel') return 'Carousel';
+		// The backend still calls the classification channel "carousel" —
+		// normalize both spellings to the user-facing domain label.
+		if (role === 'classification_channel' || role === 'carousel') {
+			return 'Classification Channel (C4)';
+		}
 		if (role === 'c_channel_2') return 'C-Channel 2';
 		if (role === 'c_channel_3') return 'C-Channel 3';
 		return role.replace('c_channel_', 'C-Channel ');
@@ -179,10 +182,13 @@
 {#if !detail}
 	<div class="text-sm text-text-muted">No track data.</div>
 {:else}
-	<div class="flex flex-col gap-3">
+	<!-- flex-wrap: a single segment fills the row; two (C3 + C4 once
+	     multi-channel tracking is wired up) sit side-by-side when there's
+	     room, and fall back to stacked when the container is narrow. -->
+	<div class="flex flex-wrap gap-3">
 		{#each detail.segments as segment, idx (idx)}
 			{@const seg_snapshot_src = segmentSnapshotSrc(segment)}
-			<div class="border border-border bg-bg">
+			<div class="flex min-w-0 flex-1 flex-col border border-border bg-bg md:min-w-[320px]">
 				<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-sm">
 					<span class="font-medium text-text">
 						{formatRoleLabel(segmentRole(segment))}

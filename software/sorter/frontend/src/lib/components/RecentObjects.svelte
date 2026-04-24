@@ -265,7 +265,7 @@
 				{#if has_name && obj.part_id}
 					<div class="truncate font-mono text-xs text-text-muted">{obj.part_id}</div>
 				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-xs text-text-muted">Tracked on carousel…</div>
+					<div class="text-xs text-text-muted">Tracked on C4…</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
 					<div class="text-xs text-text-muted">Capturing on C4…</div>
 				{/if}

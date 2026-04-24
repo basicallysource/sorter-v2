@@ -11,9 +11,21 @@
 		outcomes?: Record<string, { count?: number; active_ppm?: number }>;
 	};
 
+	type ValueSummary = {
+		n?: number;
+		avg?: number;
+		med?: number;
+		p90?: number;
+		min?: number;
+		max?: number;
+	};
+
 	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, number>);
 	const throughput = $derived((runtime_stats.throughput ?? {}) as Record<string, unknown>);
+	const inter_piece_ppm = $derived(
+		(throughput.inter_piece_ppm ?? {}) as ValueSummary
+	);
 	const channel_throughput = $derived(
 		(runtime_stats.channel_throughput ?? {}) as Record<string, ChannelThroughputEntry>
 	);
@@ -43,16 +55,17 @@
 	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
 	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
 
-	// Distribution rate: unique physical pieces dropped into bins per
-	// minute. The backend's ``throughput.overall_ppm`` counts dossier
-	// distributions, which inflates by the rotation factor (same piece
-	// going through drop commit on multiple rotations, e.g. when a
-	// distribution gets rejected and the piece loops back around). We
-	// want a stable "pieces actually in the bins per minute" number.
+	// Distribution rate — pieces/min observed in a rolling 5-minute window
+	// of ``distributed_at`` timestamps. Computed by the backend from the
+	// actual span of the recent events so the rate is session-independent
+	// (it doesn't divide cumulative counts by current running_time_s, the
+	// formula that inflates wildly right after a restart when the counter
+	// carries historical pieces but the time denominator starts at zero).
 	const dist_rate_ppm = $derived.by(() => {
-		const running_s = throughput.running_time_s;
-		if (typeof running_s !== 'number' || running_s <= 0) return 0;
-		return (unique_pieces_distributed * 60) / running_s;
+		const recent = throughput.recent_ppm;
+		if (typeof recent === 'number' && recent >= 0) return recent;
+		const overall = throughput.overall_ppm;
+		return typeof overall === 'number' ? overall : 0;
 	});
 
 	// Classification success rate — share of finished classifications that
@@ -73,12 +86,14 @@
 		return (multi_drop_n / finished) * 100;
 	});
 
-	// Feed rate: unique physical pieces admitted per minute. With BoTSORT
-	// the tracked_global_id is stable across rotations, so counting
-	// distinct gids gives the true rate at which new pieces enter the
-	// system. Using dossier count here would inflate the number by the
-	// rotation factor (a single piece orbiting 10x would read as 10 new).
+	// Feed rate — new physical pieces entering C4 per minute, computed
+	// from the actual wall-clock span of the most recent 5 min of
+	// ``first_carousel_seen_ts`` events. Same rationale as dist_rate_ppm:
+	// anchored on real event times, not on cumulative_count /
+	// current_running_time_s.
 	const feed_rate_ppm = $derived.by(() => {
+		const recent = throughput.feed_recent_ppm;
+		if (typeof recent === 'number' && recent >= 0) return recent;
 		const running_s = throughput.running_time_s;
 		if (typeof running_s !== 'number' || running_s <= 0) return 0;
 		return (unique_pieces_seen * 60) / running_s;

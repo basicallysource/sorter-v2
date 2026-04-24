@@ -851,6 +851,30 @@ class RuntimeStatsCollector:
     def snapshot(self) -> dict[str, Any]:
         now = time.time()
 
+        # Keep running-time accounting honest even if
+        # ``setLifecycleState("running")`` was never called. Post-RT-cutover
+        # the queue-driven path in main.py can race or silently drop the
+        # event (seen on live hardware: rt_handle.paused flips to False but
+        # lifecycle stays at "initializing"). Without this sync, every rate
+        # tile on the widget reads as zero because running_time_s never
+        # ticks. We read the rt_handle directly as the source of truth and
+        # lazy-flip our internal state to match.
+        try:
+            from server import shared_state
+
+            rt_handle = getattr(shared_state, "rt_handle", None)
+        except Exception:
+            rt_handle = None
+        if rt_handle is not None:
+            rt_running = bool(
+                getattr(rt_handle, "started", False)
+                and not getattr(rt_handle, "paused", False)
+            )
+            if rt_running and not self._is_running:
+                self.setLifecycleState("running")
+            elif (not rt_running) and self._is_running:
+                self.setLifecycleState("paused")
+
         def addDuration(
             out: list[float],
             piece: dict[str, Any],
@@ -876,6 +900,11 @@ class RuntimeStatsCollector:
         unique_gids: set[int] = set()
         unique_distributed_gids: set[int] = set()
         unique_classified_gids: set[int] = set()
+        # Also track the earliest carousel-seen wall timestamp per gid so the
+        # widget can compute a session-independent feed rate (rate at which
+        # new physical pieces enter C4, based on the actual arrival times —
+        # not cumulative_count ÷ current_running_time_s).
+        first_seen_by_gid: dict[int, float] = {}
         for piece in all_pieces:
             gid = piece.get("tracked_global_id")
             if not isinstance(gid, int):
@@ -890,6 +919,11 @@ class RuntimeStatsCollector:
             )
             if status == "classified":
                 unique_classified_gids.add(gid)
+            first_seen = piece.get("first_carousel_seen_ts") or piece.get("created_at")
+            if isinstance(first_seen, (int, float)):
+                existing = first_seen_by_gid.get(gid)
+                if existing is None or float(first_seen) < existing:
+                    first_seen_by_gid[gid] = float(first_seen)
         counts = {
             "pieces_seen": len(all_pieces),
             "unique_pieces_seen": len(unique_gids),
@@ -1010,6 +1044,33 @@ class RuntimeStatsCollector:
         throughput_overall_ppm: float | None = None
         if running_time_s > 0 and counts["distributed"] > 0:
             throughput_overall_ppm = (float(counts["distributed"]) * 60.0) / running_time_s
+        # Recent-window rate — the one the widget actually wants to show.
+        # "All-time count ÷ current session running_time_s" inflates wildly
+        # right after a restart (numerator carries historical pieces, the
+        # denominator starts at 0). Instead: look at the wall-clock span
+        # between the first and last distribution in a rolling window and
+        # report the rate observed there. Falls back to the overall rate
+        # when we have too few samples (< 2) to form a span.
+        recent_ppm: float | None = None
+        window_s = 300.0  # 5 minutes
+        window_cut = now - window_s
+        recent_ts = [ts for ts in distributed_timestamps if ts >= window_cut]
+        if len(recent_ts) >= 2:
+            span_s = recent_ts[-1] - recent_ts[0]
+            if span_s > 0:
+                # (N - 1) intervals span (ts[-1] - ts[0]) seconds.
+                recent_ppm = (len(recent_ts) - 1) * 60.0 / span_s
+        elif throughput_overall_ppm is not None:
+            recent_ppm = throughput_overall_ppm
+        # Same rolling-window calculation for the feed rate, keyed off the
+        # first-carousel-seen timestamp of each unique physical piece.
+        feed_recent_ppm: float | None = None
+        feed_ts_sorted = sorted(first_seen_by_gid.values())
+        recent_feed_ts = [ts for ts in feed_ts_sorted if ts >= window_cut]
+        if len(recent_feed_ts) >= 2:
+            span_s = recent_feed_ts[-1] - recent_feed_ts[0]
+            if span_s > 0:
+                feed_recent_ppm = (len(recent_feed_ts) - 1) * 60.0 / span_s
         pulse_counts = {
             k: {
                 "attempts": v.attempts,
@@ -1161,6 +1222,9 @@ class RuntimeStatsCollector:
                 "running_time_s": running_time_s,
                 "distributed_count": counts["distributed"],
                 "overall_ppm": throughput_overall_ppm,
+                "recent_ppm": recent_ppm,
+                "recent_window_s": window_s,
+                "feed_recent_ppm": feed_recent_ppm,
                 "inter_piece_ppm": _calcValueSummary(inter_piece_ppm_samples),
             },
             "channel_throughput": channel_throughput,

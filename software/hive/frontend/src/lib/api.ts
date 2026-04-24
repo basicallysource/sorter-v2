@@ -401,7 +401,7 @@ export interface MachineProfileAssignment {
 	last_activated_at: string | null;
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
 	const explicit = (env.PUBLIC_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
 	if (explicit) return explicit;
 	if (typeof window !== 'undefined') {

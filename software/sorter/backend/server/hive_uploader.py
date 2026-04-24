@@ -24,6 +24,104 @@ UPLOAD_THROTTLE_S = 0.8
 HEARTBEAT_INTERVAL_S = 30.0
 SERVER_DOWN_BACKOFF_S = 10.0
 SERVER_DOWN_MAX_BACKOFF_S = 120.0
+RECENT_UPLOAD_EVENT_LIMIT = 120
+LOW_SIGNAL_MEAN_GRAY = 3.0
+LOW_SIGNAL_NONBLACK_RATIO = 0.01
+STRICT_TEACHER_SAMPLE_ROLES = {
+    "classification_channel",
+    "c_channel_2",
+    "c_channel_3",
+}
+BLOCKED_TEACHER_STATES = {
+    "needs_gemini",
+    "no_teacher_detection",
+    "bad_teacher_sample",
+}
+
+
+def teacher_state_from_metadata(metadata: dict[str, Any]) -> dict[str, str]:
+    """Classify whether an archived sample is ready for training upload."""
+
+    is_teacher_capture = _is_teacher_capture_metadata(metadata)
+    if is_teacher_capture:
+        quality_issue = _teacher_sample_quality_issue(metadata)
+        if quality_issue is not None:
+            return quality_issue
+
+    algorithm = metadata.get("detection_algorithm")
+    if algorithm == "gemini_sam":
+        bbox_count = _safe_int(metadata.get("detection_bbox_count"))
+        if metadata.get("detection_found") is False or bbox_count == 0:
+            return {
+                "state": "no_teacher_detection",
+                "label": "No Gemini box",
+                "reason": "Gemini-SAM returned no usable object box for this sample.",
+            }
+        return {
+            "state": "teacher_ready",
+            "label": "Gemini ready",
+            "reason": "Sample has Gemini-SAM teacher labels.",
+        }
+
+    if is_teacher_capture:
+        return {
+            "state": "needs_gemini",
+            "label": "Needs Gemini",
+            "reason": "Background teacher sample was captured before Gemini-SAM labels were applied.",
+        }
+
+    return {
+        "state": "not_teacher_sample",
+        "label": "Other sample",
+        "reason": "Sample is not part of the background Gemini teacher pipeline.",
+    }
+
+
+def _is_teacher_capture_metadata(metadata: dict[str, Any]) -> bool:
+    return (
+        metadata.get("teacher_capture") is True
+        or metadata.get("source") == "live_aux_teacher_capture"
+        or metadata.get("capture_reason") == "rt_periodic_interval"
+        or isinstance(metadata.get("teacher_capture_source"), str)
+    )
+
+
+def _teacher_sample_quality_issue(metadata: dict[str, Any]) -> dict[str, str] | None:
+    """Reject archived teacher samples that are not provably clean crops."""
+
+    source_role = metadata.get("source_role")
+    crop_mode = metadata.get("teacher_capture_crop_mode")
+    if source_role in STRICT_TEACHER_SAMPLE_ROLES and crop_mode != "polygon_masked_zone":
+        return {
+            "state": "bad_teacher_sample",
+            "label": "Bad sample",
+            "reason": "Teacher sample is not a strict polygon-masked crop.",
+        }
+
+    signal = metadata.get("teacher_capture_crop_signal")
+    if not isinstance(signal, dict):
+        return {
+            "state": "bad_teacher_sample",
+            "label": "Bad sample",
+            "reason": "Teacher sample is missing crop quality proof.",
+        }
+
+    mean_gray = _safe_float(signal.get("mean_gray"))
+    nonblack_ratio = _safe_float(signal.get("nonblack_ratio"))
+    if mean_gray is None or nonblack_ratio is None:
+        return {
+            "state": "bad_teacher_sample",
+            "label": "Bad sample",
+            "reason": "Teacher sample has invalid crop quality metrics.",
+        }
+    if mean_gray < LOW_SIGNAL_MEAN_GRAY or nonblack_ratio < LOW_SIGNAL_NONBLACK_RATIO:
+        return {
+            "state": "bad_teacher_sample",
+            "label": "Bad sample",
+            "reason": "Teacher crop is too dark or empty for training.",
+        }
+
+    return None
 
 
 def _safe_int(value: Any) -> int | None:
@@ -277,6 +375,8 @@ class HiveUploader:
         self._queue: queue.Queue[dict[str, Any] | None] = queue.Queue()
         self._lock = threading.Lock()
         self._targets: dict[str, dict[str, Any]] = {}
+        self._active_jobs: dict[str, dict[str, Any]] = {}
+        self._recent_jobs: deque[dict[str, Any]] = deque(maxlen=RECENT_UPLOAD_EVENT_LIMIT)
         self._reload_config()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True, name="hive-uploader")
         self._worker.start()
@@ -367,6 +467,176 @@ class HiveUploader:
                 ]
             }
 
+    def queue_details(
+        self,
+        *,
+        target_ids: list[str] | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        requested = (
+            {
+                target_id
+                for target_id in target_ids
+                if isinstance(target_id, str) and target_id
+            }
+            if target_ids is not None
+            else None
+        )
+        max_items = max(1, min(500, int(limit)))
+        now = time.time()
+
+        with self._lock:
+            target_summaries = {
+                target_id: {
+                    "id": target["id"],
+                    "name": target["name"],
+                    "url": target["url"],
+                    "machine_id": target["machine_id"],
+                    "enabled": target["enabled"],
+                    "server_reachable": target["server_reachable"],
+                    "queue_size": target["queued"],
+                    "uploaded": target["uploaded"],
+                    "failed": target["failed"],
+                    "requeued": target["requeued"],
+                    "last_error": target["last_error"],
+                }
+                for target_id, target in self._targets.items()
+                if requested is None or target_id in requested
+            }
+
+            active_jobs = [
+                dict(job)
+                for target_id, job in getattr(self, "_active_jobs", {}).items()
+                if requested is None or target_id in requested
+            ]
+            recent_jobs = [
+                dict(job)
+                for job in list(getattr(self, "_recent_jobs", deque()))
+                if requested is None or job.get("target_id") in requested
+            ][:max_items]
+
+            with self._queue.mutex:
+                queued_jobs = [
+                    self._job_summary_locked(job, "queued", now=now)
+                    for job in list(self._queue.queue)
+                    if isinstance(job, dict)
+                    and (requested is None or job.get("target_id") in requested)
+                ][:max_items]
+
+        queued_by_target: dict[str, list[dict[str, Any]]] = {
+            target_id: [] for target_id in target_summaries
+        }
+        active_by_target: dict[str, list[dict[str, Any]]] = {
+            target_id: [] for target_id in target_summaries
+        }
+        recent_by_target: dict[str, list[dict[str, Any]]] = {
+            target_id: [] for target_id in target_summaries
+        }
+        for job in queued_jobs:
+            target_id = job.get("target_id")
+            if isinstance(target_id, str) and target_id in queued_by_target:
+                queued_by_target[target_id].append(job)
+        for job in active_jobs:
+            target_id = job.get("target_id")
+            if isinstance(target_id, str) and target_id in active_by_target:
+                active_by_target[target_id].append(job)
+        for job in recent_jobs:
+            target_id = job.get("target_id")
+            if isinstance(target_id, str) and target_id in recent_by_target:
+                recent_by_target[target_id].append(job)
+
+        return {
+            "generated_at": now,
+            "targets": [
+                {
+                    **target,
+                    "queued_jobs": queued_by_target.get(target_id, []),
+                    "active_jobs": active_by_target.get(target_id, []),
+                    "recent_jobs": recent_by_target.get(target_id, []),
+                }
+                for target_id, target in target_summaries.items()
+            ],
+        }
+
+    def _job_summary_locked(
+        self,
+        job: dict[str, Any],
+        status: str,
+        *,
+        now: float | None = None,
+        message: str | None = None,
+    ) -> dict[str, Any]:
+        metadata = job.get("metadata") if isinstance(job.get("metadata"), dict) else {}
+        target_id = job.get("target_id") if isinstance(job.get("target_id"), str) else None
+        target = self._targets.get(target_id or "")
+        queued_at = _safe_float(job.get("queued_at"))
+        timestamp = now if now is not None else time.time()
+        teacher_state = teacher_state_from_metadata(metadata)
+        return {
+            "status": status,
+            "operation": job.get("operation") if isinstance(job.get("operation"), str) else "upload",
+            "target_id": target_id,
+            "target_name": target.get("name") if target else None,
+            "session_id": job.get("session_id"),
+            "session_name": job.get("session_name"),
+            "sample_id": job.get("sample_id"),
+            "source_role": metadata.get("source_role"),
+            "capture_reason": metadata.get("capture_reason") or metadata.get("source"),
+            "captured_at": _safe_float(metadata.get("captured_at")),
+            "queued_at": queued_at,
+            "age_s": max(0.0, timestamp - queued_at) if queued_at is not None else None,
+            "detection_algorithm": metadata.get("detection_algorithm"),
+            "detection_bbox_count": _safe_int(metadata.get("detection_bbox_count")),
+            "detection_score": _safe_float(metadata.get("detection_score")),
+            "teacher_state": teacher_state["state"],
+            "teacher_label": teacher_state["label"],
+            "teacher_reason": teacher_state["reason"],
+            "message": message,
+        }
+
+    def _set_active_job(self, target_id: str, job: dict[str, Any]) -> None:
+        with self._lock:
+            self._active_jobs[target_id] = self._job_summary_locked(
+                job,
+                "uploading",
+                now=time.time(),
+            )
+
+    def _finish_active_job(
+        self,
+        target_id: str,
+        job: dict[str, Any],
+        status: str,
+        *,
+        message: str | None = None,
+    ) -> None:
+        with self._lock:
+            self._finish_active_job_locked(
+                target_id,
+                job,
+                status,
+                message=message,
+            )
+
+    def _finish_active_job_locked(
+        self,
+        target_id: str,
+        job: dict[str, Any],
+        status: str,
+        *,
+        message: str | None = None,
+    ) -> None:
+        finished_at = time.time()
+        summary = self._job_summary_locked(
+            job,
+            status,
+            now=finished_at,
+            message=message,
+        )
+        summary["finished_at"] = finished_at
+        self._recent_jobs.appendleft(summary)
+        self._active_jobs.pop(target_id, None)
+
     def _resolve_target_ids_locked(self, requested_target_ids: list[str] | None = None) -> list[str]:
         enabled_target_ids = [
             target_id
@@ -391,6 +661,14 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
+        if teacher_state_from_metadata(metadata)["state"] in BLOCKED_TEACHER_STATES:
+            log.info(
+                "Hive upload skipped until teacher sample is usable: %s/%s",
+                session_id,
+                sample_id,
+            )
+            return
+
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
@@ -428,6 +706,14 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
+        if teacher_state_from_metadata(metadata)["state"] in BLOCKED_TEACHER_STATES:
+            log.info(
+                "Hive update skipped until teacher sample is usable: %s/%s",
+                session_id,
+                sample_id,
+            )
+            return
+
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
@@ -469,6 +755,9 @@ class HiveUploader:
         queued = 0
         skipped = 0
         errors = 0
+        needs_gemini = 0
+        no_teacher_detection = 0
+        bad_teacher_sample = 0
         samples_scanned = 0
         if session_ids:
             session_dirs = [training_root / session_id for session_id in session_ids if (training_root / session_id).is_dir()]
@@ -503,6 +792,19 @@ class HiveUploader:
                     continue
                 if not isinstance(metadata, dict):
                     errors += 1
+                    continue
+                teacher_state = teacher_state_from_metadata(metadata)["state"]
+                if teacher_state == "needs_gemini":
+                    needs_gemini += 1
+                    skipped += 1
+                    continue
+                if teacher_state == "no_teacher_detection":
+                    no_teacher_detection += 1
+                    skipped += 1
+                    continue
+                if teacher_state == "bad_teacher_sample":
+                    bad_teacher_sample += 1
+                    skipped += 1
                     continue
                 sample_id = metadata.get("sample_id") if isinstance(metadata.get("sample_id"), str) else metadata_path.stem
                 image_path = _resolve_archived_file_path(
@@ -553,6 +855,9 @@ class HiveUploader:
             "queued": queued,
             "skipped": skipped,
             "errors": errors,
+            "needs_gemini": needs_gemini,
+            "no_teacher_detection": no_teacher_detection,
+            "bad_teacher_sample": bad_teacher_sample,
             "samples_scanned": samples_scanned,
             "sessions_scanned": len(session_dirs),
             "target_count": len(resolved_target_ids),
@@ -687,11 +992,13 @@ class HiveUploader:
                 image_path = candidate
             elif operation == "upload":
                 log.warning("Hive upload skipped: image not found %s", candidate)
+                self._finish_active_job(target_id, job, "skipped", message="Image file was missing.")
                 with self._lock:
                     self._decrement_queue_locked(target_id)
                 return
         elif operation == "upload":
             log.warning("Hive upload skipped: missing image path for %s/%s", job.get("session_id"), job.get("sample_id"))
+            self._finish_active_job(target_id, job, "skipped", message="Primary image path was missing.")
             with self._lock:
                 self._decrement_queue_locked(target_id)
             return
@@ -746,6 +1053,12 @@ class HiveUploader:
             if target is None:
                 return
             if not target.get("enabled") or target.get("client") is None:
+                self._finish_active_job_locked(
+                    target_id,
+                    job,
+                    "skipped",
+                    message="Hive target is disabled.",
+                )
                 self._decrement_queue_locked(target_id)
                 return
 
@@ -757,6 +1070,7 @@ class HiveUploader:
             client = target["client"]
             target_name = target["name"]
 
+        self._set_active_job(target_id, job)
         for attempt in range(1, UPLOAD_MAX_RETRIES + 1):
             try:
                 request_kwargs = {
@@ -794,6 +1108,12 @@ class HiveUploader:
                         target["retry_after"] = 0.0
                         target["backoff_s"] = SERVER_DOWN_BACKOFF_S
                         self._decrement_queue_locked(target_id)
+                        self._finish_active_job_locked(
+                            target_id,
+                            job,
+                            "uploaded",
+                            message="Uploaded to Hive.",
+                        )
                 return
             except Exception as exc:
                 retry_missing_sample = (
@@ -815,6 +1135,12 @@ class HiveUploader:
                             )
                             target["backoff_s"] = backoff_s
                             target["retry_after"] = time.time() + backoff_s
+                            self._finish_active_job_locked(
+                                target_id,
+                                job,
+                                "retrying",
+                                message=f"Retrying sample sync: {exc}",
+                            )
                     self._queue.put(job)
                     return
                 if attempt < UPLOAD_MAX_RETRIES:
@@ -826,6 +1152,12 @@ class HiveUploader:
                         target["failed"] = int(target.get("failed", 0)) + 1
                         target["last_error"] = str(exc)
                         self._decrement_queue_locked(target_id)
+                        self._finish_active_job_locked(
+                            target_id,
+                            job,
+                            "failed",
+                            message=str(exc),
+                        )
                 log.error(
                     "Hive upload failed after %d attempts for %s: %s/%s: %s",
                     UPLOAD_MAX_RETRIES,

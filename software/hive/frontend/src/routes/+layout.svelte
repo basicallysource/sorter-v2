@@ -19,6 +19,10 @@
 
 	const publicRoutes = ['/login', '/register'];
 
+	function currentPathWithSearch(): string {
+		return `${page.url.pathname}${page.url.search}`;
+	}
+
 	async function handleLogout() {
 		dropdownOpen = false;
 		await auth.logout();
@@ -32,7 +36,7 @@
 
 	$effect(() => {
 		if (auth.initialized && !auth.isAuthenticated && !publicRoutes.includes(page.url.pathname)) {
-			goto('/login');
+			goto(`/login?${new URLSearchParams({ next: currentPathWithSearch() }).toString()}`);
 		}
 	});
 

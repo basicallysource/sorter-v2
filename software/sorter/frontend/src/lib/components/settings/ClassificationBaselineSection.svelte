@@ -139,13 +139,13 @@
 
 	function scopeDescription(): string {
 		if (scope === 'feeder') {
-			return `Compare detection methods on the live ${label} frame and optionally archive Gemini teacher captures after completed ${label} moves.`;
+			return `Compare detection methods on the live ${label} frame and optionally archive periodic positive samples from rt perception.`;
 		}
 		if (scope === 'classification_channel') {
-			return 'Compare C4 trigger methods on the live classification-channel drop frame and optionally archive Gemini teacher captures when the classic trigger fires.';
+			return 'Compare C4 trigger methods on the live classification-channel frame and optionally archive periodic positive samples from rt perception.';
 		}
 		if (scope === 'carousel') {
-			return 'Compare carousel trigger methods on the live handoff frame and optionally archive Gemini teacher captures when the classic trigger fires.';
+			return 'Compare carousel trigger methods on the live handoff frame and optionally archive positive samples for later training.';
 		}
 		return `Compare detection methods on the live ${label} frame and save chamber samples for later review and retesting.`;
 	}
@@ -308,8 +308,8 @@
 			openrouterModel,
 			value,
 			value
-				? 'Event-driven Gemini teacher sample collection enabled.'
-				: 'Event-driven Gemini teacher sample collection disabled.',
+				? 'Periodic positive sample collection enabled.'
+				: 'Periodic positive sample collection disabled.',
 			true
 		);
 	}
@@ -405,24 +405,18 @@
 
 	function sampleCollectionDescription(): string {
 		if (!sampleCollectionSupported) {
-			return 'Event-driven Gemini teacher sample collection is unavailable for the current camera setup.';
+			return 'Periodic positive sample collection is unavailable for the current camera setup.';
 		}
 		if (scope === 'feeder') {
-			return `After each completed ${label} move, capture the scoped image, run Gemini on it, and save the result as a sample.`;
+			return `Every few seconds, archive detected ${label} candidates as cropped local training samples with the full frame attached as context.`;
 		}
 		if (scope === 'classification_channel') {
-			if (algorithm === 'gemini_sam') {
-				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classic C4 triggers.';
-			}
-			return 'When the classic C4 trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
+			return 'Every few seconds, archive detected C4 candidates as cropped local training samples with the full frame attached as context.';
 		}
 		if (scope === 'carousel') {
-			if (algorithm === 'gemini_sam') {
-				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classical carousel triggers.';
-			}
-			return 'When the classic carousel trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
+			return 'Archive positive carousel samples for later filtering, retesting, and model-training backfill.';
 		}
-		return 'Save live Gemini teacher captures from this scope for later filtering and retesting.';
+		return 'Save live positive samples from this scope for later filtering and retesting.';
 	}
 
 	function canCaptureBaseline(): boolean {

@@ -22,6 +22,12 @@
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
 	import { RefreshCcw } from 'lucide-svelte';
 	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		normalizeHiveBaseUrl
+	} from '$lib/hive/link-flow';
+	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
 		persistConfirmations as persistConfirmationsToStorage,
 		loadStoredVerificationState as loadStoredVerificationFromStorage,
@@ -199,12 +205,9 @@
 	let verifiedSteppers = $state<Record<string, boolean>>({});
 	let showStepperWiringHelp = $state(false);
 
-	const DEFAULT_HIVE_URL = 'https://hive.neuhaus.nrw';
-
 	let hiveLoading = $state(false);
 	let hiveTargets = $state<HiveSetupTarget[]>([]);
-	let hiveEmail = $state('');
-	let hivePassword = $state('');
+	let hiveUrl = $state(DEFAULT_HIVE_URL);
 	let hiveConnecting = $state(false);
 	let hiveError = $state<string | null>(null);
 	let hiveStatus = $state<string | null>(null);
@@ -639,8 +642,8 @@
 		}
 	}
 
-	async function connectToSorthive() {
-		if (!hiveEmail.trim() || !hivePassword.trim()) return;
+	function connectToSorthive() {
+		if (!hiveUrl.trim()) return;
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
@@ -649,29 +652,23 @@
 			nicknameDraft.trim() ||
 			(wizard?.machine.machine_id ?? '');
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/register`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_name: 'Hive Community',
-					url: DEFAULT_HIVE_URL,
-					email: hiveEmail.trim(),
-					password: hivePassword.trim(),
-					machine_name: machineName,
-					machine_description: ''
-				})
+			hiveUrl = normalizeHiveBaseUrl(hiveUrl);
+			beginHiveLink({
+				hiveUrl,
+				targetName: 'Hive Community',
+				machineName,
+				returnPath: '/setup?step=hive'
 			});
-			if (!res.ok) {
-				let message = await res.text();
-				try {
-					const body = JSON.parse(message);
-					message = body.detail ?? body.error ?? message;
-				} catch {
-					// use raw text
-				}
-				throw new Error(message || 'Failed to connect to Hive.');
-			}
-			hivePassword = '';
+		} catch (e: any) {
+			hiveError = e.message ?? 'Failed to start Hive linking.';
+			hiveConnecting = false;
+		}
+	}
+
+	async function completeSorthiveLinkIfReturned() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (!result.completed) return;
 			hiveStatus = 'Connected to Hive. Your sorter will start syncing samples in the background.';
 			stepConfirmations = { ...stepConfirmations, hive: true };
 			const machineId = currentMachineId();
@@ -680,9 +677,7 @@
 			}
 			await loadSorthiveConfig();
 		} catch (e: any) {
-			hiveError = e.message ?? 'Failed to connect to Hive.';
-		} finally {
-			hiveConnecting = false;
+			hiveError = e.message ?? 'Failed to complete Hive linking.';
 		}
 	}
 
@@ -927,6 +922,7 @@
 			loadStoredConfirmations(machineId);
 			loadStoredVerificationState(machineId);
 		}
+		void completeSorthiveLinkIfReturned();
 		void loadWizard();
 		void loadCameraInventory();
 	});
@@ -1058,8 +1054,7 @@
 							{hiveLoading}
 							officialHiveTarget={officialSorthiveTarget}
 							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveEmail
-							bind:hivePassword
+							bind:hiveUrl
 							{hiveConnecting}
 							{hiveError}
 							{hiveStatus}

@@ -2,6 +2,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 
 	let email = $state('');
@@ -20,6 +21,17 @@
 		}
 	});
 
+	function safeNextPath(): string {
+		const next = page.url.searchParams.get('next');
+		if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+		return '/';
+	}
+
+	function nextQueryString(): string {
+		const next = safeNextPath();
+		return next === '/' ? '' : `?${new URLSearchParams({ next }).toString()}`;
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = null;
@@ -29,7 +41,7 @@
 		if (result) {
 			error = result;
 		} else {
-			goto('/');
+			goto(safeNextPath());
 		}
 	}
 </script>
@@ -95,7 +107,7 @@
 			</div>
 
 			<a
-				href={api.githubLoginUrl()}
+				href={api.githubLoginUrl(safeNextPath())}
 				class="flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 			>
 				<svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
@@ -107,7 +119,7 @@
 
 		<p class="mt-4 text-center text-sm text-text-muted">
 			Already have an account?
-			<a href="/login" class="text-primary hover:underline">Sign in</a>
+			<a href={`/login${nextQueryString()}`} class="text-primary hover:underline">Sign in</a>
 		</p>
 	</div>
 </div>

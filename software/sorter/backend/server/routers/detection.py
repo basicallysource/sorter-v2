@@ -7,9 +7,11 @@ import shutil
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR
@@ -131,6 +133,16 @@ class HiveRegisterPayload(BaseModel):
     machine_description: str = ""
 
 
+class HiveLinkPayload(BaseModel):
+    target_name: str = ""
+    url: str
+    api_token: str
+    machine_id: str | None = None
+    machine_name: str | None = None
+    token_prefix: str | None = None
+    enabled: bool = True
+
+
 class HiveBackfillPayload(BaseModel):
     session_ids: list[str] | None = None
     target_ids: list[str] | None = None
@@ -138,6 +150,10 @@ class HiveBackfillPayload(BaseModel):
 
 class HivePurgePayload(BaseModel):
     target_ids: list[str] | None = None
+
+
+class HiveSamplePurgePayload(BaseModel):
+    states: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +205,29 @@ def _mask_hive_token(token: str | None) -> str | None:
     if not isinstance(token, str) or not token:
         return None
     return token[:8] + "..." + token[-4:] if len(token) > 12 else "***"
+
+
+def _normalize_hive_base_url(raw_url: str) -> str:
+    url = raw_url.strip()
+    if not url:
+        raise HTTPException(400, "Hive URL is required.")
+
+    if "://" not in url:
+        host_hint = url.split("/", 1)[0].split(":", 1)[0].strip("[]").lower()
+        scheme = "http" if host_hint in {"localhost", "127.0.0.1", "::1"} else "https"
+        url = f"{scheme}://{url}"
+
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(400, "Hive URL must be an HTTP(S) URL.")
+
+    netloc = parsed.netloc
+    hostname = parsed.hostname or ""
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1"} and parsed.port == 5174:
+        display_host = f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
+        netloc = f"{display_host}:8002"
+
+    return f"{parsed.scheme}://{netloc}".rstrip("/")
 
 
 def _empty_hive_uploader_status(enabled: bool) -> Dict[str, Any]:
@@ -243,9 +282,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
     target_id = payload.id.strip() if isinstance(payload.id, str) and payload.id.strip() else uuid4().hex[:12]
     existing = next((target for target in targets if target.get("id") == target_id), None)
 
-    url = payload.url.strip().rstrip("/")
-    if not url:
-        raise HTTPException(400, "Hive URL is required.")
+    url = _normalize_hive_base_url(payload.url)
 
     api_token = ""
     if payload.api_token and not payload.api_token.endswith("..."):
@@ -275,6 +312,76 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
     return {"ok": True, "message": "Hive target saved.", "target_id": target_id}
 
 
+@router.post("/api/settings/hive/link")
+def complete_hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
+    url = _normalize_hive_base_url(payload.url)
+    api_token = payload.api_token.strip()
+    if not api_token:
+        raise HTTPException(400, "Hive machine token is required.")
+
+    machine_id = (
+        payload.machine_id.strip()
+        if isinstance(payload.machine_id, str) and payload.machine_id.strip()
+        else None
+    )
+    machine_name = (
+        payload.machine_name.strip()
+        if isinstance(payload.machine_name, str) and payload.machine_name.strip()
+        else None
+    )
+
+    targets = _load_hive_targets()
+    existing: dict[str, Any] | None = None
+    existing_index: int | None = None
+    if machine_id:
+        for index, target in enumerate(targets):
+            if target.get("machine_id") == machine_id:
+                existing = target
+                existing_index = index
+                break
+
+    target_id = (
+        str(existing.get("id"))
+        if existing and isinstance(existing.get("id"), str) and existing.get("id")
+        else uuid4().hex[:12]
+    )
+    target_name = payload.target_name.strip() or machine_name or (existing.get("name") if existing else "") or url
+
+    next_target = {
+        "id": target_id,
+        "name": target_name,
+        "url": url,
+        "api_token": api_token,
+        "machine_id": machine_id,
+        "machine_name": machine_name,
+        "enabled": payload.enabled,
+    }
+
+    if existing is None:
+        targets.append(next_target)
+    else:
+        replace_index = existing_index if existing_index is not None else next(
+            (index for index, target in enumerate(targets) if target.get("id") == target_id),
+            None,
+        )
+        if replace_index is None:
+            targets.append(next_target)
+        else:
+            targets[replace_index] = next_target
+
+    _save_hive_targets(targets)
+    getClassificationTrainingManager().reloadHiveUploader()
+    return {
+        "ok": True,
+        "message": "Hive target linked.",
+        "target_id": target_id,
+        "target_name": target_name,
+        "machine_id": machine_id,
+        "machine_name": machine_name,
+        "token_prefix": payload.token_prefix or api_token[:8],
+    }
+
+
 @router.delete("/api/settings/hive")
 def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, Any]:
     if not target_id:
@@ -296,7 +403,7 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
 def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
     import requests
 
-    base_url = payload.url.strip().rstrip("/")
+    base_url = _normalize_hive_base_url(payload.url)
     try:
         response = requests.post(
             f"{base_url}/api/machine/register",
@@ -359,6 +466,24 @@ def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[
 @router.post("/api/settings/hive/purge")
 def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]:
     return getClassificationTrainingManager().purgeHiveQueue(target_ids=payload.target_ids)
+
+
+@router.get("/api/settings/hive/queue")
+def hive_queue_details(
+    target_id: str | None = Query(default=None),
+    limit: int = Query(default=120, ge=1, le=500),
+) -> Dict[str, Any]:
+    return getClassificationTrainingManager().getHiveQueueDetails(
+        target_id=target_id,
+        limit=limit,
+    )
+
+
+@router.post("/api/settings/hive/queue/purge-samples")
+def hive_queue_purge_samples(payload: HiveSamplePurgePayload) -> Dict[str, Any]:
+    return getClassificationTrainingManager().purgeSamplesByTeacherState(
+        states=payload.states,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1111,6 +1236,52 @@ def get_sample_storage() -> Dict[str, Any]:
         "total_samples": total_samples,
         "total_bytes": total_bytes,
     }
+
+
+@router.get("/api/samples/storage/{session_id}/{sample_id}/image")
+def get_sample_storage_image(session_id: str, sample_id: str) -> FileResponse:
+    """Serve the local primary image for a sample in the sorter archive."""
+
+    root = TRAINING_ROOT.resolve()
+    session_dir = (TRAINING_ROOT / session_id).resolve()
+    try:
+        session_dir.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Sample image not found.")
+    if not session_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Sample image not found.")
+
+    metadata_path = session_dir / "metadata" / f"{sample_id}.json"
+    if not metadata_path.is_file():
+        raise HTTPException(status_code=404, detail="Sample image not found.")
+    try:
+        import json as _json
+
+        metadata = _json.loads(metadata_path.read_text())
+    except Exception:
+        raise HTTPException(status_code=404, detail="Sample image not found.")
+    if not isinstance(metadata, dict):
+        raise HTTPException(status_code=404, detail="Sample image not found.")
+
+    candidates: list[Path] = []
+    input_image = metadata.get("input_image")
+    if isinstance(input_image, str) and input_image.strip():
+        candidates.append(Path(input_image.strip()))
+    candidates.append(session_dir / "dataset" / "images" / f"{sample_id}.jpg")
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+            resolved.relative_to(root)
+        except Exception:
+            continue
+        if resolved.is_file():
+            return FileResponse(
+                path=str(resolved),
+                media_type="image/jpeg",
+                headers={"Cache-Control": "no-store"},
+            )
+    raise HTTPException(status_code=404, detail="Sample image not found.")
 
 
 @router.delete("/api/samples/storage/{session_id}")

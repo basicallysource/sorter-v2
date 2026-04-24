@@ -143,12 +143,17 @@ class DetectionConfigService:
             if aux_scope == CLASSIFICATION_CHANNEL_ROLE
             else get_carousel_detection_config()
         )
+        sample_collection_supported = aux_scope == CLASSIFICATION_CHANNEL_ROLE
         return {
             "ok": True,
             "algorithm": normalize_detection_algorithm(algorithm_scope, saved.get("algorithm")),
             "openrouter_model": _normalize_openrouter_model(saved.get("openrouter_model")),
-            "sample_collection_enabled": bool(saved.get("sample_collection_enabled")),
-            "sample_collection_supported": True,
+            "sample_collection_enabled": (
+                bool(saved.get("sample_collection_enabled"))
+                if sample_collection_supported
+                else False
+            ),
+            "sample_collection_supported": sample_collection_supported,
             "available_algorithms": detection_algorithm_options(algorithm_scope),
             "available_openrouter_models": _openrouter_model_options(),
             "scope": aux_scope,
@@ -238,13 +243,13 @@ class DetectionConfigService:
         message = f"{role_label} detection uses {algorithm_label}."
         if sample_collection_enabled:
             message += (
-                f" Event-driven Gemini teacher sample collection is enabled "
-                f"for {role_label.lower()} moves."
+                f" Periodic positive sample collection is enabled "
+                f"for {role_label.lower()}."
             )
         elif role is not None:
             message += (
-                f" Event-driven Gemini teacher sample collection is disabled "
-                f"for {role_label.lower()} moves."
+                f" Periodic positive sample collection is disabled "
+                f"for {role_label.lower()}."
             )
         return {
             "ok": True,
@@ -285,6 +290,9 @@ class DetectionConfigService:
             if isinstance(request.sample_collection_enabled, bool)
             else bool(saved.get("sample_collection_enabled"))
         )
+        sample_collection_supported = aux_scope == CLASSIFICATION_CHANNEL_ROLE
+        if not sample_collection_supported:
+            sample_collection_enabled = False
 
         target_config = {
             "algorithm": algorithm,
@@ -309,15 +317,18 @@ class DetectionConfigService:
             message += " Capture a fresh baseline if detection stays unavailable."
         if sample_collection_enabled:
             message += (
-                " Event-driven Gemini teacher sample collection is enabled "
-                "and will take effect when Heatmap Diff is active."
+                " Periodic positive sample collection is enabled for this scope."
+            )
+        elif isinstance(request.sample_collection_enabled, bool) and request.sample_collection_enabled:
+            message += (
+                " Periodic positive sample collection is only available on C-channel feeds."
             )
         return {
             "ok": True,
             "algorithm": algorithm,
             "openrouter_model": openrouter_model,
             "sample_collection_enabled": sample_collection_enabled,
-            "sample_collection_supported": True,
+            "sample_collection_supported": sample_collection_supported,
             "uses_baseline": uses_baseline,
             "scope": aux_scope,
             "message": message,

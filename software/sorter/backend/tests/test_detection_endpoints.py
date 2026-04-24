@@ -9,6 +9,7 @@ full app (which would pull hardware + ONNX).
 from __future__ import annotations
 
 import base64
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,26 @@ def test_feeder_detect_rejects_unknown_role() -> None:
     with pytest.raises(HTTPException) as exc_info:
         detection_router.debug_feeder_detection("bogus_role")
     assert exc_info.value.status_code == 400
+
+
+def test_sample_storage_image_serves_primary_asset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    training_root = tmp_path / "classification_training"
+    session_dir = training_root / "session-a"
+    image_path = session_dir / "dataset" / "images" / "sample-a.jpg"
+    metadata_path = session_dir / "metadata" / "sample-a.json"
+    image_path.parent.mkdir(parents=True)
+    metadata_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"\xff\xd8\xff\xe0fake-jpeg")
+    metadata_path.write_text(json.dumps({"input_image": str(image_path)}))
+    monkeypatch.setattr(detection_router, "TRAINING_ROOT", training_root)
+
+    response = detection_router.get_sample_storage_image("session-a", "sample-a")
+
+    assert response.path == str(image_path)
+    assert response.media_type == "image/jpeg"
 
 
 # ---------------------------------------------------------------------------

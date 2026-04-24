@@ -1,8 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import Modal from '$lib/components/Modal.svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Cloud, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
+	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		defaultHiveTargetName,
+		normalizeHiveBaseUrl
+	} from '$lib/hive/link-flow';
+	import {
+		Cloud,
+		ExternalLink,
+		ListChecks,
+		Pencil,
+		Plus,
+		RefreshCw,
+		Trash2,
+		Upload
+	} from 'lucide-svelte';
 
 	const machine = getMachineContext();
 
@@ -51,26 +68,20 @@
 	let purgeTargetId = $state<string | null>(null);
 
 	let editingTargetId = $state<string | null>(null);
-	let showRegisterForm = $state(false);
 	let savingTarget = $state(false);
 	let removingTargetId = $state<string | null>(null);
-	let registering = $state(false);
 	let backfillingTargetId = $state<string | null>(null);
 	let purgingTargetId = $state<string | null>(null);
+	let linkingHive = $state(false);
+	let linkModalOpen = $state(false);
 
 	let targetName = $state('');
 	let targetUrl = $state('');
-	let targetToken = $state('');
 	let targetEnabled = $state(true);
-
-	let regTargetName = $state('');
-	let regUrl = $state('');
-	let regEmail = $state('');
-	let regPassword = $state('');
-	let regMachineName = $state('');
-	let regMachineDescription = $state('');
+	let linkHiveUrl = $state(DEFAULT_HIVE_URL);
 
 	const targets = $derived(config?.targets ?? []);
+	const linkTargetPreview = $derived(defaultHiveTargetName(linkHiveUrl || DEFAULT_HIVE_URL));
 
 	function emptyUploaderStatus(enabled: boolean): UploaderStatus {
 		return {
@@ -179,20 +190,14 @@
 		purgeTargetId = null;
 	}
 
+	function queueHref(target: HiveTarget): string {
+		return `/settings/hive/queue?target_id=${encodeURIComponent(target.id)}`;
+	}
+
 	function resetTargetForm(target: HiveTarget | null = null) {
 		targetName = target?.name ?? '';
 		targetUrl = target?.url ?? '';
-		targetToken = '';
 		targetEnabled = target?.enabled ?? true;
-	}
-
-	function resetRegisterForm() {
-		regTargetName = '';
-		regUrl = '';
-		regEmail = '';
-		regPassword = '';
-		regMachineName = '';
-		regMachineDescription = '';
 	}
 
 	async function loadConfig() {
@@ -215,29 +220,65 @@
 
 	function openTargetEditor(target: HiveTarget | null = null) {
 		clearMessages();
-		showRegisterForm = false;
-		editingTargetId = target?.id ?? 'new';
+		if (!target) return;
+		editingTargetId = target.id;
 		resetTargetForm(target);
-	}
-
-	function openRegisterForm() {
-		clearMessages();
-		editingTargetId = null;
-		showRegisterForm = true;
-		resetRegisterForm();
 	}
 
 	function closeForms() {
 		editingTargetId = null;
-		showRegisterForm = false;
 		resetTargetForm();
-		resetRegisterForm();
+	}
+
+	function openHiveLinkModal() {
+		clearMessages();
+		linkModalOpen = true;
+	}
+
+	function suggestedMachineName(): string {
+		const identity = machine.machine?.identity;
+		return (
+			(identity?.nickname ?? '').trim() ||
+			(identity?.machine_id ?? '').trim() ||
+			'Lego Sorter'
+		);
+	}
+
+	async function handleHiveLinkReturn() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (result.completed) {
+				statusMsg =
+					result.message ??
+					`Connected ${result.machineName || result.targetName || 'this sorter'} to Hive.`;
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Hive link could not be completed.';
+		}
+	}
+
+	function handleBeginHiveLink() {
+		if (!linkHiveUrl.trim()) return;
+		linkingHive = true;
+		clearMessages();
+		try {
+			linkHiveUrl = normalizeHiveBaseUrl(linkHiveUrl);
+			beginHiveLink({
+				hiveUrl: linkHiveUrl,
+				targetName: linkTargetPreview,
+				machineName: suggestedMachineName(),
+				returnPath: '/settings/hive'
+			});
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Hive link could not be started.';
+			linkingHive = false;
+		}
 	}
 
 	async function handleSaveTarget() {
 		if (!targetUrl.trim()) return;
-		const existing = editingTargetId && editingTargetId !== 'new' ? getTarget(editingTargetId) : null;
-		if (!existing && !targetToken.trim()) return;
+		const existing = editingTargetId ? getTarget(editingTargetId) : null;
+		if (!existing) return;
 
 		savingTarget = true;
 		clearMessages();
@@ -249,16 +290,12 @@
 					id: existing?.id ?? null,
 					name: targetName.trim(),
 					url: targetUrl.trim(),
-					api_token: targetToken.trim(),
+					api_token: '',
 					enabled: targetEnabled
 				})
 			});
 			if (!res.ok) throw new Error(await res.text());
-			statusMsg = existing
-				? targetToken.trim()
-					? `Updated Hive target "${targetName.trim() || existing.name}".`
-					: `Updated Hive target "${targetName.trim() || existing.name}" and kept the current token.`
-				: `Added Hive target "${targetName.trim() || targetUrl.trim()}".`;
+			statusMsg = `Updated Hive target "${targetName.trim() || existing.name}" and kept the current token.`;
 			closeForms();
 			await loadConfig();
 		} catch (e: any) {
@@ -287,35 +324,6 @@
 			errorMsg = e.message ?? 'Failed to remove Hive target.';
 		} finally {
 			removingTargetId = null;
-		}
-	}
-
-	async function handleRegister() {
-		if (!regUrl.trim() || !regEmail.trim() || !regPassword.trim() || !regMachineName.trim()) return;
-		registering = true;
-		clearMessages();
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/register`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_name: regTargetName.trim(),
-					url: regUrl.trim(),
-					email: regEmail.trim(),
-					password: regPassword.trim(),
-					machine_name: regMachineName.trim(),
-					machine_description: regMachineDescription.trim()
-				})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			statusMsg = `Registered "${data.machine_name}" for target "${data.target_name}".`;
-			showRegisterForm = false;
-			await loadConfig();
-		} catch (e: any) {
-			errorMsg = e.message ?? 'Registration failed.';
-		} finally {
-			registering = false;
 		}
 	}
 
@@ -358,7 +366,13 @@
 			const data = await res.json();
 			if (!data.ok) throw new Error(data.error ?? 'Backfill failed.');
 			backfillTargetId = target.id;
-			backfillResult = `Queued ${data.queued} archived samples for "${target.name}" (${data.skipped} skipped${data.errors ? `, ${data.errors} errors` : ''}).`;
+			backfillResult =
+				`Queued ${data.queued} archived samples for "${target.name}" ` +
+				`(${data.skipped} skipped` +
+				`${data.needs_gemini ? `, ${data.needs_gemini} need Gemini` : ''}` +
+				`${data.no_teacher_detection ? `, ${data.no_teacher_detection} no Gemini box` : ''}` +
+				`${data.bad_teacher_sample ? `, ${data.bad_teacher_sample} bad crop` : ''}` +
+				`${data.errors ? `, ${data.errors} errors` : ''}).`;
 			await loadConfig();
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Backfill failed.';
@@ -419,7 +433,14 @@
 	}
 
 	onMount(() => {
-		void loadConfig();
+		void (async () => {
+			await handleHiveLinkReturn();
+			const linkError = errorMsg;
+			await loadConfig();
+			if (linkError && !errorMsg) {
+				errorMsg = linkError;
+			}
+		})();
 	});
 </script>
 
@@ -438,19 +459,11 @@
 			<div class="flex flex-wrap gap-2">
 				<button
 					type="button"
-					onclick={openRegisterForm}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					onclick={openHiveLinkModal}
+					class="inline-flex items-center gap-1.5 border border-success bg-success px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-success/90"
 				>
 					<Plus size={12} />
-					Register Machine
-				</button>
-				<button
-					type="button"
-					onclick={() => openTargetEditor(null)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-				>
-					<Cloud size={12} />
-					Add Existing Token
+					Hive koppeln
 				</button>
 				<button
 					type="button"
@@ -461,13 +474,23 @@
 					<RefreshCw size={12} />
 					Refresh
 				</button>
+				<a
+					href="/settings/hive/queue"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					title="Open Hive queue details"
+				>
+					<ListChecks size={12} />
+					Queue
+				</a>
 			</div>
 		</div>
 
 		{#if targets.length === 0}
 			<div class="border border-border bg-surface px-3 py-3">
 				<div class="text-sm text-text-muted">
-					Add one Hive target for local testing, production, or both. Each target keeps its own token, status, and backfill queue.
+					Noch kein Hive verbunden. Klicke oben auf
+					<span class="font-medium text-text">Hive koppeln</span>,
+					um das offizielle Hive oder eine lokale Instanz zu verbinden.
 				</div>
 			</div>
 		{:else}
@@ -560,10 +583,16 @@
 									<div class="text-lg font-semibold text-text">{target.uploader.uploaded}</div>
 									<div class="text-text-muted">Uploaded</div>
 								</div>
-								<div>
-									<div class="text-lg font-semibold text-text">{target.uploader.queue_size}</div>
+								<a
+									href={queueHref(target)}
+									class="group border border-transparent px-2 py-1 transition-colors hover:border-border hover:bg-bg"
+									title={`Open queue details for ${target.name}`}
+								>
+									<div class="font-mono text-lg font-semibold text-text tabular-nums group-hover:text-primary">
+										{target.uploader.queue_size}
+									</div>
 									<div class="text-text-muted">Queued</div>
-								</div>
+								</a>
 								<div>
 									<div class="text-lg font-semibold {target.uploader.requeued > 0 ? 'text-amber-500' : 'text-text'}">{target.uploader.requeued}</div>
 									<div class="text-text-muted">Requeued</div>
@@ -585,7 +614,7 @@
 		{#if editingTargetId}
 			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
 				<div class="text-sm font-medium text-text">
-					{editingTargetId === 'new' ? 'Add Hive Target' : `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
+					Edit {getTarget(editingTargetId)?.name ?? 'Hive Target'}
 				</div>
 				<input
 					bind:value={targetName}
@@ -599,12 +628,10 @@
 					placeholder="https://hive.example.com"
 					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
-				<input
-					bind:value={targetToken}
-					type="password"
-					placeholder={editingTargetId === 'new' ? 'Machine API token' : 'Leave empty to keep current token'}
-					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
-				/>
+				<div class="text-xs text-text-muted">
+					Der bestehende Token bleibt erhalten. Wenn du einen neuen Token brauchst, starte oben
+					den Hive-Link erneut.
+				</div>
 				<label class="flex items-center gap-2 text-xs text-text-muted">
 					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 rounded border-border" />
 					Enable uploads for this target immediately
@@ -620,69 +647,10 @@
 					<button
 						type="button"
 						onclick={() => void handleSaveTarget()}
-						disabled={savingTarget || !targetUrl.trim() || (editingTargetId === 'new' && !targetToken.trim())}
+						disabled={savingTarget || !targetUrl.trim()}
 						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{savingTarget ? 'Saving...' : 'Save'}
-					</button>
-				</div>
-			</div>
-		{/if}
-
-		{#if showRegisterForm}
-			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="text-sm font-medium text-text">Register a New Hive Machine</div>
-				<input
-					bind:value={regTargetName}
-					type="text"
-					placeholder="Target name (for example Local or Live)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regUrl}
-					type="url"
-					placeholder="https://hive.example.com"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regEmail}
-					type="email"
-					placeholder="Account email"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regPassword}
-					type="password"
-					placeholder="Account password"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regMachineName}
-					type="text"
-					placeholder="Machine name"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regMachineDescription}
-					type="text"
-					placeholder="Machine description (optional)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<div class="flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={() => void handleRegister()}
-						disabled={registering || !regUrl.trim() || !regEmail.trim() || !regPassword.trim() || !regMachineName.trim()}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{registering ? 'Registering...' : 'Register'}
 					</button>
 				</div>
 			</div>
@@ -697,4 +665,61 @@
 	{#if statusMsg}
 		<div class="text-sm text-text-muted">{statusMsg}</div>
 	{/if}
+
+	<Modal bind:open={linkModalOpen} title="Hive koppeln">
+		<div class="grid gap-4">
+			<div class="grid gap-1">
+				<div class="flex items-center gap-2 text-sm font-medium text-text">
+					<Cloud size={14} class="text-text-muted" />
+					Hive-Instanz auswählen
+				</div>
+				<p class="text-sm leading-relaxed text-text-muted">
+					Der Sorter öffnet die angegebene Hive-Instanz. Dort meldest du dich an,
+					benennst die Maschine und bestätigst die Kopplung. Der API-Token wird danach
+					automatisch zurückgegeben und hier gespeichert.
+				</p>
+			</div>
+
+			<label class="grid gap-1">
+				<span class="text-xs font-medium text-text">Hive URL</span>
+				<input
+					bind:value={linkHiveUrl}
+					type="url"
+					placeholder={DEFAULT_HIVE_URL}
+					class="border border-border bg-bg px-3 py-2 font-mono text-sm text-text"
+				/>
+			</label>
+
+			<div class="border border-border bg-surface px-3 py-2 text-xs text-text-muted">
+				Zielname:
+				<span class="font-medium text-text">{linkTargetPreview}</span>
+			</div>
+
+			<div class="flex flex-wrap justify-end gap-2">
+				<button
+					type="button"
+					onclick={() => {
+						linkModalOpen = false;
+					}}
+					disabled={linkingHive}
+					class="border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					Abbrechen
+				</button>
+				<button
+					type="button"
+					onclick={handleBeginHiveLink}
+					disabled={linkingHive || !linkHiveUrl.trim()}
+					class="inline-flex min-h-10 items-center justify-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{#if linkingHive}
+						Weiterleiten...
+					{:else}
+						<ExternalLink size={14} />
+						In Hive fortfahren
+					{/if}
+				</button>
+			</div>
+		</div>
+	</Modal>
 </div>

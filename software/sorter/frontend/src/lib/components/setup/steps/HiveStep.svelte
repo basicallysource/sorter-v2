@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, CheckCircle2, Loader2 } from 'lucide-svelte';
+	import { Check, ExternalLink, Loader2 } from 'lucide-svelte';
 
 	type HiveSetupTarget = {
 		id: string;
@@ -13,8 +13,7 @@
 		hiveLoading,
 		officialHiveTarget,
 		defaultHiveUrl,
-		hiveEmail = $bindable(),
-		hivePassword = $bindable(),
+		hiveUrl = $bindable(),
 		hiveConnecting,
 		hiveError,
 		hiveStatus,
@@ -25,8 +24,7 @@
 		hiveLoading: boolean;
 		officialHiveTarget: HiveSetupTarget | null;
 		defaultHiveUrl: string;
-		hiveEmail: string;
-		hivePassword: string;
+		hiveUrl: string;
 		hiveConnecting: boolean;
 		hiveError: string | null;
 		hiveStatus: string | null;
@@ -80,37 +78,16 @@
 			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 				Hive server
 			</div>
-			<div class="font-mono text-sm text-text">{defaultHiveUrl}</div>
+			<input
+				type="url"
+				bind:value={hiveUrl}
+				placeholder={defaultHiveUrl}
+				class="setup-control px-3 py-2 font-mono text-sm text-text"
+				disabled={hiveConnecting}
+			/>
 			<div class="text-xs text-text-muted">
-				The official community platform. Additional servers can be added later from Settings ›
-				Hive.
-			</div>
-		</div>
-
-		<div class="grid gap-3 sm:grid-cols-2">
-			<div class="flex flex-col gap-1">
-				<label for="setup-hive-email" class="text-xs font-medium text-text">Email</label>
-				<input
-					id="setup-hive-email"
-					type="email"
-					autocomplete="email"
-					bind:value={hiveEmail}
-					placeholder="you@example.com"
-					class="setup-control px-3 py-2 text-sm text-text"
-					disabled={hiveConnecting}
-				/>
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="setup-hive-password" class="text-xs font-medium text-text">Password</label>
-				<input
-					id="setup-hive-password"
-					type="password"
-					autocomplete="current-password"
-					bind:value={hivePassword}
-					placeholder="••••••••"
-					class="setup-control px-3 py-2 text-sm text-text"
-					disabled={hiveConnecting}
-				/>
+				Uses the official community platform by default. You can enter a local or custom Hive
+				URL here for development.
 			</div>
 		</div>
 
@@ -128,15 +105,15 @@
 			<button
 				type="button"
 				onclick={onConnect}
-				disabled={hiveConnecting || !hiveEmail.trim() || !hivePassword.trim()}
+				disabled={hiveConnecting || !hiveUrl.trim()}
 				class="inline-flex items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{#if hiveConnecting}
 					<Loader2 size={14} class="animate-spin" />
-					Connecting…
+					Weiterleiten…
 				{:else}
-					<CheckCircle2 size={14} />
-					Connect to Hive
+					<ExternalLink size={14} />
+					In Hive fortfahren
 				{/if}
 			</button>
 			<button

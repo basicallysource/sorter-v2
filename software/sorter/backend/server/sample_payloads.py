@@ -66,6 +66,8 @@ def _capture_scope(metadata: dict[str, Any]) -> str | None:
         return "classification"
     if source_role in {"c_channel_2", "c_channel_3"}:
         return "feeder"
+    if source_role == "classification_channel":
+        return "classification_channel"
     if source_role == "carousel":
         return "carousel"
     return None

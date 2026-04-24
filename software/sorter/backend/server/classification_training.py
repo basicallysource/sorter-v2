@@ -17,7 +17,7 @@ from local_state import (
     get_classification_training_state,
     set_classification_training_state,
 )
-from server.hive_uploader import HiveUploader
+from server.hive_uploader import HiveUploader, teacher_state_from_metadata
 from server.sample_payloads import build_sample_payload
 
 
@@ -515,6 +515,143 @@ class ClassificationTrainingManager:
     ) -> dict[str, Any]:
         return self._hive.purge(target_ids=target_ids)
 
+    def getHiveQueueDetails(
+        self,
+        *,
+        target_id: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        target_ids = [target_id] if isinstance(target_id, str) and target_id else None
+        details = self._hive.queue_details(target_ids=target_ids, limit=limit)
+        teacher = self._teacherReadinessSummary(limit=limit)
+        targets = details.get("targets") if isinstance(details.get("targets"), list) else []
+        queued = sum(int(target.get("queue_size", 0)) for target in targets if isinstance(target, dict))
+        uploading = sum(
+            len(target.get("active_jobs", []))
+            for target in targets
+            if isinstance(target, dict) and isinstance(target.get("active_jobs"), list)
+        )
+        recent_uploaded = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "uploaded"
+        )
+        recent_failed = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "failed"
+        )
+        recent_retrying = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "retrying"
+        )
+        return {
+            "ok": True,
+            **details,
+            "teacher": teacher,
+            "totals": {
+                "queued": queued,
+                "uploading": uploading,
+                "recent_uploaded": recent_uploaded,
+                "recent_failed": recent_failed,
+                "recent_retrying": recent_retrying,
+                "needs_gemini": teacher["counts"]["needs_gemini"],
+                "no_teacher_detection": teacher["counts"]["no_teacher_detection"],
+                "bad_teacher_sample": teacher["counts"]["bad_teacher_sample"],
+                "teacher_ready": teacher["counts"]["teacher_ready"],
+                "other_samples": teacher["counts"]["not_teacher_sample"],
+            },
+        }
+
+    def purgeSamplesByTeacherState(self, states: list[str]) -> dict[str, Any]:
+        requested = {
+            state
+            for state in states
+            if state
+            in {
+                "needs_gemini",
+                "no_teacher_detection",
+                "bad_teacher_sample",
+                "teacher_ready",
+                "not_teacher_sample",
+            }
+        }
+        if not requested:
+            return {"ok": False, "error": "No supported sample state was selected."}
+
+        purged_samples = 0
+        deleted_files = 0
+        freed_bytes = 0
+
+        if not TRAINING_ROOT.exists():
+            return {
+                "ok": True,
+                "states": sorted(requested),
+                "purged_samples": 0,
+                "deleted_files": 0,
+                "freed_bytes": 0,
+            }
+
+        root = TRAINING_ROOT.resolve()
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name):
+            if not session_dir.is_dir():
+                continue
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            for metadata_path in sorted(metadata_dir.glob("*.json")):
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    continue
+                teacher_state = teacher_state_from_metadata(metadata)["state"]
+                if teacher_state not in requested:
+                    continue
+
+                sample_id = (
+                    metadata.get("sample_id")
+                    if isinstance(metadata.get("sample_id"), str) and metadata.get("sample_id")
+                    else metadata_path.stem
+                )
+                paths = self._sampleFilesForDeletion(
+                    metadata,
+                    session_dir=session_dir,
+                    metadata_path=metadata_path,
+                    sample_id=sample_id,
+                )
+                for path in paths:
+                    try:
+                        resolved = path.resolve()
+                    except Exception:
+                        continue
+                    try:
+                        resolved.relative_to(root)
+                    except ValueError:
+                        continue
+                    if not resolved.is_file():
+                        continue
+                    try:
+                        freed_bytes += resolved.stat().st_size
+                        resolved.unlink()
+                        deleted_files += 1
+                    except Exception:
+                        continue
+                purged_samples += 1
+
+        return {
+            "ok": True,
+            "states": sorted(requested),
+            "purged_samples": purged_samples,
+            "deleted_files": deleted_files,
+            "freed_bytes": freed_bytes,
+        }
+
     def resolveSessionDir(self, session_id: str) -> Path:
         session_dir = (TRAINING_ROOT / session_id).resolve()
         root = TRAINING_ROOT.resolve()
@@ -525,6 +662,150 @@ class ClassificationTrainingManager:
         if not session_dir.exists() or not session_dir.is_dir():
             raise ValueError("Unknown sample session.")
         return session_dir
+
+    def _teacherReadinessSummary(self, *, limit: int = 100) -> dict[str, Any]:
+        counts = {
+            "teacher_ready": 0,
+            "needs_gemini": 0,
+            "no_teacher_detection": 0,
+            "bad_teacher_sample": 0,
+            "not_teacher_sample": 0,
+            "invalid": 0,
+        }
+        recent_needs_gemini: list[dict[str, Any]] = []
+        recent_ready: list[dict[str, Any]] = []
+        max_items = max(1, min(500, int(limit)))
+
+        if not TRAINING_ROOT.exists():
+            return {
+                "counts": counts,
+                "recent_needs_gemini": [],
+                "recent_ready": [],
+            }
+
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name, reverse=True):
+            if not session_dir.is_dir():
+                continue
+            session_id = session_dir.name
+            manifest = self._readJsonFile(session_dir / "manifest.json") or {}
+            session_name = (
+                manifest.get("session_name")
+                if isinstance(manifest.get("session_name"), str) and manifest.get("session_name")
+                else session_id
+            )
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            metadata_paths = sorted(
+                metadata_dir.glob("*.json"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+            for metadata_path in metadata_paths:
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    counts["invalid"] += 1
+                    continue
+                teacher_state = teacher_state_from_metadata(metadata)
+                state = teacher_state["state"]
+                if state not in counts:
+                    counts["invalid"] += 1
+                    continue
+                counts[state] += 1
+                if state not in {
+                    "needs_gemini",
+                    "teacher_ready",
+                    "no_teacher_detection",
+                    "bad_teacher_sample",
+                }:
+                    continue
+                if state == "needs_gemini" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "no_teacher_detection" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "bad_teacher_sample" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "teacher_ready" and len(recent_ready) >= max_items:
+                    continue
+                item = self._sampleQueueSummary(
+                    metadata,
+                    session_id=session_id,
+                    session_name=session_name,
+                    fallback_sample_id=metadata_path.stem,
+                    teacher_state=teacher_state,
+                )
+                if state in {"needs_gemini", "no_teacher_detection", "bad_teacher_sample"}:
+                    recent_needs_gemini.append(item)
+                else:
+                    recent_ready.append(item)
+
+        return {
+            "counts": counts,
+            "recent_needs_gemini": recent_needs_gemini,
+            "recent_ready": recent_ready,
+        }
+
+    @staticmethod
+    def _sampleQueueSummary(
+        metadata: dict[str, Any],
+        *,
+        session_id: str,
+        session_name: str,
+        fallback_sample_id: str,
+        teacher_state: dict[str, str],
+    ) -> dict[str, Any]:
+        sample_id = (
+            metadata.get("sample_id")
+            if isinstance(metadata.get("sample_id"), str) and metadata.get("sample_id")
+            else fallback_sample_id
+        )
+        return {
+            "session_id": session_id,
+            "session_name": session_name,
+            "sample_id": sample_id,
+            "source_role": metadata.get("source_role"),
+            "capture_reason": metadata.get("capture_reason") or metadata.get("source"),
+            "captured_at": _safe_float(metadata.get("captured_at")),
+            "detection_algorithm": metadata.get("detection_algorithm"),
+            "detection_bbox_count": (
+                int(metadata.get("detection_bbox_count"))
+                if isinstance(metadata.get("detection_bbox_count"), int)
+                and not isinstance(metadata.get("detection_bbox_count"), bool)
+                else None
+            ),
+            "teacher_state": teacher_state["state"],
+            "teacher_label": teacher_state["label"],
+            "teacher_reason": teacher_state["reason"],
+        }
+
+    @staticmethod
+    def _sampleFilesForDeletion(
+        metadata: dict[str, Any],
+        *,
+        session_dir: Path,
+        metadata_path: Path,
+        sample_id: str,
+    ) -> set[Path]:
+        paths = {metadata_path}
+        for key in (
+            "input_image",
+            "top_zone_path",
+            "bottom_zone_path",
+            "top_frame_path",
+            "bottom_frame_path",
+        ):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                paths.add(Path(value.strip()))
+
+        for directory in (
+            session_dir / "captures",
+            session_dir / "dataset" / "images",
+            session_dir / "classification" / "json",
+        ):
+            if directory.exists():
+                paths.update(directory.glob(f"{sample_id}*"))
+        return paths
 
     def _ensureSessionLocked(self) -> bool:
         if self._session_dir is None:

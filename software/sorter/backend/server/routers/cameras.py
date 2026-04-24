@@ -87,16 +87,6 @@ router = APIRouter()
 # Constants
 # ---------------------------------------------------------------------------
 
-CAMERA_SETUP_ROLES = {
-    "feeder",
-    "c_channel_2",
-    "c_channel_3",
-    "carousel",
-    "classification_channel",
-    "classification_top",
-    "classification_bottom",
-}
-
 _DASHBOARD_CROP_PADDING_FACTOR = 0.14
 _DASHBOARD_CROP_MIN_PADDING_PX = 48.0
 _DASHBOARD_QUAD_PADDING_FACTOR = 0.1
@@ -107,6 +97,15 @@ logger = logging.getLogger(__name__)
 from server.config_helpers import (
     read_machine_params_config as _read_machine_params_config,
     write_machine_params_config as _write_machine_params_config,
+)
+from server.services.camera_settings import (
+    CAMERA_SETUP_ROLES,
+    CameraSettingsWriteError,
+    camera_color_profile_for_role as _camera_color_profile_for_role,
+    get_role_config_value as _camera_config_value,
+    picture_settings_for_role as _picture_settings_for_role,
+    restore_camera_color_profile as _restore_camera_color_profile,
+    save_camera_color_profile as _save_camera_color_profile,
 )
 
 
@@ -123,11 +122,6 @@ def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_camera_device_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
     device_settings = config.get("camera_device_settings", {})
     return device_settings if isinstance(device_settings, dict) else {}
-
-
-def _get_camera_color_profile_table(config: Dict[str, Any]) -> Dict[str, Any]:
-    profiles = config.get("camera_color_profiles", {})
-    return profiles if isinstance(profiles, dict) else {}
 
 
 def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | None:
@@ -158,16 +152,6 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
                 fallback_source = _normalized_source(camera_setup.get(lookup_role))
                 if fallback_source is not None:
                     return fallback_source
-    return None
-
-
-def _camera_config_value(config: Dict[str, Any], table_name: str, role: str) -> Any:
-    table = config.get(table_name, {})
-    if not isinstance(table, dict):
-        return None
-    for lookup_role in lookup_camera_role_keys(role, config):
-        if lookup_role in table:
-            return table.get(lookup_role)
     return None
 
 
@@ -368,22 +352,6 @@ def _focused_numeric_control_candidates(
         normalized.append(int(round(quantized)) if step is not None and step >= 1 else float(quantized))
     normalized.sort(key=float)
     return normalized
-
-
-def _picture_settings_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:
-    if role not in CAMERA_SETUP_ROLES:
-        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-    return cameraPictureSettingsToDict(
-        parseCameraPictureSettings(_camera_config_value(config, "camera_picture_settings", role))
-    )
-
-
-def _camera_color_profile_for_role(config: Dict[str, Any], role: str) -> Dict[str, Any]:
-    if role not in CAMERA_SETUP_ROLES:
-        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-    return cameraColorProfileToDict(
-        parseCameraColorProfile(_camera_config_value(config, "camera_color_profiles", role))
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -1005,51 +973,9 @@ def _run_camera_calibration_task(
 # ---------------------------------------------------------------------------
 
 
-def _save_camera_color_profile(
-    role: str,
-    payload: Dict[str, Any] | None,
-) -> Dict[str, Any]:
-    if role not in CAMERA_SETUP_ROLES:
-        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-
-    params_path, config = _read_machine_params_config()
-    parsed = parseCameraColorProfile(payload)
-    profile_dict = cameraColorProfileToDict(parsed)
-    profiles = _get_camera_color_profile_table(config)
-    config_role = stored_camera_role_key(role, config)
-    if parsed.enabled:
-        if config_role == "classification_channel":
-            profiles.pop("carousel", None)
-        elif config_role == "carousel":
-            profiles.pop("classification_channel", None)
-        profiles[config_role] = profile_dict
-    else:
-        profiles.pop(config_role, None)
-    config["camera_color_profiles"] = profiles
-
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-
-    return {
-        "ok": True,
-        "role": role,
-        "profile": profile_dict,
-        "applied_live": False,
-    }
-
-
 def _restore_preview_settings(role: str, settings: Dict[str, int | float | bool]) -> None:
     try:
         preview_camera_device_settings(role, settings)
-    except Exception:
-        pass
-
-
-def _restore_camera_color_profile(role: str, profile: Dict[str, Any]) -> None:
-    try:
-        _save_camera_color_profile(role, profile)
     except Exception:
         pass
 
@@ -1619,7 +1545,10 @@ def delete_camera_color_profile(role: str) -> Dict[str, Any]:
     """Remove persisted color correction profile for a camera role and disable live correction."""
     if role not in CAMERA_SETUP_ROLES:
         raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
-    saved = _save_camera_color_profile(role, {"enabled": False})
+    try:
+        saved = _save_camera_color_profile(role, {"enabled": False})
+    except CameraSettingsWriteError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     return {
         "ok": True,
         "role": role,

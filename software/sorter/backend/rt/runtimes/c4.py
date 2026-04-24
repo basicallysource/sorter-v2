@@ -104,6 +104,7 @@ class RuntimeC4(BaseRuntime):
         startup_purge_detection_count_provider: Callable[[], int] | None = None,
         carousel_move_command: Callable[[float], bool] | None = None,
         transport_move_command: Callable[[float], bool] | None = None,
+        sample_transport_move_command: Callable[[float], bool] | None = None,
         startup_purge_move_command: Callable[[float], bool] | None = None,
         wiggle_move_command: Callable[[float], bool] | None = None,
         unjam_move_command: Callable[[float], bool] | None = None,
@@ -160,6 +161,7 @@ class RuntimeC4(BaseRuntime):
         # FeedFrame.timestamp), plus a short pad on each side.
         _raw_carousel_move = carousel_move_command or (lambda _deg: True)
         _raw_transport_move = transport_move_command or _raw_carousel_move
+        _raw_sample_transport_move = sample_transport_move_command or _raw_transport_move
         _raw_startup_purge_move = startup_purge_move_command or _raw_carousel_move
         _raw_wiggle_move = wiggle_move_command or _raw_carousel_move
         _raw_unjam_move = unjam_move_command or _raw_carousel_move
@@ -168,6 +170,9 @@ class RuntimeC4(BaseRuntime):
         )
         self._transport_move = self._wrap_rotation_command(
             _raw_transport_move, "c4_transport"
+        )
+        self._sample_transport_move = self._wrap_rotation_command(
+            _raw_sample_transport_move, "c4_sample_transport"
         )
         self._startup_purge_move = self._wrap_rotation_command(
             _raw_startup_purge_move, "c4_startup_purge"
@@ -1237,7 +1242,7 @@ class RuntimeC4(BaseRuntime):
 
         def _do_move() -> None:
             try:
-                self._transport_move(step)
+                self._sample_transport_move(step)
             except Exception:
                 self._logger.exception("RuntimeC4: sample transport move raised")
 

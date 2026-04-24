@@ -29,6 +29,13 @@ class SampleTransportPayload(BaseModel):
     poll_s: float = 0.02
 
 
+class SampleTransportUpdatePayload(BaseModel):
+    base_interval_s: float | None = None
+    ratio: float | None = None
+    channel_rpm: Dict[str, float] | None = None
+    poll_s: float | None = None
+
+
 def _publish_runtime_state(state: str) -> None:
     irl = shared_state.getActiveIRL()
     layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
@@ -230,6 +237,34 @@ def cancel_sample_transport() -> Dict[str, Any]:
     status_fn = getattr(handle, "sample_transport_status", None)
     status = dict(status_fn() or {}) if callable(status_fn) else {"active": False}
     return {"ok": True, "cancelled": cancelled, "status": status}
+
+
+@router.post("/api/rt/sample-transport/config")
+def update_sample_transport_config(
+    payload: SampleTransportUpdatePayload,
+) -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    update_fn = getattr(handle, "update_sample_transport", None)
+    if not callable(update_fn):
+        raise HTTPException(status_code=501, detail="sample transport update is not supported")
+    try:
+        updated = bool(
+            update_fn(
+                base_interval_s=payload.base_interval_s,
+                ratio=payload.ratio,
+                channel_rpm=payload.channel_rpm,
+                poll_s=payload.poll_s,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not updated:
+        raise HTTPException(status_code=409, detail="sample transport is not active")
+    status_fn = getattr(handle, "sample_transport_status", None)
+    status = dict(status_fn() or {}) if callable(status_fn) else {"active": True}
+    return {"ok": True, "status": status}
 
 
 @router.post("/api/rt/c1/clear-jam")

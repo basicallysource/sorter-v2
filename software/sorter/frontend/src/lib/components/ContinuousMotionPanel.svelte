@@ -5,6 +5,7 @@
 		cancelContinuousMotion,
 		fetchContinuousMotionStatus,
 		startContinuousMotion,
+		updateContinuousMotion,
 		type ContinuousMotionChannelKey,
 		type ContinuousMotionMode,
 		type ContinuousMotionStatus
@@ -42,6 +43,10 @@
 	let status = $state<ContinuousMotionStatus | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let lastSentConfigKey = $state('');
+	let settingsLoaded = $state(false);
+
+	const SETTINGS_KEY = 'sorter.continuousMotion.settings.v1';
 
 	const active = $derived(Boolean(status?.active));
 	const phaseLabel = $derived(
@@ -101,10 +106,110 @@
 			: `${base} border-border bg-bg text-text-muted hover:text-text`;
 	}
 
+	function runningPayload() {
+		return {
+			channel_rpm: targetRpms(),
+			duration_s: Math.max(1, durationMinutes) * 60,
+			poll_s: 0.02
+		};
+	}
+
+	function loadSettings() {
+		try {
+			const raw = localStorage.getItem(SETTINGS_KEY);
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as Partial<{
+				mode: ContinuousMotionMode;
+				baseRpm: number;
+				absoluteRpm: Partial<Record<ContinuousMotionChannelKey, number>>;
+				factors: Partial<Record<ContinuousMotionChannelKey, number>>;
+				durationMinutes: number;
+			}>;
+			if (parsed.mode === 'factor' || parsed.mode === 'rpm') mode = parsed.mode;
+			if (typeof parsed.baseRpm === 'number') baseRpm = clampRpm(parsed.baseRpm);
+			if (typeof parsed.durationMinutes === 'number') {
+				durationMinutes = Math.max(1, Math.min(60, parsed.durationMinutes));
+			}
+			if (parsed.absoluteRpm) {
+				absoluteRpm = {
+					c1: clampRpm(parsed.absoluteRpm.c1 ?? absoluteRpm.c1),
+					c2: clampRpm(parsed.absoluteRpm.c2 ?? absoluteRpm.c2),
+					c3: clampRpm(parsed.absoluteRpm.c3 ?? absoluteRpm.c3),
+					c4: clampRpm(parsed.absoluteRpm.c4 ?? absoluteRpm.c4)
+				};
+			}
+			if (parsed.factors) {
+				factors = {
+					c1: 1,
+					c2: clampFactor(parsed.factors.c2 ?? factors.c2),
+					c3: clampFactor(parsed.factors.c3 ?? factors.c3),
+					c4: clampFactor(parsed.factors.c4 ?? factors.c4)
+				};
+			}
+		} catch {
+			// Bad local settings should never break the dashboard.
+		}
+	}
+
+	function persistSettings() {
+		try {
+			localStorage.setItem(
+				SETTINGS_KEY,
+				JSON.stringify({
+					mode,
+					baseRpm: clampRpm(baseRpm),
+					absoluteRpm: {
+						c1: clampRpm(absoluteRpm.c1),
+						c2: clampRpm(absoluteRpm.c2),
+						c3: clampRpm(absoluteRpm.c3),
+						c4: clampRpm(absoluteRpm.c4)
+					},
+					factors: {
+						c1: 1,
+						c2: clampFactor(factors.c2),
+						c3: clampFactor(factors.c3),
+						c4: clampFactor(factors.c4)
+					},
+					durationMinutes: Math.max(1, Math.min(60, durationMinutes))
+				})
+			);
+		} catch {
+			// Storage can be unavailable in private/browser automation contexts.
+		}
+	}
+
+	function syncFromStatusConfig(next: ContinuousMotionStatus) {
+		const rpm = next.config?.channel_rpm;
+		if (!next.active || !rpm || lastSentConfigKey) return;
+		const c1 = clampRpm(rpm.c1 ?? baseRpm);
+		const c2 = clampRpm(rpm.c2 ?? c1 * factors.c2);
+		const c3 = clampRpm(rpm.c3 ?? c2 * factors.c3);
+		const c4 = clampRpm(rpm.c4 ?? c3 * factors.c4);
+		baseRpm = c1;
+		absoluteRpm = { c1, c2, c3, c4 };
+		factors = {
+			c1: 1,
+			c2: clampFactor(c2 / c1),
+			c3: clampFactor(c3 / c2),
+			c4: clampFactor(c4 / c3)
+		};
+		lastSentConfigKey = configKey();
+	}
+
+	function configKey(): string {
+		return JSON.stringify({
+			baseUrl,
+			...runningPayload()
+		});
+	}
+
 	async function refreshStatus() {
 		try {
 			const next = await fetchContinuousMotionStatus(baseUrl);
-			if (next) status = next;
+			if (next) {
+				status = next;
+				syncFromStatusConfig(next);
+			}
 		} catch {
 			// dashboard polling should stay quiet on transient disconnects
 		}
@@ -118,10 +223,9 @@
 				status = await cancelContinuousMotion(baseUrl);
 			} else {
 				status = await startContinuousMotion(baseUrl, {
-					channel_rpm: targetRpms(),
-					duration_s: Math.max(1, durationMinutes) * 60,
-					poll_s: 0.02
+					...runningPayload()
 				});
+				lastSentConfigKey = configKey();
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Continuous motion failed.';
@@ -134,7 +238,40 @@
 		void refreshStatus();
 	});
 
+	$effect(() => {
+		if (!settingsLoaded) return;
+		mode;
+		baseRpm;
+		absoluteRpm;
+		factors;
+		durationMinutes;
+		persistSettings();
+	});
+
+	$effect(() => {
+		if (!active) {
+			lastSentConfigKey = '';
+			return;
+		}
+		const key = configKey();
+		if (key === lastSentConfigKey) return;
+		const timer = setTimeout(() => {
+			void (async () => {
+				try {
+					status = await updateContinuousMotion(baseUrl, runningPayload());
+					lastSentConfigKey = key;
+					error = null;
+				} catch (e) {
+					error = e instanceof Error ? e.message : 'Continuous motion update failed.';
+				}
+			})();
+		}, 350);
+		return () => clearTimeout(timer);
+	});
+
 	onMount(() => {
+		loadSettings();
+		settingsLoaded = true;
 		void refreshStatus();
 		const interval = setInterval(() => void refreshStatus(), 1000);
 		return () => clearInterval(interval);

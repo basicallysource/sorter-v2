@@ -146,3 +146,35 @@ def test_sample_transport_uses_per_channel_rpm_targets() -> None:
     assert status["channels"]["c2"]["interval_s"] == 3.0
     assert status["channels"]["c1"]["target_rpm"] == 1.0
     assert status["channels"]["c2"]["target_rpm"] == 2.0
+
+
+def test_sample_transport_updates_running_rpm_targets() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = False
+    runtimes = [_FakeRuntime("c1"), _FakeRuntime("c2")]
+
+    assert coordinator.start(
+        runtimes=runtimes,
+        control=control,
+        channel_rpm={"c1": 1.0, "c2": 1.0},
+        duration_s=10.0,
+        poll_s=0.01,
+    )
+    try:
+        assert coordinator.update_config(channel_rpm={"c1": 1.0, "c2": 4.0})
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            status = coordinator.status()
+            if status["channels"]["c2"]["target_rpm"] == 4.0:
+                break
+            time.sleep(0.01)
+
+        status = coordinator.status()
+        assert status["active"] is True
+        assert status["config"]["channel_rpm"] == {"c1": 1.0, "c2": 4.0}
+        assert status["channels"]["c1"]["interval_s"] == 6.0
+        assert status["channels"]["c2"]["interval_s"] == 1.5
+        assert status["channels"]["c2"]["target_rpm"] == 4.0
+    finally:
+        coordinator.cancel()

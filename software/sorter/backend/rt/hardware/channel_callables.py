@@ -247,6 +247,7 @@ def build_c4_callables(
     Callable[[float], bool],
     Callable[[float], bool],
     Callable[[float], bool],
+    Callable[[float], bool],
     Callable[[bool], bool],
     Callable[[], bool],
     Callable[[float], bool],
@@ -313,6 +314,14 @@ def build_c4_callables(
         return _profile_move(
             deg,
             profile_name=PROFILE_TRANSPORT,
+            speed_limit=transport_speed_limit,
+            acceleration=transport_acceleration,
+        )
+
+    def continuous_move(deg: float) -> bool:
+        return _profile_move(
+            deg,
+            profile_name=PROFILE_CONTINUOUS,
             speed_limit=transport_speed_limit,
             acceleration=transport_acceleration,
         )
@@ -410,6 +419,7 @@ def build_c4_callables(
     return (
         carousel_move,
         transport_move,
+        continuous_move,
         startup_purge_move,
         startup_purge_mode,
         eject,

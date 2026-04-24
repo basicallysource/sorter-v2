@@ -101,6 +101,7 @@ class C1234SampleTransportCoordinator:
         self._cancel = threading.Event()
         self._thread: threading.Thread | None = None
         self._status: dict[str, Any] = _initial_status()
+        self._pending_update: dict[str, Any] | None = None
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -157,6 +158,7 @@ class C1234SampleTransportCoordinator:
             if bool(self._status.get("active")):
                 return False
             self._cancel.clear()
+            self._pending_update = None
             self._status = {
                 "active": True,
                 "phase": "starting",
@@ -194,6 +196,43 @@ class C1234SampleTransportCoordinator:
             )
             self._thread = thread
             thread.start()
+            return True
+
+    def update_config(
+        self,
+        *,
+        base_interval_s: float | None = None,
+        ratio: float | None = None,
+        channel_rpm: dict[str, float] | None = None,
+        poll_s: float | None = None,
+    ) -> bool:
+        update: dict[str, Any] = {}
+        if base_interval_s is not None:
+            if base_interval_s <= 0.0:
+                raise ValueError("base_interval_s must be > 0")
+            update["base_interval_s"] = float(base_interval_s)
+        if ratio is not None:
+            if ratio <= 1.0:
+                raise ValueError("ratio must be > 1")
+            update["ratio"] = float(ratio)
+        if channel_rpm is not None:
+            update["channel_rpm"] = {
+                str(key): float(value)
+                for key, value in channel_rpm.items()
+            }
+        if poll_s is not None:
+            if poll_s <= 0.0:
+                raise ValueError("poll_s must be > 0")
+            update["poll_s"] = float(poll_s)
+        with self._lock:
+            if not bool(self._status.get("active")):
+                return False
+            config = dict(self._status.get("config") or {})
+            config.update(update)
+            next_status = dict(self._status)
+            next_status["config"] = config
+            self._status = next_status
+            self._pending_update = dict(config)
             return True
 
     def cancel(self) -> bool:
@@ -277,6 +316,47 @@ class C1234SampleTransportCoordinator:
             }
             self._status = next_status
 
+    def _pop_pending_update(self) -> dict[str, Any] | None:
+        with self._lock:
+            update = self._pending_update
+            self._pending_update = None
+            return dict(update) if isinstance(update, dict) else None
+
+    def _apply_config_update(
+        self,
+        *,
+        states: list[_ChannelState],
+        config: dict[str, Any],
+        now_mono: float,
+    ) -> float | None:
+        raw_base = config.get("base_interval_s", DEFAULT_BASE_INTERVAL_S)
+        raw_ratio = config.get("ratio", DEFAULT_RATIO)
+        try:
+            base_interval_s = float(raw_base)
+            ratio = float(raw_ratio)
+        except (TypeError, ValueError):
+            return None
+        channel_rpm = config.get("channel_rpm")
+        poll_s = config.get("poll_s")
+        rpm_map = channel_rpm if isinstance(channel_rpm, dict) else None
+        for index, state in enumerate(states):
+            target_rpm = _target_rpm_for_channel(rpm_map, state.key)
+            interval = (
+                _interval_for_rpm(
+                    target_rpm,
+                    nominal_degrees_per_step=state.nominal_degrees_per_step,
+                )
+                if target_rpm is not None
+                else max(MIN_INTERVAL_S, base_interval_s / (ratio**index))
+            )
+            state.target_rpm = target_rpm
+            state.interval_s = interval
+            state.next_at_mono = min(state.next_at_mono, now_mono + interval)
+        try:
+            return float(poll_s) if poll_s is not None else None
+        except (TypeError, ValueError):
+            return None
+
     def _run(
         self,
         *,
@@ -304,6 +384,20 @@ class C1234SampleTransportCoordinator:
 
             while not self._cancel.is_set():
                 now = time.monotonic()
+                config_update = self._pop_pending_update()
+                if config_update is not None:
+                    next_poll = self._apply_config_update(
+                        states=states,
+                        config=config_update,
+                        now_mono=now,
+                    )
+                    if next_poll is not None and next_poll > 0.0:
+                        poll_s = next_poll
+                    self._update_status(
+                        states=states,
+                        active=True,
+                        phase="running",
+                    )
                 if deadline is not None and now >= deadline:
                     success = True
                     reason = "duration_elapsed"

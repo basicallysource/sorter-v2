@@ -165,6 +165,10 @@ def _make(
         log.append(f"transport:{deg:.1f}")
         return True
 
+    def sample_transport_move(deg: float) -> bool:
+        log.append(f"sample:{deg:.1f}")
+        return True
+
     def purge_move(deg: float) -> bool:
         log.append(f"purge:{deg:.1f}")
         return True
@@ -194,6 +198,7 @@ def _make(
         startup_purge_detection_count_provider=startup_purge_detection_count_provider,
         carousel_move_command=move,
         transport_move_command=transport_move,
+        sample_transport_move_command=sample_transport_move,
         startup_purge_move_command=purge_move,
         eject_command=eject,
         crop_provider=crop_provider or (lambda _f, _t: b"crop"),
@@ -216,6 +221,15 @@ def _make(
 def test_c4_available_slots_open_when_empty() -> None:
     rt, _up, _down, _clf, _log = _make()
     assert rt.available_slots() == 1
+
+
+def test_c4_sample_transport_uses_sample_move_command() -> None:
+    rt, _up, _down, _clf, log = _make()
+
+    assert rt.sample_transport_port().step(1.0) is True
+
+    assert "sample:6.0" in log
+    assert "transport:6.0" not in log
 
 
 def test_c4_available_slots_blocks_on_zone_cap() -> None:

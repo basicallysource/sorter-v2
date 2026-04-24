@@ -443,6 +443,21 @@ class RtRuntimeHandle:
     def cancel_sample_transport(self) -> bool:
         return self._sample_transport_coordinator.cancel()
 
+    def update_sample_transport(
+        self,
+        *,
+        base_interval_s: float | None = None,
+        ratio: float | None = None,
+        channel_rpm: dict[str, float] | None = None,
+        poll_s: float | None = None,
+    ) -> bool:
+        return self._sample_transport_coordinator.update_config(
+            base_interval_s=base_interval_s,
+            ratio=ratio,
+            channel_rpm=channel_rpm,
+            poll_s=poll_s,
+        )
+
     def clear_c1_pause(self) -> dict[str, Any]:
         c1 = self.c1
         if c1 is None:
@@ -734,6 +749,7 @@ def build_rt_runtime(
     (
         c4_carousel_move,
         c4_transport_move,
+        c4_continuous_move,
         c4_startup_purge_move,
         c4_startup_purge_mode,
         c4_eject,
@@ -916,6 +932,7 @@ def build_rt_runtime(
         startup_purge_detection_count_provider=_c4_startup_purge_detection_count,
         carousel_move_command=c4_carousel_move,
         transport_move_command=c4_transport_move,
+        sample_transport_move_command=c4_continuous_move,
         startup_purge_move_command=c4_startup_purge_move,
         wiggle_move_command=c4_wiggle_move,
         unjam_move_command=c4_unjam_move,

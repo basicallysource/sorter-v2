@@ -72,6 +72,25 @@ export async function startContinuousMotion(
 	return data.status ?? { active: true, phase: 'running' };
 }
 
+export async function updateContinuousMotion(
+	baseUrl: string,
+	payload: StartContinuousMotionPayload
+): Promise<ContinuousMotionStatus> {
+	const response = await fetch(`${baseUrl}/api/rt/sample-transport/config`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(payload)
+	});
+	const data = (await response.json().catch(() => ({}))) as {
+		detail?: string;
+		status?: ContinuousMotionStatus;
+	};
+	if (!response.ok) {
+		throw new Error(data.detail ?? 'Could not update continuous motion.');
+	}
+	return data.status ?? { active: true, phase: 'running' };
+}
+
 export async function cancelContinuousMotion(baseUrl: string): Promise<ContinuousMotionStatus> {
 	const response = await fetch(`${baseUrl}/api/rt/sample-transport/cancel`, {
 		method: 'POST'

@@ -217,7 +217,7 @@ def test_c4_eject_applies_classification_pulse_profile() -> None:
         },
     )()
 
-    _carousel, _transport, _purge, _mode, eject, *_rest = build_c4_callables(
+    _carousel, _transport, _continuous, _purge, _mode, eject, *_rest = build_c4_callables(
         irl,
         logging.getLogger("test"),
         transport_speed_scale=2.4,
@@ -228,6 +228,27 @@ def test_c4_eject_applies_classification_pulse_profile() -> None:
     assert irl.carousel_stepper.accelerations == [2500]
     assert irl.carousel_stepper.speed_limits == [(16, 3400)]
     assert irl.carousel_stepper.moves == [100.0]
+
+
+def test_c4_continuous_move_uses_named_continuous_profile() -> None:
+    irl = type("Irl", (), {})()
+    irl.carousel_stepper = _CarouselStepper()
+    irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()
+    diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
+
+    _carousel, _transport, continuous_move, *_ = build_c4_callables(
+        irl,
+        logging.getLogger("test"),
+        transport_speed_scale=2.4,
+        motion_diagnostics=diagnostics,
+    )
+
+    assert continuous_move(6.0) is True
+
+    motion = diagnostics.status_snapshot()["last_by_channel"]["c4"]
+    assert motion["profile"] == "continuous"
+    assert motion["source"] == "c4_continuous"
+    assert irl.carousel_stepper.speed_limits == [(16, 240)]
 
 
 def test_c4_motion_diagnostics_records_named_profile_warning() -> None:

@@ -27,6 +27,7 @@ import json
 import random
 import shutil
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -37,6 +38,9 @@ from PIL import Image
 from training import DATASETS_DIR
 
 
+DEFAULT_PIECE_COUNT_BINS = "0,1,2,3,4,5,6,7,8,9-12,13+"
+
+
 @dataclass(frozen=True)
 class _LabeledSample:
     sample_id: str
@@ -45,6 +49,7 @@ class _LabeledSample:
     height: int
     boxes: tuple[tuple[float, float, float, float], ...]
     source_role: str | None
+    detection_score: float | None
 
 
 def _read_manifest(raw_dir: Path) -> list[dict[str, Any]]:
@@ -92,6 +97,12 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
         height=height,
         boxes=tuple(boxes),
         source_role=entry.get("source_role"),
+        detection_score=(
+            float(entry["detection_score"])
+            if isinstance(entry.get("detection_score"), (int, float))
+            and not isinstance(entry.get("detection_score"), bool)
+            else None
+        ),
     )
 
 
@@ -169,6 +180,307 @@ def _apply_diversity_sampling(
     }
 
 
+def _allocate_balanced_quotas(group_sizes: dict[str, int], target_size: int) -> dict[str, int]:
+    """Allocate a near-even target across groups, capped by group availability."""
+    quotas = {group: 0 for group in group_sizes}
+    remaining_capacity = dict(group_sizes)
+    remaining = min(target_size, sum(group_sizes.values()))
+
+    while remaining > 0:
+        available_groups = [
+            group for group, capacity in remaining_capacity.items() if capacity > quotas[group]
+        ]
+        if not available_groups:
+            break
+        base, extra = divmod(remaining, len(available_groups))
+        if base == 0:
+            for group in sorted(available_groups)[:extra]:
+                quotas[group] += 1
+            break
+
+        assigned = 0
+        for group in sorted(available_groups):
+            capacity_left = remaining_capacity[group] - quotas[group]
+            take = min(capacity_left, base + (1 if extra > 0 else 0))
+            if extra > 0:
+                extra -= 1
+            quotas[group] += take
+            assigned += take
+
+        if assigned == 0:
+            break
+        remaining -= assigned
+
+    return quotas
+
+
+def _strict_balance_shortages(group_sizes: dict[str, int], target_size: int) -> dict[str, int]:
+    """Return the per-group sample shortage for a strict equal split."""
+    if not group_sizes:
+        return {}
+    fair_quota = target_size // len(group_sizes)
+    if target_size % len(group_sizes):
+        fair_quota += 1
+    return {
+        group: fair_quota - size
+        for group, size in sorted(group_sizes.items())
+        if size < fair_quota
+    }
+
+
+def _piece_count_bucket(piece_count: int, bins: str) -> str:
+    for raw_token in bins.split(","):
+        token = raw_token.strip()
+        if not token:
+            continue
+        if token.endswith("+"):
+            lower = int(token[:-1])
+            if piece_count >= lower:
+                return token
+            continue
+        if "-" in token:
+            lower_str, upper_str = token.split("-", 1)
+            lower = int(lower_str)
+            upper = int(upper_str)
+            if lower <= piece_count <= upper:
+                return token
+            continue
+        if piece_count == int(token):
+            return token
+    return str(piece_count)
+
+
+def _balance_group_label(
+    sample: _LabeledSample,
+    *,
+    balance_source_role: bool,
+    balance_piece_count: bool,
+    piece_count_bins: str,
+) -> str:
+    parts: list[str] = []
+    if balance_source_role:
+        parts.append(f"source_role={sample.source_role or 'unknown'}")
+    if balance_piece_count:
+        bucket = _piece_count_bucket(len(sample.boxes), piece_count_bins)
+        parts.append(f"pieces={bucket}")
+    return " | ".join(parts) if parts else "all"
+
+
+def _select_group_subset(
+    samples: list[_LabeledSample],
+    *,
+    target_size: int,
+    model_weights: str,
+    seed: int,
+) -> tuple[list[_LabeledSample], dict[str, Any]]:
+    if target_size <= 0:
+        return [], {
+            "applied": False,
+            "reason": "target_size <= 0",
+            "source_samples": len(samples),
+            "target_size": target_size,
+        }
+    if target_size >= len(samples):
+        return samples, {
+            "applied": False,
+            "reason": f"target_size={target_size} >= available samples ({len(samples)})",
+        }
+
+    from training.datasets.diversity import (
+        MIN_FOR_FPS,
+        embed_images,
+        farthest_point_sample,
+        summarize_selection,
+    )
+
+    if len(samples) < MIN_FOR_FPS:
+        shuffled = list(samples)
+        _deterministic_shuffle(shuffled, seed=seed)
+        return shuffled[:target_size], {
+            "applied": False,
+            "reason": f"{len(samples)} < MIN_FOR_FPS ({MIN_FOR_FPS}); used deterministic shuffle",
+            "source_samples": len(samples),
+            "target_size": target_size,
+        }
+
+    image_paths = [s.image_path for s in samples]
+    embeddings = embed_images(image_paths, model_weights=model_weights)
+    selected_indices = farthest_point_sample(embeddings, target_size)
+    stats = summarize_selection(embeddings, selected_indices)
+    return [samples[i] for i in selected_indices], {
+        "applied": True,
+        "model_weights": model_weights,
+        "source_samples": len(samples),
+        "target_size": target_size,
+        "spread_stats": stats,
+    }
+
+
+def _apply_balanced_diversity_sampling(
+    samples: list[_LabeledSample],
+    *,
+    target_size: int,
+    model_weights: str,
+    seed: int,
+    strict: bool,
+    balance_source_role: bool,
+    balance_piece_count: bool,
+    piece_count_bins: str,
+) -> tuple[list[_LabeledSample], dict[str, Any]]:
+    grouped: dict[str, list[_LabeledSample]] = defaultdict(list)
+    for sample in samples:
+        grouped[
+            _balance_group_label(
+                sample,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            )
+        ].append(sample)
+
+    group_sizes = {group: len(group_samples) for group, group_samples in grouped.items()}
+    shortages = _strict_balance_shortages(group_sizes, target_size)
+    if strict and shortages:
+        details = ", ".join(
+            f"{group} needs {missing} more samples" for group, missing in shortages.items()
+        )
+        raise SystemExit(
+            "Cannot build a strictly balanced dataset: "
+            f"{details}. Add more accepted samples for those balance groups "
+            "or lower --target-size."
+        )
+
+    quotas = _allocate_balanced_quotas(group_sizes, target_size)
+    selected: list[_LabeledSample] = []
+    group_info: dict[str, Any] = {}
+
+    for group in sorted(grouped):
+        quota = quotas.get(group, 0)
+        group_samples = grouped[group]
+        chosen, info = _select_group_subset(
+            group_samples,
+            target_size=quota,
+            model_weights=model_weights,
+            seed=seed,
+        )
+        selected.extend(chosen)
+        group_info[group] = {
+            "available": len(group_samples),
+            "selected": len(chosen),
+            "selection": info,
+        }
+
+    print(
+        "  balance groups: "
+        + ", ".join(
+            f"{group}={group_info[group]['selected']}/{group_info[group]['available']}"
+            for group in sorted(group_info)
+        ),
+        file=sys.stderr,
+    )
+
+    return selected, {
+        "applied": True,
+        "strategy": "equal_quota_by_balance_group_then_diversity",
+        "balance_source_role": balance_source_role,
+        "balance_piece_count": balance_piece_count,
+        "piece_count_bins": piece_count_bins if balance_piece_count else None,
+        "model_weights": model_weights,
+        "source_samples": len(samples),
+        "target_size": target_size,
+        "selected": len(selected),
+        "strict": strict,
+        "strict_shortages": shortages,
+        "groups": group_info,
+    }
+
+
+def _source_role_counts(samples: Iterable[_LabeledSample]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for sample in samples:
+        role = sample.source_role or "unknown"
+        counts[role] = counts.get(role, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _piece_count_counts(samples: Iterable[_LabeledSample], *, bins: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for sample in samples:
+        bucket = _piece_count_bucket(len(sample.boxes), bins)
+        counts[bucket] = counts.get(bucket, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _balance_group_counts(
+    samples: Iterable[_LabeledSample],
+    *,
+    balance_source_role: bool,
+    balance_piece_count: bool,
+    piece_count_bins: str,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for sample in samples:
+        group = _balance_group_label(
+            sample,
+            balance_source_role=balance_source_role,
+            balance_piece_count=balance_piece_count,
+            piece_count_bins=piece_count_bins,
+        )
+        counts[group] = counts.get(group, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _split_samples(
+    samples: list[_LabeledSample],
+    *,
+    train_ratio: float,
+    seed: int,
+    stratify_balance_groups: bool,
+    balance_source_role: bool,
+    balance_piece_count: bool,
+    piece_count_bins: str,
+) -> tuple[list[_LabeledSample], list[_LabeledSample]]:
+    if not stratify_balance_groups:
+        shuffled = list(samples)
+        _deterministic_shuffle(shuffled, seed=seed)
+        split_idx = max(1, int(round(len(shuffled) * train_ratio)))
+        if split_idx >= len(shuffled):
+            split_idx = max(1, len(shuffled) - 1)
+        return shuffled[:split_idx], shuffled[split_idx:]
+
+    grouped: dict[str, list[_LabeledSample]] = defaultdict(list)
+    for sample in samples:
+        grouped[
+            _balance_group_label(
+                sample,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            )
+        ].append(sample)
+
+    train_samples: list[_LabeledSample] = []
+    val_samples: list[_LabeledSample] = []
+    for group_index, group in enumerate(sorted(grouped)):
+        group_samples = list(grouped[group])
+        _deterministic_shuffle(group_samples, seed=seed + group_index)
+        if len(group_samples) == 1:
+            train_samples.extend(group_samples)
+            continue
+        split_idx = max(1, int(round(len(group_samples) * train_ratio)))
+        if split_idx >= len(group_samples):
+            split_idx = max(1, len(group_samples) - 1)
+        train_samples.extend(group_samples[:split_idx])
+        val_samples.extend(group_samples[split_idx:])
+
+    if not val_samples and len(train_samples) > 1:
+        val_samples.append(train_samples.pop())
+
+    _deterministic_shuffle(train_samples, seed=seed)
+    _deterministic_shuffle(val_samples, seed=seed + 1)
+    return train_samples, val_samples
+
+
 def run(
     *,
     zone: str,
@@ -179,6 +491,11 @@ def run(
     symlink_images: bool = True,
     target_size: int | None = None,
     embed_model: str = "yolo11n.pt",
+    balance_source_role: bool = False,
+    balance_piece_count: bool = False,
+    piece_count_bins: str = DEFAULT_PIECE_COUNT_BINS,
+    strict_source_role_balance: bool = False,
+    min_detection_score: float | None = None,
     raw_dir: Path | None = None,
     output_dir: Path | None = None,
 ) -> int:
@@ -198,10 +515,19 @@ def run(
     manifest = _read_manifest(raw_dir)
     samples: list[_LabeledSample] = []
     skipped_no_boxes = 0
+    skipped_low_score = 0
+    skipped_missing_score = 0
     for entry in manifest:
         sample = _load_sample(entry, raw_dir)
         if sample is None:
             continue
+        if min_detection_score is not None and sample.boxes:
+            if sample.detection_score is None:
+                skipped_missing_score += 1
+                continue
+            if sample.detection_score < min_detection_score:
+                skipped_low_score += 1
+                continue
         if not sample.boxes and not keep_empty:
             skipped_no_boxes += 1
             continue
@@ -215,23 +541,38 @@ def run(
 
     diversity_info: dict[str, Any] = {"applied": False}
     if target_size is not None and target_size < len(samples):
-        samples, diversity_info = _apply_diversity_sampling(
-            samples,
-            target_size=target_size,
-            model_weights=embed_model,
-        )
+        if balance_source_role or balance_piece_count:
+            samples, diversity_info = _apply_balanced_diversity_sampling(
+                samples,
+                target_size=target_size,
+                model_weights=embed_model,
+                seed=seed,
+                strict=strict_source_role_balance,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            )
+        else:
+            samples, diversity_info = _apply_diversity_sampling(
+                samples,
+                target_size=target_size,
+                model_weights=embed_model,
+            )
     elif target_size is not None and target_size >= len(samples):
         diversity_info = {
             "applied": False,
             "reason": f"target_size={target_size} >= available samples ({len(samples)})",
         }
 
-    _deterministic_shuffle(samples, seed=seed)
-    split_idx = max(1, int(round(len(samples) * train_ratio)))
-    if split_idx >= len(samples):
-        split_idx = max(1, len(samples) - 1)
-    train_samples = samples[:split_idx]
-    val_samples = samples[split_idx:]
+    train_samples, val_samples = _split_samples(
+        samples,
+        train_ratio=train_ratio,
+        seed=seed,
+        stratify_balance_groups=balance_source_role or balance_piece_count,
+        balance_source_role=balance_source_role,
+        balance_piece_count=balance_piece_count,
+        piece_count_bins=piece_count_bins,
+    )
 
     for split_name, split_samples in (("train", train_samples), ("val", val_samples)):
         images_dir = out_dir / "images" / split_name
@@ -264,7 +605,45 @@ def run(
         "train_samples": len(train_samples),
         "val_samples": len(val_samples),
         "skipped_no_boxes": skipped_no_boxes,
+        "skipped_low_score": skipped_low_score,
+        "skipped_missing_score": skipped_missing_score,
+        "min_detection_score": min_detection_score,
         "classes": ["piece"],
+        "balance_source_role": balance_source_role,
+        "balance_piece_count": balance_piece_count,
+        "piece_count_bins": piece_count_bins if balance_piece_count else None,
+        "strict_balance": strict_source_role_balance,
+        "strict_source_role_balance": strict_source_role_balance,
+        "source_role_counts": {
+            "selected": _source_role_counts(samples),
+            "train": _source_role_counts(train_samples),
+            "val": _source_role_counts(val_samples),
+        },
+        "piece_count_counts": {
+            "selected": _piece_count_counts(samples, bins=piece_count_bins),
+            "train": _piece_count_counts(train_samples, bins=piece_count_bins),
+            "val": _piece_count_counts(val_samples, bins=piece_count_bins),
+        },
+        "balance_group_counts": {
+            "selected": _balance_group_counts(
+                samples,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            ),
+            "train": _balance_group_counts(
+                train_samples,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            ),
+            "val": _balance_group_counts(
+                val_samples,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                piece_count_bins=piece_count_bins,
+            ),
+        },
         "sample_fingerprint": hashlib.sha256(
             (",".join(sorted(s.sample_id for s in samples))).encode()
         ).hexdigest()[:16],
@@ -275,7 +654,9 @@ def run(
     print(
         f"Built dataset {out_dir}\n"
         f"  train={len(train_samples)} val={len(val_samples)} "
-        f"skipped_no_boxes={skipped_no_boxes}",
+        f"skipped_no_boxes={skipped_no_boxes} "
+        f"skipped_low_score={skipped_low_score} "
+        f"skipped_missing_score={skipped_missing_score}",
         file=sys.stderr,
     )
     return 0

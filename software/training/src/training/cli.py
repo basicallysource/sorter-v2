@@ -59,6 +59,46 @@ def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: 
     default="yolo11n.pt",
     help="Ultralytics model weights used as feature extractor for --target-size",
 )
+@click.option(
+    "--balance-source-role",
+    is_flag=True,
+    help="When using --target-size, keep source_role groups (e.g. c_channel_2/3) balanced before diversity sampling.",
+)
+@click.option(
+    "--strict-source-role-balance",
+    "--strict-balance",
+    "strict_source_role_balance",
+    is_flag=True,
+    help="Fail the build if any balance group lacks enough samples for an equal share of --target-size.",
+)
+@click.option(
+    "--balance-piece-count",
+    is_flag=True,
+    help="When using --target-size, also balance by number of pieces in the frame.",
+)
+@click.option(
+    "--piece-count-bins",
+    default=None,
+    help="Comma-separated piece-count buckets for --balance-piece-count, e.g. 0,1,2,3,4,5,6,7,8,9-12,13+.",
+)
+@click.option(
+    "--min-detection-score",
+    default=None,
+    type=float,
+    help="Only include positive samples with detection_score >= this value; empty samples are kept.",
+)
+@click.option(
+    "--raw-dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    help="Override raw dataset directory containing manifest.json.",
+)
+@click.option(
+    "--output-dir",
+    default=None,
+    type=click.Path(file_okay=False, dir_okay=True),
+    help="Override output dataset directory.",
+)
 def build(
     zone: str,
     name: str | None,
@@ -68,9 +108,22 @@ def build(
     copy: bool,
     target_size: int | None,
     embed_model: str,
+    balance_source_role: bool,
+    strict_source_role_balance: bool,
+    balance_piece_count: bool,
+    piece_count_bins: str | None,
+    min_detection_score: float | None,
+    raw_dir: str | None,
+    output_dir: str | None,
 ) -> None:
     """Build YOLO-format dataset from a pulled Hive dump."""
+    if strict_source_role_balance and not (balance_source_role or balance_piece_count):
+        raise click.ClickException(
+            "--strict-balance requires --balance-source-role or --balance-piece-count"
+        )
+
     from training.datasets import build as build_mod
+    from pathlib import Path
 
     build_mod.run(
         zone=zone,
@@ -81,6 +134,13 @@ def build(
         symlink_images=not copy,
         target_size=target_size,
         embed_model=embed_model,
+        balance_source_role=balance_source_role,
+        balance_piece_count=balance_piece_count,
+        piece_count_bins=piece_count_bins or build_mod.DEFAULT_PIECE_COUNT_BINS,
+        strict_source_role_balance=strict_source_role_balance,
+        min_detection_score=min_detection_score,
+        raw_dir=Path(raw_dir) if raw_dir else None,
+        output_dir=Path(output_dir) if output_dir else None,
     )
 
 

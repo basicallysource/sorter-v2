@@ -28,6 +28,7 @@ from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION, PIECE_CLASSIFIED, PIECE_REGISTERED
+from rt.perception.track_policy import action_track, admission_basis, is_visible_track
 
 from ._move_events import publish_move_completed
 from ._strategies import (
@@ -57,9 +58,9 @@ DEFAULT_EXIT_BBOX_OVERLAP_RATIO = 0.5
 # the 1 rpm operator target.
 DEFAULT_TRANSPORT_COOLDOWN_MS = 80
 DEFAULT_TRACK_STALE_S = 0.5
-DEFAULT_RECOVER_MIN_HIT_COUNT = 4
-DEFAULT_RECOVER_MIN_SCORE = 0.55
-DEFAULT_RECOVER_MIN_AGE_S = 0.6
+DEFAULT_RECOVER_MIN_HIT_COUNT = 2
+DEFAULT_RECOVER_MIN_SCORE = 0.35
+DEFAULT_RECOVER_MIN_AGE_S = 0.2
 DEFAULT_IDLE_JOG_STEP_DEG = 2.0
 DEFAULT_IDLE_JOG_COOLDOWN_MS = 500
 DEFAULT_UNJAM_STALL_MS = 2500
@@ -485,15 +486,21 @@ class RuntimeC4(BaseRuntime):
         return _C4SampleTransportPort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
-        raw_tracks = self._fresh_tracks(inbox.tracks, require_confirmed=False)
-        self._raw_detection_count = len(raw_tracks)
-        owned_tracks = self._sync_owned_tracks(raw_tracks, now_mono)
-        if self._run_startup_purge(raw_tracks, owned_tracks, now_mono):
+        raw_tracks = self._fresh_tracks(inbox.tracks)
+        visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
+        self._raw_detection_count = len(visible_tracks)
+        owned_tracks = self._sync_owned_tracks(visible_tracks, now_mono)
+        if self._run_startup_purge(visible_tracks, owned_tracks, now_mono):
             return
-        confirmed_tracks = [t for t in raw_tracks if t.confirmed_real]
-        self._admit_new_tracks(confirmed_tracks, now_mono)
-        self._reconcile_visible_tracks(raw_tracks, now_mono)
-        owned_tracks = self._owned_tracks(raw_tracks)
+        intake_candidates = [
+            t
+            for t in visible_tracks
+            if action_track(t, min_hits=self._reconcile_min_hit_count)
+        ]
+        self._admit_new_tracks(intake_candidates, now_mono)
+        if now_mono >= self._next_accept_at:
+            self._reconcile_visible_tracks(visible_tracks, now_mono)
+        owned_tracks = self._owned_tracks(visible_tracks)
         self._submit_classifications(owned_tracks, now_mono)
         self._poll_classifier_futures(now_mono)
         self._request_pending_handoffs(now_mono)
@@ -513,20 +520,14 @@ class RuntimeC4(BaseRuntime):
 
     # -- Helpers ------------------------------------------------------
 
-    def _fresh_tracks(
-        self,
-        batch: TrackBatch | None,
-        *,
-        require_confirmed: bool,
-    ) -> list[Track]:
+    def _fresh_tracks(self, batch: TrackBatch | None) -> list[Track]:
         if batch is None:
             return []
         batch_ts = float(batch.timestamp)
         return [
             t
             for t in batch.tracks
-            if (t.confirmed_real or not require_confirmed)
-            and self._is_track_fresh(t, batch_ts)
+            if self._is_track_fresh(t, batch_ts)
         ]
 
     def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:
@@ -683,12 +684,14 @@ class RuntimeC4(BaseRuntime):
             gid = int(track.global_id)
             if gid in self._track_to_piece:
                 continue
-            if int(track.hit_count) < self._reconcile_min_hit_count:
-                continue
-            if float(track.score) < self._reconcile_min_score:
+            if not action_track(
+                track,
+                min_hits=self._reconcile_min_hit_count,
+                min_score=self._reconcile_min_score,
+            ):
                 continue
             track_age_s = max(0.0, float(track.last_seen_ts) - float(track.first_seen_ts))
-            if track_age_s < self._reconcile_min_age_s:
+            if track_age_s < self._reconcile_min_age_s and not bool(track.confirmed_real):
                 continue
             candidates.append(track)
         candidates.sort(key=lambda t: (float(t.score), int(t.hit_count)), reverse=True)
@@ -731,7 +734,15 @@ class RuntimeC4(BaseRuntime):
             intake_ts=now_mono,
             angle_at_intake_deg=angle_deg,
             last_seen_mono=now_mono,
-            extras={"recovered": recovered},
+            extras={
+                "recovered": recovered,
+                "admission_basis": admission_basis(
+                    track,
+                    min_hits=self._reconcile_min_hit_count,
+                    min_score=self._reconcile_min_score,
+                    min_age_s=self._reconcile_min_age_s if recovered else 0.0,
+                ),
+            },
         )
         self._pieces[piece_uuid] = dossier
         self._track_to_piece[gid] = piece_uuid
@@ -749,6 +760,7 @@ class RuntimeC4(BaseRuntime):
                 "classification_status": "pending",
                 "classification_channel_zone_state": "active",
                 "recovered": recovered,
+                "admission_basis": dossier.extras.get("admission_basis"),
                 "dossier": {
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
@@ -757,6 +769,7 @@ class RuntimeC4(BaseRuntime):
                     "classification_channel_exit_deg": self._exit_angle_deg,
                     "first_carousel_seen_ts": now_mono,
                     "recovered": recovered,
+                    "admission_basis": dossier.extras.get("admission_basis"),
                 },
             },
             now_mono,

@@ -32,6 +32,7 @@ from rt.hardware.motion_profiles import (
     PROFILE_PURGE,
     PROFILE_TRANSPORT,
 )
+from rt.perception.track_policy import action_track, is_visible_track
 
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -52,7 +53,7 @@ DEFAULT_TRACK_STALE_S = 0.5
 # toward the exit and (b) give the ghost-gating tracker enough rotation
 # windows to declare stationary phantoms.
 DEFAULT_ADVANCE_INTERVAL_S = 1.2
-ADMISSION_PENDING_MIN_HITS = 3
+ACTION_TRACK_MIN_HITS = 2
 # Extra seconds on either side of a pulse window so the next few frames
 # (hardware latency, frame-capture jitter) still count as "during rotation".
 _ROTATION_WINDOW_PAD_S = 0.15
@@ -163,20 +164,16 @@ class RuntimeC2(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
-            visible_tracks = [t for t in tracks if not bool(getattr(t, "ghost", False))]
-            confirmed_tracks = [t for t in visible_tracks if bool(getattr(t, "confirmed_real", False))]
-            admission_pending_tracks = [
-                t
-                for t in visible_tracks
-                if not bool(getattr(t, "confirmed_real", False))
-                and int(getattr(t, "hit_count", 0) or 0) >= ADMISSION_PENDING_MIN_HITS
+            visible_tracks = [t for t in tracks if is_visible_track(t)]
+            action_tracks = [
+                t for t in visible_tracks if action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
             ]
             self._visible_track_count = len(visible_tracks)
-            self._pending_track_count = max(0, self._visible_track_count - len(confirmed_tracks))
-            self._piece_count = len(confirmed_tracks)
-            self._admission_piece_count = len(confirmed_tracks) + len(admission_pending_tracks)
+            self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
+            self._piece_count = len(action_tracks)
+            self._admission_piece_count = len(action_tracks)
             if not self._purge_mode:
-                self._credit_new_arrivals(confirmed_tracks, now_mono)
+                self._credit_new_arrivals(action_tracks, now_mono)
             exit_track = self._pick_exit_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
@@ -246,15 +243,12 @@ class RuntimeC2(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        # Only commit a downstream slot for tracks the tracker has
-        # confirmed as real via rotation-windowed motion evidence. Pending
-        # tracks (not yet judged) fall through to the advance-pulse path,
-        # which rotates the ring without claiming a slot — so a phantom at
-        # the exit cannot strand the downstream slot forever if C3 never
-        # actually receives anything.
+        # The detector is now the primary signal. Rotation-window
+        # confirmation is strong evidence, but stable non-ghost detections
+        # may commit before that catches up.
         candidates = [
             t for t in tracks
-            if t.angle_rad is not None and bool(getattr(t, "confirmed_real", False))
+            if t.angle_rad is not None and action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
         ]
         if not candidates:
             return None

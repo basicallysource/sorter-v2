@@ -23,7 +23,7 @@ class C4Admission:
       2. ``arc_clear`` (intake arc free of existing zones).
       3. ``zone_count`` vs ``max_zones`` (how many pieces physically owned).
       4. ``transport_count`` vs ``max_zones`` (dossier bookkeeping backup).
-      5. ``raw_detection_count`` hard cap (last-resort safety net).
+      5. Optional ``raw_detection_count`` cap (disabled by default).
     """
 
     key = "c4"
@@ -32,18 +32,17 @@ class C4Admission:
         self,
         *,
         max_zones: int = 1,
-        max_raw_detections: int = 3,
+        max_raw_detections: int | None = None,
         intake_angle_deg: float = 0.0,
         guard_angle_deg: float = 30.0,
     ) -> None:
         if max_zones < 1:
             raise ValueError(f"max_zones must be >= 1, got {max_zones}")
-        if max_raw_detections < 1:
-            raise ValueError(
-                f"max_raw_detections must be >= 1, got {max_raw_detections}"
-            )
         self._max_zones = int(max_zones)
-        self._max_raw_detections = int(max_raw_detections)
+        if max_raw_detections is None or int(max_raw_detections) <= 0:
+            self._max_raw_detections = None
+        else:
+            self._max_raw_detections = int(max_raw_detections)
         self._intake_angle_deg = float(intake_angle_deg)
         self._guard_angle_deg = float(guard_angle_deg)
 
@@ -52,7 +51,7 @@ class C4Admission:
         return self._max_zones
 
     @property
-    def max_raw_detections(self) -> int:
+    def max_raw_detections(self) -> int | None:
         return self._max_raw_detections
 
     @property
@@ -84,9 +83,10 @@ class C4Admission:
         if transport_count >= self._max_zones:
             return AdmissionDecision(allowed=False, reason="transport_cap")
 
-        raw_count = int(runtime_state.get("raw_detection_count", 0) or 0)
-        if raw_count >= self._max_raw_detections:
-            return AdmissionDecision(allowed=False, reason="raw_cap")
+        if self._max_raw_detections is not None:
+            raw_count = int(runtime_state.get("raw_detection_count", 0) or 0)
+            if raw_count >= self._max_raw_detections:
+                return AdmissionDecision(allowed=False, reason="raw_cap")
 
         return AdmissionDecision(allowed=True, reason="ok")
 

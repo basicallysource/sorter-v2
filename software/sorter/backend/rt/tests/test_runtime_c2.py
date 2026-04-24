@@ -118,6 +118,17 @@ def test_c2_pulses_when_exit_track_present_and_downstream_free() -> None:
     assert down.available() == 0
 
 
+def test_c2_pulses_for_stable_unconfirmed_exit_track() -> None:
+    rt, _up, down, log = _make()
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(angle_rad=0.0, confirmed=False, hit_count=2)),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log == ["pulse:40"]
+    assert down.available() == 0
+
+
 def test_c2_advances_when_ring_has_tracks_but_none_at_exit() -> None:
     rt, _up, down, log = _make()
     # Track is far from exit (angle 90°) — C2 advances the ring without
@@ -282,9 +293,9 @@ def test_c2_stable_pending_tracks_reserve_ring_capacity() -> None:
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
     snap = rt.debug_snapshot()
     assert rt.available_slots() == 0
-    assert snap["piece_count"] == 0
+    assert snap["piece_count"] == 5
     assert snap["admission_piece_count"] == 5
-    assert snap["pending_track_count"] == 5
+    assert snap["pending_track_count"] == 0
 
 
 def test_c2_ignores_stale_coasted_track_at_exit() -> None:

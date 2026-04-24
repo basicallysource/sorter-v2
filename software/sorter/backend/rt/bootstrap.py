@@ -47,6 +47,7 @@ from rt.hardware.motion_profiles import MotionDiagnostics
 from rt.perception.pipeline_runner import PerceptionRunner
 from rt.perception.runner_builder import build_perception_runner_for_role
 from rt.perception.teacher_samples import AuxiliaryTeacherSampleCollector
+from rt.perception.track_policy import action_track
 from rt.runtimes._strategies import (
     AlwaysAdmit,
     C4Admission,
@@ -360,12 +361,12 @@ class RtRuntimeHandle:
                     )
                 )
         else:
-            # C2 / C3: synthesize a wedge around every confirmed-real track.
+            # C2 / C3: synthesize a wedge around every actionable track.
             latest_tracks_fn = getattr(runner, "latest_tracks", None)
             batch = latest_tracks_fn() if callable(latest_tracks_fn) else None
             tracks = getattr(batch, "tracks", ()) if batch is not None else ()
             for track in tracks:
-                if not bool(getattr(track, "confirmed_real", False)):
+                if not action_track(track, min_hits=2):
                     continue
                 angle_rad = getattr(track, "angle_rad", None)
                 if not isinstance(angle_rad, (int, float)):
@@ -849,7 +850,13 @@ def build_rt_runtime(
     )
     c4_admission = C4Admission(
         max_zones=max(1, max_zones),
-        max_raw_detections=3,
+        max_raw_detections=getattr(
+            classification_cfg,
+            "max_raw_detections",
+            None,
+        )
+        if classification_cfg
+        else None,
     )
     c4_ejection = C4EjectionTiming(
         pulse_ms=150.0,

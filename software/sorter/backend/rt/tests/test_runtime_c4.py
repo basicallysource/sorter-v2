@@ -148,6 +148,7 @@ def _make(
     classifier: _StubClassifier | None = None,
     crop_provider: Callable[[FeedFrame, Track], Any] | None = None,
     ejection: C4EjectionTiming | None = None,
+    admission: C4Admission | None = None,
     startup_purge: C4StartupPurgeStrategy | None = None,
     startup_purge_detection_count_provider: Callable[[], int] | None = None,
     **runtime_kwargs: Any,
@@ -190,7 +191,7 @@ def _make(
         downstream_slot=downstream,
         zone_manager=zm,
         classifier=clf,
-        admission=C4Admission(max_zones=max_zones, max_raw_detections=3),
+        admission=admission or C4Admission(max_zones=max_zones),
         ejection=ejection or C4EjectionTiming(
             pulse_ms=150.0, settle_ms=100.0, fall_time_ms=0.0
         ),
@@ -261,7 +262,10 @@ def test_c4_available_slots_blocks_when_dropzone_occupied() -> None:
 
 
 def test_c4_available_slots_blocks_on_raw_cap() -> None:
-    rt, _up, _down, _clf, _log = _make(max_zones=2)
+    rt, _up, _down, _clf, _log = _make(
+        max_zones=2,
+        admission=C4Admission(max_zones=2, max_raw_detections=3),
+    )
     # Construct a batch with 3 tracks, none of which we own yet.
     inbox = RuntimeInbox(
         tracks=_batch(
@@ -624,12 +628,12 @@ def test_c4_tick_catches_exception_gracefully() -> None:
     assert rt.dossier_for(uuid).result is None
 
 
-def test_c4_ignores_unconfirmed_tracks() -> None:
+def test_c4_waits_for_stable_unconfirmed_tracks() -> None:
     rt, up, _down, clf, _log = _make()
     assert up.try_claim() is True
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(angle_deg=0.0, confirmed=False)),
+            tracks=_batch(_track(angle_deg=0.0, confirmed=False, hit_count=1)),
             capacity_downstream=1,
         ),
         now_mono=0.0,
@@ -637,6 +641,24 @@ def test_c4_ignores_unconfirmed_tracks() -> None:
     assert rt.dossier_count() == 0
     assert up.available() == 0  # upstream still claimed — no intake fired
     assert clf.calls == 0
+
+
+def test_c4_admits_stable_unconfirmed_tracks() -> None:
+    rt, up, _down, _clf, _log = _make()
+    assert up.try_claim() is True
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(angle_deg=0.0, confirmed=False, hit_count=2, score=0.8)
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    assert rt.dossier_count() == 1
+    dossier = next(iter(rt._pieces.values()))  # noqa: SLF001
+    assert dossier.extras.get("admission_basis") == "stable_detection"
+    assert up.available() == 1
 
 
 def test_c4_recovers_stable_visible_tracks_after_restart_and_starts_transport() -> None:

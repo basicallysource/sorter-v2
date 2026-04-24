@@ -37,6 +37,7 @@ from rt.hardware.motion_profiles import (
     PROFILE_PURGE,
     PROFILE_TRANSPORT,
 )
+from rt.perception.track_policy import action_track, is_visible_track
 
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -63,7 +64,7 @@ DEFAULT_TRACK_STALE_S = 0.5
 DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
 DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
-ADMISSION_PENDING_MIN_HITS = 3
+ACTION_TRACK_MIN_HITS = 2
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
 _ROTATION_WINDOW_PAD_S = 0.15
@@ -180,20 +181,16 @@ class RuntimeC3(BaseRuntime):
         start = self._tick_begin()
         try:
             tracks = self._fresh_tracks(inbox.tracks)
-            visible_tracks = [t for t in tracks if not bool(getattr(t, "ghost", False))]
-            confirmed_tracks = [t for t in visible_tracks if bool(getattr(t, "confirmed_real", False))]
-            admission_pending_tracks = [
-                t
-                for t in visible_tracks
-                if not bool(getattr(t, "confirmed_real", False))
-                and int(getattr(t, "hit_count", 0) or 0) >= ADMISSION_PENDING_MIN_HITS
+            visible_tracks = [t for t in tracks if is_visible_track(t)]
+            action_tracks = [
+                t for t in visible_tracks if action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
             ]
             self._visible_track_count = len(visible_tracks)
-            self._pending_track_count = max(0, self._visible_track_count - len(confirmed_tracks))
-            self._piece_count = len(confirmed_tracks)
-            self._admission_piece_count = len(confirmed_tracks) + len(admission_pending_tracks)
+            self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
+            self._piece_count = len(action_tracks)
+            self._admission_piece_count = len(action_tracks)
             if not self._purge_mode:
-                self._credit_new_arrivals(confirmed_tracks)
+                self._credit_new_arrivals(action_tracks)
             exit_track = self._pick_exit_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
@@ -275,30 +272,30 @@ class RuntimeC3(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        # Commit zone: confirmed-real tracks within exit_near_arc (~20°).
-        # Pending tracks are deliberately excluded so a phantom at the
-        # exit cannot strand the c3_to_c4 slot.
-        return self._closest_confirmed_within(tracks, self._exit_near_arc)
+        # Commit zone: stable non-ghost tracks within exit_near_arc (~20°).
+        # ``confirmed_real`` is still preferred evidence, but no longer the
+        # only way a reliable detector track can move downstream.
+        return self._closest_actionable_within(tracks, self._exit_near_arc)
 
     def _pick_approach_track(self, tracks: list[Track]) -> Track | None:
-        # Deceleration zone: confirmed-real tracks within approach_near_arc
+        # Deceleration zone: stable non-ghost tracks within approach_near_arc
         # (~60°) but not yet in the commit zone. Drives precise pulses
         # without grabbing a downstream slot — gives a piece a gentle
         # approach instead of slamming it off the ring at normal-pulse
         # velocity.
-        approach = self._closest_confirmed_within(tracks, self._approach_near_arc)
+        approach = self._closest_actionable_within(tracks, self._approach_near_arc)
         if approach is None:
             return None
         if abs(_wrap_rad(approach.angle_rad or 0.0)) <= self._exit_near_arc:
             return None
         return approach
 
-    def _closest_confirmed_within(
+    def _closest_actionable_within(
         self, tracks: list[Track], arc: float
     ) -> Track | None:
         candidates = [
             t for t in tracks
-            if t.angle_rad is not None and bool(getattr(t, "confirmed_real", False))
+            if t.angle_rad is not None and action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
         ]
         if not candidates:
             return None

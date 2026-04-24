@@ -34,6 +34,20 @@ def test_c4_blocks_on_raw_cap() -> None:
     assert decision.reason == "raw_cap"
 
 
+def test_c4_raw_cap_is_disabled_by_default() -> None:
+    strategy = C4Admission(max_zones=2)
+    decision = strategy.can_admit({}, _state(raw_detection_count=99))
+    assert decision.allowed is True
+    assert decision.reason == "ok"
+
+
+def test_c4_raw_cap_zero_disables_guard() -> None:
+    strategy = C4Admission(max_zones=2, max_raw_detections=0)
+    decision = strategy.can_admit({}, _state(raw_detection_count=99))
+    assert decision.allowed is True
+    assert decision.reason == "ok"
+
+
 def test_c4_blocks_when_dropzone_not_clear() -> None:
     strategy = C4Admission(max_zones=2, max_raw_detections=3)
     decision = strategy.can_admit({}, _state(dropzone_clear=False))
@@ -82,8 +96,6 @@ def test_c4_dropzone_short_circuits_other_checks() -> None:
 def test_c4_validates_constructor_inputs() -> None:
     with pytest.raises(ValueError):
         C4Admission(max_zones=0)
-    with pytest.raises(ValueError):
-        C4Admission(max_zones=1, max_raw_detections=0)
 
 
 def test_c4_accepts_missing_state_fields() -> None:

@@ -116,6 +116,17 @@ def test_c3_precise_pulse_when_track_at_exit() -> None:
     assert down.available() == 0
 
 
+def test_c3_precise_pulse_for_stable_unconfirmed_exit_track() -> None:
+    rt, _up, down, log = _make()
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(angle_rad=0.0, confirmed=False, hit_count=2)),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log and log[0].startswith("precise:")
+    assert down.available() == 0
+
+
 def test_c3_precise_only_pulse_off_exit_never_commits() -> None:
     rt, _up, down, log = _make()
     # Track far from exit — C3 now runs at a single (precise) speed, but
@@ -261,9 +272,9 @@ def test_c3_stable_pending_tracks_reserve_ring_capacity() -> None:
     )
     snap = rt.debug_snapshot()
     assert rt.available_slots() == 0
-    assert snap["piece_count"] == 0
+    assert snap["piece_count"] == 1
     assert snap["admission_piece_count"] == 1
-    assert snap["pending_track_count"] == 1
+    assert snap["pending_track_count"] == 0
 
 
 def test_c3_available_slots_blocks_when_ring_full() -> None:

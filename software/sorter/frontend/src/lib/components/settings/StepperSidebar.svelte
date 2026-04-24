@@ -16,7 +16,6 @@
 		moveStepperDegrees,
 		postStepperEndpoint,
 		pulseStepper,
-		readStepperErrorMessage,
 		saveStepperDirection as saveStepperDirectionRequest,
 		saveStepperTmcSettings,
 		stopStepperMotion

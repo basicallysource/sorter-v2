@@ -6,7 +6,7 @@
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
-	import { persistStoredSettings, restoreStoredSettings } from '$lib/preferences/settings-storage';
+	import { loadStoredSettings, persistStoredSettings } from '$lib/preferences/settings-storage';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -27,7 +27,8 @@
 	});
 
 	onMount(() => {
-		restoreStoredSettings(settings);
+		const storedSettings = loadStoredSettings();
+		if (storedSettings) settings.set(storedSettings);
 		save_store = true;
 		void loadThemeColor();
 	});

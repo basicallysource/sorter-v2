@@ -41,8 +41,3 @@ export function persistStoredSettings(settings: Settings): void {
 		console.error(e);
 	}
 }
-
-export function restoreStoredSettings(store: { set: (settings: Settings) => void }): void {
-	const stored = loadStoredSettings();
-	if (stored) store.set(stored);
-}

@@ -12,7 +12,8 @@
 		RefreshCw,
 		Sparkles,
 		Trash2,
-		UploadCloud
+		UploadCloud,
+		X
 	} from 'lucide-svelte';
 
 	const machine = getMachineContext();
@@ -33,6 +34,8 @@
 		detection_algorithm: string | null;
 		detection_bbox_count: number | null;
 		detection_score?: number | null;
+		sample_type?: string | null;
+		sample_type_label?: string | null;
 		teacher_state: string;
 		teacher_label: string;
 		teacher_reason: string;
@@ -102,6 +105,9 @@
 	};
 
 	type FilterId = 'all' | 'problem' | 'queue' | 'done';
+	type SampleTypeId = 'all' | 'teacher_detection' | 'condition' | 'classification' | 'other';
+	type BackfillKind = 'upload' | 'condition';
+	type BackfillSelection = 'latest' | 'random' | 'today' | 'last_minutes' | 'time_range';
 
 	let payload = $state<QueuePayload | null>(null);
 	let loading = $state(true);
@@ -110,6 +116,19 @@
 	let actionMsg = $state<string | null>(null);
 	let actionBusy = $state<string | null>(null);
 	let filter = $state<FilterId>('all');
+	let sampleTypeFilter = $state<SampleTypeId>('all');
+	let backfillOpen = $state(false);
+	let backfillKind = $state<BackfillKind>('upload');
+	let backfillSampleType = $state<SampleTypeId>('teacher_detection');
+	let backfillSelection = $state<BackfillSelection>('latest');
+	let backfillLimit = $state(100);
+	let backfillConditionLimit = $state(10);
+	let backfillMaxCropsPerPiece = $state(1);
+	let backfillMinutes = $state(30);
+	let backfillFrom = $state('');
+	let backfillTo = $state('');
+	let backfillForce = $state(false);
+	let backfillDryRun = $state(false);
 
 	const targetId = $derived(page.url.searchParams.get('target_id'));
 	const targets = $derived(payload?.targets ?? []);
@@ -132,12 +151,16 @@
 	const failedTotal = $derived(totals.recent_failed + totals.recent_retrying);
 	const allItems = $derived.by(() => buildListItems(payload));
 	const filteredItems = $derived.by(() => {
-		if (filter === 'problem') return allItems.filter((item) => item.problem);
-		if (filter === 'queue') {
-			return allItems.filter((item) => item.list_status === 'queued' || item.list_status === 'uploading');
+		let items = allItems;
+		if (sampleTypeFilter !== 'all') {
+			items = items.filter((item) => itemSampleType(item) === sampleTypeFilter);
 		}
-		if (filter === 'done') return allItems.filter((item) => item.list_status === 'uploaded');
-		return allItems;
+		if (filter === 'problem') return items.filter((item) => item.problem);
+		if (filter === 'queue') {
+			return items.filter((item) => item.list_status === 'queued' || item.list_status === 'uploading');
+		}
+		if (filter === 'done') return items.filter((item) => item.list_status === 'uploaded');
+		return items;
 	});
 
 	function currentBackendBaseUrl(): string {
@@ -262,6 +285,80 @@
 			await loadQueue({ silent: true });
 		} catch (e: any) {
 			errorMsg = e?.message ?? 'Sample purge failed.';
+		} finally {
+			actionBusy = null;
+		}
+	}
+
+	function backfillTimestamp(value: string): number | null {
+		if (!value.trim()) return null;
+		const timestamp = Date.parse(value);
+		return Number.isFinite(timestamp) ? timestamp / 1000 : null;
+	}
+
+	function backfillWindowPayload(): Record<string, number | string | null> {
+		const body: Record<string, number | string | null> = {
+			selection: backfillSelection,
+			minutes: backfillSelection === 'last_minutes' ? backfillMinutes : null,
+			from_ts: null,
+			to_ts: null
+		};
+		if (backfillSelection === 'time_range') {
+			body.from_ts = backfillTimestamp(backfillFrom);
+			body.to_ts = backfillTimestamp(backfillTo);
+		}
+		return body;
+	}
+
+	async function startBackfill() {
+		actionBusy = 'backfill';
+		errorMsg = null;
+		actionMsg = null;
+		try {
+			if (backfillKind === 'condition') {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/samples/condition/backfill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						limit: Math.max(0, Math.min(50, Number(backfillConditionLimit) || 0)),
+						max_crops_per_piece: Math.max(1, Math.min(5, Number(backfillMaxCropsPerPiece) || 1)),
+						force: backfillForce,
+						dry_run: backfillDryRun,
+						...backfillWindowPayload()
+					})
+				});
+				if (!res.ok) throw new Error(await res.text());
+				const data = await res.json();
+				if (!data.ok && !data.dry_run) throw new Error(data.error ?? 'Condition backfill failed.');
+				actionMsg = data.dry_run
+					? `Condition dry run selected ${data.selected ?? 0} crop${data.selected === 1 ? '' : 's'}.`
+					: `Condition backfill archived ${data.archived ?? 0}/${data.selected ?? 0} crop${data.selected === 1 ? '' : 's'}${data.errors ? ` (${data.errors} errors)` : ''}.`;
+			} else {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/backfill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						target_ids: targetId ? [targetId] : null,
+						sample_type: backfillSampleType,
+						limit: Math.max(0, Math.min(500, Number(backfillLimit) || 0)),
+						...backfillWindowPayload()
+					})
+				});
+				if (!res.ok) throw new Error(await res.text());
+				const data = await res.json();
+				if (!data.ok) throw new Error(data.error ?? 'Backfill failed.');
+				actionMsg =
+					`Queued ${data.queued ?? 0} ${typeLabel(backfillSampleType).toLowerCase()} sample` +
+					`${data.queued === 1 ? '' : 's'} (${data.skipped ?? 0} skipped` +
+					`${data.needs_gemini ? `, ${data.needs_gemini} need Gemini` : ''}` +
+					`${data.no_teacher_detection ? `, ${data.no_teacher_detection} no Gemini box` : ''}` +
+					`${data.bad_teacher_sample ? `, ${data.bad_teacher_sample} bad crop` : ''}` +
+					`${data.dark_image_sample ? `, ${data.dark_image_sample} too dark` : ''}` +
+					`${data.errors ? `, ${data.errors} errors` : ''}).`;
+			}
+			await loadQueue({ silent: true });
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Backfill failed.';
 		} finally {
 			actionBusy = null;
 		}
@@ -398,6 +495,48 @@
 		return '';
 	}
 
+	function normalizeSampleType(value: string | null | undefined): SampleTypeId {
+		if (value === 'teacher_detection' || value === 'condition' || value === 'classification' || value === 'other') {
+			return value;
+		}
+		return 'other';
+	}
+
+	function itemSampleType(item: QueueJob): SampleTypeId {
+		const explicit = normalizeSampleType(item.sample_type);
+		if (explicit !== 'other') return explicit;
+		if (item.capture_reason === 'piece_condition_teacher' || item.source_role === 'piece_crop') {
+			return 'condition';
+		}
+		if (item.detection_algorithm === 'gemini_sam') return 'teacher_detection';
+		if (item.capture_reason === 'live_classification' || item.source_role === 'classification_channel') {
+			return 'classification';
+		}
+		return explicit;
+	}
+
+	function typeLabel(value: SampleTypeId | string | null | undefined): string {
+		const type = normalizeSampleType(value === 'all' ? null : value);
+		if (value === 'all') return 'All types';
+		if (type === 'teacher_detection') return 'Gemini boxes';
+		if (type === 'condition') return 'Condition';
+		if (type === 'classification') return 'Classification';
+		return 'Other';
+	}
+
+	function typeCount(type: SampleTypeId): number {
+		if (type === 'all') return allItems.length;
+		return allItems.filter((item) => itemSampleType(item) === type).length;
+	}
+
+	function sampleTypeTone(type: SampleTypeId): string {
+		if (type === 'all') return 'border-primary bg-primary/10 text-primary';
+		if (type === 'teacher_detection') return 'border-amber-500/30 bg-amber-500/10 text-amber-700';
+		if (type === 'condition') return 'border-primary/30 bg-primary/10 text-primary';
+		if (type === 'classification') return 'border-success/30 bg-success/10 text-success';
+		return 'border-border bg-bg text-text-muted';
+	}
+
 	function roleLabel(value: string | null | undefined): string {
 		if (!value) return '–';
 		if (value === 'classification_channel') return 'C4';
@@ -465,6 +604,16 @@
 			</button>
 			<button
 				type="button"
+				onclick={() => (backfillOpen = !backfillOpen)}
+				class="inline-flex items-center gap-1.5 border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+				disabled={actionBusy !== null}
+				title="Backfill archived samples with filters"
+			>
+				<UploadCloud size={12} />
+				Backfill
+			</button>
+			<button
+				type="button"
 				onclick={() => void purgeQueue()}
 				class="inline-flex items-center gap-1.5 border border-border bg-bg px-2 py-1 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
 				disabled={actionBusy !== null || totals.queued <= 0}
@@ -503,6 +652,167 @@
 		<div class="border border-success bg-success/10 px-3 py-2 text-sm text-success">{actionMsg}</div>
 	{/if}
 
+	{#if backfillOpen}
+		<section class="border border-border bg-surface p-3">
+			<div class="mb-3 flex items-start gap-3">
+				<div>
+					<h2 class="text-sm font-semibold tracking-tight text-text">Scoped backfill</h2>
+					<p class="mt-0.5 max-w-2xl text-xs text-text-muted">
+						Queue existing archive samples, or generate new condition samples from piece crops. Keep it small when Gemini is involved.
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => (backfillOpen = false)}
+					class="ml-auto inline-flex h-8 w-8 items-center justify-center border border-border bg-bg text-text-muted transition-colors hover:text-text"
+					title="Close backfill panel"
+				>
+					<X size={14} />
+				</button>
+			</div>
+
+			<div class="grid gap-2 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+				<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+					Mode
+					<select
+						bind:value={backfillKind}
+						class="border border-border bg-bg px-2 py-1.5 text-sm normal-case tracking-normal text-text"
+					>
+						<option value="upload">Upload archived samples</option>
+						<option value="condition">Generate condition samples</option>
+					</select>
+				</label>
+
+				{#if backfillKind === 'upload'}
+					<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						Sample type
+						<select
+							bind:value={backfillSampleType}
+							class="border border-border bg-bg px-2 py-1.5 text-sm normal-case tracking-normal text-text"
+						>
+							<option value="all">All types</option>
+							<option value="teacher_detection">Gemini boxes</option>
+							<option value="condition">Condition</option>
+							<option value="classification">Classification</option>
+							<option value="other">Other</option>
+						</select>
+					</label>
+					<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						Limit
+						<input
+							type="number"
+							min="0"
+							max="500"
+							bind:value={backfillLimit}
+							class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+						/>
+					</label>
+				{:else}
+					<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						Crops
+						<input
+							type="number"
+							min="0"
+							max="50"
+							bind:value={backfillConditionLimit}
+							class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+						/>
+					</label>
+					<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+						Max per piece
+						<input
+							type="number"
+							min="1"
+							max="5"
+							bind:value={backfillMaxCropsPerPiece}
+							class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+						/>
+					</label>
+				{/if}
+
+				<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+					Selection
+					<select
+						bind:value={backfillSelection}
+						class="border border-border bg-bg px-2 py-1.5 text-sm normal-case tracking-normal text-text"
+					>
+						<option value="latest">Latest first</option>
+						<option value="random">Random sample</option>
+						<option value="today">Today</option>
+						<option value="last_minutes">Last minutes</option>
+						<option value="time_range">Time range</option>
+					</select>
+				</label>
+			</div>
+
+			{#if backfillSelection === 'last_minutes' || backfillSelection === 'time_range' || backfillKind === 'condition'}
+				<div class="mt-2 grid gap-2 md:grid-cols-3">
+					{#if backfillSelection === 'last_minutes'}
+						<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+							Minutes
+							<input
+								type="number"
+								min="1"
+								max="1440"
+								bind:value={backfillMinutes}
+								class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+							/>
+						</label>
+					{/if}
+					{#if backfillSelection === 'time_range'}
+						<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+							From
+							<input
+								type="datetime-local"
+								bind:value={backfillFrom}
+								class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+							/>
+						</label>
+						<label class="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+							To
+							<input
+								type="datetime-local"
+								bind:value={backfillTo}
+								class="border border-border bg-bg px-2 py-1.5 font-mono text-sm normal-case tracking-normal text-text tabular-nums"
+							/>
+						</label>
+					{/if}
+					{#if backfillKind === 'condition'}
+						<label class="flex min-h-10 items-center gap-2 border border-border bg-bg px-2 py-1.5 text-xs text-text">
+							<input type="checkbox" bind:checked={backfillDryRun} />
+							Dry run
+						</label>
+						<label class="flex min-h-10 items-center gap-2 border border-border bg-bg px-2 py-1.5 text-xs text-text">
+							<input type="checkbox" bind:checked={backfillForce} />
+							Allow duplicates
+						</label>
+					{/if}
+				</div>
+			{/if}
+
+			<div class="mt-3 flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onclick={() => void startBackfill()}
+					class="inline-flex min-h-10 items-center gap-1.5 border border-primary bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+					disabled={actionBusy !== null}
+				>
+					<UploadCloud size={14} />
+					{actionBusy === 'backfill' ? 'Starting…' : 'Start backfill'}
+				</button>
+				<p class="text-xs text-text-muted">
+					{#if targetId && selectedTarget}
+						Target: {selectedTarget.name}.
+					{:else if backfillKind === 'upload'}
+						Target: every enabled Hive.
+					{:else}
+						Condition samples are archived locally and then queued through the normal Hive uploader.
+					{/if}
+				</p>
+			</div>
+		</section>
+	{/if}
+
 	{#if loading}
 		<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">Loading…</div>
 	{:else if payload}
@@ -520,16 +830,23 @@
 			{@render filterChip('problem', `Needs attention (${allItems.filter((i) => i.problem).length})`)}
 			{@render filterChip('queue', `In flight (${totals.queued + totals.uploading})`)}
 			{@render filterChip('done', `Uploaded (${totals.recent_uploaded})`)}
+			<span class="mx-1 h-4 w-px bg-border"></span>
+			{@render typeFilterChip('all', `All types (${typeCount('all')})`)}
+			{@render typeFilterChip('teacher_detection', `Gemini (${typeCount('teacher_detection')})`)}
+			{@render typeFilterChip('condition', `Condition (${typeCount('condition')})`)}
+			{@render typeFilterChip('classification', `Classification (${typeCount('classification')})`)}
+			{@render typeFilterChip('other', `Other (${typeCount('other')})`)}
 			<span class="ml-auto font-mono text-[11px] text-text-muted tabular-nums">
 				{filteredItems.length}/{allItems.length} shown
 			</span>
 		</div>
 
 		<section class="border border-border bg-surface">
-			<div class="grid grid-cols-[44px_minmax(0,1fr)_92px_44px_56px_56px_88px] items-center gap-2 border-b border-border bg-bg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+			<div class="grid grid-cols-[44px_minmax(0,1fr)_92px_90px_44px_56px_56px_88px] items-center gap-2 border-b border-border bg-bg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
 				<span></span>
 				<span>Sample</span>
 				<span>Status</span>
+				<span>Type</span>
 				<span class="text-center">Src</span>
 				<span class="text-right">Boxes</span>
 				<span class="text-right">Age</span>
@@ -547,7 +864,7 @@
 			{:else}
 				<ul class="divide-y divide-border">
 					{#each filteredItems as item (item.list_id)}
-						<li class={`grid grid-cols-[44px_minmax(0,1fr)_92px_44px_56px_56px_88px] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-bg ${rowAccent(item.list_status)}`}>
+						<li class={`grid grid-cols-[44px_minmax(0,1fr)_92px_90px_44px_56px_56px_88px] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-bg ${rowAccent(item.list_status)}`}>
 							<div class="h-10 w-10 overflow-hidden border border-border bg-bg">
 								{#if item.image_url}
 									<img
@@ -587,6 +904,10 @@
 								{item.list_label}
 							</span>
 
+							<span class={`inline-flex justify-center border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${sampleTypeTone(itemSampleType(item))}`}>
+								{typeLabel(itemSampleType(item))}
+							</span>
+
 							<span class="text-center font-mono text-[11px] text-text-muted">{roleLabel(item.source_role)}</span>
 
 							<span class="text-right font-mono text-[11px] tabular-nums text-text-muted">
@@ -624,6 +945,17 @@
 		type="button"
 		onclick={() => (filter = id)}
 		class={`border px-2 py-0.5 text-[11px] transition-colors ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted hover:text-text'}`}
+	>
+		{label}
+	</button>
+{/snippet}
+
+{#snippet typeFilterChip(id: SampleTypeId, label: string)}
+	{@const active = sampleTypeFilter === id}
+	<button
+		type="button"
+		onclick={() => (sampleTypeFilter = id)}
+		class={`border px-2 py-0.5 text-[11px] transition-colors ${active ? sampleTypeTone(id) : 'border-border bg-bg text-text-muted hover:text-text'}`}
 	>
 		{label}
 	</button>

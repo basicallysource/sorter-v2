@@ -18,10 +18,13 @@
 	type LiveC4Track = {
 		global_id: number | null;
 		angle_deg: number | null;
+		score?: number | null;
+		hit_count?: number | null;
 		last_seen_ts?: number | null;
 		confirmed_real?: boolean;
 		ghost?: boolean;
 	};
+	type RecentPieceDisplay = KnownObjectData & { __liveOnly?: boolean };
 
 	let liveC4Tracks = $state<Map<number, LiveC4Track>>(new Map());
 	let liveC4TrackPollAvailable = $state(false);
@@ -56,6 +59,8 @@
 				next.set(gid, {
 					global_id: gid,
 					angle_deg: typeof track?.angle_deg === 'number' ? track.angle_deg : null,
+					score: typeof track?.score === 'number' ? track.score : null,
+					hit_count: typeof track?.hit_count === 'number' ? track.hit_count : null,
 					last_seen_ts: typeof track?.last_seen_ts === 'number' ? track.last_seen_ts : null,
 					confirmed_real: Boolean(track?.confirmed_real),
 					ghost: Boolean(track?.ghost)
@@ -67,6 +72,14 @@
 			liveC4TrackPollAvailable = false;
 			liveC4Tracks = new Map();
 		}
+	}
+
+	function isDisplayableLiveTrack(track: LiveC4Track): boolean {
+		if (track.ghost === true) return false;
+		if (track.confirmed_real === true) return true;
+		const hits = typeof track.hit_count === 'number' ? track.hit_count : 0;
+		const score = typeof track.score === 'number' ? track.score : 0;
+		return hits >= 2 && score >= 0.35;
 	}
 
 	function wrapDeg(value: number): number {
@@ -96,19 +109,45 @@
 		return Math.abs(wrapDeg(angle - exit));
 	}
 
-	function isCurrentlyTrackedOnC4(obj: KnownObjectData): boolean {
-		if (lifecyclePhase(obj) === 'distributed') return false;
-		const gid = obj.tracked_global_id;
-		if (typeof gid !== 'number') return false;
-		if (liveC4TrackPollAvailable) return liveC4Tracks.has(gid);
-		return false;
+	function objectForLiveTrack(
+		track: LiveC4Track,
+		objectsByGid: Map<number, KnownObjectData>
+	): RecentPieceDisplay | null {
+		const gid = track.global_id;
+		if (typeof gid !== 'number') return null;
+		const existing = objectsByGid.get(gid);
+		if (existing && lifecyclePhase(existing) !== 'distributed') return existing;
+		const now = Date.now() / 1000;
+		return {
+			__liveOnly: true,
+			uuid: String(gid),
+			created_at: track.last_seen_ts ?? now,
+			updated_at: track.last_seen_ts ?? now,
+			stage: 'registered',
+			classification_status: 'pending',
+			tracked_global_id: gid,
+			first_carousel_seen_ts: track.last_seen_ts ?? now,
+			classification_channel_zone_state: 'active',
+			classification_channel_zone_center_deg: track.angle_deg,
+			classification_channel_exit_deg: 30
+		};
 	}
 
 	// "Upcoming" = pieces currently tracked on C4, ordered along the polar
 	// path toward the exit: top = farthest from exit, bottom = next to drop.
 	const upcoming = $derived.by(() => {
 		const all = ctx.machine?.recentObjects ?? [];
-		const list = all.filter(isCurrentlyTrackedOnC4);
+		const objectsByGid = new Map<number, KnownObjectData>();
+		for (const obj of all) {
+			const gid = obj.tracked_global_id;
+			if (typeof gid !== 'number') continue;
+			if (lifecyclePhase(obj) === 'distributed') continue;
+			objectsByGid.set(gid, obj);
+		}
+		const list = Array.from(liveC4Tracks.values())
+			.filter(isDisplayableLiveTrack)
+			.map((track) => objectForLiveTrack(track, objectsByGid))
+			.filter((obj): obj is RecentPieceDisplay => obj !== null);
 		list.sort((a, b) => {
 			const da = exitDistanceDeg(a);
 			const db = exitDistanceDeg(b);
@@ -124,7 +163,7 @@
 		// multiple KnownObjects while C4 tracking settles. Keyed off
 		// tracked_global_id (stable across rotations with BoTSORT) or uuid.
 		const seen_keys = new Set<string>();
-		const deduped: typeof list = [];
+		const deduped: RecentPieceDisplay[] = [];
 		for (const o of list) {
 			const key = recentPhysicalKeyOrNull(o);
 			if (key === null) continue;

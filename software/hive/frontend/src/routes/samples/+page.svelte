@@ -24,6 +24,7 @@
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
 		carousel: 'Carousel',
+		piece_crop: 'Piece Crop',
 		top: 'Top Camera',
 		bottom: 'Bottom Camera'
 	};

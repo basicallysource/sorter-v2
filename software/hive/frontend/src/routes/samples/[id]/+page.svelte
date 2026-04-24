@@ -17,6 +17,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import SampleImageViewer from '$lib/components/sample/SampleImageViewer.svelte';
 	import SampleAnnotatorPanel from '$lib/components/sample/SampleAnnotatorPanel.svelte';
+	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleDetailsSidebar from '$lib/components/sample/SampleDetailsSidebar.svelte';
 	import { Button } from '$lib/components/primitives';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
@@ -451,6 +452,8 @@
 				extraMetadata={sample.extra_metadata}
 				onSaved={handleClassificationSaved}
 			/>
+
+			<SampleConditionCard samplePayload={sample.sample_payload} />
 
 			<SampleDetailsSidebar
 				{sample}

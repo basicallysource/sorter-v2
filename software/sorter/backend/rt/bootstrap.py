@@ -63,6 +63,7 @@ from rt.runtimes.c4 import RuntimeC4
 from rt.runtimes.distributor import RuntimeDistributor
 from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.services.sample_transport import C1234SampleTransportCoordinator
+from rt.services.track_transit import TrackTransitRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -819,6 +820,8 @@ def build_rt_runtime(
     # ------------------------------------------------------------------
     # Runtime instances
 
+    track_transit = TrackTransitRegistry()
+
     c1 = RuntimeC1(
         downstream_slot=slots[("c1", "c2")],
         pulse_command=c1_pulse,
@@ -836,6 +839,7 @@ def build_rt_runtime(
         ejection_timing=ConstantPulseEjection(),
         logger=log,
         event_bus=bus,
+        track_transit=track_transit,
     )
     c3 = RuntimeC3(
         upstream_slot=slots[("c2", "c3")],
@@ -967,6 +971,7 @@ def build_rt_runtime(
         crop_provider=_crop_provider,
         logger=log,
         event_bus=bus,
+        track_transit=track_transit,
         classify_angle_deg=classify_angle,
         exit_angle_deg=drop_angle,
         angle_tolerance_deg=drop_tolerance,

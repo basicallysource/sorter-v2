@@ -16,6 +16,7 @@ from rt.runtimes._strategies import (
 )
 from rt.runtimes._zones import ZoneManager
 from rt.runtimes.c4 import RuntimeC4
+from rt.services.track_transit import TrackTransitRegistry
 
 
 # ----------------------------------------------------------------------
@@ -377,6 +378,60 @@ def test_c4_intake_mints_dossier_and_releases_upstream() -> None:
     assert rt.dossier_count() == 1
     # Upstream slot was released.
     assert up.available() == 1
+
+
+def test_c4_reuses_lost_piece_uuid_when_track_reappears_via_transit() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=1, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=2.0)
+    assert rt.dossier_count() == 0
+    assert registry.snapshot(2.0)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=2, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=2.1,
+    )
+
+    dossier = rt.dossier_for(piece_uuid)
+    assert dossier is not None
+    assert dossier.global_id == 2
+    assert dossier.extras["track_stitched"] is True
+    assert dossier.extras["transit_relation"] == "track_split"
+    assert dossier.extras["previous_tracked_global_id"] == 1
+    assert rt.debug_snapshot()["transit_link_count"] == 1
+
+
+def test_c4_consumes_c3_to_c4_transit_metadata() -> None:
+    registry = TrackTransitRegistry()
+    registry.begin(
+        source_runtime="c3",
+        source_feed="c3_feed",
+        source_global_id=77,
+        target_runtime="c4",
+        now_mono=10.0,
+        relation="cross_channel",
+    )
+    rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=88, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=10.2,
+    )
+
+    piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+    dossier = rt.dossier_for(piece_uuid)
+    assert dossier is not None
+    assert dossier.extras["track_stitched"] is True
+    assert dossier.extras["transit_relation"] == "cross_channel"
+    assert dossier.extras["transit_source_runtime"] == "c3"
+    assert dossier.extras["transit_source_global_id"] == 77
 
 
 def test_c4_submits_classifier_at_classify_angle() -> None:

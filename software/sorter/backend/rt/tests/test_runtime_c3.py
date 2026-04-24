@@ -7,6 +7,7 @@ from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.runtimes.c3 import RuntimeC3
+from rt.services.track_transit import TrackTransitRegistry
 
 
 class _InlineHw:
@@ -104,6 +105,7 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         wiggle_cooldown_ms=500,
         holdover_ms=kwargs.get("holdover_ms", 2000),
         max_piece_count=kwargs.get("max_piece_count", 3),
+        track_transit=kwargs.get("track_transit"),
     )
     return rt, upstream, downstream, log
 
@@ -114,6 +116,26 @@ def test_c3_precise_pulse_when_track_at_exit() -> None:
     rt.tick(inbox, now_mono=0.0)
     assert log and log[0].startswith("precise:")
     assert down.available() == 0
+
+
+def test_c3_exit_pulse_publishes_c4_transit_candidate() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _log = _make(track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_rad=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=10.0,
+    )
+
+    candidates = registry.snapshot(10.0)
+    assert len(candidates) == 1
+    assert candidates[0]["source_runtime"] == "c3"
+    assert candidates[0]["source_global_id"] == 17
+    assert candidates[0]["target_runtime"] == "c4"
+    assert candidates[0]["relation"] == "cross_channel"
 
 
 def test_c3_precise_pulse_for_stable_unconfirmed_exit_track() -> None:

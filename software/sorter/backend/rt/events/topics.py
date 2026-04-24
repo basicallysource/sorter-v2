@@ -7,6 +7,7 @@ SYSTEM_SORTER_STATE = "system.sorter_state"
 PIECE_REGISTERED = "piece.registered"
 PIECE_CLASSIFIED = "piece.classified"
 PIECE_DISTRIBUTED = "piece.distributed"
+PIECE_TRANSIT_LINKED = "piece.transit_linked"
 
 PERCEPTION_TRACKS = "perception.tracks"
 PERCEPTION_FRAME = "perception.frame"
@@ -25,6 +26,7 @@ __all__ = [
     "PIECE_CLASSIFIED",
     "PIECE_DISTRIBUTED",
     "PIECE_REGISTERED",
+    "PIECE_TRANSIT_LINKED",
     "RUNTIME_MOVE_COMPLETED",
     "RUNTIME_STATS",
     "SYSTEM_HARDWARE_STATE",

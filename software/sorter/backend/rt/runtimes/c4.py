@@ -27,8 +27,14 @@ from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import PERCEPTION_ROTATION, PIECE_CLASSIFIED, PIECE_REGISTERED
+from rt.events.topics import (
+    PERCEPTION_ROTATION,
+    PIECE_CLASSIFIED,
+    PIECE_REGISTERED,
+    PIECE_TRANSIT_LINKED,
+)
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
+from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 
 from ._move_events import publish_move_completed
 from ._strategies import (
@@ -123,6 +129,7 @@ class RuntimeC4(BaseRuntime):
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
         event_bus: EventBus | None = None,
+        track_transit: TrackTransitRegistry | None = None,
         runtime_id: str = "c4",
         feed_id: str = "c4_feed",
         classify_angle_deg: float = DEFAULT_CLASSIFY_ANGLE_DEG,
@@ -233,11 +240,13 @@ class RuntimeC4(BaseRuntime):
         )
         self._post_commit_cooldown_s = cooldown_ms / 1000.0
         self._bus = event_bus
+        self._track_transit = track_transit
         self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
         self._fsm: _C4State = _C4State.RUNNING
         self._raw_detection_count: int = 0
+        self._transit_link_count: int = 0
         self._latest_frame: FeedFrame | None = None
         self._classify_debug_counts: dict[str, int] = {}
         self._last_classify_skip: str | None = None
@@ -314,6 +323,7 @@ class RuntimeC4(BaseRuntime):
     ) -> None:
         dossier = self._pieces.pop(piece_uuid, None)
         if dossier is not None and abort_reason == "track_lost":
+            self._park_lost_piece_transit(dossier, now_mono=now_mono)
             self._publish_piece_lost(dossier, now_mono=now_mono)
         if dossier is not None and dossier.global_id is not None:
             self._track_to_piece.pop(int(dossier.global_id), None)
@@ -372,6 +382,34 @@ class RuntimeC4(BaseRuntime):
             now_mono if now_mono is not None else time.monotonic(),
         )
 
+    def _park_lost_piece_transit(
+        self,
+        dossier: _PieceDossier,
+        *,
+        now_mono: float | None,
+    ) -> None:
+        registry = self._track_transit
+        if registry is None:
+            return
+        now = time.monotonic() if now_mono is None else float(now_mono)
+        registry.begin(
+            source_runtime=self.runtime_id,
+            source_feed=self.feed_id,
+            source_global_id=dossier.global_id,
+            target_runtime=self.runtime_id,
+            now_mono=now,
+            ttl_s=2.0,
+            piece_uuid=dossier.piece_uuid,
+            relation="track_split",
+            payload={
+                "previous_tracked_global_id": dossier.global_id,
+                "dossier_result": dossier.result,
+                "classified_ts": dossier.classified_ts,
+                "reject_reason": dossier.reject_reason,
+                "extras": dict(dossier.extras),
+            },
+        )
+
     def dossier_count(self) -> int:
         return len(self._pieces)
 
@@ -417,6 +455,12 @@ class RuntimeC4(BaseRuntime):
             "startup_purge_prime_moves": int(self._startup_purge_state.prime_moves),
             "startup_purge_commit_piece_uuid": self._startup_purge_state.commit_piece_uuid,
             "raw_detection_count": int(self._raw_detection_count),
+            "transit_link_count": int(self._transit_link_count),
+            "transit_candidates": (
+                self._track_transit.snapshot(time.monotonic())
+                if self._track_transit is not None
+                else []
+            ),
             "dossier_count": len(self._pieces),
             "track_to_piece_count": len(self._track_to_piece),
             "zone_count": self._zone_manager.zone_count(),
@@ -719,7 +763,16 @@ class RuntimeC4(BaseRuntime):
         if gid in self._track_to_piece:
             return False
         angle_deg = math.degrees(track.angle_rad)
-        piece_uuid = uuid.uuid4().hex[:12]
+        transit = self._claim_transit_for_track(
+            track,
+            now_mono=now_mono,
+            allow_cross_channel=not recovered,
+        )
+        piece_uuid = (
+            transit.piece_uuid
+            if transit and transit.piece_uuid
+            else uuid.uuid4().hex[:12]
+        )
         if not self._zone_manager.add_zone(
             piece_uuid=piece_uuid,
             angle_deg=angle_deg,
@@ -728,26 +781,34 @@ class RuntimeC4(BaseRuntime):
             now_mono=now_mono,
         ):
             return False
+        extras = self._extras_for_registration(
+            track,
+            recovered=recovered,
+            transit=transit,
+        )
+        result = self._result_from_transit(transit)
+        classified_ts = self._classified_ts_from_transit(transit)
+        reject_reason = self._reject_reason_from_transit(transit)
         dossier = _PieceDossier(
             piece_uuid=piece_uuid,
             global_id=gid,
             intake_ts=now_mono,
             angle_at_intake_deg=angle_deg,
             last_seen_mono=now_mono,
-            extras={
-                "recovered": recovered,
-                "admission_basis": admission_basis(
-                    track,
-                    min_hits=self._reconcile_min_hit_count,
-                    min_score=self._reconcile_min_score,
-                    min_age_s=self._reconcile_min_age_s if recovered else 0.0,
-                ),
-            },
+            classified_ts=classified_ts,
+            result=result,
+            reject_reason=reject_reason,
+            extras=extras,
         )
         self._pieces[piece_uuid] = dossier
         self._track_to_piece[gid] = piece_uuid
         if release_upstream:
             self._upstream_slot.release()
+        result_payload = self._classification_payload(result)
+        classification_status = (
+            "classified" if result is not None and result.part_id else "pending"
+        )
+        transit_payload = self._transit_payload(transit)
         self._publish(
             PIECE_REGISTERED,
             {
@@ -757,10 +818,11 @@ class RuntimeC4(BaseRuntime):
                 "intake_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "registered",
-                "classification_status": "pending",
+                "classification_status": classification_status,
                 "classification_channel_zone_state": "active",
                 "recovered": recovered,
                 "admission_basis": dossier.extras.get("admission_basis"),
+                **transit_payload,
                 "dossier": {
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
@@ -770,11 +832,140 @@ class RuntimeC4(BaseRuntime):
                     "first_carousel_seen_ts": now_mono,
                     "recovered": recovered,
                     "admission_basis": dossier.extras.get("admission_basis"),
+                    **result_payload,
+                    **transit_payload,
                 },
             },
             now_mono,
         )
+        if transit is not None:
+            self._publish_transit_link(piece_uuid, gid, transit, now_mono=now_mono)
         return True
+
+    def _claim_transit_for_track(
+        self,
+        track: Track,
+        *,
+        now_mono: float,
+        allow_cross_channel: bool,
+    ) -> TransitCandidate | None:
+        registry = self._track_transit
+        if registry is None:
+            return None
+        allowed_relations = None if allow_cross_channel else ("track_split",)
+        transit = registry.claim(
+            target_runtime=self.runtime_id,
+            track=track,
+            now_mono=now_mono,
+            max_age_s=4.0,
+            allowed_relations=allowed_relations,
+        )
+        if transit is not None:
+            self._transit_link_count += 1
+        return transit
+
+    def _extras_for_registration(
+        self,
+        track: Track,
+        *,
+        recovered: bool,
+        transit: TransitCandidate | None,
+    ) -> dict[str, Any]:
+        extras: dict[str, Any] = {}
+        if transit is not None and isinstance(transit.payload.get("extras"), dict):
+            extras.update(transit.payload["extras"])
+        extras.update(
+            {
+                "recovered": recovered,
+                "admission_basis": admission_basis(
+                    track,
+                    min_hits=self._reconcile_min_hit_count,
+                    min_score=self._reconcile_min_score,
+                    min_age_s=self._reconcile_min_age_s if recovered else 0.0,
+                ),
+            }
+        )
+        if transit is not None:
+            extras.update(self._transit_payload(transit))
+        return extras
+
+    def _result_from_transit(
+        self,
+        transit: TransitCandidate | None,
+    ) -> ClassifierResult | None:
+        if transit is None:
+            return None
+        result = transit.payload.get("dossier_result")
+        return result if isinstance(result, ClassifierResult) else None
+
+    def _classified_ts_from_transit(self, transit: TransitCandidate | None) -> float | None:
+        if transit is None:
+            return None
+        value = transit.payload.get("classified_ts")
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            return float(value)
+        return None
+
+    def _reject_reason_from_transit(self, transit: TransitCandidate | None) -> str | None:
+        if transit is None:
+            return None
+        value = transit.payload.get("reject_reason")
+        return value if isinstance(value, str) and value.strip() else None
+
+    def _transit_payload(self, transit: TransitCandidate | None) -> dict[str, Any]:
+        if transit is None:
+            return {}
+        return {
+            "track_stitched": True,
+            "transit_id": transit.transit_id,
+            "transit_relation": transit.relation,
+            "transit_source_runtime": transit.source_runtime,
+            "transit_source_feed": transit.source_feed,
+            "transit_source_global_id": transit.source_global_id,
+            "previous_tracked_global_id": transit.payload.get(
+                "previous_tracked_global_id",
+                transit.source_global_id,
+            ),
+        }
+
+    def _classification_payload(
+        self,
+        result: ClassifierResult | None,
+    ) -> dict[str, Any]:
+        if result is None:
+            return {}
+        meta = result.meta if isinstance(result.meta, dict) else {}
+        return {
+            "part_id": result.part_id,
+            "part_name": meta.get("name"),
+            "color_id": result.color_id,
+            "color_name": meta.get("color_name"),
+            "part_category": result.category,
+            "category": result.category,
+            "confidence": result.confidence,
+            "algorithm": result.algorithm,
+            "latency_ms": result.latency_ms,
+            "brickognize_preview_url": meta.get("preview_url") or meta.get("img_url"),
+        }
+
+    def _publish_transit_link(
+        self,
+        piece_uuid: str,
+        tracked_global_id: int,
+        transit: TransitCandidate,
+        *,
+        now_mono: float,
+    ) -> None:
+        self._publish(
+            PIECE_TRANSIT_LINKED,
+            {
+                "piece_uuid": piece_uuid,
+                "tracked_global_id": tracked_global_id,
+                "stage": "registered",
+                **self._transit_payload(transit),
+            },
+            now_mono,
+        )
 
     def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
         if self._latest_frame is None and self._crop_provider is None:

@@ -38,6 +38,7 @@ from rt.hardware.motion_profiles import (
     PROFILE_TRANSPORT,
 )
 from rt.perception.track_policy import action_track, is_visible_track
+from rt.services.track_transit import TrackTransitRegistry
 
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -99,6 +100,7 @@ class RuntimeC3(BaseRuntime):
         logger: logging.Logger | None = None,
         hw_worker: HwWorker | None = None,
         event_bus: EventBus | None = None,
+        track_transit: TrackTransitRegistry | None = None,
         max_piece_count: int = DEFAULT_MAX_PIECE_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
@@ -118,6 +120,7 @@ class RuntimeC3(BaseRuntime):
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
         self._bus = event_bus
+        self._track_transit = track_transit
         self._max_piece_count = max(1, int(max_piece_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
         self._approach_near_arc = max(
@@ -370,6 +373,8 @@ class RuntimeC3(BaseRuntime):
                     duration_ms=timing.pulse_ms,
                     extra={"mode": mode_for_worker.value},
                 )
+                if ok and commits_slot:
+                    self._publish_transit_candidate(track, now_mono)
             if not ok and commits_slot:
                 self._downstream_slot.release()
 
@@ -524,6 +529,32 @@ class RuntimeC3(BaseRuntime):
             )
         except Exception:
             self._logger.exception("RuntimeC3: rotation-window publish failed")
+
+    def _publish_transit_candidate(self, track: Track, now_mono: float) -> None:
+        registry = self._track_transit
+        if registry is None or track.global_id is None:
+            return
+        angle_deg = (
+            math.degrees(float(track.angle_rad))
+            if isinstance(track.angle_rad, (int, float))
+            else None
+        )
+        registry.begin(
+            source_runtime=self.runtime_id,
+            source_feed=self.feed_id,
+            source_global_id=int(track.global_id),
+            target_runtime="c4",
+            now_mono=now_mono,
+            ttl_s=4.0,
+            source_angle_deg=angle_deg,
+            source_radius_px=track.radius_px,
+            relation="cross_channel",
+            payload={
+                "handoff": "c3_to_c4",
+                "source_track_id": track.track_id,
+                "source_score": float(track.score),
+            },
+        )
 
     def purge_port(self) -> PurgePort:
         return _C3PurgePort(self)

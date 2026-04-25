@@ -150,14 +150,12 @@
 </script>
 
 {#snippet tuningLabel(forId: string, label: string, help: string)}
-	<span
-		title={help}
-		class="group relative inline-flex min-h-10 items-center gap-1.5 text-text-muted"
-	>
+	<span class="group relative inline-flex min-h-10 items-center gap-1.5 text-text-muted">
 		<label for={forId}>{label}</label>
 		<button
 			type="button"
 			aria-label={`${label}: ${help}`}
+			aria-describedby={`${forId}-tooltip`}
 			class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-text-muted outline-none transition-[color] hover:text-text focus:text-text"
 		>
 			<CircleQuestionMark
@@ -167,6 +165,7 @@
 			/>
 		</button>
 		<span
+			id={`${forId}-tooltip`}
 			class="pointer-events-none invisible absolute left-0 top-full z-50 mt-1 w-64 max-w-[min(16rem,calc(100vw-2rem))] translate-y-1 border border-border bg-surface px-2.5 py-2 text-left text-[11px] font-normal leading-snug text-text opacity-0 shadow-lg transition-[opacity,transform,visibility] duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100 motion-reduce:transition-none"
 			role="tooltip"
 		>

@@ -74,7 +74,7 @@ DEFAULT_EXIT_BBOX_OVERLAP_RATIO = 0.5
 # for the previous piece. Live observation on 2026-04-25 confirmed the
 # failure mode. Tuned slightly larger than the chute drop tolerance so a
 # trailing piece is decisively outside the chute mouth before we shake.
-DEFAULT_EXIT_TRAILING_SAFETY_DEG = 22.0
+DEFAULT_EXIT_TRAILING_SAFETY_DEG = 14.0
 # Conservative default: C4 is a gear-driven channel and should advance with
 # small, smooth moves unless live tuning intentionally pushes throughput.
 DEFAULT_TRANSPORT_COOLDOWN_MS = 180

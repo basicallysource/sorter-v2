@@ -635,6 +635,87 @@ class RuntimeC4(BaseRuntime):
             "dossier_preview": dossier_preview,
         }
 
+    def inspect_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
+        """Step-debugger view: full dossier list with every per-piece field.
+
+        ``debug_snapshot`` caps at five dossiers because the live dashboard
+        polls it. The step debugger needs the complete picture so an
+        operator can see exactly which piece is stuck where without
+        spelunking private fields.
+        """
+        ts = time.monotonic() if now_mono is None else float(now_mono)
+        dossiers: list[dict[str, Any]] = []
+        for dossier in self._pieces.values():
+            zone = self._zone_manager.zone_for(dossier.piece_uuid)
+            angle = float(zone.center_deg) if zone is not None else None
+            result = dossier.result
+            dossiers.append(
+                {
+                    "piece_uuid": dossier.piece_uuid,
+                    "global_id": dossier.global_id,
+                    "tracklet_id": dossier.tracklet_id,
+                    "tracker_key": dossier.tracker_key,
+                    "tracker_epoch": dossier.tracker_epoch,
+                    "raw_track_id": dossier.raw_track_id,
+                    "intake_age_s": ts - dossier.intake_ts,
+                    "angle_at_intake_deg": dossier.angle_at_intake_deg,
+                    "angle_deg": angle,
+                    "classify_delta_deg": (
+                        _wrap_deg(angle - self._classify_angle_deg)
+                        if angle is not None
+                        else None
+                    ),
+                    "exit_delta_deg": (
+                        _wrap_deg(angle - self._exit_angle_deg)
+                        if angle is not None
+                        else None
+                    ),
+                    "last_seen_age_s": ts - dossier.last_seen_mono,
+                    "classified_age_s": (
+                        ts - dossier.classified_ts
+                        if dossier.classified_ts is not None
+                        else None
+                    ),
+                    "classify_future_pending": dossier.classify_future is not None,
+                    "result_part_id": getattr(result, "part_id", None) if result else None,
+                    "result_category": (
+                        getattr(result, "category", None) if result else None
+                    ),
+                    "reject_reason": dossier.reject_reason,
+                    "handoff_requested": bool(dossier.handoff_requested),
+                    "distributor_ready": bool(dossier.distributor_ready),
+                    "eject_enqueued": bool(dossier.eject_enqueued),
+                    "eject_committed": bool(dossier.eject_committed),
+                    "last_handoff_attempt_age_s": (
+                        ts - dossier.last_handoff_attempt_at
+                        if dossier.last_handoff_attempt_at
+                        else None
+                    ),
+                    "extras": dict(dossier.extras),
+                }
+            )
+        # Sort by exit_delta closest-to-exit first so the operator reads the
+        # next-to-eject candidate at the top.
+        dossiers.sort(
+            key=lambda d: (
+                d.get("exit_delta_deg") is None,
+                abs(d.get("exit_delta_deg") or 1e9),
+            )
+        )
+        return {
+            "fsm_state": self._fsm.value,
+            "dossier_count": len(self._pieces),
+            "dossiers": dossiers,
+            "track_to_piece": dict(self._track_to_piece),
+            "next_accept_in_s": max(0.0, self._next_accept_at - ts),
+            "angles": {
+                "intake_deg": self._zone_manager.intake_angle_deg,
+                "classify_deg": self._classify_angle_deg,
+                "exit_deg": self._exit_angle_deg,
+                "drop_deg": self._zone_manager.drop_angle_deg,
+            },
+        }
+
     def arm_startup_purge(self) -> None:
         strategy = self._startup_purge
         if strategy is None or not strategy.enabled:

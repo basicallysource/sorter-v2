@@ -469,6 +469,90 @@ def update_sample_transport_config(
     return {"ok": True, "status": status}
 
 
+class StepDebugPayload(BaseModel):
+    n: int = 1
+
+
+@router.post("/api/rt/debug/pause")
+def rt_debug_pause() -> Dict[str, Any]:
+    """Pause the orchestrator for stepwise inspection.
+
+    Same as ``/pause`` semantically but routed through the rt-runtime
+    handle directly so the step debugger does not have to detour through
+    the legacy command queue.
+    """
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    pause_fn = getattr(handle, "pause", None)
+    if not callable(pause_fn):
+        raise HTTPException(status_code=501, detail="pause is not supported")
+    try:
+        pause_fn()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    _publish_runtime_state("paused")
+    return {"ok": True, "paused": True}
+
+
+@router.post("/api/rt/debug/resume")
+def rt_debug_resume() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    resume_fn = getattr(handle, "resume", None)
+    if not callable(resume_fn):
+        raise HTTPException(status_code=501, detail="resume is not supported")
+    try:
+        resume_fn()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    _publish_runtime_state("running")
+    return {"ok": True, "paused": False}
+
+
+@router.post("/api/rt/debug/step")
+def rt_debug_step(payload: StepDebugPayload | None = None) -> Dict[str, Any]:
+    """Step the orchestrator by ``n`` ticks while paused.
+
+    The orchestrator must already be paused (``/api/rt/debug/pause`` or the
+    standard ``/pause``); otherwise the daemon thread would race the
+    stepper. Returns the resulting tick count plus a fresh inspect
+    snapshot so the caller does not need a second round-trip.
+    """
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    step_fn = getattr(handle, "step", None)
+    if not callable(step_fn):
+        raise HTTPException(status_code=501, detail="step is not supported")
+    n = int(payload.n if payload is not None else 1)
+    try:
+        result = dict(step_fn(n) or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    inspect_fn = getattr(handle, "inspect_snapshot", None)
+    inspect = dict(inspect_fn() or {}) if callable(inspect_fn) else {}
+    return {"ok": True, "step": result, "inspect": inspect}
+
+
+@router.get("/api/rt/debug/inspect")
+def rt_debug_inspect() -> Dict[str, Any]:
+    """Deep introspection snapshot for the step debugger UI."""
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    inspect_fn = getattr(handle, "inspect_snapshot", None)
+    if not callable(inspect_fn):
+        raise HTTPException(status_code=501, detail="inspect not supported")
+    try:
+        return {"ok": True, "inspect": dict(inspect_fn() or {})}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.post("/api/rt/c1/clear-jam")
 def clear_c1_jam() -> Dict[str, Any]:
     handle = shared_state.rt_handle

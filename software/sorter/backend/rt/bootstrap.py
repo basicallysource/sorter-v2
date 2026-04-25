@@ -257,6 +257,23 @@ class RtRuntimeHandle:
                 )
         self.paused = False
 
+    def step(self, n: int = 1) -> dict[str, Any]:
+        """Step the runtime forward by ``n`` ticks while paused.
+
+        Thin facade so the API layer can drive the orchestrator without
+        reaching into ``self.orchestrator`` directly.
+        """
+        fn = getattr(self.orchestrator, "step", None)
+        if not callable(fn):
+            raise RuntimeError("orchestrator does not support step()")
+        return dict(fn(n) or {})
+
+    def inspect_snapshot(self) -> dict[str, Any]:
+        fn = getattr(self.orchestrator, "inspect_snapshot", None)
+        if not callable(fn):
+            return self.status_snapshot()
+        return dict(fn() or {})
+
     def status_snapshot(self) -> dict[str, Any]:
         runners_out: list[dict[str, Any]] = []
         for runner in self.perception_runners:

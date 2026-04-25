@@ -228,3 +228,64 @@ def test_orchestrator_rejects_invalid_tick_period() -> None:
 
     with pytest.raises(ValueError):
         Orchestrator(runtimes=[], slots={}, tick_period_s=0.0)
+
+
+def test_step_advances_tick_count_only_when_paused() -> None:
+    c1 = _FakeRuntime("c1")
+    orch = _make_orchestrator([c1], {})
+    orch.start(paused=True)
+    try:
+        assert orch.is_paused()
+        result = orch.step(3)
+        assert result["ticks_executed"] == 3
+        assert result["tick_count"] == 3
+        assert orch.tick_count() == 3
+        assert len(c1.ticks) == 3
+    finally:
+        orch.stop()
+
+
+def test_step_rejected_while_running() -> None:
+    import pytest
+
+    c1 = _FakeRuntime("c1")
+    orch = _make_orchestrator([c1], {})
+    orch.start(paused=False)
+    try:
+        with pytest.raises(RuntimeError):
+            orch.step(1)
+    finally:
+        orch.stop()
+
+
+def test_step_validates_count() -> None:
+    import pytest
+
+    c1 = _FakeRuntime("c1")
+    orch = _make_orchestrator([c1], {})
+    orch.start(paused=True)
+    try:
+        with pytest.raises(ValueError):
+            orch.step(0)
+        with pytest.raises(ValueError):
+            orch.step(101)
+    finally:
+        orch.stop()
+
+
+def test_inspect_snapshot_includes_per_runtime_and_slots() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    slots = {("c1", "c2"): CapacitySlot("c1_to_c2", 2)}
+    orch = _make_orchestrator([c1, c2], slots)
+    snap = orch.inspect_snapshot()
+    assert snap["paused"] is False
+    assert snap["tick_count"] == 0
+    assert "slot_inspect" in snap
+    assert "c1_to_c2" in snap["slot_inspect"]
+    assert snap["slot_inspect"]["c1_to_c2"]["capacity"] == 2
+    assert snap["slot_inspect"]["c1_to_c2"]["claims"] == []
+    # Fake runtimes don't implement inspect_snapshot, so runtime_inspect
+    # is allowed to be empty — the orchestrator must not crash on missing
+    # methods.
+    assert isinstance(snap.get("runtime_inspect"), dict)

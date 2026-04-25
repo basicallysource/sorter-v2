@@ -110,6 +110,9 @@ class Orchestrator:
     def resume(self) -> None:
         self._paused = False
 
+    def is_paused(self) -> bool:
+        return self._paused
+
     # ------------------------------------------------------------------
     # Public introspection
 
@@ -117,6 +120,31 @@ class Orchestrator:
         """Run a single tick. Used by tests and by the main loop thread."""
         ts = time.monotonic() if now_mono is None else float(now_mono)
         self._tick(ts)
+
+    def step(self, n: int = 1) -> dict[str, Any]:
+        """Step the runtime forward by ``n`` ticks while paused.
+
+        The orchestrator must be paused first so the daemon loop is parked
+        and this caller is the sole writer of runtime state. ``n`` is
+        bounded so a stray call cannot accidentally drain a long backlog;
+        for long runs use ``resume()``.
+        """
+        if not self._paused:
+            raise RuntimeError("orchestrator must be paused before stepping")
+        steps = int(n)
+        if steps < 1:
+            raise ValueError("step n must be >= 1")
+        if steps > 100:
+            raise ValueError("step n must be <= 100; use resume() for long runs")
+        started_count = self._tick_count
+        for _ in range(steps):
+            self._tick(time.monotonic())
+        return {
+            "ticks_executed": self._tick_count - started_count,
+            "tick_count": self._tick_count,
+            "last_tick_mono": self._last_tick_mono,
+            "paused": self._paused,
+        }
 
     def tick_count(self) -> int:
         return self._tick_count
@@ -189,6 +217,77 @@ class Orchestrator:
             "runtime_debug": runtime_debug,
             "slot_debug": slot_debug,
         }
+
+    def inspect_snapshot(self) -> dict[str, Any]:
+        """Deep-introspect view for the step debugger.
+
+        Returns the regular ``status_snapshot`` plus per-runtime detail
+        intended for stepwise debugging: full dossier lists (not the
+        five-row preview), pending downstream claims with their deadline
+        ages, and per-slot claim deadlines. Every field is plain JSON —
+        no raw runtime objects leak.
+        """
+        base = self.status_snapshot()
+        now = time.monotonic()
+
+        runtime_inspect: dict[str, dict[str, Any]] = {}
+        for rt in self._runtimes:
+            runtime_id = getattr(rt, "runtime_id", None)
+            if not isinstance(runtime_id, str) or not runtime_id:
+                continue
+            inspect_fn = getattr(rt, "inspect_snapshot", None)
+            if not callable(inspect_fn):
+                continue
+            try:
+                runtime_inspect[runtime_id] = dict(inspect_fn(now_mono=now) or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: inspect_snapshot() raised for %r", runtime_id
+                )
+                runtime_inspect[runtime_id] = {"_error": "inspect_failed"}
+
+        slot_inspect: dict[str, dict[str, Any]] = {}
+        for (upstream, downstream), slot in self._slots.items():
+            if not isinstance(upstream, str) or not isinstance(downstream, str):
+                continue
+            key = f"{upstream}_to_{downstream}"
+            claims_attr = getattr(slot, "_claims", None)
+            claims_view: list[dict[str, Any]] = []
+            if isinstance(claims_attr, list):
+                import math as _math
+                for deadline in claims_attr:
+                    if not isinstance(deadline, (int, float)):
+                        continue
+                    if _math.isinf(deadline):
+                        claims_view.append({"deadline_age_s": None, "no_expiry": True})
+                    else:
+                        claims_view.append(
+                            {"deadline_age_s": float(deadline) - now, "no_expiry": False}
+                        )
+            try:
+                slot_inspect[key] = {
+                    "capacity": int(slot.capacity()),
+                    "taken": int(slot.taken(now_mono=now)),
+                    "available": int(slot.available(now_mono=now)),
+                    "claims": claims_view,
+                }
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: slot inspect snapshot raised for %s", key
+                )
+                slot_inspect[key] = {"_error": "inspect_failed"}
+
+        base.update(
+            {
+                "tick_count": int(self._tick_count),
+                "paused": bool(self._paused),
+                "tick_period_s": float(self._tick_period_s),
+                "runtime_inspect": runtime_inspect,
+                "slot_inspect": slot_inspect,
+                "now_mono": float(now),
+            }
+        )
+        return base
 
     # ------------------------------------------------------------------
     # Internals

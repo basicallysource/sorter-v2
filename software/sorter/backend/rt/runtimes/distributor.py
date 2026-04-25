@@ -307,6 +307,12 @@ class RuntimeDistributor(BaseRuntime):
         )
         return snap
 
+    def inspect_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
+        ts = time.monotonic() if now_mono is None else float(now_mono)
+        snap = self.debug_snapshot()
+        snap["upstream_slot_taken"] = int(self._upstream_slot.taken(now_mono=ts))
+        return snap
+
     # ------------------------------------------------------------------
     # Internals
 

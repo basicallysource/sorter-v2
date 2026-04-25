@@ -237,6 +237,33 @@ class RuntimeC2(BaseRuntime):
         })
         return snap
 
+    def inspect_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
+        ts = time.monotonic() if now_mono is None else float(now_mono)
+        claims = [
+            {
+                "global_id": int(gid),
+                "deadline_age_s": float(deadline) - ts,
+                "retry_count": int(self._pending_downstream_claim_retries.get(gid, 0)),
+            }
+            for gid, deadline in self._pending_downstream_claims.items()
+        ]
+        claims.sort(key=lambda c: c["deadline_age_s"])
+        return {
+            "piece_count": int(self._piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "pending_track_count": int(self._pending_track_count),
+            "upstream_slot_taken": int(self._upstream_slot.taken(now_mono=ts)),
+            "downstream_slot_taken": int(self._downstream_slot.taken(now_mono=ts)),
+            "pending_downstream_claims": claims,
+            "next_pulse_in_s": max(0.0, self._next_pulse_at - ts),
+            "next_exit_handoff_in_s": max(0.0, self._next_exit_handoff_at - ts),
+            "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
+            "exit_near_arc_deg": math.degrees(self._exit_near_arc),
+            "approach_near_arc_deg": math.degrees(self._approach_near_arc),
+            "exit_stall_active": self._bookkeeping.exit_stall_since is not None,
+            "max_piece_count": int(self._max_piece_count),
+        }
+
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
         try:

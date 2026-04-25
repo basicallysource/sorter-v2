@@ -9,6 +9,7 @@
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
+	import RuntimeTuningPanel from '$lib/components/RuntimeTuningPanel.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { loadPolygons } from '$lib/settings/polygons-service';
@@ -490,6 +491,9 @@
 						hardwareReady={hardwareState === 'ready'}
 					/>
 				{/if}
+				<CollapsibleSection title="Runtime Tuning" storageKey="runtimeTuning">
+					<RuntimeTuningPanel baseUrl={currentBackendBaseUrl()} />
+				</CollapsibleSection>
 				<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 					<RecentObjects />
 				</CollapsibleSection>

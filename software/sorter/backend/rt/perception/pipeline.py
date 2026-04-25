@@ -39,8 +39,16 @@ class PerceptionPipeline:
         self.tracker = tracker
         self.filters = filters
         self.segment_recorder = segment_recorder
+        self.detector_input_recorder: Any | None = None
 
     def process_frame_state(self, frame: FeedFrame) -> PerceptionFrameState:
+        if self.detector_input_recorder is not None:
+            self.detector_input_recorder.capture(
+                frame=frame,
+                detector=self.detector,
+                zone=self.zone,
+                tracker=self.tracker,
+            )
         detections = self.detector.detect(frame, self.zone)
         raw_tracks = self.tracker.update(detections, frame)
         if self.segment_recorder is not None:

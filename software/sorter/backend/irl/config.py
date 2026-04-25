@@ -311,6 +311,7 @@ class ClassificationChannelConfig:
     startup_purge_acceleration_microsteps_per_second_sq: int | None
     transport_speed_scale: float
     transport_acceleration_microsteps_per_second_sq: int | None
+    stepper_degrees_per_tray_degree: float
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
@@ -386,15 +387,22 @@ class ClassificationChannelConfig:
         self.startup_purge_prime_cooldown_ms = 120
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
-        self.startup_purge_speed_scale = 12.0
-        self.startup_purge_acceleration_microsteps_per_second_sq = 10000
-        # Scale for the normal pipeline-advance carousel move. Exit drop
-        # commit uses a separate eject config, so this only affects the
-        # slow pipeline travel, not the precision drop. Tuned live to
-        # reach ~1 rpm observed ring speed. Normal travel can run a bit
-        # faster now because exit approach/shimmy use the explicit slow path.
-        self.transport_speed_scale = 24.0
-        self.transport_acceleration_microsteps_per_second_sq = 10000
+        self.startup_purge_speed_scale = 8.0
+        self.startup_purge_acceleration_microsteps_per_second_sq = 60000
+        # Scale for the normal pipeline-advance carousel move. The 24x/10k
+        # overdrive profile was too tall and too soft for short post-gearbox
+        # C4 moves: the firmware accepted direct 10k/200k moves while normal
+        # transport returned ok=false. Keep the ceiling reachable and make
+        # acceleration high enough for 6-18 degree transport windows without
+        # the harsh start/stop of the 200k diagnostic profile.
+        self.transport_speed_scale = 8.0
+        self.transport_acceleration_microsteps_per_second_sq = 60000
+        # Dedicated C4 is gear-driven from the former carousel motor port.
+        # Runtime geometry works in tray/object degrees, while the low-level
+        # stepper API works in motor degrees. Live tests on this machine show
+        # roughly 35-45 motor degrees per visible tray degree; 36 keeps the
+        # default conservative and can be tuned live from /api/rt/tuning.
+        self.stepper_degrees_per_tray_degree = 36.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

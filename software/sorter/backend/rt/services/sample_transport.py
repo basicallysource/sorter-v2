@@ -33,6 +33,15 @@ MAX_DIRECT_MAX_SPEED_USTEPS_PER_S = 50000
 MIN_DIRECT_ACCELERATION_USTEPS_PER_S2 = 1
 MAX_DIRECT_ACCELERATION_USTEPS_PER_S2 = 500000
 
+CHANNEL_ALIASES = {
+    "classification_channel": "c4",
+    "carousel": "c4",
+    "c2_feed": "c2",
+    "c3_feed": "c3",
+    "c4_feed": "c4",
+}
+VALID_CHANNELS = {"c1", "c2", "c3", "c4"}
+
 
 class RuntimeControl(Protocol):
     paused: bool
@@ -96,6 +105,7 @@ def _initial_status() -> dict[str, Any]:
         "config": {
             "base_interval_s": DEFAULT_BASE_INTERVAL_S,
             "ratio": DEFAULT_RATIO,
+            "channels": [],
             "duration_s": DEFAULT_DURATION_S,
             "poll_s": DEFAULT_POLL_S,
             "direct_max_speed_usteps_per_s": DEFAULT_DIRECT_MAX_SPEED_USTEPS_PER_S,
@@ -138,6 +148,7 @@ class C1234SampleTransportCoordinator:
         base_interval_s: float = DEFAULT_BASE_INTERVAL_S,
         ratio: float = DEFAULT_RATIO,
         channel_rpm: dict[str, float] | None = None,
+        channels: Iterable[str] | None = None,
         direct_max_speed_usteps_per_s: int | None = DEFAULT_DIRECT_MAX_SPEED_USTEPS_PER_S,
         direct_acceleration_usteps_per_s2: int | None = DEFAULT_DIRECT_ACCELERATION_USTEPS_PER_S2,
         duration_s: float | None = DEFAULT_DURATION_S,
@@ -152,9 +163,20 @@ class C1234SampleTransportCoordinator:
         if poll_s <= 0.0:
             raise ValueError("poll_s must be > 0")
 
+        selected_channels = _normalize_channels(channels)
         ports = self._collect_ports(list(runtimes))
+        if selected_channels is not None:
+            ports = [
+                port
+                for port in ports
+                if str(getattr(port, "key", "")) in selected_channels
+            ]
         if not ports:
-            raise RuntimeError("no sample-transport-capable C-channel runtimes available")
+            if selected_channels is None:
+                raise RuntimeError("no sample-transport-capable C-channel runtimes available")
+            raise RuntimeError(
+                "no sample-transport-capable selected channels available"
+            )
 
         channel_states = self._build_channel_states(
             ports,
@@ -191,6 +213,7 @@ class C1234SampleTransportCoordinator:
                         str(key): float(value)
                         for key, value in (channel_rpm or {}).items()
                     },
+                    "channels": [state.key for state in channel_states],
                     "direct_max_speed_usteps_per_s": _bounded_int(
                         direct_max_speed_usteps_per_s,
                         default=DEFAULT_DIRECT_MAX_SPEED_USTEPS_PER_S,
@@ -594,6 +617,26 @@ def _target_rpm_for_channel(
     if not isinstance(value, (int, float)):
         return None
     return max(MIN_RPM, min(MAX_RPM, float(value)))
+
+
+def _normalize_channels(channels: Iterable[str] | None) -> set[str] | None:
+    if channels is None:
+        return None
+    selected: set[str] = set()
+    for raw in channels:
+        if not isinstance(raw, str):
+            raise ValueError("channels must contain channel names")
+        key = raw.strip().lower()
+        key = CHANNEL_ALIASES.get(key, key)
+        if key not in VALID_CHANNELS:
+            raise ValueError(
+                "channels must contain only c1, c2, c3, c4 "
+                f"(got {raw!r})"
+            )
+        selected.add(key)
+    if not selected:
+        raise ValueError("channels must include at least one channel")
+    return selected
 
 
 def _bounded_int(

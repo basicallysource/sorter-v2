@@ -31,6 +31,7 @@ class SampleTransportPayload(BaseModel):
     base_interval_s: float = 2.0
     ratio: float = 2.0
     channel_rpm: Dict[str, float] | None = None
+    channels: list[str] | None = None
     direct_max_speed_usteps_per_s: int | None = None
     direct_acceleration_usteps_per_s2: int | None = None
     duration_s: float | None = 600.0
@@ -46,10 +47,45 @@ class SampleTransportUpdatePayload(BaseModel):
     poll_s: float | None = None
 
 
+class C234PurgeStartPayload(BaseModel):
+    channels: list[str] | None = None
+    timeout_s: float = 120.0
+    clear_hold_s: float = 0.75
+    poll_s: float = 0.05
+
+
+class ReplayCaptureStartPayload(BaseModel):
+    feed_id: str = "c4_feed"
+    max_frames: int = 300
+    sample_every_n: int = 1
+    label: str | None = None
+
+
+class RuntimeTuningPayload(BaseModel):
+    channels: dict[str, dict[str, Any]] | None = None
+    slots: dict[str, int] | None = None
+
+
 def _publish_runtime_state(state: str) -> None:
     irl = shared_state.getActiveIRL()
     layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
     shared_state.publishSorterState(state, layout)
+
+
+def _runner_for_feed(feed_id: str) -> Any | None:
+    handle = shared_state.rt_handle
+    if handle is None:
+        return None
+    resolved = _TRACK_FEED_ALIASES.get(feed_id, feed_id)
+    runners = getattr(handle, "perception_runners", None)
+    if not isinstance(runners, list):
+        return None
+    for runner in runners:
+        pipeline = getattr(runner, "_pipeline", None)
+        feed = getattr(pipeline, "feed", None)
+        if getattr(feed, "feed_id", None) == resolved:
+            return runner
+    return None
 
 
 def _empty_status(*, ready: bool) -> Dict[str, Any]:
@@ -213,8 +249,96 @@ def get_rt_tracks(feed_id: str) -> Dict[str, Any]:
     }
 
 
+@router.post("/api/rt/replay-capture/start")
+def start_replay_capture(payload: ReplayCaptureStartPayload) -> Dict[str, Any]:
+    runner = _runner_for_feed(payload.feed_id)
+    if runner is None:
+        raise HTTPException(status_code=404, detail="perception runner not found for feed")
+    start_fn = getattr(runner, "start_detector_input_capture", None)
+    if not callable(start_fn):
+        raise HTTPException(status_code=501, detail="replay capture is not supported")
+    try:
+        status = start_fn(
+            max_frames=max(1, min(int(payload.max_frames), 10000)),
+            sample_every_n=max(1, min(int(payload.sample_every_n), 1000)),
+            label=payload.label,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True, "capture": status}
+
+
+@router.post("/api/rt/replay-capture/{feed_id}/stop")
+def stop_replay_capture(feed_id: str) -> Dict[str, Any]:
+    runner = _runner_for_feed(feed_id)
+    if runner is None:
+        raise HTTPException(status_code=404, detail="perception runner not found for feed")
+    stop_fn = getattr(runner, "stop_detector_input_capture", None)
+    if not callable(stop_fn):
+        raise HTTPException(status_code=501, detail="replay capture is not supported")
+    status = stop_fn()
+    return {"ok": True, "capture": status}
+
+
+@router.get("/api/rt/replay-capture")
+def get_replay_capture_status() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        return {"ok": True, "captures": []}
+    captures: list[dict[str, Any]] = []
+    runners = getattr(handle, "perception_runners", None)
+    if isinstance(runners, list):
+        for runner in runners:
+            status_fn = getattr(runner, "detector_input_capture_status", None)
+            if not callable(status_fn):
+                continue
+            status = status_fn()
+            if isinstance(status, dict):
+                captures.append(status)
+    return {"ok": True, "captures": captures}
+
+
+@router.get("/api/rt/tuning")
+def get_runtime_tuning() -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    status_fn = getattr(handle, "runtime_tuning_status", None)
+    if not callable(status_fn):
+        raise HTTPException(status_code=501, detail="runtime tuning is not supported")
+    try:
+        tuning = dict(status_fn() or {})
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"runtime tuning failed: {exc}") from exc
+    return {"ok": True, "tuning": tuning}
+
+
+@router.post("/api/rt/tuning")
+def update_runtime_tuning(payload: RuntimeTuningPayload) -> Dict[str, Any]:
+    handle = shared_state.rt_handle
+    if handle is None:
+        raise HTTPException(status_code=409, detail="rt runtime is not ready")
+    update_fn = getattr(handle, "update_runtime_tuning", None)
+    if not callable(update_fn):
+        raise HTTPException(status_code=501, detail="runtime tuning is not supported")
+    patch: dict[str, Any] = {}
+    if payload.channels is not None:
+        patch["channels"] = payload.channels
+    if payload.slots is not None:
+        patch["slots"] = payload.slots
+    try:
+        tuning = dict(update_fn(patch) or {})
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True, "tuning": tuning}
+
+
 @router.post("/api/rt/purge/c234")
-def start_c234_purge() -> Dict[str, Any]:
+def start_c234_purge(
+    payload: C234PurgeStartPayload = C234PurgeStartPayload(),
+) -> Dict[str, Any]:
     if shared_state.hardware_state != "ready":
         raise HTTPException(
             status_code=409,
@@ -229,7 +353,15 @@ def start_c234_purge() -> Dict[str, Any]:
     if not callable(start_fn):
         raise HTTPException(status_code=501, detail="c234 purge is not supported")
     try:
-        started = bool(start_fn(state_publisher=_publish_runtime_state))
+        started = bool(
+            start_fn(
+                state_publisher=_publish_runtime_state,
+                channels=payload.channels,
+                timeout_s=payload.timeout_s,
+                clear_hold_s=payload.clear_hold_s,
+                poll_s=payload.poll_s,
+            )
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not started:
@@ -277,6 +409,7 @@ def start_sample_transport(
                 base_interval_s=payload.base_interval_s,
                 ratio=payload.ratio,
                 channel_rpm=payload.channel_rpm,
+                channels=payload.channels,
                 direct_max_speed_usteps_per_s=payload.direct_max_speed_usteps_per_s,
                 direct_acceleration_usteps_per_s2=payload.direct_acceleration_usteps_per_s2,
                 duration_s=payload.duration_s,

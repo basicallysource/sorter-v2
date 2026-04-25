@@ -28,6 +28,15 @@ from rt.runtimes._strategies import GenericPurgeStrategy
 
 _LOG = logging.getLogger(__name__)
 
+CHANNEL_ALIASES = {
+    "c2_feed": "c2",
+    "c3_feed": "c3",
+    "c4_feed": "c4",
+    "classification_channel": "c4",
+    "carousel": "c4",
+}
+VALID_PURGE_CHANNELS = {"c2", "c3", "c4"}
+
 
 class RuntimeControl(Protocol):
     """Minimal surface the coordinator needs to restore the pre-purge state.
@@ -54,6 +63,7 @@ def _initial_status() -> dict[str, Any]:
         "reason": None,
         "was_paused": None,
         "cancel_requested": False,
+        "channels": [],
         "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
     }
 
@@ -90,6 +100,7 @@ class C234PurgeCoordinator:
         control: RuntimeControl,
         maintenance_pauses: Iterable[Any] = (),
         state_publisher: Callable[[str], None] | None = None,
+        channels: Iterable[str] | None = None,
         timeout_s: float = 120.0,
         clear_hold_s: float = 0.75,
         poll_s: float = 0.05,
@@ -101,6 +112,7 @@ class C234PurgeCoordinator:
             raise ValueError("clear_hold_s must be >= 0")
         if poll_s <= 0.0:
             raise ValueError("poll_s must be > 0")
+        selected_channels = _normalize_channels(channels)
 
         with self._lock:
             if bool(self._status.get("active")):
@@ -114,6 +126,7 @@ class C234PurgeCoordinator:
                 "reason": None,
                 "was_paused": bool(getattr(control, "paused", False)),
                 "cancel_requested": False,
+                "channels": _ordered_channels(selected_channels),
                 "counts": {"c2": 0, "c3": 0, "c4_raw": 0, "c4_dossiers": 0},
             }
             self._cancel.clear()
@@ -124,6 +137,7 @@ class C234PurgeCoordinator:
                     "control": control,
                     "maintenance_pauses": list(maintenance_pauses),
                     "state_publisher": state_publisher,
+                    "channels": selected_channels,
                     "timeout_s": float(timeout_s),
                     "clear_hold_s": float(clear_hold_s),
                     "poll_s": float(poll_s),
@@ -227,6 +241,7 @@ class C234PurgeCoordinator:
         control: RuntimeControl,
         maintenance_pauses: list[Any],
         state_publisher: Callable[[str], None] | None,
+        channels: set[str] | None,
         timeout_s: float,
         clear_hold_s: float,
         poll_s: float,
@@ -237,10 +252,16 @@ class C234PurgeCoordinator:
         reason = "timeout"
         phase = "running"
         strategies = self._collect_strategies(runtimes, clear_hold_s=clear_hold_s)
+        if channels is not None:
+            strategies = [
+                strat for strat in strategies if str(strat.channel) in channels
+            ]
         paused_for_maintenance: list[Any] = []
         try:
             if not strategies:
-                raise RuntimeError("no purge-capable runtimes available")
+                if channels is None:
+                    raise RuntimeError("no purge-capable runtimes available")
+                raise RuntimeError("no purge-capable selected channels available")
             for runtime in maintenance_pauses:
                 pause_fn = getattr(runtime, "pause_for_maintenance", None)
                 if not callable(pause_fn):
@@ -368,6 +389,33 @@ class C234PurgeCoordinator:
                 reason=reason,
                 cancel_requested=False,
             )
+
+
+def _normalize_channels(channels: Iterable[str] | None) -> set[str] | None:
+    if channels is None:
+        return None
+    selected: set[str] = set()
+    for raw in channels:
+        if not isinstance(raw, str):
+            raise ValueError("channels must contain channel names")
+        key = raw.strip().lower()
+        key = CHANNEL_ALIASES.get(key, key)
+        if key not in VALID_PURGE_CHANNELS:
+            raise ValueError(
+                "channels must contain only c2, c3, c4 "
+                f"(got {raw!r})"
+            )
+        selected.add(key)
+    if not selected:
+        raise ValueError("channels must include at least one channel")
+    return selected
+
+
+def _ordered_channels(channels: set[str] | None) -> list[str]:
+    if channels is None:
+        return []
+    order = ("c2", "c3", "c4")
+    return [key for key in order if key in channels]
 
 
 __all__ = ["C234PurgeCoordinator", "RuntimeControl"]

@@ -230,6 +230,58 @@ def test_rt_tracks_accepts_classification_channel_alias(
     assert payload["feed_id"] == "c4_feed"
 
 
+def test_replay_capture_start_stop_routes_to_feed_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class _Runner:
+        def __init__(self) -> None:
+            self._pipeline = SimpleNamespace(
+                feed=SimpleNamespace(feed_id="c4_feed"),
+            )
+
+        def start_detector_input_capture(self, **kwargs) -> dict[str, Any]:
+            calls.append(("start", kwargs))
+            return {"capture_id": "cap-1", "active": True, **kwargs}
+
+        def stop_detector_input_capture(self) -> dict[str, Any]:
+            calls.append(("stop", {}))
+            return {"capture_id": "cap-1", "active": False}
+
+        def detector_input_capture_status(self) -> dict[str, Any]:
+            return {"capture_id": "cap-1", "active": True}
+
+    monkeypatch.setattr(
+        shared_state,
+        "rt_handle",
+        SimpleNamespace(perception_runners=[_Runner()]),
+        raising=False,
+    )
+
+    started = rt_runtime_router.start_replay_capture(
+        rt_runtime_router.ReplayCaptureStartPayload(
+            feed_id="classification_channel",
+            max_frames=12,
+            sample_every_n=2,
+            label="night-test",
+        )
+    )
+    status = rt_runtime_router.get_replay_capture_status()
+    stopped = rt_runtime_router.stop_replay_capture("c4_feed")
+
+    assert started["capture"]["capture_id"] == "cap-1"
+    assert started["capture"]["max_frames"] == 12
+    assert started["capture"]["sample_every_n"] == 2
+    assert status["captures"][0]["active"] is True
+    assert stopped["capture"]["active"] is False
+    assert calls == [
+        (
+            "start",
+            {"max_frames": 12, "sample_every_n": 2, "label": "night-test"},
+        ),
+        ("stop", {}),
+    ]
 def test_rt_tracks_raises_when_no_handle(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shared_state, "rt_handle", None, raising=False)
 
@@ -340,6 +392,53 @@ def test_rt_status_surfaces_maintenance_state(
     }
 
 
+def test_get_runtime_tuning_endpoint_reads_handle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handle = _FakeHandle([])
+    handle.runtime_tuning_status = MagicMock(  # type: ignore[attr-defined]
+        return_value={"version": 1, "channels": {"c4": {"transport_step_deg": 6.0}}}
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    payload = rt_runtime_router.get_runtime_tuning()
+
+    assert payload == {
+        "ok": True,
+        "tuning": {"version": 1, "channels": {"c4": {"transport_step_deg": 6.0}}},
+    }
+    handle.runtime_tuning_status.assert_called_once_with()
+
+
+def test_update_runtime_tuning_endpoint_forwards_patch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handle = _FakeHandle([])
+    handle.update_runtime_tuning = MagicMock(  # type: ignore[attr-defined]
+        return_value={
+            "version": 1,
+            "channels": {"c4": {"transport_acceleration_usteps_per_s2": 60000}},
+        }
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    payload = rt_runtime_router.update_runtime_tuning(
+        rt_runtime_router.RuntimeTuningPayload(
+            channels={"c4": {"transport_acceleration_usteps_per_s2": 60000}},
+            slots={"c3_to_c4": 3},
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["tuning"]["channels"]["c4"]["transport_acceleration_usteps_per_s2"] == 60000
+    handle.update_runtime_tuning.assert_called_once_with(
+        {
+            "channels": {"c4": {"transport_acceleration_usteps_per_s2": 60000}},
+            "slots": {"c3_to_c4": 3},
+        }
+    )
+
+
 def test_start_c234_purge_endpoint_starts_handle_job(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -353,10 +452,22 @@ def test_start_c234_purge_endpoint_starts_handle_job(
     monkeypatch.setattr(shared_state, "publishSorterState", MagicMock(), raising=False)
     monkeypatch.setattr(shared_state, "getActiveIRL", lambda: None, raising=False)
 
-    payload = rt_runtime_router.start_c234_purge()
+    payload = rt_runtime_router.start_c234_purge(
+        rt_runtime_router.C234PurgeStartPayload(
+            channels=["c4"],
+            timeout_s=5.0,
+            clear_hold_s=0.1,
+            poll_s=0.02,
+        )
+    )
 
     assert payload == {"ok": True, "status": {"active": True, "phase": "starting"}}
     handle.start_c234_purge.assert_called_once()
+    kwargs = handle.start_c234_purge.call_args.kwargs
+    assert kwargs["channels"] == ["c4"]
+    assert kwargs["timeout_s"] == 5.0
+    assert kwargs["clear_hold_s"] == 0.1
+    assert kwargs["poll_s"] == 0.02
 
 
 def test_start_c234_purge_endpoint_requires_ready_hardware(

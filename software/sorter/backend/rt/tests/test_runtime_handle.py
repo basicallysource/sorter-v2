@@ -562,6 +562,44 @@ def test_start_c234_purge_resumes_then_repauses_when_initially_paused() -> None:
         assert port.disarm_count == 1
 
 
+def test_start_c234_purge_can_limit_selected_channels() -> None:
+    bus = MagicMock()
+    orchestrator = MagicMock()
+    handle = RtRuntimeHandle(
+        orchestrator=orchestrator,
+        perception_runners=[],
+        event_bus=bus,
+        c4=_FakePurgeRuntime("c4", [1, 0, 0]),  # type: ignore[arg-type]
+        distributor=None,  # type: ignore[arg-type]
+        c2=_FakePurgeRuntime("c2", [9, 9, 9]),  # type: ignore[arg-type]
+        c3=_FakePurgeRuntime("c3", [9, 9, 9]),  # type: ignore[arg-type]
+        feed_zones={},
+        skipped_roles=[],
+        camera_service=None,
+        started=True,
+        perception_started=True,
+        paused=True,
+    )
+
+    assert handle.start_c234_purge(
+        channels=["c4"],
+        timeout_s=1.0,
+        clear_hold_s=0.0,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while handle.c234_purge_status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = handle.c234_purge_status()
+    assert status["success"] is True
+    assert status["channels"] == ["c4"]
+    assert handle.c2.purge_port().arm_count == 0  # type: ignore[union-attr]
+    assert handle.c3.purge_port().arm_count == 0  # type: ignore[union-attr]
+    assert handle.c4.purge_port().arm_count == 1  # type: ignore[union-attr]
+
+
 def test_cancel_c234_purge_stops_job_and_restores_pause_state() -> None:
     bus = MagicMock()
     orchestrator = MagicMock()

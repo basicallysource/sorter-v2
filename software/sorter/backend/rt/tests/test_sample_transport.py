@@ -166,6 +166,52 @@ def test_sample_transport_uses_per_channel_rpm_targets() -> None:
     assert status["channels"]["c1"]["direct_acceleration_usteps_per_s2"] == 100000
 
 
+def test_sample_transport_can_limit_selected_channels() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = True
+    runtimes = [_FakeRuntime("c2"), _FakeRuntime("c3"), _FakeRuntime("c4")]
+
+    assert coordinator.start(
+        runtimes=runtimes,
+        control=control,
+        channels=["c4"],
+        base_interval_s=0.05,
+        duration_s=0.12,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while coordinator.status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = coordinator.status()
+    assert status["config"]["channels"] == ["c4"]
+    assert set(status["channels"]) == {"c4"}
+    assert runtimes[0].port.steps == 0
+    assert runtimes[1].port.steps == 0
+    assert runtimes[2].port.steps > 0
+
+
+def test_sample_transport_rejects_unknown_selected_channel() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = True
+
+    try:
+        coordinator.start(
+            runtimes=[_FakeRuntime("c4")],
+            control=control,
+            channels=["cx"],
+            duration_s=0.1,
+            poll_s=0.01,
+        )
+    except ValueError as exc:
+        assert "channels must contain only" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
 def test_sample_transport_allows_rpm_targets_up_to_64() -> None:
     coordinator = C1234SampleTransportCoordinator()
     control = MagicMock()

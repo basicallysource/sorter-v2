@@ -276,6 +276,36 @@ def test_c4_callables_restore_default_speed_for_slow_moves() -> None:
     assert irl.carousel_stepper.moves == [6.0, 3.0]
 
 
+def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live() -> None:
+    irl = type("Irl", (), {})()
+    irl.carousel_stepper = _CarouselStepper()
+    irl.irl_config = type(
+        "Config",
+        (),
+        {
+            "carousel_stepper": _CarouselConfig(),
+            "classification_channel_config": type(
+                "Classification",
+                (),
+                {"stepper_degrees_per_tray_degree": 36.0},
+            )(),
+        },
+    )()
+
+    _carousel_move, transport_move, *_ = build_c4_callables(
+        irl,
+        logging.getLogger("test"),
+        transport_speed_scale=2.4,
+    )
+
+    assert transport_move(6.0) is True
+    assert irl.carousel_stepper.moves == [216.0]
+
+    irl.irl_config.classification_channel_config.stepper_degrees_per_tray_degree = 42.0
+    assert transport_move(2.0) is True
+    assert irl.carousel_stepper.moves[-1] == 84.0
+
+
 def test_c4_eject_applies_classification_pulse_profile() -> None:
     irl = type("Irl", (), {})()
     irl.carousel_stepper = _CarouselStepper()

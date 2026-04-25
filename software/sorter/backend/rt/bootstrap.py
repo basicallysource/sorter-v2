@@ -127,6 +127,7 @@ class RtRuntimeHandle:
     skipped_roles: list[dict[str, str]] = field(default_factory=list)
     sample_collector: AuxiliaryTeacherSampleCollector | None = None
     segment_recorder: Any | None = None
+    irl: Any | None = None
     # Back-reference needed for runner rebuilds after config changes.
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
@@ -300,6 +301,16 @@ class RtRuntimeHandle:
             ),
         }
 
+    def runtime_tuning_status(self) -> dict[str, Any]:
+        from rt.services.runtime_tuning import snapshot as tuning_snapshot
+
+        return tuning_snapshot(self)
+
+    def update_runtime_tuning(self, patch: dict[str, Any]) -> dict[str, Any]:
+        from rt.services.runtime_tuning import apply_patch as apply_tuning_patch
+
+        return apply_tuning_patch(self, patch)
+
     def annotation_snapshot(self, feed_id: str) -> FeedAnnotationSnapshot:
         """Return a compact overlay/debug snapshot for one perception feed."""
         zone = self.feed_zones.get(feed_id)
@@ -417,6 +428,7 @@ class RtRuntimeHandle:
         self,
         *,
         state_publisher: Callable[[str], None] | None = None,
+        channels: list[str] | None = None,
         timeout_s: float = 120.0,
         clear_hold_s: float = 0.75,
         poll_s: float = 0.05,
@@ -428,6 +440,7 @@ class RtRuntimeHandle:
             control=self,
             maintenance_pauses=(self.c1,),
             state_publisher=state_publisher,
+            channels=channels,
             timeout_s=timeout_s,
             clear_hold_s=clear_hold_s,
             poll_s=poll_s,
@@ -446,6 +459,7 @@ class RtRuntimeHandle:
         base_interval_s: float = 2.0,
         ratio: float = 2.0,
         channel_rpm: dict[str, float] | None = None,
+        channels: list[str] | None = None,
         direct_max_speed_usteps_per_s: int | None = None,
         direct_acceleration_usteps_per_s2: int | None = None,
         duration_s: float | None = 600.0,
@@ -460,6 +474,7 @@ class RtRuntimeHandle:
             base_interval_s=base_interval_s,
             ratio=ratio,
             channel_rpm=channel_rpm,
+            channels=channels,
             direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
             direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
             duration_s=duration_s,
@@ -827,14 +842,14 @@ def build_rt_runtime(
         irl,
         log,
         startup_purge_speed_scale=float(
-            getattr(classification_cfg, "startup_purge_speed_scale", 12.0)
+            getattr(classification_cfg, "startup_purge_speed_scale", 8.0)
             if classification_cfg
-            else 12.0
+            else 8.0
         ),
         transport_speed_scale=float(
-            getattr(classification_cfg, "transport_speed_scale", 4.0)
+            getattr(classification_cfg, "transport_speed_scale", 8.0)
             if classification_cfg
-            else 4.0
+            else 8.0
         ),
         carousel_acceleration=(
             getattr(
@@ -849,10 +864,10 @@ def build_rt_runtime(
             getattr(
                 classification_cfg,
                 "transport_acceleration_microsteps_per_second_sq",
-                10000,
+                60000,
             )
             if classification_cfg
-            else 10000
+            else 60000
         ),
         continuous_acceleration=getattr(
             classification_cfg,
@@ -865,10 +880,10 @@ def build_rt_runtime(
             getattr(
                 classification_cfg,
                 "startup_purge_acceleration_microsteps_per_second_sq",
-                10000,
+                60000,
             )
             if classification_cfg
-            else 10000
+            else 60000
         ),
         motion_diagnostics=motion_diagnostics,
     )
@@ -1169,6 +1184,7 @@ def build_rt_runtime(
         feed_zones=feed_zones,
         skipped_roles=skipped_roles,
         camera_service=camera_service,
+        irl=irl,
         motion_diagnostics=motion_diagnostics,
         segment_recorder=segment_recorder,
     )

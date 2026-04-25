@@ -387,11 +387,115 @@ def build_c4_callables(
     Callable[[float], bool],
     Callable[[float, int | None, int | None], bool],
 ]:
+    def _classification_cfg() -> Any | None:
+        return getattr(irl, "classification_channel_config", None) or getattr(
+            getattr(irl, "irl_config", None), "classification_channel_config", None
+        )
+
     def _default_speed_limit() -> int | None:
         cfg_root = getattr(irl, "irl_config", None) or irl
         cfg = getattr(cfg_root, "carousel_stepper", None)
         speed = getattr(cfg, "default_steps_per_second", None)
         return int(speed) if isinstance(speed, int) and speed > 0 else None
+
+    def _cfg_float(name: str, fallback: float) -> float:
+        cfg = _classification_cfg()
+        value = getattr(cfg, name, None) if cfg is not None else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        return float(fallback)
+
+    def _cfg_optional_int(name: str, fallback: int | None) -> int | None:
+        cfg = _classification_cfg()
+        value = getattr(cfg, name, None) if cfg is not None else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            coerced = int(value)
+            return coerced if coerced > 0 else None
+        return fallback
+
+    def _stepper_degrees_per_tray_degree() -> float:
+        return _cfg_float("stepper_degrees_per_tray_degree", 1.0)
+
+    def _to_stepper_degrees(tray_degrees: float) -> float:
+        return float(tray_degrees) * _stepper_degrees_per_tray_degree()
+
+    def _wait_until_stepper_stopped(
+        stepper: Any,
+        *,
+        stepper_deg: float,
+        speed_limit: int | None,
+    ) -> None:
+        if not hasattr(stepper, "stopped"):
+            return
+        try:
+            distance = abs(int(stepper.microsteps_for_degrees(stepper_deg)))
+        except Exception:
+            distance = 0
+        speed = max(1, int(speed_limit or _default_speed_limit() or 1))
+        timeout_s = min(5.0, max(0.25, (distance / speed) * 3.0 + 0.5))
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            try:
+                if bool(getattr(stepper, "stopped")):
+                    return
+            except Exception:
+                logger.exception("RuntimeC4: stepper stopped probe raised")
+                return
+            time.sleep(0.01)
+        logger.warning(
+            "RuntimeC4: stepper did not report stopped within %.2fs after %.2f motor degrees",
+            timeout_s,
+            stepper_deg,
+        )
+
+    def _scaled_speed_limit(scale: float) -> int | None:
+        default_speed = _default_speed_limit()
+        if default_speed is not None and scale > 1.0:
+            return max(
+                default_speed,
+                int(round(float(default_speed) * float(scale))),
+            )
+        return None
+
+    def _transport_speed_limit() -> int | None:
+        return _scaled_speed_limit(
+            _cfg_float("transport_speed_scale", transport_speed_scale)
+        )
+
+    def _transport_acceleration() -> int | None:
+        return _cfg_optional_int(
+            "transport_acceleration_microsteps_per_second_sq",
+            transport_acceleration,
+        )
+
+    def _purge_speed_limit() -> int | None:
+        return _scaled_speed_limit(
+            _cfg_float("startup_purge_speed_scale", startup_purge_speed_scale)
+        )
+
+    def _startup_purge_acceleration() -> int | None:
+        return _cfg_optional_int(
+            "startup_purge_acceleration_microsteps_per_second_sq",
+            startup_purge_acceleration,
+        )
+
+    def _carousel_acceleration() -> int | None:
+        return _cfg_optional_int(
+            "exit_release_shimmy_acceleration_microsteps_per_second_sq",
+            carousel_acceleration,
+        )
+
+    def _continuous_acceleration() -> int | None:
+        configured = _cfg_optional_int(
+            "continuous_acceleration_microsteps_per_second_sq",
+            continuous_acceleration,
+        )
+        if configured is not None:
+            return configured
+        return max(
+            int(_transport_acceleration() or DEFAULT_ACCELERATION_USTEPS_PER_S2),
+            30000,
+        )
 
     def _profile_move(
         deg: float,
@@ -406,6 +510,7 @@ def build_c4_callables(
             return False
         default_speed = _default_speed_limit()
         target_speed = speed_limit or default_speed
+        stepper_deg = _to_stepper_degrees(float(deg))
         try:
             profile = profile_from_values(
                 channel="c4",
@@ -413,51 +518,38 @@ def build_c4_callables(
                 max_speed=target_speed,
                 acceleration=acceleration,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
-                deg,
+                stepper_deg,
                 source=f"c4_{profile_name}",
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                stepper_deg=stepper_deg,
+                speed_limit=target_speed,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC4: carousel_move raised")
             return False
-
-    # Normal-travel speed: used only for pipeline advance. Exit approach
-    # and shimmy use ``carousel_move`` below, which explicitly restores
-    # the default speed limit before moving.
-    transport_speed_limit: int | None = None
-    default_speed_for_transport = _default_speed_limit()
-    if default_speed_for_transport is not None and transport_speed_scale > 1.0:
-        transport_speed_limit = max(
-            default_speed_for_transport,
-            int(round(float(default_speed_for_transport) * float(transport_speed_scale))),
-        )
-    continuous_acceleration_limit = (
-        max(
-            int(transport_acceleration or DEFAULT_ACCELERATION_USTEPS_PER_S2),
-            30000,
-        )
-        if continuous_acceleration is None
-        else continuous_acceleration
-    )
 
     def carousel_move(deg: float) -> bool:
         return _profile_move(
             deg,
             profile_name=PROFILE_GENTLE,
             speed_limit=None,
-            acceleration=carousel_acceleration,
+            acceleration=_carousel_acceleration(),
         )
 
     def _transport_single(deg: float) -> bool:
         return _profile_move(
             deg,
             profile_name=PROFILE_TRANSPORT,
-            speed_limit=transport_speed_limit,
-            acceleration=transport_acceleration,
+            speed_limit=_transport_speed_limit(),
+            acceleration=_transport_acceleration(),
         )
 
     def _transport_pulsed(deg: float) -> bool:
@@ -505,8 +597,8 @@ def build_c4_callables(
         return _profile_move(
             deg,
             profile_name=PROFILE_CONTINUOUS,
-            speed_limit=transport_speed_limit,
-            acceleration=continuous_acceleration_limit,
+            speed_limit=_transport_speed_limit(),
+            acceleration=_continuous_acceleration(),
         )
 
     def direct_move(
@@ -521,20 +613,12 @@ def build_c4_callables(
             acceleration=acceleration,
         )
 
-    purge_speed_limit = None
-    default_speed = _default_speed_limit()
-    if default_speed is not None and startup_purge_speed_scale > 1.0:
-        purge_speed_limit = max(
-            default_speed,
-            int(round(float(default_speed) * float(startup_purge_speed_scale))),
-        )
-
     def startup_purge_move(deg: float) -> bool:
         return _profile_move(
             deg,
             profile_name=PROFILE_PURGE,
-            speed_limit=purge_speed_limit,
-            acceleration=startup_purge_acceleration,
+            speed_limit=_purge_speed_limit(),
+            acceleration=_startup_purge_acceleration(),
         )
 
     def wiggle_move(deg: float) -> bool:
@@ -542,15 +626,15 @@ def build_c4_callables(
             deg,
             profile_name=PROFILE_WIGGLE,
             speed_limit=None,
-            acceleration=carousel_acceleration,
+            acceleration=_carousel_acceleration(),
         )
 
     def unjam_move(deg: float) -> bool:
         return _profile_move(
             deg,
             profile_name=PROFILE_UNJAM,
-            speed_limit=purge_speed_limit or transport_speed_limit,
-            acceleration=startup_purge_acceleration,
+            speed_limit=_purge_speed_limit() or _transport_speed_limit(),
+            acceleration=_startup_purge_acceleration(),
         )
 
     def startup_purge_mode(enabled: bool) -> bool:
@@ -558,11 +642,8 @@ def build_c4_callables(
         default_speed = _default_speed_limit()
         if stepper is None or default_speed is None:
             return True
-        speed_limit = (
-            purge_speed_limit
-            if enabled and purge_speed_limit is not None
-            else default_speed
-        )
+        live_purge_limit = _purge_speed_limit()
+        speed_limit = live_purge_limit if enabled and live_purge_limit is not None else default_speed
         try:
             stepper.set_speed_limits(
                 DEFAULT_MIN_SPEED_USTEPS_PER_S,
@@ -597,7 +678,7 @@ def build_c4_callables(
                 name=PROFILE_EJECT,
                 cfg=cfg,
                 default_speed=_default_speed_limit(),
-                default_acceleration=transport_acceleration,
+                default_acceleration=_transport_acceleration(),
             )
             return move_degrees_with_profile(
                 stepper,

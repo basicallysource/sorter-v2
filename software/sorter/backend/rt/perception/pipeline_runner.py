@@ -22,6 +22,7 @@ from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRA
 from rt.pieces.identity import new_tracker_epoch
 
 from .pipeline import PerceptionFrameState, PerceptionPipeline
+from .replay_capture import DetectorInputRecorder
 
 
 _LOG = logging.getLogger(__name__)
@@ -224,6 +225,47 @@ class PerceptionRunner:
             "tracker_epoch": self._tracker_epoch,
         }
 
+    def start_detector_input_capture(
+        self,
+        *,
+        max_frames: int = 300,
+        sample_every_n: int = 1,
+        label: str | None = None,
+    ) -> dict[str, Any]:
+        pipeline = self._pipeline
+        current = getattr(pipeline, "detector_input_recorder", None)
+        if current is not None and bool(getattr(current, "active", False)):
+            raise RuntimeError("detector input capture is already active")
+        recorder = DetectorInputRecorder(
+            feed_id=str(getattr(pipeline.feed, "feed_id", "") or ""),
+            detector_key=str(getattr(pipeline.detector, "key", "unknown")),
+            tracker_key=self._tracker_key,
+            zone=pipeline.zone,
+            tracker=pipeline.tracker,
+            max_frames=max_frames,
+            sample_every_n=sample_every_n,
+            label=label,
+        )
+        pipeline.detector_input_recorder = recorder
+        return recorder.status()
+
+    def stop_detector_input_capture(self) -> dict[str, Any] | None:
+        recorder = getattr(self._pipeline, "detector_input_recorder", None)
+        if recorder is None:
+            return None
+        status = recorder.stop()
+        self._pipeline.detector_input_recorder = None
+        return status
+
+    def detector_input_capture_status(self) -> dict[str, Any] | None:
+        recorder = getattr(self._pipeline, "detector_input_recorder", None)
+        if recorder is None:
+            return None
+        status = recorder.status()
+        if not bool(status.get("active")):
+            self._pipeline.detector_input_recorder = None
+        return status
+
     def status_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
         pipeline = self._pipeline
         feed = pipeline.feed
@@ -322,6 +364,7 @@ class PerceptionRunner:
             "shadow_confirmed_track_count": shadow_confirmed_track_count,
             "shadow_track_preview": shadow_track_preview,
             "shadow_compare": shadow_compare,
+            "detector_input_capture": self.detector_input_capture_status(),
         }
 
     # ---- Internals -----------------------------------------------------

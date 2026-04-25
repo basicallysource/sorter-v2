@@ -41,6 +41,10 @@ permalink: /lab/
     <p>The Svelte/SvelteKit companion to the backend principles: where fetching, state, flows, and persistence live so the UI keeps clean component boundaries as it grows.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/operation-target-10ppm-2026-04-25/' | relative_url }}">Operation Target 10 PPM</a></strong>
+    <p>The current live runtime tuning target: ten cleanly classified and distributed pieces per minute without relying on harsh C4 acceleration.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
     <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
   </div>

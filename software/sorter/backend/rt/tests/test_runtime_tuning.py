@@ -51,6 +51,7 @@ def _handle() -> SimpleNamespace:
         _intake_near_arc=math.radians(30.0),
         _wiggle_stall_s=0.6,
         _wiggle_cooldown_s=1.2,
+        _exit_handoff_min_interval_s=0.85,
         _transport_velocity=SimpleNamespace(target_rpm=1.2),
     )
     c3 = SimpleNamespace(
@@ -62,6 +63,7 @@ def _handle() -> SimpleNamespace:
         _wiggle_stall_s=0.6,
         _wiggle_cooldown_s=1.2,
         _holdover_s=2.0,
+        _exit_handoff_min_interval_s=0.85,
         _transport_velocity=SimpleNamespace(target_rpm=1.2),
     )
     c4 = SimpleNamespace(
@@ -147,6 +149,8 @@ def test_snapshot_reports_live_values() -> None:
     assert payload["channels"]["c1"]["pulse_cooldown_s"] == 0.25
     assert payload["channels"]["c1"]["jam_timeout_s"] == 4.0
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
+    assert payload["channels"]["c2"]["exit_handoff_min_interval_s"] == 0.85
+    assert payload["channels"]["c3"]["exit_handoff_min_interval_s"] == 0.85
     assert payload["channels"]["distributor"]["simulate_chute"] is False
     assert payload["channels"]["distributor"]["simulated_chute_move_s"] == 0.8
     assert payload["slots"]["c3_to_c4"] == 4
@@ -292,6 +296,7 @@ def test_update_c2_flow_and_profile_live() -> None:
                     "pulse_cooldown_ms": 240,
                     "exit_near_arc_deg": 24.0,
                     "approach_near_arc_deg": 36.0,
+                    "exit_handoff_min_interval_ms": 950,
                     "normal": {
                         "steps_per_pulse": 700,
                         "microsteps_per_second": 4200,
@@ -305,11 +310,32 @@ def test_update_c2_flow_and_profile_live() -> None:
     assert handle.c2._max_piece_count == 2
     assert handle.c2._pulse_cooldown_s == pytest.approx(0.24)
     assert math.degrees(handle.c2._exit_near_arc) == pytest.approx(24.0)
+    assert handle.c2._exit_handoff_min_interval_s == pytest.approx(0.95)
     assert handle.irl.irl_config.feeder_config.second_rotor_normal.steps_per_pulse == 700
     assert (
         handle.irl.irl_config.feeder_config.second_rotor_normal.acceleration_microsteps_per_second_sq
         == 60000
     )
+
+
+def test_update_c3_exit_handoff_spacing_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "c3": {
+                    "exit_handoff_min_interval_s": 1.1,
+                    "holdover_ms": 1200,
+                }
+            }
+        },
+    )
+
+    assert handle.c3._exit_handoff_min_interval_s == pytest.approx(1.1)
+    assert handle.c3._holdover_s == pytest.approx(1.2)
+    assert payload["channels"]["c3"]["exit_handoff_min_interval_s"] == pytest.approx(1.1)
 
 
 def test_update_rejects_unknown_fields() -> None:

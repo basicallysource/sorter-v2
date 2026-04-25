@@ -12,6 +12,7 @@ export type RuntimeTuningChannel = {
 	intake_body_half_width_deg?: number | null;
 	intake_guard_deg?: number | null;
 	pulse_cooldown_s?: number | null;
+	exit_handoff_min_interval_s?: number | null;
 	jam_timeout_s?: number | null;
 	jam_min_pulses?: number | null;
 	jam_cooldown_s?: number | null;

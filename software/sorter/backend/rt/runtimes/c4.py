@@ -79,6 +79,7 @@ DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.25
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 45.0
 DEFAULT_TRACKLET_TRANSIT_TTL_S = 1.25
 DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG = 45.0
+DEFAULT_DELIVERED_TRACK_SUPPRESS_S = 15.0
 
 
 class _C4State(str, Enum):
@@ -290,6 +291,8 @@ class RuntimeC4(BaseRuntime):
         self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
+        self._recently_delivered_piece_until: dict[str, float] = {}
+        self._recently_delivered_track_until: dict[int, float] = {}
         self._fsm: _C4State = _C4State.RUNNING
         self._raw_detection_count: int = 0
         self._transit_link_count: int = 0
@@ -381,6 +384,8 @@ class RuntimeC4(BaseRuntime):
         abort_reason: str = "handoff_aborted",
     ) -> None:
         dossier = self._pieces.pop(piece_uuid, None)
+        if dossier is not None and arm_cooldown and now_mono is not None:
+            self._remember_delivered_piece(dossier, now_mono)
         if dossier is not None and abort_reason == "track_lost":
             self._park_lost_piece_transit(dossier, now_mono=now_mono)
             self._publish_piece_lost(dossier, now_mono=now_mono)
@@ -531,6 +536,11 @@ class RuntimeC4(BaseRuntime):
                     "recovered": bool(dossier.extras.get("recovered")),
                 }
             )
+        admission_state = self._admission_state_snapshot()
+        admission_decision = self._admission.can_admit(
+            inbound_piece_hint={},
+            runtime_state=admission_state,
+        )
         return {
             "fsm_state": self._fsm.value,
             "startup_purge_armed": bool(self._startup_purge_state.armed),
@@ -551,6 +561,15 @@ class RuntimeC4(BaseRuntime):
             "dossier_count": len(self._pieces),
             "track_to_piece_count": len(self._track_to_piece),
             "zone_count": self._zone_manager.zone_count(),
+            "recently_delivered_suppressed": {
+                "pieces": len(self._recently_delivered_piece_until),
+                "tracks": len(self._recently_delivered_track_until),
+            },
+            "admission_debug": {
+                "allowed": bool(admission_decision.allowed),
+                "reason": admission_decision.reason,
+                "state": admission_state,
+            },
             "hw_busy": bool(self._hw.busy()),
             "hw_pending": int(self._hw.pending()),
             "angles": {
@@ -618,6 +637,7 @@ class RuntimeC4(BaseRuntime):
         return _C4SampleTransportPort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
+        self._sweep_recently_delivered(now_mono)
         raw_tracks = self._fresh_tracks(inbox.tracks)
         visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
         self._raw_detection_count = len(visible_tracks)
@@ -862,6 +882,8 @@ class RuntimeC4(BaseRuntime):
     ) -> bool:
         if track.global_id is None or track.angle_rad is None:
             return False
+        if self._is_recently_delivered_track(track, now_mono):
+            return False
         gid = int(track.global_id)
         if self._piece_uuid_for_track(track) is not None:
             return False
@@ -881,6 +903,8 @@ class RuntimeC4(BaseRuntime):
                 else new_piece_uuid()
             )
         )
+        if self._recently_delivered_piece_until.get(piece_uuid, 0.0) > now_mono:
+            return False
         if not self._zone_manager.add_zone(
             piece_uuid=piece_uuid,
             angle_deg=angle_deg,
@@ -963,6 +987,46 @@ class RuntimeC4(BaseRuntime):
         if transit is not None:
             self._publish_transit_link(piece_uuid, gid, transit, now_mono=now_mono)
         return True
+
+    def _remember_delivered_piece(
+        self,
+        dossier: _PieceDossier,
+        now_mono: float,
+    ) -> None:
+        until = float(now_mono) + DEFAULT_DELIVERED_TRACK_SUPPRESS_S
+        self._recently_delivered_piece_until[dossier.piece_uuid] = until
+        if dossier.raw_track_id is not None:
+            self._recently_delivered_track_until[int(dossier.raw_track_id)] = until
+        elif dossier.global_id is not None:
+            self._recently_delivered_track_until[int(dossier.global_id)] = until
+
+    def _is_recently_delivered_track(self, track: Track, now_mono: float) -> bool:
+        piece_uuid = track.piece_uuid
+        if (
+            isinstance(piece_uuid, str)
+            and self._recently_delivered_piece_until.get(piece_uuid, 0.0)
+            > now_mono
+        ):
+            return True
+        if track.global_id is None:
+            return False
+        try:
+            gid = int(track.global_id)
+        except (TypeError, ValueError):
+            return False
+        return self._recently_delivered_track_until.get(gid, 0.0) > now_mono
+
+    def _sweep_recently_delivered(self, now_mono: float) -> None:
+        self._recently_delivered_piece_until = {
+            piece_uuid: until
+            for piece_uuid, until in self._recently_delivered_piece_until.items()
+            if until > now_mono
+        }
+        self._recently_delivered_track_until = {
+            global_id: until
+            for global_id, until in self._recently_delivered_track_until.items()
+            if until > now_mono
+        }
 
     def _tracklet_payload_for_gid(self, gid: int) -> dict[str, Any]:
         return tracklet_payload(
@@ -1160,7 +1224,9 @@ class RuntimeC4(BaseRuntime):
                 self._mark_classify_skip("already_classifying_or_classified")
                 continue
             angle_deg = math.degrees(track.angle_rad or 0.0)
-            if not self._near_angle(angle_deg, self._classify_angle_deg):
+            at_classify = self._near_angle(angle_deg, self._classify_angle_deg)
+            at_exit = self._near_angle(angle_deg, self._exit_angle_deg)
+            if not at_classify and not at_exit:
                 self._mark_classify_skip("not_at_classify_angle")
                 continue
             crop = self._build_crop(track)
@@ -1182,7 +1248,7 @@ class RuntimeC4(BaseRuntime):
                 continue
             dossier.classify_future = future
             dossier.last_seen_mono = now_mono
-            self._mark_classify_skip("submitted")
+            self._mark_classify_skip("submitted" if at_classify else "submitted_late_exit")
 
     def _mark_classify_skip(self, reason: str) -> None:
         self._last_classify_skip = reason
@@ -1527,7 +1593,7 @@ class RuntimeC4(BaseRuntime):
             return False
         piece_uuid = self._piece_uuid_for_track(exit_track)
         dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
-        return bool(dossier is not None and dossier.result is not None)
+        return dossier is not None
 
     def _maybe_unjam_transport(self, tracks: list[Track], now_mono: float) -> bool:
         if not self._unjam_enabled:

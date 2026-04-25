@@ -109,6 +109,7 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         holdover_ms=kwargs.get("holdover_ms", 2000),
         max_piece_count=kwargs.get("max_piece_count", 3),
         track_transit=kwargs.get("track_transit"),
+        exit_handoff_min_interval_s=kwargs.get("exit_handoff_min_interval_s", 0.85),
     )
     return rt, upstream, downstream, log
 
@@ -204,6 +205,20 @@ def test_c3_normal_pulse_off_exit_never_commits() -> None:
     assert down.available() == 1
 
 
+def test_c3_loaded_ring_uses_precise_pulse_off_exit() -> None:
+    rt, _up, down, log = _make()
+    inbox = RuntimeInbox(
+        tracks=_batch(
+            _track(track_id=1, global_id=1, angle_rad=math.pi),
+            _track(track_id=2, global_id=2, angle_rad=math.radians(120.0)),
+        ),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log and log[0].startswith("precise:")
+    assert down.available() == 1
+
+
 def test_c3_approach_pulse_is_precise_without_committing() -> None:
     rt, _up, down, log = _make()
     # Track inside the approach arc (45°) but outside the commit arc
@@ -266,12 +281,13 @@ def test_c3_sample_transport_scales_to_small_continuous_steps() -> None:
     assert log == ["sample:15.0"]
 
 
-def test_c3_exit_wiggle_when_downstream_closed_and_piece_stuck() -> None:
+def test_c3_does_not_wiggle_when_downstream_is_closed() -> None:
     rt, _up, _down, log = _make()
     stuck = _batch(_track(angle_rad=0.0))
     rt.tick(RuntimeInbox(tracks=stuck, capacity_downstream=0), now_mono=0.0)
     rt.tick(RuntimeInbox(tracks=stuck, capacity_downstream=0), now_mono=0.5)
-    assert "wiggle" in log
+    assert log == []
+    assert rt.health().blocked_reason == "downstream_full"
 
 
 def test_c3_precise_pulse_rolled_back_on_hw_failure() -> None:
@@ -281,7 +297,24 @@ def test_c3_precise_pulse_rolled_back_on_hw_failure() -> None:
     assert down.available() == 1
 
 
-def test_c3_debounces_repeated_exit_claim_but_keeps_pulsing_same_track() -> None:
+def test_c3_pending_handoff_waits_without_repeat_exit_pulse() -> None:
+    rt, _up, down, log = _make(downstream_cap=4)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=23, angle_rad=0.0)),
+        capacity_downstream=4,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(inbox, now_mono=0.4)
+
+    assert down.taken(now_mono=0.4) == 1
+    assert len([entry for entry in log if entry.startswith("precise:")]) == 1
+    assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+    assert rt.health().state == "handoff_wait"
+    assert rt.health().blocked_reason == "awaiting_downstream_arrival"
+
+
+def test_c3_pending_handoff_retries_same_track_after_spacing_without_new_claim() -> None:
     rt, _up, down, log = _make(downstream_cap=4)
     inbox = RuntimeInbox(
         tracks=_batch(_track(global_id=23, angle_rad=0.0)),
@@ -294,6 +327,34 @@ def test_c3_debounces_repeated_exit_claim_but_keeps_pulsing_same_track() -> None
     assert down.taken(now_mono=1.0) == 1
     assert len([entry for entry in log if entry.startswith("precise:")]) == 2
     assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+    assert rt.health().state == "pulsing_precise"
+
+
+def test_c3_exit_spacing_blocks_nearby_next_piece() -> None:
+    rt, _up, down, log = _make(
+        downstream_cap=4,
+        exit_handoff_min_interval_s=0.85,
+    )
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=23, angle_rad=0.0)),
+            capacity_downstream=4,
+        ),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=24, angle_rad=math.radians(15.0))),
+            capacity_downstream=down.available(now_mono=0.2),
+        ),
+        now_mono=0.2,
+    )
+
+    assert len([entry for entry in log if entry.startswith("precise:")]) == 1
+    assert down.taken(now_mono=0.2) == 1
+    assert rt.health().state == "handoff_spacing"
+    assert rt.health().blocked_reason == "exit_spacing"
 
 
 def test_c3_allows_exit_retry_after_claim_hold_expires() -> None:

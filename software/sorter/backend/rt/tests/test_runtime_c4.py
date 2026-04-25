@@ -564,6 +564,27 @@ def test_c4_submits_classifier_at_classify_angle() -> None:
     assert dossier.result.part_id == "3001"
 
 
+def test_c4_submits_late_classifier_at_exit_when_classify_angle_was_missed() -> None:
+    clf = _StubClassifier()
+    rt, _up, _down, _clf_out, _log = _make(
+        classifier=clf,
+        max_zones=1,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    assert clf.calls == 0
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=1),
+        now_mono=0.2,
+    )
+
+    assert clf.calls == 1
+    assert rt.debug_snapshot()["classify_debug"]["counts"]["submitted_late_exit"] == 1
+
+
 def test_c4_drop_commit_fires_eject_on_exit() -> None:
     rt, _up, down, _clf, log = _make(max_zones=1)
     inbox_intake = RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1)
@@ -673,6 +694,72 @@ def test_c4_ejects_only_once_per_distributor_ready_until_delivery() -> None:
     assert dossier is not None
     assert dossier.eject_enqueued is True
     assert dossier.eject_committed is True
+
+
+def test_c4_does_not_recover_recently_delivered_lingering_track() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+    commits: list[str] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=7, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=7, angle_deg=90.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.1,
+    )
+    piece_uuid = handoffs[0]["piece_uuid"]
+    rt.on_distributor_ready(piece_uuid)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=7, angle_deg=180.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=0.2,
+    )
+    rt.on_piece_delivered(piece_uuid, now_mono=1.8)
+
+    assert rt.dossier_count() == 0
+    assert len(handoffs) == 1
+    assert commits == [piece_uuid]
+
+    lingering = _track(
+        global_id=7,
+        angle_deg=180.0,
+        piece_uuid=piece_uuid,
+        hit_count=50,
+        first_seen_ts=0.0,
+        last_seen_ts=2.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(lingering, timestamp=2.0), capacity_downstream=1),
+        now_mono=2.0,
+    )
+
+    assert rt.dossier_count() == 0
+    assert len(handoffs) == 1
+    assert log.count("eject") == 1
 
 
 def test_c4_skips_handoff_when_distributor_reports_no_slots() -> None:
@@ -1042,6 +1129,31 @@ def test_c4_slows_pipeline_motion_near_exit() -> None:
 
     assert "transport:3.0" in log
     assert "move:3.0" in log
+
+
+def test_c4_holds_transport_when_exit_piece_is_not_ready() -> None:
+    classifier = _StubClassifier()
+    pending: Future[ClassifierResult] = Future()
+    classifier.submit_delay_pending = pending
+    rt, _up, _down, _clf, log = _make(max_zones=1, classifier=classifier)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    log.clear()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=1),
+        now_mono=0.3,
+    )
+
+    assert "eject" not in log
+    assert not any(entry.startswith(("move:", "transport:")) for entry in log)
 
 
 def test_c4_exit_requires_majority_bbox_overlap_when_geometry_available() -> None:

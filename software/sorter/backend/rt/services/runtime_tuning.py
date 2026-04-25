@@ -131,6 +131,10 @@ def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "intake_near_arc_deg": _rad_attr_deg(runtime, "_intake_near_arc"),
         "wiggle_stall_ms": _seconds_attr_ms(runtime, "_wiggle_stall_s"),
         "wiggle_cooldown_ms": _seconds_attr_ms(runtime, "_wiggle_cooldown_s"),
+        "exit_handoff_min_interval_s": _runtime_attr(
+            runtime,
+            "_exit_handoff_min_interval_s",
+        ),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_normal", None)),
         "precision": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_precision", None)),
@@ -147,6 +151,10 @@ def _c3_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "wiggle_stall_ms": _seconds_attr_ms(runtime, "_wiggle_stall_s"),
         "wiggle_cooldown_ms": _seconds_attr_ms(runtime, "_wiggle_cooldown_s"),
         "holdover_ms": _seconds_attr_ms(runtime, "_holdover_s"),
+        "exit_handoff_min_interval_s": _runtime_attr(
+            runtime,
+            "_exit_handoff_min_interval_s",
+        ),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "third_rotor_normal", None)),
         "precision": _rotor_snapshot(getattr(feeder_cfg, "third_rotor_precision", None)),
@@ -249,9 +257,31 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
     _reject_unknown("c1", values, allowed)
     _set_runtime_seconds(runtime, "_pulse_cooldown_s", values, "pulse_cooldown_s", "pulse_cooldown_ms", 0.0, 30.0)
     _set_runtime_seconds(runtime, "_jam_timeout_s", values, "jam_timeout_s", "jam_timeout_ms", 0.25, 120.0)
-    _set_runtime_int(runtime, "_jam_min_pulses", values, "jam_min_pulses", min_value=1, max_value=100)
-    _set_runtime_seconds(runtime, "_jam_cooldown_s", values, "jam_cooldown_s", "jam_cooldown_ms", 0.0, 120.0)
-    _set_runtime_int(runtime, "_max_recovery_cycles", values, "max_recovery_cycles", min_value=1, max_value=100)
+    _set_runtime_int(
+        runtime,
+        "_jam_min_pulses",
+        values,
+        "jam_min_pulses",
+        min_value=1,
+        max_value=100,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_jam_cooldown_s",
+        values,
+        "jam_cooldown_s",
+        "jam_cooldown_ms",
+        0.0,
+        120.0,
+    )
+    _set_runtime_int(
+        runtime,
+        "_max_recovery_cycles",
+        values,
+        "max_recovery_cycles",
+        min_value=1,
+        max_value=100,
+    )
     if "transport" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "first_rotor", None), values["transport"], "c1.transport")
 
@@ -270,20 +300,66 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         "intake_near_arc_deg",
         "wiggle_stall_ms",
         "wiggle_cooldown_ms",
+        "exit_handoff_min_interval_s",
+        "exit_handoff_min_interval_ms",
         "transport_target_rpm",
         "normal",
         "precision",
     }
     _reject_unknown("c2", values, allowed)
-    _set_runtime_int(runtime, "_max_piece_count", values, "max_piece_count", min_value=1, max_value=30)
-    _set_runtime_seconds(runtime, "_pulse_cooldown_s", values, "pulse_cooldown_s", "pulse_cooldown_ms", 0.0, 10.0)
-    _set_runtime_float(runtime, "_advance_interval_s", values, "advance_interval_s", min_value=0.0, max_value=30.0)
-    _set_runtime_float(runtime, "_track_stale_s", values, "track_stale_s", min_value=0.0, max_value=30.0)
-    _set_runtime_radians(runtime, "_exit_near_arc", values, "exit_near_arc_deg", 0.1, 180.0)
-    _set_runtime_radians(runtime, "_approach_near_arc", values, "approach_near_arc_deg", 0.1, 180.0)
-    _set_runtime_radians(runtime, "_intake_near_arc", values, "intake_near_arc_deg", 0.1, 180.0)
-    _set_runtime_seconds(runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0)
-    _set_runtime_seconds(runtime, "_wiggle_cooldown_s", values, None, "wiggle_cooldown_ms", 0.0, 30.0)
+    _set_runtime_int(
+        runtime, "_max_piece_count", values, "max_piece_count", min_value=1, max_value=30
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_pulse_cooldown_s",
+        values,
+        "pulse_cooldown_s",
+        "pulse_cooldown_ms",
+        0.0,
+        10.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_advance_interval_s",
+        values,
+        "advance_interval_s",
+        min_value=0.0,
+        max_value=30.0,
+    )
+    _set_runtime_float(
+        runtime, "_track_stale_s", values, "track_stale_s", min_value=0.0, max_value=30.0
+    )
+    _set_runtime_radians(
+        runtime, "_exit_near_arc", values, "exit_near_arc_deg", 0.1, 180.0
+    )
+    _set_runtime_radians(
+        runtime, "_approach_near_arc", values, "approach_near_arc_deg", 0.1, 180.0
+    )
+    _set_runtime_radians(
+        runtime, "_intake_near_arc", values, "intake_near_arc_deg", 0.1, 180.0
+    )
+    _set_runtime_seconds(
+        runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_wiggle_cooldown_s",
+        values,
+        None,
+        "wiggle_cooldown_ms",
+        0.0,
+        30.0,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_exit_handoff_min_interval_s",
+        values,
+        "exit_handoff_min_interval_s",
+        "exit_handoff_min_interval_ms",
+        0.0,
+        10.0,
+    )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "second_rotor_normal", None), values["normal"], "c2.normal")
@@ -305,19 +381,58 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         "wiggle_stall_ms",
         "wiggle_cooldown_ms",
         "holdover_ms",
+        "exit_handoff_min_interval_s",
+        "exit_handoff_min_interval_ms",
         "transport_target_rpm",
         "normal",
         "precision",
     }
     _reject_unknown("c3", values, allowed)
-    _set_runtime_int(runtime, "_max_piece_count", values, "max_piece_count", min_value=1, max_value=30)
-    _set_runtime_seconds(runtime, "_pulse_cooldown_s", values, "pulse_cooldown_s", "pulse_cooldown_ms", 0.0, 10.0)
-    _set_runtime_float(runtime, "_track_stale_s", values, "track_stale_s", min_value=0.0, max_value=30.0)
-    _set_runtime_radians(runtime, "_exit_near_arc", values, "exit_near_arc_deg", 0.1, 180.0)
-    _set_runtime_radians(runtime, "_approach_near_arc", values, "approach_near_arc_deg", 0.1, 180.0)
-    _set_runtime_seconds(runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0)
-    _set_runtime_seconds(runtime, "_wiggle_cooldown_s", values, None, "wiggle_cooldown_ms", 0.0, 30.0)
-    _set_runtime_seconds(runtime, "_holdover_s", values, None, "holdover_ms", 0.0, 30.0)
+    _set_runtime_int(
+        runtime, "_max_piece_count", values, "max_piece_count", min_value=1, max_value=30
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_pulse_cooldown_s",
+        values,
+        "pulse_cooldown_s",
+        "pulse_cooldown_ms",
+        0.0,
+        10.0,
+    )
+    _set_runtime_float(
+        runtime, "_track_stale_s", values, "track_stale_s", min_value=0.0, max_value=30.0
+    )
+    _set_runtime_radians(
+        runtime, "_exit_near_arc", values, "exit_near_arc_deg", 0.1, 180.0
+    )
+    _set_runtime_radians(
+        runtime, "_approach_near_arc", values, "approach_near_arc_deg", 0.1, 180.0
+    )
+    _set_runtime_seconds(
+        runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_wiggle_cooldown_s",
+        values,
+        None,
+        "wiggle_cooldown_ms",
+        0.0,
+        30.0,
+    )
+    _set_runtime_seconds(
+        runtime, "_holdover_s", values, None, "holdover_ms", 0.0, 30.0
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_exit_handoff_min_interval_s",
+        values,
+        "exit_handoff_min_interval_s",
+        "exit_handoff_min_interval_ms",
+        0.0,
+        10.0,
+    )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "third_rotor_normal", None), values["normal"], "c3.normal")

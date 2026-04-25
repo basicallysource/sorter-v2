@@ -58,6 +58,40 @@ _DEFAULT_C4_SUB_PULSE_DEG = 2.0
 _DEFAULT_C4_SETTLE_MS = 120.0
 
 
+def _wait_until_stepper_stopped(
+    stepper: Any,
+    *,
+    logger: logging.Logger,
+    channel: str,
+    stepper_deg: float,
+    speed_limit: int | None,
+    timeout_cap_s: float = 8.0,
+) -> None:
+    if not hasattr(stepper, "stopped"):
+        return
+    try:
+        distance = abs(int(stepper.microsteps_for_degrees(stepper_deg)))
+    except Exception:
+        distance = 0
+    speed = max(1, int(speed_limit or 1))
+    timeout_s = min(timeout_cap_s, max(0.25, (distance / speed) * 3.0 + 0.5))
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            if bool(getattr(stepper, "stopped")):
+                return
+        except Exception:
+            logger.exception("Runtime%s: stepper stopped probe raised", channel.upper())
+            return
+        time.sleep(0.01)
+    logger.warning(
+        "Runtime%s: stepper did not report stopped within %.2fs after %.2f motor degrees",
+        channel.upper(),
+        timeout_s,
+        stepper_deg,
+    )
+
+
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name, "").strip()
     if not raw:
@@ -116,7 +150,7 @@ def build_c1_callables(
                 name=PROFILE_TRANSPORT,
                 cfg=pulse_cfg,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -124,6 +158,14 @@ def build_c1_callables(
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c1",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC1: pulse raised")
             return False
@@ -154,7 +196,7 @@ def build_c1_callables(
                 max_speed=max_speed,
                 acceleration=acceleration,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -162,6 +204,14 @@ def build_c1_callables(
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c1",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC1: direct move raised")
             return False
@@ -218,7 +268,7 @@ def build_c2_callables(
                 name=profile_name or default_profile,
                 cfg=cfg,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -227,6 +277,14 @@ def build_c2_callables(
                 diagnostics=motion_diagnostics,
                 expected_duration_ms=_pulse_ms,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c2",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC2: pulse raised")
             return False
@@ -255,7 +313,7 @@ def build_c2_callables(
                 max_speed=max_speed,
                 acceleration=acceleration,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -263,6 +321,14 @@ def build_c2_callables(
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c2",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC2: direct move raised")
             return False
@@ -313,7 +379,7 @@ def build_c3_callables(
                 name=profile_name or default_profile,
                 cfg=cfg,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -322,6 +388,14 @@ def build_c3_callables(
                 diagnostics=motion_diagnostics,
                 expected_duration_ms=_pulse_ms,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c3",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC3: pulse raised")
             return False
@@ -350,7 +424,7 @@ def build_c3_callables(
                 max_speed=max_speed,
                 acceleration=acceleration,
             )
-            return move_degrees_with_profile(
+            ok = move_degrees_with_profile(
                 stepper,
                 profile,
                 deg,
@@ -358,6 +432,14 @@ def build_c3_callables(
                 logger=logger,
                 diagnostics=motion_diagnostics,
             )
+            _wait_until_stepper_stopped(
+                stepper,
+                logger=logger,
+                channel="c3",
+                stepper_deg=float(deg),
+                speed_limit=profile.max_speed_usteps_per_s,
+            )
+            return ok
         except Exception:
             logger.exception("RuntimeC3: direct move raised")
             return False
@@ -418,35 +500,6 @@ def build_c4_callables(
 
     def _to_stepper_degrees(tray_degrees: float) -> float:
         return float(tray_degrees) * _stepper_degrees_per_tray_degree()
-
-    def _wait_until_stepper_stopped(
-        stepper: Any,
-        *,
-        stepper_deg: float,
-        speed_limit: int | None,
-    ) -> None:
-        if not hasattr(stepper, "stopped"):
-            return
-        try:
-            distance = abs(int(stepper.microsteps_for_degrees(stepper_deg)))
-        except Exception:
-            distance = 0
-        speed = max(1, int(speed_limit or _default_speed_limit() or 1))
-        timeout_s = min(5.0, max(0.25, (distance / speed) * 3.0 + 0.5))
-        deadline = time.monotonic() + timeout_s
-        while time.monotonic() < deadline:
-            try:
-                if bool(getattr(stepper, "stopped")):
-                    return
-            except Exception:
-                logger.exception("RuntimeC4: stepper stopped probe raised")
-                return
-            time.sleep(0.01)
-        logger.warning(
-            "RuntimeC4: stepper did not report stopped within %.2fs after %.2f motor degrees",
-            timeout_s,
-            stepper_deg,
-        )
 
     def _scaled_speed_limit(scale: float) -> int | None:
         default_speed = _default_speed_limit()
@@ -539,8 +592,11 @@ def build_c4_callables(
             )
             _wait_until_stepper_stopped(
                 stepper,
+                logger=logger,
+                channel="c4",
                 stepper_deg=stepper_deg,
-                speed_limit=target_speed,
+                speed_limit=target_speed or _default_speed_limit(),
+                timeout_cap_s=5.0,
             )
             return ok
         except Exception:

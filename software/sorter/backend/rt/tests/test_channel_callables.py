@@ -130,6 +130,18 @@ class _RotorStepper:
         return True
 
 
+class _AsyncRotorStepper(_RotorStepper):
+    def __init__(self, *, stopped_after_probes: int = 3) -> None:
+        super().__init__()
+        self.stopped_after_probes = int(stopped_after_probes)
+        self.stopped_probe_count = 0
+
+    @property
+    def stopped(self) -> bool:
+        self.stopped_probe_count += 1
+        return self.stopped_probe_count >= self.stopped_after_probes
+
+
 def test_c2_callable_uses_normal_and_precise_profiles() -> None:
     irl = type("Irl", (), {})()
     irl.c_channel_2_rotor_stepper = _RotorStepper()
@@ -219,6 +231,32 @@ def test_c3_callable_uses_normal_and_precise_profiles() -> None:
     assert irl.c_channel_3_rotor_stepper.accelerations == [10000, 10000]
     assert irl.c_channel_3_rotor_stepper.speed_limits == [(16, 12000), (16, 3000)]
     assert irl.c_channel_3_rotor_stepper.moves == [250.0, 30.0]
+
+
+def test_c3_callable_waits_for_stepper_to_stop_before_returning() -> None:
+    irl = type("Irl", (), {})()
+    irl.c_channel_3_rotor_stepper = _AsyncRotorStepper(stopped_after_probes=3)
+    irl.feeder_config = type(
+        "Feeder",
+        (),
+        {
+            "third_rotor_normal": _RotorPulseConfig(
+                steps_per_pulse=2500,
+                microsteps_per_second=12000,
+            ),
+            "third_rotor_precision": _RotorPulseConfig(
+                steps_per_pulse=300,
+                microsteps_per_second=3000,
+            ),
+        },
+    )()
+
+    pulse, _wiggle, _continuous = build_c3_callables(irl, logging.getLogger("test"))
+
+    assert pulse("normal", 120.0) is True
+
+    assert irl.c_channel_3_rotor_stepper.moves == [250.0]
+    assert irl.c_channel_3_rotor_stepper.stopped_probe_count == 3
 
 
 def test_c3_direct_move_accepts_small_degree_steps() -> None:

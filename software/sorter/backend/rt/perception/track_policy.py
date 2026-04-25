@@ -1,13 +1,15 @@
 """Runtime-facing interpretation of tracker reality flags.
 
 The detector is now the primary signal. Tracker ``ghost`` / ``confirmed_real``
-verdicts are still useful, but runtimes should consume them consistently:
-``ghost=True`` is the only hard negative, while a stable high-confidence
-detection may be acted on before rotation-window confirmation catches up.
+verdicts are still useful as diagnostics, but the runtime no longer lets the
+legacy rotation-window ghost flag suppress strong YOLO detections by default.
+Set ``RT_TRACK_GHOST_HARD_NEGATIVE=1`` to re-enable the old hard-negative
+behaviour for experiments.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 
@@ -15,8 +17,13 @@ DEFAULT_STABLE_MIN_HITS = 2
 DEFAULT_STABLE_MIN_SCORE = 0.35
 
 
+def ghost_hard_negative_enabled() -> bool:
+    raw = os.environ.get("RT_TRACK_GHOST_HARD_NEGATIVE", "")
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
+
+
 def is_declared_ghost(track: Any) -> bool:
-    return bool(getattr(track, "ghost", False))
+    return ghost_hard_negative_enabled() and bool(getattr(track, "ghost", False))
 
 
 def is_visible_track(track: Any) -> bool:
@@ -83,6 +90,7 @@ __all__ = [
     "DEFAULT_STABLE_MIN_SCORE",
     "action_track",
     "admission_basis",
+    "ghost_hard_negative_enabled",
     "is_declared_ghost",
     "is_visible_track",
     "stable_detection",

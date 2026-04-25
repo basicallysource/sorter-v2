@@ -69,6 +69,7 @@ DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
+DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
 ACTION_TRACK_MIN_HITS = 2
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
@@ -113,6 +114,7 @@ class RuntimeC3(BaseRuntime):
         wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
+        exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
         feed_id: str = "c3_feed",
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
@@ -140,8 +142,13 @@ class RuntimeC3(BaseRuntime):
         self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._holdover_s = float(holdover_ms) / 1000.0
         self._track_stale_s = max(0.0, float(track_stale_s))
+        self._exit_handoff_min_interval_s = max(
+            0.0,
+            float(exit_handoff_min_interval_s),
+        )
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
+        self._next_exit_handoff_at: float = 0.0
         self._piece_count: int = 0
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
@@ -192,6 +199,8 @@ class RuntimeC3(BaseRuntime):
             "seen_global_ids": len(self._book.seen_global_ids),
             "exit_stall_active": self._book.exit_stall_since is not None,
             "holdover_active": self.in_holdover(time.monotonic()),
+            "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - time.monotonic()),
+            "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
         })
         return snap
@@ -222,16 +231,34 @@ class RuntimeC3(BaseRuntime):
             if self._purge_mode:
                 self._dispatch_purge_pulse(now_mono)
                 return
+            approach_track = self._pick_approach_track(visible_tracks)
+            if exit_track is not None and self._has_pending_downstream_claim(
+                exit_track, now_mono
+            ):
+                if now_mono < self._next_exit_handoff_at:
+                    self._book.exit_stall_since = None
+                    self._set_state(
+                        "handoff_wait",
+                        blocked_reason="awaiting_downstream_arrival",
+                    )
+                else:
+                    self._dispatch_handoff_retry_pulse(exit_track, now_mono)
+                return
+            if (
+                now_mono < self._next_exit_handoff_at
+                and (exit_track is not None or approach_track is not None)
+            ):
+                self._book.exit_stall_since = None
+                self._set_state("handoff_spacing", blocked_reason="exit_spacing")
+                return
             if inbox.capacity_downstream <= 0:
-                wiggled = self._maybe_wiggle(exit_track, now_mono)
-                if not wiggled:
-                    self._set_state("idle", blocked_reason="downstream_full")
+                self._book.exit_stall_since = None
+                self._set_state("idle", blocked_reason="downstream_full")
                 return
             if not visible_tracks:
                 self._book.exit_stall_since = None
                 self._set_state("idle")
                 return
-            approach_track = self._pick_approach_track(visible_tracks)
             mode = self._resolve_mode(exit_track, approach_track, now_mono)
             target_track = exit_track or approach_track or visible_tracks[0]
             # Only pieces inside the commit zone (exit_near_arc) are
@@ -344,6 +371,8 @@ class RuntimeC3(BaseRuntime):
             return _PulseMode.PRECISE
         if self.in_holdover(now_mono):
             return _PulseMode.PRECISE
+        if self._piece_count >= 2:
+            return _PulseMode.PRECISE
         return _PulseMode.NORMAL
 
     def _dispatch_pulse(
@@ -368,7 +397,11 @@ class RuntimeC3(BaseRuntime):
                 claim_key is not None
                 and self._pending_downstream_claims.get(claim_key, 0.0) > now_mono
             ):
-                claim = None
+                self._set_state(
+                    "handoff_wait",
+                    blocked_reason="awaiting_downstream_arrival",
+                )
+                return
             else:
                 claim = self._downstream_slot.try_claim(
                     now_mono=now_mono,
@@ -381,6 +414,9 @@ class RuntimeC3(BaseRuntime):
                     self._pending_downstream_claims[claim_key] = (
                         now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
                     )
+                self._next_exit_handoff_at = (
+                    now_mono + self._exit_handoff_min_interval_s
+                )
         else:
             claim_key = None
         timing = self._ejection.timing_for(
@@ -431,6 +467,16 @@ class RuntimeC3(BaseRuntime):
             return
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state(f"pulsing_{mode.value}")
+
+    def _dispatch_handoff_retry_pulse(self, track: Track, now_mono: float) -> None:
+        self._next_exit_handoff_at = now_mono + self._exit_handoff_min_interval_s
+        self._book.exit_stall_since = None
+        self._dispatch_pulse(
+            track,
+            _PulseMode.PRECISE,
+            now_mono,
+            commit_to_downstream=False,
+        )
 
     def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
         """Rotate C3 without admission or downstream slot gating."""
@@ -613,6 +659,21 @@ class RuntimeC3(BaseRuntime):
         self._pending_track_count = 0
         self._pending_downstream_claims.clear()
         self._next_pulse_at = 0.0
+        self._next_exit_handoff_at = 0.0
+
+    def _downstream_claim_key(self, track: Track) -> int | None:
+        if track.global_id is None:
+            return None
+        try:
+            return int(track.global_id)
+        except (TypeError, ValueError):
+            return None
+
+    def _has_pending_downstream_claim(self, track: Track, now_mono: float) -> bool:
+        key = self._downstream_claim_key(track)
+        if key is None:
+            return False
+        return self._pending_downstream_claims.get(key, 0.0) > now_mono
 
     def _sweep_pending_downstream_claims(self, now_mono: float) -> None:
         expired = [

@@ -23,7 +23,17 @@ def _track(**overrides):
     return SimpleNamespace(**data)
 
 
-def test_explicit_ghost_is_the_only_hard_negative() -> None:
+def test_ghost_flag_is_diagnostic_by_default() -> None:
+    ghost = _track(ghost=True, confirmed_real=True, hit_count=99, score=1.0)
+
+    assert is_visible_track(ghost) is True
+    assert stable_detection(ghost) is True
+    assert action_track(ghost) is True
+    assert admission_basis(ghost) == "confirmed_real"
+
+
+def test_ghost_flag_can_be_reenabled_as_hard_negative(monkeypatch) -> None:
+    monkeypatch.setenv("RT_TRACK_GHOST_HARD_NEGATIVE", "1")
     ghost = _track(ghost=True, confirmed_real=True, hit_count=99, score=1.0)
 
     assert is_visible_track(ghost) is False

@@ -78,6 +78,7 @@ DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
+DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
 
 
 class _PulseMode(Enum):
@@ -122,6 +123,7 @@ class RuntimeC2(BaseRuntime):
         wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         advance_interval_s: float = DEFAULT_ADVANCE_INTERVAL_S,
+        exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
         feed_id: str = "c2_feed",
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
@@ -149,8 +151,13 @@ class RuntimeC2(BaseRuntime):
         self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._track_stale_s = max(0.0, float(track_stale_s))
         self._advance_interval_s = max(0.0, float(advance_interval_s))
+        self._exit_handoff_min_interval_s = max(
+            0.0,
+            float(exit_handoff_min_interval_s),
+        )
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
+        self._next_exit_handoff_at: float = 0.0
         self._piece_count: int = 0
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
@@ -198,6 +205,8 @@ class RuntimeC2(BaseRuntime):
             "pending_downstream_claims": len(self._pending_downstream_claims),
             "seen_global_ids": len(self._bookkeeping.seen_global_ids),
             "exit_stall_active": self._bookkeeping.exit_stall_since is not None,
+            "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - time.monotonic()),
+            "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
         })
         return snap
@@ -229,15 +238,28 @@ class RuntimeC2(BaseRuntime):
             if self._purge_mode:
                 self._dispatch_purge_pulse(now_mono)
                 return
+            if exit_track is not None and self._has_pending_downstream_claim(
+                exit_track, now_mono
+            ):
+                if now_mono < self._next_exit_handoff_at:
+                    self._bookkeeping.exit_stall_since = None
+                    self._set_state(
+                        "handoff_wait",
+                        blocked_reason="awaiting_downstream_arrival",
+                    )
+                else:
+                    self._dispatch_exit_retry_pulse(exit_track, now_mono)
+                return
+            if (
+                now_mono < self._next_exit_handoff_at
+                and (exit_track is not None or approach_track is not None)
+            ):
+                self._bookkeeping.exit_stall_since = None
+                self._set_state("handoff_spacing", blocked_reason="exit_spacing")
+                return
             if inbox.capacity_downstream <= 0:
-                if exit_track is not None and self._has_pending_downstream_claim(
-                    exit_track, now_mono
-                ):
-                    self._dispatch_exit_pulse(exit_track, now_mono)
-                    return
-                wiggled = self._maybe_wiggle(exit_track, now_mono)
-                if not wiggled:
-                    self._set_state("idle", blocked_reason="downstream_full")
+                self._bookkeeping.exit_stall_since = None
+                self._set_state("idle", blocked_reason="downstream_full")
                 return
             if exit_track is not None:
                 self._dispatch_exit_pulse(exit_track, now_mono)
@@ -341,19 +363,23 @@ class RuntimeC2(BaseRuntime):
         if claim_key is not None and self._has_pending_downstream_claim(
             track, now_mono
         ):
-            claimed = False
-        else:
-            claimed = self._downstream_slot.try_claim(
-                now_mono=now_mono,
-                hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,
+            self._set_state(
+                "handoff_wait",
+                blocked_reason="awaiting_downstream_arrival",
             )
-            if not claimed:
-                self._set_state("idle", blocked_reason="downstream_full")
-                return
-            if claim_key is not None:
-                self._pending_downstream_claims[claim_key] = (
-                    now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
-                )
+            return
+        claimed = self._downstream_slot.try_claim(
+            now_mono=now_mono,
+            hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,
+        )
+        if not claimed:
+            self._set_state("idle", blocked_reason="downstream_full")
+            return
+        if claim_key is not None:
+            self._pending_downstream_claims[claim_key] = (
+                now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
+            )
+        self._next_exit_handoff_at = now_mono + self._exit_handoff_min_interval_s
         self._bookkeeping.exit_stall_since = None
         self._fire_pulse(
             track=track,
@@ -364,6 +390,19 @@ class RuntimeC2(BaseRuntime):
             source="c2_pulse",
             label="c2_pulse",
             state="pulsing",
+        )
+
+    def _dispatch_exit_retry_pulse(self, track: Track, now_mono: float) -> None:
+        self._next_exit_handoff_at = now_mono + self._exit_handoff_min_interval_s
+        self._bookkeeping.exit_stall_since = None
+        self._fire_pulse(
+            track=track,
+            mode=_PulseMode.PRECISE,
+            now_mono=now_mono,
+            commit_to_downstream=False,
+            source="c2_exit_retry_pulse",
+            label="c2_exit_retry_pulse",
+            state="handoff_retry",
         )
 
     def _dispatch_approach_pulse(self, track: Track, now_mono: float) -> None:
@@ -379,16 +418,17 @@ class RuntimeC2(BaseRuntime):
         )
 
     def _dispatch_advance_pulse(self, now_mono: float) -> None:
-        """Rotate the ring at full transport speed without claiming a slot.
+        """Rotate the ring without claiming a slot.
 
         Fired when the ring carries tracks but none is in the approach or
-        exit zone — keeps the ring moving so real pieces reach the exit
-        and the ghost-gating tracker sees rotation-windowed samples for
-        stationary phantoms.
+        exit zone. A single far-away piece can still advance quickly; a
+        loaded ring uses precise pulses so C2 does not dump a short train
+        into C3 before the exit gate has a chance to singulate it.
         """
+        mode = _PulseMode.PRECISE if self._piece_count >= 2 else _PulseMode.NORMAL
         self._fire_pulse(
             track=None,
-            mode=_PulseMode.NORMAL,
+            mode=mode,
             now_mono=now_mono,
             commit_to_downstream=False,
             source="c2_advance_pulse",
@@ -600,6 +640,7 @@ class RuntimeC2(BaseRuntime):
         self._pending_track_count = 0
         self._pending_downstream_claims.clear()
         self._next_pulse_at = 0.0
+        self._next_exit_handoff_at = 0.0
 
     def _downstream_claim_key(self, track: Track) -> int | None:
         if track.global_id is None:

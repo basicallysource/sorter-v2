@@ -75,6 +75,7 @@ def _make(
     downstream_cap: int = 1,
     pulse_success: bool = True,
     wiggle_success: bool = True,
+    exit_handoff_min_interval_s: float = 0.85,
 ) -> tuple[RuntimeC2, CapacitySlot, CapacitySlot, list[str]]:
     upstream = CapacitySlot("c1_to_c2", capacity=upstream_cap)
     downstream = CapacitySlot("c2_to_c3", capacity=downstream_cap)
@@ -110,6 +111,7 @@ def _make(
         pulse_cooldown_s=0.0,
         wiggle_stall_ms=200,
         wiggle_cooldown_ms=500,
+        exit_handoff_min_interval_s=exit_handoff_min_interval_s,
     )
     return rt, upstream, downstream, log
 
@@ -163,6 +165,21 @@ def test_c2_advances_at_normal_speed_when_ring_has_no_track_near_exit() -> None:
     assert rt.health().state == "advancing"
 
 
+def test_c2_advances_loaded_ring_with_precise_pulse() -> None:
+    rt, _up, down, log = _make()
+    inbox = RuntimeInbox(
+        tracks=_batch(
+            _track(track_id=1, global_id=1, angle_rad=math.pi / 2.0),
+            _track(track_id=2, global_id=2, angle_rad=math.pi),
+        ),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log == ["precise:40"]
+    assert down.available() == 1
+    assert rt.health().state == "advancing"
+
+
 def test_c2_idles_with_empty_ring() -> None:
     rt, _up, _down, log = _make()
     inbox = RuntimeInbox(tracks=_batch(), capacity_downstream=1)
@@ -190,16 +207,14 @@ def test_c2_does_not_pulse_when_downstream_full() -> None:
     assert rt.health().blocked_reason == "downstream_full"
 
 
-def test_c2_exit_wiggle_fires_after_stall() -> None:
+def test_c2_does_not_wiggle_when_downstream_is_closed() -> None:
     rt, _up, _down, log = _make()
     stuck = _batch(_track(angle_rad=0.0))
-    # Downstream is closed so the normal pulse path is blocked.
     rt.tick(RuntimeInbox(tracks=stuck, capacity_downstream=0), now_mono=0.0)
-    assert log == []  # starts stall timer
     rt.tick(RuntimeInbox(tracks=stuck, capacity_downstream=0), now_mono=0.1)
     rt.tick(RuntimeInbox(tracks=stuck, capacity_downstream=0), now_mono=0.5)
-    assert "wiggle" in log
-    assert rt.health().state == "exit_wiggle"
+    assert log == []
+    assert rt.health().blocked_reason == "downstream_full"
 
 
 def test_c2_new_visible_piece_releases_upstream_slot() -> None:
@@ -342,7 +357,30 @@ def test_c2_pulse_failure_releases_downstream_claim() -> None:
     assert down.available() == 1  # rolled back on failure
 
 
-def test_c2_repeats_exit_pulse_without_duplicate_downstream_claim() -> None:
+def test_c2_pending_handoff_waits_without_repeat_exit_pulse() -> None:
+    rt, _up, down, log = _make(downstream_cap=1)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+        capacity_downstream=1,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=0.4,
+    )
+
+    assert down.taken(now_mono=0.4) == 1
+    assert log == ["precise:40"]
+    assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+    assert rt.health().state == "handoff_wait"
+    assert rt.health().blocked_reason == "awaiting_downstream_arrival"
+
+
+def test_c2_pending_handoff_retries_same_track_after_spacing_without_new_claim() -> None:
     rt, _up, down, log = _make(downstream_cap=1)
     inbox = RuntimeInbox(
         tracks=_batch(_track(global_id=42, angle_rad=0.0)),
@@ -361,6 +399,48 @@ def test_c2_repeats_exit_pulse_without_duplicate_downstream_claim() -> None:
     assert down.taken(now_mono=1.0) == 1
     assert log == ["precise:40", "precise:40"]
     assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+    assert rt.health().state == "handoff_retry"
+
+
+def test_c2_exit_spacing_blocks_nearby_next_piece() -> None:
+    rt, _up, down, log = _make(
+        downstream_cap=4,
+        exit_handoff_min_interval_s=0.85,
+    )
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=1, angle_rad=0.0)),
+            capacity_downstream=4,
+        ),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=2, angle_rad=math.radians(20.0))),
+            capacity_downstream=down.available(now_mono=0.2),
+        ),
+        now_mono=0.2,
+    )
+
+    assert log == ["precise:40"]
+    assert down.taken(now_mono=0.2) == 1
+    assert rt.health().state == "handoff_spacing"
+    assert rt.health().blocked_reason == "exit_spacing"
+
+
+def test_c2_retries_exit_after_claim_hold_expires() -> None:
+    rt, _up, down, log = _make(downstream_cap=1)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+        capacity_downstream=1,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(inbox, now_mono=4.0)
+
+    assert down.taken(now_mono=4.0) == 1
+    assert log == ["precise:40", "precise:40"]
 
 
 def test_c2_available_slots_caps_at_piece_count() -> None:

@@ -714,6 +714,32 @@
 			/>
 
 			{@render tuningLabel(
+				'tune-c3-exit-gap',
+				'C3 Gap',
+				'Minimum wait after a C3->C4 exit handoff before another C3 piece may enter the handoff zone. Higher prevents bursts into C4; lower feeds C4 faster.'
+			)}
+			<input
+				id="tune-c3-exit-gap"
+				type="range"
+				min="0"
+				max="2500"
+				step="50"
+				value={msValue(c3.exit_handoff_min_interval_s, 850)}
+				oninput={(e) =>
+					updateChannel('c3', { exit_handoff_min_interval_ms: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="2500"
+				step="50"
+				value={msValue(c3.exit_handoff_min_interval_s, 850)}
+				onchange={(e) =>
+					updateChannel('c3', { exit_handoff_min_interval_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
 				'tune-c2-max',
 				'C2 Max',
 				'Maximum pieces C2 should hold before C1 is blocked. Lower prevents a large queue; higher lets C2 buffer more parts.'
@@ -758,6 +784,32 @@
 				step="20"
 				value={msValue(c2.pulse_cooldown_s, 120)}
 				onchange={(e) => updateChannel('c2', { pulse_cooldown_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c2-exit-gap',
+				'C2 Gap',
+				'Minimum wait after a C2->C3 exit handoff before another C2 piece may enter the handoff zone. Higher smooths C3 loading; lower keeps C3 fuller.'
+			)}
+			<input
+				id="tune-c2-exit-gap"
+				type="range"
+				min="0"
+				max="2500"
+				step="50"
+				value={msValue(c2.exit_handoff_min_interval_s, 850)}
+				oninput={(e) =>
+					updateChannel('c2', { exit_handoff_min_interval_ms: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="2500"
+				step="50"
+				value={msValue(c2.exit_handoff_min_interval_s, 850)}
+				onchange={(e) =>
+					updateChannel('c2', { exit_handoff_min_interval_ms: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 

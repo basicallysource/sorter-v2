@@ -30,8 +30,8 @@ The target is about stable end-to-end flow, not peak burst speed. A run only cou
 | --- | --- |
 | End-to-end throughput | >= 10 distributed pieces/min over a measured run |
 | Confirmation window | First prove it on short 30-60 s runs, then on 3-5 min runs |
-| C3 density | roughly 8-12 visible pieces, not clumped at one exit/intake area |
-| C4 density | roughly 8-12 visible pieces, evenly spread enough for tracking and classifier capture |
+| C3 density | roughly 8-10 visible pieces, not clumped at one exit/intake area |
+| C4 density | roughly 8-10 visible pieces, evenly spread enough for tracking and classifier capture |
 | Classification | no large backlog of registered-but-unclassified pieces |
 | Distributor | no sustained distributor_busy bottleneck or repeated failed handoffs |
 | Bin correctness | exactly one C4 piece is released per distributor-ready/commit cycle, into the bin selected for that piece |
@@ -53,6 +53,7 @@ Tune in this order:
    - C1 feed cooldown and jam threshold
    - C2 max piece count
    - C3 max piece count
+   - C2->C3 and C3->C4 exit handoff spacing
    - C3->C4 virtual slot allowance
    - C4 max zones
 
@@ -137,6 +138,7 @@ Bad:
 
 - C2 stores a pile because the bulk bucket dumped too much at once.
 - C3 exit area repeatedly forms a clump.
+- C2 or C3 pushes several pieces through an exit in one short burst.
 - C4 contains many pieces in one arc and empty space elsewhere.
 - C4 must use harsh or frequent recovery motion to keep up.
 
@@ -160,6 +162,16 @@ The path to 10 PPM is likely not higher C4 acceleration. It is a better density 
 **C2 buffers gently -> C3 singulates and spaces -> C4 stays moderately populated -> classifier and distributor remain continuously fed.**
 
 That means the main work is runtime tuning plus observability around density, not simply making each motor faster.
+
+## C-channel singulation invariant
+
+C2, C3, and C4 should all behave like gated exits, with stricter correctness the further downstream a piece gets:
+
+1. C2 should avoid dumping several pieces into C3 at once. It may be a little forgiving, but the next platter should receive separated arrivals rather than bursts.
+2. C3 should avoid pushing a short train of pieces into C4. C4 needs spaced arrivals for stable tracking, classification capture, and a clean final ejection queue.
+3. C4 is strict: one classified piece, one distributor-ready decision, one physical release attempt.
+4. If an exit handoff was just started, the runtime should hold nearby following pieces for a short configurable gap before allowing the next handoff.
+5. If the same exit track is still waiting for the downstream side to accept it, the runtime should not create repeated downstream claims for that same track.
 
 ## C4 to distributor invariant
 
@@ -199,3 +211,11 @@ Throughput only counts when this invariant holds. A run with 10 physical pieces/
 | 2026-04-25 12:26 | Added C1 runtime tuning for `pulse_cooldown`, `jam_timeout`, `jam_min_pulses`, `jam_cooldown`, and recovery cycle cap. | Next tuning pass can slow C1 deliberately instead of relying on jam recovery after C2 overfill. |
 | 2026-04-25 13:05 | Found false C4 stitch on `27610dc7cbd6`: black ladder tracklet `86` and white bracket tracklet `90` were merged into one piece. | Tightened C4 same-channel `track_split` stitching to a 1.25 s holdover and a 45 deg hard angle gate; cross-channel C3->C4 transit remains separate. |
 | 2026-04-25 13:10 | Waveshare/chute can be unavailable during tuning, but C4 must still wait as if bin positioning happened. | Added distributor `simulate_chute` runtime tuning with configurable simulated move wait and settle time; one-piece C4 handoff stays enforced. |
+| 2026-04-25 13:18 | C4 could hold a real piece at/near the exit that missed the normal classify angle. | Added late-exit classification fallback; C4 can classify at the exit tolerance before waiting for distributor-ready release, avoiding a safe-but-stuck state. |
+| 2026-04-25 13:20 | Live observation: C3 and even C2 can still feed multiple parts downstream in short bursts, creating clumps before C4 has a chance to separate them. | Added the C-channel singulation invariant and C2/C3 runtime handoff spacing so the system can throttle exits earlier, not only at the final C4 distributor gate. |
+| 2026-04-25 13:25 | Best post-fix measured window so far: `slow-c1-moderate-c4-90s` delivered `+9` in 90 s with simulated chute wait, about `6/min`. | This is stable enough to keep the single-piece C4 gate, but still below target. The remaining gap is upstream density rhythm, not distributor wait. |
+| 2026-04-25 13:28 | A near-empty 8-zone target-profile run showed long starvation, then a late C1 bulk dump into C2 (`piece_count` rose to 10) while C3/C4 were empty. | C1 needs to be treated as a controlled feeder, not just "on when C2 has headroom". Keep C1 slow and jam-tolerant during tuning; add better feed/density control before chasing C4 speed. |
+| 2026-04-25 13:30 | Short live runs showed C4 could resurrect a just-delivered `piece_uuid` from a lingering/rebound track and request another distributor handoff. | Added a short C4 delivered-track tombstone so recently delivered UUIDs/raw IDs cannot immediately become new dossiers again. |
+| 2026-04-25 13:34 | C2/C3 still used large normal advance pulses when multiple pieces were on the ring but none was yet inside the approach arc. | Loaded C2/C3 rings now use precise/gentle advance pulses; single far-away pieces may still use normal transport to avoid unnecessary starvation. |
+| 2026-04-25 13:35 | The first C2/C3 spacing fix was too conservative: if the same front track did not physically arrive downstream, the runtime waited for the long slot hold. | C2/C3 now retry the same front track after the configurable handoff gap, but without taking a second downstream claim; different following pieces still wait. |
+| 2026-04-25 13:37 | Verification after loaded-ring precise advance reduced the obvious giant-pulse path but did not yet reach 10 PPM (`+5` in 90 s) and still ended with C2/C3 backlog. | Next lever is a real density controller: throttle C1 by observed C2/C3/C4 counts and add C2/C3 target-density windows, instead of only gating per exit handoff. |

@@ -273,10 +273,18 @@ class ProcessNoise:
 
 @dataclass(frozen=True, slots=True)
 class MeasurementNoise:
-    """Diagonal measurement noise (camera detection variance)."""
+    """Diagonal measurement noise (camera detection variance).
 
-    sigma_a_rad: float = math.radians(2.0)
-    sigma_r_px: float = 4.0
+    YOLO bbox centers are accurate to roughly a pixel for clean
+    detections, which projects to well under a degree at the C4 camera
+    distance. The default is intentionally tight so the bank trusts
+    each fresh observation strongly — the Kalman is here to bridge
+    short silences between vision frames, not to second-guess clean
+    measurements with state-momentum bias.
+    """
+
+    sigma_a_rad: float = math.radians(0.5)
+    sigma_r_px: float = 2.0
 
     def matrix(self) -> np.ndarray:
         return np.diag(
@@ -300,6 +308,12 @@ class PieceTrackBankConfig:
     # Mahalanobis chi-squared 2-DOF gates (1 - alpha):
     #   2-DOF chi2 inverse cdf: 0.95 -> 5.99, 0.99 -> 9.21, 0.999 -> 13.82
     association_gate_chi2: float = 9.21
+    # Innovation snap threshold. When a measurement on an *existing*
+    # track lands more than this many sigma away (Mahalanobis squared),
+    # the Kalman gain blend lags reality — usually because the piece
+    # genuinely jumped (slip / nudge / collision) rather than drifted.
+    # Snap the state straight to the measurement and reset velocity.
+    snap_chi2_threshold: float = 50.0
     # Birth threshold: a tentative track gets promoted to
     # ``CONFIRMED_UNCLASSIFIED`` after this many real detections.
     confirm_min_detections: int = 3
@@ -494,8 +508,35 @@ class PieceTrackBank:
         now_t: float,
         encoder_rad: float,
     ) -> str:
-        """Admit a new piece. Returns the new piece_uuid."""
+        """Admit a new piece with a freshly minted uuid."""
         piece_uuid = _uuid.uuid4().hex[:12]
+        self.admit_with_uuid(
+            piece_uuid=piece_uuid,
+            measurement=meas,
+            now_t=now_t,
+            encoder_rad=encoder_rad,
+        )
+        return piece_uuid
+
+    def admit_with_uuid(
+        self,
+        *,
+        piece_uuid: str,
+        measurement: Measurement,
+        now_t: float,
+        encoder_rad: float,
+    ) -> PieceTrack:
+        """Admit a new piece with a caller-provided uuid.
+
+        Used by runtime callers that already mint piece_uuids elsewhere
+        (e.g. the C4 runtime that shares uuids with its dispatch-side
+        ``_PieceDossier``). Idempotent: re-admit returns the existing
+        track without overwriting.
+        """
+        existing = self._tracks.get(piece_uuid)
+        if existing is not None:
+            return existing
+        meas = measurement
         state = np.array([meas.a_meas, meas.r_meas, 0.0, 0.0], dtype=float)
         cov = self._config.initial_covariance()
         emb_mean: np.ndarray | None = None
@@ -521,7 +562,22 @@ class PieceTrackBank:
             track.raw_track_aliases.add(int(meas.raw_track_id))
             self._raw_id_index[int(meas.raw_track_id)] = piece_uuid
         self._tracks[piece_uuid] = track
-        return piece_uuid
+        return track
+
+    def update_with_measurement(
+        self,
+        piece_uuid: str,
+        measurement: Measurement,
+        *,
+        now_t: float,
+        encoder_rad: float,
+    ) -> bool:
+        """Public Kalman-update on an existing track. Returns False if
+        the named track does not exist."""
+        if piece_uuid not in self._tracks:
+            return False
+        self._kalman_update(piece_uuid, measurement, now_t=now_t, encoder_rad=encoder_rad)
+        return True
 
     def _kalman_update(
         self,
@@ -536,15 +592,35 @@ class PieceTrackBank:
         r = self._config.measurement_noise.matrix()
         s = h @ tr.state_covariance @ h.T + r
         try:
-            k = tr.state_covariance @ h.T @ np.linalg.inv(s)
+            s_inv = np.linalg.inv(s)
+            k = tr.state_covariance @ h.T @ s_inv
         except np.linalg.LinAlgError:
             return
         z = np.array([meas.a_meas, meas.r_meas], dtype=float)
         innov = z - (h @ tr.state_mean)
         innov[0] = wrap_rad(float(innov[0]))
-        tr.state_mean = tr.state_mean + k @ innov
+        # Innovation gate: a large residual most likely means the piece
+        # was nudged, slipped, or — in tests — jumped to a synthetic
+        # new position. Trying to blend the prediction toward the new
+        # observation via the standard Kalman gain leaves the state
+        # lagging by tens of degrees for several frames. Snap instead:
+        # take the measurement as ground truth, reset the velocity
+        # estimate to zero, and inflate covariance so the next update
+        # converges quickly.
+        d2 = float(innov.T @ s_inv @ innov)
+        if d2 > self._config.snap_chi2_threshold:
+            # Snap path: replace state and covariance entirely. Skip the
+            # Kalman covariance update below — its gain ``k`` was computed
+            # from the pre-snap state and would corrupt the freshly reset
+            # covariance into negative-definite territory.
+            tr.state_mean = np.array(
+                [meas.a_meas, meas.r_meas, 0.0, 0.0], dtype=float
+            )
+            tr.state_covariance = self._config.initial_covariance()
+        else:
+            tr.state_mean = tr.state_mean + k @ innov
+            tr.state_covariance = (np.eye(4) - k @ h) @ tr.state_covariance
         tr.state_mean[0] = wrap_rad(float(tr.state_mean[0]))
-        tr.state_covariance = (np.eye(4) - k @ h) @ tr.state_covariance
         tr.last_observed_t = float(now_t)
         tr.last_observed_encoder = float(encoder_rad)
         tr.last_predicted_t = float(now_t)

@@ -33,6 +33,13 @@ from rt.events.topics import (
     PIECE_TRANSIT_LINKED,
     RUNTIME_HANDOFF_BURST,
 )
+from rt.perception.piece_track_bank import (
+    CameraTrayCalibration,
+    Measurement,
+    PieceLifecycleState,
+    PieceTrackBank,
+    PieceTrackBankConfig,
+)
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
 from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_payload
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
@@ -312,6 +319,20 @@ class RuntimeC4(BaseRuntime):
         self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
+        # Vision-corrected virtual-pocket bank (architecture stage 2). The
+        # bank is the durable identity surface; ``_pieces`` keeps the
+        # dispatch-side state (handoff_requested, eject_enqueued, etc).
+        # The two are kept synchronised on the same piece_uuid; the bank
+        # owns position / covariance / lifecycle, the dossier owns
+        # eject-cycle bookkeeping. Stage 4 collapses them into one.
+        self._bank = PieceTrackBank(
+            PieceTrackBankConfig(
+                channel="c4",
+                # cx/cy are calibrated lazily from frame size on first
+                # admit — production wiring lands in stage 3.
+                calibration=CameraTrayCalibration(cx=0.0, cy=0.0),
+            )
+        )
         self._recently_delivered_piece_until: dict[str, float] = {}
         self._recently_delivered_track_until: dict[int, float] = {}
         self._fsm: _C4State = _C4State.RUNNING
@@ -410,6 +431,12 @@ class RuntimeC4(BaseRuntime):
         abort_reason: str = "handoff_aborted",
     ) -> None:
         dossier = self._pieces.pop(piece_uuid, None)
+        # Mirror finalize into the bank. arm_cooldown=True is the
+        # ``delivered to distributor`` path; mark it ejected so the
+        # bank can suppress accidental re-admission of a lingering
+        # raw track (the existing tombstone covers it on the dossier
+        # side, this keeps the bank in sync).
+        self._bank_finalize(piece_uuid, ejected=bool(arm_cooldown))
         if dossier is not None and arm_cooldown and now_mono is not None:
             self._remember_delivered_piece(dossier, now_mono)
         if dossier is not None and abort_reason == "track_lost":
@@ -713,10 +740,28 @@ class RuntimeC4(BaseRuntime):
                 abs(d.get("exit_delta_deg") or 1e9),
             )
         )
+        bank_view: list[dict[str, Any]] = []
+        for tr in self._bank.tracks():
+            bank_view.append(
+                {
+                    "piece_uuid": tr.piece_uuid,
+                    "lifecycle_state": tr.lifecycle_state.value,
+                    "angle_deg": tr.angle_deg,
+                    "angle_sigma_deg": tr.angle_sigma_deg,
+                    "class_label": tr.class_label,
+                    "class_confidence": tr.class_confidence,
+                    "raw_track_aliases": sorted(tr.raw_track_aliases),
+                    "detection_observations": tr.detection_observations,
+                    "confirmed_real_observations": tr.confirmed_real_observations,
+                    "last_observed_age_s": ts - tr.last_observed_t,
+                }
+            )
         return {
             "fsm_state": self._fsm.value,
             "dossier_count": len(self._pieces),
             "dossiers": dossiers,
+            "bank_track_count": len(self._bank),
+            "bank_tracks": bank_view,
             "track_to_piece": dict(self._track_to_piece),
             "next_accept_in_s": max(0.0, self._next_accept_at - ts),
             "angles": {
@@ -747,6 +792,11 @@ class RuntimeC4(BaseRuntime):
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
         self._sweep_recently_delivered(now_mono)
+        # Propagate the bank's Kalman state forward — every tick, before
+        # we touch new measurements. After this call the bank's tracks
+        # are aligned to ``now_mono`` and the posterior-singleton query
+        # answers correctly.
+        self._bank_predict(now_mono)
         raw_tracks = self._fresh_tracks(inbox.tracks)
         visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
         self._raw_detection_count = len(visible_tracks)
@@ -762,6 +812,11 @@ class RuntimeC4(BaseRuntime):
         if now_mono >= self._next_accept_at:
             self._reconcile_visible_tracks(visible_tracks, now_mono)
         owned_tracks = self._owned_tracks(visible_tracks)
+        # Mirror this frame's owned tracks into the bank as Kalman
+        # measurement updates. Births happen via ``_bank_admit_track``
+        # in the admission/reconcile paths above; this step only updates
+        # already-admitted pieces.
+        self._bank_observe_tracks(owned_tracks, now_mono)
         self._transport_velocity.update(
             owned_tracks,
             now_mono=now_mono,
@@ -1056,6 +1111,19 @@ class RuntimeC4(BaseRuntime):
         )
         self._pieces[piece_uuid] = dossier
         self._track_to_piece[gid] = piece_uuid
+        # Mirror into the PieceTrackBank so the bank holds durable
+        # identity + Kalman state for this physical piece. We feed the
+        # camera-frame angle directly: stage 2 keeps tracking in
+        # camera/world frame because C4 has no exposed tray encoder yet
+        # (a stage-3 follow-up). The Kalman learns the carousel rotation
+        # rate from successive observations, which is good enough for
+        # the posterior-singleton dispatch check the bank exists for.
+        self._bank_admit_track(
+            piece_uuid=piece_uuid,
+            track=track,
+            angle_deg=angle_deg,
+            now_mono=now_mono,
+        )
         release_upstream_now = bool(release_upstream)
         if (
             not release_upstream_now
@@ -1435,6 +1503,10 @@ class RuntimeC4(BaseRuntime):
                     meta={"error": "future_raised"},
                 )
             dossier.classified_ts = now_mono
+            # Bind the classification onto the bank's PieceTrack so the
+            # dispatch path can ask the bank "is this piece classified?"
+            # rather than reaching into ``_pieces`` private state.
+            self._bank_bind_classification(dossier.piece_uuid, dossier)
             result = dossier.result
             result_meta = result.meta if result and isinstance(result.meta, dict) else {}
             payload: dict[str, Any] = {
@@ -1699,13 +1771,25 @@ class RuntimeC4(BaseRuntime):
             if self._hw.busy():
                 self._set_state("drop_commit", blocked_reason="hw_busy")
                 return
-            if self._has_trailing_piece_within_safety(exit_track, tracks):
-                # A second owned track is sitting close enough behind the
-                # matched piece that the exit-release shimmy could nudge
-                # both off the carousel into the bin positioned for the
-                # matched piece's classification. Hold the eject; the next
-                # tick will re-evaluate after transport advances.
-                self._set_state("drop_commit", blocked_reason="trailing_piece_in_chute")
+            # Dispatch gate: posterior-singleton check via the
+            # PieceTrackBank. The bank knows every chute-blocking
+            # PieceTrack's 2-sigma angular interval and refuses the
+            # eject unless this piece is the *only* one whose interval
+            # overlaps the chute window. Falls back to the deterministic
+            # trailing-safety guard if the bank does not know the piece
+            # (admission/sync race, or a recovered track that hasn't
+            # been mirrored yet).
+            bank_track = self._bank.track(piece_uuid)
+            if bank_track is not None:
+                if not self._bank_singleton_for_eject(piece_uuid):
+                    self._set_state(
+                        "drop_commit", blocked_reason="trailing_piece_in_chute"
+                    )
+                    return
+            elif self._has_trailing_piece_within_safety(exit_track, tracks):
+                self._set_state(
+                    "drop_commit", blocked_reason="trailing_piece_in_chute"
+                )
                 return
             self._enqueue_eject(piece_uuid, claim_downstream=False)
             return
@@ -1907,6 +1991,130 @@ class RuntimeC4(BaseRuntime):
             self._set_state(self._fsm.value)
             return True
         return False
+
+    # ------------------------------------------------------------------
+    # PieceTrackBank mirror — stage 2 of the architecture rollout. The
+    # bank lives in parallel with ``self._pieces`` and shares piece_uuids
+    # with it. The dispatch path queries the bank for posterior-singleton
+    # decisions; the bank predicts every piece forward each tick so the
+    # Mahalanobis association stays sharp even when YOLO drops a frame.
+
+    def _bank_admit_track(
+        self,
+        *,
+        piece_uuid: str,
+        track: Track,
+        angle_deg: float,
+        now_mono: float,
+    ) -> None:
+        meas = Measurement(
+            a_meas=math.radians(angle_deg),
+            r_meas=float(track.radius_px or 100.0),
+            score=float(track.score),
+            raw_track_id=int(track.global_id) if track.global_id is not None else None,
+            appearance_embedding=track.appearance_embedding,
+            bbox_xyxy=track.bbox_xyxy,
+            confirmed_real=bool(track.confirmed_real),
+            timestamp=float(now_mono),
+        )
+        self._bank.admit_with_uuid(
+            piece_uuid=piece_uuid,
+            measurement=meas,
+            now_t=now_mono,
+            encoder_rad=0.0,
+        )
+
+    def _bank_predict(self, now_mono: float) -> None:
+        self._bank.predict_all(t=now_mono, encoder_rad=0.0)
+
+    def _bank_observe_tracks(
+        self, tracks: list[Track], now_mono: float
+    ) -> None:
+        """Update the bank from the current frame's owned tracks.
+
+        Each track that already owns a piece_uuid mirrors into the bank
+        as a measurement on the existing PieceTrack. Tracks without
+        piece_uuid are skipped — admission is the only path that creates
+        a bank entry, so tentative ghosts never poison the bank.
+        """
+        if not tracks:
+            return
+        measurements: list[tuple[str, Measurement]] = []
+        for t in tracks:
+            piece_uuid = t.piece_uuid or self._piece_uuid_for_track(t)
+            if not isinstance(piece_uuid, str) or piece_uuid not in self._pieces:
+                continue
+            if t.angle_rad is None:
+                continue
+            measurements.append(
+                (
+                    piece_uuid,
+                    Measurement(
+                        a_meas=float(t.angle_rad),
+                        r_meas=float(t.radius_px or 100.0),
+                        score=float(t.score),
+                        raw_track_id=int(t.global_id) if t.global_id is not None else None,
+                        appearance_embedding=t.appearance_embedding,
+                        bbox_xyxy=t.bbox_xyxy,
+                        confirmed_real=bool(t.confirmed_real),
+                        timestamp=float(now_mono),
+                    ),
+                )
+            )
+        for piece_uuid, meas in measurements:
+            self._bank.update_with_measurement(
+                piece_uuid, meas, now_t=now_mono, encoder_rad=0.0
+            )
+
+    def _bank_bind_classification(
+        self, piece_uuid: str, dossier: "_PieceDossier"
+    ) -> None:
+        result = dossier.result
+        if result is None:
+            return
+        self._bank.bind_classification(
+            piece_uuid,
+            class_label=result.part_id,
+            class_confidence=getattr(result, "confidence", None),
+            identity_uncertain=False,
+        )
+
+    def _bank_finalize(
+        self,
+        piece_uuid: str,
+        *,
+        ejected: bool,
+    ) -> None:
+        if ejected:
+            self._bank.mark_ejected(piece_uuid)
+        self._bank.finalize(piece_uuid)
+
+    def _bank_singleton_for_eject(
+        self,
+        piece_uuid: str,
+    ) -> bool:
+        """Posterior-singleton dispatch gate.
+
+        True iff the named piece is the only chute-blocking PieceTrack
+        whose 2-sigma angular interval overlaps the chute window at the
+        current tray angle. Replaces the old deterministic
+        ``_has_trailing_piece_within_safety`` once stage 3 lands; for
+        now both gates are checked and the eject only fires when both
+        agree.
+        """
+        # Use the runtime's configured exit_angle as the chute center —
+        # in production this equals the zone manager's drop_angle_deg
+        # (both are read from the same classification config), but
+        # tests sometimes wire them apart and the eject is what the
+        # runtime is actually committing to.
+        chute_center = math.radians(self._exit_angle_deg)
+        chute_half = math.radians(self._exit_trailing_safety_deg)
+        return self._bank.is_singleton_in_chute(
+            piece_uuid,
+            chute_center_rad=chute_center,
+            chute_half_width_rad=chute_half,
+            encoder_rad=0.0,
+        )
 
     def _has_trailing_piece_within_safety(
         self, matched_track: Track, tracks: list[Track]

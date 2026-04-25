@@ -46,11 +46,11 @@
       <p><strong>Wichtigster Befund:</strong> Das aktuelle produktive <code>botsort_reid</code> ist auf ruhigen Daten stabil, pulst aber auf echten Motion-Stress-Replays deutlich mehr Birth/Lost-Events als die besten Motion-Tracker. Das erklaert das UI-Gefuehl von "poppt auf, verschwindet, kommt wieder".</p>
     </div>
     <p>Die ReID-Schicht selbst ist nicht der Haupthebel fuer lokale C-Kanal-Stabilitaet: <code>botsort_reid</code> mit und ohne ReID liegt praktisch gleichauf. Auch <code>track_buffer</code> und <code>appearance_thresh</code> haben die Live-Churn-Metrik nicht verbessert.</p>
-    <p><strong>Empfehlung:</strong> fuer sichtbare Live-Tracklets <code>rf_bytetrack</code> als Primary testen/verwenden, <code>botsort_reid</code> mit OSNet x0.25 als Appearance-/Handoff-Shadow behalten, und UI/DB auf eine zweischichtige Struktur umstellen: stabile <code>tracked_pieces</code> oben, rohe <code>tracklets</code> darunter.</p>
+    <p><strong>Korrigierte Empfehlung:</strong> <code>rf_bytetrack</code> ist hier nur der beste gemessene Legacy-/Roboflow-Baseline-Tracker, nicht die Zielarchitektur. Die Zielrichtung bleibt BoxMot-zentriert: <code>boxmot_bytetrack</code> bzw. ein sauberer BoxMot-ByteTrack-Adapter muss gegen diese Baseline getunt werden, <code>botsort_reid</code> bleibt fuer OSNet-Appearance und Handoff als Shadow/Enrichment erhalten. UI/DB sollten auf eine zweischichtige Struktur umstellen: stabile <code>tracked_pieces</code> oben, rohe <code>tracklets</code> darunter.</p>
     <div class="grid">
       <div class="stat"><b>7.29</b><span><code>botsort_reid</code> Churn/100 Detektionen auf Stressdaten</span></div>
-      <div class="stat"><b>3.69</b><span><code>rf_bytetrack</code> Churn/100 Detektionen auf Stressdaten</span></div>
-      <div class="stat"><b>1.05</b><span><code>rf_bytetrack</code> Coverage, ideal nahe 1.0</span></div>
+      <div class="stat"><b>3.69</b><span><code>rf_bytetrack</code> Legacy-Baseline Churn/100 Detektionen</span></div>
+      <div class="stat"><b>1.05</b><span><code>rf_bytetrack</code> Baseline-Coverage, Zielwert fuer BoxMot-Tuning</span></div>
     </div>
   </section>
 
@@ -77,9 +77,10 @@
   <section>
     <h2>Interpretation</h2>
     <ul>
-      <li><code>rf_bytetrack</code> ist der beste praktische Live-Primary-Kandidat: niedriger Churn und Coverage nahe 1.0 ueber C2/C3/C4-Stress.</li>
+      <li><code>rf_bytetrack</code> ist der beste gemessene Legacy-Baseline-Kandidat: niedriger Churn und Coverage nahe 1.0 ueber C2/C3/C4-Stress. Er ist aber nicht die Ziel-Library.</li>
       <li><code>polar</code> hat den niedrigsten Churn, aber Coverage ca. 1.44; das spricht fuer gelegentliche Doppel-/Uebertracks und macht ihn als alleinigen Primary riskanter.</li>
-      <li><code>botsort_reid</code> liefert Appearance Embeddings und ist fuer C3-&gt;C4-Handoff wertvoll, aber als sichtbarer Primary zu flickerig.</li>
+      <li><code>boxmot_bytetrack</code> lag im generischen Replay-Wrapper hinter der Roboflow-Baseline. Das ist ein Tuning-/Adapter-Auftrag, keine Empfehlung zur Rueckkehr auf Roboflow.</li>
+      <li><code>botsort_reid</code> liefert Appearance Embeddings und ist fuer C3-&gt;C4-Handoff wertvoll, aber als sichtbarer Primary ohne Stabilizer zu flickerig.</li>
       <li><code>botsort_reid:with_reid=false</code> ist lokal fast gleich wie ReID an. Der lokale Instabilitaetsbefund ist also kein ReID-Threshold-Problem.</li>
       <li><code>boxmot_deepocsort</code> wurde in der Vollmatrix angetestet und ist auf mehreren Stress-Replays mit <code>LinAlgError: leading minor ... not positive definite</code> ausgefallen; nicht produktionsgeeignet fuer diesen Pfad.</li>
       <li>Aktuell ist nur <code>osnet_x0_25_msmt17.pt</code> lokal vorhanden. Ein echter Vergleich mehrerer ReID-Backbones wurde deshalb nicht als belastbarer Hauptbefund verkauft.</li>
@@ -92,7 +93,7 @@
       <li><strong>Raw Tracklets:</strong> pro Feed/Tracker/Epoch die rohen Tracker-IDs als diagnostische, kurzlebige Spur speichern.</li>
       <li><strong>Tracked Pieces:</strong> stabile Piece-UUID als obere Zeile. UI, Recent Pieces und Classification referenzieren diese stabile Entitaet, nicht rohe Live-Tracklets.</li>
       <li><strong>Stabilizer:</strong> kurzer Holdover von 0.75-1.25 s, polar/geometry matching plus Appearance wenn vorhanden. Dadurch verschwinden Tracks nicht sofort aus UI/DB, wenn der Detector 2-6 Frames droppt.</li>
-      <li><strong>Primary/Shadow:</strong> <code>RT_PRIMARY_TRACKER_KEY=rf_bytetrack</code>, <code>RT_SHADOW_TRACKER_KEY=botsort_reid</code>. Shadow-Embeddings werden per Center/Polar-Match an Primary-Tracklets gehangen.</li>
+      <li><strong>Primary/Shadow:</strong> kurzfristig keine Architektur-Rueckkehr auf Roboflow. Stattdessen einen echten <code>boxmot_bytetrack</code>-Runtime-Adapter bzw. BoxMot-ByteTrack-Parameter so tunen, dass er die <code>rf_bytetrack</code>-Baseline erreicht; <code>botsort_reid</code> bleibt als Shadow fuer Embeddings.</li>
       <li><strong>Handoff:</strong> C3 parkt beim Exit die stabile Piece-UUID plus OSNet-Embedding; C4 claimt erst per Appearance, dann per Intake-Zeitfenster/Geometrie. Ein neues C4-Tracklet wird Kind desselben <code>tracked_piece</code>.</li>
     </ol>
   </section>
@@ -100,11 +101,12 @@
   <section>
     <h2>Konkreter Plan</h2>
     <ol>
+      <li>BoxMot-ByteTrack-Adapter/Parameterpfad produktionsnah machen und gegen die <code>rf_bytetrack</code>-Baseline tunen.</li>
       <li>PerceptionRunner um Shadow-Embedding-Enrichment erweitern: Primary Tracks behalten ihre stabile Motion-ID, bekommen aber <code>appearance_embedding</code> vom matched <code>botsort_reid</code>-Shadow.</li>
       <li>TrackStabilizer-Service einfuehren: TTL, polar velocity prediction, merge rules, canonical piece UUID.</li>
       <li>DB/Local-State zweischichtig migrieren: <code>tracked_pieces</code> + <code>tracklets</code>. Recent Pieces liest nur <code>tracked_pieces</code>.</li>
       <li>Runtime C3/C4 Handoff auf <code>tracked_piece_uuid</code> statt roher global_id priorisieren.</li>
-      <li>Danach Live-A/B: 5 Minuten <code>botsort_reid</code> primary vs. 5 Minuten <code>rf_bytetrack + botsort shadow</code>, gleiche Metriken, UI-Video daneben.</li>
+      <li>Danach Live-A/B: 5 Minuten aktuelles <code>botsort_reid</code> primary vs. 5 Minuten BoxMot-ByteTrack plus <code>botsort_reid</code> shadow, gleiche Metriken, UI-Video daneben.</li>
     </ol>
   </section>
 

@@ -1911,21 +1911,22 @@ class RuntimeC4(BaseRuntime):
     def _has_trailing_piece_within_safety(
         self, matched_track: Track, tracks: list[Track]
     ) -> bool:
-        """True if any other owned track is closer than the safety arc to the
-        matched ejecting piece.
+        """True if a second owned track sits inside the chute opening at the
+        same instant as the matched piece.
 
-        We measure the absolute angular gap and check both directions: a piece
-        ahead in rotation (already past the matched piece) and a piece behind
-        (about to enter the chute). Either one within the safety arc means the
-        chute opening currently spans more than one piece, and the shimmy
-        could carry both off the tray.
+        Anchored on the chute geometry, not on raw angular distance: only a
+        piece whose angle is within ``exit_trailing_safety_deg`` of the
+        drop angle (chute mouth) at the same time as the matched piece is
+        a real double-drop risk. Pieces 90 deg away on the carousel
+        cannot be scooped off by the exit-release shimmy and must not
+        defer the eject.
         """
         if self._exit_trailing_safety_deg <= 0.0:
             return False
         matched_uuid = self._piece_uuid_for_track(matched_track)
         if matched_uuid is None:
             return False
-        matched_angle = math.degrees(matched_track.angle_rad or 0.0)
+        drop_deg = float(self._zone_manager.drop_angle_deg)
         for t in tracks:
             if t.angle_rad is None or t.global_id is None:
                 continue
@@ -1935,8 +1936,8 @@ class RuntimeC4(BaseRuntime):
             if other_uuid is None or other_uuid == matched_uuid:
                 continue
             other_angle = math.degrees(t.angle_rad)
-            gap = abs(_wrap_deg(other_angle - matched_angle))
-            if gap <= self._exit_trailing_safety_deg:
+            distance_to_chute = abs(_wrap_deg(other_angle - drop_deg))
+            if distance_to_chute <= self._exit_trailing_safety_deg:
                 return True
         return False
 

@@ -936,15 +936,74 @@ def test_c4_ejects_only_once_per_distributor_ready_until_delivery() -> None:
     assert dossier.eject_committed is True
 
 
-def test_c4_defers_eject_when_trailing_piece_within_safety() -> None:
-    """Two pieces close to each other at the exit must not both get ejected.
+def test_c4_defers_eject_when_trailing_piece_in_chute() -> None:
+    """A second owned piece sitting inside the chute opening at the same
+    instant as the matched piece would be scooped off by the exit-release
+    shimmy. The runtime must defer the eject until the chute mouth holds
+    only the matched piece. Live observation on 2026-04-25 confirmed the
+    failure mode: a correctly classified eject also dropped a trailing
+    piece into the bin positioned for the previous classification.
 
-    Live observation showed the exit-release shimmy could nudge a trailing
-    piece off the carousel into the bin selected for the matched piece.
-    The runtime must hold the eject when the trailing piece is inside the
-    safety arc, and finally fire it once the trailing piece has separated.
+    The test uses ``exit_angle_deg = drop_angle_deg = 30`` to match the
+    production wiring (the runtime's ``exit_angle`` and the chute mouth
+    are the same physical location).
     """
-    rt, _up, _down, _clf, log = _make(max_zones=2, exit_trailing_safety_deg=20.0)
+    upstream = CapacitySlot("c3_to_c4", capacity=2)
+    downstream = CapacitySlot("c4_to_dist", capacity=2)
+    log: list[str] = []
+
+    def move(deg: float) -> bool:
+        log.append(f"move:{deg:.1f}")
+        return True
+
+    def transport_move(deg: float) -> bool:
+        log.append(f"transport:{deg:.1f}")
+        return True
+
+    def sample_transport_move(deg: float) -> bool:
+        log.append(f"sample:{deg:.1f}")
+        return True
+
+    def purge_move(deg: float) -> bool:
+        log.append(f"purge:{deg:.1f}")
+        return True
+
+    def eject() -> bool:
+        log.append("eject")
+        return True
+
+    zm = ZoneManager(
+        max_zones=2,
+        intake_angle_deg=200.0,
+        guard_angle_deg=10.0,
+        default_half_width_deg=10.0,
+        drop_angle_deg=30.0,
+        drop_tolerance_deg=14.0,
+    )
+    rt = RuntimeC4(
+        upstream_slot=upstream,
+        downstream_slot=downstream,
+        zone_manager=zm,
+        classifier=_StubClassifier(),
+        admission=C4Admission(max_zones=2),
+        ejection=C4EjectionTiming(pulse_ms=150.0, settle_ms=100.0, fall_time_ms=0.0),
+        carousel_move_command=move,
+        transport_move_command=transport_move,
+        sample_transport_move_command=sample_transport_move,
+        startup_purge_move_command=purge_move,
+        eject_command=eject,
+        crop_provider=lambda _f, _t: b"crop",
+        hw_worker=_InlineHw(),  # type: ignore[arg-type]
+        angle_tolerance_deg=15.0,
+        classify_angle_deg=290.0,
+        exit_angle_deg=30.0,
+        intake_half_width_deg=8.0,
+        shimmy_stall_ms=100,
+        shimmy_cooldown_ms=200,
+        exit_trailing_safety_deg=20.0,
+    )
+    rt.set_latest_frame(_frame())
+
     handoffs: list[dict[str, Any]] = []
     commits: list[str] = []
 
@@ -962,32 +1021,31 @@ def test_c4_defers_eject_when_trailing_piece_within_safety() -> None:
 
     rt.set_handoff_port(_Port())
 
-    # Admit piece #1 at intake.
+    # Admit piece #1 at intake (200 deg).
     rt.tick(
         RuntimeInbox(
-            tracks=_batch(_track(track_id=1, global_id=1, angle_deg=0.0)),
+            tracks=_batch(_track(track_id=1, global_id=1, angle_deg=200.0)),
             capacity_downstream=1,
         ),
         now_mono=0.0,
     )
-    # #1 advances past the drop zone, #2 enters intake. Drop clear + intake
-    # arc clear means admission allows piece #2.
+    # #1 advances toward classify (290 deg), #2 enters intake.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(
-                _track(track_id=1, global_id=1, angle_deg=60.0),
-                _track(track_id=2, global_id=2, angle_deg=0.0),
+                _track(track_id=1, global_id=1, angle_deg=260.0),
+                _track(track_id=2, global_id=2, angle_deg=200.0),
             ),
             capacity_downstream=1,
         ),
         now_mono=0.05,
     )
-    # Both owned now. Advance so #1 hits classify (90°) while #2 trails.
+    # #1 reaches classify (triggers classification), #2 trails behind.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(
-                _track(track_id=1, global_id=1, angle_deg=90.0),
-                _track(track_id=2, global_id=2, angle_deg=60.0),
+                _track(track_id=1, global_id=1, angle_deg=290.0),
+                _track(track_id=2, global_id=2, angle_deg=260.0),
             ),
             capacity_downstream=1,
         ),
@@ -996,13 +1054,13 @@ def test_c4_defers_eject_when_trailing_piece_within_safety() -> None:
     piece_uuid = handoffs[0]["piece_uuid"]
     rt.on_distributor_ready(piece_uuid)
 
-    # #1 reached the exit (180°), #2 is 15° behind — inside the 20° safety
-    # arc. The eject must be deferred.
+    # #1 at exit (30 deg = chute), #2 at 15 deg — distance 15 deg from
+    # chute, inside the 20-deg safety arc. Eject deferred.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(
-                _track(track_id=1, global_id=1, angle_deg=180.0),
-                _track(track_id=2, global_id=2, angle_deg=165.0),
+                _track(track_id=1, global_id=1, angle_deg=30.0),
+                _track(track_id=2, global_id=2, angle_deg=15.0),
             ),
             capacity_downstream=0,
         ),
@@ -1011,13 +1069,13 @@ def test_c4_defers_eject_when_trailing_piece_within_safety() -> None:
     assert "eject" not in log
     assert commits == []
 
-    # After more transport, #2 has fallen behind by 25° — outside the safety
-    # arc. The eject is now allowed to fire.
+    # Transport advances; #2 is now at 5 deg = 25 deg from the chute,
+    # outside the safety arc. The eject is allowed.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(
-                _track(track_id=1, global_id=1, angle_deg=180.0),
-                _track(track_id=2, global_id=2, angle_deg=155.0),
+                _track(track_id=1, global_id=1, angle_deg=30.0),
+                _track(track_id=2, global_id=2, angle_deg=5.0),
             ),
             capacity_downstream=0,
         ),

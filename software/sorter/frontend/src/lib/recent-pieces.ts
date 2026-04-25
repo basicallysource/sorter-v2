@@ -5,31 +5,25 @@ export type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distribu
 export function hasC4Evidence(obj: KnownObjectData): boolean {
 	return Boolean(
 		obj.carousel_detected_confirmed_at ||
-			obj.first_carousel_seen_ts ||
-			obj.carousel_snapping_started_at ||
-			obj.carousel_snapping_completed_at ||
-			obj.classified_at ||
-			typeof obj.classification_channel_zone_center_deg === 'number' ||
-			obj.classification_channel_zone_state
+		obj.first_carousel_seen_ts ||
+		obj.carousel_snapping_started_at ||
+		obj.carousel_snapping_completed_at ||
+		obj.classified_at ||
+		typeof obj.classification_channel_zone_center_deg === 'number' ||
+		obj.classification_channel_zone_state
 	);
 }
 
 export function hasRecentPiecePreview(obj: KnownObjectData): boolean {
 	return Boolean(
-		obj.thumbnail ||
-			obj.top_image ||
-			obj.bottom_image ||
-			obj.preview_jpeg_path ||
-			obj.drop_snapshot
+		obj.thumbnail || obj.top_image || obj.bottom_image || obj.preview_jpeg_path || obj.drop_snapshot
 	);
 }
 
 export function hasRecentPieceIdentity(obj: KnownObjectData): boolean {
 	return (
 		(obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) ||
-		Boolean(
-			obj.first_carousel_seen_ts || obj.carousel_detected_confirmed_at
-		)
+		Boolean(obj.first_carousel_seen_ts || obj.carousel_detected_confirmed_at)
 	);
 }
 
@@ -79,9 +73,8 @@ export function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
 	);
 }
 
-// Stable identity for a physical piece. The tracker global id is the physical
-// identity across dossier splits; uuid is only the fallback for legacy rows
-// without a tracked id.
+// Stable identity for a physical piece. Tracker ids are tracklet/debug data;
+// the physical aggregate is keyed by uuid.
 export function recentPhysicalKey(obj: KnownObjectData): string {
 	// Kept for back-compat: always returns *some* string. Prefer
 	// `recentPhysicalKeyOrNull` in new code so callers can drop items without
@@ -90,9 +83,6 @@ export function recentPhysicalKey(obj: KnownObjectData): string {
 }
 
 export function recentPhysicalKeyOrNull(obj: KnownObjectData): string | null {
-	if (obj?.tracked_global_id !== null && obj?.tracked_global_id !== undefined) {
-		return `gid:${obj.tracked_global_id}`;
-	}
 	if (obj?.uuid) return `uuid:${obj.uuid}`;
 	return null;
 }
@@ -115,10 +105,7 @@ export function capturedCropUrl(obj: KnownObjectData, base?: string | null): str
 // `piece_crops/<uuid>/seg<seq>/<kind>_<idx>.jpg` onto the API URL served by
 // `/api/piece-crops/{uuid}/seg{seq}/{kind}/{idx}.jpg`. Returns null on any
 // malformed input so callers fall back to a b64 payload or hide the tile.
-export function pieceCropUrl(
-	disk_path: string | null | undefined,
-	base: string
-): string | null {
+export function pieceCropUrl(disk_path: string | null | undefined, base: string): string | null {
 	if (typeof disk_path !== 'string' || disk_path.length === 0) return null;
 	const stripped = disk_path.replace(/^piece_crops\//, '');
 	const m = stripped.match(/^([^/]+)\/seg(\d+)\/(wedge|piece|snapshot|matrix)_(\d+)\.jpg$/);

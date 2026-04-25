@@ -34,6 +34,7 @@ from rt.events.topics import (
     PIECE_TRANSIT_LINKED,
 )
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
+from rt.pieces.identity import new_tracker_epoch, tracklet_payload
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
@@ -79,6 +80,7 @@ DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
 DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.25
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 45.0
+DEFAULT_TRACKLET_TRANSIT_TTL_S = 8.0
 
 
 class _C4State(str, Enum):
@@ -94,6 +96,11 @@ class _C4State(str, Enum):
 class _PieceDossier:
     piece_uuid: str
     global_id: int | None
+    tracklet_id: str | None
+    feed_id: str
+    tracker_key: str
+    tracker_epoch: str
+    raw_track_id: int | None
     intake_ts: float
     angle_at_intake_deg: float
     last_seen_mono: float
@@ -140,6 +147,8 @@ class RuntimeC4(BaseRuntime):
         track_transit: TrackTransitRegistry | None = None,
         runtime_id: str = "c4",
         feed_id: str = "c4_feed",
+        tracker_key: str | None = None,
+        tracker_epoch: str | None = None,
         classify_angle_deg: float = DEFAULT_CLASSIFY_ANGLE_DEG,
         exit_angle_deg: float = DEFAULT_EXIT_ANGLE_DEG,
         angle_tolerance_deg: float = DEFAULT_ANGLE_TOLERANCE_DEG,
@@ -271,6 +280,12 @@ class RuntimeC4(BaseRuntime):
         self._post_commit_cooldown_s = cooldown_ms / 1000.0
         self._bus = event_bus
         self._track_transit = track_transit
+        self._tracker_key = str(tracker_key or "unknown")
+        self._tracker_epoch = (
+            tracker_epoch.strip()
+            if isinstance(tracker_epoch, str) and tracker_epoch.strip()
+            else new_tracker_epoch()
+        )
         self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
@@ -322,6 +337,19 @@ class RuntimeC4(BaseRuntime):
     def set_handoff_port(self, port: HandoffPort | None) -> None:
         """Bind the downstream handoff surface (typically the distributor)."""
         self._handoff = port
+
+    def set_tracker_identity(
+        self,
+        *,
+        tracker_key: str | None,
+        tracker_epoch: str | None,
+    ) -> None:
+        """Attach the currently active perception-runner tracker identity."""
+
+        if isinstance(tracker_key, str) and tracker_key.strip():
+            self._tracker_key = tracker_key.strip()
+        if isinstance(tracker_epoch, str) and tracker_epoch.strip():
+            self._tracker_epoch = tracker_epoch.strip()
 
     def on_distributor_ready(self, piece_uuid: str) -> None:
         """Distributor positioned the chute; the next exit tick may eject."""
@@ -395,6 +423,7 @@ class RuntimeC4(BaseRuntime):
             {
                 "piece_uuid": dossier.piece_uuid,
                 "tracked_global_id": dossier.global_id,
+                **self._dossier_tracklet_payload(dossier),
                 "stage": "registered",
                 "classification_status": status,
                 "classification_channel_zone_state": "lost",
@@ -403,6 +432,7 @@ class RuntimeC4(BaseRuntime):
                 "dossier": {
                     "piece_uuid": dossier.piece_uuid,
                     "tracked_global_id": dossier.global_id,
+                    **self._dossier_tracklet_payload(dossier),
                     "classification_channel_zone_state": "lost",
                     "classification_channel_lost_at": now_wall,
                     "classification_channel_zone_center_deg": dossier.angle_at_intake_deg,
@@ -428,11 +458,13 @@ class RuntimeC4(BaseRuntime):
             source_global_id=dossier.global_id,
             target_runtime=self.runtime_id,
             now_mono=now,
-            ttl_s=8.0,
+            ttl_s=DEFAULT_TRACKLET_TRANSIT_TTL_S,
             piece_uuid=dossier.piece_uuid,
             relation="track_split",
             payload={
                 "previous_tracked_global_id": dossier.global_id,
+                "previous_tracklet_id": dossier.tracklet_id,
+                **self._dossier_tracklet_payload(dossier),
                 "dossier_result": dossier.result,
                 "classified_ts": dossier.classified_ts,
                 "reject_reason": dossier.reject_reason,
@@ -461,6 +493,9 @@ class RuntimeC4(BaseRuntime):
                 {
                     "piece_uuid": dossier.piece_uuid,
                     "global_id": dossier.global_id,
+                    "tracklet_id": dossier.tracklet_id,
+                    "tracker_key": dossier.tracker_key,
+                    "tracker_epoch": dossier.tracker_epoch,
                     "angle_deg": angle,
                     "classify_delta_deg": (
                         _wrap_deg(angle - self._classify_angle_deg)
@@ -486,6 +521,11 @@ class RuntimeC4(BaseRuntime):
             "startup_purge_commit_piece_uuid": self._startup_purge_state.commit_piece_uuid,
             "raw_detection_count": int(self._raw_detection_count),
             "transit_link_count": int(self._transit_link_count),
+            "tracker_identity": {
+                "feed_id": self.feed_id,
+                "tracker_key": self._tracker_key,
+                "tracker_epoch": self._tracker_epoch,
+            },
             "transit_candidates": (
                 self._track_transit.snapshot(time.monotonic())
                 if self._track_transit is not None
@@ -801,6 +841,7 @@ class RuntimeC4(BaseRuntime):
         if gid in self._track_to_piece:
             return False
         angle_deg = math.degrees(track.angle_rad)
+        tracklet = self._tracklet_payload_for_gid(gid)
         transit = self._claim_transit_for_track(
             track,
             now_mono=now_mono,
@@ -830,6 +871,15 @@ class RuntimeC4(BaseRuntime):
         dossier = _PieceDossier(
             piece_uuid=piece_uuid,
             global_id=gid,
+            tracklet_id=(
+                str(tracklet["tracklet_id"])
+                if isinstance(tracklet.get("tracklet_id"), str)
+                else None
+            ),
+            feed_id=str(tracklet.get("feed_id") or self.feed_id),
+            tracker_key=str(tracklet.get("tracker_key") or self._tracker_key),
+            tracker_epoch=str(tracklet.get("tracker_epoch") or self._tracker_epoch),
+            raw_track_id=gid,
             intake_ts=now_mono,
             angle_at_intake_deg=angle_deg,
             last_seen_mono=now_mono,
@@ -852,6 +902,8 @@ class RuntimeC4(BaseRuntime):
             {
                 "piece_uuid": piece_uuid,
                 "tracked_global_id": gid,
+                "current_tracklet_id": tracklet.get("tracklet_id"),
+                **tracklet,
                 "angle_at_intake_deg": angle_deg,
                 "intake_ts_mono": now_mono,
                 "confirmed_real": True,
@@ -864,6 +916,8 @@ class RuntimeC4(BaseRuntime):
                 "dossier": {
                     "piece_uuid": piece_uuid,
                     "tracked_global_id": gid,
+                    "current_tracklet_id": tracklet.get("tracklet_id"),
+                    **tracklet,
                     "classification_channel_zone_state": "active",
                     "classification_channel_zone_center_deg": angle_deg,
                     "classification_channel_exit_deg": self._exit_angle_deg,
@@ -879,6 +933,26 @@ class RuntimeC4(BaseRuntime):
         if transit is not None:
             self._publish_transit_link(piece_uuid, gid, transit, now_mono=now_mono)
         return True
+
+    def _tracklet_payload_for_gid(self, gid: int) -> dict[str, Any]:
+        return tracklet_payload(
+            feed_id=self.feed_id or "c4_feed",
+            tracker_key=self._tracker_key,
+            tracker_epoch=self._tracker_epoch,
+            raw_track_id=int(gid),
+        )
+
+    def _dossier_tracklet_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "feed_id": dossier.feed_id,
+            "tracker_key": dossier.tracker_key,
+            "tracker_epoch": dossier.tracker_epoch,
+            "raw_track_id": dossier.raw_track_id,
+        }
+        if dossier.tracklet_id:
+            payload["tracklet_id"] = dossier.tracklet_id
+            payload["current_tracklet_id"] = dossier.tracklet_id
+        return payload
 
     def _claim_transit_for_track(
         self,
@@ -964,6 +1038,7 @@ class RuntimeC4(BaseRuntime):
                 "previous_tracked_global_id",
                 transit.source_global_id,
             ),
+            "previous_tracklet_id": transit.payload.get("previous_tracklet_id"),
         }
 
     def _classification_payload(
@@ -999,6 +1074,7 @@ class RuntimeC4(BaseRuntime):
             {
                 "piece_uuid": piece_uuid,
                 "tracked_global_id": tracked_global_id,
+                **self._tracklet_payload_for_gid(tracked_global_id),
                 "stage": "registered",
                 **self._transit_payload(transit),
             },
@@ -1087,6 +1163,7 @@ class RuntimeC4(BaseRuntime):
             payload: dict[str, Any] = {
                 "piece_uuid": dossier.piece_uuid,
                 "tracked_global_id": dossier.global_id,
+                **self._dossier_tracklet_payload(dossier),
                 "classified_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "classified",
@@ -1097,6 +1174,7 @@ class RuntimeC4(BaseRuntime):
                 "dossier": {
                     "piece_uuid": dossier.piece_uuid,
                     "tracked_global_id": dossier.global_id,
+                    **self._dossier_tracklet_payload(dossier),
                     "classification_channel_zone_state": "active",
                     "part_id": result.part_id if result else None,
                     "part_name": result_meta.get("name"),
@@ -1193,6 +1271,7 @@ class RuntimeC4(BaseRuntime):
         return {
             "piece_uuid": dossier.piece_uuid,
             "tracked_global_id": dossier.global_id,
+            **self._dossier_tracklet_payload(dossier),
             "angle_at_intake_deg": dossier.angle_at_intake_deg,
             "intake_ts_mono": dossier.intake_ts,
             "classified_ts_mono": dossier.classified_ts,

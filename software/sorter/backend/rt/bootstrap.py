@@ -72,6 +72,8 @@ class FeedAnnotationSnapshot:
 
     feed_id: str
     zone: Zone | None
+    tracker_key: str | None = None
+    tracker_epoch: str | None = None
     tracks: tuple[Track, ...] = ()
     shadow_tracks: tuple[Track, ...] = ()
 
@@ -124,6 +126,7 @@ class RtRuntimeHandle:
     # could not be built. Observable via /api/rt/status; never fatal.
     skipped_roles: list[dict[str, str]] = field(default_factory=list)
     sample_collector: AuxiliaryTeacherSampleCollector | None = None
+    segment_recorder: Any | None = None
     # Back-reference needed for runner rebuilds after config changes.
     camera_service: Any | None = None
     _rebuild_lock: threading.Lock = field(default_factory=threading.Lock)
@@ -193,6 +196,15 @@ class RtRuntimeHandle:
                 logging.getLogger("rt.bootstrap").exception(
                     "RtRuntimeHandle: perception runner stop raised"
                 )
+        close_recorder = getattr(self.segment_recorder, "close", None)
+        if callable(close_recorder):
+            try:
+                close_recorder()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: segment recorder close raised"
+                )
+            self.segment_recorder = None
         try:
             self.event_bus.stop()
         except Exception:
@@ -296,8 +308,14 @@ class RtRuntimeHandle:
 
         tracks: tuple[Track, ...] = ()
         shadow_tracks: tuple[Track, ...] = ()
+        tracker_key: str | None = None
+        tracker_epoch: str | None = None
         runner = self.runner_for_feed(feed_id)
         if runner is not None:
+            identity_fn = getattr(runner, "tracker_identity", None)
+            identity = identity_fn() if callable(identity_fn) else {}
+            tracker_key = identity.get("tracker_key")
+            tracker_epoch = identity.get("tracker_epoch")
             latest_state = getattr(runner, "latest_state", None)
             state = latest_state() if callable(latest_state) else None
             raw_tracks = getattr(state, "raw_tracks", None)
@@ -321,6 +339,8 @@ class RtRuntimeHandle:
         return FeedAnnotationSnapshot(
             feed_id=feed_id,
             zone=zone,
+            tracker_key=tracker_key,
+            tracker_epoch=tracker_epoch,
             tracks=tracks,
             shadow_tracks=shadow_tracks,
         )
@@ -544,6 +564,27 @@ class RtRuntimeHandle:
                 # Ensure any lingering zone entry is cleared.
                 self.feed_zones.pop(feed_id, None)
                 return None
+            if role == "c4":
+                old_recorder = self.segment_recorder
+                close_recorder = getattr(old_recorder, "close", None)
+                if callable(close_recorder):
+                    try:
+                        close_recorder()
+                    except Exception:
+                        log.exception(
+                            "rt.bootstrap.rebuild[%s]: segment_recorder.close raised",
+                            role,
+                        )
+                try:
+                    from rt.perception.segment_recorder import install as install_segment_recording
+
+                    self.segment_recorder = install_segment_recording(self.event_bus, runner)
+                except Exception:
+                    self.segment_recorder = None
+                    log.exception(
+                        "rt.bootstrap.rebuild[%s]: segment recorder install failed",
+                        role,
+                    )
             # Install and (if the runtime is live) start it so perception is
             # continuous, not on-demand.
             self.perception_runners.append(runner)
@@ -569,6 +610,21 @@ class RtRuntimeHandle:
                     role,
                     exc_info=True,
                 )
+            if role == "c4":
+                identity_fn = getattr(runner, "tracker_identity", None)
+                identity = identity_fn() if callable(identity_fn) else {}
+                set_identity = getattr(self.c4, "set_tracker_identity", None)
+                if callable(set_identity):
+                    try:
+                        set_identity(
+                            tracker_key=identity.get("tracker_key"),
+                            tracker_epoch=identity.get("tracker_epoch"),
+                        )
+                    except Exception:
+                        log.exception(
+                            "rt.bootstrap.rebuild[%s]: c4.set_tracker_identity raised",
+                            role,
+                        )
             return runner
 
 
@@ -603,6 +659,7 @@ def build_rt_runtime(
     feed_zones: dict[str, Zone] = {}
     perception_sources: dict[str, PerceptionRunner] = {}
     skipped_roles: list[dict[str, str]] = []
+    segment_recorder: Any | None = None
 
     for role in ("c2", "c3", "c4"):
         runner, zone, reason = build_perception_runner_for_role(
@@ -626,7 +683,7 @@ def build_rt_runtime(
         if role == "c4":
             from rt.perception.segment_recorder import install as install_segment_recording
 
-            install_segment_recording(bus, runner)
+            segment_recorder = install_segment_recording(bus, runner)
 
     # ------------------------------------------------------------------
     # Cross-cutting subscribers (persistence / projections). Install after
@@ -974,6 +1031,14 @@ def build_rt_runtime(
                 return len(tracks)
         return 0
 
+    c4_runner = perception_sources.get("c4_feed")
+    c4_tracker_identity_fn = (
+        getattr(c4_runner, "tracker_identity", None) if c4_runner is not None else None
+    )
+    c4_tracker_identity = (
+        c4_tracker_identity_fn() if callable(c4_tracker_identity_fn) else {}
+    )
+
     c4 = RuntimeC4(
         upstream_slot=slots[("c3", "c4")],
         downstream_slot=slots[("c4", "distributor")],
@@ -995,6 +1060,8 @@ def build_rt_runtime(
         logger=log,
         event_bus=bus,
         track_transit=track_transit,
+        tracker_key=c4_tracker_identity.get("tracker_key"),
+        tracker_epoch=c4_tracker_identity.get("tracker_epoch"),
         state_observer=_state_observer,
         classify_angle_deg=classify_angle,
         exit_angle_deg=drop_angle,
@@ -1103,6 +1170,7 @@ def build_rt_runtime(
         skipped_roles=skipped_roles,
         camera_service=camera_service,
         motion_diagnostics=motion_diagnostics,
+        segment_recorder=segment_recorder,
     )
     handle.sample_collector = AuxiliaryTeacherSampleCollector(
         runner_provider=lambda: list(handle.perception_runners),

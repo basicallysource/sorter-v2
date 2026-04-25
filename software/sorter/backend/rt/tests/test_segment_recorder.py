@@ -61,25 +61,36 @@ class SegmentRecorderTests(unittest.TestCase):
             piece_uuid="piece-fast-crops",
             tracked_global_id=42,
             now_mono=1.0,
+            tracklet_id="c4_feed:botsort_reid:epoch-test:42",
+            feed_id="c4_feed",
+            tracker_key="botsort_reid",
+            tracker_epoch="epoch-test",
+            raw_track_id=42,
         )
 
-        with (
-            mock.patch.object(segment_recorder, "write_piece_crop", return_value=None),
-            mock.patch.object(
-                segment_recorder,
-                "remember_piece_segment",
-                side_effect=lambda _uuid, _role, _seq, payload: payloads.append(payload),
-            ),
-            mock.patch.object(segment_recorder, "refresh_piece_preview_and_push"),
-        ):
-            recorder.on_frame(_frame(1.00, 0), _tracks(1.00, 0, 0.0))
-            recorder.on_frame(_frame(1.03, 1), _tracks(1.03, 1, 0.5))
-            recorder.on_frame(_frame(1.04, 2), _tracks(1.04, 2, 2.0))
-            recorder.on_frame(_frame(1.13, 3), _tracks(1.13, 3, 2.1))
-            recorder.flush_snapshot("piece-fast-crops")
+        try:
+            with (
+                mock.patch.object(segment_recorder, "write_piece_crop", return_value=None),
+                mock.patch.object(
+                    segment_recorder,
+                    "remember_piece_segment",
+                    side_effect=lambda _uuid, _role, _seq, payload: payloads.append(payload),
+                ),
+                mock.patch.object(segment_recorder, "refresh_piece_preview_and_push"),
+            ):
+                recorder.on_frame(_frame(1.00, 0), _tracks(1.00, 0, 0.0))
+                recorder.on_frame(_frame(1.03, 1), _tracks(1.03, 1, 0.5))
+                recorder.on_frame(_frame(1.04, 2), _tracks(1.04, 2, 2.0))
+                recorder.on_frame(_frame(1.13, 3), _tracks(1.13, 3, 2.1))
+                recorder.flush_snapshot("piece-fast-crops")
+        finally:
+            recorder.close()
 
         self.assertEqual(1, len(payloads))
         sectors = payloads[0]["sector_snapshots"]
+        self.assertEqual(42, payloads[0]["tracked_global_id"])
+        self.assertEqual("c4_feed:botsort_reid:epoch-test:42", payloads[0]["tracklet_id"])
+        self.assertEqual("botsort_reid", payloads[0]["tracker_key"])
         self.assertEqual(3, len(sectors))
         self.assertEqual(
             "piece_crops/piece-fast-crops/seg0/wedge_000.jpg",

@@ -577,10 +577,7 @@
 		{:else}
 			<!-- Crumb: a single terse bar so the actual content can breathe. -->
 			<div class="flex items-center gap-3 text-xs text-text-muted">
-				<a
-					href="/tracked"
-					class="inline-flex items-center gap-1 hover:text-text"
-				>
+				<a href="/tracked" class="inline-flex items-center gap-1 hover:text-text">
 					<ArrowLeft size={13} />
 					Tracked pieces
 				</a>
@@ -591,9 +588,11 @@
 			<!-- Verdict: observation ↔ identity+bin ↔ reference, answered on a glance. -->
 			<section class="verdict border border-border bg-surface">
 				<!-- Observation -->
-				<div class="flex flex-col border-b border-border lg:border-b-0 lg:border-r">
-					<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-muted">
-						<span class="inline-flex items-center gap-1.5 uppercase tracking-wider">
+				<div class="flex flex-col border-b border-border lg:border-r lg:border-b-0">
+					<div
+						class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-muted"
+					>
+						<span class="inline-flex items-center gap-1.5 tracking-wider uppercase">
 							<ImageIcon size={12} />
 							Observed
 						</span>
@@ -619,7 +618,9 @@
 							/>
 						</button>
 					{:else}
-						<div class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted">
+						<div
+							class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted"
+						>
 							No crop yet
 						</div>
 					{/if}
@@ -630,15 +631,15 @@
 					<div class="flex flex-col gap-2">
 						<div class="flex flex-wrap items-start gap-2">
 							<span
-								class={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${statusChipClass(piece)}`}
+								class={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase ${statusChipClass(piece)}`}
 							>
 								{statusLabel(piece)}
 							</span>
 							{#if piece.tracked_global_id != null}
 								<a
-									href={`/tracked/${piece.tracked_global_id}`}
-									class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 text-[10px] font-mono text-text-muted hover:border-primary/60 hover:text-text"
-									title="Open tracker-level record (all angular crops)"
+									href={`/tracked/${piece.uuid}`}
+									class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text-muted hover:border-primary/60 hover:text-text"
+									title="Open piece record"
 								>
 									<Route size={11} />
 									Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
@@ -646,7 +647,9 @@
 							{/if}
 						</div>
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							<span class="font-mono text-3xl font-semibold tracking-[-0.02em] text-text tabular-nums">
+							<span
+								class="font-mono text-3xl font-semibold tracking-[-0.02em] text-text tabular-nums"
+							>
 								{piece.part_id ?? '—'}
 							</span>
 							<span class="detail-title text-lg text-text-muted">
@@ -655,19 +658,20 @@
 						</div>
 						<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
 							<span>
-								<span class="uppercase tracking-wider">Color</span>
+								<span class="tracking-wider uppercase">Color</span>
 								<strong class="ml-1 font-normal text-text">
 									{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
 								</strong>
 							</span>
 							<span>
-								<span class="uppercase tracking-wider">Category</span>
+								<span class="tracking-wider uppercase">Category</span>
 								<strong class="ml-1 font-normal text-text">{category_label ?? '—'}</strong>
 							</span>
 							{#if piece.brickognize_source_view}
 								<span>
-									<span class="uppercase tracking-wider">View</span>
-									<strong class="ml-1 font-normal text-text">{piece.brickognize_source_view}</strong>
+									<span class="tracking-wider uppercase">View</span>
+									<strong class="ml-1 font-normal text-text">{piece.brickognize_source_view}</strong
+									>
 								</span>
 							{/if}
 						</div>
@@ -675,7 +679,7 @@
 
 					<div class="grid gap-3 sm:grid-cols-2">
 						<div class="flex flex-col gap-1">
-							<span class="text-[10px] uppercase tracking-wider text-text-muted">Confidence</span>
+							<span class="text-[10px] tracking-wider text-text-muted uppercase">Confidence</span>
 							{#if typeof piece.confidence === 'number'}
 								<div class="flex items-center gap-2">
 									<div class="confidence-track h-1.5 flex-1 bg-bg">
@@ -684,7 +688,9 @@
 											style="width: {Math.max(0, Math.min(100, piece.confidence * 100))}%"
 										></div>
 									</div>
-									<span class={`font-mono text-sm tabular-nums ${confidenceClass(piece.confidence)}`}>
+									<span
+										class={`font-mono text-sm tabular-nums ${confidenceClass(piece.confidence)}`}
+									>
 										{(piece.confidence * 100).toFixed(0)}%
 									</span>
 								</div>
@@ -693,9 +699,11 @@
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
-							<span class="text-[10px] uppercase tracking-wider text-text-muted">Destination</span>
+							<span class="text-[10px] tracking-wider text-text-muted uppercase">Destination</span>
 							{#if bin_label}
-								<span class="font-mono text-lg font-semibold text-text tabular-nums">{bin_label}</span>
+								<span class="font-mono text-lg font-semibold text-text tabular-nums"
+									>{bin_label}</span
+								>
 							{:else if is_unknown || is_multi_drop}
 								<span class="font-mono text-lg font-semibold text-warning-dark">discard</span>
 							{:else}
@@ -707,7 +715,9 @@
 
 				<!-- Reference -->
 				<div class="flex flex-col border-t border-border lg:border-t-0 lg:border-l">
-					<div class="border-b border-border bg-bg px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
+					<div
+						class="border-b border-border bg-bg px-3 py-1.5 text-xs font-medium tracking-wider text-text-muted uppercase"
+					>
 						Reference
 					</div>
 					{#if recognizerImageSrc}
@@ -724,7 +734,9 @@
 							/>
 						</button>
 					{:else}
-						<div class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted">
+						<div
+							class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted"
+						>
 							No reference
 						</div>
 					{/if}
@@ -733,12 +745,15 @@
 
 			<!-- Evidence: all the crops the system saw, chronological, full-width. -->
 			<section class="border border-border bg-surface">
-				<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5">
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
+				>
 					<div class="flex items-baseline gap-2">
-						<span class="text-xs font-semibold uppercase tracking-wider text-text">Evidence</span>
+						<span class="text-xs font-semibold tracking-wider text-text uppercase">Evidence</span>
 						<span class="font-mono text-xs text-text-muted tabular-nums">
 							{crops.length} crop{crops.length === 1 ? '' : 's'}
-							{#if usedCropCount > 0} · {usedCropCount} shipped{/if}
+							{#if usedCropCount > 0}
+								· {usedCropCount} shipped{/if}
 						</span>
 					</div>
 					{#if usedCropCount > 0}
@@ -750,7 +765,9 @@
 				</div>
 				<div class="crop-strip flex gap-2 overflow-x-auto p-2">
 					{#if crops.length === 0}
-						<div class="flex h-40 min-w-full items-center justify-center border border-dashed border-border bg-bg text-sm text-text-muted">
+						<div
+							class="flex h-40 min-w-full items-center justify-center border border-dashed border-border bg-bg text-sm text-text-muted"
+						>
 							No crops available.
 						</div>
 					{:else}
@@ -760,7 +777,9 @@
 								class={`group flex w-32 flex-shrink-0 flex-col overflow-hidden bg-bg text-left transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
 									crop.used ? 'border-2 border-primary' : 'border border-border'
 								}`}
-								title={crop.used ? 'Shipped to Brickognize for classification' : formatRole(crop.role)}
+								title={crop.used
+									? 'Shipped to Brickognize for classification'
+									: formatRole(crop.role)}
 								onclick={() => (zoomImage = { src: crop.src, label: formatRole(crop.role) })}
 							>
 								<div class="flex h-32 w-full items-center justify-center bg-white p-1">
@@ -789,19 +808,27 @@
 				<section class="grid gap-3 md:grid-cols-3">
 					{#if burstFrames.length > 0}
 						<div class="overflow-hidden border border-border bg-surface">
-							<div class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5">
+							<div
+								class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
+							>
 								<div class="flex items-baseline gap-2">
-									<span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text">
+									<span
+										class="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-text uppercase"
+									>
 										<Camera size={12} />
 										Matrix-Shot
 									</span>
 									<span class="font-mono text-xs text-text-muted tabular-nums">
-										{burstFrames.length} frame{burstFrames.length === 1 ? '' : 's'}{#if burstDurationLabel}
+										{burstFrames.length} frame{burstFrames.length === 1
+											? ''
+											: 's'}{#if burstDurationLabel}
 											· {burstDurationLabel}{/if}
 									</span>
 								</div>
 								{#if selectedBurstFrame && !burstFrameCropSrc(selectedBurstFrame)}
-									<span class="border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-warning-dark">
+									<span
+										class="border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] tracking-wider text-warning-dark uppercase"
+									>
 										full frame
 									</span>
 								{/if}
@@ -828,21 +855,28 @@
 										</button>
 									{/if}
 								</div>
-								<div class="flex items-center justify-between border-t border-border px-3 py-1 text-[11px]">
+								<div
+									class="flex items-center justify-between border-t border-border px-3 py-1 text-[11px]"
+								>
 									<span class="font-mono text-text-muted tabular-nums">
-										{formatAbsTs(selectedBurstFrame.captured_ts)} · {selectedBurstIdx + 1}/{burstFrames.length}
+										{formatAbsTs(selectedBurstFrame.captured_ts)} · {selectedBurstIdx +
+											1}/{burstFrames.length}
 									</span>
 									<span class="text-text-muted">
 										{#if burstFrameCropSrc(selectedBurstFrame)}cropped piece{:else}crop pending{/if}
 									</span>
 								</div>
-								<div class="filmstrip flex gap-1 overflow-x-auto border-t border-border bg-surface px-2 py-1.5">
+								<div
+									class="filmstrip flex gap-1 overflow-x-auto border-t border-border bg-surface px-2 py-1.5"
+								>
 									{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
 										{@const frameSrc = burstFrameDisplaySrc(frame)}
 										<button
 											type="button"
 											class={`group flex h-14 w-20 flex-shrink-0 items-center justify-center bg-bg transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
-												idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
+												idx === selectedBurstIdx
+													? 'border-2 border-primary'
+													: 'border border-border'
 											}`}
 											onclick={() => (selectedBurstIdx = idx)}
 											title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
@@ -864,12 +898,16 @@
 
 					{#if piece.tracked_global_id != null}
 						<div class="overflow-hidden border border-border bg-surface md:col-span-2">
-							<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5">
-								<span class="text-xs font-semibold uppercase tracking-wider text-text">Track path</span>
+							<div
+								class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5"
+							>
+								<span class="text-xs font-semibold tracking-wider text-text uppercase"
+									>Track path</span
+								>
 								<a
-									href={`/tracked/${piece.tracked_global_id}`}
+									href={`/tracked/${piece.uuid}`}
 									class="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-text"
-									title="Open the full tracker record"
+									title="Open the piece record"
 								>
 									<ExternalLink size={12} />
 									#{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
@@ -884,14 +922,18 @@
 			{/if}
 
 			<!-- Diagnostics: dense key-value bar for debugging; low visual priority. -->
-			<section class="flex flex-wrap gap-x-5 gap-y-1 border border-border bg-surface px-3 py-2 text-xs">
+			<section
+				class="flex flex-wrap gap-x-5 gap-y-1 border border-border bg-surface px-3 py-2 text-xs"
+			>
 				<span class="flex items-baseline gap-1.5">
-					<span class="uppercase tracking-wider text-text-muted">Stage</span>
+					<span class="tracking-wider text-text-muted uppercase">Stage</span>
 					<strong class="font-mono font-normal text-text">{piece.stage}</strong>
 				</span>
 				<span class="flex items-baseline gap-1.5">
-					<span class="uppercase tracking-wider text-text-muted">Motion sync</span>
-					<strong class={`font-mono font-normal tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}>
+					<span class="tracking-wider text-text-muted uppercase">Motion sync</span>
+					<strong
+						class={`font-mono font-normal tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}
+					>
 						{formatSyncPercent(piece.carousel_motion_sync_ratio)}
 					</strong>
 					<span class="text-text-muted">
@@ -902,15 +944,15 @@
 				</span>
 				{#if typeof piece.first_carousel_seen_angle_deg === 'number'}
 					<span class="flex items-baseline gap-1.5">
-						<span class="uppercase tracking-wider text-text-muted">First angle</span>
-						<strong class="font-mono font-normal tabular-nums text-text">
+						<span class="tracking-wider text-text-muted uppercase">First angle</span>
+						<strong class="font-mono font-normal text-text tabular-nums">
 							{piece.first_carousel_seen_angle_deg.toFixed(1)}°
 						</strong>
 					</span>
 				{/if}
 				<span class="flex items-baseline gap-1.5">
-					<span class="uppercase tracking-wider text-text-muted">UUID</span>
-					<strong class="font-mono font-normal tabular-nums text-text">{uuid}</strong>
+					<span class="tracking-wider text-text-muted uppercase">UUID</span>
+					<strong class="font-mono font-normal text-text tabular-nums">{uuid}</strong>
 				</span>
 			</section>
 		{/if}

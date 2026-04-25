@@ -23,7 +23,7 @@ import numpy as np
 from blob_manager import write_piece_crop
 from local_state import remember_piece_segment
 
-from rt.contracts.events import Event, EventBus
+from rt.contracts.events import Event, EventBus, Subscription
 from rt.contracts.feed import FeedFrame
 from rt.contracts.tracking import TrackBatch
 from rt.events.topics import (
@@ -107,6 +107,11 @@ class _Recording:
     tracked_global_id: int
     first_seen_ts: float
     last_seen_ts: float
+    tracklet_id: str | None = None
+    feed_id: str | None = None
+    tracker_key: str | None = None
+    tracker_epoch: str | None = None
+    raw_track_id: int | None = None
     hit_count: int = 0
     path: list[list[float]] = field(default_factory=list)
     sectors: dict[int, _SectorSnapshot] = field(default_factory=dict)
@@ -157,6 +162,7 @@ class SegmentRecorder:
             target=self._heartbeat_loop, name="SegmentRecorderHeartbeat", daemon=True
         )
         self._heartbeat_thread.start()
+        self._subscriptions: list[Subscription] = []
 
     # ---- Public API ----------------------------------------------------
 
@@ -176,6 +182,11 @@ class SegmentRecorder:
         piece_uuid: str,
         tracked_global_id: int,
         now_mono: float,
+        tracklet_id: str | None = None,
+        feed_id: str | None = None,
+        tracker_key: str | None = None,
+        tracker_epoch: str | None = None,
+        raw_track_id: int | None = None,
     ) -> None:
         with self._lock:
             rec = self._records.get(piece_uuid)
@@ -185,8 +196,28 @@ class SegmentRecorder:
                     tracked_global_id=int(tracked_global_id),
                     first_seen_ts=float(now_mono),
                     last_seen_ts=float(now_mono),
+                    tracklet_id=tracklet_id,
+                    feed_id=feed_id,
+                    tracker_key=tracker_key,
+                    tracker_epoch=tracker_epoch,
+                    raw_track_id=(
+                        int(raw_track_id)
+                        if isinstance(raw_track_id, int)
+                        else int(tracked_global_id)
+                    ),
                 )
                 self._records[piece_uuid] = rec
+            else:
+                if tracklet_id:
+                    rec.tracklet_id = tracklet_id
+                if feed_id:
+                    rec.feed_id = feed_id
+                if tracker_key:
+                    rec.tracker_key = tracker_key
+                if tracker_epoch:
+                    rec.tracker_epoch = tracker_epoch
+                if isinstance(raw_track_id, int):
+                    rec.raw_track_id = raw_track_id
             self._track_to_piece[int(tracked_global_id)] = piece_uuid
             if self._polar_center is not None:
                 rec.channel_center_x = float(self._polar_center[0])
@@ -320,6 +351,11 @@ class SegmentRecorder:
                 tracked_global_id=rec.tracked_global_id,
                 first_seen_ts=rec.first_seen_ts,
                 last_seen_ts=rec.last_seen_ts,
+                tracklet_id=rec.tracklet_id,
+                feed_id=rec.feed_id,
+                tracker_key=rec.tracker_key,
+                tracker_epoch=rec.tracker_epoch,
+                raw_track_id=rec.raw_track_id,
                 hit_count=rec.hit_count,
                 path=list(rec.path),
                 sectors=dict(rec.sectors),
@@ -335,6 +371,28 @@ class SegmentRecorder:
                 last_wedge_ts=rec.last_wedge_ts,
             )
         self._persist(snapshot)
+
+    def set_subscriptions(self, subscriptions: list[Subscription]) -> None:
+        self._subscriptions = list(subscriptions)
+
+    def close(self) -> None:
+        """Detach event hooks and stop background workers."""
+
+        for subscription in list(self._subscriptions):
+            try:
+                subscription.unsubscribe()
+            except Exception:
+                _LOG.debug("segment_recorder: unsubscribe raised", exc_info=True)
+        self._subscriptions = []
+        self._heartbeat_stop.set()
+        if self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.join(timeout=1.0)
+        try:
+            self._queue.put(None, timeout=1.0)
+        except queue.Full:
+            _LOG.warning("segment_recorder: writer queue stayed full during close")
+        if self._writer_thread.is_alive():
+            self._writer_thread.join(timeout=1.0)
 
     # ---- Internals -----------------------------------------------------
 
@@ -455,6 +513,12 @@ class SegmentRecorder:
             "last_seen_ts": rec.last_seen_ts,
             "duration_s": duration_s,
             "hit_count": rec.hit_count,
+            "tracked_global_id": rec.tracked_global_id,
+            "tracklet_id": rec.tracklet_id,
+            "feed_id": rec.feed_id,
+            "tracker_key": rec.tracker_key,
+            "tracker_epoch": rec.tracker_epoch,
+            "raw_track_id": rec.raw_track_id,
             "path": rec.path,
             "sector_snapshots": sector_payloads,
             "sector_count": len(sector_payloads),
@@ -509,10 +573,28 @@ def install(
             if event.topic == PIECE_REGISTERED:
                 tracked_gid = payload.get("tracked_global_id")
                 if isinstance(tracked_gid, int):
+                    tracklet_id = payload.get("tracklet_id")
+                    if not isinstance(tracklet_id, str) or not tracklet_id.strip():
+                        tracklet_id = payload.get("current_tracklet_id")
                     recorder.begin_recording(
                         piece_uuid=piece_uuid,
                         tracked_global_id=tracked_gid,
                         now_mono=float(event.ts_mono),
+                        tracklet_id=tracklet_id
+                        if isinstance(tracklet_id, str) and tracklet_id.strip()
+                        else None,
+                        feed_id=payload.get("feed_id")
+                        if isinstance(payload.get("feed_id"), str)
+                        else None,
+                        tracker_key=payload.get("tracker_key")
+                        if isinstance(payload.get("tracker_key"), str)
+                        else None,
+                        tracker_epoch=payload.get("tracker_epoch")
+                        if isinstance(payload.get("tracker_epoch"), str)
+                        else None,
+                        raw_track_id=payload.get("raw_track_id")
+                        if isinstance(payload.get("raw_track_id"), int)
+                        else tracked_gid,
                     )
             elif event.topic == PIECE_CLASSIFIED:
                 recorder.flush_snapshot(piece_uuid)
@@ -523,8 +605,11 @@ def install(
                 "segment_recorder: hook raised for topic=%s", event.topic
             )
 
-    for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED):
+    subscriptions = [
         bus.subscribe(topic, _on_piece_event)
+        for topic in (PIECE_REGISTERED, PIECE_CLASSIFIED, PIECE_DISTRIBUTED)
+    ]
+    recorder.set_subscriptions(subscriptions)
     return recorder
 
 

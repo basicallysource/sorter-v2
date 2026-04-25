@@ -1424,6 +1424,8 @@ def _make_with_bus() -> tuple[RuntimeC4, CapacitySlot, _StubClassifier, list]:
         crop_provider=lambda _f, _t: b"crop",
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         event_bus=_Bus(),
+        tracker_key="botsort_reid",
+        tracker_epoch="epoch-test",
         angle_tolerance_deg=15.0,
         classify_angle_deg=90.0,
         exit_angle_deg=180.0,
@@ -1447,6 +1449,10 @@ def test_c4_publishes_piece_registered_on_intake() -> None:
     assert evt.source == "c4"
     assert isinstance(evt.payload.get("piece_uuid"), str)
     assert evt.payload["tracked_global_id"] == 55
+    assert evt.payload["tracklet_id"] == "c4_feed:botsort_reid:epoch-test:55"
+    assert evt.payload["current_tracklet_id"] == "c4_feed:botsort_reid:epoch-test:55"
+    assert evt.payload["tracker_key"] == "botsort_reid"
+    assert evt.payload["tracker_epoch"] == "epoch-test"
     assert evt.payload["confirmed_real"] is True
     assert evt.payload["stage"] == "registered"
     assert evt.payload["classification_status"] == "pending"
@@ -1454,6 +1460,7 @@ def test_c4_publishes_piece_registered_on_intake() -> None:
     nested = evt.payload.get("dossier")
     assert isinstance(nested, dict)
     assert nested.get("tracked_global_id") == 55
+    assert nested.get("tracklet_id") == "c4_feed:botsort_reid:epoch-test:55"
     assert nested.get("classification_channel_zone_state") == "active"
 
 
@@ -1476,6 +1483,7 @@ def test_c4_publishes_piece_classified_on_classifier_return() -> None:
     evt = classified[0]
     assert isinstance(evt.payload.get("piece_uuid"), str)
     assert evt.payload["tracked_global_id"] == 77
+    assert evt.payload["tracklet_id"] == "c4_feed:botsort_reid:epoch-test:77"
     assert evt.payload["stage"] == "classified"
     assert evt.payload["classification_status"] == "classified"
     assert evt.payload["classification_channel_zone_state"] == "active"
@@ -1506,6 +1514,7 @@ def test_c4_publishes_piece_lost_when_owned_track_evicted() -> None:
     evt = lost[0]
     assert evt.topic == "piece.registered"
     assert evt.payload["tracked_global_id"] == 88
+    assert evt.payload["tracklet_id"] == "c4_feed:botsort_reid:epoch-test:88"
     assert evt.payload["stage"] == "registered"
     assert evt.payload["classification_status"] == "pending"
     nested = evt.payload.get("dossier")

@@ -567,6 +567,12 @@ def get_tracked_pieces(
                 "piece": piece,
                 "tracked_global_id": tracked_global_id,
                 "global_id": tracked_global_id,
+                "current_tracklet_id": piece.get("current_tracklet_id")
+                or piece.get("tracklet_id"),
+                "feed_id": piece.get("feed_id"),
+                "tracker_key": piece.get("tracker_key"),
+                "tracker_epoch": piece.get("tracker_epoch"),
+                "raw_track_id": piece.get("raw_track_id"),
                 "live": live or is_active,
                 "active": is_active,
                 "polar_angle_deg": zone_center_deg,
@@ -600,13 +606,7 @@ def get_tracked_pieces(
 
 
 def _dedupe_tracked_piece_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Collapse split dossiers for the same physical track.
-
-    A C4 tracker split can publish several dossier UUIDs for one
-    ``tracked_global_id``. For the operator-facing Track Pieces view we keep
-    one active row and one historical row per global id, choosing the row with
-    the richest classification data while retaining the newest live position.
-    """
+    """Collapse rows by canonical piece UUID only."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     out: list[dict[str, Any]] = []
     for row in rows:
@@ -620,10 +620,6 @@ def _dedupe_tracked_piece_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 def _tracked_piece_row_identity(row: dict[str, Any]) -> str | None:
-    gid = row.get("tracked_global_id")
-    if isinstance(gid, int):
-        state = "active" if row.get("active") else "history"
-        return f"gid:{state}:{gid}"
     uuid = row.get("uuid")
     if isinstance(uuid, str) and uuid.strip():
         return f"uuid:{uuid}"

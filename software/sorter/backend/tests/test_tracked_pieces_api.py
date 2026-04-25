@@ -47,7 +47,7 @@ def _row(
     }
 
 
-def test_tracked_pieces_dedupes_active_splits_but_keeps_history() -> None:
+def test_tracked_pieces_keeps_reused_raw_gid_as_distinct_pieces() -> None:
     rows = [
         _row("pending-new", gid=7, active=True, status="pending", sort_ts=20.0, angle=35.0),
         _row(
@@ -72,14 +72,34 @@ def test_tracked_pieces_dedupes_active_splits_but_keeps_history() -> None:
 
     deduped = api_module._dedupe_tracked_piece_rows(rows)
 
-    assert len(deduped) == 2
-    active = next(row for row in deduped if row["active"])
-    history = next(row for row in deduped if not row["active"])
-    assert active["uuid"] == "classified-old"
-    assert active["piece"]["part_id"] == "3001"
-    assert active["sort_ts"] == 20.0
-    assert active["polar_angle_deg"] == 35.0
-    assert history["uuid"] == "distributed"
+    assert [row["uuid"] for row in deduped] == [
+        "pending-new",
+        "classified-old",
+        "distributed",
+    ]
+
+
+def test_tracked_pieces_dedupes_only_same_uuid() -> None:
+    rows = [
+        _row("piece-1", gid=7, active=True, status="pending", sort_ts=20.0, angle=35.0),
+        _row(
+            "piece-1",
+            gid=7,
+            active=True,
+            status="classified",
+            sort_ts=10.0,
+            part_id="3001",
+            angle=12.0,
+        ),
+    ]
+
+    deduped = api_module._dedupe_tracked_piece_rows(rows)
+
+    assert len(deduped) == 1
+    assert deduped[0]["uuid"] == "piece-1"
+    assert deduped[0]["piece"]["part_id"] == "3001"
+    assert deduped[0]["sort_ts"] == 20.0
+    assert deduped[0]["polar_angle_deg"] == 35.0
 
 
 def test_tracked_pieces_treats_lost_dossier_as_history(monkeypatch) -> None:

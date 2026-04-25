@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sorter Tracking Dataflow Report - 2026-04-25</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --panel: #ffffff;
+      --ink: #1f2528;
+      --muted: #687174;
+      --line: #d8d8d2;
+      --accent: #0055a4;
+      --good: #087443;
+      --warn: #9a6400;
+      --bad: #b42318;
+      --code: #eef2f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0; }
+    h1 { font-size: 32px; letter-spacing: 0; }
+    h2 { font-size: 22px; margin-top: 34px; padding-top: 10px; border-top: 1px solid var(--line); }
+    h3 { font-size: 16px; margin-top: 20px; }
+    p { margin: 10px 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      background: var(--code);
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .lede { color: var(--muted); font-size: 16px; max-width: 860px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 8px;
+    }
+    .metric, .finding, .flow, .note {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric strong { display: block; font-size: 24px; line-height: 1; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .finding { margin: 12px 0; }
+    .finding h3 { margin-top: 0; display: flex; gap: 8px; align-items: center; }
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      background: var(--accent);
+    }
+    .tag.bad { background: var(--bad); }
+    .tag.warn { background: var(--warn); }
+    .tag.good { background: var(--good); }
+    .flow { margin: 14px 0; }
+    .flow ol, .flow ul, .finding ul, .note ul { padding-left: 20px; margin: 8px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); background: #f0f1ee; }
+    tr:last-child td { border-bottom: 0; }
+    .small { color: var(--muted); font-size: 12px; }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      main { padding: 22px 14px 40px; }
+      h1 { font-size: 26px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Tracking Dataflow Report</h1>
+  <p class="lede">
+    Stand: 2026-04-25. Reine Code- und Datenanalyse, keine Live-Hardware-Probe.
+    Ziel: den Weg vom erkannten/getrackten Teil bis zu <code>Recent Pieces</code>
+    und <code>Tracked</code> transparent machen und die Instabilitaet einkreisen.
+  </p>
+
+  <div class="grid">
+    <div class="metric"><strong>331</strong><span>Dossiers in lokaler DB</span></div>
+    <div class="metric"><strong>11</strong><span>distinct <code>tracked_global_id</code></span></div>
+    <div class="metric"><strong>235</strong><span>Segment-Rows, alle mit <code>tracked_global_id=NULL</code></span></div>
+    <div class="metric"><strong>83</strong><span>Dossiers auf einer einzigen GID-Spur</span></div>
+  </div>
+
+  <h2>Kurzfazit</h2>
+  <div class="finding">
+    <h3><span class="tag bad">P0</span> Die UI-Instabilitaet ist sehr wahrscheinlich kein reines Detektionsproblem.</h3>
+    <p>
+      Der visuelle Tracker kann inzwischen gut sein, aber die Persistenz- und UI-Schicht bildet daraus noch keine stabile
+      physische Identitaet. Aktuell werden Dossiers primaer ueber <code>tracked_global_id</code> zusammengefuehrt, obwohl diese ID
+      im beobachteten lokalen Zustand massiv wiederverwendet oder gesplittet wird. Ergebnis: alte, neue, verlorene,
+      aktive und klassifizierte Dossiers liegen auf derselben GID-Spur und werden nachtraeglich ueberschrieben,
+      superseded oder dedupliziert.
+    </p>
+  </div>
+  <div class="finding">
+    <h3><span class="tag bad">P0</span> Segmentdaten verlieren beim Persistieren die Tracker-ID.</h3>
+    <p>
+      <code>SegmentRecorder</code> speichert intern <code>tracked_global_id</code>, schreibt diese ID aber nicht in das Payload fuer
+      <code>remember_piece_segment()</code>. Die DB-Spalte existiert, bleibt in der lokalen DB aber fuer alle 235 Segmente NULL.
+      Dadurch fehlt der wichtigste Rueckkanal, um Dossier, Trackverlauf und Preview stabil miteinander zu verheiraten.
+    </p>
+  </div>
+  <div class="finding">
+    <h3><span class="tag warn">P1</span> Recent Pieces und Tracked benutzen unterschiedliche Stabilitaetsmodelle.</h3>
+    <p>
+      Recent Pieces ist WebSocket-ring-buffer plus Live-Track-Poll-Fallback. Tracked ist DB-first Polling alle 2s.
+      Beide deduplizieren selbst nochmal nach GID, aber mit leicht anderen Regeln. Das macht die Anzeige empfindlich,
+      sobald ein Track kurz ohne Dossier existiert, ein Dossier verloren geht oder die gleiche GID spaeter wieder auftaucht.
+    </p>
+  </div>
+
+  <h2>Der aktuelle Datenweg</h2>
+  <div class="flow">
+    <h3>1. Frame, Detection, Tracking</h3>
+    <ol>
+      <li><code>runner_builder.py</code> baut pro Rolle <code>c2</code>, <code>c3</code>, <code>c4</code> einen <code>CameraFeed</code>, Detector und Tracker.</li>
+      <li>Default-Primary-Tracker ist <code>botsort_reid</code>. Shadow-Tracker ist standardmaessig <code>turntable_groundplane</code>, sofern nicht per Env deaktiviert.</li>
+      <li><code>PerceptionPipeline.process_frame_state()</code> macht: <code>detector.detect()</code> -> <code>tracker.update()</code> -> optional <code>segment_recorder.on_frame()</code> -> <code>filters.apply()</code>.</li>
+      <li><code>PerceptionRunner</code> haelt <code>latest_state</code>, <code>latest_tracks</code> und <code>latest_shadow_tracks</code> und publiziert nur kompakte Track-Counts auf den Eventbus.</li>
+    </ol>
+    <p class="small">
+      Wichtige Dateien: <code>rt/perception/runner_builder.py</code>, <code>rt/perception/pipeline.py</code>,
+      <code>rt/perception/pipeline_runner.py</code>, <code>rt/perception/trackers/boxmot_reid.py</code>.
+    </p>
+  </div>
+
+  <div class="flow">
+    <h3>2. Aus Track wird C4-Dossier</h3>
+    <ol>
+      <li><code>RuntimeC4._tick_inner()</code> nimmt die frischen, nicht als Ghost markierten Tracks.</li>
+      <li><code>_admit_new_tracks()</code> registriert Tracks nahe der Intake-Zone. <code>_reconcile_visible_tracks()</code> kann nach Restart/Recovery stabile sichtbare Tracks nachregistrieren.</li>
+      <li><code>_register_piece_for_track()</code> erzeugt eine <code>piece_uuid</code>, setzt <code>global_id</code>, schreibt <code>_track_to_piece[gid] = piece_uuid</code> und publiziert <code>PIECE_REGISTERED</code>.</li>
+      <li>Wenn der Track an der Klassifizierungsposition ist, publiziert <code>_poll_classifier_futures()</code> spaeter <code>PIECE_CLASSIFIED</code>.</li>
+      <li>Beim Exit/Distributor-Handoff folgt <code>PIECE_DISTRIBUTED</code>; bei Trackverlust wird ein erneutes <code>PIECE_REGISTERED</code> mit <code>classification_channel_zone_state=lost</code> publiziert.</li>
+    </ol>
+    <p class="small">
+      Wichtige Datei: <code>rt/runtimes/c4.py</code>.
+    </p>
+  </div>
+
+  <div class="flow">
+    <h3>3. Eventbus -> SQLite -> WebSocket</h3>
+    <ol>
+      <li><code>rt/projections/piece_dossier.py</code> subscribed auf <code>PIECE_REGISTERED</code>, <code>PIECE_CLASSIFIED</code>, <code>PIECE_DISTRIBUTED</code>.</li>
+      <li>Der Subscriber flacht das Event in ein Dossier-Payload ab und ruft <code>local_state.remember_piece_dossier()</code>.</li>
+      <li><code>remember_piece_dossier()</code> upsertet in <code>piece_dossiers</code>, gemerged per <code>piece_uuid</code>. Falls ein neues aktives Dossier dieselbe GID hat, werden aktive Geschwister auf <code>superseded</code> gesetzt.</li>
+      <li>Danach wird das Dossier in den persistenten <code>recent_known_objects</code>-Ring gespiegelt und als <code>{tag: "known_object"}</code> ueber WebSocket gepusht.</li>
+    </ol>
+    <p class="small">
+      Wichtige Dateien: <code>rt/projections/piece_dossier.py</code>, <code>local_state.py</code>, <code>server/shared_state.py</code>.
+    </p>
+  </div>
+
+  <div class="flow">
+    <h3>4. Segment- und Crop-Pfad</h3>
+    <ol>
+      <li><code>SegmentRecorder.install()</code> haengt sich an den C4-Runner und subscribed ebenfalls auf die Piece-Lifecycle-Events.</li>
+      <li>Bei <code>PIECE_REGISTERED</code> startet <code>begin_recording(piece_uuid, tracked_global_id)</code>.</li>
+      <li>Bei jedem C4-Frame sucht <code>on_frame()</code> den Track per GID, sammelt Pfadpunkte und schreibt Snapshot/Wedge-JPEGs.</li>
+      <li>Heartbeat und Finalize persistieren in <code>piece_segments</code> und refreshen anschliessend Preview + WebSocket-Push.</li>
+    </ol>
+    <p class="small">
+      Defekt im Ist-Zustand: <code>SegmentRecorder._persist()</code> baut ein Payload ohne <code>tracked_global_id</code>.
+    </p>
+  </div>
+
+  <h2>UI-Quellen</h2>
+  <table>
+    <thead>
+      <tr><th>Anzeige</th><th>Quelle</th><th>Zusammenfuehrung</th><th>Risiko</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Recent Pieces</code></td>
+        <td>WebSocket <code>known_object</code> plus <code>/api/rt/tracks/c4_feed</code> Polling alle 500ms</td>
+        <td><code>recentPhysicalKeyOrNull()</code>: erst <code>tracked_global_id</code>, dann <code>uuid</code></td>
+        <td>Live-only Platzhalter koennen auftauchen, bevor ein Dossier existiert; Dossier-Events koennen dieselbe GID spaeter anders darstellen.</td>
+      </tr>
+      <tr>
+        <td><code>Tracked</code></td>
+        <td><code>GET /api/tracked/pieces</code>, Polling alle 2s</td>
+        <td>Backend dedupe nach <code>gid:active|history</code>, Frontend dedupe nochmal gleichartig</td>
+        <td>Wenn GIDs wiederverwendet werden, verschmelzen physisch verschiedene Teile in eine Zeile oder ersetzen einander.</td>
+      </tr>
+      <tr>
+        <td>Detailseite</td>
+        <td><code>GET /api/tracked/pieces/{uuid}</code>, DB-first</td>
+        <td>Fallback: numerische URL kann als <code>tracked_global_id</code> aufgeloest werden</td>
+        <td>Bei mehreren Dossiers je GID gewinnt <code>ORDER BY last_event_at DESC LIMIT 1</code>, also nicht zwingend das gemeinte Teil.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Konkrete Befunde</h2>
+  <div class="finding">
+    <h3><span class="tag bad">1</span> <code>tracked_global_id</code> ist als globale physische Identitaet aktuell zu schwach.</h3>
+    <p>
+      In <code>BotSortReIDTracker</code> ist <code>global_id=local_id</code>. <code>local_id</code> ist pro Tracker-Instanz und beginnt nach Reset wieder bei 1.
+      Die DB und UI behandeln diese ID aber ueber Session/History hinweg als physische Identitaet. Das erklaert die extremen Gruppen:
+      GID 20 hat 83 Dossiers, GID 8 hat 76, GID 15 hat 61.
+    </p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="tag bad">2</span> Supersede-Logik maskiert das Symptom, loest aber nicht die Identitaet.</h3>
+    <p>
+      <code>remember_piece_dossier()</code> setzt aktive Geschwister mit gleicher GID auf <code>superseded</code>.
+      Das ist sinnvoll gegen echte Track-Splits, wird aber toxisch, wenn dieselbe GID fuer viele physisch unterschiedliche Dossiers wiederverwendet wird.
+      Dann produziert die Persistenz eine lange Spur aus <code>superseded</code>, <code>lost</code>, <code>active</code> und <code>classified</code> fuer eine ID.
+    </p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="tag bad">3</span> Segmentdaten sind nicht als Identitaetsanker nutzbar.</h3>
+    <p>
+      Die Tabelle <code>piece_segments</code> hat eine <code>tracked_global_id</code>-Spalte und <code>remember_piece_segment()</code> kann sie schreiben.
+      Aber <code>SegmentRecorder._persist()</code> uebergibt sie nicht. Dadurch koennen Reports, Detailseiten und Audits nicht sauber pruefen:
+      "Welche Segmente gehoerten zu welcher Tracker-Spur?"
+    </p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="tag warn">4</span> Klassifizierungszeit wird teils mono, teils wall-clock gespeichert.</h3>
+    <p>
+      <code>RuntimeC4</code> legt im nested Dossier <code>classified_at=now_mono</code> ab, die Projection ueberschreibt bei <code>PIECE_CLASSIFIED</code>
+      top-level mit <code>time.time()</code>. Das Merge sollte meistens den Wall-Clock-Wert behalten, aber die Semantik ist fragil und im Detail schwer zu lesen.
+    </p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="tag warn">5</span> Ghosting ist nicht komplett weg, aber groesstenteils nicht mehr als Filter aktiv.</h3>
+    <p>
+      Der alte permanente Ignored-Regions-Kram wird beim DB-Init entfernt. Ein optionaler <code>ghost</code>-Filter wird nur aktiviert, wenn
+      <code>RT_GHOST_FILTER_ENABLED</code> gesetzt ist. Trotzdem tragen Tracker weiterhin <code>ghost</code> und <code>confirmed_real</code>, und UI/API filtern darauf.
+      Das ist okay als Signal, aber der Code sollte sprachlich und funktional klarer werden: "tracker reality signal" statt altes Ghosting-System.
+    </p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="tag warn">6</span> Der Observer-Run zeigt bereits die gleiche Richtung.</h3>
+    <p>
+      Der Run <code>2026-04-24_00-13-07_observed-sorter-run-2026-04-24</code> meldet:
+      <code>stale_classified_active_pieces</code>, <code>recent_candidates_without_active_zone</code> und
+      <code>c4_confirmed_tracks_without_active_dossiers</code>. Das passt zur Diagnose: Track-Realitaet und Dossier/UI-Realitaet laufen auseinander.
+    </p>
+  </div>
+
+  <h2>Empfohlener Plan</h2>
+  <div class="note">
+    <h3>Phase 1: Identitaet stabilisieren</h3>
+    <ul>
+      <li>Eine klare Identitaetshierarchie festlegen: <code>piece_uuid</code> ist persistente physische ID; <code>tracked_global_id</code> ist nur Laufzeit-Tracklet-ID innerhalb einer Runner-Generation.</li>
+      <li>Runner-/Tracker-Generation einfuehren, z. B. <code>tracker_session_id</code> oder <code>track_epoch</code>, und Dedupe niemals nur ueber nackte GID machen.</li>
+      <li><code>get_piece_dossier_by_tracked_global_id()</code> mindestens session-/epoch-aware machen oder fuer Detailrouting nicht mehr als primaeren Fallback nutzen.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h3>Phase 2: Segment-Persistenz reparieren</h3>
+    <ul>
+      <li><code>SegmentRecorder._persist()</code> muss <code>tracked_global_id: rec.tracked_global_id</code> ins Payload schreiben.</li>
+      <li>Migration/Backfill fuer existierende Segmente pruefen: moeglich ueber <code>piece_segments.piece_uuid -> piece_dossiers.tracked_global_id</code>, solange Dossier eindeutig ist.</li>
+      <li>Test ergaenzen: Segment nach <code>PIECE_REGISTERED</code> + Frame muss in SQLite die GID tragen.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h3>Phase 3: Eine Projection als UI-Quelle</h3>
+    <ul>
+      <li>Recent Pieces sollte langfristig nicht selbst live Track-Fallbacks erfinden. Besser: Backend liefert eine konsolidierte "C4 queue projection".</li>
+      <li><code>/api/tracked/pieces</code> und Recent Pieces sollten dieselbe Backend-Projektion verwenden, nur unterschiedlich begrenzt/gefiltert.</li>
+      <li>Live-only Anzeige nur als Debug-Layer markieren, nicht als normales Teil in der Operator-Liste.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h3>Phase 4: Alte Ghost-/Stub-Pfade entwirren</h3>
+    <ul>
+      <li>Optionalen <code>RT_GHOST_FILTER_ENABLED</code>-Pfad entweder bewusst behalten und dokumentieren oder entfernen.</li>
+      <li>UI-Funktionen wie <code>isGhostStub()</code> umbenennen/vereinfachen, damit sie keine alte Architektur semantisch weitertragen.</li>
+      <li>Die DB-Filter fuer Stubs auf die neue Identitaetsregel abstimmen: nicht "hat Segment" oder "confirmed_real", sondern "hat gueltiges Dossier in aktiver Tracker-Epoch".</li>
+    </ul>
+  </div>
+
+  <h2>Umgesetzter Schnitt</h2>
+  <div class="note">
+    <h3>2026-04-25: Piece/Tracklet-Trennung</h3>
+    <ul>
+      <li><code>piece_uuid</code> ist jetzt die kanonische physische ID fuer Recent Pieces und Track Pieces.</li>
+      <li>BoxMOT liefert weiter die sichtbaren Tracks, aber deren rohe <code>global_id</code> wird als Tracklet-Roh-ID behandelt.</li>
+      <li>Jeder C4-Runner erhaelt eine <code>tracker_epoch</code>. Daraus entsteht <code>tracklet_id = feed_id:tracker_key:tracker_epoch:raw_track_id</code>.</li>
+      <li>SQLite hat nun eine zweite Schicht: <code>piece_dossiers</code> als physische Piece-Zeile und <code>piece_tracklets</code> als darunterliegende Beobachtungs-/Handoff-Zeilen.</li>
+      <li><code>piece_segments</code> speichert neben <code>tracked_global_id</code> nun auch <code>tracklet_id</code>, <code>feed_id</code>, <code>tracker_key</code>, <code>tracker_epoch</code> und <code>raw_track_id</code>.</li>
+      <li><code>/api/rt/tracks/&lt;feed&gt;</code> liefert fuer Live-Debug-Snapshots dieselbe <code>tracklet_id</code>, damit UI-Enrichment nicht blind an nackter GID haengt.</li>
+      <li>Der C4-<code>SegmentRecorder</code> ist jetzt an den Runner-Lifecycle gebunden und wird bei Runner-Rebuilds sauber ersetzt.</li>
+      <li>Recent Pieces erzeugt keine normalen Synthetic Cards mehr aus <code>/api/rt/tracks/c4_feed</code>. Live-Tracks duerfen nur noch bestehende DB/WS-Pieces anreichern.</li>
+      <li>Track Pieces dedupliziert nicht mehr nach nackter GID, sondern nach <code>uuid</code>. Nackte Track-IDs bleiben Anzeige-/Debug-Daten.</li>
+      <li>Der Recorder-Writer wird beim Schliessen jetzt synchron beendet; Tests und Runner-Rebuilds lassen dadurch keine spaeten Heartbeat-Schreibversuche in alte DB-Kontexte mehr zurueck.</li>
+      <li>Der Detection-Config-Test fuer den Classification-Channel prueft jetzt den Scope-Vertrag statt eine veraltete Ein-Modell-Liste.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h3>Verifikation</h3>
+    <ul>
+      <li><code>PYTHONPATH=. uv run --group dev pytest tests/test_local_state.py rt/tests/test_segment_recorder.py rt/tests/test_runtime_c4.py rt/tests/test_piece_dossier_flow.py rt/tests/test_runtime_handle.py tests/test_tracked_pieces_api.py</code>: 93 passed.</li>
+      <li><code>PYTHONPATH=. uv run --group dev pytest</code> im Backend: 545 passed.</li>
+      <li><code>npm run check</code> im Frontend: 0 errors, 0 warnings.</li>
+      <li><code>npx prettier --check</code> fuer die angefassten Frontend-Dateien: alle sauber. Der globale Frontend-Prettier-Check bleibt wegen historischer Formatierung in vielen nicht angefassten Dateien rot.</li>
+      <li><code>git diff --check</code>: sauber.</li>
+    </ul>
+  </div>
+
+  <h2>Naechste konkrete Checks</h2>
+  <table>
+    <thead><tr><th>Check</th><th>Warum</th><th>Erwartung</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>/api/rt/status</code> und <code>/api/rt/tracks/c4_feed</code> bei laufender Maschine</td>
+        <td>Track-Count gegen aktive Dossiers vergleichen</td>
+        <td>Jeder stabile C4-Track braucht genau ein aktives Dossier oder einen erklaerten Debug-only Zustand.</td>
+      </tr>
+      <tr>
+        <td>Ein kontrollierter einzelner Drop</td>
+        <td>Identitaetskette messen</td>
+        <td>Eine <code>piece_uuid</code>, eine GID innerhalb der aktuellen Epoch, Segment mit gleicher GID, ein Recent-Eintrag.</td>
+      </tr>
+      <tr>
+        <td>Restart/Resume mit Teilen auf C4</td>
+        <td>Reconcile ist absichtlich aktiv und riskant</td>
+        <td>Recovered Dossiers duerfen nicht mit alten Dossiers gleicher nackter GID verschmelzen.</td>
+      </tr>
+      <tr>
+        <td>DB-Audit nach 60s Lauf</td>
+        <td>Frueherkennung von Churn</td>
+        <td><code>COUNT(DISTINCT tracker_epoch || ':' || tracked_global_id)</code> sollte grob zur echten Teilzahl passen.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Quellen</h2>
+  <ul>
+    <li><code>software/sorter/backend/rt/perception/runner_builder.py</code></li>
+    <li><code>software/sorter/backend/rt/perception/pipeline.py</code></li>
+    <li><code>software/sorter/backend/rt/perception/pipeline_runner.py</code></li>
+    <li><code>software/sorter/backend/rt/perception/trackers/boxmot_reid.py</code></li>
+    <li><code>software/sorter/backend/rt/runtimes/c4.py</code></li>
+    <li><code>software/sorter/backend/rt/perception/segment_recorder.py</code></li>
+    <li><code>software/sorter/backend/rt/projections/piece_dossier.py</code></li>
+    <li><code>software/sorter/backend/local_state.py</code></li>
+    <li><code>software/sorter/backend/server/api.py</code></li>
+    <li><code>software/sorter/frontend/src/lib/machines/manager.svelte.ts</code></li>
+    <li><code>software/sorter/frontend/src/lib/components/RecentObjects.svelte</code></li>
+    <li><code>software/sorter/frontend/src/routes/tracked/+page.svelte</code></li>
+    <li><code>docs/lab/runs/2026-04-24_00-13-07_observed-sorter-run-2026-04-24/summary.md</code></li>
+  </ul>
+</main>
+</body>
+</html>

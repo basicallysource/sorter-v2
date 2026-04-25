@@ -15,6 +15,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from rt.pieces.identity import build_tracklet_id
 from server import shared_state
 
 
@@ -103,13 +104,40 @@ def get_rt_status() -> Dict[str, Any]:
     return payload
 
 
-def _track_to_dict(track: Any) -> dict[str, Any]:
+def _track_to_dict(
+    track: Any,
+    *,
+    feed_id: str | None = None,
+    tracker_key: str | None = None,
+    tracker_epoch: str | None = None,
+) -> dict[str, Any]:
     bbox = getattr(track, "bbox_xyxy", None)
     angle_rad = getattr(track, "angle_rad", None)
     embedding = getattr(track, "appearance_embedding", None)
+    raw_track_id = getattr(track, "global_id", None)
+    tracklet_id = None
+    if (
+        isinstance(feed_id, str)
+        and feed_id
+        and isinstance(tracker_epoch, str)
+        and tracker_epoch
+        and isinstance(raw_track_id, int)
+    ):
+        tracklet_id = build_tracklet_id(
+            feed_id=feed_id,
+            tracker_key=tracker_key,
+            tracker_epoch=tracker_epoch,
+            raw_track_id=raw_track_id,
+        )
     return {
         "track_id": getattr(track, "track_id", None),
-        "global_id": getattr(track, "global_id", None),
+        "global_id": raw_track_id,
+        "raw_track_id": raw_track_id if isinstance(raw_track_id, int) else None,
+        "tracklet_id": tracklet_id,
+        "current_tracklet_id": tracklet_id,
+        "feed_id": feed_id,
+        "tracker_key": tracker_key,
+        "tracker_epoch": tracker_epoch,
         "piece_uuid": getattr(track, "piece_uuid", None),
         "bbox_xyxy": list(bbox) if isinstance(bbox, (list, tuple)) else None,
         "score": getattr(track, "score", None),
@@ -153,14 +181,35 @@ def get_rt_tracks(feed_id: str) -> Dict[str, Any]:
     tracks = tuple(getattr(snapshot, "tracks", ()) or ())
     shadow_tracks = tuple(getattr(snapshot, "shadow_tracks", ()) or ())
     zone = getattr(snapshot, "zone", None)
+    resolved_feed_id = getattr(snapshot, "feed_id", feed_id)
+    tracker_key = getattr(snapshot, "tracker_key", None)
+    tracker_epoch = getattr(snapshot, "tracker_epoch", None)
     return {
-        "feed_id": getattr(snapshot, "feed_id", feed_id),
+        "feed_id": resolved_feed_id,
         "requested_feed_id": requested_feed_id,
+        "tracker_key": tracker_key,
+        "tracker_epoch": tracker_epoch,
         "zone_kind": type(zone).__name__ if zone is not None else None,
         "track_count": len(tracks),
         "shadow_track_count": len(shadow_tracks),
-        "tracks": [_track_to_dict(track) for track in tracks],
-        "shadow_tracks": [_track_to_dict(track) for track in shadow_tracks],
+        "tracks": [
+            _track_to_dict(
+                track,
+                feed_id=resolved_feed_id,
+                tracker_key=tracker_key,
+                tracker_epoch=tracker_epoch,
+            )
+            for track in tracks
+        ],
+        "shadow_tracks": [
+            _track_to_dict(
+                track,
+                feed_id=resolved_feed_id,
+                tracker_key=getattr(snapshot, "shadow_tracker_key", None),
+                tracker_epoch=None,
+            )
+            for track in shadow_tracks
+        ],
     }
 
 

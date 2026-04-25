@@ -123,6 +123,12 @@ class KnownObjectData(BaseModel):
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     tracked_global_id: Optional[int] = None
+    current_tracklet_id: Optional[str] = None
+    tracklet_id: Optional[str] = None
+    feed_id: Optional[str] = None
+    tracker_key: Optional[str] = None
+    tracker_epoch: Optional[str] = None
+    raw_track_id: Optional[int] = None
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None

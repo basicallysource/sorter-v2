@@ -51,6 +51,11 @@
 		piece: KnownObjectData;
 		tracked_global_id?: number | null;
 		global_id?: number | null;
+		current_tracklet_id?: string | null;
+		feed_id?: string | null;
+		tracker_key?: string | null;
+		tracker_epoch?: string | null;
+		raw_track_id?: number | null;
 		live: boolean;
 		active: boolean;
 		polar_angle_deg?: number | null;
@@ -295,15 +300,9 @@
 		void now_tick;
 	});
 
-	// Defense-in-depth: the backend already collapses split dossiers, but the
-	// physical identity is still tracked_global_id-first. Keep active and
-	// historical rows separate so a completed piece does not hide a live one if
-	// the tracker id is reused after a restart.
+	// Defense-in-depth: rows are keyed by the physical piece UUID. Raw tracker
+	// ids are displayed as tracklet metadata only.
 	function rowKey(row: TrackedPieceRow): string | null {
-		if (row.tracked_global_id !== null && row.tracked_global_id !== undefined) {
-			const state = row.active ? 'active' : 'history';
-			return `gid:${state}:${row.tracked_global_id}`;
-		}
 		if (row.uuid) return `uuid:${row.uuid}`;
 		return null;
 	}
@@ -510,7 +509,9 @@
 	{@const is_multi_drop = piece.classification_status === 'multi_drop_fail'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference)}
 	{@const thumb_src = is_classified_ok ? reference : (captured ?? reference)}
-	{@const cat_name = piece.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null}
+	{@const cat_name = piece.category_id
+		? sortingProfileStore.getCategoryName(piece.category_id)
+		: null}
 	{@const category_label = cat_name ?? piece.part_category ?? piece.category_id ?? null}
 	{@const bin_label = binLabel(piece)}
 	{@const lego_color =
@@ -524,7 +525,8 @@
 		piece.classified_at ??
 		piece.updated_at}
 	{@const age_ts = row.active ? piece.updated_at : finished_ts}
-	{@const track_label = row.tracked_global_id != null ? formatTrackLabel(row.tracked_global_id) : null}
+	{@const track_label =
+		row.tracked_global_id != null ? formatTrackLabel(row.tracked_global_id) : null}
 
 	<a
 		href={`/tracked/${row.uuid}`}
@@ -557,7 +559,10 @@
 		<!-- Color -->
 		<div class="flex min-w-0 items-center gap-1.5">
 			{#if lego_color}
-				<span class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border" style:background-color={lego_color.hex}></span>
+				<span
+					class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border"
+					style:background-color={lego_color.hex}
+				></span>
 				<span class="truncate text-sm text-text">{lego_color.name}</span>
 			{:else if piece.color_name && piece.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
 				<span class="truncate text-sm text-text-muted">{piece.color_name}</span>
@@ -578,7 +583,9 @@
 		<!-- Confidence -->
 		<div class="text-right">
 			{#if typeof piece.confidence === 'number' && !is_unknown && !is_multi_drop}
-				<span class="font-mono text-sm font-semibold tabular-nums {confidenceClass(piece.confidence)}">
+				<span
+					class="font-mono text-sm font-semibold tabular-nums {confidenceClass(piece.confidence)}"
+				>
 					{(piece.confidence * 100).toFixed(0)}%
 				</span>
 			{:else}
@@ -589,11 +596,18 @@
 		<!-- Bin / Drop -->
 		<div class="text-right">
 			{#if phase === 'distributed'}
-				<span class="font-mono text-sm tabular-nums {is_unknown || is_multi_drop ? 'text-warning-dark' : 'text-text'}">
+				<span
+					class="font-mono text-sm tabular-nums {is_unknown || is_multi_drop
+						? 'text-warning-dark'
+						: 'text-text'}"
+				>
 					{is_unknown || is_multi_drop ? 'discard' : bin_label}
 				</span>
 			{:else if row.active && row.polar_offset_deg != null}
-				<span class="font-mono text-sm text-text-muted tabular-nums" title="Polar offset to C4 drop angle">
+				<span
+					class="font-mono text-sm text-text-muted tabular-nums"
+					title="Polar offset to C4 drop angle"
+				>
 					Δ{row.polar_offset_deg.toFixed(1)}°
 				</span>
 			{:else if bin_label !== '—'}
@@ -606,11 +620,17 @@
 		<!-- Stage chip -->
 		<div>
 			{#if status_override}
-				<span class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider {status_override.cls}">
+				<span
+					class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase {status_override.cls}"
+				>
 					{status_override.label}
 				</span>
 			{:else}
-				<span class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(phase)}">
+				<span
+					class="inline-flex items-center border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase {phaseChipClass(
+						phase
+					)}"
+				>
 					{PHASE_LABEL[phase]}
 				</span>
 			{/if}
@@ -731,64 +751,86 @@
 			</div>
 		</header>
 
-		<div class="grid grid-cols-2 gap-px border border-border bg-border text-sm sm:grid-cols-3 xl:grid-cols-6">
+		<div
+			class="grid grid-cols-2 gap-px border border-border bg-border text-sm sm:grid-cols-3 xl:grid-cols-6"
+		>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Pieces</span>
-				<span class="tabular-nums text-xl font-semibold text-text">{stats.total}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Pieces</span>
+				<span class="text-xl font-semibold text-text tabular-nums">{stats.total}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Active</span>
-				<span class="tabular-nums text-xl font-semibold text-primary">{stats.active}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Active</span>
+				<span class="text-xl font-semibold text-primary tabular-nums">{stats.active}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Live</span>
-				<span class="tabular-nums text-xl font-semibold text-success-dark">{stats.live}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Live</span>
+				<span class="text-xl font-semibold text-success-dark tabular-nums">{stats.live}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Classified</span>
-				<span class="tabular-nums text-xl font-semibold text-success-dark">{stats.classified}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Classified</span>
+				<span class="text-xl font-semibold text-success-dark tabular-nums">{stats.classified}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Distributed</span>
-				<span class="tabular-nums text-xl font-semibold text-text">{stats.distributed}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Distributed</span>
+				<span class="text-xl font-semibold text-text tabular-nums">{stats.distributed}</span>
 			</div>
 			<div class="flex flex-col bg-surface px-3 py-2">
-				<span class="text-sm uppercase tracking-wider text-text-muted">Track lost</span>
-				<span class="tabular-nums text-xl font-semibold text-warning-dark">{stats.lost}</span>
+				<span class="text-sm tracking-wider text-text-muted uppercase">Track lost</span>
+				<span class="text-xl font-semibold text-warning-dark tabular-nums">{stats.lost}</span>
 			</div>
 		</div>
 
 		{#if sortKey === 'ring' && dropAngleDeg != null && stats.active > 0}
 			<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">
 				Ring order: active pieces first, ordered by polar offset to the C4 drop angle
-				<span class="tabular-nums text-text">({dropAngleDeg.toFixed(1)}°)</span>.
+				<span class="text-text tabular-nums">({dropAngleDeg.toFixed(1)}°)</span>.
 			</div>
 		{/if}
 
 		{#if sortedItems.length === 0}
-			<div class="flex min-h-40 items-center justify-center border border-dashed border-border bg-surface text-sm text-text-muted">
+			<div
+				class="flex min-h-40 items-center justify-center border border-dashed border-border bg-surface text-sm text-text-muted"
+			>
 				{items.length === 0 ? 'No tracked pieces yet.' : 'No pieces match the current filter.'}
 			</div>
 		{:else}
 			<div class="border border-border bg-surface">
 				<!-- Header row: sortable column labels -->
-				<div class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<div
+					class="piece-grid-row grid items-center gap-3 border-b border-border bg-bg px-3 py-2 text-xs font-semibold tracking-wider text-text-muted uppercase"
+				>
 					<div></div>
-					<button type="button" class="flex items-center text-left hover:text-text" onclick={() => cycleSort('name')}>
+					<button
+						type="button"
+						class="flex items-center text-left hover:text-text"
+						onclick={() => cycleSort('name')}
+					>
 						Piece{sortArrow('name')}
 					</button>
 					<div>Color</div>
 					<div>Category</div>
-					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('conf')}>
+					<button
+						type="button"
+						class="text-right hover:text-text"
+						onclick={() => cycleSort('conf')}
+					>
 						Conf{sortArrow('conf')}
 					</button>
 					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('bin')}>
 						Bin / Δ{sortArrow('bin')}
 					</button>
-					<button type="button" class="text-left hover:text-text" onclick={() => cycleSort('stage')}>
+					<button
+						type="button"
+						class="text-left hover:text-text"
+						onclick={() => cycleSort('stage')}
+					>
 						Stage{sortArrow('stage')}
 					</button>
-					<button type="button" class="text-right hover:text-text" onclick={() => cycleSort('updated')}>
+					<button
+						type="button"
+						class="text-right hover:text-text"
+						onclick={() => cycleSort('updated')}
+					>
 						Age{sortArrow('updated')}
 					</button>
 				</div>

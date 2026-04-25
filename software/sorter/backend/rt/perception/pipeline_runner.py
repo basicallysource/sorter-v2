@@ -19,6 +19,7 @@ from typing import Any
 from rt.contracts.events import Event, EventBus, Subscription
 from rt.contracts.tracking import TrackBatch, Tracker
 from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRACKS
+from rt.pieces.identity import new_tracker_epoch
 
 from .pipeline import PerceptionFrameState, PerceptionPipeline
 
@@ -121,6 +122,8 @@ class PerceptionRunner:
         self._period_s = max(0.0, float(period_ms) / 1000.0)
         self._bus = event_bus
         self._name = name or f"PerceptionRunner[{pipeline.feed.feed_id}]"
+        self._tracker_key = str(getattr(pipeline.tracker, "key", None) or "unknown")
+        self._tracker_epoch = new_tracker_epoch()
         self._shadow_tracker = shadow_tracker
         self._shadow_tracker_key = shadow_tracker_key or getattr(shadow_tracker, "key", None)
         self._thread: threading.Thread | None = None
@@ -214,6 +217,13 @@ class PerceptionRunner:
         with self._latest_lock:
             return self._latest_shadow
 
+    def tracker_identity(self) -> dict[str, str]:
+        return {
+            "feed_id": str(getattr(self._pipeline.feed, "feed_id", "") or ""),
+            "tracker_key": self._tracker_key,
+            "tracker_epoch": self._tracker_epoch,
+        }
+
     def status_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
         pipeline = self._pipeline
         feed = pipeline.feed
@@ -295,6 +305,7 @@ class PerceptionRunner:
             "feed_id": getattr(feed, "feed_id", None),
             "detector_slug": getattr(detector, "key", None),
             "tracker_slug": getattr(tracker, "key", None),
+            "tracker_epoch": self._tracker_epoch,
             "zone_kind": zone_kind,
             "running": bool(self._running),
             "period_ms": int(round(self._period_s * 1000.0)),
@@ -375,6 +386,8 @@ class PerceptionRunner:
             return
         payload: dict[str, Any] = {
             "feed_id": batch.feed_id,
+            "tracker_key": self._tracker_key,
+            "tracker_epoch": self._tracker_epoch,
             "frame_seq": batch.frame_seq,
             "timestamp": batch.timestamp,
             "track_count": len(batch.tracks),

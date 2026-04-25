@@ -31,6 +31,7 @@ from local_state import (
     initialize_local_state,
     list_piece_dossiers,
     list_piece_segments,
+    list_piece_tracklets,
     piece_dossier_is_active,
     record_piece_distribution,
     remember_piece_dossier,
@@ -174,7 +175,7 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
         self.assertEqual(3.0, recent[0]["updated_at"])
 
-    def test_recent_known_objects_deduplicate_split_dossiers_by_track(self) -> None:
+    def test_recent_known_objects_keep_distinct_uuids_with_reused_track_id(self) -> None:
         initialize_local_state()
 
         remember_recent_known_object(
@@ -195,8 +196,11 @@ class LocalStateMigrationTests(unittest.TestCase):
         )
 
         recent = get_recent_known_objects()
-        self.assertEqual(["piece-split"], [entry["uuid"] for entry in recent])
-        self.assertEqual(42, recent[0]["tracked_global_id"])
+        self.assertEqual(
+            ["piece-split", "piece-original"],
+            [entry["uuid"] for entry in recent],
+        )
+        self.assertEqual([42, 42], [entry["tracked_global_id"] for entry in recent])
 
     def test_sorting_sessions_persist_current_bin_state_and_recent_pieces(self) -> None:
         initialize_local_state()
@@ -299,7 +303,7 @@ class LocalStateMigrationTests(unittest.TestCase):
         listed = list_piece_dossiers(limit=20)
         self.assertEqual(["piece-1"], [entry["uuid"] for entry in listed])
 
-    def test_new_active_dossier_supersedes_active_sibling_for_same_track(self) -> None:
+    def test_reused_raw_track_id_does_not_supersede_without_tracklet_epoch(self) -> None:
         initialize_local_state()
         start_new_sorting_session(reason="piece_dossier_supersede")
 
@@ -332,10 +336,58 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertIsNotNone(new)
         assert old is not None
         assert new is not None
+        self.assertEqual("active", old["classification_channel_zone_state"])
+        self.assertTrue(piece_dossier_is_active(old))
+        self.assertEqual("active", new["classification_channel_zone_state"])
+        self.assertTrue(piece_dossier_is_active(new))
+
+    def test_new_active_dossier_supersedes_sibling_for_same_tracklet(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="piece_dossier_tracklet_supersede")
+
+        tracklet = {
+            "tracklet_id": "c4_feed:botsort_reid:epoch-a:77",
+            "feed_id": "c4_feed",
+            "tracker_key": "botsort_reid",
+            "tracker_epoch": "epoch-a",
+            "raw_track_id": 77,
+        }
+        remember_piece_dossier(
+            "piece-old",
+            {
+                "tracked_global_id": 77,
+                "confirmed_real": True,
+                "updated_at": 10.0,
+                "classification_channel_zone_state": "active",
+                "classification_channel_zone_center_deg": 120.0,
+                **tracklet,
+            },
+            status="registered",
+        )
+        remember_piece_dossier(
+            "piece-new",
+            {
+                "tracked_global_id": 77,
+                "confirmed_real": True,
+                "updated_at": 12.0,
+                "classification_channel_zone_state": "active",
+                "classification_channel_zone_center_deg": 130.0,
+                **tracklet,
+            },
+            status="registered",
+        )
+
+        old = get_piece_dossier("piece-old")
+        new = get_piece_dossier("piece-new")
+        self.assertIsNotNone(old)
+        self.assertIsNotNone(new)
+        assert old is not None
+        assert new is not None
         self.assertEqual("superseded", old["classification_channel_zone_state"])
         self.assertEqual("piece-new", old["superseded_by_piece_uuid"])
         self.assertFalse(piece_dossier_is_active(old))
         self.assertEqual("active", new["classification_channel_zone_state"])
+        self.assertEqual(tracklet["tracklet_id"], new["current_tracklet_id"])
         self.assertTrue(piece_dossier_is_active(new))
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
@@ -476,7 +528,7 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             "recognize_result": recognize_result,
         }
 
-    def test_schema_v5_migration_additive_only(self) -> None:
+    def test_schema_v6_migration_additive_only(self) -> None:
         # Seed a schema_version=4 database with a minimal piece_dossiers row,
         # mimicking a pre-v5 install.
         db_path = self.local_state_db_path
@@ -554,7 +606,7 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         seed_conn.commit()
         seed_conn.close()
 
-        # Run the real initializer — should perform additive migration to v5.
+        # Run the real initializer — should perform additive migration to v6.
         initialize_local_state()
 
         conn = sqlite3.connect(db_path)
@@ -563,7 +615,7 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             version_row = conn.execute(
                 "SELECT value FROM metadata WHERE key = 'schema_version'"
             ).fetchone()
-            self.assertEqual("5", str(version_row["value"]))
+            self.assertEqual("6", str(version_row["value"]))
 
             # piece_dossiers row must be untouched.
             dossier_row = conn.execute(
@@ -573,7 +625,7 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             self.assertIsNotNone(dossier_row)
             self.assertEqual(11, dossier_row["tracked_global_id"])
 
-            # New piece_segments table must exist and be empty.
+            # New piece_segments and piece_tracklets tables must exist and be empty.
             table_row = conn.execute(
                 "SELECT name FROM sqlite_master "
                 "WHERE type='table' AND name='piece_segments'"
@@ -583,6 +635,15 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
                 "SELECT COUNT(*) AS c FROM piece_segments"
             ).fetchone()
             self.assertEqual(0, int(count_row["c"]))
+            tracklets_row = conn.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name='piece_tracklets'"
+            ).fetchone()
+            self.assertIsNotNone(tracklets_row)
+            tracklets_count = conn.execute(
+                "SELECT COUNT(*) AS c FROM piece_tracklets"
+            ).fetchone()
+            self.assertEqual(0, int(tracklets_count["c"]))
 
             # Indexes must exist.
             idx_rows = {
@@ -594,6 +655,7 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             }
             self.assertIn("piece_segments_piece_seq_idx", idx_rows)
             self.assertIn("piece_segments_session_role_idx", idx_rows)
+            self.assertIn("piece_segments_tracklet_idx", idx_rows)
         finally:
             conn.close()
 
@@ -836,6 +898,11 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             "piece-detail",
             {
                 "tracked_global_id": 9000,
+                "tracklet_id": "c4_feed:botsort_reid:epoch-detail:9000",
+                "feed_id": "c4_feed",
+                "tracker_key": "botsort_reid",
+                "tracker_epoch": "epoch-detail",
+                "raw_track_id": 9000,
                 "created_at": 50.0,
                 "updated_at": 55.0,
                 "stage": "created",
@@ -846,7 +913,14 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
             "piece-detail",
             "c_channel_3",
             0,
-            self._make_segment_payload(tracked_global_id=9000, first_seen_ts=50.0),
+            {
+                **self._make_segment_payload(tracked_global_id=9000, first_seen_ts=40.0),
+                "tracklet_id": "c3_feed:botsort_reid:epoch-c3:9000",
+                "feed_id": "c3_feed",
+                "tracker_key": "botsort_reid",
+                "tracker_epoch": "epoch-c3",
+                "raw_track_id": 9000,
+            },
         )
         remember_piece_segment(
             "piece-detail",
@@ -889,6 +963,17 @@ class PieceSegmentsSchemaTests(unittest.TestCase):
         )
         self.assertEqual("c_channel_3", track_detail["segments"][0]["role"])
         self.assertEqual("carousel", track_detail["segments"][1]["role"])
+        self.assertEqual(
+            [
+                "c3_feed:botsort_reid:epoch-c3:9000",
+                "c4_feed:botsort_reid:epoch-detail:9000",
+            ],
+            [entry["tracklet_id"] for entry in track_detail["tracklets"]],
+        )
+        self.assertEqual(
+            "c3_feed:botsort_reid:epoch-c3:9000",
+            list_piece_tracklets("piece-detail")[0]["tracklet_id"],
+        )
         self.assertEqual("Matrix-Shot", track_detail["matrix_shot"]["name"])
         self.assertEqual(1, len(track_detail["matrix_shot"]["frames"]))
         # Back-compat for the detail page while the UI migrates from

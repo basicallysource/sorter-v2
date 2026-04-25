@@ -17,6 +17,12 @@
 	const ctx = getMachineContext();
 	type LiveC4Track = {
 		global_id: number | null;
+		raw_track_id?: number | null;
+		tracklet_id?: string | null;
+		current_tracklet_id?: string | null;
+		feed_id?: string | null;
+		tracker_key?: string | null;
+		tracker_epoch?: string | null;
 		angle_deg: number | null;
 		score?: number | null;
 		hit_count?: number | null;
@@ -24,7 +30,7 @@
 		confirmed_real?: boolean;
 		ghost?: boolean;
 	};
-	type RecentPieceDisplay = KnownObjectData & { __liveOnly?: boolean };
+	type RecentPieceDisplay = KnownObjectData;
 
 	let liveC4Tracks = $state<Map<number, LiveC4Track>>(new Map());
 	let liveC4TrackPollAvailable = $state(false);
@@ -58,6 +64,13 @@
 				if (track?.confirmed_real === false) continue;
 				next.set(gid, {
 					global_id: gid,
+					raw_track_id: typeof track?.raw_track_id === 'number' ? track.raw_track_id : gid,
+					tracklet_id: typeof track?.tracklet_id === 'string' ? track.tracklet_id : null,
+					current_tracklet_id:
+						typeof track?.current_tracklet_id === 'string' ? track.current_tracklet_id : null,
+					feed_id: typeof track?.feed_id === 'string' ? track.feed_id : null,
+					tracker_key: typeof track?.tracker_key === 'string' ? track.tracker_key : null,
+					tracker_epoch: typeof track?.tracker_epoch === 'string' ? track.tracker_epoch : null,
 					angle_deg: typeof track?.angle_deg === 'number' ? track.angle_deg : null,
 					score: typeof track?.score === 'number' ? track.score : null,
 					hit_count: typeof track?.hit_count === 'number' ? track.hit_count : null,
@@ -83,12 +96,18 @@
 	}
 
 	function wrapDeg(value: number): number {
-		let wrapped = ((value + 180) % 360 + 360) % 360 - 180;
+		let wrapped = ((((value + 180) % 360) + 360) % 360) - 180;
 		if (wrapped === -180) wrapped = 180;
 		return wrapped;
 	}
 
 	function liveTrackFor(obj: KnownObjectData): LiveC4Track | null {
+		const tracklet = obj.current_tracklet_id ?? obj.tracklet_id;
+		if (typeof tracklet === 'string') {
+			for (const live of liveC4Tracks.values()) {
+				if (live.tracklet_id === tracklet || live.current_tracklet_id === tracklet) return live;
+			}
+		}
 		const gid = obj.tracked_global_id;
 		if (typeof gid !== 'number') return null;
 		return liveC4Tracks.get(gid) ?? null;
@@ -111,34 +130,34 @@
 
 	function objectForLiveTrack(
 		track: LiveC4Track,
+		objectsByTracklet: Map<string, KnownObjectData>,
 		objectsByGid: Map<number, KnownObjectData>
 	): RecentPieceDisplay | null {
+		const tracklet = track.current_tracklet_id ?? track.tracklet_id;
+		if (typeof tracklet === 'string') {
+			const existingByTracklet = objectsByTracklet.get(tracklet);
+			if (existingByTracklet && lifecyclePhase(existingByTracklet) !== 'distributed') {
+				return existingByTracklet;
+			}
+		}
 		const gid = track.global_id;
 		if (typeof gid !== 'number') return null;
 		const existing = objectsByGid.get(gid);
 		if (existing && lifecyclePhase(existing) !== 'distributed') return existing;
-		const now = Date.now() / 1000;
-		return {
-			__liveOnly: true,
-			uuid: String(gid),
-			created_at: track.last_seen_ts ?? now,
-			updated_at: track.last_seen_ts ?? now,
-			stage: 'registered',
-			classification_status: 'pending',
-			tracked_global_id: gid,
-			first_carousel_seen_ts: track.last_seen_ts ?? now,
-			classification_channel_zone_state: 'active',
-			classification_channel_zone_center_deg: track.angle_deg,
-			classification_channel_exit_deg: 30
-		};
+		return null;
 	}
 
 	// "Upcoming" = pieces currently tracked on C4, ordered along the polar
 	// path toward the exit: top = farthest from exit, bottom = next to drop.
 	const upcoming = $derived.by(() => {
 		const all = ctx.machine?.recentObjects ?? [];
+		const objectsByTracklet = new Map<string, KnownObjectData>();
 		const objectsByGid = new Map<number, KnownObjectData>();
 		for (const obj of all) {
+			const tracklet = obj.current_tracklet_id ?? obj.tracklet_id;
+			if (typeof tracklet === 'string' && lifecyclePhase(obj) !== 'distributed') {
+				objectsByTracklet.set(tracklet, obj);
+			}
 			const gid = obj.tracked_global_id;
 			if (typeof gid !== 'number') continue;
 			if (lifecyclePhase(obj) === 'distributed') continue;
@@ -146,7 +165,7 @@
 		}
 		const list = Array.from(liveC4Tracks.values())
 			.filter(isDisplayableLiveTrack)
-			.map((track) => objectForLiveTrack(track, objectsByGid))
+			.map((track) => objectForLiveTrack(track, objectsByTracklet, objectsByGid))
 			.filter((obj): obj is RecentPieceDisplay => obj !== null);
 		list.sort((a, b) => {
 			const da = exitDistanceDeg(a);
@@ -159,9 +178,8 @@
 				(b.first_carousel_seen_ts ?? b.created_at ?? 0)
 			);
 		});
-		// Collapse identity splits: same physical piece may surface as
-		// multiple KnownObjects while C4 tracking settles. Keyed off
-		// tracked_global_id (stable across rotations with BoTSORT) or uuid.
+		// Collapse by the canonical piece UUID. Live track polling only
+		// enriches already-projected pieces; it no longer creates synthetic cards.
 		const seen_keys = new Set<string>();
 		const deduped: RecentPieceDisplay[] = [];
 		for (const o of list) {

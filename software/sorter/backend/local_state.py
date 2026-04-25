@@ -16,7 +16,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 5
+_SCHEMA_VERSION = 6
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -135,6 +135,17 @@ def _set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
+
+
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    if column in _table_columns(conn, table):
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def _get_json(conn: sqlite3.Connection, key: str) -> Any | None:
@@ -442,6 +453,11 @@ def initialize_local_state() -> None:
                 "session_id TEXT NOT NULL, "
                 "role TEXT NOT NULL, "
                 "tracked_global_id INTEGER, "
+                "tracklet_id TEXT, "
+                "feed_id TEXT, "
+                "tracker_key TEXT, "
+                "tracker_epoch TEXT, "
+                "raw_track_id INTEGER, "
                 "sequence INTEGER NOT NULL, "
                 "first_seen_ts REAL NOT NULL, "
                 "last_seen_ts REAL NOT NULL, "
@@ -468,6 +484,53 @@ def initialize_local_state() -> None:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS piece_segments_session_role_idx "
                 "ON piece_segments(session_id, role, first_seen_ts DESC)"
+            )
+            for column, definition in (
+                ("tracklet_id", "TEXT"),
+                ("feed_id", "TEXT"),
+                ("tracker_key", "TEXT"),
+                ("tracker_epoch", "TEXT"),
+                ("raw_track_id", "INTEGER"),
+            ):
+                _ensure_column(conn, "piece_segments", column, definition)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_tracklet_idx "
+                "ON piece_segments(tracklet_id)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_tracklets ("
+                "tracklet_id TEXT PRIMARY KEY, "
+                "piece_uuid TEXT NOT NULL, "
+                "session_id TEXT NOT NULL, "
+                "feed_id TEXT NOT NULL, "
+                "tracker_key TEXT, "
+                "tracker_epoch TEXT, "
+                "raw_track_id INTEGER, "
+                "relation TEXT, "
+                "first_seen_ts REAL, "
+                "last_seen_ts REAL, "
+                "first_seen_wall REAL, "
+                "last_seen_wall REAL, "
+                "hit_count INTEGER NOT NULL DEFAULT 0, "
+                "score REAL, "
+                "confirmed_real INTEGER, "
+                "ghost INTEGER, "
+                "start_angle_deg REAL, "
+                "last_angle_deg REAL, "
+                "payload_json TEXT NOT NULL, "
+                "created_at REAL NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE, "
+                "FOREIGN KEY(piece_uuid) REFERENCES piece_dossiers(piece_uuid) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_tracklets_piece_idx "
+                "ON piece_tracklets(piece_uuid, first_seen_ts)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_tracklets_source_idx "
+                "ON piece_tracklets(feed_id, tracker_key, tracker_epoch, raw_track_id)"
             )
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS bin_events ("
@@ -1124,21 +1187,164 @@ def piece_dossier_is_active(payload: dict[str, Any]) -> bool:
     )
 
 
+def _coerce_optional_str(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _tracklet_id_from_payload(payload: dict[str, Any]) -> str | None:
+    explicit = _coerce_optional_str(payload.get("tracklet_id"))
+    if explicit is not None:
+        return explicit
+    explicit = _coerce_optional_str(payload.get("current_tracklet_id"))
+    if explicit is not None:
+        return explicit
+    raw_track_id = _coerce_optional_int(payload.get("raw_track_id"))
+    if raw_track_id is None:
+        raw_track_id = _coerce_optional_int(payload.get("tracked_global_id"))
+    feed_id = _coerce_optional_str(payload.get("feed_id"))
+    tracker_epoch = _coerce_optional_str(payload.get("tracker_epoch"))
+    if raw_track_id is None or feed_id is None or tracker_epoch is None:
+        return None
+    tracker_key = _coerce_optional_str(payload.get("tracker_key")) or "unknown"
+    return f"{feed_id}:{tracker_key}:{tracker_epoch}:{raw_track_id}"
+
+
+def _tracklet_fields_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    tracklet_id = _tracklet_id_from_payload(payload)
+    if tracklet_id is None:
+        return None
+    raw_track_id = _coerce_optional_int(payload.get("raw_track_id"))
+    if raw_track_id is None:
+        raw_track_id = _coerce_optional_int(payload.get("tracked_global_id"))
+    return {
+        "tracklet_id": tracklet_id,
+        "feed_id": _coerce_optional_str(payload.get("feed_id")) or "unknown_feed",
+        "tracker_key": _coerce_optional_str(payload.get("tracker_key")) or "unknown",
+        "tracker_epoch": _coerce_optional_str(payload.get("tracker_epoch")),
+        "raw_track_id": raw_track_id,
+    }
+
+
+def _remember_piece_tracklet_conn(
+    conn: sqlite3.Connection,
+    *,
+    piece_uuid: str,
+    session_id: str,
+    payload: dict[str, Any],
+) -> None:
+    fields = _tracklet_fields_from_payload(payload)
+    if fields is None:
+        return
+    now = time.time()
+    first_seen_ts = _min_positive_timestamp(
+        payload.get("first_seen_ts"),
+        payload.get("first_carousel_seen_ts"),
+        payload.get("intake_ts_mono"),
+        payload.get("created_at"),
+        payload.get("updated_at"),
+    )
+    last_seen_ts = _max_positive_timestamp(
+        payload.get("last_seen_ts"),
+        payload.get("classified_ts_mono"),
+        payload.get("updated_at"),
+        payload.get("classified_at"),
+        first_seen_ts,
+    )
+    angle = _coerce_optional_float(
+        payload.get("classification_channel_zone_center_deg")
+    )
+    if angle is None:
+        angle = _coerce_optional_float(payload.get("angle_at_intake_deg"))
+    hit_count = _coerce_optional_int(payload.get("hit_count")) or 0
+    confirmed = payload.get("confirmed_real")
+    ghost = payload.get("ghost")
+    relation = (
+        _coerce_optional_str(payload.get("tracklet_relation"))
+        or _coerce_optional_str(payload.get("transit_relation"))
+        or ("stitched" if payload.get("track_stitched") is True else "observed")
+    )
+    tracklet_payload = dict(payload)
+    tracklet_payload.update(fields)
+    tracklet_payload["current_tracklet_id"] = fields["tracklet_id"]
+    conn.execute(
+        "INSERT INTO piece_tracklets("
+        "tracklet_id, piece_uuid, session_id, feed_id, tracker_key, tracker_epoch, raw_track_id, "
+        "relation, first_seen_ts, last_seen_ts, first_seen_wall, last_seen_wall, "
+        "hit_count, score, confirmed_real, ghost, start_angle_deg, last_angle_deg, "
+        "payload_json, created_at, updated_at) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(tracklet_id) DO UPDATE SET "
+        "piece_uuid = excluded.piece_uuid, "
+        "session_id = excluded.session_id, "
+        "feed_id = excluded.feed_id, "
+        "tracker_key = excluded.tracker_key, "
+        "tracker_epoch = excluded.tracker_epoch, "
+        "raw_track_id = excluded.raw_track_id, "
+        "relation = excluded.relation, "
+        "first_seen_ts = CASE "
+        "  WHEN piece_tracklets.first_seen_ts IS NULL THEN excluded.first_seen_ts "
+        "  WHEN excluded.first_seen_ts IS NULL THEN piece_tracklets.first_seen_ts "
+        "  WHEN excluded.first_seen_ts < piece_tracklets.first_seen_ts THEN excluded.first_seen_ts "
+        "  ELSE piece_tracklets.first_seen_ts END, "
+        "last_seen_ts = CASE "
+        "  WHEN piece_tracklets.last_seen_ts IS NULL THEN excluded.last_seen_ts "
+        "  WHEN excluded.last_seen_ts IS NULL THEN piece_tracklets.last_seen_ts "
+        "  WHEN excluded.last_seen_ts > piece_tracklets.last_seen_ts THEN excluded.last_seen_ts "
+        "  ELSE piece_tracklets.last_seen_ts END, "
+        "last_seen_wall = excluded.last_seen_wall, "
+        "hit_count = MAX(piece_tracklets.hit_count, excluded.hit_count), "
+        "score = COALESCE(excluded.score, piece_tracklets.score), "
+        "confirmed_real = COALESCE(excluded.confirmed_real, piece_tracklets.confirmed_real), "
+        "ghost = COALESCE(excluded.ghost, piece_tracklets.ghost), "
+        "last_angle_deg = COALESCE(excluded.last_angle_deg, piece_tracklets.last_angle_deg), "
+        "payload_json = excluded.payload_json, "
+        "updated_at = excluded.updated_at",
+        (
+            fields["tracklet_id"],
+            piece_uuid,
+            session_id,
+            fields["feed_id"],
+            fields["tracker_key"],
+            fields["tracker_epoch"],
+            fields["raw_track_id"],
+            relation,
+            first_seen_ts,
+            last_seen_ts,
+            now,
+            now,
+            hit_count,
+            _coerce_optional_float(payload.get("score")),
+            int(bool(confirmed)) if isinstance(confirmed, bool) else None,
+            int(bool(ghost)) if isinstance(ghost, bool) else None,
+            angle,
+            angle,
+            json.dumps(tracklet_payload, sort_keys=True),
+            now,
+            now,
+        ),
+    )
+
+
 def _supersede_active_sibling_dossiers(
     conn: sqlite3.Connection,
     *,
     piece_uuid: str,
     session_id: str,
-    tracked_global_id: int,
+    tracklet_id: str,
     now: float,
 ) -> None:
     rows = conn.execute(
         "SELECT * FROM piece_dossiers "
         "WHERE session_id = ? "
-        "AND tracked_global_id = ? "
         "AND piece_uuid != ? "
-        "AND distributed_at IS NULL",
-        (session_id, int(tracked_global_id), piece_uuid),
+        "AND distributed_at IS NULL "
+        "AND ("
+        "  json_extract(payload_json, '$.current_tracklet_id') = ? "
+        "  OR json_extract(payload_json, '$.tracklet_id') = ?"
+        ")",
+        (session_id, piece_uuid, tracklet_id, tracklet_id),
     ).fetchall()
     for row in rows:
         payload = _piece_dossier_row_to_dict(row)
@@ -1229,6 +1435,14 @@ def remember_piece_dossier(
         merged = _merge_piece_payload(existing_payload, obj)
         merged["piece_uuid"] = piece_uuid
         merged["uuid"] = piece_uuid
+        tracklet_fields = _tracklet_fields_from_payload(merged)
+        if tracklet_fields is not None:
+            merged["current_tracklet_id"] = tracklet_fields["tracklet_id"]
+            merged.setdefault("tracklet_id", tracklet_fields["tracklet_id"])
+            for key in ("feed_id", "tracker_key", "tracker_epoch", "raw_track_id"):
+                value = tracklet_fields.get(key)
+                if value is not None:
+                    merged[key] = value
         if existing_row is not None:
             session_id = str(existing_row["session_id"])
         else:
@@ -1316,15 +1530,22 @@ def remember_piece_dossier(
             ),
         )
         if (
-            tracked_global_id is not None
+            tracklet_fields is not None
             and _classification_zone_state(merged) == "active"
         ):
             _supersede_active_sibling_dossiers(
                 conn,
                 piece_uuid=piece_uuid,
                 session_id=session_id,
-                tracked_global_id=tracked_global_id,
+                tracklet_id=str(tracklet_fields["tracklet_id"]),
                 now=updated_at,
+            )
+        if tracklet_fields is not None:
+            _remember_piece_tracklet_conn(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                payload=merged,
             )
         conn.commit()
 
@@ -1349,6 +1570,100 @@ def get_piece_dossier_by_tracked_global_id(tracked_global_id: int) -> dict[str, 
             (int(tracked_global_id),),
         ).fetchone()
         return _piece_dossier_row_to_dict(row)
+
+
+def _piece_tracklet_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        payload = json.loads(str(row["payload_json"]))
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        payload = {}
+    payload.update(
+        {
+            "tracklet_id": str(row["tracklet_id"]),
+            "piece_uuid": str(row["piece_uuid"]),
+            "session_id": str(row["session_id"]),
+            "feed_id": str(row["feed_id"]),
+            "tracker_key": (
+                str(row["tracker_key"]) if row["tracker_key"] is not None else None
+            ),
+            "tracker_epoch": (
+                str(row["tracker_epoch"]) if row["tracker_epoch"] is not None else None
+            ),
+            "raw_track_id": (
+                int(row["raw_track_id"]) if row["raw_track_id"] is not None else None
+            ),
+            "relation": str(row["relation"]) if row["relation"] is not None else None,
+            "first_seen_ts": (
+                float(row["first_seen_ts"]) if row["first_seen_ts"] is not None else None
+            ),
+            "last_seen_ts": (
+                float(row["last_seen_ts"]) if row["last_seen_ts"] is not None else None
+            ),
+            "hit_count": int(row["hit_count"]),
+            "score": float(row["score"]) if row["score"] is not None else None,
+            "confirmed_real": (
+                bool(row["confirmed_real"]) if row["confirmed_real"] is not None else None
+            ),
+            "ghost": bool(row["ghost"]) if row["ghost"] is not None else None,
+            "start_angle_deg": (
+                float(row["start_angle_deg"])
+                if row["start_angle_deg"] is not None
+                else None
+            ),
+            "last_angle_deg": (
+                float(row["last_angle_deg"])
+                if row["last_angle_deg"] is not None
+                else None
+            ),
+            "created_at": float(row["created_at"]),
+            "updated_at": float(row["updated_at"]),
+        }
+    )
+    return payload
+
+
+def remember_piece_tracklet(piece_uuid: str, payload: dict[str, Any]) -> None:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+    if not isinstance(payload, dict):
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        dossier_row = conn.execute(
+            "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        if dossier_row is None:
+            return
+        session_id = str(dossier_row["session_id"])
+        _remember_piece_tracklet_conn(
+            conn,
+            piece_uuid=piece_uuid,
+            session_id=session_id,
+            payload=payload,
+        )
+        conn.commit()
+
+
+def list_piece_tracklets(piece_uuid: str) -> list[dict[str, Any]]:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return []
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM piece_tracklets "
+            "WHERE piece_uuid = ? ORDER BY first_seen_ts ASC, created_at ASC",
+            (piece_uuid,),
+        ).fetchall()
+        return [
+            entry
+            for entry in (_piece_tracklet_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
 
 
 def list_piece_dossiers(
@@ -1501,6 +1816,19 @@ def _piece_segment_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None
             if row["tracked_global_id"] is not None
             else None
         ),
+        "tracklet_id": (
+            str(row["tracklet_id"]) if row["tracklet_id"] is not None else None
+        ),
+        "feed_id": str(row["feed_id"]) if row["feed_id"] is not None else None,
+        "tracker_key": (
+            str(row["tracker_key"]) if row["tracker_key"] is not None else None
+        ),
+        "tracker_epoch": (
+            str(row["tracker_epoch"]) if row["tracker_epoch"] is not None else None
+        ),
+        "raw_track_id": (
+            int(row["raw_track_id"]) if row["raw_track_id"] is not None else None
+        ),
         "sequence": int(row["sequence"]),
         "first_seen_ts": float(row["first_seen_ts"]),
         "last_seen_ts": float(row["last_seen_ts"]),
@@ -1582,6 +1910,26 @@ def remember_piece_segment(
         ).fetchone()
 
         tracked_global_id = _coerce_optional_int(payload.get("tracked_global_id"))
+        tracklet_fields = _tracklet_fields_from_payload(payload)
+        tracklet_id = (
+            str(tracklet_fields["tracklet_id"]) if tracklet_fields is not None else None
+        )
+        feed_id = (
+            str(tracklet_fields["feed_id"]) if tracklet_fields is not None else None
+        )
+        tracker_key = (
+            str(tracklet_fields["tracker_key"]) if tracklet_fields is not None else None
+        )
+        tracker_epoch = (
+            str(tracklet_fields["tracker_epoch"])
+            if tracklet_fields is not None and tracklet_fields.get("tracker_epoch") is not None
+            else None
+        )
+        raw_track_id = (
+            _coerce_optional_int(tracklet_fields.get("raw_track_id"))
+            if tracklet_fields is not None
+            else None
+        )
         first_seen_ts = _coerce_optional_float(payload.get("first_seen_ts")) or 0.0
         last_seen_ts = _coerce_optional_float(payload.get("last_seen_ts")) or first_seen_ts
         hit_count = _coerce_optional_int(payload.get("hit_count")) or 0
@@ -1637,6 +1985,11 @@ def remember_piece_segment(
                 "session_id = ?, "
                 "role = ?, "
                 "tracked_global_id = ?, "
+                "tracklet_id = ?, "
+                "feed_id = ?, "
+                "tracker_key = ?, "
+                "tracker_epoch = ?, "
+                "raw_track_id = ?, "
                 "first_seen_ts = ?, "
                 "last_seen_ts = ?, "
                 "hit_count = ?, "
@@ -1655,6 +2008,11 @@ def remember_piece_segment(
                     session_id,
                     role,
                     tracked_global_id,
+                    tracklet_id,
+                    feed_id,
+                    tracker_key,
+                    tracker_epoch,
+                    raw_track_id,
                     first_seen_ts,
                     last_seen_ts,
                     hit_count,
@@ -1671,6 +2029,16 @@ def remember_piece_segment(
                     int(existing["id"]),
                 ),
             )
+            if tracklet_fields is not None:
+                tracklet_payload = dict(payload)
+                tracklet_payload.setdefault("role", role)
+                tracklet_payload.setdefault("hit_count", hit_count)
+                _remember_piece_tracklet_conn(
+                    conn,
+                    piece_uuid=piece_uuid,
+                    session_id=session_id,
+                    payload=tracklet_payload,
+                )
             conn.commit()
             return
 
@@ -1689,19 +2057,26 @@ def remember_piece_segment(
         created_at = _coerce_optional_float(payload.get("created_at")) or time.time()
         conn.execute(
             "INSERT INTO piece_segments("
-            "piece_uuid, session_id, role, tracked_global_id, sequence, "
+            "piece_uuid, session_id, role, tracked_global_id, "
+            "tracklet_id, feed_id, tracker_key, tracker_epoch, raw_track_id, "
+            "sequence, "
             "first_seen_ts, last_seen_ts, hit_count, "
             "channel_center_x, channel_center_y, "
             "channel_radius_inner, channel_radius_outer, "
             "snapshot_width, snapshot_height, snapshot_path, "
             "path_json, sector_snapshots_json, recognize_result_json, "
             "created_at) "
-            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 piece_uuid,
                 session_id,
                 role,
                 tracked_global_id,
+                tracklet_id,
+                feed_id,
+                tracker_key,
+                tracker_epoch,
+                raw_track_id,
                 sequence_int,
                 first_seen_ts,
                 last_seen_ts,
@@ -1719,6 +2094,16 @@ def remember_piece_segment(
                 created_at,
             ),
         )
+        if tracklet_fields is not None:
+            tracklet_payload = dict(payload)
+            tracklet_payload.setdefault("role", role)
+            tracklet_payload.setdefault("hit_count", hit_count)
+            _remember_piece_tracklet_conn(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                payload=tracklet_payload,
+            )
         conn.commit()
 
 
@@ -1880,8 +2265,13 @@ def build_piece_detail_payload(piece_uuid: str) -> dict[str, Any] | None:
     if dossier is None:
         return None
     segments = list_piece_segments(piece_uuid)
+    tracklets = list_piece_tracklets(piece_uuid)
     payload: dict[str, Any] = dict(dossier)
-    track_detail: dict[str, Any] = {"segments": segments, "live": False}
+    track_detail: dict[str, Any] = {
+        "segments": segments,
+        "tracklets": tracklets,
+        "live": False,
+    }
     matrix_shot = dossier.get("matrix_shot")
     if isinstance(matrix_shot, dict):
         track_detail["matrix_shot"] = matrix_shot
@@ -2329,19 +2719,10 @@ def remember_recent_known_object(
         return
 
     normalized = {key: value for key, value in obj.items() if isinstance(key, str)}
-    gid = normalized.get("tracked_global_id")
-    gid = int(gid) if isinstance(gid, int) else None
-
-    def same_physical_piece(entry: dict[str, Any]) -> bool:
-        if entry.get("uuid") == uuid:
-            return True
-        entry_gid = entry.get("tracked_global_id")
-        return gid is not None and isinstance(entry_gid, int) and int(entry_gid) == gid
-
     existing = [
         entry
         for entry in get_recent_known_objects()
-        if not same_physical_piece(entry)
+        if entry.get("uuid") != uuid
     ]
     next_entries = [normalized, *existing][: max(1, int(limit))]
     _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)

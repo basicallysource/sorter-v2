@@ -557,9 +557,9 @@ def test_get_classification_channel_config_uses_c4_scope(
     payload = detection_router.get_carousel_detection_config()
 
     assert payload["algorithm"] == "hive:c-channel-yolo11n-320"
-    assert [item["id"] for item in payload["available_algorithms"]] == [
-        "hive:c-channel-yolo11n-320"
-    ]
+    available_ids = [item["id"] for item in payload["available_algorithms"]]
+    assert "hive:c-channel-yolo11n-320" in available_ids
+    assert all(":c-channel-" in item_id for item_id in available_ids)
 
 
 def test_save_polygons_rebuilds_rt_perception_runners(

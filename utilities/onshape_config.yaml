@@ -70,7 +70,7 @@ documents:
 
   - url: https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/9646ca32b22f0e747796a082
     description: C-channel feeder system and camera arm
-    directory_name: feeder_camera
+    directory_name: feeder_system
     tab_blocklist:
       - "^vertical_extrusion$"
       - "^horizontal_extrusion$"
@@ -90,7 +90,7 @@ documents:
 
   - url: https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/w/5eef5fa43d2d793c7ea14aeb/e/028bf07f733fb0aee8935b55
     description: Distribution layer and chute system
-    directory_name: distribution_chutes
+    directory_name: distribution_system
     # Tabs whose names contain one of these substrings are routed into a
     # variant-named subdirectory: distribution_chutes/{variant}/{tab}/part.stl
     variants:

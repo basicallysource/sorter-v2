@@ -230,6 +230,42 @@ class RuntimeDistributor(BaseRuntime):
     def fsm_state(self) -> str:
         return self._fsm.value
 
+    def estimate_cycle_seconds(self) -> float:
+        """Wall-time estimate of one full ``positioning -> sending`` cycle.
+
+        Used by C4 to schedule the next piece's exit-arrival to coincide
+        with the distributor's next ready slot. Adds simulated chute
+        move + settle + fall time for the simulated path; for the real
+        Waveshare path the fall-time is the dominant fixed cost and the
+        move time is bounded by ``position_timeout_s``.
+        """
+        if self._simulate_chute:
+            return float(self._simulated_chute_move_s) + float(
+                self._chute_settle_s
+            ) + float(self._fall_time_s)
+        return float(self._chute_settle_s) + float(self._fall_time_s)
+
+    def next_ready_time(self, now_mono: float) -> float:
+        """Best estimate of the next monotonic time the chute is free.
+
+        - ``IDLE``      : free now (just returns ``now_mono``).
+        - ``POSITIONING``/``READY``/``EJECTING`` : busy until the
+          current piece finishes its ``positioning -> sending`` cycle,
+          using the simulated or real chute timings.
+
+        The estimate is intentionally conservative: it never returns a
+        time earlier than the present. Used by C4 to time the *next*
+        piece's exit arrival so the chute does not sit idle between
+        deliveries."""
+        now = float(now_mono)
+        if self._fsm is _DistState.IDLE or self._pending is None:
+            return now
+        cycle_total = self.estimate_cycle_seconds()
+        pending = self._pending
+        elapsed = max(0.0, now - float(pending.requested_at))
+        remaining = max(0.0, cycle_total - elapsed)
+        return now + remaining
+
     def pending_piece_uuid(self) -> str | None:
         return self._pending.piece_uuid if self._pending else None
 

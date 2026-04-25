@@ -2325,6 +2325,23 @@ class RuntimeC4(BaseRuntime):
         )
         if not use_exit_approach:
             step = max(self._transport_step_deg, min(self._transport_max_step_deg, step))
+
+        # Stage 4: C4 as a clocked buffer. If we have a classified
+        # candidate and the distributor is busy until t_free, scale
+        # the step so the front classified piece arrives at the exit
+        # near t_free — the chute should not sit ready while the next
+        # piece is still 50 deg away. ``schedule_step`` overrides the
+        # velocity-observer recommendation when it would over-step
+        # (i.e. arrive too early and stall) or under-step (arrive
+        # late, distributor idle).
+        scheduled = self._scheduled_transport_step(
+            tracks=tracks,
+            now_mono=now_mono,
+            base_step=step,
+            use_exit_approach=use_exit_approach,
+        )
+        if scheduled is not None:
+            step = scheduled
         move = move_command or (
             self._carousel_move if use_exit_approach else self._transport_move
         )
@@ -2346,6 +2363,62 @@ class RuntimeC4(BaseRuntime):
             self._next_transport_at = now_mono + self._transport_cooldown_s
             return True
         return False
+
+    def _scheduled_transport_step(
+        self,
+        *,
+        tracks: list[Track],
+        now_mono: float,
+        base_step: float,
+        use_exit_approach: bool,
+    ) -> float | None:
+        """Return a step size that aligns the front classified piece's
+        exit-arrival with the distributor's next ready time.
+
+        Returns ``None`` when no scheduling improvement is available
+        (no classified candidate, distributor not busy, no handoff port).
+        Otherwise returns a step in [transport_step_deg,
+        transport_max_step_deg]. Honours the exit-approach cap when the
+        front piece is already in the slow zone.
+        """
+        port = self._handoff
+        if port is None:
+            return None
+        candidate = self._next_handoff_candidate()
+        if candidate is None:
+            return None
+        # Predicted free time of the chute. Probed via duck-typing so
+        # the scheduler also works when the wired ``HandoffPort`` is a
+        # test stub without ``next_ready_time``.
+        next_ready_fn = getattr(port, "next_ready_time", None)
+        if not callable(next_ready_fn):
+            return None
+        try:
+            t_free = float(next_ready_fn(now_mono))
+        except Exception:
+            return None
+        time_until_ready = max(0.0, t_free - float(now_mono))
+        if time_until_ready <= 0.05:
+            # Distributor is essentially free — defer to the existing
+            # velocity controller. Stage 4 is about avoiding the
+            # opposite case (chute idle while piece crawls).
+            return None
+        zone = self._zone_manager.zone_for(candidate.piece_uuid)
+        if zone is None:
+            return None
+        exit_distance_deg = abs(_wrap_deg(zone.center_deg - self._exit_angle_deg))
+        if exit_distance_deg <= 0.5:
+            return None
+        cooldown = max(self._transport_cooldown_s, 0.001)
+        steps_remaining = max(1.0, time_until_ready / cooldown)
+        desired_step = exit_distance_deg / steps_remaining
+        cap = (
+            min(self._transport_step_deg, self._exit_approach_step_deg)
+            if use_exit_approach
+            else self._transport_max_step_deg
+        )
+        floor = self._transport_step_deg
+        return max(floor, min(cap, desired_step))
 
     def _dispatch_sample_transport_step(self, now_mono: float) -> bool:
         """Rotate C4 without classification, admission, or distributor handoff."""

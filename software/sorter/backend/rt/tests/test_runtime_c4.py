@@ -825,6 +825,45 @@ def test_c4_records_dropzone_arrival_burst_diagnostics() -> None:
     assert anomaly["context"]["zone_count"] == 3
 
 
+def test_c4_carousel_angle_accumulates_from_successful_moves() -> None:
+    """Software encoder tracks every successful rotation the runtime
+    commands. A failed move (returning False) must NOT contribute."""
+    rt, _up, _down, _clf, _log = _make(max_zones=1)
+    assert math.isclose(rt._carousel_angle_rad, 0.0)
+    rt._transport_move(15.0)
+    assert math.isclose(math.degrees(rt._carousel_angle_rad), 15.0, abs_tol=1e-9)
+    rt._wiggle_move(2.0)
+    assert math.isclose(math.degrees(rt._carousel_angle_rad), 17.0, abs_tol=1e-9)
+    # Wrap-around still works on the cumulative angle (we keep it
+    # unwrapped — the caller uses tray-frame conversion to wrap).
+    rt._transport_move(-5.0)
+    assert math.isclose(math.degrees(rt._carousel_angle_rad), 12.0, abs_tol=1e-9)
+
+
+def test_c4_bank_state_is_in_tray_frame() -> None:
+    """A piece carried by the tray has constant tray-frame angle even
+    while the carousel rotates the camera-frame angle. The bank's
+    Kalman state must reflect that — otherwise the carrier prior is
+    just noise."""
+    rt, _up, _down, _clf, _log = _make(max_zones=1)
+    # Admit at intake, then rotate the tray: the bank track's
+    # tray-frame angle should stay close to zero because the piece is
+    # rotating with the tray.
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=7, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt._transport_move(60.0)  # 60 deg of carousel rotation
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=7, angle_deg=60.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    bank_track = next(iter(rt._bank.tracks()))
+    # Tray-frame angle should be ~0 (piece moved with the tray);
+    # without encoder integration it would now read ~60 deg.
+    assert abs(math.degrees(bank_track.angle_rad)) < 5.0
+
+
 def test_c4_drop_commit_fires_eject_on_exit() -> None:
     rt, _up, down, _clf, log = _make(max_zones=1)
     inbox_intake = RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1)

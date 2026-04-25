@@ -320,6 +320,15 @@ class RuntimeC4(BaseRuntime):
         self._handoff: HandoffPort | None = None
         self._pieces: dict[str, _PieceDossier] = {}
         self._track_to_piece: dict[int, str] = {}
+        # Software encoder for the C4 carousel: cumulative angle (radians)
+        # of every rotation we have commanded since last home/reset. We
+        # are the only writer of motion, so our running total is the
+        # authoritative tray angle. Used by the PieceTrackBank as the
+        # ``carrier prior`` — measurements are stored in tray frame
+        # (a = camera_angle - encoder), so a piece carried perfectly by
+        # the tray has a constant ``a`` and the Kalman bridges silences
+        # using ``adot`` only for genuine slip / drift.
+        self._carousel_angle_rad: float = 0.0
         # Vision-corrected virtual-pocket bank (architecture stage 2). The
         # bank is the durable identity surface; ``_pieces`` keeps the
         # dispatch-side state (handoff_requested, eject_enqueued, etc).
@@ -788,6 +797,7 @@ class RuntimeC4(BaseRuntime):
             "bank_track_count": len(self._bank),
             "bank_tracks": bank_view,
             "bank_pending_landings": pending_landings_view,
+            "carousel_angle_deg": math.degrees(self._carousel_angle_rad),
             "track_to_piece": dict(self._track_to_piece),
             "next_accept_in_s": max(0.0, self._next_accept_at - ts),
             "angles": {
@@ -2074,8 +2084,13 @@ class RuntimeC4(BaseRuntime):
         angle_deg: float,
         now_mono: float,
     ) -> None:
+        encoder = self._carousel_angle_rad
+        # Convert camera-frame angle to tray-frame: a = world - encoder.
+        # A piece glued to the tray has constant a; pieces that slide /
+        # tumble produce a non-zero adot.
+        a_tray = self._tray_frame_rad(math.radians(angle_deg), encoder)
         meas = Measurement(
-            a_meas=math.radians(angle_deg),
+            a_meas=a_tray,
             r_meas=float(track.radius_px or 100.0),
             score=float(track.score),
             raw_track_id=int(track.global_id) if track.global_id is not None else None,
@@ -2088,11 +2103,17 @@ class RuntimeC4(BaseRuntime):
             piece_uuid=piece_uuid,
             measurement=meas,
             now_t=now_mono,
-            encoder_rad=0.0,
+            encoder_rad=encoder,
         )
 
+    @staticmethod
+    def _tray_frame_rad(world_angle_rad: float, encoder_rad: float) -> float:
+        """Convert a camera-frame angle to tray frame, wrapped to [-pi, pi]."""
+        delta = float(world_angle_rad) - float(encoder_rad)
+        return math.atan2(math.sin(delta), math.cos(delta))
+
     def _bank_predict(self, now_mono: float) -> None:
-        self._bank.predict_all(t=now_mono, encoder_rad=0.0)
+        self._bank.predict_all(t=now_mono, encoder_rad=self._carousel_angle_rad)
 
     def _bank_observe_tracks(
         self, tracks: list[Track], now_mono: float
@@ -2106,6 +2127,7 @@ class RuntimeC4(BaseRuntime):
         """
         if not tracks:
             return
+        encoder = self._carousel_angle_rad
         measurements: list[tuple[str, Measurement]] = []
         for t in tracks:
             piece_uuid = t.piece_uuid or self._piece_uuid_for_track(t)
@@ -2117,7 +2139,7 @@ class RuntimeC4(BaseRuntime):
                 (
                     piece_uuid,
                     Measurement(
-                        a_meas=float(t.angle_rad),
+                        a_meas=self._tray_frame_rad(float(t.angle_rad), encoder),
                         r_meas=float(t.radius_px or 100.0),
                         score=float(t.score),
                         raw_track_id=int(t.global_id) if t.global_id is not None else None,
@@ -2130,7 +2152,7 @@ class RuntimeC4(BaseRuntime):
             )
         for piece_uuid, meas in measurements:
             self._bank.update_with_measurement(
-                piece_uuid, meas, now_t=now_mono, encoder_rad=0.0
+                piece_uuid, meas, now_t=now_mono, encoder_rad=encoder
             )
 
     def _bank_bind_classification(
@@ -2180,7 +2202,7 @@ class RuntimeC4(BaseRuntime):
             piece_uuid,
             chute_center_rad=chute_center,
             chute_half_width_rad=chute_half,
-            encoder_rad=0.0,
+            encoder_rad=self._carousel_angle_rad,
         )
 
     def _has_trailing_piece_within_safety(
@@ -2691,6 +2713,14 @@ class RuntimeC4(BaseRuntime):
                 ok = bool(command(deg))
                 return ok
             finally:
+                # Software encoder: every successful rotation through
+                # this wrapper contributes to the cumulative carousel
+                # angle. Failed moves do not count — the hardware did
+                # not actually advance.
+                if ok:
+                    self._carousel_angle_rad = math.radians(
+                        math.degrees(self._carousel_angle_rad) + float(deg)
+                    )
                 publish_move_completed(
                     self._bus,
                     self._logger,
@@ -2778,10 +2808,16 @@ class _C4LandingLeasePort:
         track_global_id: int | None = None,
     ) -> str | None:
         bank = self._runtime._bank
-        intake_a = math.radians(self._runtime._zone_manager.intake_angle_deg)
+        encoder = self._runtime._carousel_angle_rad
+        # Bank state lives in tray frame: a_tray = world_intake - encoder.
+        # The intake position rotates with the tray, so the tray-frame
+        # landing angle is identical for every lease — the bank's
+        # spacing check then compares predicted tray-frame angles.
+        intake_world = math.radians(self._runtime._zone_manager.intake_angle_deg)
+        intake_tray = self._runtime._tray_frame_rad(intake_world, encoder)
         return bank.request_landing_lease(
             predicted_arrival_t=float(now_mono) + max(0.0, float(predicted_arrival_in_s)),
-            predicted_landing_a=intake_a,
+            predicted_landing_a=intake_tray,
             min_spacing_rad=math.radians(max(0.0, float(min_spacing_deg))),
             now_t=float(now_mono),
             requested_by=track_global_id,

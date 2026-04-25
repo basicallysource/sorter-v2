@@ -315,16 +315,16 @@ class ClassificationChannelConfig:
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
-        # Raised from 2 -> 4 after pipeline stabilization (OSNet fix,
-        # liveness probe, leader-wins). Physical safety (arc-clear check,
-        # hard-collision guards, leader-wins) still prevents double-drops;
-        # this cap only governs how many pieces C4 accepts before throttling
-        # C3. Upstream gates (admission.py, running.py) pick this up
-        # automatically — no other call sites hardcode the old value.
-        self.max_zones = 4
+        # Raised from 4 -> 9 for the controlled-density 10 PPM target. The
+        # 11:58 lab run that hit 9.3 PPM ran with max_zones=9, half-width=7,
+        # guard=6. Physical safety (arc-clear check, hard-collision guards,
+        # leader-wins) still prevents double-drops; this cap only governs
+        # how many pieces C4 admits before throttling C3. Upstream gates
+        # pick this up automatically — no call sites hardcode the value.
+        self.max_zones = 9
         self.intake_angle_deg = 305.0
-        self.intake_body_half_width_deg = 10.0
-        self.intake_guard_deg = 28.0
+        self.intake_body_half_width_deg = 7.0
+        self.intake_guard_deg = 6.0
         # Live calibration on the dedicated classification channel shows the
         # real guide / point-of-no-return on the lower-right quadrant, not on
         # the legacy left-side position from the old chamber model.

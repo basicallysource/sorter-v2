@@ -233,6 +233,70 @@
   </section>
 
   <section>
+    <h2>Welche BoxMot-Algorithmen wurden getestet?</h2>
+    <p>Die lokale BoxMot-Installation bringt Tracker-Konfigs fuer <code>botsort</code>, <code>bytetrack</code>, <code>ocsort</code>, <code>strongsort</code>, <code>boosttrack</code>, <code>sfsort</code>, <code>deepocsort</code>, <code>hybridsort</code> und <code>imprassoc</code> mit. In der Replay-Matrix wurden davon nicht alle als fertige Runtime-Adapter getestet, sondern ueber einen Benchmark-only BoxMot-Wrapper.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>BoxMot-Tracker</th>
+          <th>Getestet?</th>
+          <th>Ergebnis / Einordnung</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>botsort</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als produktiver Sorter-Adapter <code>botsort_reid</code> und als direkter <code>boxmot_botsort</code>-Replay-Wrapper. Lief stabil, aber mit hohem Track-Churn.</td>
+        </tr>
+        <tr>
+          <td><code>bytetrack</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als direkter <code>boxmot_bytetrack</code>-Replay-Wrapper. Besser als <code>botsort_reid</code>, aber schlechter als die alte <code>rf_bytetrack</code>-Baseline. Deshalb naechster Tuning-Kandidat.</td>
+        </tr>
+        <tr>
+          <td><code>ocsort</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als <code>boxmot_ocsort</code>. Lief, aber Coverage und Churn waren nicht ueberzeugend genug als naechster Primary.</td>
+        </tr>
+        <tr>
+          <td><code>strongsort</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als <code>boxmot_strongsort</code>. Lief, aber im Stress deutlich schlechter und langsamer.</td>
+        </tr>
+        <tr>
+          <td><code>boosttrack</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als <code>boxmot_boosttrack</code>. Auf einzelnen ruhigen Ausschnitten interessant, im Stress aber zu niedrige Coverage und viele Gaps.</td>
+        </tr>
+        <tr>
+          <td><code>sfsort</code></td>
+          <td><span class="badge yes">Ja</span></td>
+          <td>Getestet als <code>boxmot_sfsort</code>. Teilweise solide, aber insgesamt nicht besser als BoxMot-ByteTrack als Zielkandidat.</td>
+        </tr>
+        <tr>
+          <td><code>deepocsort</code></td>
+          <td><span class="badge maybe">Angetestet</span></td>
+          <td>In der Vollmatrix mehrfach mit <code>LinAlgError</code> ausgestiegen. Deshalb nicht als produktionsnaher Kandidat gewertet.</td>
+        </tr>
+        <tr>
+          <td><code>hybridsort</code></td>
+          <td><span class="badge no">Nein</span></td>
+          <td>Nicht in der Matrix enthalten. Kann noch ergaenzt werden, ist aber nach den bisherigen Mustern eher ein zweiter Schritt nach BoxMot-ByteTrack.</td>
+        </tr>
+        <tr>
+          <td><code>imprassoc</code></td>
+          <td><span class="badge no">Nein</span></td>
+          <td>Nicht in der Matrix enthalten. Sollte nur nachgezogen werden, wenn wir die Matrix noch vollstaendiger machen wollen.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <p><strong>Wichtig:</strong> Die direkten <code>boxmot_*</code>-Tests sind Replay-Benchmark-Vergleiche, keine fertigen Runtime-Adapter. Der produktive Code nutzt aktuell nur den Sorter-eigenen <code>botsort_reid</code>-Adapter. Darum ist die naechste Arbeit nicht nur "Tracker umstellen", sondern "BoxMot-ByteTrack produktionsnah adaptieren und tunen".</p>
+    </div>
+  </section>
+
+  <section>
     <h2>Entscheidungsoptionen</h2>
     <table>
       <thead>

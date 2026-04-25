@@ -22,6 +22,7 @@ from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
 from rt.contracts.handoff import HandoffPort
+from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
@@ -1124,6 +1125,15 @@ class RuntimeC4(BaseRuntime):
             angle_deg=angle_deg,
             now_mono=now_mono,
         )
+        # If the upstream channel held a landing lease for this piece,
+        # consume the oldest pending landing in FIFO order. The bank's
+        # lease grant model is geometry-only (it does not know about
+        # raw track ids), so the first-in lease pairs with the first
+        # admitted arrival regardless of which raw_track_id ends up
+        # carrying it. Recovered admissions skip this — those came from
+        # restart reconciliation, not from a fresh upstream pulse.
+        if not recovered:
+            self._bank.consume_oldest_pending_landing()
         release_upstream_now = bool(release_upstream)
         if (
             not release_upstream_now
@@ -1992,6 +2002,13 @@ class RuntimeC4(BaseRuntime):
             return True
         return False
 
+    def landing_lease_port(self) -> LandingLeasePort:
+        """Expose this C4's landing-lease gate to the upstream C3.
+
+        Wired at bootstrap: ``c3.set_landing_lease_port(c4.landing_lease_port())``.
+        """
+        return _C4LandingLeasePort(self)
+
     # ------------------------------------------------------------------
     # PieceTrackBank mirror — stage 2 of the architecture rollout. The
     # bank lives in parallel with ``self._pieces`` and shares piece_uuids
@@ -2613,6 +2630,42 @@ def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:
 
 def _wrap_deg(angle: float) -> float:
     return (float(angle) + 180.0) % 360.0 - 180.0
+
+
+class _C4LandingLeasePort:
+    """C4's implementation of LandingLeasePort.
+
+    Wraps the runtime's PieceTrackBank: a request grants iff the
+    predicted landing arc is clear of every existing piece's predicted
+    angle and of every other pending landing. ``predicted_landing_a``
+    is fixed to C4's intake angle — that is where C3 hands off.
+    """
+
+    key = "c4"
+
+    def __init__(self, runtime: "RuntimeC4") -> None:
+        self._runtime = runtime
+
+    def request_lease(
+        self,
+        *,
+        predicted_arrival_in_s: float,
+        min_spacing_deg: float,
+        now_mono: float,
+        track_global_id: int | None = None,
+    ) -> str | None:
+        bank = self._runtime._bank
+        intake_a = math.radians(self._runtime._zone_manager.intake_angle_deg)
+        return bank.request_landing_lease(
+            predicted_arrival_t=float(now_mono) + max(0.0, float(predicted_arrival_in_s)),
+            predicted_landing_a=intake_a,
+            min_spacing_rad=math.radians(max(0.0, float(min_spacing_deg))),
+            now_t=float(now_mono),
+            requested_by=track_global_id,
+        )
+
+    def consume_lease(self, lease_id: str) -> None:
+        self._runtime._bank.consume_landing_lease(lease_id)
 
 
 class _C4PurgePort:

@@ -363,3 +363,115 @@ def test_predict_inflates_covariance_under_silence() -> None:
     bank.predict_all(t=2.0, encoder_rad=0.0)
     cov_after = float(next(iter(bank.tracks())).state_covariance[0, 0])
     assert cov_after > cov_before
+
+
+# ----------------------------------------------------------------------
+# Landing-lease API
+
+
+def test_lease_grants_when_landing_arc_is_clear() -> None:
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=180.0)], now_t=0.0, encoder_rad=0.0
+    )
+    lease = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert lease is not None
+
+
+def test_lease_denies_when_existing_track_will_be_in_landing_arc() -> None:
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    # Existing track sits at 0 and we ask to land at 10° within 30°
+    # spacing — should refuse.
+    lease = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(10.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert lease is None
+
+
+def test_lease_grants_when_existing_track_will_have_drifted_past() -> None:
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    track = next(iter(bank.tracks()))
+    # Inject an angular velocity so the track moves clear before arrival.
+    track.state_mean[2] = math.radians(120.0)  # 120 deg/s
+    lease = bank.request_landing_lease(
+        predicted_arrival_t=0.5,  # track at 0 + 120*0.5 = 60° at arrival
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert lease is not None
+
+
+def test_lease_denies_two_overlapping_grants() -> None:
+    bank = _make_bank()
+    first = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert first is not None
+    # A second request landing within the same 30° arc must refuse
+    # because the first lease is still held.
+    second = bank.request_landing_lease(
+        predicted_arrival_t=0.6,
+        predicted_landing_a=math.radians(15.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert second is None
+
+
+def test_lease_expires_after_ttl() -> None:
+    bank = _make_bank()
+    lease = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+        lease_ttl_s=0.5,
+    )
+    assert lease is not None
+    # After the lease TTL the slot frees up and a new request grants.
+    second = bank.request_landing_lease(
+        predicted_arrival_t=1.5,
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=1.0,
+    )
+    assert second is not None
+
+
+def test_consume_lease_removes_pending() -> None:
+    bank = _make_bank()
+    lease = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(0.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.0,
+    )
+    assert lease is not None
+    assert bank.consume_landing_lease(lease) is True
+    assert bank.consume_landing_lease(lease) is False
+    # Once consumed the slot frees up.
+    second = bank.request_landing_lease(
+        predicted_arrival_t=0.5,
+        predicted_landing_a=math.radians(5.0),
+        min_spacing_rad=math.radians(30.0),
+        now_t=0.1,
+    )
+    assert second is not None

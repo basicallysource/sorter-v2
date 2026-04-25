@@ -347,6 +347,7 @@ class PieceTrackBank:
         self._config = config
         self._tracks: dict[str, PieceTrack] = {}
         self._raw_id_index: dict[int, str] = {}
+        self._pending_landings: dict[str, PendingLanding] = {}
 
     # ------------------------------------------------------------------
     # Read-only views
@@ -754,6 +755,88 @@ class PieceTrackBank:
                 out.append(tr)
         return tuple(out)
 
+    # ------------------------------------------------------------------
+    # Landing-lease API — the C3 to C4 software escapement.
+
+    def request_landing_lease(
+        self,
+        *,
+        predicted_arrival_t: float,
+        predicted_landing_a: float,
+        min_spacing_rad: float,
+        now_t: float,
+        lease_ttl_s: float = 1.5,
+        requested_by: int | None = None,
+    ) -> str | None:
+        """Reserve a future landing slot, or refuse if it would clash.
+
+        Refusal rule: at the predicted arrival time, the predicted angle
+        of every existing PieceTrack and every other pending landing
+        must be at least ``min_spacing_rad`` away from the proposed
+        landing angle. The mathematics is "predict to t = arrival,
+        check angular distance".
+
+        Granted leases are recorded with a TTL so a C3 pulse that fails
+        to deliver a piece does not orphan the slot forever. The C4
+        admission/reconcile path is responsible for calling
+        ``consume_landing_lease`` when the new track actually appears.
+        """
+        self._sweep_pending_landings(now_t)
+        for tr in self._tracks.values():
+            if tr.lifecycle_state in (
+                PieceLifecycleState.EJECTED,
+                PieceLifecycleState.FINALIZED_LOST,
+            ):
+                continue
+            dt = max(0.0, predicted_arrival_t - tr.last_predicted_t)
+            predicted_a = wrap_rad(
+                float(tr.state_mean[0]) + float(tr.state_mean[2]) * dt
+            )
+            if abs(wrap_diff_rad(predicted_a, predicted_landing_a)) < min_spacing_rad:
+                return None
+        for pending in self._pending_landings.values():
+            if (
+                abs(wrap_diff_rad(pending.predicted_landing_a, predicted_landing_a))
+                < min_spacing_rad
+            ):
+                return None
+
+        lease_id = _uuid.uuid4().hex[:12]
+        self._pending_landings[lease_id] = PendingLanding(
+            lease_id=lease_id,
+            predicted_arrival_t=float(predicted_arrival_t),
+            predicted_landing_a=float(predicted_landing_a),
+            granted_at=float(now_t),
+            expires_at=float(now_t) + float(lease_ttl_s),
+            requested_by=requested_by,
+        )
+        return lease_id
+
+    def consume_landing_lease(self, lease_id: str) -> bool:
+        return self._pending_landings.pop(lease_id, None) is not None
+
+    def pending_landings(self) -> tuple[PendingLanding, ...]:
+        return tuple(self._pending_landings.values())
+
+    def _sweep_pending_landings(self, now_t: float) -> None:
+        expired = [
+            lease_id
+            for lease_id, p in self._pending_landings.items()
+            if p.expires_at <= now_t
+        ]
+        for lease_id in expired:
+            self._pending_landings.pop(lease_id, None)
+
+    def consume_oldest_pending_landing(self) -> PendingLanding | None:
+        """Pop the oldest pending landing — used when a new track is
+        admitted but the runtime cannot determine which lease produced
+        it (e.g. raw-id mismatch). FIFO matches the physical handoff
+        order: the first lease granted is the first piece to arrive."""
+        if not self._pending_landings:
+            return None
+        first_id = next(iter(self._pending_landings))
+        return self._pending_landings.pop(first_id, None)
+
     def is_singleton_in_chute(
         self,
         piece_uuid: str,
@@ -792,6 +875,29 @@ class AssociationOutcome:
 
     updates: list[tuple[str, int]] = field(default_factory=list)
     births: int = 0
+
+
+@dataclass(slots=True)
+class PendingLanding:
+    """A reserved future landing for a piece in transit toward this ring.
+
+    Created by ``PieceTrackBank.request_landing_lease`` and consumed by
+    ``consume_landing_lease`` when the piece actually shows up. Holds a
+    place in the bank's chute-spacing reasoning so C4 does not grant
+    overlapping leases that would later force the trailing-safety guard
+    to defer ejects.
+
+    ``predicted_arrival_t`` is the wall time of expected arrival.
+    ``predicted_landing_a`` is the tray-frame angle at which the new
+    track is expected to appear (typically the channel's intake angle).
+    """
+
+    lease_id: str
+    predicted_arrival_t: float
+    predicted_landing_a: float
+    granted_at: float
+    expires_at: float
+    requested_by: int | None = None
 
 
 __all__ = [

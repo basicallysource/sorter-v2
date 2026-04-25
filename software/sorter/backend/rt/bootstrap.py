@@ -1183,6 +1183,15 @@ def build_rt_runtime(
     except Exception:
         log.exception("rt.bootstrap: distributor handshake wiring failed")
 
+    # Stage 3: software escapement. C3 asks C4's PieceTrackBank for a
+    # landing lease before every exit pulse. No lease, no pulse — the
+    # spacing C4 needs is enforced upstream rather than reactively at
+    # the chute by the trailing-safety guard.
+    try:
+        c3.set_landing_lease_port(c4.landing_lease_port())
+    except Exception:
+        log.exception("rt.bootstrap: c3 landing-lease wiring failed")
+
     # ------------------------------------------------------------------
     # Orchestrator
 

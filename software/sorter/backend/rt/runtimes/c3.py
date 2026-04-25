@@ -26,6 +26,7 @@ from typing import Any, Callable
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
+from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
@@ -165,6 +166,21 @@ class RuntimeC3(BaseRuntime):
         self._pending_track_count: int = 0
         self._pending_downstream_claims: dict[int, float] = {}
         self._pending_downstream_claim_retries: dict[int, int] = {}
+        # Software escapement to C4. Set at bootstrap via
+        # ``set_landing_lease_port``. When present, every C3 exit pulse
+        # is gated through ``request_lease`` — no lease, no pulse. Live
+        # lease ids by track global_id so a retry pulse for the same
+        # track does not request a second lease while the first is
+        # still in flight.
+        self._landing_lease_port: "LandingLeasePort | None" = None
+        self._active_lease_by_track: dict[int, str] = {}
+        # Configurable knobs for the escapement. ``min_spacing_deg`` is
+        # what the doc calls S_min — distance the new piece must be from
+        # every existing C4 piece's predicted angle at arrival time.
+        # ``transit_estimate_s`` is how long C3 -> C4 takes physically.
+        self._lease_min_spacing_deg: float = 30.0
+        self._lease_transit_estimate_s: float = 0.6
+        self._lease_ttl_s: float = 1.5
         self._arrival_diagnostics_armed: bool = False
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
@@ -332,6 +348,14 @@ class RuntimeC3(BaseRuntime):
         finally:
             self._tick_end(start)
 
+    def set_landing_lease_port(self, port: LandingLeasePort | None) -> None:
+        """Bind the downstream's landing-lease gate.
+
+        ``None`` disables the escapement and falls back to the legacy
+        slot-based gate (only used in tests that do not exercise the
+        port path)."""
+        self._landing_lease_port = port
+
     def on_piece_delivered(self, piece_uuid: str, now_mono: float) -> None:
         # C4 confirms it accepted the piece — release C3 slot upstream.
         self._upstream_slot.release()
@@ -470,6 +494,29 @@ class RuntimeC3(BaseRuntime):
                 )
                 return
             else:
+                # Software escapement: ask the downstream's landing
+                # lease port whether the C4 landing arc will be clear
+                # when this piece arrives. No lease, no pulse — keep the
+                # piece on C3 until separation actually exists. Replaces
+                # the old time-based slot.try_claim gate, which fired on
+                # an empty arc just because nothing else had claimed it
+                # in the last 3 s.
+                if (
+                    self._landing_lease_port is not None
+                    and claim_key is not None
+                ):
+                    lease_id = self._landing_lease_port.request_lease(
+                        predicted_arrival_in_s=self._lease_transit_estimate_s,
+                        min_spacing_deg=self._lease_min_spacing_deg,
+                        now_mono=now_mono,
+                        track_global_id=claim_key,
+                    )
+                    if lease_id is None:
+                        self._set_state(
+                            "pulsing", blocked_reason="downstream_full"
+                        )
+                        return
+                    self._active_lease_by_track[claim_key] = lease_id
                 claim = self._downstream_slot.try_claim(
                     now_mono=now_mono,
                     hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,

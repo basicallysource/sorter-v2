@@ -387,21 +387,19 @@ class ClassificationChannelConfig:
         self.startup_purge_prime_cooldown_ms = 120
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
-        self.startup_purge_speed_scale = 8.0
-        self.startup_purge_acceleration_microsteps_per_second_sq = 60000
-        # Scale for the normal pipeline-advance carousel move. The 24x/10k
-        # overdrive profile was too tall and too soft for short post-gearbox
-        # C4 moves: the firmware accepted direct 10k/200k moves while normal
-        # transport returned ok=false. Keep the ceiling reachable and make
-        # acceleration high enough for 6-18 degree transport windows without
-        # the harsh start/stop of the 200k diagnostic profile.
-        self.transport_speed_scale = 8.0
-        self.transport_acceleration_microsteps_per_second_sq = 60000
+        self.startup_purge_speed_scale = 4.0
+        self.startup_purge_acceleration_microsteps_per_second_sq = 20000
+        # Scale for the normal pipeline-advance carousel move. C4 is
+        # gear-driven, so the default profile favors smooth 3-8 degree tray
+        # advances over aggressive acceleration. Operators can still push
+        # throughput live via runtime tuning once transport looks clean.
+        self.transport_speed_scale = 4.0
+        self.transport_acceleration_microsteps_per_second_sq = 4000
         # Dedicated C4 is gear-driven from the former carousel motor port.
         # Runtime geometry works in tray/object degrees, while the low-level
         # stepper API works in motor degrees. Live tests on this machine show
-        # roughly 35-45 motor degrees per visible tray degree; 36 keeps the
-        # default conservative and can be tuned live from /api/rt/tuning.
+        # roughly 35-45 motor degrees per visible tray degree; 36 is a
+        # hardware calibration constant, not an operator flow-control knob.
         self.stepper_degrees_per_tray_degree = 36.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(

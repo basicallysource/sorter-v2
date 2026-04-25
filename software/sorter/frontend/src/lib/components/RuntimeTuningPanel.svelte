@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Check, RefreshCw, SlidersHorizontal } from 'lucide-svelte';
+	import { Check, CircleQuestionMark, RefreshCw, SlidersHorizontal } from 'lucide-svelte';
 	import {
 		fetchRuntimeTuning,
 		updateRuntimeTuning,
@@ -149,6 +149,32 @@
 	});
 </script>
 
+{#snippet tuningLabel(forId: string, label: string, help: string)}
+	<span
+		title={help}
+		class="group relative inline-flex min-h-10 items-center gap-1.5 text-text-muted"
+	>
+		<label for={forId}>{label}</label>
+		<button
+			type="button"
+			aria-label={`${label}: ${help}`}
+			class="inline-flex h-6 w-6 shrink-0 items-center justify-center text-text-muted outline-none transition-[color] hover:text-text focus:text-text"
+		>
+			<CircleQuestionMark
+				size={12}
+				class="opacity-55 transition-[opacity] group-hover:opacity-90 group-focus-within:opacity-90"
+				aria-hidden="true"
+			/>
+		</button>
+		<span
+			class="pointer-events-none invisible absolute left-0 top-full z-50 mt-1 w-64 max-w-[min(16rem,calc(100vw-2rem))] translate-y-1 border border-border bg-surface px-2.5 py-2 text-left text-[11px] font-normal leading-snug text-text opacity-0 shadow-lg transition-[opacity,transform,visibility] duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100 motion-reduce:transition-none"
+			role="tooltip"
+		>
+			{help}
+		</span>
+	</span>
+{/snippet}
+
 <div class="flex max-h-[52vh] flex-col gap-3 overflow-y-auto px-3 py-3">
 	<div class="flex items-center justify-between gap-2">
 		<div class="flex min-w-0 items-center gap-2 text-xs font-medium uppercase text-text-muted">
@@ -176,78 +202,68 @@
 	<div class="border-t border-border pt-3">
 		<div class="mb-2 text-xs font-semibold uppercase text-text-muted">C4 Motion</div>
 		<div class="grid grid-cols-[92px_minmax(0,1fr)_76px] items-center gap-2 text-xs">
-			<label for="tune-c4-accel" class="text-text-muted">Accel</label>
+			{@render tuningLabel(
+				'tune-c4-accel',
+				'Accel',
+				'Stepper ramp for normal C4 transport moves. Lower values start and stop softer; higher values react harder and can sound aggressive.'
+			)}
 			<input
 				id="tune-c4-accel"
 				type="range"
-				min="20000"
-				max="200000"
-				step="5000"
-				value={numberValue(c4.transport_acceleration_usteps_per_s2, 80000)}
+				min="1000"
+				max="60000"
+				step="1000"
+				value={numberValue(c4.transport_acceleration_usteps_per_s2, 4000)}
 				oninput={(e) =>
 					updateChannel('c4', { transport_acceleration_usteps_per_s2: inputNumber(e) })}
 			/>
 			<input
 				type="number"
-				min="20000"
-				max="200000"
-				step="5000"
-				value={numberValue(c4.transport_acceleration_usteps_per_s2, 80000)}
+				min="1000"
+				max="60000"
+				step="1000"
+				value={numberValue(c4.transport_acceleration_usteps_per_s2, 4000)}
 				onchange={(e) =>
 					updateChannel('c4', { transport_acceleration_usteps_per_s2: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-scale" class="text-text-muted">Scale</label>
+			{@render tuningLabel(
+				'tune-c4-scale',
+				'Scale',
+				'Multiplier for C4 carousel transport speed. Lower slows the tray down globally; higher increases throughput but also mechanical stress.'
+			)}
 			<input
 				id="tune-c4-scale"
 				type="range"
-				min="1"
-				max="24"
+				min="0.5"
+				max="12"
 				step="0.5"
-				value={numberValue(c4.transport_speed_scale, 8)}
+				value={numberValue(c4.transport_speed_scale, 4)}
 				oninput={(e) => updateChannel('c4', { transport_speed_scale: inputNumber(e) })}
 			/>
 			<input
 				type="number"
-				min="1"
-				max="24"
+				min="0.5"
+				max="12"
 				step="0.5"
-				value={numberValue(c4.transport_speed_scale, 8)}
+				value={numberValue(c4.transport_speed_scale, 4)}
 				onchange={(e) => updateChannel('c4', { transport_speed_scale: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-gear" class="text-text-muted">Gear</label>
-			<input
-				id="tune-c4-gear"
-				type="range"
-				min="1"
-				max="80"
-				step="1"
-				value={numberValue(c4.stepper_degrees_per_tray_degree, 36)}
-				oninput={(e) =>
-					updateChannel('c4', { stepper_degrees_per_tray_degree: inputNumber(e) })}
-			/>
-			<input
-				type="number"
-				min="1"
-				max="80"
-				step="1"
-				value={numberValue(c4.stepper_degrees_per_tray_degree, 36)}
-				onchange={(e) =>
-					updateChannel('c4', { stepper_degrees_per_tray_degree: inputNumber(e) })}
-				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
-			/>
-
-			<label for="tune-c4-step" class="text-text-muted">Step</label>
+			{@render tuningLabel(
+				'tune-c4-step',
+				'Step',
+				'Nominal tray degrees per C4 transport pulse. Smaller steps move parts more gently; larger steps clear space faster.'
+			)}
 			<input
 				id="tune-c4-step"
 				type="range"
 				min="1"
 				max="24"
 				step="0.5"
-				value={numberValue(c4.transport_step_deg, 6)}
+				value={numberValue(c4.transport_step_deg, 3)}
 				oninput={(e) => updateChannel('c4', { transport_step_deg: inputNumber(e) })}
 			/>
 			<input
@@ -255,19 +271,23 @@
 				min="1"
 				max="24"
 				step="0.5"
-				value={numberValue(c4.transport_step_deg, 6)}
+				value={numberValue(c4.transport_step_deg, 3)}
 				onchange={(e) => updateChannel('c4', { transport_step_deg: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-max-step" class="text-text-muted">Max Step</label>
+			{@render tuningLabel(
+				'tune-c4-max-step',
+				'Max Step',
+				'Upper limit for one C4 transport move when runtime asks for more motion. Caps sudden jumps and keeps recovery moves bounded.'
+			)}
 			<input
 				id="tune-c4-max-step"
 				type="range"
 				min="1"
 				max="36"
 				step="0.5"
-				value={numberValue(c4.transport_max_step_deg, 18)}
+				value={numberValue(c4.transport_max_step_deg, 8)}
 				oninput={(e) => updateChannel('c4', { transport_max_step_deg: inputNumber(e) })}
 			/>
 			<input
@@ -275,19 +295,23 @@
 				min="1"
 				max="36"
 				step="0.5"
-				value={numberValue(c4.transport_max_step_deg, 18)}
+				value={numberValue(c4.transport_max_step_deg, 8)}
 				onchange={(e) => updateChannel('c4', { transport_max_step_deg: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-cooldown" class="text-text-muted">Cooldown</label>
+			{@render tuningLabel(
+				'tune-c4-cooldown',
+				'Cooldown',
+				'Minimum wait between C4 transport pulses in milliseconds. Higher values reduce chattering and pile-up pressure; lower values move faster.'
+			)}
 			<input
 				id="tune-c4-cooldown"
 				type="range"
 				min="20"
 				max="500"
 				step="10"
-				value={msValue(c4.transport_cooldown_s, 80)}
+				value={msValue(c4.transport_cooldown_s, 180)}
 				oninput={(e) => updateChannel('c4', { transport_cooldown_ms: inputNumber(e) })}
 			/>
 			<input
@@ -295,7 +319,7 @@
 				min="20"
 				max="500"
 				step="10"
-				value={msValue(c4.transport_cooldown_s, 80)}
+				value={msValue(c4.transport_cooldown_s, 180)}
 				onchange={(e) => updateChannel('c4', { transport_cooldown_ms: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
@@ -305,7 +329,11 @@
 	<div class="border-t border-border pt-3">
 		<div class="mb-2 text-xs font-semibold uppercase text-text-muted">C4 Flow</div>
 		<div class="grid grid-cols-[92px_minmax(0,1fr)_76px] items-center gap-2 text-xs">
-			<label for="tune-c4-zones" class="text-text-muted">Zones</label>
+			{@render tuningLabel(
+				'tune-c4-zones',
+				'Zones',
+				'Maximum number of occupied C4 slot zones before upstream channels should slow down or wait. Lower protects C4 from overfilling.'
+			)}
 			<input
 				id="tune-c4-zones"
 				type="range"
@@ -325,7 +353,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-rpm" class="text-text-muted">Target rpm</label>
+			{@render tuningLabel(
+				'tune-c4-rpm',
+				'Target rpm',
+				'Desired tray rotation rate used to size C4 transport pulses. Higher rpm increases clearing speed; zero disables rpm-driven enlargement.'
+			)}
 			<input
 				id="tune-c4-rpm"
 				type="range"
@@ -345,7 +377,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c4-unjam" class="text-text-muted">Unjam</label>
+			{@render tuningLabel(
+				'tune-c4-unjam',
+				'Unjam',
+				'Time without enough C4 progress before the unjam strategy may kick in. Higher waits longer; lower reacts sooner.'
+			)}
 			<input
 				id="tune-c4-unjam"
 				type="range"
@@ -365,7 +401,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label class="text-text-muted" for="tune-c4-idle">Idle Jog</label>
+			{@render tuningLabel(
+				'tune-c4-idle',
+				'Idle Jog',
+				'Allows small C4 nudges while waiting so parts do not sit forever between useful positions. Disable when diagnosing unwanted movement.'
+			)}
 			<input
 				id="tune-c4-idle"
 				type="checkbox"
@@ -380,7 +420,11 @@
 	<div class="border-t border-border pt-3">
 		<div class="mb-2 text-xs font-semibold uppercase text-text-muted">C3 / C2</div>
 		<div class="grid grid-cols-[92px_minmax(0,1fr)_76px] items-center gap-2 text-xs">
-			<label for="tune-c3-max" class="text-text-muted">C3 Max</label>
+			{@render tuningLabel(
+				'tune-c3-max',
+				'C3 Max',
+				'Maximum pieces C3 should tolerate before backpressure blocks C2. Lower reduces crowding; higher feeds C4 more aggressively.'
+			)}
 			<input
 				id="tune-c3-max"
 				type="range"
@@ -400,7 +444,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c3-speed" class="text-text-muted">C3 Speed</label>
+			{@render tuningLabel(
+				'tune-c3-speed',
+				'C3 Speed',
+				'C3 rotor pulse speed in microsteps per second. Higher moves parts onward faster; lower is quieter and gentler.'
+			)}
 			<input
 				id="tune-c3-speed"
 				type="range"
@@ -422,7 +470,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c3-cooldown" class="text-text-muted">C3 Cool</label>
+			{@render tuningLabel(
+				'tune-c3-cooldown',
+				'C3 Cool',
+				'Minimum wait between C3 pulses in milliseconds. Higher values slow feeding and give tracking more time to settle.'
+			)}
 			<input
 				id="tune-c3-cooldown"
 				type="range"
@@ -442,7 +494,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c2-max" class="text-text-muted">C2 Max</label>
+			{@render tuningLabel(
+				'tune-c2-max',
+				'C2 Max',
+				'Maximum pieces C2 should hold before C1 is blocked. Lower prevents a large queue; higher lets C2 buffer more parts.'
+			)}
 			<input
 				id="tune-c2-max"
 				type="range"
@@ -462,7 +518,11 @@
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
-			<label for="tune-c2-cooldown" class="text-text-muted">C2 Cool</label>
+			{@render tuningLabel(
+				'tune-c2-cooldown',
+				'C2 Cool',
+				'Minimum wait between C2 pulses in milliseconds. Higher values slow how quickly C2 refills C3.'
+			)}
 			<input
 				id="tune-c2-cooldown"
 				type="range"
@@ -487,7 +547,11 @@
 	<div class="border-t border-border pt-3">
 		<div class="mb-2 text-xs font-semibold uppercase text-text-muted">Slots</div>
 		<div class="grid grid-cols-[92px_minmax(0,1fr)_76px] items-center gap-2 text-xs">
-			<label for="tune-slot-c3-c4" class="text-text-muted">C3->C4</label>
+			{@render tuningLabel(
+				'tune-slot-c3-c4',
+				'C3->C4',
+				'Virtual slot allowance between C3 and C4. Lower tightens handoff backpressure; higher lets more pieces queue toward C4.'
+			)}
 			<input
 				id="tune-slot-c3-c4"
 				type="range"

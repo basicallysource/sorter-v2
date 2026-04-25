@@ -29,11 +29,11 @@ def _handle() -> SimpleNamespace:
     )
     classification = SimpleNamespace(
         max_zones=4,
-        transport_speed_scale=8.0,
+        transport_speed_scale=4.0,
         stepper_degrees_per_tray_degree=36.0,
-        transport_acceleration_microsteps_per_second_sq=80000,
-        startup_purge_speed_scale=8.0,
-        startup_purge_acceleration_microsteps_per_second_sq=80000,
+        transport_acceleration_microsteps_per_second_sq=4000,
+        startup_purge_speed_scale=4.0,
+        startup_purge_acceleration_microsteps_per_second_sq=20000,
     )
     c2 = SimpleNamespace(
         _max_piece_count=5,
@@ -61,10 +61,10 @@ def _handle() -> SimpleNamespace:
     c4 = SimpleNamespace(
         _zone_manager=SimpleNamespace(_max_zones=4, max_zones=4),
         _admission=SimpleNamespace(_max_zones=4, max_raw_detections=None),
-        _transport_step_deg=6.0,
-        _transport_max_step_deg=18.0,
-        _transport_cooldown_s=0.08,
-        _transport_velocity=SimpleNamespace(target_rpm=1.2),
+        _transport_step_deg=3.0,
+        _transport_max_step_deg=8.0,
+        _transport_cooldown_s=0.18,
+        _transport_velocity=SimpleNamespace(target_rpm=0.7),
         _idle_jog_enabled=True,
         _idle_jog_step_deg=2.0,
         _idle_jog_cooldown_s=0.5,
@@ -105,7 +105,7 @@ def test_snapshot_reports_live_values() -> None:
 
     payload = runtime_tuning.snapshot(handle)
 
-    assert payload["channels"]["c4"]["transport_acceleration_usteps_per_s2"] == 80000
+    assert payload["channels"]["c4"]["transport_acceleration_usteps_per_s2"] == 4000
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
     assert payload["slots"]["c3_to_c4"] == 4
 
@@ -123,7 +123,6 @@ def test_update_c4_motion_and_backpressure_live() -> None:
                     "transport_max_step_deg": 12.0,
                     "transport_cooldown_ms": 140,
                     "transport_acceleration_usteps_per_s2": 60000,
-                    "stepper_degrees_per_tray_degree": 42.0,
                     "transport_target_rpm": 0.9,
                 }
             }
@@ -141,10 +140,20 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     )
     assert (
         handle.irl.irl_config.classification_channel_config.stepper_degrees_per_tray_degree
-        == 42.0
+        == 36.0
     )
-    assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 42.0
+    assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 36.0
     assert payload["channels"]["c4"]["transport_target_rpm"] == 0.9
+
+
+def test_update_c4_rejects_gear_ratio_live_patch() -> None:
+    handle = _handle()
+
+    with pytest.raises(ValueError, match="unsupported tuning field"):
+        runtime_tuning.apply_patch(
+            handle,
+            {"channels": {"c4": {"stepper_degrees_per_tray_degree": 42.0}}},
+        )
 
 
 def test_update_c2_flow_and_profile_live() -> None:

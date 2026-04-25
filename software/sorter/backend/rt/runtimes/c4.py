@@ -55,17 +55,15 @@ DEFAULT_SHIMMY_STEP_DEG = 4.0
 DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
 DEFAULT_INTAKE_HALF_WIDTH_DEG = 18.0
-DEFAULT_TRANSPORT_STEP_DEG = 6.0
-DEFAULT_TRANSPORT_MAX_STEP_DEG = 18.0
-DEFAULT_TRANSPORT_TARGET_RPM = 1.2
+DEFAULT_TRANSPORT_STEP_DEG = 3.0
+DEFAULT_TRANSPORT_MAX_STEP_DEG = 8.0
+DEFAULT_TRANSPORT_TARGET_RPM = 0.7
 DEFAULT_EXIT_APPROACH_ANGLE_DEG = 36.0
 DEFAULT_EXIT_APPROACH_STEP_DEG = 3.0
 DEFAULT_EXIT_BBOX_OVERLAP_RATIO = 0.5
-# Reduced from 250 ms: with transport_speed_scale pushed up to 20x the
-# motor finishes each step in well under 100 ms, so waiting a full
-# quarter second between advances was capping the observed rpm below
-# the 1 rpm operator target.
-DEFAULT_TRANSPORT_COOLDOWN_MS = 80
+# Conservative default: C4 is a gear-driven channel and should advance with
+# small, smooth moves unless live tuning intentionally pushes throughput.
+DEFAULT_TRANSPORT_COOLDOWN_MS = 180
 DEFAULT_TRACK_STALE_S = 0.5
 DEFAULT_RECOVER_MIN_HIT_COUNT = 2
 DEFAULT_RECOVER_MIN_SCORE = 0.35

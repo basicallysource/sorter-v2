@@ -278,7 +278,6 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "transport_cooldown_ms",
         "transport_target_rpm",
         "transport_speed_scale",
-        "stepper_degrees_per_tray_degree",
         "transport_acceleration_usteps_per_s2",
         "startup_purge_speed_scale",
         "startup_purge_acceleration_usteps_per_s2",
@@ -346,7 +345,6 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     _set_runtime_float(runtime, "_reconcile_min_age_s", values, "reconcile_min_age_s", min_value=0.0, max_value=30.0)
     if class_cfg is not None:
         _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 64.0)
-        _set_cfg_float(class_cfg, "stepper_degrees_per_tray_degree", values, "stepper_degrees_per_tray_degree", 1.0, 120.0)
         _set_cfg_optional_int(class_cfg, "transport_acceleration_microsteps_per_second_sq", values, "transport_acceleration_usteps_per_s2", 1, 1_000_000)
         _set_cfg_float(class_cfg, "startup_purge_speed_scale", values, "startup_purge_speed_scale", 0.1, 64.0)
         _set_cfg_optional_int(class_cfg, "startup_purge_acceleration_microsteps_per_second_sq", values, "startup_purge_acceleration_usteps_per_s2", 1, 1_000_000)

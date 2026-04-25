@@ -233,7 +233,7 @@ def test_c4_sample_transport_uses_sample_move_command() -> None:
 
     assert rt.sample_transport_port().step(1.0) is True
 
-    assert "sample:6.0" in log
+    assert "sample:3.0" in log
     assert "transport:6.0" not in log
 
 
@@ -848,7 +848,7 @@ def test_c4_recovers_stable_visible_tracks_after_restart_and_starts_transport() 
     dossier = next(iter(rt._pieces.values()))  # noqa: SLF001
     assert dossier.extras.get("recovered") is True
     assert up.available() == 2
-    assert "transport:6.0" in log
+    assert "transport:3.0" in log
     assert rt.health().state == "rotate_pipeline"
 
 
@@ -944,7 +944,7 @@ def test_c4_slows_pipeline_motion_near_exit() -> None:
         now_mono=0.3,
     )
 
-    assert "transport:6.0" in log
+    assert "transport:3.0" in log
     assert "move:3.0" in log
 
 
@@ -1209,7 +1209,7 @@ def test_c4_startup_purge_recovers_rotates_and_ejects_without_classifier() -> No
     assert rt.dossier_count() == 1
     assert clf.calls == 0
     assert up.available() == 2
-    assert "purge:6.0" in log
+    assert "purge:3.0" in log
     exit_track = _track(
         global_id=7,
         angle_deg=180.0,
@@ -1272,9 +1272,9 @@ def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
         now_mono=1.0,
     )
     # First tick: _maybe_advance_transport enqueues a transport-step move
-    # (default transport_step_deg=6.0) and sets _next_transport_at.
+    # (default transport_step_deg=3.0) and sets _next_transport_at.
     assert rt.dossier_count() == 1
-    assert "purge:6.0" in log
+    assert "purge:3.0" in log
 
     # Second tick inside the transport cooldown window — _maybe_advance_transport
     # returns False (transport blocked). Without the fallback the FSM would land
@@ -1328,8 +1328,8 @@ def test_c4_transport_uses_longer_step_when_observed_piece_speed_is_low() -> Non
         now_mono=2.0,
     )
 
-    assert "transport:6.0" in log
-    assert "transport:18.0" in log
+    assert "transport:3.0" in log
+    assert "transport:8.0" in log
     snap = rt.debug_snapshot()["transport_velocity"]
     assert snap["recommendation"] == "extend_transport_window"
 

@@ -15,13 +15,17 @@ def test_initial_available_equals_capacity() -> None:
     assert slot.taken() == 0
 
 
-def test_try_claim_loop_until_full() -> None:
+def test_try_claim_is_now_permissive() -> None:
+    """Claims used to fail when the slot was full; now they always succeed
+    so a transient claim from an upstream advance pulse cannot block all
+    flow. The slot still tracks the claim list so the step debugger can
+    surface it as a breadcrumb."""
     slot = CapacitySlot("t", capacity=2)
     assert slot.try_claim() is True
     assert slot.try_claim() is True
-    assert slot.available() == 0
-    assert slot.try_claim() is False
     assert slot.taken() == 2
+    assert slot.try_claim() is True  # would have returned False before
+    assert slot.taken() == 3
 
 
 def test_release_restores_capacity() -> None:
@@ -58,9 +62,6 @@ def test_set_capacity_grows() -> None:
     assert slot.try_claim() is True
     slot.set_capacity(4)
     assert slot.available() == 3
-    for _ in range(3):
-        assert slot.try_claim() is True
-    assert slot.try_claim() is False
 
 
 def test_negative_capacity_rejected() -> None:
@@ -106,20 +107,17 @@ def test_thread_safety_under_concurrent_claim_release() -> None:
     assert 0 <= slot.taken() <= slot.capacity()
 
 
-def test_try_claim_never_exceeds_capacity_under_contention() -> None:
+def test_try_claim_thread_safe_under_contention() -> None:
+    """Claim is now permissive — no capacity bound to enforce — but the
+    lock must still keep the bookkeeping list consistent under contention."""
     slot = CapacitySlot("contention", capacity=3)
-    max_observed = [0]
-    lock = threading.Lock()
 
     def claimer() -> None:
         for _ in range(500):
-            if slot.try_claim():
-                with lock:
-                    cur = slot.taken()
-                    if cur > max_observed[0]:
-                        max_observed[0] = cur
+            slot.try_claim()
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         for _ in range(4):
             pool.submit(claimer)
-    assert max_observed[0] <= slot.capacity()
+    # 4 workers x 500 claims each = 2000 total — no claim was lost.
+    assert slot.taken() == 2000

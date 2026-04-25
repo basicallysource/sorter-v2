@@ -68,18 +68,23 @@ class CapacitySlot:
         now_mono: float | None = None,
         hold_time_s: float | None = None,
     ) -> bool:
-        """Atomically reserve one slot; False if no room. Never blocks.
+        """Always succeeds — claims are bookkeeping only.
 
-        ``hold_time_s`` sets a monotonic deadline after which the claim
-        self-releases. Defaults to no expiry (legacy semantics). Passing
-        ``hold_time_s`` without ``now_mono`` keeps a finite deadline
-        anchored at ``0`` (effectively immediate expiry) — callers that
-        want a timeout must provide both.
+        Historically this was the upstream gate: a runtime that wanted to
+        push a piece downstream had to claim a slot first. The live
+        debugger surfaced a recurring failure mode where transient claims
+        from advance pulses (which never produced a downstream arrival)
+        held slots for their 3 s expiry and blocked all upstream movement
+        even when the downstream channel had visible headroom.
+
+        The orchestrator's capacity_downstream is now sourced from the
+        downstream runtime's ``available_slots()``, so the slot count is
+        no longer load-bearing for flow control. We keep the claim list
+        as a debug breadcrumb (the step debugger still surfaces it via
+        ``inspect_snapshot``) but the gate is gone.
         """
         with self._lock:
             self._sweep_locked(now_mono)
-            if len(self._claims) >= self._capacity:
-                return False
             if hold_time_s is None:
                 deadline = _NO_EXPIRY
             else:

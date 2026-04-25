@@ -747,6 +747,7 @@ class RuntimeC4(BaseRuntime):
                 {
                     "piece_uuid": tr.piece_uuid,
                     "lifecycle_state": tr.lifecycle_state.value,
+                    "motion_mode": tr.motion_mode.value,
                     "angle_deg": tr.angle_deg,
                     "angle_sigma_deg": tr.angle_sigma_deg,
                     "class_label": tr.class_label,
@@ -757,12 +758,28 @@ class RuntimeC4(BaseRuntime):
                     "last_observed_age_s": ts - tr.last_observed_t,
                 }
             )
+        pending_landings_view: list[dict[str, Any]] = []
+        for pending in self._bank.pending_landings():
+            pending_landings_view.append(
+                {
+                    "lease_id": pending.lease_id,
+                    "predicted_arrival_in_s": max(
+                        0.0, pending.predicted_arrival_t - ts
+                    ),
+                    "predicted_landing_deg": math.degrees(
+                        pending.predicted_landing_a
+                    ),
+                    "expires_in_s": max(0.0, pending.expires_at - ts),
+                    "requested_by": pending.requested_by,
+                }
+            )
         return {
             "fsm_state": self._fsm.value,
             "dossier_count": len(self._pieces),
             "dossiers": dossiers,
             "bank_track_count": len(self._bank),
             "bank_tracks": bank_view,
+            "bank_pending_landings": pending_landings_view,
             "track_to_piece": dict(self._track_to_piece),
             "next_accept_in_s": max(0.0, self._next_accept_at - ts),
             "angles": {

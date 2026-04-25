@@ -258,6 +258,70 @@
 				{/if}
 			</div>
 
+			<!-- C4 PieceTrackBank — durable identity surface -->
+			<div class="card wide">
+				<h2>C4 PieceTrackBank ({rtField(inspect.runtime_inspect?.c4, 'bank_track_count') ?? 0})</h2>
+				{#if (rtField(inspect.runtime_inspect?.c4, 'bank_tracks') as unknown[] | undefined)?.length}
+					<table>
+						<thead>
+							<tr>
+								<th>uuid</th>
+								<th>state</th>
+								<th>mode</th>
+								<th>angle</th>
+								<th>±σ</th>
+								<th>part</th>
+								<th>aliases</th>
+								<th>obs</th>
+								<th>seen</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each (rtField(inspect.runtime_inspect?.c4, 'bank_tracks') as Record<string, unknown>[]) as t}
+								<tr>
+									<td class="mono">{(t.piece_uuid as string)?.slice(0, 8)}</td>
+									<td><span class="badge">{t.lifecycle_state}</span></td>
+									<td><span class="badge">{t.motion_mode}</span></td>
+									<td>{fmt(t.angle_deg as number)}</td>
+									<td>{fmt(t.angle_sigma_deg as number, 2)}</td>
+									<td class="mono">{t.class_label ?? '-'}</td>
+									<td class="mono">{(t.raw_track_aliases as number[])?.join(',') ?? '-'}</td>
+									<td>{t.detection_observations}/{t.confirmed_real_observations}</td>
+									<td>{fmtAge(t.last_observed_age_s as number)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{:else}
+					<p class="muted">empty</p>
+				{/if}
+				{#if (rtField(inspect.runtime_inspect?.c4, 'bank_pending_landings') as unknown[] | undefined)?.length}
+					<h3>pending landings</h3>
+					<table>
+						<thead>
+							<tr>
+								<th>lease</th>
+								<th>arrival in</th>
+								<th>landing</th>
+								<th>expires in</th>
+								<th>requested by</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each (rtField(inspect.runtime_inspect?.c4, 'bank_pending_landings') as Record<string, unknown>[]) as p}
+								<tr>
+									<td class="mono">{(p.lease_id as string)?.slice(0, 8)}</td>
+									<td>{fmtAge(p.predicted_arrival_in_s as number)}</td>
+									<td>{fmt(p.predicted_landing_deg as number)}</td>
+									<td>{fmtAge(p.expires_in_s as number)}</td>
+									<td>{p.requested_by ?? '-'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
+			</div>
+
 			<!-- C4 dossiers -->
 			<div class="card wide">
 				<h2>C4 dossiers ({rtField(inspect.runtime_inspect?.c4, 'dossier_count') ?? 0})</h2>

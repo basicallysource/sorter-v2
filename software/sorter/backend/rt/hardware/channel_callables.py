@@ -172,13 +172,98 @@ def build_c1_callables(
 
     pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
 
+    # 5-level escalating shake-then-push jam recovery, ported from the
+    # legacy ``subsystems/feeder/strategies/c1_jam_recovery.py`` (deleted
+    # in commit 09605a9 during the rt/ cutover and stubbed to a constant
+    # False return until now). Documented behaviour from
+    # ``docs/lab/c-channel-singulation``: progressively stronger
+    # back-and-forth shake to free a stuck piece, followed by a forward
+    # push that grows from 15 deg up to a full revolution at the top of
+    # the escalation. RuntimeC1 calls this once per attempt and bumps
+    # ``level`` itself; the cooldown between attempts is owned by the
+    # runtime via ``jam_cooldown_s``.
+    _RECOVERY_PUSH_OUTPUT_DEGREES = (15.0, 45.0, 90.0, 180.0, 360.0)
+    _RECOVERY_GEAR_RATIO = 130.0 / 12.0
+
+    def _recovery_shake_degrees(cfg: Any, level: int) -> float:
+        base = float(getattr(cfg, "first_rotor_jam_backtrack_output_degrees", 18.0))
+        max_deg = float(getattr(cfg, "first_rotor_jam_max_output_degrees", 30.0))
+        return max(15.0, min(max_deg, base + level * 6.0))
+
+    def _recovery_push_degrees(level: int) -> float:
+        idx = max(0, min(level, len(_RECOVERY_PUSH_OUTPUT_DEGREES) - 1))
+        return float(_RECOVERY_PUSH_OUTPUT_DEGREES[idx])
+
     def recovery(level: int) -> bool:
-        logger.warning(
-            "TODO_PHASE5_WIRING: c1 jam recovery level=%d — live verification needed "
-            "(stepper.move_degrees_blocking shake sequence)",
-            level,
+        stepper = getattr(irl, "c_channel_1_rotor_stepper", None)
+        if stepper is None:
+            logger.warning(
+                "RuntimeC1: jam recovery — c_channel_1_rotor_stepper missing"
+            )
+            return False
+        cfg = getattr(irl, "feeder_config", None) or getattr(
+            getattr(irl, "irl_config", None), "feeder_config", None
         )
-        return False
+        if cfg is None:
+            logger.warning("RuntimeC1: jam recovery — feeder_config missing")
+            return False
+        bounded_level = max(0, int(level))
+        max_cycles = max(1, int(getattr(cfg, "first_rotor_jam_max_cycles", 5)))
+        bounded_level = min(bounded_level, max_cycles - 1)
+        shake_output_deg = _recovery_shake_degrees(cfg, bounded_level)
+        shake_cycles = max(1, min(max_cycles, 1 + bounded_level))
+        push_output_deg = _recovery_push_degrees(bounded_level)
+        shake_motor_deg = shake_output_deg * _RECOVERY_GEAR_RATIO
+        push_motor_deg = push_output_deg * _RECOVERY_GEAR_RATIO
+        # Per-move timeout scales with travel — 90 ms per output deg is
+        # the legacy heuristic and worked across the available stepper
+        # profiles, with a 2.5 s floor so very small shakes still get
+        # enough room to settle.
+        shake_timeout_ms = max(2500, int(shake_output_deg * 90.0))
+        push_timeout_ms = max(2500, int(push_output_deg * 90.0))
+        logger.warning(
+            "RuntimeC1: jam recovery level=%d — %d x ±%.1f° shake then %.1f° push",
+            bounded_level + 1,
+            shake_cycles,
+            shake_output_deg,
+            push_output_deg,
+        )
+
+        move_blocking = getattr(stepper, "move_degrees_blocking", None)
+        if not callable(move_blocking):
+            logger.warning(
+                "RuntimeC1: jam recovery — stepper has no move_degrees_blocking"
+            )
+            return False
+
+        for cycle in range(shake_cycles):
+            if not bool(move_blocking(-shake_motor_deg, timeout_ms=shake_timeout_ms)):
+                logger.warning(
+                    "RuntimeC1: jam recovery shake reverse failed at cycle %d/%d",
+                    cycle + 1,
+                    shake_cycles,
+                )
+                return False
+            if not bool(move_blocking(shake_motor_deg, timeout_ms=shake_timeout_ms)):
+                logger.warning(
+                    "RuntimeC1: jam recovery shake forward failed at cycle %d/%d",
+                    cycle + 1,
+                    shake_cycles,
+                )
+                return False
+        if push_output_deg > 0.0:
+            if not bool(move_blocking(push_motor_deg, timeout_ms=push_timeout_ms)):
+                logger.warning(
+                    "RuntimeC1: jam recovery push failed at level %d (%.0f°)",
+                    bounded_level + 1,
+                    push_output_deg,
+                )
+                return False
+        logger.info(
+            "RuntimeC1: jam recovery level=%d completed",
+            bounded_level + 1,
+        )
+        return True
 
     def direct_move(
         deg: float,

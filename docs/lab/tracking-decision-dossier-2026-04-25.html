@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracking Entscheidungs-Dossier - 2026-04-25</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182125;
+      --muted: #5e6a70;
+      --line: #d8dee2;
+      --soft: #f5f7f8;
+      --green: #2d6b43;
+      --amber: #9a6200;
+      --red: #a33c36;
+      --blue: #0d6475;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.58 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #fff;
+    }
+    header {
+      padding: 34px 42px 24px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #f8fafb, #fff);
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 32px 60px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 34px 0 12px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 17px;
+    }
+    p { margin: 8px 0; }
+    code {
+      background: #edf2f3;
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-variant-numeric: tabular-nums;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--soft);
+      font-weight: 650;
+    }
+    ul, ol { padding-left: 22px; }
+    li { margin: 6px 0; }
+    a { color: var(--blue); }
+    .lead {
+      max-width: 900px;
+      color: var(--muted);
+    }
+    .decision {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 15px;
+      background: #fff;
+    }
+    .box strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    .box span {
+      display: block;
+      color: var(--muted);
+    }
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #eef7f8;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+    .good { border-left-color: var(--green); background: #f0f8f2; }
+    .warn { border-left-color: var(--amber); background: #fff8eb; }
+    .bad { border-left-color: var(--red); background: #fff2f1; }
+    .badge {
+      display: inline-block;
+      min-width: 74px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .yes { color: #fff; background: var(--green); }
+    .maybe { color: #fff; background: var(--amber); }
+    .no { color: #fff; background: var(--red); }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    @media (max-width: 820px) {
+      header { padding: 24px 22px 18px; }
+      main { padding: 22px 18px 46px; }
+      .decision { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+      th, td { padding: 7px 6px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Tracking Entscheidungs-Dossier</h1>
+  <p class="lead">Stand 25.04.2026. Dieses Dossier uebersetzt die Replay-Benchmark-Zahlen in eine handlungsfaehige Entscheidung fuer die Sorter-Tracking-Architektur.</p>
+</header>
+<main>
+  <section>
+    <h2>Entscheidung in einem Satz</h2>
+    <div class="callout">
+      <p><strong>Nicht zurueck auf Roboflow als Zielarchitektur.</strong> <code>rf_bytetrack</code> war im Test nur die beste Legacy-Baseline. Der richtige Weg ist: BoxMot-ByteTrack produktionsnah tunen, <code>botsort_reid</code> fuer ReID/Handoff als Shadow behalten, und darueber eine stabile Piece-Schicht bauen.</p>
+    </div>
+    <div class="decision">
+      <div class="box">
+        <strong>Aktuelles <code>botsort_reid</code></strong>
+        <span><span class="badge no">Nein</span> als alleiniger sichtbarer Primary zu flickerig.</span>
+      </div>
+      <div class="box">
+        <strong><code>rf_bytetrack</code></strong>
+        <span><span class="badge maybe">Baseline</span> gut als Messlatte, aber falsche Ziel-Library.</span>
+      </div>
+      <div class="box">
+        <strong>BoxMot + Stabilizer</strong>
+        <span><span class="badge yes">Ja</span> empfohlener Zielpfad.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>War die Baseline gut?</h2>
+    <p><strong>Ja, aber nur relativ.</strong> <code>rf_bytetrack</code> war deutlich stabiler als unser aktuelles produktives <code>botsort_reid</code>, wenn man nur die sichtbare lokale Tracklet-Stabilitaet betrachtet.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Tracker</th>
+          <th>Rolle im Test</th>
+          <th>Churn / 100 Detektionen</th>
+          <th>Coverage</th>
+          <th>Klartext</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>botsort_reid</code></td>
+          <td>aktueller produktiver Primary</td>
+          <td>7.29</td>
+          <td>0.81</td>
+          <td>zu viele neue/verlorene Track-IDs unter Bewegung; UI kann dadurch wackeln.</td>
+        </tr>
+        <tr>
+          <td><code>rf_bytetrack</code></td>
+          <td>Legacy-Baseline</td>
+          <td>3.69</td>
+          <td>1.05</td>
+          <td>deutlich ruhiger und numerisch gesund, aber Roboflow-/Legacy-Pfad.</td>
+        </tr>
+        <tr>
+          <td><code>boxmot_bytetrack</code></td>
+          <td>BoxMot-Zielkandidat, generischer Replay-Wrapper</td>
+          <td>5.60</td>
+          <td>0.80</td>
+          <td>besser als <code>botsort_reid</code>, aber noch nicht auf Baseline-Niveau.</td>
+        </tr>
+        <tr>
+          <td><code>polar</code></td>
+          <td>geometrischer Vergleich</td>
+          <td>3.22</td>
+          <td>1.44</td>
+          <td>wenig Churn, aber zu viele parallele Tracks; als alleiniger Primary riskant.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">Churn bedeutet hier: wie oft neue Track-IDs entstehen oder alte verloren gehen, relativ zur Menge der Detektionen. Weniger ist ruhiger. Coverage nahe 1.0 bedeutet: die Anzahl der Tracks passt grob zur Anzahl der erkannten Objekte.</p>
+    <div class="callout warn">
+      <p><strong>Wichtige Einordnung:</strong> Eine gute Baseline ist nicht automatisch eine gute Architekturentscheidung. <code>rf_bytetrack</code> zeigt, dass die Daten/Detektionen stabil genug sind, um deutlich ruhiger zu tracken. Es zeigt aber nicht, dass wir Roboflow wieder als Ziel nehmen sollten.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Warum wackelt das UI trotzdem?</h2>
+    <p>Die aktuelle Anzeige haengt noch zu direkt an rohen Tracklets. Wenn der Tracker ein Objekt fuer ein paar Frames verliert, entsteht schnell eine neue ID. Fuer den Menschen sieht das aus wie: Teil poppt auf, verschwindet, kommt wieder, obwohl physisch dasselbe Lego-Teil weiter sauber auf dem Kanal liegt.</p>
+    <p>Das ist kein reines Detektorproblem. Die Rohframes waren sauber, und auf den C-Kanaelen sieht man visuell stabile Bewegung. Das Problem sitzt in der Kombination aus Tracker-Continuity und fehlender stabiler Piece-Schicht.</p>
+    <ul>
+      <li><code>botsort_reid</code> hat ReID, aber lokal auf den C-Kanaelen nicht automatisch weniger Churn.</li>
+      <li><code>botsort_reid:with_reid=false</code> war fast gleich. ReID an/aus ist also nicht der Haupthebel fuer das lokale UI-Wackeln.</li>
+      <li>Parameter wie <code>track_buffer</code> und <code>appearance_thresh</code> haben in den Tests keine ausreichende Verbesserung gebracht.</li>
+      <li>Solange UI/DB rohe Tracklets anzeigen, bleibt jedes Tracker-Flackern sichtbar.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Was bedeutet das fuer BoxMot?</h2>
+    <p>Wir haben nicht widerlegt, dass BoxMot der richtige Pfad ist. Wir haben nur gezeigt: <strong>unser aktueller BoxMot-Pfad ist noch nicht so stabil wie die alte ByteTrack-Baseline.</strong></p>
+    <p>Das kann mehrere Ursachen haben:</p>
+    <ul>
+      <li><code>botsort_reid</code> ist fuer unsere rotierenden C-Kanal-Szenen nicht automatisch der beste sichtbare Primary.</li>
+      <li>Der direkte <code>boxmot_bytetrack</code>-Replay-Wrapper ist noch kein sauberer Runtime-Adapter mit genau unseren Geometrie-, Frame-Rate- und Lifecycle-Annahmen.</li>
+      <li>BoxMot-ByteTrack braucht wahrscheinlich gezielte Parameter: Frame-Rate, Track-Buffer, Confidence-Gates, Match-Thresholds, vielleicht C2/C3/C4 getrennt.</li>
+      <li>Die ReID-Staerke von BoxMot gehoert eher in Handoff/Enrichment, nicht zwingend in die lokale sichtbare Tracklet-ID.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Entscheidungsoptionen</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Bewertung</th>
+          <th>Warum</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Alles so lassen</td>
+          <td><span class="badge no">Nicht gut</span></td>
+          <td>Die gemessene Instabilitaet von <code>botsort_reid</code> passt zum beobachteten UI-Wackeln.</td>
+        </tr>
+        <tr>
+          <td>Einfach auf <code>rf_bytetrack</code> zurueck</td>
+          <td><span class="badge no">Nicht Ziel</span></td>
+          <td>Waere zwar vermutlich ruhiger, aber widerspricht der BoxMot-Richtung und loest ReID/Handoff nicht sauber.</td>
+        </tr>
+        <tr>
+          <td><code>botsort_reid</code> nur per Parametern retten</td>
+          <td><span class="badge maybe">Schwach</span></td>
+          <td>Die getesteten Parameter haben kaum geholfen. Als alleiniger Primary nicht empfehlenswert.</td>
+        </tr>
+        <tr>
+          <td>BoxMot-ByteTrack als Primary, <code>botsort_reid</code> als Shadow</td>
+          <td><span class="badge yes">Empfohlen</span></td>
+          <td>Passt zur Zielarchitektur: ruhige Motion-IDs plus ReID-Embeddings fuer Handoff.</td>
+        </tr>
+        <tr>
+          <td>Zweischichtige Datenstruktur</td>
+          <td><span class="badge yes">Notwendig</span></td>
+          <td>UI und Recent Pieces brauchen stabile <code>tracked_pieces</code>, nicht rohe Tracker-IDs.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Empfohlener Bauplan</h2>
+    <h3>Phase 1: BoxMot-ByteTrack richtig vergleichbar machen</h3>
+    <ol>
+      <li>Einen echten Runtime-Adapter fuer BoxMot-ByteTrack bauen, nicht nur den generischen Replay-Wrapper nutzen.</li>
+      <li>Parameter pro Kanal tunen: C2, C3 und C4 haben unterschiedliche Bewegung und Dropout-Profile.</li>
+      <li><code>rf_bytetrack</code> bleibt nur Messlatte: Ziel ist, dass BoxMot-ByteTrack aehnlich niedrigen Churn und Coverage nahe 1.0 erreicht.</li>
+    </ol>
+
+    <h3>Phase 2: Stabilizer ueber Tracklets</h3>
+    <ol>
+      <li>Eine stabile <code>tracked_piece_uuid</code> einfuehren, die 0.75-1.25 s Holdover ueber kurze Tracklet-Dropouts hat.</li>
+      <li>Tracklets per Polar-/Geometrie-Prognose und optional Appearance zusammenfuehren.</li>
+      <li>UI, Recent Pieces und Tracked duerfen nur noch stabile Pieces anzeigen, nicht rohe Tracklet-Fluktuation.</li>
+    </ol>
+
+    <h3>Phase 3: ReID/Handoff sauber anbinden</h3>
+    <ol>
+      <li><code>botsort_reid</code> als Shadow weiterlaufen lassen und OSNet-Embeddings an Primary-Tracklets anreichern.</li>
+      <li>C3 parkt beim Exit die stabile Piece-UUID plus Embedding.</li>
+      <li>C4 claimt diese Piece-UUID ueber Appearance + Zeitfenster + Geometrie, statt eine komplett neue Identitaet zu erzeugen.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Go/No-Go-Kriterien</h2>
+    <p>Damit die Entscheidung nicht wieder nach Bauchgefuehl getroffen wird, sollte der naechste Implementationsstand diese Kriterien erfuellen:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Kriterium</th>
+          <th>Zielwert</th>
+          <th>Bedeutung</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Churn C2/C3 Stress</td>
+          <td>&lt;= 4.5 pro 100 Detektionen</td>
+          <td>ungefaehr auf oder nahe <code>rf_bytetrack</code>-Baseline.</td>
+        </tr>
+        <tr>
+          <td>Coverage C2/C3</td>
+          <td>0.90 - 1.15</td>
+          <td>keine systematische Unter- oder Ueberzaehlung.</td>
+        </tr>
+        <tr>
+          <td>UI-Persistenz</td>
+          <td>kein sofortiges Verschwinden bei kurzen Dropouts</td>
+          <td>das loest die sichtbare Wackeligkeit.</td>
+        </tr>
+        <tr>
+          <td>C3-&gt;C4 Handoff</td>
+          <td>Piece-UUID bleibt erhalten</td>
+          <td>Tracklet-ID darf wechseln, Piece-ID nicht.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Restunsicherheit</h2>
+    <ul>
+      <li>Die Replay-Metrik hat keine manuell gelabelten Ground-Truth-IDs. Sie ist gut fuer A/B-Vergleiche, aber nicht perfekt.</li>
+      <li>C4 ist schwieriger als C2/C3, weil Teile dort ins Bild kommen, kurz sichtbar sind und wieder gehen. C4 braucht deshalb besonders die stabile Piece-Schicht.</li>
+      <li>Lokal war nur <code>osnet_x0_25_msmt17.pt</code> vorhanden. Ein echter Vergleich mehrerer ReID-Backbones steht noch aus.</li>
+      <li><code>boxmot_deepocsort</code> ist in mehreren Stress-Replays numerisch ausgefallen und sollte nicht als naechster Kandidat priorisiert werden.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Links zu den Rohdaten</h2>
+    <ul>
+      <li>Technischer Benchmark-Bericht: <a href="tracking-benchmark-report-2026-04-25.html">tracking-benchmark-report-2026-04-25.html</a></li>
+      <li>Summary CSV: <code>docs/lab/tracking-benchmark-summary-2026-04-25.csv</code></li>
+      <li>Replay-Captures: <code>software/sorter/backend/blob/replay_captures/</code></li>
+      <li>Benchmark-Tool: <code>software/sorter/backend/scripts/benchmark_tracker_replay.py</code></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

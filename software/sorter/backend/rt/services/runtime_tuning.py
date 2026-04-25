@@ -230,6 +230,9 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
                 None,
             )
         ),
+        "exit_trailing_safety_deg": _runtime_attr(
+            runtime, "_exit_trailing_safety_deg"
+        ),
         "idle_jog_enabled": _runtime_attr(runtime, "_idle_jog_enabled"),
         "idle_jog_step_deg": _runtime_attr(runtime, "_idle_jog_step_deg"),
         "idle_jog_cooldown_s": _runtime_attr(runtime, "_idle_jog_cooldown_s"),
@@ -523,6 +526,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "exit_release_shimmy_cycles",
         "exit_release_shimmy_speed_usteps_per_s",
         "exit_release_shimmy_acceleration_usteps_per_s2",
+        "exit_trailing_safety_deg",
         "idle_jog_enabled",
         "idle_jog_step_deg",
         "idle_jog_cooldown_s",
@@ -651,6 +655,17 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
                 "c4.exit_release_shimmy_amplitude_deg",
                 min_value=0.1,
                 max_value=12.0,
+            ),
+        )
+    if runtime is not None and "exit_trailing_safety_deg" in values:
+        setattr(
+            runtime,
+            "_exit_trailing_safety_deg",
+            _float(
+                values["exit_trailing_safety_deg"],
+                "c4.exit_trailing_safety_deg",
+                min_value=0.0,
+                max_value=90.0,
             ),
         )
     if "eject" in values:

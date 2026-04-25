@@ -66,6 +66,15 @@ DEFAULT_TRANSPORT_TARGET_RPM = 0.7
 DEFAULT_EXIT_APPROACH_ANGLE_DEG = 36.0
 DEFAULT_EXIT_APPROACH_STEP_DEG = 3.0
 DEFAULT_EXIT_BBOX_OVERLAP_RATIO = 0.5
+# Minimum angular separation that must exist between the matched ejecting
+# piece and any other owned track behind it (in the direction opposite to
+# rotation) before the exit-release shimmy is allowed to fire. Without
+# this guard, a trailing piece sitting inside the chute opening can be
+# nudged off by the same shimmy motion and fall into the bin positioned
+# for the previous piece. Live observation on 2026-04-25 confirmed the
+# failure mode. Tuned slightly larger than the chute drop tolerance so a
+# trailing piece is decisively outside the chute mouth before we shake.
+DEFAULT_EXIT_TRAILING_SAFETY_DEG = 22.0
 # Conservative default: C4 is a gear-driven channel and should advance with
 # small, smooth moves unless live tuning intentionally pushes throughput.
 DEFAULT_TRANSPORT_COOLDOWN_MS = 180
@@ -172,6 +181,7 @@ class RuntimeC4(BaseRuntime):
         exit_approach_angle_deg: float = DEFAULT_EXIT_APPROACH_ANGLE_DEG,
         exit_approach_step_deg: float = DEFAULT_EXIT_APPROACH_STEP_DEG,
         exit_bbox_overlap_ratio: float = DEFAULT_EXIT_BBOX_OVERLAP_RATIO,
+        exit_trailing_safety_deg: float = DEFAULT_EXIT_TRAILING_SAFETY_DEG,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         reconcile_min_hit_count: int = DEFAULT_RECOVER_MIN_HIT_COUNT,
         reconcile_min_score: float = DEFAULT_RECOVER_MIN_SCORE,
@@ -262,6 +272,7 @@ class RuntimeC4(BaseRuntime):
             0.0,
             min(1.0, float(exit_bbox_overlap_ratio)),
         )
+        self._exit_trailing_safety_deg = max(0.0, float(exit_trailing_safety_deg))
         self._track_stale_s = max(0.0, float(track_stale_s))
         self._reconcile_min_hit_count = max(1, int(reconcile_min_hit_count))
         self._reconcile_min_score = float(reconcile_min_score)
@@ -1688,6 +1699,14 @@ class RuntimeC4(BaseRuntime):
             if self._hw.busy():
                 self._set_state("drop_commit", blocked_reason="hw_busy")
                 return
+            if self._has_trailing_piece_within_safety(exit_track, tracks):
+                # A second owned track is sitting close enough behind the
+                # matched piece that the exit-release shimmy could nudge
+                # both off the carousel into the bin positioned for the
+                # matched piece's classification. Hold the eject; the next
+                # tick will re-evaluate after transport advances.
+                self._set_state("drop_commit", blocked_reason="trailing_piece_in_chute")
+                return
             self._enqueue_eject(piece_uuid, claim_downstream=False)
             return
 
@@ -1887,6 +1906,38 @@ class RuntimeC4(BaseRuntime):
             self._fsm = _C4State.EXIT_SHIMMY
             self._set_state(self._fsm.value)
             return True
+        return False
+
+    def _has_trailing_piece_within_safety(
+        self, matched_track: Track, tracks: list[Track]
+    ) -> bool:
+        """True if any other owned track is closer than the safety arc to the
+        matched ejecting piece.
+
+        We measure the absolute angular gap and check both directions: a piece
+        ahead in rotation (already past the matched piece) and a piece behind
+        (about to enter the chute). Either one within the safety arc means the
+        chute opening currently spans more than one piece, and the shimmy
+        could carry both off the tray.
+        """
+        if self._exit_trailing_safety_deg <= 0.0:
+            return False
+        matched_uuid = self._piece_uuid_for_track(matched_track)
+        if matched_uuid is None:
+            return False
+        matched_angle = math.degrees(matched_track.angle_rad or 0.0)
+        for t in tracks:
+            if t.angle_rad is None or t.global_id is None:
+                continue
+            if t is matched_track:
+                continue
+            other_uuid = self._piece_uuid_for_track(t)
+            if other_uuid is None or other_uuid == matched_uuid:
+                continue
+            other_angle = math.degrees(t.angle_rad)
+            gap = abs(_wrap_deg(other_angle - matched_angle))
+            if gap <= self._exit_trailing_safety_deg:
+                return True
         return False
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:

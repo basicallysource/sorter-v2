@@ -936,6 +936,97 @@ def test_c4_ejects_only_once_per_distributor_ready_until_delivery() -> None:
     assert dossier.eject_committed is True
 
 
+def test_c4_defers_eject_when_trailing_piece_within_safety() -> None:
+    """Two pieces close to each other at the exit must not both get ejected.
+
+    Live observation showed the exit-release shimmy could nudge a trailing
+    piece off the carousel into the bin selected for the matched piece.
+    The runtime must hold the eject when the trailing piece is inside the
+    safety arc, and finally fire it once the trailing piece has separated.
+    """
+    rt, _up, _down, _clf, log = _make(max_zones=2, exit_trailing_safety_deg=20.0)
+    handoffs: list[dict[str, Any]] = []
+    commits: list[str] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    # Admit piece #1 at intake.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(track_id=1, global_id=1, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    # #1 advances past the drop zone, #2 enters intake. Drop clear + intake
+    # arc clear means admission allows piece #2.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=1, angle_deg=60.0),
+                _track(track_id=2, global_id=2, angle_deg=0.0),
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.05,
+    )
+    # Both owned now. Advance so #1 hits classify (90°) while #2 trails.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=1, angle_deg=90.0),
+                _track(track_id=2, global_id=2, angle_deg=60.0),
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=0.1,
+    )
+    piece_uuid = handoffs[0]["piece_uuid"]
+    rt.on_distributor_ready(piece_uuid)
+
+    # #1 reached the exit (180°), #2 is 15° behind — inside the 20° safety
+    # arc. The eject must be deferred.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=1, angle_deg=180.0),
+                _track(track_id=2, global_id=2, angle_deg=165.0),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=0.2,
+    )
+    assert "eject" not in log
+    assert commits == []
+
+    # After more transport, #2 has fallen behind by 25° — outside the safety
+    # arc. The eject is now allowed to fire.
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=1, angle_deg=180.0),
+                _track(track_id=2, global_id=2, angle_deg=155.0),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=0.3,
+    )
+    assert "eject" in log
+    assert commits == [piece_uuid]
+
+
 def test_c4_does_not_recover_recently_delivered_lingering_track() -> None:
     rt, _up, _down, _clf, log = _make(max_zones=1)
     handoffs: list[dict[str, Any]] = []

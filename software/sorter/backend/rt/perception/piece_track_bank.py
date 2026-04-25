@@ -413,6 +413,15 @@ class PieceTrackBankConfig:
     # genuinely jumped (slip / nudge / collision) rather than drifted.
     # Snap the state straight to the measurement and reset velocity.
     snap_chi2_threshold: float = 50.0
+    # Hard cap on the propagated angular variance. Without it a track
+    # that sits without observations long enough develops a sigma so
+    # large that the chute-window check treats it as overlapping
+    # everywhere, which blocks legitimate ejects. The cap matches the
+    # physical reality: a piece truly out of the bank's belief by
+    # more than ~30 deg of angular uncertainty is no longer a useful
+    # state — it should be reacquired or finalized.
+    max_state_sigma_a_rad: float = math.radians(30.0)
+    max_state_sigma_r_px: float = 64.0
     # Birth threshold: a tentative track gets promoted to
     # ``CONFIRMED_UNCLASSIFIED`` after this many real detections.
     confirm_min_detections: int = 3
@@ -497,6 +506,8 @@ class PieceTrackBank:
         back to world-frame angles when they need to.
         """
         q_builder = self._config.process_noise
+        max_var_a = self._config.max_state_sigma_a_rad ** 2
+        max_var_r = self._config.max_state_sigma_r_px ** 2
         for tr in self._tracks.values():
             dt = float(t) - float(tr.last_predicted_t)
             if dt <= 0.0:
@@ -505,7 +516,16 @@ class PieceTrackBank:
             q = q_builder.matrix(dt, mode=tr.motion_mode)
             tr.state_mean = f @ tr.state_mean
             tr.state_mean[0] = wrap_rad(float(tr.state_mean[0]))
-            tr.state_covariance = f @ tr.state_covariance @ f.T + q
+            cov = f @ tr.state_covariance @ f.T + q
+            # Clamp the angular and radial position variances. Without
+            # this an unobserved tentative track grows a sigma so large
+            # that its chute-window interval covers the whole tray and
+            # spuriously blocks ejects of legitimate pieces.
+            if cov[0, 0] > max_var_a:
+                cov[0, 0] = max_var_a
+            if cov[1, 1] > max_var_r:
+                cov[1, 1] = max_var_r
+            tr.state_covariance = cov
             tr.last_predicted_t = float(t)
 
     def associate_and_update(

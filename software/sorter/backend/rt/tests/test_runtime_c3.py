@@ -472,7 +472,10 @@ def test_c3_pending_piece_does_not_release_or_fill_capacity() -> None:
     assert snap["pending_track_count"] == 1
 
 
-def test_c3_stable_pending_tracks_reserve_ring_capacity() -> None:
+def test_c3_admission_piece_count_tracks_visible_action_tracks() -> None:
+    """Piece count bookkeeping still reflects visible action tracks even
+    though ``available_slots`` no longer gates on it. The cap remains
+    visible to operators via the snapshot for tuning purposes."""
     rt, _up, _down, _log = _make(max_piece_count=1)
     rt.tick(
         RuntimeInbox(
@@ -489,16 +492,18 @@ def test_c3_stable_pending_tracks_reserve_ring_capacity() -> None:
         now_mono=0.0,
     )
     snap = rt.debug_snapshot()
-    assert rt.available_slots() == 0
     assert snap["piece_count"] == 1
     assert snap["admission_piece_count"] == 1
     assert snap["pending_track_count"] == 0
 
 
-def test_c3_available_slots_blocks_when_ring_full() -> None:
+def test_c3_available_slots_stays_open_when_ring_full() -> None:
+    """C3 used to refuse upstream when piece_count >= max_piece_count, but
+    that gate fought the carousel's physics: pieces still arrived via
+    advance pulses and rotation drag, leaving C3 visibly above the cap
+    while telling C2 'downstream_full'. The runtime now keeps reporting
+    capacity 1 and lets C4 admission be the actual physical gate."""
     rt, _up, _down, _log = _make(max_piece_count=1)
-    # With max_piece_count=1, one confirmed piece fills the ring and
-    # available_slots drops to 0 until the piece drains downstream.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(_track(angle_rad=math.pi / 3, confirmed=True)),
@@ -506,7 +511,7 @@ def test_c3_available_slots_blocks_when_ring_full() -> None:
         ),
         now_mono=0.0,
     )
-    assert rt.available_slots() == 0
+    assert rt.available_slots() == 1
 
 
 def test_c3_downstream_full_blocks_precise_pulse() -> None:

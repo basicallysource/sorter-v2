@@ -194,19 +194,17 @@ class RuntimeC2(BaseRuntime):
     # Runtime ABC
 
     def available_slots(self) -> int:
+        """Whether C1 may push another piece downstream.
+
+        See the matching note on ``RuntimeC3.available_slots`` — the
+        ``max_piece_count`` cap is a lab-tuning hint that the carousel's
+        physics routinely overruns, not a contract this runtime can
+        enforce. Returning 1 outside purge keeps C1 feeding so C4 (the
+        real physical singulation gate) gets a steady supply.
+        """
         if self._purge_mode:
             return 0
-        if self._admission_piece_count >= self._max_piece_count:
-            return 0
-        # Delegate to AdmissionStrategy so Phase 4+ can plug a real gate in.
-        decision = self._admission.can_admit(
-            inbound_piece_hint={},
-            runtime_state={
-                "piece_count": self._admission_piece_count,
-                "max_piece_count": self._max_piece_count,
-            },
-        )
-        return 1 if decision.allowed else 0
+        return 1
 
     def debug_snapshot(self) -> dict[str, Any]:
         snap = super().debug_snapshot()

@@ -188,18 +188,20 @@ class RuntimeC3(BaseRuntime):
     # Runtime ABC
 
     def available_slots(self) -> int:
+        """Whether C2 may push another piece downstream.
+
+        ``max_piece_count`` used to gate this hard, but the live debugger
+        showed C3 routinely carries more visible action tracks than the
+        cap when C2 advance pulses or rotation drag pieces in past the
+        soft gate. The cap is a lab-tuning hint for the *operator*, not
+        a contract the runtime can enforce against the carousel's
+        physics. Returning 1 outside purge keeps the flow open and lets
+        the next physical singulation gate (C4 admission) be the real
+        backpressure point.
+        """
         if self._purge_mode:
             return 0
-        if self._admission_piece_count >= self._max_piece_count:
-            return 0
-        decision = self._admission.can_admit(
-            inbound_piece_hint={},
-            runtime_state={
-                "piece_count": self._admission_piece_count,
-                "max_piece_count": self._max_piece_count,
-            },
-        )
-        return 1 if decision.allowed else 0
+        return 1
 
     def debug_snapshot(self) -> dict[str, Any]:
         snap = super().debug_snapshot()

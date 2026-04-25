@@ -160,6 +160,37 @@ class Measurement:
     timestamp: float = 0.0
 
 
+class MotionMode(str, Enum):
+    """Per-piece motion regime for the IMM-style mode-switched filter.
+
+    A piece spends most of its life in ``carried`` (moving with the
+    tray). When it slides in the tray-frame, ``sliding`` lowers the
+    velocity prior weight. When neighbour overlap or sudden residual
+    suggests a collision or tumble, ``collision_or_clump`` inflates the
+    process noise so the next observation can pull the state quickly.
+    ``edge_transfer`` is for the brief moment near the C3->C4 intake
+    or C4 exit edge where the bbox geometry shifts noticeably.
+    ``lost_coast`` is used by the lifecycle: a track that has not been
+    observed in ``coast_after_silence_s`` lives here, with covariance
+    growing aggressively until reacquisition or finalize.
+    """
+
+    CARRIED = "carried"
+    SLIDING = "sliding"
+    COLLISION_OR_CLUMP = "collision_or_clump"
+    EDGE_TRANSFER = "edge_transfer"
+    LOST_COAST = "lost_coast"
+
+
+_MODE_NOISE_SCALE: dict[MotionMode, float] = {
+    MotionMode.CARRIED: 0.5,
+    MotionMode.SLIDING: 1.0,
+    MotionMode.COLLISION_OR_CLUMP: 4.0,
+    MotionMode.EDGE_TRANSFER: 2.5,
+    MotionMode.LOST_COAST: 6.0,
+}
+
+
 @dataclass(slots=True)
 class PieceTrack:
     """One physical piece on a ring — durable identity + Bayesian state.
@@ -177,6 +208,7 @@ class PieceTrack:
     last_observed_t: float
     last_observed_encoder: float
     last_predicted_t: float
+    motion_mode: MotionMode = MotionMode.CARRIED
     raw_track_aliases: set[int] = field(default_factory=set)
     embedding_mean: np.ndarray | None = None
     embedding_count: int = 0
@@ -251,9 +283,9 @@ class ProcessNoise:
     ``sigma_a_per_s`` is the standard deviation we add to ``adot`` per
     second of prediction (rad/s/s noise, integrated over dt). The
     matrix is built so the pre-update state covariance grows at a
-    physically meaningful rate even when no detection arrives. Stage 5
-    will swap this for a mode-switched version (collision_or_clump
-    inflates, carried shrinks).
+    physically meaningful rate even when no detection arrives. The
+    ``MotionMode`` enum picks the right scale for the carrier state
+    (``carried`` shrinks, ``collision_or_clump`` inflates).
     """
 
     sigma_a_per_s: float = math.radians(2.0)
@@ -261,13 +293,18 @@ class ProcessNoise:
     sigma_adot_per_s: float = math.radians(8.0)
     sigma_rdot_per_s: float = 12.0
 
-    def matrix(self, dt: float) -> np.ndarray:
+    def matrix(self, dt: float, mode: "MotionMode | None" = None) -> np.ndarray:
         dt = max(0.0, float(dt))
+        scale = 1.0 if mode is None else _MODE_NOISE_SCALE.get(mode, 1.0)
         q = np.zeros((4, 4), dtype=float)
-        q[0, 0] = (self.sigma_a_per_s * dt) ** 2 + (self.sigma_adot_per_s * dt * dt / 2.0) ** 2
-        q[1, 1] = (self.sigma_r_per_s * dt) ** 2 + (self.sigma_rdot_per_s * dt * dt / 2.0) ** 2
-        q[2, 2] = (self.sigma_adot_per_s * dt) ** 2
-        q[3, 3] = (self.sigma_rdot_per_s * dt) ** 2
+        q[0, 0] = (self.sigma_a_per_s * dt * scale) ** 2 + (
+            self.sigma_adot_per_s * dt * dt * scale / 2.0
+        ) ** 2
+        q[1, 1] = (self.sigma_r_per_s * dt * scale) ** 2 + (
+            self.sigma_rdot_per_s * dt * dt * scale / 2.0
+        ) ** 2
+        q[2, 2] = (self.sigma_adot_per_s * dt * scale) ** 2
+        q[3, 3] = (self.sigma_rdot_per_s * dt * scale) ** 2
         return q
 
 
@@ -403,7 +440,7 @@ class PieceTrackBank:
             if dt <= 0.0:
                 continue
             f = _process_matrix(dt)
-            q = q_builder.matrix(dt)
+            q = q_builder.matrix(dt, mode=tr.motion_mode)
             tr.state_mean = f @ tr.state_mean
             tr.state_mean[0] = wrap_rad(float(tr.state_mean[0]))
             tr.state_covariance = f @ tr.state_covariance @ f.T + q
@@ -610,17 +647,21 @@ class PieceTrackBank:
         # converges quickly.
         d2 = float(innov.T @ s_inv @ innov)
         if d2 > self._config.snap_chi2_threshold:
-            # Snap path: replace state and covariance entirely. Skip the
-            # Kalman covariance update below — its gain ``k`` was computed
-            # from the pre-snap state and would corrupt the freshly reset
-            # covariance into negative-definite territory.
+            # Snap path: replace state and covariance entirely. A jump
+            # this large is almost always a collision, slip, or tumble
+            # — flag the mode so the next predict step also inflates
+            # process noise and the bank converges quickly.
             tr.state_mean = np.array(
                 [meas.a_meas, meas.r_meas, 0.0, 0.0], dtype=float
             )
             tr.state_covariance = self._config.initial_covariance()
+            tr.motion_mode = MotionMode.COLLISION_OR_CLUMP
         else:
             tr.state_mean = tr.state_mean + k @ innov
             tr.state_covariance = (np.eye(4) - k @ h) @ tr.state_covariance
+            # Successful clean update: relax the motion mode toward
+            # ``carried`` (smaller process noise) over a few frames.
+            tr.motion_mode = self._relax_motion_mode(tr)
         tr.state_mean[0] = wrap_rad(float(tr.state_mean[0]))
         tr.last_observed_t = float(now_t)
         tr.last_observed_encoder = float(encoder_rad)
@@ -641,6 +682,28 @@ class PieceTrackBank:
                 n = tr.embedding_count
                 tr.embedding_mean = (tr.embedding_mean * n + emb) / (n + 1)
                 tr.embedding_count = n + 1
+
+    @staticmethod
+    def _relax_motion_mode(tr: PieceTrack) -> MotionMode:
+        """One-step relaxation toward ``carried`` after a clean update.
+
+        Pieces don't snap back instantly: a freshly post-collision
+        track stays in ``sliding`` for a few frames so its process
+        noise stays moderate while the new velocity estimate settles."""
+        order = [
+            MotionMode.COLLISION_OR_CLUMP,
+            MotionMode.EDGE_TRANSFER,
+            MotionMode.SLIDING,
+            MotionMode.CARRIED,
+        ]
+        try:
+            idx = order.index(tr.motion_mode)
+        except ValueError:
+            return MotionMode.CARRIED
+        # Already at the calmest end: hold.
+        if idx == len(order) - 1:
+            return MotionMode.CARRIED
+        return order[idx + 1]
 
     def _update_lifecycle(self, now_t: float) -> None:
         cfg = self._config
@@ -669,6 +732,7 @@ class PieceTrackBank:
                 PieceLifecycleState.CLASSIFIED_IDENTITY_UNCERTAIN,
             ):
                 tr.lifecycle_state = PieceLifecycleState.LOST_COASTING
+                tr.motion_mode = MotionMode.LOST_COAST
             if (
                 tr.lifecycle_state is PieceLifecycleState.LOST_COASTING
                 and silence >= cfg.finalize_lost_after_silence_s

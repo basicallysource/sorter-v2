@@ -456,6 +456,70 @@ def test_lease_expires_after_ttl() -> None:
     assert second is not None
 
 
+def test_motion_mode_starts_at_carried() -> None:
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    track = next(iter(bank.tracks()))
+    from rt.perception.piece_track_bank import MotionMode
+
+    assert track.motion_mode is MotionMode.CARRIED
+
+
+def test_motion_mode_becomes_collision_on_snap_residual() -> None:
+    from rt.perception.piece_track_bank import MotionMode
+
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    track = next(iter(bank.tracks()))
+    bank.predict_all(t=0.05, encoder_rad=0.0)
+    # Force a same-identity update with a huge residual via the public
+    # update_with_measurement entry — bypasses the association gate
+    # that would otherwise reject a 120 deg jump as a new birth.
+    bank.update_with_measurement(
+        track.piece_uuid,
+        _meas(a_deg=120.0),
+        now_t=0.05,
+        encoder_rad=0.0,
+    )
+    assert track.motion_mode is MotionMode.COLLISION_OR_CLUMP
+
+
+def test_motion_mode_relaxes_toward_carried_after_clean_updates() -> None:
+    from rt.perception.piece_track_bank import MotionMode
+
+    bank = _make_bank()
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    track = next(iter(bank.tracks()))
+    track.motion_mode = MotionMode.COLLISION_OR_CLUMP
+    # Three clean small-residual updates should walk through
+    # collision -> edge -> sliding -> carried.
+    for i, t in enumerate([0.05, 0.10, 0.15, 0.20]):
+        bank.predict_all(t=t, encoder_rad=0.0)
+        bank.associate_and_update(
+            [_meas(a_deg=0.05 * (i + 1))], now_t=t, encoder_rad=0.0
+        )
+    assert next(iter(bank.tracks())).motion_mode is MotionMode.CARRIED
+
+
+def test_lost_coasting_mode_inflates_predict_noise() -> None:
+    from rt.perception.piece_track_bank import MotionMode
+
+    bank = _make_bank(coast_after_silence_s=0.3)
+    bank.associate_and_update(
+        [_meas(a_deg=0.0)], now_t=0.0, encoder_rad=0.0
+    )
+    bank.predict_all(t=1.0, encoder_rad=0.0)
+    bank.associate_and_update([], now_t=1.0, encoder_rad=0.0)
+    track = next(iter(bank.tracks()))
+    assert track.motion_mode is MotionMode.LOST_COAST
+
+
 def test_consume_lease_removes_pending() -> None:
     bank = _make_bank()
     lease = bank.request_landing_lease(

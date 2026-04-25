@@ -1,0 +1,101 @@
+# ---------------------------------------------------------------------------
+# Global filters — applied to every document
+# ---------------------------------------------------------------------------
+
+# Part Studio tab names to always skip. Treated as case-insensitive regexes.
+global_tab_blocklist:
+  - "placeholder"
+  - "draft.sketch"
+  - "master_sketch" # sketch-only reference tabs
+  - "reference.assembly"
+  - "^Assembly\\s+\\d+$" # unnamed assemblies like "Assembly 1"
+  - "^Part\\s+Studio\\s+\\d+$" # unnamed part studios like "Part Studio 2"
+  - "degrees.of.movement"
+  - "^Spencer Version" # design exploration copies
+  - "\\sCopy\\s+\\d+$" # design iteration copies like "TrayBody Copy 1"
+  - "^split_" # small-bed split variants (feature not yet supported)
+  - "DO NOT USE" # tabs explicitly marked as deprecated/experimental
+
+# Part names to skip regardless of purchase status. Case-insensitive regexes.
+# Use this for obsolete parts, placeholders, and reference geometry that
+# shouldn't be exported even if they have a real name.
+global_part_blocklist:
+  - "^obsolete$"
+  - "placeholder"
+
+# Part names to treat as purchased (not 3D printed). Case-insensitive regexes.
+global_purchased_patterns:
+  - "^ruthex\\b" # Ruthex heat-set inserts
+  - "\\bnema\\s*\\d+\\b" # NEMA stepper motors
+  - "^\\d{2}HS\\d" # stepper part numbers e.g. 23HS32-4004S
+  - "^spur\\s+\\d+M\\s+\\d+T(\\s|$)" # catalog spur gears (bare, no custom suffix)
+  - "^bevel\\s+\\d+M\\s+\\d+T\\b" # catalog bevel gears
+  - "^(Part|Composite part)\\s+\\d+$" # unnamed / unsaved parts
+  - "\\baluminum\\b.*\\bboss\\b" # purchased aluminum bosses
+  - "^20t_aluminum" # 20T aluminum boss variants
+
+# Part names to treat as purchased (exact match, case-sensitive).
+global_purchased_names:
+  - vertical_beam
+  - crossbeam
+  - spoke
+  - top_beam
+  - bottom_frame_elements
+  - bearing_race
+  - lower_vertical_frame
+  - upper_vertical_frame
+  - vertical_column
+  - vertical_frame
+  - simple_crossbeams
+  - aux_vertical_frame_1
+  - aux_vertical_frame_2
+
+# ---------------------------------------------------------------------------
+# Documents
+# ---------------------------------------------------------------------------
+
+documents:
+  - url: https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/63d9095d8167813360e7753c/e/0ff31faef67418bb73b1c6ad
+    description: Interface layer assembly
+    directory_name: interface_layer
+    variants:
+      - alternate_idler_bush
+    tab_blocklist:
+      - "^1_interf_layer_frame_brackets$" # This is a bad copy of the distribution system frame.
+
+    # If non-empty, only tabs matching one of these patterns are exported.
+    # Blocklist still applies within the allowlist.
+    # tab_allowlist:
+    #   - "cage_"
+
+  - url: https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/9646ca32b22f0e747796a082
+    description: C-channel feeder system and camera arm
+    directory_name: feeder_camera
+    tab_blocklist:
+      - "^vertical_extrusion$"
+      - "^horizontal_extrusion$"
+      - "^20x20 frame" # aluminum extrusion leg stock
+      - "^camera_arm_assembly$" # Part Studio with only unnamed parts
+
+  - url: https://cad.onshape.com/documents/117c1a07f7049cbc1eaae0f4/w/eaae0cdfbe376097775fabec/e/f42a92a1395367a3243393b4
+    description: Classification carousel V4
+    directory_name: carousel
+    tab_blocklist:
+      - "^AcrilicGlass$" # laser-cut acrylic sheet, not printed
+      - "^Magnet$" # purchased magnet
+
+  - url: https://cad.onshape.com/documents/2a20701fd101c3cc1af6ebed/w/1a8b4b5f3a1e5df2c23c67b7/e/eedb00d0ad93b612bc17f15e
+    description: Classification chamber and capture chamber
+    directory_name: capture_chamber
+
+  - url: https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/w/5eef5fa43d2d793c7ea14aeb/e/028bf07f733fb0aee8935b55
+    description: Distribution layer and chute system
+    directory_name: distribution_chutes
+    # Tabs whose names contain one of these substrings are routed into a
+    # variant-named subdirectory: distribution_chutes/{variant}/{tab}/part.stl
+    variants:
+      - mg995
+      - sc09
+      - sc15
+    tab_blocklist:
+      - "^1_frame_gen2$" # aluminum extrusion frame stock

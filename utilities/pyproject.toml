@@ -1,0 +1,10 @@
+[project]
+name = "sorter-utilities"
+version = "0.1.0"
+description = "Build utilities for Sorter V2 — STL export, BOM tools, etc."
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0",
+    "requests>=2.32",
+    "typer>=0.12",
+]

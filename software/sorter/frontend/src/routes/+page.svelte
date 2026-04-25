@@ -187,13 +187,23 @@
 		feeder: 'c1'
 	};
 
+	const RUNTIME_DOWNSTREAM_LABEL: Record<string, string> = {
+		c1: 'C2',
+		c2: 'C3',
+		c3: 'C4',
+		c4: 'Distributor'
+	};
+
 	function runtimeStateBadge(role: string): { label: string; tone: string } | null {
 		const runtimeId = ROLE_TO_RUNTIME_ID[role] ?? null;
 		if (!runtimeId) return null;
 		const entry = runtimeHealth[runtimeId];
 		if (!entry) return null;
 		const blocked = entry.blocked_reason ?? null;
-		if (blocked === 'downstream_full') return { label: 'Waiting for C4', tone: 'amber' };
+		if (blocked === 'downstream_full') {
+			const downstream = RUNTIME_DOWNSTREAM_LABEL[runtimeId] ?? 'downstream';
+			return { label: `Waiting for ${downstream}`, tone: 'amber' };
+		}
 		if (blocked === 'hw_busy') return { label: 'Motor busy', tone: 'blue' };
 		if (blocked === 'cooldown') return { label: 'Cooldown', tone: 'neutral' };
 		if (blocked === 'hw_queue_full') return { label: 'Queue full', tone: 'red' };

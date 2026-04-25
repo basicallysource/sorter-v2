@@ -68,6 +68,14 @@ DEFAULT_SHIMMY_STEP_DEG = 4.0
 DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
 DEFAULT_INTAKE_HALF_WIDTH_DEG = 18.0
+# Probabilistic zone widening. Each zone's half-width gets stretched by
+# k * sigma_a from the bank's filter so uncertain tracks reserve a
+# proportionally bigger arc; confident, freshly-observed tracks pack
+# tighter. The cap prevents a runaway sigma (e.g. a long-lost track
+# whose sigma_a is at the bank's max_state_sigma_a_rad cap of 30 deg)
+# from claiming the whole ring.
+DEFAULT_ZONE_SIGMA_K = 1.5
+DEFAULT_ZONE_MAX_HALF_WIDTH_DEG = 22.0
 DEFAULT_TRANSPORT_STEP_DEG = 3.0
 DEFAULT_TRANSPORT_MAX_STEP_DEG = 8.0
 DEFAULT_TRANSPORT_TARGET_RPM = 0.7
@@ -178,6 +186,8 @@ class RuntimeC4(BaseRuntime):
         exit_angle_deg: float = DEFAULT_EXIT_ANGLE_DEG,
         angle_tolerance_deg: float = DEFAULT_ANGLE_TOLERANCE_DEG,
         intake_half_width_deg: float = DEFAULT_INTAKE_HALF_WIDTH_DEG,
+        zone_sigma_k: float = DEFAULT_ZONE_SIGMA_K,
+        zone_max_half_width_deg: float = DEFAULT_ZONE_MAX_HALF_WIDTH_DEG,
         shimmy_step_deg: float = DEFAULT_SHIMMY_STEP_DEG,
         shimmy_stall_ms: int = DEFAULT_SHIMMY_STALL_MS,
         shimmy_cooldown_ms: int = DEFAULT_SHIMMY_COOLDOWN_MS,
@@ -262,6 +272,8 @@ class RuntimeC4(BaseRuntime):
         self._exit_angle_deg = float(exit_angle_deg)
         self._angle_tol_deg = float(angle_tolerance_deg)
         self._intake_half_width_deg = float(intake_half_width_deg)
+        self._zone_sigma_k = float(zone_sigma_k)
+        self._zone_max_half_width_deg = float(zone_max_half_width_deg)
         self._shimmy_step_deg = float(shimmy_step_deg)
         self._shimmy_stall_s = float(shimmy_stall_ms) / 1000.0
         self._shimmy_cooldown_s = float(shimmy_cooldown_ms) / 1000.0
@@ -941,6 +953,29 @@ class RuntimeC4(BaseRuntime):
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
         return [t for t in tracks if self._piece_uuid_for_track(t) is not None]
 
+    def _zone_half_width_for(self, piece_uuid: str) -> float:
+        """Half-width of the angular zone for a piece, widened by bank sigma.
+
+        Returns the geometric base width inflated by ``k * sigma_a`` so a
+        track whose Kalman state is uncertain (recently lost, freshly
+        admitted, post-collision) reserves a proportionally larger arc;
+        a confident, freshly-observed track packs at the geometric base.
+        Capped at ``_zone_max_half_width_deg`` to keep one runaway sigma
+        from blocking the whole ring.
+        """
+        base = self._intake_half_width_deg
+        if self._zone_sigma_k <= 0.0:
+            return base
+        bank_track = self._bank.track(piece_uuid)
+        if bank_track is None:
+            return base
+        var_a = float(bank_track.state_covariance[0, 0])
+        if var_a <= 0.0:
+            return base
+        sigma_a_deg = math.degrees(math.sqrt(var_a))
+        widened = base + self._zone_sigma_k * sigma_a_deg
+        return min(widened, self._zone_max_half_width_deg)
+
     def _sync_owned_tracks(self, tracks: list[Track], now_mono: float) -> list[Track]:
         extents: list[TrackAngularExtent] = []
         for track in tracks:
@@ -961,7 +996,7 @@ class RuntimeC4(BaseRuntime):
                     piece_uuid=piece_uuid,
                     global_id=track.global_id,
                     center_deg=angle_deg,
-                    half_width_deg=self._intake_half_width_deg,
+                    half_width_deg=self._zone_half_width_for(piece_uuid),
                     last_seen_mono=now_mono,
                 )
             )

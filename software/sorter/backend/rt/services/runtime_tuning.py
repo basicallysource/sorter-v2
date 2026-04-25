@@ -211,6 +211,8 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         "intake_guard_deg": _safe_float(
             getattr(zone_mgr, "_guard_deg", getattr(zone_mgr, "guard_angle_deg", None))
         ),
+        "zone_sigma_k": _runtime_attr(runtime, "_zone_sigma_k"),
+        "zone_max_half_width_deg": _runtime_attr(runtime, "_zone_max_half_width_deg"),
         "transport_step_deg": _runtime_attr(runtime, "_transport_step_deg"),
         "transport_max_step_deg": _runtime_attr(runtime, "_transport_max_step_deg"),
         "transport_cooldown_s": _runtime_attr(runtime, "_transport_cooldown_s"),
@@ -622,6 +624,8 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "max_raw_detections",
         "intake_body_half_width_deg",
         "intake_guard_deg",
+        "zone_sigma_k",
+        "zone_max_half_width_deg",
         "transport_step_deg",
         "transport_max_step_deg",
         "transport_cooldown_s",
@@ -708,6 +712,22 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             setattr(admission, "_guard_angle_deg", guard)
         if class_cfg is not None:
             setattr(class_cfg, "intake_guard_deg", guard)
+    _set_runtime_float(
+        runtime,
+        "_zone_sigma_k",
+        values,
+        "zone_sigma_k",
+        min_value=0.0,
+        max_value=10.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_zone_max_half_width_deg",
+        values,
+        "zone_max_half_width_deg",
+        min_value=1.0,
+        max_value=90.0,
+    )
     _set_runtime_float(runtime, "_transport_step_deg", values, "transport_step_deg", min_value=0.1, max_value=90.0)
     _set_runtime_float(runtime, "_transport_max_step_deg", values, "transport_max_step_deg", min_value=0.1, max_value=180.0)
     if runtime is not None:

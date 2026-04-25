@@ -404,6 +404,15 @@ class PieceTrackBankConfig:
     calibration: CameraTrayCalibration
     process_noise: ProcessNoise = field(default_factory=ProcessNoise)
     measurement_noise: MeasurementNoise = field(default_factory=MeasurementNoise)
+    # Confidence-weighted measurement noise. The base R from
+    # ``measurement_noise`` is multiplied by ``1 + (1-conf)^2 * conf_r_scale``
+    # so a clean 0.95-confidence detection pulls the state nearly with
+    # the base R, while a 0.4-confidence detection contributes almost
+    # nothing to the update. This replaces the old "snap on big residual"
+    # workaround for the most common cause of bad updates (low-conf
+    # detections) — those now widen R and let the Kalman gain stay small
+    # rather than blending the prediction onto a noisy measurement.
+    conf_r_scale: float = 8.0
     # Mahalanobis chi-squared 2-DOF gates (1 - alpha):
     #   2-DOF chi2 inverse cdf: 0.95 -> 5.99, 0.99 -> 9.21, 0.999 -> 13.82
     association_gate_chi2: float = 9.21
@@ -482,6 +491,13 @@ class PieceTrackBank:
         if piece_uuid is None:
             return None
         return self._tracks.get(piece_uuid)
+
+    def _r_for(self, meas: Measurement) -> np.ndarray:
+        """Confidence-scaled measurement-noise matrix for one detection."""
+        base = self._config.measurement_noise.matrix()
+        conf = max(0.0, min(1.0, float(meas.score)))
+        scale = 1.0 + (1.0 - conf) ** 2 * float(self._config.conf_r_scale)
+        return base * scale
 
     def dispatch_eligible(self) -> tuple[PieceTrack, ...]:
         return tuple(
@@ -598,17 +614,19 @@ class PieceTrackBank:
         measurements: list[Measurement],
     ) -> np.ndarray:
         h = _H
-        r = self._config.measurement_noise.matrix()
         cost = np.full((len(track_uuids), len(measurements)), float("inf"), dtype=float)
         for i, piece_uuid in enumerate(track_uuids):
             tr = self._tracks[piece_uuid]
-            s = h @ tr.state_covariance @ h.T + r  # innovation covariance
-            try:
-                s_inv = np.linalg.inv(s)
-            except np.linalg.LinAlgError:
-                continue
             predicted = h @ tr.state_mean  # (a, r)
+            hph = h @ tr.state_covariance @ h.T
             for j, meas in enumerate(measurements):
+                # Per-measurement R: low-confidence detections widen S so
+                # a wackelige bbox doesn't dominate the gating decision.
+                s = hph + self._r_for(meas)
+                try:
+                    s_inv = np.linalg.inv(s)
+                except np.linalg.LinAlgError:
+                    continue
                 z = np.array([meas.a_meas, meas.r_meas], dtype=float)
                 # Wrap angular residual so a measurement at +pi+eps does
                 # not look infinitely far from a track at -pi+eps.
@@ -720,7 +738,7 @@ class PieceTrackBank:
     ) -> None:
         tr = self._tracks[piece_uuid]
         h = _H
-        r = self._config.measurement_noise.matrix()
+        r = self._r_for(meas)
         s = h @ tr.state_covariance @ h.T + r
         try:
             s_inv = np.linalg.inv(s)

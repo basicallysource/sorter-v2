@@ -45,11 +45,12 @@ def _track(
     last_seen_ts: float = 0.0,
     hit_count: int = 5,
     appearance_embedding: tuple[float, ...] | None = None,
+    piece_uuid: str | None = None,
 ) -> Track:
     return Track(
         track_id=track_id,
         global_id=global_id,
-        piece_uuid=None,
+        piece_uuid=piece_uuid,
         bbox_xyxy=(0, 0, 10, 10),
         score=0.9,
         confirmed_real=confirmed,
@@ -138,6 +139,22 @@ def test_c3_exit_pulse_publishes_c4_transit_candidate() -> None:
     assert candidates[0]["source_global_id"] == 17
     assert candidates[0]["target_runtime"] == "c4"
     assert candidates[0]["relation"] == "cross_channel"
+
+
+def test_c3_exit_transit_carries_stable_piece_uuid() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _log = _make(track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_rad=0.0, piece_uuid="piece-c3")),
+            capacity_downstream=1,
+        ),
+        now_mono=10.0,
+    )
+
+    candidates = registry.snapshot(10.0)
+    assert candidates[0]["piece_uuid"] == "piece-c3"
 
 
 def test_c3_exit_transit_carries_track_appearance_embedding() -> None:

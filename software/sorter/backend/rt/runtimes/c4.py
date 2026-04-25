@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 import math
 import time
-import uuid
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from enum import Enum
@@ -34,7 +33,7 @@ from rt.events.topics import (
     PIECE_TRANSIT_LINKED,
 )
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
-from rt.pieces.identity import new_tracker_epoch, tracklet_payload
+from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_payload
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
@@ -110,6 +109,7 @@ class _PieceDossier:
     reject_reason: str | None = None
     handoff_requested: bool = False
     distributor_ready: bool = False
+    appearance_embedding: tuple[float, ...] | None = None
     extras: dict[str, Any] = field(default_factory=dict)
     # Monotonic timestamp of the last distributor_busy rejection; blocks
     # repeat ``handoff_request`` attempts for ``_handoff_retry_cooldown_s``
@@ -383,8 +383,12 @@ class RuntimeC4(BaseRuntime):
         if dossier is not None and abort_reason == "track_lost":
             self._park_lost_piece_transit(dossier, now_mono=now_mono)
             self._publish_piece_lost(dossier, now_mono=now_mono)
-        if dossier is not None and dossier.global_id is not None:
-            self._track_to_piece.pop(int(dossier.global_id), None)
+        if dossier is not None:
+            self._track_to_piece = {
+                gid: mapped_piece_uuid
+                for gid, mapped_piece_uuid in self._track_to_piece.items()
+                if mapped_piece_uuid != dossier.piece_uuid
+            }
         self._zone_manager.remove_zone(piece_uuid)
         if abort_handoff and dossier is not None and dossier.handoff_requested:
             port = self._handoff
@@ -470,6 +474,7 @@ class RuntimeC4(BaseRuntime):
                 "reject_reason": dossier.reject_reason,
                 "extras": dict(dossier.extras),
             },
+            source_embedding=dossier.appearance_embedding,
         )
 
     def dossier_count(self) -> int:
@@ -701,24 +706,30 @@ class RuntimeC4(BaseRuntime):
         self._fsm = _C4State.RUNNING
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
-        return [
-            t
-            for t in tracks
-            if t.global_id is not None and int(t.global_id) in self._track_to_piece
-        ]
+        return [t for t in tracks if self._piece_uuid_for_track(t) is not None]
 
     def _sync_owned_tracks(self, tracks: list[Track], now_mono: float) -> list[Track]:
-        extents = [
-            TrackAngularExtent(
-                piece_uuid=self._track_to_piece[int(t.global_id)],
-                global_id=t.global_id,
-                center_deg=math.degrees(t.angle_rad or 0.0),
-                half_width_deg=self._intake_half_width_deg,
-                last_seen_mono=now_mono,
+        extents: list[TrackAngularExtent] = []
+        for track in tracks:
+            if track.global_id is None:
+                continue
+            piece_uuid = self._piece_uuid_for_track(track)
+            if piece_uuid is None:
+                continue
+            dossier = self._pieces.get(piece_uuid)
+            if dossier is not None:
+                dossier.last_seen_mono = now_mono
+                if track.appearance_embedding is not None:
+                    dossier.appearance_embedding = track.appearance_embedding
+            extents.append(
+                TrackAngularExtent(
+                    piece_uuid=piece_uuid,
+                    global_id=track.global_id,
+                    center_deg=math.degrees(track.angle_rad or 0.0),
+                    half_width_deg=self._intake_half_width_deg,
+                    last_seen_mono=now_mono,
+                )
             )
-            for t in tracks
-            if t.global_id is not None and int(t.global_id) in self._track_to_piece
-        ]
         evicted = self._zone_manager.update_from_tracks(extents, now_mono=now_mono)
         for piece_uuid in evicted:
             if piece_uuid in self._pieces:
@@ -773,7 +784,7 @@ class RuntimeC4(BaseRuntime):
             if track.global_id is None:
                 continue
             gid = int(track.global_id)
-            if gid in self._track_to_piece:
+            if self._piece_uuid_for_track(track) is not None:
                 continue
             angle_deg = math.degrees(track.angle_rad or 0.0)
             if not self._near_angle(angle_deg, self._zone_manager.intake_angle_deg):
@@ -804,7 +815,7 @@ class RuntimeC4(BaseRuntime):
             if track.global_id is None or track.angle_rad is None:
                 continue
             gid = int(track.global_id)
-            if gid in self._track_to_piece:
+            if self._piece_uuid_for_track(track) is not None:
                 continue
             if not action_track(
                 track,
@@ -838,7 +849,7 @@ class RuntimeC4(BaseRuntime):
         if track.global_id is None or track.angle_rad is None:
             return False
         gid = int(track.global_id)
-        if gid in self._track_to_piece:
+        if self._piece_uuid_for_track(track) is not None:
             return False
         angle_deg = math.degrees(track.angle_rad)
         tracklet = self._tracklet_payload_for_gid(gid)
@@ -850,7 +861,11 @@ class RuntimeC4(BaseRuntime):
         piece_uuid = (
             transit.piece_uuid
             if transit and transit.piece_uuid
-            else uuid.uuid4().hex[:12]
+            else (
+                track.piece_uuid
+                if isinstance(track.piece_uuid, str) and track.piece_uuid.strip()
+                else new_piece_uuid()
+            )
         )
         if not self._zone_manager.add_zone(
             piece_uuid=piece_uuid,
@@ -886,6 +901,7 @@ class RuntimeC4(BaseRuntime):
             classified_ts=classified_ts,
             result=result,
             reject_reason=reject_reason,
+            appearance_embedding=track.appearance_embedding,
             extras=extras,
         )
         self._pieces[piece_uuid] = dossier
@@ -975,6 +991,25 @@ class RuntimeC4(BaseRuntime):
         if transit is not None:
             self._transit_link_count += 1
         return transit
+
+    def _piece_uuid_for_track(self, track: Track) -> str | None:
+        if track.global_id is not None:
+            try:
+                gid = int(track.global_id)
+            except (TypeError, ValueError):
+                gid = None
+            else:
+                piece_uuid = self._track_to_piece.get(gid)
+                if piece_uuid in self._pieces:
+                    return piece_uuid
+        if isinstance(track.piece_uuid, str) and track.piece_uuid in self._pieces:
+            if track.global_id is not None:
+                try:
+                    self._track_to_piece[int(track.global_id)] = track.piece_uuid
+                except (TypeError, ValueError):
+                    pass
+            return track.piece_uuid
+        return None
 
     def _extras_for_registration(
         self,
@@ -1090,8 +1125,7 @@ class RuntimeC4(BaseRuntime):
             if track.global_id is None:
                 self._mark_classify_skip("track_without_global_id")
                 continue
-            gid = int(track.global_id)
-            piece_uuid = self._track_to_piece.get(gid)
+            piece_uuid = self._piece_uuid_for_track(track)
             if piece_uuid is None:
                 self._mark_classify_skip("unowned_track")
                 continue
@@ -1305,8 +1339,7 @@ class RuntimeC4(BaseRuntime):
                 self._fsm = _C4State.RUNNING
             return
 
-        gid = int(exit_track.global_id) if exit_track.global_id is not None else -1
-        piece_uuid = self._track_to_piece.get(gid)
+        piece_uuid = self._piece_uuid_for_track(exit_track)
         if piece_uuid is None:
             return
         dossier = self._pieces.get(piece_uuid)
@@ -1411,7 +1444,7 @@ class RuntimeC4(BaseRuntime):
         for t in tracks:
             if t.angle_rad is None or t.global_id is None:
                 continue
-            if int(t.global_id) not in self._track_to_piece:
+            if self._piece_uuid_for_track(t) is None:
                 continue
             delta = abs(_wrap_deg(math.degrees(t.angle_rad) - self._exit_angle_deg))
             overlap = self._exit_zone_bbox_overlap_ratio(t)
@@ -1434,7 +1467,7 @@ class RuntimeC4(BaseRuntime):
             if track.angle_rad is None or track.global_id is None:
                 continue
             gid = int(track.global_id)
-            if gid not in self._track_to_piece:
+            if self._piece_uuid_for_track(track) is None:
                 continue
             angles[gid] = math.degrees(float(track.angle_rad))
         return angles
@@ -1451,7 +1484,7 @@ class RuntimeC4(BaseRuntime):
         exit_track = self._pick_exit_track(tracks)
         if exit_track is None or exit_track.global_id is None:
             return False
-        piece_uuid = self._track_to_piece.get(int(exit_track.global_id))
+        piece_uuid = self._piece_uuid_for_track(exit_track)
         dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
         return bool(dossier is not None and dossier.result is not None)
 
@@ -1657,7 +1690,7 @@ class RuntimeC4(BaseRuntime):
     def _track_in_exit_approach(self, track: Track) -> bool:
         if track.angle_rad is None or track.global_id is None:
             return False
-        if int(track.global_id) not in self._track_to_piece:
+        if self._piece_uuid_for_track(track) is None:
             return False
         center_delta = abs(_wrap_deg(math.degrees(track.angle_rad) - self._exit_angle_deg))
         if center_delta <= self._exit_approach_angle_deg:

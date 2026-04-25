@@ -105,11 +105,13 @@ def _track(
     last_seen_ts: float = 0.0,
     bbox_xyxy: tuple[int, int, int, int] = (0, 0, 10, 10),
     radius_px: float = 50.0,
+    piece_uuid: str | None = None,
+    appearance_embedding: tuple[float, ...] | None = None,
 ) -> Track:
     return Track(
         track_id=track_id,
         global_id=global_id,
-        piece_uuid=None,
+        piece_uuid=piece_uuid,
         bbox_xyxy=bbox_xyxy,
         score=score,
         confirmed_real=confirmed,
@@ -118,6 +120,7 @@ def _track(
         hit_count=hit_count,
         first_seen_ts=first_seen_ts,
         last_seen_ts=last_seen_ts,
+        appearance_embedding=appearance_embedding,
     )
 
 
@@ -380,6 +383,29 @@ def test_c4_intake_mints_dossier_and_releases_upstream() -> None:
     assert up.available() == 1
 
 
+def test_c4_uses_stable_piece_uuid_across_primary_tracklet_split() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=2)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=1, angle_deg=0.0, piece_uuid="stable-1")),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=2, angle_deg=10.0, piece_uuid="stable-1")),
+            capacity_downstream=1,
+        ),
+        now_mono=0.1,
+    )
+
+    assert rt.dossier_count() == 1
+    assert rt.dossier_for("stable-1") is not None
+    assert rt._track_to_piece[2] == "stable-1"  # noqa: SLF001 - test inspection
+
+
 def test_c4_reuses_lost_piece_uuid_when_track_reappears_via_transit() -> None:
     registry = TrackTransitRegistry()
     rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
@@ -445,6 +471,7 @@ def test_c4_consumes_c3_to_c4_transit_metadata() -> None:
         source_global_id=77,
         target_runtime="c4",
         now_mono=10.0,
+        piece_uuid="piece-from-c3",
         relation="cross_channel",
     )
     rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
@@ -454,8 +481,7 @@ def test_c4_consumes_c3_to_c4_transit_metadata() -> None:
         now_mono=10.2,
     )
 
-    piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
-    dossier = rt.dossier_for(piece_uuid)
+    dossier = rt.dossier_for("piece-from-c3")
     assert dossier is not None
     assert dossier.extras["track_stitched"] is True
     assert dossier.extras["transit_relation"] == "cross_channel"

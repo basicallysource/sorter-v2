@@ -236,13 +236,21 @@ class SegmentRecorder:
         # Snapshot mapping under the lock, then do image work lock-free.
         per_track: list[tuple[_Recording, Any]] = []
         with self._lock:
-            if not self._track_to_piece:
+            if not self._track_to_piece and not self._records:
                 return
             for track in raw_tracks.tracks:
-                gid = getattr(track, "global_id", None)
-                if gid is None:
-                    continue
-                piece_uuid = self._track_to_piece.get(int(gid))
+                track_piece_uuid = getattr(track, "piece_uuid", None)
+                piece_uuid = (
+                    track_piece_uuid
+                    if isinstance(track_piece_uuid, str)
+                    and track_piece_uuid in self._records
+                    else None
+                )
+                if piece_uuid is None:
+                    gid = getattr(track, "global_id", None)
+                    if gid is None:
+                        continue
+                    piece_uuid = self._track_to_piece.get(int(gid))
                 if piece_uuid is None:
                     continue
                 rec = self._records.get(piece_uuid)

@@ -22,6 +22,12 @@ def new_tracker_epoch() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def new_piece_uuid() -> str:
+    """Return the stable identity for one physical piece."""
+
+    return uuid.uuid4().hex[:12]
+
+
 def build_tracklet_id(
     *,
     feed_id: str,
@@ -84,6 +90,7 @@ def tracklet_payload(
 __all__ = [
     "TrackletIdentity",
     "build_tracklet_id",
+    "new_piece_uuid",
     "new_tracker_epoch",
     "tracklet_payload",
 ]

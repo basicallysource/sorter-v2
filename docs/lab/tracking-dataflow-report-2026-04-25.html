@@ -147,13 +147,14 @@
     <h3>1. Frame, Detection, Tracking</h3>
     <ol>
       <li><code>runner_builder.py</code> baut pro Rolle <code>c2</code>, <code>c3</code>, <code>c4</code> einen <code>CameraFeed</code>, Detector und Tracker.</li>
-      <li>Default-Primary-Tracker ist <code>botsort_reid</code>. Shadow-Tracker ist standardmaessig <code>turntable_groundplane</code>, sofern nicht per Env deaktiviert.</li>
+      <li>Default-Primary-Tracker ist jetzt <code>boxmot_bytetrack</code>. Shadow-Tracker ist standardmaessig <code>botsort_reid</code> fuer OSNet-ReID-Embeddings, sofern nicht per Env deaktiviert.</li>
       <li><code>PerceptionPipeline.process_frame_state()</code> macht: <code>detector.detect()</code> -> <code>tracker.update()</code> -> optional <code>segment_recorder.on_frame()</code> -> <code>filters.apply()</code>.</li>
-      <li><code>PerceptionRunner</code> haelt <code>latest_state</code>, <code>latest_tracks</code> und <code>latest_shadow_tracks</code> und publiziert nur kompakte Track-Counts auf den Eventbus.</li>
+      <li><code>PerceptionRunner</code> reichert Primary-Tracks mit Shadow-Embeddings an, legt per Stabilizer eine stabile <code>piece_uuid</code> ueber rohe Tracklets und haelt <code>latest_state</code>, <code>latest_tracks</code> und <code>latest_shadow_tracks</code>.</li>
     </ol>
     <p class="small">
       Wichtige Dateien: <code>rt/perception/runner_builder.py</code>, <code>rt/perception/pipeline.py</code>,
-      <code>rt/perception/pipeline_runner.py</code>, <code>rt/perception/trackers/boxmot_reid.py</code>.
+      <code>rt/perception/pipeline_runner.py</code>, <code>rt/perception/track_stabilizer.py</code>,
+      <code>rt/perception/trackers/boxmot_bytetrack.py</code>, <code>rt/perception/trackers/boxmot_reid.py</code>.
     </p>
   </div>
 

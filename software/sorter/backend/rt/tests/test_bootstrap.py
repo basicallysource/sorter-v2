@@ -24,6 +24,7 @@ from rt.perception.runner_builder import (
     load_zone_for_role,
     primary_tracker_key,
     shadow_tracker_key,
+    tracker_params_for_role,
 )
 from rt.contracts.feed import PolygonZone, RectZone
 from rt.contracts.registry import CLASSIFIERS
@@ -274,17 +275,17 @@ def test_detector_slug_ignores_invalid_saved_slug():
     assert slug == "hive:c-channel-yolo11n-416"
 
 
-def test_tracker_keys_default_to_botsort_primary_and_groundplane_shadow(monkeypatch):
+def test_tracker_keys_default_to_boxmot_bytetrack_primary_and_reid_shadow(monkeypatch):
     monkeypatch.delenv("RT_PRIMARY_TRACKER_KEY", raising=False)
     monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
 
     primary = primary_tracker_key()
 
-    assert primary == "botsort_reid"
-    assert shadow_tracker_key(primary) == "turntable_groundplane"
+    assert primary == "boxmot_bytetrack"
+    assert shadow_tracker_key(primary) == "botsort_reid"
 
 
-def test_tracker_keys_compare_against_botsort_when_polar_is_primary(monkeypatch):
+def test_tracker_keys_compare_against_reid_shadow_when_legacy_primary_is_forced(monkeypatch):
     monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "polar")
     monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
 
@@ -292,6 +293,19 @@ def test_tracker_keys_compare_against_botsort_when_polar_is_primary(monkeypatch)
 
     assert primary == "polar"
     assert shadow_tracker_key(primary) == "botsort_reid"
+
+
+def test_tracker_params_are_channel_specific_without_leaking_to_reid_shadow():
+    arc = {"polar_center": (640.0, 360.0), "polar_radius_range": (120.0, 300.0)}
+
+    primary = tracker_params_for_role("c4", "boxmot_bytetrack", arc)
+    shadow = tracker_params_for_role("c4", "botsort_reid", arc)
+
+    assert primary["frame_rate"] == 8
+    assert primary["track_thresh"] == 0.45
+    assert primary["polar_center"] == (640.0, 360.0)
+    assert shadow["frame_rate"] == 8
+    assert "track_thresh" not in shadow
 
 
 def test_shadow_tracker_can_be_disabled(monkeypatch):
@@ -321,11 +335,8 @@ def testbuild_perception_runner_for_role_returns_reason_on_missing_camera():
 
 
 def testbuild_perception_runner_for_role_happy_path(monkeypatch):
-    # Pin the tracker strategy here so the test is independent of whether the
-    # current default primary (botsort_reid) can actually load torch/ReID weights
-    # in the CI environment.
-    monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "turntable_groundplane")
-    monkeypatch.setenv("RT_SHADOW_TRACKER_KEY", "polar")
+    monkeypatch.delenv("RT_PRIMARY_TRACKER_KEY", raising=False)
+    monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
     camera_service = _FakeCameraService(
         devices={"carousel": _FakeDevice(width=1920, height=1080)}
     )
@@ -358,8 +369,8 @@ def testbuild_perception_runner_for_role_happy_path(monkeypatch):
     assert pipeline.feed.feed_id == "c4_feed"
     # And the detector is the scope default (hive:c-channel-yolo11n-416).
     assert pipeline.detector.key == "hive:c-channel-yolo11n-416"
-    assert pipeline.tracker.key == "turntable_groundplane"
-    assert getattr(runner, "_shadow_tracker_key", None) == "polar"
+    assert pipeline.tracker.key == "boxmot_bytetrack"
+    assert getattr(runner, "_shadow_tracker_key", None) == "botsort_reid"
     assert getattr(runner, "_period_s", None) == 0.1
     assert getattr(pipeline.detector, "_polygon_apron_px", None) == 0
     tracker = pipeline.tracker

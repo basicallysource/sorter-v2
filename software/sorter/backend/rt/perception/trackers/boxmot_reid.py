@@ -1,10 +1,9 @@
 """BoTSORT + OSNet Re-Identification adapter.
 
-This is the production tracker for the sorter. Motion-only trackers (polar,
-roboflow SORT/ByteTrack/OCSORT, turntable_groundplane) can all confuse two
-physically distinct pieces when detections overlap or drop briefly. BoTSORT
-pairs a Kalman motion model with an OSNet appearance model, so lost tracks
-re-acquire by how they *look*, not just by where they should be.
+This is the production ReID shadow tracker for the sorter. BoxMot ByteTrack
+owns the primary motion tracklets; BoTSORT pairs a Kalman motion model with an
+OSNet appearance model so the perception runner can enrich primary tracks with
+embeddings for C3→C4 handoff and short tracklet stitching.
 
 The adapter keeps the existing sorter contract intact:
 

@@ -327,18 +327,17 @@ class RtRuntimeHandle:
             identity = identity_fn() if callable(identity_fn) else {}
             tracker_key = identity.get("tracker_key")
             tracker_epoch = identity.get("tracker_epoch")
+            latest_tracks = getattr(runner, "latest_tracks", None)
+            batch = latest_tracks() if callable(latest_tracks) else None
+            batch_tracks = getattr(batch, "tracks", None)
+            if isinstance(batch_tracks, tuple):
+                tracks = batch_tracks
             latest_state = getattr(runner, "latest_state", None)
             state = latest_state() if callable(latest_state) else None
             raw_tracks = getattr(state, "raw_tracks", None)
             raw_track_items = getattr(raw_tracks, "tracks", None)
-            if isinstance(raw_track_items, tuple):
+            if not tracks and isinstance(raw_track_items, tuple):
                 tracks = raw_track_items
-            else:
-                latest_tracks = getattr(runner, "latest_tracks", None)
-                batch = latest_tracks() if callable(latest_tracks) else None
-                batch_tracks = getattr(batch, "tracks", None)
-                if isinstance(batch_tracks, tuple):
-                    tracks = batch_tracks
             latest_shadow_tracks = getattr(runner, "latest_shadow_tracks", None)
             shadow_batch = (
                 latest_shadow_tracks() if callable(latest_shadow_tracks) else None

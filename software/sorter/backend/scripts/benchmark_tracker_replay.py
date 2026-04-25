@@ -30,15 +30,13 @@ from rt.contracts.tracking import Track, TrackBatch  # noqa: E402
 
 
 DEFAULT_TRACKERS = (
+    "boxmot_bytetrack",
+    "boxmot_bytetrack:track_buffer=45",
+    "boxmot_bytetrack:track_thresh=0.50",
     "botsort_reid",
     "botsort_reid:with_reid=false",
-    "botsort_reid:track_buffer=90",
-    "botsort_reid:appearance_thresh=0.15",
-    "turntable_groundplane",
-    "polar",
-    "rf_bytetrack",
-    "rf_ocsort",
-    "rf_sort",
+    "boxmot_raw_bytetrack",
+    "boxmot_raw_botsort",
 )
 
 
@@ -431,10 +429,25 @@ def _create_boxmot_core(tracker_type: str, params: dict[str, Any]) -> Any:
 
 
 def _create_tracker(tracker_key: str, params: dict[str, Any]) -> Any:
-    if tracker_key.startswith("boxmot_"):
+    if tracker_key.startswith("boxmot_raw_"):
+        tracker_type = tracker_key.removeprefix("boxmot_raw_")
+        return _ReplayBoxmotTracker(tracker_type, params)
+    if tracker_key.startswith("boxmot_") and tracker_key not in TRACKERS.keys():
         tracker_type = tracker_key.removeprefix("boxmot_")
         return _ReplayBoxmotTracker(tracker_type, params)
+    _import_legacy_tracker_if_requested(tracker_key)
     return TRACKERS.create(tracker_key, **params)
+
+
+def _import_legacy_tracker_if_requested(tracker_key: str) -> None:
+    """Register legacy trackers only when a benchmark explicitly asks for one."""
+
+    if tracker_key.startswith("rf_"):
+        import rt.perception.trackers.roboflow  # noqa: F401
+    elif tracker_key == "polar":
+        import rt.perception.trackers.polar  # noqa: F401
+    elif tracker_key == "turntable_groundplane":
+        import rt.perception.trackers.turntable_groundplane  # noqa: F401
 
 
 def _benchmark_tracker(

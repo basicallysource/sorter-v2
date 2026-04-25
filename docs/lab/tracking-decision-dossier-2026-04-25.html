@@ -138,6 +138,13 @@
 </header>
 <main>
   <section>
+    <h2>Umsetzungsstatus</h2>
+    <div class="callout good">
+      <p><strong>Implementiert am 25.04.2026:</strong> Der produktive Runtime-Pfad nutzt jetzt <code>boxmot_bytetrack</code> als Primary und <code>botsort_reid</code> als ReID-Shadow. Die Pipeline reichert Primary-Tracklets mit Shadow-Embeddings an und legt darueber stabile <code>piece_uuid</code>-Identitaeten mit kurzem Holdover. C3 parkt beim C3-&gt;C4-Handoff diese stabile Piece-ID plus Embedding, und C4 nimmt Ownership primaer ueber <code>piece_uuid</code> statt ueber rohe Tracklet-IDs.</p>
+      <p>Legacy-Tracker wie <code>rf_bytetrack</code>, <code>polar</code> und <code>turntable_groundplane</code> werden nicht mehr automatisch in den produktiven Runtime-Registry-Pfad geladen. Sie bleiben nur noch explizit importierbar fuer alte Unit-Tests oder Replay-Baseline-Vergleiche.</p>
+    </div>
+  </section>
+  <section>
     <h2>Entscheidung in einem Satz</h2>
     <div class="callout">
       <p><strong>Nicht zurueck auf Roboflow als Zielarchitektur.</strong> <code>rf_bytetrack</code> war im Test nur die beste Legacy-Baseline. Der richtige Weg ist: BoxMot-ByteTrack produktionsnah tunen, <code>botsort_reid</code> fuer ReID/Handoff als Shadow behalten, und darueber eine stabile Piece-Schicht bauen.</p>

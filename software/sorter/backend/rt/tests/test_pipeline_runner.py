@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -393,6 +394,90 @@ def test_runner_updates_shadow_tracker_without_publishing_it() -> None:
     assert status["shadow_track_count"] == 1
     assert status["shadow_confirmed_track_count"] == 1
     assert status["shadow_compare"]["shadow_unmatched"] == 1
+
+
+def test_runner_enriches_primary_tracks_with_shadow_embeddings() -> None:
+    feed = _FakeFeed(frames_to_emit=1)
+
+    class _PrimaryTracker:
+        key = "primary"
+
+        def update(self, detections: DetectionBatch, frame: FeedFrame) -> TrackBatch:
+            return TrackBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                tracks=(
+                    Track(
+                        track_id=7,
+                        global_id=7,
+                        piece_uuid=None,
+                        bbox_xyxy=(1, 2, 6, 7),
+                        score=0.9,
+                        confirmed_real=True,
+                        angle_rad=None,
+                        radius_px=None,
+                        hit_count=3,
+                        first_seen_ts=frame.timestamp,
+                        last_seen_ts=frame.timestamp,
+                    ),
+                ),
+                lost_track_ids=(),
+            )
+
+        def live_global_ids(self) -> set[int]:
+            return {7}
+
+        def reset(self) -> None:
+            return None
+
+    class _Detector(_NoopDetector):
+        def detect(self, frame: FeedFrame, zone: Zone) -> DetectionBatch:
+            return DetectionBatch(
+                feed_id=frame.feed_id,
+                frame_seq=frame.frame_seq,
+                timestamp=frame.timestamp,
+                detections=(Detection(bbox_xyxy=(1, 2, 6, 7), score=0.9),),
+                algorithm=self.key,
+                latency_ms=0.0,
+            )
+
+    class _ShadowTracker(_PrimaryTracker):
+        key = "shadow"
+
+        def update(self, detections: DetectionBatch, frame: FeedFrame) -> TrackBatch:
+            batch = super().update(detections, frame)
+            track = batch.tracks[0]
+            return TrackBatch(
+                feed_id=batch.feed_id,
+                frame_seq=batch.frame_seq,
+                timestamp=batch.timestamp,
+                tracks=(
+                    replace(
+                        track,
+                        track_id=70,
+                        global_id=70,
+                        appearance_embedding=(0.1, 0.2, 0.3),
+                    ),
+                ),
+                lost_track_ids=(),
+            )
+
+    pipeline = _build_pipeline(_Detector(), _PrimaryTracker(), feed)
+    runner = PerceptionRunner(
+        pipeline,
+        period_ms=2,
+        shadow_tracker=_ShadowTracker(),
+        shadow_tracker_key="shadow",
+    )
+    runner.start()
+    time.sleep(0.05)
+    runner.stop(timeout=1.0)
+
+    latest = runner.latest_tracks()
+    assert latest is not None
+    assert latest.tracks[0].appearance_embedding == (0.1, 0.2, 0.3)
+    assert latest.tracks[0].piece_uuid is not None
 
 
 def test_runner_status_snapshot_surfaces_debug_counts() -> None:

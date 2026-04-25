@@ -60,12 +60,42 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 _FIRST_TOUCH_POLYGON_APRON_PX = 0
 _DETECTOR_CONF_THRESHOLD = 0.35
 _PERCEPTION_PERIOD_MS = 100
-# BoTSORT + OSNet ReID is the production tracker: motion + appearance handle
-# re-acquisition within a channel without needing the transit registry as a
-# workaround. Override with RT_PRIMARY_TRACKER_KEY if you want to benchmark a
-# different strategy.
-_DEFAULT_PRIMARY_TRACKER_KEY = "botsort_reid"
-_DEFAULT_SHADOW_TRACKER_KEY = "turntable_groundplane"
+# BoxMot ByteTrack owns primary tracklets. BoTSORT+OSNet remains attached as a
+# shadow tracker whose embeddings are merged into the primary tracks above the
+# tracker layer.
+_DEFAULT_PRIMARY_TRACKER_KEY = "boxmot_bytetrack"
+_DEFAULT_SHADOW_TRACKER_KEY = "botsort_reid"
+
+_CHANNEL_TRACKER_PARAMS: dict[str, dict[str, dict[str, Any]]] = {
+    "boxmot_bytetrack": {
+        "c2": {
+            "frame_rate": 10,
+            "track_buffer": 36,
+            "track_thresh": 0.55,
+            "match_thresh": 0.88,
+            "min_conf": 0.08,
+        },
+        "c3": {
+            "frame_rate": 10,
+            "track_buffer": 45,
+            "track_thresh": 0.50,
+            "match_thresh": 0.90,
+            "min_conf": 0.08,
+        },
+        "c4": {
+            "frame_rate": 8,
+            "track_buffer": 40,
+            "track_thresh": 0.45,
+            "match_thresh": 0.88,
+            "min_conf": 0.08,
+        },
+    },
+    "botsort_reid": {
+        "c2": {"frame_rate": 10, "track_buffer": 45},
+        "c3": {"frame_rate": 10, "track_buffer": 45},
+        "c4": {"frame_rate": 8, "track_buffer": 45},
+    },
+}
 
 
 def ghost_filter_enabled() -> bool:
@@ -91,7 +121,7 @@ def shadow_tracker_key(primary_key: str | None = None) -> str | None:
     if "RT_SHADOW_TRACKER_KEY" in os.environ:
         raw = os.environ.get("RT_SHADOW_TRACKER_KEY", "")
     elif primary_key and primary_key != _DEFAULT_PRIMARY_TRACKER_KEY:
-        raw = _DEFAULT_PRIMARY_TRACKER_KEY
+        raw = _DEFAULT_SHADOW_TRACKER_KEY
     else:
         raw = _DEFAULT_SHADOW_TRACKER_KEY
     key = str(raw or "").strip()
@@ -100,6 +130,17 @@ def shadow_tracker_key(primary_key: str | None = None) -> str | None:
     if primary_key and key == primary_key:
         return None
     return key
+
+
+def tracker_params_for_role(
+    role: str,
+    tracker_key: str,
+    arc_params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    params = dict(arc_params or {})
+    tuned = _CHANNEL_TRACKER_PARAMS.get(str(tracker_key), {}).get(str(role), {})
+    params.update(tuned)
+    return params
 
 
 def detector_slug_for_role(role: str, logger: logging.Logger) -> str:
@@ -249,15 +290,16 @@ def build_perception_runner_for_role(
         return None, zone, "camera_feed_build_failed"
 
     detector_slug = detector_slug_for_role(role, logger)
-    tracker_params: dict[str, Any] = {}
+    arc_tracker_params: dict[str, Any] = {}
     target_res = configured_resolution_for_role(camera_service, camera_id)
     if target_res is not None:
-        tracker_params = load_arc_tracker_params(
+        arc_tracker_params = load_arc_tracker_params(
             role,
             target_w=int(target_res[0]),
             target_h=int(target_res[1]),
         )
     tracker_key = primary_tracker_key()
+    tracker_params = tracker_params_for_role(role, tracker_key, arc_tracker_params)
     filters = [{"key": "ghost", "params": {}}] if ghost_filter_enabled() else []
     pipeline_config = PipelineConfig(
         feed_id=feed_id,
@@ -286,7 +328,8 @@ def build_perception_runner_for_role(
     shadow_tracker = None
     if shadow_key is not None:
         try:
-            shadow_tracker = TRACKERS.create(shadow_key, **dict(tracker_params))
+            shadow_params = tracker_params_for_role(role, shadow_key, arc_tracker_params)
+            shadow_tracker = TRACKERS.create(shadow_key, **shadow_params)
         except Exception:
             logger.exception(
                 "runner_builder[%s]: shadow tracker build failed (tracker=%s)",
@@ -321,4 +364,5 @@ __all__ = [
     "load_zone_for_role",
     "primary_tracker_key",
     "shadow_tracker_key",
+    "tracker_params_for_role",
 ]

@@ -14,15 +14,17 @@ import logging
 import math
 import threading
 import time
+from dataclasses import replace
 from typing import Any
 
 from rt.contracts.events import Event, EventBus, Subscription
-from rt.contracts.tracking import TrackBatch, Tracker
+from rt.contracts.tracking import Track, TrackBatch, Tracker
 from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRACKS
 from rt.pieces.identity import new_tracker_epoch
 
 from .pipeline import PerceptionFrameState, PerceptionPipeline
 from .replay_capture import DetectorInputRecorder
+from .track_stabilizer import TrackletStabilizer
 
 
 _LOG = logging.getLogger(__name__)
@@ -45,7 +47,9 @@ def _track_preview(batch: TrackBatch | None) -> list[dict[str, Any]]:
             age_s = round(max(0.0, float(last_seen_ts) - float(first_seen_ts)), 3)
         out.append({
             "global_id": getattr(track, "global_id", None),
+            "piece_uuid": getattr(track, "piece_uuid", None),
             "confirmed_real": bool(getattr(track, "confirmed_real", False)),
+            "ghost": bool(getattr(track, "ghost", False)),
             "hit_count": getattr(track, "hit_count", None),
             "score": getattr(track, "score", None),
             "age_s": age_s,
@@ -107,6 +111,102 @@ def _compare_track_batches(
     }
 
 
+def _cosine_similarity(
+    a: tuple[float, ...] | list[float] | None,
+    b: tuple[float, ...] | list[float] | None,
+) -> float | None:
+    if a is None or b is None or len(a) != len(b) or not a:
+        return None
+    try:
+        av = [float(v) for v in a]
+        bv = [float(v) for v in b]
+    except (TypeError, ValueError):
+        return None
+    dot = sum(x * y for x, y in zip(av, bv))
+    na = sum(x * x for x in av)
+    nb = sum(y * y for y in bv)
+    if na <= 0.0 or nb <= 0.0:
+        return None
+    return dot / (math.sqrt(na) * math.sqrt(nb))
+
+
+def _track_distance_px(primary: Track, shadow: Track) -> float | None:
+    if (
+        primary.angle_rad is not None
+        and shadow.angle_rad is not None
+        and primary.radius_px is not None
+        and shadow.radius_px is not None
+    ):
+        radius = max(1.0, (float(primary.radius_px) + float(shadow.radius_px)) / 2.0)
+        arc = abs(
+            (float(primary.angle_rad) - float(shadow.angle_rad) + math.pi)
+            % (2.0 * math.pi)
+            - math.pi
+        ) * radius
+        radial = abs(float(primary.radius_px) - float(shadow.radius_px))
+        return math.hypot(arc, radial)
+    pc = _track_center(primary)
+    sc = _track_center(shadow)
+    if pc is None or sc is None:
+        return None
+    return math.hypot(pc[0] - sc[0], pc[1] - sc[1])
+
+
+def _enrich_tracks_with_shadow(
+    primary: TrackBatch,
+    shadow: TrackBatch | None,
+    *,
+    match_distance_px: float = 90.0,
+) -> TrackBatch:
+    """Copy ReID embeddings from the shadow tracker onto primary tracks."""
+
+    if shadow is None or not shadow.tracks or not primary.tracks:
+        return primary
+    pairs: list[tuple[float, int, int]] = []
+    for pi, primary_track in enumerate(primary.tracks):
+        for si, shadow_track in enumerate(shadow.tracks):
+            if shadow_track.appearance_embedding is None:
+                continue
+            distance = _track_distance_px(primary_track, shadow_track)
+            if distance is None or distance > match_distance_px:
+                continue
+            pairs.append((distance, pi, si))
+
+    matched_primary: set[int] = set()
+    matched_shadow: set[int] = set()
+    enriched = list(primary.tracks)
+    for _distance, pi, si in sorted(pairs):
+        if pi in matched_primary or si in matched_shadow:
+            continue
+        matched_primary.add(pi)
+        matched_shadow.add(si)
+        shadow_track = shadow.tracks[si]
+        primary_track = enriched[pi]
+        if (
+            primary_track.appearance_embedding is not None
+            and _cosine_similarity(
+                primary_track.appearance_embedding,
+                shadow_track.appearance_embedding,
+            )
+            is not None
+        ):
+            continue
+        enriched[pi] = replace(
+            primary_track,
+            appearance_embedding=shadow_track.appearance_embedding,
+        )
+
+    if not matched_primary:
+        return primary
+    return TrackBatch(
+        feed_id=primary.feed_id,
+        frame_seq=primary.frame_seq,
+        timestamp=primary.timestamp,
+        tracks=tuple(enriched),
+        lost_track_ids=primary.lost_track_ids,
+    )
+
+
 class PerceptionRunner:
     """Drives a PerceptionPipeline on its own daemon thread."""
 
@@ -127,6 +227,7 @@ class PerceptionRunner:
         self._tracker_epoch = new_tracker_epoch()
         self._shadow_tracker = shadow_tracker
         self._shadow_tracker_key = shadow_tracker_key or getattr(shadow_tracker, "key", None)
+        self._stabilizer = TrackletStabilizer()
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._latest_lock = threading.Lock()
@@ -364,6 +465,7 @@ class PerceptionRunner:
             "shadow_confirmed_track_count": shadow_confirmed_track_count,
             "shadow_track_preview": shadow_track_preview,
             "shadow_compare": shadow_compare,
+            "track_stabilizer": self._stabilizer.snapshot(),
             "detector_input_capture": self.detector_input_capture_status(),
         }
 
@@ -378,8 +480,18 @@ class PerceptionRunner:
                 if frame is not None and frame.frame_seq != self._last_frame_seq:
                     self._last_frame_seq = frame.frame_seq
                     state = self._pipeline.process_frame_state(frame)
-                    batch = state.filtered_tracks
                     shadow_batch = self._process_shadow_tracks(state, frame)
+                    enriched_raw = _enrich_tracks_with_shadow(state.raw_tracks, shadow_batch)
+                    enriched_filtered = _enrich_tracks_with_shadow(
+                        state.filtered_tracks,
+                        shadow_batch,
+                    )
+                    batch = self._stabilizer.update(enriched_filtered)
+                    state = replace(
+                        state,
+                        raw_tracks=self._stabilizer.project(enriched_raw),
+                        filtered_tracks=batch,
+                    )
                     with self._latest_lock:
                         self._latest_state = state
                         self._latest = batch

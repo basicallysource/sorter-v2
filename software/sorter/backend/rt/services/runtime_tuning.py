@@ -143,6 +143,14 @@ def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
             runtime,
             "_handoff_retry_max_pulses",
         ),
+        "stuck_retry_threshold": _runtime_attr(
+            runtime, "_stuck_retry_threshold"
+        ),
+        "lease_min_spacing_deg": _runtime_attr(runtime, "_lease_min_spacing_deg"),
+        "lease_transit_estimate_s": _runtime_attr(
+            runtime, "_lease_transit_estimate_s"
+        ),
+        "lease_ttl_s": _runtime_attr(runtime, "_lease_ttl_s"),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_normal", None)),
         "precision": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_precision", None)),
@@ -170,6 +178,20 @@ def _c3_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "handoff_retry_max_pulses": _runtime_attr(
             runtime,
             "_handoff_retry_max_pulses",
+        ),
+        "stuck_retry_threshold": _runtime_attr(
+            runtime, "_stuck_retry_threshold"
+        ),
+        "lease_min_spacing_deg": _runtime_attr(runtime, "_lease_min_spacing_deg"),
+        "lease_transit_estimate_s": _runtime_attr(
+            runtime, "_lease_transit_estimate_s"
+        ),
+        "lease_ttl_s": _runtime_attr(runtime, "_lease_ttl_s"),
+        "upstream_lease_arc_center_deg": _rad_attr_deg(
+            runtime, "_upstream_lease_arc_center_rad"
+        ),
+        "upstream_lease_min_spacing_deg": _rad_attr_deg(
+            runtime, "_upstream_lease_min_spacing_rad"
         ),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "third_rotor_normal", None)),
@@ -327,6 +349,10 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         "exit_handoff_min_interval_ms",
         "handoff_retry_escalate_after",
         "handoff_retry_max_pulses",
+        "stuck_retry_threshold",
+        "lease_min_spacing_deg",
+        "lease_transit_estimate_s",
+        "lease_ttl_s",
         "transport_target_rpm",
         "normal",
         "precision",
@@ -401,6 +427,38 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         min_value=1,
         max_value=5,
     )
+    _set_runtime_int(
+        runtime,
+        "_stuck_retry_threshold",
+        values,
+        "stuck_retry_threshold",
+        min_value=1,
+        max_value=50,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_min_spacing_deg",
+        values,
+        "lease_min_spacing_deg",
+        min_value=0.0,
+        max_value=180.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_transit_estimate_s",
+        values,
+        "lease_transit_estimate_s",
+        min_value=0.0,
+        max_value=10.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_ttl_s",
+        values,
+        "lease_ttl_s",
+        min_value=0.1,
+        max_value=10.0,
+    )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "second_rotor_normal", None), values["normal"], "c2.normal")
@@ -426,6 +484,12 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         "exit_handoff_min_interval_ms",
         "handoff_retry_escalate_after",
         "handoff_retry_max_pulses",
+        "stuck_retry_threshold",
+        "lease_min_spacing_deg",
+        "lease_transit_estimate_s",
+        "lease_ttl_s",
+        "upstream_lease_arc_center_deg",
+        "upstream_lease_min_spacing_deg",
         "transport_target_rpm",
         "normal",
         "precision",
@@ -491,6 +555,54 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         "handoff_retry_max_pulses",
         min_value=1,
         max_value=5,
+    )
+    _set_runtime_int(
+        runtime,
+        "_stuck_retry_threshold",
+        values,
+        "stuck_retry_threshold",
+        min_value=1,
+        max_value=50,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_min_spacing_deg",
+        values,
+        "lease_min_spacing_deg",
+        min_value=0.0,
+        max_value=180.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_transit_estimate_s",
+        values,
+        "lease_transit_estimate_s",
+        min_value=0.0,
+        max_value=10.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_lease_ttl_s",
+        values,
+        "lease_ttl_s",
+        min_value=0.1,
+        max_value=10.0,
+    )
+    _set_runtime_radians(
+        runtime,
+        "_upstream_lease_arc_center_rad",
+        values,
+        "upstream_lease_arc_center_deg",
+        0.0,
+        360.0,
+    )
+    _set_runtime_radians(
+        runtime,
+        "_upstream_lease_min_spacing_rad",
+        values,
+        "upstream_lease_min_spacing_deg",
+        0.0,
+        180.0,
     )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:

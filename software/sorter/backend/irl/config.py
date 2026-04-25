@@ -448,10 +448,18 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
+        # C1 bulk feeder: each pulse drops a chunk of pieces from the
+        # hopper into C2. Tuned 2026-04-25 from steps=100, delay=1000ms
+        # to steps=50, delay=1500ms after live observation showed C1
+        # routinely dumping 30-50 pieces into C2 in one short burst,
+        # which then fed C3 a clump and stalled the rest of the pipeline.
+        # Halving the per-pulse advance plus extending the delay reduces
+        # the worst-case batch size to ~half and the pulse rate to ~2/3,
+        # giving the downstream rings room to drain between drops.
         self.first_rotor = RotorPulseConfig(
-            steps=100,
+            steps=50,
             microsteps_per_second=2000,
-            delay_between_ms=1000,
+            delay_between_ms=1500,
         )
         self.second_rotor_normal = RotorPulseConfig(
             steps=1000,

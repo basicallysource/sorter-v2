@@ -773,6 +773,7 @@ class RuntimeC4(BaseRuntime):
                     "eject_enqueued": bool(tr.eject_enqueued),
                     "eject_committed": bool(tr.eject_committed),
                     "reject_reason": tr.reject_reason,
+                    "extent_deg": math.degrees(float(tr.extent_rad)),
                 }
             )
         pending_landings_view: list[dict[str, Any]] = []

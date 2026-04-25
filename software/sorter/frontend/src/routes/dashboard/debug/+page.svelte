@@ -270,6 +270,7 @@
 								<th>mode</th>
 								<th>angle</th>
 								<th>±σ</th>
+								<th>extent</th>
 								<th>part</th>
 								<th>aliases</th>
 								<th>obs</th>
@@ -284,6 +285,7 @@
 									<td><span class="badge">{t.motion_mode}</span></td>
 									<td>{fmt(t.angle_deg as number)}</td>
 									<td>{fmt(t.angle_sigma_deg as number, 2)}</td>
+									<td>{fmt(t.extent_deg as number, 1)}°</td>
 									<td class="mono">{t.class_label ?? '-'}</td>
 									<td class="mono">{(t.raw_track_aliases as number[])?.join(',') ?? '-'}</td>
 									<td>{t.detection_observations}/{t.confirmed_real_observations}</td>

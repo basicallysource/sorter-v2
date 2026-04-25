@@ -148,6 +148,14 @@ class Measurement:
     is in image pixels. ``raw_track_id`` is the BoxMot/ByteTrack global
     id if the source tracker provided one — used as an association hint
     but never as a durable identity.
+
+    ``extent_deg`` is the piece's angular footprint on the tray:
+        extent ≈ piece_width_px / radius_px (small-angle approximation)
+    Currently filled from the AABB diagonal (bbox-based estimate); a
+    future OBB-aware detector should set this from the rotated box's
+    along-tray side. The bank uses it to widen the chute-window check
+    so a long Technic axle is not treated as point-sized when checking
+    posterior singleton.
     """
 
     a_meas: float
@@ -158,6 +166,8 @@ class Measurement:
     bbox_xyxy: tuple[int, int, int, int] | None = None
     confirmed_real: bool = False
     timestamp: float = 0.0
+    extent_deg: float | None = None
+    orientation_rad: float | None = None  # OBB angle, when available
 
 
 class MotionMode(str, Enum):
@@ -237,6 +247,13 @@ class PieceTrack:
     classified_ts: float | None = None
     intake_ts: float | None = None
     extras: dict[str, "object"] = field(default_factory=dict)
+    # Angular footprint of this physical piece on the tray (radians).
+    # Derived from the latest bbox + radius, or directly from an OBB
+    # measurement when the detector supplies one. Defaults to a tight
+    # pessimistic value at admission and is refined as observations
+    # come in. Used by the chute-window query to size the safety arc
+    # per piece rather than assuming all pieces are point-sized.
+    extent_rad: float = math.radians(8.0)
 
     @property
     def angle_rad(self) -> float:
@@ -261,6 +278,32 @@ class PieceTrack:
 
 # ---------------------------------------------------------------------------
 # Kalman primitives
+
+
+def _measurement_extent_rad(meas: "Measurement") -> float | None:
+    """Pick the best available angular-extent estimate for a measurement.
+
+    Priority order:
+      1. ``extent_deg`` if the detector or tracker filled it explicitly
+         (typically from an OBB along-tray side).
+      2. AABB diagonal divided by radius — small-angle approximation
+         ``extent ≈ width / radius`` is correct to a few percent for
+         the bbox sizes our pieces produce. The diagonal handles
+         rotated AABBs by always over-estimating slightly, which is
+         the safe direction for the chute-window check.
+      3. ``None`` when neither is available (let the bank's default
+         hold).
+    """
+    if meas.extent_deg is not None:
+        return float(math.radians(max(0.0, float(meas.extent_deg))))
+    bbox = meas.bbox_xyxy
+    if bbox is None or float(meas.r_meas) <= 0.0:
+        return None
+    x1, y1, x2, y2 = bbox
+    diag = math.hypot(float(x2) - float(x1), float(y2) - float(y1))
+    if diag <= 0.0:
+        return None
+    return float(diag / max(1.0, float(meas.r_meas)))
 
 
 def _identity_4() -> np.ndarray:
@@ -615,6 +658,9 @@ class PieceTrackBank:
             detection_observations=1,
             lifecycle_state=PieceLifecycleState.TENTATIVE,
         )
+        meas_extent = _measurement_extent_rad(meas)
+        if meas_extent is not None:
+            track.extent_rad = meas_extent
         if meas.raw_track_id is not None:
             track.raw_track_aliases.add(int(meas.raw_track_id))
             self._raw_id_index[int(meas.raw_track_id)] = piece_uuid
@@ -688,6 +734,13 @@ class PieceTrackBank:
         tr.detection_observations += 1
         if meas.confirmed_real:
             tr.confirmed_real_observations += 1
+        # Refine the angular extent estimate. Smoothed over the last
+        # few observations so a single noisy bbox cannot inflate the
+        # chute-window check.
+        meas_extent = _measurement_extent_rad(meas)
+        if meas_extent is not None:
+            blend = 0.4
+            tr.extent_rad = (1.0 - blend) * tr.extent_rad + blend * meas_extent
         if meas.raw_track_id is not None:
             raw_id = int(meas.raw_track_id)
             tr.raw_track_aliases.add(raw_id)
@@ -832,7 +885,11 @@ class PieceTrackBank:
                 continue
             world_angle = wrap_rad(float(tr.state_mean[0]) + float(encoder_rad))
             sigma = tr.angle_sigma_rad
-            extent = 2.0 * sigma  # 2-sigma interval
+            # Per-piece footprint plus position uncertainty: a long
+            # Technic axle straddles the chute mouth even when its
+            # center is still safely outside the deterministic window.
+            half_extent = 0.5 * float(tr.extent_rad)
+            extent = 2.0 * sigma + half_extent
             distance = abs(wrap_diff_rad(world_angle, chute_center_rad))
             if distance - extent <= chute_half_width_rad:
                 out.append(tr)

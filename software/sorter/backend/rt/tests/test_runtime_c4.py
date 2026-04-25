@@ -1108,13 +1108,13 @@ def test_c4_defers_eject_when_trailing_piece_in_chute() -> None:
     assert "eject" not in log
     assert commits == []
 
-    # Transport advances; #2 is now at 5 deg = 25 deg from the chute,
-    # outside the safety arc. The eject is allowed.
+    # Transport advances; #2 is now at -20 deg = 50 deg from the chute,
+    # comfortably outside the safety arc plus the per-piece extent.
     rt.tick(
         RuntimeInbox(
             tracks=_batch(
                 _track(track_id=1, global_id=1, angle_deg=30.0),
-                _track(track_id=2, global_id=2, angle_deg=5.0),
+                _track(track_id=2, global_id=2, angle_deg=-20.0),
             ),
             capacity_downstream=0,
         ),

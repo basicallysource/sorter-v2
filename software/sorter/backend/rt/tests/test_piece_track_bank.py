@@ -456,6 +456,70 @@ def test_lease_expires_after_ttl() -> None:
     assert second is not None
 
 
+def test_extent_estimated_from_bbox_diagonal() -> None:
+    """A measurement with an AABB and a known radius produces an angular
+    extent equal to bbox-diagonal / radius (small-angle approximation).
+    The bank stores this so the chute-window check can size the safety
+    arc per piece rather than treating every track as point-sized."""
+    bank = _make_bank()
+    meas = Measurement(
+        a_meas=0.0,
+        r_meas=200.0,
+        score=0.9,
+        bbox_xyxy=(100, 100, 140, 130),  # 40x30 → diag = 50
+        confirmed_real=True,
+    )
+    bank.associate_and_update([meas], now_t=0.0, encoder_rad=0.0)
+    track = next(iter(bank.tracks()))
+    expected_rad = 50.0 / 200.0  # 0.25 rad ≈ 14.3 deg
+    assert math.isclose(track.extent_rad, expected_rad, abs_tol=1e-9)
+
+
+def test_chute_window_widens_for_long_pieces() -> None:
+    """A long piece whose centre sits just outside the chute window
+    must still count as a chute occupant — its physical extent reaches
+    inside even when the centroid does not."""
+    bank = _make_bank()
+    meas = Measurement(
+        a_meas=math.radians(-20.0),  # 20 deg short of the chute centre at 0
+        r_meas=100.0,
+        score=0.9,
+        bbox_xyxy=(0, 0, 30, 8),  # ~31 px diagonal → 31/100 ≈ 17.7 deg extent
+        confirmed_real=True,
+    )
+    bank.associate_and_update([meas], now_t=0.0, encoder_rad=0.0)
+    occupants = bank.chute_window_occupants(
+        chute_center_rad=math.radians(0.0),
+        chute_half_width_rad=math.radians(14.0),
+        encoder_rad=0.0,
+    )
+    # 20° centre offset minus 8.85° half-extent ≈ 11.15° — inside the
+    # 14° chute half-window.
+    assert len(occupants) == 1
+    # A point-like piece at the same centroid would NOT be in the
+    # window; the extent term is what flipped it.
+    point_meas = Measurement(
+        a_meas=math.radians(-20.0),
+        r_meas=100.0,
+        score=0.9,
+        bbox_xyxy=None,
+        confirmed_real=True,
+    )
+    point_bank = _make_bank()
+    point_bank.associate_and_update(
+        [point_meas], now_t=0.0, encoder_rad=0.0
+    )
+    point_track = next(iter(point_bank.tracks()))
+    # Reset extent to a tiny value to exercise the comparison directly.
+    point_track.extent_rad = math.radians(0.5)
+    no_occ = point_bank.chute_window_occupants(
+        chute_center_rad=math.radians(0.0),
+        chute_half_width_rad=math.radians(14.0),
+        encoder_rad=0.0,
+    )
+    assert len(no_occ) == 0
+
+
 def test_motion_mode_starts_at_carried() -> None:
     bank = _make_bank()
     bank.associate_and_update(

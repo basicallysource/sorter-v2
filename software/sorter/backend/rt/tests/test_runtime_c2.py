@@ -325,9 +325,7 @@ def test_c2_stable_pending_tracks_reserve_ring_capacity() -> None:
     )
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
     snap = rt.debug_snapshot()
-    # available_slots no longer gates on max_piece_count — see RuntimeC2.
-    # The piece count bookkeeping is still surfaced for operator tuning.
-    assert rt.available_slots() == 1
+    assert rt.available_slots() == 0
     assert snap["piece_count"] == 5
     assert snap["admission_piece_count"] == 5
     assert snap["pending_track_count"] == 0
@@ -476,12 +474,10 @@ def test_c2_retries_exit_after_claim_hold_expires() -> None:
     assert log == ["precise:40", "precise:40"]
 
 
-def test_c2_available_slots_no_longer_caps_at_piece_count() -> None:
-    """C2 used to drop available_slots to 0 once piece_count reached
-    max_piece_count, but the carousel keeps feeding pieces past that
-    soft cap regardless. The runtime now keeps reporting capacity 1
-    so C1 keeps feeding and the next physical singulation gate
-    (further downstream) is the real bottleneck."""
+def test_c2_available_slots_caps_at_piece_count() -> None:
+    """C2 still pushes back on C1 when max_piece_count is reached. This
+    gate is what tells the bulk feeder to stop loading; without it C1's
+    jam-recovery counter falsely trips after the C2 ring fills up."""
     rt, _up, _down, _log = _make()
     tracks = _batch(
         _track(track_id=1, global_id=1, angle_rad=math.pi / 2),
@@ -491,7 +487,8 @@ def test_c2_available_slots_no_longer_caps_at_piece_count() -> None:
         _track(track_id=5, global_id=5, angle_rad=-math.pi / 3),
     )
     rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
-    assert rt.available_slots() == 1
+    # Default max_piece_count = 5 so C2 reports full and C1 idles.
+    assert rt.available_slots() == 0
 
 
 # ----------------------------------------------------------------------

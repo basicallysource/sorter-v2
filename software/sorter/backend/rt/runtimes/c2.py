@@ -196,13 +196,16 @@ class RuntimeC2(BaseRuntime):
     def available_slots(self) -> int:
         """Whether C1 may push another piece downstream.
 
-        See the matching note on ``RuntimeC3.available_slots`` — the
-        ``max_piece_count`` cap is a lab-tuning hint that the carousel's
-        physics routinely overruns, not a contract this runtime can
-        enforce. Returning 1 outside purge keeps C1 feeding so C4 (the
-        real physical singulation gate) gets a steady supply.
+        Unlike C3 (whose cap was decoupled from this gate), C2's cap is
+        the only signal C1 has telling it the bulk feeder is overrunning
+        the C2 ring. Without this gate C1's jam-recovery logic falsely
+        fires when C2 is already too full for new pieces to make
+        operator-visible progress, and C1 ends up paused with
+        ``jam_recovery_exhausted`` on a perfectly healthy hopper.
         """
         if self._purge_mode:
+            return 0
+        if self._admission_piece_count >= self._max_piece_count:
             return 0
         return 1
 

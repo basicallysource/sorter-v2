@@ -1192,6 +1192,15 @@ def build_rt_runtime(
     except Exception:
         log.exception("rt.bootstrap: c3 landing-lease wiring failed")
 
+    # Same software escapement on the C2 -> C3 transfer. Operator
+    # observation 2026-04-25 confirmed C2 was pushing pieces onto C3
+    # even when C3's drop zone was already occupied; this gates each
+    # C2 exit pulse on C3 reporting a clear drop arc.
+    try:
+        c2.set_landing_lease_port(c3.landing_lease_port())
+    except Exception:
+        log.exception("rt.bootstrap: c2 landing-lease wiring failed")
+
     # ------------------------------------------------------------------
     # Orchestrator
 

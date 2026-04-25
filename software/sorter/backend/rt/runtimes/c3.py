@@ -166,6 +166,17 @@ class RuntimeC3(BaseRuntime):
         self._pending_track_count: int = 0
         self._pending_downstream_claims: dict[int, float] = {}
         self._pending_downstream_claim_retries: dict[int, int] = {}
+        # Software escapement that C3 *exposes* to its upstream (C2). C2
+        # asks "is C3's drop zone clear so I can push another piece?"
+        # before each exit pulse. Mirrors the same lease pattern that
+        # C4 already exposes to C3, but lighter: C3 has no PieceTrackBank,
+        # so the lease check just inspects the latest visible action-track
+        # angles. Pending leases are kept here with a TTL so a C2 pulse
+        # that fails to deliver does not orphan the slot.
+        self._latest_visible_angles_rad: list[float] = []
+        self._upstream_pending_leases: dict[str, float] = {}
+        self._upstream_lease_arc_center_rad: float = math.radians(180.0)
+        self._upstream_lease_min_spacing_rad: float = math.radians(60.0)
         # Software escapement to C4. Set at bootstrap via
         # ``set_landing_lease_port``. When present, every C3 exit pulse
         # is gated through ``request_lease`` — no lease, no pulse. Live
@@ -290,6 +301,12 @@ class RuntimeC3(BaseRuntime):
             ]
             self._visible_track_count = len(visible_tracks)
             self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
+            # Snapshot for the upstream landing-lease port.
+            self._latest_visible_angles_rad = [
+                float(t.angle_rad)
+                for t in visible_tracks
+                if t.angle_rad is not None
+            ]
             self._piece_count = len(action_tracks)
             self._admission_piece_count = len(action_tracks)
             self._transport_velocity.update(action_tracks, now_mono=now_mono)
@@ -347,6 +364,45 @@ class RuntimeC3(BaseRuntime):
             )
         finally:
             self._tick_end(start)
+
+    def landing_lease_port(self) -> LandingLeasePort:
+        """Expose this C3's drop-zone gate to the upstream C2.
+
+        Wired at bootstrap: ``c2.set_landing_lease_port(c3.landing_lease_port())``.
+        """
+        return _C3LandingLeasePort(self)
+
+    def _upstream_lease_drop_zone_clear(
+        self, *, min_spacing_rad: float, now_mono: float
+    ) -> bool:
+        """Refuse leases when a visible track sits inside the drop arc."""
+        # Sweep expired leases first so a failed C2 pulse cannot orphan
+        # a slot indefinitely.
+        expired = [
+            lease_id
+            for lease_id, expires_at in self._upstream_pending_leases.items()
+            if expires_at <= now_mono
+        ]
+        for lease_id in expired:
+            self._upstream_pending_leases.pop(lease_id, None)
+        center = self._upstream_lease_arc_center_rad
+        spacing = max(min_spacing_rad, self._upstream_lease_min_spacing_rad)
+        for ang in self._latest_visible_angles_rad:
+            if abs(_wrap_rad(float(ang) - center)) < spacing:
+                return False
+        return len(self._upstream_pending_leases) == 0
+
+    def _grant_upstream_lease(
+        self, *, lease_ttl_s: float, now_mono: float
+    ) -> str:
+        import uuid as _uuid
+
+        lease_id = _uuid.uuid4().hex[:12]
+        self._upstream_pending_leases[lease_id] = float(now_mono) + float(lease_ttl_s)
+        return lease_id
+
+    def _consume_upstream_lease(self, lease_id: str) -> None:
+        self._upstream_pending_leases.pop(lease_id, None)
 
     def set_landing_lease_port(self, port: LandingLeasePort | None) -> None:
         """Bind the downstream's landing-lease gate.
@@ -1041,6 +1097,42 @@ class _C3SampleTransportPort:
             value = fn()
             return float(value) if isinstance(value, (int, float)) and value > 0 else None
         return None
+
+
+class _C3LandingLeasePort:
+    """LandingLeasePort exposed by C3 to the upstream C2.
+
+    Same contract as ``_C4LandingLeasePort`` but lighter — C3 has no
+    PieceTrackBank, so the spacing check inspects visible action-track
+    angles directly. A lease is granted iff no visible track sits
+    within ``min_spacing_deg`` of C3's drop-zone arc center AND no
+    other lease is currently held.
+    """
+
+    key = "c3"
+
+    def __init__(self, runtime: RuntimeC3) -> None:
+        self._runtime = runtime
+
+    def request_lease(
+        self,
+        *,
+        predicted_arrival_in_s: float,
+        min_spacing_deg: float,
+        now_mono: float,
+        track_global_id: int | None = None,
+    ) -> str | None:
+        spacing = math.radians(max(0.0, float(min_spacing_deg)))
+        if not self._runtime._upstream_lease_drop_zone_clear(
+            min_spacing_rad=spacing, now_mono=now_mono
+        ):
+            return None
+        return self._runtime._grant_upstream_lease(
+            lease_ttl_s=1.5, now_mono=now_mono
+        )
+
+    def consume_lease(self, lease_id: str) -> None:
+        self._runtime._consume_upstream_lease(lease_id)
 
 
 __all__ = ["RuntimeC3"]

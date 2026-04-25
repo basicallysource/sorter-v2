@@ -31,6 +31,7 @@ from typing import Any, Callable
 from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
+from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
@@ -174,6 +175,14 @@ class RuntimeC2(BaseRuntime):
         self._pending_track_count: int = 0
         self._pending_downstream_claims: dict[int, float] = {}
         self._pending_downstream_claim_retries: dict[int, int] = {}
+        # Software escapement to C3, same pattern as C3 -> C4.
+        # No lease, no exit pulse — keeps C2 from dumping into a
+        # C3 drop zone that already has a piece sitting in it.
+        self._landing_lease_port: "LandingLeasePort | None" = None
+        self._active_lease_by_track: dict[int, str] = {}
+        self._lease_min_spacing_deg: float = 60.0
+        self._lease_transit_estimate_s: float = 0.5
+        self._lease_ttl_s: float = 1.5
         self._arrival_diagnostics_armed: bool = False
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
@@ -337,6 +346,11 @@ class RuntimeC2(BaseRuntime):
         finally:
             self._tick_end(start)
 
+    def set_landing_lease_port(self, port: LandingLeasePort | None) -> None:
+        """Bind the downstream's (C3) landing-lease gate. ``None`` falls
+        back to the legacy slot-based gate."""
+        self._landing_lease_port = port
+
     def on_piece_delivered(self, piece_uuid: str, now_mono: float) -> None:
         # C3 confirms it accepted a piece from us — release the upstream
         # slot so C1 sees headroom.
@@ -428,6 +442,23 @@ class RuntimeC2(BaseRuntime):
                 blocked_reason="awaiting_downstream_arrival",
             )
             return
+        # Software escapement: ask C3's landing-lease port whether its
+        # drop zone is clear. No lease, no pulse — same pattern as the
+        # C3->C4 lease. Operator observation 2026-04-25: C2 was pushing
+        # pieces onto C3 even when C3 already had one parked under the
+        # drop, which then cluster onto each other and break C3
+        # singulation downstream.
+        if self._landing_lease_port is not None and claim_key is not None:
+            lease_id = self._landing_lease_port.request_lease(
+                predicted_arrival_in_s=self._lease_transit_estimate_s,
+                min_spacing_deg=self._lease_min_spacing_deg,
+                now_mono=now_mono,
+                track_global_id=claim_key,
+            )
+            if lease_id is None:
+                self._set_state("idle", blocked_reason="downstream_full")
+                return
+            self._active_lease_by_track[claim_key] = lease_id
         claimed = self._downstream_slot.try_claim(
             now_mono=now_mono,
             hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,

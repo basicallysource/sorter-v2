@@ -157,6 +157,11 @@ class RuntimeC3(BaseRuntime):
             int(handoff_retry_escalate_after),
         )
         self._handoff_retry_max_pulses = max(1, int(handoff_retry_max_pulses))
+        # See ``_dispatch_handoff_retry_pulse``: after this many failed
+        # precision retries on the same track, switch to a NORMAL-mode
+        # pulse to dislodge a piece that is likely stuck on the ring
+        # (rubber, tangle).
+        self._stuck_retry_threshold: int = 5
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._next_exit_handoff_at: float = 0.0
@@ -674,6 +679,28 @@ class RuntimeC3(BaseRuntime):
         self._book.exit_stall_since = None
         retry_count = self._bump_downstream_retry_count(track)
         repeat_count = self._handoff_retry_repeat_count(retry_count)
+        # Stuck-piece escalation: a piece that has not reached the
+        # downstream after several precision retries is most likely
+        # stuck on the ring (rubber tire, tangled axle). Switch the
+        # pulse mode to NORMAL — bigger step at full transport speed —
+        # to dislodge it. Threshold default 5 retries, lab-tunable via
+        # ``stuck_retry_threshold``.
+        if retry_count >= self._stuck_retry_threshold:
+            self._logger.warning(
+                "RuntimeC3: track gid=%s appears stuck after %d retries — "
+                "firing aggressive NORMAL nudge",
+                int(track.global_id) if track.global_id is not None else -1,
+                retry_count,
+            )
+            self._dispatch_pulse(
+                track,
+                _PulseMode.NORMAL,
+                now_mono,
+                commit_to_downstream=False,
+                repeat_count=1,
+                source="c3_stuck_recovery_pulse",
+            )
+            return
         self._dispatch_pulse(
             track,
             _PulseMode.PRECISE,

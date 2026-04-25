@@ -166,6 +166,10 @@ class RuntimeC2(BaseRuntime):
             int(handoff_retry_escalate_after),
         )
         self._handoff_retry_max_pulses = max(1, int(handoff_retry_max_pulses))
+        # See ``_dispatch_exit_retry_pulse``: after this many failed
+        # precision retries on the same track, switch to a NORMAL-mode
+        # pulse to dislodge a piece that is likely stuck on the ring.
+        self._stuck_retry_threshold: int = 5
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._next_exit_handoff_at: float = 0.0
@@ -489,6 +493,29 @@ class RuntimeC2(BaseRuntime):
         self._bookkeeping.exit_stall_since = None
         retry_count = self._bump_downstream_retry_count(track)
         repeat_count = self._handoff_retry_repeat_count(retry_count)
+        # Stuck-piece escalation: same idea as C3 — after several
+        # precision retries on the same track, switch to a NORMAL-mode
+        # pulse. Helps when a rubber tire or tangled piece sits in C2's
+        # exit zone and the precision micro-pulses are not enough to
+        # carry it across the drop edge.
+        if retry_count >= self._stuck_retry_threshold:
+            self._logger.warning(
+                "RuntimeC2: track gid=%s appears stuck after %d retries — "
+                "firing aggressive NORMAL nudge",
+                int(track.global_id) if track.global_id is not None else -1,
+                retry_count,
+            )
+            self._fire_pulse(
+                track=track,
+                mode=_PulseMode.NORMAL,
+                now_mono=now_mono,
+                commit_to_downstream=False,
+                source="c2_stuck_recovery_pulse",
+                label="c2_stuck_recovery_pulse",
+                state="stuck_recovery",
+                repeat_count=1,
+            )
+            return
         self._fire_pulse(
             track=track,
             mode=_PulseMode.PRECISE,

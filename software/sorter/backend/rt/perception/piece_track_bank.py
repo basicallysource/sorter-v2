@@ -527,6 +527,14 @@ class PieceTrackBank:
                 cov[1, 1] = max_var_r
             tr.state_covariance = cov
             tr.last_predicted_t = float(t)
+        # Lifecycle update on every predict step too — runtime callers
+        # that drive the bank via predict_all + update_with_measurement
+        # (the C4 path) used to never reach this otherwise, so a track
+        # would stay CLASSIFIED_CONFIDENT forever even after the
+        # tracker had stopped seeing it. Without LOST_COASTING demotion
+        # the chute-window check counted those zombies as occupants
+        # and blocked legitimate ejects.
+        self._update_lifecycle(float(t))
 
     def associate_and_update(
         self,

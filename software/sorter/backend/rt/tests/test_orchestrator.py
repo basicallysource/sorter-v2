@@ -96,17 +96,27 @@ def test_tick_order_is_downstream_first() -> None:
     assert [t.runtime_id for t in ordered_ticks] == ["c3", "c2", "c1"]
 
 
-def test_capacity_downstream_pulled_from_slot() -> None:
+def test_capacity_downstream_pulled_from_downstream_runtime() -> None:
+    """Capacity is sourced from the downstream runtime's own headroom.
+
+    The historical behaviour also gated on ``CapacitySlot.available()``,
+    which created the bug a transient claim would block all upstream
+    movement for its 3 s expiry even when the downstream channel was
+    empty. The orchestrator now trusts ``available_slots()`` alone.
+    """
     c1 = _FakeRuntime("c1")
     c2 = _FakeRuntime("c2", feed_id="c2_feed")
-    c2._available_slots = 99
-    slot = CapacitySlot("c1_to_c2", 3)
+    c2._available_slots = 3
+    slot = CapacitySlot("c1_to_c2", 99)
     slots = {("c1", "c2"): slot}
     orch = _make_orchestrator([c1, c2], slots)
 
     orch.tick_once(now_mono=0.0)
     assert c1.ticks[-1].capacity_downstream == 3
+    # A slot claim no longer reduces upstream-visible capacity — the
+    # downstream runtime's own count is the only source of truth.
     slot.try_claim()
+    c2._available_slots = 2
     orch.tick_once(now_mono=0.1)
     assert c1.ticks[-1].capacity_downstream == 2
     # c2 has no downstream wired -> capacity should be 0.

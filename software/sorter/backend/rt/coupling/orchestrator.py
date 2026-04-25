@@ -299,26 +299,31 @@ class Orchestrator:
         return mapping
 
     def _capacity_for(self, runtime_id: str) -> int:
+        """Return how many pieces ``runtime_id`` may push downstream right now.
+
+        Single source of truth: the downstream runtime's own ``available_slots()``
+        — i.e. the visible-track-density gate. The CapacitySlot's claim/expiry
+        machinery used to AND with this, but the live debugger surfaced the
+        bug it caused: a transient slot claim from an upstream pulse that
+        never produced a visible arrival held the slot for its 3 s expiry,
+        which blocked all upstream movement even when the downstream
+        channel had plenty of headroom. Trusting the downstream's own count
+        instead removes that lying gate entirely while keeping the same
+        density bound that ``available_slots()`` already enforces.
+        """
         downstream_id = self._downstream_of.get(runtime_id)
         if downstream_id is None:
             return 0
-        slot = self._slots.get((runtime_id, downstream_id))
-        if slot is None:
-            return 0
-        # Pass now_mono so expired claims are swept before the runtime tick
-        # sees a "full" slot and blocks unnecessarily.
-        slot_capacity = slot.available(now_mono=time.monotonic())
         downstream = self._runtime_by_id.get(downstream_id)
         if downstream is None:
-            return slot_capacity
+            return 0
         try:
-            downstream_capacity = max(0, int(downstream.available_slots()))
+            return max(0, int(downstream.available_slots()))
         except Exception:
             self._logger.exception(
                 "Orchestrator: available_slots() raised for %r", downstream_id
             )
-            return slot_capacity
-        return min(slot_capacity, downstream_capacity)
+            return 0
 
     def _tick(self, now_mono: float) -> None:
         # Downstream-first so upstream runtimes see fresh capacity.

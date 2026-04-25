@@ -88,11 +88,10 @@ def _make_five_runtime_orchestrator() -> tuple[
 
 
 def test_all_five_runtime_topology_smoke() -> None:
+    """capacity_downstream is now sourced from each downstream's own
+    available_slots() — slot claims no longer gate the upstream view."""
     orch, runtimes, _slots, _srcs = _make_five_runtime_orchestrator()
-    slots = _slots
     sources = _srcs
-    for _ in range(3):
-        slots[("c3", "c4")].try_claim()
 
     orch.tick_once(now_mono=0.0)
 
@@ -105,7 +104,8 @@ def test_all_five_runtime_topology_smoke() -> None:
     assert sources["c3_feed"].reads == 1
     assert sources["c4_feed"].reads == 1
     (c1, c2, c3, c4, dist) = runtimes
-    assert c3.tick_log[-1] == ("c3", 0)
+    # Each runtime's available_slots() is 1 (the FakeRuntime default).
+    assert c3.tick_log[-1] == ("c3", 1)
     assert c2.tick_log[-1] == ("c2", 1)
     assert c1.tick_log[-1] == ("c1", 1)
     assert c4.tick_log[-1] == ("c4", 1)
